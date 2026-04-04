@@ -1,0 +1,394 @@
+#!/usr/bin/env python3
+"""PreToolUse guard: keep worktrees tied to genuinely CONCURRENT work.
+
+Reads the Claude Code hook JSON on stdin and guards both directions of the same
+rule, using one signal -- how many work streams are actually live on this tree.
+
+A) Branch switching (Bash: git checkout/switch of a branch, or a -b/-c variant)
+
+  - another Claude session inside THIS working tree -> deny, steer to a worktree
+  - tracked changes present (dirty)                 -> ask the user first
+  - otherwise (single work stream, clean)           -> allow the plain switch
+
+B) Worktree creation, whichever path it takes:
+     - Bash: `git worktree add ...`
+     - Agent/Task tool with `isolation: "worktree"` (harness-managed, lands in
+       `<repo>/.claude/worktrees/<name>` and never goes through Bash)
+
+  - another Claude session inside THIS working tree -> ask (concurrent: justified)
+  - cannot tell                                     -> ask
+  - otherwise (single work stream)                  -> deny, steer to `git switch`
+
+Rationale: worktrees exist to keep CONCURRENT work from mixing in one folder.
+For a single stream of work, plain `git switch` is simpler and keeps everything
+visible in one editor window, so the guard stays out of the way -- and stale
+worktree folders never pile up.
+
+Note: sessions living in a linked worktree are already isolated and are NOT
+counted -- switching the shared tree cannot affect them. File-restore forms of
+`git checkout` (and `git restore`) are always allowed, as is every non-`add`
+worktree subcommand (`list`, `remove`, `prune`).
+"""
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+
+
+def load_input():
+    try:
+        return json.load(sys.stdin)
+    except Exception:
+        return {}
+
+
+def split_segments(command: str):
+    """Split a shell command line into individual command segments."""
+    # Break on &&, ||, ;, |, and newlines. Good enough for intent detection.
+    return re.split(r"&&|\|\||[;\n|]", command)
+
+
+def parse_git(tokens):
+    """Return (subcommand, args) for a git invocation, or None if not git.
+
+    Skips git's global options (-C <path>, -c k=v, --git-dir=..., etc.).
+    """
+    if "git" not in tokens:
+        return None
+    gi = tokens.index("git")
+    rest = tokens[gi + 1:]
+    i = 0
+    takes_value = {"-C", "-c", "--git-dir", "--work-tree", "--namespace",
+                   "--exec-path", "--namespace"}
+    while i < len(rest):
+        t = rest[i]
+        if t in takes_value:
+            i += 2
+            continue
+        if t.startswith("-"):
+            i += 1
+            continue
+        break
+    if i >= len(rest):
+        return None
+    return rest[i], rest[i + 1:]
+
+
+def is_ref(name: str, cwd: str) -> bool:
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", f"{name}^{{commit}}"],
+            cwd=cwd or None, capture_output=True,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def classify(segment: str, cwd: str):
+    """Return a reason string if this segment switches branch or adds a worktree."""
+    try:
+        tokens = shlex.split(segment)
+    except ValueError:
+        return None
+    parsed = parse_git(tokens)
+    if not parsed:
+        return None
+    sub, args = parsed
+
+    if sub == "worktree":
+        # Only creation is guarded; list/remove/prune are how you clean up.
+        positionals = [a for a in args if not a.startswith("-")]
+        if positionals and positionals[0] == "add":
+            return "worktree-add"
+        return None
+
+    if sub == "switch":
+        # git switch <branch>  or  git switch -c/-C <branch>  => switches tree
+        creating = any(a in ("-c", "-C") for a in args)
+        has_target = any(not a.startswith("-") for a in args)
+        if creating or has_target:
+            return "create+switch" if creating else "switch"
+        return None
+
+    if sub == "checkout":
+        if any(a in ("-b", "-B") for a in args):
+            return "create+switch"
+        if "--" in args:
+            return None  # explicit path restore
+        positionals = [a for a in args if not a.startswith("-")]
+        if not positionals:
+            return None
+        first = positionals[0]
+        if first == "." or os.path.exists(os.path.join(cwd or ".", first)) or os.path.exists(first):
+            return None  # restoring a file/dir, not switching branch
+        if is_ref(first, cwd):
+            return "switch"
+        return None
+
+    return None
+
+
+def ancestors(pid: int):
+    """Pids of this process and everything above it (so we never count ourselves)."""
+    seen = {pid}
+    cur = pid
+    for _ in range(20):
+        try:
+            r = subprocess.run(["ps", "-o", "ppid=", "-p", str(cur)],
+                               capture_output=True, text=True)
+            ppid = int(r.stdout.strip())
+        except Exception:
+            break
+        if ppid <= 1:
+            break
+        seen.add(ppid)
+        cur = ppid
+    return seen
+
+
+def proc_cwd(pid: int):
+    try:
+        r = subprocess.run(["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],
+                           capture_output=True, text=True)
+        for line in r.stdout.splitlines():
+            if line.startswith("n"):
+                return line[1:]
+    except Exception:
+        pass
+    return None
+
+
+def sessions_in_tree(top: str):
+    """Other Claude sessions whose cwd sits inside `top`.
+
+    Returns (others, reliable). `reliable` is False when detection cannot be
+    trusted -- notably when we cannot even spot our own process -- and the
+    caller then falls back to the conservative (deny) behaviour.
+    """
+    # `pgrep -x claude` was observed to silently miss live sessions on macOS,
+    # so enumerate with ps and match the executable basename ourselves.
+    try:
+        r = subprocess.run(["ps", "-axo", "pid=,comm="], capture_output=True, text=True)
+        pids = set()
+        for line in r.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            num, _, comm = line.partition(" ")
+            if os.path.basename(comm.strip()) == "claude":
+                pids.add(int(num))
+    except Exception:
+        return [], False
+    if not pids:
+        return [], False
+
+    mine = ancestors(os.getpid())
+    if not (pids & mine):
+        return [], False  # our own session is invisible -> detection is unusable
+
+    others = []
+    for p in sorted(pids - mine):
+        d = proc_cwd(p)
+        if d and (d == top or d.startswith(top + os.sep)):
+            others.append((p, d))
+    return others, True
+
+
+def tracked_changes(cwd: str) -> list[tuple[str, str]]:
+    """(XY, path) entries of staged+unstaged changes to TRACKED files.
+
+    Untracked files are excluded on purpose: they stay put across a switch and
+    do not get carried onto the other branch.
+    """
+    try:
+        r = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=cwd or None, capture_output=True, text=True,
+        )
+        return [(line[:2], line[3:]) for line in r.stdout.splitlines() if line.strip()]
+    except Exception:
+        return []
+
+
+def phantom_entries(entries: list[tuple[str, str]], cwd: str) -> list[tuple[str, str]]:
+    """Dirt invisible in the working tree: index-only entries (AD) and
+    force-added paths that .gitignore hides from a plain directory view.
+    """
+    phantoms = []
+    for xy, path in entries:
+        if xy == "AD":
+            phantoms.append((path, "index에만 존재 (add 후 워크트리에서 삭제됨)"))
+        # --no-index: check-ignore never flags indexed paths without it, and a
+        # force-added file is by definition in the index.
+        elif xy[0] != " " and subprocess.run(
+            ["git", "check-ignore", "-q", "--no-index", path],
+            cwd=cwd or None, capture_output=True,
+        ).returncode == 0:
+            phantoms.append((path, ".gitignore 경로인데 강제 스테이징됨"))
+    return phantoms
+
+
+def respond(decision: str, reason: str):
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": decision,
+            "permissionDecisionReason": reason,
+        }
+    }))
+    sys.exit(0)
+
+
+def repo_paths(cwd: str):
+    """Return (toplevel, suggested worktree root) for the repo containing cwd."""
+    try:
+        top = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=cwd or None, capture_output=True, text=True,
+        ).stdout.strip()
+    except Exception:
+        top = ""
+    if not top:
+        return "", "../<repo>-worktrees"
+    return top, os.path.join(os.path.dirname(top), f"{os.path.basename(top)}-worktrees")
+
+
+def steer_to_switch() -> str:
+    return (
+        "  git fetch origin\n"
+        "  git switch -c <branch> origin/main   # 새 브랜치\n"
+        "  git switch <branch>                  # 기존 브랜치\n\n"
+        "정말 동시 작업이라 분리가 필요하면 그 이유를 밝히고 사용자 확인을 먼저 받으세요."
+    )
+
+
+def guard_worktree_creation(top: str, cwd: str, origin: str):
+    """Worktrees are for CONCURRENT work only -- block the single-stream case."""
+    others, reliable = sessions_in_tree(top or cwd)
+
+    # 1) 같은 트리에서 다른 세션이 동시에 작업 중 -> 분리가 타당. 확인만 받는다.
+    if others:
+        who = "\n".join(f"    pid {p}  {d}" for p, d in others)
+        respond("ask", (
+            f"{origin}\n"
+            "이 작업 트리에서 다른 Claude 세션이 동시에 작업 중이라 worktree 분리가 "
+            "타당해 보입니다. 다만 룰상 worktree 생성은 사용자 확인이 필요합니다.\n"
+            f"{who}\n\n"
+            "진행할지 확인해 주세요."
+        ))
+
+    # 2) 동시 세션 판정 불가 -> 자동으로 만들지 말고 물어본다.
+    if not reliable:
+        respond("ask", (
+            f"{origin}\n"
+            "동시 세션 여부를 확인할 수 없어(ps/lsof 사용 불가) 자동 판정을 못 합니다.\n"
+            "정말 동시 작업이면 확인해 주시고, 단건이면 취소하고 `git switch` 로 진행하세요."
+        ))
+
+    # 3) 단건 작업 -> worktree 금지. 공유 트리에서 브랜치만 갈아끼운다.
+    respond("deny", (
+        f"{origin}\n"
+        "이 트리에서 동시에 작업 중인 다른 세션이 없습니다(= 단건 작업). "
+        "룰: 단건이면 worktree를 만들지 말고 공유 트리에서 브랜치만 갈아끼웁니다 "
+        "— 에디터 한 창에서 다 보여 코드 파악이 빠르고, 쓰다 만 worktree 폴더가 "
+        "쌓이지 않습니다.\n\n" + steer_to_switch()
+    ))
+
+
+def main():
+    data = load_input()
+    tool = data.get("tool_name", "")
+    cwd = data.get("cwd") or os.getcwd()
+    tool_input = data.get("tool_input", {}) or {}
+
+    # 하네스가 관리하는 worktree(Agent/Task `isolation: "worktree"`)는 Bash를 거치지
+    # 않고 <repo>/.claude/worktrees/<name> 에 바로 생성되므로 툴 호출에서 잡는다.
+    if tool in ("Agent", "Task"):
+        if str(tool_input.get("isolation", "")).lower() != "worktree":
+            sys.exit(0)
+        top, _ = repo_paths(cwd)
+        guard_worktree_creation(top, cwd, (
+            'Agent 툴을 isolation: "worktree" 로 호출했습니다 '
+            "(하네스가 <repo>/.claude/worktrees/<name> 에 worktree를 만듭니다). "
+            "isolation 없이 다시 호출하면 공유 트리에서 그대로 진행됩니다."
+        ))
+        sys.exit(0)
+
+    if tool != "Bash":
+        sys.exit(0)
+    command = tool_input.get("command", "") or ""
+
+    reason = None
+    for seg in split_segments(command):
+        reason = classify(seg, cwd)
+        if reason:
+            break
+    if not reason:
+        sys.exit(0)
+
+    top, wt_root = repo_paths(cwd)
+
+    if reason == "worktree-add":
+        guard_worktree_creation(top, cwd, "`git worktree add` 로 worktree를 만들려 합니다.")
+        sys.exit(0)
+
+    others, reliable = sessions_in_tree(top or cwd)
+
+    steer = (
+        f"  # 기존 브랜치를 worktree로 꺼내기\n"
+        f"  git worktree add {wt_root}/<branch> <branch>\n\n"
+        f"  # 새 브랜치를 최신 origin/main 기준으로 생성 (저장소 정책)\n"
+        f"  git fetch origin\n"
+        f"  git worktree add {wt_root}/<name> -b <branch> origin/main\n\n"
+        "그런 다음 그 폴더에서 별도의 Claude Code 세션으로 작업하세요. "
+        "worktree 목록은 `git worktree list`."
+    )
+
+    # 1) 같은 작업 트리에서 다른 세션이 동시에 일하는 중 -> 진짜 다중작업. 차단.
+    if others:
+        who = "\n".join(f"    pid {p}  {d}" for p, d in others)
+        respond("deny", (
+            "이 작업 트리에서 다른 Claude 세션이 동시에 작업 중이라 브랜치 전환을 차단합니다 "
+            "(전환하면 상대 세션의 다음 편집이 의도치 않은 브랜치에 떨어집니다).\n"
+            f"{who}\n\n"
+            "다중작업이므로 이 브랜치는 별도 worktree에서 진행하세요:\n\n" + steer
+        ))
+
+    # 2) 세션 감지 자체가 불가능하면 예전처럼 보수적으로 차단.
+    if not reliable:
+        respond("deny", (
+            "동시 세션 여부를 확인할 수 없어(ps/lsof 사용 불가) 보수적으로 차단합니다.\n"
+            "안전하게 worktree로 분리해 주세요:\n\n" + steer
+        ))
+
+    # 3) 단건이지만 추적 중인 변경이 있으면 사용자에게 확인.
+    entries = tracked_changes(cwd)
+    if entries:
+        listing = "\n".join(f"    {xy}  {path}" for xy, path in entries)
+        phantoms = phantom_entries(entries, cwd)
+        note = ""
+        if phantoms:
+            why = "\n".join(f"    {p} — {r}" for p, r in phantoms)
+            fixes = "\n".join(f"    git restore --staged {shlex.quote(p)}" for p, _ in phantoms)
+            note = (
+                "\n이 중 워크트리에서는 보이지 않는 index 잔재:\n"
+                f"{why}\n아래 명령으로 정리하면 트리가 clean이 됩니다 "
+                "(index에만 존재하는 내용을 살리려면 `git restore <path>` 를 먼저 실행):\n"
+                f"{fixes}\n"
+            )
+        respond("ask", (
+            f"이 트리는 단건 작업이라 브랜치 전환을 허용할 수 있지만, "
+            f"커밋되지 않은 변경 {len(entries)}건이 있습니다:\n{listing}\n{note}"
+            "전환하면 이 변경이 대상 브랜치로 따라갑니다. 진행할지 확인해 주세요 "
+            "(커밋/스태시 후 전환을 권장)."
+        ))
+
+    # 4) 단건 + clean -> 워크트리 없이 그냥 전환.
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
