@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
-# Auto-format Python files after Write/Edit via hook
-# Usage: lint-python.sh <filepath>
+# PostToolUse(Write|Edit): auto-format Python files with ruff.
+# Reads the hook JSON on stdin; falls back to $1 for manual invocation.
 
-FILE="$1"
+FILE="${1:-}"
+if [ -z "$FILE" ] && [ ! -t 0 ]; then
+    FILE=$(python3 -c 'import json,sys
+try:
+    print((json.load(sys.stdin).get("tool_input") or {}).get("file_path", ""))
+except Exception:
+    pass' 2>/dev/null)
+fi
 
 # Only run on Python files
 [[ "$FILE" != *.py ]] && exit 0
@@ -22,3 +29,4 @@ run_ruff() {
 
 run_ruff check --fix --quiet "$FILE" 2>/dev/null
 run_ruff format --quiet "$FILE" 2>/dev/null
+exit 0

@@ -33,6 +33,15 @@
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/review-history-guard.py"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/lint-python.sh"
+          }
+        ]
       }
     ]
   }
