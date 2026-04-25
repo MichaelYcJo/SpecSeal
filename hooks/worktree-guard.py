@@ -6,7 +6,9 @@ rule, using one signal -- how many work streams are actually live on this tree.
 
 A) Branch switching (Bash: git checkout/switch of a branch, or a -b/-c variant)
 
-  - another Claude session inside THIS working tree -> deny, steer to a worktree
+  - ACTIVE Claude session inside THIS working tree -> deny, steer to a worktree
+  - only IDLE sessions (no terminal input for a while) -> ask -- they are
+    usually forgotten tabs, and the user can tell
   - tracked changes present (dirty)                 -> ask the user first
   - otherwise (single work stream, clean)           -> allow the plain switch
 
@@ -18,16 +20,27 @@ B) Worktree creation, whichever path it takes:
   - another Claude session inside THIS working tree -> ask (concurrent: justified)
   - cannot tell                                     -> ask
   - otherwise (single work stream)                  -> deny, steer to `git switch`
+    (`[worktree-ok]` anywhere in the command downgrades this to ask -- for when
+    the user explicitly wants a worktree despite being single-stream)
 
-Rationale: worktrees exist to keep CONCURRENT work from mixing in one folder.
-For a single stream of work, plain `git switch` is simpler and keeps everything
-visible in one editor window, so the guard stays out of the way -- and stale
-worktree folders never pile up.
+Session activity: a session counts as ACTIVE when its terminal saw keyboard
+input within WORKTREE_GUARD_IDLE_MIN minutes (default 60; env-overridable).
+A live-but-untouched-for-hours process is a forgotten tab, not concurrent work
+-- treating those as concurrent was this guard's main source of false blocks.
+Sessions whose tty cannot be read are conservatively treated as active.
+
+Command matching: only segments whose FIRST word (after env assignments and
+wrappers like `command`/`nohup`) is `git` are classified. Mentions of
+"git switch" inside echo arguments or heredoc prose no longer trigger the
+guard. Known residual: a heredoc line that IS exactly a git command still
+matches -- segment splitting cannot tell heredoc bodies apart.
 
 Note: sessions living in a linked worktree are already isolated and are NOT
 counted -- switching the shared tree cannot affect them. File-restore forms of
 `git checkout` (and `git restore`) are always allowed, as is every non-`add`
-worktree subcommand (`list`, `remove`, `prune`).
+worktree subcommand (`list`, `remove`, `prune`). `git switch -`/`checkout -`
+count as switches (they are). A `git checkout <name>` that would DWIM a
+remote-only branch is also a switch.
 """
 import json
 import os
@@ -35,6 +48,10 @@ import re
 import shlex
 import subprocess
 import sys
+import time
+
+IDLE_MIN = int(os.environ.get("WORKTREE_GUARD_IDLE_MIN", "60"))
+WRAPPERS = {"command", "nohup", "time", "env", "sudo"}
 
 
 def load_input():
@@ -51,23 +68,32 @@ def split_segments(command: str):
 
 
 def parse_git(tokens):
-    """Return (subcommand, args) for a git invocation, or None if not git.
+    """Return (subcommand, args) if this segment IS a git invocation, else None.
 
-    Skips git's global options (-C <path>, -c k=v, --git-dir=..., etc.).
+    `git` must be the segment's command word -- leading VAR=val assignments and
+    common wrappers are skipped, anything else (echo, cat, prose) disqualifies
+    the segment. Then git's own global options (-C <path>, -c k=v, ...) are
+    skipped to find the subcommand.
     """
-    if "git" not in tokens:
+    i = 0
+    while i < len(tokens):
+        t = tokens[i]
+        if ("=" in t and not t.startswith("-")) or os.path.basename(t) in WRAPPERS:
+            i += 1
+            continue
+        break
+    if i >= len(tokens) or os.path.basename(tokens[i]) != "git":
         return None
-    gi = tokens.index("git")
-    rest = tokens[gi + 1:]
+    rest = tokens[i + 1:]
     i = 0
     takes_value = {"-C", "-c", "--git-dir", "--work-tree", "--namespace",
-                   "--exec-path", "--namespace"}
+                   "--exec-path"}
     while i < len(rest):
         t = rest[i]
         if t in takes_value:
             i += 2
             continue
-        if t.startswith("-"):
+        if t.startswith("-") and t != "-":
             i += 1
             continue
         break
@@ -106,9 +132,9 @@ def classify(segment: str, cwd: str):
         return None
 
     if sub == "switch":
-        # git switch <branch>  or  git switch -c/-C <branch>  => switches tree
+        # git switch <branch> / -c <branch> / `-` (previous)  => switches tree
         creating = any(a in ("-c", "-C") for a in args)
-        has_target = any(not a.startswith("-") for a in args)
+        has_target = any(a == "-" or not a.startswith("-") for a in args)
         if creating or has_target:
             return "create+switch" if creating else "switch"
         return None
@@ -118,6 +144,8 @@ def classify(segment: str, cwd: str):
             return "create+switch"
         if "--" in args:
             return None  # explicit path restore
+        if "-" in args:
+            return "switch"  # previous branch
         positionals = [a for a in args if not a.startswith("-")]
         if not positionals:
             return None
@@ -126,6 +154,8 @@ def classify(segment: str, cwd: str):
             return None  # restoring a file/dir, not switching branch
         if is_ref(first, cwd):
             return "switch"
+        if is_ref(f"origin/{first}", cwd):
+            return "switch"  # DWIM checkout of a remote-only branch
         return None
 
     return None
@@ -161,12 +191,33 @@ def proc_cwd(pid: int):
     return None
 
 
+def tty_idle_minutes(pid: int):
+    """Minutes since the terminal hosting `pid` last saw keyboard input.
+
+    None when the pid has no tty or it cannot be checked -- callers treat
+    that conservatively (active). The tty device's atime is bumped on every
+    keystroke in that tab, which makes it a direct "is a human there" signal.
+    """
+    try:
+        r = subprocess.run(["ps", "-o", "tty=", "-p", str(pid)],
+                           capture_output=True, text=True)
+        tty = r.stdout.strip()
+        if not tty or tty == "??":
+            return None
+        st = os.stat(f"/dev/{tty}")
+        return max(0.0, (time.time() - st.st_atime) / 60)
+    except Exception:
+        return None
+
+
 def sessions_in_tree(top: str):
     """Other Claude sessions whose cwd sits inside `top`.
 
-    Returns (others, reliable). `reliable` is False when detection cannot be
-    trusted -- notably when we cannot even spot our own process -- and the
-    caller then falls back to the conservative (deny) behaviour.
+    Returns (active, idle, reliable). A session is idle when its terminal has
+    seen no input for IDLE_MIN minutes -- alive, but nobody is driving it.
+    `reliable` is False when detection cannot be trusted -- notably when we
+    cannot even spot our own process -- and the caller then falls back to the
+    conservative behaviour.
     """
     # `pgrep -x claude` was observed to silently miss live sessions on macOS,
     # so enumerate with ps and match the executable basename ourselves.
@@ -181,20 +232,36 @@ def sessions_in_tree(top: str):
             if os.path.basename(comm.strip()) == "claude":
                 pids.add(int(num))
     except Exception:
-        return [], False
+        return [], [], False
     if not pids:
-        return [], False
+        return [], [], False
 
     mine = ancestors(os.getpid())
     if not (pids & mine):
-        return [], False  # our own session is invisible -> detection is unusable
+        return [], [], False  # our own session is invisible -> detection is unusable
 
-    others = []
+    active, idle = [], []
     for p in sorted(pids - mine):
         d = proc_cwd(p)
         if d and (d == top or d.startswith(top + os.sep)):
-            others.append((p, d))
-    return others, True
+            idle_min = tty_idle_minutes(p)
+            if idle_min is not None and idle_min >= IDLE_MIN:
+                idle.append((p, d, idle_min))
+            else:
+                active.append((p, d, idle_min))
+    return active, idle, True
+
+
+def fmt_sessions(entries):
+    lines = []
+    for p, d, idle_min in entries:
+        if idle_min is None:
+            lines.append(f"    pid {p}  {d}  (입력 시각 확인 불가)")
+        elif idle_min >= 60:
+            lines.append(f"    pid {p}  {d}  (마지막 입력 {idle_min / 60:.1f}시간 전)")
+        else:
+            lines.append(f"    pid {p}  {d}  (마지막 입력 {idle_min:.0f}분 전)")
+    return "\n".join(lines)
 
 
 def tracked_changes(cwd: str) -> list[tuple[str, str]]:
@@ -261,23 +328,33 @@ def steer_to_switch() -> str:
         "  git fetch origin\n"
         "  git switch -c <branch> origin/main   # 새 브랜치\n"
         "  git switch <branch>                  # 기존 브랜치\n\n"
-        "정말 동시 작업이라 분리가 필요하면 그 이유를 밝히고 사용자 확인을 먼저 받으세요."
+        "정말 동시 작업이라 분리가 필요하면 그 이유를 밝히고 사용자 확인을 먼저 받으세요 "
+        "(사용자가 이미 워크트리를 지시했다면 명령에 [worktree-ok] 를 붙여 다시 시도)."
     )
 
 
-def guard_worktree_creation(top: str, cwd: str, origin: str):
+def guard_worktree_creation(top: str, cwd: str, origin: str, user_ok: bool):
     """Worktrees are for CONCURRENT work only -- block the single-stream case."""
-    others, reliable = sessions_in_tree(top or cwd)
+    active, idle, reliable = sessions_in_tree(top or cwd)
 
     # 1) 같은 트리에서 다른 세션이 동시에 작업 중 -> 분리가 타당. 확인만 받는다.
-    if others:
-        who = "\n".join(f"    pid {p}  {d}" for p, d in others)
+    if active:
         respond("ask", (
             f"{origin}\n"
             "이 작업 트리에서 다른 Claude 세션이 동시에 작업 중이라 worktree 분리가 "
             "타당해 보입니다. 다만 룰상 worktree 생성은 사용자 확인이 필요합니다.\n"
-            f"{who}\n\n"
+            f"{fmt_sessions(active)}\n\n"
             "진행할지 확인해 주세요."
+        ))
+
+    # 1-b) 살아 있긴 하나 한동안 입력이 없는 세션뿐 -> 잊힌 탭일 가능성. 사용자가 안다.
+    if idle:
+        respond("ask", (
+            f"{origin}\n"
+            f"이 트리의 다른 세션은 {IDLE_MIN}분 이상 입력이 없는 것뿐입니다 — "
+            "잊힌 탭이면 사실상 단건 작업이라 worktree 없이 `git switch` 가 낫습니다.\n"
+            f"{fmt_sessions(idle)}\n\n"
+            "그래도 worktree 로 분리할지 확인해 주세요."
         ))
 
     # 2) 동시 세션 판정 불가 -> 자동으로 만들지 말고 물어본다.
@@ -288,7 +365,13 @@ def guard_worktree_creation(top: str, cwd: str, origin: str):
             "정말 동시 작업이면 확인해 주시고, 단건이면 취소하고 `git switch` 로 진행하세요."
         ))
 
-    # 3) 단건 작업 -> worktree 금지. 공유 트리에서 브랜치만 갈아끼운다.
+    # 3) 단건 작업 -> 원칙은 worktree 금지. 사용자가 명시한 경우만 확인으로 낮춘다.
+    if user_ok:
+        respond("ask", (
+            f"{origin}\n"
+            "단건 작업이지만 [worktree-ok] 가 지정되어 사용자 의사로 판단합니다. "
+            "worktree 를 생성할지 확인해 주세요."
+        ))
     respond("deny", (
         f"{origin}\n"
         "이 트리에서 동시에 작업 중인 다른 세션이 없습니다(= 단건 작업). "
@@ -314,7 +397,7 @@ def main():
             'Agent 툴을 isolation: "worktree" 로 호출했습니다 '
             "(하네스가 <repo>/.claude/worktrees/<name> 에 worktree를 만듭니다). "
             "isolation 없이 다시 호출하면 공유 트리에서 그대로 진행됩니다."
-        ))
+        ), user_ok=False)
         sys.exit(0)
 
     if tool != "Bash":
@@ -332,10 +415,13 @@ def main():
     top, wt_root = repo_paths(cwd)
 
     if reason == "worktree-add":
-        guard_worktree_creation(top, cwd, "`git worktree add` 로 worktree를 만들려 합니다.")
+        guard_worktree_creation(
+            top, cwd, "`git worktree add` 로 worktree를 만들려 합니다.",
+            user_ok="[worktree-ok]" in command,
+        )
         sys.exit(0)
 
-    others, reliable = sessions_in_tree(top or cwd)
+    active, idle, reliable = sessions_in_tree(top or cwd)
 
     steer = (
         f"  # 기존 브랜치를 worktree로 꺼내기\n"
@@ -347,14 +433,22 @@ def main():
         "worktree 목록은 `git worktree list`."
     )
 
-    # 1) 같은 작업 트리에서 다른 세션이 동시에 일하는 중 -> 진짜 다중작업. 차단.
-    if others:
-        who = "\n".join(f"    pid {p}  {d}" for p, d in others)
+    # 1) 같은 작업 트리에서 다른 세션이 '지금' 일하는 중 -> 진짜 다중작업. 차단.
+    if active:
         respond("deny", (
             "이 작업 트리에서 다른 Claude 세션이 동시에 작업 중이라 브랜치 전환을 차단합니다 "
             "(전환하면 상대 세션의 다음 편집이 의도치 않은 브랜치에 떨어집니다).\n"
-            f"{who}\n\n"
+            f"{fmt_sessions(active)}\n\n"
             "다중작업이므로 이 브랜치는 별도 worktree에서 진행하세요:\n\n" + steer
+        ))
+
+    # 1-b) 살아 있으나 입력이 끊긴 세션뿐 -> 잊힌 탭일 공산. 차단 대신 사용자 판단.
+    if idle:
+        respond("ask", (
+            f"이 트리에 다른 Claude 세션이 있지만 {IDLE_MIN}분 이상 입력이 없습니다 — "
+            "잊힌 탭이면 그대로 전환해도 됩니다.\n"
+            f"{fmt_sessions(idle)}\n\n"
+            "그 세션에서 계속 작업할 것이라면 전환하지 말고 worktree 로 분리하세요:\n\n" + steer
         ))
 
     # 2) 세션 감지 자체가 불가능하면 예전처럼 보수적으로 차단.
