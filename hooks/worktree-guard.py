@@ -25,9 +25,9 @@ B) Worktree creation, whichever path it takes:
 
 Session activity: a session counts as ACTIVE when, within
 WORKTREE_GUARD_IDLE_MIN minutes (default 5; env-overridable), EITHER its
-terminal saw keyboard input OR its project's transcript files
-(~/.claude/projects/<slug>/*.jsonl, excluding this session's own) were
-written. The transcript signal is what makes 5 minutes safe: an autonomous
+terminal saw input or output OR its project's transcript files
+(session .jsonl files and session subdirs incl. background-agent
+transcripts, excluding this session's own) were written. The transcript signal is what makes 5 minutes safe: an autonomous
 turn types nothing for long stretches but writes its transcript every few
 seconds, while a forgotten tab goes quiet on both signals. Sessions where
 neither signal can be read are conservatively treated as active.
@@ -195,11 +195,13 @@ def proc_cwd(pid: int):
 
 
 def tty_idle_minutes(pid: int):
-    """Minutes since the terminal hosting `pid` last saw keyboard input.
+    """Minutes since the terminal hosting `pid` last saw input OR output.
 
     None when the pid has no tty or it cannot be checked -- callers treat
-    that conservatively (active). The tty device's atime is bumped on every
-    keystroke in that tab, which makes it a direct "is a human there" signal.
+    that conservatively (active). atime is bumped by keystrokes (human
+    present), mtime by writes to the screen -- a session streaming its
+    progress repaints constantly, while an idle Claude Code prompt does not
+    repaint at all (verified), so the fresher of the two is the signal.
     """
     try:
         r = subprocess.run(["ps", "-o", "tty=", "-p", str(pid)],
@@ -208,7 +210,7 @@ def tty_idle_minutes(pid: int):
         if not tty or tty == "??":
             return None
         st = os.stat(f"/dev/{tty}")
-        return max(0.0, (time.time() - st.st_atime) / 60)
+        return max(0.0, (time.time() - max(st.st_atime, st.st_mtime)) / 60)
     except Exception:
         return None
 
@@ -218,32 +220,105 @@ def project_slug(path: str) -> str:
     return re.sub(r"[^A-Za-z0-9-]", "-", path)
 
 
+ACTIVE_EVENT_TYPES = {"user", "assistant", "tool_use", "tool_result", "progress"}
+
+
+def last_active_event_epoch(path: str):
+    """Epoch of the newest ACTIVE event in a transcript's tail, else None.
+
+    File mtime alone over-reports activity: idle sessions still receive
+    passive appends (type "attachment" -- e.g. file-changed notices when some
+    OTHER session edits a file they had read), observed live. So when the
+    mtime looks fresh, confirm by scanning the last 64KB for events that mean
+    someone is actually driving: user/assistant/tool traffic.
+    """
+    import datetime
+    try:
+        size = os.path.getsize(path)
+        with open(path, "rb") as f:
+            f.seek(max(0, size - 65536))
+            tail = f.read().decode("utf-8", "replace")
+    except OSError:
+        return None
+    for line in reversed(tail.splitlines()):
+        try:
+            d = json.loads(line)
+        except Exception:
+            continue
+        if d.get("type") not in ACTIVE_EVENT_TYPES:
+            continue
+        ts = d.get("timestamp")
+        if not isinstance(ts, str):
+            continue
+        try:
+            return datetime.datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            continue
+    return None
+
+
+def file_activity_epoch(path: str, stale_before: float):
+    """Epoch of a transcript file's last real activity.
+
+    Stale mtime is trusted as-is (mtime bounds every event, and passive
+    appends only ever make it look FRESHER); a fresh mtime must be confirmed
+    against the tail's active events.
+    """
+    try:
+        m = os.stat(path).st_mtime
+    except OSError:
+        return None
+    if m < stale_before:
+        return m
+    return last_active_event_epoch(path)
+
+
 def transcript_idle_minutes(cwd: str, own_session_id: str):
     """Minutes since any OTHER session's transcript in `cwd`'s project dir was
-    written. None when there is no readable transcript to judge by.
+    written -- top-level <session-id>.jsonl files AND session subdirectories,
+    where background-agent transcripts live (<session-id>/subagents/*.jsonl).
+    None when there is no readable transcript to judge by.
 
-    A session running an autonomous turn appends to its
-    ~/.claude/projects/<slug>/<session-id>.jsonl every few seconds even though
-    the keyboard is silent -- this is the signal that keeps working sessions
-    out of the "forgotten tab" bucket. Per-project, not per-pid: if ANY other
-    session of this project is writing, treat the tree as actively worked on.
+    A session running an autonomous turn appends its transcript every few
+    seconds even though the keyboard is silent, and a background agent does
+    the same in the session's subagents directory -- these signals keep
+    working sessions out of the "forgotten tab" bucket. Per-project, not
+    per-pid: if ANY other session of this project is writing, treat the tree
+    as actively worked on.
     """
     proj = os.path.expanduser(os.path.join("~/.claude/projects", project_slug(cwd)))
     newest = None
+    threshold = time.time() - IDLE_MIN * 60
     try:
-        for name in os.listdir(proj):
-            if not name.endswith(".jsonl"):
-                continue
-            if own_session_id and name == f"{own_session_id}.jsonl":
-                continue
-            try:
-                m = os.stat(os.path.join(proj, name)).st_mtime
-            except OSError:
-                continue
-            if newest is None or m > newest:
-                newest = m
+        entries = os.listdir(proj)
     except OSError:
         return None
+    for name in entries:
+        path = os.path.join(proj, name)
+        if name.endswith(".jsonl"):
+            if own_session_id and name == f"{own_session_id}.jsonl":
+                continue
+            m = file_activity_epoch(path, threshold)
+            if m is not None and (newest is None or m > newest):
+                newest = m
+        elif os.path.isdir(path):
+            # Session subdirectories hold background-agent transcripts
+            # (<session-id>/subagents/agent-*.jsonl). A session whose
+            # foreground sits quiet while a background agent grinds for 30+
+            # minutes is only visible here. Skip our own session's dir.
+            if own_session_id and name == own_session_id:
+                continue
+            for root, _dirs, files in os.walk(path):
+                for f in files:
+                    if not f.endswith(".jsonl"):
+                        continue
+                    m = file_activity_epoch(os.path.join(root, f), threshold)
+                    if m is not None and (newest is None or m > newest):
+                        newest = m
+                if newest is not None and newest >= threshold:
+                    break  # already fresh enough -- no need to walk further
+            if newest is not None and newest >= threshold:
+                break
     if newest is None:
         return None
     return max(0.0, (time.time() - newest) / 60)
