@@ -23,11 +23,14 @@ B) Worktree creation, whichever path it takes:
     (`[worktree-ok]` anywhere in the command downgrades this to ask -- for when
     the user explicitly wants a worktree despite being single-stream)
 
-Session activity: a session counts as ACTIVE when its terminal saw keyboard
-input within WORKTREE_GUARD_IDLE_MIN minutes (default 60; env-overridable).
-A live-but-untouched-for-hours process is a forgotten tab, not concurrent work
--- treating those as concurrent was this guard's main source of false blocks.
-Sessions whose tty cannot be read are conservatively treated as active.
+Session activity: a session counts as ACTIVE when, within
+WORKTREE_GUARD_IDLE_MIN minutes (default 5; env-overridable), EITHER its
+terminal saw keyboard input OR its project's transcript files
+(~/.claude/projects/<slug>/*.jsonl, excluding this session's own) were
+written. The transcript signal is what makes 5 minutes safe: an autonomous
+turn types nothing for long stretches but writes its transcript every few
+seconds, while a forgotten tab goes quiet on both signals. Sessions where
+neither signal can be read are conservatively treated as active.
 
 Command matching: only segments whose FIRST word (after env assignments and
 wrappers like `command`/`nohup`) is `git` are classified. Mentions of
@@ -50,7 +53,7 @@ import subprocess
 import sys
 import time
 
-IDLE_MIN = int(os.environ.get("WORKTREE_GUARD_IDLE_MIN", "60"))
+IDLE_MIN = int(os.environ.get("WORKTREE_GUARD_IDLE_MIN", "5"))
 WRAPPERS = {"command", "nohup", "time", "env", "sudo"}
 
 
@@ -210,11 +213,48 @@ def tty_idle_minutes(pid: int):
         return None
 
 
-def sessions_in_tree(top: str):
+def project_slug(path: str) -> str:
+    """~/.claude/projects encodes a cwd by replacing non-alphanumerics with '-'."""
+    return re.sub(r"[^A-Za-z0-9-]", "-", path)
+
+
+def transcript_idle_minutes(cwd: str, own_session_id: str):
+    """Minutes since any OTHER session's transcript in `cwd`'s project dir was
+    written. None when there is no readable transcript to judge by.
+
+    A session running an autonomous turn appends to its
+    ~/.claude/projects/<slug>/<session-id>.jsonl every few seconds even though
+    the keyboard is silent -- this is the signal that keeps working sessions
+    out of the "forgotten tab" bucket. Per-project, not per-pid: if ANY other
+    session of this project is writing, treat the tree as actively worked on.
+    """
+    proj = os.path.expanduser(os.path.join("~/.claude/projects", project_slug(cwd)))
+    newest = None
+    try:
+        for name in os.listdir(proj):
+            if not name.endswith(".jsonl"):
+                continue
+            if own_session_id and name == f"{own_session_id}.jsonl":
+                continue
+            try:
+                m = os.stat(os.path.join(proj, name)).st_mtime
+            except OSError:
+                continue
+            if newest is None or m > newest:
+                newest = m
+    except OSError:
+        return None
+    if newest is None:
+        return None
+    return max(0.0, (time.time() - newest) / 60)
+
+
+def sessions_in_tree(top: str, own_session_id: str = ""):
     """Other Claude sessions whose cwd sits inside `top`.
 
-    Returns (active, idle, reliable). A session is idle when its terminal has
-    seen no input for IDLE_MIN minutes -- alive, but nobody is driving it.
+    Returns (active, idle, reliable). A session is idle when BOTH signals are
+    quiet for IDLE_MIN minutes: no terminal input AND no transcript writes in
+    its project -- alive, but nobody (human or autonomous turn) is driving it.
     `reliable` is False when detection cannot be trusted -- notably when we
     cannot even spot our own process -- and the caller then falls back to the
     conservative behaviour.
@@ -244,11 +284,15 @@ def sessions_in_tree(top: str):
     for p in sorted(pids - mine):
         d = proc_cwd(p)
         if d and (d == top or d.startswith(top + os.sep)):
-            idle_min = tty_idle_minutes(p)
-            if idle_min is not None and idle_min >= IDLE_MIN:
-                idle.append((p, d, idle_min))
+            tty_idle = tty_idle_minutes(p)
+            tr_idle = transcript_idle_minutes(d, own_session_id)
+            signals = [v for v in (tty_idle, tr_idle) if v is not None]
+            # Idle only when every readable signal is quiet; no signals at all
+            # -> conservative (active).
+            if signals and min(signals) >= IDLE_MIN:
+                idle.append((p, d, min(signals)))
             else:
-                active.append((p, d, idle_min))
+                active.append((p, d, min(signals) if signals else None))
     return active, idle, True
 
 
@@ -256,11 +300,11 @@ def fmt_sessions(entries):
     lines = []
     for p, d, idle_min in entries:
         if idle_min is None:
-            lines.append(f"    pid {p}  {d}  (입력 시각 확인 불가)")
+            lines.append(f"    pid {p}  {d}  (활동 시각 확인 불가)")
         elif idle_min >= 60:
-            lines.append(f"    pid {p}  {d}  (마지막 입력 {idle_min / 60:.1f}시간 전)")
+            lines.append(f"    pid {p}  {d}  (마지막 활동 {idle_min / 60:.1f}시간 전)")
         else:
-            lines.append(f"    pid {p}  {d}  (마지막 입력 {idle_min:.0f}분 전)")
+            lines.append(f"    pid {p}  {d}  (마지막 활동 {idle_min:.0f}분 전)")
     return "\n".join(lines)
 
 
@@ -333,9 +377,10 @@ def steer_to_switch() -> str:
     )
 
 
-def guard_worktree_creation(top: str, cwd: str, origin: str, user_ok: bool):
+def guard_worktree_creation(top: str, cwd: str, origin: str, user_ok: bool,
+                            session_id: str = ""):
     """Worktrees are for CONCURRENT work only -- block the single-stream case."""
-    active, idle, reliable = sessions_in_tree(top or cwd)
+    active, idle, reliable = sessions_in_tree(top or cwd, session_id)
 
     # 1) 같은 트리에서 다른 세션이 동시에 작업 중 -> 분리가 타당. 확인만 받는다.
     if active:
@@ -351,7 +396,7 @@ def guard_worktree_creation(top: str, cwd: str, origin: str, user_ok: bool):
     if idle:
         respond("ask", (
             f"{origin}\n"
-            f"이 트리의 다른 세션은 {IDLE_MIN}분 이상 입력이 없는 것뿐입니다 — "
+            f"이 트리의 다른 세션은 {IDLE_MIN}분 이상 활동(키 입력·작업 기록)이 없는 것뿐입니다 — "
             "잊힌 탭이면 사실상 단건 작업이라 worktree 없이 `git switch` 가 낫습니다.\n"
             f"{fmt_sessions(idle)}\n\n"
             "그래도 worktree 로 분리할지 확인해 주세요."
@@ -397,7 +442,7 @@ def main():
             'Agent 툴을 isolation: "worktree" 로 호출했습니다 '
             "(하네스가 <repo>/.claude/worktrees/<name> 에 worktree를 만듭니다). "
             "isolation 없이 다시 호출하면 공유 트리에서 그대로 진행됩니다."
-        ), user_ok=False)
+        ), user_ok=False, session_id=data.get("session_id", ""))
         sys.exit(0)
 
     if tool != "Bash":
@@ -418,10 +463,11 @@ def main():
         guard_worktree_creation(
             top, cwd, "`git worktree add` 로 worktree를 만들려 합니다.",
             user_ok="[worktree-ok]" in command,
+            session_id=data.get("session_id", ""),
         )
         sys.exit(0)
 
-    active, idle, reliable = sessions_in_tree(top or cwd)
+    active, idle, reliable = sessions_in_tree(top or cwd, data.get("session_id", ""))
 
     steer = (
         f"  # 기존 브랜치를 worktree로 꺼내기\n"
@@ -445,7 +491,7 @@ def main():
     # 1-b) 살아 있으나 입력이 끊긴 세션뿐 -> 잊힌 탭일 공산. 차단 대신 사용자 판단.
     if idle:
         respond("ask", (
-            f"이 트리에 다른 Claude 세션이 있지만 {IDLE_MIN}분 이상 입력이 없습니다 — "
+            f"이 트리에 다른 Claude 세션이 있지만 {IDLE_MIN}분 이상 활동(키 입력·작업 기록)이 없습니다 — "
             "잊힌 탭이면 그대로 전환해도 됩니다.\n"
             f"{fmt_sessions(idle)}\n\n"
             "그 세션에서 계속 작업할 것이라면 전환하지 말고 worktree 로 분리하세요:\n\n" + steer
