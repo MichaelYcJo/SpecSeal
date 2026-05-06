@@ -41,6 +41,22 @@ engineer 구현 → verify → code-reviewer 리뷰 → 리포트 보고
 
 없는 파일은 `templates/` 에서 자동 생성됩니다.
 
+### 훅이 하는 일
+
+훅은 플러그인이 자동 등록하는 스크립트로, 특정 도구 이벤트 때 사용자의 머신에서
+실행됩니다. 판정표 전체는 [docs/worktree-guard-spec.md](./docs/worktree-guard-spec.md)
+와 [docs/review-chain-spec.md](./docs/review-chain-spec.md) 에 있습니다.
+
+| 훅 | 언제 | 무엇을 | 적용 범위 |
+|---|---|---|---|
+| commit-review-gate | `git commit` 직전 | 사이클에 리뷰 마크가 없으면 확인창 (`[no-review]` 로 생략 가능) | 루트에 `_ai/` 가 있는 레포만 — 그 외에는 침묵 |
+| review-history-guard | `gh` 로 PR 리뷰를 게시/조회한 직후 | `_ai/review-history/PR-n/` 쓰기/읽기 리마인드 | 같은 `_ai/` 옵트인 |
+| worktree-guard | 브랜치 전환·worktree 생성 직전 | 다른 **활성** 세션이 있으면 전환 차단; 입력·출력·트랜스크립트가 모두 조용한 세션은 잊힌 탭으로 보고 확인창만 | 모든 git 레포 |
+| lint-python | `.py` 파일 저장/수정 직후 | ruff 자동 포맷·수정 (uv → uvx → 전역 ruff, 없으면 조용히 스킵) | 모든 프로젝트 |
+
+어떤 훅도 외부로 무언가를 보내지 않습니다 — 로컬 프로세스·git·파일 상태만 읽고
+판정을 Claude Code 에 출력합니다.
+
 ### 마이그레이션
 
 `docs/parity.md`(원본 저장소·기준 커밋)를 선언한 레포는 3자 판정(정책서 ↔

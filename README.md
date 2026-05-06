@@ -42,6 +42,23 @@ Cross-session continuity lives in the repo, not the session:
 
 Missing files bootstrap automatically from `templates/`.
 
+### What the hooks do
+
+Hooks are scripts the plugin auto-registers; they run on your machine at
+specific tool events. Full decision tables live in
+[docs/worktree-guard-spec.md](./docs/worktree-guard-spec.md) and
+[docs/review-chain-spec.md](./docs/review-chain-spec.md).
+
+| Hook | Fires | Does | Where it applies |
+|---|---|---|---|
+| commit-review-gate | before `git commit` | asks for confirmation when the cycle has no review mark (`[no-review]` skips) | only repos with `_ai/` at the root — everywhere else it is silent |
+| review-history-guard | after posting/reading a PR review via `gh` | reminds to write / read `_ai/review-history/PR-n/` | same `_ai/` opt-in |
+| worktree-guard | before branch switches and worktree creation | blocks switches under another ACTIVE session; treats input/output/transcript-quiet sessions as forgotten tabs (ask, not block) | any git repo |
+| lint-python | after writing/editing a `.py` file | ruff auto-format + fix (uv → uvx → global ruff; silently skips if none) | any project |
+
+No hook sends anything anywhere — they read local process/git/file state and
+print decisions to Claude Code.
+
 ### Migrations
 
 A repo that declares `docs/parity.md` (original repo, baseline commit) gets
