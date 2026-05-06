@@ -18,11 +18,15 @@ and closing the loop with review. Loaded by the `engineer` agent; usable directl
 Every artifact this skill produces goes to exactly one of three roots, split by
 **lifetime**, not by who wrote it:
 
-| Root | Lifetime | Test |
-|---|---|---|
-| `docs/` | Permanent, cumulative | Must still be true in 6 months (policies, `_evidence.md`, `_follow-up.md`) |
-| `specs/` | One work item | Its role ends when this work ships (SDD, overview) |
-| `_ai/` | Between sessions | Safe to delete wholesale — **after** the export rules below have run |
+| Root | Lifetime | Test | Authority |
+|---|---|---|---|
+| `docs/` | Permanent, cumulative | Must still be true in 6 months (policies, `_evidence.md`, `_follow-up.md`) | **Norms, ratified by humans** — AI may fill gaps by inference, marked as inference |
+| `specs/` | One work item | Its role ends when this work ships (SDD, overview) | The contract this work executes against — humans set direction, agents work to it |
+| `_ai/` | Between sessions | Safe to delete wholesale — **after** the export rules below have run | Written by and for AI sessions |
+
+The axis is lifetime and authority, **not audience** — humans and AI read all
+three. (Labeling policies "for humans" would push sessions away from reading
+them, and policy is the root of judgment precedence.)
 
 `_ai/` is committed (gitignored files don't follow worktrees or other machines),
 but deleted per-PR before merge. "Committed yet short-lived" is its nature.
