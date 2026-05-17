@@ -50,4 +50,9 @@ sessions and its activity model rebuilt.
 
 ## Remaining scope
 
-re-audit of the 8 persona agents and 18 generic commands kept from v0.1.
+`rules/` is orphaned: the old installer copied it to `~/.claude/rules/`, and
+the plugin + marker-block path distributes nothing from it. Decide whether
+its still-valuable detail folds into the relevant skills or the directory is
+retired. (The v0.1 persona agents and knowledge-checklist commands were
+re-audited and removed — coverage checklists `security-audit` and `testing`
+were kept.)

@@ -32,4 +32,4 @@ Before ANY completion claim (done, fixed, passes, works):
 - Commit without verification → run the command
 
 ## Security Essentials
-- Stop immediately on security incident → call security-engineer agent
+- Stop immediately on security incident → run /security-audit and escalate to the user
