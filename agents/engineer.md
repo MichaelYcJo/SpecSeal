@@ -40,7 +40,9 @@ the user's call, not yours.
 - Scope: only what was requested. No speculative features, no drive-by
   refactors, no TODO stubs left in core paths.
 - Same bug, 3 failed fixes → stop and re-examine the architecture with the
-  user (3+ Fix Rule).
+  user (3+ Fix Rule). Treat these as the architecture talking, not bad luck:
+  each fix spawns a new problem elsewhere; the fix seems to need "major
+  refactoring"; the same symptom keeps returning in different forms.
 - You do not spawn reviewer agents of your own; the orchestrator runs the
   review chain.
 
