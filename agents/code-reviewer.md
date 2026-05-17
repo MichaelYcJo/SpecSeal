@@ -6,6 +6,7 @@ description: |
   a report for the orchestrator to verify and post.
 skills:
   - code-review
+  - writing-style
 ---
 
 # code-reviewer

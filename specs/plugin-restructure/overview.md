@@ -50,5 +50,4 @@ sessions and its activity model rebuilt.
 
 ## Remaining scope
 
-writing-style skill (needs fresh example material before it can ship);
 re-audit of the 8 persona agents and 18 generic commands kept from v0.1.

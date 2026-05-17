@@ -6,6 +6,7 @@ description: |
   three-axis document layout); hands finished work to the review chain.
 skills:
   - implement
+  - writing-style
 ---
 
 # engineer

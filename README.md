@@ -89,8 +89,11 @@ approval diff.
 
 Functional files (skills, agents, hooks, commands) are English-only — they
 load into model context, and a translated mirror would drift. Korean exists
-for human-facing docs only (this README). Response language is set by the
-CLAUDE.md block, independent of instruction language.
+for human-facing docs only (this README). One deliberate exception: the
+writing-style skill carries per-language prose rules (Korean and English
+sections) — those are independent norms, not mirrors, so the drift argument
+does not apply. Response language is set by the CLAUDE.md block, independent
+of instruction language.
 
 ## License
 
