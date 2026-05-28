@@ -1,0 +1,13 @@
+{
+  "name": "claude-preset",
+  "owner": {
+    "name": "MichaelYcJo"
+  },
+  "plugins": [
+    {
+      "name": "claude-preset",
+      "source": "./",
+      "description": "Minimal, research-backed Claude Code preset — implement/review agent chain, SDD document layout (docs/specs/_ai), and enforcement hooks."
+    }
+  ]
+}
