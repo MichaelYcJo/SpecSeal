@@ -59,6 +59,20 @@ sessions editing shared files; observed live turning three forgotten tabs
 events count, and their own timestamps are used. A stale mtime is trusted
 as-is — passive appends only ever make a file look fresher, never staler.
 
+### What a blocking prompt must show (identification)
+
+"Another session is active" is undiagnosable without identity — measured in
+practice: a session was misattributed to Cursor by guessing from a sibling
+MCP process's flags, and "last activity 1 min ago" could not be told apart
+from a heartbeat. So every listed session shows:
+
+- **host app**, attributed by walking the ANCESTOR process chain (never
+  sibling processes) — e.g. "(VS Code 터미널)";
+- **disaggregated signals** — terminal input/output age and transcript
+  active-event age separately;
+- the project's newest OTHER transcript's **last user message snippet**, so
+  the human can recognize which conversation is being protected.
+
 ### Unknowns resolve conservatively
 
 No readable tty AND no readable transcript → active (deny-side). Detection
@@ -73,5 +87,7 @@ costs a prompt, a wrong allow breaks another session's tree.
   quoted strings or after other command words do not.
 - Transcript activity is per-project, not per-pid: one working session marks
   every session of that project active. Conservative by design.
-- tty atime also refreshes on some stdin polling; treated as active, which
-  errs conservative.
+- tty atime also refreshes on in-turn stdin reads (a session listening for
+  interrupts), not only human keystrokes — which is why the prompt labels it
+  "terminal input/output", not "keystroke". Either cause means the session is
+  live, so treating it as active errs conservative.

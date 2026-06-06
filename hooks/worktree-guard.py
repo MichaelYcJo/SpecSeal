@@ -194,6 +194,93 @@ def proc_cwd(pid: int):
     return None
 
 
+SHELLS = {"zsh", "bash", "sh", "fish", "login", "tmux", "screen", "claude",
+          "-zsh", "-bash"}
+APP_LABELS = [("Code Helper", "VS Code"), ("Visual Studio Code", "VS Code"),
+              ("Cursor", "Cursor"), ("iTerm", "iTerm2"),
+              ("Terminal", "Terminal"), ("WezTerm", "WezTerm"),
+              ("Warp", "Warp"), ("kitty", "kitty"), ("Alacritty", "Alacritty")]
+
+
+def host_app(pid: int):
+    """Which application's terminal hosts this session — from the ANCESTOR
+    chain, never from sibling processes (an MCP server's --app flag next to a
+    session led to a wrong 'Cursor' attribution in practice)."""
+    cur = pid
+    for _ in range(15):
+        try:
+            r = subprocess.run(["ps", "-o", "ppid=,comm=", "-p", str(cur)],
+                               capture_output=True, text=True)
+            out = r.stdout.strip()
+            if not out:
+                return None
+            ppid_s, _, comm = out.partition(" ")
+            ppid = int(ppid_s)
+        except Exception:
+            return None
+        for needle, label in APP_LABELS:
+            if needle in comm:
+                return label
+        if ppid <= 1:
+            name = os.path.basename(comm.strip())
+            return name if name not in SHELLS else None
+        cur = ppid
+    return None
+
+
+def last_user_snippet(cwd: str, own_session_id: str):
+    """(session-id-prefix, ts, text) of the newest OTHER session's last user
+    message in this project — so a blocking prompt lets the human recognize
+    WHICH forgotten conversation is being protected."""
+    proj = os.path.expanduser(os.path.join("~/.claude/projects", project_slug(cwd)))
+    best = None
+    try:
+        for name in os.listdir(proj):
+            if not name.endswith(".jsonl"):
+                continue
+            if own_session_id and name == f"{own_session_id}.jsonl":
+                continue
+            path = os.path.join(proj, name)
+            try:
+                m = os.stat(path).st_mtime
+            except OSError:
+                continue
+            if best is None or m > best[0]:
+                best = (m, path, name)
+    except OSError:
+        return None
+    if not best:
+        return None
+    _, path, name = best
+    try:
+        size = os.path.getsize(path)
+        with open(path, "rb") as f:
+            f.seek(max(0, size - 131072))
+            tail = f.read().decode("utf-8", "replace")
+    except OSError:
+        return None
+    snippet = None
+    for line in tail.splitlines():
+        try:
+            d = json.loads(line)
+        except Exception:
+            continue
+        if d.get("type") != "user":
+            continue
+        content = (d.get("message") or {}).get("content")
+        if isinstance(content, str):
+            text = content
+        elif isinstance(content, list):
+            text = " ".join(x.get("text", "") for x in content
+                            if isinstance(x, dict) and x.get("type") == "text")
+        else:
+            continue
+        text = " ".join(text.split())
+        if text:
+            snippet = (name.split(".")[0][:8], d.get("timestamp", "")[:16], text[:80])
+    return snippet
+
+
 def tty_idle_minutes(pid: int):
     """Minutes since the terminal hosting `pid` last saw input OR output.
 
@@ -364,23 +451,45 @@ def sessions_in_tree(top: str, own_session_id: str = ""):
             signals = [v for v in (tty_idle, tr_idle) if v is not None]
             # Idle only when every readable signal is quiet; no signals at all
             # -> conservative (active).
+            entry = (p, d, tty_idle, tr_idle, host_app(p))
             if signals and min(signals) >= IDLE_MIN:
-                idle.append((p, d, min(signals)))
+                idle.append(entry)
             else:
-                active.append((p, d, min(signals) if signals else None))
+                active.append(entry)
     return active, idle, True
 
 
+def _age(minutes):
+    if minutes is None:
+        return "확인 불가"
+    if minutes >= 60:
+        return f"{minutes / 60:.1f}시간 전"
+    return f"{minutes:.0f}분 전"
+
+
 def fmt_sessions(entries):
+    """Per-session line with DISAGGREGATED signals and host app. "마지막 활동
+    1분 전" alone proved undiagnosable in practice — the reader could not tell
+    a keystroke from an autonomous turn's transcript write, and app guesses
+    made from sibling MCP processes misattributed a VS Code tab to Cursor."""
     lines = []
-    for p, d, idle_min in entries:
-        if idle_min is None:
-            lines.append(f"    pid {p}  {d}  (활동 시각 확인 불가)")
-        elif idle_min >= 60:
-            lines.append(f"    pid {p}  {d}  (마지막 활동 {idle_min / 60:.1f}시간 전)")
-        else:
-            lines.append(f"    pid {p}  {d}  (마지막 활동 {idle_min:.0f}분 전)")
+    for p, d, tty_idle, tr_idle, app in entries:
+        where = f" ({app} 터미널)" if app else ""
+        lines.append(
+            f"    pid {p}{where}  {d}\n"
+            f"        터미널 입력/출력 {_age(tty_idle)} · 작업 기록(트랜스크립트) {_age(tr_idle)}"
+        )
     return "\n".join(lines)
+
+
+def fmt_snippet(cwd, own_session_id):
+    s = last_user_snippet(cwd, own_session_id)
+    if not s:
+        return ""
+    sid, ts, text = s
+    quoted = chr(34) + text + chr(34)
+    return (f"\n이 트리의 가장 최근 다른 세션 기록 [{sid}… {ts}] 마지막 사용자 메시지:\n"
+            f"    {quoted}\n")
 
 
 def tracked_changes(cwd: str) -> list[tuple[str, str]]:
@@ -463,7 +572,8 @@ def guard_worktree_creation(top: str, cwd: str, origin: str, user_ok: bool,
             f"{origin}\n"
             "이 작업 트리에서 다른 Claude 세션이 동시에 작업 중이라 worktree 분리가 "
             "타당해 보입니다. 다만 룰상 worktree 생성은 사용자 확인이 필요합니다.\n"
-            f"{fmt_sessions(active)}\n\n"
+            f"{fmt_sessions(active)}\n"
+            f"{fmt_snippet(top or cwd, session_id)}\n"
             "진행할지 확인해 주세요."
         ))
 
@@ -473,7 +583,8 @@ def guard_worktree_creation(top: str, cwd: str, origin: str, user_ok: bool,
             f"{origin}\n"
             f"이 트리의 다른 세션은 {IDLE_MIN}분 이상 활동(키 입력·작업 기록)이 없는 것뿐입니다 — "
             "잊힌 탭이면 사실상 단건 작업이라 worktree 없이 `git switch` 가 낫습니다.\n"
-            f"{fmt_sessions(idle)}\n\n"
+            f"{fmt_sessions(idle)}\n"
+            f"{fmt_snippet(top or cwd, session_id)}\n"
             "그래도 worktree 로 분리할지 확인해 주세요."
         ))
 
@@ -559,7 +670,8 @@ def main():
         respond("deny", (
             "이 작업 트리에서 다른 Claude 세션이 동시에 작업 중이라 브랜치 전환을 차단합니다 "
             "(전환하면 상대 세션의 다음 편집이 의도치 않은 브랜치에 떨어집니다).\n"
-            f"{fmt_sessions(active)}\n\n"
+            f"{fmt_sessions(active)}\n"
+            f"{fmt_snippet(top or cwd, data.get('session_id', ''))}\n"
             "다중작업이므로 이 브랜치는 별도 worktree에서 진행하세요:\n\n" + steer
         ))
 
@@ -568,7 +680,8 @@ def main():
         respond("ask", (
             f"이 트리에 다른 Claude 세션이 있지만 {IDLE_MIN}분 이상 활동(키 입력·작업 기록)이 없습니다 — "
             "잊힌 탭이면 그대로 전환해도 됩니다.\n"
-            f"{fmt_sessions(idle)}\n\n"
+            f"{fmt_sessions(idle)}\n"
+            f"{fmt_snippet(top or cwd, data.get('session_id', ''))}\n"
             "그 세션에서 계속 작업할 것이라면 전환하지 말고 worktree 로 분리하세요:\n\n" + steer
         ))
 
