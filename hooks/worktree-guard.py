@@ -456,6 +456,38 @@ def sessions_in_tree(top: str, own_session_id: str = ""):
                 idle.append(entry)
             else:
                 active.append(entry)
+
+    # DECLARED work streams — leases beat every heuristic above. The
+    # session-lease hook stamps <git-dir>/claude-preset-leases/<session-id>
+    # on each tool call touching this tree, which catches what process
+    # scanning cannot: extension-hosted sessions (comm != claude) and
+    # sessions editing this tree from another cwd (both observed live).
+    try:
+        gd = subprocess.run(["git", "rev-parse", "--absolute-git-dir"],
+                            cwd=top or None, capture_output=True, text=True)
+        leases = os.path.join(gd.stdout.strip(), "claude-preset-leases") if gd.returncode == 0 else None
+    except Exception:
+        leases = None
+    if leases and os.path.isdir(leases):
+        for name in os.listdir(leases):
+            if own_session_id and name == own_session_id:
+                continue
+            try:
+                age = (time.time() - os.stat(os.path.join(leases, name)).st_mtime) / 60
+            except OSError:
+                continue
+            if age < IDLE_MIN:
+                active.append((None, f"{top}  [lease: {name[:8]}…]", None, age, None))
+
+    # Sessions whose process is NOT named claude (VS Code extension panels,
+    # embedded hosts) are invisible to the scan above — but they still write
+    # this project's transcripts. Fresh active events with no process to pin
+    # them on = an unattached live session; measured live when a background
+    # agent kept working after its terminal pid died from the scan's view.
+    if not active:
+        tr_idle = transcript_idle_minutes(top, own_session_id)
+        if tr_idle is not None and tr_idle < IDLE_MIN:
+            active.append((None, top, None, tr_idle, None))
     return active, idle, True
 
 
@@ -474,6 +506,13 @@ def fmt_sessions(entries):
     made from sibling MCP processes misattributed a VS Code tab to Cursor."""
     lines = []
     for p, d, tty_idle, tr_idle, app in entries:
+        if p is None:
+            kind = "lease 선언" if "[lease:" in d else "작업 기록(트랜스크립트)"
+            lines.append(
+                f"    (프로세스 미확인 세션 — VS Code 확장 패널·다른 cwd 의 세션 등)  {d}\n"
+                f"        {kind} {_age(tr_idle)} — 지금 이 트리에서 작업 중"
+            )
+            continue
         where = f" ({app} 터미널)" if app else ""
         lines.append(
             f"    pid {p}{where}  {d}\n"
