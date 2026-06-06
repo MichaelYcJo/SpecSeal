@@ -19,7 +19,7 @@ runs outside the context entirely (hooks).
 | Component | What it does |
 |---|---|
 | **Agents** — `engineer` · `code-reviewer` · `parity-checker` | Who: implementation, review, and migration fact-finding as separate contexts, each preloading its methodology skill |
-| **Skills** — `implement` · `code-review` · `legacy-parity` + quality utilities (`verify`, `audit`, `debug`, …) | How: procedures loaded only when triggered |
+| **Skills** — `implement` · `code-review` · `legacy-parity` · `evidence-check` + quality utilities (`verify`, `audit`, `debug`, …) | How: procedures loaded only when triggered |
 | **Hooks** — commit-review-gate · review-history-guard · worktree-guard · lint-python | When: mechanical enforcement, auto-registered by the plugin (no settings.json wiring) |
 | **CLAUDE.md block** | The ~15 lines that must live in always-loaded context (language, tooling, two safety rules, git) |
 
@@ -41,6 +41,11 @@ Cross-session continuity lives in the repo, not the session:
 | `_ai/` | between sessions | review rounds, todo handoffs — committed, drained, then deleted per PR |
 
 Missing files bootstrap automatically from `templates/`.
+
+And the ledger is *checked*, not just kept: the `evidence-check` skill ships a
+CI-ready script that fails the build when a spec-to-code coordinate stops
+resolving, and flags ranges touched since the ledger's baseline commit for
+re-verification. Specs rot silently everywhere else — here the rot is a red build.
 
 ### What the hooks do
 

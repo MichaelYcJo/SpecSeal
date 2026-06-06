@@ -1,0 +1,30 @@
+# Evidence-rot detection — fails the build when the evidence ledger's
+# spec-to-code coordinates stop resolving; warns (exit 1) on ranges touched
+# since the ledger's baseline commit.
+#
+# Setup: vendor the checker into the repo first —
+#   cp <claude-preset plugin>/skills/evidence-check/scripts/evidence_check.py tools/
+# then copy this file to .github/workflows/evidence-check.yml.
+
+name: evidence-check
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "src/**"
+      - "tools/evidence_check.py"
+
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # drift check diffs against the ledger's baseline SHA
+
+      - name: Check evidence ledger coordinates
+        run: |
+          # --strict: treat drifted (unverified since baseline) rows as failures.
+          # Drop it to let drift warn without blocking.
+          python3 tools/evidence_check.py --strict .

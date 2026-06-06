@@ -18,7 +18,7 @@
 | 컴포넌트 | 역할 |
 |---|---|
 | **에이전트** — `engineer` · `code-reviewer` · `parity-checker` | Who: 구현·리뷰·마이그레이션 사실 확인을 별도 컨텍스트로 분리, 각자 방법론 스킬을 사전 로드 |
-| **스킬** — `implement` · `code-review` · `legacy-parity` + 품질 유틸(`verify`, `audit`, `debug`, …) | How: 트리거될 때만 로드되는 절차 |
+| **스킬** — `implement` · `code-review` · `legacy-parity` · `evidence-check` + 품질 유틸(`verify`, `audit`, `debug`, …) | How: 트리거될 때만 로드되는 절차 |
 | **훅** — commit-review-gate · review-history-guard · worktree-guard · lint-python | When: 기계적 강제. 플러그인이 자동 등록 (settings.json 배선 불필요) |
 | **CLAUDE.md 블록** | 상시 로드가 불가피한 ~15줄 (언어·툴링·안전 규칙 둘·Git) |
 
@@ -40,6 +40,11 @@ engineer 구현 → verify → code-reviewer 리뷰 → 리포트 보고
 | `_ai/` | 세션 사이 | 리뷰 회차 기록·인계 목록 — 커밋되고, 배출 후 PR 단위로 삭제 |
 
 없는 파일은 `templates/` 에서 자동 생성됩니다.
+
+그리고 원장은 보관만 하는 것이 아니라 **검사**됩니다: `evidence-check` 스킬이
+CI 용 스크립트를 동봉해, 스펙↔코드 좌표가 더 이상 해석되지 않으면 빌드를
+실패시키고, 기준 커밋 이후 손댄 범위는 재검증 대상으로 표시합니다. 다른
+곳에서는 스펙이 조용히 썩지만, 여기서는 썩으면 빌드가 빨개집니다.
 
 ### 훅이 하는 일
 
