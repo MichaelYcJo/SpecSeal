@@ -55,4 +55,4 @@ knowledge-checklist commands removed (coverage checklists `security-audit`
 and `testing` kept); `rules/` retired — its verification detail already
 lived verbatim in the `verify` skill, its workflow/orchestration content is
 superseded by the chain agents and skills, and the one surviving nugget
-(the 3+ Fix architectural-problem signals) folded into the engineer agent.
+(the 3+ Fix architectural-problem signals) folded into the developer agent.

@@ -18,7 +18,7 @@ runs outside the context entirely (hooks).
 
 | Component | What it does |
 |---|---|
-| **Agents** — `engineer` · `code-reviewer` · `parity-checker` | Who: implementation, review, and migration fact-finding as separate contexts, each preloading its methodology skill |
+| **Agents** — `developer` · `code-reviewer` · `parity-checker` | Who: implementation, review, and migration fact-finding as separate contexts, each preloading its methodology skill |
 | **Skills** — `implement` · `code-review` · `legacy-parity` · `evidence-check` + quality utilities (`verify`, `audit`, `debug`, …) | How: procedures loaded only when triggered |
 | **Hooks** — commit-review-gate · review-history-guard · worktree-guard · lint-python | When: mechanical enforcement, auto-registered by the plugin (no settings.json wiring) |
 | **CLAUDE.md block** | The ~15 lines that must live in always-loaded context (language, tooling, two safety rules, git) |
@@ -26,7 +26,7 @@ runs outside the context entirely (hooks).
 ### The chain
 
 ```
-engineer implements → verify → code-reviewer reviews → report to user
+developer implements → verify → code-reviewer reviews → report to user
         ↑                                                    │
         └── fixes (user's call) ← user decides ──────────────┘
 commit  → allowed once the cycle carries a review mark (hook-enforced, approvable)

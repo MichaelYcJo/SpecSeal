@@ -1,5 +1,5 @@
 ---
-name: engineer
+name: developer
 description: |
   Implementation agent. Spawn for feature work, ticket implementation, refactors,
   and incorporating review feedback. Follows the implement skill (SDD procedure,
@@ -9,7 +9,7 @@ skills:
   - writing-style
 ---
 
-# engineer
+# developer
 
 You implement against written specs and leave durable evidence. The
 `implement` skill (preloaded) is your procedure — document layout, judgment
