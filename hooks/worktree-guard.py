@@ -411,6 +411,32 @@ def transcript_idle_minutes(cwd: str, own_session_id: str):
     return max(0.0, (time.time() - newest) / 60)
 
 
+def fresh_leases(top: str, own_session_id: str = ""):
+    """DECLARED work streams — leases beat every heuristic. The session-lease
+    hook stamps <git-dir>/claude-preset-leases/<session-id> on each tool call
+    touching this tree, which catches what process scanning cannot:
+    extension-hosted sessions (comm != claude) and sessions editing this tree
+    from another cwd (both observed live)."""
+    entries = []
+    try:
+        gd = subprocess.run(["git", "rev-parse", "--absolute-git-dir"],
+                            cwd=top or None, capture_output=True, text=True)
+        leases = os.path.join(gd.stdout.strip(), "claude-preset-leases") if gd.returncode == 0 else None
+    except Exception:
+        leases = None
+    if leases and os.path.isdir(leases):
+        for name in os.listdir(leases):
+            if own_session_id and name == own_session_id:
+                continue
+            try:
+                age = (time.time() - os.stat(os.path.join(leases, name)).st_mtime) / 60
+            except OSError:
+                continue
+            if age < IDLE_MIN:
+                entries.append((None, f"{top}  [lease: {name[:8]}…]", None, age, None))
+    return entries
+
+
 def sessions_in_tree(top: str, own_session_id: str = ""):
     """Other Claude sessions whose cwd sits inside `top`.
 
@@ -457,27 +483,7 @@ def sessions_in_tree(top: str, own_session_id: str = ""):
             else:
                 active.append(entry)
 
-    # DECLARED work streams — leases beat every heuristic above. The
-    # session-lease hook stamps <git-dir>/claude-preset-leases/<session-id>
-    # on each tool call touching this tree, which catches what process
-    # scanning cannot: extension-hosted sessions (comm != claude) and
-    # sessions editing this tree from another cwd (both observed live).
-    try:
-        gd = subprocess.run(["git", "rev-parse", "--absolute-git-dir"],
-                            cwd=top or None, capture_output=True, text=True)
-        leases = os.path.join(gd.stdout.strip(), "claude-preset-leases") if gd.returncode == 0 else None
-    except Exception:
-        leases = None
-    if leases and os.path.isdir(leases):
-        for name in os.listdir(leases):
-            if own_session_id and name == own_session_id:
-                continue
-            try:
-                age = (time.time() - os.stat(os.path.join(leases, name)).st_mtime) / 60
-            except OSError:
-                continue
-            if age < IDLE_MIN:
-                active.append((None, f"{top}  [lease: {name[:8]}…]", None, age, None))
+    active.extend(fresh_leases(top, own_session_id))
 
     # Sessions whose process is NOT named claude (VS Code extension panels,
     # embedded hosts) are invisible to the scan above — but they still write
