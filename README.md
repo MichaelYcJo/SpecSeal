@@ -40,7 +40,10 @@ Cross-session continuity lives in the repo, not the session:
 | `specs/` | one work item | SDD, overview |
 | `_ai/` | between sessions | review rounds, todo handoffs — committed, drained, then deleted per PR |
 
-Missing files bootstrap automatically from `templates/`.
+Missing files bootstrap automatically from `templates/`. The handoff
+convention itself is specified tool-agnostically in
+[docs/review-handoff-protocol.md](./docs/review-handoff-protocol.md) — any
+agent that reads and writes files in a git repo can conform.
 
 And the ledger is *checked*, not just kept: the `evidence-check` skill ships a
 CI-ready script that fails the build when a spec-to-code coordinate stops

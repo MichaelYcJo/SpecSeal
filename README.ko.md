@@ -39,7 +39,10 @@ developer 구현 → verify → code-reviewer 리뷰 → 리포트 보고
 | `specs/` | 작업 한 건 | SDD, overview |
 | `_ai/` | 세션 사이 | 리뷰 회차 기록·인계 목록 — 커밋되고, 배출 후 PR 단위로 삭제 |
 
-없는 파일은 `templates/` 에서 자동 생성됩니다.
+없는 파일은 `templates/` 에서 자동 생성됩니다. 인계 규약 자체는
+[docs/review-handoff-protocol.md](./docs/review-handoff-protocol.md) 에 도구
+중립적으로 명세되어 있어, git 레포에 파일을 읽고 쓸 수 있는 어떤 에이전트든
+구현할 수 있습니다.
 
 그리고 원장은 보관만 하는 것이 아니라 **검사**됩니다: `evidence-check` 스킬이
 CI 용 스크립트를 동봉해, 스펙↔코드 좌표가 더 이상 해석되지 않으면 빌드를
