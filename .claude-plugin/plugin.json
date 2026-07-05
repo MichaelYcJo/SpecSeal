@@ -1,6 +1,6 @@
 {
   "name": "claude-preset",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Minimal, research-backed Claude Code preset — implement/review agent chain, SDD document layout (docs/specs/_ai), and enforcement hooks.",
   "author": {
     "name": "MichaelYcJo"
