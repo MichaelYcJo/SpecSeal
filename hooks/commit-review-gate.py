@@ -17,11 +17,44 @@ Decisions:
 """
 
 import json
+import os
 import re
+import shlex
 import subprocess
 import sys
 
-COMMIT_RE = re.compile(r"\bgit(\s+-[^\s]+)*\s+commit\b")
+WRAPPERS = {"command", "env", "nohup", "time", "sudo"}
+SEG_RE = re.compile(r"&&|\|\||[;\n|]")
+
+
+def is_git_commit(command):
+    """True only when some segment's COMMAND WORD is git with subcommand
+    commit — a prose mention (echo "git commit", heredoc lines) must not
+    gate. Same lesson the worktree guard learned; applied here too."""
+    for seg in SEG_RE.split(command):
+        try:
+            toks = shlex.split(seg)
+        except ValueError:
+            continue
+        i = 0
+        while i < len(toks) and (("=" in toks[i] and not toks[i].startswith("-"))
+                                 or os.path.basename(toks[i]) in WRAPPERS):
+            i += 1
+        if i >= len(toks) or os.path.basename(toks[i]) != "git":
+            continue
+        rest, j = toks[i + 1:], 0
+        takes = {"-C", "-c", "--git-dir", "--work-tree"}
+        while j < len(rest):
+            if rest[j] in takes:
+                j += 2
+                continue
+            if rest[j].startswith("-"):
+                j += 1
+                continue
+            break
+        if j < len(rest) and rest[j] == "commit":
+            return True
+    return False
 
 
 def git(args, cwd):
@@ -43,15 +76,13 @@ def main():
     if payload.get("tool_name") != "Bash":
         return
     command = (payload.get("tool_input") or {}).get("command", "")
-    if not COMMIT_RE.search(command) or "[no-review]" in command:
+    if not is_git_commit(command) or "[no-review]" in command:
         return
 
     cwd = payload.get("cwd", "")
     top = git(["rev-parse", "--show-toplevel"], cwd)
     if not top:
         return
-
-    import os
 
     if not os.path.isdir(os.path.join(top, "_ai")):
         return  # repo has not opted into the preset workflow

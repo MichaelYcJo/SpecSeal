@@ -52,17 +52,23 @@ def find_baseline(text, repo):
 
 
 def changed_ranges(repo, baseline, path):
-    """Line ranges of `path` (current numbering) touched since baseline."""
+    """Line ranges of `path` touched since baseline, in BASELINE numbering.
+
+    Ledger coordinates were written against the baseline, so overlap must be
+    judged on the diff's OLD side — a deletion shifts every later line, and
+    new-side positions would miss the very lines the citation meant (caught
+    by test_pure_deletion_still_drifts_neighbors).
+    """
     code, out = git(
         ["diff", "--unified=0", f"{baseline}..HEAD", "--", path], repo
     )
     if code != 0:
         return []
     ranges = []
-    for m in re.finditer(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@", out, re.M):
+    for m in re.finditer(r"^@@ -(\d+)(?:,(\d+))? \+\S+ @@", out, re.M):
         start = int(m.group(1))
         count = int(m.group(2)) if m.group(2) is not None else 1
-        # A pure deletion (count 0) still invalidates neighbors: keep 1 line.
+        # A pure insertion (count 0) still touches its neighbor: keep 1 line.
         ranges.append((start, start + max(count, 1) - 1))
     return ranges
 

@@ -33,6 +33,28 @@ READ_RE = re.compile(
 PR_NUM_RE = re.compile(r"\bgh\s+pr\s+(?:review|comment|view)\s+(\d+)|/pulls/(\d+)/")
 
 
+SEG_RE = re.compile(r"&&|\|\||[;\n|]")
+WRAPPERS = {"command", "env", "nohup", "time", "sudo"}
+
+
+def gh_segments(command):
+    """Segments whose command word is gh — prose mentions never remind."""
+    import shlex
+    out = []
+    for seg in SEG_RE.split(command):
+        try:
+            toks = shlex.split(seg)
+        except ValueError:
+            continue
+        i = 0
+        while i < len(toks) and (("=" in toks[i] and not toks[i].startswith("-"))
+                                 or os.path.basename(toks[i]) in WRAPPERS):
+            i += 1
+        if i < len(toks) and os.path.basename(toks[i]) == "gh":
+            out.append(" ".join(toks[i:]))
+    return out
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -40,7 +62,11 @@ def main():
         return
     if payload.get("tool_name") != "Bash":
         return
-    command = (payload.get("tool_input") or {}).get("command", "")
+    raw = (payload.get("tool_input") or {}).get("command", "")
+    segs = gh_segments(raw)
+    if not segs:
+        return
+    command = "\n".join(segs)
     cwd = payload.get("cwd", "") or "."
 
     try:

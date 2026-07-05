@@ -51,9 +51,11 @@ checking is skipped and the run says so.
   be resolved and are reported EXTERNAL — the tool never guesses by fuzzy
   matching, because a wrong resolution would validate the wrong evidence.
   Cite root-relative paths (the ledger template's notation).
-- DRIFTED means "someone must re-verify", not "the claim is wrong". Line
-  numbers shifting without semantic change still drift — that is intended:
-  the coordinate itself is now stale either way.
+- DRIFTED means "someone must re-verify", not "the claim is wrong".
+- Overlap is judged in BASELINE line numbering (the numbering citations were
+  written in). A coordinate whose lines merely SHIFTED because of edits above
+  it is not flagged — its content is intact, but its line numbers are stale;
+  re-anchoring shifted-only coordinates is future work.
 
 ## CI
 
