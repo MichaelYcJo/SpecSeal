@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# claude_preset installer — CLAUDE.md marker-block merge only.
+# specseal installer — CLAUDE.md marker-block merge only.
 #
 # Skills / agents / hooks / commands are distributed as a Claude Code plugin
 # (see README: /plugin install). The one thing a plugin cannot carry is a
 # CLAUDE.md block, so this script manages exactly that:
 #
 #   1. Back up the existing ~/.claude/CLAUDE.md to CLAUDE.md.bak
-#   2. Insert or update the <!-- claude-preset:start/end --> block
+#   2. Insert or update the <!-- specseal:start/end --> block
 #   3. NEVER touch content outside the markers — if something outside looks
 #      like it overlaps with the block, print a warning and leave it alone.
 #      (Semantic dedup is /preset-setup's job, with your approval, not ours.)
@@ -41,15 +41,15 @@ else
     fi
 fi
 SOURCE="$REPO_DIR/CLAUDE.md"
-START='<!-- claude-preset:start -->'
-END='<!-- claude-preset:end -->'
+START='<!-- specseal:start -->'
+END='<!-- specseal:end -->'
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 info()  { echo -e "${GREEN}[info]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[warn]${NC} $1"; }
 error() { echo -e "${RED}[error]${NC} $1"; exit 1; }
 
-[ -f "$SOURCE" ] || error "Run this script from the claude_preset directory (CLAUDE.md not found)."
+[ -f "$SOURCE" ] || error "Run this script from the specseal directory (CLAUDE.md not found)."
 grep -qF "$START" "$SOURCE" || error "Source CLAUDE.md has no preset markers."
 
 # Extract the managed block (markers included) from the repo file.
@@ -95,8 +95,8 @@ fi
 
 echo ""
 info "CLAUDE.md done. Remaining components install as a plugin:"
-echo "       claude → /plugin marketplace add MichaelYcJo/claude_preset"
-echo "                /plugin install claude-preset"
+echo "       claude → /plugin marketplace add MichaelYcJo/specseal"
+echo "                /plugin install specseal"
 echo ""
 info "For a reviewed, deduplicated merge instead of this mechanical one:"
 echo "       restore $TARGET.bak, then run /preset-setup inside Claude Code."

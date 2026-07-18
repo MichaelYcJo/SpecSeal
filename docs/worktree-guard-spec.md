@@ -41,7 +41,7 @@ The signals below INFER liveness, and inference has a measured ceiling: a
 session hosted outside a terminal (comm != `claude`) or working on this tree
 from another cwd leaves no process, tty, or per-project transcript trace
 here. So every tool call also DECLARES: the `session-lease` hook stamps
-`<git-dir>/claude-preset-leases/<session-id>` for the repo being touched
+`<git-dir>/specseal-leases/<session-id>` for the repo being touched
 (Write/Edit lease the edited file's repo; Bash leases its cwd's repo). A
 lease fresher than the idle threshold is an active work stream, no inference
 involved. Leases older than a day are pruned; failures are silent — a lease

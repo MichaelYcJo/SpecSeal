@@ -413,7 +413,7 @@ def transcript_idle_minutes(cwd: str, own_session_id: str):
 
 def fresh_leases(top: str, own_session_id: str = ""):
     """DECLARED work streams — leases beat every heuristic. The session-lease
-    hook stamps <git-dir>/claude-preset-leases/<session-id> on each tool call
+    hook stamps <git-dir>/specseal-leases/<session-id> on each tool call
     touching this tree, which catches what process scanning cannot:
     extension-hosted sessions (comm != claude) and sessions editing this tree
     from another cwd (both observed live)."""
@@ -421,7 +421,7 @@ def fresh_leases(top: str, own_session_id: str = ""):
     try:
         gd = subprocess.run(["git", "rev-parse", "--absolute-git-dir"],
                             cwd=top or None, capture_output=True, text=True)
-        leases = os.path.join(gd.stdout.strip(), "claude-preset-leases") if gd.returncode == 0 else None
+        leases = os.path.join(gd.stdout.strip(), "specseal-leases") if gd.returncode == 0 else None
     except Exception:
         leases = None
     if leases and os.path.isdir(leases):

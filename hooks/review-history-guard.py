@@ -86,7 +86,7 @@ def main():
     if POST_RE.search(command):
         if pr_dir and not os.path.isdir(pr_dir):
             print(
-                f"[claude-preset] A review was just posted but "
+                f"[specseal] A review was just posted but "
                 f"_ai/review-history/PR-{pr}/ does not exist. Write round-N.md "
                 f"(target SHA, verdicts, probe results), tests-todo.md, and "
                 f"evidence-todo.md now — after this session ends, nobody can."
@@ -94,7 +94,7 @@ def main():
     elif READ_RE.search(command):
         if pr_dir and os.path.isdir(pr_dir):
             print(
-                f"[claude-preset] _ai/review-history/PR-{pr}/ exists. Read it "
+                f"[specseal] _ai/review-history/PR-{pr}/ exists. Read it "
                 f"before acting on inline comments — tests-todo.md and "
                 f"evidence-todo.md are implementer-owned lists that the "
                 f"comments may not contain."

@@ -1,5 +1,5 @@
 ---
-description: Merge the claude-preset CLAUDE.md block into the user's CLAUDE.md with semantic dedup — propose, get approval, then apply.
+description: Merge the specseal CLAUDE.md block into the user's CLAUDE.md with semantic dedup — propose, get approval, then apply.
 ---
 
 # /preset-setup — reviewed CLAUDE.md merge
@@ -22,7 +22,7 @@ through the user first.
    If the target does not exist, just write the preset block and stop.
 
 2. **Read both.** The preset block is the content between
-   `<!-- claude-preset:start -->` and `<!-- claude-preset:end -->` in this
+   `<!-- specseal:start -->` and `<!-- specseal:end -->` in this
    plugin's CLAUDE.md. Read the user's file in full.
 
 3. **Classify each overlap** between the user's existing content (outside any

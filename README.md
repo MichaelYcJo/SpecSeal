@@ -1,4 +1,4 @@
-# claude_preset
+# SpecSeal
 
 Minimal, research-backed Claude Code preset, distributed as a **plugin**:
 an implement → review agent chain, a document layout that survives across
@@ -79,8 +79,8 @@ fact-finding. Repos without the config never see any of it.
 ```bash
 # 1. Plugin (skills + agents + hooks + commands)
 claude
-> /plugin marketplace add MichaelYcJo/claude_preset
-> /plugin install claude-preset
+> /plugin marketplace add MichaelYcJo/specseal
+> /plugin install specseal
 
 # 2. CLAUDE.md block — pick ONE scope
 bash install.sh            # interactive: global (~/.claude) or project (./)

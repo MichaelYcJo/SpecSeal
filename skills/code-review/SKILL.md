@@ -94,7 +94,7 @@ When the review is complete and the report delivered, mark the reviewed state
 so the commit gate (this plugin's PreToolUse hook) can recognize the cycle:
 
 ```bash
-git rev-parse HEAD > "$(git rev-parse --git-dir)/claude-preset-reviewed"
+git rev-parse HEAD > "$(git rev-parse --git-dir)/specseal-reviewed"
 ```
 
 A commit closes the cycle; the next change starts an unreviewed one.

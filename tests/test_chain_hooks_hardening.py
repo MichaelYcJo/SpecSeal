@@ -52,7 +52,7 @@ def test_gate_rearms_after_commit_moves_head(repo):
     opt_in(repo)
     gd = git(repo, "rev-parse", "--absolute-git-dir").stdout.strip()
     head = git(repo, "rev-parse", "HEAD").stdout.strip()
-    with open(os.path.join(gd, "claude-preset-reviewed"), "w") as f:
+    with open(os.path.join(gd, "specseal-reviewed"), "w") as f:
         f.write(head)
     (repo / "f.txt").write_text("more\n")
     git(repo, "commit", "-qam", "next")  # cycle closes, mark goes stale
@@ -86,7 +86,7 @@ def test_history_guard_catches_gh_after_chain(repo):
 
 def leases_of(repo):
     gd = git(repo, "rev-parse", "--absolute-git-dir").stdout.strip()
-    d = os.path.join(gd, "claude-preset-leases")
+    d = os.path.join(gd, "specseal-leases")
     return sorted(os.listdir(d)) if os.path.isdir(d) else []
 
 

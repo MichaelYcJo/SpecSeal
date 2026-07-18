@@ -38,7 +38,7 @@ def test_gate_allows_when_cycle_reviewed(repo):
     opt_in(repo)
     head = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"],
                           capture_output=True, text=True).stdout.strip()
-    with open(os.path.join(git_dir(repo), "claude-preset-reviewed"), "w") as f:
+    with open(os.path.join(git_dir(repo), "specseal-reviewed"), "w") as f:
         f.write(head)
     assert decision_of(run_hook("commit-review-gate.py",
                                 payload("git commit -m x", repo))) == "silent"
@@ -84,7 +84,7 @@ def test_history_guard_silent_without_opt_in(repo):
 # --- session-lease ---------------------------------------------------------
 
 def leases_of(repo):
-    d = os.path.join(git_dir(repo), "claude-preset-leases")
+    d = os.path.join(git_dir(repo), "specseal-leases")
     return sorted(os.listdir(d)) if os.path.isdir(d) else []
 
 
@@ -109,7 +109,7 @@ def test_lease_outside_any_repo_is_silent(tmp_path):
 def test_stale_leases_are_pruned(repo):
     import time
     run_hook("session-lease.py", payload("ls", repo, session="sess-old"))
-    stale = os.path.join(git_dir(repo), "claude-preset-leases", "sess-old")
+    stale = os.path.join(git_dir(repo), "specseal-leases", "sess-old")
     os.utime(stale, (time.time() - 100000,) * 2)
     run_hook("session-lease.py", payload("ls", repo, session="sess-new"))
     assert leases_of(repo) == ["sess-new"]

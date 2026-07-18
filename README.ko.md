@@ -1,4 +1,4 @@
-# claude_preset
+# SpecSeal
 
 연구 근거 기반의 미니멀 Claude Code 프리셋 — **플러그인**으로 배포됩니다.
 구현 → 리뷰 에이전트 체인, 세션을 넘어 살아남는 문서 레이아웃, 그 사이를
@@ -76,8 +76,8 @@ CI 용 스크립트를 동봉해, 스펙↔코드 좌표가 더 이상 해석되
 ```bash
 # 1. 플러그인 (스킬 + 에이전트 + 훅 + 커맨드)
 claude
-> /plugin marketplace add MichaelYcJo/claude_preset
-> /plugin install claude-preset
+> /plugin marketplace add MichaelYcJo/specseal
+> /plugin install specseal
 
 # 2. CLAUDE.md 블록 — 범위는 하나만 선택
 bash install.sh            # 대화형: 전역(~/.claude) 또는 프로젝트(./)

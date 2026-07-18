@@ -1,13 +1,13 @@
 {
-  "name": "claude-preset",
+  "name": "specseal",
   "owner": {
     "name": "MichaelYcJo"
   },
   "plugins": [
     {
-      "name": "claude-preset",
+      "name": "specseal",
       "source": "./",
-      "description": "Minimal, research-backed Claude Code preset — implement/review agent chain, SDD document layout (docs/specs/_ai), and enforcement hooks."
+      "description": "Specs, sealed \u2014 agent chain with hook enforcement, evidence ledger with drift detection, review handoff protocol."
     }
   ]
 }

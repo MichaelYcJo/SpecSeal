@@ -33,7 +33,7 @@ A migrating project declares, committed with the repo:
 | Coordinate-trust exceptions | paths whose recorded coordinates need re-verification, and why |
 
 Machine-local checkout paths never go in the repo. They live in
-`~/.claude/claude-preset/parity-paths.md`, keyed by the origin remote URL (so
+`~/.claude/specseal/parity-paths.md`, keyed by the origin remote URL (so
 worktrees and multiple checkouts resolve to one entry). Resolution order:
 recorded path → sibling directory of the current repo → verify by
 `git remote -v` against the declared original → **ask the user and record the

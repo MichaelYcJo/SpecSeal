@@ -3,7 +3,7 @@
 # since the ledger's baseline commit.
 #
 # Setup: vendor the checker into the repo first —
-#   cp <claude-preset plugin>/skills/evidence-check/scripts/evidence_check.py tools/
+#   cp <specseal plugin>/skills/evidence-check/scripts/evidence_check.py tools/
 # then copy this file to .github/workflows/evidence-check.yml.
 
 name: evidence-check

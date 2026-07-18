@@ -5,7 +5,7 @@ The worktree guard's process/tty/transcript heuristics cannot see every
 session: extension-hosted sessions aren't named `claude`, and a session whose
 cwd is elsewhere can still edit this tree through absolute paths (both
 observed live). Heuristics infer; leases DECLARE. Every tool call that
-touches a repo refreshes `<git-dir>/claude-preset-leases/<session-id>`, and
+touches a repo refreshes `<git-dir>/specseal-leases/<session-id>`, and
 the guard treats a fresh lease as a live work stream — no inference needed.
 
 Repo resolution: Write/Edit/NotebookEdit lease the repo containing the edited
@@ -53,7 +53,7 @@ def main():
     gd = git_dir(target)
     if not gd:
         return
-    leases = os.path.join(gd, "claude-preset-leases")
+    leases = os.path.join(gd, "specseal-leases")
     try:
         os.makedirs(leases, exist_ok=True)
         with open(os.path.join(leases, session), "w") as f:

@@ -2,7 +2,7 @@
 """PreToolUse gate: a commit needs a review in its cycle.
 
 The code-review skill marks a completed review by writing the reviewed HEAD
-into <git-dir>/claude-preset-reviewed. A commit closes that cycle (HEAD moves),
+into <git-dir>/specseal-reviewed. A commit closes that cycle (HEAD moves),
 so the next commit needs a fresh review mark.
 
 Opt-in per repository: the gate is active only where the preset workflow is in
@@ -89,7 +89,7 @@ def main():
 
     head = git(["rev-parse", "--verify", "--quiet", "HEAD"], cwd)
     git_dir = git(["rev-parse", "--git-dir"], cwd)
-    mark_path = os.path.join(cwd or ".", git_dir, "claude-preset-reviewed") if git_dir else ""
+    mark_path = os.path.join(cwd or ".", git_dir, "specseal-reviewed") if git_dir else ""
 
     marked = ""
     if mark_path and os.path.isfile(mark_path):
@@ -111,7 +111,7 @@ def main():
                     "permissionDecisionReason": (
                         "No review is recorded for this cycle (the code-review "
                         "skill writes the reviewed HEAD to "
-                        ".git/claude-preset-reviewed). Approve to commit anyway, "
+                        ".git/specseal-reviewed). Approve to commit anyway, "
                         "or run the review chain first. `[no-review]` in the "
                         "command also skips this gate."
                     ),

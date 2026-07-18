@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# claude_preset uninstaller — the exact inverse of install.sh.
+# specseal uninstaller — the exact inverse of install.sh.
 #
 # install.sh only ever writes the marker block into a CLAUDE.md, so this
 # removes only that block. It never touches skills/, agents/, commands/, or
@@ -12,8 +12,8 @@ set -euo pipefail
 # Usage: bash uninstall.sh [target-CLAUDE.md]   (default: ~/.claude/CLAUDE.md)
 
 TARGET="${1:-$HOME/.claude/CLAUDE.md}"
-START='<!-- claude-preset:start -->'
-END='<!-- claude-preset:end -->'
+START='<!-- specseal:start -->'
+END='<!-- specseal:end -->'
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 info() { echo -e "${GREEN}[info]${NC} $1"; }
@@ -38,4 +38,4 @@ fi
 
 echo ""
 info "The plugin uninstalls separately:"
-echo "       claude → /plugin uninstall claude-preset"
+echo "       claude → /plugin uninstall specseal"

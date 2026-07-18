@@ -1,4 +1,4 @@
-<!-- claude-preset:start -->
+<!-- specseal:start -->
 ## Language
 - Respond in Korean (한글). Code, comments, identifiers, commit messages: English.
 
@@ -12,4 +12,4 @@
 ## Git
 - No `Co-Authored-By` line. Run lint/format/typecheck before committing.
 - Worktrees only for concurrent sessions on the same tree — single-session work uses `git switch` (worktree-guard hook enforces this).
-<!-- claude-preset:end -->
+<!-- specseal:end -->

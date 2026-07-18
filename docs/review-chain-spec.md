@@ -11,7 +11,7 @@ changes accumulate → review runs → reviewed-HEAD mark written → commit all
 commit moves HEAD  → mark no longer matches → next cycle starts unreviewed
 ```
 
-- **Mark**: `<git-dir>/claude-preset-reviewed` containing the reviewed HEAD
+- **Mark**: `<git-dir>/specseal-reviewed` containing the reviewed HEAD
   SHA. Written by the review orchestrator as the `code-review` skill's
   closing step. Living under `.git/` keeps it uncommitted and per-worktree
   (each worktree has its own git-dir — no cross-worktree false sharing).

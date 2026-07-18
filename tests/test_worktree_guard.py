@@ -125,7 +125,7 @@ def lease_dir(repo):
     import subprocess
     gd = subprocess.run(["git", "-C", str(repo), "rev-parse", "--absolute-git-dir"],
                         capture_output=True, text=True).stdout.strip()
-    d = f"{gd}/claude-preset-leases"
+    d = f"{gd}/specseal-leases"
     import os
     os.makedirs(d, exist_ok=True)
     return d
