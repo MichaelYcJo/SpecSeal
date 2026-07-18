@@ -72,7 +72,19 @@ This record is the input for the reviewer and the next ticket. Unrecorded
 verification gets redone by every session that follows — the single largest
 avoidable cost in multi-session work.
 
-### 3. Write the overview
+### 3. The SDD file set
+
+A work item's directory is `specs/<id>-<slug>/`, bootstrapped from
+`templates/`:
+
+| File | Holds | When |
+|---|---|---|
+| `spec.md` | WHAT — scope, mandatory user scenarios & acceptance, grounding clauses | before implementing |
+| `plan.md` | HOW — phases as vertical slices, alternatives with failure scenarios; this is the Design Gate's artifact | before implementing (gated work) |
+| `questions.md` | decisions only a human can make — extracted so nothing ships on a silent assumption | as they arise |
+| `overview.md` | the closing record (below) | when implementation ends |
+
+### 4. Write the overview
 
 When implementation ends, write `specs/<work-item>/overview.md`:
 
@@ -88,7 +100,7 @@ When implementation ends, write `specs/<work-item>/overview.md`:
 Never record something as passing that you did not run. Findings from reading
 and findings from execution are labeled separately.
 
-### 4. Incorporate review — read the handoff directory first
+### 5. Incorporate review — read the handoff directory first
 
 A session fixing review feedback starts at `_ai/review-history/PR-<n>/`,
 **not** at the inline comments. Two of its files are owned by the implementer:
@@ -104,7 +116,7 @@ ships the code change and silently drops the tests and the evidence.
 Probes already run by a previous round (listed in `round-N.md`) are not
 rebuilt — only re-checked for whether the finding is now fixed.
 
-### 5. Export before merge — `_ai/` is deleted, so drain it first
+### 6. Export before merge — `_ai/` is deleted, so drain it first
 
 Before the PR merges, every unresolved (⬜) row must move out:
 
