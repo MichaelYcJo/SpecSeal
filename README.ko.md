@@ -1,5 +1,11 @@
 # SpecSeal
 
+[![tests](https://github.com/MichaelYcJo/SpecSeal/actions/workflows/test.yml/badge.svg)](https://github.com/MichaelYcJo/SpecSeal/actions/workflows/test.yml)
+
+**Specs, sealed** — 코드가 스펙에서 멀어지면 빌드가 빨개집니다.
+
+![SpecSeal 데모: evidence-check 가 스펙-코드 드리프트를 잡는 모습](./assets/demo.gif)
+
 연구 근거 기반의 미니멀 Claude Code 프리셋 — **플러그인**으로 배포됩니다.
 구현 → 리뷰 에이전트 체인, 세션을 넘어 살아남는 문서 레이아웃, 그 사이를
 기계적으로 강제하는 훅으로 구성됩니다.

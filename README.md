@@ -1,5 +1,11 @@
 # SpecSeal
 
+[![tests](https://github.com/MichaelYcJo/SpecSeal/actions/workflows/test.yml/badge.svg)](https://github.com/MichaelYcJo/SpecSeal/actions/workflows/test.yml)
+
+**Specs, sealed** — when code moves away from its spec, the build turns red.
+
+![SpecSeal demo: evidence-check catches spec-code drift](./assets/demo.gif)
+
 Minimal, research-backed Claude Code preset, distributed as a **plugin**:
 an implement → review agent chain, a document layout that survives across
 sessions, and hooks that enforce the loop mechanically.
