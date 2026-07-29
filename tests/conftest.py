@@ -8,10 +8,11 @@ import pytest
 
 HOOKS = os.path.join(os.path.dirname(__file__), "..", "hooks")
 
-# Default-locale determinism: module-level hook loads must not inherit the
-# developer machine's Korean locale — locale-specific tests override via
-# monkeypatch before a fresh load_hook_module call.
-os.environ.setdefault("SPECSEAL_LANG", "en")
+# Default-locale determinism: the suite owns its locale. A plain setdefault
+# is not enough — the author's machine exports SPECSEAL_LANG=ko session-wide
+# (measured), which would flip every default-language assertion. Tests that
+# need Korean monkeypatch the env and fresh-load the module.
+os.environ["SPECSEAL_LANG"] = "en"
 
 
 def load_hook_module(filename, name):
