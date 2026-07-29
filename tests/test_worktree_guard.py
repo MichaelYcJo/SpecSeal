@@ -96,7 +96,40 @@ def test_switch_idle_sessions_ask_with_ages(monkeypatch, capsys, repo):
     decision, reason = decide(monkeypatch, capsys, repo, "git switch feature/x",
                               sessions=([], IDLE, True))
     assert decision == "ask"
-    assert "터미널 입력/출력" in reason  # disaggregated signals shown
+    assert "terminal in/out" in reason  # disaggregated signals, English default
+
+
+def test_korean_locale_via_env(monkeypatch, capsys, repo):
+    from conftest import load_hook_module
+    monkeypatch.setenv("SPECSEAL_LANG", "ko")
+    wko = load_hook_module("worktree-guard.py", "wg_ko")  # fresh load resolves LANG
+    monkeypatch.setattr(wko, "sessions_in_tree", lambda top, own="": ([], IDLE, True))
+    monkeypatch.setattr(wko, "load_input", lambda: {
+        "tool_name": "Bash", "session_id": "me",
+        "tool_input": {"command": "git switch feature/x"}, "cwd": str(repo)})
+    try:
+        wko.main()
+    except SystemExit:
+        pass
+    reason = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "터미널 입력/출력" in reason
+
+
+def test_locale_defaults_to_english_without_env(monkeypatch):
+    from conftest import load_hook_module
+    monkeypatch.delenv("SPECSEAL_LANG", raising=False)
+    monkeypatch.setenv("LANG", "en_US.UTF-8")
+    monkeypatch.delenv("LC_ALL", raising=False)
+    weng = load_hook_module("worktree-guard.py", "wg_en")
+    assert weng.LANG == "en"
+
+
+def test_locale_follows_system_korean(monkeypatch):
+    from conftest import load_hook_module
+    monkeypatch.delenv("SPECSEAL_LANG", raising=False)
+    monkeypatch.setenv("LC_ALL", "ko_KR.UTF-8")
+    wko2 = load_hook_module("worktree-guard.py", "wg_ko2")
+    assert wko2.LANG == "ko"
 
 
 def test_switch_unreliable_detection_denies(monkeypatch, capsys, repo):

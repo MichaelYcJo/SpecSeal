@@ -1,6 +1,6 @@
 # Implementation Plan: <work item>
 
-<!-- specs/<id>-<slug>/plan.md — HOW, in phases. This is the Design Gate's
+<!-- specs/<unix-epoch-seconds>-<slug>/plan.md — HOW, in phases. This is the Design Gate's
 artifact: for 6+ file work, approval of this plan is the gate. -->
 
 ## Summary

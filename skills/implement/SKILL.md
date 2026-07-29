@@ -74,8 +74,10 @@ avoidable cost in multi-session work.
 
 ### 3. The SDD file set
 
-A work item's directory is `specs/<id>-<slug>/`, bootstrapped from
-`templates/`:
+A work item's directory is `specs/<unix-epoch-seconds>-<slug>/` (e.g.
+`specs/1784780439-center-list-sort/`), bootstrapped from `templates/`. The
+timestamp prefix keeps directories in creation order and collision-free
+without a registry — take it from `date +%s` when creating the directory.
 
 | File | Holds | When |
 |---|---|---|

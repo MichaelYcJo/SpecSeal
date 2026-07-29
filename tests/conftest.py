@@ -8,6 +8,11 @@ import pytest
 
 HOOKS = os.path.join(os.path.dirname(__file__), "..", "hooks")
 
+# Default-locale determinism: module-level hook loads must not inherit the
+# developer machine's Korean locale — locale-specific tests override via
+# monkeypatch before a fresh load_hook_module call.
+os.environ.setdefault("SPECSEAL_LANG", "en")
+
 
 def load_hook_module(filename, name):
     spec = importlib.util.spec_from_file_location(name, os.path.join(HOOKS, filename))
