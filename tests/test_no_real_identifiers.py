@@ -31,6 +31,8 @@ def tracked_text_files():
     for rel in out:
         if rel.endswith((".gif", ".png", ".jpg")):
             continue
+        if rel == "tests/test_no_real_identifiers.py":
+            continue  # this file defines the patterns and allowlist it hunts
         yield rel
 
 
