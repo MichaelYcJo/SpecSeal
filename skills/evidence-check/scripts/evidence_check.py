@@ -59,13 +59,11 @@ def changed_ranges(repo, baseline, path):
     new-side positions would miss the very lines the citation meant (caught
     by test_pure_deletion_still_drifts_neighbors).
     """
-    code, out = git(
-        ["diff", "--unified=0", f"{baseline}..HEAD", "--", path], repo
-    )
+    code, out = git(["diff", "--unified=0", f"{baseline}..HEAD", "--", path], repo)
     if code != 0:
         return []
     ranges = []
-    for m in re.finditer(r"^@@ -(\d+)(?:,(\d+))? \+\S+ @@", out, re.M):
+    for m in re.finditer(r"^@@ -(\d+)(?:,(\d+))? \+\S+ @@", out, re.MULTILINE):
         start = int(m.group(1))
         count = int(m.group(2)) if m.group(2) is not None else 1
         # A pure insertion (count 0) still touches its neighbor: keep 1 line.
@@ -106,17 +104,30 @@ def check_ledger(ledger, root, maps, cache, default_repo=None):
         for name, mapped in maps.items():
             if raw_path == name or raw_path.startswith(name + "/"):
                 repo = mapped
-                rel = raw_path[len(name):].lstrip("/") or "."
+                rel = raw_path[len(name) :].lstrip("/") or "."
                 break
         else:
-            if not os.path.isfile(os.path.join(root, raw_path)) and default_repo \
-                    and os.path.isfile(os.path.join(default_repo, raw_path)):
+            if (
+                not os.path.isfile(os.path.join(root, raw_path))
+                and default_repo
+                and os.path.isfile(os.path.join(default_repo, raw_path))
+            ):
                 repo = default_repo
         full = os.path.join(repo, rel)
 
         if not os.path.isfile(full):
-            if repo == root and not os.path.exists(os.path.join(root, rel.split("/")[0])):
-                findings.append(("EXTERNAL", coord, "not in this repo; pass --map/--default-repo"))
+            # Cross-repo coordinates always carry a prefix directory
+            # (legacy-api/src/...). A bare root-level path whose file is gone
+            # is a broken citation, not an external one — EXTERNAL is exempt
+            # from --strict, and a deleted file must fail the build.
+            if (
+                repo == root
+                and "/" in rel
+                and not os.path.exists(os.path.join(root, rel.split("/")[0]))
+            ):
+                findings.append(
+                    ("EXTERNAL", coord, "not in this repo; pass --map/--default-repo")
+                )
             else:
                 findings.append(("BROKEN", coord, "file not found"))
             continue
@@ -124,14 +135,19 @@ def check_ledger(ledger, root, maps, cache, default_repo=None):
         if n is not None and end > n:
             findings.append(("BROKEN", coord, f"file has {n} lines"))
             continue
-        base = baseline if repo == root else (
-            default_baseline if repo == default_repo else None)
+        base = (
+            baseline
+            if repo == root
+            else (default_baseline if repo == default_repo else None)
+        )
         if base:
             key = (repo, base, rel)
             if key not in cache:
                 cache[key] = changed_ranges(repo, base, rel)
             if overlaps(start, end, cache[key]):
-                findings.append(("DRIFTED", coord, f"touched since {base[:9]} — re-verify"))
+                findings.append(
+                    ("DRIFTED", coord, f"touched since {base[:9]} — re-verify")
+                )
                 continue
         findings.append(("OK", coord, ""))
     return baseline, findings
@@ -142,14 +158,21 @@ def main():
     ap.add_argument("root", nargs="?", default=".")
     ap.add_argument("--ledger", action="append", default=[])
     ap.add_argument("--map", action="append", default=[], metavar="NAME=PATH")
-    ap.add_argument("--default-repo", metavar="PATH",
-                    help="repo that unprefixed coordinates resolve against when "
-                         "absent from ROOT (migration ledgers cite the original repo)")
+    ap.add_argument(
+        "--default-repo",
+        metavar="PATH",
+        help="repo that unprefixed coordinates resolve against when "
+        "absent from ROOT (migration ledgers cite the original repo)",
+    )
     ap.add_argument("--strict", action="store_true", help="drift also fails")
     args = ap.parse_args()
 
     root = os.path.abspath(args.root)
-    default_repo = os.path.abspath(os.path.expanduser(args.default_repo)) if args.default_repo else None
+    default_repo = (
+        os.path.abspath(os.path.expanduser(args.default_repo))
+        if args.default_repo
+        else None
+    )
     maps = {}
     for spec in args.map:
         name, _, path = spec.partition("=")
@@ -157,7 +180,11 @@ def main():
 
     patterns = args.ledger or ["docs/**/_evidence.md"]
     ledgers = sorted(
-        {p for pat in patterns for p in glob.glob(os.path.join(root, pat), recursive=True)}
+        {
+            p
+            for pat in patterns
+            for p in glob.glob(os.path.join(root, pat), recursive=True)
+        }
     )
     if not ledgers:
         print("no evidence ledgers found — nothing to check")
