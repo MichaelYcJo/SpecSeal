@@ -145,6 +145,24 @@ are warned about, not resolved. For a reviewed, deduplicating merge run
 `/specseal:preset-setup` inside Claude Code instead — every deletion goes through an
 approval diff.
 
+## First run
+
+The plugin arrives silent: the gates stay quiet outside repos that opt in,
+and nothing runs until you ask for it.
+
+```
+> use the smith agent to implement <your ticket>
+```
+
+The smith reads the spec chain, implements, verifies, and hands off to the
+warden for review — you decide what happens to the report. To opt a repo
+into the commit gate and the review-history reminder, create `_ai/` at its
+root (`mkdir _ai`); the smith bootstraps the rest of the layout from
+`templates/` on first use.
+
+Two things work with no agent at all: the ledger drift check
+(`evidence_check.py`, the demo above) and every gate in the table.
+
 ## Language policy
 
 Functional files (skills, agents, hooks, commands) are English-only — they
