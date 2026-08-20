@@ -179,3 +179,16 @@ def test_lease_entries_flow_into_deny(monkeypatch, capsys, repo):
 def test_tracked_changes_ignore_untracked(repo):
     (repo / "new-untracked.txt").write_text("x")
     assert wg.tracked_changes(str(repo)) == []
+
+
+def test_bad_idle_override_falls_back_instead_of_crashing(monkeypatch):
+    # An unparseable override used to raise at import time; the hook then
+    # exited non-zero, which Claude Code reads as "no verdict" — one typo
+    # silently disabled the guard.
+    from conftest import load_hook_module
+    for bad in ("abc", "", "-3", "0"):
+        monkeypatch.setenv("WORKTREE_GUARD_IDLE_MIN", bad)
+        mod = load_hook_module("worktree-guard.py", f"wg_idle_{bad or 'empty'}")
+        assert mod.IDLE_MIN == 5, bad
+    monkeypatch.setenv("WORKTREE_GUARD_IDLE_MIN", "12")
+    assert load_hook_module("worktree-guard.py", "wg_idle_ok").IDLE_MIN == 12

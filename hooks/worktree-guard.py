@@ -54,7 +54,19 @@ import subprocess
 import sys
 import time
 
-IDLE_MIN = int(os.environ.get("WORKTREE_GUARD_IDLE_MIN", "5"))
+
+def _idle_min():
+    """A typo in the override must not disable the guard: an unparseable or
+    non-positive value falls back to the default rather than raising at
+    import time, where the crash would read as a silent allow."""
+    try:
+        v = int(os.environ.get("WORKTREE_GUARD_IDLE_MIN", "5"))
+    except ValueError:
+        return 5
+    return v if v > 0 else 5
+
+
+IDLE_MIN = _idle_min()
 
 
 def _lang():
