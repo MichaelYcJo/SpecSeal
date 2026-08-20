@@ -29,8 +29,10 @@ Four rounds of hardening, each triggered by a measured failure:
    edited a tree while no `claude`-named process had its cwd there and the
    tree's project transcripts stayed quiet (driving session lived under
    another cwd's slug). A PostToolUse hook now DECLARES work per tool call
-   into `<git-dir>/claude-preset-leases/<session-id>`; fresh foreign leases
-   are active work streams, no inference involved.
+   into `<git-dir>/claude-preset-leases/<session-id>` (the directory this
+   work item shipped; the rename to SpecSeal later moved it to
+   `specseal-leases/`); fresh foreign leases are active work streams, no
+   inference involved.
 
 ## What changed
 
