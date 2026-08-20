@@ -6,92 +6,98 @@
 
 ![SpecSeal demo: evidence-check catches spec-code drift](./assets/demo.gif)
 
-Minimal, research-backed Claude Code preset, distributed as a **plugin**:
-an implement → review agent chain, a document layout that survives across
-sessions, and hooks that enforce the loop mechanically.
+Coding agents make claims. SpecSeal makes them carry **marks**: a maker's
+mark that can only be stamped by actually reading the spec, a warden's seal
+without which no commit passes the gate, and a ledger where every clause
+points at the code that grounds it. When the code moves and the ledger
+doesn't, the build turns red.
 
-[한국어](./README.ko.md)
+No claim without a mark. No mark without a test. No merge without the seal.
 
-## Why so little always-loaded context
+Distributed as a Claude Code **plugin**; the ledger, the drift checker, and
+the handoff protocol work anywhere git does.
 
-Based on [arxiv 2602.11988](https://arxiv.org/abs/2602.11988): redundant
-context files *reduce* task success and inflate reasoning cost. Claude
-already knows SOLID, DRY, and "read before edit". This preset ships only
-what changes default behavior — everything else loads on demand (skills) or
-runs outside the context entirely (hooks).
+## Why the always-on context is ~15 lines
 
-## What's inside
+A seal is small; that is the point. Based on
+[arxiv 2602.11988](https://arxiv.org/abs/2602.11988), redundant context
+*reduces* task success and inflates reasoning cost — the model already knows
+SOLID, DRY, and "read before edit". SpecSeal ships only what changes default
+behavior; everything else loads when summoned (skills) or works outside the
+context entirely (hooks).
 
-| Component | What it does |
+## The chancery
+
+| Who / what | Office |
 |---|---|
-| **Agents** — `smith` · `warden` · `scribe` | Who: implementation, review, and migration fact-finding as separate contexts, each preloading its methodology skill |
-| **Skills** — `implement` · `code-review` · `legacy-parity` · `evidence-check` + quality utilities (`verify`, `audit`, `debug`, …) | How: procedures loaded only when triggered |
-| **Hooks** — commit-review-gate · review-history-guard · worktree-guard · lint-python | When: mechanical enforcement, auto-registered by the plugin (no settings.json wiring) |
-| **CLAUDE.md block** | The ~15 lines that must live in always-loaded context (language, tooling, two safety rules, git) |
+| **smith** (agent) | Forges and reforges the work, and stamps it with the maker's mark — a proof block that cannot be filled without reading the spec |
+| **warden** (agent) | Keeper of the seal. Tests the work — spec compliance first, then quality — and only then grants the mark the commit gate demands |
+| **scribe** (agent) | Copies faithfully, never editorializes. Fetches what the original code truly does, as coordinates, and keeps the ledger honest |
+| Skills | The methodologies each office follows (`implement`, `code-review`, `legacy-parity`, `evidence-check`, `writing-style`, plus quality utilities) |
+| Hooks | The gates themselves — auto-registered by the plugin, no settings wiring |
+| CLAUDE.md block | The ~15 always-on lines (language, tooling, two safety rules, git) |
 
-### The chain
+## The chain
 
 ```
-smith implements → verify → warden reviews → report to user
-        ↑                                                    │
-        └── fixes (user's call) ← user decides ──────────────┘
-commit  → allowed once the cycle carries a review mark (hook-enforced, approvable)
+smith forges → verify → warden tests → report to the user
+      ↑                                        │
+      └── reforging (user's call) ← user decides
+commit  → passes only with the warden's seal on this cycle (hook-enforced, approvable)
 ```
 
-The smith forges and stamps; the warden grants the seal; the scribe keeps the ledger.
+The smith forges and stamps; the warden grants the seal; the scribe keeps
+the ledger.
 
-Cross-session continuity lives in the repo, not the session:
+## The ledger
+
+Cross-session memory lives in the repo, not the session:
 
 | Root | Lifetime | Holds |
 |---|---|---|
-| `docs/` | permanent | policies, evidence ledger (spec clause ↔ code coordinates), follow-ups |
-| `specs/` | one work item | SDD, overview |
-| `_ai/` | between sessions | review rounds, todo handoffs — committed, drained, then deleted per PR |
+| `docs/` | permanent | policies, the evidence ledger (spec clause ↔ code coordinates), follow-ups |
+| `specs/` | one work item | SDD set: spec, plan, questions, closing overview |
+| `_ai/` | between sessions | review rounds and todo handoffs — committed, drained, then deleted per PR |
 
-Missing files bootstrap automatically from `templates/`. The handoff
-convention itself is specified tool-agnostically in
+Missing files bootstrap from `templates/`. The handoff convention is
+specified tool-agnostically in
 [docs/review-handoff-protocol.md](./docs/review-handoff-protocol.md) — any
 agent that reads and writes files in a git repo can conform.
 
-And the ledger is *checked*, not just kept: the `evidence-check` skill ships a
-CI-ready script that fails the build when a spec-to-code coordinate stops
-resolving, and flags ranges touched since the ledger's baseline commit for
-re-verification. Specs rot silently everywhere else — here the rot is a red build.
+And the ledger is *checked*, not merely kept: the `evidence-check` skill
+ships a CI-ready script that fails the build when a spec-to-code coordinate
+stops resolving, and flags ranges touched since the ledger's baseline commit
+for re-verification. Specs rot silently everywhere else — here the rot is a
+red build.
 
-### What the hooks do
+## The gates
 
 Hooks are scripts the plugin auto-registers; they run on your machine at
-specific tool events. Full decision tables live in
-[docs/worktree-guard-spec.md](./docs/worktree-guard-spec.md) and
+tool events. Full decision tables:
+[docs/worktree-guard-spec.md](./docs/worktree-guard-spec.md) ·
 [docs/review-chain-spec.md](./docs/review-chain-spec.md).
 
-| Hook | Fires | Does | Where it applies |
+| Gate | Fires | Does | Where |
 |---|---|---|---|
-| commit-review-gate | before `git commit` | asks for confirmation when the cycle has no review mark (`[no-review]` skips) | only repos with `_ai/` at the root — everywhere else it is silent |
-| review-history-guard | after posting/reading a PR review via `gh` | reminds to write / read `_ai/review-history/PR-n/` | same `_ai/` opt-in |
-| worktree-guard | before branch switches and worktree creation | blocks switches under another ACTIVE session; treats input/output/transcript-quiet sessions as forgotten tabs (ask, not block) | any git repo |
-| lint-python | after writing/editing a `.py` file | ruff auto-format + fix (uv → uvx → global ruff; silently skips if none) | any project |
+| commit-review-gate | before `git commit` | asks when the cycle bears no seal (`[no-review]` skips, visibly) | repos with `_ai/` at the root — silent elsewhere |
+| review-history-guard | after posting/reading a PR review via `gh` | reminds to write / read `_ai/review-history/PR-n/` | same opt-in |
+| worktree-guard | before branch switches and worktree creation | blocks switches under another ACTIVE session; quiet sessions get a question, not a wall — with forensics (host app, per-signal ages, last message) | any git repo |
+| session-lease | after every tool call | stamps "this session works this tree" into `.git/specseal-leases/` — declaration beats inference | any git repo |
+| lint-python | after writing a `.py` file | ruff auto-format (uv → uvx → global; silently skips if none) | any project |
 
-No hook sends anything anywhere — they read local process/git/file state and
-print decisions to Claude Code.
+No gate sends anything anywhere — they read local process/git/file state and
+print their verdicts to Claude Code.
 
-### Migrations
+## Honoring the original (migrations)
 
 A repo that declares `docs/parity.md` (original repo, baseline commit) gets
 three-way judgment — policy ↔ original ↔ new, with *preserve the original*
-as the fallback — and the `scribe` agent for original-code
-fact-finding. Repos without the config never see any of it.
+as the fallback — and the scribe fetches the original's facts. Repos without
+the config never see any of it.
 
 ## Cheat sheet
 
-**Runs by itself (hooks — nothing to invoke):**
-
-| When | What happens |
-|---|---|
-| before `git commit` | asks if the cycle has no review mark (repos with `_ai/` only) |
-| before branch switch / worktree creation | blocks or asks when another live session works this tree, with forensics |
-| after every tool call | stamps a session lease into `.git/specseal-leases/` |
-| after writing a `.py` file | ruff auto-format |
+**Runs by itself (the gates above — nothing to invoke).**
 
 **Run it yourself:**
 
@@ -109,18 +115,15 @@ fact-finding. Repos without the config never see any of it.
 | `[no-review]` in a commit command | skips the review gate once, visibly |
 | `[worktree-ok]` in a worktree command | softens the single-stream worktree deny to ask |
 | `WORKTREE_GUARD_IDLE_MIN=n` | idle threshold in minutes (default 5) |
-| `SPECSEAL_LANG=ko\|en` | guard prompt language (default: English / system locale) |
-
-**Loads on its own:** agents `smith` · `warden` · `scribe`,
-methodology skills, and the docs/specs/`_ai` layout bootstrapped from templates.
+| `SPECSEAL_LANG=ko\|en` | gate prompt language (default: English / system locale) |
 
 ## Install
 
 ```bash
-# 1. Plugin (skills + agents + hooks + commands)
+# 1. Plugin (agents + skills + gates)
 claude
-> /plugin marketplace add MichaelYcJo/specseal
-> /plugin install specseal
+> /plugin marketplace add MichaelYcJo/SpecSeal
+> /plugin install specseal@specseal
 
 # 2. CLAUDE.md block — pick ONE scope
 bash install.sh            # interactive: global (~/.claude) or project (./)
@@ -139,9 +142,9 @@ Functional files (skills, agents, hooks, commands) are English-only — they
 load into model context, and a translated mirror would drift. Korean exists
 for human-facing docs only (this README). One deliberate exception: the
 writing-style skill carries per-language prose rules (Korean and English
-sections) — those are independent norms, not mirrors, so the drift argument
-does not apply. Response language is set by the CLAUDE.md block, independent
-of instruction language.
+sections) — independent norms, not mirrors, so the drift argument does not
+apply. Response language is set by the CLAUDE.md block, independent of
+instruction language.
 
 ## License
 
