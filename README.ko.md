@@ -23,7 +23,7 @@
 
 | 컴포넌트 | 역할 |
 |---|---|
-| **에이전트** — `developer` · `code-reviewer` · `parity-checker` | Who: 구현·리뷰·마이그레이션 사실 확인을 별도 컨텍스트로 분리, 각자 방법론 스킬을 사전 로드 |
+| **에이전트** — `smith` · `warden` · `scribe` | Who: 구현·리뷰·마이그레이션 사실 확인을 별도 컨텍스트로 분리, 각자 방법론 스킬을 사전 로드 |
 | **스킬** — `implement` · `code-review` · `legacy-parity` · `evidence-check` + 품질 유틸(`verify`, `audit`, `debug`, …) | How: 트리거될 때만 로드되는 절차 |
 | **훅** — commit-review-gate · review-history-guard · worktree-guard · lint-python | When: 기계적 강제. 플러그인이 자동 등록 (settings.json 배선 불필요) |
 | **CLAUDE.md 블록** | 상시 로드가 불가피한 ~15줄 (언어·툴링·안전 규칙 둘·Git) |
@@ -31,11 +31,13 @@
 ### 체인
 
 ```
-developer 구현 → verify → code-reviewer 리뷰 → 리포트 보고
+smith 구현 → verify → warden 리뷰 → 리포트 보고
        ↑                                          │
        └── 수정 (사용자 지시) ← 사용자 판단 ←──────┘
 커밋   → 사이클에 리뷰 마크가 있어야 통과 (훅 강제, 승인으로 우회 가능)
 ```
+
+smith 가 벼려서 도장을 찍고, warden 이 검인을 내주고, scribe 가 원장을 지킵니다.
 
 세션 간 연속성은 세션이 아니라 저장소에 둡니다.
 
@@ -74,7 +76,7 @@ CI 용 스크립트를 동봉해, 스펙↔코드 좌표가 더 이상 해석되
 ### 마이그레이션
 
 `docs/parity.md`(원본 저장소·기준 커밋)를 선언한 레포는 3자 판정(정책서 ↔
-원본 ↔ 신규, 기본값은 **원본 보존**)과 원본 사실 확인 전담 `parity-checker`
+원본 ↔ 신규, 기본값은 **원본 보존**)과 원본 사실 확인 전담 `scribe`
 를 얻습니다. 설정이 없는 레포에서는 존재 자체가 드러나지 않습니다.
 
 ## 치트시트
@@ -106,7 +108,7 @@ CI 용 스크립트를 동봉해, 스펙↔코드 좌표가 더 이상 해석되
 | `WORKTREE_GUARD_IDLE_MIN=n` | 유휴 판정 임계 분 (기본 5) |
 | `SPECSEAL_LANG=ko\|en` | 가드 문구 언어 (기본: 영어/시스템 로케일) |
 
-**알아서 로드되는 것:** 에이전트 `developer` · `code-reviewer` · `parity-checker`,
+**알아서 로드되는 것:** 에이전트 `smith` · `warden` · `scribe`,
 방법론 스킬들, 템플릿에서 부트스트랩되는 docs/specs/`_ai` 레이아웃.
 
 ## 설치

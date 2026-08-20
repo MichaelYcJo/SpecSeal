@@ -11,7 +11,7 @@ description: |
 # implement — spec-driven implementation
 
 Methodology for implementing against written specs, leaving durable evidence,
-and closing the loop with review. Loaded by the `developer` agent; usable directly.
+and closing the loop with review. Loaded by the `smith` agent; usable directly.
 
 ## Document layout — three axes
 

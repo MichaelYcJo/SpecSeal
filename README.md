@@ -24,7 +24,7 @@ runs outside the context entirely (hooks).
 
 | Component | What it does |
 |---|---|
-| **Agents** — `developer` · `code-reviewer` · `parity-checker` | Who: implementation, review, and migration fact-finding as separate contexts, each preloading its methodology skill |
+| **Agents** — `smith` · `warden` · `scribe` | Who: implementation, review, and migration fact-finding as separate contexts, each preloading its methodology skill |
 | **Skills** — `implement` · `code-review` · `legacy-parity` · `evidence-check` + quality utilities (`verify`, `audit`, `debug`, …) | How: procedures loaded only when triggered |
 | **Hooks** — commit-review-gate · review-history-guard · worktree-guard · lint-python | When: mechanical enforcement, auto-registered by the plugin (no settings.json wiring) |
 | **CLAUDE.md block** | The ~15 lines that must live in always-loaded context (language, tooling, two safety rules, git) |
@@ -32,11 +32,13 @@ runs outside the context entirely (hooks).
 ### The chain
 
 ```
-developer implements → verify → code-reviewer reviews → report to user
+smith implements → verify → warden reviews → report to user
         ↑                                                    │
         └── fixes (user's call) ← user decides ──────────────┘
 commit  → allowed once the cycle carries a review mark (hook-enforced, approvable)
 ```
+
+The smith forges and stamps; the warden grants the seal; the scribe keeps the ledger.
 
 Cross-session continuity lives in the repo, not the session:
 
@@ -77,7 +79,7 @@ print decisions to Claude Code.
 
 A repo that declares `docs/parity.md` (original repo, baseline commit) gets
 three-way judgment — policy ↔ original ↔ new, with *preserve the original*
-as the fallback — and the `parity-checker` agent for original-code
+as the fallback — and the `scribe` agent for original-code
 fact-finding. Repos without the config never see any of it.
 
 ## Cheat sheet
@@ -109,7 +111,7 @@ fact-finding. Repos without the config never see any of it.
 | `WORKTREE_GUARD_IDLE_MIN=n` | idle threshold in minutes (default 5) |
 | `SPECSEAL_LANG=ko\|en` | guard prompt language (default: English / system locale) |
 
-**Loads on its own:** agents `developer` · `code-reviewer` · `parity-checker`,
+**Loads on its own:** agents `smith` · `warden` · `scribe`,
 methodology skills, and the docs/specs/`_ai` layout bootstrapped from templates.
 
 ## Install

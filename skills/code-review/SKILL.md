@@ -9,7 +9,7 @@ description: |
 
 # code-review — spec first, then quality
 
-Loaded by the `code-reviewer` agent; also drives the orchestrator running a
+Loaded by the `warden` agent; also drives the orchestrator running a
 review. The default assumption is **"this code has defects"** — try to find
 them, not to prove their absence. An ungrounded LGTM is forbidden; when
 uncertain, write a question, not a pass.
