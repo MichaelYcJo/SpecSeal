@@ -123,6 +123,11 @@ the config never see any of it.
 
 ## Install
 
+**Requirements**: `git`, and `python3` on PATH — the gates are Python
+scripts (preinstalled on macOS and most Linux distros; on Windows install
+Python 3 and make sure `python3` resolves). Optional: `uv`/`uvx` or `ruff`
+for the Python auto-format hook — without them it silently skips.
+
 ```bash
 # 1. Plugin (agents + skills + gates)
 claude
