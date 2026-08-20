@@ -158,11 +158,15 @@ approval diff.
 
 ## First run
 
-Two gates are opt-in: the commit gate and the review-history reminder stay
-silent until a repo has an `_ai/` directory at its root. The other three are
-not — worktree-guard and session-lease act in every git repo, and lint-python
-rewrites every `.py` file you save. Read the Where column above before
-installing globally.
+Two of the five gates wake only under a condition: the commit gate and the
+review-history reminder act in a repo that has an `_ai/` directory at its
+root, and stay silent everywhere else. You never create that directory by
+hand — the smith builds the layout, `_ai/` included, the first time it works
+in a repo.
+
+The other three carry no condition. worktree-guard and session-lease act in
+every git repo, and lint-python rewrites every `.py` file you save. Read the
+Where column above before installing globally.
 
 Agents run only when you name one:
 
@@ -171,10 +175,10 @@ Agents run only when you name one:
 ```
 
 The smith reads the spec chain, implements, verifies, and hands off to the
-warden for review — you decide what happens to the report. To opt a repo
-into the commit gate and the review-history reminder, create `_ai/` at its
-root (`mkdir _ai`); the smith bootstraps the rest of the layout from
-`templates/` on first use.
+warden for review — you decide what happens to the report. Anything the
+layout needs and the repo lacks (`docs/policies/<domain>/_evidence.md` with
+its baseline stamped, `_ai/README.md` carrying the export rules) the smith
+creates from `templates/` as it goes.
 
 Two things work with no agent at all: the ledger drift check
 (`evidence_check.py`, the demo above) and every gate in the table.
