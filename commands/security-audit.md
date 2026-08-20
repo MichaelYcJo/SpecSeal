@@ -1,4 +1,8 @@
-# /security-audit - Security Vulnerability Scan
+---
+description: Security vulnerability scan — OWASP Top 10, auth, data-exposure, dependency checklist.
+---
+
+# /specseal:security-audit - Security Vulnerability Scan
 
 ## OWASP Top 10 Check
 

@@ -1,5 +1,6 @@
 {
   "name": "specseal",
+  "description": "SpecSeal \u2014 specs, sealed: implement/review agent chain, evidence ledger with drift detection, hook-enforced gates.",
   "owner": {
     "name": "MichaelYcJo"
   },

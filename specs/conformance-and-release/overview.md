@@ -21,7 +21,7 @@ tool-agnostic spec.
 tests/ (3 files, 44 cases)            hooks + evidence-check regression suite
 .github/workflows/test.yml            ubuntu + macos matrix
 evals/ (5 cases + README)             claims → reproducible checks
-CHANGELOG.md, tag v0.3.2              release records
+tag v0.3.2                            release record
 docs/review-handoff-protocol.md       draft 0.1, READMEs link it
 hooks/worktree-guard.py               fresh_leases() extracted (testability)
 ```

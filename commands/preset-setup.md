@@ -2,7 +2,7 @@
 description: Merge the specseal CLAUDE.md block into the user's CLAUDE.md with semantic dedup — propose, get approval, then apply.
 ---
 
-# /preset-setup — reviewed CLAUDE.md merge
+# /specseal:preset-setup — reviewed CLAUDE.md merge
 
 Merge the preset's CLAUDE.md block into the user's global `~/.claude/CLAUDE.md`
 (or the target the user names). Unlike `install.sh`, which only inserts the

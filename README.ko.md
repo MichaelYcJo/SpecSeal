@@ -19,7 +19,7 @@ git 이 있는 곳이면 어디서든 동작합니다.
 ## 상시 컨텍스트가 ~15줄인 이유
 
 인장은 작아야 인장입니다. [arxiv 2602.11988](https://arxiv.org/abs/2602.11988)
-근거로, 중복 컨텍스트는 오히려 성공률을 낮추고 추론 비용을 늘립니다 — 모델은
+근거로, 컨텍스트 파일은 대체로 성공률을 높이지 못하면서 추론 비용을 20% 이상 늘립니다 — 모델은
 SOLID 도 DRY 도 이미 압니다. SpecSeal 은 기본 동작을 실제로 바꾸는 것만 싣고,
 나머지는 부를 때 로드되거나(스킬) 컨텍스트 밖에서 돕니다(훅).
 
@@ -77,11 +77,14 @@ CI 스크립트가 스펙↔코드 좌표가 해석되지 않으면 빌드를 �
 | commit-review-gate | `git commit` 직전 | 사이클에 검인이 없으면 확인창 (`[no-review]` 로 흔적을 남기며 생략 가능) | 루트에 `_ai/` 있는 레포만 — 그 외 침묵 |
 | review-history-guard | `gh` 로 PR 리뷰 게시/조회 직후 | `_ai/review-history/PR-n/` 쓰기/읽기 리마인드 | 같은 옵트인 |
 | worktree-guard | 브랜치 전환·worktree 생성 직전 | 다른 **활성** 세션이 있으면 차단, 조용한 세션이면 벽 대신 질문 — 포렌식(호스트 앱·신호별 시각·마지막 메시지) 포함 | 모든 git 레포 |
-| session-lease | 모든 도구 호출 직후 | "이 세션이 이 트리에서 일한다"를 `.git/specseal-leases/` 에 도장 — 추론 대신 선언 | 모든 git 레포 |
+| session-lease | 저장소를 건드리는 도구 호출(Bash·파일 편집) 직후 | "이 세션이 이 트리에서 일한다"를 `.git/specseal-leases/` 에 도장 — 추론 대신 선언 | 모든 git 레포 |
 | lint-python | `.py` 저장 직후 | ruff 자동 포맷 (uv → uvx → 전역, 없으면 조용히 스킵) | 모든 프로젝트 |
 
 어떤 게이트도 외부로 무언가를 보내지 않습니다 — 로컬 프로세스·git·파일
-상태만 읽고 판정을 Claude Code 에 출력합니다.
+상태만 읽고 판정을 Claude Code 에 출력합니다. 알아둘 읽기 동작 하나:
+worktree-guard 가 전환을 막을 때, 보호 대상이 어느 대화인지 알아볼 수 있도록
+다른 로컬 세션 기록의 마지막 사용자 메시지(80자)를 차단 사유에 인용합니다.
+이 스니펫은 기기 밖으로 나가지 않습니다.
 
 ## 원본에 대한 예우 (마이그레이션)
 
@@ -98,8 +101,8 @@ CI 스크립트가 스펙↔코드 좌표가 해석되지 않으면 빌드를 �
 | 명령 | 역할 |
 |---|---|
 | `python3 <플러그인>/skills/evidence-check/scripts/evidence_check.py . [--strict]` | 원장 드리프트 검사 (데모 GIF 의 그것) — 에이전트 없이 동작 |
-| `/preset-setup` | CLAUDE.md 블록의 승인 기반 의미 병합 |
-| `/security-audit` · `/testing` | 커버리지 체크리스트 |
+| `/specseal:preset-setup` | CLAUDE.md 블록의 승인 기반 의미 병합 |
+| `/specseal:security-audit` · `/specseal:testing` | 커버리지 체크리스트 |
 | `bash install.sh [--project]` / `bash uninstall.sh` | CLAUDE.md 마커 블록 추가/제거 |
 
 **명령에 섞는 스위치:**
@@ -127,7 +130,7 @@ bash install.sh --project  # 비대화형 프로젝트 범위
 `install.sh` 는 `CLAUDE.md.bak` 으로 백업하고, 자기 마커 블록만 병합하며
 (멱등 — 다시 실행하면 갱신), 사용자 본인의 내용은 절대 고치지 않습니다 —
 겹침은 경고만 합니다. 중복까지 정리하는 병합은 Claude Code 안에서
-`/preset-setup` 을 실행하세요. 모든 삭제가 승인 diff 를 거칩니다.
+`/specseal:preset-setup` 을 실행하세요. 모든 삭제가 승인 diff 를 거칩니다.
 
 ## 언어 정책
 
@@ -135,8 +138,8 @@ bash install.sh --project  # 비대화형 프로젝트 범위
 로드되는 파일이고, 번역 미러는 반드시 어긋나기 때문입니다. 한국어는 사람이
 읽는 문서(이 README)에만 둡니다. 의도된 예외 하나: writing-style 스킬은
 언어별 문장 규칙(한국어·영어 절)을 담는데, 이는 번역 미러가 아니라 각 언어의
-독립 규범이라 드리프트 논리가 적용되지 않습니다. 응답 언어는 CLAUDE.md
-블록이 정하므로 지시문 언어와 무관합니다.
+독립 규범이라 드리프트 논리가 적용되지 않습니다. 응답 언어는 사용자 자신의 CLAUDE.md 설정을 따릅니다 — 배포되는 블록은
+언어를 강제하지 않습니다.
 
 ## 라이선스
 

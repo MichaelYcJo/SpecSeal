@@ -20,8 +20,8 @@ the handoff protocol work anywhere git does.
 ## Why the always-on context is ~15 lines
 
 A seal is small; that is the point. Based on
-[arxiv 2602.11988](https://arxiv.org/abs/2602.11988), redundant context
-*reduces* task success and inflates reasoning cost — the model already knows
+[arxiv 2602.11988](https://arxiv.org/abs/2602.11988), context files generally
+do *not* improve task success while adding over 20% inference cost — the model already knows
 SOLID, DRY, and "read before edit". SpecSeal ships only what changes default
 behavior; everything else loads when summoned (skills) or works outside the
 context entirely (hooks).
@@ -82,11 +82,15 @@ tool events. Full decision tables:
 | commit-review-gate | before `git commit` | asks when the cycle bears no seal (`[no-review]` skips, visibly) | repos with `_ai/` at the root — silent elsewhere |
 | review-history-guard | after posting/reading a PR review via `gh` | reminds to write / read `_ai/review-history/PR-n/` | same opt-in |
 | worktree-guard | before branch switches and worktree creation | blocks switches under another ACTIVE session; quiet sessions get a question, not a wall — with forensics (host app, per-signal ages, last message) | any git repo |
-| session-lease | after every tool call | stamps "this session works this tree" into `.git/specseal-leases/` — declaration beats inference | any git repo |
+| session-lease | after repo-touching tool calls (Bash · file edits) | stamps "this session works this tree" into `.git/specseal-leases/` — declaration beats inference | any git repo |
 | lint-python | after writing a `.py` file | ruff auto-format (uv → uvx → global; silently skips if none) | any project |
 
 No gate sends anything anywhere — they read local process/git/file state and
-print their verdicts to Claude Code.
+print their verdicts to Claude Code. One deliberate read to know about:
+when the worktree-guard blocks a switch, it quotes the last user message
+(80 chars) of the OTHER local session's transcript in its block reason, so
+the human can recognize which conversation is being protected. That snippet
+stays on your machine.
 
 ## Honoring the original (migrations)
 
@@ -104,8 +108,8 @@ the config never see any of it.
 | Command | Does |
 |---|---|
 | `python3 <plugin>/skills/evidence-check/scripts/evidence_check.py . [--strict]` | ledger drift check (the demo GIF) — works without any agent |
-| `/preset-setup` | approval-gated semantic merge of the CLAUDE.md block |
-| `/security-audit` · `/testing` | coverage checklists |
+| `/specseal:preset-setup` | approval-gated semantic merge of the CLAUDE.md block |
+| `/specseal:security-audit` · `/specseal:testing` | coverage checklists |
 | `bash install.sh [--project]` / `bash uninstall.sh` | add / remove the CLAUDE.md marker block |
 
 **Inline switches:**
@@ -133,7 +137,7 @@ bash install.sh --project  # non-interactive project scope
 `install.sh` backs up to `CLAUDE.md.bak`, merges only its marker block
 (idempotent — rerun to update), and never edits your own content: overlaps
 are warned about, not resolved. For a reviewed, deduplicating merge run
-`/preset-setup` inside Claude Code instead — every deletion goes through an
+`/specseal:preset-setup` inside Claude Code instead — every deletion goes through an
 approval diff.
 
 ## Language policy
@@ -143,8 +147,8 @@ load into model context, and a translated mirror would drift. Korean exists
 for human-facing docs only (this README). One deliberate exception: the
 writing-style skill carries per-language prose rules (Korean and English
 sections) — independent norms, not mirrors, so the drift argument does not
-apply. Response language is set by the CLAUDE.md block, independent of
-instruction language.
+apply. Response language follows the user's own CLAUDE.md settings — the
+distributed block does not impose one.
 
 ## License
 

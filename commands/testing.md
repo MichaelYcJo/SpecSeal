@@ -1,4 +1,8 @@
-# /testing - Test Strategy & Implementation
+---
+description: Test strategy and implementation — pyramid, coverage priorities, edge-case checklist.
+---
+
+# /specseal:testing - Test Strategy & Implementation
 
 ## Scope
 Design test strategy, write tests, improve coverage.
