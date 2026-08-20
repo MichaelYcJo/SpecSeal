@@ -23,6 +23,12 @@ if [ ! -f "$TARGET" ]; then
     warn "$TARGET not found — nothing to remove."
 else
     if grep -qF "$START" "$TARGET"; then
+        # Without the end marker the awk below would delete everything after
+        # START — refuse instead of guessing where the block ends.
+        if ! grep -qF "$END" "$TARGET"; then
+            warn "Start marker found but no end marker in $TARGET — refusing to edit. Repair or remove the block manually."
+            exit 1
+        fi
         cp "$TARGET" "$TARGET.bak"
         info "Backed up to $TARGET.bak"
         awk -v s="$START" -v e="$END" '

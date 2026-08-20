@@ -69,6 +69,10 @@ else
     info "Backed up existing file to $TARGET.bak"
 
     if grep -qF "$START" "$TARGET"; then
+        # A start marker without its end marker means the block is damaged;
+        # the update below would silently drop everything after START.
+        grep -qF "$END" "$TARGET" || error \
+            "Found the start marker but no end marker in $TARGET — refusing to edit. Repair the block (or delete it) and rerun."
         # Replace everything between the markers (inclusive) with the new block.
         # BSD awk rejects multi-line -v strings, so assemble in three parts.
         awk -v s="$START" 'index($0, s) { exit } { print }' "$TARGET.bak" > "$TARGET"
@@ -86,7 +90,7 @@ else
       !in_block    { print }
       index($0, e) { in_block = 0 }
     ' "$TARGET")"
-    for kw in 'Language' '한국어' 'Korean' 'uv' 'pnpm' 'Co-Authored' 'worktree' 'Verification'; do
+    for kw in 'uv' 'pnpm' 'worktree' 'Verification' 'Fix Rule'; do
         if printf '%s\n' "$OUTSIDE" | grep -qiw -- "$kw"; then
             warn "Outside the preset block, '$kw' appears — check for overlap with the block."
         fi
@@ -95,8 +99,8 @@ fi
 
 echo ""
 info "CLAUDE.md done. Remaining components install as a plugin:"
-echo "       claude → /plugin marketplace add MichaelYcJo/specseal"
-echo "                /plugin install specseal"
+echo "       claude → /plugin marketplace add MichaelYcJo/SpecSeal"
+echo "                /plugin install specseal@specseal"
 echo ""
 info "For a reviewed, deduplicated merge instead of this mechanical one:"
 echo "       restore $TARGET.bak, then run /preset-setup inside Claude Code."
