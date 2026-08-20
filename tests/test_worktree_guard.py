@@ -4,10 +4,10 @@ Decision tests stub session detection — CI runners have no claude processes,
 which would otherwise push every branch switch into the conservative-deny
 path and hide the logic under test.
 """
+
 import json
 
 import pytest
-
 from conftest import load_hook_module
 
 wg = load_hook_module("worktree-guard.py", "wg")
@@ -18,21 +18,25 @@ IDLE = [(222, "/tree", 400.0, 90.0, "Terminal")]
 
 # --- classify: what counts as a branch switch / worktree creation ---------
 
-@pytest.mark.parametrize("cmd,expected", [
-    ("git switch feature/x", "switch"),
-    ("git switch -c feature/y", "create+switch"),
-    ("git switch -", "switch"),                      # previous branch IS a switch
-    ("git checkout -b feature/y", "create+switch"),
-    ("git checkout -", "switch"),
-    ("git worktree add ../wt feature/x", "worktree-add"),
-    ("git worktree list", None),
-    ("git worktree remove ../wt", None),
-    ("echo git switch feature/x", None),             # prose mention, not a command
-    ("cat > g.md <<EOF\nrun: git switch feature/x\nEOF", None),
-    ("VAR=1 git switch feature/x", "switch"),        # env assignment prefix
-    ("command git switch feature/x", "switch"),
-    ("git status", None),
-])
+
+@pytest.mark.parametrize(
+    "cmd,expected",
+    [
+        ("git switch feature/x", "switch"),
+        ("git switch -c feature/y", "create+switch"),
+        ("git switch -", "switch"),  # previous branch IS a switch
+        ("git checkout -b feature/y", "create+switch"),
+        ("git checkout -", "switch"),
+        ("git worktree add ../wt feature/x", "worktree-add"),
+        ("git worktree list", None),
+        ("git worktree remove ../wt", None),
+        ("echo git switch feature/x", None),  # prose mention, not a command
+        ("cat > g.md <<EOF\nrun: git switch feature/x\nEOF", None),
+        ("VAR=1 git switch feature/x", "switch"),  # env assignment prefix
+        ("command git switch feature/x", "switch"),
+        ("git status", None),
+    ],
+)
 def test_classify(repo, cmd, expected):
     got = None
     for seg in wg.split_segments(cmd):
@@ -48,23 +52,33 @@ def test_classify_checkout_of_existing_file_is_restore(repo):
 
 def test_classify_checkout_dwim_remote_branch(repo, tmp_path):
     import subprocess
+
     clone = tmp_path / "clone"
     subprocess.run(["git", "clone", "-q", str(repo), str(clone)], check=True)
     # feature/x exists only as origin/feature/x in the clone
-    subprocess.run(["git", "-C", str(clone), "branch", "-Dq", "feature/x"],
-                   capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(clone), "branch", "-Dq", "feature/x"], capture_output=True
+    )
     assert wg.classify("git checkout feature/x", str(clone)) == "switch"
 
 
 # --- decision matrix (session detection stubbed) --------------------------
 
-def decide(monkeypatch, capsys, repo, command, sessions=([], [], True),
-           session_id="me"):
+
+def decide(
+    monkeypatch, capsys, repo, command, sessions=([], [], True), session_id="me"
+):
     monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": sessions)
-    monkeypatch.setattr(wg, "load_input", lambda: {
-        "tool_name": "Bash", "session_id": session_id,
-        "tool_input": {"command": command}, "cwd": str(repo),
-    })
+    monkeypatch.setattr(
+        wg,
+        "load_input",
+        lambda: {
+            "tool_name": "Bash",
+            "session_id": session_id,
+            "tool_input": {"command": command},
+            "cwd": str(repo),
+        },
+    )
     try:
         wg.main()
     except SystemExit:
@@ -86,37 +100,50 @@ def test_switch_dirty_single_asks(monkeypatch, capsys, repo):
 
 
 def test_switch_active_session_denies(monkeypatch, capsys, repo):
-    decision, reason = decide(monkeypatch, capsys, repo, "git switch feature/x",
-                              sessions=(ACTIVE, [], True))
+    decision, reason = decide(
+        monkeypatch, capsys, repo, "git switch feature/x", sessions=(ACTIVE, [], True)
+    )
     assert decision == "deny"
     assert "VS Code" in reason  # host app attribution shown
 
 
 def test_switch_idle_sessions_ask_with_ages(monkeypatch, capsys, repo):
-    decision, reason = decide(monkeypatch, capsys, repo, "git switch feature/x",
-                              sessions=([], IDLE, True))
+    decision, reason = decide(
+        monkeypatch, capsys, repo, "git switch feature/x", sessions=([], IDLE, True)
+    )
     assert decision == "ask"
     assert "terminal in/out" in reason  # disaggregated signals, English default
 
 
 def test_korean_locale_via_env(monkeypatch, capsys, repo):
     from conftest import load_hook_module
+
     monkeypatch.setenv("SPECSEAL_LANG", "ko")
     wko = load_hook_module("worktree-guard.py", "wg_ko")  # fresh load resolves LANG
     monkeypatch.setattr(wko, "sessions_in_tree", lambda top, own="": ([], IDLE, True))
-    monkeypatch.setattr(wko, "load_input", lambda: {
-        "tool_name": "Bash", "session_id": "me",
-        "tool_input": {"command": "git switch feature/x"}, "cwd": str(repo)})
+    monkeypatch.setattr(
+        wko,
+        "load_input",
+        lambda: {
+            "tool_name": "Bash",
+            "session_id": "me",
+            "tool_input": {"command": "git switch feature/x"},
+            "cwd": str(repo),
+        },
+    )
     try:
         wko.main()
     except SystemExit:
         pass
-    reason = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["permissionDecisionReason"]
+    reason = json.loads(capsys.readouterr().out)["hookSpecificOutput"][
+        "permissionDecisionReason"
+    ]
     assert "터미널 입력/출력" in reason
 
 
 def test_locale_defaults_to_english_without_env(monkeypatch):
     from conftest import load_hook_module
+
     monkeypatch.delenv("SPECSEAL_LANG", raising=False)
     monkeypatch.setenv("LANG", "en_US.UTF-8")
     monkeypatch.delenv("LC_ALL", raising=False)
@@ -126,40 +153,70 @@ def test_locale_defaults_to_english_without_env(monkeypatch):
 
 def test_locale_follows_system_korean(monkeypatch):
     from conftest import load_hook_module
+
     monkeypatch.delenv("SPECSEAL_LANG", raising=False)
     monkeypatch.setenv("LC_ALL", "ko_KR.UTF-8")
     wko2 = load_hook_module("worktree-guard.py", "wg_ko2")
     assert wko2.LANG == "ko"
 
 
-def test_switch_unreliable_detection_denies(monkeypatch, capsys, repo):
-    assert decide(monkeypatch, capsys, repo, "git switch feature/x",
-                  sessions=([], [], False))[0] == "deny"
+def test_switch_unreliable_detection_asks(monkeypatch, capsys, repo):
+    # deny once locked out every extension-hosted session (ancestor process
+    # isn't named `claude` there); undeterminable now costs one confirmation.
+    assert (
+        decide(
+            monkeypatch, capsys, repo, "git switch feature/x", sessions=([], [], False)
+        )[0]
+        == "ask"
+    )
 
 
 def test_worktree_add_single_denies(monkeypatch, capsys, repo):
-    assert decide(monkeypatch, capsys, repo,
-                  "git worktree add ../wt feature/x")[0] == "deny"
+    assert (
+        decide(monkeypatch, capsys, repo, "git worktree add ../wt feature/x")[0]
+        == "deny"
+    )
 
 
 def test_worktree_add_user_tag_downgrades_to_ask(monkeypatch, capsys, repo):
-    assert decide(monkeypatch, capsys, repo,
-                  "git worktree add ../wt feature/x  # [worktree-ok]")[0] == "ask"
+    assert (
+        decide(
+            monkeypatch,
+            capsys,
+            repo,
+            "git worktree add ../wt feature/x  # [worktree-ok]",
+        )[0]
+        == "ask"
+    )
 
 
 def test_worktree_add_active_session_asks(monkeypatch, capsys, repo):
-    assert decide(monkeypatch, capsys, repo, "git worktree add ../wt feature/x",
-                  sessions=(ACTIVE, [], True))[0] == "ask"
+    assert (
+        decide(
+            monkeypatch,
+            capsys,
+            repo,
+            "git worktree add ../wt feature/x",
+            sessions=(ACTIVE, [], True),
+        )[0]
+        == "ask"
+    )
 
 
 # --- leases: declared work streams ----------------------------------------
 
+
 def lease_dir(repo):
     import subprocess
-    gd = subprocess.run(["git", "-C", str(repo), "rev-parse", "--absolute-git-dir"],
-                        capture_output=True, text=True).stdout.strip()
+
+    gd = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "--absolute-git-dir"],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     d = f"{gd}/specseal-leases"
     import os
+
     os.makedirs(d, exist_ok=True)
     return d
 
@@ -176,7 +233,9 @@ def test_own_lease_is_ignored(repo):
 
 
 def test_stale_lease_is_ignored(repo):
-    import os, time
+    import os
+    import time
+
     d = lease_dir(repo)
     open(f"{d}/old-session", "w").write("1")
     os.utime(f"{d}/old-session", (time.time() - 3600,) * 2)

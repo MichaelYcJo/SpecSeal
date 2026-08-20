@@ -45,6 +45,7 @@ worktree subcommand (`list`, `remove`, `prune`). `git switch -`/`checkout -`
 count as switches (they are). A `git checkout <name>` that would DWIM a
 remote-only branch is also a switch.
 """
+
 import json
 import os
 import re
@@ -70,6 +71,8 @@ LANG = _lang()
 
 def tr(en, ko):
     return ko if LANG == "ko" else en
+
+
 WRAPPERS = {"command", "nohup", "time", "env", "sudo"}
 
 
@@ -103,10 +106,9 @@ def parse_git(tokens):
         break
     if i >= len(tokens) or os.path.basename(tokens[i]) != "git":
         return None
-    rest = tokens[i + 1:]
+    rest = tokens[i + 1 :]
     i = 0
-    takes_value = {"-C", "-c", "--git-dir", "--work-tree", "--namespace",
-                   "--exec-path"}
+    takes_value = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
     while i < len(rest):
         t = rest[i]
         if t in takes_value:
@@ -118,14 +120,15 @@ def parse_git(tokens):
         break
     if i >= len(rest):
         return None
-    return rest[i], rest[i + 1:]
+    return rest[i], rest[i + 1 :]
 
 
 def is_ref(name: str, cwd: str) -> bool:
     try:
         r = subprocess.run(
             ["git", "rev-parse", "--verify", "--quiet", f"{name}^{{commit}}"],
-            cwd=cwd or None, capture_output=True,
+            cwd=cwd or None,
+            capture_output=True,
         )
         return r.returncode == 0
     except Exception:
@@ -169,7 +172,11 @@ def classify(segment: str, cwd: str):
         if not positionals:
             return None
         first = positionals[0]
-        if first == "." or os.path.exists(os.path.join(cwd or ".", first)) or os.path.exists(first):
+        if (
+            first == "."
+            or os.path.exists(os.path.join(cwd or ".", first))
+            or os.path.exists(first)
+        ):
             return None  # restoring a file/dir, not switching branch
         if is_ref(first, cwd):
             return "switch"
@@ -186,8 +193,9 @@ def ancestors(pid: int):
     cur = pid
     for _ in range(20):
         try:
-            r = subprocess.run(["ps", "-o", "ppid=", "-p", str(cur)],
-                               capture_output=True, text=True)
+            r = subprocess.run(
+                ["ps", "-o", "ppid=", "-p", str(cur)], capture_output=True, text=True
+            )
             ppid = int(r.stdout.strip())
         except Exception:
             break
@@ -200,8 +208,11 @@ def ancestors(pid: int):
 
 def proc_cwd(pid: int):
     try:
-        r = subprocess.run(["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],
-                           capture_output=True, text=True)
+        r = subprocess.run(
+            ["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],
+            capture_output=True,
+            text=True,
+        )
         for line in r.stdout.splitlines():
             if line.startswith("n"):
                 return line[1:]
@@ -210,12 +221,29 @@ def proc_cwd(pid: int):
     return None
 
 
-SHELLS = {"zsh", "bash", "sh", "fish", "login", "tmux", "screen", "claude",
-          "-zsh", "-bash"}
-APP_LABELS = [("Code Helper", "VS Code"), ("Visual Studio Code", "VS Code"),
-              ("Cursor", "Cursor"), ("iTerm", "iTerm2"),
-              ("Terminal", "Terminal"), ("WezTerm", "WezTerm"),
-              ("Warp", "Warp"), ("kitty", "kitty"), ("Alacritty", "Alacritty")]
+SHELLS = {
+    "zsh",
+    "bash",
+    "sh",
+    "fish",
+    "login",
+    "tmux",
+    "screen",
+    "claude",
+    "-zsh",
+    "-bash",
+}
+APP_LABELS = [
+    ("Code Helper", "VS Code"),
+    ("Visual Studio Code", "VS Code"),
+    ("Cursor", "Cursor"),
+    ("iTerm", "iTerm2"),
+    ("Terminal", "Terminal"),
+    ("WezTerm", "WezTerm"),
+    ("Warp", "Warp"),
+    ("kitty", "kitty"),
+    ("Alacritty", "Alacritty"),
+]
 
 
 def host_app(pid: int):
@@ -225,8 +253,11 @@ def host_app(pid: int):
     cur = pid
     for _ in range(15):
         try:
-            r = subprocess.run(["ps", "-o", "ppid=,comm=", "-p", str(cur)],
-                               capture_output=True, text=True)
+            r = subprocess.run(
+                ["ps", "-o", "ppid=,comm=", "-p", str(cur)],
+                capture_output=True,
+                text=True,
+            )
             out = r.stdout.strip()
             if not out:
                 return None
@@ -287,8 +318,11 @@ def last_user_snippet(cwd: str, own_session_id: str):
         if isinstance(content, str):
             text = content
         elif isinstance(content, list):
-            text = " ".join(x.get("text", "") for x in content
-                            if isinstance(x, dict) and x.get("type") == "text")
+            text = " ".join(
+                x.get("text", "")
+                for x in content
+                if isinstance(x, dict) and x.get("type") == "text"
+            )
         else:
             continue
         text = " ".join(text.split())
@@ -307,8 +341,9 @@ def tty_idle_minutes(pid: int):
     repaint at all (verified), so the fresher of the two is the signal.
     """
     try:
-        r = subprocess.run(["ps", "-o", "tty=", "-p", str(pid)],
-                           capture_output=True, text=True)
+        r = subprocess.run(
+            ["ps", "-o", "tty=", "-p", str(pid)], capture_output=True, text=True
+        )
         tty = r.stdout.strip()
         if not tty or tty == "??":
             return None
@@ -336,6 +371,7 @@ def last_active_event_epoch(path: str):
     someone is actually driving: user/assistant/tool traffic.
     """
     import datetime
+
     try:
         size = os.path.getsize(path)
         with open(path, "rb") as f:
@@ -354,7 +390,9 @@ def last_active_event_epoch(path: str):
         if not isinstance(ts, str):
             continue
         try:
-            return datetime.datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+            return datetime.datetime.fromisoformat(
+                ts.replace("Z", "+00:00")
+            ).timestamp()
         except ValueError:
             continue
     return None
@@ -435,9 +473,17 @@ def fresh_leases(top: str, own_session_id: str = ""):
     from another cwd (both observed live)."""
     entries = []
     try:
-        gd = subprocess.run(["git", "rev-parse", "--absolute-git-dir"],
-                            cwd=top or None, capture_output=True, text=True)
-        leases = os.path.join(gd.stdout.strip(), "specseal-leases") if gd.returncode == 0 else None
+        gd = subprocess.run(
+            ["git", "rev-parse", "--absolute-git-dir"],
+            cwd=top or None,
+            capture_output=True,
+            text=True,
+        )
+        leases = (
+            os.path.join(gd.stdout.strip(), "specseal-leases")
+            if gd.returncode == 0
+            else None
+        )
     except Exception:
         leases = None
     if leases and os.path.isdir(leases):
@@ -529,20 +575,29 @@ def fmt_sessions(entries):
     lines = []
     for p, d, tty_idle, tr_idle, app in entries:
         if p is None:
-            kind = (tr("lease declaration", "lease 선언") if "[lease:" in d
-                    else tr("transcript activity", "작업 기록(트랜스크립트)"))
-            lines.append(tr(
-                f"    (unidentified session — extension panel or a session in another cwd)  {d}\n"
-                f"        {kind} {_age(tr_idle)} — working on this tree right now",
-                f"    (프로세스 미확인 세션 — VS Code 확장 패널·다른 cwd 의 세션 등)  {d}\n"
-                f"        {kind} {_age(tr_idle)} — 지금 이 트리에서 작업 중"))
+            kind = (
+                tr("lease declaration", "lease 선언")
+                if "[lease:" in d
+                else tr("transcript activity", "작업 기록(트랜스크립트)")
+            )
+            lines.append(
+                tr(
+                    f"    (unidentified session — extension panel or a session in another cwd)  {d}\n"
+                    f"        {kind} {_age(tr_idle)} — working on this tree right now",
+                    f"    (프로세스 미확인 세션 — VS Code 확장 패널·다른 cwd 의 세션 등)  {d}\n"
+                    f"        {kind} {_age(tr_idle)} — 지금 이 트리에서 작업 중",
+                )
+            )
             continue
         where = (tr(f" ({app} terminal)", f" ({app} 터미널)")) if app else ""
-        lines.append(tr(
-            f"    pid {p}{where}  {d}\n"
-            f"        terminal in/out {_age(tty_idle)} · transcript activity {_age(tr_idle)}",
-            f"    pid {p}{where}  {d}\n"
-            f"        터미널 입력/출력 {_age(tty_idle)} · 작업 기록(트랜스크립트) {_age(tr_idle)}"))
+        lines.append(
+            tr(
+                f"    pid {p}{where}  {d}\n"
+                f"        terminal in/out {_age(tty_idle)} · transcript activity {_age(tr_idle)}",
+                f"    pid {p}{where}  {d}\n"
+                f"        터미널 입력/출력 {_age(tty_idle)} · 작업 기록(트랜스크립트) {_age(tr_idle)}",
+            )
+        )
     return "\n".join(lines)
 
 
@@ -556,7 +611,8 @@ def fmt_snippet(cwd, own_session_id):
         f"\nNewest other-session record for this tree [{sid}… {ts}], last user message:\n"
         f"    {quoted}\n",
         f"\n이 트리의 가장 최근 다른 세션 기록 [{sid}… {ts}] 마지막 사용자 메시지:\n"
-        f"    {quoted}\n")
+        f"    {quoted}\n",
+    )
 
 
 def tracked_changes(cwd: str) -> list[tuple[str, str]]:
@@ -568,7 +624,9 @@ def tracked_changes(cwd: str) -> list[tuple[str, str]]:
     try:
         r = subprocess.run(
             ["git", "status", "--porcelain", "--untracked-files=no"],
-            cwd=cwd or None, capture_output=True, text=True,
+            cwd=cwd or None,
+            capture_output=True,
+            text=True,
         )
         return [(line[:2], line[3:]) for line in r.stdout.splitlines() if line.strip()]
     except Exception:
@@ -582,27 +640,50 @@ def phantom_entries(entries: list[tuple[str, str]], cwd: str) -> list[tuple[str,
     phantoms = []
     for xy, path in entries:
         if xy == "AD":
-            phantoms.append((path, tr("exists only in the index (added, then deleted in the worktree)",
-                                      "index에만 존재 (add 후 워크트리에서 삭제됨)")))
+            phantoms.append(
+                (
+                    path,
+                    tr(
+                        "exists only in the index (added, then deleted in the worktree)",
+                        "index에만 존재 (add 후 워크트리에서 삭제됨)",
+                    ),
+                )
+            )
         # --no-index: check-ignore never flags indexed paths without it, and a
         # force-added file is by definition in the index.
-        elif xy[0] != " " and subprocess.run(
-            ["git", "check-ignore", "-q", "--no-index", path],
-            cwd=cwd or None, capture_output=True,
-        ).returncode == 0:
-            phantoms.append((path, tr("gitignored path force-staged into the index",
-                                      ".gitignore 경로인데 강제 스테이징됨")))
+        elif (
+            xy[0] != " "
+            and subprocess.run(
+                ["git", "check-ignore", "-q", "--no-index", path],
+                cwd=cwd or None,
+                capture_output=True,
+            ).returncode
+            == 0
+        ):
+            phantoms.append(
+                (
+                    path,
+                    tr(
+                        "gitignored path force-staged into the index",
+                        ".gitignore 경로인데 강제 스테이징됨",
+                    ),
+                )
+            )
     return phantoms
 
 
 def respond(decision: str, reason: str):
-    print(json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": decision,
-            "permissionDecisionReason": reason,
-        }
-    }))
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": decision,
+                    "permissionDecisionReason": reason,
+                }
+            }
+        )
+    )
     sys.exit(0)
 
 
@@ -611,7 +692,9 @@ def repo_paths(cwd: str):
     try:
         top = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
-            cwd=cwd or None, capture_output=True, text=True,
+            cwd=cwd or None,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
     except Exception:
         top = ""
@@ -632,73 +715,104 @@ def steer_to_switch() -> str:
         "  git switch -c <branch> origin/main   # 새 브랜치\n"
         "  git switch <branch>                  # 기존 브랜치\n\n"
         "정말 동시 작업이라 분리가 필요하면 그 이유를 밝히고 사용자 확인을 먼저 받으세요 "
-        "(사용자가 이미 워크트리를 지시했다면 명령에 [worktree-ok] 를 붙여 다시 시도).")
+        "(사용자가 이미 워크트리를 지시했다면 명령에 [worktree-ok] 를 붙여 다시 시도).",
+    )
 
 
-def guard_worktree_creation(top: str, cwd: str, origin: str, user_ok: bool,
-                            session_id: str = ""):
+def guard_worktree_creation(
+    top: str, cwd: str, origin: str, user_ok: bool, session_id: str = ""
+):
     """Worktrees are for CONCURRENT work only -- block the single-stream case."""
     active, idle, reliable = sessions_in_tree(top or cwd, session_id)
 
     # 1) 같은 트리에서 다른 세션이 동시에 작업 중 -> 분리가 타당. 확인만 받는다.
     if active:
-        respond("ask", (
-            f"{origin}\n"
-            + tr("Another Claude session is actively working in this tree, so a worktree "
-                 "split looks justified. Worktree creation still needs the user's confirmation.\n",
-                 "이 작업 트리에서 다른 Claude 세션이 동시에 작업 중이라 worktree 분리가 "
-                 "타당해 보입니다. 다만 룰상 worktree 생성은 사용자 확인이 필요합니다.\n")
-            + f"{fmt_sessions(active)}\n"
-            + f"{fmt_snippet(top or cwd, session_id)}\n"
-            + tr("Confirm to proceed.", "진행할지 확인해 주세요.")
-        ))
+        respond(
+            "ask",
+            (
+                f"{origin}\n"
+                + tr(
+                    "Another Claude session is actively working in this tree, so a worktree "
+                    "split looks justified. Worktree creation still needs the user's confirmation.\n",
+                    "이 작업 트리에서 다른 Claude 세션이 동시에 작업 중이라 worktree 분리가 "
+                    "타당해 보입니다. 다만 룰상 worktree 생성은 사용자 확인이 필요합니다.\n",
+                )
+                + f"{fmt_sessions(active)}\n"
+                + f"{fmt_snippet(top or cwd, session_id)}\n"
+                + tr("Confirm to proceed.", "진행할지 확인해 주세요.")
+            ),
+        )
 
     # 1-b) 살아 있긴 하나 한동안 입력이 없는 세션뿐 -> 잊힌 탭일 가능성. 사용자가 안다.
     if idle:
-        respond("ask", (
-            f"{origin}\n"
-            + tr(f"The only other sessions here have shown no activity (input or transcript) "
-                 f"for {IDLE_MIN}+ minutes — if they are forgotten tabs this is effectively "
-                 f"single-stream work and plain `git switch` beats a worktree.\n",
-                 f"이 트리의 다른 세션은 {IDLE_MIN}분 이상 활동(키 입력·작업 기록)이 없는 것뿐입니다 — "
-                 f"잊힌 탭이면 사실상 단건 작업이라 worktree 없이 `git switch` 가 낫습니다.\n")
-            + f"{fmt_sessions(idle)}\n"
-            + f"{fmt_snippet(top or cwd, session_id)}\n"
-            + tr("Still split into a worktree?", "그래도 worktree 로 분리할지 확인해 주세요.")
-        ))
+        respond(
+            "ask",
+            (
+                f"{origin}\n"
+                + tr(
+                    f"The only other sessions here have shown no activity (input or transcript) "
+                    f"for {IDLE_MIN}+ minutes — if they are forgotten tabs this is effectively "
+                    f"single-stream work and plain `git switch` beats a worktree.\n",
+                    f"이 트리의 다른 세션은 {IDLE_MIN}분 이상 활동(키 입력·작업 기록)이 없는 것뿐입니다 — "
+                    f"잊힌 탭이면 사실상 단건 작업이라 worktree 없이 `git switch` 가 낫습니다.\n",
+                )
+                + f"{fmt_sessions(idle)}\n"
+                + f"{fmt_snippet(top or cwd, session_id)}\n"
+                + tr(
+                    "Still split into a worktree?",
+                    "그래도 worktree 로 분리할지 확인해 주세요.",
+                )
+            ),
+        )
 
     # 2) 동시 세션 판정 불가 -> 자동으로 만들지 말고 물어본다.
     if not reliable:
-        respond("ask", (
-            f"{origin}\n"
-            + tr("Cannot determine whether other sessions are working here (ps/lsof "
-                 "unavailable), so no automatic verdict.\n"
-                 "Confirm if this really is concurrent work; if single-stream, cancel and "
-                 "use `git switch`.",
-                 "동시 세션 여부를 확인할 수 없어(ps/lsof 사용 불가) 자동 판정을 못 합니다.\n"
-                 "정말 동시 작업이면 확인해 주시고, 단건이면 취소하고 `git switch` 로 진행하세요.")
-        ))
+        respond(
+            "ask",
+            (
+                f"{origin}\n"
+                + tr(
+                    "Cannot determine whether other sessions are working here (ps/lsof "
+                    "unavailable), so no automatic verdict.\n"
+                    "Confirm if this really is concurrent work; if single-stream, cancel and "
+                    "use `git switch`.",
+                    "동시 세션 여부를 확인할 수 없어(ps/lsof 사용 불가) 자동 판정을 못 합니다.\n"
+                    "정말 동시 작업이면 확인해 주시고, 단건이면 취소하고 `git switch` 로 진행하세요.",
+                )
+            ),
+        )
 
     # 3) 단건 작업 -> 원칙은 worktree 금지. 사용자가 명시한 경우만 확인으로 낮춘다.
     if user_ok:
-        respond("ask", (
+        respond(
+            "ask",
+            (
+                f"{origin}\n"
+                + tr(
+                    "Single-stream work, but [worktree-ok] was given — treating this as the "
+                    "user's explicit intent. Confirm the worktree creation.",
+                    "단건 작업이지만 [worktree-ok] 가 지정되어 사용자 의사로 판단합니다. "
+                    "worktree 를 생성할지 확인해 주세요.",
+                )
+            ),
+        )
+    respond(
+        "deny",
+        (
             f"{origin}\n"
-            + tr("Single-stream work, but [worktree-ok] was given — treating this as the "
-                 "user's explicit intent. Confirm the worktree creation.",
-                 "단건 작업이지만 [worktree-ok] 가 지정되어 사용자 의사로 판단합니다. "
-                 "worktree 를 생성할지 확인해 주세요.")
-        ))
-    respond("deny", (
-        f"{origin}\n"
-        + tr("No other session is working in this tree (= single-stream). Rule: for "
-             "single-stream work, don't create a worktree — just switch branches in the "
-             "shared tree. Everything stays visible in one editor window, and half-used "
-             "worktree folders don't pile up.\n\n",
-             "이 트리에서 동시에 작업 중인 다른 세션이 없습니다(= 단건 작업). "
-             "룰: 단건이면 worktree를 만들지 말고 공유 트리에서 브랜치만 갈아끼웁니다 "
-             "— 에디터 한 창에서 다 보여 코드 파악이 빠르고, 쓰다 만 worktree 폴더가 "
-             "쌓이지 않습니다.\n\n") + steer_to_switch()
-    ))
+            + tr(
+                "No other session is working in this tree (= single-stream). Rule: for "
+                "single-stream work, don't create a worktree — just switch branches in the "
+                "shared tree. Everything stays visible in one editor window, and half-used "
+                "worktree folders don't pile up.\n\n",
+                "이 트리에서 동시에 작업 중인 다른 세션이 없습니다(= 단건 작업). "
+                "룰: 단건이면 worktree를 만들지 말고 공유 트리에서 브랜치만 갈아끼웁니다 "
+                "— 에디터 한 창에서 다 보여 코드 파악이 빠르고, 쓰다 만 worktree 폴더가 "
+                "쌓이지 않습니다.\n\n",
+            )
+            + steer_to_switch()
+        ),
+    )
 
 
 def main():
@@ -713,14 +827,20 @@ def main():
         if str(tool_input.get("isolation", "")).lower() != "worktree":
             sys.exit(0)
         top, _ = repo_paths(cwd)
-        guard_worktree_creation(top, cwd, tr(
-            'The Agent tool was called with isolation: "worktree" (the harness creates a '
-            "worktree at <repo>/.claude/worktrees/<name>). Re-invoking without isolation "
-            "proceeds in the shared tree.",
-            'Agent 툴을 isolation: "worktree" 로 호출했습니다 '
-            "(하네스가 <repo>/.claude/worktrees/<name> 에 worktree를 만듭니다). "
-            "isolation 없이 다시 호출하면 공유 트리에서 그대로 진행됩니다."
-        ), user_ok=False, session_id=data.get("session_id", ""))
+        guard_worktree_creation(
+            top,
+            cwd,
+            tr(
+                'The Agent tool was called with isolation: "worktree" (the harness creates a '
+                "worktree at <repo>/.claude/worktrees/<name>). Re-invoking without isolation "
+                "proceeds in the shared tree.",
+                'Agent 툴을 isolation: "worktree" 로 호출했습니다 '
+                "(하네스가 <repo>/.claude/worktrees/<name> 에 worktree를 만듭니다). "
+                "isolation 없이 다시 호출하면 공유 트리에서 그대로 진행됩니다.",
+            ),
+            user_ok=False,
+            session_id=data.get("session_id", ""),
+        )
         sys.exit(0)
 
     if tool != "Bash":
@@ -739,8 +859,12 @@ def main():
 
     if reason == "worktree-add":
         guard_worktree_creation(
-            top, cwd, tr("Attempting to create a worktree with `git worktree add`.",
-                         "`git worktree add` 로 worktree를 만들려 합니다."),
+            top,
+            cwd,
+            tr(
+                "Attempting to create a worktree with `git worktree add`.",
+                "`git worktree add` 로 worktree를 만들려 합니다.",
+            ),
             user_ok="[worktree-ok]" in command,
             session_id=data.get("session_id", ""),
         )
@@ -762,44 +886,77 @@ def main():
         f"  git fetch origin\n"
         f"  git worktree add {wt_root}/<name> -b <branch> origin/main\n\n"
         "그런 다음 그 폴더에서 별도의 Claude Code 세션으로 작업하세요. "
-        "worktree 목록은 `git worktree list`.")
+        "worktree 목록은 `git worktree list`.",
+    )
 
     # 1) 같은 작업 트리에서 다른 세션이 '지금' 일하는 중 -> 진짜 다중작업. 차단.
     if active:
-        respond("deny", (
-            tr("Blocking this branch switch: another Claude session is actively working in "
-               "this tree (switching would land its next edits on an unintended branch).\n",
-               "이 작업 트리에서 다른 Claude 세션이 동시에 작업 중이라 브랜치 전환을 차단합니다 "
-               "(전환하면 상대 세션의 다음 편집이 의도치 않은 브랜치에 떨어집니다).\n")
-            + f"{fmt_sessions(active)}\n"
-            + f"{fmt_snippet(top or cwd, data.get('session_id', ''))}\n"
-            + tr("This is concurrent work — take this branch to a separate worktree:\n\n",
-                 "다중작업이므로 이 브랜치는 별도 worktree에서 진행하세요:\n\n") + steer
-        ))
+        respond(
+            "deny",
+            (
+                tr(
+                    "Blocking this branch switch: another Claude session is actively working in "
+                    "this tree (switching would land its next edits on an unintended branch).\n",
+                    "이 작업 트리에서 다른 Claude 세션이 동시에 작업 중이라 브랜치 전환을 차단합니다 "
+                    "(전환하면 상대 세션의 다음 편집이 의도치 않은 브랜치에 떨어집니다).\n",
+                )
+                + f"{fmt_sessions(active)}\n"
+                + f"{fmt_snippet(top or cwd, data.get('session_id', ''))}\n"
+                + tr(
+                    "This is concurrent work — take this branch to a separate worktree:\n\n",
+                    "다중작업이므로 이 브랜치는 별도 worktree에서 진행하세요:\n\n",
+                )
+                + steer
+            ),
+        )
 
     # 1-b) 살아 있으나 입력이 끊긴 세션뿐 -> 잊힌 탭일 공산. 차단 대신 사용자 판단.
     if idle:
-        respond("ask", (
-            tr(f"Other Claude sessions exist in this tree but have shown no activity (input "
-               f"or transcript) for {IDLE_MIN}+ minutes — if they are forgotten tabs, "
-               f"switching is fine.\n",
-               f"이 트리에 다른 Claude 세션이 있지만 {IDLE_MIN}분 이상 활동(키 입력·작업 기록)이 없습니다 — "
-               f"잊힌 탭이면 그대로 전환해도 됩니다.\n")
-            + f"{fmt_sessions(idle)}\n"
-            + f"{fmt_snippet(top or cwd, data.get('session_id', ''))}\n"
-            + tr("If you'll keep working in that session, don't switch — split into a "
-                 "worktree instead:\n\n",
-                 "그 세션에서 계속 작업할 것이라면 전환하지 말고 worktree 로 분리하세요:\n\n") + steer
-        ))
+        respond(
+            "ask",
+            (
+                tr(
+                    f"Other Claude sessions exist in this tree but have shown no activity (input "
+                    f"or transcript) for {IDLE_MIN}+ minutes — if they are forgotten tabs, "
+                    f"switching is fine.\n",
+                    f"이 트리에 다른 Claude 세션이 있지만 {IDLE_MIN}분 이상 활동(키 입력·작업 기록)이 없습니다 — "
+                    f"잊힌 탭이면 그대로 전환해도 됩니다.\n",
+                )
+                + f"{fmt_sessions(idle)}\n"
+                + f"{fmt_snippet(top or cwd, data.get('session_id', ''))}\n"
+                + tr(
+                    "If you'll keep working in that session, don't switch — split into a "
+                    "worktree instead:\n\n",
+                    "그 세션에서 계속 작업할 것이라면 전환하지 말고 worktree 로 분리하세요:\n\n",
+                )
+                + steer
+            ),
+        )
 
-    # 2) 세션 감지 자체가 불가능하면 예전처럼 보수적으로 차단.
+    # 2) 세션 감지 자체가 불가능하면 사용자에게 확인. deny 였으나 확장 호스트처럼
+    #    조상 프로세스가 `claude` 로 보이지 않는 환경에서 모든 전환이 막혔다 —
+    #    판정 불가의 비용은 사용자가 한 번 확인하는 것으로 충분하다.
     if not reliable:
-        respond("deny", (
-            tr("Cannot determine whether other sessions are working here (ps/lsof "
-               "unavailable) — blocking conservatively.\nSplit into a worktree to be safe:\n\n",
-               "동시 세션 여부를 확인할 수 없어(ps/lsof 사용 불가) 보수적으로 차단합니다.\n"
-               "안전하게 worktree로 분리해 주세요:\n\n") + steer
-        ))
+        respond(
+            "ask",
+            (
+                tr(
+                    "Cannot determine whether other sessions are working in this tree "
+                    "(process inspection unavailable in this environment). Your call:\n"
+                    "  · Approve — switch branches in this shared tree (safe when no "
+                    "other session is active here).\n"
+                    "  · Deny — the switch is cancelled; split into a worktree instead "
+                    "so any concurrent session keeps its branch:\n\n",
+                    "이 트리에서 다른 세션이 작업 중인지 확인할 수 없습니다(이 환경에서는 "
+                    "프로세스 조회가 불가능합니다). 선택해 주세요:\n"
+                    "  · 승인 — 이 공용 트리에서 그대로 브랜치를 전환합니다(다른 활성 세션이 "
+                    "없다면 안전합니다).\n"
+                    "  · 거부 — 전환을 취소하고 worktree 로 분리해, 동시 세션의 브랜치를 "
+                    "보존합니다:\n\n",
+                )
+                + steer
+            ),
+        )
 
     # 3) 단건이지만 추적 중인 변경이 있으면 사용자에게 확인.
     entries = tracked_changes(cwd)
@@ -809,24 +966,32 @@ def main():
         note = ""
         if phantoms:
             why = "\n".join(f"    {p} — {r}" for p, r in phantoms)
-            fixes = "\n".join(f"    git restore --staged {shlex.quote(p)}" for p, _ in phantoms)
+            fixes = "\n".join(
+                f"    git restore --staged {shlex.quote(p)}" for p, _ in phantoms
+            )
             note = tr(
                 f"\nIndex-only residue invisible in the working tree:\n{why}\n"
                 f"These commands clean the tree (run `git restore <path>` first to keep "
                 f"index-only content):\n{fixes}\n",
                 f"\n이 중 워크트리에서는 보이지 않는 index 잔재:\n{why}\n"
                 f"아래 명령으로 정리하면 트리가 clean이 됩니다 "
-                f"(index에만 존재하는 내용을 살리려면 `git restore <path>` 를 먼저 실행):\n{fixes}\n")
-        respond("ask", (
-            tr(f"Single-stream tree, so the switch is allowed — but there are "
-               f"{len(entries)} uncommitted tracked changes:\n{listing}\n{note}"
-               f"They will follow you onto the target branch. Confirm to proceed "
-               f"(commit/stash first is recommended).",
-               f"이 트리는 단건 작업이라 브랜치 전환을 허용할 수 있지만, "
-               f"커밋되지 않은 변경 {len(entries)}건이 있습니다:\n{listing}\n{note}"
-               f"전환하면 이 변경이 대상 브랜치로 따라갑니다. 진행할지 확인해 주세요 "
-               f"(커밋/스태시 후 전환을 권장).")
-        ))
+                f"(index에만 존재하는 내용을 살리려면 `git restore <path>` 를 먼저 실행):\n{fixes}\n",
+            )
+        respond(
+            "ask",
+            (
+                tr(
+                    f"Single-stream tree, so the switch is allowed — but there are "
+                    f"{len(entries)} uncommitted tracked changes:\n{listing}\n{note}"
+                    f"They will follow you onto the target branch. Confirm to proceed "
+                    f"(commit/stash first is recommended).",
+                    f"이 트리는 단건 작업이라 브랜치 전환을 허용할 수 있지만, "
+                    f"커밋되지 않은 변경 {len(entries)}건이 있습니다:\n{listing}\n{note}"
+                    f"전환하면 이 변경이 대상 브랜치로 따라갑니다. 진행할지 확인해 주세요 "
+                    f"(커밋/스태시 후 전환을 권장).",
+                )
+            ),
+        )
 
     # 4) 단건 + clean -> 워크트리 없이 그냥 전환.
     sys.exit(0)

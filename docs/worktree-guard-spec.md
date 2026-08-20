@@ -18,7 +18,7 @@ actually live on the tree.
 |---|---|
 | ACTIVE session present | deny — steer to a worktree |
 | only IDLE sessions | ask — list each with its last-activity age; forgotten tabs are the user's call |
-| detection unusable (can't see even our own process) | deny (conservative) |
+| detection unusable (can't see even our own process) | ask — the human knows whether another session is live; deny locked out extension hosts entirely |
 | single stream, tracked changes present | ask — changes follow the switch |
 | single stream, clean | allow silently |
 
@@ -40,9 +40,10 @@ isolated — switching the shared tree cannot affect them).
 The signals below INFER liveness, and inference has a measured ceiling: a
 session hosted outside a terminal (comm != `claude`) or working on this tree
 from another cwd leaves no process, tty, or per-project transcript trace
-here. So every tool call also DECLARES: the `session-lease` hook stamps
+here. So every repo-touching tool call (Bash, and file edits including
+notebooks) also DECLARES: the `session-lease` hook stamps
 `<git-dir>/specseal-leases/<session-id>` for the repo being touched
-(Write/Edit lease the edited file's repo; Bash leases its cwd's repo). A
+(file edits lease the edited file's repo; Bash leases its cwd's repo). A
 lease fresher than the idle threshold is an active work stream, no inference
 involved. Leases older than a day are pruned; failures are silent — a lease
 is a safety net, never a blocker.
@@ -89,8 +90,11 @@ from a heartbeat. So every listed session shows:
 
 No readable tty AND no readable transcript → active (deny-side). Detection
 that cannot even find our own process → `reliable=False` → the matrix rows
-above. Rationale: the guard's failure modes are asymmetric — a wrong deny
-costs a prompt, a wrong allow breaks another session's tree.
+above (ask, not deny: some hosts never satisfy the process heuristics, and
+a permanent deny there disables `git switch` outright). Rationale: the
+guard's failure modes are asymmetric — a wrong deny costs a prompt, a wrong
+allow breaks another session's tree — but a deny that fires on EVERY switch
+in an environment is no longer a cost, it is an outage.
 
 ## Known limits
 
