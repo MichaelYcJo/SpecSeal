@@ -18,31 +18,89 @@ Decisions:
 
 import json
 import os
-import re
 import shlex
 import subprocess
 import sys
 
 WRAPPERS = {"command", "env", "nohup", "time", "sudo"}
-SEG_RE = re.compile(r"&&|\|\||[;\n|]")
+
+
+def split_segments(command):
+    """Split into pipeline/list segments while respecting quotes.
+
+    A regex split on `;`/`&&`/newline breaks inside quoted strings, so the
+    heredoc commit form Claude Code itself uses (`git commit -m "$(cat
+    <<'EOF' ...)"`) fell apart mid-quote and slipped past the gate.
+    shlex with punctuation_chars keeps quoted arguments whole and emits
+    the separators as their own tokens.
+
+    Unquoted newlines separate commands just like `;`; newlines inside
+    quotes belong to an argument and must not split it. shlex alone treats
+    every newline as plain whitespace, so a small quote-aware scan converts
+    only the unquoted ones first.
+
+    Returns (segments, parsed_cleanly)."""
+    out, quote, esc = [], None, False
+    for ch in command:
+        if esc:
+            out.append(ch)
+            esc = False
+            continue
+        if quote != "'" and ch == "\\":
+            out.append(ch)
+            esc = True
+            continue
+        if quote:
+            if ch == quote:
+                quote = None
+        elif ch in "'\"":
+            quote = ch
+        out.append(";" if ch == "\n" and quote is None else ch)
+    command = "".join(out)
+
+    lex = shlex.shlex(command, posix=True, punctuation_chars=";|&")
+    lex.whitespace_split = True
+    lex.commenters = ""
+    segments, current = [], []
+    try:
+        for tok in lex:
+            if tok and set(tok) <= set(";|&"):
+                if current:
+                    segments.append(current)
+                current = []
+            else:
+                current.append(tok)
+    except ValueError:
+        if current:
+            segments.append(current)
+        return segments, False
+    if current:
+        segments.append(current)
+    return segments, True
 
 
 def is_git_commit(command):
     """True only when some segment's COMMAND WORD is git with subcommand
     commit — a prose mention (echo "git commit", heredoc lines) must not
-    gate. Same lesson the worktree guard learned; applied here too."""
-    for seg in SEG_RE.split(command):
-        try:
-            toks = shlex.split(seg)
-        except ValueError:
-            continue
+    gate. Same lesson the worktree guard learned; applied here too.
+
+    When the command cannot be tokenized at all, a fail-open pass would
+    exempt exactly the commands too gnarly to parse — so an unparseable
+    command that mentions both `git` and `commit` gates anyway (the gate
+    only asks; a false positive costs one approval click)."""
+    segments, clean = split_segments(command)
+    if not clean and "git" in command and "commit" in command:
+        return True
+    for toks in segments:
         i = 0
-        while i < len(toks) and (("=" in toks[i] and not toks[i].startswith("-"))
-                                 or os.path.basename(toks[i]) in WRAPPERS):
+        while i < len(toks) and (
+            ("=" in toks[i] and not toks[i].startswith("-"))
+            or os.path.basename(toks[i]) in WRAPPERS
+        ):
             i += 1
         if i >= len(toks) or os.path.basename(toks[i]) != "git":
             continue
-        rest, j = toks[i + 1:], 0
+        rest, j = toks[i + 1 :], 0
         takes = {"-C", "-c", "--git-dir", "--work-tree"}
         while j < len(rest):
             if rest[j] in takes:
@@ -89,7 +147,9 @@ def main():
 
     head = git(["rev-parse", "--verify", "--quiet", "HEAD"], cwd)
     git_dir = git(["rev-parse", "--git-dir"], cwd)
-    mark_path = os.path.join(cwd or ".", git_dir, "specseal-reviewed") if git_dir else ""
+    mark_path = (
+        os.path.join(cwd or ".", git_dir, "specseal-reviewed") if git_dir else ""
+    )
 
     marked = ""
     if mark_path and os.path.isfile(mark_path):
