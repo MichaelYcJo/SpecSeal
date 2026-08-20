@@ -2,18 +2,19 @@
 
 [![tests](https://github.com/MichaelYcJo/SpecSeal/actions/workflows/test.yml/badge.svg)](https://github.com/MichaelYcJo/SpecSeal/actions/workflows/test.yml)
 
-**Specs, sealed** — 코드가 스펙에서 어긋나면 빌드에 빨간불이 켜집니다.
+**Specs, sealed** — 스펙이 가리키는 코드가 바뀌면 CI 가 알려 줍니다.
 
 ![SpecSeal 데모: evidence-check 가 스펙-코드 드리프트를 잡는 모습](./assets/demo.gif)
 
-코딩 에이전트는 다 됐다고 말합니다. SpecSeal 은 그 말에 증거를 요구하고,
-증거는 셋입니다. 스펙을 실제로 읽지 않으면 채울 수 없는 smith 의 **mark**(무엇을
-읽고 무엇을 검증했는지 적는 증명 블록), 이것이 없으면 어떤 커밋도 게이트를 넘지
-못하는 warden 의 **seal**(리뷰를 통과했다는 표시), 그리고 정책 조항마다 그 근거가
-되는 코드 위치를 짝지어 둔 **근거 대조표**입니다. 코드가 바뀌었는데 대조표가
-그대로면 빌드가 깨집니다.
+코딩 에이전트는 다 됐다고 말합니다. SpecSeal 은 그 말이 열어 볼 수 있는 흔적을
+남기게 합니다. 흔적은 셋입니다. smith 가 응답 끝에 적는 **증명 블록**(어떤 정책서를
+읽었고 무엇을 실제로 실행했는지), 커밋 훅이 확인하는 **리뷰 표시**(`.git/specseal-reviewed`
+에 적히는, 리뷰를 마친 시점의 HEAD sha), 그리고 정책 조항마다 근거가 되는 코드
+위치를 짝지어 둔 **근거 대조표**(`docs/**/_evidence.md`)입니다.
 
-mark 없는 주장은 없다. 시험 없는 mark 는 없다. seal 없는 머지는 없다.
+리뷰 표시 없이 커밋하면 훅이 먼저 물어봅니다. 대조표가 가리키는 줄을 건드리면
+검사 스크립트가 실패로 끝납니다. 둘 다 벽은 아니고, 알고 지나가게 만드는
+기록입니다.
 
 Claude Code **플러그인**으로 배포됩니다. 근거 대조표와 드리프트 검사기, 인계 규약은
 git 이 있는 곳이면 어디서든 동작합니다.
@@ -26,16 +27,16 @@ git 이 있는 곳이면 어디서든 동작합니다.
 실제로 바꾸는 것만 싣습니다. 나머지는 부를 때 로드되는 스킬이거나, 컨텍스트
 밖에서 도는 훅입니다.
 
-## 문서청
+## 무엇이 들어 있나
 
-| 누구/무엇 | 직무 |
+| 누구/무엇 | 실제로 무엇인가 |
 |---|---|
-| **smith** (에이전트) | 벼리는 자. 만들고 다시 벼린 뒤 자기 mark 를 찍는다. 그 mark(증명 블록)는 스펙을 읽지 않고는 채울 수 없다 |
-| **warden** (에이전트) | seal 을 지키는 자. 스펙 준수부터 품질까지 시험하고, 통과해야만 커밋 게이트가 요구하는 seal 을 내준다 |
-| **scribe** (에이전트) | 필경사. 판단을 보태지 않고 그대로 옮긴다. 원본 코드가 실제로 하는 일을 좌표로 가져와, 대조표가 사실과 어긋나지 않게 한다 |
-| 스킬 | 각 직무가 따르는 방법론 (`implement`, `code-review`, `legacy-parity`, `evidence-check`, `writing-style` + 품질 유틸) |
+| **smith** (Claude Code 서브에이전트) | 스펙에 맞춰 구현한 뒤 증명 블록 세 줄을 적는다. 어떤 정책서를 열었는지, 어떤 대조표 행을 고쳤는지, 무엇을 실행하고 무엇을 읽기만 했는지. 훅이 검사하는 것이 아니라 스킬이 요구하는 공개이며, `none — <이유>` 로 채워진 줄은 사용자 눈에 그대로 보인다 |
+| **warden** (서브에이전트) | 스펙 준수를 먼저 보고 그다음 품질을 본다. 통과하면 리뷰 시점의 HEAD sha 를 `.git/specseal-reviewed` 에 적고, 커밋 게이트는 그 파일을 확인한다 |
+| **scribe** (서브에이전트) | 원본 코드가 실제로 하는 일을 `file:line` 좌표로 기록하고, 판정이 아니라 사실만 돌려준다. `docs/parity.md` 를 선언한 레포에서만 등장한다 |
+| 스킬 | 각자가 따르는 방법론 (`implement`, `code-review`, `legacy-parity`, `evidence-check`, `writing-style` + 품질 유틸) |
 | 훅 | 게이트 그 자체. 플러그인이 자동으로 등록하므로 설정을 따로 만질 필요가 없다 |
-| CLAUDE.md 블록 | 늘 로드되는 15줄 남짓 (툴링·안전 규칙 두 가지·Git) |
+| CLAUDE.md 블록 | 늘 로드되는 12줄 — 툴링 선호, 안전 규칙 두 가지, git 규칙 하나. 응답 언어 규칙은 없다. 그것은 사용자 몫이다 |
 
 ## 체인
 
@@ -43,10 +44,10 @@ git 이 있는 곳이면 어디서든 동작합니다.
 smith 가 벼린다 → verify → warden 이 시험한다 → 사용자에게 보고
       ↑                                            │
       └── 다시 벼리기 (사용자 지시) ← 사용자 판단
-커밋   → 이번 사이클에 warden 의 seal 이 있어야 통과 (훅 강제, 승인으로 우회 가능)
+커밋   → .git/specseal-reviewed 가 HEAD 와 다르면 훅이 물어본다. 승인이 곧 면제다
 ```
 
-smith 가 벼려서 mark 를 찍고, warden 이 seal 을 내주고, scribe 가 대조표를 지킵니다.
+smith 가 만들고 증명 블록을 적고, warden 이 리뷰 표시를 내주고, scribe 가 대조표를 채웁니다.
 
 ## 저장소에 남는 기억
 
@@ -63,10 +64,12 @@ smith 가 벼려서 mark 를 찍고, warden 이 seal 을 내주고, scribe 가 �
 도구를 전제하지 않고 적혀 있습니다. git 레포의 파일을 읽고 쓸 수 있는
 에이전트라면 무엇이든 그대로 따를 수 있습니다.
 
-대조표는 쌓아 두기만 하는 것이 아니라 **검사**받습니다. 스펙과 코드를 잇는
-좌표가 해석되지 않으면 `evidence-check` 스킬의 CI 스크립트가 빌드를
-실패시키고, 기준 커밋 이후 손댄 범위는 다시 확인하라고 표시합니다. 다른
-곳에서는 스펙이 조용히 낡아 가지만, 여기서는 낡는 순간 빌드가 깨집니다.
+대조표는 쌓아 두기만 하는 것이 아니라 **검사**받습니다. `evidence-check` 스킬의
+CI 스크립트는 좌표가 더 이상 풀리지 않으면 2 로, 기준 커밋 이후 그 줄이 바뀌었으면
+1 로 끝납니다. 기본 CI 설정에서는 둘 다 실패로 잡히고, `--strict` 를 주면 드리프트도
+2 가 됩니다. 이 검사가 증명하는 범위는 좁습니다. 인용한 좌표가 아직 유효하다는
+것이지, 그 좌표가 뒷받침하는 주장이 여전히 맞다는 뜻은 아닙니다. 다른 곳에서는
+스펙이 조용히 낡아 가지만, 여기서는 낡는 순간 CI 에 드러납니다.
 
 ## 게이트
 
@@ -77,15 +80,19 @@ smith 가 벼려서 mark 를 찍고, warden 이 seal 을 내주고, scribe 가 �
 
 | 게이트 | 언제 | 무엇을 | 어디서 |
 |---|---|---|---|
-| commit-review-gate | `git commit` 직전 | 이번 사이클에 seal 이 없으면 확인창을 띄운다 (`[no-review]` 를 넣으면 흔적을 남기고 생략된다) | 루트에 `_ai/` 가 있는 레포에서만 동작하고, 그 밖에서는 아무것도 하지 않는다 |
-| review-history-guard | `gh` 로 PR 리뷰 게시/조회 직후 | `_ai/review-history/PR-n/` 에 쓰거나 읽으라고 알린다 | 위와 같은 조건 |
-| worktree-guard | 브랜치 전환·worktree 생성 직전 | 다른 **활성** 세션이 있으면 차단하고, 멈춰 있는 세션이면 막지 않고 물어본다. 판단 근거(호스트 앱·신호별 경과 시간·마지막 메시지)를 함께 보여준다 | 모든 git 레포 |
-| session-lease | 저장소를 건드리는 도구 호출(Bash·파일 편집) 직후 | "이 세션이 이 트리에서 일한다"를 `.git/specseal-leases/` 에 기록한다. 추론이 아니라 선언이다 | 모든 git 레포 |
-| lint-python | `.py` 저장 직후 | ruff 로 자동 포맷한다 (uv → uvx → 전역 순으로 찾고, 없으면 그 훅만 건너뛴다) | 모든 프로젝트 |
+| commit-review-gate | `git commit` 직전 | `.git/specseal-reviewed` 가 현재 HEAD 와 다르면 물어본다 (`[no-review]` 를 넣으면 건너뛰고, 그 표시가 명령에 그대로 남는다) | 루트에 `_ai/` 가 있는 레포에서만 동작하고, 그 밖에서는 아무것도 하지 않는다 |
+| review-history-guard | `gh` 로 PR 리뷰 게시/조회 직후 | `_ai/review-history/PR-n/` 에 쓰거나 읽으라고 알린다 | 위와 같이 `_ai/` 가 있는 레포만 |
+| worktree-guard | `git checkout`·`switch`·`worktree add` 와 `isolation: "worktree"` 로 부른 Agent 직전 | 한 규칙의 두 방향이다. 다른 세션이 이 트리에서 작업 중이면 전환을 막고, 반대로 혼자 작업 중이면 worktree 생성을 막는다(`[worktree-ok]` 를 넣으면 확인창으로 낮아진다). 멈춘 세션이거나 판정이 불가능한 환경이면 막지 않고 물어본다. 사유에는 상대 세션의 호스트 앱, 신호별 경과 시간, 마지막 메시지가 함께 나온다 | 모든 git 레포 |
+| session-lease | 저장소를 건드리는 도구 호출(Bash·파일 편집) 직후 | `.git/specseal-leases/<세션id>` 에 시각을 적는다. 프로세스 이름이 `claude` 가 아닌 세션은 가드가 놓치는데, lease 는 어느 세션이 여기서 일하는지 그냥 밝혀 준다 | 모든 git 레포 |
+| lint-python | `.py` 파일을 Write·Edit·NotebookEdit 한 직후 | 그 파일에 `ruff check --fix` 를 돌린 뒤 `ruff format` 을 돌린다. 린트 자동수정이 포함되므로 내용이 바뀔 수 있다 (uv → uvx → 전역 순으로 찾고, 없으면 건너뛴다) | 모든 프로젝트 |
 
-어떤 게이트도 바깥으로 데이터를 보내지 않습니다. 로컬 프로세스와 git, 파일
-상태만 읽어서 판정 결과를 Claude Code 에 알려 줍니다. 다만 일부러 읽는 것이
-하나 있습니다. worktree-guard 가 브랜치 전환을 막을 때, 지금 무엇을 보호하는지
+어떤 게이트도 사용자의 코드나 프롬프트를 바깥으로 보내지 않습니다. 다만 두 가지
+부수 효과는 밝혀 둡니다. session-lease 는 `.git/specseal-leases/` 아래에 시각
+파일을 쓰고, lint-python 은 방금 저장한 `.py` 파일을 고쳐 씁니다. 네트워크를 탈
+수 있는 훅도 lint-python 하나뿐입니다. `uvx ruff` 로 넘어가면 uv 가 처음 한 번
+PyPI 에서 ruff 를 내려받습니다.
+
+일부러 읽는 것도 하나 있습니다. worktree-guard 가 브랜치 전환을 막을 때, 지금 무엇을 보호하는지
 사람이 알아볼 수 있게 다른 세션 기록에서 마지막 사용자 메시지 80자를 가져옵니다.
 이 조각은 차단 사유에만 쓰이고 기기 밖으로 나가지 않습니다.
 
@@ -107,7 +114,7 @@ smith 가 벼려서 mark 를 찍고, warden 이 seal 을 내주고, scribe 가 �
 |---|---|
 | `python3 <플러그인>/skills/evidence-check/scripts/evidence_check.py . [--strict]` | 대조표의 좌표가 아직 살아 있는지 검사한다(데모 GIF 에 나오는 그 검사). 에이전트 없이 동작한다 |
 | `/specseal:preset-setup` | CLAUDE.md 블록을 승인받아 뜻 단위로 병합한다 |
-| `/specseal:security-audit` · `/specseal:testing` | 빠진 것이 없는지 훑는 점검 목록 |
+| `/specseal:security-audit` · `/specseal:testing` | 모델이 훑는 점검 목록 — OWASP 형태의 보안 점검과 테스트 전략 점검 |
 | `bash install.sh [--project]` / `bash uninstall.sh` | CLAUDE.md 마커 블록을 넣거나 뺀다 |
 
 **명령에 섞는 스위치:**
@@ -117,7 +124,7 @@ smith 가 벼려서 mark 를 찍고, warden 이 seal 을 내주고, scribe 가 �
 | 커밋 명령의 `[no-review]` | 리뷰 게이트를 한 번 건너뛴다. 명령에 그대로 남아 흔적이 된다 |
 | worktree 명령의 `[worktree-ok]` | 혼자 작업할 때 worktree 생성을 막던 것을 확인창으로 완화한다 |
 | `WORKTREE_GUARD_IDLE_MIN=n` | 세션을 멈춘 것으로 볼 기준 시간, 분 단위 (기본 5) |
-| `SPECSEAL_LANG=ko\|en` | 게이트가 띄우는 문구의 언어 (기본은 영어, 시스템 로케일을 따름) |
+| `SPECSEAL_LANG=ko\|en` | worktree-guard 문구의 언어 (나머지 게이트는 영어만 나옵니다). 기본은 시스템 로케일을 따릅니다 |
 
 ## 설치
 
@@ -147,11 +154,15 @@ bash install.sh --project  # 비대화형 프로젝트 범위
 
 ## 처음 실행
 
-설치해도 당장은 아무 일도 일어나지 않습니다. 게이트는 켜 둔 레포에서만
-깨어나고, 에이전트는 부를 때만 움직입니다.
+켜야 도는 게이트는 둘입니다. 커밋 게이트와 리뷰 이력 알림은 레포 루트에 `_ai/`
+디렉터리가 생기기 전까지 침묵합니다. 나머지 셋은 그렇지 않습니다. worktree-guard
+와 session-lease 는 모든 git 레포에서 동작하고, lint-python 은 저장하는 모든 `.py`
+파일을 고쳐 씁니다. 전역으로 설치하기 전에 위 표의 "어디서" 열을 먼저 보세요.
+
+에이전트는 이름을 불러야 움직입니다.
 
 ```
-> smith 에이전트로 <티켓> 구현해줘
+> specseal:smith 에이전트로 <티켓> 구현해줘
 ```
 
 smith 는 스펙 체인을 읽고 구현한 뒤 검증까지 마치고, 리뷰는 warden 에게

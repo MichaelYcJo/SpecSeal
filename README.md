@@ -2,17 +2,21 @@
 
 [![tests](https://github.com/MichaelYcJo/SpecSeal/actions/workflows/test.yml/badge.svg)](https://github.com/MichaelYcJo/SpecSeal/actions/workflows/test.yml)
 
-**Specs, sealed** — when code moves away from its spec, the build turns red.
+**Specs, sealed** — when code moves under the line a spec cites, CI says so.
 
 ![SpecSeal demo: evidence-check catches spec-code drift](./assets/demo.gif)
 
-Coding agents make claims. SpecSeal makes them carry **marks**: a maker's
-mark that can only be stamped by actually reading the spec, a warden's seal
-without which no commit passes the gate, and a ledger where every clause
-points at the code that grounds it. When the code moves and the ledger
-doesn't, the build turns red.
+Coding agents make claims. SpecSeal makes each claim leave something you can
+open: a **proof block** the smith prints naming the policy files it read and
+what it actually ran, a **review mark** (`.git/specseal-reviewed`, holding the
+reviewed HEAD sha) that a commit hook looks for, and an **evidence ledger**
+(`docs/**/_evidence.md`) pairing each spec clause with the `file:line` that
+grounds it.
 
-No claim without a mark. No mark without a test. No merge without the seal.
+Commit without a current review mark and the hook asks before letting it
+through. Move the lines a ledger row cites and the check script exits
+non-zero. Neither is a wall — both are a record you have to walk past
+knowingly.
 
 Distributed as a Claude Code **plugin**; the ledger, the drift checker, and
 the handoff protocol work anywhere git does.
@@ -26,16 +30,16 @@ SOLID, DRY, and "read before edit". SpecSeal ships only what changes default
 behavior; everything else loads when summoned (skills) or works outside the
 context entirely (hooks).
 
-## The chancery
+## What ships
 
-| Who / what | Office |
+| Who / what | What it concretely is |
 |---|---|
-| **smith** (agent) | Forges and reforges the work, and stamps it with the maker's mark — a proof block that cannot be filled without reading the spec |
-| **warden** (agent) | Keeper of the seal. Tests the work — spec compliance first, then quality — and only then grants the mark the commit gate demands |
-| **scribe** (agent) | Copies faithfully, never editorializes. Fetches what the original code truly does, as coordinates, and keeps the ledger honest |
-| Skills | The methodologies each office follows (`implement`, `code-review`, `legacy-parity`, `evidence-check`, `writing-style`, plus quality utilities) |
+| **smith** (Claude Code subagent) | Implements against the spec, then prints a three-line proof block: which policy files it opened, which ledger rows it touched, what it executed versus merely read. The block is a disclosure the skill requires, not something a hook verifies — but `none — <reason>` in a row is visible to you |
+| **warden** (subagent) | Reviews spec compliance first, then quality. Passing writes the reviewed HEAD sha to `.git/specseal-reviewed`, which is what the commit gate looks for |
+| **scribe** (subagent) | Records what the original code does as `file:line` coordinates and returns facts, not verdicts. Appears only in repos that declare `docs/parity.md` |
+| Skills | The methodologies each one follows (`implement`, `code-review`, `legacy-parity`, `evidence-check`, `writing-style`, plus quality utilities) |
 | Hooks | The gates themselves — auto-registered by the plugin, no settings wiring |
-| CLAUDE.md block | The ~15 always-on lines (language, tooling, two safety rules, git) |
+| CLAUDE.md block | 12 always-on lines: tooling preferences, two safety rules, one git rule. No response-language rule — that stays yours |
 
 ## The chain
 
@@ -43,7 +47,7 @@ context entirely (hooks).
 smith forges → verify → warden tests → report to the user
       ↑                                        │
       └── reforging (user's call) ← user decides
-commit  → passes only with the warden's seal on this cycle (hook-enforced, approvable)
+commit  → the hook asks unless .git/specseal-reviewed matches HEAD; approving is the waiver
 ```
 
 The smith forges and stamps; the warden grants the seal; the scribe keeps
@@ -64,11 +68,13 @@ specified tool-agnostically in
 [docs/review-handoff-protocol.md](./docs/review-handoff-protocol.md) — any
 agent that reads and writes files in a git repo can conform.
 
-And the ledger is *checked*, not merely kept: the `evidence-check` skill
-ships a CI-ready script that fails the build when a spec-to-code coordinate
-stops resolving, and flags ranges touched since the ledger's baseline commit
-for re-verification. Specs rot silently everywhere else — here the rot is a
-red build.
+The ledger is *checked*, not merely kept. The `evidence-check` skill ships a
+CI-ready script that exits 2 when a coordinate no longer resolves and 1 when
+its lines were touched since the ledger's baseline commit; both fail a default
+CI step, and `--strict` makes drift exit 2 as well. What it proves is narrow
+and worth stating: that the citation still points somewhere, not that the
+claim it supports is still true. Specs rot silently everywhere else — here
+the rot shows up in CI.
 
 ## The gates
 
@@ -79,14 +85,19 @@ tool events. Full decision tables:
 
 | Gate | Fires | Does | Where |
 |---|---|---|---|
-| commit-review-gate | before `git commit` | asks when the cycle bears no seal (`[no-review]` skips, visibly) | repos with `_ai/` at the root — silent elsewhere |
+| commit-review-gate | before `git commit` | asks when `.git/specseal-reviewed` does not hold the current HEAD sha (`[no-review]` in the command skips it, and stays visible there) | repos with `_ai/` at the root — silent elsewhere |
 | review-history-guard | after posting/reading a PR review via `gh` | reminds to write / read `_ai/review-history/PR-n/` | same opt-in |
-| worktree-guard | before branch switches and worktree creation | blocks switches under another ACTIVE session; quiet sessions get a question, not a wall — with forensics (host app, per-signal ages, last message) | any git repo |
-| session-lease | after repo-touching tool calls (Bash · file edits) | stamps "this session works this tree" into `.git/specseal-leases/` — declaration beats inference | any git repo |
-| lint-python | after writing a `.py` file | ruff auto-format (uv → uvx → global; silently skips if none) | any project |
+| worktree-guard | before `git checkout`/`switch`, `git worktree add`, and Agent calls with `isolation: "worktree"` | one rule in two directions: denies a switch while another session is actively working this tree, and denies creating a worktree when yours is the only live stream (`[worktree-ok]` downgrades that to a question). Idle sessions and undetectable environments get a question, not a block. The reason names the other session's host app, how long each signal has been quiet, and its last message | any git repo |
+| session-lease | after repo-touching tool calls (Bash · file edits) | writes a timestamp to `.git/specseal-leases/<session-id>`. The guard's process heuristics miss sessions not named `claude`; a lease says outright which session is working here | any git repo |
+| lint-python | after Write/Edit/NotebookEdit on a `.py` file | runs `ruff check --fix` then `ruff format` on that file — lint autofixes included, so content can change (uv → uvx → global ruff; skips silently if none) | any project |
 
-No gate sends anything anywhere — they read local process/git/file state and
-print their verdicts to Claude Code. One deliberate read to know about:
+No gate transmits your code or your prompts anywhere. Two side effects are
+worth stating outright: session-lease writes a timestamp file under
+`.git/specseal-leases/`, and lint-python rewrites the `.py` file you just
+saved. lint-python is also the one hook that may touch the network — if it
+falls back to `uvx ruff`, uv fetches ruff from PyPI on first use.
+
+One deliberate read to know about:
 when the worktree-guard blocks a switch, it quotes the last user message
 (80 chars) of the OTHER local session's transcript in its block reason, so
 the human can recognize which conversation is being protected. That snippet
@@ -109,7 +120,7 @@ the config never see any of it.
 |---|---|
 | `python3 <plugin>/skills/evidence-check/scripts/evidence_check.py . [--strict]` | ledger drift check (the demo GIF) — works without any agent |
 | `/specseal:preset-setup` | approval-gated semantic merge of the CLAUDE.md block |
-| `/specseal:security-audit` · `/specseal:testing` | coverage checklists |
+| `/specseal:security-audit` · `/specseal:testing` | prompt checklists the model walks — an OWASP-shaped security pass and a test-strategy pass |
 | `bash install.sh [--project]` / `bash uninstall.sh` | add / remove the CLAUDE.md marker block |
 
 **Inline switches:**
@@ -119,7 +130,7 @@ the config never see any of it.
 | `[no-review]` in a commit command | skips the review gate once, visibly |
 | `[worktree-ok]` in a worktree command | softens the single-stream worktree deny to ask |
 | `WORKTREE_GUARD_IDLE_MIN=n` | idle threshold in minutes (default 5) |
-| `SPECSEAL_LANG=ko\|en` | gate prompt language (default: English / system locale) |
+| `SPECSEAL_LANG=ko\|en` | worktree-guard's prompts (the other gates are English-only); default follows the system locale |
 
 ## Install
 
@@ -147,11 +158,16 @@ approval diff.
 
 ## First run
 
-The plugin arrives silent: the gates stay quiet outside repos that opt in,
-and nothing runs until you ask for it.
+Two gates are opt-in: the commit gate and the review-history reminder stay
+silent until a repo has an `_ai/` directory at its root. The other three are
+not — worktree-guard and session-lease act in every git repo, and lint-python
+rewrites every `.py` file you save. Read the Where column above before
+installing globally.
+
+Agents run only when you name one:
 
 ```
-> use the smith agent to implement <your ticket>
+> use the specseal:smith agent to implement <your ticket>
 ```
 
 The smith reads the spec chain, implements, verifies, and hands off to the
