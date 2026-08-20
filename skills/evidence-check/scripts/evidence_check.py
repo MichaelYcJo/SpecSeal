@@ -33,6 +33,10 @@ import sys
 COORD_RE = re.compile(
     r"(?P<path>[A-Za-z0-9_@][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?):(?P<start>\d+)(?:-(?P<end>\d+))?\b"
 )
+# `example.com:8080` in a URL has the coordinate shape exactly; every ledger
+# citing a link used to print it as EXTERNAL noise. Drop matches whose path is
+# the authority part of a URL.
+URL_HOST_RE = re.compile(r"(?://|\bhttps?:)[^\s)\]<>\"']*$")
 SHA_RE = re.compile(r"\b[0-9a-f]{7,40}\b")
 
 
@@ -90,6 +94,8 @@ def check_ledger(ledger, root, maps, cache, default_repo=None):
     findings = []  # (status, coord, detail)
     seen = set()
     for m in COORD_RE.finditer(text):
+        if URL_HOST_RE.search(text[: m.start()]):
+            continue  # `https://example.com:8080/x` — a URL, not a coordinate
         raw_path, start = m.group("path"), int(m.group("start"))
         end = int(m.group("end") or start)
         coord = f"{raw_path}:{start}" + (f"-{end}" if end != start else "")

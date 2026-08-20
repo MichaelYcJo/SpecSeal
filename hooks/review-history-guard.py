@@ -24,11 +24,11 @@ import sys
 
 POST_RE = re.compile(
     r"\bgh\s+pr\s+(review|comment)\b"
-    r"|\bgh\s+api\b(?=.*-X\s+POST)(?=.*/pulls/\d+/(reviews|comments))"
+    r"|\bgh\s+api\b(?=.*(?:-X|--method)\s+POST)(?=.*/pulls/\d+/(reviews|comments))"
 )
 READ_RE = re.compile(
     r"\bgh\s+pr\s+view\b(?=.*--json\s+\S*comments)"
-    r"|\bgh\s+api\b(?!.*-X\s+POST)(?=.*/pulls/\d+/(comments|reviews))"
+    r"|\bgh\s+api\b(?!.*(?:-X|--method)\s+POST)(?=.*/pulls/\d+/(comments|reviews))"
 )
 PR_NUM_RE = re.compile(r"\bgh\s+pr\s+(?:review|comment|view)\s+(\d+)|/pulls/(\d+)/")
 

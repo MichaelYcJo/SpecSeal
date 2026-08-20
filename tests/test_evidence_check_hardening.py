@@ -117,3 +117,14 @@ def test_multiple_ledgers_aggregate(proj, tmp_path):
     r = run(["."], str(proj))
     assert r.returncode == 2  # broken in the second ledger fails the whole run
     assert "1 ok" in r.stdout and "1 broken" in r.stdout
+
+
+def test_url_ports_are_not_coordinates(proj):
+    # `example.com:8080` has the coordinate shape exactly; ledgers that cite
+    # a link used to print it as EXTERNAL noise.
+    ledger(proj, "| POL-1 | see https://example.com:8080/docs |\n"
+                 "| POL-2 | `src/service.py:2` |\n")
+    r = run(["."], str(proj))
+    assert r.returncode == 0, r.stdout
+    assert "example.com" not in r.stdout
+    assert "1 ok" in r.stdout
