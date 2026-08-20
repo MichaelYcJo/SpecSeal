@@ -25,7 +25,10 @@ def git_dir(path):
     try:
         r = subprocess.run(
             ["git", "rev-parse", "--absolute-git-dir"],
-            cwd=path, capture_output=True, text=True, timeout=5,
+            cwd=path,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         return r.stdout.strip() if r.returncode == 0 else None
     except Exception:
@@ -39,10 +42,13 @@ def main():
         return
     tool = payload.get("tool_name", "")
     tool_input = payload.get("tool_input") or {}
-    session = payload.get("session_id", "") or f"pid-{os.getppid()}"
+    # basename: the id names a file under specseal-leases/ — a separator in
+    # a hostile or malformed id must not become a path escape.
+    session = os.path.basename(payload.get("session_id", "")) or f"pid-{os.getppid()}"
 
     if tool in ("Write", "Edit", "NotebookEdit"):
-        target = os.path.dirname(tool_input.get("file_path", "") or "") or None
+        edited = tool_input.get("file_path") or tool_input.get("notebook_path") or ""
+        target = os.path.dirname(edited) or None
     elif tool == "Bash":
         target = payload.get("cwd") or None
     else:
