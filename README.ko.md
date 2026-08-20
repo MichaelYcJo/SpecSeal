@@ -77,6 +77,38 @@ CI 용 스크립트를 동봉해, 스펙↔코드 좌표가 더 이상 해석되
 원본 ↔ 신규, 기본값은 **원본 보존**)과 원본 사실 확인 전담 `parity-checker`
 를 얻습니다. 설정이 없는 레포에서는 존재 자체가 드러나지 않습니다.
 
+## 치트시트
+
+**저절로 도는 것 (훅 — 부를 필요 없음):**
+
+| 언제 | 무슨 일 |
+|---|---|
+| `git commit` 직전 | 사이클에 리뷰 마크 없으면 확인창 (`_ai/` 있는 레포만) |
+| 브랜치 전환·worktree 생성 직전 | 다른 활성 세션이 있으면 차단/확인 + 세션 포렌식 표시 |
+| 모든 도구 호출 직후 | `.git/specseal-leases/` 에 세션 lease 도장 |
+| `.py` 저장 직후 | ruff 자동 포맷 |
+
+**직접 부르는 것:**
+
+| 명령 | 역할 |
+|---|---|
+| `python3 <플러그인>/skills/evidence-check/scripts/evidence_check.py . [--strict]` | 원장 드리프트 검사 (데모 GIF 의 그것) — 에이전트 없이 동작 |
+| `/preset-setup` | CLAUDE.md 블록의 승인 기반 의미 병합 |
+| `/security-audit` · `/testing` | 커버리지 체크리스트 |
+| `bash install.sh [--project]` / `bash uninstall.sh` | CLAUDE.md 마커 블록 추가/제거 |
+
+**명령에 섞는 스위치:**
+
+| 스위치 | 효과 |
+|---|---|
+| 커밋 명령의 `[no-review]` | 리뷰 게이트 1회 생략 (흔적 남음) |
+| worktree 명령의 `[worktree-ok]` | 단건 작업 worktree 거부를 확인창으로 완화 |
+| `WORKTREE_GUARD_IDLE_MIN=n` | 유휴 판정 임계 분 (기본 5) |
+| `SPECSEAL_LANG=ko\|en` | 가드 문구 언어 (기본: 영어/시스템 로케일) |
+
+**알아서 로드되는 것:** 에이전트 `developer` · `code-reviewer` · `parity-checker`,
+방법론 스킬들, 템플릿에서 부트스트랩되는 docs/specs/`_ai` 레이아웃.
+
 ## 설치
 
 ```bash

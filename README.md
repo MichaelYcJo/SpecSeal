@@ -80,6 +80,38 @@ three-way judgment — policy ↔ original ↔ new, with *preserve the original*
 as the fallback — and the `parity-checker` agent for original-code
 fact-finding. Repos without the config never see any of it.
 
+## Cheat sheet
+
+**Runs by itself (hooks — nothing to invoke):**
+
+| When | What happens |
+|---|---|
+| before `git commit` | asks if the cycle has no review mark (repos with `_ai/` only) |
+| before branch switch / worktree creation | blocks or asks when another live session works this tree, with forensics |
+| after every tool call | stamps a session lease into `.git/specseal-leases/` |
+| after writing a `.py` file | ruff auto-format |
+
+**Run it yourself:**
+
+| Command | Does |
+|---|---|
+| `python3 <plugin>/skills/evidence-check/scripts/evidence_check.py . [--strict]` | ledger drift check (the demo GIF) — works without any agent |
+| `/preset-setup` | approval-gated semantic merge of the CLAUDE.md block |
+| `/security-audit` · `/testing` | coverage checklists |
+| `bash install.sh [--project]` / `bash uninstall.sh` | add / remove the CLAUDE.md marker block |
+
+**Inline switches:**
+
+| Switch | Effect |
+|---|---|
+| `[no-review]` in a commit command | skips the review gate once, visibly |
+| `[worktree-ok]` in a worktree command | softens the single-stream worktree deny to ask |
+| `WORKTREE_GUARD_IDLE_MIN=n` | idle threshold in minutes (default 5) |
+| `SPECSEAL_LANG=ko\|en` | guard prompt language (default: English / system locale) |
+
+**Loads on its own:** agents `developer` · `code-reviewer` · `parity-checker`,
+methodology skills, and the docs/specs/`_ai` layout bootstrapped from templates.
+
 ## Install
 
 ```bash
