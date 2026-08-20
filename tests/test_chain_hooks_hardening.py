@@ -210,16 +210,19 @@ def test_missing_session_id_falls_back_to_pid(repo):
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
 
-def test_hooks_json_points_at_existing_executables():
+def test_hooks_json_points_at_existing_python_scripts():
+    # Every hook must run through an explicit `python3` (shebang + exec bit
+    # don't exist on Windows) and its script file must exist in the plugin.
     with open(os.path.join(ROOT, "hooks", "hooks.json")) as f:
         cfg = json.load(f)
     for groups in cfg["hooks"].values():
         for group in groups:
             for h in group["hooks"]:
-                rel = h["command"].replace("${CLAUDE_PLUGIN_ROOT}/", "")
-                path = os.path.join(ROOT, rel)
-                assert os.path.isfile(path), rel
-                assert os.access(path, os.X_OK), f"{rel} not executable"
+                cmd = h["command"]
+                assert cmd.startswith('python3 "${CLAUDE_PLUGIN_ROOT}/'), cmd
+                rel = cmd.split('"')[1].replace("${CLAUDE_PLUGIN_ROOT}/", "")
+                assert rel.endswith(".py"), f"non-python hook: {rel}"
+                assert os.path.isfile(os.path.join(ROOT, rel)), rel
 
 
 def test_plugin_version_is_in_changelog():

@@ -6,11 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/commit-review-gate.py"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/commit-review-gate.py\""
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/worktree-guard.py"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/worktree-guard.py\""
           }
         ]
       },
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/worktree-guard.py"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/worktree-guard.py\""
           }
         ]
       }
@@ -30,11 +30,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/review-history-guard.py"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/review-history-guard.py\""
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-lease.py"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session-lease.py\""
           }
         ]
       },
@@ -43,11 +43,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/lint-python.sh"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-python.py\""
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-lease.py"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session-lease.py\""
           }
         ]
       }
