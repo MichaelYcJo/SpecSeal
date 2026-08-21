@@ -90,7 +90,7 @@ tool events. Full decision tables:
 
 | Gate | Fires | Does | Where |
 |---|---|---|---|
-| commit-review-gate | before `git commit` | asks when `.git/specseal-reviewed` does not hold the current HEAD sha (`[no-review]` in the command skips it, and stays visible there) | repos with `_ai/` at the root — silent elsewhere |
+| commit-review-gate | before `git commit` | asks when `.git/specseal-reviewed` does not hold the current HEAD sha (`[no-review]` skips it, visibly in the command). In a repo that declares `docs/parity.md` it also asks when code is committed with no `.git/specseal-parity` for this HEAD — `[no-parity]` skips that one. Both are named at once when both apply | `_ai/` at the root, `docs/parity.md`, or both — silent elsewhere |
 | review-history-guard | after posting/reading a PR review via `gh` | reminds to write / read `_ai/review-history/PR-n/` | same opt-in |
 | worktree-guard | before `git checkout`/`switch`, `git worktree add`, and Agent calls with `isolation: "worktree"` | one rule in two directions: denies a switch while another session is actively working this tree, and denies creating a worktree when yours is the only live stream (`[worktree-ok]` downgrades that to a question). Idle sessions and undetectable environments get a question, not a block. The reason names the other session's host app, how long each signal has been quiet, and its last message | any git repo |
 | session-lease | after repo-touching tool calls (Bash · file edits) | writes a timestamp to `.git/specseal-leases/<session-id>`. The guard's process heuristics miss sessions not named `claude`; a lease says outright which session is working here | any git repo |
@@ -146,6 +146,7 @@ wrong for every other machine.
 | Switch | Effect |
 |---|---|
 | `[no-review]` in a commit command | skips the review gate once, visibly |
+| `[no-parity]` in a commit command | skips the original-comparison gate once, visibly |
 | `[worktree-ok]` in a worktree command | softens the single-stream worktree deny to ask |
 | `WORKTREE_GUARD_IDLE_MIN=n` | idle threshold in minutes (default 5) |
 | `SPECSEAL_LANG=ko\|en` | worktree-guard's prompts (the other gates are English-only); default follows the system locale |
@@ -215,6 +216,11 @@ What this does not do is as load-bearing as what it does.
   `OK`.
 - **The proof block is a disclosure, not enforcement.** No hook reads it. Its
   value is that a `none — <reason>` row is visible to you in the transcript.
+  It is the one promise here with no check behind it.
+- **A parity mark says someone compared, not that they compared well.** The
+  gate checks that a comparison was recorded for this HEAD; the quality of
+  that comparison is the reviewer's, and writing the mark for work you did not
+  compare turns "nobody checked" into "someone checked and it was fine".
 - **Session detection is heuristic.** Extension-hosted sessions aren't named
   `claude`, and a session editing this tree from another cwd leaves no trace
   here. Leases close most of that gap, but only for sessions that have run a

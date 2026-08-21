@@ -309,3 +309,63 @@ def test_ci_wiring_never_asks_for_the_plugin_path():
 
     skill = open(os.path.join(ROOT, "skills", "evidence-check", "SKILL.md")).read()
     assert "/specseal:evidence-ci" in skill, "CI section never mentions the command"
+
+
+def parity_repo(repo):
+    (repo / "docs").mkdir(exist_ok=True)
+    (repo / "docs" / "parity.md").write_text("| Original repo | org/legacy |\n")
+
+
+def stage(repo, name, body="x\n"):
+    (repo / name).write_text(body)
+    git(repo, "add", name)
+
+
+def test_parity_repo_asks_when_code_commits_without_a_comparison(repo):
+    parity_repo(repo)
+    stage(repo, "service.py")
+    d = decision_of(run_hook("commit-review-gate.py", payload("git commit -m x", repo)))
+    assert d == "ask"
+
+
+def test_parity_mark_matching_head_allows(repo):
+    parity_repo(repo)
+    stage(repo, "service.py")
+    gd = git(repo, "rev-parse", "--absolute-git-dir").stdout.strip()
+    head = git(repo, "rev-parse", "HEAD").stdout.strip()
+    with open(os.path.join(gd, "specseal-parity"), "w") as f:
+        f.write(head)
+    assert decision_of(run_hook("commit-review-gate.py",
+                                payload("git commit -m x", repo))) == "silent"
+
+
+def test_parity_gate_ignores_document_only_commits(repo):
+    # Asking on a docs-only commit trains people to click through the prompt.
+    parity_repo(repo)
+    (repo / "docs" / "policies").mkdir(parents=True, exist_ok=True)
+    stage(repo, "docs/policies/note.md", "text\n")
+    assert decision_of(run_hook("commit-review-gate.py",
+                                payload("git commit -m x", repo))) == "silent"
+
+
+def test_parity_gate_silent_without_the_declaration(repo):
+    stage(repo, "service.py")
+    assert decision_of(run_hook("commit-review-gate.py",
+                                payload("git commit -m x", repo))) == "silent"
+
+
+def test_no_parity_escape_is_visible_in_the_command(repo):
+    parity_repo(repo)
+    stage(repo, "service.py")
+    assert decision_of(run_hook("commit-review-gate.py",
+                                payload("git commit -m x [no-parity]", repo))) == "silent"
+
+
+def test_both_opt_ins_report_together(repo):
+    parity_repo(repo)
+    opt_in(repo)
+    stage(repo, "service.py")
+    out = run_hook("commit-review-gate.py", payload("git commit -m x", repo))
+    assert decision_of(out) == "ask"
+    reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "specseal-reviewed" in reason and "specseal-parity" in reason, reason

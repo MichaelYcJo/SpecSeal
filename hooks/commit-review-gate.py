@@ -9,11 +9,18 @@ Opt-in per repository: the gate is active only where the preset workflow is in
 use, detected by an `_ai/` directory at the repo root. Everywhere else this
 hook stays silent — a globally installed plugin must not nag unrelated repos.
 
+A repo that declares `docs/parity.md` opts into a second check: ported
+behavior follows the original where policy is silent, so a commit touching
+code should carry a record that the original was consulted. The legacy-parity
+skill writes the compared HEAD to <git-dir>/specseal-parity.
+
+Both opt-ins are independent — a repo may declare either, both, or neither.
+
 Decisions:
-  - not a git commit, repo not opted in, or `[no-review]` in the command → allow
-  - review mark matches current HEAD → allow
-  - otherwise → ask (the user approving the prompt IS the waiver — no
-    separate bypass mechanism to maintain)
+  - not a git commit, or no opt-in applies → allow
+  - each applicable mark matches current HEAD → allow
+  - otherwise → ask, naming every missing mark at once (the user approving
+    the prompt IS the waiver — no separate bypass mechanism to maintain)
 """
 
 import json
@@ -125,6 +132,32 @@ def git(args, cwd):
         return ""
 
 
+def read_mark(cwd, git_dir, name):
+    """Contents of a <git-dir> mark file, or "" when absent/unreadable."""
+    if not git_dir:
+        return ""
+    path = os.path.join(cwd or ".", git_dir, name)
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def touches_code(cwd):
+    """True when the staged change is not confined to the document roots.
+
+    A commit that only moves docs/, specs/ or _ai/ has nothing to compare
+    against an original, and asking there would train people to click through
+    the prompt — which costs more than the check is worth.
+    """
+    staged = git(["diff", "--cached", "--name-only"], cwd)
+    if not staged:
+        return False
+    doc_roots = ("docs/", "specs/", "_ai/")
+    return any(not path.startswith(doc_roots) for path in staged.splitlines() if path)
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -134,7 +167,7 @@ def main():
     if payload.get("tool_name") != "Bash":
         return
     command = (payload.get("tool_input") or {}).get("command", "")
-    if not is_git_commit(command) or "[no-review]" in command:
+    if not is_git_commit(command):
         return
 
     cwd = payload.get("cwd", "")
@@ -142,25 +175,34 @@ def main():
     if not top:
         return
 
-    if not os.path.isdir(os.path.join(top, "_ai")):
-        return  # repo has not opted into the preset workflow
-
     head = git(["rev-parse", "--verify", "--quiet", "HEAD"], cwd)
     git_dir = git(["rev-parse", "--git-dir"], cwd)
-    mark_path = (
-        os.path.join(cwd or ".", git_dir, "specseal-reviewed") if git_dir else ""
-    )
 
-    marked = ""
-    if mark_path and os.path.isfile(mark_path):
-        try:
-            with open(mark_path) as f:
-                marked = f.read().strip()
-        except OSError:
-            pass
+    # Two independent opt-ins. A repo can declare either, both, or neither,
+    # so each is checked on its own rather than nested behind the other.
+    missing = []
 
-    if head and marked == head:
-        return  # reviewed in this cycle
+    if os.path.isdir(os.path.join(top, "_ai")) and "[no-review]" not in command:
+        if not head or read_mark(cwd, git_dir, "specseal-reviewed") != head:
+            missing.append(
+                "No review is recorded for this cycle (the code-review skill "
+                "writes the reviewed HEAD to .git/specseal-reviewed). "
+                "`[no-review]` in the command skips this."
+            )
+
+    if os.path.isfile(os.path.join(top, "docs", "parity.md")) \
+            and "[no-parity]" not in command and touches_code(cwd):
+        if not head or read_mark(cwd, git_dir, "specseal-parity") != head:
+            missing.append(
+                "This repo declares docs/parity.md, so behavior here is ported "
+                "and the original decides where policy is silent — but nothing "
+                "records that the original was consulted for this change (the "
+                "legacy-parity skill writes the compared HEAD to "
+                ".git/specseal-parity). `[no-parity]` in the command skips this."
+            )
+
+    if not missing:
+        return
 
     print(
         json.dumps(
@@ -169,11 +211,8 @@ def main():
                     "hookEventName": "PreToolUse",
                     "permissionDecision": "ask",
                     "permissionDecisionReason": (
-                        "No review is recorded for this cycle (the code-review "
-                        "skill writes the reviewed HEAD to "
-                        ".git/specseal-reviewed). Approve to commit anyway, "
-                        "or run the review chain first. `[no-review]` in the "
-                        "command also skips this gate."
+                        "\n\n".join(missing)
+                        + "\n\nApproving is the waiver — the commit proceeds."
                     ),
                 }
             }

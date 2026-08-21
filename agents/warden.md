@@ -24,7 +24,9 @@ file adds only your role boundaries.
   not spawn further agents.
 - Start by reading `_ai/review-history/PR-<n>/` if it exists: inherit judged
   axes, re-check probed findings for "fixed now?" only.
-- If the project declares a migration config (`docs/parity.md`), load the
+- If the project declares a migration config (`docs/parity.md`), the commit
+  gate expects `<git-dir>/specseal-parity` at the reviewed HEAD — write it
+  once the comparison actually happened, never before. Load the
   `legacy-parity` skill and review for behavior equivalence against the
   original, per that skill's verdict labels.
 - Batch your reads — open every coordinate a ledger row gives you in one

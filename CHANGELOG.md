@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.6.0 — 2026-08-21
+
+- **Migration mode is reachable without reading the README.** The smith asks
+  once, when it first bootstraps a repo's layout, whether the project ports
+  behavior from an existing codebase — and derives what the machine can:
+  it proposes candidates for the original (sibling checkouts, an upstream in
+  `git remote -v`, overlapping paths), reads the baseline from the one you
+  confirm, and writes `docs/parity.md` from a template. Answering no is final.
+  `/specseal:parity-setup` covers deciding later.
+- **The commit gate also asks whether the original was consulted.** In a repo
+  declaring `docs/parity.md`, committing code with no `.git/specseal-parity`
+  for this HEAD raises a prompt (`[no-parity]` skips it, visibly). Folded into
+  the existing gate rather than added as a fifth hook; commits confined to
+  `docs/`, `specs/` and `_ai/` stay silent.
+- **`/specseal:evidence-ci` wires the drift check into CI.** It resolves the
+  plugin's own location, vendors the checker to `tools/`, and writes the
+  workflow — the setup instructions used to name a path no document gave.
+
 ## 0.5.1 — 2026-08-21
 
 - `evidence-check` runs as a command: the plugin puts a `bin/` wrapper on the

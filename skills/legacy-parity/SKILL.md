@@ -94,3 +94,23 @@ spec, across the same comparison axes. Verdict labels:
 🟢 equivalent (different implementation, same observable behavior)
 ❓ out of verified scope (original or policy not found — never a pass)
 ```
+
+## Recording the comparison
+
+When you have actually compared against the original — coordinates opened,
+behavior read, verdicts assigned — record it so the commit gate can recognize
+this cycle:
+
+```bash
+git rev-parse HEAD > "$(git rev-parse --git-dir)/specseal-parity"
+```
+
+A commit closes the cycle; the next change to code starts an uncompared one.
+In a repo that declares `docs/parity.md`, committing code with no such record
+makes the gate ask — approving is the waiver, and `[no-parity]` in the command
+skips it visibly.
+
+**Write this only after the comparison happened.** A mark for work you did not
+compare is worse than no mark: it converts "nobody checked" into "someone
+checked and it was fine", which is the one claim this whole skill exists to
+keep honest.

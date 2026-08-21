@@ -1,8 +1,8 @@
 # review chain — behavior spec
 
 Authority for `hooks/commit-review-gate.py` and
-`hooks/review-history-guard.py`, and for the cycle contract the
-`code-review` skill participates in. Update spec and code together.
+`hooks/review-history-guard.py`, and for the cycle contract the `code-review`
+and `legacy-parity` skills participate in. Update spec and code together.
 
 ## The cycle
 
@@ -11,22 +11,56 @@ changes accumulate → review runs → reviewed-HEAD mark written → commit all
 commit moves HEAD  → mark no longer matches → next cycle starts unreviewed
 ```
 
-- **Mark**: `<git-dir>/specseal-reviewed` containing the reviewed HEAD
-  SHA. Written by the review orchestrator as the `code-review` skill's
-  closing step. Living under `.git/` keeps it uncommitted and per-worktree
-  (each worktree has its own git-dir — no cross-worktree false sharing).
+- **Marks**: `<git-dir>/specseal-reviewed` holds the reviewed HEAD SHA,
+  written by the review orchestrator as the `code-review` skill's closing
+  step. In a ported repo, `<git-dir>/specseal-parity` holds the HEAD an
+  actual comparison against the original was made at, written by the
+  `legacy-parity` skill. Living under `.git/` keeps both uncommitted and
+  per-worktree (each worktree has its own git-dir — no cross-worktree false
+  sharing).
 - **One review per cycle**: fixes made after the review, before the commit,
-  do not re-arm the gate. Re-review is the user's call.
+  do not re-arm the gate. Re-review is the user's call. The parity mark
+  follows the same cycle rule.
 
 ## commit-review-gate (PreToolUse, Bash)
+
+The hook carries **two independent opt-ins**. A repo may declare either, both,
+or neither, and each is evaluated on its own — nesting one behind the other
+would hide the parity check in every repo that has `docs/parity.md` but no
+`_ai/`.
 
 | Condition | Decision |
 |---|---|
 | not a `git commit` command | silent |
-| repo has no `_ai/` directory at its root | silent — **opt-in criterion**: only repos using the preset workflow are gated; a globally installed plugin must not nag unrelated repos |
+| neither opt-in applies | silent — a globally installed plugin must not nag unrelated repos |
+| every applicable mark equals current HEAD | allow |
+| otherwise | **ask**, naming every missing mark at once — the user approving the prompt IS the waiver; no separate bypass state to maintain |
+
+### Review arm — opt-in: `_ai/` at the repo root
+
+| Condition | Decision |
+|---|---|
 | `[no-review]` in the command | silent (explicit skip, visible in history) |
-| mark exists and equals current HEAD | allow |
-| otherwise | **ask** — the user approving the prompt IS the waiver; no separate bypass state to maintain |
+| `specseal-reviewed` equals current HEAD | satisfied |
+| otherwise | contributes an ask |
+
+### Parity arm — opt-in: `docs/parity.md` at the repo root
+
+Ported behavior follows the original where policy is silent, so a commit that
+changes code should carry a record that the original was consulted. Mark:
+`<git-dir>/specseal-parity`, written by the `legacy-parity` skill after an
+actual comparison.
+
+| Condition | Decision |
+|---|---|
+| `[no-parity]` in the command | silent (explicit skip, visible in history) |
+| staged change confined to `docs/`, `specs/`, `_ai/` | silent — nothing there can be compared against an original, and a gate that fires where no comparison was possible teaches people to click through it |
+| `specseal-parity` equals current HEAD | satisfied |
+| otherwise | contributes an ask |
+
+The mark says a comparison was recorded, not that it was a good one. Writing
+it for work nobody compared converts "nobody checked" into "someone checked
+and it was fine" — the one claim the parity methodology exists to keep honest.
 
 Chosen `ask` over `deny` deliberately: the gate cannot know whether the user
 already accepted the risk, and a deny with no override path forces workflow
