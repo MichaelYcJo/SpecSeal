@@ -50,8 +50,11 @@ smith forges → verify → warden tests → report to the user
 commit  → the hook asks unless .git/specseal-reviewed matches HEAD; approving is the waiver
 ```
 
-The smith forges and stamps; the warden grants the seal; the scribe keeps
-the ledger.
+`verify` is the smith's own gate before it hands anything over: run the
+checks, read the full output, and label each claim as executed, read, or
+unverified. The warden then audits that record instead of re-deriving it.
+Whether a report leads to more work, another review, or a commit is yours to
+decide — the chain stops at the report.
 
 ## The ledger
 
@@ -59,7 +62,7 @@ Cross-session memory lives in the repo, not the session:
 
 | Root | Lifetime | Holds |
 |---|---|---|
-| `docs/` | permanent | policies, the evidence ledger (spec clause ↔ code coordinates), follow-ups |
+| `docs/` | permanent | policies, the evidence ledger (`docs/**/_evidence.md` — each spec clause paired with the `file:line` that grounds it), follow-ups |
 | `specs/` | one work item | SDD set: spec, plan, questions, closing overview |
 | `_ai/` | between sessions | review rounds and todo handoffs — committed, drained, then deleted per PR |
 

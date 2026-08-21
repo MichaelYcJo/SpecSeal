@@ -219,6 +219,18 @@ def ancestors(pid: int):
 
 
 def proc_cwd(pid: int):
+    """Working directory of another process, or None if it cannot be read.
+
+    /proc first: it is free, and lsof is not installed by default on server
+    and container Linux — where its absence used to make every other session
+    invisible, which is the fail-open direction (the guard then reports a
+    single stream and allows a switch that yanks someone else's branch).
+    lsof remains the path on macOS, which has no /proc.
+    """
+    try:
+        return os.readlink(f"/proc/{pid}/cwd")
+    except OSError:
+        pass
     try:
         r = subprocess.run(
             ["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],

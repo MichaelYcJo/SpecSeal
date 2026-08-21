@@ -2,6 +2,8 @@
 import datetime
 import json
 import os
+import subprocess
+import sys
 import time
 
 import pytest
@@ -192,3 +194,39 @@ def test_bad_idle_override_falls_back_instead_of_crashing(monkeypatch):
         assert mod.IDLE_MIN == 5, bad
     monkeypatch.setenv("WORKTREE_GUARD_IDLE_MIN", "12")
     assert load_hook_module("worktree-guard.py", "wg_idle_ok").IDLE_MIN == 12
+
+
+# --- real OS probes: these helpers are stubbed in every decision test above,
+# so without this block they never execute on any platform, CI included ------
+
+def test_proc_cwd_reports_this_process_real_cwd():
+    got = wg.proc_cwd(os.getpid())
+    if got is None:
+        if os.path.isdir("/proc"):
+            pytest.fail("/proc exists but proc_cwd returned None")
+        pytest.skip("no /proc on this platform and lsof unavailable")
+    assert os.path.realpath(got) == os.path.realpath(os.getcwd())
+
+
+def test_proc_cwd_sees_another_process_without_lsof(monkeypatch, tmp_path):
+    # The Linux path must stand on its own: with lsof unavailable, a session
+    # working in another tree still has to be visible, or the guard silently
+    # decides the tree is single-stream.
+    if not os.path.isdir("/proc"):
+        pytest.skip("/proc-only behavior")
+    monkeypatch.setattr(wg.subprocess, "run",
+                        lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError("lsof")))
+    p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"],
+                         cwd=str(tmp_path))
+    try:
+        assert os.path.realpath(wg.proc_cwd(p.pid)) == os.path.realpath(str(tmp_path))
+    finally:
+        p.kill()
+        p.wait()
+
+
+def test_ancestors_includes_self_and_parent():
+    a = wg.ancestors(os.getpid())
+    assert os.getpid() in a
+    if os.getppid() > 1:
+        assert os.getppid() in a, "parent pid missing — ps parsing is broken"
