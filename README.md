@@ -118,7 +118,7 @@ the config never see any of it.
 
 | Command | Does |
 |---|---|
-| `python3 <plugin>/skills/evidence-check/scripts/evidence_check.py . [--strict]` | ledger drift check (the demo GIF) — works without any agent |
+| `evidence-check . [--strict]` | ledger drift check (the demo GIF) — works without any agent. The plugin puts it on PATH; for CI, vendor the script into your repo (see `templates/evidence-check.yml`) |
 | `/specseal:preset-setup` | approval-gated semantic merge of the CLAUDE.md block |
 | `/specseal:security-audit` · `/specseal:testing` | prompt checklists the model walks — an OWASP-shaped security pass and a test-strategy pass |
 | `bash install.sh [--project]` / `bash uninstall.sh` | add / remove the CLAUDE.md marker block |

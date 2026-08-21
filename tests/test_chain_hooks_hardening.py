@@ -238,3 +238,30 @@ def test_plugin_version_is_in_changelog():
         version = json.load(f)["version"]
     with open(changelog) as f:
         assert version in f.read(), f"CHANGELOG missing {version}"
+
+
+def test_bin_wrapper_resolves_the_checker_from_any_cwd():
+    # bin/ lands on the Bash tool's PATH while the plugin is enabled, so the
+    # wrapper must resolve the script relative to itself, never the caller's
+    # working directory.
+    wrapper = os.path.join(ROOT, "bin", "evidence-check")
+    assert os.path.isfile(wrapper), "bin/evidence-check missing"
+    assert os.access(wrapper, os.X_OK), "bin/evidence-check not executable"
+    target = os.path.join(ROOT, "skills", "evidence-check", "scripts",
+                          "evidence_check.py")
+    assert os.path.isfile(target), "wrapper points at a missing script"
+    r = subprocess.run([wrapper, "--help"], cwd="/", capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    assert "evidence_check" in r.stdout
+
+
+def test_migrated_commands_stay_user_invoked():
+    # These three shipped as commands/ (user-invoked). Moving them to skills/
+    # must not silently turn them into auto-triggering skills.
+    for name in ("preset-setup", "security-audit", "testing"):
+        p = os.path.join(ROOT, "skills", name, "SKILL.md")
+        assert os.path.isfile(p), f"{name} not migrated"
+        head = open(p).read().split("\n---\n", 1)[0]
+        assert "disable-model-invocation: true" in head, name
+    assert not os.path.isdir(os.path.join(ROOT, "commands")), \
+        "commands/ should be gone — skills/ is the documented layout"

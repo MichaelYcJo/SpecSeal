@@ -19,9 +19,9 @@ catches a regression.
 ## Run
 
 ```bash
-python3 "$(dirname "$(realpath "$0")")"/scripts/evidence_check.py [ROOT]
+evidence-check [ROOT]          # on PATH while the plugin is enabled
 # from a session, simply:
-python3 <this skill dir>/scripts/evidence_check.py --strict .
+evidence-check --strict .
 ```
 
 | Flag | Meaning |

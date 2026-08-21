@@ -1,5 +1,7 @@
 ---
+name: security-audit
 description: Security vulnerability scan — OWASP Top 10, auth, data-exposure, dependency checklist.
+disable-model-invocation: true
 ---
 
 # /specseal:security-audit - Security Vulnerability Scan

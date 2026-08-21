@@ -1,5 +1,7 @@
 ---
+name: preset-setup
 description: Merge the specseal CLAUDE.md block into the user's CLAUDE.md with semantic dedup — propose, get approval, then apply.
+disable-model-invocation: true
 ---
 
 # /specseal:preset-setup — reviewed CLAUDE.md merge

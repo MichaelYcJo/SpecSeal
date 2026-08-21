@@ -1,5 +1,7 @@
 ---
+name: testing
 description: Test strategy and implementation — pyramid, coverage priorities, edge-case checklist.
+disable-model-invocation: true
 ---
 
 # /specseal:testing - Test Strategy & Implementation

@@ -112,7 +112,7 @@ PyPI 에서 ruff 를 내려받습니다.
 
 | 명령 | 역할 |
 |---|---|
-| `python3 <플러그인>/skills/evidence-check/scripts/evidence_check.py . [--strict]` | 대조표의 좌표가 아직 살아 있는지 검사한다(데모 GIF 에 나오는 그 검사). 에이전트 없이 동작한다 |
+| `evidence-check . [--strict]` | 대조표의 좌표가 아직 살아 있는지 검사한다(데모 GIF 에 나오는 그 검사). 에이전트 없이 동작하며, 플러그인이 PATH 에 올려 준다. CI 에서는 스크립트를 레포에 복사해 쓴다(`templates/evidence-check.yml` 참고) |
 | `/specseal:preset-setup` | CLAUDE.md 블록을 승인받아 뜻 단위로 병합한다 |
 | `/specseal:security-audit` · `/specseal:testing` | 모델이 훑는 점검 목록 — OWASP 형태의 보안 점검과 테스트 전략 점검 |
 | `bash install.sh [--project]` / `bash uninstall.sh` | CLAUDE.md 마커 블록을 넣거나 뺀다 |
