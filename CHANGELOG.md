@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.6.1 — 2026-08-21
+
+- **The SDD set now says when it applies.** Gated work — 6+ files, a new
+  module, an architectural choice — writes `spec.md` and `plan.md` before
+  implementing, and approving that plan is the Design Gate. 3–5 files get a
+  closing `overview.md`; anything smaller gets neither. A methodology that
+  never states its threshold is skipped by judgment call each time, which is
+  what happened in this repo: two features shipped with no work item and
+  nothing noticed.
+- **Task lists have a home: `_ai/tasks/`, not `specs/`.** `specs/` holds what
+  was agreed and stays true for the life of the work item; a task list is
+  where the work has got to and changes every session. `plan.md`'s Phases
+  table remains the stable layer, and each phase carries a *Verified by*
+  column, so a phase cannot be ticked off the way a checkbox can.
+- Spec directories are timestamped as the skill always specified
+  (`<unix-epoch-seconds>-<slug>`), the four that predate the convention were
+  backfilled from the commit that introduced each, and a test now fails the
+  build on a directory without the prefix.
+
 ## 0.6.0 — 2026-08-21
 
 - **Skills stop firing on keywords.** Nine model-invoked skills had triggers
