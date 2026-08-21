@@ -22,12 +22,21 @@ Deleting without exporting is discarding the list.
 
 ```
 _ai/
-└── review-history/
-    └── PR-<n>/          ← one directory per PR so parallel reviews don't clobber
-        ├── round-N.md      target SHA · verdicts · executed probe results · inherited axes
-        ├── tests-todo.md   regression tests to plant, destination file per row
-        └── evidence-todo.md facts to merge into the evidence ledger
+├── review-history/
+│   └── PR-<n>/          ← one directory per PR so parallel reviews don't clobber
+│       ├── round-N.md      target SHA · verdicts · executed probe results · inherited axes
+│       ├── tests-todo.md   regression tests to plant, destination file per row
+│       └── evidence-todo.md facts to merge into the evidence ledger
+└── tasks/
+    └── <work-item-slug>.md  ordered tasks with dependencies, for work that
+                             spans sessions
 ```
+
+Task lists live here, not in `specs/`. `specs/` holds what was agreed and its
+files stay true for the life of the work item; a task list is where the work
+has got to, and it changes every session. A stale one asserts a state that is
+not true — the failure the evidence ledger exists to prevent. `plan.md`'s
+Phases table remains the stable layer above it.
 
 Reports meant for humans go to PR comments; this directory is for the **next
 session** — the two audiences never share a file.

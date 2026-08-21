@@ -62,7 +62,7 @@ warden 은 그 기록을 다시 도출하지 않고 감사합니다. 나온 보�
 |---|---|---|
 | `docs/` | 영구 | 정책서, 근거 대조표(`docs/**/_evidence.md` — 정책 조항마다 근거가 되는 `file:line` 을 짝지어 둔다), 후속 목록 |
 | `specs/` | 작업 한 건 | SDD 문서 한 벌 — spec · plan · questions · 마감 overview |
-| `_ai/` | 세션 사이 | 리뷰 회차와 인계 목록. 커밋해 두었다가 다 옮기고 나면 PR 단위로 지운다 |
+| `_ai/` | 세션 사이 | 리뷰 회차, 작업 목록, 인계 목록. 커밋해 두었다가 다 옮기고 나면 PR 단위로 지운다 |
 
 없는 파일은 `templates/` 에서 만들어집니다. 인계 규약은
 [docs/review-handoff-protocol.md](./docs/review-handoff-protocol.md) 에 특정

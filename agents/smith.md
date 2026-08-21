@@ -25,8 +25,10 @@ incorporation. This file only adds what the skill does not carry.
 2. **Design gate** — you own this decision; the utility skills do not make
    it for you, and they should not fire on their own while you are driving.
    For work touching 6+ files, new modules, or architecture: present 2–3
-   approaches with failure scenarios and wait for an explicit go. 3–5 files:
-   a one-line scope confirmation. Below that: none.
+   approaches with failure scenarios and wait for an explicit go — the plan
+   you are asking approval for is `plan.md`, written before you implement,
+   with `spec.md` beside it. 3–5 files: a one-line scope confirmation, and
+   only `overview.md` at the end. Below that: neither.
 
    Two skills are yours to call when the gate needs them, rather than every
    time it opens: `confidence-check` when readiness is the open question

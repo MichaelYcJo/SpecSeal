@@ -45,6 +45,13 @@ Use when feature touches >3 files or requires architectural decisions.
 - Flag unknowns early (don't discover them mid-implementation)
 - If >10 files affected, suggest phased approach
 
+## Where the output goes
+
+Work that spans sessions: `_ai/tasks/<work-item-slug>.md`. Not `specs/` — that
+root holds what was agreed, and a task list is where the work has got to.
+`plan.md`'s Phases table stays the stable layer above it. Work finishing in
+one session needs no file.
+
 ## Output Format
 
 ```

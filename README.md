@@ -66,7 +66,7 @@ Cross-session memory lives in the repo, not the session:
 |---|---|---|
 | `docs/` | permanent | policies, the evidence ledger (`docs/**/_evidence.md` — each spec clause paired with the `file:line` that grounds it), follow-ups |
 | `specs/` | one work item | SDD set: spec, plan, questions, closing overview |
-| `_ai/` | between sessions | review rounds and todo handoffs — committed, drained, then deleted per PR |
+| `_ai/` | between sessions | review rounds, task lists, and todo handoffs — committed, drained, then deleted per PR |
 
 Missing files bootstrap from `templates/`. The handoff convention is
 specified tool-agnostically in

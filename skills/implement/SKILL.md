@@ -107,6 +107,20 @@ avoidable cost in multi-session work.
 
 ### 3. The SDD file set
 
+**When a work item is required** — the same threshold the Design Gate uses,
+because they are the same judgment. Drawing no line is how the set quietly
+stops being written; this repo's own history has two features that shipped
+without one and nothing noticed.
+
+| Work | What to write |
+|---|---|
+| 6+ files, a new module, or an architectural choice | `spec.md` and `plan.md` **before** implementing — approval of `plan.md` IS the gate — then `overview.md` at the end |
+| 3–5 files | `overview.md` at the end. A one-line scope confirmation replaces the plan |
+| Below that, or a typo / config / one-line fix | nothing |
+
+`questions.md` is not on that ladder: write it the moment a decision appears
+that only a human can make, at any size.
+
 A work item's directory is `specs/<unix-epoch-seconds>-<slug>/` (e.g.
 `specs/1784780439-center-list-sort/`), bootstrapped from `templates/`. The
 timestamp prefix keeps directories in creation order and collision-free
@@ -118,6 +132,18 @@ without a registry — take it from `date +%s` when creating the directory.
 | `plan.md` | HOW — phases as vertical slices, alternatives with failure scenarios; this is the Design Gate's artifact | before implementing (gated work) |
 | `questions.md` | decisions only a human can make — extracted so nothing ships on a silent assumption | as they arise |
 | `overview.md` | the closing record (below) | when implementation ends |
+
+**Task lists do not live here.** `specs/` holds what was agreed; where the
+work has got to is between-session state, so an ordered task list — the
+`feature-planner` skill's output, with its dependencies and parallel markers
+— belongs in `_ai/`. Putting it in `plan.md` flattens the dependency
+structure, and putting mutable progress inside the contract blurs the two
+axes. A stale task list is worse than none: it asserts a state that is not
+true, which is the failure this plugin's ledger exists to prevent.
+
+`plan.md`'s Phases table is the coarser, stable layer and stays: each phase
+carries a **Verified by** column, so a phase cannot be called done the way a
+checkbox can be ticked.
 
 ### 4. Write the overview
 
