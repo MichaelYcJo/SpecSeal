@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.1 — 2026-08-21
+
+- `evidence-check` runs as a command: the plugin puts a `bin/` wrapper on the
+  Bash tool's PATH, so the drift check no longer needs a path into the plugin
+  directory that the README never gave.
+- Session detection reads `/proc/<pid>/cwd` before falling back to `lsof`.
+  Without it, Linux hosts that ship no lsof saw no other sessions at all and
+  the guard called a shared tree single-stream.
+- `commands/` moved to the documented `skills/` layout. Invocation names are
+  unchanged, and the three that moved stay user-invoked.
+- A typo in `WORKTREE_GUARD_IDLE_MIN` falls back to the default instead of
+  raising at import, where the crash read as "no verdict".
+- READMEs gained a Limits section, a language switcher, and a link to
+  CONTRIBUTING; both now describe what the hooks actually do rather than
+  overstating the gates.
+
 ## 0.5.0 — 2026-08-21
 
 First public release.
