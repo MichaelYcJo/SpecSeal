@@ -11,7 +11,7 @@ set -euo pipefail
 #   2. Insert or update the <!-- specseal:start/end --> block
 #   3. NEVER touch content outside the markers — if something outside looks
 #      like it overlaps with the block, print a warning and leave it alone.
-#      (Semantic dedup is /preset-setup's job, with your approval, not ours.)
+#      (Semantic dedup is /specseal:preset-setup's job, with your approval, not ours.)
 #
 # Usage: bash install.sh                      → global (~/.claude/CLAUDE.md)
 #        bash install.sh --project            → this project (./CLAUDE.md, committed with the repo)
@@ -103,4 +103,4 @@ echo "       claude → /plugin marketplace add MichaelYcJo/SpecSeal"
 echo "                /plugin install specseal@specseal"
 echo ""
 info "For a reviewed, deduplicated merge instead of this mechanical one:"
-echo "       restore $TARGET.bak, then run /preset-setup inside Claude Code."
+echo "       restore $TARGET.bak, then run /specseal:preset-setup inside Claude Code."

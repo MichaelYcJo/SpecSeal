@@ -429,3 +429,15 @@ def test_every_spec_directory_has_an_overview():
                if os.path.isdir(os.path.join(specs, n))
                and not os.path.isfile(os.path.join(specs, n, "overview.md"))]
     assert not missing, f"work items with no closing overview: {missing}"
+
+
+def test_installer_prints_commands_a_user_can_actually_type():
+    # Plugin commands are namespaced. The installer printed /preset-setup,
+    # which resolves to nothing — found by running the installer against a
+    # real machine rather than by reading it.
+    import re
+    text = open(os.path.join(ROOT, "install.sh")).read()
+    bare = [m for m in re.findall(r"(?<!:)/([a-z][a-z-]+)\b", text)
+            if m in {"preset-setup", "security-audit", "testing",
+                     "parity-setup", "evidence-ci"}]
+    assert not bare, f"un-namespaced plugin commands in install.sh: {bare}"
