@@ -115,6 +115,17 @@ three-way judgment — policy ↔ original ↔ new, with *preserve the original*
 as the fallback — and the scribe fetches the original's facts. Repos without
 the config never see any of it.
 
+You do not write that file by hand. The smith asks once, the first time it
+sets up a repo's layout: *does this project port behavior from an existing
+codebase?* Answer no and it never asks again. Answer yes and it proposes
+candidates for the original — sibling checkouts, an upstream in `git remote
+-v`, repos whose paths overlap — reads the baseline from whichever you
+confirm, and writes the file. Deciding later is `/specseal:parity-setup`.
+
+Your checkout path stays out of the committed file, in
+`~/.claude/specseal/parity-paths.md` keyed by the origin remote, since it is
+wrong for every other machine.
+
 ## Cheat sheet
 
 **Runs by itself (the gates above — nothing to invoke).**
@@ -125,6 +136,7 @@ the config never see any of it.
 |---|---|
 | `evidence-check . [--strict]` | ledger drift check (the demo GIF) — works without any agent. The plugin puts it on PATH; for CI, vendor the script into your repo (see `templates/evidence-check.yml`) |
 | `/specseal:preset-setup` | approval-gated semantic merge of the CLAUDE.md block |
+| `/specseal:parity-setup` | declare that this repo ports from another codebase — finds the original, records the baseline |
 | `/specseal:security-audit` · `/specseal:testing` | prompt checklists the model walks — an OWASP-shaped security pass and a test-strategy pass |
 | `bash install.sh [--project]` / `bash uninstall.sh` | add / remove the CLAUDE.md marker block |
 

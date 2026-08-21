@@ -44,6 +44,39 @@ When a root or file this skill needs doesn't exist, create it from
 - Leave evidence rows empty. They fill through the feedback rule below as work
   happens — do not pre-populate speculatively.
 
+**When you create `_ai/README.md` — the once-per-repo moment — do two more
+things before continuing.** Nobody reads a README to discover a question they
+did not know to ask, so this is the only place the migration question gets
+asked at all.
+
+1. Say in three lines what you created and what each root is for. The layout
+   is invisible otherwise: it appears in a diff the user did not request.
+2. Ask, once: *"Does this project port behavior from an existing codebase? If
+   so, tell me which one and I will set up parity mode."*
+   - **Yes** → run the parity setup below, then continue the work.
+   - **No** → continue, and never raise it again. Bootstrap does not re-run,
+     so the question does not either.
+
+Ask only here. A repo that already has `_ai/README.md` has been through this,
+and re-asking is the nagging this plugin exists to avoid.
+
+### Parity setup — deriving what can be derived
+
+Three of the four fields come from the machine; only one needs the user.
+Never guess the original: a comparison against a guessed repo proves nothing.
+
+1. **Propose candidates for the original.** Sibling directories that are git
+   repos (a port usually sits beside its original), an upstream or fork
+   relation in `git remote -v`, and repos whose paths overlap this one's.
+   Present what you found and let the user pick or give a path.
+2. **Baseline commit** — read `HEAD` of the confirmed original checkout.
+3. **Policy root** — `docs/policies/` if it exists, else propose it.
+4. **Coordinate-trust exceptions** — leave empty. Rows arrive from real work.
+
+Write `docs/parity.md` from `templates/parity.md` with those values, and
+record the machine-local checkout path in `~/.claude/specseal/parity-paths.md`
+keyed by the origin remote URL. The path never goes in the committed file.
+
 ## Procedure
 
 ### 1. Read the spec before the code

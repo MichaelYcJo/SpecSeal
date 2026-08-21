@@ -109,6 +109,16 @@ PyPI 에서 ruff 를 내려받습니다.
 동작하는지 확인해 옵니다. 이 파일이 없는 레포에서는 이 기능이 아예
 나타나지 않습니다.
 
+이 파일을 직접 쓸 일은 없습니다. smith 가 그 레포의 문서 구조를 처음 만들 때 한 번
+물어봅니다 — *이 프로젝트는 기존 코드베이스의 동작을 옮겨 오는 작업입니까?* 아니라고
+답하면 다시 묻지 않습니다. 맞다고 답하면 원본 후보를 찾아 제시하고(옆에 체크아웃된
+레포, `git remote -v` 의 upstream, 경로 구조가 겹치는 레포), 확인해 준 쪽의 HEAD 를
+읽어 기준 커밋으로 적은 뒤 파일을 만듭니다. 나중에 결정하는 경우에는
+`/specseal:parity-setup` 을 실행하면 됩니다.
+
+체크아웃 경로는 커밋되는 파일에 들어가지 않고 `~/.claude/specseal/parity-paths.md` 에
+origin remote 를 키로 저장됩니다. 다른 기계에서는 틀린 값이기 때문입니다.
+
 ## 치트시트
 
 **저절로 도는 것** — 위 게이트는 전부 알아서 돌기 때문에 따로 부르지 않아도 됩니다.
@@ -119,6 +129,7 @@ PyPI 에서 ruff 를 내려받습니다.
 |---|---|
 | `evidence-check . [--strict]` | 대조표의 좌표가 아직 살아 있는지 검사한다(데모 GIF 에 나오는 그 검사). 에이전트 없이 동작하며, 플러그인이 PATH 에 올려 준다. CI 에서는 스크립트를 레포에 복사해 쓴다(`templates/evidence-check.yml` 참고) |
 | `/specseal:preset-setup` | CLAUDE.md 블록을 승인받아 뜻 단위로 병합한다 |
+| `/specseal:parity-setup` | 이 레포가 다른 코드베이스를 옮겨 온 것임을 선언한다. 원본을 찾아 기준 커밋을 기록한다 |
 | `/specseal:security-audit` · `/specseal:testing` | 모델이 훑는 점검 목록 — OWASP 형태의 보안 점검과 테스트 전략 점검 |
 | `bash install.sh [--project]` / `bash uninstall.sh` | CLAUDE.md 마커 블록을 넣거나 뺀다 |
 

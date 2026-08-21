@@ -265,3 +265,26 @@ def test_migrated_commands_stay_user_invoked():
         assert "disable-model-invocation: true" in head, name
     assert not os.path.isdir(os.path.join(ROOT, "commands")), \
         "commands/ should be gone — skills/ is the documented layout"
+
+
+def test_parity_declaration_is_bootstrappable_not_hand_written():
+    # docs/parity.md is the one declaration a user cannot derive, so the
+    # blank-page problem is real: without a template and a place that asks,
+    # migration mode is a feature nobody can reach.
+    tpl = os.path.join(ROOT, "templates", "parity.md")
+    assert os.path.isfile(tpl), "templates/parity.md missing"
+    body = open(tpl).read()
+    for field in ("Original repo", "Baseline commit", "Policy root",
+                  "Coordinate-trust exceptions"):
+        assert field in body, f"template lost the {field!r} field"
+    assert "parity-paths.md" in body, "template must say where the local path goes"
+
+    implement = open(os.path.join(ROOT, "skills", "implement", "SKILL.md")).read()
+    assert "templates/parity.md" in implement, "bootstrap never points at the template"
+    assert "_ai/README.md" in implement
+
+    setup = os.path.join(ROOT, "skills", "parity-setup", "SKILL.md")
+    assert os.path.isfile(setup), "no command for declaring parity later"
+    head = open(setup).read().split("\n---\n", 1)[0]
+    assert "disable-model-invocation: true" in head, \
+        "parity-setup writes a declaration; it must not fire on its own"
