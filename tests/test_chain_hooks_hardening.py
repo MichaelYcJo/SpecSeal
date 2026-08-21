@@ -288,3 +288,24 @@ def test_parity_declaration_is_bootstrappable_not_hand_written():
     head = open(setup).read().split("\n---\n", 1)[0]
     assert "disable-model-invocation: true" in head, \
         "parity-setup writes a declaration; it must not fire on its own"
+
+
+def test_ci_wiring_never_asks_for_the_plugin_path():
+    # The CI setup used to say `cp <specseal plugin>/skills/...`, a path the
+    # docs never gave — the same dead end bin/ fixed for the CLI. Whatever the
+    # instructions say, they must not send a reader hunting for the install
+    # location.
+    setup = os.path.join(ROOT, "skills", "evidence-ci", "SKILL.md")
+    assert os.path.isfile(setup), "no command wires the drift check into CI"
+    head = open(setup).read().split("\n---\n", 1)[0]
+    assert "disable-model-invocation: true" in head, \
+        "this writes files into a repo; it must not fire on its own"
+
+    tpl = open(os.path.join(ROOT, "templates", "evidence-check.yml")).read()
+    assert "<specseal plugin>" not in tpl, "template still names an unknown path"
+    assert "/specseal:evidence-ci" in tpl, "template should point at the command"
+    # The workflow must still do the thing it exists for.
+    assert "evidence_check.py" in tpl and "fetch-depth: 0" in tpl
+
+    skill = open(os.path.join(ROOT, "skills", "evidence-check", "SKILL.md")).read()
+    assert "/specseal:evidence-ci" in skill, "CI section never mentions the command"

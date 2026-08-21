@@ -127,8 +127,9 @@ origin remote 를 키로 저장됩니다. 다른 기계에서는 틀린 값이�
 
 | 명령 | 역할 |
 |---|---|
-| `evidence-check . [--strict]` | 대조표의 좌표가 아직 살아 있는지 검사한다(데모 GIF 에 나오는 그 검사). 에이전트 없이 동작하며, 플러그인이 PATH 에 올려 준다. CI 에서는 스크립트를 레포에 복사해 쓴다(`templates/evidence-check.yml` 참고) |
+| `evidence-check . [--strict]` | 대조표의 좌표가 아직 살아 있는지 검사한다(데모 GIF 에 나오는 그 검사). 에이전트 없이 동작하며, 플러그인이 PATH 에 올려 준다. CI 에 거는 것은 `/specseal:evidence-ci` 가 해 준다 |
 | `/specseal:preset-setup` | CLAUDE.md 블록을 승인받아 뜻 단위로 병합한다 |
+| `/specseal:evidence-ci` | 드리프트 검사를 CI 에 건다. 검사기를 레포에 복사하고 워크플로 파일을 써 준다 |
 | `/specseal:parity-setup` | 이 레포가 다른 코드베이스를 옮겨 온 것임을 선언한다. 원본을 찾아 기준 커밋을 기록한다 |
 | `/specseal:security-audit` · `/specseal:testing` | 모델이 훑는 점검 목록 — OWASP 형태의 보안 점검과 테스트 전략 점검 |
 | `bash install.sh [--project]` / `bash uninstall.sh` | CLAUDE.md 마커 블록을 넣거나 뺀다 |

@@ -134,8 +134,9 @@ wrong for every other machine.
 
 | Command | Does |
 |---|---|
-| `evidence-check . [--strict]` | ledger drift check (the demo GIF) — works without any agent. The plugin puts it on PATH; for CI, vendor the script into your repo (see `templates/evidence-check.yml`) |
+| `evidence-check . [--strict]` | ledger drift check (the demo GIF) — works without any agent. The plugin puts it on PATH; `/specseal:evidence-ci` wires the same check into CI |
 | `/specseal:preset-setup` | approval-gated semantic merge of the CLAUDE.md block |
+| `/specseal:evidence-ci` | wire the drift check into CI — vendors the checker and writes the workflow |
 | `/specseal:parity-setup` | declare that this repo ports from another codebase — finds the original, records the baseline |
 | `/specseal:security-audit` · `/specseal:testing` | prompt checklists the model walks — an OWASP-shaped security pass and a test-strategy pass |
 | `bash install.sh [--project]` / `bash uninstall.sh` | add / remove the CLAUDE.md marker block |

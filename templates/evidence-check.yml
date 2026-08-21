@@ -2,9 +2,13 @@
 # spec-to-code coordinates stop resolving; warns (exit 1) on ranges touched
 # since the ledger's baseline commit.
 #
-# Setup: vendor the checker into the repo first —
-#   cp <specseal plugin>/skills/evidence-check/scripts/evidence_check.py tools/
-# then copy this file to .github/workflows/evidence-check.yml.
+# Setup: run /specseal:evidence-ci — it vendors the checker to
+# tools/evidence_check.py and writes this workflow, resolving the plugin's
+# own location so you never need to know where it is installed.
+#
+# Doing it by hand instead: copy the checker from the plugin's
+# skills/evidence-check/scripts/ into tools/, then copy this file to
+# .github/workflows/evidence-check.yml.
 
 name: evidence-check
 

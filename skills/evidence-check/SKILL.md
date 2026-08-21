@@ -59,6 +59,10 @@ checking is skipped and the run says so.
 
 ## CI
 
-Vendor `scripts/evidence_check.py` into the target repo (e.g. `tools/`) and
-use `templates/evidence-check.yml` from this plugin as the workflow. Vendoring
-over fetch-at-run keeps CI deterministic and offline-safe.
+`/specseal:evidence-ci` does the wiring: it vendors `scripts/evidence_check.py`
+to `tools/` and writes `.github/workflows/evidence-check.yml`, resolving the
+plugin's own path so nobody has to know where it is installed. Re-running it
+diffs the vendored copy against the current one.
+
+Vendoring over fetch-at-run keeps CI deterministic and offline-safe, and puts
+the checker in the diff where a reviewer can see it change.
