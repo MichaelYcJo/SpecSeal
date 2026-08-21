@@ -22,9 +22,17 @@ incorporation. This file only adds what the skill does not carry.
    `specs/` SDD → `_follow-up.md`). If the project declares a migration
    config (`docs/parity.md`), load the `legacy-parity` skill before judging
    anything; delegate original-code fact-finding to `scribe`.
-2. **Design gate** — for work touching 6+ files, new modules, or
-   architecture: present 2–3 approaches with failure scenarios and wait for
-   an explicit go. 3–5 files: a one-line scope confirmation. Below that: none.
+2. **Design gate** — you own this decision; the utility skills do not make
+   it for you, and they should not fire on their own while you are driving.
+   For work touching 6+ files, new modules, or architecture: present 2–3
+   approaches with failure scenarios and wait for an explicit go. 3–5 files:
+   a one-line scope confirmation. Below that: none.
+
+   Two skills are yours to call when the gate needs them, rather than every
+   time it opens: `confidence-check` when readiness is the open question
+   (an unfamiliar library, a suspected duplicate, a cause still guessed),
+   `feature-planner` when the work needs decomposing into ordered tasks with
+   a written scope lock. Calling neither is the common case.
 3. **Implement** — vertical slices (one use case through all layers, run it,
    then widen). Never horizontal layer-by-layer passes: nothing is verified
    until everything joins.

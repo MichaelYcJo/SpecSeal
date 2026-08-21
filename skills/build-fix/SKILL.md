@@ -1,6 +1,11 @@
 ---
 name: build-fix
-description: Systematic build error resolution. Auto-triggers on build errors.
+description: |
+  Resolve build, compile, and type-check errors at their cause instead of
+  suppressing them.
+  Use when: the build does not produce output — type errors, missing modules,
+  syntax or config failures.
+  NOT for: code that compiles but behaves wrong (that is `debug`).
 ---
 
 # Build Fix

@@ -1,6 +1,11 @@
 ---
 name: debug
-description: Systematic debugging methodology. Triggers on test failures and error investigation.
+description: |
+  Find the cause of wrong behavior: reproduce, locate, one hypothesis at a
+  time, then a failing test before the fix.
+  Use when: the code runs but produces the wrong result, or a test fails.
+  NOT for: build, compile, or type-check errors — nothing runs there, so
+  there is nothing to reproduce (that is `build-fix`).
 ---
 
 # Debug

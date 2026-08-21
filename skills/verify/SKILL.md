@@ -1,9 +1,13 @@
 ---
 name: verify
 description: |
-  Seal Test — evidence protocol for completion claims. Auto-triggers on
-  done/complete/fixed/passes/PR keywords, before commits, and before
-  handing work to the review chain.
+  Seal Test — the evidence protocol for completion claims: name the proving
+  command before running it, show the check can fail, bind the result to a
+  tree state, and label every claim executed / read / unverified.
+  Use when: about to say done, fixed, passes, or complete; before a commit;
+  before handing work to the review chain.
+  NOT for: deciding whether the work is worth doing, or reviewing someone
+  else's diff (`code-review`).
 ---
 
 # The Seal Test

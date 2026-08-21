@@ -1,6 +1,13 @@
 ---
 name: learn
-description: Capture hard-won debugging insights and project patterns for future sessions.
+description: |
+  Record an insight that cost real debugging effort and cannot be recovered
+  from a search — project-specific causes, dependency quirks, the reason
+  behind an architectural choice.
+  Use when: something was just figured out the hard way and the next session
+  would otherwise pay for it again.
+  NOT for: narrating ordinary work, anything a search answers in five
+  minutes, or facts the code and git history already carry.
 ---
 
 # Learn

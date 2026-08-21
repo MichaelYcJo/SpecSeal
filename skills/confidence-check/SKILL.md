@@ -1,6 +1,14 @@
 ---
 name: confidence-check
-description: Pre-implementation confidence assessment. Auto-triggers on implement/create/build keywords.
+description: |
+  Readiness check before implementing: does something equivalent already
+  exist, is the API verified against the installed version, is the cause of
+  the bug actually understood rather than guessed.
+  Use when: about to build something non-trivial against an unfamiliar
+  library, a suspected duplicate, or a bug whose cause is still a hypothesis.
+  NOT for: firing on your own while the smith is driving — its design gate
+  invokes this when readiness is the open question. Not for typo, config, or
+  one-line changes.
 ---
 
 # Confidence Check

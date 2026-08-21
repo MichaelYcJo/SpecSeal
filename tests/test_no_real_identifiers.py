@@ -18,6 +18,7 @@ ALLOWED_DOMAINS = (
     "example.com",   # the designated fixture domain — use this in examples
     "github.com",
     "arxiv.org",
+    "claude.com",    # official docs this plugin is built against
 )
 ALLOWED_USER_PATH = "/Users/x/"  # the designated fixture user
 

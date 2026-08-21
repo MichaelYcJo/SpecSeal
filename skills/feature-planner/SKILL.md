@@ -1,6 +1,13 @@
 ---
 name: feature-planner
-description: Plan feature implementation with scope control and dependency mapping.
+description: |
+  Decompose work into ordered tasks with dependencies mapped, then lock scope
+  in writing before starting.
+  Use when: the work spans more than about three files or needs phasing, and
+  no plan exists yet.
+  NOT for: firing on your own while the smith is driving — its design gate
+  invokes this when decomposition is what the work needs. Not for
+  single-file changes.
 ---
 
 # Feature Planner

@@ -1,6 +1,12 @@
 ---
 name: audit
-description: Validate project-specific rules that linters can't catch.
+description: |
+  Validate project-specific rules a linter cannot express, declared as
+  `.claude/audit-rules/*.md`.
+  Use when: checking conventions this repo wrote down for itself before a
+  commit or release.
+  NOT for: formatting or style a linter already enforces, security review
+  (`security-audit`), or comparing a spec against the code (`gap-analysis`).
 ---
 
 # Audit

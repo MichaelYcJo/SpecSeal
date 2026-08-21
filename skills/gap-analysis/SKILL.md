@@ -1,6 +1,14 @@
 ---
 name: gap-analysis
-description: Compare design/spec documents against actual implementation.
+description: |
+  Compare a design or spec document against what was actually built — API
+  surface, data model, business logic — and list what is missing, extra, or
+  divergent.
+  Use when: a written design exists and someone needs to know how far the
+  implementation has drifted from it.
+  NOT for: checking that ledger coordinates still resolve (`evidence-check`),
+  judging ported behavior against an original (`legacy-parity`), or reviewing
+  a diff (`code-review`).
 ---
 
 # Gap Analysis

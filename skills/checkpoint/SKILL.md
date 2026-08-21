@@ -1,6 +1,12 @@
 ---
 name: checkpoint
-description: Safety checkpoint before risky operations. Triggers on refactor/delete/migrate keywords.
+description: |
+  Establish a rollback point before an operation that is hard to undo, and
+  get explicit approval with the blast radius stated.
+  Use when: deleting files, migrating schemas, renaming across the codebase,
+  or changing a core abstraction — where reverting later is not just a git
+  command.
+  NOT for: ordinary refactors that a commit already makes reversible.
 ---
 
 # Checkpoint

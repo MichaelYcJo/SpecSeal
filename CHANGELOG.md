@@ -2,6 +2,16 @@
 
 ## 0.6.0 — 2026-08-21
 
+- **Skills stop firing on keywords.** Nine model-invoked skills had triggers
+  written before the agent chain existed — `confidence-check` fired on
+  "implement/create/build", so one request could open three scope
+  conversations while the smith's design gate was already deciding. Every
+  auto-firing skill now states where it does *not* belong, the smith owns the
+  design gate and calls `confidence-check` / `feature-planner` when it needs
+  them, and a test fails the build if a model-invoked skill ships without
+  that boundary. This is the plugin's own context-cost argument applied to
+  itself.
+
 - **Migration mode is reachable without reading the README.** The smith asks
   once, when it first bootstraps a repo's layout, whether the project ports
   behavior from an existing codebase — and derives what the machine can:

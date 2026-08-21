@@ -369,3 +369,63 @@ def test_both_opt_ins_report_together(repo):
     assert decision_of(out) == "ask"
     reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
     assert "specseal-reviewed" in reason and "specseal-parity" in reason, reason
+
+
+def test_auto_firing_skills_declare_when_not_to_fire():
+    # Model-invoked skills load into context when their description matches.
+    # Keyword-shaped triggers ("auto-triggers on implement/create/build") fire
+    # on nearly every request, which is the redundant-context cost the README
+    # cites a paper about. Each one states where it does NOT belong.
+    import glob
+    offenders = []
+    for path in sorted(glob.glob(os.path.join(ROOT, "skills", "*", "SKILL.md"))):
+        head = open(path).read().split("\n---\n", 1)[0]
+        if "disable-model-invocation: true" in head:
+            continue  # user-invoked; never fires on its own
+        name = os.path.basename(os.path.dirname(path))
+        if "NOT for" not in head:
+            offenders.append(name)
+    assert not offenders, (
+        "model-invoked skills with no NOT-for boundary — each will fire on "
+        f"matches it should leave to another skill: {offenders}"
+    )
+
+
+def test_the_design_gate_belongs_to_the_smith():
+    # confidence-check and feature-planner used to fire on their own keywords
+    # while the smith's design gate decided the same thing, so one request
+    # could open three scope conversations.
+    smith = open(os.path.join(ROOT, "agents", "smith.md")).read()
+    assert "confidence-check" in smith and "feature-planner" in smith, \
+        "the gate must name the skills it calls, or they self-trigger again"
+    for name in ("confidence-check", "feature-planner"):
+        head = open(os.path.join(ROOT, "skills", name, "SKILL.md")).read()
+        assert "smith is driving" in head, f"{name} lost its stand-down clause"
+
+
+def test_spec_directories_carry_the_timestamp_prefix():
+    # implement/SKILL.md: "A work item's directory is
+    # specs/<unix-epoch-seconds>-<slug>/ ... keeps directories in creation
+    # order and collision-free without a registry". Two were written without
+    # it and nothing noticed — the drift this plugin exists to catch, in its
+    # own tree. The four that predate the convention were backfilled from the
+    # commit that introduced each, so a plain listing now reads in order.
+    import re
+    specs = os.path.join(ROOT, "specs")
+    offenders = [
+        name for name in sorted(os.listdir(specs))
+        if os.path.isdir(os.path.join(specs, name))
+        and not re.match(r"^\d{10}-[a-z0-9][a-z0-9-]*$", name)
+    ]
+    assert not offenders, (
+        "spec directories missing the <unix-epoch-seconds>-<slug> prefix "
+        f"the implement skill specifies: {offenders}"
+    )
+
+
+def test_every_spec_directory_has_an_overview():
+    specs = os.path.join(ROOT, "specs")
+    missing = [n for n in sorted(os.listdir(specs))
+               if os.path.isdir(os.path.join(specs, n))
+               and not os.path.isfile(os.path.join(specs, n, "overview.md"))]
+    assert not missing, f"work items with no closing overview: {missing}"
