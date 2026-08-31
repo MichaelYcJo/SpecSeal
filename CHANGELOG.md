@@ -8,13 +8,14 @@
   an unverified edit. And no Bash command line exists, so the commit gate has
   nothing to read.
 
-  The second reason is what a session hit. The gate looks inside a heredoc
-  body on purpose, because a commit hidden in one used to walk straight past
-  it. Where a repository's test fixtures are themselves shell command
-  strings — this one's are — a heredoc that patches such a fixture carries a
-  commit the gate must ask about, for a command that commits nothing. The
-  prompt then reaches whoever is at the keyboard, which in an unattended run
-  is nobody. (#34)
+  The second reason is what a session hit. The gate reads a heredoc body as
+  shell, because a commit hidden in one used to walk straight past it, and it
+  counts a segment whose command word is `git` with the `commit` subcommand.
+  Two kinds of edit leave one in a body: a partial patch to a file that
+  carries shell commands as test data, where the quoting of that fragment can
+  put a commit in command position, and a patch to a document that shows a
+  waiver example verbatim. Neither command commits anything, and the prompt
+  reaches whoever is at the keyboard — in an unattended run, nobody. (#34)
 
   The gate is unchanged. Whether it should skip a heredoc body that is being
   written to a file rather than run is a separate decision, and it is
