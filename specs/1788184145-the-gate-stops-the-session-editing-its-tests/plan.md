@@ -59,8 +59,8 @@ it is what Q1 exists to revisit.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `agents/smith.md` phase 3 names both reasons | `test_docs_line_wrap`, `test_the_set_a_work_item_always_has`, `test_broad_gate_rule`, `test_waiver_decided_at_start`, `test_one_word_one_meaning`, `test_chain_hooks_hardening` | |
-| 2 | `agents/warden.md` carries the whole statement, beside its probe rules | the same set, plus `test_handoff_outlives_the_merge` | |
+| 1 | `agents/smith.md` phase 3 names both reasons | `test_docs_line_wrap`, `test_the_set_a_work_item_always_has`, `test_broad_gate_rule`, `test_waiver_decided_at_start`, `test_one_word_one_meaning`, `test_chain_hooks_hardening` | `a15ef3b` |
+| 2 | `agents/warden.md` carries the whole statement, beside its probe rules | the same set, plus `test_handoff_outlives_the_merge` | `a15ef3b` |
 | 3 | `questions.md` Q1, the `## Unreleased` changelog entry, the ledger row and the closing memo | read; `test_chain_hooks_hardening::test_plugin_version_is_in_changelog` | |
 
 Phases 1 and 2 are one vertical slice each — a file whose readers are sessions,
