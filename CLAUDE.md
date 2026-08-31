@@ -19,6 +19,23 @@
 <!-- Below: repo-local development rules for SpecSeal itself.
      install.sh distributes only the marker block above. -->
 
+## The goal a design is chosen against — verification that runs unattended
+
+**Verification through an automated workflow is this project's first goal.**
+Between two designs that catch the same defect, the one that stops to ask a
+person is the more expensive, and the difference has to be argued rather than
+assumed. Time and stability are what the argument is being made for.
+
+This is a goal, not a rule, which is why it sits above them: it decides
+between options where no rule is broken either way. `CONTRIBUTING.md`'s *What
+a change to a gate must carry* turns it into something a pull request has to
+answer, and `skills/implement/SKILL.md` §1 holds the reasoning — the cost of a
+question is not its difficulty, it is when it arrives, and a question a
+document could have answered was never a question.
+
+Questions a person genuinely has to answer go in **one batch before the first
+edit**. Coming back mid-run is the failure this exists to prevent.
+
 ## Repo rule — the merge method is fixed per direction, and it is not a preference
 
 | From | To | How |
