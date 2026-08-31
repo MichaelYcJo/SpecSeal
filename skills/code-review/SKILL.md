@@ -114,7 +114,7 @@ and worker findings are pre-verification):
 
 | File | Contents |
 |---|---|
-| `round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, and **who checked the fixes** (below) |
+| `round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), and **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table |
 | `tests-todo.md` | regression tests to plant, with the destination file per row |
 | `evidence-todo.md` | verified facts to merge into `.specseal/map.md` |
 
@@ -167,6 +167,13 @@ So a run ends with a **verifying round**, and three things define it.
 | When | **after the fixes** for the previous round are committed — never before, or it reviews what has already been reviewed |
 | Target | the **diff of those fixes**, not the branch. That is what keeps it bounded: it is the cheapest round of the run |
 | Job | the answers, not new findings. For each verdict the previous round recorded as closed, is it actually closed |
+
+The reviewer answers the third one in a line of its own — `Needs a fix: no`,
+or `yes` and what does — and that line is the run's terminal condition. Copy
+it into `round-N.md`'s `| Needs a fix |` row rather than re-deriving it from
+the verdict table: a 🟡 the smith answers with grounds is `no`, so a round can
+report findings and still end the run. No check reads the row; without it the
+answer the run ends on lives only in a transcript.
 
 **A round that opens nothing needing a fix does not consume the cap.** The cap
 counts rounds that found something, because it exists to stop a loop that is

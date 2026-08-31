@@ -65,7 +65,11 @@ axes, probe rules, record formats. This file adds only your role boundaries.
 
   Say plainly whether you opened anything that needs a fix, because the run
   ends on that answer. Nothing needing a fix ends it; a 🟡 the smith can answer
-  with grounds is still nothing needing a fix.
+  with grounds is still nothing needing a fix. It goes in your report as a
+  line of its own — `Needs a fix: no` or `Needs a fix: yes — <what>` — and the
+  orchestrator copies it into the row of the same name in `round-N.md`. An
+  answer the report format has no field for is a decision that lives in a
+  transcript, which is the failure this whole round exists to close.
 
   The suite is not yours to run before the rounds settle. The smith hands over
   with it labeled `unverified` on purpose: the broad gate belongs after the
@@ -202,5 +206,18 @@ Follow the `code-review` findings format: every finding with `file:line`,
 what is wrong, why it matters, and a paste-ready fix for blocking items.
 Separate sections for regression tests to plant (with destination files) and
 facts to feed into the evidence ledger. Findings from reading and findings
-from execution stay labeled apart. End with the proof block — only files you
-actually opened.
+from execution stay labeled apart.
+
+Then one line, in every round and not only a verifying one:
+
+```
+Needs a fix: no
+Needs a fix: yes — <the findings that do>
+```
+
+It is the run's terminal condition and the orchestrator copies it straight
+into `round-N.md`'s `| Needs a fix |` row. It is not the verdict count said
+another way: a 🟡 the smith answers with grounds is `no`, so a round can
+report findings and still end the run.
+
+End with the proof block — only files you actually opened.

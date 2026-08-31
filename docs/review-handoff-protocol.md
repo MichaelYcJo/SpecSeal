@@ -112,6 +112,7 @@ the inheritance range and round 2 raised it again.
 | Target SHA | yes | commit(s) the round actually reviewed — branches move between rounds; record both if HEAD moved mid-review. **Never rewritten after a squash** — see below |
 | Pass | yes | a checkbox — `- [ ] Pass` or `- [x] Pass`. Checked means no finding in this round's verdict table is still open. See below |
 | Fixes checked by | yes | who opened the fixes that closed this round's findings: a later round, `no fixes to check`, or `nobody` with the reason. `Pass` answers whether the findings were closed; this answers whether the closing was read by anyone. See below |
+| Needs a fix | yes | whether this round opened anything that needs one — the reviewer's own answer, copied rather than re-derived from the verdict table. It is the run's terminal condition where a run ends at a verifying round, and a finding the implementer answers with grounds does not make it `yes`. See below |
 | PR | when one exists | the change request this work went to. A field, not the key: it does not exist while the rounds that fill this file are running |
 | Verdict table | yes | per finding: location, verdict, grounds |
 | Executed probes | yes (may be "none") | what was RUN, with results — distinguished from what was read |
@@ -227,6 +228,22 @@ could have caught in exchange for the ones it never could. What the cutoff is
 keyed to has to be readable from the record itself; the reference
 implementation uses the timestamp already in the work item's directory name.
 
+#### The Needs a fix field — the answer a run ends on
+
+Where a run ends at a round that opens nothing needing a fix, that answer is
+the terminal condition, and it belongs to the reviewer rather than to whoever
+reads the record afterwards.
+
+It is not the verdict table said another way. A finding the implementer
+answers with grounds is a finding, and it needs no fix, so a round can report
+several and still end the run. Deriving the answer from the table gets that
+case wrong in the direction that costs a round.
+
+The reviewer writes one line — `Needs a fix: no`, or `yes` and what does — and
+whoever writes the record copies it. Without the field the question is still
+asked and the answer has nowhere to live, which puts a decision the run turns
+on in a transcript that ends with the session.
+
 ### tests-todo.md — regression tests prescribed, not written
 
 One row per test: what it asserts · **destination file** · grounds · status.
@@ -285,7 +302,9 @@ fixes fails a change request or only prints is a project's call, so the
 field's own section states both — with the grandfathering a project that
 fails has to carry — and the requirement stays at the level of the field
 being present and honest. The reference implementation now fails, for work
-items begun after it adopted the rule.
+items begun after it adopted the rule. 0.5 also adds `Needs a fix`, because a
+run that ends when a round opens nothing needing a fix turns on an answer the
+record had no room for.
 
 0.3 also states the path as this implementation's choice rather than as the
 protocol. Draft 0.2 claimed to be tool-agnostic while naming a directory

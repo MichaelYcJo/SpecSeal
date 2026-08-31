@@ -938,6 +938,90 @@ def closed_with_a_fix(reader, lines, rel):
     return any(verdict_of(seen, col) in FIX_WORDS for _line, seen in rows)
 
 
+def resolves_to(root, sha):
+    """The full commit `sha` names in this repository, or None.
+
+    None is *this repository cannot see it*, which after a squash is the
+    ordinary state of a reviewed commit rather than a fault. Everything built
+    on this treats None as "no claim", the way `check_round` already does for
+    a record the pull request does not touch.
+    """
+    r = subprocess.run(
+        ["git", "-C", root, "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}"],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return r.stdout.strip() or None
+
+
+def target_shas(reader, root, rel):
+    """Every SHA in one record's `Target SHA` row, in the order written.
+
+    The row may name two — `templates/sdd-round.md` says so for a HEAD that
+    moved mid-review — and the order is what makes them usable: the first is
+    what the round opened, the last is the newest tree it saw.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return []
+    rows = table_rows(reader, reader.readable(text))
+    return SHA_RE.findall(field(rows, TARGET) or "")
+
+
+def reviewed_later(reader, root, rel, rows, value, checker_rel):
+    """(errors,) — the named checker looked at something after this round did.
+
+    The round NUMBER being higher is not that fact. Two records can carry the
+    same `Target SHA`, and then round 2 reviewed the tree round 1 reviewed:
+    the fixes that closed round 1 were written after both, so round 2 cannot
+    have opened them however its file is numbered. Rounds are also cheap to
+    number and expensive to run.
+
+    Only positively established inversions are refused, never an absence:
+
+      the same commit          both records name one tree, compared as
+                               resolved commits where the repository still
+                               carries them and as written where it does not
+      strictly earlier         the checker's newest tree is an ANCESTOR of
+                               what this round opened
+
+    Anything else passes, the unrelated-commit case included. A squash
+    discards the commits a round reviewed, so *cannot be compared* is the
+    ordinary state of a merged record and failing there would fail history
+    for being history.
+    """
+    mine = SHA_RE.findall(field(rows, TARGET) or "")
+    theirs = target_shas(reader, root, checker_rel)
+    if not mine or not theirs:
+        return []
+
+    same = f"`{CHECKED_BY}` names `{value}`, and that record reviewed the "
+    same += "same commit this one did. A round that looked at the same tree "
+    same += "cannot have opened the fixes that closed this round — those "
+    same += "were written after it ended. The number is later; the review "
+    same += "is not"
+
+    mine_head, theirs_head = resolves_to(root, mine[0]), resolves_to(root, theirs[-1])
+    if mine_head is None or theirs_head is None:
+        return [(rel, 0, same)] if set(mine) == set(theirs) else []
+    if mine_head == theirs_head:
+        return [(rel, 0, same)]
+    if is_ancestor(root, theirs_head, mine_head):
+        return [
+            (
+                rel,
+                0,
+                f"`{CHECKED_BY}` names `{value}`, and that record's "
+                f"`{TARGET}` is an ancestor of this one's — it reviewed an "
+                "EARLIER tree. A round numbered later that looked at an "
+                "earlier commit read none of the fixes this round's findings "
+                "were closed by",
+            )
+        ]
+    return []
+
+
 def item_began(rel):
     """The unix second in `specs/<seconds>-<slug>/rounds/round-N.md`, or None.
 
@@ -1055,7 +1139,7 @@ def checked_by(reader, routing, root, rel, siblings, last=False):
                     "nobody can open is not a checker",
                 )
             ], []
-        return [], []
+        return reviewed_later(reader, root, rel, rows, value, siblings[name]), []
 
     if value == NO_FIXES:
         if closed_with_a_fix(reader, lines, rel):

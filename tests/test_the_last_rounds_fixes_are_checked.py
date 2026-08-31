@@ -169,13 +169,20 @@ def declared(repo, *, item=None, **rounds):
     `item` picks the work-item directory, which is not decoration: its
     timestamp prefix is what `chain_check.STRICT_FROM` compares against, so
     the default `ITEM` is grandfathered and `STRICT_ITEM` is not.
+
+    Each record lands in its own commit and is handed the HEAD that existed
+    before it, so round 2's `Target SHA` is a DESCENDANT of round 1's. That
+    is what a real run looks like — the fixes are what moved HEAD between the
+    rounds — and it matters here: every record sharing one commit made the
+    passing shape indistinguishable from a round that reviewed the same tree
+    it was supposed to be checking the fixes to.
     """
     item = item or ITEM
     write(repo, f"{item}/routing.md", declaration(item))
     sha = commit(repo, "declare")
     for name, body in rounds.items():
         write(repo, f"{item}/rounds/{name.replace('round', 'round-')}.md", body(sha))
-    commit(repo, "rounds")
+        sha = commit(repo, name)
     return sha
 
 
@@ -250,6 +257,49 @@ def test_an_earlier_round_cannot_be_the_checker(repo):
     code, out = run(repo)
     assert code == 1, out
     assert "before these fixes existed" in out
+
+
+def test_a_checker_that_reviewed_the_same_commit_fails(repo):
+    """S4b. The number is later and the review is not.
+
+    Rounds are cheap to number and expensive to run. Two records carrying one
+    `Target SHA` mean round 2 opened the tree round 1 opened — and the fixes
+    that closed round 1 were written after both of them, so no part of what
+    the cell claims happened. Comparing round numbers alone said nothing
+    about this and exited 0.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(repo, f"{ROUNDS}/round-1.md", record(sha, "round-2"))
+    write(
+        repo,
+        f"{ROUNDS}/round-2.md",
+        record(sha, "no fixes to check", verdict="answered"),
+    )
+    commit(repo, "both rounds in one commit")
+    code, out = run(repo)
+    assert code == 1, out
+    assert "reviewed the same commit" in out
+
+
+def test_a_checker_that_reviewed_an_earlier_commit_fails(repo):
+    """S4c. The same fact one step weaker, and it is the shape a rebase or a
+    copied record produces: round 2's target is an ancestor of round 1's, so
+    it read a tree that predates the fixes it claims to have opened."""
+    write(repo, f"{ITEM}/routing.md", declaration())
+    early = commit(repo, "declare")
+    write(repo, "f.py", "x = 2\n")
+    late = commit(repo, "move HEAD")
+    write(repo, f"{ROUNDS}/round-1.md", record(late, "round-2"))
+    write(
+        repo,
+        f"{ROUNDS}/round-2.md",
+        record(early, "no fixes to check", verdict="answered"),
+    )
+    commit(repo, "rounds")
+    code, out = run(repo)
+    assert code == 1, out
+    assert "reviewed an EARLIER tree" in out
 
 
 def test_a_checker_git_does_not_carry_fails(repo):
@@ -472,6 +522,43 @@ def test_a_session_is_not_one_of_the_three_values(repo):
     code, out = run(repo)
     assert code == 1, out
     assert "none of the three values" in out
+
+
+# --- three branches the first round of cases never reached ------------------
+
+
+def test_a_word_that_merely_starts_with_nobody_is_not_nobody(repo):
+    """The separator after `nobody`. Without it, any word beginning with
+    those six letters would be read as the disclosure and its remainder as
+    the reason — a tolerant read of the one value that exists to be exact."""
+    declared(repo, round1=lambda sha: record(sha, "nobodys fault, really"))
+    code, out = run(repo)
+    assert code == 1, out
+    assert "none of the three values" in out
+
+
+def test_a_value_in_backticks_is_the_value(repo):
+    """Every document shows the values in code fences, so a session copying
+    one writes the fences too. Refusing that would fail a record for its
+    markdown."""
+    declared(
+        repo,
+        round1=lambda sha: record(sha, "`no fixes to check`", verdict="answered"),
+    )
+    code, out = run(repo)
+    assert code == 0, out
+
+
+def test_a_checker_named_with_its_md_suffix_is_the_same_checker(repo):
+    """`round-2.md` is what somebody writes after copying a filename, and it
+    names the same record `round-2` does."""
+    declared(
+        repo,
+        round1=lambda sha: record(sha, "round-2.md"),
+        round2=lambda sha: record(sha, "no fixes to check", verdict="answered"),
+    )
+    code, out = run(repo)
+    assert code == 0, out
 
 
 def test_a_draft_pull_request_is_excused_the_pass_and_not_this(repo):
@@ -741,6 +828,64 @@ def test_the_condition_is_not_that_the_round_found_nothing():
     there — without this sentence the rule reads as C and gets built as C."""
     spec = flat("docs", "review-chain-spec.md")
     assert "wrote no code nobody read" in spec
+
+
+# The run's terminal condition needs somewhere to be written down. The warden
+# is told to say whether it opened anything needing a fix, and for one release
+# neither its report format nor the record template had a field for that
+# answer — so the thing the run ends on lived in a transcript. These pin the
+# channel end to end: the reviewer's line, the record's row, and the sentence
+# saying the row is not the verdict table restated.
+
+NEEDS_A_FIX = (
+    ("agents", "warden.md"),
+    ("skills", "code-review", "SKILL.md"),
+    ("templates", "sdd-round.md"),
+    ("docs", "review-handoff-protocol.md"),
+)
+
+
+@pytest.mark.parametrize("parts", NEEDS_A_FIX)
+def test_the_answer_the_run_ends_on_has_a_field(parts):
+    text = flat(*parts)
+    assert "Needs a fix" in text, "/".join(parts)
+    assert "with grounds" in text or "answers with grounds" in text, (
+        f"{'/'.join(parts)}: without this the row reads as the verdict count "
+        "restated, and a round that reported findings the smith can answer "
+        "gets counted as one that did not end the run"
+    )
+
+
+def test_the_record_template_carries_the_row_a_session_copies():
+    """The warden's line has to land somewhere a session actually writes.
+
+    The same failure as `Fixes checked by`: a field described in a comment
+    beside a table it is not in is a field nobody fills.
+    """
+    lines = reader_module().strip_comments(
+        read("templates", "sdd-round.md").splitlines()
+    )
+    rows = [line for line in lines if line.strip().startswith("| Needs a fix")]
+    assert len(rows) == 1, (
+        f"the template's field table has {len(rows)} `Needs a fix` rows "
+        "outside its comments"
+    )
+    value = rows[0].split("|")[2].strip()
+    assert value.startswith("<") and value.endswith(">"), value
+    assert "`no`" in value and "`yes" in value
+
+
+def test_the_reviewer_writes_the_line_the_orchestrator_copies():
+    """Two agents and one string. The warden emits it, the orchestrator moves
+    it into the record, and a rename on one side alone silently drops it."""
+    warden = flat("agents", "warden.md")
+    skill = flat("skills", "code-review", "SKILL.md")
+    assert "Needs a fix: no" in warden
+    assert "`Needs a fix: no`" in skill or "Needs a fix: no" in skill
+    assert "| Needs a fix |" in skill, (
+        "the orchestrator has to be told which row the line goes into, or the "
+        "answer reaches the report and stops there"
+    )
 
 
 def test_the_reviewer_knows_a_diff_can_be_its_target():

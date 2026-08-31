@@ -13,6 +13,7 @@ carries the format; this is the shape it takes in this repository. -->
 | PR | <the pull request, once one exists. A field, not the key> |
 | Broad gate | <`not yet`, or the SHA the one full-suite run happened at and the base it was compared against> |
 | Fixes checked by | <`round-<N>`, a LATER round · `no fixes to check` · `nobody — <why>`> |
+| Needs a fix | <`yes — <what>` · `no`. The reviewer's own answer, copied here> |
 
 - [ ] Pass
 
@@ -41,6 +42,20 @@ claiming to have passed while its own fixes went unread. Work items begun
 before the rule landed are excused and only print. The way out costs no round:
 one verifying round at the diff of those fixes, and a round that opens nothing
 needing a fix does not consume the cap.
+
+`Needs a fix` is the answer the run ends on, and it is the reviewer's rather
+than the orchestrator's. A round that opened nothing needing a fix ends the
+run and does not consume the cap; `no` is what says so. A 🟡 the smith answers
+with grounds is still `no` — the condition is *this round wrote no code nobody
+read*, not *this round found nothing*.
+
+It is copied from the reviewer's report and not inferred from the verdict
+table. A verdict table says what was found and this says what the finder
+concluded about it, and the two come apart at exactly the case above.
+
+No check reads this row. It is here because the reviewer is told to answer the
+question and had nowhere to write the answer, which is how a decision ends up
+living in a transcript.
 
 Check `Pass` only when no finding in the verdict table below is still
 open. It is the last round's checkbox that speaks for the whole review: every
