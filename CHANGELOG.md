@@ -42,6 +42,28 @@
   contributor-facing, and `install.sh` distributes only the marker block in
   `CLAUDE.md`, which keeps its size.
 
+- **`writing-style` produced text that satisfied it and could not be read,
+  and three things about the file explain why.** (#9)
+
+  **The per-document sections looked complete.** Someone opening the file to
+  write a PR body starts at that section, reads its table, and applies it.
+  The line saying the sentence rules for their language apply too sits two
+  hundred lines above, where they never went. Each of those sections now says
+  it at the top: what follows adds to the sentence rules and never replaces
+  them.
+
+  **There was no way to notice the jargon was yours.** Every example was a
+  word from somebody else's domain, so it read as somebody else's vocabulary
+  — while the word learned from this codebase an hour ago already feels like
+  ordinary language. A mechanical test replaces the judgment: if you first
+  met the word here, in the code or in a policy document, it is jargon. The
+  word class that actually leaks is named too, because a list never
+  enumerates it.
+
+  **Conversation with the user was not one of the kinds of writing.** It is
+  the one written most, and the density that makes a PR body precise makes it
+  unreadable. It now has a row in the opening table and a section of its own.
+
 ## 0.0.1 — 2026-08-31
 
 - **Initial release.** An implement/review agent chain with hook enforcement,
