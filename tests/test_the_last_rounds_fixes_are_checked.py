@@ -27,6 +27,7 @@ what their substrings are chosen to be. Each picks a phrase that cannot
 survive the drift it is guarding against.
 """
 
+import importlib.util
 import json
 import os
 import shutil
@@ -441,16 +442,6 @@ def test_the_three_values_are_spelled_the_same_everywhere():
         assert "nobody" in text, "/".join(parts)
 
 
-def test_the_template_ships_the_row_and_not_an_answer():
-    tpl = read("templates", "sdd-round.md")
-    assert "| Fixes checked by |" in tpl
-    assert "a LATER round" in tpl, (
-        "without this the row reads as an ordinary cross-reference and "
-        "`round-1` on round-1.md is what somebody writes"
-    )
-    assert "| Fixes checked by | round-" not in tpl, "a template must not ship a claim"
-
-
 def test_the_protocol_carries_the_field_and_moved_its_draft():
     protocol = read("docs", "review-handoff-protocol.md")
     assert "| Fixes checked by |" in protocol
@@ -461,21 +452,28 @@ def test_the_protocol_carries_the_field_and_moved_its_draft():
     )
 
 
-def test_the_documents_say_what_nobody_costs():
-    """A trade nobody wrote down gets reverted by whoever finds it, and this
-    one is the difference between refusing a claim and refusing a state.
+# The trade each document has to state, and the needle has to be unique to the
+# section that states it. `teaches people to write none` was the first
+# spelling and it has sat at `chain_check.py:82` since the initial commit,
+# about a different gate: deleting the whole 45-line FIXES CHECKED BY section
+# left this case green. A needle that survives deleting what it guards is
+# worth nothing, and this case's own docstring had already said so about a
+# shorter spelling.
+NOBODY_COSTS = {
+    ("docs", "review-chain-spec.md"): "teaches people to write none",
+    ("skills", "code-review", "scripts", "chain_check.py"): (
+        "can still ship with its final fixes unopened"
+    ),
+}
 
-    The phrase, not the word. `teach` alone was the first spelling and it
-    survived deleting the sentence, because the same reasoning appears further
-    down the same file about a different gate.
-    """
-    for parts in (
-        ("docs", "review-chain-spec.md"),
-        ("skills", "code-review", "scripts", "chain_check.py"),
-    ):
-        text = flat(*parts)
-        assert "honest" in text, "/".join(parts)
-        assert "teaches people to write none" in text, "/".join(parts)
+
+@pytest.mark.parametrize("parts", sorted(NOBODY_COSTS))
+def test_the_documents_say_what_nobody_costs(parts):
+    """A trade nobody wrote down gets reverted by whoever finds it, and this
+    one is the difference between refusing a claim and refusing a state."""
+    text = flat(*parts)
+    assert "honest" in text, "/".join(parts)
+    assert NOBODY_COSTS[parts] in text, "/".join(parts)
 
 
 # --- the verifying round ----------------------------------------------------
@@ -496,20 +494,120 @@ def test_every_document_that_runs_the_chain_names_the_verifying_round():
         assert "verifying round" in flat(*parts), "/".join(parts)
 
 
-def test_the_verifying_rounds_target_is_the_previous_rounds_fixes():
+# Option A is prose in four documents and nothing in the code enforces it, so
+# these cases are the whole of what holds it. A needle that is merely PRESENT
+# holds nothing: `"diff of" in text and "fixes" in text` stayed green with
+# BOTH of option A's axes inverted — spawn before the fixes, target the whole
+# branch — because `fixes` appears four to eighteen times in every carrier.
+#
+# So each rule is pinned as the whole row or the whole sentence that states
+# it, and beside it the spellings an inversion would have to produce. The
+# positive is what refuses a rewrite; the negative is what refuses a document
+# that keeps the sentence and states the opposite somewhere else.
+
+WHEN_SPAWNED = {
+    ("docs", "review-chain-spec.md"): (
+        "It is spawned after the previous round's fixes are committed, its "
+        "target is the diff of those fixes, and its job is the answers rather "
+        "than new findings"
+    ),
+    ("skills", "code-review", "SKILL.md"): (
+        "| When | **after the fixes** for the previous round are committed — "
+        "never before, or it reviews what has already been reviewed |"
+    ),
+    ("agents", "warden.md"): (
+        "it is spawned after the previous round's fixes are committed, and "
+        "its target is the diff of those fixes rather than the branch"
+    ),
+    ("agents", "smith.md"): (
+        "spawned after your fixes are committed, targeted at the diff of "
+        "those fixes, asking whether each closed finding is actually closed"
+    ),
+}
+SPAWNED_BACKWARDS = (
+    "spawned before",
+    "before the previous round's fixes are committed",
+    "before your fixes are committed",
+    "**before the fixes**",
+)
+
+WHAT_IT_TARGETS = {
+    ("docs", "review-chain-spec.md"): (
+        "| Target | the branch, or what the prompt narrows it to | the diff "
+        "of the previous round's fixes |"
+    ),
+    ("skills", "code-review", "SKILL.md"): (
+        "| Target | the **diff of those fixes**, not the branch. That is what "
+        "keeps it bounded: it is the cheapest round of the run |"
+    ),
+    ("agents", "warden.md"): (
+        "its target is the diff of those fixes rather than the branch"
+    ),
+    ("agents", "smith.md"): "targeted at the diff of those fixes",
+}
+TARGETED_BACKWARDS = (
+    "target is the branch",
+    "targeted at the branch",
+    "the whole branch",
+    "the diff of those fixes rather than the branch, or the branch",
+)
+
+# The warden carries no cap rule and is not in this one: whether a round ends
+# the run is the orchestrator's arithmetic, and the reviewer's part is saying
+# whether it opened anything.
+CAP_RULE = {
+    ("docs", "review-chain-spec.md"): (
+        "**A round that opens nothing needing a fix does not consume the "
+        "cap.** The cap counts rounds that found something"
+    ),
+    ("skills", "code-review", "SKILL.md"): (
+        "**A round that opens nothing needing a fix does not consume the "
+        "cap.** The cap counts rounds that found something"
+    ),
+    ("agents", "smith.md"): (
+        "A round that opens nothing needing a fix **does not consume the "
+        "cap**, because the cap counts rounds that found something"
+    ),
+}
+CAP_BACKWARDS = (
+    "does consume the cap",
+    "still consumes the cap",
+    "consumes the cap like every other",
+)
+
+
+@pytest.mark.parametrize("parts", sorted(WHEN_SPAWNED))
+def test_the_verifying_round_is_spawned_after_the_fixes(parts):
+    """Spawned before them, it reviews the commit the previous round already
+    reviewed — the round happens, costs a spawn, and reads nothing new."""
+    text = flat(*parts)
+    assert WHEN_SPAWNED[parts] in text, "/".join(parts)
+    for backwards in SPAWNED_BACKWARDS:
+        assert backwards not in text, f"{'/'.join(parts)}: {backwards}"
+
+
+@pytest.mark.parametrize("parts", sorted(WHAT_IT_TARGETS))
+def test_the_verifying_rounds_target_is_the_previous_rounds_fixes(parts):
     """Which is what makes it bounded, and the reason it is not option C of
-    issue #33: the surface is a diff rather than a branch."""
-    for parts in CARRIERS:
-        text = flat(*parts)
-        assert "diff of" in text and "fixes" in text, "/".join(parts)
+    issue #33: the surface is a diff rather than a branch. Widened back to the
+    branch it is an ordinary round, and the run gains a full walk it was
+    promised it would not pay for."""
+    text = flat(*parts)
+    assert WHAT_IT_TARGETS[parts] in text, "/".join(parts)
+    for backwards in TARGETED_BACKWARDS:
+        assert backwards not in text, f"{'/'.join(parts)}: {backwards}"
 
 
-def test_the_cap_counts_rounds_that_found_something():
+@pytest.mark.parametrize("parts", sorted(CAP_RULE))
+def test_the_cap_counts_rounds_that_found_something(parts):
     """The cap could not tell a round that found nothing from a round whose
-    fixes nobody read, and it ended the run at both."""
-    for parts in (("docs", "review-chain-spec.md"), ("agents", "smith.md")):
-        text = flat(*parts)
-        assert "does not consume the cap" in text, "/".join(parts)
+    fixes nobody read, and it ended the run at both. Inverted, the verifying
+    round costs a round the run does not have and the ending it was built to
+    replace comes straight back."""
+    text = flat(*parts)
+    assert CAP_RULE[parts] in text, "/".join(parts)
+    for backwards in CAP_BACKWARDS:
+        assert backwards not in text, f"{'/'.join(parts)}: {backwards}"
 
 
 def test_the_spec_says_the_verifying_round_cannot_loop():
@@ -528,16 +626,6 @@ def test_the_condition_is_not_that_the_round_found_nothing():
     assert "wrote no code nobody read" in spec
 
 
-def test_the_orchestrator_is_told_when_to_spawn_it():
-    """`code-review` is what the session running the chain reads. A rule
-    stated only in the policy reaches the reader who went looking for it."""
-    skill = flat("skills", "code-review", "SKILL.md")
-    assert "after the fixes" in skill, (
-        "the ordering is the whole of option A — a verifying round spawned "
-        "before the fixes land reviews the thing that was already reviewed"
-    )
-
-
 def test_the_reviewer_knows_a_diff_can_be_its_target():
     """The warden's scope rules are written for a branch. A round whose
     target is a diff has to be a shape it recognises, or it widens."""
@@ -549,25 +637,69 @@ def test_the_reviewer_knows_a_diff_can_be_its_target():
 def test_the_smiths_account_of_the_bound_matches_the_spec():
     """`agents/smith.md` states the bound for a session that never opens the
     policy. Round 3 of the previous work item is what happens when two
-    documents describe one rule and only one of them is updated."""
+    documents describe one rule and only one of them is updated.
+
+    Both numbers and both conditions, as one sentence. `three rounds` alone
+    left the second half free: the ceiling could move, or stop being tied to
+    an open 🔴, and this case would not have noticed.
+    """
     smith = flat("agents", "smith.md")
-    assert "three rounds" in smith
+    assert (
+        "**three rounds, then it ends whether or not everything was "
+        "resolved; five while a 🔴 is open, and only to close it**" in smith
+    )
     assert "verifying round" in smith
+    spec = flat("docs", "review-chain-spec.md")
+    assert "Rounds are capped at **three**, and at **five while a 🔴 is open**." in spec
+
+
+def reader_module():
+    """`unverified_check.py`, the same module `chain_check` loads.
+
+    One reader, not two. `strip_comments` decides what counts as a row here
+    exactly as it does when the check reads a record, and a second
+    implementation in this file would be free to drift from it.
+    """
+    path = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
+    spec = importlib.util.spec_from_file_location("specseal_reader_for_tests", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_the_template_row_is_a_row_and_not_an_explanation():
-    """The one shape that would make every prose assertion above worthless:
-    the field described in a comment beside a table it is not in.
+    """The row a session copies, pinned as a row and as a placeholder.
 
-    A session copies the table. A commented row is invisible to `chain_check`
-    by design — `test_a_cell_inside_a_comment_is_not_the_row` pins that from
-    the other side — so a template whose only mention is commented ships a
-    record that fails the moment it is written.
+    Counting raw lines counted the explanation as a row, so the whole field
+    could be moved INSIDE the comment block beside the table and the count
+    stayed at one — while `chain_check` reads a commented row as absent, which
+    `test_a_cell_inside_a_comment_is_not_the_row` pins from the other side. A
+    template whose only mention is commented ships a record that fails the
+    moment it is written.
+
+    The value is pinned too. `test_the_three_values_are_spelled_the_same_
+    everywhere` reads the whole file, comments included, so `no fixes to
+    check` could be misspelled in the row and left right in the paragraph
+    below it, and every case stayed green.
     """
-    rows = [
-        line
-        for line in read("templates", "sdd-round.md").splitlines()
-        if line.strip().startswith("| Fixes checked by")
-    ]
-    assert len(rows) == 1, f"the template's field table has {len(rows)} such rows"
-    assert "<!--" not in rows[0]
+    lines = reader_module().strip_comments(
+        read("templates", "sdd-round.md").splitlines()
+    )
+    rows = [line for line in lines if line.strip().startswith("| Fixes checked by")]
+    assert len(rows) == 1, (
+        f"the template's field table has {len(rows)} such rows outside its "
+        "comments — a row a session cannot copy is not a row"
+    )
+    value = rows[0].split("|")[2].strip()
+    assert value.startswith("<") and value.endswith(">"), (
+        f"a template must not ship a claim, and `{value}` is one"
+    )
+    assert "a LATER round" in value, (
+        "without this the row reads as an ordinary cross-reference and "
+        "`round-1` on round-1.md is what somebody writes"
+    )
+    for spelling in ("`round-<N>`", "`no fixes to check`", "`nobody — <why>`"):
+        assert spelling in value, (
+            f"the row offers no `{spelling}`, so a session writing from this "
+            "template writes a value `chain_check.py` refuses"
+        )
