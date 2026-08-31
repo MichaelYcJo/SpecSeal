@@ -80,7 +80,7 @@ it is what Q1 exists to revisit.
 | 2 | `agents/warden.md` carries the whole statement, beside its probe rules | the same set, plus `test_handoff_outlives_the_merge` | `a15ef3b` |
 | 3 | the `## Unreleased` changelog entry, the ledger row and the closing memo. (`questions.md` Q1 was written with the rest of the SDD set, before implementing) | `test_release_hygiene`, `test_ledger_stamps_resolve`, `evidence_check.py`, `unverified_check.py`, `test_chain_hooks_hardening::test_plugin_version_is_in_changelog` | `f805088` — `questions.md` Q1 at `13ab33a` |
 | 4 | Round 1's findings: the corrected mechanism in both agent files, the reader-repository claim removed, and `tests/test_edits_go_through_the_edit_tool.py` planted | the narrow suite, plus a mutation harness showing each of the five cases go red | `8b6c6ff` — the same round's changelog, memo and ledger half at `2a28c35` |
-| 5 | Round 2's findings: the `eval` branch named in both agent files and pinned by a sixth test case, a rider at `agents/smith.md:43`, `questions.md` Q2, the plan's coordinates corrected, and the ledger row for the second branch | the narrow suite plus the new case, each shown red under a mutation; the gate probe over both agent files | |
+| 5 | Round 2's findings: the `eval` branch named in both agent files and pinned by a sixth test case, a rider at `agents/smith.md:43`, `questions.md` Q2, the plan's coordinates corrected, and the ledger row for the second branch | the narrow suite plus the new case, each shown red under a mutation; the gate probe over both agent files | `96a1ae3` — the round record and memo at `eb0e9f5` |
 
 Phases 1 and 2 are one vertical slice each — a file whose readers are sessions,
 so what makes it runnable is the prose tests that read it.
