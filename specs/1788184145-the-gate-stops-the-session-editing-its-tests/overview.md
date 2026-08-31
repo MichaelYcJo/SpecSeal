@@ -33,6 +33,21 @@ patch of a fixture trips. Both halves are true, and a fragment is judged on
 its own quoting rather than on the file it came from. That is the rule the
 prose now states.
 
+## What round 2 changed about the reason, again
+
+Round 1 corrected *which* segments count. Round 2 found the corrected sentence
+still described one branch of two, which is the more dangerous shape: a rule
+that is right as far as it goes invites a reader to apply it and stop.
+
+A segment the reader cannot expand counts as well. An `eval` whose argument
+holds a variable or a command substitution stops the session with **no `git`
+anywhere in the body**, because nothing can tell what it reduces to without
+running the shell. So a session following round 1's text would search its
+patch for a commit, find none, proceed, and meet the prompt anyway — the
+failure this work item exists to remove, arriving through the fix for it.
+
+Both files now state the two branches separately, and each is pinned.
+
 ## Where spec and implementation diverged
 
 | Divergence | Spec says / code did | Chosen | Grounds |
@@ -40,6 +55,8 @@ prose now states.
 | Whether the agent prose should cite `hooks/commit-review-gate.py:151` | Issue #34 cites it; the plan repeats it | Left out of the agent files, kept in `spec.md`, `plan.md` and the ledger | The agent files ship as a plugin and are read inside repositories that have no such path. The mechanism is stated instead, and it is true wherever the gate runs. Nothing in the ticket required the coordinate to appear in the prose |
 | How the edits were made | The spawn prompt required the `Edit` tool; the session's environment asked for edits through Bash (`sed`, heredocs) | The `Edit` tool | `CLAUDE.md` and `skills/implement/SKILL.md:393` both prefer it, and here a heredoc carrying the words this change adds would have reproduced the defect inside its own fix. Disclosed rather than done quietly |
 | Round 1's finding 1 arrived as 🔴 with a conclusion attached | The reviewer concluded *"the test fixtures are not what trips the gate, the documents are"* | Rejected the conclusion, took the finding | Re-ran the probe rather than adopting either account. Issue #34's eight-line partial patch of a fixture TRIPS, so the documents are not the only cause. Writing the reviewer's sentence would have put a false statement in a shipped agent file |
+| Round 2 handed over replacement paragraphs the reviewer had already applied and measured | Reviewer's text, verified at 76 columns and zero added apostrophes | Rewrote them, keeping the claim | Taking measured text unread would make the wording the reviewer's and the responsibility mine. Rewriting cost one real defect and caught it: my version dropped `command position` from `agents/warden.md`, and round 1's own test failed at the baseline run before any mutation. The test planted last round paid for itself this round |
+| Q2 was a decision, and the session was told to run unattended | Round 2 named it a trade needing a person | Wrote `questions.md` Q2 with three options; raised no prompt | The standing instruction is that a decision needing a person becomes a row. A waiver example is only useful shown verbatim, so making the line stop tripping may cost the example its job — not a call a session should make to quiet its own tooling |
 | Round 1's constraint said `agents/warden.md` does not trip the gate | Whole-file probe at the pre-round-2 commit: `clean` | Confirmed, and then broken and repaired | The constraint held, but only until my own first edit. One apostrophe in added prose flipped the quote state and made the whole file trip. Found by re-running the probe as instructed, not by any test — which is why a test for it now exists |
 
 ## Not verified
@@ -61,6 +78,12 @@ unticked.
 The reach of option A was not widened either. A person editing these fixtures
 by hand through a heredoc still meets the prompt; that is the known limit of
 this approach and it is what Q1 would settle.
+
+`agents/smith.md` still trips the gate at its own waiver example, and that was
+left rather than fixed. Breaking the example to quiet the line would cost the
+example its job — a waiver a reader has to retype by hand is a waiver typed
+wrong. The fact is recorded three ways so it cannot go missing: a rider at the
+coordinate, `questions.md` Q2 with the options priced, and a ledger row.
 
 ## Fed back into the spec
 
