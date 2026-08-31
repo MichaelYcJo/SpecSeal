@@ -63,7 +63,7 @@ Both files now state the two branches separately, and each is pinned.
 
 | Item | Who must answer |
 |---|---|
-| The full test suite at this branch's HEAD. The narrow scope ran the cases that read the two agent files and the changelog; the broad gate runs once, after the review rounds settle | the review orchestrator |
+| ✅ The full test suite at this branch's HEAD | run once by the orchestrator after round 3, at `d3fe44d`: 886 passed, 1 skipped; `ruff check` clean; `ruff format --check` 59 files already formatted; `evidence-check` 11 ok · 0 drifted · 0 broken |
 | That an agent following the new instruction actually stops meeting the prompt. The change is prose a session reads, so nothing in the suite can execute it | the repository owner, at the next session that edits `tests/test_gate_judges_the_repo_it_commits_to.py` or `tests/test_what_the_reader_understands.py` |
 
 ## Not done
