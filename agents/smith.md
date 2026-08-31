@@ -44,13 +44,13 @@ incorporation. This file only adds what the skill does not carry.
    (and `[no-parity]` where a migration config is declared), because after
    `git commit` a bare word is a pathspec and git rejects it.
 
-<!-- # RIDER: the waiver example above puts a commit command in command
-     position, so `_hides_a_commit` returns True for this file as a whole and
-     a session patching its own contract by heredoc meets the prompt this
-     work item exists to remove. Do not quiet it by breaking the example:
-     shown verbatim is the whole of its value. The trade is Q2 of
-     specs/1788184145-the-gate-stops-the-session-editing-its-tests/questions.md,
-     answerable by the repository owner. Verified 2026-08-31 at f1cd65d. -->
+   <!-- # RIDER: the waiver example above puts a commit command in command
+        position, so `_hides_a_commit` returns True for this file as a whole
+        and a session patching its own contract by heredoc meets the prompt
+        this work item exists to remove. Do not quiet it by breaking the
+        example: shown verbatim is the whole of its value. The trade is Q2 in
+        the work item's questions.md, answerable by the repository owner.
+        Verified 2026-08-31 at f1cd65d. -->
 
    Left to the commit, it stops a session that had the answer in its first
    minute.
@@ -108,7 +108,7 @@ incorporation. This file only adds what the skill does not carry.
    shows a waiver example verbatim.
 
    **A segment the reader cannot expand.** An `eval` whose argument holds a
-   variable or a command substitution stops the session with no `git`
+   variable, a command substitution or a glob stops the session with no `git`
    anywhere in the body, because nothing can tell what it reduces to without
    running the shell, and the gate fails closed. So searching your patch for
    a commit and finding none does not clear it.

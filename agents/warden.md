@@ -160,12 +160,12 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   patch to a document showing a waiver example verbatim.
 
   The other has no commit in it at all. A segment the reader cannot expand
-  counts the same way, so an `eval` whose argument holds a variable or a
-  command substitution stops the session with no `git` in the body, because
-  nothing can tell what it reduces to without running the shell. Searching
-  your patch for a commit and finding none does not clear it. Neither
-  command runs, the prompt still lands, and what that costs is what the next
-  bullet measures.
+  counts the same way, so an `eval` whose argument holds a variable, a
+  command substitution or a glob stops the session with no `git` in the
+  body, because nothing can tell what it reduces to without running the
+  shell. Searching your patch for a commit and finding none does not clear
+  it. Neither command runs, the prompt still lands, and what that costs is
+  what the next bullet measures.
 - **Write a scratch-repo probe so it does not stop the commit gate.** A probe
   that commits reaches the gate exactly as real work does, and the prompt
   lands on whoever is at the keyboard — which, in a round you are running, is
