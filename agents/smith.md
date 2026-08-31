@@ -87,13 +87,20 @@ incorporation. This file only adds what the skill does not carry.
    exists, so the commit gate has nothing to read.
 
    The second reason is easy to miss, because the command it saves you from
-   never commits anything. The gate looks inside a heredoc body on purpose:
-   a commit hidden in one used to walk straight past it. Where a repository's
-   test fixtures are themselves shell command strings, that reading finds a
-   commit in a patch. This repository's are, the gate's own tests are where
-   they cluster, and a `python3 - <<'PYEOF'` patch to one of them stops the
-   session for a command that commits nothing. The prompt reaches whoever is
-   at the keyboard, which in an unattended run is nobody.
+   never commits anything. The gate reads a heredoc body as shell, on
+   purpose: a commit hidden in one used to walk straight past it. What it
+   counts is a segment whose command word is `git` and whose subcommand is
+   `commit` — the outer command can be writing that body to a file, and it
+   counts all the same.
+
+   Two kinds of edit put such a segment in a body, and neither is rare. A
+   patch to a file that carries shell commands as test data can leave the
+   reader's quote tracking somewhere a commit lands in command position —
+   which takes a particular fragment, not any line of the file. A patch to a
+   document that shows a waiver example verbatim carries one on purpose.
+   Either way the session stops for a command that commits nothing, and the
+   prompt reaches whoever is at the keyboard, which in an unattended run is
+   nobody.
 4. **Verify** — run the actual checks and read their output before any
    completion claim. Fresh output only; a previous run proves nothing.
    Scope it: the tests for the slice while you work, your module and the ones

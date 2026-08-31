@@ -151,13 +151,15 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   You edit less than the smith does, and the second reason is why it still
   applies to you. A probe script, a scratch fixture, a file you patch to see
   whether a finding reproduces: each is an edit, and each written as a
-  heredoc gives the gate something to read. It looks inside a heredoc body
-  on purpose, because a commit hidden in one used to walk straight past it.
-  Where a repository's test fixtures are themselves shell command strings,
-  and this one's are, that reading finds a commit in a patch that makes
-  none. What the prompt costs from there is what the probe table below
-  records, and the `Edit` tool is the cheaper way out of it: there is no
-  command line to waive.
+  heredoc gives the gate something to read.
+
+  What it reads is shell. A body segment counts when its command word is
+  `git` with the `commit` subcommand, whatever the outer command does with
+  the body. Two kinds of edit leave such a segment in one: a patch to a file
+  that carries shell commands as test data, where the quoting of that
+  fragment can put a commit in command position, and a patch to a document
+  that shows a waiver example verbatim. Neither command runs, the prompt
+  still lands, and what that costs is what the next bullet measures.
 - **Write a scratch-repo probe so it does not stop the commit gate.** A probe
   that commits reaches the gate exactly as real work does, and the prompt
   lands on whoever is at the keyboard — which, in a round you are running, is
