@@ -35,9 +35,24 @@ change to one is judged by what it does when it is wrong:
   here. A wrong deny costs a prompt; a wrong allow can break another
   session's tree — but a deny that fires on *every* invocation in some
   environment is an outage, not a cost.
+- **A prompt budget.** Say how many times the change puts a question in
+  front of a person, per session, and what each one costs when nobody is at
+  the keyboard. **Verification through an automated workflow is this
+  project's first goal**, so an interruption is a price paid against it
+  rather than a neutral design choice. A change that adds one says why
+  nothing cheaper reaches the same guarantee — a value read from a file, a
+  default assumed in writing, a refusal the agent makes on its own. Where a
+  question really is the only answer, it belongs in the batch asked before
+  the first edit, never at minute thirty.
 - **Platform honesty.** Process inspection (`ps`, `lsof`, `/proc`) behaves
   differently across macOS, Linux, and Windows. If you cannot test a
   platform, say so in the PR rather than assuming.
+
+The prompt budget is the one of these four a passing suite cannot report on,
+because nothing counts interruptions. It is answered in the pull request body
+or it is not answered. `skills/implement/SKILL.md` §1 holds the reasoning the
+budget is drawn against: the cost of a question is not its difficulty, it is
+when it arrives.
 
 ## House rules
 
