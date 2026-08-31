@@ -108,14 +108,33 @@ round that opened them:
   no fixes to check    nothing here closed with a fix. Refused beside a
                        verdict cell reading one, which is the same
                        contradiction-inside-one-file the `Pass` rule refuses
-  nobody -- <why>      the gap, written down. PASSES, and prints on every run
+  nobody -- <why>      the gap, written down. Prints on every run, and FAILS
+                       beside a checked `Pass` on the last record -- see the
+                       cutoff below
 
-That last row is the trade, stated rather than left to be found: a work item
-can still ship with its final fixes unopened. What changes is that the state
-is in the diff and in every CI run instead of in a session that has ended. A
-check that failed for an honest disclosure would teach people to write none,
-which is the reasoning `unverified_check.py` already runs on and the same one
-the "no declaration at all" row below follows.
+`nobody` is a disclosure rather than a claim, and a check that failed for an
+honest disclosure would teach people to write none, which is the reasoning
+`unverified_check.py` already runs on and the same one the "no declaration at
+all" row below follows. So the cell prints wherever it appears, and on any
+record but the last it is refused nothing at all.
+
+What it may not do is stand beside `- [x] Pass` on the LAST record, because
+that combination is the review saying it passed. A run whose final fixes
+nobody opened has not passed: #33 measured the one set of fixes anybody ever
+did open and found seven defects inside it.
+
+That refusal reaches work items begun on or after `STRICT_FROM` and no
+others, and the cutoff is what makes it shippable rather than theatre. A
+record written before the rule existed is usually merged and has no honest
+repair -- writing a `round-4.md` for a review nobody ran fabricates one, and
+unticking `Pass` fails the ready-pull-request rule instead. A check whose
+first production act is red on history nobody can fix is a check people learn
+to skip, and skipping loses the records it could have caught in exchange for
+the ones it never could.
+
+Nothing after the cutoff is stuck, and the message says so. One verifying
+round at the diff of those fixes closes it, and a round that opens nothing
+needing a fix does not consume the cap.
 
 The draft excuse does NOT reach this row. `Pass` is excused in a draft because
 a review still running has not reached its verdict; a record naming a checker
@@ -246,6 +265,25 @@ CITATION = re.compile(r"\s+(?=[0-9a-f]{7,40}\b)(?=[0-9a-f]*\d)")
 CHECKED_BY = "Fixes checked by"
 NO_FIXES = "no fixes to check"
 NOBODY = "nobody"
+# Where the refusal for `Pass` beside `nobody` starts, as the unix second in a
+# work item's own directory name. This is the id of the work item that added
+# the rule, so the first item held to it is the one that wrote it.
+#
+# It is one constant for every repository, and that is the decision rather
+# than an accident of this one. A work item begun before the rule existed was
+# written when nothing asked, and its records are usually merged: a check
+# whose first production act is red on history nobody can honestly repair is a
+# check people learn to skip, which voids it for the records it COULD have
+# caught. A repository installing the plugin fresh creates every work item
+# after this second, so the whole of its history is held to the rule; one
+# updating the plugin has exactly its pre-existing items excused. Neither
+# needs to configure anything.
+#
+# What it costs: an old work item reopened years from now still writes its
+# records under its original id, and stays excused. That is the same trade the
+# grandfathering makes everywhere else, taken knowingly rather than closed
+# with a second rule about how old is too old.
+STRICT_FROM = 1788212517
 # `round-N`, optionally with the `.md` a person copying a filename leaves on.
 # The number is handed to `routing.round_number` rather than read here: that
 # function is the one place the `round-N.md` ordering rule lives, and this
@@ -900,6 +938,35 @@ def closed_with_a_fix(reader, lines, rel):
     return any(verdict_of(seen, col) in FIX_WORDS for _line, seen in rows)
 
 
+def item_began(rel):
+    """The unix second in `specs/<seconds>-<slug>/rounds/round-N.md`, or None.
+
+    None is the grandfathered answer, and deliberately so. A repository that
+    names its work items some other way has no date to compare, and failing
+    its records would be failing them for a naming convention rather than for
+    a state anybody chose.
+    """
+    parts = rel.replace("\\", "/").split("/")
+    if len(parts) < 3:
+        return None
+    began = parts[-3].split("-", 1)[0]
+    return int(began) if began.isdigit() else None
+
+
+def pass_checked(lines):
+    """True, False, or None when the record carries no `Pass` checkbox.
+
+    One reader, not two. `check_round` asks whether the box is checked and so
+    does the refusal for `Pass` beside `nobody`; a second scan of the same
+    lines is how two readers of one record start disagreeing about it.
+    """
+    for line in lines:
+        m = PASS_RE.match(line)
+        if m:
+            return m.group(1).lower() == "x"
+    return None
+
+
 def nobody_reason(value):
     """The reason after `nobody`, `""` when none was given, or None.
 
@@ -915,12 +982,18 @@ def nobody_reason(value):
     return rest.strip(SEPARATORS)
 
 
-def checked_by(reader, routing, root, rel, siblings):
+def checked_by(reader, routing, root, rel, siblings, last=False):
     """(errors, notices) for one record's `Fixes checked by` row.
 
-    `siblings` is every `round-N.md` git carries in this work item, by
-    basename, so a named checker is confirmed against the repository rather
-    than taken on the record's word.
+    `siblings` maps every `round-N.md` git carries in this work item to its
+    path, so a named checker is confirmed against the repository rather than
+    taken on the record's word — that it exists, and that it looked at
+    something later than this record did.
+
+    `last` is true for the record that carries the review's `Pass` verdict,
+    and it is what makes the refusal for `Pass` beside `nobody` reachable. On
+    an earlier record `Pass` says nothing about the whole review, so a checked
+    box there is not the claim this refuses.
 
     EVERY record, where `Pass` is read on the last one alone, and the two
     scopes are different for a reason that is not symmetry. `Pass` is a
@@ -1028,6 +1101,24 @@ def checked_by(reader, routing, root, rel, siblings):
                 "that reported on them, or they were opened by nobody",
             )
         ], []
+    began = item_began(rel)
+    if last and pass_checked(lines) and began is not None and began >= STRICT_FROM:
+        return [
+            (
+                rel,
+                0,
+                f"`Pass` is checked beside `{CHECKED_BY}: {cell.strip()}`. A "
+                "run cannot claim to have passed while the fixes that closed "
+                "its findings were opened by nobody — that is the state #33 "
+                "measured, at a 100% hit rate on the one set of fixes anybody "
+                "ever looked at. The way out costs no round: spawn one "
+                "verifying round at the diff of those fixes, and a round that "
+                "opens nothing needing a fix does not consume the cap. This "
+                f"record's cell then names it and the new record reads "
+                f"`{NO_FIXES}`. Work items begun before {STRICT_FROM} are "
+                "excused this and print instead",
+            )
+        ], []
     return [], [
         (
             rel,
@@ -1098,12 +1189,7 @@ def check_round(reader, root, rel, strict=True, refs=None):
                 )
             )
 
-    checked = None
-    for line in lines:
-        m = PASS_RE.match(line)
-        if m:
-            checked = m.group(1).lower() == "x"
-            break
+    checked = pass_checked(lines)
     if checked is None:
         errors.append(
             (
@@ -1341,13 +1427,14 @@ def main(argv=None):
         # own; the `Pass` verdict is a claim about the whole review, and the
         # last round's is the one that speaks for it.
         #
-        # Basenames rather than paths: `checked_by` is confirming a name a
-        # person wrote in a cell (`round-4`), and the directory it would sit
-        # in is already fixed by `round_records`.
-        siblings = {os.path.basename(p) for p in records}
+        # Keyed by basename, because `checked_by` is confirming a name a
+        # person wrote in a cell (`round-4`) and the directory it sits in is
+        # already fixed by `round_records`. The path is the value, so the
+        # named record can be opened and its `Target SHA` compared.
+        siblings = {os.path.basename(p): p for p in records}
         for record in records:
             who_errors, who_notices = checked_by(
-                reader, routing, root, record, siblings
+                reader, routing, root, record, siblings, last=record == last
             )
             errors.extend(who_errors)
             notices.extend(who_notices)

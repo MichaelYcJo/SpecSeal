@@ -366,12 +366,13 @@ What this does not do is as load-bearing as what it does.
   instruction, the warden's audit of the seal, and the `round-N.md` field that
   makes a repeat visible. A hook could not tell the difference anyway —
   whether the rounds have settled is not a property of the command being run.
-- **`Fixes checked by: nobody` passes.** The row makes the state visible and
-  does not refuse it: a work item can still ship with its last fixes opened by
-  nobody, and what CI does is print that on every run. What it refuses is a
-  claim the repository can contradict — a round naming itself as its own
-  checker, a checker that does not exist, or `no fixes to check` beside a
-  verdict that closed with a fix.
+- **`Fixes checked by: nobody` prints everywhere and fails in one place.** On
+  the run's last record, beside a checked `Pass`, it fails the pull request: a
+  review cannot have passed while the fixes that closed its findings went
+  unread. Anywhere else it only prints. Work items begun before this rule
+  landed are excused entirely, because a check whose first act is red on merged
+  history nobody can repair is a check people learn to skip. The way out costs
+  no round — one verifying round at the diff of those fixes.
 - **A parity mark says someone compared, not that they compared well.** The
   gate checks that a comparison was recorded for this HEAD; the quality of
   that comparison is the reviewer's, and writing the mark for work you did not

@@ -39,8 +39,13 @@ import pytest
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
 
+# A work item begun before `chain_check.STRICT_FROM`, so `Pass` beside
+# `nobody` prints here instead of failing.
 ITEM = "specs/1787700000-a-work-item"
 ROUNDS = f"{ITEM}/rounds"
+# One begun after it. The two directories differ only in the second their
+# names start with, which is the whole of what the grandfathering reads.
+STRICT_ITEM = "specs/1799000000-a-later-work-item"
 
 
 def read(*parts):
@@ -108,9 +113,9 @@ def repo(tmp_path, _template):
     return d
 
 
-def declaration():
+def declaration(item=None):
     return (
-        "# 1787700000-a-work-item — routing\n\n"
+        f"# {os.path.basename(item or ITEM)} — routing\n\n"
         "| Axis | Answer |\n|---|---|\n"
         "| Review | through the review chain |\n"
         "| Destination | open the pull request |\n"
@@ -118,18 +123,20 @@ def declaration():
     )
 
 
-def record(sha, checked_by, verdict="fixed", finding="🟢 1"):
+def record(sha, checked_by, verdict="fixed", finding="🟢 1", passed=True):
     """A passing round record but for the `Fixes checked by` cell.
 
     Everything else is deliberately clean -- a checked `Pass`, a reachable
     target, a closed finding -- so a failure can only have come from the one
-    row each case is about. `checked_by=None` leaves the row out.
+    row each case is about. `checked_by=None` leaves the row out, and
+    `passed=False` leaves the box unticked, which is the other half of the
+    `Pass` beside `nobody` refusal.
     """
     who = f"| Fixes checked by | {checked_by} |\n" if checked_by is not None else ""
     return (
         "# a round\n\n"
         f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n{who}\n"
-        "- [x] Pass\n\n"
+        f"- [{'x' if passed else ' '}] Pass\n\n"
         "## Verdicts\n\n"
         "| # | Finding | Location | Verdict | Grounds |\n"
         "|---|---|---|---|---|\n"
@@ -156,12 +163,18 @@ def run(repo, draft=None):
     return r.returncode, r.stdout + r.stderr
 
 
-def declared(repo, **rounds):
-    """Write the declaration and one record per `roundN=body` keyword."""
-    write(repo, f"{ITEM}/routing.md", declaration())
+def declared(repo, *, item=None, **rounds):
+    """Write the declaration and one record per `roundN=body` keyword.
+
+    `item` picks the work-item directory, which is not decoration: its
+    timestamp prefix is what `chain_check.STRICT_FROM` compares against, so
+    the default `ITEM` is grandfathered and `STRICT_ITEM` is not.
+    """
+    item = item or ITEM
+    write(repo, f"{item}/routing.md", declaration(item))
     sha = commit(repo, "declare")
     for name, body in rounds.items():
-        write(repo, f"{ROUNDS}/{name.replace('round', 'round-')}.md", body(sha))
+        write(repo, f"{item}/rounds/{name.replace('round', 'round-')}.md", body(sha))
     commit(repo, "rounds")
     return sha
 
@@ -356,6 +369,93 @@ def test_nobody_with_a_reason_passes_and_says_so(repo):
     )
 
 
+# --- `Pass` beside `nobody`, and the cutoff that makes it fail -------------
+#
+# Q1, answered by the repository owner: refuse it, but only for records whose
+# work item began after the rule landed. Grounds, and they are the owner's — a
+# check whose first production act is red on merged history nobody can repair
+# is a check people learn to skip, and a check whose strongest statement is a
+# print does not stop a failure mode measured at a 100% hit rate.
+
+
+def test_pass_beside_nobody_fails_a_work_item_begun_after_the_cutoff(repo):
+    """The refusal, on the only records that can honestly answer it.
+
+    `Pass` says no finding in this round's table is open; `nobody` says the
+    work that closed them was read by no one. Both can be true, which is why
+    this is not the contradiction-inside-one-file the other refusals catch —
+    it is a state, refused for the items that could have avoided it.
+    """
+    declared(
+        repo,
+        item=STRICT_ITEM,
+        round1=lambda sha: record(sha, "nobody — the run ended here"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "opened by nobody" in out
+    assert "costs no round" in out, (
+        "a refusal with no way out is a wall — the way out is one verifying "
+        "round, and under the cap rule it costs nothing"
+    )
+
+
+def test_the_same_record_only_prints_for_an_item_begun_before_it(repo):
+    """The grandfathering, which is the whole of what makes the refusal
+    shippable. `specs/1788184145-…/rounds/round-3.md` is in exactly this state
+    in this repository, it is merged, and there is no honest repair: writing a
+    `round-4.md` for a review nobody ran fabricates one, and unchecking its
+    `Pass` fails the ready-pull-request rule instead."""
+    declared(repo, round1=lambda sha: record(sha, "nobody — the run ended here"))
+    code, out = run(repo)
+    assert code == 0, out
+    assert "opened by nobody" in out
+
+
+def test_an_unchecked_pass_beside_nobody_is_not_the_claim(repo):
+    """A review still running has not claimed anything. The refusal is about
+    the two claims standing together, not about `nobody` on its own."""
+    declared(
+        repo,
+        item=STRICT_ITEM,
+        round1=lambda sha: record(
+            sha, "nobody — the run ended here", verdict="answered", passed=False
+        ),
+    )
+    code, out = run(repo, draft=True)
+    assert code == 0, out
+    assert "opened by nobody" in out
+
+
+def test_an_earlier_records_nobody_is_not_the_reviews_verdict(repo):
+    """`Pass` is read on the last record alone, so a checked box on round 1 is
+    not the review claiming to have passed. Refusing there would fail a run
+    that is behaving correctly — round 1 says `nobody` only when no round 2
+    ever came, and if one did the cell names it."""
+    declared(
+        repo,
+        item=STRICT_ITEM,
+        round1=lambda sha: record(sha, "nobody — a spawn that never returned"),
+        round2=lambda sha: record(sha, "no fixes to check", verdict="answered"),
+    )
+    code, out = run(repo)
+    assert code == 0, out
+
+
+def test_a_work_item_with_no_timestamp_prefix_is_grandfathered(repo):
+    """A repository that names its work items some other way has no date to
+    compare. Failing its records would be failing them for a naming
+    convention rather than for a state anyone chose."""
+    declared(
+        repo,
+        item="specs/a-work-item-with-no-date",
+        round1=lambda sha: record(sha, "nobody — the run ended here"),
+    )
+    code, out = run(repo)
+    assert code == 0, out
+    assert "opened by nobody" in out
+
+
 def test_nobody_with_no_reason_fails(repo):
     """S9. Without the reason the cell records that something is missing and
     not what, which is not a disclosure."""
@@ -462,7 +562,8 @@ def test_the_protocol_carries_the_field_and_moved_its_draft():
 NOBODY_COSTS = {
     ("docs", "review-chain-spec.md"): "teaches people to write none",
     ("skills", "code-review", "scripts", "chain_check.py"): (
-        "can still ship with its final fixes unopened"
+        "would teach people to write none, which is the reasoning "
+        "`unverified_check.py` already runs on"
     ),
 }
 
@@ -474,6 +575,22 @@ def test_the_documents_say_what_nobody_costs(parts):
     text = flat(*parts)
     assert "honest" in text, "/".join(parts)
     assert NOBODY_COSTS[parts] in text, "/".join(parts)
+
+
+@pytest.mark.parametrize("parts", sorted(NOBODY_COSTS))
+def test_the_documents_say_why_older_records_are_excused(parts):
+    """The grandfathering is the half a reader deletes as an oversight.
+
+    Without the reason beside it, `STRICT_FROM` reads as a leftover constant
+    somebody forgot to remove, and removing it turns this repository's own
+    release pull request red on a record that is already merged.
+    """
+    text = flat(*parts)
+    assert "a check people learn to skip" in text, "/".join(parts)
+    assert "costs no round" in text or "does not consume the cap" in text, (
+        "a refusal that names no way out is a wall, and the way out is the "
+        "one thing a session meeting this failure needs to be told"
+    )
 
 
 # --- the verifying round ----------------------------------------------------

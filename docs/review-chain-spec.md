@@ -535,17 +535,46 @@ it does not have is wrong at every stage of a run.
 | `round-N` naming a record git does not carry | **fails** — a claim git contradicts |
 | `no fixes to check`, with no verdict cell closing on a fix | passes |
 | `no fixes to check` beside a verdict cell reading a fix word | **fails** — a contradiction inside one file, the shape already refused for `Pass` beside an open 🔴 |
-| `nobody — <why>` | passes, and prints on every run |
+| `nobody — <why>` | prints on every run. **Fails** beside a checked `Pass` on the run's last record, for a work item begun on or after the cutoff below; passes everywhere else |
 | `nobody` with nothing after it | **fails.** The reason is what makes the state readable; without it the cell records that something is missing and not what |
 | anything else, `the session that wrote them` included | **fails**, naming the three values. Read loosely, a session's own name would pass as an answer, and that is precisely the state this field exists to refuse — the direction `CLOSED_WORDS` already takes for a verdict cell |
 
 Two of those deserve their cost written down.
 
-The first is that `nobody — <why>` passes, which means a work item can still
-ship with its last fixes unopened. What changes is that the state is in the
-diff and in every CI run instead of in a session's memory.
+The first is `nobody — <why>`, and it is a disclosure rather than a claim. A
+check that failed for an honest disclosure teaches people to write none, which
+is the reasoning `unverified_check.py` already runs on, so the cell prints
+wherever it appears and on any record but the last it is refused nothing.
 
-The second is the scope. This is read on **every** record, where `Pass` is
+What it may not do is stand beside a checked `Pass` on the run's last record.
+That combination is the review saying it passed, and a run whose final fixes
+nobody opened has not passed — #33 measured the one set anybody did open and
+found seven defects inside it, which is every defect there was to find.
+
+**The refusal reaches work items begun on or after the cutoff, and no others.**
+The cutoff is a unix second, compared against the one in the work item's own
+directory name, and its value is the id of the work item that added the rule
+(`chain_check.py`'s `STRICT_FROM`). One number serves every repository: a fresh
+install creates every work item after it, and a repository updating the plugin
+has exactly its pre-existing items excused.
+
+Why grandfather at all. A record written before the rule existed is usually
+merged and has no honest repair — writing a `round-4.md` for a review nobody
+ran fabricates one, and unticking `Pass` fails the ready-pull-request rule
+instead. A check whose first production act is red on history nobody can fix
+is a check people learn to skip, and skipping loses the records it could have
+caught in exchange for the ones it never could.
+
+What it costs is stated rather than left to be found: an old work item
+reopened years from now still writes records under its original id and stays
+excused. That is taken knowingly, rather than closed with a second rule about
+how old is too old.
+
+Nothing after the cutoff is stuck. One verifying round at the diff of those
+fixes closes it, and a round that opens nothing needing a fix does not consume
+the cap — so the way out costs no round, which is what the failure says.
+
+The second cost is the scope. This is read on **every** record, where `Pass` is
 read on the last one alone, and the two differ because the two facts do:
 `Pass` is a verdict on the whole review and the last round's speaks for it,
 while this is a fact about one round's own fixes and every round has one.

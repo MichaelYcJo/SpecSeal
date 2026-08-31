@@ -33,8 +33,14 @@ values and nothing else:
 Only a later round may be named, so the LAST record of a finished run reads
 `no fixes to check` or `nobody — <why>`. That is the rule's shape, not a
 limit on it: a run ends at a round that wrote no code nobody read, or it ends
-with the gap where a reader meets it. `nobody` does not fail the pull request
-— it prints, on every run.
+with the gap where a reader meets it.
+
+`nobody` prints on every run. On the run's LAST record it also FAILS the pull
+request when `Pass` is checked beside it, because that pair is the review
+claiming to have passed while its own fixes went unread. Work items begun
+before the rule landed are excused and only print. The way out costs no round:
+one verifying round at the diff of those fixes, and a round that opens nothing
+needing a fix does not consume the cap.
 
 Check `Pass` only when no finding in the verdict table below is still
 open. It is the last round's checkbox that speaks for the whole review: every

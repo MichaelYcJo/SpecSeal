@@ -190,7 +190,7 @@ open. This says who opened the work that closed them. Three values, and
 |---|---|
 | `round-N` | a **later** round opened these fixes and reported on them. It has to exist, and a round can never name itself |
 | `no fixes to check` | nothing here closed with a fix. This is the verifying round's own terminal value |
-| `nobody — <why>` | the gap, written down. It does not fail the pull request; it prints on every CI run |
+| `nobody — <why>` | the gap, written down. It prints on every CI run, and on the run's **last** record beside a checked `Pass` it fails the pull request — a review cannot have passed while its own fixes went unread. Work items begun before the rule landed are excused and only print |
 
 Filling it in is the last act of a round, and it reaches back: when the
 verifying round finishes, the record it verified gets its cell set to that

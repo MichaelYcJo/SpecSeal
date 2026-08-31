@@ -179,7 +179,9 @@ Then the record says so. `round-N.md` carries `| Fixes checked by |` beside
 `Pass`, naming a later round, `no fixes to check`, or `nobody — <why>`. It is
 not yours to write — the orchestrator owns the records — but it is what your
 fixes are answering to, and a run whose last cell reads `nobody` is one whose
-last fixes nobody opened.
+last fixes nobody opened. That pair, `nobody` beside a checked `Pass` on the
+last record, **fails the pull request** for any work item begun after the rule
+landed; the way out is the verifying round above, which costs no round.
 
 What is unresolved at that point is handed over, not carried: a finding you
 neither fixed nor answered goes to `.specseal/follow-up.md`, a decision only a

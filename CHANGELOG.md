@@ -31,10 +31,20 @@
   checker git does not carry, and `no fixes to check` beside a verdict that
   closed with a fix.
 
-  **`nobody — <why>` passes**, and prints on every run. A work item can still
-  ship with its final fixes unopened; what changes is that the state is in
-  the diff instead of in a session that has ended. Failing for an honest
-  disclosure is what teaches people to write none.
+  **`nobody — <why>` prints on every run, and fails in one place**: on the
+  run's last record, beside a checked `Pass`. That pair is the review claiming
+  to have passed while the fixes that closed its findings went unread.
+  Anywhere else the cell only prints, because failing for an honest disclosure
+  is what teaches people to write none.
+
+  **Work items begun before this release are excused that refusal** and only
+  print. The cutoff is the unix second already in a work item's directory
+  name, compared against one constant, so nothing needs configuring: a fresh
+  install is held to the rule everywhere, and a repository updating the plugin
+  has exactly its existing items excused. A check whose first act is red on
+  merged history nobody can honestly repair is a check people learn to skip.
+  The way out for everything after the cutoff costs no round — one verifying
+  round at the diff of those fixes.
 
   **Every existing round record needs the new row**, not only the newest.
   There is no fallback, for the reason `docs/review-handoff-protocol.md`

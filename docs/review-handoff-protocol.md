@@ -213,8 +213,19 @@ last record has no later round.
 What it refuses is what the repository can contradict: a missing row, a round
 that does not exist or is not later, and `no fixes to check` beside a verdict
 that closed with a fix. Whether it should also refuse a checked `Pass` beside
-`nobody` is left open here: the two are not a contradiction inside one file,
-and a tool that fails for an honest disclosure teaches people to write none.
+`nobody` is the project's call rather than this protocol's: the two are not a
+contradiction inside one file, and a tool that fails for an honest disclosure
+teaches people to write none.
+
+A project that does choose to fail should **grandfather the records whose work
+item began before it adopted the rule**. Those records are usually merged and
+have no honest repair — a round record written for a review nobody ran is a
+fabrication, and unticking `Pass` fails whatever rule says a ready change
+request carries a passing review. A check whose first act is red on history
+nobody can fix is a check people learn to skip, which loses the records it
+could have caught in exchange for the ones it never could. What the cutoff is
+keyed to has to be readable from the record itself; the reference
+implementation uses the timestamp already in the work item's directory name.
 
 ### tests-todo.md — regression tests prescribed, not written
 
@@ -269,10 +280,12 @@ gives the records their own `rounds/` subdirectory and requires a conforming
 tool to name a record left at the old location rather than passing over it.
 0.5 adds `Fixes checked by`, because 0.3 split "was it reviewed" from "did it
 pass" and left a third question inside the second: who opened the fixes that
-made it pass. No conformance rule is added for it. A rule the reference
-implementation only warns about is a rule, and the choice between warning and
-failing is a project's, so the field's own section states both and the
-requirement stays at the level of the field being present and honest.
+made it pass. No conformance rule is added for it: whether an unread set of
+fixes fails a change request or only prints is a project's call, so the
+field's own section states both — with the grandfathering a project that
+fails has to carry — and the requirement stays at the level of the field
+being present and honest. The reference implementation now fails, for work
+items begun after it adopted the rule.
 
 0.3 also states the path as this implementation's choice rather than as the
 protocol. Draft 0.2 claimed to be tool-agnostic while naming a directory
