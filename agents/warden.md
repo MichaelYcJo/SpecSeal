@@ -142,6 +142,22 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   call, and run probe cases from one file in one run. Cut round-trips, never
   investigation: an axis you skipped is not a pass, it is `❓ out of verified
   scope`.
+- **Edit files with the `Edit` tool**, for two reasons that point the same
+  way. An edit must be able to fail: a substitution routed through the shell
+  does nothing, says nothing, and exits zero when its pattern misses, so
+  where the environment leaves no choice, assert that it matched. And no
+  Bash command line exists, so the commit gate has nothing to read.
+
+  You edit less than the smith does, and the second reason is why it still
+  applies to you. A probe script, a scratch fixture, a file you patch to see
+  whether a finding reproduces: each is an edit, and each written as a
+  heredoc gives the gate something to read. It looks inside a heredoc body
+  on purpose, because a commit hidden in one used to walk straight past it.
+  Where a repository's test fixtures are themselves shell command strings,
+  and this one's are, that reading finds a commit in a patch that makes
+  none. What the prompt costs from there is what the probe table below
+  records, and the `Edit` tool is the cheaper way out of it: there is no
+  command line to waive.
 - **Write a scratch-repo probe so it does not stop the commit gate.** A probe
   that commits reaches the gate exactly as real work does, and the prompt
   lands on whoever is at the keyboard — which, in a round you are running, is

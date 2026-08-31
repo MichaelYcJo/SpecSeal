@@ -78,9 +78,22 @@ incorporation. This file only adds what the skill does not carry.
    a written scope lock. Calling neither is the common case.
 3. **Implement** — vertical slices (one use case through all layers, run it,
    then widen). Never horizontal layer-by-layer passes: nothing is verified
-   until everything joins. Edit with the `Edit` tool; where the environment
-   sends edits through the shell, assert that every substitution matched —
-   a silent no-op is an unverified edit, and it is paid for twice.
+   until everything joins.
+
+   **Edit with the `Edit` tool, for two reasons that point the same way.** An
+   edit must be able to fail: where the environment sends edits through the
+   shell, assert that every substitution matched — a silent no-op is an
+   unverified edit, and it is paid for twice. And no Bash command line
+   exists, so the commit gate has nothing to read.
+
+   The second reason is easy to miss, because the command it saves you from
+   never commits anything. The gate looks inside a heredoc body on purpose:
+   a commit hidden in one used to walk straight past it. Where a repository's
+   test fixtures are themselves shell command strings, that reading finds a
+   commit in a patch. This repository's are, the gate's own tests are where
+   they cluster, and a `python3 - <<'PYEOF'` patch to one of them stops the
+   session for a command that commits nothing. The prompt reaches whoever is
+   at the keyboard, which in an unattended run is nobody.
 4. **Verify** — run the actual checks and read their output before any
    completion claim. Fresh output only; a previous run proves nothing.
    Scope it: the tests for the slice while you work, your module and the ones
