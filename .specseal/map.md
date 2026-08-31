@@ -43,6 +43,12 @@ Judgments that don't follow from code or documents alone.
 |---|---|---|---|---|
 | Every `# RIDER:` carries the date and SHA it was verified at, and the SHA is an ancestor of HEAD | `tests/test_a_rider_reaches_its_file.py:111` | Executed: the suite passes on this tree, and the eleven riders are stamped at the baseline commit | 2026-08-31 `9829412` | The stamps were re-cut for this tree; the commits they named before do not exist here |
 
+## Edits that reach the commit gate
+
+| Clause | Code grounds | Verified behavior | Checked | Notes |
+|---|---|---|---|---|
+| The gate reads a heredoc body as commands, so a heredoc that only patches a file is judged by what its body says | `hooks/commit-review-gate.py:151` | Read, not run. `_hides_a_commit` ends by recursing into every `heredoc_bodies(text)`, so a body carrying a commit returns True whatever the outer command actually does | 2026-08-31 `f1cd65d` | Deliberate, per legacy #75: a commit hidden in a body used to walk straight past. The agent files now route file edits through the `Edit` tool, so no command line reaches the reader at all. Whether the reader should skip a body being written to a file is Q1 of `specs/1788184145-the-gate-stops-the-session-editing-its-tests/questions.md` |
+
 ## Evidence drift
 
 | Clause | Code grounds | Verified behavior | Checked | Notes |
