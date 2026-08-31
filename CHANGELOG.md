@@ -39,7 +39,10 @@
   re-derived from the verdict table, because a finding the implementer answers
   with grounds needs no fix and still ends the run. No check reads the row —
   it is there because the answer a run ends on had nowhere to live but a
-  transcript.
+  transcript. **Existing records are not migrated for this one**, unlike
+  `Fixes checked by`: a reviewer who was never asked left no answer, and
+  filling the cell in from the verdict table is the derivation the field
+  exists to refuse.
 
   **`nobody — <why>` prints on every run, and fails in one place**: on the
   run's last record, beside a checked `Pass`. That pair is the review claiming

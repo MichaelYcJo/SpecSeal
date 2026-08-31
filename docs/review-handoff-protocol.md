@@ -112,7 +112,7 @@ the inheritance range and round 2 raised it again.
 | Target SHA | yes | commit(s) the round actually reviewed — branches move between rounds; record both if HEAD moved mid-review. **Never rewritten after a squash** — see below |
 | Pass | yes | a checkbox — `- [ ] Pass` or `- [x] Pass`. Checked means no finding in this round's verdict table is still open. See below |
 | Fixes checked by | yes | who opened the fixes that closed this round's findings: a later round, `no fixes to check`, or `nobody` with the reason. `Pass` answers whether the findings were closed; this answers whether the closing was read by anyone. See below |
-| Needs a fix | yes | whether this round opened anything that needs one — the reviewer's own answer, copied rather than re-derived from the verdict table. It is the run's terminal condition where a run ends at a verifying round, and a finding the implementer answers with grounds does not make it `yes`. See below |
+| Needs a fix | yes, from the round that wrote it | whether this round opened anything that needs one — the reviewer's own answer, copied rather than re-derived from the verdict table. It is the run's terminal condition where a run ends at a verifying round, and a finding the implementer answers with grounds does not make it `yes`. See below |
 | PR | when one exists | the change request this work went to. A field, not the key: it does not exist while the rounds that fill this file are running |
 | Verdict table | yes | per finding: location, verdict, grounds |
 | Executed probes | yes (may be "none") | what was RUN, with results — distinguished from what was read |
@@ -243,6 +243,14 @@ The reviewer writes one line — `Needs a fix: no`, or `yes` and what does — a
 whoever writes the record copies it. Without the field the question is still
 asked and the answer has nowhere to live, which puts a decision the run turns
 on in a transcript that ends with the session.
+
+**A record written before the field existed is left without it**, which is the
+opposite of what this protocol asked for `Fixes checked by` and is the same
+reasoning that makes the difference. That field asks who opened the fixes, and
+the answer is in the repository: which round followed, and whether one did.
+This one asks what the reviewer concluded, and a reviewer who was never asked
+left no answer anywhere. Filling it in from the verdict table is exactly the
+derivation the paragraph above refuses, so the honest migration is none.
 
 ### tests-todo.md — regression tests prescribed, not written
 
