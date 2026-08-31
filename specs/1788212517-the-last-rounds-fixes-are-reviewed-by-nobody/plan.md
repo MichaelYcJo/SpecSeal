@@ -92,9 +92,9 @@ printed by CI, instead of in nobody's memory.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | **B.** The field: `docs/review-handoff-protocol.md` (draft 0.5), `docs/review-chain-spec.md`'s two-claims paragraph, `templates/sdd-round.md`, the reminder in `hooks/review-history-guard.py`, `chain_check.py`'s reader and its six refusals, `tests/test_the_last_rounds_fixes.py`, and the migrated row on `specs/1788184145-…/rounds/round-3.md` | the new test file with every case shown red under a mutation, plus `test_chain_check_at_the_pull_request`, `test_handoff_outlives_the_merge`, `test_release_hygiene`, `ruff` | |
-| 2 | **A.** The verifying round: `docs/review-chain-spec.md`'s bound and its new section, `skills/code-review/SKILL.md`, `agents/warden.md`, `agents/smith.md` | the new test file's A cases, plus `test_docs_line_wrap`, `test_one_word_one_meaning`, `test_the_set_a_work_item_always_has`, `test_review_axes`, `test_broad_gate_rule`, `test_edits_go_through_the_edit_tool` | |
-| 3 | The outward-facing prose: `README.md`, `README.ko.md`, `.specseal/README.md`, `templates/specseal-README.md` | `test_docs_line_wrap`, `test_the_set_a_work_item_always_has`, `test_no_real_identifiers`, `test_what_the_reader_understands` | |
+| 1 | **B.** The field: `docs/review-handoff-protocol.md` (draft 0.5), `docs/review-chain-spec.md`'s two-claims paragraph, `templates/sdd-round.md`, the reminder in `hooks/review-history-guard.py`, `chain_check.py`'s reader and its refusals, `tests/test_the_last_rounds_fixes_are_checked.py`, and the migrated rows on `specs/1788184145-…/rounds/round-{1,2,3}.md` | the new test file with every case shown red under a mutation, plus `test_chain_check_at_the_pull_request`, `test_handoff_outlives_the_merge`, `test_release_hygiene`, `ruff` | `607362b`, and the per-record read at `edbf994` |
+| 2 | **A.** The verifying round: `docs/review-chain-spec.md`'s bound and its new section, `skills/code-review/SKILL.md`, `agents/warden.md`, `agents/smith.md` | the new test file's A cases, plus `test_docs_line_wrap`, `test_one_word_one_meaning`, `test_the_set_a_work_item_always_has`, `test_review_axes`, `test_broad_gate_rule`, `test_edits_go_through_the_edit_tool` | `edbf994` |
+| 3 | The outward-facing prose: `README.md`, `README.ko.md`, `.specseal/README.md`, `templates/specseal-README.md` | `test_docs_line_wrap`, `test_the_set_a_work_item_always_has`, `test_no_real_identifiers`, `test_what_the_reader_understands` | `dba039e` |
 | 4 | The `## Unreleased` changelog entry, the ledger rows and the closing memo. (`questions.md` was written with the rest of the SDD set, before implementing) | `test_release_hygiene`, `test_ledger_stamps_resolve`, `evidence_check.py`, `unverified_check.py` | |
 
 Phase 1 is one vertical slice: a record with the field, written by a session
@@ -105,6 +105,12 @@ rule stated where the sessions that run the chain read it.
 Phase 1 before phase 2 deliberately. The field is what a verifying round has
 to write into, so building the procedure first would describe a cell that does
 not exist.
+
+Phase 1 shipped reading the field on the last record alone and phase 2's
+commit changed it to every record. That was not a change of plan: mutation
+testing showed the first scope made `round-N` unreachable, so a third of the
+vocabulary could never be used. The memo's divergence table carries it, and
+what it costs a repository updating the plugin is Q2.
 
 ## Operational impact
 
