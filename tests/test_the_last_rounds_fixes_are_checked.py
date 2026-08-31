@@ -268,6 +268,76 @@ def test_no_fixes_to_check_beside_a_fix_fails(repo):
     assert "closed on a fix" in out
 
 
+# --- the verdict cell as this repository actually spells it -----------------
+#
+# `CLOSED_WORDS` and `FIX_WORDS` are spelled bare and no round record is. Every
+# closed verdict in `specs/*/rounds/round-*.md` reads `**fixed**`, usually with
+# the commit that closed it beside the word, so the normalizer that lowercased
+# and stripped a full stop matched none of them. The three cases below pin both
+# directions of that gap and the one reading that must NOT change.
+
+BOLD_FIX = "**fixed** `abc123d`"
+BOLD_FIX_WITH_TAIL = "**fixed** `abc123d`, closed by a final commit"
+# A long `answered` cell that mentions a fix made elsewhere. The shape is one
+# this repository already writes — `answered, and **sharpened** in `96a1ae3` —
+# …` on `round-2.md` — with a fix word in it, which is what makes it able to
+# fail. A reader that looked for a fix word ANYWHERE in the cell would call
+# this round's own work a fix and refuse `no fixes to check` beside it, which
+# is the value's own terminal state.
+ANSWERED_MENTIONING_A_FIX = (
+    "answered — the finding it confirms was **fixed** in `abc123d`, and this "
+    "row is the confirmation rather than more work"
+)
+
+
+@pytest.mark.parametrize("verdict", [BOLD_FIX, BOLD_FIX_WITH_TAIL])
+def test_a_fix_word_in_bold_beside_its_commit_is_a_fix(repo, verdict):
+    """The refusal that had never once fired.
+
+    `no fixes to check` beside `**fixed** `abc123d`` is the same
+    contradiction-inside-one-file as `no fixes to check` beside a bare
+    `fixed`, and until the normalizer saw through emphasis and the citation it
+    was the spelling every record in this repository used.
+    """
+    declared(repo, round1=lambda sha: record(sha, "no fixes to check", verdict))
+    code, out = run(repo)
+    assert code == 1, out
+    assert "closed on a fix" in out
+
+
+def test_a_blocking_finding_closed_in_bold_is_closed(repo):
+    """The same normalizer, in the direction that fails safe.
+
+    A 🔴 closed as `**fixed** `abc123d`` read as still open, so a record whose
+    blocking finding was genuinely fixed failed its own `Pass`. The work item
+    here is one the grandfathering clause covers, so `nobody` is a notice and
+    the only thing that can fail this record is the verdict cell.
+    """
+    declared(
+        repo,
+        round1=lambda sha: record(
+            sha, "nobody — the run ended here", BOLD_FIX, finding="🔴 1"
+        ),
+    )
+    code, out = run(repo)
+    assert code == 0, out
+
+
+def test_an_answered_cell_that_mentions_a_fix_is_not_a_fix(repo):
+    """The cut is AT the citation, not a search for a fix word inside the cell.
+
+    A reader scanning for `fixed` anywhere would find `sharpened in `abc123d``
+    here and refuse a record whose round wrote no code at all. This is the
+    reading the normalizer must not acquire while it gains the two above.
+    """
+    declared(
+        repo,
+        round1=lambda sha: record(sha, "no fixes to check", ANSWERED_MENTIONING_A_FIX),
+    )
+    code, out = run(repo)
+    assert code == 0, out
+
+
 def test_nobody_with_a_reason_passes_and_says_so(repo):
     """S8, and the trade this release makes rather than hides.
 

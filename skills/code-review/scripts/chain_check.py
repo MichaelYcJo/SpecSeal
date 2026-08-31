@@ -221,6 +221,25 @@ CLOSED_WORDS = {"fixed", "answered", "withdrawn", "not a defect", "agreed, fixed
 # fails the module at import if the two ever come apart.
 FIX_WORDS = {"fixed", "agreed, fixed"}
 assert FIX_WORDS <= CLOSED_WORDS, "a fix word that is not a closing word"
+# Markdown emphasis around the verdict word, and the code fence a cell puts
+# round the commit after it. Both sets above are spelled bare, and a
+# normalizer that read only the bare word matched NOTHING this repository ever
+# wrote: every closed verdict in `specs/*/rounds/round-*.md` reads `**fixed**`,
+# and most cite a commit after it. Neither refusal that reads a verdict cell
+# had ever fired on a real record.
+EMPHASIS = re.compile(r"[*_`]+")
+# The commit citation that follows the word — `**fixed** `d3fe44d``, and
+# `**fixed** `96a1ae3`, closed by a final commit`. The verdict is what stands
+# BEFORE it, so the cell is cut here rather than searched for a closing word
+# anywhere inside it. That direction is what keeps a long `answered` cell
+# mentioning a fix from reading as a fix.
+#
+# A digit is required inside the run. `defaced` and `acceded` are seven
+# characters of [0-9a-f] and ordinary English, and cutting a cell at one of
+# those would truncate a verdict that is citing nothing. A commit abbreviation
+# with no digit is a 1-in-800 spelling, and cutting late there costs nothing:
+# the verdict word before it is already complete.
+CITATION = re.compile(r"\s+(?=[0-9a-f]{7,40}\b)(?=[0-9a-f]*\d)")
 # `Pass` says the findings are closed. This says who opened the work that
 # closed them, and it is the last record's answer to the question `Pass`
 # cannot reach. See the module docstring for what each value means.
@@ -822,8 +841,32 @@ def verdict_table(reader, lines, rel):
 
 
 def verdict_of(seen, col):
-    """One row's verdict cell, normalized the way `CLOSED_WORDS` is spelled."""
-    return seen[col].lower().strip().rstrip(".")
+    """One row's verdict cell, normalized the way `CLOSED_WORDS` is spelled.
+
+    The sets are spelled bare and the records are not. Every closed verdict
+    this repository has ever written reads `**fixed**`, usually with the
+    commit that closed it beside the word, so a normalizer that lowercased and
+    stripped a full stop recognised none of them. What that cost is both
+    directions of the same gap: `closed_with_a_fix` answered False on every
+    record in the repository, so the one refusal separating an honest `nobody`
+    from a silent pass never ran, and `open_blocking` read a 🔴 legitimately
+    closed as `**fixed** `sha`` as still open.
+
+    Three layers come off, each of them a spelling the records actually hold:
+
+      emphasis   `**fixed**`, `` `fixed` `` — `EMPHASIS`
+      citation   the commit and everything after it, so
+                 `**fixed** `96a1ae3`, closed by a final commit` is `fixed`
+      the stop   a trailing full stop
+
+    Cutting AT the citation rather than looking for a closing word inside the
+    cell is what keeps the other direction safe. `answered, and **sharpened**
+    in `96a1ae3` — …` normalizes to `answered, and sharpened in`, which is in
+    neither set and therefore counts open, where a reader scanning the cell
+    for a fix word would have found one.
+    """
+    s = EMPHASIS.sub("", seen[col]).lower().strip()
+    return CITATION.split(s)[0].strip().rstrip(".").strip()
 
 
 def open_blocking(reader, lines, rel):
