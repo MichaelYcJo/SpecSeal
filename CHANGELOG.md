@@ -9,13 +9,16 @@
   nothing to read.
 
   The second reason is what a session hit. The gate reads a heredoc body as
-  shell, because a commit hidden in one used to walk straight past it, and it
-  counts a segment whose command word is `git` with the `commit` subcommand.
-  Two kinds of edit leave one in a body: a partial patch to a file that
-  carries shell commands as test data, where the quoting of that fragment can
-  put a commit in command position, and a patch to a document that shows a
-  waiver example verbatim. Neither command commits anything, and the prompt
-  reaches whoever is at the keyboard — in an unattended run, nobody. (#34)
+  shell, because a commit hidden in one used to walk straight past it, and
+  two kinds of segment count. One has a commit in it: a command word of
+  `git` with the `commit` subcommand, which a partial patch to a file
+  carrying shell commands as test data can leave in command position, and
+  which a document showing a waiver example carries on purpose. The other
+  has no commit at all: a segment the reader cannot expand, so an `eval`
+  argument holding a variable, a command substitution or a glob stops the
+  session with no `git` in the body. Neither command commits anything, and
+  the prompt reaches whoever is at the keyboard — in an unattended run,
+  nobody. (#34)
 
   The gate is unchanged. Whether it should skip a heredoc body that is being
   written to a file rather than run is a separate decision, and it is
