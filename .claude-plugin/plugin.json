@@ -1,0 +1,22 @@
+{
+  "name": "specseal",
+  "displayName": "SpecSeal",
+  "version": "0.0.1",
+  "description": "SpecSeal — specs, sealed: an implement/review agent chain with hook enforcement, an evidence ledger with drift detection, and a tool-agnostic review handoff protocol.",
+  "author": {
+    "name": "MichaelYcJo"
+  },
+  "homepage": "https://github.com/MichaelYcJo/SpecSeal",
+  "repository": "https://github.com/MichaelYcJo/SpecSeal",
+  "license": "MIT",
+  "keywords": [
+    "spec-driven-development",
+    "code-review",
+    "agents",
+    "hooks",
+    "evidence-ledger",
+    "drift-detection",
+    "legacy-migration",
+    "verification"
+  ]
+}

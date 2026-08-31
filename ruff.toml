@@ -1,0 +1,42 @@
+# The plugin's own Python, held to the tool it runs on other people's.
+#
+# lint-python only acts where a project has configured ruff, and until this
+# file existed SpecSeal was not such a project: the hook that reformats your
+# code on save was silent on the code that implements it.
+#
+# The selection is what a gate needs and no more. Rules whose "violation" is
+# this codebase's deliberate posture are left out rather than suppressed
+# line by line — the reasons are below, because an unexplained omission is
+# indistinguishable from an oversight.
+#
+#   BLE001 (blind-except)   a hook that raises wedges the session; every gate
+#       fails toward "not opted in", so a bare except IS the failure policy.
+#   PLW1510 (subprocess-run-without-check)  not raising on a non-zero exit is
+#       the intended behavior of a gate that reads returncode itself.
+#   S110 / S112 (try-except-pass / -continue)  the same fail-open requirement,
+#       expressed in a loop.
+#
+# Two selected families are switched off where they argue with a shape this
+# code uses on purpose:
+#
+#   SIM105 (contextlib.suppress)  a gate's `except: pass` IS its failure
+#       policy, and reads as one; suppress() hides it behind an import.
+#   SIM102 (collapsible if)       a gate's outer condition asks whether it
+#       applies and the inner asks whether it fires. One boolean loses that.
+
+target-version = "py312"  # the floor the gates are supported on
+line-length = 88
+
+# Snippets in skills and docs are illustrations, sometimes deliberately
+# elided. Ruff formats Python inside Markdown, and letting it do so here turns
+# a documentation edit into a lint failure over two spaces.
+extend-exclude = ["*.md"]
+
+[lint]
+select = ["E4", "E402", "E7", "E9", "F", "I", "B", "SIM", "UP", "RUF"]
+ignore = ["SIM105", "SIM102"]
+
+[lint.per-file-ignores]
+# Fixtures build throwaway trees; a context manager per line buys nothing,
+# and `git = lambda *a: ...` is the shortest honest spelling of a fixture helper.
+"tests/*" = ["SIM115", "E731"]

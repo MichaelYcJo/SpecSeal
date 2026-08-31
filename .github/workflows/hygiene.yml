@@ -1,0 +1,117 @@
+name: hygiene
+
+on:
+  pull_request:
+    # `ready_for_review` and `converted_to_draft` are NOT in the default set
+    # (`opened`, `synchronize`, `reopened`), and leaving them out made the
+    # draft excuse a permanent way past every check below. Open the pull
+    # request as a draft while a review is still running, let the checks pass
+    # on the draft's terms, then press Ready for review: no commit follows, so
+    # no `synchronize` fires, nothing re-runs, and the draft's green stays on
+    # that SHA through the merge. Two clicks, no commit.
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Updates are keyed to the version in plugin.json, not to commits — a
+      # change to what ships that leaves the version alone reaches nobody.
+      - name: a change to what ships must move the version
+        shell: bash
+        run: |
+          # Work accumulates on a release branch; the version moves once,
+          # when that branch merges to `main`. Asking every feature PR to bump
+          # it is what made one commit one release.
+          if [ "${{ github.base_ref }}" != "main" ]; then
+            echo "base is ${{ github.base_ref }}, not a release PR — the version moves when next merges to main"; exit 0
+          fi
+          base="origin/${{ github.base_ref }}"
+          changed=$(git diff --name-only "$base"...HEAD)
+          ships=$(echo "$changed" | grep -E '^(skills|agents|hooks|templates|\.claude-plugin)/' || true)
+          if [ -z "$ships" ]; then
+            echo "nothing that ships changed"; exit 0
+          fi
+          old=$(git show "$base:.claude-plugin/plugin.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
+          new=$(python3 -c 'import json; print(json.load(open(".claude-plugin/plugin.json"))["version"])')
+          echo "version: $old -> $new"
+          echo "$ships"
+          if [ "$old" = "$new" ]; then
+            echo "::error::this PR changes what ships but leaves plugin.json at $old — an update keyed to the version will not reach anyone"
+            exit 1
+          fi
+
+      # An `unverified` row records a claim nobody proved and names who can
+      # answer it. Nothing ever read those rows again — one of them said the
+      # gates had never been seen rendering in a TUI, and months later the
+      # user hit exactly that.
+      #
+      # So the tally is printed on every PR. It never fails for an open item —
+      # a red build for an honest row teaches sessions to write none, which
+      # voids the condition. It fails only for what the author can always fix:
+      # a section that cannot be read, a table with fewer rows than at the
+      # base revision, a file that was there and is gone, and a base ref that
+      # does not resolve (exit 2, because nothing was compared).
+      - name: the unverified record is readable, and rows leave it closed
+        shell: bash
+        run: |
+          python3 skills/verify/scripts/unverified_check.py \
+            --baseline "origin/${{ github.base_ref }}" specs/
+
+      # The review chain used to be enforced only at the commit, where the
+      # gate could not tell "routed to the chain, not reviewed yet" from
+      # "nobody decided anything" — so it asked at every commit of every
+      # round. Recording the answer lets it stay quiet, and that is only
+      # allowed because the check moved here rather than disappearing.
+      #
+      # It never fails for a pull request that declared NOTHING — the same
+      # reasoning the step above gives for an honest open row: a build that
+      # goes red for one teaches people to write none. It fails for what the
+      # author can fix: a declaration that says "through the review chain"
+      # with no committed round record, a declaration that cannot be read, a
+      # round record whose `Pass` is checked while a 🔴 in its own verdict
+      # table is still open, and — on a pull request that is not a draft — a
+      # last round whose `Pass` was never checked at all.
+      #
+      # The draft state comes from GITHUB_EVENT_PATH, which this runner
+      # already sets. A review still running opens its pull request as a
+      # draft; that is the only way past the `Pass` requirement.
+      # `chain_check.py` looks for a round's `Target SHA` on HEAD, on the
+      # branch the declaration names, and on the pull request head that
+      # carried it. Only the last one survives: a squash discards the reviewed
+      # commits and a branch is a name anything can delete — five were, by
+      # hand, and a release pull request went red naming six commits
+      # that were all still sitting on a `refs/pull/<N>/head`.
+      #
+      # `actions/checkout` fetches branches and tags, never this namespace, so
+      # it is fetched here rather than depended on. `--no-tags` because the
+      # tags are already there and a tag in the candidate set is the failure
+      # `chain_check.py` records for resolving a bare name.
+      - name: the pull request heads a round record may name
+        shell: bash
+        run: |
+          git fetch --no-tags --quiet origin \
+            '+refs/pull/*/head:refs/remotes/pull/*/head'
+
+      - name: a declared review chain has the round record it claimed
+        shell: bash
+        run: |
+          python3 skills/code-review/scripts/chain_check.py \
+            --baseline "origin/${{ github.base_ref }}"
+
+      # A reminder, not a gate: the language policy keeps the Korean README a
+      # human-facing mirror, and mirrors drift one edit at a time.
+      - name: both READMEs move together
+        shell: bash
+        run: |
+          base="origin/${{ github.base_ref }}"
+          changed=$(git diff --name-only "$base"...HEAD)
+          en=$(echo "$changed" | grep -cx 'README.md' || true)
+          ko=$(echo "$changed" | grep -cx 'README.ko.md' || true)
+          if [ "$en" != "$ko" ]; then
+            echo "::warning::README.md and README.ko.md did not change together — check whether the other one needs the same edit"
+          fi
