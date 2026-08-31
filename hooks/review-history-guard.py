@@ -95,7 +95,7 @@ SEG_RE = re.compile(r"&&|\|\||[;\n|]")
 # that parsing rather than copying it, for the reason `optin.py` gives for
 # existing at all. Left because this hook only emits a notice, so the failure
 # is a misfiled reminder rather than a commit going through.
-# Verified 2026-08-31 at 0000000.
+# Verified 2026-08-31 at 9829412.
 WRAPPERS = {"command", "env", "nohup", "time", "sudo"}
 
 

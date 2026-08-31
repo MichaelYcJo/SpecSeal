@@ -79,7 +79,7 @@ def run_gate(filename, payload):
         # with nobody told. Moving the shared reading into `cmdline.py`
         # removed the likeliest trigger, not the silence. Whatever replaces
         # this has to keep the isolation property `tests/test_dispatch.py`
-        # asserts. Verified 2026-08-31 at 0000000.
+        # asserts. Verified 2026-08-31 at 9829412.
         return ""
     finally:
         sys.argv, sys.stdin = argv, stdin
