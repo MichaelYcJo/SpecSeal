@@ -48,9 +48,17 @@ printed by CI, instead of in nobody's memory.
 
 ## Technical context
 
-- `skills/code-review/scripts/chain_check.py:730` — `check_round`, called on
-  `records[-1]` alone at `:1018`. The new field is read here, beside the
-  `Pass` claim and the verdict table, and nowhere else.
+- `skills/code-review/scripts/chain_check.py` — `checked_by`, called on EVERY
+  record in the loop after `check_round`. `check_round` still reads `Pass` and
+  the verdict table on `records[-1]` alone, and the two scopes are different
+  on purpose. This bullet said the field is read in `check_round` while that
+  function's own docstring said it is not; round 1 of this work item's review
+  found the pair, and this is the corrected half.
+- `skills/code-review/scripts/chain_check.py` — `verdict_of`, the one
+  normalizer `open_blocking` and `closed_with_a_fix` share. It has to see
+  through markdown emphasis and the commit citation after the word, because
+  `**fixed** \`sha\`` is how every verdict cell in this repository is spelled
+  and the bare-word version recognised none of them.
 - `skills/code-review/scripts/chain_check.py:169` — `CLOSED_WORDS`, and the
   comment above it stating the direction an unreadable cell takes. The new
   vocabulary follows that rule rather than inventing a second one.
@@ -82,8 +90,9 @@ printed by CI, instead of in nobody's memory.
 
 | Approach | Failure scenario | Verdict |
 |---|---|---|
-| **B + A, as scoped** | A run that legitimately reaches the cap with unopened fixes still ships, because `nobody — <why>` passes. The gap is visible on every CI run rather than closed | **Taken.** It is the issue's own framing of B — *makes the gap legible without closing it* — with A as the thing that closes it in practice |
-| **B + A, with `Pass` beside `nobody` failing** | The one merged record this repository already carries goes red, and there is no honest repair: writing a `round-4.md` for a review nobody ran is fabricating one, and unchecking `Pass` fails the ready-pull-request rule instead. The release pull request would be red until someone spawned a round for work that has already merged | Not taken here. It is Q1, priced, with the repository owner as its answerer |
+| **B + A, as scoped** | A run that legitimately reaches the cap with unopened fixes still ships, because `nobody — <why>` passes everywhere. The gap is visible on every CI run rather than closed | Taken first, and superseded in phase 7 by the row below. It was the issue's own framing of B — *makes the gap legible without closing it* — with A as the thing that closes it in practice |
+| **B + A, with `Pass` beside `nobody` failing everywhere** | The three merged records this repository already carries go red, and there is no honest repair: writing a `round-4.md` for a review nobody ran is fabricating one, and unchecking `Pass` fails the ready-pull-request rule instead. The release pull request would be red until someone spawned a round for work that has already merged | Not taken. It was Q1's first option and the reason the question existed |
+| **B + A, with `Pass` beside `nobody` failing for work items begun after the rule lands** | An old work item reopened years from now still writes records under its original id and stays excused. Nothing dates a work item except its own directory name | **Taken**, in phase 7, and it is the repository owner's answer to Q1 — a third option neither the row nor round 1's review had put on the table. A check whose first production act is red on merged history nobody can repair is a check people learn to skip; a check whose strongest statement is a print does not stop a failure mode measured at a 100% hit rate |
 | **C — the chain ends at a round with no findings** | Unbounded in the bad case, and at the cap it stops with the same gap one step later. A round closing a 🟡 with grounds would be forced to continue | Rejected by the repository owner before this work started |
 | **A alone** | The verifying round is prose, and prose is what the incident report says was already there. Nothing in git would say whether a run had one | Rejected — B is what makes A checkable |
 | **B alone** | The record names the gap and nothing closes it. Round 2's seven defects would have been recorded as unfound rather than found | Rejected — the issue says A is the one that would have caught them |
@@ -96,6 +105,11 @@ printed by CI, instead of in nobody's memory.
 | 2 | **A.** The verifying round: `docs/review-chain-spec.md`'s bound and its new section, `skills/code-review/SKILL.md`, `agents/warden.md`, `agents/smith.md` | the new test file's A cases, plus `test_docs_line_wrap`, `test_one_word_one_meaning`, `test_the_set_a_work_item_always_has`, `test_review_axes`, `test_broad_gate_rule`, `test_edits_go_through_the_edit_tool` | `edbf994` |
 | 3 | The outward-facing prose: `README.md`, `README.ko.md`, `.specseal/README.md`, `templates/specseal-README.md` | `test_docs_line_wrap`, `test_the_set_a_work_item_always_has`, `test_no_real_identifiers`, `test_what_the_reader_understands` | `dba039e` |
 | 4 | The `## Unreleased` changelog entry, the ledger rows and the closing memo. (`questions.md` was written with the rest of the SDD set, before implementing) | `test_release_hygiene`, `test_ledger_stamps_resolve`, `evidence_check.py`, `unverified_check.py` | `5eecb45` |
+| 5 | **Round 1's 🔴 1.** `verdict_of` sees through markdown emphasis and the commit citation, so `open_blocking` and `closed_with_a_fix` fire on the spelling every record in this repository uses | four new cases in the test file, each red under one of two mutations — the old normalizer, and a reader that looks for a fix word anywhere in the cell | `ef1cfba` |
+| 6 | **Round 1's 🔴 2, and 🟡 4 and 🟡 6.** Option A's three axes pinned as whole rows and sentences with the inversions refused beside them; the `nobody` trade pinned by a needle unique to its own section; the template row counted outside comments and its value pinned | the same file, nine mutations across four carriers, the template and the check's docstring | `60e4cb8` |
+| 7 | **Q1, answered.** `Pass` beside `nobody` fails on the last record of a work item begun on or after `STRICT_FROM`, and the policy clause goes back into `docs/review-chain-spec.md`, `docs/review-handoff-protocol.md`, both READMEs, the template, the skill and `agents/smith.md` | five new cases, two mutations (the cutoff inverted, the two claims dropped), plus the twelve narrow prose files | `6f0db50` |
+| 8 | **Round 1's 🟡 5, 🟡 9 and 🟡 10.** A named checker's own `Target SHA` has to be later; the three uncovered branches get cases; `Needs a fix` gives the run's terminal condition a field in the record, the reviewer's report and the protocol | eight new cases, six mutations, and `test_edits_go_through_the_edit_tool` for the apostrophe parity the added prose had to keep | `225b9b7` |
+| 9 | **Round 1's 🔴 3, 🟡 7 and 🟡 8.** The memo says what the code does, the spec and the plan stop contradicting each other and the code, the citations name a file that exists, and Q2 carries the merged-record cost | `test_the_set_a_work_item_always_has`, `test_docs_line_wrap`, `evidence_check.py`, `unverified_check.py`, `test_release_hygiene` | |
 
 Phase 1 is one vertical slice: a record with the field, written by a session
 from the template, refused by the check when it lies, and the one existing
@@ -112,16 +126,30 @@ testing showed the first scope made `round-N` unreachable, so a third of the
 vocabulary could never be used. The memo's divergence table carries it, and
 what it costs a repository updating the plugin is Q2.
 
+Phases 5 to 9 are round 1 of this work item's own review, and they are phases
+rather than an appendix because three of them change what ships. The rounds
+are the reason phases 1 to 4 are not the whole plan: the review found that
+neither refusal reading a verdict cell had ever fired, and that option A's
+rules could be written backwards with the suite green.
+
 ## Operational impact
 
 **A behaviour change in CI, and it is the point of the work.** A pull request
-whose declaration routes through the review chain now fails when its last
-round record carries no `| Fixes checked by |` row. Every round record written
-before this release lacks it. This repository carries exactly one such record
-and it is migrated in phase 1; a repository that installed the plugin and
-updates it gets a failure naming the row and the three values it accepts,
-which is the same trade `docs/review-handoff-protocol.md` records for the
-`rounds/` move — no fallback, bought back with a message.
+whose declaration routes through the review chain now fails when **any** round
+record in a touched work item carries no `| Fixes checked by |` row. Every
+round record written before this release lacks it. This repository carries
+three, all in `specs/1788184145-…/rounds/`, and all three are migrated in
+phase 1; a repository that installed the plugin and updates it gets a failure
+naming the row and the three values it accepts, which is the same trade
+`docs/review-handoff-protocol.md` records for the `rounds/` move — no
+fallback, bought back with a message.
+
+**And a second one, from phase 7.** A checked `Pass` beside `Fixes checked by:
+nobody — <why>` on the last record now fails, for work items whose directory
+name begins with a unix second at or after `chain_check.py`'s `STRICT_FROM`.
+Earlier work items print instead. Nothing is configured: the cutoff is one
+constant compared against a number already in every work item's directory
+name.
 
 No migration script, no new environment variable, no new dependency.
 `.claude-plugin/plugin.json` stays at `0.0.1`; the pull request lands on

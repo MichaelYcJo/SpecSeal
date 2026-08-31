@@ -111,7 +111,7 @@ def record(
     # `Fixes checked by` is NOT optional, and the default is the one value
     # that is honest for a record with no later round beside it. Passing
     # `None` leaves the row out, which is a state of its own and has its own
-    # cases in `test_the_last_rounds_fixes.py`.
+    # cases in `test_the_last_rounds_fixes_are_checked.py`.
     who = f"| Fixes checked by | {checked_by} |\n" if checked_by is not None else ""
     return (
         "# round 1\n\n"

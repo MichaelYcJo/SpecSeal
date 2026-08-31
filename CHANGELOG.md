@@ -28,8 +28,18 @@
   Three values and no others — `round-N` naming a LATER round, `no fixes to
   check`, or `nobody — <why>`. `chain_check.py` reads it on every record and
   refuses what the repository can contradict: a round naming itself, a
-  checker git does not carry, and `no fixes to check` beside a verdict that
-  closed with a fix.
+  checker git does not carry, a checker whose own `Target SHA` is the same
+  commit as this record's or an ancestor of it — the number is later and the
+  review is not — and `no fixes to check` beside a verdict that closed with a
+  fix. A verdict cell is read through markdown emphasis and the commit cited
+  after the word, so `**fixed** \`sha\`` counts as the fix it is.
+
+  And `round-N.md` carries `| Needs a fix |`: whether this round opened
+  anything that does. It is the reviewer's own answer, copied rather than
+  re-derived from the verdict table, because a finding the implementer answers
+  with grounds needs no fix and still ends the run. No check reads the row —
+  it is there because the answer a run ends on had nowhere to live but a
+  transcript.
 
   **`nobody — <why>` prints on every run, and fails in one place**: on the
   run's last record, beside a checked `Pass`. That pair is the review claiming
