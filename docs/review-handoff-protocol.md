@@ -203,12 +203,18 @@ only read `no fixes to check` or `nobody — <why>`. That is the shape of the
 rule rather than a limitation of it: a run ends at a round that wrote no code
 nobody read, or it ends with the gap in the diff where a reader will meet it.
 
-**A conforming tool reads this on the last record**, where it reads `Pass`, and
-refuses what the repository can contradict — a missing row, a round that does
-not exist or is not later, and `no fixes to check` beside a verdict that closed
-with a fix. Whether it should also refuse a checked `Pass` beside `nobody` is
-left open here: the two are not a contradiction inside one file, and a tool
-that fails for an honest disclosure teaches people to write none.
+**A conforming tool reads this on every record**, where it reads `Pass` on the
+last one alone. The two scopes differ because the two facts do: `Pass` is a
+verdict on the whole review, and the last round's speaks for it; this is a
+fact about one round's own fixes, and every round has one. Reading only the
+last record makes `round-N` unreachable — a checker has to be later, and the
+last record has no later round.
+
+What it refuses is what the repository can contradict: a missing row, a round
+that does not exist or is not later, and `no fixes to check` beside a verdict
+that closed with a fix. Whether it should also refuse a checked `Pass` beside
+`nobody` is left open here: the two are not a contradiction inside one file,
+and a tool that fails for an honest disclosure teaches people to write none.
 
 ### tests-todo.md — regression tests prescribed, not written
 

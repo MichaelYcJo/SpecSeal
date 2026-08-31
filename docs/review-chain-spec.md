@@ -539,14 +539,20 @@ it does not have is wrong at every stage of a run.
 | `nobody` with nothing after it | **fails.** The reason is what makes the state readable; without it the cell records that something is missing and not what |
 | anything else, `the session that wrote them` included | **fails**, naming the three values. Read loosely, a session's own name would pass as an answer, and that is precisely the state this field exists to refuse — the direction `CLOSED_WORDS` already takes for a verdict cell |
 
-Two of those deserve their cost written down. The first is that `nobody —
-<why>` passes, which means a work item can still ship with its last fixes
-unopened; what changes is that the state is in the diff and in every CI run
-instead of in a session's memory. The second is that this is read on the LAST
-record only, where `Pass` is read — earlier rounds' fixes are opened by the
-round that follows them, by construction, and asserting the property of a
-record written under earlier rules would fail work items nobody was asked
-about.
+Two of those deserve their cost written down.
+
+The first is that `nobody — <why>` passes, which means a work item can still
+ship with its last fixes unopened. What changes is that the state is in the
+diff and in every CI run instead of in a session's memory.
+
+The second is the scope. This is read on **every** record, where `Pass` is
+read on the last one alone, and the two differ because the two facts do:
+`Pass` is a verdict on the whole review and the last round's speaks for it,
+while this is a fact about one round's own fixes and every round has one.
+Reading only the last record makes `round-N` unreachable — a checker has to be
+later, and the last record has none. What that costs is a repository updating
+the plugin: every record in a work item whose declaration the pull request
+touches needs the row, not just the newest.
 
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a

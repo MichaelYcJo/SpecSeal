@@ -74,10 +74,12 @@ One new field in a markdown record, and one new set of failures in a check
 that already runs in CI.
 
 `| Fixes checked by | <value> |`, in `round-N.md`'s field table beside
-`Target SHA`, `PR` and `Broad gate`. Read on the **last** record only, which
-is where `Pass` is read and for the same reason: earlier rounds' fixes are
-opened by the round that follows them, by construction, and the last round's
-are the one set with no round after them.
+`Target SHA`, `PR` and `Broad gate`. Read on **every** record, where `Pass` is
+read on the last one alone. The two scopes differ because the two facts do:
+`Pass` is a verdict on the whole review and the last round's speaks for it,
+while this is a fact about one round's own fixes and every round has one.
+Reading only the last record leaves `round-N` unreachable — a checker has to
+be later, and the last record has none.
 
 | The cell says | `chain_check.py` |
 |---|---|

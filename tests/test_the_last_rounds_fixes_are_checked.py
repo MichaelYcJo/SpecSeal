@@ -179,7 +179,16 @@ def test_a_record_with_no_such_row_fails(repo):
 
 
 def test_a_later_round_that_exists_is_a_checker(repo):
-    """S2. The passing shape, and the one the verifying round writes."""
+    """S2. The passing shape a finished run writes: round 1 names round 2 as
+    what opened its fixes, and round 2 is the verifying round that opened
+    nothing needing one.
+
+    This case is why the field is read on EVERY record. Read on the last one
+    alone, `round-N` is unreachable — a checker has to be later and the last
+    record has none — and the first version of this test stayed green under a
+    mutation that broke the lookup entirely, because round 1's cell was never
+    opened.
+    """
     declared(
         repo,
         round1=lambda sha: record(sha, "round-2"),
@@ -187,6 +196,20 @@ def test_a_later_round_that_exists_is_a_checker(repo):
     )
     code, out = run(repo)
     assert code == 0, out
+
+
+def test_an_earlier_record_missing_the_row_fails(repo):
+    """S2b. The scope, from the other side: a chain whose last record is
+    honest and whose round 1 says nothing is still a chain with an unanswered
+    round."""
+    declared(
+        repo,
+        round1=lambda sha: record(sha, None),
+        round2=lambda sha: record(sha, "no fixes to check", verdict="answered"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "round-1.md" in out
 
 
 def test_a_round_cannot_check_its_own_fixes(repo):
@@ -305,10 +328,20 @@ def test_the_row_is_read_from_git_not_from_the_working_tree(repo):
 def test_a_cell_inside_a_comment_is_not_the_row(repo):
     """One reader, not two. The template explains the field in a comment
     beside it, and a record that keeps the template's comment must not have
-    its explanation read as its answer."""
-    body = record("0" * 40, None).replace(
+    its explanation read as its answer.
+
+    The commented row is on a line of its own, starting with a pipe, because
+    that is what a template's example looks like and it is the only shape a
+    reader that skipped `strip_comments` would actually pick up. Its value is
+    a VALID one, and the record's verdict closes without a fix, so a reader
+    that saw the comment would exit 0 rather than exit 1 for a different
+    reason — the first version of this case put `round-2` there and stayed
+    green under its own mutation, because a checker that does not exist fails
+    too.
+    """
+    body = record("0" * 40, None, verdict="answered").replace(
         "- [x] Pass",
-        "<!-- | Fixes checked by | round-2 | -->\n\n- [x] Pass",
+        "<!--\n| Fixes checked by | no fixes to check |\n-->\n\n- [x] Pass",
     )
     write(repo, f"{ITEM}/routing.md", declaration())
     commit(repo, "declare")
@@ -316,7 +349,7 @@ def test_a_cell_inside_a_comment_is_not_the_row(repo):
     commit(repo, "round 1")
     code, out = run(repo)
     assert code == 1, out
-    assert "Fixes checked by" in out
+    assert "no `| Fixes checked by" in out
 
 
 # --- the field, as every document that describes it spells it ---------------
@@ -360,12 +393,19 @@ def test_the_protocol_carries_the_field_and_moved_its_draft():
 
 def test_the_documents_say_what_nobody_costs():
     """A trade nobody wrote down gets reverted by whoever finds it, and this
-    one is the difference between refusing a claim and refusing a state."""
+    one is the difference between refusing a claim and refusing a state.
+
+    The phrase, not the word. `teach` alone was the first spelling and it
+    survived deleting the sentence, because the same reasoning appears further
+    down the same file about a different gate.
+    """
     for parts in (
         ("docs", "review-chain-spec.md"),
         ("skills", "code-review", "scripts", "chain_check.py"),
     ):
-        assert "teach" in read(*parts).lower(), "/".join(parts)
+        text = flat(*parts)
+        assert "honest" in text, "/".join(parts)
+        assert "teaches people to write none" in text, "/".join(parts)
 
 
 # --- the verifying round ----------------------------------------------------
@@ -445,9 +485,19 @@ def test_the_smiths_account_of_the_bound_matches_the_spec():
     assert "verifying round" in smith
 
 
-def test_the_check_can_fail():
-    """Every prose assertion above is a substring, and a substring test that
-    cannot go red is a comment. This is the mutation, run in-process."""
-    text = flat("docs", "review-chain-spec.md")
-    assert "verifying round" in text
-    assert "verifying round" not in text.replace("verifying round", "")
+def test_the_template_row_is_a_row_and_not_an_explanation():
+    """The one shape that would make every prose assertion above worthless:
+    the field described in a comment beside a table it is not in.
+
+    A session copies the table. A commented row is invisible to `chain_check`
+    by design — `test_a_cell_inside_a_comment_is_not_the_row` pins that from
+    the other side — so a template whose only mention is commented ships a
+    record that fails the moment it is written.
+    """
+    rows = [
+        line
+        for line in read("templates", "sdd-round.md").splitlines()
+        if line.strip().startswith("| Fixes checked by")
+    ]
+    assert len(rows) == 1, f"the template's field table has {len(rows)} such rows"
+    assert "<!--" not in rows[0]

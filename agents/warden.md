@@ -48,6 +48,24 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   round, which is how a review loop costs more than the work it reviews. The
   exception is a fix that changes what an earlier verdict rested on — say so,
   and widen deliberately.
+- **A verifying round has a diff for a target, and answers rather than new
+  findings.** A run ends with one: it is spawned after the previous round's
+  fixes are committed, and its target is the diff of those fixes rather than
+  the branch. For each verdict that round recorded as closed, your job is
+  whether it is actually closed.
+
+  Recognise it from the prompt, which hands you a fix diff instead of a
+  branch, and stay inside it. That surface is the whole reason the round is
+  affordable, and widening it back to the branch is the shape of round this
+  one exists to be cheaper than.
+
+  Opening something anyway is allowed and is the point — the one round that
+  ever looked at another round's fixes found seven defects in them. Report it
+  the way you report anything. What changes is only where you looked.
+
+  Say plainly whether you opened anything that needs a fix, because the run
+  ends on that answer. Nothing needing a fix ends it; a 🟡 the smith can answer
+  with grounds is still nothing needing a fix.
 
   The suite is not yours to run before the rounds settle. The smith hands over
   with it labeled `unverified` on purpose: the broad gate belongs after the

@@ -96,11 +96,17 @@ Batch probe cases into one file and run once. Never probe what reading answers
 claims without running anything. Don't touch `test_tmp_*` files another
 session created.
 
-## Cross-session records — `.specseal/handoff/PR-<n>/`
+## Cross-session records — `specs/<work-item-id>/`
 
 **Before starting**, read this directory if it exists. Axes a previous round
 already judged are not re-walked — unchanged code keeps its verdict. Probes a
 previous round ran are only re-checked for "is it fixed now".
+
+The records used to be keyed by a pull request number, at
+`.specseal/handoff/PR-<n>/`. That number does not exist while the rounds that
+would fill the directory are running, so no correct session could create it
+and none ever did; `docs/review-handoff-protocol.md` carries the reasoning.
+The work item is the key now, and its `routing.md` names the branch.
 
 **Right after posting the report**, the orchestrator writes three files
 (reviewer workers never write here — parallel writers overwrite each other,
@@ -108,7 +114,7 @@ and worker findings are pre-verification):
 
 | File | Contents |
 |---|---|
-| `round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — and the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at |
+| `round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, and **who checked the fixes** (below) |
 | `tests-todo.md` | regression tests to plant, with the destination file per row |
 | `evidence-todo.md` | verified facts to merge into `.specseal/map.md` |
 
@@ -141,6 +147,57 @@ are re-established when their check fails, or when `parity.md` lists the path
 under coordinate-trust exceptions. A verdict on current code carries nothing —
 no check exists that would tell you it went stale, which is exactly why the
 round has to reach it again.
+
+## Orchestrator: the run ends with a verifying round
+
+A round's findings are closed after it ends, by whoever writes the fixes. Every
+round but the last has a reader for those fixes — the round that follows, since
+each of its verdicts needs an answer there. The last round's fixes are read by
+nobody, and the box saying the review passed is ticked by the session that
+wrote them.
+
+That is not an occasional slip. It is how every run ended, and it was measured
+twice in a row: the one round that did open the previous round's fixes found
+**seven** defects in them, and its own fixes then went in unread.
+
+So a run ends with a **verifying round**, and three things define it.
+
+| | What |
+|---|---|
+| When | **after the fixes** for the previous round are committed — never before, or it reviews what has already been reviewed |
+| Target | the **diff of those fixes**, not the branch. That is what keeps it bounded: it is the cheapest round of the run |
+| Job | the answers, not new findings. For each verdict the previous round recorded as closed, is it actually closed |
+
+**A round that opens nothing needing a fix does not consume the cap.** The cap
+counts rounds that found something, because it exists to stop a loop that is
+not converging, and a round that finds nothing is the loop having converged.
+Nothing here runs away: a verifying round that opens something IS a finding
+round and consumes the cap like any other, and one that opens nothing is by
+definition the last one, because the run ends at it.
+
+The condition is not *this round found nothing* — that would be unbounded, and
+it was considered and rejected. A verifying round that raises a 🟡 the smith
+answers with grounds has opened nothing needing a fix, and the run ends there.
+
+### Then say who checked them, in the record
+
+`round-N.md` carries `| Fixes checked by |` beside `Pass`, and the two answer
+different questions. `Pass` says no finding in this round's table is still
+open. This says who opened the work that closed them. Three values, and
+`chain_check.py` refuses everything else:
+
+| The cell | When |
+|---|---|
+| `round-N` | a **later** round opened these fixes and reported on them. It has to exist, and a round can never name itself |
+| `no fixes to check` | nothing here closed with a fix. This is the verifying round's own terminal value |
+| `nobody — <why>` | the gap, written down. It does not fail the pull request; it prints on every CI run |
+
+Filling it in is the last act of a round, and it reaches back: when the
+verifying round finishes, the record it verified gets its cell set to that
+round's number. Every record carries the row, not only the newest — `Pass` is
+a verdict on the whole review and the last round's speaks for it, while this
+is a fact about one round's own fixes. `docs/review-chain-spec.md` holds the
+rule and what each refusal costs.
 
 ## Orchestrator: verify before posting
 

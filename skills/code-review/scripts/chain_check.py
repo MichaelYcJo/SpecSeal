@@ -98,9 +98,10 @@ Measured on two consecutive work items in this repository (#33): the one round
 that did look at the previous round's fixes found seven defects in them, and
 its own fixes then went in unread.
 
-So the last record carries `| Fixes checked by | … |`, with three values and
-no others. Only a LATER round may be named, so the last record of a finished
-run can only read `no fixes to check` or `nobody`:
+So every record carries `| Fixes checked by | … |`, with three values and no
+others. Only a LATER round may be named, so the LAST record of a finished run
+can only read `no fixes to check` or `nobody`, and the earlier ones name the
+round that opened them:
 
   round-N              that round opened these fixes. N above this record's
                        own number, and `rounds/round-N.md` committed
@@ -120,10 +121,18 @@ The draft excuse does NOT reach this row. `Pass` is excused in a draft because
 a review still running has not reached its verdict; a record naming a checker
 it does not have is wrong at every stage.
 
-Read on the LAST record only, where `Pass` is read. Earlier rounds' fixes are
-opened by the round that follows them, by construction, and asserting this of
-a record written under earlier rules would fail work items nobody was asked
-about.
+Read on EVERY record, where `Pass` is read on the last one alone. The two
+scopes differ for a reason rather than by oversight: `Pass` is a verdict on
+the whole review and the last round's is the one that speaks for it, while
+this is a fact about one round's own fixes and every round has one. Reading
+only the last record was the first shape, and it made `round-N` unreachable --
+a checker has to be later, and the last record has no later round -- which is
+a vocabulary value nothing could ever use.
+
+What it costs is a repository that updates the plugin: every record in a work
+item whose declaration the pull request touches needs the row, not just the
+newest. The failure names the row and the three values, which is the same
+trade `docs/review-handoff-protocol.md` records for the `rounds/` move.
 
 WHAT IT CANNOT SEE, stated here rather than discovered later:
 
@@ -229,7 +238,12 @@ CHECKER_RE = re.compile(r"^round-\d+(?:\.md)?$")
 # the set because the dash never touches the word -- `nobody — why` puts a
 # space first, and leaving it out refused the one spelling every document
 # shows.
-SEPARATORS = " —–-:,"
+# The two dashes are built by codepoint rather than typed. An en dash sitting
+# in a string literal is what ruff's RUF001 reads as a hyphen somebody
+# mistyped, and that rule earns its keep everywhere else in this file; the em
+# dash goes the same way so the pair reads as a pair. 0x2014 is EM DASH and
+# 0x2013 is EN DASH.
+SEPARATORS = " " + chr(0x2014) + chr(0x2013) + "-:,"
 # `templates/sdd-round.md:12` and `docs/review-handoff-protocol.md:84` both say
 # the Target SHA cell may name BOTH commits when HEAD moved mid-review. The
 # whole cell used to be handed to `merge-base` as one ref, so the documented
@@ -858,13 +872,31 @@ def nobody_reason(value):
     return rest.strip(SEPARATORS)
 
 
-def checked_by(reader, routing, root, rel, rows, lines, siblings):
-    """(errors, notices) for the last record's `Fixes checked by` row.
+def checked_by(reader, routing, root, rel, siblings):
+    """(errors, notices) for one record's `Fixes checked by` row.
 
     `siblings` is every `round-N.md` git carries in this work item, by
     basename, so a named checker is confirmed against the repository rather
     than taken on the record's word.
+
+    EVERY record, where `Pass` is read on the last one alone, and the two
+    scopes are different for a reason that is not symmetry. `Pass` is a
+    verdict on the whole review, and the last round's is the one that speaks.
+    This is a fact about ONE round's fixes, and every round has its own.
+
+    Reading only the last record made the `round-N` value unreachable, which
+    is worth recording because a vocabulary value nothing can use is a
+    vocabulary value nobody will notice is dead: a checker has to be a LATER
+    round, the last record has none by construction, so the only values it can
+    ever hold are `no fixes to check` and `nobody`. Found by mutating the
+    sibling lookup and watching the case that was supposed to cover it stay
+    green.
     """
+    text = read_record(root, rel)
+    if text is None:
+        return [(rel, 0, "git does not carry this file at HEAD")], []
+    lines = reader.readable(text)
+    rows = table_rows(reader, lines)
     cell = field(rows, CHECKED_BY)
     if cell is None:
         return [
@@ -965,11 +997,12 @@ def checked_by(reader, routing, root, rel, rows, lines, siblings):
     ]
 
 
-def check_round(reader, routing, root, rel, siblings, strict=True, refs=None):
-    """(errors, notices) for one round record.
+def check_round(reader, root, rel, strict=True, refs=None):
+    """(errors,) for one round record — the reachability and the Pass claim.
 
-    The reachability, the `Pass` claim, and who opened the fixes that closed
-    what this round found.
+    Who opened the fixes is NOT read here. `checked_by` is asked of every
+    record, this one included, and a function called on the last record alone
+    is the wrong place for a question every round has its own answer to.
 
     `strict` is false only for a draft pull request, where an unchecked
     `Pass` is the honest state of a review still running. It does not reach
@@ -986,7 +1019,7 @@ def check_round(reader, routing, root, rel, siblings, strict=True, refs=None):
     errors = []
     text = read_record(root, rel)
     if text is None:
-        return [(rel, 0, "git does not carry this file at HEAD")], []
+        return [(rel, 0, "git does not carry this file at HEAD")]
 
     lines = reader.readable(text)
     rows = table_rows(reader, lines)
@@ -1022,13 +1055,6 @@ def check_round(reader, routing, root, rel, siblings, strict=True, refs=None):
                 )
             )
 
-    # Before the `Pass` block, and deliberately, because that block returns
-    # early when the checkbox is missing. A record that lost both rows has two
-    # things wrong with it, and reporting one of them costs the author a round
-    # trip through CI to learn the other.
-    who_errors, notices = checked_by(reader, routing, root, rel, rows, lines, siblings)
-    errors.extend(who_errors)
-
     checked = None
     for line in lines:
         m = PASS_RE.match(line)
@@ -1045,7 +1071,7 @@ def check_round(reader, routing, root, rel, siblings, strict=True, refs=None):
                 "this one only the first is answerable",
             )
         )
-        return errors, notices
+        return errors
 
     if strict and not checked:
         errors.append(
@@ -1074,7 +1100,7 @@ def check_round(reader, routing, root, rel, siblings, strict=True, refs=None):
                     f"withdrawn: {what}",
                 )
             )
-    return errors, notices
+    return errors
 
 
 def main(argv=None):
@@ -1265,15 +1291,23 @@ def main(argv=None):
                 "where its commits are"
             )
         )
+        errors.extend(check_round(reader, root, last, strict, refs))
+
+        # EVERY record, where the block above reads the last one alone. Who
+        # opened a round's fixes is a fact about that round, and each has its
+        # own; the `Pass` verdict is a claim about the whole review, and the
+        # last round's is the one that speaks for it.
+        #
         # Basenames rather than paths: `checked_by` is confirming a name a
         # person wrote in a cell (`round-4`), and the directory it would sit
         # in is already fixed by `round_records`.
         siblings = {os.path.basename(p) for p in records}
-        round_errors, round_notices = check_round(
-            reader, routing, root, last, siblings, strict, refs
-        )
-        errors.extend(round_errors)
-        notices.extend(round_notices)
+        for record in records:
+            who_errors, who_notices = checked_by(
+                reader, routing, root, record, siblings
+            )
+            errors.extend(who_errors)
+            notices.extend(who_notices)
 
     for rel, line, message in notices:
         print(reader.annotate("notice", rel, line, message))
