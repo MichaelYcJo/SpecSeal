@@ -14,7 +14,7 @@
 
 | Item | Value |
 |---|---|
-| Baseline commit | `BASELINE_SHA` (2026-08-31) — the fallback for rows with no baseline of their own; open with `git show BASELINE_SHA:<path>` when in doubt |
+| Baseline commit | `9829412277fa11f81b61df7850183ae3fa9d8a05` (2026-08-31) — the fallback for rows with no baseline of their own; open with `git show 9829412:<path>` when in doubt |
 | Coordinate notation | `<path>:<line>` from the repo root |
 | Trust exceptions | none |
 
@@ -35,16 +35,16 @@ Judgments that don't follow from code or documents alone.
 
 | Clause | Code grounds | Verified behavior | Checked | Notes |
 |---|---|---|---|---|
-| The Review and Destination axes are strict; a value outside the vocabulary makes the file not a declaration | `hooks/routing.py:45`, `hooks/routing.py:49` | Read, not run. `parse` returns `None` unless both answers are members | 2026-08-31 `BASELINE_SHA` | The Implementation axis is deliberately lenient at the same coordinate |
+| The Review and Destination axes are strict; a value outside the vocabulary makes the file not a declaration | `hooks/routing.py:45`, `hooks/routing.py:49` | Read, not run. `parse` returns `None` unless both answers are members | 2026-08-31 `9829412` | The Implementation axis is deliberately lenient at the same coordinate |
 
 ## Rider stamps
 
 | Clause | Code grounds | Verified behavior | Checked | Notes |
 |---|---|---|---|---|
-| Every `# RIDER:` carries the date and SHA it was verified at, and the SHA is an ancestor of HEAD | `tests/test_a_rider_reaches_its_file.py:111` | Executed: the suite passes on this tree, and the eleven riders are stamped at the baseline commit | 2026-08-31 `BASELINE_SHA` | The stamps were re-cut for this tree; the commits they named before do not exist here |
+| Every `# RIDER:` carries the date and SHA it was verified at, and the SHA is an ancestor of HEAD | `tests/test_a_rider_reaches_its_file.py:111` | Executed: the suite passes on this tree, and the eleven riders are stamped at the baseline commit | 2026-08-31 `9829412` | The stamps were re-cut for this tree; the commits they named before do not exist here |
 
 ## Evidence drift
 
 | Clause | Code grounds | Verified behavior | Checked | Notes |
 |---|---|---|---|---|
-| A row reads DRIFTED when its range was touched since the row's own baseline | `skills/evidence-check/scripts/evidence_check.py:202` | Read, not run | 2026-08-31 `BASELINE_SHA` | Every row here shares the baseline, so nothing can drift until the second commit |
+| A row reads DRIFTED when its range was touched since the row's own baseline | `skills/evidence-check/scripts/evidence_check.py:202` | Read, not run | 2026-08-31 `9829412` | Every row here shares the baseline, so nothing can drift until the second commit |
