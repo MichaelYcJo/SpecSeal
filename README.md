@@ -175,6 +175,21 @@ chain, requires a committed round record whose `Pass` does not contradict its
 own verdict table. A pull request that declared neither way is not failed; it
 gets a notice saying nothing was checked.
 
+Each round record also has to say **who opened the fixes** that closed what it
+found. A round's findings are closed after it ends, by whoever writes the
+fixes, and the round that follows is what reads them — except after the last
+round, where nobody did and the box saying the review passed was ticked by the
+session that had just written them. So a run ends with a **verifying round**:
+spawned after those fixes are committed, pointed at their diff rather than at
+the branch, and asking whether each closed finding is actually closed. A round
+that opens nothing needing a fix does not spend one of the three.
+
+The record's `Fixes checked by` row is where that lands. It names a later
+round, or says there was nothing to check, or says `nobody` and why — and the
+last of those passes rather than failing, printed on every run, so a work item
+that ships with its final fixes unopened says so in the diff instead of in a
+session that has ended.
+
 No gate transmits your code, your paths, or your prompts anywhere. Three side
 effects are worth stating outright: session-lease writes a timestamp file under
 `.git/specseal-leases/`, version-check writes one under
@@ -351,6 +366,12 @@ What this does not do is as load-bearing as what it does.
   instruction, the warden's audit of the seal, and the `round-N.md` field that
   makes a repeat visible. A hook could not tell the difference anyway —
   whether the rounds have settled is not a property of the command being run.
+- **`Fixes checked by: nobody` passes.** The row makes the state visible and
+  does not refuse it: a work item can still ship with its last fixes opened by
+  nobody, and what CI does is print that on every run. What it refuses is a
+  claim the repository can contradict — a round naming itself as its own
+  checker, a checker that does not exist, or `no fixes to check` beside a
+  verdict that closed with a fix.
 - **A parity mark says someone compared, not that they compared well.** The
   gate checks that a comparison was recorded for this HEAD; the quality of
   that comparison is the reviewer's, and writing the mark for work you did not
