@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+# Runs the deferral resolver as `deferral-check` instead of a long path into
+# the plugin directory. Claude Code puts a plugin's bin/ on the Bash tool's
+# PATH while the plugin is enabled, so the README can print a command a reader
+# can actually type.
+#
+# Resolves the script relative to this file, not the caller's cwd, so it works
+# from any directory. Arguments pass straight through:
+#   deferral-check .              deferral-check . --kind all
+#   deferral-check --kind lint /path/to/repo
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec python3 "$here/../skills/verify/scripts/deferral_check.py" "$@"

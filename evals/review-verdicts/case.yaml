@@ -1,0 +1,13 @@
+schema_version: "1.1"
+name: "code-review reports action-bearing verdicts with proof"
+runs: 1
+max_turns: 12
+timeout_seconds: 300
+model: claude-sonnet-5
+context:
+  scaffold_script: |
+    git init -q .
+    mkdir -p docs/policies/demo src
+    printf '# Greeting policy\n\nPOL-1: greet(name) must return exactly "hello, <name>".\n' > docs/policies/demo/01-greeting.md
+    printf 'def greet(name):\n    return "hi, " + name\n' > src/greeting.py
+    git add -A && git -c user.email=e@e -c user.name=e commit -qm base

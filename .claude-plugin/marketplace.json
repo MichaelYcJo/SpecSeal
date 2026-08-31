@@ -1,0 +1,14 @@
+{
+  "name": "specseal",
+  "description": "SpecSeal \u2014 specs, sealed: implement/review agent chain, evidence ledger with drift detection, hook-enforced gates.",
+  "owner": {
+    "name": "MichaelYcJo"
+  },
+  "plugins": [
+    {
+      "name": "specseal",
+      "source": "./",
+      "description": "Specs, sealed \u2014 agent chain with hook enforcement, evidence ledger with drift detection, review handoff protocol."
+    }
+  ]
+}

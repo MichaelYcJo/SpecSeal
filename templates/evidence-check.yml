@@ -1,0 +1,40 @@
+# Evidence-rot detection — fails the build when the evidence ledger's
+# spec-to-code coordinates stop resolving; warns (exit 1) on ranges touched
+# since the ledger's baseline commit.
+#
+# RIDER: "warns (exit 1)" above, and "let drift warn without blocking" below,
+# both promise a softer mode this file does not deliver. Executed: drift exits
+# 1 with or without `--strict`, and a plain `bash -e` step fails on it. The two
+# skills that described the flag were corrected by the change this rider names;
+# this template was outside it. Verified 2026-08-31 at 0000000.
+#
+# Setup: run /specseal:evidence-ci — it vendors the checker to
+# tools/evidence_check.py and writes this workflow, resolving the plugin's
+# own location so you never need to know where it is installed.
+#
+# Doing it by hand instead: copy the checker from the plugin's
+# skills/evidence-check/scripts/ into tools/, then copy this file to
+# .github/workflows/evidence-check.yml.
+
+name: evidence-check
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "src/**"
+      - "tools/evidence_check.py"
+
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # drift check diffs against the ledger's baseline SHA
+
+      - name: Check evidence ledger coordinates
+        run: |
+          # --strict: treat drifted (unverified since baseline) rows as failures.
+          # Drop it to let drift warn without blocking.
+          python3 tools/evidence_check.py --strict .

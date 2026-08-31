@@ -1,0 +1,63 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\" pre-bash || py -3 \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\" pre-bash"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\" pre-agent || py -3 \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\" pre-agent"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\" pre-skill || py -3 \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\" pre-skill"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\" post-bash || py -3 \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\" post-bash"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\" post-edit || py -3 \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\" post-edit"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\" session-start || py -3 \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch.py\" session-start"
+          }
+        ]
+      }
+    ]
+  }
+}

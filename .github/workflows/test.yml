@@ -1,0 +1,91 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    # `ready_for_review` and `converted_to_draft` are NOT in the default set
+    # (`opened`, `synchronize`, `reopened`), and leaving them out made the
+    # draft excuse a permanent way past every check below. Open the pull
+    # request as a draft while a review is still running, let the checks pass
+    # on the draft's terms, then press Ready for review: no commit follows, so
+    # no `synchronize` fires, nothing re-runs, and the draft's green stays on
+    # that SHA through the merge. Two clicks, no commit.
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check .
+      - run: ruff format --check .
+
+  pytest:
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.12 is the stated floor; 3.13 is what a current install resolves
+        # `python3` to, and a gate runs on whatever that name happens to be.
+        include:
+          - { os: ubuntu-latest, python: "3.12" }
+          - { os: macos-latest, python: "3.12" }
+          - { os: windows-latest, python: "3.12" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      # Not shallow. `tests/test_a_rider_reaches_its_file.py` and
+      # `tests/test_ledger_stamps_resolve.py` both ask git whether a recorded
+      # SHA is an ancestor of HEAD, and at depth 1 no SHA is: the run went red
+      # on all four matrix legs for a reason that had nothing to do with the
+      # code. A checkout that cannot answer the question is not a pass either,
+      # so both tests fail loudly on a shallow clone rather than skipping.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      # `-n auto`, because this suite is a process-spawn benchmark and not a
+      # computation. Wrapping `subprocess.run` for one run counted 3,308 child
+      # processes -- 2,962 of them `git` -- and 96% of the wall clock was spent
+      # inside them. The spawn count does not vary by platform; the price of
+      # one spawn does: 7ms on ubuntu, 22ms on macOS, 60ms on windows, where
+      # there is no `fork`, Defender scans each new image, and `git` carries an
+      # MSYS2 runtime per invocation. That is the whole of why the windows leg
+      # took 198s against ubuntu's 24s. Nothing is shared between tests -- each
+      # builds its own repository under `tmp_path` -- so the spawns can be run
+      # several at a time, and the workers scale with whatever cores the runner
+      # has rather than with a number written here.
+      - run: pip install pytest pytest-xdist
+      - run: |
+          git config --global user.email ci@ci
+          git config --global user.name ci
+      - run: pytest tests/ -q -n auto
+
+  # The plugin's headline check, run against the plugin. A coordinate that
+  # stopped resolving fails; drift is reported and does not, because a row is
+  # re-stamped by the commit that lands its change and would otherwise go red
+  # one commit early — a check that is red by construction gets ignored.
+  ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - shell: bash
+        run: |
+          set +e
+          python skills/evidence-check/scripts/evidence_check.py .
+          code=$?
+          set -e
+          if [ "$code" -ge 2 ]; then exit "$code"; fi
+          if [ "$code" -eq 1 ]; then
+            echo "::warning::evidence ledger reports drift — re-verify the rows above"
+          fi

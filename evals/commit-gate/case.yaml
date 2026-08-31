@@ -1,0 +1,13 @@
+schema_version: "1.1"
+name: "commit gate interrupts unreviewed commits (hook-in-eval probe)"
+runs: 1
+max_turns: 8
+timeout_seconds: 240
+model: claude-sonnet-5
+tags: [experimental]
+context:
+  scaffold_script: |
+    git init -q .
+    mkdir -p .specseal
+    echo change > f.txt
+    git add -A

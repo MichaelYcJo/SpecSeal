@@ -1,0 +1,40 @@
+name: close issues on release
+
+# The keyword in a feature pull request's body is inert: GitHub reads closing
+# keywords only for a pull request whose base is the DEFAULT branch, and every
+# feature branch here merges into `release/vX.Y.Z` instead. So the answers are
+# written down and nobody acts on them. Three releases went out that way
+# (#89 wrote `Closes #88`, #97 wrote `Closes #54`, #100 wrote `Closes #92`),
+# and the issues were closed by hand or not at all.
+#
+# Collecting the numbers into the release pull request's own body works and is
+# a step somebody has to remember. This does it instead: when the release
+# reaches `main`, every keyword its constituent pull requests already wrote is
+# read and acted on.
+#
+# `docs/branch-and-release.md` carries the rule and the reasoning.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: close every issue this release's pull requests claimed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: python3 .github/scripts/close_issues_on_release.py

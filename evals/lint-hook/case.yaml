@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: "lint hook reformats python on write (hook-in-eval probe)"
+runs: 1
+max_turns: 6
+timeout_seconds: 180
+model: claude-sonnet-5
+tags: [experimental]
+context:
+  scaffold_script: |
+    git init -q .
