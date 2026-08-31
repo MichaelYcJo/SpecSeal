@@ -1,18 +1,20 @@
 ---
 name: writing-style
 description: |
-  Prose and structure rules for review comments, PR bodies, and reports.
-  Structure rules are language-agnostic; sentence rules are per-language
-  (Korean and English sections — they are independent norms, not mirrors).
-  Use when: writing a review comment, PR body, investigation report, or a reply
-  to another team.
+  Prose and structure rules for review comments, PR bodies, reports, and
+  replies to the user. Structure rules are language-agnostic; sentence rules
+  are per-language (Korean and English sections — they are independent norms,
+  not mirrors). The per-document sections ADD to the sentence rules and never
+  replace them.
+  Use when: writing a review comment, PR body, investigation report, a reply
+  to another team, or an answer to the user in conversation.
   NOT for: code comments/docstrings; commit, PR-title and branch format
   (commit-pr-convention).
 ---
 
-# writing-style — 리뷰·PR·리포트
+# writing-style — 리뷰·PR·리포트·대화
 
-리뷰 코멘트·PR 본문·조사 리포트를 쓰는 문체와 구성 규칙이다.
+리뷰 코멘트·PR 본문·조사 리포트·사용자와의 대화를 쓰는 문체와 구성 규칙이다.
 
 **적용 방법**: 「먼저」·「구성 규칙」·각 문서 유형 절은 **언어 무관** — 어느 언어로
 쓰든 적용한다. 문장 단위 규칙은 출력 언어의 절을 따른다 — 한국어면 「문장 규칙」,
@@ -30,8 +32,13 @@ description: |
 | **PR 본문** | **쓰지 않는다** | 변경 목록은 diff 가 이미 보여준다. 여기서 할 일은 **무엇이 달라지는가**다 |
 | **다른 팀에 답하는 코멘트** | 쓰지 않는다 | 상대는 내 코드를 열지 않는다. 좌표 대신 **어떤 조건에서 그렇게 되는지**를 적는다 |
 | **커밋 메시지 본문** | 쓰지 않는다 | PR 본문과 같다 — squash 되면 그대로 커밋 본문이 된다 |
+| **사용자와의 대화** | 사용자가 열어 볼 자리일 때만 | 터미널에서 오가는 답변이다. 대부분은 열어 볼 일이 없고, 좌표를 적으면 읽는 속도만 늦춘다 |
 
 PR 본문의 기준은 이것이다 — **파일을 하나도 열지 않고 읽어도 무엇이 어떻게 바뀌는지 알 수 있는가.**
+
+**대화는 이 표에서 가장 자주 쓰는 글이고, 문체가 가장 다르다.** 다른 넷의
+문체를 대화로 가져오면 읽히지 않는다 — 아래 「사용자와의 대화에만 해당하는
+것」이 그 절이다.
 
 ## 문장 규칙
 
@@ -102,6 +109,20 @@ PR 본문의 기준은 이것이다 — **파일을 하나도 열지 않고 읽�
 첫 등장에서 풀이하거나 아예 쉬운 말로 바꾼다. 예: "소비처" → 그 값을 실제로 쓰는 곳 · "계약" → docstring 에 적힌 사용 규칙 · "굳힘" → 그 시점 값으로 고정 · "~소관" → X 에서 처리하므로 여기서는 제외.
 
 **약어와 내부 용어도 같다.** 읽는 사람이 그 시스템을 모른다고 가정하고, 처음 나올 때 한 문장으로 설명한다.
+
+**자기 은어는 은어로 안 느껴진다.** 위 예들은 전부 남의 도메인 말이라 남의
+어휘로 읽힌다. 한 시간 전에 코드에서 배운 단어는 이미 평범한 말처럼 느껴져서,
+규칙을 읽고도 그대로 쓴다. 그래서 기계적인 판별법이 하나 필요하다.
+
+> **이 저장소에서 처음 배운 단어면 — 코드에서든 정책 문서에서든 — 은어다.**
+
+이미 적힌 예외는 그대로다. 클라이언트가 실제로 쓰는 이름(필드명·엔드포인트·
+에러 코드)은 정확해야 하므로 그대로 쓴다.
+
+**새는 것은 낱말이 아니라 한 부류다 — 추상 한자어 명사화.** 승계·원천·구간·
+격자·굳음·창구 같은 말이다. 목록으로는 다 못 잡으니 부류를 기억한다. 쓰려는
+말이 `-승/-원/-간/-자/-음/-구` 로 끝나는 두세 글자 한자어인데 그 뜻을 이
+저장소 밖에서 설명해 본 적이 없으면, 풀어 쓴다.
 
 ### 영어를 옮길 때는 구조를 버리고 뜻만 가져온다
 
@@ -204,11 +225,24 @@ PR 본문의 기준은 이것이다 — **파일을 하나도 열지 않고 읽�
 
 ## 리뷰 코멘트에만 해당하는 것
 
+<!-- 아래 절들은 각 글에만 더해지는 규칙이다. 앞의 「문장 규칙」·「구성 규칙」을
+대체하지 않는다 — 그 사실을 각 절 머리에 다시 적는 이유는, 이 파일을 PR 본문
+쓰려고 연 사람이 여기서부터 읽기 시작해 표가 전부인 줄 알았기 때문이다. -->
+
+**여기에 오기 전에**: 출력 언어의 문장 규칙이 먼저 적용된다 — 한국어면
+「문장 규칙」, 영어면 「English prose rules」. 아래는 그 위에 **더해지는** 것이지
+대신하는 것이 아니다.
+
 - **통과를 먼저 증명하려 하지 않는다.** "이 코드에는 결함이 있다"를 기본 가정으로 시작한다. 근거 없는 통과(LGTM)는 금지 — 확신이 없으면 통과가 아니라 질문이다.
 - **심각도 이름에 행동을 담는다.** `🔴 CRITICAL` 같은 일반 등급보다 "무엇을 해야 하는지"가 이름에 있는 것이 낫다 (`code-review` 스킬의 등급 체계를 따른다).
 - **수정 제안은 붙여 넣을 수 있게** 쓴다. 왜 그렇게 고치는지는 코드 옆 주석이 아니라 본문 문장으로 설명한다.
 
 ## PR 본문에만 해당하는 것
+
+**여기에 오기 전에**: 출력 언어의 문장 규칙이 먼저 적용된다 — 한국어면
+「문장 규칙」, 영어면 「English prose rules」. 아래 표는 그 위에 **더해지는**
+것이지 대신하는 것이 아니다. 이 줄이 없어서 실제로 아래 표만 적용한 PR 본문이
+나갔고, 읽는 사람이 너무 어렵다고 돌려보냈다.
 
 ### 도메인 용어를 쉬운 말로 바꾼다
 
@@ -265,6 +299,38 @@ PR 본문의 기준은 이것이다 — **파일을 하나도 열지 않고 읽�
        존재할 수 없어서로 확인됩니다. (현재 로직 그대로 유지할 예정입니다.)
 ```
 
+## 사용자와의 대화에만 해당하는 것
+
+터미널에서 사용자에게 답하는 글이다. **이 표에서 가장 자주 쓰는 글인데 문체는
+가장 다르다.** PR 본문을 쓰다가 그대로 대화로 넘어오면 읽히지 않는다.
+
+**앞의 문장 규칙은 그대로 적용된다.** 아래는 그 위에 더해진다.
+
+- **결론 먼저, 짧은 문장.** 사용자는 다음에 무엇을 할지 정하려고 읽는다.
+  근거는 결론 뒤에 한 줄이면 된다.
+- **이 저장소가 만든 말을 쓰지 않는다.** 「은어와 압축 한자어를 풀어쓴다」의
+  판별법이 여기서 가장 세게 걸린다. 대화 상대는 방금 그 코드를 같이 본
+  사람이라 은어가 통할 것 같지만, 통하는 것과 빨리 읽히는 것은 다르다.
+- **표는 숫자를 견줄 때만.** 설명을 표에 밀어 넣으면 문장으로 읽으면 3초일
+  것을 표에서 찾게 만든다.
+- **좌표는 사용자가 열어 볼 자리에만.** `file:line` 은 리뷰에서 필수지만
+  대화에서는 대부분 잡음이다.
+- **자기 판단을 변호하지 않는다.** "저는 이쪽이 낫다고 봅니다" 는 길이만
+  늘린다. 무엇을 하겠다고 쓰면 된다.
+
+**대화는 되물을 수 있다는 것이 차이다.** PR 본문은 잘못 쓰면 오해된 채로
+지나가고, 대화는 *"그게 무슨 뜻이야"* 가 돌아온다. 그것이 느슨하게 써도 된다는
+뜻은 아니다 — 되묻는 데 한 번의 왕복이 들고, 맞는 단어를 골랐으면 안 들었을
+왕복이다.
+
+```
+나쁨   세 구간 전부 동일합니다. 재발견에 관한 것이라 준수율이 0 입니다.
+좋음   명령이 실제로 돌아간 시간은 15분이고, 다음 명령을 내보내기까지
+       30분이 갔습니다. 한 번에 하나씩만 보내고 있었습니다.
+```
+
+바뀐 것은 사실이 아니라 **이 저장소가 만든 말을 하나도 안 쓴 것**이다.
+
 ## English prose rules
 
 Independent norms for English output (PR bodies and commit messages are often
@@ -284,6 +350,17 @@ English even when reviews are Korean). The structure rules above apply as-is.
   reader's judgment; show the snippet and let size speak.
 - **Expand jargon on first use** — assume the reader does not know this
   system. Keep exact identifiers (field names, endpoints, error codes) exact.
+- **How to notice the jargon is yours.** The rule above says to expand it and
+  not how to recognise it — a word learned from this codebase an hour ago
+  reads as ordinary English to the person who learned it. The test:
+  **if you first met the word here — in the code or in a policy document —
+  it is jargon.** The exception stands: identifiers a caller actually types
+  stay exact.
+- **Talking to the user**: conclusion first, short sentences, no term this
+  repository coined. A table only when comparing numbers. `file:line` only
+  where they will open it. This is the most frequently written of these and
+  the least like the others — the density that makes a PR body precise makes
+  a conversation unreadable.
 - **Cross-team replies**: open with the addressee and one correction-request
   line; state the source before the claim ("Checking the server code, …");
   close each item with what *we* will do ("we'll keep returning null").
@@ -292,7 +369,9 @@ English even when reviews are Korean). The structure rules above apply as-is.
 
 ## 스스로 점검하는 법
 
+0. **무슨 글인지 먼저 정했는가**, 그리고 그 글의 절만 읽지 않았는가 — 문서 유형별 절은 문장 규칙에 **더해지는** 것이지 대신하지 않는다
 1. **PR 본문이라면** — 파일을 하나도 열지 않고, 이 코드를 모르는 사람이 읽어도 무엇이 달라지는지 아는가
+1-b. **대화라면** — 이 저장소가 만든 말이 하나도 없는가. 결론이 첫 줄에 있는가. 표에 설명을 밀어 넣지 않았는가
 2. **리뷰라면** — 지적마다 그 자리를 열 수 있는 좌표가 있는가
 3. 제목만 훑어도 무슨 일이 있었는지 알 수 있는가
 4. 항목이 여럿이면, 왜 그것들이 한 문서에 있는지 드러나는가
