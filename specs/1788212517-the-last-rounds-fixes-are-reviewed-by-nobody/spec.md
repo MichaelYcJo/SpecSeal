@@ -89,7 +89,7 @@ are the one set with no round after them.
 | `no fixes to check` beside a verdict cell reading a fix word | **fails** — a contradiction inside one file, the shape this check already refuses for `Pass` beside an open 🔴 |
 | `nobody — <why>` | passes, and prints the state on every run |
 | `nobody` with nothing after it | **fails** — the reason is the whole of what makes the state readable |
-| anything else | read as `nobody` with no reason, so a word the check cannot read takes the strict direction — the same rule `CLOSED_WORDS` states for a verdict cell |
+| anything else, `the session that wrote them` included | **fails**, naming the three values. Read loosely a session's own name would pass as an answer, and that is exactly the state the field exists to refuse — the direction `CLOSED_WORDS` already takes for a verdict cell |
 
 A draft pull request is excused nothing here. The `Pass` excuse exists because
 a review still running has not reached its verdict; a record that names a

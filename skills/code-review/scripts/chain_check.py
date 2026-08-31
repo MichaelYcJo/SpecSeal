@@ -13,10 +13,11 @@ What it reads, for every routing declaration this pull request adds or changes:
   through the review chain   at least one `specs/<id>/rounds/round-*.md` that
                              git carries, every commit its Target SHA names being
                              REACHABLE (below), whose last round has `Pass`
-                             CHECKED, and whose Pass claim does not sit beside
-                             a blocking finding it left open. A draft pull
-                             request is excused the checked `Pass`, and
-                             nothing else
+                             CHECKED, whose Pass claim does not sit beside
+                             a blocking finding it left open, and whose
+                             `Fixes checked by` names a checker this repository
+                             can confirm (below). A draft pull request is
+                             excused the checked `Pass`, and nothing else
   straight to the PR         nothing required — the declaration is printed,
                              because a decision nobody sees is not a record
   an unreadable declaration  FAIL. A tolerant read reports "no declaration",
@@ -87,6 +88,42 @@ The cost of that row is real and is stated rather than left to be found:
 declaring nothing becomes a way past this check, and a quieter one than
 already exists. `[no-review]` at least stays in the command. Declaring nothing
 leaves no file, no token, and no line anywhere except the notice below.
+
+FIXES CHECKED BY, and why a second field beside `Pass`. `Pass` is a claim
+about the FINDINGS: none of them is still open. It says nothing about the
+ANSWERS -- a finding is closed by a fix, the fix is written after the round
+ends, and the round that follows is what opens it. Every round has one except
+the last, whose fixes are written by the session that then ticks its box.
+Measured on two consecutive work items in this repository (#33): the one round
+that did look at the previous round's fixes found seven defects in them, and
+its own fixes then went in unread.
+
+So the last record carries `| Fixes checked by | … |`, with three values and
+no others. Only a LATER round may be named, so the last record of a finished
+run can only read `no fixes to check` or `nobody`:
+
+  round-N              that round opened these fixes. N above this record's
+                       own number, and `rounds/round-N.md` committed
+  no fixes to check    nothing here closed with a fix. Refused beside a
+                       verdict cell reading one, which is the same
+                       contradiction-inside-one-file the `Pass` rule refuses
+  nobody -- <why>      the gap, written down. PASSES, and prints on every run
+
+That last row is the trade, stated rather than left to be found: a work item
+can still ship with its final fixes unopened. What changes is that the state
+is in the diff and in every CI run instead of in a session that has ended. A
+check that failed for an honest disclosure would teach people to write none,
+which is the reasoning `unverified_check.py` already runs on and the same one
+the "no declaration at all" row below follows.
+
+The draft excuse does NOT reach this row. `Pass` is excused in a draft because
+a review still running has not reached its verdict; a record naming a checker
+it does not have is wrong at every stage.
+
+Read on the LAST record only, where `Pass` is read. Earlier rounds' fixes are
+opened by the round that follows them, by construction, and asserting this of
+a record written under earlier rules would fail work items nobody was asked
+about.
 
 WHAT IT CANNOT SEE, stated here rather than discovered later:
 
@@ -167,6 +204,32 @@ BLOCKING = "🔴"
 # deliberate: an unreadable verdict that counted as closed would be the
 # tolerant read this whole file exists to refuse.
 CLOSED_WORDS = {"fixed", "answered", "withdrawn", "not a defect", "agreed, fixed"}
+# The subset of `CLOSED_WORDS` that closed a finding by WRITING something. Those
+# are the fixes `Fixes checked by` is about; `answered`, `withdrawn` and
+# `not a defect` produced no code for a later round to open. Spelled as a
+# subset of the set above rather than as its own vocabulary, so a verdict word
+# added there is impossible to add here by accident -- the assertion below
+# fails the module at import if the two ever come apart.
+FIX_WORDS = {"fixed", "agreed, fixed"}
+assert FIX_WORDS <= CLOSED_WORDS, "a fix word that is not a closing word"
+# `Pass` says the findings are closed. This says who opened the work that
+# closed them, and it is the last record's answer to the question `Pass`
+# cannot reach. See the module docstring for what each value means.
+CHECKED_BY = "Fixes checked by"
+NO_FIXES = "no fixes to check"
+NOBODY = "nobody"
+# `round-N`, optionally with the `.md` a person copying a filename leaves on.
+# The number is handed to `routing.round_number` rather than read here: that
+# function is the one place the `round-N.md` ordering rule lives, and this
+# would be the third reader of the pattern.
+CHECKER_RE = re.compile(r"^round-\d+(?:\.md)?$")
+# What may stand between `nobody` and its reason. An em dash is what the
+# documents and the template use; the rest are what a person types instead,
+# and refusing those would fail a record for its punctuation. The SPACE is in
+# the set because the dash never touches the word -- `nobody — why` puts a
+# space first, and leaving it out refused the one spelling every document
+# shows.
+SEPARATORS = " —–-:,"
 # `templates/sdd-round.md:12` and `docs/review-handoff-protocol.md:84` both say
 # the Target SHA cell may name BOTH commits when HEAD moved mid-review. The
 # whole cell used to be handed to `merge-base` as one ref, so the documented
@@ -654,25 +717,38 @@ def reachable(root, sha, refs):
     return False, None
 
 
-def open_blocking(reader, lines, rel):
-    """(rows, errors) — blocking findings the last round left open.
+def verdict_table(reader, lines, rel):
+    """(rows, the Verdict column's index, errors) for `## Verdicts`.
+
+    Rows are `(line number, cells already run through `reader.visible`)`, with
+    the header and the separator dropped.
+
+    ONE parse, two questions. Which blocking findings are still open was the
+    only one asked of this table until `Fixes checked by` arrived and needed a
+    second — whether anything here closed by writing a fix. A second walk of
+    the same markdown is exactly the split this file spends its docstrings
+    closing everywhere else, so the walk happens here and the questions are
+    asked of what it returns.
 
     The verdict table is located by its own heading and read with the shared
     reader, so a 🔴 inside a comment or a fenced block is not a finding.
     """
-    errors = []
     starts = reader.sections(lines, VERDICTS)
     if not starts:
-        return [], [
-            (
-                rel,
-                0,
-                f"no `{VERDICTS}` section — a round record without "
-                "one says nothing about what it found",
-            )
-        ]
+        return (
+            [],
+            -1,
+            [
+                (
+                    rel,
+                    0,
+                    f"no `{VERDICTS}` section — a round record without "
+                    "one says nothing about what it found",
+                )
+            ],
+        )
     if len(starts) > 1:
-        return [], [(rel, starts[1] + 1, f"more than one `{VERDICTS}` section")]
+        return [], -1, [(rel, starts[1] + 1, f"more than one `{VERDICTS}` section")]
 
     start = starts[0]
     body = []
@@ -684,28 +760,36 @@ def open_blocking(reader, lines, rel):
     rows = [(n, reader.split_row(ln)) for n, ln in body if ln.strip()]
     rows = [(n, c) for n, c in rows if c is not None]
     if not rows:
-        return [], [
-            (
-                rel,
-                start + 1,
-                f"`{VERDICTS}` holds no table — write the "
-                "rows, or `none` with a header row and no findings",
-            )
-        ]
+        return (
+            [],
+            -1,
+            [
+                (
+                    rel,
+                    start + 1,
+                    f"`{VERDICTS}` holds no table — write the "
+                    "rows, or `none` with a header row and no findings",
+                )
+            ],
+        )
 
     header = [reader.visible(c).lower() for c in rows[0][1]]
     if "verdict" not in header:
-        return [], [
-            (
-                rel,
-                rows[0][0],
-                "the verdict table has no `Verdict` "
-                f"column; its header is |{'|'.join(rows[0][1])}|",
-            )
-        ]
+        return (
+            [],
+            -1,
+            [
+                (
+                    rel,
+                    rows[0][0],
+                    "the verdict table has no `Verdict` "
+                    f"column; its header is |{'|'.join(rows[0][1])}|",
+                )
+            ],
+        )
     col = header.index("verdict")
 
-    still_open = []
+    seen_rows, errors = [], []
     for line_no, cells in rows[1:]:
         seen = [reader.visible(c) for c in cells]
         if reader.is_separator(seen):
@@ -719,19 +803,178 @@ def open_blocking(reader, lines, rel):
                 )
             )
             continue
-        if BLOCKING not in "".join(seen):
-            continue
-        verdict = seen[col].lower().strip().rstrip(".")
-        if verdict not in CLOSED_WORDS:
-            still_open.append((line_no, seen[0] or f"row at line {line_no}", verdict))
+        seen_rows.append((line_no, seen))
+    return seen_rows, col, errors
+
+
+def verdict_of(seen, col):
+    """One row's verdict cell, normalized the way `CLOSED_WORDS` is spelled."""
+    return seen[col].lower().strip().rstrip(".")
+
+
+def open_blocking(reader, lines, rel):
+    """(rows, errors) — blocking findings the last round left open."""
+    rows, col, errors = verdict_table(reader, lines, rel)
+    if col < 0:
+        return [], errors
+    still_open = [
+        (line_no, seen[0] or f"row at line {line_no}", verdict_of(seen, col))
+        for line_no, seen in rows
+        if BLOCKING in "".join(seen) and verdict_of(seen, col) not in CLOSED_WORDS
+    ]
     return still_open, errors
 
 
-def check_round(reader, root, rel, strict=True, refs=None):
-    """(errors,) for one round record — the reachability and the Pass claim.
+def closed_with_a_fix(reader, lines, rel):
+    """True when a verdict here closed its finding by WRITING something.
+
+    `answered`, `withdrawn` and `not a defect` close a finding and produce no
+    code, so a record holding only those has nothing for a later round to
+    open and `no fixes to check` is the truth. A record holding one `fixed`
+    does not, and that is the only combination this exists to refuse.
+
+    A table this cannot read answers False. The unreadable table is already an
+    error from `open_blocking`, and raising a second one about a cell nobody
+    could locate would name a cause that is not the cause.
+    """
+    rows, col, _errors = verdict_table(reader, lines, rel)
+    if col < 0:
+        return False
+    return any(verdict_of(seen, col) in FIX_WORDS for _line, seen in rows)
+
+
+def nobody_reason(value):
+    """The reason after `nobody`, `""` when none was given, or None.
+
+    None means the cell is not a `nobody` at all — `nobodys` is a word this
+    does not recognise, and recognising it would be the tolerant read the
+    vocabulary exists to refuse.
+    """
+    if not value.startswith(NOBODY):
+        return None
+    rest = value[len(NOBODY) :]
+    if rest and rest[0] not in SEPARATORS:
+        return None
+    return rest.strip(SEPARATORS)
+
+
+def checked_by(reader, routing, root, rel, rows, lines, siblings):
+    """(errors, notices) for the last record's `Fixes checked by` row.
+
+    `siblings` is every `round-N.md` git carries in this work item, by
+    basename, so a named checker is confirmed against the repository rather
+    than taken on the record's word.
+    """
+    cell = field(rows, CHECKED_BY)
+    if cell is None:
+        return [
+            (
+                rel,
+                0,
+                f"no `| {CHECKED_BY} | … |` row. `Pass` says this round's "
+                "findings are closed; it cannot say who opened the work that "
+                f"closed them, and the last round's fixes are the one set no "
+                f"later round reads. Write `round-N` (a LATER round), "
+                f"`{NO_FIXES}`, or `{NOBODY} — <why>`",
+            )
+        ], []
+    value = reader.visible(cell).strip().strip("`").strip().rstrip(".").lower()
+    mine = routing.round_number(os.path.basename(rel))
+
+    if CHECKER_RE.match(value):
+        name = value if value.endswith(".md") else f"{value}.md"
+        number = routing.round_number(name)
+        if number is not None and mine is not None and number <= mine:
+            return [
+                (
+                    rel,
+                    0,
+                    f"`{CHECKED_BY}` names `{value}`, which is this round or "
+                    "one that ran before these fixes existed. A round cannot "
+                    "check its own fixes — that is the fixer certifying its "
+                    "own work, and it is the state this field was added to "
+                    "make visible. Only a LATER round can have opened them",
+                )
+            ], []
+        if name not in siblings:
+            return [
+                (
+                    rel,
+                    0,
+                    f"`{CHECKED_BY}` names `{value}`, and git carries no "
+                    f"such record in this work item (it carries "
+                    f"{', '.join(sorted(siblings)) or 'none'}). A checker "
+                    "nobody can open is not a checker",
+                )
+            ], []
+        return [], []
+
+    if value == NO_FIXES:
+        if closed_with_a_fix(reader, lines, rel):
+            return [
+                (
+                    rel,
+                    0,
+                    f"`{CHECKED_BY}` says `{NO_FIXES}` while a verdict in "
+                    "this round's own table closed on a fix. Both cannot be "
+                    "true, and this is the same contradiction-inside-one-file "
+                    "that a checked `Pass` beside an open "
+                    f"{BLOCKING} is",
+                )
+            ], []
+        return [], []
+
+    reason = nobody_reason(value)
+    if reason == "":
+        return [
+            (
+                rel,
+                0,
+                f"`{CHECKED_BY}` says `{NOBODY}` and does not say why. The "
+                "reason is the whole of what makes this readable — without "
+                "it the cell records that something is missing and not what",
+            )
+        ], []
+    if reason is None:
+        # Every other word. Strict, the way `hooks/routing.py` is strict about
+        # the Review and Destination axes: a value outside the vocabulary is
+        # not a value. Read loosely, `the session that wrote them` would pass
+        # as an answer, and that is precisely the state this field exists to
+        # refuse. The direction is the one `CLOSED_WORDS` takes for a verdict
+        # cell — a word this cannot read is never the reassuring reading.
+        return [
+            (
+                rel,
+                0,
+                f"`{CHECKED_BY}` is `{cell.strip()}`, which is none of the "
+                f"three values. Write `round-N` naming a LATER round, "
+                f"`{NO_FIXES}`, or `{NOBODY} — <why>`. A session, an agent or "
+                "a name is not one of them: the fixes were opened by a round "
+                "that reported on them, or they were opened by nobody",
+            )
+        ], []
+    return [], [
+        (
+            rel,
+            0,
+            f"`{CHECKED_BY}` is `{cell.strip()}` — the fixes that closed this "
+            "round were opened by nobody. This does not fail the pull "
+            "request, and it is printed on every run so that the state lives "
+            "in the diff rather than in a session that has ended",
+        )
+    ]
+
+
+def check_round(reader, routing, root, rel, siblings, strict=True, refs=None):
+    """(errors, notices) for one round record.
+
+    The reachability, the `Pass` claim, and who opened the fixes that closed
+    what this round found.
 
     `strict` is false only for a draft pull request, where an unchecked
-    `Pass` is the honest state of a review still running.
+    `Pass` is the honest state of a review still running. It does not reach
+    `Fixes checked by`: a record naming a checker it does not have is wrong at
+    every stage of a run, where an unchecked box is merely early.
 
     `refs` is None for a record this pull request does not touch, and then no
     claim is made about where its commits are. Everything else is still read:
@@ -743,7 +986,7 @@ def check_round(reader, root, rel, strict=True, refs=None):
     errors = []
     text = read_record(root, rel)
     if text is None:
-        return [(rel, 0, "git does not carry this file at HEAD")]
+        return [(rel, 0, "git does not carry this file at HEAD")], []
 
     lines = reader.readable(text)
     rows = table_rows(reader, lines)
@@ -779,6 +1022,13 @@ def check_round(reader, root, rel, strict=True, refs=None):
                 )
             )
 
+    # Before the `Pass` block, and deliberately, because that block returns
+    # early when the checkbox is missing. A record that lost both rows has two
+    # things wrong with it, and reporting one of them costs the author a round
+    # trip through CI to learn the other.
+    who_errors, notices = checked_by(reader, routing, root, rel, rows, lines, siblings)
+    errors.extend(who_errors)
+
     checked = None
     for line in lines:
         m = PASS_RE.match(line)
@@ -795,7 +1045,7 @@ def check_round(reader, root, rel, strict=True, refs=None):
                 "this one only the first is answerable",
             )
         )
-        return errors
+        return errors, notices
 
     if strict and not checked:
         errors.append(
@@ -824,7 +1074,7 @@ def check_round(reader, root, rel, strict=True, refs=None):
                     f"withdrawn: {what}",
                 )
             )
-    return errors
+    return errors, notices
 
 
 def main(argv=None):
@@ -901,7 +1151,7 @@ def main(argv=None):
         print(reader.annotate("notice", "", 0, why))
         return 0
 
-    errors = []
+    errors, notices = [], []
     for rel in declarations:
         item = os.path.dirname(rel)
         text = read_record(root, rel)
@@ -1015,8 +1265,18 @@ def main(argv=None):
                 "where its commits are"
             )
         )
-        errors.extend(check_round(reader, root, last, strict, refs))
+        # Basenames rather than paths: `checked_by` is confirming a name a
+        # person wrote in a cell (`round-4`), and the directory it would sit
+        # in is already fixed by `round_records`.
+        siblings = {os.path.basename(p) for p in records}
+        round_errors, round_notices = check_round(
+            reader, routing, root, last, siblings, strict, refs
+        )
+        errors.extend(round_errors)
+        notices.extend(round_notices)
 
+    for rel, line, message in notices:
+        print(reader.annotate("notice", rel, line, message))
     for rel, line, message in errors:
         print(reader.annotate("error", rel, line, message))
     return 1 if errors else 0

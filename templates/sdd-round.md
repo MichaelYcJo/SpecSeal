@@ -12,10 +12,31 @@ carries the format; this is the shape it takes in this repository. -->
 | Target SHA | <the commit this round actually reviewed — both, if HEAD moved mid-review> |
 | PR | <the pull request, once one exists. A field, not the key> |
 | Broad gate | <`not yet`, or the SHA the one full-suite run happened at and the base it was compared against> |
+| Fixes checked by | <`round-<N>`, a LATER round · `no fixes to check` · `nobody — <why>`> |
 
 - [ ] Pass
 
-<!-- Check `Pass` only when no finding in the verdict table below is still
+<!-- `Fixes checked by` is the companion to the box below, and they answer
+different questions. `Pass` says no finding in this round's table is still
+open. This says who opened the work that closed them, and it takes three
+values and nothing else:
+
+  `round-<N>`          a LATER round read these fixes and reported on them. It
+                       has to exist and its number has to be above this one —
+                       a round cannot check itself, and one that ran before
+                       the fixes existed cannot have read them
+  `no fixes to check`  nothing here closed with a fix. Refused beside a
+                       verdict cell reading `fixed`, which is the same
+                       contradiction-inside-one-file the `Pass` rule refuses
+  `nobody — <why>`     the gap, written down. The reason is required
+
+Only a later round may be named, so the LAST record of a finished run reads
+`no fixes to check` or `nobody — <why>`. That is the rule's shape, not a
+limit on it: a run ends at a round that wrote no code nobody read, or it ends
+with the gap where a reader meets it. `nobody` does not fail the pull request
+— it prints, on every run.
+
+Check `Pass` only when no finding in the verdict table below is still
 open. It is the last round's checkbox that speaks for the whole review: every
 earlier verdict needs an answer in the round that follows, so nothing can be
 open here and absent from the next file.

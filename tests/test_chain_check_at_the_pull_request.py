@@ -95,14 +95,27 @@ def declaration(review=CHAIN, branch="feature"):
     )
 
 
-def record(sha, passed=False, verdict="fixed", finding="🔴 1", extra="", pr=None):
+def record(
+    sha,
+    passed=False,
+    verdict="fixed",
+    finding="🔴 1",
+    extra="",
+    pr=None,
+    checked_by="nobody — the run ended here",
+):
     box = "x" if passed else " "
     # The `| PR |` row is optional, and `not yet opened` is what a review that
     # finished before its pull request writes there.
     pr_row = f"| PR | {pr} |\n" if pr is not None else ""
+    # `Fixes checked by` is NOT optional, and the default is the one value
+    # that is honest for a record with no later round beside it. Passing
+    # `None` leaves the row out, which is a state of its own and has its own
+    # cases in `test_the_last_rounds_fixes.py`.
+    who = f"| Fixes checked by | {checked_by} |\n" if checked_by is not None else ""
     return (
         "# round 1\n\n"
-        f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n{pr_row}\n"
+        f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n{pr_row}{who}\n"
         f"- [{box}] Pass\n\n"
         "## Verdicts\n\n"
         "| # | Finding | Location | Verdict | Grounds |\n"

@@ -1,4 +1,4 @@
-# Review Handoff Protocol — draft 0.4
+# Review Handoff Protocol — draft 0.5
 
 A file convention for handing review work between agent sessions — across
 time, machines, and tools. Tool-agnostic on purpose: nothing here requires
@@ -111,6 +111,7 @@ the inheritance range and round 2 raised it again.
 |---|---|---|
 | Target SHA | yes | commit(s) the round actually reviewed — branches move between rounds; record both if HEAD moved mid-review. **Never rewritten after a squash** — see below |
 | Pass | yes | a checkbox — `- [ ] Pass` or `- [x] Pass`. Checked means no finding in this round's verdict table is still open. See below |
+| Fixes checked by | yes | who opened the fixes that closed this round's findings: a later round, `no fixes to check`, or `nobody` with the reason. `Pass` answers whether the findings were closed; this answers whether the closing was read by anyone. See below |
 | PR | when one exists | the change request this work went to. A field, not the key: it does not exist while the rounds that fill this file are running |
 | Verdict table | yes | per finding: location, verdict, grounds |
 | Executed probes | yes (may be "none") | what was RUN, with results — distinguished from what was read |
@@ -169,6 +170,46 @@ fails its pull request for exactly that combination, and fails the same way for
 a verdict table it cannot read: a tolerant reader reports no open findings
 there, and no open findings is indistinguishable from all of them closed.
 
+#### The Fixes checked by field — who opened the closing
+
+A round's findings are closed after the round ends, by whoever fixes them.
+Every earlier round's fixes are therefore opened by the round that follows,
+because each of that round's verdicts needs an answer there. The last round's
+have no round after them.
+
+Draft 0.4 was satisfied by a chain whose final fixes nobody read, and that is
+not an edge case: it is how every review run ended. Measured in the reference
+implementation across two consecutive work items — the round that did look at
+the previous round's fixes found seven defects in them, and its own fixes then
+went in with the checkbox ticked by the session that wrote them.
+
+So `Pass` gets a companion, and the two say different things. `Pass` is about
+the **findings**: none of them is still open. This field is about the
+**answers**: who opened the work that closed them. Three values and no others,
+because a field read loosely reports the reassuring half of an ambiguity:
+
+| The cell says | What it means |
+|---|---|
+| `round-N` | that round opened these fixes and reported on them. N must be greater than this record's own number, and that record must exist — a round cannot be checked by itself, by one that ran before the fixes existed, or by one nobody wrote |
+| `no fixes to check` | no finding in this record closed with a fix. A round whose verdicts are all `answered`, `withdrawn` or `not a defect` wrote no code for anyone to open |
+| `nobody — <why>` | the gap, written down. The reason is required: without it the cell records that something is missing and not what |
+
+Anything else is refused, a session's own name included. Read loosely, *the
+session that wrote them* would pass as an answer to a field whose whole
+purpose is refusing it.
+
+Only a later round may be named, so the **last** record of a finished run can
+only read `no fixes to check` or `nobody — <why>`. That is the shape of the
+rule rather than a limitation of it: a run ends at a round that wrote no code
+nobody read, or it ends with the gap in the diff where a reader will meet it.
+
+**A conforming tool reads this on the last record**, where it reads `Pass`, and
+refuses what the repository can contradict — a missing row, a round that does
+not exist or is not later, and `no fixes to check` beside a verdict that closed
+with a fix. Whether it should also refuse a checked `Pass` beside `nobody` is
+left open here: the two are not a contradiction inside one file, and a tool
+that fails for an honest disclosure teaches people to write none.
+
 ### tests-todo.md — regression tests prescribed, not written
 
 One row per test: what it asserts · **destination file** · grounds · status.
@@ -211,7 +252,7 @@ A tool claiming to support this protocol:
 
 ## Status
 
-Draft 0.4, extracted from the convention this plugin's `code-review` and
+Draft 0.5, extracted from the convention this plugin's `code-review` and
 `implement` skills already operate (they are its reference implementation).
 Field names and layout may change; the three conformance rules are stable in
 shape. 0.2 changed the third from *delete after draining* to *close and keep*.
@@ -220,6 +261,12 @@ which is what made rule 1 satisfiable at all, and added the `Pass` field so
 that "was it reviewed" and "did it pass" stop being the same question. 0.4
 gives the records their own `rounds/` subdirectory and requires a conforming
 tool to name a record left at the old location rather than passing over it.
+0.5 adds `Fixes checked by`, because 0.3 split "was it reviewed" from "did it
+pass" and left a third question inside the second: who opened the fixes that
+made it pass. No conformance rule is added for it. A rule the reference
+implementation only warns about is a rule, and the choice between warning and
+failing is a project's, so the field's own section states both and the
+requirement stays at the level of the field being present and honest.
 
 0.3 also states the path as this implementation's choice rather than as the
 protocol. Draft 0.2 claimed to be tool-agnostic while naming a directory
