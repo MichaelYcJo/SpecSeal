@@ -38,7 +38,18 @@ the `Edit` tool, naming both reasons that point the same way.
 
 - `hooks/commit-review-gate.py:151` — `_hides_a_commit` recurses into heredoc
   bodies. Added by `4ba28fe` for legacy #75. This is the behaviour that makes
-  a patch-by-heredoc look like a commit, and it is correct.
+  a patch-by-heredoc look like a commit, and it is correct. **`:151` alone
+  does not reach the rule** (`round-1.md:43`), so the coordinates that decide
+  a verdict are these:
+  - `hooks/commit-review-gate.py:144-147` — the segment scan. A segment
+    counts when its command word is `git` with the `commit` subcommand.
+  - `hooks/commit-review-gate.py:148-150` — the second branch, resolved by
+    `_eval_hides_a_commit` at `hooks/commit-review-gate.py:176-188`. A
+    segment the reader cannot expand counts too, so an `eval` argument
+    holding any character in `EXPANDS` (`hooks/cmdline.py:678`) stops the
+    session with no `git` in the body at all.
+  - `hooks/commit-review-gate.py:262-286` — `commit_invocations`, where the
+    judgment is actually assembled.
 - `skills/implement/SKILL.md:393` — *"An edit must be able to fail."* The
   source of reason 1. The agent files must not restate the skill at length;
   they add what it does not carry, which is reason 2.
@@ -68,7 +79,8 @@ it is what Q1 exists to revisit.
 | 1 | `agents/smith.md` phase 3 names both reasons | `test_docs_line_wrap`, `test_the_set_a_work_item_always_has`, `test_broad_gate_rule`, `test_waiver_decided_at_start`, `test_one_word_one_meaning`, `test_chain_hooks_hardening` | `a15ef3b` |
 | 2 | `agents/warden.md` carries the whole statement, beside its probe rules | the same set, plus `test_handoff_outlives_the_merge` | `a15ef3b` |
 | 3 | the `## Unreleased` changelog entry, the ledger row and the closing memo. (`questions.md` Q1 was written with the rest of the SDD set, before implementing) | `test_release_hygiene`, `test_ledger_stamps_resolve`, `evidence_check.py`, `unverified_check.py`, `test_chain_hooks_hardening::test_plugin_version_is_in_changelog` | `f805088` — `questions.md` Q1 at `13ab33a` |
-| 4 | Round 1's findings: the corrected mechanism in both agent files, the reader-repository claim removed, and `tests/test_edits_go_through_the_edit_tool.py` planted | the narrow suite, plus a mutation harness showing each of the five cases go red | `8b6c6ff` |
+| 4 | Round 1's findings: the corrected mechanism in both agent files, the reader-repository claim removed, and `tests/test_edits_go_through_the_edit_tool.py` planted | the narrow suite, plus a mutation harness showing each of the five cases go red | `8b6c6ff` — the same round's changelog, memo and ledger half at `2a28c35` |
+| 5 | Round 2's findings: the `eval` branch named in both agent files and pinned by a sixth test case, a rider at `agents/smith.md:43`, `questions.md` Q2, the plan's coordinates corrected, and the ledger row for the second branch | the narrow suite plus the new case, each shown red under a mutation; the gate probe over both agent files | |
 
 Phases 1 and 2 are one vertical slice each — a file whose readers are sessions,
 so what makes it runnable is the prose tests that read it.

@@ -153,13 +153,19 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   whether a finding reproduces: each is an edit, and each written as a
   heredoc gives the gate something to read.
 
-  What it reads is shell. A body segment counts when its command word is
-  `git` with the `commit` subcommand, whatever the outer command does with
-  the body. Two kinds of edit leave such a segment in one: a patch to a file
-  that carries shell commands as test data, where the quoting of that
-  fragment can put a commit in command position, and a patch to a document
-  that shows a waiver example verbatim. Neither command runs, the prompt
-  still lands, and what that costs is what the next bullet measures.
+  What it reads is shell, and two kinds of segment count. One is a segment
+  whose command word is `git` with the `commit` subcommand, whatever the
+  outer command does with the body. A patch to a file carrying shell
+  commands as test data can put a commit in command position, and so can a
+  patch to a document showing a waiver example verbatim.
+
+  The other has no commit in it at all. A segment the reader cannot expand
+  counts the same way, so an `eval` whose argument holds a variable or a
+  command substitution stops the session with no `git` in the body, because
+  nothing can tell what it reduces to without running the shell. Searching
+  your patch for a commit and finding none does not clear it. Neither
+  command runs, the prompt still lands, and what that costs is what the next
+  bullet measures.
 - **Write a scratch-repo probe so it does not stop the commit gate.** A probe
   that commits reaches the gate exactly as real work does, and the prompt
   lands on whoever is at the keyboard — which, in a round you are running, is
