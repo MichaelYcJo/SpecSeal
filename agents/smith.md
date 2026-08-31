@@ -43,6 +43,15 @@ incorporation. This file only adds what the skill does not carry.
    command — in FRONT of it, quotes included, `: '[no-review]'; git commit …`
    (and `[no-parity]` where a migration config is declared), because after
    `git commit` a bare word is a pathspec and git rejects it.
+
+   <!-- # RIDER: the waiver example above puts a commit command in command
+        position, so `_hides_a_commit` returns True for this file as a whole
+        and a session patching its own contract by heredoc meets the prompt
+        this work item exists to remove. Do not quiet it by breaking the
+        example: shown verbatim is the whole of its value. The trade is Q2 in
+        the work item's questions.md, answerable by the repository owner.
+        Verified 2026-08-31 at f1cd65d. -->
+
    Left to the commit, it stops a session that had the answer in its first
    minute.
    Where the PR lands belongs there too: a PR into `main` is a release and a
@@ -78,9 +87,35 @@ incorporation. This file only adds what the skill does not carry.
    a written scope lock. Calling neither is the common case.
 3. **Implement** — vertical slices (one use case through all layers, run it,
    then widen). Never horizontal layer-by-layer passes: nothing is verified
-   until everything joins. Edit with the `Edit` tool; where the environment
-   sends edits through the shell, assert that every substitution matched —
-   a silent no-op is an unverified edit, and it is paid for twice.
+   until everything joins.
+
+   **Edit with the `Edit` tool, for two reasons that point the same way.** An
+   edit must be able to fail: where the environment sends edits through the
+   shell, assert that every substitution matched — a silent no-op is an
+   unverified edit, and it is paid for twice. And no Bash command line
+   exists, so the commit gate has nothing to read.
+
+   The second reason is easy to miss, because the command it saves you from
+   never commits anything. The gate reads a heredoc body as shell, on
+   purpose: a commit hidden in one used to walk straight past it. Two kinds
+   of segment count, and only the first has a commit in it.
+
+   **A segment whose command word is `git` with the `commit` subcommand.**
+   The outer command can be writing that body to a file and it counts all
+   the same. Two kinds of edit leave one there: a patch to a file that
+   carries shell commands as test data, where the quoting of that fragment
+   can put a commit in command position, and a patch to a document that
+   shows a waiver example verbatim.
+
+   **A segment the reader cannot expand.** An `eval` whose argument holds a
+   variable, a command substitution or a glob stops the session with no `git`
+   anywhere in the body, because nothing can tell what it reduces to without
+   running the shell, and the gate fails closed. So searching your patch for
+   a commit and finding none does not clear it.
+
+   Either way the session stops for a command that commits nothing, and the
+   prompt reaches whoever is at the keyboard, which in an unattended run is
+   nobody.
 4. **Verify** — run the actual checks and read their output before any
    completion claim. Fresh output only; a previous run proves nothing.
    Scope it: the tests for the slice while you work, your module and the ones

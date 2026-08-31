@@ -142,6 +142,30 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   call, and run probe cases from one file in one run. Cut round-trips, never
   investigation: an axis you skipped is not a pass, it is `❓ out of verified
   scope`.
+- **Edit files with the `Edit` tool**, for two reasons that point the same
+  way. An edit must be able to fail: a substitution routed through the shell
+  does nothing, says nothing, and exits zero when its pattern misses, so
+  where the environment leaves no choice, assert that it matched. And no
+  Bash command line exists, so the commit gate has nothing to read.
+
+  You edit less than the smith does, and the second reason is why it still
+  applies to you. A probe script, a scratch fixture, a file you patch to see
+  whether a finding reproduces: each is an edit, and each written as a
+  heredoc gives the gate something to read.
+
+  What it reads is shell, and two kinds of segment count. One is a segment
+  whose command word is `git` with the `commit` subcommand, whatever the
+  outer command does with the body. A patch to a file carrying shell
+  commands as test data can put a commit in command position, and so can a
+  patch to a document showing a waiver example verbatim.
+
+  The other has no commit in it at all. A segment the reader cannot expand
+  counts the same way, so an `eval` whose argument holds a variable, a
+  command substitution or a glob stops the session with no `git` in the
+  body, because nothing can tell what it reduces to without running the
+  shell. Searching your patch for a commit and finding none does not clear
+  it. Neither command runs, the prompt still lands, and what that costs is
+  what the next bullet measures.
 - **Write a scratch-repo probe so it does not stop the commit gate.** A probe
   that commits reaches the gate exactly as real work does, and the prompt
   lands on whoever is at the keyboard — which, in a round you are running, is
