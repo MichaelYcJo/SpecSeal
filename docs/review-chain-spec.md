@@ -55,6 +55,11 @@ ends; unused rounds are not spent on 🟡 findings. Those go to
 `.specseal/follow-up.md` or the tracker with an answerer named, exactly as
 they would at three.
 
+🔴 is not a judgement layered on top of the cap. `code-review` already grades
+by what a finding requires rather than by rank, and 🔴 means *blocks merge* —
+so "a 🔴 is open" is a state the review already reports, readable from the
+last round record's verdict table and its `Pass` checkbox.
+
 ### The last round verifies, and what it verifies is a diff
 
 A run ends with a **verifying round**. It is spawned after the previous
@@ -95,11 +100,6 @@ that raises a 🟡 the smith answers with grounds has opened nothing needing a
 fix, and the run ends there. The condition is *this round wrote no code
 nobody read*, which is narrower than *this round was silent* and is what keeps
 the bound a bound.
-
-🔴 is not a judgement layered on top of the cap. `code-review` already grades
-by what a finding requires rather than by rank, and 🔴 means *blocks merge* —
-so "a 🔴 is open" is a state the review already reports, readable from the
-last round record's verdict table and its `Pass` checkbox.
 
 At the bound, or earlier when a round returns nothing blocking, the change
 ends the same way whether or not everything was resolved. Nothing is dropped;
