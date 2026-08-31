@@ -97,6 +97,35 @@ def test_both_agent_files_state_the_rule_the_gate_actually_applies():
             )
 
 
+def test_both_agent_files_name_the_branch_that_has_no_commit_in_it():
+    """Round 2's finding 1: the command-word rule is one branch of two.
+
+    A segment the reader cannot expand counts the same way, so `eval "$CMD"`
+    stops the session with no `git` anywhere in the body
+    (`hooks/commit-review-gate.py:148-150`, resolved by
+    `_eval_hides_a_commit` at `:176-188` against `EXPANDS` at
+    `hooks/cmdline.py:678`). Measured: `eval "$CMD"` TRIPS, `eval $(cat f)`
+    TRIPS, `eval "echo hello"` is clean because it holds no expansion
+    character.
+
+    Stating only the first branch is worse than stating neither. A session
+    that reads it searches its patch for a commit, finds none, proceeds, and
+    meets the prompt anyway — which is the failure this work item exists to
+    remove, arriving through the fix for it.
+    """
+    for parts in AGENTS:
+        text = flat(*parts)
+        who = parts[-1]
+        assert "`eval`" in text, (
+            f"{who} names only the command-word branch. A reader following "
+            "it clears a patch that still stops the session"
+        )
+        assert "cannot expand" in text, (
+            f"{who} lost the rule behind the example — an `eval` mentioned "
+            "without saying WHY it counts reads as a special case"
+        )
+
+
 def test_neither_agent_file_claims_a_fact_about_the_reader_repository():
     """Round 1's finding 2.
 
