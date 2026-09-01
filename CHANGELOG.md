@@ -2,6 +2,79 @@
 
 ## Unreleased
 
+- **A review run ends with a round that reads the last set of fixes, and the
+  record says who did.** A round's findings are closed after it ends, by
+  whoever writes the fixes, and the round that follows is what opens them.
+  Every round had one except the last, whose fixes were written by the
+  session that then ticked `- [x] Pass` on its own record. Measured across
+  two consecutive work items: the one round that ever looked at another
+  round's fixes found **seven** defects inside them, and its own fixes then
+  went in unread. (#33)
+
+  Two changes, and they meet at one cell.
+
+  A run now ends with a **verifying round** — spawned after the previous
+  round's fixes are committed, targeted at the diff of those fixes rather
+  than at the branch, and asking whether each closed finding is actually
+  closed. **A round that opens nothing needing a fix does not consume the
+  cap**, because the cap counts rounds that found something and a round that
+  finds nothing is the loop having converged. The three-round and five-round
+  numbers are unchanged. This is not the rule that a round has to find
+  nothing: a 🟡 the smith answers with grounds has opened nothing needing a
+  fix, and the run ends there.
+
+  And `round-N.md` carries `| Fixes checked by |` beside `Pass`. `Pass` says
+  the findings are closed; this says who opened the work that closed them.
+  Three values and no others — `round-N` naming a LATER round, `no fixes to
+  check`, or `nobody — <why>`. `chain_check.py` reads it on every record and
+  refuses what the repository can contradict: a round naming itself, a
+  checker git does not carry, a checker whose own `Target SHA` is the same
+  commit as this record's or an ancestor of it — the number is later and the
+  review is not — and `no fixes to check` beside a verdict that closed with a
+  fix. Where either record's `Target SHA` names two commits — the row allows
+  both when HEAD moved mid-review — the newest on each side is compared.
+
+  A verdict cell is read by stripping markdown emphasis and matching the
+  vocabulary against the START of the cell, so `**fixed** \`sha\`` counts as
+  the fix it is whatever follows the word, while a long `answered` cell that
+  mentions a fix made elsewhere still does not. The first version instead
+  looked for where the commit began and cut there, which meant it had to
+  recognise a commit: a seven-character abbreviation with no digit in it —
+  about one in 959 — was not recognised, nothing was cut, and a blocking
+  finding that had been properly closed read as still open.
+
+  And `round-N.md` carries `| Needs a fix |`: whether this round opened
+  anything that does. It is the reviewer's own answer, copied rather than
+  re-derived from the verdict table, because a finding the implementer answers
+  with grounds needs no fix and still ends the run. No check reads the row —
+  it is there because the answer a run ends on had nowhere to live but a
+  transcript. **Existing records are not migrated for this one**, unlike
+  `Fixes checked by`: a reviewer who was never asked left no answer, and
+  filling the cell in from the verdict table is the derivation the field
+  exists to refuse.
+
+  **`nobody — <why>` prints on every run, and fails in one place**: on the
+  run's last record, beside a checked `Pass`. That pair is the review claiming
+  to have passed while the fixes that closed its findings went unread.
+  Anywhere else the cell only prints, because failing for an honest disclosure
+  is what teaches people to write none.
+
+  **Work items begun before this release are excused that refusal** and only
+  print. The cutoff is the unix second already in a work item's directory
+  name, compared against one constant, so nothing needs configuring: a fresh
+  install is held to the rule everywhere, and a repository updating the plugin
+  has exactly its existing items excused. A check whose first act is red on
+  merged history nobody can honestly repair is a check people learn to skip.
+  The way out for everything after the cutoff costs no round — one verifying
+  round at the diff of those fixes.
+
+  **Every existing round record needs the new row**, not only the newest.
+  There is no fallback, for the reason `docs/review-handoff-protocol.md`
+  gives for the `rounds/` move: the failure names the row and the three
+  values it takes. Write `| Fixes checked by | round-N |` on each record
+  whose fixes a later round opened, and `| Fixes checked by | nobody — <why> |`
+  on the last one if nothing did.
+
 - **The agent files say that file edits go through the `Edit` tool**, and
   they name both reasons rather than only the familiar one. An edit must be
   able to fail, which is why a shell substitution that misses its pattern is

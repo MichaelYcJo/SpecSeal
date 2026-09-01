@@ -1,4 +1,4 @@
-# Review Handoff Protocol — draft 0.4
+# Review Handoff Protocol — draft 0.5
 
 A file convention for handing review work between agent sessions — across
 time, machines, and tools. Tool-agnostic on purpose: nothing here requires
@@ -111,6 +111,8 @@ the inheritance range and round 2 raised it again.
 |---|---|---|
 | Target SHA | yes | commit(s) the round actually reviewed — branches move between rounds; record both if HEAD moved mid-review. **Never rewritten after a squash** — see below |
 | Pass | yes | a checkbox — `- [ ] Pass` or `- [x] Pass`. Checked means no finding in this round's verdict table is still open. See below |
+| Fixes checked by | yes | who opened the fixes that closed this round's findings: a later round, `no fixes to check`, or `nobody` with the reason. `Pass` answers whether the findings were closed; this answers whether the closing was read by anyone. See below |
+| Needs a fix | yes, from the round that wrote it | whether this round opened anything that needs one — the reviewer's own answer, copied rather than re-derived from the verdict table. It is the run's terminal condition where a run ends at a verifying round, and a finding the implementer answers with grounds does not make it `yes`. See below |
 | PR | when one exists | the change request this work went to. A field, not the key: it does not exist while the rounds that fill this file are running |
 | Verdict table | yes | per finding: location, verdict, grounds |
 | Executed probes | yes (may be "none") | what was RUN, with results — distinguished from what was read |
@@ -169,6 +171,87 @@ fails its pull request for exactly that combination, and fails the same way for
 a verdict table it cannot read: a tolerant reader reports no open findings
 there, and no open findings is indistinguishable from all of them closed.
 
+#### The Fixes checked by field — who opened the closing
+
+A round's findings are closed after the round ends, by whoever fixes them.
+Every earlier round's fixes are therefore opened by the round that follows,
+because each of that round's verdicts needs an answer there. The last round's
+have no round after them.
+
+Draft 0.4 was satisfied by a chain whose final fixes nobody read, and that is
+not an edge case: it is how every review run ended. Measured in the reference
+implementation across two consecutive work items — the round that did look at
+the previous round's fixes found seven defects in them, and its own fixes then
+went in with the checkbox ticked by the session that wrote them.
+
+So `Pass` gets a companion, and the two say different things. `Pass` is about
+the **findings**: none of them is still open. This field is about the
+**answers**: who opened the work that closed them. Three values and no others,
+because a field read loosely reports the reassuring half of an ambiguity:
+
+| The cell says | What it means |
+|---|---|
+| `round-N` | that round opened these fixes and reported on them. N must be greater than this record's own number, and that record must exist — a round cannot be checked by itself, by one that ran before the fixes existed, or by one nobody wrote |
+| `no fixes to check` | no finding in this record closed with a fix. A round whose verdicts are all `answered`, `withdrawn` or `not a defect` wrote no code for anyone to open |
+| `nobody — <why>` | the gap, written down. The reason is required: without it the cell records that something is missing and not what |
+
+Anything else is refused, a session's own name included. Read loosely, *the
+session that wrote them* would pass as an answer to a field whose whole
+purpose is refusing it.
+
+Only a later round may be named, so the **last** record of a finished run can
+only read `no fixes to check` or `nobody — <why>`. That is the shape of the
+rule rather than a limitation of it: a run ends at a round that wrote no code
+nobody read, or it ends with the gap in the diff where a reader will meet it.
+
+**A conforming tool reads this on every record**, where it reads `Pass` on the
+last one alone. The two scopes differ because the two facts do: `Pass` is a
+verdict on the whole review, and the last round's speaks for it; this is a
+fact about one round's own fixes, and every round has one. Reading only the
+last record makes `round-N` unreachable — a checker has to be later, and the
+last record has no later round.
+
+What it refuses is what the repository can contradict: a missing row, a round
+that does not exist or is not later, and `no fixes to check` beside a verdict
+that closed with a fix. Whether it should also refuse a checked `Pass` beside
+`nobody` is the project's call rather than this protocol's: the two are not a
+contradiction inside one file, and a tool that fails for an honest disclosure
+teaches people to write none.
+
+A project that does choose to fail should **grandfather the records whose work
+item began before it adopted the rule**. Those records are usually merged and
+have no honest repair — a round record written for a review nobody ran is a
+fabrication, and unticking `Pass` fails whatever rule says a ready change
+request carries a passing review. A check whose first act is red on history
+nobody can fix is a check people learn to skip, which loses the records it
+could have caught in exchange for the ones it never could. What the cutoff is
+keyed to has to be readable from the record itself; the reference
+implementation uses the timestamp already in the work item's directory name.
+
+#### The Needs a fix field — the answer a run ends on
+
+Where a run ends at a round that opens nothing needing a fix, that answer is
+the terminal condition, and it belongs to the reviewer rather than to whoever
+reads the record afterwards.
+
+It is not the verdict table said another way. A finding the implementer
+answers with grounds is a finding, and it needs no fix, so a round can report
+several and still end the run. Deriving the answer from the table gets that
+case wrong in the direction that costs a round.
+
+The reviewer writes one line — `Needs a fix: no`, or `yes` and what does — and
+whoever writes the record copies it. Without the field the question is still
+asked and the answer has nowhere to live, which puts a decision the run turns
+on in a transcript that ends with the session.
+
+**A record written before the field existed is left without it**, which is the
+opposite of what this protocol asked for `Fixes checked by` and is the same
+reasoning that makes the difference. That field asks who opened the fixes, and
+the answer is in the repository: which round followed, and whether one did.
+This one asks what the reviewer concluded, and a reviewer who was never asked
+left no answer anywhere. Filling it in from the verdict table is exactly the
+derivation the paragraph above refuses, so the honest migration is none.
+
 ### tests-todo.md — regression tests prescribed, not written
 
 One row per test: what it asserts · **destination file** · grounds · status.
@@ -211,7 +294,7 @@ A tool claiming to support this protocol:
 
 ## Status
 
-Draft 0.4, extracted from the convention this plugin's `code-review` and
+Draft 0.5, extracted from the convention this plugin's `code-review` and
 `implement` skills already operate (they are its reference implementation).
 Field names and layout may change; the three conformance rules are stable in
 shape. 0.2 changed the third from *delete after draining* to *close and keep*.
@@ -220,6 +303,16 @@ which is what made rule 1 satisfiable at all, and added the `Pass` field so
 that "was it reviewed" and "did it pass" stop being the same question. 0.4
 gives the records their own `rounds/` subdirectory and requires a conforming
 tool to name a record left at the old location rather than passing over it.
+0.5 adds `Fixes checked by`, because 0.3 split "was it reviewed" from "did it
+pass" and left a third question inside the second: who opened the fixes that
+made it pass. No conformance rule is added for it: whether an unread set of
+fixes fails a change request or only prints is a project's call, so the
+field's own section states both — with the grandfathering a project that
+fails has to carry — and the requirement stays at the level of the field
+being present and honest. The reference implementation now fails, for work
+items begun after it adopted the rule. 0.5 also adds `Needs a fix`, because a
+run that ends when a round opens nothing needing a fix turns on an answer the
+record had no room for.
 
 0.3 also states the path as this implementation's choice rather than as the
 protocol. Draft 0.2 claimed to be tool-agnostic while naming a directory
