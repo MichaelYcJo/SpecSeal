@@ -55,10 +55,10 @@ against a diff window.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `row_baseline` derives the baseline from the row's own line history when it carries no stamp; a SHA a row names in prose is not a stamp; the header note stops claiming drift was skipped when it was not | `tests/test_a_row_measures_from_its_own_history.py`, plus the two existing evidence-check suites green | |
-| 2 | The fragment convention: `.specseal/map/<work-item-id>.md` with no header, `.specseal/map.md`'s header says what it now is, and every document that stated the old stamp rule is corrected | the same new test file, reading the documents | |
-| 3 | `.github/scripts/gather_changelog.py` with `--check`, wired into the release pull request; `## Unreleased` retired; the documents that told a change to edit `CHANGELOG.md` corrected | `tests/test_the_changelog_is_gathered_at_release.py`, `tests/test_release_hygiene.py` | |
-| 4 | Dogfood: this work item's own changelog fragment and ledger fragment, the stale follow-up row removed, the closing memo | `bin/evidence-check .`, the new suites | |
+| 1 | `row_baseline` derives the baseline from the row's own line history when it carries no stamp; a SHA a row names in prose is not a stamp; the header note stops claiming drift was skipped when it was not | `tests/test_a_row_measures_from_its_own_history.py`, plus the two existing evidence-check suites green | `1dc2531`, corrected to first appearance in `9a7ce62` |
+| 2 | The fragment convention: `.specseal/map/<work-item-id>.md` with no header, `.specseal/map.md`'s header says what it now is, and every document that stated the old stamp rule is corrected | the same new test file, reading the documents | `22b3690`, re-stated in `9a7ce62` |
+| 3 | `.github/scripts/gather_changelog.py` with `--check`, wired into the release pull request; `## Unreleased` retired; the documents that told a change to edit `CHANGELOG.md` corrected | `tests/test_the_changelog_is_gathered_at_release.py`, `tests/test_release_hygiene.py` | `9cc7aaf` |
+| 4 | Dogfood: this work item's own changelog fragment and ledger fragment, the stale follow-up row removed, the closing memo | `bin/evidence-check .`, the new suites | `9a7ce62`, closed by the commit after it |
 
 ## Operational impact
 
