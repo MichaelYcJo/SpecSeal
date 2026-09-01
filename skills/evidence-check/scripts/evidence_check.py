@@ -6,15 +6,21 @@ and the pre-0.10 docs/**/_evidence.md) for `file:line` /
 `file:start-end` coordinates and classifies each:
 
   BROKEN   file missing, or the line range exceeds the file's length
-  DRIFTED  the range was touched by commits since the row's baseline SHA
+  DRIFTED  the range was touched by commits since the row's baseline
            (the coordinate may still be right — but nobody has re-verified it)
   OK       resolvable and untouched since that baseline
-
-A row's baseline is the commit SHA written in its own Checked column, falling
-back to the ledger header's. Without the per-row form, one wide refactor
-drifts every row at once and the cheapest way out is bumping the header —
-which re-dates every claim without re-reading any of them.
   EXTERNAL path not in this repo and no --map given — cannot judge here
+
+A row's baseline is the commit `git blame` names for the row's own line —
+falling back to a SHA written in the row, for rows stamped under the older
+rule, and to the ledger header's baseline where neither can answer. Without a
+per-row form, one wide refactor drifts every row at once and the cheapest way
+out is bumping the header, which re-dates every claim without re-reading any
+of them.
+
+Blame is what lets a ledger split into `.specseal/map/<work-item>.md`
+fragments that carry no header of their own, and what survives a squash: the
+answer is computed on the tree as it stands, so no rewrite can orphan it.
 
 Exit codes: 0 clean · 1 drift only · 2 broken coordinates (or drift with
 --strict). Designed for CI: a spec-code link that stops resolving should fail
@@ -74,17 +80,66 @@ def find_baseline(text, repo, cache=None):
     return None
 
 
-def row_baseline(text, pos, repo, cache):
-    """The SHA a row verified itself at, or None.
+def blame_lines(repo, rel, cache):
+    """{line number: the commit that last wrote that line} for one ledger file.
+
+    One `git blame` per ledger, cached, rather than one per row: a ledger has
+    as many rows as the work has accumulated and blame reads the whole file
+    either way.
+
+    Lines nobody has committed yet blame as the all-zero SHA. They are dropped
+    rather than returned, because an unresolvable baseline is exactly the
+    silent fall back to the header this file exists to make visible.
+    """
+    key = (repo, rel)
+    if key not in cache:
+        code, out = git(["blame", "--porcelain", "--", rel], repo)
+        found = {}
+        if code == 0:
+            # A porcelain header is `<40-hex> <orig line> <final line>` at the
+            # start of a line; every content line is TAB-prefixed and every
+            # other metadata line starts with a word.
+            for m in re.finditer(r"^([0-9a-f]{40}) \d+ (\d+)", out, re.MULTILINE):
+                if m.group(1) != "0" * 40:
+                    found[int(m.group(2))] = m.group(1)
+        cache[key] = found
+    return cache[key]
+
+
+def row_baseline(text, pos, repo, cache, ledger=None, root=None, blame=None):
+    """The commit a row's drift is measured from, or None.
 
     One baseline for a whole ledger makes drift an all-or-nothing event: any
     wide refactor drifts every row at once, and the cheapest way out is to
     bump the header — which re-dates every claim without re-reading any of
-    them. A row that records the commit it was last checked at is measured
-    from there instead, so re-verification drains row by row.
+    them. A row measured from its own last change drains row by row instead.
 
+    Two things can answer, in this order.
+
+    **A SHA written in the row**, which is how rows were stamped before this.
     Coordinates are stripped before the scan: a directory named like a short
     SHA sits in the same row and must not be read as one.
+
+    **`git blame` of the row's own line**, for a row that carries none. A
+    stamp typed by hand names a commit the branch made, and a squash discards
+    it: seven rows here were left naming an object no ref could reach, and a
+    pull request repaired them one cell at a time. Blame is computed on the
+    tree as it stands, so nothing can orphan it — after the squash it answers
+    with the squash commit, which is the value that repair wrote in by hand.
+
+    The baseline is only ever a diff base (see `changed_ranges`), never an
+    identity, so a commit that merely CONTAINS the row is the right answer.
+
+    What blame gives up: an edit that only re-words the row — a typo in a
+    Notes cell — moves the baseline forward without anybody re-reading the
+    code. The Checked column keeps the DATE for that reason, so a row read in
+    August and re-worded in September still says August.
+
+    Blame is skipped where it cannot answer, and the ledger header's baseline
+    is still the fallback there. `ledger`/`root` unset is one such caller —
+    `tests/test_ledger_stamps_resolve.py` asks only what the row wrote. The
+    other is a coordinate resolving in another checkout: this repository's
+    commits are not a diff base in that one.
     """
     start = text.rfind("\n", 0, pos) + 1
     end = text.find("\n", pos)
@@ -93,6 +148,11 @@ def row_baseline(text, pos, repo, cache):
     for m in SHA_RE.finditer(line):
         if is_commit(m.group(0), repo, cache):
             return m.group(0)
+    if ledger is not None and root is not None and repo == root:
+        lines = blame_lines(
+            root, os.path.relpath(ledger, root), {} if blame is None else blame
+        )
+        return lines.get(text.count("\n", 0, pos) + 1)
     return None
 
 
@@ -128,8 +188,11 @@ def file_lines(path):
         return None
 
 
-def check_ledger(ledger, root, maps, cache, default_repo=None, sha_cache=None):
+def check_ledger(
+    ledger, root, maps, cache, default_repo=None, sha_cache=None, blame=None
+):
     sha_cache = {} if sha_cache is None else sha_cache
+    blame = {} if blame is None else blame
     with open(ledger, encoding="utf-8", errors="replace") as f:
         text = f.read()
     baseline = find_baseline(text, root, sha_cache)
@@ -186,9 +249,12 @@ def check_ledger(ledger, root, maps, cache, default_repo=None, sha_cache=None):
         if n is not None and end > n:
             findings.append(("BROKEN", coord, f"file has {n} lines"))
             continue
-        # A row that names the commit it was last checked at is measured from
-        # there; the header baseline is the fallback for rows that do not.
-        base = row_baseline(text, m.start(), repo, sha_cache) or (
+        # A row is measured from its own last change — a SHA it wrote, else
+        # what `git blame` says about its line. The header baseline is the
+        # fallback for the rows neither can answer for.
+        base = row_baseline(
+            text, m.start(), repo, sha_cache, ledger=ledger, root=root, blame=blame
+        ) or (
             baseline
             if repo == root
             else (default_baseline if repo == default_repo else None)
@@ -252,13 +318,23 @@ def main():
         return 0
 
     totals = {"OK": 0, "DRIFTED": 0, "BROKEN": 0, "EXTERNAL": 0}
-    cache, sha_cache = {}, {}
+    cache, sha_cache, blame = {}, {}, {}
     for ledger in ledgers:
         baseline, findings = check_ledger(
-            ledger, root, maps, cache, default_repo, sha_cache
+            ledger, root, maps, cache, default_repo, sha_cache, blame
         )
         rel_ledger = os.path.relpath(ledger, root)
-        base_note = baseline[:9] if baseline else "none — drift check skipped"
+        # A fragment carries no header baseline on purpose — every row in it
+        # measures from its own line's history. Saying "skipped" there would
+        # report the working case as the broken one, and the two have to be
+        # told apart: nothing measures from anything only when blame is
+        # silent too, which is a ledger git has never seen.
+        if baseline:
+            base_note = baseline[:9]
+        elif blame_lines(root, rel_ledger, blame):
+            base_note = "none in the header — each row measures from its own history"
+        else:
+            base_note = "none — drift check skipped"
         print(f"\n{rel_ledger}  (baseline: {base_note})")
         for status, coord, detail in findings:
             totals[status] += 1
