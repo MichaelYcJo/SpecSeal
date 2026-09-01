@@ -52,6 +52,25 @@ against this segment's transcript (newest under `<session-id>/subagents/`).
 |---|---|---|---|---|---|
 | `smith`, implementation — at the phase 1 commit | 1.27 | 9.2 m | 33 | 89% | 0 s |
 | `smith`, implementation — at close of phase 4 | 1.27 | 16.4 m | 65 | 84% | 0 s |
+| `warden`, round 1 — instructed, with the runner incantation omitted | **2.0** | 10.2 m | 19 | — | 0 s |
+| `smith`, round-1 fixes — resumed rather than respawned | — | 3.9 m | 30 | — | 0 s |
+| `warden`, round 2 (verifying) — instructed, runner incantation included | 1.5 | 4.2 m | 10 | — | 0 s |
+
+The orchestrator appended the three review rows, **executed**, from each
+round's report and its transcript. What they add to the reading above:
+
+- **Round 1 is the first segment to hit the 2.0 bar**, and it is a reviewing
+  segment — supporting the paragraph below that the bar fits reviewing.
+- **Resuming beats respawning by roughly an order of magnitude.** The same
+  fix-pass shape cost 45 m and 282 calls on the previous work item as a fresh
+  spawn, and 3.9 m and 30 calls here as a resume with context intact.
+- **A verifying round has fewer independent axes to open**, so its 1.5 is not
+  a miss of the reviewing bar; the bar wants recalibrating per round kind.
+- Each round lost exactly one round trip to a missing invocation: round 1 to
+  the pytest runner (not yet handed over), round 2 to `evidence_check.py`'s
+  argument shape (handed the pytest incantation, which fixed round 1's loss,
+  and nothing else's). The protocol section's "runner incantation" means
+  every checker the round will run, not pytest alone.
 
 Against the issue's proposed bar (≥ 2.0 on every segment): **1.27 misses
 it**, and the honest reading is that the bar fits reviewing segments better
