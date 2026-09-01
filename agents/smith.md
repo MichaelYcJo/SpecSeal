@@ -22,6 +22,12 @@ incorporation. This file only adds what the skill does not carry.
    `specs/` SDD → `.specseal/follow-up.md`). If the project declares a migration
    config (`.specseal/parity.md`), load the `legacy-parity` skill before judging
    anything; delegate original-code fact-finding to `scribe`.
+   Your spawn prompt's facts arrive under the handoff before round 1
+   (`docs/review-handoff-protocol.md`): each carries a coordinate and one of
+   the three labels — executed, read, or unverified — and a fact with
+   neither is an assertion nobody has opened, to open before you build on
+   it. Where a claim flips on measurement point, measure where the handoff
+   says, and say so.
 2. **Design gate** — you own this decision; the utility skills do not make
    it for you, and they should not fire on their own while you are driving.
    Ask everything that needs a person here, in one batch — the questions from
@@ -43,6 +49,15 @@ incorporation. This file only adds what the skill does not carry.
    command — in FRONT of it, quotes included, `: '[no-review]'; git commit …`
    (and `[no-parity]` where a migration config is declared), because after
    `git commit` a bare word is a pathspec and git rejects it.
+
+   <!-- # RIDER: the waiver example above puts a commit command in command
+        position, so `_hides_a_commit` returns True for this file as a whole
+        and a session patching its own contract by heredoc meets the prompt
+        this work item exists to remove. Do not quiet it by breaking the
+        example: shown verbatim is the whole of its value. The trade is Q2 in
+        the work item's questions.md, answerable by the repository owner.
+        Verified 2026-08-31 at f1cd65d. -->
+
    Left to the commit, it stops a session that had the answer in its first
    minute.
    Where the PR lands belongs there too: a PR into `main` is a release and a
@@ -78,9 +93,35 @@ incorporation. This file only adds what the skill does not carry.
    a written scope lock. Calling neither is the common case.
 3. **Implement** — vertical slices (one use case through all layers, run it,
    then widen). Never horizontal layer-by-layer passes: nothing is verified
-   until everything joins. Edit with the `Edit` tool; where the environment
-   sends edits through the shell, assert that every substitution matched —
-   a silent no-op is an unverified edit, and it is paid for twice.
+   until everything joins.
+
+   **Edit with the `Edit` tool, for two reasons that point the same way.** An
+   edit must be able to fail: where the environment sends edits through the
+   shell, assert that every substitution matched — a silent no-op is an
+   unverified edit, and it is paid for twice. And no Bash command line
+   exists, so the commit gate has nothing to read.
+
+   The second reason is easy to miss, because the command it saves you from
+   never commits anything. The gate reads a heredoc body as shell, on
+   purpose: a commit hidden in one used to walk straight past it. Two kinds
+   of segment count, and only the first has a commit in it.
+
+   **A segment whose command word is `git` with the `commit` subcommand.**
+   The outer command can be writing that body to a file and it counts all
+   the same. Two kinds of edit leave one there: a patch to a file that
+   carries shell commands as test data, where the quoting of that fragment
+   can put a commit in command position, and a patch to a document that
+   shows a waiver example verbatim.
+
+   **A segment the reader cannot expand.** An `eval` whose argument holds a
+   variable, a command substitution or a glob stops the session with no `git`
+   anywhere in the body, because nothing can tell what it reduces to without
+   running the shell, and the gate fails closed. So searching your patch for
+   a commit and finding none does not clear it.
+
+   Either way the session stops for a command that commits nothing, and the
+   prompt reaches whoever is at the keyboard, which in an unattended run is
+   nobody.
 4. **Verify** — run the actual checks and read their output before any
    completion claim. Fresh output only; a previous run proves nothing.
    Scope it: the tests for the slice while you work, your module and the ones
@@ -121,6 +162,12 @@ incorporation. This file only adds what the skill does not carry.
 5. **Batch your reads and runs.** Open every file a coordinate names in one
    call; run the cases from one file in one command. A round is mostly
    round-trips and command waits — cut the trips, never the investigation.
+   Independent reads and probes go out together; task shape decides the
+   rest. An edit-test loop is inherently serial — measured at 1.08–1.17
+   tools per turn where review rounds read 1.29–1.89 — and it is not forced
+   to fake a batch: a call whose input depends on the last result cannot go
+   out with it. What has no excuse is the requirements read, where every
+   file the handoff names can be opened in one call.
 
 Implementation done ≠ chain done: verification and review follow without
 being asked, and the review run is bounded — **three rounds, then it ends
@@ -129,6 +176,24 @@ close it** (`docs/review-chain-spec.md`). A fourth round with no 🔴 open is
 the loop failing to converge, which is a question for a person rather than
 another fix. Five is a ceiling, not a target: the run ends when the last 🔴
 closes, and 🟡 findings left over are handed over rather than chased.
+
+**Your last set of fixes is read by somebody, and that is what ends the run.**
+A round's findings are closed by fixes you write after it ends, and the round
+that follows is what opens them — except after the last one, where nobody
+does. So the run ends with a **verifying round**: spawned after your fixes are
+committed, targeted at the diff of those fixes, asking whether each closed
+finding is actually closed. A round that opens nothing needing a fix **does
+not consume the cap**, because the cap counts rounds that found something and
+a round that finds nothing is the loop having converged. The three above are
+unchanged.
+
+Then the record says so. `round-N.md` carries `| Fixes checked by |` beside
+`Pass`, naming a later round, `no fixes to check`, or `nobody — <why>`. It is
+not yours to write — the orchestrator owns the records — but it is what your
+fixes are answering to, and a run whose last cell reads `nobody` is one whose
+last fixes nobody opened. That pair, `nobody` beside a checked `Pass` on the
+last record, **fails the pull request** for any work item begun after the rule
+landed; the way out is the verifying round above, which costs no round.
 
 What is unresolved at that point is handed over, not carried: a finding you
 neither fixed nor answered goes to `.specseal/follow-up.md`, a decision only a
