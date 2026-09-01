@@ -47,7 +47,7 @@ The review round records are next door, in the work item's own directory:
 specs/<work-item-id>/
 ├── routing.md           which way this work item was routed, written before the first edit
 ├── rounds/
-│   └── round-N.md       target SHA · Pass · verdicts · executed probes · inherited coordinates · deferrals
+│   └── round-N.md       target SHA · Pass · who checked the fixes · verdicts · executed probes · inherited coordinates · deferrals
 ├── tests-todo.md        regression tests to plant, destination file per row
 └── evidence-todo.md     facts to merge into the evidence ledger
 ```

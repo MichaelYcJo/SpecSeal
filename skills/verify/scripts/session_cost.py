@@ -31,7 +31,6 @@ import os
 import re
 import sys
 from collections import defaultdict
-from itertools import pairwise
 
 HOME = os.path.expanduser("~")
 PROJECTS = os.path.join(HOME, ".claude", "projects")
@@ -63,10 +62,21 @@ def family(command):
 
 
 def load(path):
-    """Tool calls paired with their results, plus per-turn token counts."""
+    """Tool calls paired with their results, plus per-turn token counts.
+
+    A turn is one assistant MESSAGE that carries at least one tool_use,
+    keyed by the message id — a harness writes one message as one row per
+    content block, every row carrying the same id — with the row's uuid and
+    then the row itself as fallbacks. Counting per tool_use block instead
+    pinned tools-per-turn at ~1.00 structurally: five runs of two agent
+    types measured exactly 1.00, and a day's conclusions were drawn from a
+    meter that could not read anything else. A transcript with none of the
+    three keys degrades to one turn per row — the old floor, never an
+    inflated ratio."""
     pending, calls, turns = {}, [], []
+    counted = set()
     with open(path, encoding="utf-8", errors="replace") as handle:
-        for line in handle:
+        for number, line in enumerate(handle):
             line = line.strip()
             if not line:
                 continue
@@ -80,6 +90,8 @@ def load(path):
             if not stamp or not isinstance(content, list):
                 continue
             usage = message.get("usage") or {}
+            turn_key = message.get("id") or row.get("uuid") or f"row-{number}"
+            carries_call = False
             for block in content:
                 if not isinstance(block, dict):
                     continue
@@ -91,19 +103,13 @@ def load(path):
                         stamp,
                         block.get("name", "?"),
                         " ".join(text.split()),
+                        turn_key,
                     )
-                    turns.append(
-                        (
-                            stamp,
-                            usage.get("input_tokens", 0)
-                            + usage.get("cache_read_input_tokens", 0),
-                            usage.get("output_tokens", 0),
-                        )
-                    )
+                    carries_call = True
                 elif block.get("type") == "tool_result":
                     started = pending.pop(block.get("tool_use_id"), None)
                     if started:
-                        began, tool, text = started
+                        began, tool, text, turn = started
                         start, end = parse_time(began), parse_time(stamp)
                         if start and end:
                             calls.append(
@@ -112,8 +118,22 @@ def load(path):
                                     "end": end,
                                     "tool": tool,
                                     "command": text,
+                                    "turn": turn,
                                 }
                             )
+            # Once per message, not once per block: a split message's later
+            # rows repeat its usage, and a multi-call row would count its
+            # tokens once per call.
+            if carries_call and turn_key not in counted:
+                counted.add(turn_key)
+                turns.append(
+                    (
+                        stamp,
+                        usage.get("input_tokens", 0)
+                        + usage.get("cache_read_input_tokens", 0),
+                        usage.get("output_tokens", 0),
+                    )
+                )
     calls.sort(key=lambda c: c["start"])
     return calls, turns
 
@@ -131,13 +151,23 @@ def analyse(calls, turns):
     span = (calls[-1]["end"] - calls[0]["start"]).total_seconds()
     command_time = sum((c["end"] - c["start"]).total_seconds() for c in calls)
 
-    # Model time: result of one call to the start of the next.
+    # Model time: the last result of one TURN to the first call of the next.
+    # Two calls issued together are one turn — the wait between the first
+    # result and the second call's row is the batch executing, not the model
+    # thinking — and the gap after a batch runs from its last result, not
+    # from whichever call sorts last by start.
     model_time, gaps = 0.0, []
-    for previous, call in pairwise(calls):
-        gap = (call["start"] - previous["end"]).total_seconds()
-        if 0 <= gap < 900:
-            model_time += gap
-            gaps.append(gap)
+    turn_key = turn_end = None
+    for call in calls:
+        if turn_key == call["turn"]:
+            turn_end = max(turn_end, call["end"])
+            continue
+        if turn_key is not None:
+            gap = (call["start"] - turn_end).total_seconds()
+            if 0 <= gap < 900:
+                model_time += gap
+                gaps.append(gap)
+        turn_key, turn_end = call["turn"], call["end"]
 
     by_family = defaultdict(lambda: [0, 0.0])
     for call in calls:
@@ -237,9 +267,17 @@ def report(data):
             + (f" ({minutes(exact)} of it identical)" if exact else "")
         )
     if data["tools_per_turn"] < 1.2:
+        # Above 1 the one-at-a-time claim is one the number no longer
+        # supports — and under per-block counting it never could rise to
+        # contradict it, which is how the claim printed on five straight runs.
+        shape = (
+            "independent calls are going out one at a time"
+            if data["tools_per_turn"] <= 1.0
+            else "most turns send a single call"
+        )
         print(
             f"  batching           {data['tools_per_turn']:.2f} tools per turn — "
-            f"independent calls are going out one at a time, and each costs "
+            f"{shape}, and each turn costs "
             f"{data['gap_mean_s']:.0f}s of model time on top of the command"
         )
     growth = data["context_growth"]
