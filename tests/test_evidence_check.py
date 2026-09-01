@@ -37,15 +37,20 @@ def run(args, cwd):
 def step(args, cwd):
     """The exit code of the CI step `evidence-ci` prints, guard included."""
     quoted = " ".join(f"'{a}'" for a in args)
+    # `sys.executable`, not `python3`: the name does not exist on Windows.
+    # Forward slashes, not `os.sep`: inside bash's single quotes a backslash
+    # is literal, so `C:\...\python.exe` never resolves to the interpreter,
+    # the command exits before the guard runs, and every case expecting the
+    # guarded 1 passed for that wrong reason while the one expecting 0
+    # failed. Both spellings name the same file to Windows Python.
+    exe = sys.executable.replace("\\", "/")
+    script = SCRIPT.replace("\\", "/")
     return subprocess.run(
         [
             "bash",
             "-e",
             "-c",
-            # `sys.executable`, not `python3`: the name does not exist on
-            # Windows, where the step then failed for a reason that had
-            # nothing to do with the guard it was testing.
-            f"'{sys.executable}' '{SCRIPT}' {quoted} || [ $? -eq 1 ]",
+            f"'{exe}' '{script}' {quoted} || [ $? -eq 1 ]",
         ],
         cwd=str(cwd),
         capture_output=True,
