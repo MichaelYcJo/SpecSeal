@@ -60,6 +60,47 @@ by what a finding requires rather than by rank, and 🔴 means *blocks merge* �
 so "a 🔴 is open" is a state the review already reports, readable from the
 last round record's verdict table and its `Pass` checkbox.
 
+### The last round verifies, and what it verifies is a diff
+
+A run ends with a **verifying round**. It is spawned after the previous
+round's fixes are committed, its target is the diff of those fixes, and its
+job is the answers rather than new findings: for each verdict the last round
+recorded as closed, is it actually closed.
+
+That is what a round is already good at. `code-review` says an axis marked
+clean in round 1 can be broken by the fixes made for round 2, and that
+inheriting the verdict is how it goes unseen. The verifying round applies the
+same sentence to the last set of fixes, which is the one set that rule never
+reached — see *Two records* below for what it cost when nothing did.
+
+| | A finding round | A verifying round |
+|---|---|---|
+| Target | the branch, or what the prompt narrows it to | the diff of the previous round's fixes |
+| Asks | what is wrong here | is each closed finding actually closed |
+| Ends the run | never on its own — its own fixes are unopened | when it opens nothing needing a fix |
+
+**A round that opens nothing needing a fix does not consume the cap.** The cap
+counts rounds that found something, because it exists to stop a loop that is
+not converging, and a round that finds nothing is the loop having converged.
+That is the distinction the numbers above could not make: a round that found
+nothing and a round whose fixes nobody read looked identical to them, and the
+run ended at both.
+
+Nothing here can loop, and it is worth saying why rather than adding a second
+bound. A verifying round that opens something IS a finding round and consumes
+the cap like any other. A verifying round that opens nothing is by definition
+the last one, because the run ends at it. There is no third case to run away.
+
+What it costs is one extra spawn per work item, on a surface that is a diff
+rather than a branch — the cheapest round of the run. What it does not cost is
+a change to the numbers above.
+
+**This is not the rule that a round has to find nothing.** A verifying round
+that raises a 🟡 the smith answers with grounds has opened nothing needing a
+fix, and the run ends there. The condition is *this round wrote no code
+nobody read*, which is narrower than *this round was silent* and is what keeps
+the bound a bound.
+
 At the bound, or earlier when a round returns nothing blocking, the change
 ends the same way whether or not everything was resolved. Nothing is dropped;
 each kind of leftover has a home that outlives the session:
@@ -117,6 +158,37 @@ So the durable half is the round record, and the passing half of it is the
 speaks for the whole review: earlier verdicts are not archived, every one of
 them needs an answer in the round that follows, so nothing can be open in
 round 1 and absent from round 3.
+
+**That closes the findings and says nothing about the answers**, and the two
+are not the same claim. A finding is closed by a fix, the fix is written after
+the round ends, and the round that follows is what opens it. Every round has
+one — except the last, whose fixes are written by the session that then ticks
+its box.
+
+Measured on two consecutive work items here (#33). Round 2 of the first found
+**seven** defects inside round 1's own fixes, which is the entire hit rate on
+the one set of fixes anybody looked at, and round 2's fixes then went in
+unread. The work item after it recorded the same ending in a comment
+(`specs/1788184145-…/rounds/round-3.md`): four findings, fixed by the
+orchestrator, opened by nobody, `- [x] Pass`.
+
+So the record carries a second field, `| Fixes checked by |`, and it names a
+later round, `no fixes to check`, or `nobody — <why>`. A round cannot be its
+own checker, because only a number above its own is accepted and that round's
+own `Target SHA` has to be later than this one's, and the pull-request check
+refuses every claim git can contradict.
+
+`nobody` with its reason is refused nothing on any record but the last. That
+is not a contradiction inside one file, and a check that fails for an honest
+disclosure teaches people to write none — the reasoning `unverified_check.py`
+already runs on. On the run's LAST record beside a checked `Pass` it does
+fail, for a work item begun on or after the cutoff, because that pair is the
+review claiming to have passed rather than disclosing anything. The refusal
+table under §`Fixes checked by` holds both halves and what each costs.
+
+The field records the state. What keeps `nobody` rare rather than routine is
+the verifying round, which is the run's own shape and sits with the bound
+above.
 
 ## Registration — gates run in groups, not one process each
 
@@ -421,7 +493,7 @@ edit and asking for `[no-review]` as well is asking for the same answer twice.
 
 | The declaration says | At the commit | At the pull request |
 |---|---|---|
-| through the review chain | silent | a committed `rounds/round-N.md` is required, every commit its `Target SHA` names being REACHABLE — an ancestor of HEAD, or of the branch `routing.md` declares — its last round's `Pass` **checked**, and that claim consistent with its own verdict table. A record this pull request does not touch keeps every requirement except reachability: its commits are expected to be gone, and the review it records was enforced at the pull request that added it |
+| through the review chain | silent | a committed `rounds/round-N.md` is required, every commit its `Target SHA` names being REACHABLE — an ancestor of HEAD, or of the branch `routing.md` declares — its last round's `Pass` **checked**, that claim consistent with its own verdict table, and its `Fixes checked by` naming a checker the repository can confirm. A record this pull request does not touch keeps every requirement except reachability: its commits are expected to be gone, and the review it records was enforced at the pull request that added it |
 | straight to the PR | silent | nothing required; the declaration is printed |
 | nothing readable, or no file | today's behavior — deny once, then ask | pass, with a notice saying nothing was checked |
 
@@ -454,6 +526,69 @@ assumed and where it read that from, on every run.
 `Pass` is a claim made by whoever wrote the round record. What is refused is
 the claim that contradicts the table underneath it — the same limit the
 commit gate has always carried.
+
+##### `Fixes checked by` has to name a checker the repository can confirm
+
+The draft excuse does not reach this row. `Pass` is excused in a draft because
+a review still running has not reached its verdict; a record naming a checker
+it does not have is wrong at every stage of a run.
+
+| The cell says | The check |
+|---|---|
+| the row is absent | **fails.** Adding it is always available to the author, which is the line this check has always drawn |
+| `round-N`, above this record's own number, that record is committed, and its own `Target SHA` is later than this record's | passes |
+| `round-N`, at or below this record's own number | **fails** — the checker is this round, or one that ran before the fixes existed. That is the fixer certifying its own work, which is the state #33 measured |
+| `round-N` above this record's number, whose `Target SHA` is the same commit this record's names or an ancestor of it | **fails** — the number is later and the review is not. Rounds are cheap to number and expensive to run, and a round that read what this round read opened none of the fixes that closed it. Where either row names two commits, the NEWEST on each side is what is compared |
+| `round-N` naming a record git does not carry | **fails** — a claim git contradicts |
+| `no fixes to check`, with no verdict cell closing on a fix | passes |
+| `no fixes to check` beside a verdict cell reading a fix word | **fails** — a contradiction inside one file, the shape already refused for `Pass` beside an open 🔴 |
+| `nobody — <why>` | prints on every run. **Fails** beside a checked `Pass` on the run's last record, for a work item begun on or after the cutoff below; passes everywhere else |
+| `nobody` with nothing after it | **fails.** The reason is what makes the state readable; without it the cell records that something is missing and not what |
+| anything else, `the session that wrote them` included | **fails**, naming the three values. Read loosely, a session's own name would pass as an answer, and that is precisely the state this field exists to refuse — the direction `CLOSED_WORDS` already takes for a verdict cell |
+
+Two of those deserve their cost written down.
+
+The first is `nobody — <why>`, and it is a disclosure rather than a claim. A
+check that failed for an honest disclosure teaches people to write none, which
+is the reasoning `unverified_check.py` already runs on, so the cell prints
+wherever it appears and on any record but the last it is refused nothing.
+
+What it may not do is stand beside a checked `Pass` on the run's last record.
+That combination is the review saying it passed, and a run whose final fixes
+nobody opened has not passed — #33 measured the one set anybody did open and
+found seven defects inside it, which is every defect there was to find.
+
+**The refusal reaches work items begun on or after the cutoff, and no others.**
+The cutoff is a unix second, compared against the one in the work item's own
+directory name, and its value is the id of the work item that added the rule
+(`chain_check.py`'s `STRICT_FROM`). One number serves every repository: a fresh
+install creates every work item after it, and a repository updating the plugin
+has exactly its pre-existing items excused.
+
+Why grandfather at all. A record written before the rule existed is usually
+merged and has no honest repair — writing a `round-4.md` for a review nobody
+ran fabricates one, and unticking `Pass` fails the ready-pull-request rule
+instead. A check whose first production act is red on history nobody can fix
+is a check people learn to skip, and skipping loses the records it could have
+caught in exchange for the ones it never could.
+
+What it costs is stated rather than left to be found: an old work item
+reopened years from now still writes records under its original id and stays
+excused. That is taken knowingly, rather than closed with a second rule about
+how old is too old.
+
+Nothing after the cutoff is stuck. One verifying round at the diff of those
+fixes closes it, and a round that opens nothing needing a fix does not consume
+the cap — so the way out costs no round, which is what the failure says.
+
+The second cost is the scope. This is read on **every** record, where `Pass` is
+read on the last one alone, and the two differ because the two facts do:
+`Pass` is a verdict on the whole review and the last round's speaks for it,
+while this is a fact about one round's own fixes and every round has one.
+Reading only the last record makes `round-N` unreachable — a checker has to be
+later, and the last record has none. What that costs is a repository updating
+the plugin: every record in a work item whose declaration the pull request
+touches needs the row, not just the newest.
 
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a
