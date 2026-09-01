@@ -9,9 +9,14 @@ what showed why one is still needed. They were written when the fragment was
 created and rewritten when the design changed to first appearance — so their
 lines first appear at the earlier commit, while the code they cite moved at the
 later one, and all four read DRIFTED. Re-reading them changes nothing on its
-own, because the derivation walks past an edit to the row. The stamp is the
-assertion that they were re-read at `9a7ce62`, and it wins over the
-derivation.
+own, because the derivation walks past an edit to the row. The stamp in each
+Checked cell is the assertion that the row was re-read at that commit, and it
+wins over the derivation.
+
+This paragraph named one of those commits when it was first written, and the
+header scan promoted it to the whole file's baseline — the second time this
+file has demonstrated Q2 in `questions.md`. A fragment's prose names no
+commit.
 
 A fragment's prose names no commit. The header scan reads the text above the
 first row that cites code, and a commit named there becomes the whole file's

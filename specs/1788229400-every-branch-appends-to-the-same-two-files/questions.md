@@ -43,6 +43,11 @@ baseline must be a date and a SHA together, so prose in a row is inert. What
 remains is prose in the header itself, which is a convention
 (`templates/map.md` states it) with nothing enforcing it.
 
+**It has now happened twice on the same file**, the second time while writing
+the paragraph explaining the first. That is the argument for closing it rather
+than documenting it: a convention broken by the person who wrote it, in the
+document stating it, is not a convention anybody else will keep.
+
 The options, if it is worth closing: require a header baseline to sit in a row
 labelled `Baseline`, which would break a ledger whose header writes a bare SHA
 — `tests/test_evidence_check_hardening.py::test_custom_ledger_glob` has that
