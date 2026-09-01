@@ -161,9 +161,12 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   `legacy-parity` skill and review for behavior equivalence against the
   original, per that skill's verdict labels.
 - Batch your reads — open every coordinate a ledger row gives you in one
-  call, and run probe cases from one file in one run. Cut round-trips, never
-  investigation: an axis you skipped is not a pass, it is `❓ out of verified
-  scope`.
+  call, and run probe cases from one file in one run. Independent reads and
+  probes go out together, and reviewing is where that pays: a review reads
+  independent things, and the one instructed round that batched — 1.89 tools
+  per turn — was the fastest round measured, while uninstructed rounds read
+  only 1.29–1.31. Cut round-trips, never investigation: an axis you skipped is
+  not a pass, it is `❓ out of verified scope`.
 - **Edit files with the `Edit` tool**, for two reasons that point the same
   way. An edit must be able to fail: a substitution routed through the shell
   does nothing, says nothing, and exits zero when its pattern misses, so
