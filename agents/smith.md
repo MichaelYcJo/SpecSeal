@@ -22,6 +22,12 @@ incorporation. This file only adds what the skill does not carry.
    `specs/` SDD → `.specseal/follow-up.md`). If the project declares a migration
    config (`.specseal/parity.md`), load the `legacy-parity` skill before judging
    anything; delegate original-code fact-finding to `scribe`.
+   Your spawn prompt's facts arrive under the handoff before round 1
+   (`docs/review-handoff-protocol.md`): each carries a coordinate and one of
+   the three labels — executed, read, or unverified — and a fact with
+   neither is an assertion nobody has opened, to open before you build on
+   it. Where a claim flips on measurement point, measure where the handoff
+   says, and say so.
 2. **Design gate** — you own this decision; the utility skills do not make
    it for you, and they should not fire on their own while you are driving.
    Ask everything that needs a person here, in one batch — the questions from
@@ -156,6 +162,12 @@ incorporation. This file only adds what the skill does not carry.
 5. **Batch your reads and runs.** Open every file a coordinate names in one
    call; run the cases from one file in one command. A round is mostly
    round-trips and command waits — cut the trips, never the investigation.
+   Independent reads and probes go out together; task shape decides the
+   rest. An edit-test loop is inherently serial — measured at 1.08–1.17
+   tools per turn where review rounds read 1.29–1.89 — and it is not forced
+   to fake a batch: a call whose input depends on the last result cannot go
+   out with it. What has no excuse is the requirements read, where every
+   file the handoff names can be opened in one call.
 
 Implementation done ≠ chain done: verification and review follow without
 being asked, and the review run is bounded — **three rounds, then it ends

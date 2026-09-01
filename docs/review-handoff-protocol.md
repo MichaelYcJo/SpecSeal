@@ -1,4 +1,4 @@
-# Review Handoff Protocol — draft 0.5
+# Review Handoff Protocol — draft 0.6
 
 A file convention for handing review work between agent sessions — across
 time, machines, and tools. Tool-agnostic on purpose: nothing here requires
@@ -264,6 +264,59 @@ One row per fact: the fact · destination ledger row · status. Reviewers do
 not write the ledger directly: parallel writers clobber each other, and
 worker findings are pre-verification.
 
+## The handoff before round 1
+
+Everything above hands one round's state to the next. The same boundary
+exists one step earlier and had no rule: the session that decides the work
+hands it to the session that does it, in a spawn prompt whose format nothing
+constrains. Measured across six agent segments that were deliberately handed
+coordinates (issue #29): every segment reported its coordinates held and
+nothing needed rediscovering — and the one fact that travelled as prose cost
+a full review round.
+
+So the orchestrator→implementer handoff follows the rule `Inherited axes`
+already states for rounds: **coordinates rather than prose.** The exact line
+the prose to extend sits on, the grep that returned nothing, the test files
+whose assertions constrain the wording, the runner incantation. What round
+N+1 inherits from round N, round 1 — and the implementer before it —
+inherits from the orchestrator.
+
+Three requirements, each bought by a measured failure:
+
+- **A fact carries the coordinate that makes it falsifiable, or it is
+  marked as an assertion nobody has opened.** The labels are the three
+  `verify` puts on completion claims — **executed / read / unverified** —
+  and they work unchanged on a handoff. The failure that bought this: **an
+  aggregate is not a coordinate.** A spawn prompt carried a count as if it
+  were checkable; the number could be counted, the claim it stood for could
+  not, and it reached five documents before a review round found it false.
+- **A coordinate reaches the rule, not its neighbourhood.** A line four
+  lines below the rule looks like an answer, so it stops the search; two
+  rounds were spent widening one.
+- **A claim that flips on measurement point says where to measure**, beside
+  the coordinate. Two findings in one work item flipped their answer on the
+  measurement point alone — whole file against partial patch, above against
+  below a particular line — and a passing measurement taken at the wrong
+  point proves nothing about the claim.
+
+### While the implementer runs
+
+The orchestrator cannot see a running session. Twice, on two consecutive
+work items, "is 40 minutes normal" was answered by reconstructing `git log`
+by hand. The readout already exists and is written during the run, by the
+party being watched, at no extra cost: `plan.md`'s Phases table has a
+**Status column** the implementer fills with the commit that closed each
+phase (`templates/sdd-plan.md`). Open it rather than asking; the stall
+signal is **time since it last advanced** — wall clock cannot separate a
+40-minute run that is finishing from a 12-minute one that is wedged, and
+this can.
+
+After a run, `skills/verify/scripts/session_cost.py` reads the transcript
+(subagent segments included, under `<session-id>/subagents/`) and separates
+command time, model time, batching and repeats, because each has a
+different fix. It sat unreferenced through a full day of measurements
+nobody took; this paragraph is what points at it.
+
 ## Conformance
 
 A tool claiming to support this protocol:
@@ -294,7 +347,7 @@ A tool claiming to support this protocol:
 
 ## Status
 
-Draft 0.5, extracted from the convention this plugin's `code-review` and
+Draft 0.6, extracted from the convention this plugin's `code-review` and
 `implement` skills already operate (they are its reference implementation).
 Field names and layout may change; the three conformance rules are stable in
 shape. 0.2 changed the third from *delete after draining* to *close and keep*.
@@ -303,7 +356,7 @@ which is what made rule 1 satisfiable at all, and added the `Pass` field so
 that "was it reviewed" and "did it pass" stop being the same question. 0.4
 gives the records their own `rounds/` subdirectory and requires a conforming
 tool to name a record left at the old location rather than passing over it.
-0.5 adds `Fixes checked by`, because 0.3 split "was it reviewed" from "did it
+Draft 0.5 adds `Fixes checked by`, because 0.3 split "was it reviewed" from "did it
 pass" and left a third question inside the second: who opened the fixes that
 made it pass. No conformance rule is added for it: whether an unread set of
 fixes fails a change request or only prints is a project's call, so the
@@ -313,6 +366,13 @@ being present and honest. The reference implementation now fails, for work
 items begun after it adopted the rule. 0.5 also adds `Needs a fix`, because a
 run that ends when a round opens nothing needing a fix turns on an answer the
 record had no room for.
+
+0.6 adds the handoff before round 1: the coordinates-carry rule applied to
+the step that starts the work, the three labels a handoff fact arrives
+under, and the progress channel an orchestrator reads while the implementer
+runs. No conformance rule is added: a spawn prompt is not a file this
+protocol can check, so the requirement stays at the level of what a
+conforming handoff carries.
 
 0.3 also states the path as this implementation's choice rather than as the
 protocol. Draft 0.2 claimed to be tool-agnostic while naming a directory

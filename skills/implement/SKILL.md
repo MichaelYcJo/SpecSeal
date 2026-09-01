@@ -150,6 +150,14 @@ it or dropping it.
 - Verify clause numbers a ticket cites. Tickets are written before (or drift
   from) the documents they cite; a missing clause means writing it is part of
   this work, with a freshly allocated number.
+- A spawn prompt's facts arrive under `docs/review-handoff-protocol.md`'s
+  handoff before round 1: coordinates rather than prose, each fact labelled
+  executed, read, or unverified. A fact with no coordinate and no label is an
+  assertion nobody has opened — open it before building on it, however
+  confident the prompt that carried it. An aggregate (a count, a total) is
+  not a coordinate: the number can be checked while the claim it stands for
+  cannot, and one such fact reached five documents before a review round
+  found it false.
 
 **Collect what needs a person before the first edit, and ask it in one batch.**
 Read the spec chain looking for the questions as well as the answers, and put
