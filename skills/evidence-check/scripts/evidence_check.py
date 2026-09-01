@@ -56,10 +56,15 @@ import sys
 # a markdown table line does not split the table it lives in.
 ANCHOR_RE = re.compile(
     r"(?P<path>[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?)"
-    r"#(?P<anchor>\"(?:[^\"\n]|\\\")+\"|[A-Za-z_][A-Za-z0-9_.]*)"
+    r"#(?P<locator>\"(?:[^\"\n]|\\\")+\"|[A-Za-z_][A-Za-z0-9_.]*)"
+    r"(?:>(?P<claim>\"(?:[^\"\n]|\\\")+\"))?"
     r"@(?P<hash>[0-9a-f]{6,12})"
 )
 HASH_LEN = 8
+# A claim region never runs longer than this. A claim needing more lines than
+# this is a claim about the whole function, and the row should drop the claim
+# anchor and locate alone rather than pretend to a narrower subject.
+CLAIM_CAP = 12
 
 
 def normalise(lines):
@@ -153,15 +158,200 @@ def unescape(anchor):
     return anchor.replace("\\|", "|").replace('\\"', '"')
 
 
-def resolve(path, anchor, text):
-    """[(start, end)] for the anchor — empty for none, several for ambiguous."""
+HEADING_SEP = " / "
+
+
+def heading_path(lines, parts):
+    """[(start, end)] for a `## A / ### B` heading path in a markdown file.
+
+    Each part narrows inside the section the previous one opened, so a heading
+    that repeats across a document is disambiguated by its parent rather than
+    by a line number. Zero matches or several is the caller's BROKEN.
+    """
+    regions = [(1, len(lines))]
+    for part in parts:
+        want = " ".join(part.split())
+        found = []
+        for lo, hi in regions:
+            for i in range(lo - 1, hi):
+                if " ".join(lines[i].split()) != want:
+                    continue
+                level = heading_level(lines[i])
+                if level is None:
+                    continue
+                j = i + 1
+                while j < hi:
+                    k = heading_level(lines[j])
+                    if k is not None and k <= level:
+                        break
+                    j += 1
+                found.append((i + 1, j))
+        regions = found
+        if not regions:
+            return []
+    return regions
+
+
+def resolve(path, locator, text):
+    """[(start, end)] for the LOCATOR — empty for none, several for ambiguous.
+
+    **A coordinate's job is to put a reader in the right logic, not to pin a
+    line.** So the address is the enclosing unit: the function for code, the
+    heading for a document. That unit is stable against every edit that does
+    not change what the unit IS, which is the whole property being bought.
+
+    **An anchor degrades to DRIFTED, never to BROKEN.** The two cost different
+    things. BROKEN says *I cannot find it, go edit the ledger*, which is the
+    bookkeeping this design exists to remove; DRIFTED says *it changed, go
+    re-read the claim*, which is the work the ledger exists for. Every case
+    below is decided by that, and so are the ones nobody has thought of yet.
+
+    It is why a markdown locator is a heading path rather than a sentence. A
+    sentence anchor breaks on any rewording — eleven rows here pointed at one
+    — while a heading is the document's own structure and survives its prose
+    being rewritten. The hash still reports the prose changing, so the row
+    still says re-read this; it just stops saying go fix the ledger.
+    """
     lines = text.splitlines()
     markdown = path.endswith(".md")
-    if anchor.startswith('"'):
-        return text_regions(lines, unescape(anchor[1:-1]), markdown)
+    if locator.startswith('"'):
+        body = unescape(locator[1:-1])
+        if markdown:
+            parts = [p for p in body.split(HEADING_SEP) if p.strip()]
+            if parts and heading_level(parts[0].strip()) is not None:
+                return heading_path(lines, parts)
+        return text_regions(lines, body, markdown)
     if path.endswith(".py"):
-        return py_spans(text).get(anchor, [])
-    return text_regions(lines, anchor, markdown)
+        found = py_spans(text).get(locator, [])
+        if found:
+            return found
+    return generic_units(lines, locator)
+
+
+def generic_units(lines, name):
+    """[(start, end)] for `name`'s declaration block, without any parser.
+
+    The `ast` path exists for `.py` only, and a project adopting this skill is
+    mostly code that is not Python. Falling back to text anchors there would
+    hand those projects the brittle version of this design, so the major level
+    has a rule that needs no parser and no dependency.
+
+    A declaration is the name followed by `(`, `{` or `:`. The block runs to
+    the next line at the same or lower indentation, which closes a suite in an
+    indentation language and lands on the closing brace in a brace language,
+    because that brace sits at the declaration's own indent.
+
+    It is coarser than a parser and that is the trade. Where it cannot resolve
+    a unit the answer is BROKEN and a person looks — loud and honest beats a
+    per-language parser nobody maintains.
+    """
+    out = []
+    opener = re.compile(r"(?:^|[^\w.])" + re.escape(name) + r"\s*[({:]")
+    for i, line in enumerate(lines):
+        if not opener.search(line):
+            continue
+        indent = len(line) - len(line.lstrip())
+        j = i + 1
+        while j < len(lines):
+            nxt = lines[j]
+            if nxt.strip() and (len(nxt) - len(nxt.lstrip())) <= indent:
+                break
+            j += 1
+        while j > i + 1 and not lines[j - 1].strip():
+            j -= 1
+        out.append((i + 1, j))
+    return out
+
+
+def name_statements(text, region, name):
+    """[(start, end)] for the innermost statements in `region` referencing `name`.
+
+    The minor level is resolved by what a statement REFERENCES — the call it
+    makes, the name it assigns, the exception it handles — rather than by the
+    characters of its line. Renaming a local on that line then changes nothing;
+    renaming the thing it calls does, and widening to the unit with a DRIFTED
+    is the right answer there too.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    lo, hi = region
+    hits = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.stmt):
+            continue
+        if not (lo <= node.lineno and (node.end_lineno or node.lineno) <= hi):
+            continue
+        if any(
+            (isinstance(x, ast.Name) and x.id == name)
+            or (isinstance(x, ast.Attribute) and x.attr == name)
+            or (
+                isinstance(x, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                and x.name == name
+            )
+            for x in ast.walk(node)
+        ):
+            hits.append(node)
+    inner = [
+        n
+        for n in hits
+        if not any(
+            m is not n
+            and n.lineno <= m.lineno
+            and (m.end_lineno or m.lineno) <= (n.end_lineno or n.lineno)
+            for m in hits
+        )
+    ]
+    return sorted({(n.lineno, n.end_lineno or n.lineno) for n in inner})
+
+
+def literal_statements(lines, region, literal):
+    """[(start, end)] for lines in `region` containing `literal` — last resort.
+
+    For a claim about a bare `return`, a constant or a literal, where there is
+    no referenced name to identify the place by.
+    """
+    want = " ".join(literal.split())
+    lo, hi = region
+    hits = [
+        n for n in range(lo, hi + 1) if want and want in " ".join(lines[n - 1].split())
+    ]
+    if len(hits) != 1:
+        return [(n, n) for n in hits]
+    at = hits[0]
+    indent = len(lines[at - 1]) - len(lines[at - 1].lstrip())
+    last = at
+    while last < hi and last - at + 1 < CLAIM_CAP:
+        nxt = lines[last]
+        if nxt.strip() and (len(nxt) - len(nxt.lstrip())) <= indent:
+            break
+        last += 1
+    while last > at and not lines[last - 1].strip():
+        last -= 1
+    return [(at, last)]
+
+
+def minor_region(path, text, region, minor):
+    """[(start, end)] inside `region`, or [] when the minor anchor is stale.
+
+    **An empty answer is not BROKEN.** The minor level narrows what is hashed;
+    it never decides whether the row resolves. A minor anchor that stopped
+    matching means that place changed, and *it changed, go re-read* is the
+    honest report — so the caller widens to the major unit and says DRIFTED.
+    Reporting BROKEN here would send somebody to edit the ledger, which is the
+    bookkeeping this design exists to remove.
+
+    Ambiguity widens for the same reason: several matches is not a place.
+    """
+    lines = text.splitlines()
+    if minor.startswith('"'):
+        found = literal_statements(lines, region, unescape(minor[1:-1]))
+    elif path.endswith(".py"):
+        found = name_statements(text, region, minor)
+    else:
+        found = literal_statements(lines, region, minor)
+    return found if len(found) == 1 else []
 
 
 def read(path):
@@ -177,8 +367,9 @@ def check_ledger(ledger, root, maps, default_repo=None):
     findings = []
     seen = set()
     for m in ANCHOR_RE.finditer(text):
-        raw_path, anchor, want = m.group("path"), m.group("anchor"), m.group("hash")
-        coord = f"{raw_path}#{anchor}"
+        raw_path, want = m.group("path"), m.group("hash")
+        locator, claim = m.group("locator"), m.group("claim")
+        coord = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
         if coord in seen:
             continue
         seen.add(coord)
@@ -215,20 +406,37 @@ def check_ledger(ledger, root, maps, default_repo=None):
                 findings.append(("BROKEN", coord, "file not found"))
             continue
 
-        places = resolve(rel, anchor, body)
+        places = resolve(rel, locator, body)
         if not places:
-            findings.append(("BROKEN", coord, "anchor not found"))
+            findings.append(("BROKEN", coord, "locator not found"))
             continue
         if len(places) > 1:
             # Loudly, and never a measurement: with two places to look, an OK
             # would be a claim about whichever one the code happened to pick.
             at = ", ".join(f"{a}-{b}" for a, b in places)
             findings.append(
-                ("BROKEN", coord, f"anchor is ambiguous — {len(places)} places: {at}")
+                ("BROKEN", coord, f"locator is ambiguous — {len(places)} places: {at}")
             )
             continue
 
-        start, end = places[0]
+        unit = places[0]
+        if claim:
+            inside = minor_region(rel, body, unit, claim)
+            if not inside:
+                # WIDEN, never break. The minor anchor's place changed, which
+                # is something to re-read rather than a ledger to edit.
+                findings.append(
+                    (
+                        "DRIFTED",
+                        coord,
+                        f"the anchored statement is gone from {locator} "
+                        f"({unit[0]}-{unit[1]}) — re-verify",
+                    )
+                )
+                continue
+            unit = inside[0]
+
+        start, end = unit
         got = content_hash(body.splitlines()[start - 1 : end])
         if got != want:
             findings.append(
@@ -251,7 +459,8 @@ def reverify(ledgers, root, maps, default_repo=None):
         text = read(ledger)
         out, at = [], 0
         for m in ANCHOR_RE.finditer(text):
-            raw_path, anchor = m.group("path"), m.group("anchor")
+            raw_path = m.group("path")
+            locator, claim = m.group("locator"), m.group("claim")
             repo, rel = root, raw_path
             for name, mapped in maps.items():
                 if raw_path == name or raw_path.startswith(name + "/"):
@@ -260,9 +469,14 @@ def reverify(ledgers, root, maps, default_repo=None):
             body = read(os.path.join(repo, rel))
             if body is None:
                 continue
-            places = resolve(rel, anchor, body)
+            places = resolve(rel, locator, body)
             if len(places) != 1:
                 continue
+            if claim:
+                inside = minor_region(rel, body, places[0], claim)
+                if not inside:
+                    continue
+                places = inside
             start, end = places[0]
             got = content_hash(body.splitlines()[start - 1 : end])
             if got == m.group("hash"):
@@ -271,7 +485,8 @@ def reverify(ledgers, root, maps, default_repo=None):
             out.append(got)
             at = m.end("hash")
             changed += 1
-            print(f"  {raw_path}#{anchor}  {m.group('hash')} -> {got}")
+            shown = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
+            print(f"  {shown}  {m.group('hash')} -> {got}")
         if out:
             out.append(text[at:])
             with open(ledger, "w", encoding="utf-8") as f:
