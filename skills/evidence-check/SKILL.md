@@ -94,6 +94,18 @@ baseline is the move itself. Carrying the stamp is what makes a migration cost
 nothing; stripping it collapses every window it touched at once. (Renaming a
 whole ledger file is different — git detects that and follows it.)
 
+**A stamp is how a re-verified row clears drift.** Nothing else can: the
+derivation walks past an edit to the row, on purpose, so re-reading the code
+and re-wording the row leaves the baseline exactly where it was and the row
+reads DRIFTED forever. Writing `<date> <sha>` into the Checked column is the
+one assertion a person makes here, and it wins over the derivation.
+
+It is safe to name a commit the branch made, which the old rule forbade. After
+the squash that stamp resolves for nobody, so it is ignored — and the row falls
+back to its first appearance in the squashed history, which is the squash
+commit and is current. An orphaned stamp used to mean a silent fall back to a
+stale header; now it means a fall back to the right answer.
+
 ### One fragment per work item
 
 A work item's rows go in `.specseal/map/<work-item-id>.md`, which the default

@@ -46,6 +46,19 @@ That defect was latent before this work item and is worse after it. With every
 row stamped, the stamp usually won; with rows writing no stamp, prose is all
 there is.
 
+**A gap the derivation opened, found the same way.** With the baseline derived
+from first appearance, a row that drifts cannot be cleared by re-reading the
+code: the walk goes past an edit to the row on purpose, so re-wording it leaves
+the baseline where it was and the row reads DRIFTED for good. Four rows of this
+work item's own fragment reached that state when the design changed under them.
+
+The answer restores a role for the stamp, and a better one than it had. A
+stamp is now what a re-verified row writes, it wins over the derivation, and it
+may name a commit the branch made — the old rule against that existed because
+an orphaned stamp fell back to the ledger header, a baseline from before the
+work. The fallback is the row's own first appearance now, which after a squash
+is the squash commit. An orphaned stamp costs nothing.
+
 ## Not verified
 
 | Item | Who must answer |

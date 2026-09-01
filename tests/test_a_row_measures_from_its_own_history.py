@@ -556,24 +556,131 @@ def test_the_existing_ledger_says_what_it_now_is():
         assert stale not in text, f"the header still states the old rule: {stale!r}"
 
 
-def test_the_fragment_this_work_item_wrote_carries_no_header_and_no_stamp():
+def test_a_re_verified_row_can_clear_its_drift(repo):
+    """The escape hatch the derivation needs, and the reason a stamp survives.
+
+    A row whose cited code changed after the row's line first appeared reads
+    DRIFTED, and re-reading the code cannot clear it: `git log -L` walks past
+    an edit to the row on purpose, so re-wording it leaves the baseline exactly
+    where it was. Without a way to say "I read this at commit X", such a row is
+    DRIFTED for good — which is the state this work item's own fragment
+    reached, four rows at once.
+    """
+    fragment(repo, "| POL-1 | `src/service.py:2` | | | first wording |\n")
+    (repo / "src" / "service.py").write_text("CHANGED\n" * 8)
+    git(repo, "commit", "-qam", "rewrite the file")
+    at = head(repo)
+
+    assert "DRIFTED" in run(["."], str(repo)).stdout
+
+    path = repo / ".specseal" / "map" / "core.md"
+    path.write_text(path.read_text().replace("| first wording |", "| re-read |"))
+    git(repo, "commit", "-qam", "re-word the row after re-reading")
+    assert "DRIFTED" in run(["."], str(repo)).stdout, (
+        "re-wording the row cleared the drift, so the derivation followed the "
+        "edit — this case and the bulk-rewrite one cannot both be true"
+    )
+
+    path.write_text(path.read_text().replace("| re-read |", f"| 2026-09-01 `{at}` |"))
+    git(repo, "commit", "-qam", "record the commit it was re-read at")
+    r = run(["."], str(repo))
+    assert "DRIFTED" not in r.stdout, (
+        f"a stamp cannot clear drift, so a drifted row stays drifted:\n{r.stdout}"
+    )
+    assert r.returncode == 0, r.stdout
+
+
+def test_an_orphaned_stamp_falls_back_to_the_right_answer(repo):
+    """Which is why a stamp may name a commit the branch made.
+
+    The old rule forbade it because an orphaned stamp fell back to the ledger
+    HEADER — a baseline from before the work, silently, in every clone but the
+    one that wrote it. The fallback is the row's own first appearance now, and
+    after a squash that is the squash commit. The stamp becoming unresolvable
+    costs nothing.
+    """
+    git(repo, "switch", "-q", "-c", "feature")
+    (repo / "src" / "service.py").write_text("".join(f"new{i}\n" for i in range(1, 9)))
+    git(repo, "commit", "-qam", "change the code")
+    at = head(repo)
+    fragment(repo, f"| POL-1 | `src/service.py:2` | 2026-09-01 `{at}` |\n")
+
+    git(repo, "switch", "-q", "main")
+    git(repo, "merge", "-q", "--squash", "feature")
+    git(repo, "commit", "-qm", "squashed feature")
+    git(repo, "branch", "-qD", "feature")
+    git(repo, "reflog", "expire", "--expire=now", "--all")
+    git(repo, "gc", "--prune=now", "-q", check=False)
+
+    assert (
+        git(repo, "cat-file", "-e", f"{at}^{{commit}}", check=False).returncode != 0
+    ), "the fixture did not actually destroy the stamped commit"
+
+    r = run(["."], str(repo))
+    assert r.returncode == 0, r.stdout
+    assert "1 ok" in r.stdout, r.stdout
+
+
+FRAGMENT = ("1788229400-every-branch-appends-to-the-same-two-files.md",)
+
+
+def test_the_fragment_this_work_item_wrote_carries_no_baseline_header():
     """Dogfood. The convention is worth what the repository that wrote it
     actually does, and a fragment that quietly carried a baseline header would
-    make every case above vacuous here."""
-    frag = os.path.join(
-        ROOT,
-        ".specseal",
-        "map",
-        "1788229400-every-branch-appends-to-the-same-two-files.md",
-    )
+    make every case above vacuous here.
+
+    Rows in it DO carry stamps, and that is not a lapse: four of them drifted
+    when the design changed under them, and a stamp is the only thing that
+    clears a drifted row. The case below is what holds those honest.
+    """
+    frag = os.path.join(ROOT, ".specseal", "map", *FRAGMENT)
     assert os.path.isfile(frag), "this work item recorded no evidence at all"
-    text = read(
-        ".specseal", "map", "1788229400-every-branch-appends-to-the-same-two-files.md"
-    )
+    text = read(".specseal", "map", *FRAGMENT)
     assert "Baseline commit" not in text, "a fragment carries no baseline header"
-    for line in text.splitlines():
-        if not line.strip().startswith("|"):
-            continue
-        assert not re.search(r"\b\d{4}-\d{2}-\d{2}\s+`?[0-9a-f]{7,40}`?", line), (
-            f"a row in the fragment still carries a stamped SHA: {line.strip()[:80]}"
-        )
+    assert "## Baseline" not in text
+
+
+def test_no_stamp_in_a_fragment_resolves_only_in_the_clone_that_wrote_it():
+    """`tests/test_ledger_stamps_resolve.py` holds this for `.specseal/map.md`
+    and reads no fragment, so this is the same property one directory over.
+
+    It is deliberately WEAKER in one direction. That file requires every stamp
+    to exist, because an unresolvable one there fell back to the ledger header
+    — a baseline from before the work, silently. A fragment has no header, so
+    an unresolvable stamp falls back to the row's own first appearance, which
+    is right; the squash that destroys a stamp is therefore allowed here.
+
+    What is never allowed is the middle case: a stamp that RESOLVES and that no
+    ref reaches. That object lives in the worktree that wrote it and nowhere
+    else, so the row is measured one way locally and another way in CI, with
+    nothing printed either side.
+    """
+    import glob
+
+    stamps = []
+    for path in sorted(glob.glob(os.path.join(ROOT, ".specseal", "map", "*.md"))):
+        with open(path, encoding="utf-8") as f:
+            for n, line in enumerate(f.read().splitlines(), 1):
+                if not line.strip().startswith("|"):
+                    continue
+                for m in re.finditer(
+                    r"\b\d{4}-\d{2}-\d{2}\s+`?([0-9a-f]{7,40})`?", line
+                ):
+                    stamps.append((os.path.relpath(path, ROOT), n, m.group(1)))
+
+    def git_root(*args):
+        return subprocess.run(
+            ["git", "-C", ROOT, *args], capture_output=True, encoding="utf-8"
+        ).returncode
+
+    local_only = [
+        s
+        for s in stamps
+        if git_root("cat-file", "-e", f"{s[2]}^{{commit}}") == 0
+        and git_root("merge-base", "--is-ancestor", s[2], "HEAD") != 0
+    ]
+    assert not local_only, (
+        f"stamps that resolve but no ref reaches: {local_only}. The object "
+        "survives in the worktree that wrote it and nowhere else, so the row "
+        "measures from one commit locally and another in CI"
+    )

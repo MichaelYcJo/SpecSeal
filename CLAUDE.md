@@ -98,6 +98,15 @@ row still wins. **If rows are ever moved into a fragment, their stamps move
 with them verbatim** — `git log -L` does not follow a row out of a file that
 stays, so a stripped stamp would make the move itself the baseline.
 
+**A row that has drifted and been re-read writes a stamp**, because nothing
+else clears it: the derivation walks past an edit to the row on purpose, so
+re-wording it leaves the baseline where it was. Name whatever commit you
+actually read it at, this branch's own included — after the squash that stamp
+resolves for nobody, is ignored, and the row falls back to its first appearance
+in the squashed history, which is current. The old rule against stamping a
+branch commit was about a fall back to a stale header, and there is no longer
+one to fall back to.
+
 ## Repo rule — a change writes fragments, never the shared file
 
 Two files used to take an append from every branch, and both cost a conflict

@@ -46,6 +46,18 @@ written in the row wins over anything derived, which is what makes the move
 cost nothing. A derived baseline is for rows born where they live. Renaming a
 whole ledger file is a different case: git detects that and follows it.
 
+**A stamp is how a re-verified row clears drift.** Nothing else can: the
+derivation walks past an edit to the row, on purpose, so re-reading the code
+and re-wording the row leaves the baseline exactly where it was and the row
+reads DRIFTED forever. Writing `<date> <sha>` into the Checked column is the
+one assertion a person makes here, and it wins over the derivation.
+
+It is safe to name a commit the branch made, which the old rule forbade. After
+the squash that stamp resolves for nobody, so it is ignored — and the row falls
+back to its first appearance in the squashed history, which is the squash
+commit and is current. An orphaned stamp used to mean a silent fall back to a
+stale header; now it means a fall back to the right answer.
+
 **A fragment carries no Baseline section at all.** It has no need of one —
 every row in it measures from its own line's history — and the two cases the
 header still answers for (a ledger line not committed yet, a coordinate that
