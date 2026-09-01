@@ -590,6 +590,34 @@ later, and the last record has none. What that costs is a repository updating
 the plugin: every record in a work item whose declaration the pull request
 touches needs the row, not just the newest.
 
+##### The fix surface — `Contract changes` and `New units`
+
+Two more rows, read on every record the same way `Fixes checked by` is, and
+for the same reason: every round has its own fixes. Issue #57 measured ten
+regressions each traced to the fix that opened it, and the largest class —
+four of ten — was a fix that changed a unit's contract while not every place
+that contract reaches was revisited. The diff names the changed signature and
+`grep` names the reach, which is why this can be a gate rather than a
+question.
+
+| The row | The check |
+|---|---|
+| `Contract changes` or `New units` absent, work item begun on or after the cutoff | **fails**, naming the row and what it buys |
+| either row absent, work item begun before the cutoff (or with no timestamp prefix) | prints — the same grandfathering as above, keyed to `chain_check.py`'s `SURFACE_FROM`, whose value is the id of the work item that added the rows |
+| `none`, with or without a reason after it | passes — `none — the fixes are not yet written` is the honest value while a round runs |
+| an empty cell | **fails** on any record — a row that says nothing answers nothing, and an empty cell is always the author's to fill |
+| a `Contract changes` entry (`;`-separated) carrying `unit → call sites` (`→` or `->`) | passes |
+| an entry with no arrow, or an empty half | **fails** on any record, naming the entry — a unit without its reach restates the diff and leaves the measured failure's unchecked half unchecked |
+
+Only the ABSENT row is grandfathered. A merged record has no honest repair
+for a missing row — writing reach rows for fixes nobody re-read fabricates a
+review — where a malformed row's repair is formatting, which is always the
+author's. The rows are filled when the fixes land, by the session that has
+the fix diff open, so their prompt budget is zero. What `New units` buys sits
+with the verifying round: what it names is a finding surface — *is this
+correct* — rather than a verification surface, because a unit the fixes
+created has been reviewed by nobody.
+
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a
 detached HEAD, two declarations naming one branch, a file that will not parse

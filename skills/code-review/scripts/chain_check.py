@@ -140,6 +140,36 @@ The draft excuse does NOT reach this row. `Pass` is excused in a draft because
 a review still running has not reached its verdict; a record naming a checker
 it does not have is wrong at every stage.
 
+THE FIX SURFACE, two rows read the same way. Issue #57 traced ten regressions
+on one work item to the fixes that opened them, and the largest class -- four
+of ten -- was a fix that changed a unit's contract while not every place that
+contract reaches was revisited. The diff names the changed signature; `grep`
+names the reach; a person reading the diff missed all four. So the record
+carries the reach as a row, and a second row for the units the fixes CREATED,
+which are the one surface the verifying round's own rule (*answers, not new
+findings*) would otherwise skip:
+
+  Contract changes     every unit whose signature, return arity, return type,
+                       or set of returnable values changed in this round's
+                       fixes, each with the call sites it reaches --
+                       `unit → site, site`, units separated by `;`. A unit
+                       listed without its reach is refused: the diff already
+                       names the signature, and the reach is the half it does
+                       not show
+  New units            the top-level definitions and constants the fixes
+                       added. The verifying round treats what this row names
+                       as a finding surface -- *is this correct* -- rather
+                       than a verification surface
+
+Both accept `none`, with or without a reason after it, because the honest
+mid-run value is `none — the fixes are not yet written` and the honest
+terminal value of many rounds is plain `none`. A record whose work item began
+before `SURFACE_FROM` prints instead of failing when a row is absent -- the
+grandfathering shape `Fixes checked by` already uses, for the same reason: a
+merged record has no honest repair, and writing reach rows for fixes nobody
+re-read would fabricate a review. A row that is PRESENT and malformed fails
+on any record, because formatting is always the author's to fix.
+
 Read on EVERY record, where `Pass` is read on the last one alone. The two
 scopes differ for a reason rather than by oversight: `Pass` is a verdict on
 the whole review and the last round's is the one that speaks for it, while
@@ -312,6 +342,29 @@ CHECKER_RE = re.compile(r"^round-\d+(?:\.md)?$")
 # dash goes the same way so the pair reads as a pair. 0x2014 is EM DASH and
 # 0x2013 is EN DASH.
 SEPARATORS = " " + chr(0x2014) + chr(0x2013) + "-:,"
+# The fix surface (issue #57): what this round's fixes changed, with the call
+# sites each change reaches, and what they created. See the module docstring.
+CONTRACT = "Contract changes"
+NEW_UNITS = "New units"
+# `none` in either row, with or without a reason after a separator -- matched
+# as a prefix the way `verdict_of` matches its vocabulary, so `none — the
+# fixes are not yet written` is an answer and `nonempty` is not.
+NONE_WORD = "none"
+# A unit is separated from its reach by an arrow, either the typographic one
+# every document shows or the ASCII one somebody types when it is not on the
+# keyboard. `;` separates units, because a reach list needs its commas.
+ARROWS = (chr(0x2192), "->")
+# Where the two rows above become required, as the unix second in a work
+# item's directory name -- the id of the work item that added them, so the
+# first item held to the rule is the one that wrote it. The same shape and
+# the same reasoning as `STRICT_FROM` above: a record written before the rule
+# is usually merged and has no honest repair -- writing reach rows for fixes
+# nobody re-read fabricates a review -- so those print instead of failing,
+# and a check whose first production act is red on history nobody can fix is
+# a check people learn to skip. What it costs is the same trade taken there:
+# an old work item reopened later still writes records under its original id
+# and stays excused.
+SURFACE_FROM = 1788272986
 # `templates/sdd-round.md:12` and `docs/review-handoff-protocol.md:84` both say
 # the Target SHA cell may name BOTH commits when HEAD moved mid-review. The
 # whole cell used to be handed to `merge-base` as one ref, so the documented
@@ -1247,6 +1300,117 @@ def checked_by(reader, routing, root, rel, siblings, last=False):
     ]
 
 
+def says_none(value):
+    """True when a fix-surface cell answers `none`, reason or no reason.
+
+    The reason is allowed for the same cause a tail is allowed after a
+    verdict word: `none — the fixes are not yet written` is the honest
+    mid-run value, and refusing it would refuse the truth. The boundary is a
+    separator, so `nonempty` is not a `none` — the tolerant read this file
+    refuses everywhere else.
+    """
+    s = EMPHASIS.sub("", value).lower().strip().rstrip(".").strip()
+    if s == NONE_WORD:
+        return True
+    if not s.startswith(NONE_WORD):
+        return False
+    rest = s[len(NONE_WORD) :]
+    return bool(rest) and rest[0] in SEPARATORS
+
+
+def fix_surface(reader, root, rel):
+    """(errors, notices) for one record's `Contract changes` and `New units`.
+
+    Read on EVERY record, like `checked_by` and for the same reason: every
+    round has its own fixes. The grandfathering is `item_began` against
+    `SURFACE_FROM`, and it reaches only the ABSENT row — a row that is
+    present and malformed fails on any record, because an empty cell or a
+    unit with no reach is always the author's to fix, where a review nobody
+    ran is not.
+
+    An unreadable record returns nothing: `checked_by` already reports that
+    state, and a second error naming a different cause would name a cause
+    that is not the cause.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return [], []
+    rows = table_rows(reader, reader.readable(text))
+    began = item_began(rel)
+    excused = began is None or began < SURFACE_FROM
+    errors, notices = [], []
+    for label, bought in (
+        (
+            CONTRACT,
+            "the largest regression class measured in #57 — a fix changed "
+            "a unit's contract, and not every place that contract reaches "
+            "was revisited. The diff names the changed signature; this row "
+            "is where the reach is named. Write each changed unit with the "
+            "call sites it reaches (`unit → site, site`, units separated "
+            "by `;`), or `none`",
+        ),
+        (
+            NEW_UNITS,
+            "a unit the fixes created has been reviewed by nobody, and the "
+            "verifying round treats what this row names as a finding "
+            "surface — is this correct — rather than a verification "
+            "surface. Write the top-level definitions and constants this "
+            "round's fixes added, or `none`",
+        ),
+    ):
+        cell = field(rows, label)
+        if cell is None:
+            message = f"no `| {label} | … |` row: {bought}"
+            if excused:
+                notices.append(
+                    (
+                        rel,
+                        0,
+                        message + ". This work item began before the rule "
+                        "landed, so this prints instead of failing — the "
+                        "grandfathering `Fixes checked by` already uses",
+                    )
+                )
+            else:
+                errors.append((rel, 0, message))
+            continue
+        value = reader.visible(cell).strip()
+        if not value:
+            errors.append(
+                (
+                    rel,
+                    0,
+                    f"`{label}` is empty — a row that says nothing answers "
+                    "nothing. Write the units, or `none`",
+                )
+            )
+            continue
+        if says_none(value):
+            continue
+        if label != CONTRACT:
+            continue
+        for entry in value.split(";"):
+            entry = entry.strip()
+            if not entry:
+                continue
+            arrow = next((a for a in ARROWS if a in entry), None)
+            unit, _, reach = entry.partition(arrow) if arrow else (entry, "", "")
+            if not arrow or not unit.strip() or not reach.strip():
+                errors.append(
+                    (
+                        rel,
+                        0,
+                        f"`{CONTRACT}` lists `{entry}` without the call "
+                        "sites it reaches. The diff already names the "
+                        "changed signature; the reach is the half it does "
+                        "not show, and a unit listed without it is the "
+                        "unchecked half of the measured failure. Write "
+                        "`unit → call site, call site`",
+                    )
+                )
+    return errors, notices
+
+
 def check_round(reader, root, rel, strict=True, refs=None):
     """(errors,) for one round record — the reachability and the Pass claim.
 
@@ -1554,6 +1718,9 @@ def main(argv=None):
             )
             errors.extend(who_errors)
             notices.extend(who_notices)
+            surface_errors, surface_notices = fix_surface(reader, root, record)
+            errors.extend(surface_errors)
+            notices.extend(surface_notices)
 
     for rel, line, message in notices:
         print(reader.annotate("notice", rel, line, message))
