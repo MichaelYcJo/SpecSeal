@@ -96,6 +96,19 @@ Batch probe cases into one file and run once. Never probe what reading answers
 claims without running anything. Don't touch `test_tmp_*` files another
 session created.
 
+**A fixture chain is `&&`, never `|`.** A pipe between two commands does not
+sequence them, it feeds the first one's output to the second, and a chain
+built that way can sit waiting on stdin with nothing ever arriving. One
+review round lost **68 minutes to a single such call** — `mkdir … | cd t3 &&
+git init …` — while every other call it made totalled thirty-five seconds. The
+hang exceeded the tool's own maximum timeout, so nothing cut it off, and the
+parent's meter showed a healthy segment the whole time because a child's
+command time is invisible to it.
+
+So: build fixtures with `&&`, and give any call that could run long a timeout
+you chose rather than one you assumed. A probe that hangs costs more than
+every probe that round put together.
+
 ## Cross-session records — `specs/<work-item-id>/`
 
 **Before starting**, read this directory if it exists. Axes a previous round

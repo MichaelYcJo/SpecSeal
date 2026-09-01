@@ -56,6 +56,51 @@ when it arrives.
 
 ## House rules
 
+- **A change writes a fragment, never a shared registry.** Its changelog
+  entry goes in `specs/<work-item-id>/changelog.md` and its evidence rows in
+  `.specseal/map/<work-item-id>.md`. A feature branch **appends** to neither
+  `CHANGELOG.md` nor `.specseal/map.md`. Three branches running in parallel
+  shared exactly one file between them and it was the changelog; the conflict
+  is three lines, and it arrives after the broad gate has run, where nothing
+  may be edited. The changelog fragments are gathered at the release
+  (`docs/branch-and-release.md`); the ledger fragments never are.
+
+  **Changing cited code is the case the rule has to answer, and it is not an
+  append.** Change what an existing `.specseal/map.md` row cites and the
+  checker reports DRIFTED, which needs that row touched in the file this rule
+  covers. Two answers, and which one applies is about the claim rather than
+  the code:
+
+  - the claim still holds and you have re-read it — run
+    `evidence-check --reverify .`, which recomputes the hash and names what it
+    changed;
+  - the claim went with the code — **remove the row and write the new claim
+    into your own fragment.** A row is not re-pointed at whatever now sits
+    nearest to where it used to look.
+
+  So `.specseal/map.md` empties into fragments as work items retire the claims
+  its rows carry, which is the migration these fragments exist to enable.
+
+  **Renamed a cited symbol or file?** `bin/evidence-check --reverify .`
+  re-anchors every row whose content provably moved intact and prints BROKEN
+  with the destination for anything it cannot prove. The command is the rule;
+  remembering it is not — forgetting costs one line at the very next commit,
+  printed by the post-commit advisory in the terminal where the rename just
+  happened, and CI prints the same line at the pull request.
+
+  **One branch does edit `CHANGELOG.md`, and it is the one based on `main`.**
+  A pull request into `main` is a release, so the entries are due there and
+  the hygiene workflow fails it while a fragment is still ungathered. Run:
+
+  ```bash
+  python3 .github/scripts/gather_changelog.py --version X.Y.Z   # --dry-run first
+  python3 .github/scripts/gather_changelog.py --check           # what the workflow runs
+  ```
+
+  This is the rule above being satisfied rather than broken: the branch is not
+  adding an entry to a shared region, it is collecting the fragments that
+  already exist. A hotfix taken straight to `main` is the case that meets this
+  without expecting to.
 - **No real identifiers.** Examples, fixtures, and docs use `example.com`
   and `/Users/x/` only. `tests/test_no_real_identifiers.py` enforces it in
   CI — extend its allowlist deliberately, never to make a test pass.
@@ -91,8 +136,8 @@ when it arrives.
 
 `docs/branch-and-release.md` holds it: where a branch is cut from, **which
 merge method each direction takes** — they are not interchangeable — the two
-things that carry the version, and which issues a release closes. Read it
-before merging anything, not after.
+things that carry the version, how the changelog fragments are gathered, and
+which issues a release closes. Read it before merging anything, not after.
 
 ## Proposing a new gate or skill
 

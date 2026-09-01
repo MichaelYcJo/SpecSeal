@@ -102,10 +102,10 @@ takes a direct push, and there are no bypass actors: the rule applies to the
 owner too.
 
 **What that costs, and it is a real change.** The release-preparation commit
-goes through a pull request as well. Renaming `## Unreleased` to `## X.Y.Z`
-and moving `plugin.json` used to be a commit pushed straight onto the release
-branch; now it needs a branch of its own and a squash merge, like any other
-work. Nothing else about the sequence below changes.
+goes through a pull request as well. Gathering the changelog entries and moving
+`plugin.json` used to be a commit pushed straight onto the release branch; now
+it needs a branch of its own and a squash merge, like any other work. Nothing
+else about the sequence below changes.
 
 - **`release/vX.Y.Z` is cut from `main`.** Not from the previous release
   branch, and not from a long-lived branch that outlives its release. An
@@ -130,14 +130,41 @@ work. Nothing else about the sequence below changes.
   it leaves the rounds and the verdict readable on a branch nobody merged,
   which is the only place the reason it was not merged is written down.
 - **The release branch merges into `main` as a merge commit**, carrying one
-  commit of its own: the one that renames `## Unreleased` to `## X.Y.Z —
-  <date>` and moves `plugin.json`. Then the tag. It is also the moment every
+  commit of its own: the one that gathers the changelog fragments into
+  `## X.Y.Z — <date>` and moves `plugin.json`. Then the tag. It is also the moment every
   issue this release closes gets closed, by a workflow rather than by
   anybody's hand — the paragraphs below say how, and what to keep writing in
   a feature pull request so it has something to read.
-- Feature PRs put their entry under `## Unreleased` and leave `plugin.json`
-  alone. The hygiene workflow asks for the bump only when the base is `main`,
-  which is what makes that enforceable instead of habitual.
+- Feature PRs write their entry to `specs/<work-item-id>/changelog.md` and
+  leave both `CHANGELOG.md` and `plugin.json` alone. The hygiene workflow asks
+  for the bump only when the base is `main`, which is what makes that
+  enforceable instead of habitual.
+
+**The changelog entries arrive as fragments, and the release gathers them.**
+Three branches ran in parallel on 2026-09-01 and touched 34 files. They shared
+exactly one, in all three pairs, and it was `CHANGELOG.md` — nothing else
+overlapped at all. The conflict is three lines and always resolvable; what it
+costs is when it arrives. Nothing may be edited between the broad gate and the
+pull request, so resolving one buys a second run of the whole broad gate.
+
+So a change writes `specs/<work-item-id>/changelog.md` and leaves the shared
+file alone. Two branches cannot collide there, because no two work items share
+an id. Release preparation runs:
+
+```
+python3 .github/scripts/gather_changelog.py --version X.Y.Z
+```
+
+which concatenates every fragment that is not in the file yet into a dated
+section at the top. Each entry is written under an HTML comment naming its work
+item — invisible to a reader, and the only link from a released entry back to
+the work that produced it. `--check` reports fragments that never arrived, and
+the hygiene workflow runs it on every pull request into `main`, so a release
+cannot go out with a change that ships unexplained. `--dry-run` prints the
+section and writes nothing.
+
+There is no accumulation section any more. `## Unreleased` was the shared
+region, and the fragments are what replaced it.
 
 **The two merge shapes are not interchangeable.** Squash into the release
 branch keeps one entry per change; a merge commit into `main` keeps
