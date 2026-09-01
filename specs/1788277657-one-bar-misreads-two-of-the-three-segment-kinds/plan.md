@@ -59,9 +59,9 @@ Vertical slices — each phase ends with something runnable and verified.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | SDD set (spec, plan, questions) committed | files in the tree at the phase commit | |
-| 2 | per-segment bars in the protocol, draft 0.8 | `pytest tests/test_the_handoff_before_round_one.py` green; wrap/one-word/identifier tests on touched files | |
-| 3 | resume rule in the code-review skill | `pytest tests/test_docs_line_wrap.py tests/test_one_word_one_meaning.py tests/test_no_real_identifiers.py` green (file is wrap-covered) | |
+| 1 | SDD set (spec, plan, questions) committed | files in the tree at the phase commit | c37cccb |
+| 2 | per-segment bars in the protocol, draft 0.8 | `pytest tests/test_the_handoff_before_round_one.py` green; wrap/one-word/identifier tests on touched files | 8e81271 |
+| 3 | resume rule in the code-review skill | `pytest tests/test_docs_line_wrap.py tests/test_one_word_one_meaning.py tests/test_no_real_identifiers.py` green (file is wrap-covered) | 14a5702 |
 | 4 | Q1 marked answered; changelog + ledger fragments; overview; drifted row re-verified | `evidence_check.py --strict .` clean | |
 
 ## Operational impact
