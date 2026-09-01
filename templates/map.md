@@ -17,11 +17,19 @@ A coordinate names **content**, never a position:
 path#anchor@hash
 ```
 
-The anchor is a symbol name where the language offers one — `.py` is read with
-Python's own parser, so `Class.method` names a span exactly — and otherwise a
-distinctive line of text in quotes. The hash is eight hex characters over the
-anchored region. Escape a pipe inside a quoted anchor as `\|`, or the row
-splits the table it lives in.
+The major level is the enclosing unit: a function or class for code, a heading
+path for a document (`"## Verify / ### Scope"`). An optional minor level after
+`>` narrows to the statement a claim is about. The hash is eight hex characters
+over whichever region applies. Escape a pipe inside a quoted anchor as `\|`, or
+the row splits the table it lives in.
+
+**An anchor degrades to DRIFTED, never to BROKEN.** Only the major level can be
+BROKEN. A minor anchor that stops matching means that place changed, so the row
+widens to its unit and says re-read — never *go edit the ledger*.
+
+**The minor level is an escape hatch, not a habit.** Reach for it only where a
+unit is large enough that whole-unit hashing has been MEASURED to drift rows on
+unrelated edits.
 
 | Item | Value |
 |---|---|

@@ -81,10 +81,15 @@ worktree guard to ask about. That question offers to bring the changes along
 to the other branch or to leave them behind, and the answer that is usually
 right, *commit them here first*, is neither button.
 
-**A ledger coordinate names content, never a position:** `path#anchor@hash`.
-The anchor is a symbol name where the language has one and a distinctive line
-of text otherwise; the hash covers the anchored region. A row carries no line
-number and no commit SHA, and `evidence-check` calls git for nothing.
+**A ledger coordinate names content, never a position:** `path#major@hash`,
+or `path#major>minor@hash` where a claim needs narrowing. The major level is
+the enclosing unit — a function or class for code, a heading path for a
+document. A row carries no line number and no commit SHA, and `evidence-check`
+calls git for nothing.
+
+**An anchor degrades to DRIFTED, never to BROKEN.** Only the major level can be
+BROKEN. A stale minor anchor widens to its unit and says re-read, because
+BROKEN means *go edit the ledger* and that is the bookkeeping this removes.
 
 That removes a whole chain rather than a rule from it. A line number moves for
 edits unrelated to the claim, so the coordinate rotted, so the row was

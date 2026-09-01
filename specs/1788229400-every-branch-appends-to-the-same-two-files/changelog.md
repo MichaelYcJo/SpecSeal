@@ -25,10 +25,26 @@
   re-anchored, so whatever it was measured from reset, so a stamp was needed,
   so a squash orphaned the stamp.
 
-  **A row now cites `path#anchor@hash`.** The anchor is a symbol name where the
-  language offers one — `.py` is read with the stdlib `ast`, so `Class.method`
-  names a span exactly and nothing is installed to do it — and otherwise a
-  distinctive line of text in quotes. The hash covers the region under the
+  **A row now cites `path#unit@hash`**, and `path#unit>place@hash` where a
+  claim rests on one statement inside a large unit. The unit is a function or
+  class for code and a heading path for a document. `.py` is read with the
+  stdlib `ast`; every other language falls to a rule that needs no parser and
+  no dependency — the name followed by `(`, `{` or `:`, then the block to the
+  next line at the same or lower indentation, which lands on a closing brace
+  because that brace sits at the declaration's own indent.
+
+  **An anchor degrades to DRIFTED, never to BROKEN.** The two cost different
+  things: BROKEN says *go edit the ledger*, which is the bookkeeping this
+  removes, and DRIFTED says *go re-read the claim*, which is the work the
+  ledger is for. So only the unit can be BROKEN. A narrowing anchor whose
+  place has changed widens back to its unit and reports DRIFTED — precision
+  buys a smaller hash, never a new way to fail. Narrowing is an escape hatch
+  rather than a habit: cite the unit, and reach past it only where whole-unit
+  hashing has been measured to drift rows on unrelated edits.
+
+  A document anchor is a heading rather than a sentence, because a sentence
+  breaks on any rewording while a heading survives the prose beneath it being
+  rewritten. The hash covers the region under the
   anchor with trailing whitespace and blank lines removed, so a reformat is not
   a change; indentation is kept, because in Python a dedent moves a statement
   out of the block it belonged to.

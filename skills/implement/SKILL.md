@@ -352,10 +352,12 @@ the row it belongs to and put **the date you read it** in the Checked column.
 Only rows in this work's scope — full-ledger audits verify what is already
 correct and return nothing.
 
-A coordinate is `path#anchor@hash`: a symbol name where the language has one, a
-quoted line of text otherwise, and a content hash of the region. It carries no
-line number and no commit, so nothing in it goes stale for a reason unrelated
-to the claim. Re-verifying a row is re-reading it and running
+A coordinate is `path#major@hash` — the enclosing unit, a function or class for
+code and a heading path for a document — with an optional `>minor` narrowing it
+to the statement a claim is about. It carries no line number and no commit, so
+nothing in it goes stale for a reason unrelated to the claim. Cite the unit and
+leave the minor level off unless whole-unit hashing has been measured to drift
+rows on unrelated edits. Re-verifying is re-reading and running
 `evidence-check --reverify`.
 
 **Rows a work item adds go in its own fragment**, `.specseal/map/<work-item-id>.md`,

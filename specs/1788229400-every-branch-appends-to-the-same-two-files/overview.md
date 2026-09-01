@@ -192,6 +192,36 @@ migrated faithfully, but only after three corrections the data forced:
 **Rows whose subject the change removed were removed, not re-anchored.** Twelve
 of them documented the baseline machinery; their claims went with the code.
 
+**Then the anchor gained a second level, and one rule joining them.** A single
+value cannot both locate and notice: locating wants something coarse that
+survives edits, noticing wants the few lines a claim rests on. So a coordinate
+carries a **major** unit — a function or class for code, a heading path for a
+document — and an optional **minor** anchor inside it.
+
+The joining rule is what makes the pair work: **the minor level narrows what is
+hashed and never decides whether the row resolves.** A stale minor anchor
+widens to its unit and reports DRIFTED. Only the major level can be BROKEN.
+That follows from the principle the design now states out loud — an anchor
+degrades to DRIFTED, never to BROKEN — because BROKEN means *go edit the
+ledger*, which is the bookkeeping being removed.
+
+Three things measurement decided rather than argument:
+
+- **Markdown sentence anchors had to go.** Thirteen rows pointed at a sentence,
+  and rewording any of them broke the row. They are heading paths now.
+- **Whole-unit hashing is the default, and the minor level is an escape
+  hatch.** The instinct is to reach for precision, and that instinct is what
+  makes a ledger expensive. The cost of the default is on the record: the
+  most-cited symbols here carry four rows each.
+- **The generic declaration rule exists because `ast` does not.** A project
+  adopting this is mostly code that is not Python, and text anchors there would
+  be the brittle version of the design. Executed on a TypeScript fixture:
+  `handler` resolves to its block, `Box.open` to its own, an absent name to
+  nothing.
+
+Marker comments in the source were considered and refused, with the reasoning
+written into the skill rather than left to be re-litigated.
+
 ## Not verified
 
 | Item | Who must answer |

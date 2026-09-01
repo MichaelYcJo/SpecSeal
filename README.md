@@ -137,9 +137,9 @@ records' home as *the directory that holds the work item*; `specs/<id>/` is
 this implementation's answer to that, not the protocol.
 
 The ledger is *checked*, not merely kept. A coordinate names **content, not a
-position** — `path#anchor@hash`, where the anchor is a symbol name where the
-language has one and a distinctive line of text otherwise, and the hash covers
-the region under it. The `evidence-check` skill ships a CI-ready script that
+position** — `path#unit@hash`, where the unit is a function or class for code
+and a heading for a document, and the hash covers the region under it. The
+`evidence-check` skill ships a CI-ready script that
 exits 2 when an anchor is gone or ambiguous and 1 when the content under it
 changed; both fail a default CI step, and `--strict` makes drift exit 2 too.
 What it proves is narrow and worth stating: that the citation still points at
@@ -149,8 +149,10 @@ silently everywhere else — here the rot shows up in CI.
 **A row carries no line number and no commit.** A line number moves for edits
 that have nothing to do with the claim, so inserting a line above a cited
 function used to leave the row pointing at the wrong lines while still reading
-OK. An anchor does not move, so that edit is silent and a real change to the
-cited code is not. Nothing is written into a row for a rebase or a squash to
+OK. A unit does not move, so that edit is silent and a real change to the cited
+code is not. An anchor also degrades to *re-read this*, never to *go fix the
+ledger* — the second is the bookkeeping the design exists to remove. Nothing
+is written into a row for a rebase or a squash to
 orphan, and the checker calls git for nothing at all. Re-verifying a row is
 re-reading it and running `evidence-check --reverify`, which recomputes the
 hash and names what it changed.
