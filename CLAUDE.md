@@ -81,10 +81,64 @@ worktree guard to ask about. That question offers to bring the changes along
 to the other branch or to leave them behind, and the answer that is usually
 right, *commit them here first*, is neither button.
 
-Never stamp a `.specseal/map.md` row with a commit this branch made. That is
-the one thing the cadence does not license, and it is not a conflict with it.
-Two things orphan such a commit: the squash discards it at the merge, and a
-rebase during the work does the same earlier and more quietly. The row then
-falls back to the header baseline silently in every clone but the one that
-wrote it, which is what `tests/test_ledger_stamps_resolve.py` fails a stamp
-for. Stamp a commit the release branch already carries, or the date alone.
+**A ledger coordinate names content, never a position:** `path#major@hash`,
+or `path#major>minor@hash` where a claim needs narrowing. The major level is
+the enclosing unit — a function or class for code, a heading path for a
+document. A row carries no line number and no commit SHA, and the CHECK calls
+git for nothing — the one exception is `--migrate`, a one-shot writer that
+consults the old stamp's commit before it trusts a line number.
+
+**An anchor degrades to DRIFTED, never to BROKEN.** Only the major level can be
+BROKEN. A stale minor anchor widens to its unit and says re-read, because
+BROKEN means *go edit the ledger* and that is the bookkeeping this removes.
+
+That removes a whole chain rather than a rule from it. A line number moves for
+edits unrelated to the claim, so the coordinate rotted, so the row was
+re-anchored, so its baseline reset, so a stamp was needed, so a squash orphaned
+the stamp. Three review rounds went on the links of that chain.
+
+The `Checked` column holds the date somebody read the code. Re-verifying is
+re-reading and then running `evidence-check --reverify`, which recomputes the
+hash and names what it changed.
+
+**A row whose anchor a change removes is REMOVED, not re-pointed.** Its claim
+went with the code. Write the new claim as a new row in the work item's own
+fragment.
+
+## Repo rule — a change writes fragments, never the shared file
+
+Two files used to take an append from every branch, and both cost a conflict
+at the worst moment — after the broad gate has run, which forces it to run
+again.
+
+| Instead of | Write |
+|---|---|
+| an entry under `CHANGELOG.md`'s `## Unreleased` | `specs/<work-item-id>/changelog.md` |
+| rows appended to `.specseal/map.md` | `.specseal/map/<work-item-id>.md` |
+
+No two work items share an id, so no two branches share a file.
+
+**Appended is the word, and a removal is not one.** A branch that removes code
+an existing `.specseal/map.md` row cites must touch that file to leave the
+ledger true — the row is removed there, and the new claim is written into the
+branch's own fragment. `CONTRIBUTING.md` carries the same sentence, and the two
+used to disagree: one forbade editing the file at all while the other forbade
+appending to it, which left a branch in this position with no reading that
+permits the only correct act.
+
+This overrides the `implement` skill and `agents/smith.md`, which tell a
+session to let the entry accumulate unreleased. That is the
+plugin's answer for a repository with no fragment convention; this repository
+has one, and the fragments are where an entry accumulates here. Neither
+document names a heading any more; the override is about WHERE, not about a
+sentence they no longer carry.
+
+**The changelog fragments are gathered; the ledger fragments never are.**
+Release preparation runs `.github/scripts/gather_changelog.py --version X.Y.Z`,
+which concatenates every ungathered fragment into the released section. A
+ledger fragment stays where it is forever — a row is checked against the code
+it cites rather than concatenated, and the checker already reads the whole
+`.specseal/map/*.md` glob.
+
+A ledger fragment needs no header of its own. Every row in it carries its own
+anchor and hash, so there is nothing for a header to declare.

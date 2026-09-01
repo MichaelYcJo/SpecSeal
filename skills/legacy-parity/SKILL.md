@@ -67,7 +67,7 @@ pre-fix version preserves nothing.
 ## Evidence ledger
 
 `.specseal/map.md` maps spec clauses to **original**
-coordinates (`file:line` at the baseline commit). Start every comparison
+coordinates (`path#anchor@hash`). Start every comparison
 there instead of grepping the original; feed newly verified original behavior
 back into the row you used (see `implement`). When a coordinate is suspect,
 open the baseline commit directly: `git show <baseline>:<path>`.

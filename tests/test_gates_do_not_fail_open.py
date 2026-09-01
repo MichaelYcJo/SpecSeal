@@ -131,3 +131,39 @@ def test_the_process_probe_survives_output_it_cannot_decode(monkeypatch):
     # question wrongly is a separate matter from failing to answer it at all,
     # and only the second one takes the caller down with it.
     assert guard.lease_owner_alive(1) is False
+
+
+def test_a_ledger_that_could_not_be_read_is_never_read_as_empty(tmp_path, monkeypatch):
+    """The same direction one mechanism further out: not a decode that failed,
+    but an `open()` that raised.
+
+    `evidence_check.read()` swallows every `OSError` into `None` — a
+    permissions failure, a directory named `.md`, an I/O error — and the three
+    callers each answered "nothing to do": `check_ledger` returned `[]` and the
+    run exited 0, while `--migrate` and `--reverify` skipped the file in
+    silence. A ledger nobody could read is indistinguishable from a ledger with
+    nothing in it, which is the green build `OLD-FORMAT` exists to prevent
+    (round 5, 🔴 B).
+
+    Constructed like every other case here: the `None` is produced directly,
+    because that is the state the caller sees, and an unreadable file is not
+    portable to create — a `chmod 000` is nothing to root, and the CI job runs
+    as root on one platform.
+    """
+    ec = load("skills/evidence-check/scripts/evidence_check.py", "specseal_ec_failopen")
+    ledger = tmp_path / ".specseal" / "map" / "f.md"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text("# frag\n\n| C | `src/a.py#f@00000000` |\n", encoding="utf-8")
+    monkeypatch.setattr(ec, "read", lambda path: None)
+
+    findings = ec.check_ledger(str(ledger), str(tmp_path), {})
+    assert findings, "an unreadable ledger was checked as an empty one"
+    # BROKEN is what `main` turns into exit 2. Anything else here is an allow.
+    assert [s for s, _, _ in findings] == ["BROKEN"], findings
+
+    migrated, left, _unproven = ec.migrate([str(ledger)], str(tmp_path))
+    assert migrated == 0 and left, "migrate skipped it and reported nothing"
+
+    assert ec.reverify([str(ledger)], str(tmp_path), {}) != 0, (
+        "reverify rewrote nothing and exited clean"
+    )
