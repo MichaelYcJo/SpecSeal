@@ -18,7 +18,7 @@ about.
 
 | Item | Who must answer |
 |---|---|
-| The fix on an actual Windows runner — the backslash-exec cause is inferred from the failure pattern (every assert expecting the guarded 1 passed, only the one expecting 0 failed), read, not executed | CI's windows leg on this work item's pull request |
+| The fix on an actual Windows runner. Attempt 1 (forward-slashed interpreter path) did not change the failure, so the surviving hypothesis is `bash` on PATH resolving to something that fails every command with its own exit code; the test now checks that precondition by executing `bash -c "exit 7"` and skips with the reason when it does not hold. Which of the two paths the runner takes is read, not executed | CI's windows leg on this work item's pull request |
 
 ## Not done
 

@@ -34,6 +34,24 @@ def run(args, cwd):
     )
 
 
+def usable_bash():
+    """Whether `bash` here actually executes what it is handed.
+
+    The precondition this file's guard tests assume, stated and checked
+    rather than assumed: on Windows, `bash` on PATH can resolve to the WSL
+    stub in System32, which fails every command with its own exit code no
+    matter what was asked — so every assertion expecting the guarded 1
+    passed for that wrong reason, and only the one expecting 0 could fail.
+    The step under test runs on the ubuntu leg of real CI, so a skip here
+    costs the guard nothing it is ever asked to do.
+    """
+    try:
+        r = subprocess.run(["bash", "-c", "exit 7"], capture_output=True, timeout=30)
+    except OSError:
+        return False
+    return r.returncode == 7
+
+
 def step(args, cwd):
     """The exit code of the CI step `evidence-ci` prints, guard included."""
     quoted = " ".join(f"'{a}'" for a in args)
@@ -234,6 +252,8 @@ def test_letting_drift_warn_takes_both_halves(proj):
     Drift fails a `bash -e` step either way; the guard only lets it through
     once `--strict` is gone too, and a broken coordinate still fails through
     that same guard."""
+    if not usable_bash():
+        pytest.skip("no usable bash — the step under test runs on ubuntu CI")
     ledger(proj, "| POL-1 | `src/service.py#handler@00000000` |\n")
     assert run(["."], proj).returncode == 1, "drift already fails without --strict"
     assert run(["--strict", "."], proj).returncode == 2
