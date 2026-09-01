@@ -56,6 +56,14 @@ when it arrives.
 
 ## House rules
 
+- **A change writes a fragment, never a shared registry.** Its changelog
+  entry goes in `specs/<work-item-id>/changelog.md` and its evidence rows in
+  `.specseal/map/<work-item-id>.md`. Neither `CHANGELOG.md` nor
+  `.specseal/map.md` is edited by a feature branch. Three branches running in
+  parallel shared exactly one file between them and it was the changelog; the
+  conflict is three lines, and it arrives after the broad gate has run, where
+  nothing may be edited. The changelog fragments are gathered at the release
+  (`docs/branch-and-release.md`); the ledger fragments never are.
 - **No real identifiers.** Examples, fixtures, and docs use `example.com`
   and `/Users/x/` only. `tests/test_no_real_identifiers.py` enforces it in
   CI — extend its allowlist deliberately, never to make a test pass.
@@ -91,8 +99,8 @@ when it arrives.
 
 `docs/branch-and-release.md` holds it: where a branch is cut from, **which
 merge method each direction takes** — they are not interchangeable — the two
-things that carry the version, and which issues a release closes. Read it
-before merging anything, not after.
+things that carry the version, how the changelog fragments are gathered, and
+which issues a release closes. Read it before merging anything, not after.
 
 ## Proposing a new gate or skill
 

@@ -103,6 +103,11 @@ again.
 
 No two work items share an id, so no two branches share a file.
 
+This overrides the `implement` skill and `agents/smith.md`, which tell a
+session to put its entry under `CHANGELOG.md`'s `## Unreleased`. That is the
+plugin's answer for a repository with no fragment convention; this repository
+has one, and there is no `## Unreleased` here to write into.
+
 **The changelog fragments are gathered; the ledger fragments never are.**
 Release preparation runs `.github/scripts/gather_changelog.py --version X.Y.Z`,
 which concatenates every ungathered fragment into the released section. A

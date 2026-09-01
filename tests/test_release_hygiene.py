@@ -109,24 +109,27 @@ def test_update_tells_the_user_when_the_preset_block_changed():
     )
 
 
-def test_unreleased_sits_above_every_dated_section():
-    """A rebase conflict resolved the wrong way put it BELOW a dated section.
+def test_no_section_accumulates_entries_in_the_shared_file():
+    """`## Unreleased` was the region every branch appended to.
 
-    The check under this one filters `Unreleased` out before taking
-    `dated[0]`, so the sunk state passed it and nothing else reads the order
-    at all. The order is what tells a reader which entries have shipped: with
-    `## Unreleased` under a tagged section, work that is not released yet
-    reads as older than a version that is.
+    This case used to check that it sat ABOVE every dated section, after a
+    rebase conflict resolved the wrong way sank it below one. That ordering
+    stopped being the problem when the section stopped existing: entries
+    accumulate as `specs/<work-item-id>/changelog.md` fragments now, and the
+    release gathers them into a dated section at the top. A heading by that
+    name means somebody went back to the shared file, which is issue #46.
+
+    The order still matters and is still checked — by
+    `test_the_changelog_is_gathered_at_release.py`, against the gather script
+    that produces it, which is the only thing that writes a section now.
     """
     with open(os.path.join(ROOT, "CHANGELOG.md"), encoding="utf-8") as f:
         headings = re.findall(r"^## (.+)$", f.read(), re.M)
-    at = [i for i, h in enumerate(headings) if h.lower().startswith("unreleased")]
-    assert len(at) <= 1, f"more than one `## Unreleased`: {headings}"
-    if not at:
-        return  # a release commit folds it into a dated section; that is fine
-    assert at[0] == 0, (
-        f"`## Unreleased` is at position {at[0]}, below {headings[0]!r} — a "
-        "released section reads as newer than work that has not shipped"
+    found = [h for h in headings if h.lower().startswith("unreleased")]
+    assert not found, (
+        f"CHANGELOG.md carries {found} again. An entry goes in "
+        "specs/<work-item-id>/changelog.md; `gather_changelog.py --version "
+        "X.Y.Z` is what writes a section here"
     )
 
 

@@ -45,6 +45,27 @@ jobs:
             exit 1
           fi
 
+      # A change writes `specs/<work-item-id>/changelog.md` instead of
+      # appending to `CHANGELOG.md` — three parallel branches shared that one
+      # file and nothing else, and the conflict arrived after the broad gate
+      # had run, where nothing may be edited.
+      #
+      # Gathering them is a step somebody has to remember, and the release
+      # pull request is the last moment anyone is looking. A fragment that
+      # never reached the file is a change that ships with no entry: the user
+      # `hooks/version-check.py` tells about a new release has nothing to read.
+      #
+      # It runs only for a release, because that is the only moment the
+      # fragments are meant to be in the file. On a feature pull request every
+      # fragment on the branch is legitimately ungathered.
+      - name: every changelog fragment reached the released file
+        shell: bash
+        run: |
+          if [ "${{ github.base_ref }}" != "main" ]; then
+            echo "base is ${{ github.base_ref }} — fragments are gathered when the release reaches main"; exit 0
+          fi
+          python3 .github/scripts/gather_changelog.py --check
+
       # An `unverified` row records a claim nobody proved and names who can
       # answer it. Nothing ever read those rows again — one of them said the
       # gates had never been seen rendering in a TUI, and months later the
