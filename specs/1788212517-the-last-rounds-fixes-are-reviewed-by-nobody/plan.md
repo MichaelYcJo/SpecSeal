@@ -113,6 +113,10 @@ printed by CI, instead of in nobody's memory.
 | 7 | **Q1, answered.** `Pass` beside `nobody` fails on the last record of a work item begun on or after `STRICT_FROM`, and the policy clause goes back into `docs/review-chain-spec.md`, `docs/review-handoff-protocol.md`, both READMEs, the template, the skill and `agents/smith.md` | five new cases, two mutations (the cutoff inverted, the two claims dropped), plus the twelve narrow prose files | `6f0db50` |
 | 8 | **Round 1's 🟡 5, 🟡 9 and 🟡 10.** A named checker's own `Target SHA` has to be later; the three uncovered branches get cases; `Needs a fix` gives the run's terminal condition a field in the record, the reviewer's report and the protocol | eight new cases, six mutations, and `test_edits_go_through_the_edit_tool` for the apostrophe parity the added prose had to keep | `225b9b7` |
 | 9 | **Round 1's 🔴 3, 🟡 7 and 🟡 8.** The memo says what the code does, the spec and the plan stop contradicting each other and the code, the citations name a file that exists, and Q2 carries the merged-record cost | `test_the_set_a_work_item_always_has`, `test_docs_line_wrap`, `evidence_check.py`, `unverified_check.py`, `test_release_hygiene` | `851fa90` |
+| 10 | **Round 2's 🔴 1, and the two real holes under its six surviving mutations.** `verdict_of` matches the vocabulary as a prefix of the cell and `CITATION` is deleted; `reviewed_later` reads both records at their newest `Target SHA` | seven mutations, each shown red and the tree restored green: the citation cut restored, the prefix anchor dropped, the word boundary dropped, either side of `reviewed_later` read at its first SHA, the squash path deleted, and the cutoff narrowed to `>` so the item that wrote the rule excuses itself | `8a5628a` |
+| 11 | **A malformed ledger row, found by the orchestrator.** Two rows in `.specseal/map.md` quoted a table row by name with its pipes and split into seven cells; on one the `Checked` column landed on prose and the row was silently measuring from the header baseline | a per-section shape parse — 19 rows, 0 malformed, every `Checked` cell carrying a SHA — plus `test_ledger_stamps_resolve` and `evidence_check.py` | `3002dbb` |
+| 12 | **Round 2's prose findings.** The refusal table and the skill carry the checker's-own-`Target SHA` condition; both READMEs tell one story about `nobody`; the spec's introduction stops contradicting its own table; the memo, the plan and the spec agree on how many records exist; six prose coordinates re-aimed; the reviewer's line is copied without its label | the twelve narrow prose files, and the protocol's `Needs a fix` row shown red under a rename to `\| Needs fixing \|` that left the phrase case green | `9b5501d` |
+| 13 | Q3's first measurement recorded, the ledger rows and stamps, the changelog and the memo | `evidence_check.py`, `unverified_check.py`, `test_release_hygiene`, `test_ledger_stamps_resolve`, and the check run against a fresh clone in both directions | this commit |
 
 Phase 1 is one vertical slice: a record with the field, written by a session
 from the template, refused by the check when it lies, and the one existing
@@ -134,6 +138,13 @@ rather than an appendix because three of them change what ships. The rounds
 are the reason phases 1 to 4 are not the whole plan: the review found that
 neither refusal reading a verdict cell had ever fired, and that option A's
 rules could be written backwards with the suite green.
+
+Phases 10 to 13 are round 2, the first verifying round this repository has
+run, and its target was `617d0c0..2ea13da` — the diff of round 1's fixes. It
+opened a 🔴 at the same site round 1 was closing, which
+`docs/review-chain-spec.md:34-56` calls the structure signal whatever the
+count, so the repository owner was asked and answered: change the structure,
+do not add a second special case to the pattern. Phase 10 is that answer.
 
 ## Operational impact
 

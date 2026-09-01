@@ -31,8 +31,17 @@
   checker git does not carry, a checker whose own `Target SHA` is the same
   commit as this record's or an ancestor of it — the number is later and the
   review is not — and `no fixes to check` beside a verdict that closed with a
-  fix. A verdict cell is read through markdown emphasis and the commit cited
-  after the word, so `**fixed** \`sha\`` counts as the fix it is.
+  fix. Where either record's `Target SHA` names two commits — the row allows
+  both when HEAD moved mid-review — the newest on each side is compared.
+
+  A verdict cell is read by stripping markdown emphasis and matching the
+  vocabulary against the START of the cell, so `**fixed** \`sha\`` counts as
+  the fix it is whatever follows the word, while a long `answered` cell that
+  mentions a fix made elsewhere still does not. The first version instead
+  looked for where the commit began and cut there, which meant it had to
+  recognise a commit: a seven-character abbreviation with no digit in it —
+  about one in 959 — was not recognised, nothing was cut, and a blocking
+  finding that had been properly closed read as still open.
 
   And `round-N.md` carries `| Needs a fix |`: whether this round opened
   anything that does. It is the reviewer's own answer, copied rather than
