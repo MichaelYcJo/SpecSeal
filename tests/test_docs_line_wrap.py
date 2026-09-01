@@ -47,6 +47,9 @@ README_PAIR = ["README.md", "README.ko.md"]
 COVERED = [
     *README_PAIR,
     "CONTRIBUTING.md",
+    # Wrapped from its first line, so it goes in at birth rather than waiting
+    # for the sweep that would otherwise be needed to bring it under.
+    "SECURITY.md",
     "agents/warden.md",
     "skills/code-review/SKILL.md",
     # Wrapped from its first line, so it goes in at birth rather than waiting

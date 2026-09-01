@@ -152,3 +152,94 @@ def test_a_crashing_gate_does_not_take_the_group_down(repo, monkeypatch):
     finally:
         sys.argv, sys.stdin = argv, stdin
     assert decision_of(out.getvalue()) == "deny"
+
+
+# --- the evidence advisor, in the post-bash group ---------------------------
+
+
+def anchored_row(repo, rename=False, edit=False):
+    """A ledger row citing `handler`, with the file optionally moved on."""
+    src = "def handler(x):\n    return x + 1\n"
+    (repo / "app.py").write_text(src)
+    advisor = load_hook_module("evidence-advisor.py", "evidence_advisor")
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("ec_for_test", advisor.CHECKER)
+    ec = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ec)
+    h = ec.content_hash(src.splitlines())
+    (repo / ".specseal" / "map").mkdir(parents=True)
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f"# frag\n\n| CLAUSE | `app.py#handler@{h}` |\n"
+    )
+    out = src
+    if rename:
+        out = out.replace("handler", "total_price")
+    if edit:
+        out = out.replace("x + 1", "x + 9")
+    (repo / "app.py").write_text(out)
+
+
+def test_a_commit_that_breaks_an_anchor_is_told_so(repo):
+    """The rename is caught at the commit that made it, in the terminal where
+    it happened — not in CI minutes later, and not by somebody remembering a
+    command. Advisory: PostToolUse cannot block, and this would not want to."""
+    anchored_row(repo, rename=True)
+    out = run_dispatch("post-bash", payload("git commit -m rename", repo))
+    assert "evidence-check: this commit leaves 1 anchor broken" in out, out
+    assert "identical content at #total_price (renamed?)" in out, out
+    assert "--reverify" in out, out
+
+
+def test_a_clean_ledger_says_nothing_at_the_commit(repo):
+    """A line that prints on every commit is a line people learn to skip."""
+    anchored_row(repo)
+    out = run_dispatch("post-bash", payload("git commit -m ok", repo))
+    assert "evidence-check" not in out, out
+
+
+def test_drift_alone_says_nothing_at_the_commit(repo):
+    """A branch mid-flight legitimately drifts; only BROKEN names something a
+    person must touch either way."""
+    anchored_row(repo, edit=True)
+    out = run_dispatch("post-bash", payload("git commit -m edit", repo))
+    assert "evidence-check" not in out, out
+
+
+def test_a_command_without_a_commit_says_nothing(repo):
+    anchored_row(repo, rename=True)
+    out = run_dispatch("post-bash", payload("git status", repo))
+    assert "evidence-check" not in out, out
+
+
+def test_a_repo_that_never_opted_in_is_left_alone(repo):
+    """A globally installed plugin must not nag unrelated repositories."""
+    (repo / "app.py").write_text("def handler(x):\n    return x\n")
+    out = run_dispatch("post-bash", payload("git commit -m x", repo))
+    assert "evidence-check" not in out, out
+
+
+def test_the_advisory_inherits_the_graded_hint(repo):
+    """The arm prints whatever the checker prints, so the repo-wide hint and
+    the remedy arrive at the commit with no code of its own. Confirmed rather
+    than assumed, as ordered."""
+    anchored_row(repo)
+    (repo / "app.py").unlink()
+    (repo / "elsewhere.py").write_text("def handler(x):\n    return x + 1\n")
+    out = run_dispatch("post-bash", payload("git commit -m move", repo))
+    assert "identical content at elsewhere.py#handler (moved?)" in out, out
+    assert "--reverify" in out, out
+
+
+def test_a_commit_with_a_pre_anchor_ledger_is_pointed_at_the_migrator(repo):
+    """OLD-FORMAT was absent from the advisory's filter — `broken_rows` read
+    BROKEN alone — so the commit that needs the migration line most got
+    silence from the hook (round 4, 🟡 6)."""
+    (repo / "app.py").write_text("def handler(x):\n    return x + 1\n")
+    (repo / ".specseal" / "map").mkdir(parents=True)
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        "# frag\n\n| CLAUSE | `app.py:1-2` | 2026-08-31 |\n"
+    )
+    out = run_dispatch("post-bash", payload("git commit -m x", repo))
+    assert "OLD-FORMAT" in out, out
+    assert "--migrate" in out, out

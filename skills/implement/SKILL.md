@@ -38,7 +38,10 @@ workflow. Everything in it is permanent:
 
 ```
 .specseal/
-├── map.md            spec clause ↔ code coordinates (split into map/ if it grows)
+├── map.md            spec clause ↔ code coordinates, as they stood before
+│                     work items wrote fragments
+├── map/
+│   └── <work-item-id>.md   one work item's rows — never gathered, no header
 ├── parity.md         migration config, only when declared
 └── follow-up.md      schedulable items in a repository with no tracker
 ```
@@ -80,9 +83,9 @@ keep.
 When a root or file this skill needs doesn't exist, create it from
 `templates/` in this plugin and continue. In particular:
 
-- `.specseal/map.md` — stamp the baseline (current HEAD SHA, date) into its
-  header at creation time. The baseline is what makes recorded coordinates
-  verifiable later; an unstamped map cannot be trusted.
+- `.specseal/map.md` — created empty, with no baseline to stamp: a coordinate
+  names content rather than a position, so there is nothing for a header to
+  declare. A work item's own rows go in `.specseal/map/<work-item-id>.md`.
 - `.specseal/README.md` — carries the export rules so sessions that never load
   this skill still see them.
 - **Not** policy documents. If the repository has none, it has none; judge from
@@ -299,12 +302,25 @@ than whether it finishes.
 
 | Answer | What it does |
 |---|---|
-| `release/vX.Y.Z` (the default) | the entry goes under `## Unreleased`; `plugin.json` is left alone |
-| `main` | the version moves, the heading is dated, and the tag follows the merge |
+| `release/vX.Y.Z` (the default) | the entry accumulates unreleased; `plugin.json` is left alone |
+| `main` | the version moves, the accumulated entries are collected and dated, and the tag follows the merge |
 
 Take `main` when the accumulated entries read as one thing, or when the change
 is a gate or a hook firing where it should not — that one does not wait for
 company.
+
+**Where an entry accumulates is the repository's convention, so read it before
+writing one.** Two shapes are common and they are not interchangeable: a
+heading in the changelog that every branch appends to, or one fragment per
+work item that a release gathers. Writing the first into a repository that
+uses the second either invents a heading its checks refuse or appends to the
+shared region the fragments exist to empty — which is the collision, arriving
+from the document that was supposed to prevent it.
+
+Where the repository gathers fragments, **basing on `main` means running the
+gather**, because that is the branch where the entries are due. It is the one
+moment a feature branch touches the changelog at all, and the repository's
+contribution guide names the command.
 
 What must not happen instead is a standing waiver. A session-level switch that
 turns the gate off leaves it nothing to do but stay quiet, which is the state
@@ -331,12 +347,23 @@ waits for the reply spends more.
 
 ### 2. Implement, and feed evidence back where you verified it
 
-When you open code or run something to settle a judgment, record the outcome in
-`.specseal/map.md` on the row it belongs to (spec clause ↔ `file:line`), stamping
-its Checked column with the date **and the HEAD SHA you read it at** — that SHA
-is the row's own drift baseline, so re-verification later drains row by row
-instead of ledger-wide. Only rows in this work's scope — full-ledger audits verify what is
-already correct and return nothing.
+When you open code or run something to settle a judgment, record the outcome on
+the row it belongs to and put **the date you read it** in the Checked column.
+Only rows in this work's scope — full-ledger audits verify what is already
+correct and return nothing.
+
+A coordinate is `path#major@hash` — the enclosing unit, a function or class for
+code and a heading path for a document — with an optional `>minor` narrowing it
+to the statement a claim is about. It carries no line number and no commit, so
+nothing in it goes stale for a reason unrelated to the claim. Cite the unit and
+leave the minor level off unless whole-unit hashing has been measured to drift
+rows on unrelated edits. Re-verifying is re-reading and running
+`evidence-check --reverify`.
+
+**Rows a work item adds go in its own fragment**, `.specseal/map/<work-item-id>.md`,
+not appended to `.specseal/map.md`. Two branches cannot collide there, because
+no two work items share an id, and the checker reads the whole
+`.specseal/map/*.md` glob.
 
 **Draft as you go, write in one pass.** The recording is cheap and the round
 trip is not: one session made twenty-six separate edits to its ledger and
@@ -389,14 +416,10 @@ the rule above refuses. What must not happen is a run of commits reaching the
 reviewer with the ledger still empty, because by the paragraph above the
 reviewer sees only what was committed.
 
-**Commit freely; stamp nothing with a commit this branch made.** The two rules
-meet at the ledger and do not conflict. A `.specseal/map.md` row whose Checked
-column names a commit only this branch carries falls back to the header
-baseline — silently, in every clone except the one that wrote it. Two things
-orphan such a commit and only one of them is local: a squash discards it at
-the merge, where the repository squashes, and a rebase during the work does
-the same thing earlier and more quietly, anywhere. Stamp a commit the base
-branch already carries, or the date alone.
+**Commit freely; a ledger row names no commit for a merge to orphan.** This
+used to be the one place the cadence had to be steered around, and it is not a
+place any more: a row records an anchor and a hash of what that anchor holds,
+so there is no commit in it that a squash or a rebase could invalidate.
 
 **An edit must be able to fail.** Prefer the `Edit` tool: a pattern that does
 not match is an error you see immediately. When the environment routes edits
@@ -561,7 +584,7 @@ A session fixing review feedback starts at `specs/<work-item-id>/`,
 |---|---|---|
 | `round-N.md` | review orchestrator | next review round |
 | `tests-todo.md` | review orchestrator | **implementer** — plant each test in the file the row names |
-| `evidence-todo.md` | review orchestrator | **implementer** — merge each fact into `.specseal/map.md` |
+| `evidence-todo.md` | review orchestrator | **implementer** — merge each fact into `.specseal/map/<work-item-id>.md` |
 
 Inline comments may not contain these lists at all. Fixing only the comments
 ships the code change and silently drops the tests and the evidence.
@@ -607,7 +630,7 @@ Never invent them; write `none — <reason>` for anything not actually read.
 ```
 📋 implement applied
 · spec:     <policy/SDD files and clauses actually read>
-· evidence: <.specseal/map.md rows added or updated>
+· evidence: <ledger rows added or updated, with the file they went in>
 · verified: <what was executed vs. what was only read>
 ```
 

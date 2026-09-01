@@ -37,7 +37,6 @@ read, the trade was wrong and the list comes back.
 
 | Item | Who must answer |
 |---|---|
-| Seven `.specseal/map.md` rows in *Who checked the last round's fixes* are stamped at a commit no ref on the release branch reaches — the squash that merged that work item orphaned it, so `tests/test_ledger_stamps_resolve.py::test_every_checked_stamp_is_reachable_from_this_branch` fails on the base tip and every branch cut from it. Re-verify those rows and re-stamp them at a reachable commit. Found by the broken-meter work item (#29), which is not allowed to rewrite another item's evidence | repository owner |
 
 ## Riders waiting on a file another branch holds
 
