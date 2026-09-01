@@ -33,8 +33,8 @@ git describe --tags   # must name the release, not "<tag>-N-g<sha>"
 Two checks enforce the half that can be: `tests/test_chain_hooks_hardening.py`
 binds the changelog to whatever `plugin.json` says, and the `hygiene` workflow
 fails a release PR — one whose base is `main` — that changes `skills/`,
-`agents/`, `hooks/`, `templates/` or `.claude-plugin/` without moving the
-version. The tag is still yours to push — nothing in CI can do it for you.
+`agents/`, `hooks/`, `templates/`, `bin/` or `.claude-plugin/` without moving
+the version. The tag is still yours to push — nothing in CI can do it for you.
 
 ### Work accumulates on a release branch
 
