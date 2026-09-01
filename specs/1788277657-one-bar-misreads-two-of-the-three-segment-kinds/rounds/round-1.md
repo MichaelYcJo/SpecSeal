@@ -6,8 +6,8 @@
 | PR | none yet |
 | Broad gate | not yet — the one full run follows the chain |
 | Fixes checked by | nobody — round 1's fixes are not yet written; the verifying round sets this |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none — the fixes change document sentences and add test cases; no unit's signature, return arity, return type, or set of returnable values moved |
+| New units | `tests/test_the_handoff_before_round_one.py::test_the_protocol_names_a_bar_per_segment_kind`; `tests/test_the_handoff_before_round_one.py::test_the_title_and_the_status_section_agree_on_the_draft`; `tests/test_the_handoff_before_round_one.py::test_the_advisory_and_the_tying_paragraph_name_one_value`; `tests/test_review_axes.py::test_the_fix_pass_resumes_the_implementer` |
 | Needs a fix | yes — 🔴 1 (docs/review-handoff-protocol.md:415, Status line still 0.7); 🟡 2 and 🟡 3 can ride the same fix pass or be answered with the grounds quoted |
 
 - [ ] Pass

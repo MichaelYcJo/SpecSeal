@@ -364,7 +364,7 @@ meet (issue #51, whose transcripts these numbers come from).
 
 | Segment | Judged on | Grounds |
 |---|---|---|
-| reviewing | tools per turn **≥ 1.8** | a review's reads are independent — coordinates inherited from earlier rounds, files named by one handoff — so they can go out together. Measured range 1.29–1.89, and the one round instructed to batch (1.89) was the fastest measured |
+| reviewing | tools per turn **≥ 1.8** | a review's reads are independent — coordinates inherited from earlier rounds, files named by one handoff — so they can go out together. The rounds that set the bar measured 1.29–1.89 — not the complete record: the same issue holds a 2.0 baseline and a later chain at 1.10–1.54 — and the one round instructed to batch (1.89) was the fastest measured |
 | implementing | **`repeats = 0`** and calls per deliverable — never tools per turn | an edit-test loop is inherently serial (measured 1.08–1.17): a call whose input depends on the last result cannot go out with it, so the ratio reports task shape, not waste. What does report waste: a command re-run unchanged, and how many calls one deliverable took |
 | verifying | exempt | it targets the diff of the last fixes and is the cheapest round of the run by design; a segment that small is the nuance below in its every case |
 
@@ -412,7 +412,7 @@ A tool claiming to support this protocol:
 
 ## Status
 
-Draft 0.7, extracted from the convention this plugin's `code-review` and
+Draft 0.8, extracted from the convention this plugin's `code-review` and
 `implement` skills already operate (they are its reference implementation).
 Field names and layout may change; the three conformance rules are stable in
 shape. 0.2 changed the third from *delete after draining* to *close and keep*.

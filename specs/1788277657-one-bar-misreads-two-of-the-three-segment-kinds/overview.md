@@ -35,10 +35,10 @@ than by memory.
 
 ## Not done
 
-No pinning tests were written for the two new sections. The three
-deliverables named documents only, and the reviewer's tests-todo is the
-channel that prescribes pins if they are owed — writing checkers was outside
-the decided scope. Likewise no pointer was added in `agents/smith.md` or
+The fix pass wrote no pins of its own invention: round 1's tests-todo
+prescribed four, and all four were planted as prescribed (the draft-number
+pin first, seen red against the state it guards). What stays not done: no
+pointer was added in `agents/smith.md` or
 `agents/warden.md`: their existing sentences already carry the same measured
 ranges, and an edit there would drift four minor ledger anchors to say
 nothing new (A3 in `questions.md`).
