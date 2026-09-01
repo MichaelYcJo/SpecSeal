@@ -62,8 +62,8 @@ Vertical slices — each phase ends with something runnable and verified.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | SDD set (spec, plan, questions) committed | files in the tree at the phase commit | |
-| 2 | the pin, seen red against the five-root pattern; then `bin` in the pattern and in the release document; the pin green | `pytest tests/test_the_release_check_watches_what_ships.py` red then green; mutation (remove `bin`) red; `ruff check` / `ruff format --check` on the test file | |
+| 1 | SDD set (spec, plan, questions) committed | files in the tree at the phase commit |289997e |
+| 2 | the pin, seen red against the five-root pattern; then `bin` in the pattern and in the release document; the pin green | `pytest tests/test_the_release_check_watches_what_ships.py` red then green; mutation (remove `bin`) red; `ruff check` / `ruff format --check` on the test file |0924dfd |
 | 3 | changelog fragment, ledger fragment, overview | the two hygiene-adjacent test files green; `evidence_check.py --strict .` clean | |
 
 ## Operational impact
