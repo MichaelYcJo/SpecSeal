@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 — 2026-09-01
 
 - **The cost meter could not count above 1.00 tools per turn, and a day's
   conclusions were drawn from that floor.** `session_cost.py` counted a turn
