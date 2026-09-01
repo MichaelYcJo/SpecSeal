@@ -234,6 +234,31 @@ def heading_path(lines, parts):
 def resolve(path, locator, text):
     """[(start, end)] for the LOCATOR — empty for none, several for ambiguous.
 
+    **This discards how sure the answer is.** For a file the generic rule
+    reads, some places survive only because the keyword blocklist emptied the
+    set and they were put back; a consumer that acts on such a place — the
+    check deciding OK, `--reverify` deciding to write — has to know that, and
+    calls `resolve_unit` instead. This wrapper is for the callers that only
+    need the places: `file_units`, and the cases that assert them.
+    """
+    return resolve_unit(path, locator, text)[0]
+
+
+def resolve_unit(path, locator, text):
+    """([(start, end)], resurrected) — the places, and whether they survived
+    only because the declaration rule put keyword-blocked candidates back.
+
+    Round 4's 🔴 1, round 5's 🔴 C and round 6's 🔴 J are three attempts at one
+    rule, and the two failure modes are the same ambiguity: without the
+    resurrection a C# `public new void Render(int x)` reads BROKEN, with it a
+    `return render(y);` left behind by a move reads as the unit. No keyword
+    list separates them, so the uncertainty is carried OUT of here instead of
+    being argued about in here — `check_ledger` answers a resurrected place
+    that does not reconstruct the recorded hash with BROKEN and the repo-wide
+    scan, which is what `ast` already gives `.py`, and `--reverify` refuses to
+    write onto one at all. The classifier is then allowed to stay wrong,
+    because being wrong stops being expensive.
+
     **A coordinate's job is to put a reader in the right logic, not to pin a
     line.** So the address is the enclosing unit: the function for code, the
     heading for a document. That unit is stable against every edit that does
@@ -258,8 +283,8 @@ def resolve(path, locator, text):
         if markdown:
             parts = [p for p in body.split(HEADING_SEP) if p.strip()]
             if parts and heading_level(parts[0].strip()) is not None:
-                return heading_path(lines, parts)
-        return text_regions(lines, body, markdown)
+                return heading_path(lines, parts), False
+        return text_regions(lines, body, markdown), False
     if path.endswith(".py"):
         spans = py_spans(text)
         if spans is not None:
@@ -269,7 +294,7 @@ def resolve(path, locator, text):
             # reported DRIFTED instead of BROKEN-with-hint, and --reverify
             # anchored the row to the call permanently (round 4, 🔴 2). The
             # fallback survives only for the file ast cannot read at all.
-            return spans.get(locator, [])
+            return spans.get(locator, []), False
     return generic_units(lines, locator)
 
 
@@ -376,8 +401,13 @@ def generic_units(lines, name):
         pre_words = pre.replace("*", " ").replace("&", " ").split()
         target = blocked if STATEMENT_WORDS.intersection(pre_words) else out
         target.append((i + 1, j))
-    # A keyword-prefixed candidate is dropped only where another survives.
-    return out or blocked
+    # A keyword-prefixed candidate is dropped only where another survives, and
+    # the caller is told when that resurrection is the only reason there is an
+    # answer at all. Round 6's 🔴 J: those candidates include pure call
+    # statements, not only the C#/Swift declarations the resurrection was
+    # written for, so a consumer that cannot tell them apart must be able to
+    # ask.
+    return (out, False) if out else (blocked, True)
 
 
 def name_statements(text, region, name):
@@ -506,7 +536,7 @@ def file_units(rel, body):
             if m and not (m.group(3) == ":" and m.group(1).strip()):
                 names.add(m.group(2))
         for name in sorted(names):
-            found = generic_units(lines, name)
+            found, _resurrected = generic_units(lines, name)
             if len(found) == 1:
                 units.append((name, found[0]))
     return units
@@ -647,8 +677,13 @@ def contained(repo, rel):
     """True when `rel` stays inside `repo`, symlinks resolved.
 
     A citation that leaves the tree through a symlink leaves it just the same,
-    so this resolves rather than normalising. The cost is stated: a ledger
-    citing a source file through a symlink OUT of the repository is refused.
+    so this resolves rather than normalising. Two prices come with that, and
+    both are accepted rather than unnoticed. A ledger citing a source file
+    through a symlink OUT of the repository is refused, which is the price all
+    three branches of `place` pay. And where the filesystem cannot resolve
+    links, `os.path.realpath` degrades to a lexical normalisation: it does not
+    raise, so a `..` is still caught and the symlink half stops being caught.
+    Neither direction fails toward reading the file.
     """
     inside = os.path.realpath(repo)
     full = os.path.realpath(os.path.join(repo, rel))
@@ -671,8 +706,10 @@ def place(root, maps, default_repo, raw_path):
     found, which makes the ledger a confirmation oracle for a file the project
     does not contain (round 5, 🔴 I). The containment test is against the repo
     this function RETURNS — a --map prefix resolves into another checkout by
-    design — and the answer is `None` rather than a quiet skip, so all three
-    callers have to say something about such a row.
+    design — and every one of the three branches runs it, which the
+    --default-repo branch did not until round 6's 🟡 K. The answer is `None`
+    rather than a quiet skip, so all three callers have to say something about
+    such a row.
     """
     for name, mapped in maps.items():
         if raw_path == name or raw_path.startswith(name + "/"):
@@ -687,7 +724,11 @@ def place(root, maps, default_repo, raw_path):
         and not os.path.isfile(os.path.join(root, raw_path))
         and os.path.isfile(os.path.join(default_repo, raw_path))
     ):
-        return default_repo, raw_path
+        # The third branch, and it used to be the one that skipped the test:
+        # `legacy/src/creds.py` as a symlink out of the tree was read and
+        # reported `1 ok` (round 6, 🟡 K). Containment against ROOT above says
+        # nothing about the checkout the row is actually read from.
+        return (default_repo if contained(default_repo, raw_path) else None), raw_path
     return root, raw_path
 
 
@@ -705,16 +746,22 @@ def cross_repo_intent(root, maps, default_repo, raw_path):
     bug.** One `--map` turned the rename scan off for every unplaceable row in
     the ledger, so a purely local file rename lost its `(moved?)` hint and its
     `--reverify` heal (round 5, 🟡 F). A row whose prefix is not among the
-    declared maps is a local row. The other two halves are NOT decidable: an
-    unprefixed row in a parity repository may be citing the original, and no
-    part of the coordinate says which. Those rows keep the scan off, and
-    SKILL.md's Known limits says what that costs.
+    declared maps is a local row.
+
+    **What actually fixed it was dropping `--map` from the question.**
+    `raw_path` is here so that both call sites read per row rather than per
+    run, and a row carrying a declared prefix never reaches either of them:
+    `place` resolves it into the mapped checkout, so the `repo == root` both
+    callers stand behind is already false. A term testing the prefix was
+    written and could never fire (round 6, 🟢).
+
+    The other two halves are NOT decidable: an unprefixed row in a parity
+    repository may be citing the original, and no part of the coordinate says
+    which. Those rows keep the scan off, and SKILL.md's Known limits says what
+    that costs.
     """
-    foreign = any(raw_path == n or raw_path.startswith(n + "/") for n in maps)
-    return (
-        foreign
-        or bool(default_repo)
-        or os.path.isfile(os.path.join(root, ".specseal", "parity.md"))
+    return bool(default_repo) or os.path.isfile(
+        os.path.join(root, ".specseal", "parity.md")
     )
 
 
@@ -788,7 +835,38 @@ def check_ledger(ledger, root, maps, default_repo=None):
             findings.append(("BROKEN", coord, detail))
             continue
 
-        places = resolve(rel, locator, body)
+        places, resurrected = resolve_unit(rel, locator, body)
+        if places and not claim and (resurrected or len(places) > 1):
+            # The row's OWN recorded content decides, in both directions. With
+            # several places it breaks the tie (questions.md §Q3). With one
+            # place the declaration rule is not sure of, it is the only thing
+            # that can say whether the row's unit is still there — and where
+            # nothing reconstructs, the unit is GONE, which is the answer
+            # `ast` already gives `.py` and the one this path was missing
+            # (round 6, 🔴 J). Two places reconstructing one hash are
+            # identical spans, so the choice between them is not a choice.
+            hit = [
+                p
+                for p in places
+                if content_hash(body.splitlines()[p[0] - 1 : p[1]]) == want
+            ]
+            if hit:
+                places = hit[:1]
+            elif resurrected:
+                places = []
+        if len(places) > 1:
+            # A claim row cannot be decided that way: `want` is the hash of the
+            # MINOR region, so no unit reconstructs it and the tie stands.
+            at = ", ".join(f"{a}-{b}" for a, b in places)
+            why = "" if claim else " (none holds the recorded content)"
+            findings.append(
+                (
+                    "BROKEN",
+                    coord,
+                    f"locator is ambiguous — {len(places)} places: {at}{why}",
+                )
+            )
+            continue
         if not places:
             detail = "locator not found"
             scan = scan_cache.setdefault(repo, {})
@@ -811,38 +889,6 @@ def check_ledger(ledger, root, maps, default_repo=None):
                 detail += f" (repo-wide scan skipped: over {SCAN_FILE_CAP} files)"
             findings.append(("BROKEN", coord, detail))
             continue
-        if len(places) > 1:
-            # The row's OWN recorded content breaks the tie. This reverses the
-            # decision that stood here — "with two places to look, an OK would
-            # be a claim about whichever one the code happened to pick" —
-            # which holds for a checker picking arbitrarily and does not hold
-            # for evidence the row itself carries (questions.md §Q3). Two
-            # places reconstructing one hash are identical spans, so the
-            # choice between them is not a choice. What it buys is the end of
-            # the loop the structure signal pointed at: a text declaration
-            # rule for every brace language cannot be made correct by
-            # enumerating keywords, and after this it does not have to be.
-            hit = [
-                p
-                for p in places
-                if content_hash(body.splitlines()[p[0] - 1 : p[1]]) == want
-            ]
-            if hit:
-                places = hit[:1]
-            else:
-                # Loudly: no place holds what the row recorded, so the
-                # ambiguity is real and nothing here can settle it.
-                at = ", ".join(f"{a}-{b}" for a, b in places)
-                findings.append(
-                    (
-                        "BROKEN",
-                        coord,
-                        f"locator is ambiguous — {len(places)} places: {at} "
-                        "(none holds the recorded content)",
-                    )
-                )
-                continue
-
         unit = places[0]
         if claim:
             inside = minor_region(rel, body, unit, claim)
@@ -1085,7 +1131,17 @@ def reverify(ledgers, root, maps, default_repo=None):
                 print(f"  {raw_path}#{locator}  path escapes the repository — left")
                 continue
             body = read(os.path.join(repo, rel))
-            places = resolve(rel, locator, body) if body is not None else []
+            places, resurrected = (
+                resolve_unit(rel, locator, body) if body is not None else ([], False)
+            )
+            if resurrected:
+                # This command MAKES the hash, so it has none to tell a
+                # declaration from a call with — the grounds are round 5's own
+                # for keeping the structural guard. It therefore treats a
+                # resurrected place as no place at all, heals only on a
+                # destination the scan can prove, and says so otherwise
+                # (round 6, 🔴 J).
+                places = []
             if not places and claim is None:
                 if (
                     body is None
@@ -1134,10 +1190,24 @@ def reverify(ledgers, root, maps, default_repo=None):
                     # history is the reader's to judge from the diff
                     # (round 4, 🟡 7).
                     print(f"  {raw_path}#{locator} -> {shown}  (identical content)")
+                elif resurrected:
+                    print(
+                        f"  {raw_path}#{locator}  only a place the declaration "
+                        "rule resurrected, and no destination is provable — left"
+                    )
                 continue
             if body is None:
                 continue
             if len(places) != 1:
+                # Never silence. The check calls this row BROKEN and tells the
+                # reader to look; running the heal command and getting nothing
+                # back reads as a heal that happened (round 6, 🟢).
+                why = (
+                    "only a place the declaration rule resurrected"
+                    if resurrected
+                    else f"{len(places)} places, which the check calls ambiguous"
+                )
+                print(f"  {raw_path}#{locator}  {why} — left")
                 continue
             if claim:
                 inside = minor_region(rel, body, places[0], claim)

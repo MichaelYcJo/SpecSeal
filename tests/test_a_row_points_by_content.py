@@ -1058,11 +1058,11 @@ def test_a_call_after_a_statement_keyword_is_not_a_declaration(repo):
     assert ec.resolve("app.js", "render", text) == [(1, 2)]
     for kw in ("return", "throw", "yield", "await", "if", "while", "case", "not"):
         lines = ["function render(x) {", "  return x;", "}", "", f"{kw} render(y);"]
-        assert ec.generic_units(lines, "render") == [(1, 2)], kw
+        assert ec.generic_units(lines, "render") == ([(1, 2)], False), kw
     # Declaration modifiers are NOT statement keywords: nothing here narrows
     # what `export async function f(` and friends already match.
     decl = ["export async function render(x) {", "  return x;", "}"]
-    assert ec.generic_units(decl, "render") == [(1, 2)]
+    assert ec.generic_units(decl, "render") == ([(1, 2)], False)
 
 
 def test_a_gone_symbol_in_a_parsing_python_file_is_broken_with_the_hint(repo):
@@ -1401,9 +1401,11 @@ def test_a_declaration_whose_modifier_is_a_keyword_elsewhere_still_resolves(repo
     The blocklist refused both — real code, BROKEN, exit 2 (round 5, 🔴 C).
     It may now only NARROW a set of candidates, never empty it."""
     cs = ["public new void Render(int x) {", "  return;", "}"]
-    assert ec.generic_units(cs, "Render") == [(1, 2)]
+    assert ec.generic_units(cs, "Render") == ([(1, 2)], True)
     swift = ["enum State {", "  case loading(String)", "}"]
-    assert ec.generic_units(swift, "loading") == [(2, 2)]
+    assert ec.generic_units(swift, "loading") == ([(2, 2)], True)
+    # The second half of the tuple is the whole point: these two survived only
+    # because nothing unblocked did, and the consumers have to know that.
 
 
 def test_a_bare_call_statement_is_not_a_declaration(repo):
@@ -1477,7 +1479,7 @@ def test_no_document_claims_the_checker_never_calls_git(repo):
     """Round 4's 🟡 10 put a git call in the file — one, in `--migrate` — and
     four documents kept saying the checker calls git for nothing at all. The
     exception belongs in the same paragraph as the claim (round 5, 🟡 H)."""
-    for rel in ("CLAUDE.md", "README.md", "README.ko.md"):
+    for rel in ("CLAUDE.md", "README.md", "README.ko.md", ".specseal/map.md"):
         with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
             paragraphs = f.read().split("\n\n")
         claiming = [p for p in paragraphs if NO_GIT_CLAIM.search(p)]
@@ -1564,3 +1566,127 @@ def test_a_mapped_prefix_still_reaches_its_own_checkout(repo, tmp_path):
     (tmp_path / "outside" / "creds.py").write_text("def secret():\n    return 'S'\n")
     r = run(["--map", f"legacy={other}", "."], str(repo))
     assert "escapes the repository" in r.stdout, r.stdout
+
+
+# --- round 6: the uncertainty leaves the classifier -------------------------
+
+
+def test_a_moved_brace_language_unit_is_broken_with_the_hint(repo):
+    """Round 4's 🔴 2 for every file that is not `.py`.
+
+    `return render(y);` left behind by a move was resurrected by the
+    declaration rule when nothing unblocked survived, so the row read DRIFTED,
+    `--reverify` anchored it onto the call site, and every later check said
+    `1 ok` for ever (round 6, 🔴 J). The answer `ast` already gives Python: the
+    unit is GONE, so BROKEN with the destination named.
+    """
+    app = repo / "src" / "app.js"
+    app.write_text(
+        "function render(x) {\n"
+        "  return x;\n"
+        "}\n"
+        "\n"
+        "function page(y) {\n"
+        "  return render(y);\n"
+        "}\n"
+    )
+    write_row(repo, "src/app.js", "render")
+    app.write_text("function page(y) {\n  return render(y);\n}\n")
+    (repo / "src" / "other.js").write_text("function render(x) {\n  return x;\n}\n")
+
+    r = run(["."], str(repo))
+    assert "identical content at src/other.js#render (moved?)" in r.stdout, r.stdout
+    assert r.returncode == 2, r.stdout
+
+    rr = run(["--reverify", "."], str(repo))
+    assert "src/other.js#render" in rr.stdout, rr.stdout
+    assert run(["."], str(repo)).returncode == 0, "the healed row is not OK"
+
+
+def test_reverify_refuses_a_place_the_declaration_rule_resurrected(repo):
+    """`--reverify` is the side that MAKES the hash, so it cannot use one to
+    tell a declaration from a call. Where the only place is a resurrected
+    candidate and the scan proves no destination, it writes nothing and says
+    so (round 6, 🔴 J)."""
+    app = repo / "src" / "app.js"
+    app.write_text(
+        "function render(x) {\n"
+        "  return x;\n"
+        "}\n"
+        "\n"
+        "function page(y) {\n"
+        "  return render(y);\n"
+        "}\n"
+    )
+    write_row(repo, "src/app.js", "render")
+    ledger = repo / ".specseal" / "map" / "f.md"
+    before = ledger.read_text()
+    app.write_text("function page(y) {\n  return render(y);\n}\n")
+    # Moved AND edited, so nothing reconstructs and no destination is provable.
+    (repo / "src" / "other.js").write_text("function render(x) {\n  return x + 1;\n}\n")
+
+    rr = run(["--reverify", "."], str(repo))
+    assert "0 rows re-verified" in rr.stdout, rr.stdout
+    assert ledger.read_text() == before, "reverify anchored the row onto a call site"
+    assert "declaration rule" in rr.stdout, rr.stdout
+
+
+def test_reverify_says_something_about_a_row_the_check_called_broken(repo):
+    """A person told *go look* runs the heal command and used to get silence
+    (round 6, 🟢)."""
+    (repo / "src" / "app.cs").write_text(
+        "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n"
+    )
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        "# frag\n\n| CLAUSE | `src/app.cs#render@00000000` |\n"
+    )
+    rr = run(["--reverify", "."], str(repo))
+    assert "src/app.cs#render" in rr.stdout, rr.stdout
+    assert "0 rows re-verified" in rr.stdout, rr.stdout
+
+
+def test_default_repo_cannot_reach_outside_its_own_checkout(repo, tmp_path):
+    """The containment guard had three branches and only two tested it. With
+    `legacy/src/creds.py` a symlink pointing out of the tree, `--default-repo`
+    read it and reported `1 ok`, exit 0 (round 6, 🟡 K)."""
+    from conftest import symlink_or_skip
+
+    orig = tmp_path / "orig"
+    (orig / "src").mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / "creds.py"
+    secret.write_text("def secret():\n    return 'S'\n")
+    symlink_or_skip(str(secret), str(orig / "src" / "creds.py"))
+
+    h = ec.content_hash(secret.read_text().splitlines())
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f"# frag\n\n| CLAUSE | `src/creds.py#secret@{h}` |\n"
+    )
+    r = run(["--default-repo", str(orig), "."], str(repo))
+    assert "escapes the repository" in r.stdout, r.stdout
+    assert r.returncode == 2, r.stdout
+
+
+def test_the_two_commands_that_must_know_ask_for_the_flag(repo):
+    """`resolve` keeps returning a plain list so its thirty call sites and
+    `file_units` stay correct, and `resolve_unit` carries the resurrection
+    flag beside the places. That split is only safe while the two consumers
+    that must act on the flag actually ask for it — a later edit reaching for
+    the shorter name would drop the fact silently, which is the whole failure
+    round 6 found (round 6, 🔴 J)."""
+    import ast as ast_mod
+
+    tree = ast_mod.parse(open(SCRIPT, encoding="utf-8").read())
+    calls = {}
+    for node in ast_mod.walk(tree):
+        if not isinstance(node, (ast_mod.FunctionDef, ast_mod.AsyncFunctionDef)):
+            continue
+        for inner in ast_mod.walk(node):
+            if isinstance(inner, ast_mod.Call) and isinstance(inner.func, ast_mod.Name):
+                if inner.func.id in ("resolve", "resolve_unit"):
+                    calls.setdefault(node.name, set()).add(inner.func.id)
+    for consumer in ("check_ledger", "reverify"):
+        assert calls.get(consumer) == {"resolve_unit"}, (
+            f"{consumer} does not ask for the resurrection flag: {calls.get(consumer)}"
+        )
