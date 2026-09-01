@@ -12,10 +12,10 @@ reviewed those fixes — which is why `Fixes checked by` reads what it reads and
 | Fixes for this round's findings | `a43ef64` · `3d7a297` |
 | PR | opened as a draft — see below |
 | Broad gate | not yet — deferred to CI, whose three-OS matrix answers five open items no local run can |
-| Fixes checked by | `nobody — the run reached its bound at round 5 and ran two rounds past it; the orchestrator re-executed this round's three reproductions at 3d7a297 instead of spawning a round 8` |
+| Fixes checked by | `round-8` |
 | Needs a fix | yes — 🔴 L, 🔴 M, 🟡 N, all closed at `a43ef64` |
 
-- [ ] Pass
+- [x] Pass
 
 ## Round 6's two, answered
 

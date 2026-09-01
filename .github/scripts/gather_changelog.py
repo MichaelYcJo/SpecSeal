@@ -39,6 +39,11 @@ import os
 import re
 import sys
 
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "hooks")
+)
+import console
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 TITLE = "# Changelog"
 
@@ -96,6 +101,7 @@ def insert(changelog_text, block):
 
 
 def main(argv=None):
+    console.to_utf8()
     ap = argparse.ArgumentParser()
     ap.add_argument("--version", help="the version being released, e.g. 0.2.0")
     ap.add_argument("--date", help="release date (default: today, UTC)")
