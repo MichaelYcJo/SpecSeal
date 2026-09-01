@@ -31,7 +31,7 @@ to judge as code.
 | Item | Who must answer |
 |---|---|
 | ✅ This branch's own round records carrying the new rows | rounds 1–3 written with both rows, parsed clean by `chain_check.py` in rounds 2 and 3; session of 2026-09-02 |
-| `chain_check.py` on this pull request end to end (it exits 1 today for the true reason that no round record exists yet) | CI at the pull request, once the rounds have run |
+| ✅ `chain_check.py` on this pull request end to end | CI's invocation run locally at 55812d2 under ready-PR judgment, exit 0, all three rounds parsed; the PR's own CI run re-executes it. Session of 2026-09-02 |
 
 ## Not done
 
