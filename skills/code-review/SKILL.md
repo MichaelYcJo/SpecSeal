@@ -57,13 +57,25 @@ catches the eye misses something different every time.
 | Error paths | failure conditions, codes, messages; failure vs. empty result. Count **new failure paths the change introduces** separately — someone must classify each as fix or regression |
 | State transitions | against the spec's state machine, if one exists |
 | Concurrency & atomicity | what can change between the read that decides and the write that acts: state held across an external call or `await`, transaction boundary against lock scope, whether a retry executes twice |
+| Security | who can reach this path and as whom; the trust of every input that crosses an OS or process boundary; whether each failure fails open or closed; what a crafted name, path, or payload reaches |
 
-Every axis above the last one is settled by reading a single request from end
+Every axis above the last two is settled by reading a single request from end
 to end. The concurrency axis is not: it asks what a *second* actor does while
 the first is mid-flight, and no amount of following one path answers it. It was
 added after a review walked all eight of the others cleanly and a second
 reviewer, working from no list at all, found a window where a reservation was
 mutated while an external call was in flight.
+
+The security row earned its place the same way. Stage 2 has always named
+security, and the table is what makes an axis mandatory — an axis that lives
+in prose leaves no `❓` when nobody walks it. It also shares the concurrency
+row's exemption on its own grounds: it asks what an input
+nobody sends in good faith does, and no amount of following the request in
+front of you answers it. Three of one round's four
+blocking findings had a stronger security frame than the one they were given,
+and one was a fail-open — an error path that answered "nothing to see" — in a
+repository that keeps `tests/test_gates_do_not_fail_open.py` for that class
+alone.
 
 ### The table is a floor, not a ceiling
 
@@ -127,7 +139,7 @@ and worker findings are pre-verification):
 
 | File | Contents |
 |---|---|
-| `round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), and **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table |
+| `round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — and **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table |
 | `tests-todo.md` | regression tests to plant, with the destination file per row |
 | `evidence-todo.md` | verified facts to merge into `.specseal/map.md` |
 
@@ -181,6 +193,12 @@ So a run ends with a **verifying round**, and three things define it.
 | Target | the **diff of those fixes**, not the branch. That is what keeps it bounded: it is the cheapest round of the run |
 | Job | the answers, not new findings. For each verdict the previous round recorded as closed, is it actually closed |
 
+One surface in that diff is exempt from *the answers, not new findings*: what
+the previous record's `New units` row names. A unit the fixes created has
+been reviewed by nobody, so the verifying round treats it as a finding
+surface — *is this correct* — rather than a verification surface. Measured:
+one fix commit created eight new units, and four carried defects.
+
 The reviewer answers the third one in a line of its own — `Needs a fix: no`,
 or `yes` and what does — and that line is the run's terminal condition. Copy
 it into `round-N.md`'s `| Needs a fix |` row rather than re-deriving it from
@@ -218,6 +236,22 @@ round's number. Every record carries the row, not only the newest — `Pass` is
 a verdict on the whole review and the last round's speaks for it, while this
 is a fact about one round's own fixes. `docs/review-chain-spec.md` holds the
 rule and what each refusal costs.
+
+### And name the fix surface, in the same record
+
+Two more rows, filled in when the fixes land — the same reach-back that sets
+`Fixes checked by`, written by the session that already has the fix diff
+open, which is why they cost no question to anyone.
+
+| The row | What goes in it |
+|---|---|
+| `Contract changes` | every unit whose signature, return arity, return type, or set of returnable values this round's fixes changed — each with the call sites it reaches, `unit → site, site`, units separated by `;`. The diff names the changed signature and `grep` names the reach; the largest regression class issue #57 measured — four findings of ten — was a contract change whose reach was never revisited |
+| `New units` | the top-level definitions and constants the fixes added — the verifying round's finding surface above |
+
+Both accept `none`, with or without a reason after it. `chain_check.py`
+refuses a record without the rows and a unit listed without its reach, for
+work items begun on or after its `SURFACE_FROM`; records of earlier work
+items print instead — the grandfathering `Fixes checked by` already uses.
 
 ## Orchestrator: verify before posting
 
@@ -273,6 +307,44 @@ An invented identifier that reads as verified is worse than no suggestion. If
 too many names are missing for a snippet to stand, describe the change in
 sentences and say which document would have to exist for the code to be
 written.
+
+**A fix touching an OS boundary states its assumed precondition.** The
+premises are the ones a snippet assumes without a line to show for them —
+path resolution, file modes, symlinks, subprocess working directory,
+encoding — and a sketch that assumes one reads as paste-ready and is not. The
+clause
+above covers invented *names*; this covers unexamined *premises*. State the
+precondition beside the line that relies on it, the way a missing name is
+marked, or in one sentence under the snippet — and "it has none" is a
+statement worth making, because silence and "none" read alike. Three of one
+round's four blocking findings arrived as sketches that read as paste-ready
+and were not.
+
+### Verdicts that close too early
+
+Three shapes of closing recur, and each is written down here because each was
+measured costing rounds.
+
+**An enumeration over an unbounded domain is a recorded limit, not a closed
+finding.** A fix that answers a finding by enumerating cases — keywords,
+spellings, constructs — from a domain nothing bounds has narrowed the
+finding, not closed it. The verdict says so, and the limit goes where it will
+be read again: the skill's Known limits, the ledger, or the record's Deferred
+row. Measured: one such rule cost three rounds and two owner decisions, and
+closed only when the uncertainty moved out of the classifier instead of being
+argued inside it.
+
+**A mutation score licenses *tested*, never *safe* — say so where the number
+is reported.** A score like `12/12 killed` establishes that the pins
+discriminate — the fix is *tested* — and says nothing about whether it is
+*safe*. Three consecutive rounds each reported a perfect score, and all three
+were rounds whose fixes opened findings.
+
+**A document claim gets a pin.** A claim a fix writes into a document — a
+limit, a vocabulary, a behaviour — closes when a test pins the document, not
+when the sentence lands. The same class of finding returned one round apart
+because no test pinned any of the three documents involved, and the moment
+pins existed they found a fourth file nobody had covered.
 
 End with the proof block. Fill it only with files actually opened; write
 `none — <reason>` otherwise:
