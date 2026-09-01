@@ -349,6 +349,60 @@ def test_an_empty_cell_is_not_an_answer(repo):
     assert "empty" in out
 
 
+def test_a_cell_of_only_separators_is_not_an_answer(repo):
+    """Round 1's 🟡 1, on this work item's own diff: `;` split into empty
+    entries, every one was skipped, and both rows passed — not `none`, not
+    empty. The empty-cell refusal's own sentence already covers it: a row
+    that says nothing answers nothing."""
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, contract=";", new_units="—"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "Contract changes" in out and "New units" in out, (
+        "both rows have to be refused — the guard sits before the "
+        "contract-only entry walk"
+    )
+
+
+# Round 1's 🟡 3, closed as a RECORDED LIMIT rather than a parser. The arrow
+# is found by substring, so an ASCII `->` inside a backticked unit name reads
+# as the reach separator — and parsing code spans to close that would be the
+# enumeration over an unbounded domain the diff's own rule 6 refuses. The
+# sentence is pinned (rule 8 applied to itself) and the behavior is executed,
+# so whoever closes the limit meets both and deletes them consciously.
+RECORDED_LIMIT = (
+    "an ASCII `->` inside a backticked unit name reads as the reach separator"
+)
+
+
+def test_the_recorded_limit_an_ascii_arrow_inside_a_name(repo):
+    """The limit, executed: `` `operator->` `` alone passes, because the
+    substring arrow splits the name itself. If this case ever fails, the
+    limit was closed — delete the sentence the case below pins."""
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, contract="`operator->` widened its set"),
+    )
+    code, out = run(repo)
+    assert code == 0, out
+
+
+def test_the_arrow_limit_is_recorded_where_the_rule_lives():
+    """A recorded limit that is recorded nowhere is a closed finding — the
+    exact shape rule 6 refuses. `→` is named as the spelling that avoids
+    the limit, in the check and in the document that carries its refusals."""
+    for parts in (
+        ("docs", "review-chain-spec.md"),
+        ("skills", "code-review", "scripts", "chain_check.py"),
+    ):
+        text = flat(*parts)
+        assert RECORDED_LIMIT in text, "/".join(parts)
+
+
 def test_a_row_inside_a_comment_is_not_the_row(repo):
     """One reader, not two: the template explains the rows in a comment
     beside them, and an explanation must not read as an answer."""

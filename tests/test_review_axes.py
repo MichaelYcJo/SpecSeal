@@ -37,6 +37,13 @@ def test_the_table_asks_the_security_questions():
     assert "| Security |" in axes, "the axes table has no security row"
     for probe in ("fails open or closed", "crafted name, path, or payload"):
         assert probe in axes, f"the security row lost `{probe}`"
+    # Round 1's 🟡 4: the prose groups Security with Concurrency as
+    # not-settled-by-one-request-read and grounded only concurrency, so a
+    # prose tightening could read the grouping as licensing a revert. The
+    # ground is what makes the grouping earned rather than asserted.
+    assert "nobody sends in good faith" in axes, (
+        "the security paragraph lost the ground for its one-path exemption"
+    )
 
 
 def test_the_table_says_it_is_a_floor():

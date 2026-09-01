@@ -612,7 +612,12 @@ question.
 Only the ABSENT row is grandfathered. A merged record has no honest repair
 for a missing row — writing reach rows for fixes nobody re-read fabricates a
 review — where a malformed row's repair is formatting, which is always the
-author's. The rows are filled when the fixes land, by the session that has
+author's. One limit is recorded rather than parsed away: the arrow is found
+by substring, so an ASCII `->` inside a backticked unit name reads as the
+reach separator, and such a unit passes without its reach. `→` is the
+spelling that avoids it — parsing code spans to close the gap would be an
+enumeration over an unbounded domain, the closing the review skill's own
+rules refuse. The rows are filled when the fixes land, by the session that has
 the fix diff open, so their prompt budget is zero. What `New units` buys sits
 with the verifying round: what it names is a finding surface — *is this
 correct* — rather than a verification surface, because a unit the fixes

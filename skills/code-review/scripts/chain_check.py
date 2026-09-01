@@ -1331,6 +1331,13 @@ def fix_surface(reader, root, rel):
     An unreadable record returns nothing: `checked_by` already reports that
     state, and a second error naming a different cause would name a cause
     that is not the cause.
+
+    Known limit, recorded rather than parsed away: the arrow is found by
+    substring, so an ASCII `->` inside a backticked unit name reads as the
+    reach separator and a unit named `operator->` passes without its reach.
+    `→` is the spelling that avoids it. Parsing code spans to close the gap
+    would be an enumeration over an unbounded domain — the closing the
+    review skill's own rules refuse.
     """
     text = read_record(root, rel)
     if text is None:
@@ -1386,6 +1393,21 @@ def fix_surface(reader, root, rel):
             )
             continue
         if says_none(value):
+            continue
+        if not EMPHASIS.sub("", value).strip(SEPARATORS + ";"):
+            # `;` alone survived both refusals above: not `none`, not empty,
+            # and the entry walk below skips every empty entry it yields.
+            # Separators with nothing between them say exactly as much as an
+            # empty cell, and take the same answer (round 1's 🟡 1).
+            errors.append(
+                (
+                    rel,
+                    0,
+                    f"`{label}` is `{value}` — separators with nothing "
+                    "between them, which says exactly what an empty cell "
+                    "says. Write the units, or `none`",
+                )
+            )
             continue
         if label != CONTRACT:
             continue

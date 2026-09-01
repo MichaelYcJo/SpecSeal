@@ -68,7 +68,10 @@ mutated while an external call was in flight.
 
 The security row earned its place the same way. Stage 2 has always named
 security, and the table is what makes an axis mandatory — an axis that lives
-in prose leaves no `❓` when nobody walks it. Three of one round's four
+in prose leaves no `❓` when nobody walks it. It also shares the concurrency
+row's exemption on its own grounds: it asks what an input
+nobody sends in good faith does, and no amount of following the request in
+front of you answers it. Three of one round's four
 blocking findings had a stronger security frame than the one they were given,
 and one was a fail-open — an error path that answered "nothing to see" — in a
 repository that keeps `tests/test_gates_do_not_fail_open.py` for that class
