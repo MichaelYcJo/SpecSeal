@@ -37,7 +37,6 @@ read, the trade was wrong and the list comes back.
 
 | Item | Who must answer |
 |---|---|
-| | |
 
 ## Riders waiting on a file another branch holds
 

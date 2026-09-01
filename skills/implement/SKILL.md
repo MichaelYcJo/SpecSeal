@@ -303,12 +303,25 @@ than whether it finishes.
 
 | Answer | What it does |
 |---|---|
-| `release/vX.Y.Z` (the default) | the entry goes under `## Unreleased`; `plugin.json` is left alone |
-| `main` | the version moves, the heading is dated, and the tag follows the merge |
+| `release/vX.Y.Z` (the default) | the entry accumulates unreleased; `plugin.json` is left alone |
+| `main` | the version moves, the accumulated entries are collected and dated, and the tag follows the merge |
 
 Take `main` when the accumulated entries read as one thing, or when the change
 is a gate or a hook firing where it should not — that one does not wait for
 company.
+
+**Where an entry accumulates is the repository's convention, so read it before
+writing one.** Two shapes are common and they are not interchangeable: a
+heading in the changelog that every branch appends to, or one fragment per
+work item that a release gathers. Writing the first into a repository that
+uses the second either invents a heading its checks refuse or appends to the
+shared region the fragments exist to empty — which is the collision, arriving
+from the document that was supposed to prevent it.
+
+Where the repository gathers fragments, **basing on `main` means running the
+gather**, because that is the branch where the entries are due. It is the one
+moment a feature branch touches the changelog at all, and the repository's
+contribution guide names the command.
 
 What must not happen instead is a standing waiver. A session-level switch that
 turns the gate off leaves it nothing to do but stay quiet, which is the state
@@ -345,10 +358,13 @@ not appended to `.specseal/map.md`. Two branches cannot collide there, because
 no two work items share an id, and the checker reads the whole
 `.specseal/map/*.md` glob. A fragment needs no baseline header of its own.
 
-The commit a row's drift is measured from comes from `git blame` of that row's
-line, so re-verification drains row by row instead of ledger-wide, and nothing
-has to be typed that a rewrite could orphan. A SHA written into the row still
-wins, which is how rows stamped under the older rule go on working.
+The commit a row's drift is measured from is the commit that row first
+appeared in, derived from its own line's history — not the commit that last
+touched the line, which any bulk rewrite of the rows would pull forward to
+itself. Re-verification drains row by row instead of ledger-wide, and nothing
+has to be typed that a rewrite could orphan. A stamp written into the row still
+wins, which is how rows stamped under the older rule go on working and how a
+re-verified row clears drift the derivation cannot see.
 
 **Draft as you go, write in one pass.** The recording is cheap and the round
 trip is not: one session made twenty-six separate edits to its ledger and

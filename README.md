@@ -147,10 +147,14 @@ and worth stating: that the citation still points somewhere, not that the
 claim it supports is still true. Specs rot silently everywhere else — here
 the rot shows up in CI.
 
-**A row's baseline is a commit nobody typed.** It comes from `git blame` of
-that row's own line, so it cannot be orphaned by a rebase or a squash — the
-answer is recomputed on whatever tree is in front of it. The Checked column
-holds the date somebody read the code, and that is all it holds. Blame is also
+**A row's baseline is a commit nobody typed.** It is the commit that row
+first appeared in, derived from its own line's history, so it cannot be
+orphaned by a rebase or a squash — the answer is recomputed on whatever
+history is in front of it. First appearance rather than the commit that last
+touched the line, because any commit that rewrites rows in bulk would
+otherwise pull every one of them forward to itself and collapse the drift
+window. The Checked column holds the date somebody read the code, and a stamp
+only where a re-verified row has drift to clear. Deriving it is also
 what lets each work item write its own `map/<work-item-id>.md` instead of
 queueing at one shared file: a fragment needs no baseline header, because every
 row in it measures from its own line.

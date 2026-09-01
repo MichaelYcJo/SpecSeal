@@ -64,6 +64,20 @@ when it arrives.
   conflict is three lines, and it arrives after the broad gate has run, where
   nothing may be edited. The changelog fragments are gathered at the release
   (`docs/branch-and-release.md`); the ledger fragments never are.
+
+  **One branch does edit `CHANGELOG.md`, and it is the one based on `main`.**
+  A pull request into `main` is a release, so the entries are due there and
+  the hygiene workflow fails it while a fragment is still ungathered. Run:
+
+  ```bash
+  python3 .github/scripts/gather_changelog.py --version X.Y.Z   # --dry-run first
+  python3 .github/scripts/gather_changelog.py --check           # what the workflow runs
+  ```
+
+  This is the rule above being satisfied rather than broken: the branch is not
+  adding an entry to a shared region, it is collecting the fragments that
+  already exist. A hotfix taken straight to `main` is the case that meets this
+  without expecting to.
 - **No real identifiers.** Examples, fixtures, and docs use `example.com`
   and `/Users/x/` only. `tests/test_no_real_identifiers.py` enforces it in
   CI — extend its allowlist deliberately, never to make a test pass.

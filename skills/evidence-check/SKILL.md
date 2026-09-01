@@ -38,7 +38,15 @@ evidence-check --strict .
 | `BROKEN` (exit 2) | file gone or range beyond file length | fix the coordinate now — a broken ground is worse than none |
 | `DRIFTED` (exit 1; 2 under `--strict`) | commits since the row's baseline touched the range | re-open the coordinate, re-verify the claim, and put the date you verified it in the row's Checked column |
 | `EXTERNAL` | path resolves in no known checkout | pass `--map`/`--default-repo`, or accept as out of scope |
-| `OK` | resolves, untouched since its baseline | nothing |
+| `UNMEASURED` (2 under `--strict`) | resolves, but the row has no baseline at all — nothing was compared | commit the ledger line, or give the row a stamp. A fragment is uncommitted for most of its working life, so this is ordinary rather than wrong |
+| `AMBIGUOUS` (2 under `--strict`) | the row carries two distinct stamps and the checker will not guess which is the author's | leave one. The scan reads the physical row, so the winner would otherwise be whichever cell came first |
+| `OK` | resolves, and it was compared against a baseline and untouched | nothing |
+
+`UNMEASURED` and `AMBIGUOUS` print and pass. Both mean *nothing was measured*,
+which used to be reported as `OK` — the same word as a comparison that
+happened and found the range untouched. They fail only under `--strict`,
+because a red light a session meets on every ordinary run is one it learns to
+click past, and that is how a real finding gets missed.
 
 Drift is `git diff baseline..HEAD` per cited file, overlapped against the
 cited range. **Each row carries its own baseline**, and three things can supply
@@ -52,7 +60,14 @@ it, in this order:
 3. the ledger header's baseline, where neither can answer.
 
 Only when all three come up empty is drift checking skipped, and the run says
-so on the ledger's own line.
+so on the ledger's own line — as `UNMEASURED` per row, not as `OK`.
+
+**The run prints where a header baseline came from**, `a Baseline row` or
+`header prose`. A fragment declares none, so a commit its prose happens to
+name is read as the whole file's baseline; that is allowed, because refusing
+a header SHA outside a labelled row would quietly strip the fallback from a
+ledger whose header writes a bare one. Saying where it came from is the noisy
+direction, and the noisy direction is the safe one here.
 
 ### Re-verify a row, not the ledger
 

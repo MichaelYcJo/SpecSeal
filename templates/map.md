@@ -36,7 +36,14 @@ rather than the cheap way out.
 **A row names no commit in prose where it can be helped**, and a row's
 baseline has to be a date and a SHA together for exactly that reason. A bare
 hex word in a row is prose, not a stamp. In the header the same word IS read
-as the file's baseline, so a fragment's prose names no commit at all.
+as the file's baseline — the run prints which, `a Baseline row` or `header
+prose` — so a fragment's prose names no commit at all.
+
+**Two distinct stamps in one row is reported, not resolved.** The scan reads
+the physical row rather than the `Checked` cell, because a cell can itself
+hold a `|`; so the first stamp in the row would win, and `Verified behavior`
+comes before `Checked`. Such a row prints `AMBIGUOUS` and is measured from
+neither.
 
 **Moving a row between ledger files keeps its stamp, verbatim.** `git log -L`
 does not follow a row out of a file that stays — the row reports the MOVE as

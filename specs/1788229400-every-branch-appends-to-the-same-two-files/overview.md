@@ -59,6 +59,40 @@ an orphaned stamp fell back to the ledger header, a baseline from before the
 work. The fallback is the row's own first appearance now, which after a squash
 is the squash commit. An orphaned stamp costs nothing.
 
+## What review round 1 changed
+
+Ten findings, and the three groups the record names each had one cause.
+
+**The design moved and half the documents did not follow.** `9a7ce62` changed
+the reading from last touch to first appearance and brought along only the
+three files that commit happened to touch. Four more went on stating the
+rejected reading, two of them shipping to plugin users. The case written to
+catch exactly that listed three documents of seven — so the check and the
+defect were introduced together, and `README.ko.md` could never have been
+caught by it at all, because the phrase it looks for is English.
+
+**The derived baseline had three places it could not answer for, and all three
+printed like a healthy row.** Renaming a ledger turned that file's drift check
+off entirely: `git log -L` resolves a path inside the anchor commit, and the
+anchor predates the rename. A row with no baseline was appended as `OK`, the
+same word as a comparison that happened. And blanking a coordinate with a
+space let a date and a hex word that were never adjacent read as a stamp.
+
+Every one of those reports LESS than the scheme it replaces, which is the
+shape that does not announce itself.
+
+**The fragment convention reached half the documents.** The two a session
+actually reads still told it to file the entry under `## Unreleased`, and a
+case pinned that sentence in place — so a `smith` following its own contract
+would either invent a heading this repository's checks refuse or append to the
+shared region the fragments exist to empty. That is the collision this work
+item was opened to remove, arriving from the document meant to prevent it.
+
+Two decisions were the repository owner's, taken during the round: the
+no-baseline verdict fails under `--strict` only, and Q2 closes by reading the
+header SHA and printing where it came from. Both are recorded where they
+apply — `questions.md` for Q2, the verdict table for the first.
+
 ## Not verified
 
 | Item | Who must answer |

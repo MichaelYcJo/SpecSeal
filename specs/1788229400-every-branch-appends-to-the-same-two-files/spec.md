@@ -110,6 +110,11 @@ is what a release pull request is checked against.
 | 1d | A SHA a row names in prose is not its baseline, and not the ledger's either | the same file |
 | 2 | A row that carries a resolvable SHA still measures from it | the same file, and `tests/test_ledger_stamps_resolve.py` unchanged |
 | 3 | A ledger line not committed yet falls back to the header baseline and says so | `tests/test_a_row_measures_from_its_own_history.py`, and `tests/test_evidence_check_hardening.py::test_missing_baseline_skips_drift_and_says_so` unchanged |
+| 3c | A row with NO baseline at all reports `UNMEASURED` rather than `OK`, prints, passes, and fails under `--strict` | the same file |
+| 3d | Renaming a ledger file does not turn its drift check off | the same file |
+| 3e | A row carrying two distinct stamps reports `AMBIGUOUS` rather than measuring from whichever cell came first | the same file |
+| 3f | A coordinate sitting between a date and a hex word does not manufacture a stamp | the same file |
+| 3g | The run prints where a header baseline came from — a Baseline row or header prose | `skills/evidence-check/SKILL.md`, executed on this repository |
 | 3b | A boundary line — the first line of every fragment — gets a name git resolves, not blame's `^`-decorated one | the same file |
 | 4 | A fragment with no header baseline is checked row by row rather than skipped | `tests/test_a_row_measures_from_its_own_history.py` |
 | 5 | The gather script concatenates every ungathered fragment into a dated section, in work-item order | `tests/test_the_changelog_is_gathered_at_release.py` |

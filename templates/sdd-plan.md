@@ -47,8 +47,8 @@ use, nine SHAs deep, and only a reviewer opening them found it. **Re-read the
 column after any rebase**, or it names commits that resolve in one clone and
 nowhere else. That is tolerable because nothing measures from this column.
 The evidence ledger had the same problem and no such tolerance, which is why a
-ledger row names no commit at all now: its drift baseline comes from
-`git blame` of the row's own line, computed on the tree as it stands.
+ledger row names no commit at all now: its drift baseline is the commit the row
+first appeared in, derived from that row's own line history.
 
 ## Operational impact
 

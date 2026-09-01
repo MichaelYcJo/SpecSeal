@@ -13,16 +13,17 @@ own, because the derivation walks past an edit to the row. The stamp in each
 Checked cell is the assertion that the row was re-read at that commit, and it
 wins over the derivation.
 
-This paragraph named one of those commits when it was first written, and the
-header scan promoted it to the whole file's baseline — the second time this
-file has demonstrated Q2 in `questions.md`. A fragment's prose names no
-commit.
+**A fragment's prose names no commit.** The header scan reads the text above
+the first row that cites code, and a commit named there is read as the whole
+file's baseline — which is how this file twice reported drift against a commit
+only one clone can resolve, the second time in the paragraph explaining the
+first. The checker now prints where a baseline came from, so the mistake is
+visible rather than silent.
 
-A fragment's prose names no commit. The header scan reads the text above the
-first row that cites code, and a commit named there becomes the whole file's
-baseline — which is how this very file first reported drift against a commit
-only one clone can resolve. Rows below may name commits freely: a row's
-baseline has to be a date and a SHA together, so prose in a row is inert.
+Rows below may name commits freely. A row's baseline has to be a date and a
+SHA together, so a bare hex word in a row is inert, and a row carrying two
+distinct stamps is reported AMBIGUOUS rather than measured from whichever cell
+came first.
 
 ## A ledger row's baseline
 

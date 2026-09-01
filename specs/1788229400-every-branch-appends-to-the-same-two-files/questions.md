@@ -7,7 +7,9 @@ the ledger is fragmented and never gathered, and a ledger row stops carrying a
 
 ## Q1 — a row can be stale on arrival, and no derived baseline sees it
 
-**Who must answer:** repository owner. Related to issue #31.
+**Stays open and stays out of scope.** The repository owner commented it onto
+issue #31 during review round 1, and #31 is the next work item — so this is a
+known limit with a home rather than a loose end.
 
 Two branches run at once. Branch A writes a ledger row citing `code.py:10`.
 Branch B changes `code.py:10`. B squashes into the release branch first, then
@@ -28,30 +30,33 @@ What can be said for the current state: it is not a regression. The stamped
 scheme's noise was not detection, and the derived baseline is right about
 every case where the row and its code moved together.
 
-## Q2 — nothing forbids a commit SHA in a fragment's prose header
+## Q2 — a commit SHA in a fragment's prose header — ANSWERED
 
-**Who must answer:** repository owner.
+**Answered by the repository owner during review round 1: read it, and print
+one line saying where the baseline came from.**
 
 `find_baseline` reads a ledger's header for a declared baseline, and a
 fragment declares none — so a commit named in a fragment's prose becomes the
-whole file's baseline. This happened on the first fragment written: the file
-reported drift against a commit resolvable in one clone and nowhere else.
+whole file's baseline. This happened twice on the first fragment written, the
+second time in the paragraph explaining the first, which is what settled it:
+a convention broken by the person writing it down is not one anybody else
+will keep.
 
-Two things narrow it and neither closes it. The header now ends above the
-first row that cites code, so a row's prose is out of reach; and a row's own
-baseline must be a date and a SHA together, so prose in a row is inert. What
-remains is prose in the header itself, which is a convention
-(`templates/map.md` states it) with nothing enforcing it.
+The two options that were weighed and refused both fail quietly. Requiring the
+baseline to sit in a row labelled `Baseline` would strip the fallback from any
+ledger whose header writes a bare SHA — the shape
+`tests/test_evidence_check_hardening.py::test_custom_ledger_glob` has — and
+such a ledger would then report LESS drift while printing the same line as a
+healthy one. Leaving it as a documented convention had already failed once.
 
-**It has now happened twice on the same file**, the second time while writing
-the paragraph explaining the first. That is the argument for closing it rather
-than documenting it: a convention broken by the person who wrote it, in the
-document stating it, is not a convention anybody else will keep.
+What ships instead: the header SHA is still read, and the run prints
+`(baseline: 9829412 from a Baseline row)` or `… from header prose`. Its
+failure direction is noisy rather than quiet, and nothing about the accepted
+ledger shape changes.
 
-The options, if it is worth closing: require a header baseline to sit in a row
-labelled `Baseline`, which would break a ledger whose header writes a bare SHA
-— `tests/test_evidence_check_hardening.py::test_custom_ledger_glob` has that
-exact shape — or leave it as a convention. The failure direction of enforcing
-it is that such a ledger silently loses its header baseline and falls back to
-per-row derivation, which reports LESS drift. That is the wrong direction, and
-it is why this was not decided here.
+Two narrower fixes landed with it. The header now ends above the first row
+that CITES CODE, so a row's prose is out of the header scan's reach at all —
+and that cut runs before the 2000-character cap rather than after it, which is
+what had made the cut dead on this repository's own ledger and on the
+template. And a row's own baseline must be a date and a SHA together, so a
+bare hex word in a row is inert.

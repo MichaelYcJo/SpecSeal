@@ -297,6 +297,144 @@ def test_a_bulk_rewrite_does_not_reset_a_row(repo):
     )
 
 
+def test_a_renamed_ledger_still_catches_drift(repo):
+    """Round 1, 🔴 3. Renaming a ledger turned that file's drift check OFF.
+
+    `git log -L <n>,<n>:<path> <sha>` resolves `<path>` inside `<sha>`, and
+    the anchor commit predates the rename — so handing it the working-tree
+    name answers `fatal: There is no path ... in the commit`, rc 128. The row
+    then had no baseline and was appended as `ok`. Executed before the fix: a
+    ledger whose row read `1 drifted`/exit 1 read `1 ok`/exit 0 after nothing
+    but `git mv`.
+
+    The path now comes from blame's own `filename`, which is the name git knew
+    the line by at that commit.
+    """
+    fragment(repo, "| POL-1 | `src/service.py:2` |\n", name="old.md")
+    (repo / "src" / "service.py").write_text("CHANGED\n" * 8)
+    git(repo, "commit", "-qam", "rewrite the file")
+
+    before = run(["."], str(repo))
+    assert "DRIFTED" in before.stdout and before.returncode == 1, before.stdout
+
+    git(repo, "mv", ".specseal/map/old.md", ".specseal/map/new.md")
+    git(repo, "commit", "-qm", "rename the ledger")
+
+    after = run(["."], str(repo))
+    assert "DRIFTED" in after.stdout, (
+        f"the rename turned the drift check off:\n{after.stdout}"
+    )
+    assert after.returncode == 1, after.stdout
+
+
+def test_the_blamed_path_survives_a_suppressed_filename_block(repo):
+    """The half of 🔴 3's fix that a regex would have got wrong.
+
+    Porcelain prints the metadata block only for the FIRST line of each
+    commit — every later line of the same commit is a bare header with no
+    `filename` at all. Measured on this repository's own fragment: line 1
+    carries a block, line 2 does not. A reader taking `filename` from beside
+    each header therefore has it for one line per commit, so the path is
+    remembered per commit instead.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("specseal_evidence_check", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    fragment(
+        repo,
+        "| POL-1 | `src/service.py:2` |\n| POL-2 | `src/service.py:3` |\n",
+        name="old.md",
+    )
+    git(repo, "mv", ".specseal/map/old.md", ".specseal/map/new.md")
+    git(repo, "commit", "-qm", "rename the ledger")
+
+    lines = mod.blame_lines(str(repo), ".specseal/map/new.md", {})
+    assert len(lines) >= 4, lines
+    for n, (_, _, name) in lines.items():
+        assert name == ".specseal/map/old.md", (
+            f"line {n} lost the path git knew it by: {name}. Only the first "
+            "line of each commit carries a `filename` block"
+        )
+
+
+def test_a_row_with_no_baseline_is_not_reported_ok(repo):
+    """Round 1, 🔴 4. `OK` used to be appended unconditionally.
+
+    A row nobody has committed yet has no baseline at all, and printing `ok`
+    for it says a comparison happened. A fragment spends most of its working
+    life uncommitted, so this is the ordinary state rather than a corner.
+
+    It prints and passes; `--strict` is where it fails. A red light on every
+    ordinary run is one a session learns to click past.
+    """
+    fragment(repo, "| POL-1 | `src/service.py:2` |\n")
+    with open(repo / ".specseal" / "map" / "core.md", "a", encoding="utf-8") as f:
+        f.write("| POL-2 | `src/service.py:3` |\n")
+
+    r = run(["."], str(repo))
+    assert "UNMEASURED src/service.py:3" in r.stdout, r.stdout
+    assert "1 ok · " in r.stdout, f"the committed row stopped being ok:\n{r.stdout}"
+    assert r.returncode == 0, r.stdout
+
+    strict = run(["--strict", "."], str(repo))
+    assert strict.returncode == 2, strict.stdout
+
+
+def test_a_coordinate_between_a_date_and_a_hex_word_makes_no_stamp(repo):
+    """Round 1, 🟡 5, first half.
+
+    The coordinate was blanked with a single SPACE before the stamp scan, and
+    a space is exactly what `STAMP_RE` accepts between a date and a hex word.
+    A row reading `2026-01-01` then a coordinate under a directory named like
+    a SHA then another hex word therefore collapsed into a stamp out of two
+    values that were never beside each other.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("specseal_evidence_check", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    real = head(repo)
+    fragment(repo, f"| POL-1 | 2026-01-01 `{real}/x.py:3` {real} |\n")
+    text = (repo / ".specseal" / "map" / "core.md").read_text()
+    assert mod.row_stamps(text, text.index("POL-1"), str(repo), {}) == [], (
+        "a date and a hex word with only a coordinate between them were read as a stamp"
+    )
+
+
+def test_a_preceding_cell_does_not_beat_the_checked_column(repo):
+    """Round 1, 🟡 5, second half.
+
+    The scan reads the physical row, so the first resolvable stamp wins — and
+    `Verified behavior`, free prose where this repository's own fragments name
+    commits, sits BEFORE `Checked`. Rather than guess which cell the author
+    meant, a row carrying two distinct stamps is reported and measured from
+    neither.
+    """
+    older = head(repo)
+    (repo / "src" / "service.py").write_text("CHANGED\n" * 8)
+    git(repo, "commit", "-qam", "rewrite the file")
+    newer = head(repo)
+
+    fragment(
+        repo,
+        f"| POL-1 | `src/service.py:2` | seen at 2026-01-01 `{older}` "
+        f"| 2026-09-01 `{newer}` |\n",
+    )
+    r = run(["."], str(repo))
+    assert "AMBIGUOUS src/service.py:2" in r.stdout, r.stdout
+    assert older[:9] in r.stdout and newer[:9] in r.stdout, (
+        f"the report names neither of the two stamps:\n{r.stdout}"
+    )
+    assert "DRIFTED" not in r.stdout, f"a stamp was picked anyway:\n{r.stdout}"
+    assert r.returncode == 0, r.stdout
+    assert run(["--strict", "."], str(repo)).returncode == 2
+
+
 def test_a_moved_row_would_lose_its_history(repo):
     """Why a migration carries every stamp forward verbatim.
 
@@ -491,24 +629,71 @@ def test_no_document_still_tells_a_session_to_stamp_a_sha():
         )
 
 
+# Every document that states where a row's baseline comes from. Round 1 found
+# this list holding three of seven: the design moved from last touch to first
+# appearance at `9a7ce62` and only the three files that commit happened to
+# touch came with it, so four documents went on stating the reading this work
+# item measured and rejected. Two of them ship to plugin users through
+# `hygiene.yml`'s `ships` glob.
+#
+# A file is added here when it states the rule, not when it merely mentions
+# the ledger — the case below is about documents that would send a reader to
+# the wrong reading.
+BASELINE_DOCUMENTS = (
+    ("CLAUDE.md",),
+    ("templates", "map.md"),
+    ("templates", "sdd-plan.md"),
+    ("skills", "evidence-check", "SKILL.md"),
+    ("skills", "implement", "SKILL.md"),
+    ("README.md",),
+)
+
+
 def test_the_documents_say_where_the_baseline_comes_from_now():
     """A reader has to be able to check the rule, which means naming the
     reading. `first appeared` and `last touch` are two different rules with
     the same one-line summary, and the one-line summary is what a document
     that skips this ends up carrying."""
-    for parts in (
-        ("CLAUDE.md",),
-        ("templates", "map.md"),
-        ("skills", "evidence-check", "SKILL.md"),
-    ):
+    for parts in BASELINE_DOCUMENTS:
         text = flat(*parts)
         assert "first appear" in text, (
             "/".join(parts) + " does not say WHICH commit of the row's history"
         )
-        assert "last touch" in text, (
-            "/".join(parts) + " does not say what was rejected, so the next "
-            "reader takes the cheaper reading for the same rule"
-        )
+
+
+def test_no_document_still_states_the_rejected_reading():
+    """The absence half, which is what actually went wrong.
+
+    A document can gain the corrected sentence and keep the old one, and a
+    reader stops at whichever comes first. `git blame` naming the SOURCE of a
+    row's baseline is the rejected reading — the derivation still uses blame
+    to anchor a line, so the phrase is allowed where it describes that.
+    """
+    for parts in BASELINE_DOCUMENTS:
+        text = flat(*parts)
+        for rejected in (
+            "comes from `git blame` of",
+            "baseline is the commit `git blame` names",
+            "It comes from `git blame` of",
+        ):
+            assert rejected not in text, (
+                "/".join(parts) + f" still states the rejected reading: {rejected!r}"
+            )
+
+
+def test_the_korean_readme_states_the_same_reading():
+    """`README.ko.md` cannot be checked with the English phrase, and leaving
+    it out of the list above is exactly how it kept the rejected reading while
+    every English document was corrected. `CONTRIBUTING.md` requires the two
+    READMEs to move together, so this is the half that gets forgotten."""
+    ko = flat("README.ko.md")
+    assert "처음 나타난" in ko, (
+        "README.ko.md does not say the baseline is the row's FIRST appearance"
+    )
+    assert "마지막으로 건드린" in ko, (
+        "README.ko.md does not say which reading was rejected, so a Korean "
+        "reader gets the cheaper one for the same rule"
+    )
 
 
 def test_the_reason_first_appearance_beats_last_touch_is_measured():

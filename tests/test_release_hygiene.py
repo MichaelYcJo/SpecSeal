@@ -169,8 +169,21 @@ def test_the_release_target_is_asked_before_the_work_starts():
         assert "release branch is not" in text, (
             f"{parts[-1]} stopped saying which base branch does NOT release"
         )
-        assert "## Unreleased" in text, (
+        assert "accumulates" in text, (
             f"{parts[-1]} lost the accumulate half of the question"
+        )
+        # Round 1, 🔴 7. This used to require the literal `## Unreleased`, and
+        # that is a heading THIS repository no longer has: entries accumulate
+        # as `specs/<work-item-id>/changelog.md` fragments. A `smith` reading
+        # its own contract therefore either created the heading — reddening
+        # `test_no_section_accumulates_entries_in_the_shared_file` — or
+        # appended under the newest released section, which is the collision
+        # the fragments exist to remove. The two cases pulled against each
+        # other and the contract was the one that was wrong.
+        assert "## Unreleased" not in text, (
+            f"{parts[-1]} prescribes a changelog heading again. Where an "
+            "entry accumulates is the repository's convention, and a shipped "
+            "contract that names one sends a session to write it"
         )
         assert "yes/no" in text, (
             f"{parts[-1]} stopped saying the question has two continuing "
