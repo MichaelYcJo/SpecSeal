@@ -37,12 +37,13 @@ jobs:
           - { os: windows-latest, python: "3.12" }
     runs-on: ${{ matrix.os }}
     steps:
-      # Not shallow. `tests/test_a_rider_reaches_its_file.py` and
-      # `tests/test_ledger_stamps_resolve.py` both ask git whether a recorded
-      # SHA is an ancestor of HEAD, and at depth 1 no SHA is: the run went red
-      # on all four matrix legs for a reason that had nothing to do with the
-      # code. A checkout that cannot answer the question is not a pass either,
-      # so both tests fail loudly on a shallow clone rather than skipping.
+      # Not shallow. `tests/test_a_rider_reaches_its_file.py` asks git whether
+      # a recorded SHA is an ancestor of HEAD, and at depth 1 no SHA is: the
+      # run went red on all four matrix legs for a reason that had nothing to
+      # do with the code. A checkout that cannot answer the question is not a
+      # pass either, so the test fails loudly on a shallow clone rather than
+      # skipping. The ledger's stamp test used to need this too; a ledger row
+      # names no commit any more, so the rider stamps are the whole reason.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -67,9 +68,10 @@ jobs:
       - run: pytest tests/ -q -n auto
 
   # The plugin's headline check, run against the plugin. A coordinate that
-  # stopped resolving fails; drift is reported and does not, because a row is
-  # re-stamped by the commit that lands its change and would otherwise go red
-  # one commit early — a check that is red by construction gets ignored.
+  # stopped resolving fails; drift is reported and does not. Drift means the
+  # content under an anchor changed and nobody has said they re-read it, which
+  # is a true statement about a branch mid-flight — failing on it would be red
+  # by construction, and a check that is always red gets ignored.
   ledger:
     runs-on: ubuntu-latest
     steps:

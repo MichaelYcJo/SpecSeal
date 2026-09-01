@@ -45,9 +45,10 @@ orphaned object still answers `git cat-file` in the worktree that wrote it.
 The quiet half is the one that bites: this column was wrong on its own first
 use, nine SHAs deep, and only a reviewer opening them found it. **Re-read the
 column after any rebase**, or it names commits that resolve in one clone and
-nowhere else. That is tolerable because nothing measures from this column — unlike `.specseal/map.md`'s Checked stamp, which
-is a drift baseline a checker reads and may therefore never name a commit the
-branch itself made.
+nowhere else. That is tolerable because nothing measures from this column.
+The evidence ledger had the same problem and no such tolerance. It no longer
+has it at all: a ledger row names a symbol and a content hash, so there is no
+commit in it for a rebase to orphan.
 
 ## Operational impact
 

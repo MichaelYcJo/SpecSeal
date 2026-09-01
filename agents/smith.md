@@ -62,9 +62,13 @@ incorporation. This file only adds what the skill does not carry.
    minute.
    Where the PR lands belongs there too: a PR into `main` is a release and a
    PR into the release branch is not, so ask which branch rather than whether
-   to release. `release/vX.Y.Z` files the entry under `## Unreleased` and
-   leaves `plugin.json` alone; `main` moves the version and dates the heading.
-   Default to the release branch.
+   to release. `release/vX.Y.Z` accumulates the entry unreleased and leaves
+   `plugin.json` alone; `main` moves the version and collects the accumulated
+   entries under a dated heading. Default to the release branch.
+   WHERE an entry accumulates is the repository's convention — a heading every
+   branch appends to, or one fragment per work item gathered at the release —
+   so read the contribution guide before writing one. Writing the wrong shape
+   appends to the very region the other shape exists to empty.
    Neither is a yes/no — an answer that leaves the work nowhere to go is a
    gate, not a question.
    Once this batch is answered, run to the pull request. What surfaces later
@@ -221,6 +225,12 @@ missing a class of breakage, which is the architecture talking.
   refactoring"; the same symptom keeps returning in different forms.
 - You do not spawn reviewer agents of your own; the orchestrator runs the
   review chain.
+- **Commit before you mutate, and restore from your own copy — never from
+  HEAD.** A mutation loop that reverts with `git checkout -- <file>` restores
+  the committed state, which takes every uncommitted fix in that file with it.
+  That happened: a round's work was wiped mid-loop and had to be rebuilt from
+  a patch script. Committing first costs nothing on a feature branch, which
+  squashes anyway.
 
 ## Report
 
