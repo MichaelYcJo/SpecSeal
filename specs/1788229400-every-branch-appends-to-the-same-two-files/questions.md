@@ -41,3 +41,33 @@ proving test, with CI as continuous re-verification, would close the gap Q1
 records (a claim whose code and test both moved past it). Held because it
 layers ON TOP of content anchoring rather than replacing it, and the layer
 underneath had to prove out first.
+
+## Q3 — the generic declaration rule, at the structure signal — ANSWERED
+
+Round 4's 🔴 1 closed a false ambiguity by naming the statement keywords that
+may precede a call. Round 5 found that list wrong in both directions: it does
+not reach `render(1);`, whose `pre` is empty, and it refuses C# `public new
+void Render(int x)` and Swift `case loading(String)`, whose modifiers happen to
+be statement keywords elsewhere. A new 🔴 at the site the last one was closing
+is `docs/review-chain-spec.md:41`'s structure signal, so the third patch was
+not written; the question went to the repository owner instead.
+
+**Answered: the recorded hash breaks the tie, and the blocklist stops being
+load-bearing.** `check_ledger` already holds `want` when it reaches the
+ambiguity branch and throws it away. Where several places are found, the one
+whose content reconstructs the row's own recorded hash is the row's unit; none
+matching stays the honest DRIFTED, and two matching are identical spans, so the
+choice between them is not a choice.
+
+This reverses the decision written at the branch — *"with two places to look,
+an OK would be a claim about whichever one the code happened to pick"*. The
+reasoning holds for a checker picking arbitrarily and does not hold here: the
+row's own recorded content is what picks, and it is the same evidence the
+verdict would rest on either way. What it buys is the end of the loop the
+signal was pointing at — a text rule for every brace language cannot be made
+correct by enumerating keywords, and after this it does not have to be. A use
+misread as a declaration no longer costs a BROKEN, because its span does not
+reconstruct the hash.
+
+Swift's `case` therefore needs no ruling. It stays in the list, where being
+wrong is no longer expensive.
