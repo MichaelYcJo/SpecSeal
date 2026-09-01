@@ -21,8 +21,9 @@ provable:
 **Silent when clean, silent when the repository has no ledger, silent outside
 opted-in repositories.** A line that prints on every commit is a line people
 learn to skip; drift is not reported here for the same reason — a branch
-mid-flight legitimately drifts, and only BROKEN names something a person must
-touch either way.
+mid-flight legitimately drifts. Two verdicts name something a person must
+touch either way and both are printed: BROKEN, and OLD-FORMAT, whose block
+carries the migration command instead of the re-anchor one.
 
 No success check on the commit: no hook here reads exit codes, and the trade
 is safe in both directions — after a failed commit the tree is unchanged, so

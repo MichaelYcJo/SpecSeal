@@ -209,14 +209,24 @@ pieces of code it is actually about.
   symbol — a renamed file or directory is findable by content. `EXTERNAL`
   needs declared cross-repo intent, and where intent is declared but a row's
   file is in none of the named checkouts, the scan stays OFF: searching this
-  repository for a row that may cite the other one manufactures evidence. A
-  renamed local directory in a parity repository is therefore healed by
-  `--map` or by hand, not by the scan.
+  repository for a row that may cite the other one manufactures evidence.
+  Intent is read per ROW where it can be: a row whose prefix is not among the
+  `--map` names is a local row and keeps its scan. What cannot be read per row
+  is an UNPREFIXED row in a repository declaring `.specseal/parity.md` or
+  `--default-repo` — it may be citing the original, and nothing in the
+  coordinate says which. Such a row loses the scan for any move, not just for
+  a renamed directory: no `(moved?)` hint and no `--reverify` heal, so it is
+  fixed by `--map` or by hand.
 - `DRIFTED` means "someone must re-read this", not "the claim is wrong".
+- A nested `def` is anchored by its qualified name — `outer.inner` — and the
+  short name alone resolves to nothing. Such a row reads `BROKEN` with the
+  qualified unit named on the same line, and `--reverify` re-anchors it.
 - Reconstruction proves identity of content, not history. Deleting a unit
   that has a boilerplate twin — an `__init__`, a trivial getter, a thin
-  wrapper — reads as `renamed?` pointing at the twin, and `--reverify` would
-  re-anchor to it. The line says *identical content*, which is the whole of
+  wrapper, and most readily of all a one-line constant, where the name
+  substitution leaves nothing but the value — reads as `renamed?` pointing at
+  the twin, and `--reverify` would re-anchor to it. Deleting `TIMEOUT = 10`
+  beside an unrelated `RETRIES = 10` is the cheapest way to see it. The line says *identical content*, which is the whole of
   what was proven; the deletion is yours to spot in the diff.
 - Renaming a symbol reads as `BROKEN` — but where exactly one unit
   reconstructs the recorded content, the line names it and `--reverify` fixes

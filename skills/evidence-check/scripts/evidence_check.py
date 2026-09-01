@@ -52,6 +52,7 @@ import glob
 import hashlib
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -274,7 +275,13 @@ def resolve(path, locator, text):
 
 # Words that BEGIN a statement and can be followed directly by a call —
 # `return render(y);`, `await render(y)`, `if render(x):`. Any of them in the
-# text before the name makes the line a use rather than a declaration.
+# text before the name makes the line a use rather than a declaration —
+# but only where a candidate without one survives, because the same words are
+# declaration modifiers in other languages (`public new void Render(int x)`,
+# `case loading(String)`), and refusing those made real code BROKEN
+# (round 5, 🔴 C). The list may NARROW a set of candidates and may never empty
+# it; a tie it cannot break is broken by the row's own recorded hash in
+# `check_ledger`, which is why being wrong here is no longer expensive.
 STATEMENT_WORDS = frozenset(
     [
         "return",
@@ -339,17 +346,24 @@ def generic_units(lines, name):
     # (`export`, `static`, `async`, `def`, ...) are unbounded across
     # languages, and a wrong entry here fails loud — a declaration whose
     # modifier matched would report BROKEN — never silent.
+    blocked = []
     esc = re.escape(name)
     opener = re.compile(r"^(?P<pre>[\w\s*&]*?)\b" + esc + r"\s*(?P<delim>[({=]|:)")
     for i, line in enumerate(lines):
         m = opener.match(line)
         if not m:
             continue
-        pre_words = m.group("pre").replace("*", " ").replace("&", " ").split()
-        if STATEMENT_WORDS.intersection(pre_words):
-            continue  # `return render(y);` is a use, not a declaration
-        if m.group("delim") == ":" and m.group("pre").strip():
+        pre, delim = m.group("pre"), m.group("delim")
+        if delim == ":" and pre.strip():
             continue  # `if v not in NAME:` is a use, not a declaration
+        if not pre.strip() and delim == "(" and line.rstrip().endswith(";"):
+            # `render(1);` — nothing before the name, so no keyword blocks it,
+            # and the line TERMINATES, so it opens no block. That is a call
+            # statement in every brace language (round 5, 🔴 C). Structural
+            # rather than a vocabulary guess, which is why this one may empty
+            # the set where the keyword list may not: a declaration with
+            # nothing before its name does not end at a semicolon.
+            continue
         indent = len(line) - len(line.lstrip())
         j = i + 1
         while j < len(lines):
@@ -359,8 +373,11 @@ def generic_units(lines, name):
             j += 1
         while j > i + 1 and not lines[j - 1].strip():
             j -= 1
-        out.append((i + 1, j))
-    return out
+        pre_words = pre.replace("*", " ").replace("&", " ").split()
+        target = blocked if STATEMENT_WORDS.intersection(pre_words) else out
+        target.append((i + 1, j))
+    # A keyword-prefixed candidate is dropped only where another survives.
+    return out or blocked
 
 
 def name_statements(text, region, name):
@@ -596,14 +613,28 @@ def write_atomic(path, text):
     session-start hook's committed baseline (round 4, 🟡 14). The temp file
     lands in the ledger's own directory so the rename never crosses a
     filesystem.
+
+    **The target is the real file, not the name that was typed.** `os.replace`
+    puts the new file where the NAME points, so a symlinked ledger was
+    replaced by a regular file: the ledger behind the link never updated,
+    stayed stale, and the command reported success (round 5, 🔴 D). Resolving
+    the link first keeps the link AND the atomicity, since the temp file then
+    lands beside the real file. The mode is carried over for the same reason
+    the rename is atomic — `mkstemp` creates at 0600, and git tracks nothing
+    but the exec bit, so a demoted ledger is invisible in the diff.
     """
+    target = os.path.realpath(path)
     fd, tmp = tempfile.mkstemp(
-        dir=os.path.dirname(path) or ".", prefix=os.path.basename(path) + "."
+        dir=os.path.dirname(target) or ".", prefix=os.path.basename(target) + "."
     )
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(text)
-        os.replace(tmp, path)
+        try:
+            os.chmod(tmp, stat.S_IMODE(os.stat(target).st_mode))
+        except OSError:
+            pass  # a ledger that is new, or whose mode cannot be read
+        os.replace(tmp, target)
     except BaseException:
         try:
             os.unlink(tmp)
@@ -612,18 +643,45 @@ def write_atomic(path, text):
         raise
 
 
+def contained(repo, rel):
+    """True when `rel` stays inside `repo`, symlinks resolved.
+
+    A citation that leaves the tree through a symlink leaves it just the same,
+    so this resolves rather than normalising. The cost is stated: a ledger
+    citing a source file through a symlink OUT of the repository is refused.
+    """
+    inside = os.path.realpath(repo)
+    full = os.path.realpath(os.path.join(repo, rel))
+    return full == inside or full.startswith(inside + os.sep)
+
+
 def place(root, maps, default_repo, raw_path):
-    """(repo, rel) — the checkout a coordinate is read from.
+    """(repo, rel) — the checkout a coordinate is read from, or (None, rel)
+    where the coordinate escapes it.
 
     A prefix named by --map wins; an unprefixed path missing from ROOT falls
     to --default-repo when the file exists there, which is how a migration
     ledger cites the original repository without a prefix. One function,
     because check, --reverify and --migrate answered this differently and two
     of the three were wrong (round 4, 🔴 4 and 🟡 9).
+
+    **A row may not read outside the repository it is placed in.** The path
+    class admits `.` and `/`, so `../outside/creds.py#secret` matched and was
+    read from above the root; `--reverify` then wrote back a hash of what it
+    found, which makes the ledger a confirmation oracle for a file the project
+    does not contain (round 5, 🔴 I). The containment test is against the repo
+    this function RETURNS — a --map prefix resolves into another checkout by
+    design — and the answer is `None` rather than a quiet skip, so all three
+    callers have to say something about such a row.
     """
     for name, mapped in maps.items():
         if raw_path == name or raw_path.startswith(name + "/"):
-            return mapped, raw_path[len(name) :].lstrip("/") or "."
+            rel = raw_path[len(name) :].lstrip("/") or "."
+            return (mapped if contained(mapped, rel) else None), rel
+    if not contained(root, raw_path):
+        # Ahead of the --default-repo probe below, so an escaping row is not
+        # even an existence question asked outside the tree.
+        return None, raw_path
     if (
         default_repo
         and not os.path.isfile(os.path.join(root, raw_path))
@@ -633,19 +691,28 @@ def place(root, maps, default_repo, raw_path):
     return root, raw_path
 
 
-def cross_repo_intent(root, maps, default_repo):
-    """True when this project has DECLARED that its ledger may cite another
-    repository: a parity config in the tree, or --map/--default-repo on the
-    command line.
+def cross_repo_intent(root, maps, default_repo, raw_path):
+    """True when THIS ROW may be citing another repository: a parity config in
+    the tree, --default-repo, or a --map prefix this row actually carries.
 
-    EXTERNAL is a claim about another repo, and without one of these three
+    EXTERNAL is a claim about another repo, and without one of these
     declarations there is no other repo to claim — a missing top-level
     directory is then a broken citation, not an external one. Deleting or
     renaming a directory used to turn its rows EXTERNAL at exit 0, a green
     build over a false message (round 4, 🔴 3).
+
+    **The --map half is decidable per row, and answering it per RUN was the
+    bug.** One `--map` turned the rename scan off for every unplaceable row in
+    the ledger, so a purely local file rename lost its `(moved?)` hint and its
+    `--reverify` heal (round 5, 🟡 F). A row whose prefix is not among the
+    declared maps is a local row. The other two halves are NOT decidable: an
+    unprefixed row in a parity repository may be citing the original, and no
+    part of the coordinate says which. Those rows keep the scan off, and
+    SKILL.md's Known limits says what that costs.
     """
+    foreign = any(raw_path == n or raw_path.startswith(n + "/") for n in maps)
     return (
-        bool(maps)
+        foreign
         or bool(default_repo)
         or os.path.isfile(os.path.join(root, ".specseal", "parity.md"))
     )
@@ -654,9 +721,12 @@ def cross_repo_intent(root, maps, default_repo):
 def check_ledger(ledger, root, maps, default_repo=None):
     text = read(ledger)
     if text is None:
-        # An unreadable ledger used to be a TypeError — swallowed under
-        # dispatch, a traceback in CI (round 4, 🟡 14).
-        return []
+        # Permissions, a directory named `.md`, an I/O error. Answering `[]`
+        # made it indistinguishable from an EMPTY ledger and exited 0 — the
+        # green build OLD-FORMAT exists to prevent. Round 4's guard traded a
+        # traceback for that silence, and a traceback is at least a broken
+        # build (round 5, 🔴 B).
+        return [("BROKEN", os.path.relpath(ledger, root), "ledger unreadable")]
     findings = []
     seen = set()
     scan_cache = {}
@@ -672,11 +742,14 @@ def check_ledger(ledger, root, maps, default_repo=None):
         seen.add((coord, want))
 
         repo, rel = place(root, maps, default_repo, raw_path)
+        if repo is None:
+            findings.append(("BROKEN", coord, "path escapes the repository"))
+            continue
         full = os.path.join(repo, rel)
 
         body = read(full)
         if body is None:
-            if repo == root and cross_repo_intent(root, maps, default_repo):
+            if repo == root and cross_repo_intent(root, maps, default_repo, raw_path):
                 # The row cannot be placed in any repository this run knows,
                 # and the declaration says another one exists. The scan stays
                 # OFF: searching THIS repo for a row that may cite the other
@@ -739,13 +812,36 @@ def check_ledger(ledger, root, maps, default_repo=None):
             findings.append(("BROKEN", coord, detail))
             continue
         if len(places) > 1:
-            # Loudly, and never a measurement: with two places to look, an OK
-            # would be a claim about whichever one the code happened to pick.
-            at = ", ".join(f"{a}-{b}" for a, b in places)
-            findings.append(
-                ("BROKEN", coord, f"locator is ambiguous — {len(places)} places: {at}")
-            )
-            continue
+            # The row's OWN recorded content breaks the tie. This reverses the
+            # decision that stood here — "with two places to look, an OK would
+            # be a claim about whichever one the code happened to pick" —
+            # which holds for a checker picking arbitrarily and does not hold
+            # for evidence the row itself carries (questions.md §Q3). Two
+            # places reconstructing one hash are identical spans, so the
+            # choice between them is not a choice. What it buys is the end of
+            # the loop the structure signal pointed at: a text declaration
+            # rule for every brace language cannot be made correct by
+            # enumerating keywords, and after this it does not have to be.
+            hit = [
+                p
+                for p in places
+                if content_hash(body.splitlines()[p[0] - 1 : p[1]]) == want
+            ]
+            if hit:
+                places = hit[:1]
+            else:
+                # Loudly: no place holds what the row recorded, so the
+                # ambiguity is real and nothing here can settle it.
+                at = ", ".join(f"{a}-{b}" for a, b in places)
+                findings.append(
+                    (
+                        "BROKEN",
+                        coord,
+                        f"locator is ambiguous — {len(places)} places: {at} "
+                        "(none holds the recorded content)",
+                    )
+                )
+                continue
 
         unit = places[0]
         if claim:
@@ -818,7 +914,13 @@ def content_at(root, sha, rel):
     """
     try:
         r = subprocess.run(
-            ["git", "-C", root, "show", f"{sha}:{rel}"],
+            # `./` is load-bearing: without it git resolves `rel` against
+            # the repository TOP LEVEL rather than against `-C`, so a
+            # `--migrate` run from a subdirectory proved a row against a
+            # same-named file elsewhere in the repo — refusing an untouched
+            # row forever, and stamping a look-alike match as proved
+            # (round 5, 🔴 A).
+            ["git", "-C", root, "show", f"{sha}:./{rel}"],
             capture_output=True,
             encoding="utf-8",
             errors="replace",
@@ -863,6 +965,9 @@ def migrate(ledgers, root, maps=None, default_repo=None):
     for ledger in ledgers:
         text = read(ledger)
         if text is None:
+            # Skipped, but never silently: a ledger nothing could read is not
+            # a ledger with nothing to migrate (round 5, 🔴 B).
+            left.append((os.path.relpath(ledger, root), "ledger unreadable"))
             continue
         out_lines = []
         for line in text.splitlines(keepends=True):
@@ -885,6 +990,10 @@ def migrate(ledgers, root, maps=None, default_repo=None):
                 raw, s = m.group("path"), int(m.group("start"))
                 e = int(m.group("end") or s)
                 repo, rel = place(root, maps, default_repo, raw)
+                if repo is None:
+                    left.append((m.group(0), "path escapes the repository"))
+                    failed = True
+                    continue
                 body = read(os.path.join(repo, rel))
                 if body is None:
                     left.append((m.group(0), "file not found"))
@@ -960,23 +1069,28 @@ def reverify(ledgers, root, maps, default_repo=None):
     silently refreshed what it was checking would report OK forever.
     """
     changed = 0
+    unreadable = []
     scan_cache = {}
     for ledger in ledgers:
         text = read(ledger)
         if text is None:
+            unreadable.append(os.path.relpath(ledger, root))
             continue
         out, at = [], 0
         for m in ANCHOR_RE.finditer(text):
             raw_path = m.group("path")
             locator, claim = m.group("locator"), m.group("claim")
             repo, rel = place(root, maps, default_repo, raw_path)
+            if repo is None:
+                print(f"  {raw_path}#{locator}  path escapes the repository — left")
+                continue
             body = read(os.path.join(repo, rel))
             places = resolve(rel, locator, body) if body is not None else []
             if not places and claim is None:
                 if (
                     body is None
                     and repo == root
-                    and cross_repo_intent(root, maps, default_repo)
+                    and cross_repo_intent(root, maps, default_repo, raw_path)
                 ):
                     # The row cannot be placed in any repository this run
                     # knows, and the declaration says another one exists.
@@ -1044,7 +1158,9 @@ def reverify(ledgers, root, maps, default_repo=None):
             out.append(text[at:])
             write_atomic(ledger, "".join(out))
     print(f"{changed} row{'' if changed == 1 else 's'} re-verified")
-    return 0
+    for path in unreadable:
+        print(f"  LEFT  {path}  ledger unreadable")
+    return 1 if unreadable else 0
 
 
 def main():

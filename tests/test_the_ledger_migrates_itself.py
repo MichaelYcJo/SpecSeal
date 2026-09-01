@@ -232,3 +232,15 @@ def test_migrate_without_git_or_the_stamped_commit_says_so(repo):
     r = cli(["--migrate", "."], repo)
     assert "1 row migrated" in r.stdout and "1 left" in r.stdout, r.stdout
     assert "without the since-the-stamp proof" in r.stdout, r.stdout
+
+
+def test_the_hook_carries_the_warning_the_command_prints(hook, repo):
+    """`--migrate` prints how many rows were rewritten without the
+    since-the-stamp proof; the hook discarded the count into `_unproven`.
+
+    That inverts this hook's own grounds. The path a person typed warned, and
+    the path nobody asked for was silent — and `stamp(root)` is unconditional,
+    so the silence is never retried (round 5, 🟡 E).
+    """
+    out = start(hook, repo)
+    assert "without the since-the-stamp proof" in out, out

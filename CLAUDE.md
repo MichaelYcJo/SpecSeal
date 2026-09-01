@@ -84,8 +84,9 @@ right, *commit them here first*, is neither button.
 **A ledger coordinate names content, never a position:** `path#major@hash`,
 or `path#major>minor@hash` where a claim needs narrowing. The major level is
 the enclosing unit — a function or class for code, a heading path for a
-document. A row carries no line number and no commit SHA, and `evidence-check`
-calls git for nothing.
+document. A row carries no line number and no commit SHA, and the CHECK calls
+git for nothing — the one exception is `--migrate`, a one-shot writer that
+consults the old stamp's commit before it trusts a line number.
 
 **An anchor degrades to DRIFTED, never to BROKEN.** Only the major level can be
 BROKEN. A stale minor anchor widens to its unit and says re-read, because

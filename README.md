@@ -153,7 +153,9 @@ OK. A unit does not move, so that edit is silent and a real change to the cited
 code is not. An anchor also degrades to *re-read this*, never to *go fix the
 ledger* — the second is the bookkeeping the design exists to remove. Nothing
 is written into a row for a rebase or a squash to
-orphan, and the checker calls git for nothing at all. Re-verifying a row is
+orphan, and the check calls git for nothing — the one exception is
+`--migrate`, a one-shot writer that consults the old stamp's commit before it
+trusts a line number it is rewriting. Re-verifying a row is
 re-reading it and running `evidence-check --reverify`, which recomputes the
 hash and names what it changed.
 

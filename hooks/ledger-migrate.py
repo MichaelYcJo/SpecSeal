@@ -162,16 +162,25 @@ def main():
         )
         return
 
-    migrated, left, _unproven = ec.migrate(found, root)
+    migrated, left, unproven = ec.migrate(found, root)
     stamp(root)
     rows = f"{migrated} row{'' if migrated == 1 else 's'}"
     tail = f"; {len(left)} left, run `evidence-check .` to see them" if left else ""
+    # The warning the CLI prints belongs here MORE, not less: this path runs
+    # without anyone asking for it, and `stamp(root)` above means it is never
+    # offered again (round 5, 🟡 E).
+    warn = (
+        f"; {unproven} rewritten without the since-the-stamp proof, resting on "
+        "the current tree alone"
+        if unproven
+        else ""
+    )
     print(
         json.dumps(
             {
                 "systemMessage": (
-                    f"specseal: ledger migrated to anchor format ({rows}{tail})"
-                    " — review the diff and commit"
+                    f"specseal: ledger migrated to anchor format ({rows}{tail}"
+                    f"{warn}) — review the diff and commit"
                 )
             }
         )

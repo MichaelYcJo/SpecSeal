@@ -26,6 +26,8 @@ Four things this file holds, in the order they can go wrong:
 
 import importlib.util
 import os
+import re
+import stat
 import subprocess
 import sys
 
@@ -1296,3 +1298,260 @@ def test_an_unreadable_ledger_is_reported_not_a_traceback(repo):
     assert "Traceback" not in m.stderr, m.stderr
     v = run(["--reverify", "."], str(repo))
     assert "Traceback" not in v.stderr, v.stderr
+
+
+# --- round 5: what closing round 4 opened ------------------------------------
+
+
+def git(d, *a):
+    return subprocess.run(
+        ["git", "-C", str(d), *a],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
+def test_migrate_proves_a_row_against_the_file_under_its_own_root(tmp_path):
+    """`git show <sha>:<rel>` resolves `<rel>` against the repository TOP
+    LEVEL, not against `-C`. Run `--migrate` from a subdirectory and the
+    since-the-stamp proof read a same-named file elsewhere in the repo: an
+    untouched row was refused forever, and a row whose look-alike happened to
+    match was rewritten and stamped as proved (round 5, 🔴 A).
+    """
+    top = tmp_path / "repo"
+    (top / "src").mkdir(parents=True)
+    (top / "sub" / "src").mkdir(parents=True)
+    (top / "sub" / ".specseal" / "map").mkdir(parents=True)
+    # Same path, different content: the decoy the top-level resolution reads.
+    (top / "src" / "service.py").write_text(
+        "import os\n\n\ndef handler(x):\n    return 999\n"
+    )
+    (top / "sub" / "src" / "service.py").write_text(SERVICE)
+    git(top, "init", "-q")
+    git(top, "config", "user.email", "t@example.com")
+    git(top, "config", "user.name", "t")
+    git(top, "add", "-A")
+    git(top, "commit", "-qm", "base")
+    sha = git(top, "rev-parse", "HEAD").stdout.strip()
+
+    ledger = top / "sub" / ".specseal" / "map" / "f.md"
+    ledger.write_text(
+        f"# frag\n\n| CLAUSE | `src/service.py:4-6` | 2026-08-31 `{sha}` |\n"
+    )
+    r = run(["--migrate", "."], str(top / "sub"))
+    assert "1 row migrated · 0 left" in r.stdout, r.stdout
+    assert "without the since-the-stamp proof" not in r.stdout, r.stdout
+    assert "#handler@" in ledger.read_text(), ledger.read_text()
+
+
+def test_migrate_still_proves_a_row_at_the_top_level(tmp_path):
+    """The other half of 🔴 A's fix: `./` must not break the ordinary case."""
+    top = tmp_path / "repo"
+    (top / "src").mkdir(parents=True)
+    (top / ".specseal" / "map").mkdir(parents=True)
+    (top / "src" / "service.py").write_text(SERVICE)
+    git(top, "init", "-q")
+    git(top, "config", "user.email", "t@example.com")
+    git(top, "config", "user.name", "t")
+    git(top, "add", "-A")
+    git(top, "commit", "-qm", "base")
+    sha = git(top, "rev-parse", "HEAD").stdout.strip()
+
+    ledger = top / ".specseal" / "map" / "f.md"
+    ledger.write_text(
+        f"# frag\n\n| CLAUSE | `src/service.py:4-6` | 2026-08-31 `{sha}` |\n"
+    )
+    r = run(["--migrate", "."], str(top))
+    assert "1 row migrated · 0 left" in r.stdout, r.stdout
+    assert "without the since-the-stamp proof" not in r.stdout, r.stdout
+
+
+def test_write_atomic_writes_through_a_symlink_and_keeps_the_mode(repo, tmp_path):
+    """`os.replace(tmp, path)` targets the LINK, so a symlinked ledger was
+    replaced by a regular file while the real one behind it stayed stale, and
+    every ledger was demoted 0644 → 0600 by `mkstemp` (round 5, 🔴 D)."""
+    from conftest import symlink_or_skip
+
+    real = tmp_path / "real.md"
+    real.write_text("old\n")
+    os.chmod(str(real), 0o664)
+    link = repo / ".specseal" / "map" / "linked.md"
+    symlink_or_skip(str(real), str(link))
+
+    ec.write_atomic(str(link), "new\n")
+    assert os.path.islink(str(link)), "the symlink was replaced by a regular file"
+    assert real.read_text() == "new\n", "the file behind the link is stale"
+    assert stat.S_IMODE(os.stat(str(real)).st_mode) == 0o664, "the mode was demoted"
+
+
+def test_write_atomic_keeps_a_plain_ledgers_mode(tmp_path):
+    plain = tmp_path / "plain.md"
+    plain.write_text("old\n")
+    os.chmod(str(plain), 0o644)
+    ec.write_atomic(str(plain), "new\n")
+    assert plain.read_text() == "new\n"
+    assert stat.S_IMODE(os.stat(str(plain)).st_mode) == 0o644, "the mode was demoted"
+
+
+def test_a_declaration_whose_modifier_is_a_keyword_elsewhere_still_resolves(repo):
+    """C# `public new void Render(int x)` and Swift `case loading(String)` are
+    declarations whose modifiers are statement keywords in another language.
+    The blocklist refused both — real code, BROKEN, exit 2 (round 5, 🔴 C).
+    It may now only NARROW a set of candidates, never empty it."""
+    cs = ["public new void Render(int x) {", "  return;", "}"]
+    assert ec.generic_units(cs, "Render") == [(1, 2)]
+    swift = ["enum State {", "  case loading(String)", "}"]
+    assert ec.generic_units(swift, "loading") == [(2, 2)]
+
+
+def test_a_bare_call_statement_is_not_a_declaration(repo):
+    """`render(1);` has nothing before the name, so no keyword blocked it and
+    the fix for round 4's 🔴 1 left it reading as a second declaration —
+    output identical to the pre-fix code (round 5, 🔴 C)."""
+    text = "function render(x) {\n  return x;\n}\n\nrender(1);\n"
+    assert ec.resolve("app.js", "render", text) == [(1, 2)]
+
+
+def test_the_recorded_hash_breaks_a_tie_between_two_places(repo):
+    """Two real declarations of one name — an overload — is a tie no keyword
+    list can break. The row's own recorded content breaks it: the place that
+    reconstructs the hash is the row's unit (questions.md §Q3)."""
+    text = (
+        "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n"
+    )
+    (repo / "src" / "app.cs").write_text(text)
+    h = ec.content_hash(["void render(int x) {", "  log(x);"])
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f"# frag\n\n| CLAUSE | `src/app.cs#render@{h}` |\n"
+    )
+    r = run(["."], str(repo))
+    assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
+
+
+def test_a_tie_no_place_reconstructs_is_still_broken(repo):
+    """The tie-break rests on the row's own evidence and nothing else: where
+    no place holds the recorded content, the ambiguity is real and loud."""
+    text = (
+        "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n"
+    )
+    (repo / "src" / "app.cs").write_text(text)
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        "# frag\n\n| CLAUSE | `src/app.cs#render@00000000` |\n"
+    )
+    r = run(["."], str(repo))
+    assert "ambiguous" in r.stdout and r.returncode == 2, r.stdout
+
+
+def test_a_map_declaration_does_not_turn_the_scan_off_for_a_local_row(repo, tmp_path):
+    """`cross_repo_intent` was true for the whole RUN, so one `--map` turned
+    the rename scan off for every unplaceable row, cross-repo or not. A row
+    whose prefix is not among the declared maps is a local row (round 5,
+    🟡 F)."""
+    other = tmp_path / "legacy"
+    other.mkdir()
+    write_row(repo, "src/service.py", "handler")
+    (repo / "src" / "service.py").unlink()
+    (repo / "src" / "moved.py").write_text(SERVICE)
+    r = run(["--map", f"legacy={other}", "."], str(repo))
+    assert "identical content at src/moved.py#handler" in r.stdout, r.stdout
+
+
+def test_reverify_says_identical_content_and_not_moved_intact(repo):
+    """Round 4's 🟡 7 wording had no pin at all: reverting it passed every
+    case in four files (round 5, 🟢)."""
+    write_row(repo, "src/service.py", "handler")
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("def handler(", "def total_price(")
+    )
+    r = run(["--reverify", "."], str(repo))
+    assert "(identical content)" in r.stdout, r.stdout
+    assert "moved intact" not in r.stdout, r.stdout
+
+
+NO_GIT_CLAIM = re.compile(r"git for nothing|git 을[^.\n]{0,24}부르")
+
+
+def test_no_document_claims_the_checker_never_calls_git(repo):
+    """Round 4's 🟡 10 put a git call in the file — one, in `--migrate` — and
+    four documents kept saying the checker calls git for nothing at all. The
+    exception belongs in the same paragraph as the claim (round 5, 🟡 H)."""
+    for rel in ("CLAUDE.md", "README.md", "README.ko.md"):
+        with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+            paragraphs = f.read().split("\n\n")
+        claiming = [p for p in paragraphs if NO_GIT_CLAIM.search(p)]
+        assert claiming, f"{rel} stopped stating the no-git property at all"
+        for p in claiming:
+            assert "--migrate" in p, f"{rel} claims no git with no exception:\n{p}"
+
+
+def test_the_advisory_docstring_names_what_it_prints(repo):
+    """The same commit taught the advisory OLD-FORMAT and left its docstring
+    saying only BROKEN is printed (round 5, 🟡 H)."""
+    import ast as ast_mod
+
+    path = os.path.join(ROOT, "hooks", "evidence-advisor.py")
+    doc = ast_mod.get_docstring(ast_mod.parse(open(path, encoding="utf-8").read()))
+    assert "OLD-FORMAT" in doc, "the docstring still says BROKEN is the whole filter"
+
+
+def test_known_limits_names_what_this_round_added_to_them(repo):
+    """A constant became a scan candidate and collides far more readily than a
+    function (round 5, 🟡 G); a nested `def` is anchored by its qualified name
+    alone (round 5, 🟢). Neither was in Known limits."""
+    with open(
+        os.path.join(ROOT, "skills", "evidence-check", "SKILL.md"), encoding="utf-8"
+    ) as f:
+        limits = f.read().split("## Known limits")[1].split("\n## ")[0]
+    assert "constant" in limits, "the twin limit does not name constants"
+    assert "nested" in limits, "the qualified-name anchor is unrecorded"
+
+
+def test_a_row_cannot_read_outside_the_repository_it_is_placed_in(repo, tmp_path):
+    """`ANCHOR_RE`'s path class admits `.` and `/`, and `place()` did no
+    containment check, so `../outside/creds.py#secret` was read from above the
+    root — and `--reverify` wrote back a hash of what it found, turning the
+    ledger into a confirmation oracle for a file the project does not contain
+    (round 5, 🔴 I).
+
+    Present in the released 0.1.0 checker too, in the `path:line` form, so the
+    guard is new rather than a regression close. It bites where a repository
+    is checked out but not trusted: the plain check, and the session-start
+    hook running `--migrate` without anybody asking.
+    """
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "creds.py").write_text("def secret():\n    return 'SENTINEL'\n")
+    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger.write_text("# frag\n\n| CLAUSE | `../outside/creds.py#secret@00000000` |\n")
+    before = ledger.read_text()
+
+    r = run(["."], str(repo))
+    assert "escapes the repository" in r.stdout, r.stdout
+    assert r.returncode == 2, r.stdout
+
+    v = run(["--reverify", "."], str(repo))
+    assert ledger.read_text() == before, "reverify rewrote a row it read outside"
+    assert "0 rows re-verified" in v.stdout, v.stdout
+
+    ledger.write_text("# frag\n\n| CLAUSE | `../outside/creds.py:1-2` | 2026-08-31 |\n")
+    before = ledger.read_text()
+    m = run(["--migrate", "."], str(repo))
+    assert "escapes the repository" in m.stdout, m.stdout
+    assert ledger.read_text() == before, "migrate rewrote a row it read outside"
+
+
+def test_a_mapped_prefix_still_reaches_its_own_checkout(repo, tmp_path):
+    """The containment test is against the repository `place()` RETURNED. A
+    `--map` prefix legitimately resolves into another checkout, and testing
+    against the root would refuse every cross-repo row."""
+    other = tmp_path / "legacy"
+    (other / "src").mkdir(parents=True)
+    (other / "src" / "service.py").write_text(SERVICE)
+    h = ec.content_hash(SERVICE.splitlines()[3:6])
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f"# frag\n\n| CLAUSE | `legacy/src/service.py#handler@{h}` |\n"
+    )
+    r = run(["--map", f"legacy={other}", "."], str(repo))
+    assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
