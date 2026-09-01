@@ -68,9 +68,10 @@ jobs:
       - run: pytest tests/ -q -n auto
 
   # The plugin's headline check, run against the plugin. A coordinate that
-  # stopped resolving fails; drift is reported and does not, because a row is
-  # re-stamped by the commit that lands its change and would otherwise go red
-  # one commit early — a check that is red by construction gets ignored.
+  # stopped resolving fails; drift is reported and does not. Drift means the
+  # content under an anchor changed and nobody has said they re-read it, which
+  # is a true statement about a branch mid-flight — failing on it would be red
+  # by construction, and a check that is always red gets ignored.
   ledger:
     runs-on: ubuntu-latest
     steps:
