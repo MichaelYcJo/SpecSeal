@@ -5,7 +5,7 @@
 | Target SHA | e5e0c48 |
 | PR | none yet |
 | Broad gate | e2a5af6 vs origin/release/v0.3.0 (delta to e5e0c48 is one docs-only commit touching two Status cells of this item's plan.md; judged non-invalidating — no ledger anchor points there, and the seven plan-reading test files pass at HEAD, 310 passed) |
-| Fixes checked by | nobody — round 1's fixes are not yet written; the verifying round sets this when it reads them |
+| Fixes checked by | round-2 |
 | Contract changes | `fix_surface` widened its set of returnable errors (a cell of only separators is now refused in both rows) → `main`, its one call site — every record `chain_check.py` reads at a pull request meets the new refusal |
 | New units | `test_a_cell_of_only_separators_is_not_an_answer`, `test_the_recorded_limit_an_ascii_arrow_inside_a_name`, `test_the_arrow_limit_is_recorded_where_the_rule_lives`, `RECORDED_LIMIT` — all in `tests/test_the_fixes_name_their_surface.py` |
 | Needs a fix | yes — 🟡 1 (a separator-only cell passes both fix-surface rows; one-guard fix supplied). 🟡 3 closes as a recorded limit + pin, 🟡 4 as a one-sentence prose ground; neither blocks on its own |
