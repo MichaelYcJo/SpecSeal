@@ -15,8 +15,10 @@ sentence no check can read.
 Two things close it and they are pinned separately here.
 
   the field    `| Fixes checked by |`, with three values and no others, read
-               by `chain_check.py` on the LAST record. Only a LATER round may
-               be named, so a round cannot certify its own fixes
+               by `chain_check.py` on EVERY record -- `Pass` is the claim read
+               on the last one alone. Only a LATER round may be named, so a
+               round cannot certify its own fixes, and reading the last record
+               alone would leave that value unreachable
   the round    a review run ends with a VERIFYING round, spawned after the
                previous round's fixes are committed and targeted at the diff
                of them. A round that opens nothing needing a fix does not
@@ -916,9 +918,19 @@ def test_every_document_that_runs_the_chain_names_the_verifying_round():
 # branch — because `fixes` appears four to eighteen times in every carrier.
 #
 # So each rule is pinned as the whole row or the whole sentence that states
-# it, and beside it the spellings an inversion would have to produce. The
-# positive is what refuses a rewrite; the negative is what refuses a document
-# that keeps the sentence and states the opposite somewhere else.
+# it, and beside it the spellings an inversion would have to produce IN THAT
+# SENTENCE. The positive refuses a rewrite in place; the negative refuses the
+# handful of spellings such a rewrite reaches for first.
+#
+# What neither refuses is a document that keeps the sentence and states the
+# opposite in a paragraph somewhere else. Round 2 executed three such
+# additions and all three passed. Enumeration cannot close that: a
+# contradiction can be spelled any number of ways, and a check that refused
+# every sentence resembling one would refuse the reasoning these documents are
+# made of. So the reach is the narrow one — a rule here cannot be REWRITTEN
+# silently — and a second rule added beside it contradicting the first is a
+# reviewer's finding rather than this file's. Said as a reach these cases have,
+# it would be the same counterfeit the paragraph above is about.
 
 WHEN_SPAWNED = {
     ("docs", "review-chain-spec.md"): (
@@ -1058,12 +1070,45 @@ NEEDS_A_FIX = (
 
 @pytest.mark.parametrize("parts", NEEDS_A_FIX)
 def test_the_answer_the_run_ends_on_has_a_field(parts):
+    """The phrase, in every document that describes the field.
+
+    This is the weak half deliberately: the phrase surviving anywhere in the
+    file is what it asks, so a file can lose the ROW and keep this green. The
+    two cases below are the strong half, one per document that carries a row,
+    and they are what a rename has to get past.
+    """
     text = flat(*parts)
     assert "Needs a fix" in text, "/".join(parts)
     assert "with grounds" in text or "answers with grounds" in text, (
         f"{'/'.join(parts)}: without this the row reads as the verdict count "
         "restated, and a round that reported findings the smith can answer "
         "gets counted as one that did not end the run"
+    )
+
+
+def test_the_protocol_carries_the_field_as_a_row_of_its_table():
+    """The row a tool implementing the protocol reads, counted as a row.
+
+    The case above asks only that the phrase survives, and it survives in four
+    paragraphs of prose below the table — so renaming the row to
+    `| Needs fixing |` left every case green while the field a record has to
+    carry stopped being named anywhere a parser looks. The template's own row
+    is already counted this way, through the same reader; the protocol's was
+    not, and the protocol is the half that is tool-agnostic.
+    """
+    lines = reader_module().strip_comments(
+        read("docs", "review-handoff-protocol.md").splitlines()
+    )
+    rows = [line for line in lines if line.strip().startswith("| Needs a fix")]
+    assert len(rows) == 1, (
+        f"the protocol's field table has {len(rows)} `Needs a fix` rows "
+        "outside its comments — the prose below repeats the phrase, so only "
+        "the row itself says what a record must carry"
+    )
+    required = rows[0].split("|")[2].strip()
+    assert required.startswith("yes"), (
+        f"the Required column reads `{required}` — a field the protocol does "
+        "not require is a field a record can leave out"
     )
 
 

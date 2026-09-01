@@ -59,21 +59,22 @@ printed by CI, instead of in nobody's memory.
   through markdown emphasis and the commit citation after the word, because
   `**fixed** \`sha\`` is how every verdict cell in this repository is spelled
   and the bare-word version recognised none of them.
-- `skills/code-review/scripts/chain_check.py:169` — `CLOSED_WORDS`, and the
+- `skills/code-review/scripts/chain_check.py:234` — `CLOSED_WORDS`, and the
   comment above it stating the direction an unreadable cell takes. The new
-  vocabulary follows that rule rather than inventing a second one.
-- `skills/code-review/scripts/chain_check.py:450` — `field`, which already
-  pulls a `| label | value |` row out of the record. Nothing new is needed to
-  read the cell.
+  vocabulary follows that rule rather than inventing a second one, and
+  `VOCAB` is derived from it rather than written out a second time.
+- `skills/code-review/scripts/chain_check.py:595` — `field`, which already
+  pulls a labelled row out of the record. Nothing new is needed to read the
+  cell.
 - `hooks/routing.py:231` — `round_number`, the one place the `round-N.md`
   ordering rule lives. The new check resolves `round-N` through it rather
   than writing the pattern a third time.
-- `docs/review-chain-spec.md:34-56` — the bound, and `:115-119`, the paragraph
+- `docs/review-chain-spec.md:34-56` — the bound, and `:157-159`, the paragraph
   that closes the findings and is silent about the answers. Both are amended
   at their own coordinates rather than by a new section that contradicts them.
 - `docs/review-handoff-protocol.md:110-119` — the record's field table, and
-  `:161` the paragraph the spec quotes. The protocol is tool-agnostic, so the
-  field goes in as a shape rather than as this plugin's implementation.
+  `:163-166` the paragraph the spec quotes. The protocol is tool-agnostic, so
+  the field goes in as a shape rather than as this plugin's implementation.
 - `templates/sdd-round.md:10-32` — the field table and the `Pass` comment. A
   session bootstraps from this file and never reads the argument.
 - `skills/code-review/SKILL.md:99` — the cross-session records heading still
@@ -82,9 +83,11 @@ printed by CI, instead of in nobody's memory.
   section option A is written into, so it is corrected in the same edit; a
   heading naming a dead path above new instructions is worse than either
   alone.
-- `specs/1788184145-…/rounds/round-3.md:10` — the one record in this
-  repository the new requirement reaches. Its declaration is added relative to
-  `main`, so the release pull request reads it.
+- `specs/1788184145-…/rounds/round-3.md:8` — the one of this repository's
+  three existing records whose honest value is `nobody`. Rounds 1 and 2 name
+  the round that followed them, so all three gain the row and only this one
+  discloses a gap. Their declaration is added relative to `main`, so the
+  release pull request reads all three.
 
 ## Alternatives considered
 

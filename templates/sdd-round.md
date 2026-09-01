@@ -13,7 +13,7 @@ carries the format; this is the shape it takes in this repository. -->
 | PR | <the pull request, once one exists. A field, not the key> |
 | Broad gate | <`not yet`, or the SHA the one full-suite run happened at and the base it was compared against> |
 | Fixes checked by | <`round-<N>`, a LATER round · `no fixes to check` · `nobody — <why>`> |
-| Needs a fix | <`yes — <what>` · `no`. The reviewer's own answer, copied here> |
+| Needs a fix | <`yes — <what>` · `no`. The reviewer's own answer — what stands after the colon in its `Needs a fix:` line, never the whole line> |
 
 - [ ] Pass
 

@@ -174,11 +174,17 @@ orchestrator, opened by nobody, `- [x] Pass`.
 
 So the record carries a second field, `| Fixes checked by |`, and it names a
 later round, `no fixes to check`, or `nobody — <why>`. A round cannot be its
-own checker, because only a number above its own is accepted, and the
-pull-request check refuses every claim git can contradict. What it does not
-refuse is `nobody` with its reason: that is not a contradiction inside one
-file, and a check that fails for an honest disclosure teaches people to write
-none — the reasoning `unverified_check.py` already runs on.
+own checker, because only a number above its own is accepted and that round's
+own `Target SHA` has to be later than this one's, and the pull-request check
+refuses every claim git can contradict.
+
+`nobody` with its reason is refused nothing on any record but the last. That
+is not a contradiction inside one file, and a check that fails for an honest
+disclosure teaches people to write none — the reasoning `unverified_check.py`
+already runs on. On the run's LAST record beside a checked `Pass` it does
+fail, for a work item begun on or after the cutoff, because that pair is the
+review claiming to have passed rather than disclosing anything. The refusal
+table under §`Fixes checked by` holds both halves and what each costs.
 
 The field records the state. What keeps `nobody` rare rather than routine is
 the verifying round, which is the run's own shape and sits with the bound
@@ -530,8 +536,9 @@ it does not have is wrong at every stage of a run.
 | The cell says | The check |
 |---|---|
 | the row is absent | **fails.** Adding it is always available to the author, which is the line this check has always drawn |
-| `round-N`, above this record's own number, and that record is committed | passes |
+| `round-N`, above this record's own number, that record is committed, and its own `Target SHA` is later than this record's | passes |
 | `round-N`, at or below this record's own number | **fails** — the checker is this round, or one that ran before the fixes existed. That is the fixer certifying its own work, which is the state #33 measured |
+| `round-N` above this record's number, whose `Target SHA` is the same commit this record's names or an ancestor of it | **fails** — the number is later and the review is not. Rounds are cheap to number and expensive to run, and a round that read what this round read opened none of the fixes that closed it. Where either row names two commits, the NEWEST on each side is what is compared |
 | `round-N` naming a record git does not carry | **fails** — a claim git contradicts |
 | `no fixes to check`, with no verdict cell closing on a fix | passes |
 | `no fixes to check` beside a verdict cell reading a fix word | **fails** — a contradiction inside one file, the shape already refused for `Pass` beside an open 🔴 |

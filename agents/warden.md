@@ -215,9 +215,17 @@ Needs a fix: no
 Needs a fix: yes — <the findings that do>
 ```
 
-It is the run's terminal condition and the orchestrator copies it straight
-into `round-N.md`'s `| Needs a fix |` row. It is not the verdict count said
-another way: a 🟡 the smith answers with grounds is `no`, so a round can
-report findings and still end the run.
+It is the run's terminal condition, and what the orchestrator moves into
+`round-N.md` is what stands **after the colon** — the row already names the
+field, so a straight copy writes it twice:
+
+```
+| Needs a fix | no |                        ← the value
+| Needs a fix | Needs a fix: no |           ← the label, twice
+```
+
+The field's first user hit exactly that and had nothing to read. It is not the
+verdict count said another way: a 🟡 the smith answers with grounds is `no`, so
+a round can report findings and still end the run.
 
 End with the proof block — only files you actually opened.

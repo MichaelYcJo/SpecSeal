@@ -8,10 +8,10 @@ this file; cite them, don't restate. -->
 
 | Policy clause | What it fixes for this work |
 |---|---|
-| `docs/review-chain-spec.md:116` — *"The last round's checkbox speaks for the whole review: earlier verdicts are not archived, every one of them needs an answer in the round that follows"* | The clause closes the FINDINGS and is silent about the ANSWERS. The last round's answers have no round after them, so the rule as written is satisfied by a chain whose final fixes nobody opened |
+| `docs/review-chain-spec.md:157-159` — *"The last round's checkbox speaks for the whole review: earlier verdicts are not archived, every one of them needs an answer in the round that follows"* | The clause closes the FINDINGS and is silent about the ANSWERS. The last round's answers have no round after them, so the rule as written is satisfied by a chain whose final fixes nobody opened |
 | `docs/review-chain-spec.md:34-38` — rounds capped at three, five while a 🔴 is open | Neither cap knows the difference between a round that found nothing and a round whose fixes nobody read, so the cap ends the run at exactly the moment the gap opens |
 | `docs/review-handoff-protocol.md:113` — the `Pass` checkbox | `Pass` is a claim about the findings. Nothing in the record says who opened the fixes that closed them, so the gap exists only in a transcript |
-| `skills/code-review/SKILL.md:127` — *"an axis marked clean in round 1 can be broken by the fixes made for round 2, and inheriting that verdict is exactly how it goes unseen"* | The skill already knows fixes break things. It applies that only to earlier rounds' fixes, never to the last round's |
+| `skills/code-review/SKILL.md:131-133` — *"an axis marked clean in round 1 can be broken by the fixes made for round 2, and inheriting that verdict is exactly how it goes unseen"* | The skill already knows fixes break things. It applies that only to earlier rounds' fixes, never to the last round's |
 | `CLAUDE.md` — no real identifiers in examples or fixtures | New prose and the new test use neutral values only |
 
 ## Scope
@@ -71,7 +71,7 @@ change, and no waiver mechanism is added or widened.
 | A record cannot say there was nothing to check while its own table says otherwise | Given `Fixes checked by: no fixes to check` beside a verdict cell reading `fixed` · When the check runs · Then it exits 1 | Executed |
 | The gap, when it is real, is legible in git and printed on every run | Given `Fixes checked by: nobody — the run reached the cap` · When the check runs · Then it exits 0 and prints a line naming the record and the state | Executed |
 | A record with no such row is refused | Given a last record carrying `Target SHA` and `Pass` and no `Fixes checked by` · When the check runs · Then it exits 1 | Executed |
-| The one record in this repository that predates the field says so | Given `specs/1788184145-…/rounds/round-3.md`, whose four findings were fixed at `d3fe44d` and opened by nobody · When the field is added · Then it reads `nobody — …` and cites #33 | Read, and executed through the check at the release baseline |
+| The three records in this repository that predate the field say so | Given `specs/1788184145-…/rounds/round-{1,2,3}.md` · When the field is added · Then rounds 1 and 2 name the round that followed them, and round 3 — whose four findings were fixed at `d3fe44d` and opened by nobody — reads `nobody — …` and cites #33 | Read, and executed through the check at the release baseline |
 | An orchestrator learns when to spawn the verifying round | Given a session running the chain · When it reads `skills/code-review/SKILL.md` and `agents/warden.md` · Then it finds when the round is spawned, that its target is the fix diff, and that a round finding nothing does not consume the cap | Read |
 | The wording survives the suite's own prose rules | Given the new paragraphs · When `test_docs_line_wrap`, `test_one_word_one_meaning`, `test_the_set_a_work_item_always_has` and `test_handoff_outlives_the_merge` run · Then all pass | Executed |
 | The wording cannot be deleted without a check going red | Given any of the five documents that carry the rule · When a rewrite drops the field, its vocabulary, the verifying round or the cap rule · Then `tests/test_the_last_rounds_fixes_are_checked.py` fails | Executed — each case shown red under a mutation before being called passing |

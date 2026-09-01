@@ -185,10 +185,12 @@ the branch, and asking whether each closed finding is actually closed. A round
 that opens nothing needing a fix does not spend one of the three.
 
 The record's `Fixes checked by` row is where that lands. It names a later
-round, or says there was nothing to check, or says `nobody` and why — and the
-last of those passes rather than failing, printed on every run, so a work item
-that ships with its final fixes unopened says so in the diff instead of in a
-session that has ended.
+round, or says there was nothing to check, or says `nobody` and why. The last
+of those prints on every run, and on the run's last record beside a checked
+`Pass` it fails the pull request — a review cannot have passed while the fixes
+that closed its findings went unread. Work items begun before the rule landed
+are excused and only print, so a run that already shipped that way says so in
+the diff instead of in a session that has ended.
 
 No gate transmits your code, your paths, or your prompts anywhere. Three side
 effects are worth stating outright: session-lease writes a timestamp file under
