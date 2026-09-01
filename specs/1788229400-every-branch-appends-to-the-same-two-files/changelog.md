@@ -64,14 +64,29 @@
   baseline at all now reads `UNMEASURED` instead of `ok` — the old word said a
   comparison had happened and found the range untouched, which is not what an
   uncommitted ledger line has been through, and a fragment is uncommitted for
-  most of its working life. A row carrying two distinct stamps reads
-  `AMBIGUOUS` rather than being measured from whichever cell came first: the
-  scan reads the physical row, and `Verified behavior` sits before `Checked`.
-  Both print and pass, and fail only under `--strict`, because a red light on
-  every ordinary run is one a session learns to click past. The run also names
-  where a header baseline came from — `from a Baseline row` or
-  `from header prose` — so a fragment whose prose happens to name a commit
-  says so out loud instead of quietly measuring from it.
+  most of its working life. A row carrying two stamps that name **different
+  commits** reads `AMBIGUOUS`, because the scan reads the physical row and
+  `Verified behavior` sits before `Checked`, so the winner would otherwise be
+  whichever cell came first. Such a row is still measured, from the wider of
+  the two candidates, so a genuinely drifted row still reports drift; skipping
+  the comparison had made a second stamp a way to silence a real finding. Two
+  spellings of ONE commit are not two stamps. Both verdicts print and pass and
+  fail only under `--strict`, because a red light on every ordinary run is one
+  a session learns to click past. The run also names where a header baseline
+  came from — `from a Baseline row` or `from header prose` — and a SHA that a
+  rationale paragraph merely mentions, deep in a header, is not read as one at
+  all, while a declaration is read wherever it sits.
+
+  **A row whose coordinate a change invalidates is moved, not re-stamped.**
+  Remove it from `.specseal/map.md` and write it into the work item's own
+  fragment, in a commit after the one that removed it. The derivation walks
+  past edits to a line on purpose, so an edited row keeps the baseline it was
+  born with and re-anchoring it in place leaves a tripwire that can never fire
+  again; a new line's first appearance is the commit that added it. That is
+  what empties the shared ledger into fragments as work items touch the code
+  its rows cite. **A migration ledger declares a second baseline** for the
+  original repository, because a cross-repo row is never measured from this
+  repository's history and committing its line changes nothing.
 
   Blame is read in `--porcelain`, and the format is load-bearing twice over.
   It spells a boundary commit plainly where the default and `-s` forms

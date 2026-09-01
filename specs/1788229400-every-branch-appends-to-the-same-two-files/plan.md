@@ -60,6 +60,7 @@ against a diff window.
 | 3 | `.github/scripts/gather_changelog.py` with `--check`, wired into the release pull request; `## Unreleased` retired; the documents that told a change to edit `CHANGELOG.md` corrected | `tests/test_the_changelog_is_gathered_at_release.py`, `tests/test_release_hygiene.py` | `9cc7aaf` |
 | 4 | Dogfood: this work item's own changelog fragment and ledger fragment, the stale follow-up row removed, the closing memo | `bin/evidence-check .`, the new suites | `9a7ce62`, closed by the commit after it |
 | 5 | Review round 1: ten findings — the rejected reading in four documents, the case that missed them, a renamed ledger, a row with no baseline, a manufactured stamp, the dead header cut, the `## Unreleased` carriers, the missing gather instruction, three cases a stub satisfied, and two tidy-ups | `tests/test_a_row_measures_from_its_own_history.py` and `tests/test_the_changelog_is_gathered_at_release.py`, each new case seen red against the pre-fix tree | `b1291b1` · `aacae56` |
+| 6 | Review round 2: the re-anchored row moves to the fragment and no stamp is written anywhere; a second stamp stops swallowing a real drift; two spellings of one commit are one stamp; a prose header is bounded again while a declaration is not; the migration two-baseline remedy, the `--help`/workflow verdict lists and the rejected-reading assertion | `tests/test_a_row_measures_from_its_own_history.py`, each new case seen red against the pre-fix tree; the squash simulation for the two 🔴 | `efe1946` · onward |
 
 ## Operational impact
 

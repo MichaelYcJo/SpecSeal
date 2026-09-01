@@ -77,6 +77,13 @@ an edited row from a new one, and the way to re-verify is to make the row new.
 Rewriting it in place does not: measured, a row rewritten cell by cell still
 derives the commit that first created its line.
 
+**In practice that means two commits**, and the second is where the row comes
+back. Rewriting a row cell by cell leaves it an edited line however much of it
+changed — measured, a row rewritten in place still derived the commit that
+first created it. Removing it in one commit and writing it in the next makes
+it a line git has not seen before, and the branch then reads what the merged
+tree reads.
+
 **A fragment carries no Baseline section at all.** It has no need of one —
 every row in it measures from its own line's history — and the two cases the
 header still answers for (a ledger line not committed yet, a coordinate that

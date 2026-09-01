@@ -75,6 +75,9 @@ when it arrives.
   rather than merely stale. A new line in your fragment anchors at the squash
   commit and is current.
 
+  Rewriting a row in place does not make it new, however much of it changes.
+  Remove it in one commit and write it in the next.
+
   So `.specseal/map.md` empties into fragments as work items touch the code
   its rows cite, which is the migration these fragments exist to enable.
 

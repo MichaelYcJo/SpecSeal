@@ -93,6 +93,43 @@ no-baseline verdict fails under `--strict` only, and Q2 closes by reading the
 header SHA and printing where it came from. Both are recorded where they
 apply — `questions.md` for Q2, the verdict table for the first.
 
+## What review round 2 changed
+
+Ten findings, and the record groups them by what round 1's fixes cost.
+
+**Round 1's re-anchoring was the wrong act, and the paragraph written to
+license it was wrong about the code.** A row re-anchored in place and stamped
+did two bad things at once: the stamp named a commit this branch made, which
+the squash discards — reproduced, `test_ledger_stamps_resolve.py` red on the
+squashed branch — and the row's derived baseline became the repository's FIRST
+commit, where the cited file was 299 lines against a coordinate in the 600s.
+Its drift tripwire could never fire again.
+
+The repository owner's decision: such a row is **removed from `.specseal/map.md`
+and written afresh into the branch's own fragment**, because the derivation
+distinguishes an edited line from a new one and the fix is to make the row new.
+No stamp is written anywhere, so the failure has nothing to occur on.
+
+One thing that came out of executing it, and it is not obvious: **rewriting a
+row in place does not make it new.** Rewriting all nine rows cell by cell left
+every one of them still deriving the commit that first created its line. What
+works is removing them in one commit and writing them in the next. Both facts
+are now in the four documents that state the rule.
+
+**A second stamp in a row was a way to silence a real finding.** The ambiguity
+branch skipped the drift comparison entirely, so a genuinely drifted row went
+from exit 1 to exit 0 — and CI runs the checker without `--strict`. It is
+measured from the widest candidate now and still says the row is ambiguous.
+Beside it, two spellings of one commit were read as two disagreeing stamps,
+which is the ordinary shape of a hand-repaired ledger.
+
+**Removing the header cap in round 1 left a fragment's prose unbounded**, so a
+commit named 2500 characters into a rationale paragraph became the file's
+baseline — and that baseline is what every row the derivation cannot anchor
+falls back to. A declaration is deliberate and is now searched for across the
+whole header; prose is accidental and is read only near the top. Nothing had
+guarded the round 1 fix at all: reverting it left 55 cases green.
+
 ## Not verified
 
 | Item | Who must answer |
