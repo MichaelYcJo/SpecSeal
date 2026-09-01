@@ -32,6 +32,7 @@ destroy.
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -473,9 +474,15 @@ def test_the_protocol_carries_the_rows_and_moved_its_draft():
             f"the Required column reads `{required}` — a field the protocol "
             "does not require is a field a record can leave out"
         )
-    assert "Draft 0.7" in read("docs", "review-handoff-protocol.md"), (
-        "a changed field moves the draft"
-    )
+    # The claim is that the rows arrived WITH a bump, not that the draft
+    # stays at the number they arrived in — the literal `Draft 0.7` spelling
+    # broke at the very next bump (0.8), which is this pin's own class of
+    # finding. The title/Status agreement is pinned in
+    # test_the_handoff_before_round_one.py.
+    title = read("docs", "review-handoff-protocol.md").splitlines()[0]
+    match = re.search(r"draft (\d+\.\d+)", title)
+    assert match, f"the title names no draft: `{title}`"
+    assert float(match.group(1)) >= 0.7, "a changed field moves the draft"
 
 
 def test_the_documents_say_why_older_records_are_excused():
