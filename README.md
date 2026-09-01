@@ -13,7 +13,7 @@ open: a **proof block** the smith prints at the end of its response, naming the
 policy files it read and what it actually ran, a **review mark**
 (`.git/specseal-reviewed`, holding the reviewed HEAD sha) that a commit hook
 looks for, and an **evidence ledger** (`.specseal/map.md`) pairing each spec
-clause with the `file:line` that grounds it.
+clause with the code that grounds it.
 
 Commit without a current review mark and the hook stops the commit and puts the
 choice in front of you. Move the lines a ledger row cites and the check script
@@ -38,7 +38,7 @@ works outside the context entirely (hooks).
 |---|---|---|
 | **smith** (Claude Code subagent) | `implement` · `writing-style` | Implements against the spec, then prints a three-line proof block: which policy files it opened, which ledger rows it touched, what it executed versus merely read. The block is a disclosure the skill requires, not something a hook verifies — but `none — <reason>` in a row is visible to you |
 | **warden** (subagent) | `code-review` · `writing-style` | Reviews spec compliance first, then quality. Once its report is verified the orchestrator writes the reviewed HEAD sha to `.git/specseal-reviewed`, which is what the commit gate looks for — the reviewer never writes its own mark |
-| **scribe** (subagent) | `legacy-parity` | Records what the original code does as `file:line` coordinates and returns facts, not verdicts. Appears only in repos that declare `.specseal/parity.md` |
+| **scribe** (subagent) | `legacy-parity` | Records what the original code does as `path#anchor` coordinates and returns facts, not verdicts. Appears only in repos that declare `.specseal/parity.md` |
 | Skills | — | Twenty-one, in three groups. The four the agents follow are in the column to the left. Eleven more a session loads on its own when the work calls for them — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. Six you invoke by name; they are in the cheat sheet below |
 | Hooks | — | The gates themselves — auto-registered by the plugin, no settings wiring |
 | CLAUDE.md block | — | 12 always-on lines — four section headings (`Tooling`, `Safety`, `Session cost`, `Git`) over eight rules: one on tooling, three on safety, one on session cost, three on git. No response-language rule — that stays yours |
@@ -108,7 +108,10 @@ Cross-session memory lives in the repo, not the session:
 
 ```
 .specseal/
-├── map.md            spec clause ↔ code coordinates (split into map/ if it grows)
+├── map.md            spec clause ↔ code coordinates, from before work items
+│                     started writing fragments
+├── map/
+│   └── <work-item-id>.md   one work item's rows — no header, never gathered
 ├── parity.md         migration config, only when declared
 └── follow-up.md      schedulable items in a repository with no tracker
 ```
@@ -133,17 +136,28 @@ agent that reads and writes files in a git repo can conform. It names the
 records' home as *the directory that holds the work item*; `specs/<id>/` is
 this implementation's answer to that, not the protocol.
 
-The ledger is *checked*, not merely kept. The `evidence-check` skill ships a
-CI-ready script that exits 2 when a coordinate no longer resolves and 1 when
-its lines were touched since **that row's** baseline — the commit SHA in its
-Checked column, falling back to the ledger header's. Both fail a default CI
-step, and `--strict` makes drift exit 2 as well. Per-row is what keeps
-re-verification honest: with one baseline for the file, any wide refactor
-drifts every row at once and the cheapest way out is bumping the header, which
-re-dates every claim without re-reading one of them. What it proves is narrow
-and worth stating: that the citation still points somewhere, not that the
-claim it supports is still true. Specs rot silently everywhere else — here
-the rot shows up in CI.
+The ledger is *checked*, not merely kept. A coordinate names **content, not a
+position** — `path#unit@hash`, where the unit is a function or class for code
+and a heading for a document, and the hash covers the region under it. The
+`evidence-check` skill ships a CI-ready script that
+exits 2 when an anchor is gone or ambiguous and 1 when the content under it
+changed; both fail a default CI step, and `--strict` makes drift exit 2 too.
+What it proves is narrow and worth stating: that the citation still points at
+what it claimed, not that the claim it supports is still true. Specs rot
+silently everywhere else — here the rot shows up in CI.
+
+**A row carries no line number and no commit.** A line number moves for edits
+that have nothing to do with the claim, so inserting a line above a cited
+function used to leave the row pointing at the wrong lines while still reading
+OK. A unit does not move, so that edit is silent and a real change to the cited
+code is not. An anchor also degrades to *re-read this*, never to *go fix the
+ledger* — the second is the bookkeeping the design exists to remove. Nothing
+is written into a row for a rebase or a squash to
+orphan, and the check calls git for nothing — the one exception is
+`--migrate`, a one-shot writer that consults the old stamp's commit before it
+trusts a line number it is rewriting. Re-verifying a row is
+re-reading it and running `evidence-check --reverify`, which recomputes the
+hash and names what it changed.
 
 ## The gates
 
