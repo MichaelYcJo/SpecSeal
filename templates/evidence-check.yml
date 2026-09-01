@@ -35,6 +35,9 @@ jobs:
 
       - name: Check evidence ledger coordinates
         run: |
-          # --strict: treat drifted (unverified since baseline) rows as failures.
-          # Drop it to let drift warn without blocking.
+          # --strict turns DRIFTED — the content under an anchor changed —
+          # into the same exit code as a BROKEN coordinate. Drop it to let
+          # drift warn instead: it exits 1, which a `bash -e` step still
+          # fails, so letting it warn also needs the `|| [ $? -eq 1 ]` guard
+          # the evidence-ci skill prints. A broken coordinate fails either way.
           python3 tools/evidence_check.py --strict .

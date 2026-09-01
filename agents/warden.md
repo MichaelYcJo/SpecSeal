@@ -128,7 +128,7 @@ axes, probe rules, record formats. This file adds only your role boundaries.
 
   | Carried, and re-derived only when its check fails | Re-derived every round |
   |---|---|
-  | Ledger coordinates — `evidence-check` fails when the cited lines moved since the baseline | Whether the new code satisfies the clause |
+  | Ledger coordinates — `evidence-check` fails when an anchor is gone or the content under it changed | Whether the new code satisfies the clause |
   | What the original does — `.specseal/parity.md` pins a baseline SHA, so it cannot drift under you | Whether the new code matches it |
   | Where a subsystem lives, what a helper is for | Any verdict, on any axis |
 
