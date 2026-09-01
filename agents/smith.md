@@ -162,6 +162,12 @@ incorporation. This file only adds what the skill does not carry.
 5. **Batch your reads and runs.** Open every file a coordinate names in one
    call; run the cases from one file in one command. A round is mostly
    round-trips and command waits — cut the trips, never the investigation.
+   Independent reads and probes go out together; task shape decides the
+   rest. An edit-test loop is inherently serial — measured at 1.08–1.17
+   tools per turn where review rounds read 1.29–1.89 — and it is not forced
+   to fake a batch: a call whose input depends on the last result cannot go
+   out with it. What has no excuse is the requirements read, where every
+   file the handoff names can be opened in one call.
 
 Implementation done ≠ chain done: verification and review follow without
 being asked, and the review run is bounded — **three rounds, then it ends
