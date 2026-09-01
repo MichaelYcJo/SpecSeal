@@ -426,13 +426,76 @@ def test_a_preceding_cell_does_not_beat_the_checked_column(repo):
         f"| 2026-09-01 `{newer}` |\n",
     )
     r = run(["."], str(repo))
-    assert "AMBIGUOUS src/service.py:2" in r.stdout, r.stdout
+    # Round 2, 🔴 4: this used to assert AMBIGUOUS and `DRIFTED not in`, and
+    # that is the bug rather than the property. The fixture's cited file was
+    # genuinely rewritten after the older stamp, so the row IS drifted — and
+    # skipping the comparison to report ambiguity turned exit 1 into exit 0.
+    # A second stamp anywhere in the row was a way to silence a real finding.
+    #
+    # What has to hold: no stamp is silently PICKED, the row is measured from
+    # the widest candidate, and the drift still reports.
+    assert "DRIFTED  src/service.py:2" in r.stdout, r.stdout
+    assert f"touched since {older[:9]}" in r.stdout, (
+        f"measured from the narrower candidate, or from neither:\n{r.stdout}"
+    )
     assert older[:9] in r.stdout and newer[:9] in r.stdout, (
         f"the report names neither of the two stamps:\n{r.stdout}"
     )
-    assert "DRIFTED" not in r.stdout, f"a stamp was picked anyway:\n{r.stdout}"
+    assert "row carries 2 stamps" in r.stdout, (
+        f"the ambiguity went unreported:\n{r.stdout}"
+    )
+    assert r.returncode == 1, r.stdout
+
+
+def test_two_stamps_on_an_untouched_row_still_report_ambiguous(repo):
+    """The other half, or the case above passes by never reading AMBIGUOUS.
+
+    Where nothing drifted there is no verdict competing with the ambiguity, so
+    the row says so and passes — and fails under `--strict`, which is where a
+    release asks for the stricter reading.
+    """
+    older = head(repo)
+    open(repo / "src" / "other.py", "w").write("x\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "an unrelated commit")
+    newer = head(repo)
+
+    fragment(
+        repo,
+        f"| POL-1 | `src/service.py:2` | seen at 2026-01-01 `{older}` "
+        f"| 2026-09-01 `{newer}` |\n",
+    )
+    r = run(["."], str(repo))
+    assert "AMBIGUOUS src/service.py:2" in r.stdout, r.stdout
+    assert "row carries 2 stamps" in r.stdout, r.stdout
+    assert "DRIFTED" not in r.stdout, r.stdout
     assert r.returncode == 0, r.stdout
     assert run(["--strict", "."], str(repo)).returncode == 2
+
+
+def test_one_commit_written_at_two_lengths_is_one_stamp(repo):
+    """Round 2, 🟡 5. `23cbd2e` and `23cbd2e24` are the same commit.
+
+    Dedup ran on the matched STRING, so two spellings read as two disagreeing
+    stamps and switched that row's drift check off. A ledger repaired by hand
+    is exactly where mixed lengths occur — pull request #49 rewrote stamps
+    across seven rows — so this is the ordinary shape, not a corner.
+    """
+    older = head(repo)
+    (repo / "src" / "service.py").write_text("CHANGED\n" * 8)
+    git(repo, "commit", "-qam", "rewrite the file")
+
+    fragment(
+        repo,
+        f"| POL-1 | `src/service.py:2` | seen 2026-01-01 `{older[:7]}` "
+        f"| 2026-09-01 `{older[:11]}` |\n",
+    )
+    r = run(["."], str(repo))
+    assert "AMBIGUOUS" not in r.stdout, (
+        f"two spellings of one commit read as two stamps:\n{r.stdout}"
+    )
+    assert "DRIFTED  src/service.py:2" in r.stdout, r.stdout
+    assert r.returncode == 1, r.stdout
 
 
 def test_a_moved_row_would_lose_its_history(repo):
@@ -543,6 +606,70 @@ def test_a_baseline_declared_in_the_header_is_still_read(repo):
 
     r = run(["."], str(repo))
     assert f"baseline: {base[:9]}" in r.stdout, r.stdout
+
+
+# A header long enough to reach the 2000-character bound. Round 2 found the
+# existing header cases all using short fixtures, so the bound was never
+# exercised by any of them and reverting the fix left 55 cases green.
+LONG_PROSE = "rationale rationale rationale rationale rationale rationale\n" * 45
+
+
+def test_a_sha_deep_in_a_prose_header_is_not_the_baseline(repo):
+    """Round 2, 🟡 8. Removing the cap left a fragment's prose unbounded.
+
+    The header baseline is the fallback for every row the derivation cannot
+    anchor, so a commit that a rationale paragraph happens to mention became
+    the thing those rows were measured against. An honest UNMEASURED turning
+    into a measurement against an arbitrary commit is the quiet direction.
+
+    A declaration is deliberate and stays unbounded; prose is accidental and
+    is only read near the top.
+    """
+    sha = head(repo)
+    fragment(
+        repo,
+        f"{LONG_PROSE}the design was settled at {sha} for the reasons above.\n\n"
+        "| POL-1 | `src/service.py:2` |\n",
+    )
+    body = (repo / ".specseal" / "map" / "core.md").read_text()
+    assert body.index(sha) > 2000, (
+        f"the fixture puts the SHA at {body.index(sha)}, inside the bound"
+    )
+
+    r = run(["."], str(repo))
+    assert f"baseline: {sha[:9]}" not in r.stdout, (
+        f"a commit named in a rationale paragraph became the ledger's "
+        f"baseline:\n{r.stdout}"
+    )
+    assert "none in the header" in r.stdout, r.stdout
+
+
+def test_a_declared_baseline_past_the_bound_is_still_read(repo):
+    """Round 2, 🟡 9. Nothing guarded the header fix at all.
+
+    Reverting `header_of` to its cap-first body left the three ledger test
+    files green — 55 passed — because every header fixture was short enough
+    that cut and cap agree. This one is not: the declaration sits past 2000,
+    where a bound on the search would silently drop it and the run would print
+    the same line as a healthy file.
+    """
+    sha = head(repo)
+    (repo / ".specseal" / "map").mkdir(parents=True, exist_ok=True)
+    (repo / ".specseal" / "map" / "core.md").write_text(
+        f"# map\n\n{LONG_PROSE}\n| Baseline commit | `{sha}` |\n\n"
+        "| POL-1 | `src/service.py:2` |\n"
+    )
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "ledger with a long header")
+    body = (repo / ".specseal" / "map" / "core.md").read_text()
+    assert body.index("Baseline commit") > 2000, (
+        f"the fixture puts the declaration at {body.index('Baseline commit')}"
+    )
+
+    r = run(["."], str(repo))
+    assert f"baseline: {sha[:9]} from a Baseline row" in r.stdout, (
+        f"a declared baseline past the bound was dropped:\n{r.stdout}"
+    )
 
 
 def test_a_boundary_line_gets_a_baseline_git_can_resolve(repo):

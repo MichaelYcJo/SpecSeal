@@ -5,11 +5,16 @@ Scans the spec-to-code map (default: .specseal/map.md, .specseal/map/*.md,
 and the pre-0.10 docs/**/_evidence.md) for `file:line` /
 `file:start-end` coordinates and classifies each:
 
-  BROKEN   file missing, or the line range exceeds the file's length
-  DRIFTED  the range was touched by commits since the row's baseline
-           (the coordinate may still be right — but nobody has re-verified it)
-  OK       resolvable and untouched since that baseline
-  EXTERNAL path not in this repo and no --map given — cannot judge here
+  BROKEN     file missing, or the line range exceeds the file's length
+  DRIFTED    the range was touched by commits since the row's baseline
+             (the coordinate may still be right — but nobody re-verified it)
+  UNMEASURED resolvable, but the row has no baseline at all, so nothing was
+             compared. NOT the same as untouched, which is what `OK` used to
+             say for it
+  AMBIGUOUS  the row carries two distinct stamps. It is still measured, from
+             the widest of them, and the disagreement is reported
+  OK         resolvable, compared against a baseline, and untouched
+  EXTERNAL   path not in this repo and no --map given — cannot judge here
 
 A row's baseline is the commit the row FIRST APPEARED in — the tree its
 author read the code against. A stamp written in the row wins where there is
@@ -25,9 +30,13 @@ First appearance rather than last touch, because a commit that rewrites rows
 in bulk — a migration, a reformat, a merge resolution — would otherwise pull
 every row it touched forward to itself and report the ledger green.
 
-Exit codes: 0 clean · 1 drift only · 2 broken coordinates (or drift with
---strict). Designed for CI: a spec-code link that stops resolving should fail
-the build the same way a broken test does.
+Exit codes: 0 clean · 1 drift only · 2 broken coordinates, or — under
+--strict — drift, UNMEASURED or AMBIGUOUS. Designed for CI: a spec-code link
+that stops resolving should fail the build the same way a broken test does.
+
+UNMEASURED and AMBIGUOUS print and pass without --strict, because a fragment
+is uncommitted for most of its working life and a red light on every ordinary
+run is one a session learns to click past.
 
 Usage:
   evidence_check.py [--ledger GLOB]... [--map NAME=PATH]... [--strict] [ROOT]
@@ -71,11 +80,50 @@ def git(args, cwd):
 
 
 def is_commit(sha, repo, cache):
+    return full_sha(sha, repo, cache) is not None
+
+
+def full_sha(sha, repo, cache):
+    """The 40-character object a stamp names, or None.
+
+    Resolving rather than merely testing is what tells two spellings of one
+    commit apart from two commits. `23cbd2e` and `23cbd2e24` in the same row
+    used to read as two stamps and switch that row's drift check off — and a
+    ledger repaired by hand is exactly where mixed abbreviations occur, as
+    pull request #49 did across seven rows.
+    """
     key = (repo, sha)
     if key not in cache:
-        code, _ = git(["cat-file", "-e", f"{sha}^{{commit}}"], repo)
-        cache[key] = code == 0
+        code, out = git(["rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}"], repo)
+        cache[key] = out.strip() if code == 0 and out.strip() else None
     return cache[key]
+
+
+def commit_time(sha, repo, cache):
+    """Committer timestamp, for ordering two stamps git cannot rank."""
+    key = (repo, sha, "time")
+    if key not in cache:
+        code, out = git(["show", "-s", "--format=%ct", sha], repo)
+        cache[key] = int(out.strip()) if code == 0 and out.strip() else 0
+    return cache[key]
+
+
+def widest_baseline(shas, repo, cache):
+    """The candidate whose diff window to HEAD is widest.
+
+    Ancestry decides it where git can: an ancestor's diff to HEAD contains the
+    descendant's, so it can only report MORE drift, and more is the safe
+    direction for a row nobody can disambiguate. Where neither reaches the
+    other the committer date is the fallback — a proxy, and named as one.
+    """
+    best = shas[0]
+    for sha in shas[1:]:
+        if git(["merge-base", "--is-ancestor", sha, best], repo)[0] == 0:
+            best = sha
+        elif git(["merge-base", "--is-ancestor", best, sha], repo)[0] != 0:
+            if commit_time(sha, repo, cache) < commit_time(best, repo, cache):
+                best = sha
+    return best
 
 
 def header_of(text):
@@ -105,8 +153,13 @@ def header_of(text):
     same line as a healthy file.
 
     So the cap applies only where no citing row was found. There is nothing to
-    check in such a ledger anyway, and the cap is there to stop a scan of an
-    unbounded body rather than to bound a header.
+    check in such a ledger anyway, and the cap here is a guard against reading
+    a whole file that never declares a header at all.
+
+    This function bounds where the header ENDS. What is read inside it is
+    `find_baseline`'s business, and that is where the 2000-character bound on
+    accidental prose now lives — a declaration is searched for across the
+    whole header, a prose SHA only near the top.
     """
     at, found = 0, False
     for line in text.splitlines(keepends=True):
@@ -128,24 +181,36 @@ def find_baseline(text, repo, cache=None, source=None):
     header SHA outside a labelled row would break a ledger whose header writes
     a bare one, and its failure direction is the quiet one — such a ledger
     loses its fallback while printing the same line as a healthy file.
+
+    **Two passes, and only the second is bounded.** A DECLARED baseline is
+    deliberate, so it is looked for across the whole header however long that
+    header has grown — the earlier single pass cut the search at 2000
+    characters and a declaration pushed past it vanished silently. Prose is
+    accidental, so the fallback pass keeps the 2000-character bound: a
+    rationale paragraph 2500 characters into a fragment header had otherwise
+    become that file's baseline, and the header baseline is what every row the
+    derivation cannot anchor falls back to. An honest UNMEASURED turning into
+    a measurement against whatever commit an argument mentioned is the quiet
+    direction, and the bound is what keeps it out.
     """
     cache = {} if cache is None else cache
     header = header_of(text)
-    for m in SHA_RE.finditer(header):
+
+    def declared(line):
+        return line.lstrip().startswith("|") and "aseline" in line
+
+    for line in header.splitlines():
+        if not declared(line):
+            continue
+        for m in SHA_RE.finditer(line):
+            if is_commit(m.group(0), repo, cache):
+                if source is not None:
+                    source.append("a Baseline row")
+                return m.group(0)
+    for m in SHA_RE.finditer(header[:2000]):
         if is_commit(m.group(0), repo, cache):
             if source is not None:
-                line_start = header.rfind("\n", 0, m.start()) + 1
-                line_end = header.find("\n", m.start())
-                line = (
-                    header[line_start:]
-                    if line_end == -1
-                    else header[line_start:line_end]
-                )
-                source.append(
-                    "a Baseline row"
-                    if line.lstrip().startswith("|") and "aseline" in line
-                    else "header prose"
-                )
+                source.append("header prose")
             return m.group(0)
     return None
 
@@ -193,20 +258,24 @@ def blame_lines(repo, rel, cache):
             # first line of each commit and nothing else, so the path is
             # remembered per commit and only the working-tree path is assumed
             # when git named none.
-            names, sha, orig = {}, None, None
+            names, sha, orig, final = {}, None, None, None
             for line in out.splitlines():
                 head = re.match(r"^([0-9a-f]{40}) (\d+) (\d+)", line)
                 if head:
                     sha, orig = head.group(1), int(head.group(2))
+                    final = int(head.group(3))
                     if sha != "0" * 40:
-                        found[int(head.group(3))] = (sha, orig, names.get(sha, rel))
+                        found[final] = (sha, orig, names.get(sha, rel))
                     continue
                 if sha and line.startswith("filename "):
+                    # The block belongs to the header just read, so the entry
+                    # to correct is that one. `orig` is 1-based, so the guard
+                    # this used to carry was never false, and walking every
+                    # recorded row to find the one just added was O(rows) for
+                    # a lookup already in hand.
                     names[sha] = line[len("filename ") :]
-                    if int(orig) and sha != "0" * 40:
-                        for final, (s, o, _) in list(found.items()):
-                            if s == sha and o == orig:
-                                found[final] = (s, o, names[sha])
+                    if sha != "0" * 40 and final in found:
+                        found[final] = (sha, orig, names[sha])
         cache[key] = found
     return cache[key]
 
@@ -293,16 +362,25 @@ def row_stamps(text, pos, repo, cache):
     not obviously the author's. The scan reads the physical row, so a stamp in
     any earlier cell wins over the one in `Checked` — and `Verified behavior`,
     free prose where this repository's fragments do name commits, sits before
-    it. Rather than guess, `check_ledger` reports a row carrying two as
-    AMBIGUOUS and measures from neither.
+    it. Rather than guess, `check_ledger` measures from the widest of them and
+    says the row is ambiguous.
+
+    **Distinct means a distinct COMMIT, not a distinct string.** Two
+    abbreviations of one commit agree perfectly, and reading them as two
+    disagreeing stamps switched that row's drift check off. A ledger repaired
+    by hand is where mixed lengths occur — pull request #49 rewrote stamps
+    across seven rows. The matched spelling is what comes back, so a caller
+    comparing against what the author typed still sees it.
     """
     start = text.rfind("\n", 0, pos) + 1
     end = text.find("\n", pos)
     line = text[start:] if end == -1 else text[start:end]
     line = COORD_RE.sub("\x00", line)
-    out = []
+    out, seen = [], set()
     for m in STAMP_RE.finditer(line):
-        if is_commit(m.group(1), repo, cache) and m.group(1) not in out:
+        oid = full_sha(m.group(1), repo, cache)
+        if oid and oid not in seen:
+            seen.add(oid)
             out.append(m.group(1))
     return out
 
@@ -484,24 +562,31 @@ def check_ledger(
             continue
         # Two distinct stamps in one row: the scan reads the physical row, so
         # the winner would be whichever cell came first rather than the
-        # author's. Say so instead of picking.
+        # author's. Saying so is right; SKIPPING the comparison was not — it
+        # turned a genuinely drifted row into a passing run, because adding a
+        # second stamp anywhere in the row jumped straight past the drift
+        # check. Measured: one stamp gave DRIFTED and exit 1, the same row
+        # plus a stamp in an earlier cell gave AMBIGUOUS and exit 0.
+        #
+        # So the row is measured from the WIDEST candidate — the one that can
+        # only report more drift — and the ambiguity is carried in the message
+        # rather than in place of the verdict.
         written = row_stamps(text, m.start(), repo, sha_cache)
-        if len(written) > 1:
-            findings.append(
-                (
-                    "AMBIGUOUS",
-                    coord,
-                    f"row carries {len(written)} stamps: "
-                    + ", ".join(s[:9] for s in written),
-                )
+        ambiguous = written[
+            1:
+        ] and f" · row carries {len(written)} stamps: " + ", ".join(
+            s[:9] for s in written
+        )
+        if ambiguous:
+            base = widest_baseline(written, repo, sha_cache)
+        else:
+            # A row is measured from the commit it first appeared in — or a
+            # stamp it wrote. The header baseline is the fallback for the rows
+            # neither can answer for.
+            base = row_baseline(
+                text, m.start(), repo, sha_cache, ledger=ledger, root=root, blame=blame
             )
-            continue
-        # A row is measured from the commit it first appeared in — or a stamp
-        # it wrote. The header baseline is the fallback for the rows neither
-        # can answer for.
-        base = row_baseline(
-            text, m.start(), repo, sha_cache, ledger=ledger, root=root, blame=blame
-        ) or (
+        base = base or (
             baseline
             if repo == root
             else (default_baseline if repo == default_repo else None)
@@ -518,7 +603,18 @@ def check_ledger(
         if key not in cache:
             cache[key] = changed_ranges(repo, base, rel)
         if overlaps(start, end, cache[key]):
-            findings.append(("DRIFTED", coord, f"touched since {base[:9]} — re-verify"))
+            findings.append(
+                (
+                    "DRIFTED",
+                    coord,
+                    f"touched since {base[:9]} — re-verify" + (ambiguous or ""),
+                )
+            )
+            continue
+        if ambiguous:
+            findings.append(
+                ("AMBIGUOUS", coord, f"measured from {base[:9]}, untouched" + ambiguous)
+            )
             continue
         findings.append(("OK", coord, ""))
     return baseline, findings
@@ -535,7 +631,11 @@ def main():
         help="repo that unprefixed coordinates resolve against when "
         "absent from ROOT (migration ledgers cite the original repo)",
     )
-    ap.add_argument("--strict", action="store_true", help="drift also fails")
+    ap.add_argument(
+        "--strict",
+        action="store_true",
+        help="drift, and rows nothing could be measured for, also fail",
+    )
     args = ap.parse_args()
 
     root = os.path.abspath(args.root)

@@ -14,7 +14,8 @@
 
 | Item | Value |
 |---|---|
-| Baseline commit | `<SHA>` (<YYYY-MM-DD>) — the fallback for rows `git blame` cannot answer for; open with `git show <SHA>:<path>` when in doubt |
+| Baseline commit | `<SHA>` (<YYYY-MM-DD>) — the fallback for rows the derivation cannot answer for; open with `git show <SHA>:<path>` when in doubt |
+| Baseline commit (original) | **migration ledgers only** — `<SHA in the original repo>` (<YYYY-MM-DD>). A row citing the original is never measured from this repository's history, so without this row every such row reads UNMEASURED and `--strict` fails. Delete this row where no original is declared |
 | Coordinate notation | `<path>:<line>` from the repo root |
 | Trust exceptions | <paths whose coordinates need re-verification, and why — or "none"> |
 

@@ -35,6 +35,13 @@ jobs:
 
       - name: Check evidence ledger coordinates
         run: |
-          # --strict: treat drifted (unverified since baseline) rows as failures.
-          # Drop it to let drift warn without blocking.
+          # --strict fails the build for three things, not one: drift, a row
+          # with no baseline at all (UNMEASURED), and a row carrying two
+          # disagreeing stamps (AMBIGUOUS). Without it all three print and
+          # pass and only a broken coordinate fails.
+          #
+          # A repository that writes one ledger fragment per work item will
+          # meet UNMEASURED routinely — a fragment row has no baseline until
+          # its line is committed — so start without --strict and add it once
+          # the ledger is settled.
           python3 tools/evidence_check.py --strict .

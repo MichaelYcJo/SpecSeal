@@ -38,8 +38,8 @@ evidence-check --strict .
 | `BROKEN` (exit 2) | file gone or range beyond file length | fix the coordinate now — a broken ground is worse than none |
 | `DRIFTED` (exit 1; 2 under `--strict`) | commits since the row's baseline touched the range | re-open the coordinate, re-verify the claim, and put the date you verified it in the row's Checked column |
 | `EXTERNAL` | path resolves in no known checkout | pass `--map`/`--default-repo`, or accept as out of scope |
-| `UNMEASURED` (2 under `--strict`) | resolves, but the row has no baseline at all — nothing was compared | commit the ledger line, or give the row a stamp. A fragment is uncommitted for most of its working life, so this is ordinary rather than wrong |
-| `AMBIGUOUS` (2 under `--strict`) | the row carries two distinct stamps and the checker will not guess which is the author's | leave one. The scan reads the physical row, so the winner would otherwise be whichever cell came first |
+| `UNMEASURED` (2 under `--strict`) | resolves, but the row has no baseline at all — nothing was compared | commit the ledger line. For a CROSS-REPO row the line being committed changes nothing: see *A migration ledger needs two baselines* below |
+| `AMBIGUOUS` (2 under `--strict`) | the row carries two distinct commits as stamps. It is still measured, from the widest of them, so a drifted row still reads `DRIFTED` | leave one stamp. Two spellings of the SAME commit are not ambiguous and never were reported as such |
 | `OK` | resolves, and it was compared against a baseline and untouched | nothing |
 
 `UNMEASURED` and `AMBIGUOUS` print and pass. Both mean *nothing was measured*,
@@ -120,6 +120,26 @@ the squash that stamp resolves for nobody, so it is ignored — and the row fall
 back to its first appearance in the squashed history, which is the squash
 commit and is current. An orphaned stamp used to mean a silent fall back to a
 stale header; now it means a fall back to the right answer.
+
+### A migration ledger needs two baselines
+
+A row citing the ORIGINAL repository is not measured from this repository's
+history at all. The derivation is skipped — a commit here is not a diff base
+there — and a stamp in the row would have to resolve in the original. So a
+cross-repo row falls straight through to the header, and with only this
+repository's baseline declared it reads `UNMEASURED`, which `--strict` fails.
+
+Committing the ledger line does not help, and that is the trap: the remedy the
+`UNMEASURED` row above names is the right one for an ordinary row and does
+nothing here. Declare the original's baseline as well:
+
+```
+| Baseline commit | `<SHA in this repo>` (<date>) |
+| Baseline commit (original) | `<SHA in the original repo>` (<date>) |
+```
+
+Executed on a migration-shaped ledger: `1 unmeasured` and `--strict` exit 2
+with one baseline, `1 ok` and `--strict` exit 0 with both.
 
 ### One fragment per work item
 
