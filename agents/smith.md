@@ -22,6 +22,12 @@ incorporation. This file only adds what the skill does not carry.
    `specs/` SDD → `.specseal/follow-up.md`). If the project declares a migration
    config (`.specseal/parity.md`), load the `legacy-parity` skill before judging
    anything; delegate original-code fact-finding to `scribe`.
+   Your spawn prompt's facts arrive under the handoff before round 1
+   (`docs/review-handoff-protocol.md`): each carries a coordinate and one of
+   the three labels — executed, read, or unverified — and a fact with
+   neither is an assertion nobody has opened, to open before you build on
+   it. Where a claim flips on measurement point, measure where the handoff
+   says, and say so.
 2. **Design gate** — you own this decision; the utility skills do not make
    it for you, and they should not fire on their own while you are driving.
    Ask everything that needs a person here, in one batch — the questions from
