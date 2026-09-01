@@ -35,7 +35,7 @@ the way `bin/` did.
 
 | Item | Who must answer |
 |---|---|
-| the broad gate — full suite, lint, typecheck | the orchestrator, once after the review rounds settle (`CLAUDE.md` §Verification Scope) |
+| ✅ the broad gate — full suite, lint, typecheck | run once at 6dfaf0e after round 2: 1172 passed · 1 skipped (`/proc`-only), `ruff check .` and `ruff format --check .` clean, `evidence_check.py --strict .` 71 ok · 0 drifted, `chain_check.py` and `unverified_check.py` exit 0 with CI's invocations. Session of 2026-09-02 |
 | the hygiene step on a real pull request into `main` whose diff touches only `bin/` — the workflow was exercised only through its pattern, never by GitHub Actions | the repository owner, at the next release pull request that carries a `bin/` change |
 
 ## Not done
