@@ -54,17 +54,28 @@ written in the row wins over anything derived, which is what makes the move
 cost nothing. A derived baseline is for rows born where they live. Renaming a
 whole ledger file is a different case: git detects that and follows it.
 
-**A stamp is how a re-verified row clears drift.** Nothing else can: the
-derivation walks past an edit to the row, on purpose, so re-reading the code
-and re-wording the row leaves the baseline exactly where it was and the row
-reads DRIFTED forever. Writing `<date> <sha>` into the Checked column is the
-one assertion a person makes here, and it wins over the derivation.
+**Re-verifying a row does not clear its drift on its own.** The derivation
+walks past an edit to the row, on purpose, so re-reading the code and
+re-wording the row leaves the baseline exactly where it was.
 
-It is safe to name a commit the branch made, which the old rule forbade. After
-the squash that stamp resolves for nobody, so it is ignored — and the row falls
-back to its first appearance in the squashed history, which is the squash
-commit and is current. An orphaned stamp used to mean a silent fall back to a
-stale header; now it means a fall back to the right answer.
+**A row whose coordinate a branch invalidates is MOVED, not re-stamped.**
+Remove it from `.specseal/map.md` and write it afresh into that branch's own
+`.specseal/map/<work-item-id>.md`.
+
+The paragraph this replaces said a re-verification stamp was safe because an
+orphaned one falls back to the row's first appearance in the squashed history.
+Both halves are false for the only kind of row such a stamp is written on. An
+EDITED line walks back to its ORIGINAL commit — that is what the derivation is
+for — so a row re-anchored in place on this repository's ledger derived the
+repository's first commit, where the cited file was 299 lines long against a
+coordinate in the 600s. It could never overlap again, and its drift tripwire
+was dead rather than merely stale.
+
+A NEW line's first appearance is the commit that added it, which after the
+squash is the squash commit and is current. So the derivation does distinguish
+an edited row from a new one, and the way to re-verify is to make the row new.
+Rewriting it in place does not: measured, a row rewritten cell by cell still
+derives the commit that first created its line.
 
 **A fragment carries no Baseline section at all.** It has no need of one —
 every row in it measures from its own line's history — and the two cases the

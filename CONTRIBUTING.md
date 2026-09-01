@@ -58,12 +58,25 @@ when it arrives.
 
 - **A change writes a fragment, never a shared registry.** Its changelog
   entry goes in `specs/<work-item-id>/changelog.md` and its evidence rows in
-  `.specseal/map/<work-item-id>.md`. Neither `CHANGELOG.md` nor
-  `.specseal/map.md` is edited by a feature branch. Three branches running in
-  parallel shared exactly one file between them and it was the changelog; the
-  conflict is three lines, and it arrives after the broad gate has run, where
-  nothing may be edited. The changelog fragments are gathered at the release
+  `.specseal/map/<work-item-id>.md`. A feature branch **appends** to neither
+  `CHANGELOG.md` nor `.specseal/map.md`. Three branches running in parallel
+  shared exactly one file between them and it was the changelog; the conflict
+  is three lines, and it arrives after the broad gate has run, where nothing
+  may be edited. The changelog fragments are gathered at the release
   (`docs/branch-and-release.md`); the ledger fragments never are.
+
+  **Moving cited code is the case the rule has to answer, and it is not an
+  append.** Change a line an existing `.specseal/map.md` row cites and the
+  checker reports DRIFTED; clearing that needs the row touched, in the file
+  this rule covers. **Remove the row there and write it afresh into your own
+  fragment.** Re-anchoring it in place does not work — an edited line walks
+  back to its original commit, so the row keeps a baseline from before the
+  file it cites existed in its current shape, and its drift check is dead
+  rather than merely stale. A new line in your fragment anchors at the squash
+  commit and is current.
+
+  So `.specseal/map.md` empties into fragments as work items touch the code
+  its rows cite, which is the migration these fragments exist to enable.
 
   **One branch does edit `CHANGELOG.md`, and it is the one based on `main`.**
   A pull request into `main` is a release, so the entries are due there and

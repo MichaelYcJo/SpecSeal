@@ -98,14 +98,24 @@ row still wins. **If rows are ever moved into a fragment, their stamps move
 with them verbatim** — `git log -L` does not follow a row out of a file that
 stays, so a stripped stamp would make the move itself the baseline.
 
-**A row that has drifted and been re-read writes a stamp**, because nothing
-else clears it: the derivation walks past an edit to the row on purpose, so
-re-wording it leaves the baseline where it was. Name whatever commit you
-actually read it at, this branch's own included — after the squash that stamp
-resolves for nobody, is ignored, and the row falls back to its first appearance
-in the squashed history, which is current. The old rule against stamping a
-branch commit was about a fall back to a stale header, and there is no longer
-one to fall back to.
+**A row whose coordinate a branch invalidates is MOVED, not re-stamped.**
+Remove it from `.specseal/map.md` and write it afresh into that branch's own
+`.specseal/map/<work-item-id>.md`.
+
+The paragraph this replaces said a re-verification stamp was safe because an
+orphaned one falls back to the row's first appearance in the squashed history.
+Both halves are false for the only kind of row such a stamp is written on. An
+EDITED line walks back to its ORIGINAL commit — that is what the derivation is
+for — so a row re-anchored in place on this repository's ledger derived the
+repository's first commit, where the cited file was 299 lines long against a
+coordinate in the 600s. It could never overlap again, and its drift tripwire
+was dead rather than merely stale.
+
+A NEW line's first appearance is the commit that added it, which after the
+squash is the squash commit and is current. So the derivation does distinguish
+an edited row from a new one, and the way to re-verify is to make the row new.
+Rewriting it in place does not: measured, a row rewritten cell by cell still
+derives the commit that first created its line.
 
 ## Repo rule — a change writes fragments, never the shared file
 
@@ -120,10 +130,20 @@ again.
 
 No two work items share an id, so no two branches share a file.
 
+**Appended is the word, and a removal is not one.** A branch that moves code an
+existing `.specseal/map.md` row cites must touch that file to leave the ledger
+true — the row is removed there and rewritten in the branch's own fragment.
+`CONTRIBUTING.md` carries the same sentence, and the two used to disagree:
+one forbade editing the file at all while the other forbade appending to it,
+which left a branch in this position with no reading that permits the only
+correct act.
+
 This overrides the `implement` skill and `agents/smith.md`, which tell a
-session to put its entry under `CHANGELOG.md`'s `## Unreleased`. That is the
+session to let the entry accumulate unreleased. That is the
 plugin's answer for a repository with no fragment convention; this repository
-has one, and there is no `## Unreleased` here to write into.
+has one, and the fragments are where an entry accumulates here. Neither
+document names a heading any more; the override is about WHERE, not about a
+sentence they no longer carry.
 
 **The changelog fragments are gathered; the ledger fragments never are.**
 Release preparation runs `.github/scripts/gather_changelog.py --version X.Y.Z`,

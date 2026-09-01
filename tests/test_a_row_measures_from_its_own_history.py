@@ -786,6 +786,19 @@ def test_the_documents_say_where_the_baseline_comes_from_now():
         assert "first appear" in text, (
             "/".join(parts) + " does not say WHICH commit of the row's history"
         )
+        # Round 2, 🟡 10: this assertion was DELETED in the same hunk that
+        # widened the list from three documents to six, to accommodate the
+        # one document that lacked the phrase — so six lost a check to admit
+        # one, and `README.ko.md` was left as the only file required to name
+        # what was rejected. Naming the reading that was refused is what stops
+        # the next reader taking the cheaper one for the same rule.
+        #
+        # Both spellings, because the documents wrap at different widths and
+        # `last touch` / `last touched` are the same claim.
+        assert "last touch" in text or "last touched" in text, (
+            "/".join(parts) + " does not say what was rejected, so the next "
+            "reader takes the cheaper reading for the same rule"
+        )
 
 
 def test_no_document_still_states_the_rejected_reading():
@@ -798,10 +811,12 @@ def test_no_document_still_states_the_rejected_reading():
     """
     for parts in BASELINE_DOCUMENTS:
         text = flat(*parts)
+        # Round 2, recorded: the third phrase was a superset of the first, so
+        # it could never be the assertion that fired. Two phrases that can
+        # each fire alone are worth more than three where one is dead.
         for rejected in (
             "comes from `git blame` of",
             "baseline is the commit `git blame` names",
-            "It comes from `git blame` of",
         ):
             assert rejected not in text, (
                 "/".join(parts) + f" still states the rejected reading: {rejected!r}"
@@ -948,15 +963,22 @@ def test_the_fragment_this_work_item_wrote_carries_no_baseline_header():
     actually does, and a fragment that quietly carried a baseline header would
     make every case above vacuous here.
 
-    Rows in it DO carry stamps, and that is not a lapse: four of them drifted
-    when the design changed under them, and a stamp is the only thing that
-    clears a drifted row. The case below is what holds those honest.
+    Read through `header_of`, which is the region the checker actually scans.
+    A flat string search over the whole file forbids the words in a ROW too,
+    and a row about the header names them — round 2 added one and turned this
+    red for saying something true.
     """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("specseal_evidence_check", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
     frag = os.path.join(ROOT, ".specseal", "map", *FRAGMENT)
     assert os.path.isfile(frag), "this work item recorded no evidence at all"
-    text = read(".specseal", "map", *FRAGMENT)
-    assert "Baseline commit" not in text, "a fragment carries no baseline header"
-    assert "## Baseline" not in text
+    header = mod.header_of(read(".specseal", "map", *FRAGMENT))
+    assert "Baseline commit" not in header, "a fragment declares no baseline"
+    assert "## Baseline" not in header
 
 
 def test_no_stamp_in_a_fragment_resolves_only_in_the_clone_that_wrote_it():
@@ -1002,4 +1024,16 @@ def test_no_stamp_in_a_fragment_resolves_only_in_the_clone_that_wrote_it():
         f"stamps that resolve but no ref reaches: {local_only}. The object "
         "survives in the worktree that wrote it and nowhere else, so the row "
         "measures from one commit locally and another in CI"
+    )
+    # Round 2, 🔴 1: the branch stamped nine fragment rows and one re-anchored
+    # row at a commit it had just made, and the squash discarded it — the
+    # release branch then went red on `tests/test_ledger_stamps_resolve.py`.
+    # A fragment row writes no stamp at all now, so the failure has nothing
+    # to occur on. This is the stronger property and it is checked here
+    # rather than relied on.
+    assert not stamps, (
+        f"a fragment row carries a stamp: {stamps}. A row whose coordinate a "
+        "branch invalidates is removed from .specseal/map.md and written "
+        "afresh here, which needs no stamp — and a stamp naming a commit this "
+        "branch made stops resolving at the squash"
     )

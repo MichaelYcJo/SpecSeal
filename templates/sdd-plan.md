@@ -48,7 +48,9 @@ column after any rebase**, or it names commits that resolve in one clone and
 nowhere else. That is tolerable because nothing measures from this column.
 The evidence ledger had the same problem and no such tolerance, which is why a
 ledger row names no commit at all now: its drift baseline is the commit the row
-first appeared in, derived from that row's own line history.
+first appeared in, derived from that row's own line history — and not the
+commit that last touched the line, which any bulk rewrite of the rows would
+pull forward to itself.
 
 ## Operational impact
 

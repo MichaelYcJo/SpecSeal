@@ -139,7 +139,11 @@ this implementation's answer to that, not the protocol.
 The ledger is *checked*, not merely kept. The `evidence-check` skill ships a
 CI-ready script that exits 2 when a coordinate no longer resolves and 1 when
 its lines were touched since **that row's** baseline. Both fail a default CI
-step, and `--strict` makes drift exit 2 as well. Per-row is what keeps
+step. Two quieter verdicts print and pass — `UNMEASURED` where a row has no
+baseline at all, so nothing was compared, and `AMBIGUOUS` where a row carries
+two disagreeing stamps and is measured from the wider of them. `--strict`
+makes all three exit 2. The run also names where a header baseline came from,
+a declaration or a line of prose. Per-row is what keeps
 re-verification honest: with one baseline for the file, any wide refactor
 drifts every row at once and the cheapest way out is bumping the header, which
 re-dates every claim without re-reading one of them. What it proves is narrow

@@ -84,9 +84,11 @@ When a root or file this skill needs doesn't exist, create it from
 `templates/` in this plugin and continue. In particular:
 
 - `.specseal/map.md` — stamp the baseline (current HEAD SHA, date) into its
-  header at creation time. That header is the fallback for the rows `git blame`
-  cannot answer for; a work item's own rows go in `.specseal/map/<work-item-id>.md`,
-  which carries no header at all.
+  header at creation time. That header answers for the rows the derivation
+  cannot: a coordinate resolving in another checkout, chiefly. A row whose own
+  line is not committed yet reads UNMEASURED rather than falling back. A work
+  item's own rows go in `.specseal/map/<work-item-id>.md`, which carries no
+  header at all.
 - `.specseal/README.md` — carries the export rules so sessions that never load
   this skill still see them.
 - **Not** policy documents. If the repository has none, it has none; judge from
