@@ -1555,3 +1555,12 @@ def test_a_mapped_prefix_still_reaches_its_own_checkout(repo, tmp_path):
     )
     r = run(["--map", f"legacy={other}", "."], str(repo))
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
+
+    # And the prefix is not a way back out of the checkout it names.
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        "# frag\n\n| CLAUSE | `legacy/../outside/creds.py#secret@00000000` |\n"
+    )
+    (tmp_path / "outside").mkdir()
+    (tmp_path / "outside" / "creds.py").write_text("def secret():\n    return 'S'\n")
+    r = run(["--map", f"legacy={other}", "."], str(repo))
+    assert "escapes the repository" in r.stdout, r.stdout
