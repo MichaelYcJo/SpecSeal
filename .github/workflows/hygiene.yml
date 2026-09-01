@@ -32,7 +32,12 @@ jobs:
           fi
           base="origin/${{ github.base_ref }}"
           changed=$(git diff --name-only "$base"...HEAD)
-          ships=$(echo "$changed" | grep -E '^(skills|agents|hooks|templates|\.claude-plugin)/' || true)
+          # What the plugin loader reads or puts in front of a user: `bin/` is
+          # on the Bash tool's PATH while the plugin is enabled, so a wrapper
+          # fix ships like a skill does. It was missing here and nothing said
+          # so; `tests/test_the_release_check_watches_what_ships.py` now
+          # classifies every top-level entry against this list (#10).
+          ships=$(echo "$changed" | grep -E '^(skills|agents|hooks|templates|bin|\.claude-plugin)/' || true)
           if [ -z "$ships" ]; then
             echo "nothing that ships changed"; exit 0
           fi
