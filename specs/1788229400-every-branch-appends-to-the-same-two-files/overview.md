@@ -130,6 +130,31 @@ falls back to. A declaration is deliberate and is now searched for across the
 whole header; prose is accidental and is read only near the top. Nothing had
 guarded the round 1 fix at all: reverting it left 55 cases green.
 
+## What review round 3 changed
+
+No 🔴, and two of the three findings were the same shape: **a fix from round 2
+whose guard could not fail.** That is the third round running in which this
+repository has called that a finding, and both instances were mine.
+
+`widest_baseline` decides which of two disagreeing stamps a row is measured
+from, and replacing its whole body with `return shas[0]` left all 62 ledger
+cases green — `shas[0]` being whichever cell came first, the exact choice
+round 2's 🔴 4 exists not to trust. The guard needed the drift to fall
+*between* the two stamps with the descendant in the earlier cell, which no
+existing fixture had.
+
+The dedup guard failed for a subtler reason, and it is a consequence of 🔴 4
+rather than an oversight. Since an ambiguous row is now measured anyway, a
+drifted one reports `DRIFTED` — so the case asserting `AMBIGUOUS not in
+stdout` on a drifted row passed whether the two spellings read as one stamp or
+two. The direction where the readings differ is an **untouched** row, and both
+sides of that fixture exit 0, so the verdict has to be asserted rather than the
+exit code.
+
+The third was a sentence in the shipped skill that `--help` had already been
+corrected away from: `--strict` turns `UNMEASURED` and `AMBIGUOUS` into exit 2
+as well, and neither of those fails the run without it.
+
 ## Not verified
 
 | Item | Who must answer |

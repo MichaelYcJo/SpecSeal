@@ -77,6 +77,10 @@
   rationale paragraph merely mentions, deep in a header, is not read as one at
   all, while a declaration is read wherever it sits.
 
+  Where two stamps disagree the row is measured from the **wider** of them —
+  the ancestor where git can rank them, the earlier committer date where it
+  cannot — so the reading can only report more drift, never less.
+
   **A row whose coordinate a change invalidates is moved, not re-stamped.**
   Remove it from `.specseal/map.md` and write it into the work item's own
   fragment, in a commit after the one that removed it. The derivation walks
