@@ -222,11 +222,21 @@ pieces of code it is actually about.
 
 ## Migrating a pre-anchor ledger
 
+**The default is that nobody runs anything**: at the first session start after
+updating, an opted-in repository's ledger migrates itself and prints one line
+ending *review the diff and commit*. Once per repository; never over
+uncommitted `.specseal/` changes — a dirty tree is skipped with one line and
+retried at the next clean session start. The write is licensed by ownership
+(the ledger is the plugin's artifact) and bounded by visibility: deterministic,
+idempotent, all-or-nothing per row, old text in git history.
+
+For CI, for a skipped tree, or by hand:
+
 ```
 evidence-check --migrate .
 ```
 
-One command, once, after updating. Each `path:line` row is resolved against
+One command, once. Each `path:line` row is resolved against
 the current tree to its enclosing unit and rewritten as `path#unit@hash`; the
 commit stamp drops and the date stays. The run prints the same faithfulness
 report this repository's own 51-coordinate migration was held to: how many

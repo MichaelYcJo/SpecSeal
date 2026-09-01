@@ -674,6 +674,10 @@ def migrate(ledgers, root):
     A left row keeps failing the plain check as OLD-FORMAT, so the loop
     closes on a person rather than on silence. Running this twice is a no-op:
     the second pass finds no old coordinates.
+
+    Returns (rows migrated, [(coordinate, why) left]); printing belongs to the
+    callers, because the session-start hook says it in one line where the CLI
+    itemises.
     """
     migrated, left = 0, []
     for ledger in ledgers:
@@ -739,11 +743,7 @@ def migrate(ledgers, root):
         if new_text != text:
             with open(ledger, "w", encoding="utf-8") as f:
                 f.write(new_text)
-    n = migrated
-    print(f"{n} row{'' if n == 1 else 's'} migrated · {len(left)} left")
-    for coord, why in left:
-        print(f"  LEFT  {coord}  {why}")
-    return 1 if left else 0
+    return migrated, left
 
 
 def reverify(ledgers, root, maps, default_repo=None):
@@ -884,7 +884,13 @@ def main():
         return 0
 
     if args.migrate:
-        return migrate(ledgers, root)
+        migrated, left = migrate(ledgers, root)
+        print(
+            f"{migrated} row{'' if migrated == 1 else 's'} migrated · {len(left)} left"
+        )
+        for coord, why in left:
+            print(f"  LEFT  {coord}  {why}")
+        return 1 if left else 0
     if args.reverify:
         return reverify(ledgers, root, maps, default_repo)
 

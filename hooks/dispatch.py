@@ -38,7 +38,7 @@ GROUPS = {
     "pre-skill": ("review-skill-gate.py",),
     "post-bash": ("review-history-guard.py", "session-lease.py", "evidence-advisor.py"),
     "post-edit": ("lint-python.py", "session-lease.py"),
-    "session-start": ("version-check.py",),
+    "session-start": ("version-check.py", "ledger-migrate.py"),
 }
 
 RANK = {"deny": 3, "ask": 2, "allow": 1}

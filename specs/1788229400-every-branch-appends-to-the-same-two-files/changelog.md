@@ -46,14 +46,20 @@
   breaks on any rewording while a heading survives the prose beneath it being
   rewritten.
 
-  **Already keeping a ledger from 0.1.0? One command converts it:**
-  `bin/evidence-check --migrate .` rewrites every `path:line` row to the new
-  form against your current tree, drops the commit stamps, keeps the dates,
-  and names every row it cannot prove rather than guessing. Until you run it,
-  an old-format row **fails the check loudly** (`OLD-FORMAT`, exit 2, with or
-  without `--strict`) — the alternative was your whole ledger silently
-  reading `0 ok` while nothing was checked, which is worse than a red build
-  that names the one command to run.
+  **Behavior that writes to your tree without being asked, disclosed here on
+  its own line: an existing 0.1.0 ledger migrates itself.** At the first
+  session start after updating, in an opted-in repository, every `path:line`
+  row is rewritten to the new form against your current tree — stamps
+  dropped, dates kept — and one line tells you what happened:
+  *ledger migrated to anchor format (12 rows; 2 left…) — review the diff and
+  commit*. `claude plugin update` is the whole of what you do. The write is
+  deterministic, idempotent and all-or-nothing per row; the old text stays in
+  git history; rows it cannot prove are left, named, and keep failing the
+  ordinary check loudly (`OLD-FORMAT`, exit 2) rather than being guessed at.
+  It runs once per repository, never over uncommitted `.specseal/` changes —
+  a dirty tree is skipped with one line and retried at the next clean session
+  start. Fallback for CI or by hand: `bin/evidence-check --migrate .`, which
+  the `OLD-FORMAT` line also names.
 
   **Two behaviours arrive without being asked for.** After a `git commit` in
   an opted-in repository, a broken anchor prints one advisory line in the

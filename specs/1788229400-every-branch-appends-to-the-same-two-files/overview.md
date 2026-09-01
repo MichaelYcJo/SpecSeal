@@ -257,6 +257,31 @@ the update skill already relays the changelog entry that carries the command,
 and the OLD-FORMAT line itself names it, so the loop closes twice without a
 third copy.
 
+## Then the migration stopped being a command
+
+The owner's call, on the repository's own stated philosophy: between two
+designs that catch the same thing, the one that stops to ask a person is the
+more expensive, and `--migrate` as a command a person must remember was that
+design. It now runs itself at the first session start after updating — one
+line printed, ending *review the diff and commit* — and `claude plugin
+update` is the whole of what a user does.
+
+The boundaries carry the design. It writes to a tree unasked, licensed by
+ownership (the ledger is the plugin's artifact, the same grounds as
+`preset-setup`'s marker block) and bounded by visibility — deterministic,
+idempotent, all-or-nothing per row, old text in git history. It never touches
+uncommitted `.specseal/` changes: a dirty tree is skipped with one line, the
+once-per-repo marker is NOT stamped, and the next clean session start
+migrates. An unanswerable `git status` reads as dirty, because overwriting on
+a guess is the one direction the hook must never fail in. Reading never
+rewrites — the plain checker stays pure, held by a case that sits beside the
+hook's own.
+
+Two of the nine mutations found fixture blind spots rather than code defects:
+a repository can only hold a ledger while not opted in through the
+`.specseal/scratch` opt-out, and the git-cannot-answer path needed a raising
+`subprocess.run` to be reachable at all.
+
 ## Not verified
 
 | Item | Who must answer |
