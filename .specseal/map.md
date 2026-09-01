@@ -106,7 +106,7 @@ Judgments that don't follow from code or documents alone.
 
 | Clause | Code grounds | Verified behavior | Checked | Notes |
 |---|---|---|---|---|
-| A row reads DRIFTED when its range was touched since the row's own baseline | `skills/evidence-check/scripts/evidence_check.py:202` | Read, not run | 2026-08-31 `9829412` | Every row here shares the baseline, so nothing can drift until the second commit |
+| A row reads DRIFTED when its range was touched since the row's own baseline | `skills/evidence-check/scripts/evidence_check.py:517-522` | **Executed**: a fragment row whose cited file changed after the row's baseline prints DRIFTED and exits 1 | 2026-09-01 `aacae56` | Re-anchored: the coordinate named `:202`, which this work item moved into `blame_lines`. The row drifted, was re-read, and is stamped at the commit it was read at — the loop this ledger exists to run |
 | Drift is judged in baseline line numbering, so a HEAD-numbered coordinate on a base-stamped row trips on accidental overlap with old-side hunks rather than on what was touched | `skills/evidence-check/scripts/evidence_check.py:100-105` | **Executed** by review round 1 and reproduced here: of the five rows in *What the cost meter can read*, four trip and the model-time row does not, though all five cite lines this branch touched | 2026-09-01 `5d011f5` | Old-side judgment is deliberate in the checker — it is what catches a deletion shifting every later line. The accident is stamping HEAD-numbered coordinates at a base SHA, which the re-stamp after the squash resolves |
 
 ## What the cost meter can read

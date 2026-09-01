@@ -60,12 +60,30 @@
   with them verbatim: `git log -L` does not follow a row out of a file that
   stays, so a stripped stamp would make the move itself the baseline.
 
+  **Two verdicts join `ok`, `drifted`, `broken` and `external`.** A row with no
+  baseline at all now reads `UNMEASURED` instead of `ok` — the old word said a
+  comparison had happened and found the range untouched, which is not what an
+  uncommitted ledger line has been through, and a fragment is uncommitted for
+  most of its working life. A row carrying two distinct stamps reads
+  `AMBIGUOUS` rather than being measured from whichever cell came first: the
+  scan reads the physical row, and `Verified behavior` sits before `Checked`.
+  Both print and pass, and fail only under `--strict`, because a red light on
+  every ordinary run is one a session learns to click past. The run also names
+  where a header baseline came from — `from a Baseline row` or
+  `from header prose` — so a fragment whose prose happens to name a commit
+  says so out loud instead of quietly measuring from it.
+
   Blame is read in `--porcelain`, and the format is load-bearing twice over.
   It spells a boundary commit plainly where the default and `-s` forms
   decorate it as `^9829412`, which `git cat-file` rejects — and the first line
   of every fragment is a boundary line. It also reports each line's number in
-  the commit that touched it, which is what lets the history walk start from
-  the right line when the file has uncommitted edits above the row. Every
+  the commit that touched it and the PATH git knew that line by. Without the
+  path, renaming a ledger file turned its drift check off entirely — `git
+  log -L` resolves a path inside the anchor commit, and the anchor predates
+  the rename — and the line number is what lets the walk start in the right
+  place when the file has uncommitted edits above the row. That block is
+  printed only for the first line of each commit, so the path is remembered
+  per commit rather than read from beside every line. Every
   answer is checked against `git cat-file` before it reaches `git diff`, where
   a name resolving to nothing would report "nothing changed" — a pass produced
   by a failure. (#52)
