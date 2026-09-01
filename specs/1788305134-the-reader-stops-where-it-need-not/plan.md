@@ -52,10 +52,10 @@ them for that reason.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | What of the old change is in the tree: a file-by-file diff of the old branch's tip against the branch point, the two new test files located, the four 🟡 traced to code | **Executed**: `git diff fix/stops-the-reader-need-not-make -- <files>`; the scope run at the branch point, 295 passed; 7 mutations from round 2's 🟡 7, 6 red and 1 (the `_unseen` bare-name rule) surviving | recorded in `overview.md` — no code moved |
+| 1 | What of the old change is in the tree: a file-by-file diff of the old branch's tip against the branch point, the two new test files located, the four 🟡 traced to code | **Executed**: `git diff fix/stops-the-reader-need-not-make -- <files>`; the scope run at the branch point, 295 passed; 7 mutations from round 2's 🟡 7, 6 red and 1 (the `_unseen` bare-name rule) surviving | a456076 — the record; no code moved |
 | 2 | The aimed reset proven or corrected: a differential run of the wide reset against the aimed one over compound-command shapes, every newly resolved input checked against bash | **Executed**: 1,790 inputs, bash 3.2.57 as oracle — 82 fail-opens, two families, both closed; re-run 0 fail-open, 0 lost | 9ea31d8 |
 | 3 | The body count, the prefix refusal in `understood`, the blind-sweep pin, with tests; 7 mutations of the new mechanism each red | S10 · S11 · S12; 301 passed in the scope; `ruff check` and `ruff format --check` clean | 9ea31d8 |
-| 4 | The SDD set, `changelog.md`, the ledger fragment with content anchors, `evidence-check --strict` at 0 broken | the checker's own output; `unverified-check` on the memo | |
+| 4 | The SDD set, `changelog.md`, the ledger fragment with content anchors, `evidence-check --strict` at 0 broken | the checker's own output — 104 ok · 0 broken; `unverified-check --baseline origin/release/v0.3.0` — 4 open, each with an answerer, 0 unreadable | 0903bfe |
 
 ## Operational impact
 
