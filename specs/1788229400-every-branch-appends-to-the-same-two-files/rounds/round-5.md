@@ -14,7 +14,7 @@ All fourteen are closed. What this round found is what closing them opened.
 | PR | not yet |
 | Broad gate | not yet — slices only this round; the full suite, lint and typecheck are the orchestrator's, once, after this round settles |
 | Fixes checked by | `nobody — the run reached its bound at this round; the way out is Q2 in questions.md` |
-| Needs a fix | yes — four 🔴 and four 🟡 |
+| Needs a fix | yes — four 🔴 and four 🟡 from the reviewer, and 🔴 I, which the orchestrator added after the round closed |
 
 - [ ] Pass
 
@@ -71,6 +71,33 @@ four files.
 | 🟡 F | `cross_repo_intent` is true on the mere presence of `.specseal/parity.md`, and then the scan is off for **every** unplaceable row, not the cross-repo ones. Round 4's 🔴 3 is therefore still live in a parity repository — a renamed directory reads EXTERNAL at exit 0 over a false message — and a purely local file rename loses its `(moved?)` hint and its `--reverify` heal entirely. Known limits says "directory"; the loss is every move | `evidence_check.py:679-694` · `:977-987` | **open** | Reviewer-executed, one repository with and without `parity.md`. Graded 🟡 rather than 🔴 because round 4's grounds — the two commands disagreeing about one row — are gone: `--reverify` now refuses too. The `--map` half is decidable; the `parity.md`-only half is not, and can close as an answer with grounds plus a Known-limits correction |
 | 🟡 G | Fixing 🔴 2 put module- and class-level assignments into `ast`'s answer, so constants became scan candidates — and a constant holding one bare literal collides far more readily than a function. Deleting `TIMEOUT = 10` re-anchors its row onto an unrelated `RETRIES = 10`, `--reverify` accepts it, recheck exits 0. Known limits names `__init__`s, getters and wrappers; the candidate this commit added is not there | `evidence_check.py:134-142` · `:465-468` | **open** | Reviewer-executed end to end. Closes as a Known-limits line, or by excluding one-line `Assign` from `file_units`' `.py` branch |
 | 🟡 H | Four documents now contradict the code the same way round 4's 🟡 11-13 did, because 🟡 10's fix put a git call in the file. `CLAUDE.md:88` and `README.md:156` / `README.ko.md:149` say the checker calls git for nothing **at all**; `hooks/evidence-advisor.py:24` says only BROKEN is printed, and the same commit taught it OLD-FORMAT. No test pins any of the three documents | `CLAUDE.md:88` · `README.md:156` · `README.ko.md:149` · `hooks/evidence-advisor.py:24` | **open** | Orchestrator confirmed all four by reading. The module docstring and `SKILL.md` already carry the correct exception; the sentence can be borrowed |
+| 🔴 I | A ledger row citing `../…` is read from outside the repository, and `--reverify` writes a hash of what it found back into the ledger — so a project's own ledger becomes a confirmation oracle for a file the project does not contain. `ANCHOR_RE`'s path class admits `.` and `/`; `place()` returns `(root, raw_path)` with no containment test; `read(os.path.join(root, rel))` follows it out of the tree. Absolute paths do not match, so this is relative traversal only | `evidence_check.py` `ANCHOR_RE` · `place()` · every call site of `read` that takes a placed row | **open** | **Orchestrator-executed, after the round closed** — a fixture repository with a row above its root: check prints `DRIFTED ../outside/creds.py#secret`, `--reverify` rewrites the hash and exits 0. **The released 0.1.0 checker has it too** (`708e348`, the `path:line` form, same row, `2 ok`, exit 0), so it is not a defect this redesign introduced and its fix is a new guard rather than a regression close |
+
+## Where 🔴 I came from, and the axis that was missing
+
+🔴 I is not the reviewer's. It came from a security pass the orchestrator ran
+after this round closed, prompted by the repository owner asking why security
+was not among the corrections being discussed. It is recorded here rather than
+in a round of its own because it sits in `place()`, which this round's 🟡 F
+already reopens, and because a finding's provenance belongs beside the
+findings it will be fixed with.
+
+**The reason it was not found earlier is structural, and it is worth more than
+the finding.** `code-review` names security in stage 2, but the comparison
+axes table — the thing that makes an axis mandatory — has no security row.
+Neither round 4 nor round 5 named one for itself either, though the skill's
+own *"floor, not a ceiling"* paragraph asks each round to. Three of this
+round's four 🔴 have a security frame stronger than the frame they were given:
+🔴 B is a fail-open in a repository that maintains
+`tests/test_gates_do_not_fail_open.py` for exactly that failure, whose scope is
+one mechanism narrower than the defect; 🔴 D's accepted fix reverses a write
+boundary's symlink behaviour; 🔴 A is path confusion. The axis would have
+gathered all four.
+
+Disclosure is the orchestrator's and is deliberately not a public issue while
+the fix is unreleased: the repository is public, carries no security policy,
+and private vulnerability reporting is disabled. The severity that justifies
+that pace rather than a faster one is written into the changelog entry.
 
 ## Round 4's three deferrals, and its one ❓
 
