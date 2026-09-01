@@ -19,7 +19,7 @@ it does not consume the cap. -->
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟢 2-1 | round-2 🔴 1 (drifted re-anchored row) | `.specseal/map/1788272986-the-fixes-are-what-open-the-next-round.md` | fixed | executed at d3aa145: `evidence_check.py --strict .` → 67 ok · 0 drifted · 0 broken, exit 0, reproduced rather than taken from the report. The re-hashed row still names `skills/code-review/SKILL.md#"## Comparison axes"`; the good-faith sentence sits inside the span the drift named and the recomputed hash covers it |
+| 🟢 2-1 | round-2 🔴 1 (drifted re-anchored row) | `.specseal/map/1788272986-the-fixes-are-what-open-the-next-round.md` | answered — the fix is round-2's, this round reproduced its closure | executed at d3aa145: `evidence_check.py --strict .` → 67 ok · 0 drifted · 0 broken, exit 0, reproduced rather than taken from the report. The re-hashed row still names `skills/code-review/SKILL.md#"## Comparison axes"`; the good-faith sentence sits inside the span the drift named and the recomputed hash covers it |
 | 🟢 2-2 | round-2's fix-surface rows, judged | `specs/1788272986-the-fixes-are-what-open-the-next-round/rounds/round-2.md` | truthful | the fix diff (638b4cf..d3aa145) touches no .py file — one hash cell plus two record files; no contract moves, no top-level unit is added, and a --reverify run is a tool invocation, not a unit |
 
 ## Executed probes
