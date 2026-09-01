@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+- **The cost meter could not count above 1.00 tools per turn, and a day's
+  conclusions were drawn from that floor.** `session_cost.py` counted a turn
+  per `tool_use` block, so a message carrying three calls was three turns
+  and the batching ratio was structurally pinned at ~1.00 — five runs of two
+  agent types measured exactly 1.00, including a session that demonstrably
+  batched. A turn is now one assistant **message** that carries at least one
+  tool call, keyed by the message id (a message split across transcript rows
+  is one turn; a transcript with no ids degrades to one turn per row — the
+  old floor, never an inflated ratio). A message's tokens count once however
+  many calls it carries, and model time runs from a turn's last result to
+  the next turn's first call, so the wait between two calls issued together
+  is no longer booked as thinking. The `batching` advisory stops claiming
+  calls go out "one at a time" when the ratio is above 1. Readings taken
+  with the old meter are not comparable to new ones: the same six
+  transcripts that all read 1.00 read 1.08–1.89 recounted per message. (#29)
+
+  Around the meter, three smaller things move what that measurement run
+  established into the documents that outlive it. `docs/review-handoff-protocol.md`
+  (now draft 0.6) gains **the handoff before round 1**: the coordinates-carry
+  rule applied to the orchestrator→implementer handoff, each handed fact
+  labelled executed / read / unverified — an unlabelled fact is an assertion
+  nobody has opened, and one such fact (a count standing in for a claim)
+  reached five documents before a review round found it false. The same
+  section names `plan.md`'s Status column as the progress channel an
+  orchestrator reads while an implementer runs — time since it last advanced
+  is the stall signal — and finally points at the meter itself, which had
+  sat unreferenced through a full day of measurements nobody took. And both
+  agent contracts state the batching expectation the meter can now observe:
+  independent reads and probes go out together, with the honest caveat that
+  an edit-test loop is inherently serial and is not forced to fake a batch.
+
 - **A review run ends with a round that reads the last set of fixes, and the
   record says who did.** A round's findings are closed after it ends, by
   whoever writes the fixes, and the round that follows is what opens them.
