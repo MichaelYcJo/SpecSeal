@@ -740,3 +740,127 @@ def test_the_arithmetic_loop_head_forgets_its_counter_and_not_the_rest():
     assert reader._unseen({"SB": "/one"}, shlex.split("for $v in a b")) == {}, (
         "a loop head with no readable name left a value standing"
     )
+
+
+def test_the_blind_sweep_forgets_bare_names_only():
+    """`_unseen` asks `NAME_WRITERS` of every word and then forgets the bare
+    names beside it. The operand test is `end == len(tok)`, the same line
+    `_forget` carries, and loosening it here survived every test while the
+    same loosening in `_forget` did not: `read -rp 'SB> ' ans` would forget
+    `SB` on the strength of a prompt string. Executed under bash 3.2.57 with
+    stdin closed, `SB` is `/one` after it."""
+    kept = reader._unseen(
+        {"SB": "/one", "ans": "x"}, shlex.split("if read -rp 'SB> ' ans")
+    )
+    assert kept.get("SB") == "/one", "`SB> ` is not the name `SB`"
+    assert "ans" not in kept, "the name the `read` writes survived it"
+    where = targets(
+        "SB=/one; if read -rp 'SB> ' ans; then :; fi; git -C \"$SB\" commit -m x"
+    )
+    assert where == [os.path.normpath("/one")], where
+
+
+# --- a body's later statements are still inside the body -------------------
+
+# Executed under bash 3.2.57: `SB=/one; <middle>; printf '%s' "$SB"` prints
+# `/one` for every one of these, because the body never runs -- a false
+# condition, an empty list, an arm that does not match, a function defined
+# and never called -- or runs in a subshell. Once the reset was aimed the
+# reader answered `/three` for all of them: the body's FIRST statement is
+# refused with the structure word in front of it, and the SECOND arrives as a
+# segment of its own, indistinguishable from a top-level assignment. The wide
+# reset had hidden that by accident, because the closer emptied the
+# environment, and a closer carries no name. 80 of the 82 fail-opens one
+# differential run found against the wide reset were this shape.
+BODIES = [
+    "if false; then echo hi; SB=/three; fi",
+    "if true; then :; else echo hi; SB=/three; fi",
+    "while false; do echo hi; SB=/three; done",
+    "until true; do echo hi; SB=/three; done",
+    "for i in; do echo hi; SB=/three; done",
+    "case x in y) echo hi; SB=/three ;; esac",
+    "f() { echo hi; SB=/three; }",
+    "function f { echo hi; SB=/three; }",
+    "( echo hi; SB=/three )",
+    "(SB=/two; SB=/three)",
+    "if false; then { :; }; SB=/three; fi",
+    "if false; then if true; then :; fi; SB=/three; fi",
+    # A closer in argument position closes nothing -- bash reads `fi` as a
+    # word there, and so does the count. These eight were what was left after
+    # the first version counted a closer wherever it stood.
+    "if false; then echo fi; SB=/three; fi",
+    "f() { echo done; SB=/three; }",
+    # The other spellings `_bind` handles, inside a body.
+    "if false; then :; export SB=/three; fi",
+    "if false; then :; SB+=/x; fi",
+]
+
+
+def test_a_bodys_later_statement_is_not_a_top_level_one():
+    for middle in BODIES:
+        where = targets(f'SB=/one; {middle}; git -C "$SB" commit -m x')
+        assert any("$SB" in w for w in where), (
+            f"`{middle}` -- a statement inside a body this reader cannot say "
+            f"ran was bound as if it were top level: {where}"
+        )
+
+
+def test_the_body_ends_at_its_closer():
+    """The count has to come back down, or the aim is lost again one level
+    up: every assignment after the first compound command would be forgotten
+    and the string would prompt from there on."""
+    for command in (
+        'SB=/one; if false; then echo hi; SB=/two; fi; SB=/three; git -C "$SB" commit -m x',
+        'SB=/one; if false; then { :; }; SB=/two; fi; SB=/three; git -C "$SB" commit -m x',
+        'SB=/one; ( echo hi ); SB=/three; git -C "$SB" commit -m x',
+        'SB=/one; f() { echo hi; }; SB=/three; git -C "$SB" commit -m x',
+        'SB=/one; case x in x) echo hi ;; esac; SB=/three; git -C "$SB" commit -m x',
+        # The arithmetic head is not a subshell, so the loop nets to zero.
+        'SB=/one; for ((k=0; k<2; k++)); do :; done; SB=/three; git -C "$SB" commit -m x',
+        # A closer in argument position is a word, and does not close early.
+        'SB=/one; if true; then echo fi; fi; SB=/three; git -C "$SB" commit -m x',
+    ):
+        assert targets(command) == [os.path.normpath("/three")], command
+
+
+def test_what_moves_the_count_and_what_does_not():
+    assert reader._nesting(shlex.split("for ((SB=0")) == 1
+    assert reader._nesting(shlex.split("k++))")) == 0
+    assert reader._nesting(shlex.split("(cd /x")) == 1
+    assert reader._nesting(shlex.split("case x in x)")) == 1
+    assert reader._nesting(shlex.split("( echo hi )")) == 0
+    assert reader._nesting(shlex.split("} > out")) == -1
+    assert reader._nesting(shlex.split("echo fi done esac")) == 0
+    assert reader._nesting(shlex.split("then if true")) == 1
+
+
+def test_a_glued_closer_costs_a_prompt_and_not_an_answer():
+    """`(cd <x> && make)` arrives as `(cd` … `make)`, and the glued closer is
+    not counted because a `case` pattern `x)` looks the same. The count stays
+    open and the assignment after it is forgotten -- a prompt where bash has
+    `/three`. Recorded as the cost rather than fixed, because the direction is
+    the safe one."""
+    where = targets('SB=/one; (cd /x && echo hi); SB=/three; git -C "$SB" commit -m x')
+    assert any("$SB" in w for w in where), where
+
+
+def test_a_reserved_word_behind_a_prefix_is_not_a_simple_command():
+    """`understood` asked the reserved-word question of the FIRST token only,
+    and `!` and `time` are prefixes it steps past. `! for SB in /two /three`
+    then reached `_bind` as something that runs, `_forget` found no `=` in
+    it, and `/one` stood where bash has `/three`. Two of the 82."""
+    assert not reader.understood(shlex.split("! for SB in /two /three"))
+    assert not reader.understood(shlex.split("time pushd /x"))
+    assert not reader.understood(shlex.split("command pushd /x"))
+    # And what the prefixes still pass through.
+    assert reader.understood(shlex.split("! true"))
+    assert reader.understood(shlex.split("time echo hi"))
+    assert reader.understood(shlex.split("command -p ls"))
+    for middle in (
+        "! for SB in /two /three; do :; done",
+        "time for SB in /two; do :; done",
+    ):
+        where = targets(f'SB=/one; {middle}; git -C "$SB" commit -m x')
+        assert any("$SB" in w for w in where), (
+            f"`{middle}` kept the value from before the loop: {where}"
+        )

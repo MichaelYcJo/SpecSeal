@@ -941,6 +941,52 @@ def _unseen(env, tokens):
     return env
 
 
+# The words that open a compound command's body and the words that close one.
+# `then`, `do`, `else`, `elif` and `in` are deliberately absent: each sits
+# INSIDE a body the opener already counted, and counting them would leave the
+# count above zero for the rest of the string.
+OPENERS = frozenset({"if", "while", "until", "for", "select", "case", "{", "("})
+CLOSERS = frozenset({"fi", "done", "esac", "}", ")"})
+
+
+def _nesting(tokens):
+    """How many bodies this segment opens, less how many it closes.
+
+    `walk_directories` keeps the running total, and while it is above zero an
+    assignment is forgotten rather than bound. The two directions of error do
+    not cost the same, and the count is shaped by that: a body counted and
+    never closed forgets every assignment after it, which is a prompt, while
+    a body closed early binds what a body wrote, which is the confident wrong
+    answer this whole mechanism is bounded to avoid. So an opener counts
+    wherever it stands -- `echo if` opens a body that never closes, and that
+    costs prompts for the rest of the string -- and a closer counts only in
+    command position, the segment's first word, where bash itself reads it:
+    `echo fi` inside a body closed it early and the assignment after it bound,
+    measured on eight shapes before this rule. `)` counts last as well,
+    because a subshell's closer is the last word of its segment.
+
+    Two costs remain, and both are prompts. A closer glued to its last word is
+    not counted -- `(cd <x> && make)` arrives as `(cd` … `make)`, and only the
+    opener is read, the rule `strip_subshell` applies -- because a `case`
+    pattern `x)` closes nothing and nothing in the token tells the two apart.
+    And `shlex` is posix-mode, so a quoted `"("` is a `(`; telling them apart
+    means carrying quote provenance out of the splitter, which the
+    single-quoted operand already declined to do.
+
+    `((` is arithmetic, not a subshell: `for ((SB=0` arrives as `for` `((SB=0`,
+    the `for` counts and the head does not, and `k++))` closes nothing either,
+    so the arithmetic loop nets to zero across its `done`.
+    """
+    depth = 0
+    last = len(tokens) - 1
+    for at, tok in enumerate(tokens):
+        if tok in OPENERS or (tok.startswith("(") and not tok.startswith("((")):
+            depth += 1
+        elif tok in CLOSERS and (at == 0 or (tok == ")" and at == last)):
+            depth -= 1
+    return depth
+
+
 def _bind(env, tokens):
     """`env` updated with this segment's leading `VAR=value` assignments.
 
@@ -1185,6 +1231,16 @@ def understood(tokens):
     if at >= len(toks):
         # Prefixes with nothing after them. `time` alone moves nothing.
         return True
+    if (toks[at] in RESERVED and toks[at] not in CONDITIONS) or toks[at] in RELOCATORS:
+        # The refusal the FIRST word met, asked again of the word that runs.
+        # `! for SB in /two /three` and `time pushd <x>` put a reserved word
+        # or a relocator behind a prefix, and reading only the first word
+        # accepted both as simple commands. For a name that was a fail-open:
+        # the loop reached `_bind` as something that runs, `_forget` found no
+        # `=` in it, and the value from before the loop stood -- measured,
+        # `/one` where bash has `/three`. The wide reset hid it by accident,
+        # because the `do :` a segment later emptied the environment whole.
+        return False
     if toks[at] == "cd":
         # A bare `cd` is the one construct this reader DOES model. Behind a
         # prefix it is the pair above, and unreadable.
@@ -1423,7 +1479,21 @@ def walk_directories(items, cwd):
     # command string has written for itself so far. It is read when an operand
     # is judged and written only by a segment `understood` accepts, so a `cd`
     # and a `$SB` are refused on the same grounds rather than on two.
-    states, parked, walked, env = [(cwd, None)], [], [], {}
+    # `depth` is the fourth, and it exists because of what the third cannot
+    # see on its own. A compound command's body is split on `;` like any other
+    # text, so its FIRST statement arrives with the structure word in front of
+    # it -- `then SB=/two` -- and is refused, while its SECOND arrives as a
+    # segment of its own, indistinguishable from a top-level assignment.
+    # `if false; then echo hi; SB=/three; fi; git -C "$SB"` answered `/three`
+    # where bash has `/one`, and so did a `while false` body, an empty `for`,
+    # a `case` arm that does not match, a function defined and never called,
+    # and a subshell -- 80 shapes in one differential run. The wide reset had
+    # hidden every one of them by accident: the closer emptied the
+    # environment, and a closer carries no name, so the aimed reset keeps it.
+    # While `depth` is above zero an assignment is FORGOTTEN rather than
+    # bound, which is the answer this reader gives for a body it cannot say
+    # ran. `_nesting` says what moves the count and what its two costs are.
+    states, parked, walked, env, depth = [(cwd, None)], [], [], {}, 0
     for index, (joined, tokens) in enumerate(items):
         following = items[index + 1][0] if index + 1 < len(items) else ""
         tokens = _expanded(tokens, env)
@@ -1526,7 +1596,12 @@ def walk_directories(items, cwd):
             # anything it cannot state.
             env = _forget(env, tokens)
         elif known and joined not in SUBSHELL and following not in SUBSHELL:
-            env = _bind(env, tokens)
+            # Inside a body -- `depth` above -- the segment is a statement of a
+            # compound command whose running this reader cannot state, so it
+            # is forgotten the way a `&&` branch is. `_forget` drops every
+            # shape `_bind` would have taken or unbound, so nothing a body
+            # writes survives it, and nothing it does not write is touched.
+            env = _bind(env, tokens) if not depth else _forget(env, tokens)
         elif known:
             # A pipeline stage or a background job -- what is left once the
             # two branches above have taken the joins they name. The comment
@@ -1556,12 +1631,15 @@ def walk_directories(items, cwd):
             # A function CALL is not in this branch and never was: `myfunc`
             # is a command word like any other, so `understood` accepts it,
             # `_bind` refuses to take a name from it and `_forget` drops what
-            # it names. What a function BODY writes is caught by neither --
-            # the same open edge `RELOCATORS` records for an alias set
-            # outside the string. It is narrower than it sounds, because a
-            # body defined in this command string is split on `;` like any
-            # other text, so its assignments arrive here as tokens.
+            # it names. What a function BODY writes when the function is
+            # CALLED is caught by neither -- the same open edge `RELOCATORS`
+            # records for an alias set outside the string. A body defined in
+            # this command string is split on `;` like any other text, so its
+            # statements do arrive here as segments; what they write is
+            # forgotten under `depth`, never bound, because whether and when
+            # the body runs is not something this reader can state.
             env = _unseen(env, tokens)
+        depth = max(0, depth + _nesting(tokens))
     return walked
 
 
