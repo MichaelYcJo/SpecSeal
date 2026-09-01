@@ -578,6 +578,164 @@ def test_reverify_does_not_choose_between_two_identical_units(repo):
     assert ledger.read_text() == before, "reverify picked one of two matches"
 
 
+def test_a_move_to_another_file_is_named_with_its_path(repo):
+    """hash AND name matching in another file proves the unit moved intact."""
+    write_row(repo, "src/service.py", "handler")
+    body = (repo / "src" / "service.py").read_text()
+    (repo / "src" / "service.py").write_text(
+        body.replace(SERVICE[: SERVICE.index("class")], "import os\n")
+    )
+    (repo / "src" / "moved.py").write_text(
+        "def handler(x):\n    y = x + 1\n    return y\n"
+    )
+    r = run(["."], str(repo))
+    assert "BROKEN" in r.stdout, r.stdout
+    assert "identical content at src/moved.py#handler (moved?)" in r.stdout, r.stdout
+
+    rr = run(["--reverify", "."], str(repo))
+    assert "src/service.py#handler -> src/moved.py#handler" in rr.stdout, rr.stdout
+    ledger = (repo / ".specseal" / "map" / "f.md").read_text()
+    assert "`src/moved.py#handler@" in ledger, ledger
+    assert run(["."], str(repo)).returncode == 0, run(["."], str(repo)).stdout
+
+
+def test_renamed_and_moved_is_still_provable_by_content(repo):
+    """hash alone, unique across the scan — content identity is the proof,
+    the same as the same-file rename."""
+    write_row(repo, "src/service.py", "handler")
+    body = (repo / "src" / "service.py").read_text()
+    (repo / "src" / "service.py").write_text(
+        body.replace(SERVICE[: SERVICE.index("class")], "import os\n")
+    )
+    (repo / "src" / "moved.py").write_text(
+        "def total_price(x):\n    y = x + 1\n    return y\n"
+    )
+    r = run(["."], str(repo))
+    assert "identical content at src/moved.py#total_price (renamed?)" in r.stdout, (
+        r.stdout
+    )
+    rr = run(["--reverify", "."], str(repo))
+    assert "-> src/moved.py#total_price" in rr.stdout, rr.stdout
+    assert run(["."], str(repo)).returncode == 0
+
+
+def test_a_name_alone_is_a_labelled_fact_and_never_a_fix(repo):
+    """`main`, `resolve`, `check` collide across files as a matter of course.
+    Content differing means the checker does not know it is a rename, so it
+    says exactly what it measured and touches nothing."""
+    write_row(repo, "src/service.py", "handler")
+    body = (repo / "src" / "service.py").read_text()
+    (repo / "src" / "service.py").write_text(
+        body.replace(SERVICE[: SERVICE.index("class")], "import os\n")
+    )
+    (repo / "src" / "other.py").write_text("def handler(x):\n    return x * 99\n")
+    r = run(["."], str(repo))
+    assert "same name at src/other.py (content differs)" in r.stdout, r.stdout
+    assert "renamed" not in r.stdout, r.stdout
+
+    ledger = repo / ".specseal" / "map" / "f.md"
+    before = ledger.read_text()
+    rr = run(["--reverify", "."], str(repo))
+    assert "0 rows re-verified" in rr.stdout, rr.stdout
+    assert ledger.read_text() == before, "a name-alone match was rewritten"
+
+
+def test_a_hash_match_outranks_a_name_alone_match(repo):
+    """The grade order. When content identity proves where the unit went, a
+    name collision elsewhere is noise and must not be reported."""
+    write_row(repo, "src/service.py", "handler")
+    body = (repo / "src" / "service.py").read_text()
+    (repo / "src" / "service.py").write_text(
+        body.replace(SERVICE[: SERVICE.index("class")], "import os\n")
+    )
+    (repo / "src" / "moved.py").write_text(
+        "def total_price(x):\n    y = x + 1\n    return y\n"
+    )
+    (repo / "src" / "decoy.py").write_text("def handler(x):\n    return x * 99\n")
+    r = run(["."], str(repo))
+    assert "identical content at src/moved.py#total_price" in r.stdout, r.stdout
+    assert "same name at" not in r.stdout, (
+        f"a name-alone line was printed although the hash match decides:\n{r.stdout}"
+    )
+
+
+def test_the_same_unit_in_two_files_is_counted_not_rewritten(repo):
+    """Same name AND identical content in two files: two units, no names, no
+    rewrite. Uniqueness is judged across the whole scan."""
+    write_row(repo, "src/service.py", "handler")
+    body = (repo / "src" / "service.py").read_text()
+    (repo / "src" / "service.py").write_text(
+        body.replace(SERVICE[: SERVICE.index("class")], "import os\n")
+    )
+    unit = "def handler(x):\n    y = x + 1\n    return y\n"
+    (repo / "src" / "a.py").write_text(unit)
+    (repo / "src" / "b.py").write_text(unit)
+    r = run(["."], str(repo))
+    assert "identical content at 2 units" in r.stdout, r.stdout
+    ledger = repo / ".specseal" / "map" / "f.md"
+    before = ledger.read_text()
+    run(["--reverify", "."], str(repo))
+    assert ledger.read_text() == before, "reverify picked one of two files"
+
+
+def test_a_whole_file_rename_heals_mechanically(repo):
+    """Every row on the old path goes BROKEN, and each finds its unit in the
+    new file by hash and name. This replaces the old known limit that a file
+    rename was a by-hand search-and-replace on the ledger."""
+    body = (repo / "src" / "service.py").read_text()
+    h1 = ec.content_hash(body.splitlines()[3:6])
+    h2 = ec.content_hash(body.splitlines()[8:11])
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f"# frag\n\n| A | `src/service.py#handler@{h1}` |\n"
+        f"| B | `src/service.py#Box@{h2}` |\n"
+    )
+    (repo / "src" / "renamed.py").write_text(body)
+    (repo / "src" / "service.py").unlink()
+
+    before = run(["."], str(repo))
+    assert before.returncode == 2
+    # The hint fires from the FILE-not-found branch, which is its own path:
+    # the row's file is gone entirely, not just its locator. Found by
+    # mutation — nothing else pinned this branch's scan.
+    assert "identical content at src/renamed.py#handler (moved?)" in before.stdout, (
+        before.stdout
+    )
+    rr = run(["--reverify", "."], str(repo))
+    assert "2 rows re-verified" in rr.stdout, rr.stdout
+    after = run(["."], str(repo))
+    assert after.returncode == 0, after.stdout
+    assert "2 ok" in after.stdout, after.stdout
+
+
+def test_past_the_file_cap_the_scan_degrades_and_says_so(repo):
+    """The clean path stays the 114 ms tool; the broken path stays bounded.
+    Past the cap the scan degrades to the row's own file and the line says
+    so, because a silently narrowed search reads as a search that found
+    nothing."""
+    write_row(repo, "src/service.py", "handler")
+    body = (repo / "src" / "service.py").read_text()
+    (repo / "src" / "service.py").write_text(
+        body.replace(SERVICE[: SERVICE.index("class")], "import os\n")
+    )
+    (repo / "src" / "moved.py").write_text(
+        "def handler(x):\n    y = x + 1\n    return y\n"
+    )
+    # `zfiller` sorts AFTER `src`, so the match sits inside the first
+    # SCAN_FILE_CAP files the walk meets. A mutant that fills the list past
+    # the cap but ignores the capped flag would therefore still find it —
+    # which is exactly what has to go red. Found by mutation: with the filler
+    # walked first, the truncation itself hid the match and the flag was
+    # never load-bearing.
+    (repo / "zfiller").mkdir()
+    for i in range(ec.SCAN_FILE_CAP + 1):
+        (repo / "zfiller" / f"f{i:04}.py").write_text("pass\n")
+    r = run(["."], str(repo))
+    assert "repo-wide scan skipped" in r.stdout, r.stdout
+    assert "moved.py" not in r.stdout, (
+        f"the scan found a cross-file match past the cap:\n{r.stdout}"
+    )
+
+
 # --- the verdicts -----------------------------------------------------------
 
 
@@ -719,5 +877,9 @@ def test_the_checker_asks_git_for_nothing(repo):
         if fence or line.lstrip().startswith("#"):
             continue
         code.append(line)
-    offenders = [ln for ln in code if "git" in ln and "gitignore" not in ln]
+    # `".git"` as a quoted path literal is the directory-skip in the scan
+    # walk, not a call; only a bare `git` in code is reaching for the tool.
+    offenders = [
+        ln for ln in code if "git" in ln.replace('".git"', "").replace("gitignore", "")
+    ]
     assert not offenders, f"the checker reaches for git: {offenders}"

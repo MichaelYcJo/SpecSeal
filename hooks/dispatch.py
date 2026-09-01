@@ -36,7 +36,7 @@ GROUPS = {
     "pre-bash": ("commit-review-gate.py", "worktree-guard.py"),
     "pre-agent": ("worktree-guard.py",),
     "pre-skill": ("review-skill-gate.py",),
-    "post-bash": ("review-history-guard.py", "session-lease.py"),
+    "post-bash": ("review-history-guard.py", "session-lease.py", "evidence-advisor.py"),
     "post-edit": ("lint-python.py", "session-lease.py"),
     "session-start": ("version-check.py",),
 }

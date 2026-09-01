@@ -370,28 +370,12 @@ def minor_region(path, text, region, minor):
     return found if len(found) == 1 else []
 
 
-def moved_units(rel, body, locator, want):
-    """Units in this file that are the missing row's content under a new name
-    — [(spelling, (start, end))], resolvable spellings only.
+SCAN_FILE_CAP = 200
+SCAN_SIZE_CAP = 256 * 1024
 
-    **A unit's name is part of its own hashed region** — `def handler(x):` is
-    the first line of `handler`'s content — so a renamed unit's hash never
-    equals the recorded one and a bare hash comparison can never fire. The
-    comparison therefore RECONSTRUCTS: substitute the candidate's name with
-    the row's locator throughout the candidate's region, hash that, and
-    compare against what the row RECORDED. A pure rename — the name changed
-    everywhere it appears, recursion included, and nothing else did —
-    reconstructs the old region exactly.
 
-    Recorded, never recomputed: one match is then a proof the content moved
-    intact, strong enough to name in a report and to act on in `--reverify`.
-    Content that changed AND moved reconstructs nothing, and the plain BROKEN
-    is the honest answer — there is nothing trustworthy to point at.
-
-    Same file only. A rename stays in its file in the common case, scanning
-    the repository for a hash is a cost with no bound, and a move across
-    files deserves a person anyway.
-    """
+def file_units(rel, body):
+    """[(spelling, (start, end))] — every unit in one file, resolvable ones only."""
     lines = body.splitlines()
     units = []
     if rel.endswith(".py"):
@@ -424,23 +408,85 @@ def moved_units(rel, body, locator, want):
             found = generic_units(lines, name)
             if len(found) == 1:
                 units.append((name, found[0]))
+    return units
+
+
+def scan_candidates(repo, rel, cache):
+    """(other files worth scanning, capped?) for a broken row in `rel`.
+
+    Built lazily — only a BROKEN row pays for this — and bounded twice, so the
+    clean path stays the ~114 ms tool it just became: files over
+    SCAN_SIZE_CAP are skipped, and past SCAN_FILE_CAP the scan degrades to
+    the row's own file and the caller says so out loud. A silently narrowed
+    search reads as a search that found nothing.
+
+    Same extension only: a unit that moved kept its language.
+    """
+    ext = os.path.splitext(rel)[1]
+    key = (repo, ext)
+    if key not in cache:
+        found, capped = [], False
+        for dirpath, dirnames, filenames in os.walk(repo):
+            dirnames[:] = sorted(d for d in dirnames if d != ".git")
+            for fn in sorted(filenames):
+                if os.path.splitext(fn)[1] != ext:
+                    continue
+                full = os.path.join(dirpath, fn)
+                try:
+                    if os.path.getsize(full) > SCAN_SIZE_CAP:
+                        continue
+                except OSError:
+                    continue
+                found.append(os.path.relpath(full, repo).replace(os.sep, "/"))
+                if len(found) > SCAN_FILE_CAP:
+                    capped = True
+                    break
+            if capped:
+                break
+        cache[key] = (found, capped)
+    files, capped = cache[key]
+    return [f for f in files if f != rel], capped
+
+
+def content_matches(repo, rel, locator, want, cache):
+    """(hash matches, name matches, capped) for a row whose locator is gone.
+
+    Graded evidence, because the parts of an anchor discriminate with
+    different strength. **A unit's name is part of its own hashed region** —
+    `def handler(x):` is the first line of `handler`'s content — so the hash
+    comparison RECONSTRUCTS: substitute a candidate's name with the row's
+    locator throughout its region, hash that, compare with what the row
+    RECORDED. A pure rename or a clean move then reconstructs the old region
+    exactly; content that also changed reconstructs nothing.
+
+    A name match with different content is a weaker fact and is returned
+    separately: `main`, `resolve` and `check` collide across files as a
+    matter of course, so a name alone must never fix anything.
+    """
     markdown = rel.endswith(".md")
     old_name = unescape(locator[1:-1]) if locator.startswith('"') else locator
-    matches = []
-    for name, (a, b) in units:
-        region = lines[a - 1 : b]
-        if markdown:
-            # The heading IS the name: reconstruct by putting the old heading
-            # line back at the top of the candidate's section.
-            region = [old_name, *region[1:]]
-        else:
-            new_last = name.rsplit(".", 1)[-1]
-            old_last = old_name.rsplit(".", 1)[-1]
-            sub = re.compile(r"\b" + re.escape(new_last) + r"\b")
-            region = [sub.sub(old_last, line) for line in region]
-        if content_hash(region) == want:
-            matches.append((name, (a, b)))
-    return matches
+    old_last = old_name.rsplit(".", 1)[-1]
+
+    others, capped = scan_candidates(repo, rel, cache)
+    hash_matches, name_matches = [], []
+    for path in [rel, *([] if capped else others)]:
+        body = read(os.path.join(repo, path))
+        if body is None:
+            continue
+        lines = body.splitlines()
+        for name, (a, b) in file_units(path, body):
+            region = lines[a - 1 : b]
+            if markdown:
+                region = [old_name, *region[1:]]
+            else:
+                new_last = name.rsplit(".", 1)[-1]
+                sub = re.compile(r"\b" + re.escape(new_last) + r"\b")
+                region = [sub.sub(old_last, line) for line in region]
+            if content_hash(region) == want:
+                hash_matches.append((path, name, (a, b)))
+            elif name == locator and path != rel:
+                name_matches.append((path, name, (a, b)))
+    return hash_matches, name_matches, capped
 
 
 def read(path):
@@ -455,6 +501,7 @@ def check_ledger(ledger, root, maps, default_repo=None):
     text = read(ledger)
     findings = []
     seen = set()
+    scan_cache = {}
     for m in ANCHOR_RE.finditer(text):
         raw_path, want = m.group("path"), m.group("hash")
         locator, claim = m.group("locator"), m.group("claim")
@@ -492,17 +539,46 @@ def check_ledger(ledger, root, maps, default_repo=None):
                     ("EXTERNAL", coord, "not in this repo; pass --map/--default-repo")
                 )
             else:
-                findings.append(("BROKEN", coord, "file not found"))
+                # A renamed FILE breaks every row on the old path at once, and
+                # the same graded scan heals it: each row's unit is findable
+                # in the new file by content and name.
+                detail = "file not found"
+                scan = scan_cache.setdefault(repo, {})
+                hashes, names, capped = content_matches(repo, rel, locator, want, scan)
+                if len(hashes) == 1:
+                    path, name, _ = hashes[0]
+                    tag = "moved?" if name == locator else "renamed?"
+                    detail += f" — identical content at {path}#{name} ({tag})"
+                elif hashes:
+                    detail += f" — identical content at {len(hashes)} units"
+                elif len(names) == 1:
+                    detail += f" — same name at {names[0][0]} (content differs)"
+                if capped:
+                    detail += f" (repo-wide scan skipped: over {SCAN_FILE_CAP} files)"
+                findings.append(("BROKEN", coord, detail))
             continue
 
         places = resolve(rel, locator, body)
         if not places:
             detail = "locator not found"
-            moved = moved_units(rel, body, locator, want)
-            if len(moved) == 1:
-                detail += f" — identical content at #{moved[0][0]} (renamed?)"
-            elif moved:
-                detail += f" — identical content at {len(moved)} units"
+            scan = scan_cache.setdefault(repo, {})
+            hashes, names, capped = content_matches(repo, rel, locator, want, scan)
+            if len(hashes) == 1:
+                path, name, _ = hashes[0]
+                if path == rel:
+                    detail += f" — identical content at #{name} (renamed?)"
+                elif name == locator:
+                    detail += f" — identical content at {path}#{name} (moved?)"
+                else:
+                    detail += f" — identical content at {path}#{name} (renamed?)"
+            elif hashes:
+                detail += f" — identical content at {len(hashes)} units"
+            elif len(names) == 1:
+                # A labelled fact, never the word "renamed": the content
+                # differs, so the checker does not know that.
+                detail += f" — same name at {names[0][0]} (content differs)"
+            if capped:
+                detail += f" (repo-wide scan skipped: over {SCAN_FILE_CAP} files)"
             findings.append(("BROKEN", coord, detail))
             continue
         if len(places) > 1:
@@ -550,6 +626,7 @@ def reverify(ledgers, root, maps, default_repo=None):
     silently refreshed what it was checking would report OK forever.
     """
     changed = 0
+    scan_cache = {}
     for ledger in ledgers:
         text = read(ledger)
         out, at = [], 0
@@ -562,28 +639,41 @@ def reverify(ledgers, root, maps, default_repo=None):
                     repo, rel = mapped, raw_path[len(name) :].lstrip("/") or "."
                     break
             body = read(os.path.join(repo, rel))
-            if body is None:
-                continue
-            places = resolve(rel, locator, body)
+            places = resolve(rel, locator, body) if body is not None else []
             if not places and claim is None:
                 # Reconstruction proving the content moved intact is what
-                # licenses the rewrite, so the locator follows the unit — and
-                # the hash follows the locator. It cannot stay: the name is
-                # part of the unit's own hashed region, so the recorded hash
-                # is of the OLD spelling and keeping it would leave the
-                # re-anchored row DRIFTED with nothing to re-read. Measured,
-                # in the case that pins this. The only difference between the
-                # two hashes is the rename itself, which the proof covers.
-                moved = moved_units(rel, body, locator, m.group("hash"))
-                if len(moved) == 1:
-                    name, (a, b) = moved[0]
-                    out.append(text[at : m.start("locator")])
+                # licenses the rewrite — one hash match across the scan, and
+                # never a name-alone match, which is a fact to print rather
+                # than evidence to act on. Path and locator both follow the
+                # unit, and the hash follows the locator. It cannot stay: the
+                # name is part of the unit's own hashed region, so the
+                # recorded hash is of the OLD spelling and keeping it would
+                # leave the re-anchored row DRIFTED with nothing to re-read.
+                # Measured, in the case that pins this.
+                scan = scan_cache.setdefault(repo, {})
+                hashes, _, _ = content_matches(
+                    repo, rel, locator, m.group("hash"), scan
+                )
+                if len(hashes) == 1:
+                    path, name, (a, b) = hashes[0]
+                    target = body if path == rel else read(os.path.join(repo, path))
+                    new_raw = (
+                        raw_path
+                        if path == rel
+                        else (raw_path[: len(raw_path) - len(rel)] + path)
+                    )
+                    out.append(text[at : m.start("path")])
+                    out.append(new_raw)
+                    out.append(text[m.end("path") : m.start("locator")])
                     out.append(name)
                     out.append(text[m.end("locator") : m.start("hash")])
-                    out.append(content_hash(body.splitlines()[a - 1 : b]))
+                    out.append(content_hash(target.splitlines()[a - 1 : b]))
                     at = m.end("hash")
                     changed += 1
-                    print(f"  {raw_path}#{locator} -> #{name}  (content moved intact)")
+                    shown = f"#{name}" if path == rel else f"{path}#{name}"
+                    print(f"  {raw_path}#{locator} -> {shown}  (content moved intact)")
+                continue
+            if body is None:
                 continue
             if len(places) != 1:
                 continue
