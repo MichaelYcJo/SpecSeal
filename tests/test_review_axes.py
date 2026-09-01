@@ -26,6 +26,26 @@ def test_the_table_asks_what_a_second_actor_does():
         assert probe in axes, f"the concurrency row lost `{probe}`"
 
 
+def test_the_table_asks_the_security_questions():
+    """Security was named in stage 2 and absent from the table, and the table
+    is what makes an axis mandatory — an axis in prose leaves no `❓` when
+    nobody walks it. Three of one round's four blocking findings had a
+    stronger security frame than the one they were given, one of them a
+    fail-open in a repository that keeps `test_gates_do_not_fail_open.py`
+    for that class alone (issue #57)."""
+    axes = read("skills", "code-review", "SKILL.md")
+    assert "| Security |" in axes, "the axes table has no security row"
+    for probe in ("fails open or closed", "crafted name, path, or payload"):
+        assert probe in axes, f"the security row lost `{probe}`"
+    # Round 1's 🟡 4: the prose groups Security with Concurrency as
+    # not-settled-by-one-request-read and grounded only concurrency, so a
+    # prose tightening could read the grouping as licensing a revert. The
+    # ground is what makes the grouping earned rather than asserted.
+    assert "nobody sends in good faith" in axes, (
+        "the security paragraph lost the ground for its one-path exemption"
+    )
+
+
 def test_the_table_says_it_is_a_floor():
     """A fixed list is repeatable and blind in the same move.
 

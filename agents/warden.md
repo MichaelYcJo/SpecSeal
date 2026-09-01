@@ -63,6 +63,12 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   ever looked at another round's fixes found seven defects in them. Report it
   the way you report anything. What changes is only where you looked.
 
+  One surface in that diff is new rather than fixed: the units the previous
+  record's `New units` row names. Those have been reviewed by nobody, so
+  judge them as code — *is this correct* — never as fixes. A finding there is
+  the round's job done rather than scope creep: the one measured fix commit
+  that created eight new units carried defects in four.
+
   Say plainly whether you opened anything that needs a fix, because the run
   ends on that answer. Nothing needing a fix ends it; a 🟡 the smith can answer
   with grounds is still nothing needing a fix. It goes in your report as a

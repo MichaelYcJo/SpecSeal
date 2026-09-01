@@ -1,4 +1,4 @@
-# Review Handoff Protocol — draft 0.6
+# Review Handoff Protocol — draft 0.7
 
 A file convention for handing review work between agent sessions — across
 time, machines, and tools. Tool-agnostic on purpose: nothing here requires
@@ -113,6 +113,8 @@ the inheritance range and round 2 raised it again.
 | Pass | yes | a checkbox — `- [ ] Pass` or `- [x] Pass`. Checked means no finding in this round's verdict table is still open. See below |
 | Fixes checked by | yes | who opened the fixes that closed this round's findings: a later round, `no fixes to check`, or `nobody` with the reason. `Pass` answers whether the findings were closed; this answers whether the closing was read by anyone. See below |
 | Needs a fix | yes, from the round that wrote it | whether this round opened anything that needs one — the reviewer's own answer, copied rather than re-derived from the verdict table. It is the run's terminal condition where a run ends at a verifying round, and a finding the implementer answers with grounds does not make it `yes`. See below |
+| Contract changes | yes, for work items begun after a project adopts it | every unit whose signature, return arity, return type, or set of returnable values this round's fixes changed — each with the call sites its contract reaches. `none` is an answer, with or without a reason. See below |
+| New units | yes, for work items begun after a project adopts it | the top-level definitions and constants this round's fixes added — the verifying round's finding surface. `none` is an answer. See below |
 | PR | when one exists | the change request this work went to. A field, not the key: it does not exist while the rounds that fill this file are running |
 | Verdict table | yes | per finding: location, verdict, grounds |
 | Executed probes | yes (may be "none") | what was RUN, with results — distinguished from what was read |
@@ -252,6 +254,41 @@ This one asks what the reviewer concluded, and a reviewer who was never asked
 left no answer anywhere. Filling it in from the verdict table is exactly the
 derivation the paragraph above refuses, so the honest migration is none.
 
+#### The fix-surface rows — what the fixes changed, and what they created
+
+A round's fixes are written after the round ends, so the record that
+describes the round is also the only durable place to describe its fixes.
+Two rows carry that, filled in when the fixes land — the same reach-back
+that sets `Fixes checked by` — by the session that already has the fix diff
+open, which is why the rows cost no question to anyone.
+
+**`Contract changes` names the reach, because the diff cannot.** The largest
+class of regression measured across one work item's seven finding rounds was
+a fix that changed a unit's contract — signature, return arity, return type,
+or set of returnable values — while not every place that contract reaches
+was revisited. The diff names the changed signature; only a search names the
+reach; a person reading the diff missed every one of the four. So each
+changed unit is listed **with the call sites it reaches**, and a conforming
+tool refuses a unit listed without them — the unit alone restates what the
+diff already shows, and the reach is the half that went unchecked.
+
+**`New units` names the verifying round's finding surface.** A verifying
+round's job is the answers rather than new findings, and read literally that
+skips the one set of units nobody has ever reviewed: the definitions and
+constants the fixes created. One measured fix commit created eight new
+units, and four carried defects. What this row names is treated as a finding
+surface — *is this correct* — rather than a verification surface.
+
+Both rows accept `none`, with or without a reason after it: `none — the
+fixes are not yet written` is the honest value while a round is still
+running. A record whose work item predates a project's adoption of the rows
+prints rather than fails, keyed the same way as `Fixes checked by`'s
+grandfathering — the timestamp already in the work item's directory name —
+and for the same reason: a merged record has no honest repair, and writing
+reach rows for fixes nobody re-read fabricates a review. A row that is
+present and malformed fails on any record, because formatting is always the
+author's to fix.
+
 ### tests-todo.md — regression tests prescribed, not written
 
 One row per test: what it asserts · **destination file** · grounds · status.
@@ -347,7 +384,7 @@ A tool claiming to support this protocol:
 
 ## Status
 
-Draft 0.6, extracted from the convention this plugin's `code-review` and
+Draft 0.7, extracted from the convention this plugin's `code-review` and
 `implement` skills already operate (they are its reference implementation).
 Field names and layout may change; the three conformance rules are stable in
 shape. 0.2 changed the third from *delete after draining* to *close and keep*.
@@ -367,12 +404,19 @@ items begun after it adopted the rule. 0.5 also adds `Needs a fix`, because a
 run that ends when a round opens nothing needing a fix turns on an answer the
 record had no room for.
 
-0.6 adds the handoff before round 1: the coordinates-carry rule applied to
-the step that starts the work, the three labels a handoff fact arrives
-under, and the progress channel an orchestrator reads while the implementer
-runs. No conformance rule is added: a spawn prompt is not a file this
-protocol can check, so the requirement stays at the level of what a
+Draft 0.6 adds the handoff before round 1: the coordinates-carry rule
+applied to the step that starts the work, the three labels a handoff fact
+arrives under, and the progress channel an orchestrator reads while the
+implementer runs. No conformance rule is added: a spawn prompt is not a file
+this protocol can check, so the requirement stays at the level of what a
 conforming handoff carries.
+
+0.7 adds the fix-surface rows, `Contract changes` and `New units`, because
+the fixes that close a round's findings are the code most likely to open the
+next round's — measured at four regressions of ten for an unrevisited
+contract reach — and the record was the one durable place with no row for
+them. Records predating a project's adoption print rather than fail, the
+same grandfathering `Fixes checked by` carries.
 
 0.3 also states the path as this implementation's choice rather than as the
 protocol. Draft 0.2 claimed to be tool-agnostic while naming a directory
