@@ -1,4 +1,4 @@
-# Review Handoff Protocol — draft 0.7
+# Review Handoff Protocol — draft 0.8
 
 A file convention for handing review work between agent sessions — across
 time, machines, and tools. Tool-agnostic on purpose: nothing here requires
@@ -354,6 +354,34 @@ command time, model time, batching and repeats, because each has a
 different fix. It sat unreferenced through a full day of measurements
 nobody took; this paragraph is what points at it.
 
+### After the run — the per-segment bars
+
+The meter's numbers mean nothing without a bar, and the bar depends on
+which kind of segment produced the transcript. One bar misreads two of the
+three kinds: a ratio that is the right question for a reviewer is the wrong
+one for an edit-test loop, and asking it there is a demand the work cannot
+meet (issue #51, whose transcripts these numbers come from).
+
+| Segment | Judged on | Grounds |
+|---|---|---|
+| reviewing | tools per turn **≥ 1.8** | a review's reads are independent — coordinates inherited from earlier rounds, files named by one handoff — so they can go out together. The rounds that set the bar measured 1.29–1.89 — not the complete record: the same issue holds a 2.0 baseline and a later chain at 1.10–1.54 — and the one round instructed to batch (1.89) was the fastest measured |
+| implementing | **`repeats = 0`** and calls per deliverable — never tools per turn | an edit-test loop is inherently serial (measured 1.08–1.17): a call whose input depends on the last result cannot go out with it, so the ratio reports task shape, not waste. What does report waste: a command re-run unchanged, and how many calls one deliverable took |
+| verifying | exempt | it targets the diff of the last fixes and is the cheapest round of the run by design; a segment that small is the nuance below in its every case |
+
+**At very small rounds the ratio has few independent batches to rise on** —
+a 23-call round read 1.64 while doing everything right. The bar is a lens
+for rounds of ordinary size, never a refusal threshold: no gate fails a
+round on it, and a small honest round that reads under it has nothing to
+fix.
+
+The bar and the meter's own advisory are different instruments.
+`session_cost.py` prints its batching advisory below 1.2 and stays there:
+the script cannot tell a reviewer's transcript from an edit-test loop, so
+its threshold sits where it does not nag the serial case — the repository
+owner's answer to Q1 of
+`specs/1788224363-a-subagent-rediscovers-what-the-session-established/questions.md`.
+The bars above are the orchestrator's, applied knowing the segment kind.
+
 ## Conformance
 
 A tool claiming to support this protocol:
@@ -384,7 +412,7 @@ A tool claiming to support this protocol:
 
 ## Status
 
-Draft 0.7, extracted from the convention this plugin's `code-review` and
+Draft 0.8, extracted from the convention this plugin's `code-review` and
 `implement` skills already operate (they are its reference implementation).
 Field names and layout may change; the three conformance rules are stable in
 shape. 0.2 changed the third from *delete after draining* to *close and keep*.
@@ -417,6 +445,13 @@ next round's — measured at four regressions of ten for an unrevisited
 contract reach — and the record was the one durable place with no row for
 them. Records predating a project's adoption print rather than fail, the
 same grandfathering `Fixes checked by` carries.
+
+0.8 adds the per-segment bars, because the meter draft 0.6 pointed at had
+numbers and no rule about what they mean, and the one figure that existed
+anywhere (an acceptance bar on an issue) was a single bar for three kinds of
+segment — right for the reviewing kind and wrong for the other two. No
+conformance rule is added: the bars judge a transcript, not a file this
+protocol can check, and the section itself says they refuse nothing.
 
 0.3 also states the path as this implementation's choice rather than as the
 protocol. Draft 0.2 claimed to be tool-agnostic while naming a directory
