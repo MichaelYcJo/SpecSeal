@@ -29,7 +29,7 @@ evidence-check --strict .
 | `--ledger GLOB` | ledgers to scan (default `.specseal/map.md` and `.specseal/map/*.md`) |
 | `--default-repo PATH` | migration ledgers cite the ORIGINAL repo with unprefixed paths — resolve them against this checkout |
 | `--map NAME=PATH` | resolve `NAME/...` prefixed coordinates against another checkout |
-| `--strict` | drift exits 2, the broken-coordinate code, instead of 1 — it fails the run either way |
+| `--strict` | drift, `UNMEASURED` and `AMBIGUOUS` all exit 2, the broken-coordinate code. Drift alone exits 1 without it; the other two exit 0, so for those `--strict` is the difference between a printed line and a failed run |
 
 ## Verdicts and what to do
 

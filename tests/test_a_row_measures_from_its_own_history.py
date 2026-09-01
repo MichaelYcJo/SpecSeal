@@ -480,22 +480,113 @@ def test_one_commit_written_at_two_lengths_is_one_stamp(repo):
     stamps and switched that row's drift check off. A ledger repaired by hand
     is exactly where mixed lengths occur — pull request #49 rewrote stamps
     across seven rows — so this is the ordinary shape, not a corner.
-    """
-    older = head(repo)
-    (repo / "src" / "service.py").write_text("CHANGED\n" * 8)
-    git(repo, "commit", "-qam", "rewrite the file")
 
+    **The row here is UNTOUCHED, and that is the whole of the case.** Round 3,
+    🟡 B: this was written against a DRIFTED row, and since 🔴 4 an ambiguous
+    row is measured anyway — so it reports `DRIFTED` whether the two spellings
+    read as one stamp or two, and the `AMBIGUOUS` string never appears for the
+    assertion to catch. Measured: reverting the dedup to the matched string
+    left all 62 ledger cases green. On an untouched row the two readings
+    finally differ, `1 ok` against `AMBIGUOUS`.
+
+    Both exit 0, so the verdict is what has to be asserted, not the code.
+    """
+    same = head(repo)
     fragment(
         repo,
-        f"| POL-1 | `src/service.py:2` | seen 2026-01-01 `{older[:7]}` "
-        f"| 2026-09-01 `{older[:11]}` |\n",
+        f"| POL-1 | `src/service.py:2` | seen 2026-01-01 `{same[:7]}` "
+        f"| 2026-09-01 `{same[:11]}` |\n",
     )
     r = run(["."], str(repo))
     assert "AMBIGUOUS" not in r.stdout, (
         f"two spellings of one commit read as two stamps:\n{r.stdout}"
     )
-    assert "DRIFTED  src/service.py:2" in r.stdout, r.stdout
+    assert "1 ok · " in r.stdout, r.stdout
+    assert r.returncode == 0, r.stdout
+
+
+def test_the_wider_of_two_stamps_is_what_the_row_is_measured_from(repo):
+    """Round 3, 🟡 A. `widest_baseline`'s ordering had nothing that could fail.
+
+    Replacing its body with `return shas[0]` left all 62 ledger cases green,
+    and `shas[0]` is whichever cell came first — the exact choice round 2's
+    🔴 4 exists not to trust.
+
+    The fixture puts the drift BETWEEN the two stamps and the DESCENDANT in
+    the earlier cell. Measuring from the descendant sees nothing after it and
+    reports the row untouched; measuring from the ancestor sees the rewrite.
+    Executed both ways: `DRIFTED` and exit 1 as shipped, `AMBIGUOUS …
+    untouched` and exit 0 under the mutation.
+    """
+    ancestor = head(repo)
+    (repo / "src" / "service.py").write_text("CHANGED\n" * 8)
+    git(repo, "commit", "-qam", "rewrite the code")
+    descendant = head(repo)
+
+    fragment(
+        repo,
+        f"| POL-1 | seen 2026-02-02 `{descendant}` | `src/service.py:2` "
+        f"| 2026-01-01 `{ancestor}` |\n",
+    )
+    r = run(["."], str(repo))
+    assert "DRIFTED  src/service.py:2" in r.stdout, (
+        f"the row was measured from the descendant, which cannot see the "
+        f"rewrite between the two stamps:\n{r.stdout}"
+    )
+    assert f"touched since {ancestor[:9]}" in r.stdout, r.stdout
     assert r.returncode == 1, r.stdout
+
+
+def test_the_date_falls_back_where_neither_stamp_reaches_the_other(repo):
+    """The other half of the ordering, which ancestry cannot decide.
+
+    Two commits on divergent branches have no ancestor relation either way, so
+    `widest_baseline` falls back to the committer date. Read at the unit,
+    because the integration case above can only exercise the ancestry branch —
+    and a mutation deleting the fallback would leave `shas[0]` winning again.
+
+    The date is a proxy and is named as one in the docstring: it is what git
+    can offer when its own ordering has nothing to say.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("specseal_evidence_check", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    base = head(repo)
+    git(repo, "switch", "-q", "-c", "side")
+    (repo / "src" / "side.py").write_text("x\n")
+    git(repo, "add", "-A")
+    # GIT_COMMITTER_DATE, not `--date`: that flag sets the AUTHOR date and
+    # `widest_baseline` orders on `%ct`, the committer date. Written the other
+    # way this fixture produced a commit that was older only in a field
+    # nothing reads.
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-qm", "older side commit"],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+        env={**os.environ, "GIT_COMMITTER_DATE": "2020-01-01T00:00:00"},
+    )
+    older = head(repo)
+    git(repo, "switch", "-q", "main")
+    (repo / "src" / "later.py").write_text("y\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "newer main commit")
+    newer = head(repo)
+
+    assert (
+        git(repo, "merge-base", "--is-ancestor", older, newer, check=False).returncode
+        != 0
+    ), "the fixture's two commits are not divergent"
+
+    # The NEWER one first, so `shas[0]` is the wrong answer.
+    assert mod.widest_baseline([newer, older], str(repo), {}) == older, (
+        "with neither commit reaching the other, the later one won — the "
+        "committer-date fallback is not deciding"
+    )
+    assert base
 
 
 def test_a_moved_row_would_lose_its_history(repo):
