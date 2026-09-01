@@ -5,6 +5,12 @@
 | Target SHA | `4a48eee67ec75a27a972d54f9816cfe41e15ff17` |
 | PR | not open yet — it lands on `release/v0.0.2` after the rounds settle |
 | Broad gate | not yet |
+| Fixes checked by | round-2 |
+
+<!-- The row was added later, by
+`specs/1788212517-the-last-rounds-fixes-are-reviewed-by-nobody`. Round 2 read
+the fixes at `8b6c6ff` and opened seven findings inside them, which is what
+this row records. Nothing else about this record changed. -->
 
 - [ ] Pass
 

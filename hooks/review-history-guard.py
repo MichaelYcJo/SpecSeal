@@ -205,7 +205,8 @@ def main():
                 f"{where}{os.sep} holds no round record. Write "
                 f"{os.path.join(routing.ROUNDS_DIR, 'round-N.md')} (target "
                 f"SHA, verdicts, probe "
-                f"results, and the Pass checkbox), tests-todo.md, and "
+                f"results, the Pass checkbox, and who checked the fixes), "
+                f"tests-todo.md, and "
                 f"evidence-todo.md now — after this session ends, nobody can."
             )
     elif MERGE_RE.search(command):
