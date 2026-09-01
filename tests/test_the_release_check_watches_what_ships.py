@@ -77,7 +77,9 @@ def read(path):
 
 def ships_pattern():
     """The regex the step filters the diff's file list through, verbatim."""
-    step = read(WORKFLOW).split(STEP, 1)[1].split("- name:", 1)[0]
+    text = read(WORKFLOW)
+    assert STEP in text, f"hygiene.yml no longer has a step named {STEP!r}"
+    step = text.split(STEP, 1)[1].split("- name:", 1)[0]
     found = re.search(r"grep -E '(\^\([^']*\)/)'", step)
     assert found, "the step no longer filters the file list with grep -E '^(...)/'"
     return re.compile(found.group(1))
@@ -140,12 +142,15 @@ def test_every_top_level_entry_is_classified():
 
 def test_the_release_document_names_the_same_roots():
     """`docs/branch-and-release.md` tells the release sequence which roots
-    trigger the bump. It said five when the pattern said five; both say six."""
+    trigger the bump. It said five when the pattern said five; both say six —
+    the SAME six, so a seventh root written into the paragraph, or one taken
+    out of it, reads as a disagreement with the workflow rather than as prose."""
     doc = read(RELEASE_DOC)
     # The paragraph, not the sentence: `.claude-plugin/` carries a full stop.
     paragraph = doc.split("the `hygiene` workflow", 1)[1].split("\n\n", 1)[0]
-    missing = [root for root in sorted(SHIPS) if f"`{root}/`" not in paragraph]
-    assert not missing, (
+    named = set(re.findall(r"`([^`]+)/`", paragraph))
+    assert named == SHIPS, (
         f"docs/branch-and-release.md's paragraph about the hygiene workflow "
-        f"does not name {missing} among the roots that need a version bump"
+        f"names {sorted(named)} and the pattern's roots are {sorted(SHIPS)} — "
+        "the two have to agree, and this file is where the list is decided"
     )
