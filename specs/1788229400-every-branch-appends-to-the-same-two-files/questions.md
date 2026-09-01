@@ -78,3 +78,40 @@ DRIFTED; the code reports BROKEN. `--reverify` refuses a row that resolves to
 more than one place, so a DRIFTED it cannot heal is exit 1 for ever with no
 remedy anybody can run, while BROKEN says *go look*, which is the act that
 case needs. Overturn it by saying so — nothing else rests on it.
+
+## Q4 — the same rule, a third time — ANSWERED at the level above, again
+
+Q3 answered the second 🔴 at `generic_units` by letting the recorded hash break
+a tie. The fix that carried it also added `return out or blocked`, which brings
+keyword-blocked candidates back when none survives — and round 6 found that
+those include pure call statements, not only the C# and Swift declarations the
+resurrection was written for. A cited function moved to another file, with a
+call left where it used to be, now reads DRIFTED instead of BROKEN-with-a-
+destination, and `--reverify` anchors the claim onto the call permanently.
+
+Three attempts at one rule is `CLAUDE.md`'s 3+ Fix Rule exactly, and the two
+failure modes are one ambiguity: drop `or blocked` and Q3's finding returns,
+keep it and this one stands. A vocabulary of keywords cannot separate them, so
+no fourth patch was written there.
+
+**Answered: carry the uncertainty out of `resolve` rather than trying to remove
+it.** `resolve` knows which candidates were blocked and throws that away, which
+is the reason neither consumer can act on it. Returned alongside the places,
+the two consumers each answer correctly on their own terms — `check` reports
+BROKEN with the repo-wide scan where the places are blocked-only and none
+reconstructs the recorded hash, which is the answer round 4's 🔴 2 already
+established for `.py` and this path never had; `--reverify` refuses to
+re-anchor onto a blocked-only place and prints why, because it is the side that
+makes the hash and so cannot use the hash to decide.
+
+What that buys is the end of the separation problem. A blocked C# declaration
+whose content still reconstructs resolves correctly, and a declaration that is
+gone with only a call remaining fails to reconstruct and goes BROKEN with its
+destination named. **The classifier is allowed to stay wrong, because being
+wrong stops being expensive** — which is the same shape as Q3's answer, one
+level further out.
+
+The narrower option review round 6 also offered — dropping `not pre.strip()`
+from the semicolon guard — was rejected. It closes the C family and leaves Go,
+Ruby, Kotlin and Lua, and it would have been the fourth edit at the site the
+rule says to stop editing.
