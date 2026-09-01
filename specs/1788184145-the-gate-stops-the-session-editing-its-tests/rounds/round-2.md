@@ -5,6 +5,13 @@
 | Target SHA | `2a28c3541c06a13e02aa8d10c56ddf9d456979d5` |
 | PR | not open yet — it lands on `release/v0.0.2` after the rounds settle |
 | Broad gate | not yet |
+| Fixes checked by | round-3 |
+
+<!-- The row was added later, by
+`specs/1788212517-the-last-rounds-fixes-are-reviewed-by-nobody`. Round 3's
+finding 5 is what it records — *Round 2's seven verdicts all hold on round 3's
+own grounds*, executed by the reviewer. Nothing else about this record
+changed. -->
 
 - [ ] Pass
 

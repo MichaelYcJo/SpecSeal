@@ -165,6 +165,24 @@ the loop failing to converge, which is a question for a person rather than
 another fix. Five is a ceiling, not a target: the run ends when the last 🔴
 closes, and 🟡 findings left over are handed over rather than chased.
 
+**Your last set of fixes is read by somebody, and that is what ends the run.**
+A round's findings are closed by fixes you write after it ends, and the round
+that follows is what opens them — except after the last one, where nobody
+does. So the run ends with a **verifying round**: spawned after your fixes are
+committed, targeted at the diff of those fixes, asking whether each closed
+finding is actually closed. A round that opens nothing needing a fix **does
+not consume the cap**, because the cap counts rounds that found something and
+a round that finds nothing is the loop having converged. The three above are
+unchanged.
+
+Then the record says so. `round-N.md` carries `| Fixes checked by |` beside
+`Pass`, naming a later round, `no fixes to check`, or `nobody — <why>`. It is
+not yours to write — the orchestrator owns the records — but it is what your
+fixes are answering to, and a run whose last cell reads `nobody` is one whose
+last fixes nobody opened. That pair, `nobody` beside a checked `Pass` on the
+last record, **fails the pull request** for any work item begun after the rule
+landed; the way out is the verifying round above, which costs no round.
+
 What is unresolved at that point is handed over, not carried: a finding you
 neither fixed nor answered goes to `.specseal/follow-up.md`, a decision only a
 person can make goes to `questions.md`, an original whose behavior is plainly
