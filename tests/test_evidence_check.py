@@ -38,7 +38,15 @@ def step(args, cwd):
     """The exit code of the CI step `evidence-ci` prints, guard included."""
     quoted = " ".join(f"'{a}'" for a in args)
     return subprocess.run(
-        ["bash", "-e", "-c", f"python3 '{SCRIPT}' {quoted} || [ $? -eq 1 ]"],
+        [
+            "bash",
+            "-e",
+            "-c",
+            # `sys.executable`, not `python3`: the name does not exist on
+            # Windows, where the step then failed for a reason that had
+            # nothing to do with the guard it was testing.
+            f"'{sys.executable}' '{SCRIPT}' {quoted} || [ $? -eq 1 ]",
+        ],
         cwd=str(cwd),
         capture_output=True,
         encoding="utf-8",
