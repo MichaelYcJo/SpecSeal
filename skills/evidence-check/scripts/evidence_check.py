@@ -236,20 +236,36 @@ def generic_units(lines, name):
     hand those projects the brittle version of this design, so the major level
     has a rule that needs no parser and no dependency.
 
-    A declaration is the name followed by `(`, `{` or `:`. The block runs to
-    the next line at the same or lower indentation, which closes a suite in an
-    indentation language and lands on the closing brace in a brace language,
-    because that brace sits at the declaration's own indent.
+    A declaration is the name followed by `(`, `{`, `:` or `=`. The block runs
+    to the next line at the same or lower indentation, which closes a suite in
+    an indentation language and lands on the closing brace in a brace
+    language, because that brace sits at the declaration's own indent.
+
+    `=` is in that list because a module-level constant is a unit too, and a
+    common one to cite — this plugin's own ledger cites three. Without it every
+    constant in every adopting project falls to a literal text anchor, which is
+    the brittle form this rule exists to avoid. A multi-line value comes along,
+    since its continuation lines are indented past the name.
 
     It is coarser than a parser and that is the trade. Where it cannot resolve
     a unit the answer is BROKEN and a person looks — loud and honest beats a
     per-language parser nobody maintains.
     """
     out = []
-    opener = re.compile(r"(?:^|[^\w.])" + re.escape(name) + r"\s*[({:]")
+    # What may sit before the name on a declaration line: keywords and
+    # modifiers, nothing else. `def f(`, `export function f(`, `const M =` all
+    # qualify; `x = f(` and `if v not in NAME:` do not — the second is why the
+    # colon is stricter still. Measured on this repository: without that,
+    # `if review not in REVIEW_ANSWERS:` reads as a second declaration and the
+    # row goes BROKEN for citing a constant.
+    esc = re.escape(name)
+    opener = re.compile(r"^(?P<pre>[\w\s*&]*?)\b" + esc + r"\s*(?P<delim>[({=]|:)")
     for i, line in enumerate(lines):
-        if not opener.search(line):
+        m = opener.match(line)
+        if not m:
             continue
+        if m.group("delim") == ":" and m.group("pre").strip():
+            continue  # `if v not in NAME:` is a use, not a declaration
         indent = len(line) - len(line.lstrip())
         j = i + 1
         while j < len(lines):

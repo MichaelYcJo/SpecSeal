@@ -89,10 +89,15 @@ parent: `"## Verify / ### Scope"`.
 adopting this are mostly code that is not Python.
 
 The generic rule needs no parser and no dependency: **the name followed by
-`(`, `{` or `:`, then the block to the next line at the same or lower
-indentation.** That closes a suite in an indentation language and lands on the
-closing brace in a brace language, because the brace sits at the
-declaration's own indent.
+`(`, `{`, `=` or `:`, with only keywords before it, then the block to the next
+line at the same or lower indentation.** That closes a suite in an indentation
+language and lands on the closing brace in a brace language, because the brace
+sits at the declaration's own indent.
+
+`=` is there because a module-level constant is a unit too, and a common one to
+cite. The colon is stricter — it declares only when the name opens the line —
+because `if v not in NAME:` also ends in one, and without that a row citing a
+constant reads BROKEN for a use somewhere else in the file.
 
 Where it cannot resolve a unit, that is `BROKEN` and a person looks. Loud and
 honest beats a per-language parser nobody maintains.

@@ -404,15 +404,44 @@ def test_the_generic_rule_needs_a_declaration_not_a_mention(repo):
         "  return x;\n"
         "}\n"
     )
-    # The call site `handler(1)` is a mention that LOOKS like a declaration to
-    # a text rule, so this is genuinely two places and BROKEN is correct.
-    # The region stops AT the closing brace rather than including it: the
-    # brace sits at the declaration's own indent, and it carries no claim.
-    assert ec.resolve("svc.js", "handler", text) == [(2, 2), (4, 5)]
+    # `const r = handler(1);` is a CALL: what precedes the name contains `=`,
+    # so it is not a declaration line. The region stops AT the closing brace
+    # rather than including it — the brace sits at the declaration's own
+    # indent and carries no claim.
+    assert ec.resolve("svc.js", "handler", text) == [(4, 5)]
     plain = "// handler is described here\n\nfunction handler(x) {\n  return x;\n}\n"
     assert ec.resolve("svc.js", "handler", plain) == [(3, 4)], (
         "a bare mention in a comment was read as a declaration"
     )
+
+
+def test_a_constant_is_a_unit_too(repo):
+    """A module-level constant has no `def` to hang on, and citing one is
+    common — this plugin's own ledger cites three. Without `=` in the
+    declaration rule every constant in every adopting project falls to a
+    literal text anchor, which is the brittle form the rule exists to avoid.
+
+    The colon is stricter than the other delimiters for the reason measured
+    here: `if review not in REVIEW_ANSWERS:` ends in a colon and is a USE, so
+    a colon only declares when the name opens the line.
+    """
+    text = (
+        "OTHER = 0\n"
+        "\n"
+        "REVIEW_ANSWERS = (\n"
+        "    CHAIN,\n"
+        "    DIRECT,\n"
+        ")\n"
+        "\n"
+        "def check(review):\n"
+        "    if review not in REVIEW_ANSWERS:\n"
+        "        return None\n"
+    )
+    assert ec.resolve("r.py", "REVIEW_ANSWERS", text) == [(3, 5)]
+    # A YAML key is the same shape, and there the colon DOES declare.
+    assert ec.resolve("c.yml", "jobs", "name: x\njobs:\n  a: 1\n  b: 2\nz: 3\n") == [
+        (2, 4)
+    ]
 
 
 def test_a_repeated_heading_is_disambiguated_by_its_parent(repo):
