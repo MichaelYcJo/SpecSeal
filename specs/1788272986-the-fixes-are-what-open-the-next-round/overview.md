@@ -30,7 +30,7 @@ to judge as code.
 
 | Item | Who must answer |
 |---|---|
-| This branch's own round records carrying the new rows — the review chain runs after this session, so the first records held to `SURFACE_FROM` do not exist yet | the review orchestrator, when it writes `rounds/round-1.md` for this item |
+| ✅ This branch's own round records carrying the new rows | rounds 1–3 written with both rows, parsed clean by `chain_check.py` in rounds 2 and 3; session of 2026-09-02 |
 | `chain_check.py` on this pull request end to end (it exits 1 today for the true reason that no round record exists yet) | CI at the pull request, once the rounds have run |
 
 ## Not done

@@ -1,5 +1,7 @@
 # verified facts to merge into the work item's ledger fragment
 
+drained — all three rows merged into `.specseal/map/1788272986-the-fixes-are-what-open-the-next-round.md` ("What round 1 settled") at dc2a752; row 3 re-anchored to the new refusal as instructed, its hash corrected at d3aa145.
+
 | Claim | Grounds | Label |
 |---|---|---|
 | an unreadable round record cannot read as "no rows required" — `fix_surface` returns nothing and `checked_by` errors on the same record in the same loop | `skills/code-review/scripts/chain_check.py#fix_surface`, `#main`; probe: garbage record exit 1 | Executed |

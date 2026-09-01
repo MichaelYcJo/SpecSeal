@@ -10,17 +10,17 @@
 | New units | `test_a_cell_of_only_separators_is_not_an_answer`, `test_the_recorded_limit_an_ascii_arrow_inside_a_name`, `test_the_arrow_limit_is_recorded_where_the_rule_lives`, `RECORDED_LIMIT` — all in `tests/test_the_fixes_name_their_surface.py` |
 | Needs a fix | yes — 🟡 1 (a separator-only cell passes both fix-surface rows; one-guard fix supplied). 🟡 3 closes as a recorded limit + pin, 🟡 4 as a one-sentence prose ground; neither blocks on its own |
 
-- [ ] Pass
+- [x] Pass
 
 ## Verdicts
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
 | 🟢 0 | Stage 1: all eight #57 checklist items implemented; out-of-scope respected | `skills/code-review/scripts/chain_check.py:1321`, `skills/code-review/SKILL.md:59` | pass | every item read at its coordinate and both exit directions of every new refusal executed (probes below), except the two gaps reported as 🟡 1 / 🟡 3. Smith's assumptions Q1–Q3 judged sound |
-| 🟡 1 | A cell of only separators (`\| ; \|`) passes both `Contract changes` and `New units` — `value.split(";")` yields empty entries, all skipped, no error; not `none`, not empty | `skills/code-review/scripts/chain_check.py:1392` | open | probe: exit 0 on a post-cutoff item, both rows; the empty-cell refusal one screen up says "a row that says nothing answers nothing" and `;` says exactly nothing. Orchestrator re-read the loop and confirms |
+| 🟡 1 | A cell of only separators (`\| ; \|`) passes both `Contract changes` and `New units` — `value.split(";")` yields empty entries, all skipped, no error; not `none`, not empty | `skills/code-review/scripts/chain_check.py:1392` | fixed — round-2 read the guard | probe: exit 0 on a post-cutoff item, both rows; the empty-cell refusal one screen up says "a row that says nothing answers nothing" and `;` says exactly nothing. Orchestrator re-read the loop and confirms |
 | 🟡 2 | Does `tests/test_gates_do_not_fail_open.py` need to cover the new refusals? | `skills/code-review/scripts/chain_check.py:400` | answered | uncoverable through that file's class: it pins the locale-decode → None → silent-allow path in hooks, and `chain_check.py`'s `git()` pins `encoding="utf-8", errors="replace"`, so the state is unconstructible here. Fact goes to the ledger (evidence-todo) |
-| 🟡 3 | An ASCII arrow inside a backticked unit name (`` `operator->` ``) reads as the reach separator, so a unit listed without reach passes | `skills/code-review/scripts/chain_check.py:1396` | open | probe: exit 0. Parsing code spans to fix it would be the unbounded-domain enumeration the diff's own rule 6 refuses — closes as a RECORDED LIMIT (docstring sentence naming `→` as the spelling that avoids it) + pin per rule 8, not as a parser |
-| 🟡 4 | The axes prose groups Security with Concurrency as not-settled-by-one-request-read but grounds only concurrency's exemption | `skills/code-review/SKILL.md:61` | open | the security paragraph explains table membership, not why one-path reading fails; a future prose tightening reads "the same way" as licensing a revert. One-sentence ground supplied in the report |
+| 🟡 3 | An ASCII arrow inside a backticked unit name (`` `operator->` ``) reads as the reach separator, so a unit listed without reach passes | `skills/code-review/scripts/chain_check.py:1396` | fixed — recorded limit landed, round-2 read it | probe: exit 0. Parsing code spans to fix it would be the unbounded-domain enumeration the diff's own rule 6 refuses — closes as a RECORDED LIMIT (docstring sentence naming `→` as the spelling that avoids it) + pin per rule 8, not as a parser |
+| 🟡 4 | The axes prose groups Security with Concurrency as not-settled-by-one-request-read but grounds only concurrency's exemption | `skills/code-review/SKILL.md:61` | fixed — round-2 read the sentence and its pin | the security paragraph explains table membership, not why one-path reading fails; a future prose tightening reads "the same way" as licensing a revert. One-sentence ground supplied in the report |
 
 ## Executed probes
 
