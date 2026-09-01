@@ -1383,7 +1383,12 @@ def test_write_atomic_writes_through_a_symlink_and_keeps_the_mode(repo, tmp_path
     ec.write_atomic(str(link), "new\n")
     assert os.path.islink(str(link)), "the symlink was replaced by a regular file"
     assert real.read_text() == "new\n", "the file behind the link is stale"
-    assert stat.S_IMODE(os.stat(str(real)).st_mode) == 0o664, "the mode was demoted"
+    if os.name != "nt":
+        # Windows has no POSIX mode to preserve — `os.stat` reports 0o666 for
+        # every writable file, so the assertion would be about the platform
+        # rather than about `write_atomic`. The link half above still runs
+        # there, which is the half that was actually broken (round 4, 🔴 D).
+        assert stat.S_IMODE(os.stat(str(real)).st_mode) == 0o664, "the mode was demoted"
 
 
 def test_write_atomic_keeps_a_plain_ledgers_mode(tmp_path):
@@ -1392,7 +1397,11 @@ def test_write_atomic_keeps_a_plain_ledgers_mode(tmp_path):
     os.chmod(str(plain), 0o644)
     ec.write_atomic(str(plain), "new\n")
     assert plain.read_text() == "new\n"
-    assert stat.S_IMODE(os.stat(str(plain)).st_mode) == 0o644, "the mode was demoted"
+    if os.name != "nt":
+        # See the symlink case above: there is no POSIX mode here to keep.
+        assert stat.S_IMODE(os.stat(str(plain)).st_mode) == 0o644, (
+            "the mode was demoted"
+        )
 
 
 def test_a_declaration_whose_modifier_is_a_keyword_elsewhere_still_resolves(repo):
@@ -1909,3 +1918,65 @@ def test_migrate_still_anchors_an_unsure_place_the_stamp_vouches_for(tmp_path):
     assert "1 row migrated · 0 left" in m.stdout, m.stdout
     assert "#Render@" in ledger.read_text(), ledger.read_text()
     assert run(["."], str(top)).returncode == 0, "the migrated row is not OK"
+
+
+# --- round 8: a claim row is decided at the minor level, never the major ----
+
+
+def _cs(repo, body):
+    """A `.cs` file, so the generic declaration rule answers rather than `ast`."""
+    (repo / "src" / "a.cs").write_text(body, encoding="utf-8")
+
+
+def test_a_stale_claim_on_an_unsure_place_drifts_rather_than_breaking(repo):
+    """`CLAUDE.md`: *an anchor degrades to DRIFTED, never to BROKEN. Only the
+    major level can be BROKEN.*
+
+    The existing widening case uses `.py`, where `ast` is certain and the
+    resurrection path is never reached, so it could not see this. Here `new`
+    is a statement keyword elsewhere, so the declaration rule is unsure of the
+    only place it finds — and round 7's fix then called the unit GONE on the
+    strength of a hash that was never the unit's (round 8, 🔴 A)."""
+    _cs(repo, "public new void Render(int x) {\n    var a = x + 1;\n}\n")
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        '# frag\n\n| C | `src/a.cs#Render>"var a = x + 1;"@00000000` |\n',
+        encoding="utf-8",
+    )
+    r = run(["."], repo)
+    assert r.returncode == 1, r.stdout
+    assert "DRIFTED" in r.stdout and "re-verify" in r.stdout, r.stdout
+    assert "BROKEN" not in r.stdout, r.stdout
+
+
+def test_two_units_sharing_one_claim_line_stay_ambiguous(repo):
+    """A claim row's `want` is the MINOR region's hash, and two unrelated units
+    can hold one identical line. Breaking the tie with it anchors the row to
+    whichever came first and reports `1 ok` — the silent pass §Q3 refused
+    (round 8, 🔴 B)."""
+    _cs(
+        repo,
+        "public void Render(int x) {\n    var a = x + 1;\n}\n"
+        "\n"
+        "public void Render(string s) {\n    var a = x + 1;\n}\n",
+    )
+    body = (repo / "src" / "a.cs").read_text(encoding="utf-8")
+    h = ec.content_hash(body.splitlines()[1:2])
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f'# frag\n\n| C | `src/a.cs#Render>"var a = x + 1;"@{h}` |\n',
+        encoding="utf-8",
+    )
+    r = run(["."], repo)
+    assert r.returncode == 2, r.stdout
+    assert "ambiguous" in r.stdout, r.stdout
+
+
+def test_the_escaping_row_reverify_leaves_names_its_claim(repo):
+    """Every other line `--reverify` prints carries the claim; this one did
+    not, so two claim rows on one unit read as the same row (round 8, 🟡 F)."""
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        '# frag\n\n| C | `../outside/a.py#f>"x = 1"@00000000` |\n',
+        encoding="utf-8",
+    )
+    r = run(["--reverify", "."], repo)
+    assert "path escapes the repository" in r.stdout, r.stdout
+    assert '>"x = 1"' in r.stdout, r.stdout
