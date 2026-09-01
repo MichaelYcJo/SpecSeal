@@ -81,6 +81,13 @@ when it arrives.
   So `.specseal/map.md` empties into fragments as work items retire the claims
   its rows carry, which is the migration these fragments exist to enable.
 
+  **Renamed a cited symbol or file?** `bin/evidence-check --reverify .`
+  re-anchors every row whose content provably moved intact and prints BROKEN
+  with the destination for anything it cannot prove. The command is the rule;
+  remembering it is not — forgetting costs one line at the very next commit,
+  printed by the post-commit advisory in the terminal where the rename just
+  happened, and CI prints the same line at the pull request.
+
   **One branch does edit `CHANGELOG.md`, and it is the one based on `main`.**
   A pull request into `main` is a release, so the entries are due there and
   the hygiene workflow fails it while a fragment is still ungathered. Run:

@@ -736,6 +736,115 @@ def test_past_the_file_cap_the_scan_degrades_and_says_so(repo):
     )
 
 
+# --- the 0.1.0 format ---------------------------------------------------------
+
+
+OLD_LEDGER = (
+    "# map\n\n"
+    "| Baseline commit | `9829412277fa11f81b61df7850183ae3fa9d8a05` (2026-08-31) |\n\n"
+    "| CLAUSE | `src/service.py:4-6` | read | 2026-08-31 `9829412` | notes |\n"
+    "| OTHER | `src/service.py:10-11` | read | 2026-08-31 | notes |\n"
+)
+
+
+def test_an_old_format_ledger_is_loud_never_invisible(repo):
+    """The release blocker, pinned as it was measured: a 0.1.0 ledger —
+    `path:line` coordinates, `date \`sha\`` stamps — read `0 ok · 0 drifted ·
+    0 broken`, exit 0. Every row silently ignored, green light. A user
+    updating the plugin lost their whole ledger's coverage without one
+    printed word — quiet-where-it-used-to-complain, aimed at every adopting
+    repository at once.
+
+    An old-format row gets its own verdict and FAILS the run, `--strict` or
+    not: a red build saying "run the migrator" beats a green build checking
+    nothing.
+    """
+    (repo / ".specseal" / "map" / "f.md").write_text(OLD_LEDGER)
+    r = run(["."], str(repo))
+    assert "OLD-FORMAT" in r.stdout, f"today's silent pass, verbatim:\n{r.stdout}"
+    assert "src/service.py:4-6" in r.stdout, r.stdout
+    assert "--migrate" in r.stdout, "the report does not name the remedy"
+    assert r.returncode == 2, r.stdout
+
+
+def test_the_pre_0_2_address_is_covered_too(repo):
+    """`docs/**/_evidence.md` is read by the same globs and carries the same
+    old rows."""
+    d = repo / "docs" / "policies" / "demo"
+    d.mkdir(parents=True)
+    (d / "_evidence.md").write_text(OLD_LEDGER)
+    r = run(["."], str(repo))
+    assert "OLD-FORMAT" in r.stdout and r.returncode == 2, r.stdout
+
+
+def test_a_quoted_anchor_naming_an_old_coordinate_is_not_old_format(repo):
+    """A text locator may legitimately quote a line that contains `file.py:12`.
+    New-format anchors are blanked before the old-format scan, or such a row
+    would read OLD-FORMAT forever with nothing for the migrator to fix."""
+    (repo / "notes.md").write_text("the row cited hooks/gate.py:12 back then\n")
+    body = (repo / "notes.md").read_text()
+    h = ec.content_hash(body.splitlines())
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f'# frag\n\n| CLAUSE | `notes.md#"the row cited hooks/gate.py:12 back then"@{h}` |\n'
+    )
+    r = run(["."], str(repo))
+    assert "OLD-FORMAT" not in r.stdout, r.stdout
+    assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
+
+
+def test_migrate_rewrites_an_old_row_to_its_enclosing_unit(repo):
+    (repo / ".specseal" / "map" / "f.md").write_text(OLD_LEDGER)
+    r = run(["--migrate", "."], str(repo))
+    assert "2 rows migrated" in r.stdout, r.stdout
+    after = (repo / ".specseal" / "map" / "f.md").read_text()
+    assert "src/service.py#handler@" in after, after
+    assert "src/service.py#Box.open@" in after, after
+    assert "src/service.py:4-6" not in after, after
+    # The stamp drops, the date stays.
+    assert "2026-08-31 `9829412`" not in after, after
+    assert "2026-08-31" in after, after
+    check = run(["."], str(repo))
+    assert check.returncode == 0 and "2 ok" in check.stdout, check.stdout
+
+
+def test_migrate_leaves_what_it_cannot_prove_and_says_why(repo):
+    """Beyond EOF, a file that is gone — LEFT and reported, never guessed."""
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        "# map\n\n"
+        "| A | `src/service.py:999` | | 2026-08-31 |\n"
+        "| B | `src/gone.py:3` | | 2026-08-31 |\n"
+    )
+    r = run(["--migrate", "."], str(repo))
+    assert "0 rows migrated" in r.stdout and "2 left" in r.stdout, r.stdout
+    assert "src/service.py:999" in r.stdout, r.stdout
+    assert "src/gone.py:3" in r.stdout, r.stdout
+    # Left rows keep failing the plain check, so the loop closes on a person.
+    assert run(["."], str(repo)).returncode == 2
+
+
+def test_a_row_migrate_can_only_half_prove_is_left_whole(repo):
+    """All-or-nothing per row. One coordinate resolvable and one not: a
+    partial rewrite would strand half a cell in each format and drop the
+    stamp off a row that still fails — the report stays per-row readable, and
+    the row stays exactly as the person left it. Found by mutation: no
+    fixture carried two coordinates in one row."""
+    row = "| X | `src/service.py:5` and `src/gone.py:2` | 2026-08-31 `9829412` |\n"
+    (repo / ".specseal" / "map" / "f.md").write_text("# map\n\n" + row)
+    r = run(["--migrate", "."], str(repo))
+    assert "1 left" in r.stdout, r.stdout
+    after = (repo / ".specseal" / "map" / "f.md").read_text()
+    assert row in after, f"the row was partly rewritten:\n{after}"
+
+
+def test_migrate_twice_is_a_no_op(repo):
+    (repo / ".specseal" / "map" / "f.md").write_text(OLD_LEDGER)
+    run(["--migrate", "."], str(repo))
+    once = (repo / ".specseal" / "map" / "f.md").read_text()
+    r = run(["--migrate", "."], str(repo))
+    assert "0 rows migrated" in r.stdout, r.stdout
+    assert (repo / ".specseal" / "map" / "f.md").read_text() == once
+
+
 # --- the verdicts -----------------------------------------------------------
 
 

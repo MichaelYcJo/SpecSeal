@@ -139,13 +139,15 @@ evidence-check --reverify .    # after re-reading: rewrite each row's hash
 | `--default-repo PATH` | migration ledgers cite the ORIGINAL repo with unprefixed paths — resolve them against this checkout |
 | `--map NAME=PATH` | resolve `NAME/...` prefixed coordinates against another checkout |
 | `--strict` | drift exits 2, the broken-coordinate code, instead of 1 |
-| `--reverify` | rewrite every resolvable row's hash to what its anchor holds now |
+| `--reverify` | rewrite every resolvable row's hash to what its anchor holds now — and re-anchor every BROKEN row whose content provably moved intact, path and locator both |
+| `--migrate` | rewrite old `path:line` rows to `path#unit@hash`; what it cannot prove is left and named |
 
 ## Verdicts and what to do
 
 | Verdict | Meaning | Action |
 |---|---|---|
-| `BROKEN` (exit 2) | the MAJOR unit is not in the file, or is in it more than once | fix the coordinate now — a broken ground is worse than none |
+| `BROKEN` (exit 2) | the MAJOR unit — or its whole file — is not there, or the unit is there more than once | fix the coordinate now. Where the content still exists the line names the destination, graded by proof: `identical content at <where> (renamed?/moved?)` is content identity across a repo-wide scan and `--reverify` acts on it; `same name at <path> (content differs)` is a labelled fact only; several matches are counted, never named |
+| `OLD-FORMAT` (exit 2, `--strict` or not) | an old `path:line` row from before content anchoring, which nothing measures any more | run `evidence-check --migrate .` — a red build naming the migrator beats a green build checking nothing |
 | `DRIFTED` (exit 1; 2 under `--strict`) | the content changed, or a minor anchor's place is gone | re-open it, re-read the claim, then `--reverify` |
 | `EXTERNAL` | path resolves in no known checkout | pass `--map`/`--default-repo`, or accept as out of scope |
 | `OK` | the content is what the row recorded — the current line numbers are printed for you to open |
@@ -203,12 +205,35 @@ pieces of code it is actually about.
   resolved and is reported EXTERNAL — the tool never guesses by fuzzy matching,
   because a wrong resolution would validate the wrong evidence.
 - `DRIFTED` means "someone must re-read this", not "the claim is wrong".
-- Renaming a symbol reads as `BROKEN` rather than as a rename. That is the
-  honest answer — the checker cannot know the new name is the same thing — and
-  fixing the row is a one-word edit.
+- Renaming a symbol reads as `BROKEN` — but where reconstruction proves the
+  content moved intact, the line names the destination and `--reverify` fixes
+  it. The proof substitutes the candidate's name with the row's locator and
+  compares against the RECORDED hash, so content that changed AND moved
+  matches nothing and stays a plain BROKEN.
+- The rename scan is bounded so the clean path stays fast: same-extension
+  files only, files over 256 KB skipped, and past 200 candidate files it
+  degrades to the row's own file and says so on the line. Measured: one
+  BROKEN row against 200 files costs ~110 ms; past the cap, ~36 ms.
+- A name match with different content never fixes anything — `main`,
+  `resolve` and `check` collide across files as a matter of course.
 - The generic unit rule stops AT a closing brace rather than including it. The
   brace carries no claim, and a language-aware rule for what closes a block is
   the per-language parser this deliberately does not have.
+
+## Migrating a pre-anchor ledger
+
+```
+evidence-check --migrate .
+```
+
+One command, once, after updating. Each `path:line` row is resolved against
+the current tree to its enclosing unit and rewritten as `path#unit@hash`; the
+commit stamp drops and the date stays. The run prints the same faithfulness
+report this repository's own 51-coordinate migration was held to: how many
+converted, and every row left named with why — a line past the end of its
+file, a file that is gone, a range no single unit contains. A left row keeps
+failing the plain check as `OLD-FORMAT`, so nothing is silently dropped, and
+running the command twice is a no-op.
 
 ## CI
 

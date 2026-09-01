@@ -61,6 +61,18 @@ ANCHOR_RE = re.compile(
     r"@(?P<hash>[0-9a-f]{6,12})"
 )
 HASH_LEN = 8
+# The old, pre-anchor coordinate shape — `path:line`, `path:start-end`. Nothing measures
+# from these any more, and the one unacceptable outcome is silence: a ledger
+# full of them once read `0 ok · 0 drifted · 0 broken`, exit 0, which stripped
+# an updating user's whole coverage without one printed word.
+OLD_COORD_RE = re.compile(
+    r"(?P<path>[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?)"
+    r":(?P<start>\d+)(?:-(?P<end>\d+))?\b"
+)
+OLD_STAMP_RE = re.compile(r"(\b\d{4}-\d{2}-\d{2})\s+`?[0-9a-f]{7,40}`?")
+# `example.com:8080` in a URL has the old coordinate shape exactly; the
+# line-number checker learned this the same way, from ledgers citing links.
+URL_HOST_RE = re.compile(r"(?://|\bhttps?:)[^\s)\]<>\"']*$")
 # A claim region never runs longer than this. A claim needing more lines than
 # this is a claim about the whole function, and the row should drop the claim
 # anchor and locate alone rather than pretend to a narrower subject.
@@ -615,7 +627,123 @@ def check_ledger(ledger, root, maps, default_repo=None):
             )
             continue
         findings.append(("OK", coord, f"{start}-{end}"))
+    findings.extend(old_format_rows(text))
     return findings
+
+
+def old_format_rows(text):
+    """("OLD-FORMAT", coord, remedy) for every pre-anchor coordinate in a row.
+
+    Its own verdict, not folded into BROKEN, because the remedy differs — and
+    it fails the run with or without `--strict`: a red build saying "run the
+    migrator" beats a green build checking nothing. Only table rows are read,
+    and new-format anchors are blanked first so a quoted locator that happens
+    to mention an old coordinate cannot trip this forever.
+    """
+    findings, seen = [], set()
+    for line in text.splitlines():
+        if not line.lstrip().startswith("|"):
+            continue
+        for m in OLD_COORD_RE.finditer(ANCHOR_RE.sub(" ", line)):
+            if URL_HOST_RE.search(line[: line.find(m.group(0))]):
+                continue
+            if m.group(0) in seen:
+                continue
+            seen.add(m.group(0))
+            findings.append(
+                (
+                    "OLD-FORMAT",
+                    m.group(0),
+                    "old `path:line` coordinate — run `evidence-check --migrate .`",
+                )
+            )
+    return findings
+
+
+def migrate(ledgers, root):
+    """Rewrite every old `path:line` row to `path#anchor@hash` — the shipped form of the
+    migration this repository ran on its own 51 coordinates.
+
+    Per coordinate: trim blank padding off the cited range, find the smallest
+    resolvable unit that CONTAINS it, and write that unit's anchor with the
+    hash computed the normal way. The stamp drops and the date stays: nothing
+    measures from a commit any more.
+
+    What cannot be proven is LEFT and reported, never guessed — a line past
+    the end of the file, a file that is gone, a range no single unit contains.
+    A left row keeps failing the plain check as OLD-FORMAT, so the loop
+    closes on a person rather than on silence. Running this twice is a no-op:
+    the second pass finds no old coordinates.
+    """
+    migrated, left = 0, []
+    for ledger in ledgers:
+        text = read(ledger)
+        out_lines = []
+        for line in text.splitlines(keepends=True):
+            if not line.lstrip().startswith("|"):
+                out_lines.append(line)
+                continue
+            blanked = ANCHOR_RE.sub(lambda m: " " * len(m.group(0)), line)
+            hits = [
+                m
+                for m in OLD_COORD_RE.finditer(blanked)
+                if not URL_HOST_RE.search(blanked[: m.start()])
+            ]
+            if not hits:
+                out_lines.append(line)
+                continue
+            spliced, at, failed, row_n = [], 0, False, 0
+            for m in hits:
+                rel, s = m.group("path"), int(m.group("start"))
+                e = int(m.group("end") or s)
+                body = read(os.path.join(root, rel))
+                if body is None:
+                    left.append((m.group(0), "file not found"))
+                    failed = True
+                    continue
+                lines = body.splitlines()
+                if e > len(lines):
+                    left.append((m.group(0), f"line past EOF ({len(lines)} lines)"))
+                    failed = True
+                    continue
+                while s < e and not lines[s - 1].strip():
+                    s += 1
+                while e > s and not lines[e - 1].strip():
+                    e -= 1
+                best = None
+                for name, (a, b) in file_units(rel, body):
+                    if (
+                        a <= s
+                        and e <= b
+                        and (best is None or b - a < best[2] - best[1])
+                    ):
+                        best = (name, a, b)
+                if best is None:
+                    left.append((m.group(0), f"no single unit contains {s}-{e}"))
+                    failed = True
+                    continue
+                name, a, b = best
+                spliced.append(line[at : m.start()])
+                spliced.append(f"{rel}#{name}@{content_hash(lines[a - 1 : b])}")
+                at = m.end()
+                row_n += 1
+            if failed or not spliced:
+                # All-or-nothing per row, so a partial rewrite never strands
+                # half a cell and the report stays per-row readable.
+                out_lines.append(line)
+                continue
+            migrated += row_n
+            spliced.append(line[at:])
+            out_lines.append(OLD_STAMP_RE.sub(r"\1", "".join(spliced)))
+        new_text = "".join(out_lines)
+        if new_text != text:
+            with open(ledger, "w", encoding="utf-8") as f:
+                f.write(new_text)
+    n = migrated
+    print(f"{n} row{'' if n == 1 else 's'} migrated · {len(left)} left")
+    for coord, why in left:
+        print(f"  LEFT  {coord}  {why}")
+    return 1 if left else 0
 
 
 def reverify(ledgers, root, maps, default_repo=None):
@@ -713,6 +841,12 @@ def main():
     )
     ap.add_argument("--strict", action="store_true", help="drift also fails")
     ap.add_argument(
+        "--migrate",
+        action="store_true",
+        help="rewrite old `path:line` rows to `path#anchor@hash`; rows it "
+        "cannot prove are left and named",
+    )
+    ap.add_argument(
         "--reverify",
         action="store_true",
         help="rewrite each row's hash to what its anchor holds now",
@@ -749,10 +883,12 @@ def main():
         print("no evidence ledgers found — nothing to check")
         return 0
 
+    if args.migrate:
+        return migrate(ledgers, root)
     if args.reverify:
         return reverify(ledgers, root, maps, default_repo)
 
-    totals = {"OK": 0, "DRIFTED": 0, "BROKEN": 0, "EXTERNAL": 0}
+    totals = {"OK": 0, "DRIFTED": 0, "BROKEN": 0, "EXTERNAL": 0, "OLD-FORMAT": 0}
     for ledger in ledgers:
         findings = check_ledger(ledger, root, maps, default_repo)
         print(f"\n{os.path.relpath(ledger, root)}")
@@ -770,6 +906,8 @@ def main():
         f"\ntotal: {totals['OK']} ok · {totals['DRIFTED']} drifted · "
         f"{totals['BROKEN']} broken · {totals['EXTERNAL']} external"
     )
+    if totals["OLD-FORMAT"]:
+        return 2
     if totals["BROKEN"]:
         return 2
     if totals["DRIFTED"]:

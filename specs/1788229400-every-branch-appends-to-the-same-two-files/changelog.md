@@ -44,7 +44,26 @@
 
   A document anchor is a heading rather than a sentence, because a sentence
   breaks on any rewording while a heading survives the prose beneath it being
-  rewritten. The hash covers the region under the
+  rewritten.
+
+  **Already keeping a ledger from 0.1.0? One command converts it:**
+  `bin/evidence-check --migrate .` rewrites every `path:line` row to the new
+  form against your current tree, drops the commit stamps, keeps the dates,
+  and names every row it cannot prove rather than guessing. Until you run it,
+  an old-format row **fails the check loudly** (`OLD-FORMAT`, exit 2, with or
+  without `--strict`) — the alternative was your whole ledger silently
+  reading `0 ok` while nothing was checked, which is worse than a red build
+  that names the one command to run.
+
+  **Two behaviours arrive without being asked for.** After a `git commit` in
+  an opted-in repository, a broken anchor prints one advisory line in the
+  terminal — the row, where its content went if that is provable, and the
+  `--reverify` remedy. It never blocks, and it is silent when the ledger is
+  clean or absent. And where a BROKEN row's content provably moved — renamed
+  in place, or moved to another file, judged by content identity across a
+  bounded repo-wide scan — the check names the destination, and
+  `bin/evidence-check --reverify .` re-anchors it mechanically; a whole-file
+  rename heals the same way. The hash covers the region under the
   anchor with trailing whitespace and blank lines removed, so a reformat is not
   a change; indentation is kept, because in Python a dedent moves a statement
   out of the block it belonged to.

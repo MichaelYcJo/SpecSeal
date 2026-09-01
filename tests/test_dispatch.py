@@ -217,3 +217,15 @@ def test_a_repo_that_never_opted_in_is_left_alone(repo):
     (repo / "app.py").write_text("def handler(x):\n    return x\n")
     out = run_dispatch("post-bash", payload("git commit -m x", repo))
     assert "evidence-check" not in out, out
+
+
+def test_the_advisory_inherits_the_graded_hint(repo):
+    """The arm prints whatever the checker prints, so the repo-wide hint and
+    the remedy arrive at the commit with no code of its own. Confirmed rather
+    than assumed, as ordered."""
+    anchored_row(repo)
+    (repo / "app.py").unlink()
+    (repo / "elsewhere.py").write_text("def handler(x):\n    return x + 1\n")
+    out = run_dispatch("post-bash", payload("git commit -m move", repo))
+    assert "identical content at elsewhere.py#handler (moved?)" in out, out
+    assert "--reverify" in out, out

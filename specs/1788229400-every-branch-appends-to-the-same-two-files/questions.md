@@ -28,3 +28,16 @@ carries its own anchor and hash, so a fragment declares nothing at its head and
 
 The narrower fixes that shipped for this in review round 2 — a two-pass header
 scan, a bound on accidental prose — went with it.
+
+## Decided and held during the redesign, recorded so no issue is needed
+
+**An AST-based hash for `.py` — REJECTED by the repository owner.** It would
+go quiet on comment-only changes, and comments carry load here: `# RIDER:`
+comments are scheduled work living at the line they are about. A hash that
+shrugs at comments un-schedules them silently.
+
+**Test-anchoring — HELD as a future layer, not built.** A row citing its
+proving test, with CI as continuous re-verification, would close the gap Q1
+records (a claim whose code and test both moved past it). Held because it
+layers ON TOP of content anchoring rather than replacing it, and the layer
+underneath had to prove out first.

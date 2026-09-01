@@ -222,6 +222,41 @@ Three things measurement decided rather than argument:
 Marker comments in the source were considered and refused, with the reasoning
 written into the skill rather than left to be re-litigated.
 
+## The last pieces: the destination on BROKEN, and the 0.1.0 blocker
+
+**A raw hash comparison can never see a rename**, and finding that decided the
+feature's shape. A unit's name is the first line of its own hashed region, so
+the ordered comparison — recorded hash against the other units' hashes — fired
+on nothing; the tests written red first stayed red against the implementation
+of the instruction's letter. The shipped comparison reconstructs: substitute
+the candidate's name with the row's locator throughout its region, then hash.
+A pure rename, recursion included, reconstructs the old region exactly; a
+rename plus an edit reconstructs nothing and stays a plain BROKEN. The same
+proof licenses `--reverify`'s rewrite, and the hash follows the locator for
+the same reason it could not stay.
+
+The scan grades evidence rather than trusting names: hash identity, unique
+across a bounded repo-wide scan, names the destination and fixes; a name with
+different content is printed as the labelled fact it is and never acted on;
+two matches are counted and never chosen. A whole-file rename heals
+mechanically — every row on the old path finds its unit in the new file —
+which replaced the known limit that said a file rename was a by-hand edit.
+
+**The release blocker was pinned verbatim before it was fixed**: an existing
+0.1.0 ledger read `0 ok · 0 drifted · 0 broken`, exit 0 — every row silently
+ignored on update, the quiet-where-it-used-to-complain shape aimed at every
+adopting repository at once. An old-format row now fails the run with or
+without `--strict`, naming `--migrate`, which ships the same enclosing-unit
+migration this branch ran on its own 51 coordinates: faithfulness report,
+left-and-named over guessed, idempotent, all-or-nothing per row.
+
+The post-commit advisory arm prints whatever the checker prints, so it
+inherited the graded hints with no code of its own — confirmed by a dispatch
+case, not assumed. No pointer was added to the update skill or the README:
+the update skill already relays the changelog entry that carries the command,
+and the OLD-FORMAT line itself names it, so the loop closes twice without a
+third copy.
+
 ## Not verified
 
 | Item | Who must answer |
