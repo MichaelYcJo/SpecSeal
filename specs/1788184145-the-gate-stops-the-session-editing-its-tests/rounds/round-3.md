@@ -5,6 +5,7 @@
 | Target SHA | `eaec4936e03bf251c15780b6e186e5a058571ab4`, and `d3fe44da65d6d58085a78d0662913667d1696054` after this round's fixes |
 | PR | opens onto `release/v0.0.2` after this record |
 | Broad gate | `d3fe44d`, against base `release/v0.0.2` (`f1cd65d`) |
+| Fixes checked by | nobody — the run ended here, and issue #33 is this record |
 
 - [x] Pass
 
@@ -12,7 +13,16 @@
 reviewer, verified by the orchestrator and fixed by the orchestrator in
 `d3fe44d` rather than by a fourth round: none needed a judgment, every wording
 was already drafted and measured, and a fourth round with no 🔴 open is the
-loop failing to converge rather than another fix. -->
+loop failing to converge rather than another fix.
+
+The `Fixes checked by` row was added later, by
+`specs/1788212517-the-last-rounds-fixes-are-reviewed-by-nobody`. It records
+what the paragraph above already said and no reader could act on: the four
+fixes at `d3fe44d` were opened by nobody. The row is what issue #33 exists to
+add, and this is the record that measured the need for it — so it is the one
+place in this repository where the value is `nobody` rather than a round.
+Nothing else about this record changed; the verdicts, the probes and the
+`Pass` claim are as round 3 wrote them. -->
 
 ## Verdicts
 
