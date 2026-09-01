@@ -46,11 +46,9 @@ The quiet half is the one that bites: this column was wrong on its own first
 use, nine SHAs deep, and only a reviewer opening them found it. **Re-read the
 column after any rebase**, or it names commits that resolve in one clone and
 nowhere else. That is tolerable because nothing measures from this column.
-The evidence ledger had the same problem and no such tolerance, which is why a
-ledger row names no commit at all now: its drift baseline is the commit the row
-first appeared in, derived from that row's own line history — and not the
-commit that last touched the line, which any bulk rewrite of the rows would
-pull forward to itself.
+The evidence ledger had the same problem and no such tolerance. It no longer
+has it at all: a ledger row names a symbol and a content hash, so there is no
+commit in it for a rebase to orphan.
 
 ## Operational impact
 

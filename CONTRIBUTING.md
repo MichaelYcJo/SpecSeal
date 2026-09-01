@@ -65,21 +65,21 @@ when it arrives.
   may be edited. The changelog fragments are gathered at the release
   (`docs/branch-and-release.md`); the ledger fragments never are.
 
-  **Moving cited code is the case the rule has to answer, and it is not an
-  append.** Change a line an existing `.specseal/map.md` row cites and the
-  checker reports DRIFTED; clearing that needs the row touched, in the file
-  this rule covers. **Remove the row there and write it afresh into your own
-  fragment.** Re-anchoring it in place does not work — an edited line walks
-  back to its original commit, so the row keeps a baseline from before the
-  file it cites existed in its current shape, and its drift check is dead
-  rather than merely stale. A new line in your fragment anchors at the squash
-  commit and is current.
+  **Changing cited code is the case the rule has to answer, and it is not an
+  append.** Change what an existing `.specseal/map.md` row cites and the
+  checker reports DRIFTED, which needs that row touched in the file this rule
+  covers. Two answers, and which one applies is about the claim rather than
+  the code:
 
-  Rewriting a row in place does not make it new, however much of it changes.
-  Remove it in one commit and write it in the next.
+  - the claim still holds and you have re-read it — run
+    `evidence-check --reverify .`, which recomputes the hash and names what it
+    changed;
+  - the claim went with the code — **remove the row and write the new claim
+    into your own fragment.** A row is not re-pointed at whatever now sits
+    nearest to where it used to look.
 
-  So `.specseal/map.md` empties into fragments as work items touch the code
-  its rows cite, which is the migration these fragments exist to enable.
+  So `.specseal/map.md` empties into fragments as work items retire the claims
+  its rows carry, which is the migration these fragments exist to enable.
 
   **One branch does edit `CHANGELOG.md`, and it is the one based on `main`.**
   A pull request into `main` is a release, so the entries are due there and

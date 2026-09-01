@@ -44,7 +44,7 @@ of this command, not something that arrives silently.
    `templates/evidence-check.yml`. Two things deserve a question rather than a
    default:
    - **`--strict` or not.** It picks the exit code, not whether the build
-     breaks. A coordinate whose lines moved since the baseline exits 1 without
+     breaks. A coordinate whose content changed exits 1 without
      the flag and 2 with it, and the step fails on either, so a repo
      mid-migration gets no softer mode by dropping it. Strict is still the
      honest default — drift means nobody has re-verified, and 2 is the code a

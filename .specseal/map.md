@@ -12,49 +12,26 @@
 > share an id. The checker reads both addresses, so nothing was moved: the rows
 > below stay where they are and this file stops growing.
 
-## Baseline
+## Coordinates
 
 | Item | Value |
 |---|---|
-| Baseline commit | `9829412277fa11f81b61df7850183ae3fa9d8a05` (2026-08-31) — the fallback for rows `git blame` cannot answer for; open with `git show 9829412:<path>` when in doubt |
-| Coordinate notation | `<path>:<line>` from the repo root |
+| Coordinate notation | `path#anchor@hash` from the repo root |
 | Trust exceptions | none |
 
-Each row's **Checked** column carries the **date** somebody read the code. The
-commit its drift is measured from is the commit the row first appeared in,
-derived from that row's own line history, so nothing is written down for a
-rebase or a squash to orphan. Every row below also carries the SHA it was
-stamped with under the older rule, and a SHA written into a row still wins —
-they go on measuring from exactly what they always did.
+A coordinate names **content, never a position**. The anchor is a symbol name
+where the language has one — `.py` is read with Python's own parser — and a
+distinctive line of text otherwise; the hash covers the region under it. A row
+carries no line number and no commit SHA, so nothing in it goes stale for a
+reason unrelated to the claim, and `evidence-check` calls git for nothing.
 
-**If these rows are ever moved into fragments, their stamps move with them,
-verbatim.** `git log -L` does not follow a row out of a file that stays, so a
-moved row's derived baseline would be the move itself and 36 drift windows
-would collapse in one commit that re-read nothing. That is also why this file
-is not being migrated: the rows stay, and only new work items write elsewhere.
+The **Checked** column carries the date somebody read the code. Re-verifying a
+row is re-reading it and running `evidence-check --reverify`, which recomputes
+the hash and names what it changed.
 
-Two things the derivation cannot answer for, and the header above is what they
-fall back to: a row whose line is not committed yet, and a coordinate that
-resolves in another checkout, where a commit of this repository is not a diff
-base at all.
-
-A row's baseline has to be a date and a SHA together. A bare hex word in a row
-is prose — which matters here, because rows in this file discuss commits by
-name. In a HEADER the same word is read as the file's baseline, so a fragment's
-prose names no commit at all.
-
-Re-verify row by row. Bumping the header instead re-dates every claim without
-re-reading one.
-
-**Quote a markdown row's name without its pipes.** Write `` `Fixes checked by` ``
-and not `` `| Fixes checked by |` ``: a row of this table splits on every `|`
-in it, so the second spelling makes a 5-cell row into a 7-cell one and slides
-every column two to the right. Two rows below did that, and on one of them the
-**Checked** column landed on prose instead of a stamp — which is not a typo but
-a silent fall back to the header baseline, the exact thing the per-row stamp
-exists to prevent. `evidence_check.py` reads coordinates out of the text and
-never checks a row against its section's header, so it reported `24 ok` on
-both. Whether it should is issue #31's, not this file's.
+**A row whose anchor a change removes is removed with it.** Its claim went
+with the code; the new claim is a new row, in the work item's own fragment.
+That is how this file empties as work items retire the claims it holds.
 
 ## Scope decisions
 

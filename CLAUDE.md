@@ -81,48 +81,23 @@ worktree guard to ask about. That question offers to bring the changes along
 to the other branch or to leave them behind, and the answer that is usually
 right, *commit them here first*, is neither button.
 
-A ledger row carries no SHA at all. Its `Checked` column holds the **date**
-somebody read the code, and the commit its drift is measured from is the
-commit that row first appeared in, derived from its own line history — so
-nothing is written down for a rebase or a squash to orphan. After a squash it
-is the squash commit, which is the value a repair pull request used to write
-into each cell by hand.
+**A ledger coordinate names content, never a position:** `path#anchor@hash`.
+The anchor is a symbol name where the language has one and a distinctive line
+of text otherwise; the hash covers the anchored region. A row carries no line
+number and no commit SHA, and `evidence-check` calls git for nothing.
 
-First appearance rather than last touch, because a commit that rewrites rows
-in bulk would otherwise pull every one of them forward to itself. Measured on
-this repository's ledger: one release commit held the baseline for 16 rows of
-36 under last touch and for none under first appearance.
+That removes a whole chain rather than a rule from it. A line number moves for
+edits unrelated to the claim, so the coordinate rotted, so the row was
+re-anchored, so its baseline reset, so a stamp was needed, so a squash orphaned
+the stamp. Three review rounds went on the links of that chain.
 
-Rows already stamped keep working and are not being rewritten; a SHA in the
-row still wins. **If rows are ever moved into a fragment, their stamps move
-with them verbatim** — `git log -L` does not follow a row out of a file that
-stays, so a stripped stamp would make the move itself the baseline.
+The `Checked` column holds the date somebody read the code. Re-verifying is
+re-reading and then running `evidence-check --reverify`, which recomputes the
+hash and names what it changed.
 
-**A row whose coordinate a branch invalidates is MOVED, not re-stamped.**
-Remove it from `.specseal/map.md` and write it afresh into that branch's own
-`.specseal/map/<work-item-id>.md`.
-
-The paragraph this replaces said a re-verification stamp was safe because an
-orphaned one falls back to the row's first appearance in the squashed history.
-Both halves are false for the only kind of row such a stamp is written on. An
-EDITED line walks back to its ORIGINAL commit — that is what the derivation is
-for — so a row re-anchored in place on this repository's ledger derived the
-repository's first commit, where the cited file was 299 lines long against a
-coordinate in the 600s. It could never overlap again, and its drift tripwire
-was dead rather than merely stale.
-
-A NEW line's first appearance is the commit that added it, which after the
-squash is the squash commit and is current. So the derivation does distinguish
-an edited row from a new one, and the way to re-verify is to make the row new.
-Rewriting it in place does not: measured, a row rewritten cell by cell still
-derives the commit that first created its line.
-
-**In practice that means two commits**, and the second is where the row comes
-back. Rewriting a row cell by cell leaves it an edited line however much of it
-changed — measured, a row rewritten in place still derived the commit that
-first created it. Removing it in one commit and writing it in the next makes
-it a line git has not seen before, and the branch then reads what the merged
-tree reads.
+**A row whose anchor a change removes is REMOVED, not re-pointed.** Its claim
+went with the code. Write the new claim as a new row in the work item's own
+fragment.
 
 ## Repo rule — a change writes fragments, never the shared file
 
@@ -137,13 +112,13 @@ again.
 
 No two work items share an id, so no two branches share a file.
 
-**Appended is the word, and a removal is not one.** A branch that moves code an
-existing `.specseal/map.md` row cites must touch that file to leave the ledger
-true — the row is removed there and rewritten in the branch's own fragment.
-`CONTRIBUTING.md` carries the same sentence, and the two used to disagree:
-one forbade editing the file at all while the other forbade appending to it,
-which left a branch in this position with no reading that permits the only
-correct act.
+**Appended is the word, and a removal is not one.** A branch that removes code
+an existing `.specseal/map.md` row cites must touch that file to leave the
+ledger true — the row is removed there, and the new claim is written into the
+branch's own fragment. `CONTRIBUTING.md` carries the same sentence, and the two
+used to disagree: one forbade editing the file at all while the other forbade
+appending to it, which left a branch in this position with no reading that
+permits the only correct act.
 
 This overrides the `implement` skill and `agents/smith.md`, which tell a
 session to let the entry accumulate unreleased. That is the
@@ -159,5 +134,5 @@ ledger fragment stays where it is forever — a row is checked against the code
 it cites rather than concatenated, and the checker already reads the whole
 `.specseal/map/*.md` glob.
 
-A ledger fragment carries **no baseline header**. It does not need one: every
-row in it measures from its own line's history.
+A ledger fragment needs no header of its own. Every row in it carries its own
+anchor and hash, so there is nothing for a header to declare.

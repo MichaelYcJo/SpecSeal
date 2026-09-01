@@ -83,12 +83,9 @@ keep.
 When a root or file this skill needs doesn't exist, create it from
 `templates/` in this plugin and continue. In particular:
 
-- `.specseal/map.md` — stamp the baseline (current HEAD SHA, date) into its
-  header at creation time. That header answers for the rows the derivation
-  cannot: a coordinate resolving in another checkout, chiefly. A row whose own
-  line is not committed yet reads UNMEASURED rather than falling back. A work
-  item's own rows go in `.specseal/map/<work-item-id>.md`, which carries no
-  header at all.
+- `.specseal/map.md` — created empty, with no baseline to stamp: a coordinate
+  names content rather than a position, so there is nothing for a header to
+  declare. A work item's own rows go in `.specseal/map/<work-item-id>.md`.
 - `.specseal/README.md` — carries the export rules so sessions that never load
   this skill still see them.
 - **Not** policy documents. If the repository has none, it has none; judge from
@@ -351,22 +348,20 @@ waits for the reply spends more.
 ### 2. Implement, and feed evidence back where you verified it
 
 When you open code or run something to settle a judgment, record the outcome on
-the row it belongs to (spec clause ↔ `file:line`) and put **the date you read
-it** in the Checked column. Only rows in this work's scope — full-ledger audits
-verify what is already correct and return nothing.
+the row it belongs to and put **the date you read it** in the Checked column.
+Only rows in this work's scope — full-ledger audits verify what is already
+correct and return nothing.
+
+A coordinate is `path#anchor@hash`: a symbol name where the language has one, a
+quoted line of text otherwise, and a content hash of the region. It carries no
+line number and no commit, so nothing in it goes stale for a reason unrelated
+to the claim. Re-verifying a row is re-reading it and running
+`evidence-check --reverify`.
 
 **Rows a work item adds go in its own fragment**, `.specseal/map/<work-item-id>.md`,
 not appended to `.specseal/map.md`. Two branches cannot collide there, because
 no two work items share an id, and the checker reads the whole
-`.specseal/map/*.md` glob. A fragment needs no baseline header of its own.
-
-The commit a row's drift is measured from is the commit that row first
-appeared in, derived from its own line's history — not the commit that last
-touched the line, which any bulk rewrite of the rows would pull forward to
-itself. Re-verification drains row by row instead of ledger-wide, and nothing
-has to be typed that a rewrite could orphan. A stamp written into the row still
-wins, which is how rows stamped under the older rule go on working and how a
-re-verified row clears drift the derivation cannot see.
+`.specseal/map/*.md` glob.
 
 **Draft as you go, write in one pass.** The recording is cheap and the round
 trip is not: one session made twenty-six separate edits to its ledger and
@@ -420,13 +415,9 @@ reviewer with the ledger still empty, because by the paragraph above the
 reviewer sees only what was committed.
 
 **Commit freely; a ledger row names no commit for a merge to orphan.** This
-used to be the one place the cadence had to be steered around. A row's drift
-baseline was a SHA somebody typed, and no commit a feature branch could type
-was both reachable after the squash and current with its coordinates: name the
-base and the row read DRIFTED at birth, name the branch and the squash left it
-pointing at nothing. Blame of the row's own line has no such choice to make —
-it is computed on the tree as it stands, so after a squash it answers with the
-squash commit.
+used to be the one place the cadence had to be steered around, and it is not a
+place any more: a row records an anchor and a hash of what that anchor holds,
+so there is no commit in it that a squash or a rebase could invalidate.
 
 **An edit must be able to fail.** Prefer the `Edit` tool: a pattern that does
 not match is an error you see immediately. When the environment routes edits
