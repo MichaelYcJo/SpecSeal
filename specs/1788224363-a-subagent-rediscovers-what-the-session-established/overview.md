@@ -12,9 +12,12 @@ the diff cannot show goes here, and each part is written when it happens. -->
             §1; `templates/sdd-plan.md`; `.specseal/follow-up.md` (empty —
             nothing here was its prerequisite); `.specseal/map.md` header rules
 · evidence: `.specseal/map.md` — one section, *What the cost meter can read*,
-            five rows, stamped at the base tip per the template rule; four
-            read DRIFTED at birth (executed: `evidence_check.py`, 31 ok ·
-            4 drifted · 0 broken) and the section's first row says why
+            five rows, stamped at the base tip per the template rule, plus a
+            baseline-numbering row under *Evidence drift*. All five cite
+            lines this branch touched; which four read DRIFTED at birth is
+            decided by overlap with old-side hunks in baseline numbering,
+            not by what was touched (executed: `evidence_check.py`, 31 ok ·
+            4 drifted · 0 broken; the cause is round 1's finding 2)
 · verified: executed — `tests/test_session_cost.py` (13 cases, the six new
             ones each shown red against the pre-fix meter first),
             `tests/test_the_handoff_before_round_one.py` (6 cases, each red
@@ -67,7 +70,7 @@ than this one. Where the serial stretches were, from the transcript:
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | Piece 3 — the contract-override clause | The ticket: *"Put it in both `agents/smith.md` and `agents/warden.md`, naming the measured case"* / both files already carry it — `agents/smith.md:134-160` and `agents/warden.md:79-93`, with the 28-minute measurement, the WIDENING line and the ambiguous-instruction default | Verify, add nothing | `tests/test_broad_gate_rule.py` pins every half of the clause in both files (executed, green on this tree). The row moved from #27 to #29 after the clause had shipped with this history's initial commit; re-adding it would state the same rule twice, which is the drift that suite exists to catch |
-| Ledger stamps | The spawn instruction: every row carries date+SHA / `templates/sdd-plan.md`: the Checked stamp may never name a commit the branch itself made | Both — date plus the base tip | Four rows cite lines this branch touched, so they read DRIFTED until re-stamped after the squash lands. The alternative — stamping the phase commit — reads OK today and falls back **silently** to the header baseline in every clone after the squash, which is the exact failure the per-row stamp exists to prevent, and which the previous work item's seven orphaned stamps now demonstrate (the follow-up row this work filed) |
+| Ledger stamps | The spawn instruction: every row carries date+SHA / `templates/sdd-plan.md`: the Checked stamp may never name a commit the branch itself made | Both — date plus the base tip | All five rows cite lines this branch touched; four read DRIFTED and the fifth does not, because drift is judged in baseline numbering and these coordinates are HEAD-numbered — the re-stamp after the squash is what makes the tripwire cover them. The alternative — stamping the phase commit — reads OK today and falls back **silently** to the header baseline in every clone after the squash, which is the exact failure the per-row stamp exists to prevent, and which the previous work item's seven orphaned stamps now demonstrate (the follow-up row this work filed) |
 
 ## Not verified
 

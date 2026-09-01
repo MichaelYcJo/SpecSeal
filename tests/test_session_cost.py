@@ -179,6 +179,23 @@ def test_two_calls_in_one_message_are_one_turn(tmp_path):
     assert data["tools_per_turn"] == 2.0
 
 
+def test_the_message_id_outranks_the_row_uuid_when_both_are_present(tmp_path):
+    """Real rows carry both keys: a per-row uuid and, on a split message, a
+    shared message id. Keyed uuid-first, the split message below is one turn
+    per row — that mutant reads 1.0 here while every other case stays green,
+    because no other fixture carries both keys at once."""
+    data = batch_data(
+        tmp_path,
+        [
+            message(0, [use("a", "ls src")], message_id="m1", uuid="u1"),
+            result(5, "a"),
+            message(6, [use("b", "ls tests")], message_id="m1", uuid="u2"),
+            result(9, "b"),
+        ],
+    )
+    assert data["tools_per_turn"] == 2.0
+
+
 def test_a_message_split_across_rows_is_one_turn_with_no_model_gap_inside(tmp_path):
     """A harness writes one assistant message as one row per content block,
     each row carrying the same message id. Two things must hold: the rows are
