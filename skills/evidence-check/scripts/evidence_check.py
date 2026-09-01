@@ -87,9 +87,20 @@ def blame_lines(repo, rel, cache):
     as many rows as the work has accumulated and blame reads the whole file
     either way.
 
-    Lines nobody has committed yet blame as the all-zero SHA. They are dropped
-    rather than returned, because an unresolvable baseline is exactly the
-    silent fall back to the header this file exists to make visible.
+    **`--porcelain`, and the format is load-bearing.** Blame's default and
+    `-s` forms mark a boundary commit by prefixing its SHA with `^` —
+    `^9829412` for every line of this repository's own ledger that reaches the
+    walk's first commit — and a reader that takes the first field verbatim
+    hands `git cat-file` a name it rejects. Porcelain spells the same SHA
+    plainly and puts `boundary` on a metadata line of its own, so there is
+    nothing to strip. A boundary commit is a real commit and a correct diff
+    base; it needs no special case, only a format that does not decorate it.
+
+    Lines nobody has committed yet blame as the all-zero SHA — reachable in
+    ordinary use, since a ledger is edited before it is committed. They are
+    dropped here rather than returned: handing `git diff` a name that resolves
+    to nothing answers "nothing changed", which is a pass produced by a
+    failure.
     """
     key = (repo, rel)
     if key not in cache:
@@ -122,10 +133,13 @@ def row_baseline(text, pos, repo, cache, ledger=None, root=None, blame=None):
 
     **`git blame` of the row's own line**, for a row that carries none. A
     stamp typed by hand names a commit the branch made, and a squash discards
-    it: seven rows here were left naming an object no ref could reach, and a
-    pull request repaired them one cell at a time. Blame is computed on the
-    tree as it stands, so nothing can orphan it — after the squash it answers
-    with the squash commit, which is the value that repair wrote in by hand.
+    it: seven rows of this repository's own ledger named `9b5501d`, which
+    `git merge-base --is-ancestor 9b5501d origin/main` answers no to — it
+    survives on one unmerged local branch and nowhere a fresh clone can see.
+    Pull request #49 repaired those cells by hand. Blame is computed on the
+    tree as it stands, so nothing can orphan it: against the same file it
+    attributes twenty lines to `e7ff924`, the squash commit that discarded
+    `9b5501d`, which is the value #49 typed in.
 
     The baseline is only ever a diff base (see `changed_ranges`), never an
     identity, so a commit that merely CONTAINS the row is the right answer.
@@ -152,7 +166,13 @@ def row_baseline(text, pos, repo, cache, ledger=None, root=None, blame=None):
         lines = blame_lines(
             root, os.path.relpath(ledger, root), {} if blame is None else blame
         )
-        return lines.get(text.count("\n", 0, pos) + 1)
+        sha = lines.get(text.count("\n", 0, pos) + 1)
+        # Checked before it is used, at the one place blame's answer leaves
+        # this function. Whatever a future git spells differently — a
+        # decorated boundary, a name from a graft — reaches `changed_ranges`
+        # only if it resolves, and falls back to the header if it does not.
+        if sha and is_commit(sha, root, cache):
+            return sha
     return None
 
 

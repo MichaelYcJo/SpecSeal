@@ -81,10 +81,34 @@ worktree guard to ask about. That question offers to bring the changes along
 to the other branch or to leave them behind, and the answer that is usually
 right, *commit them here first*, is neither button.
 
-Never stamp a `.specseal/map.md` row with a commit this branch made. That is
-the one thing the cadence does not license, and it is not a conflict with it.
-Two things orphan such a commit: the squash discards it at the merge, and a
-rebase during the work does the same earlier and more quietly. The row then
-falls back to the header baseline silently in every clone but the one that
-wrote it, which is what `tests/test_ledger_stamps_resolve.py` fails a stamp
-for. Stamp a commit the release branch already carries, or the date alone.
+A ledger row carries no SHA at all. Its `Checked` column holds the **date**
+somebody read the code, and the commit its drift is measured from comes from
+`git blame` of that row's own line — computed on the tree as it stands, so
+nothing can orphan it. After a squash it names the squash commit, which is the
+value a repair pull request used to write into each cell by hand.
+
+Rows already stamped keep working and are not being rewritten; a SHA in the
+row still wins over blame.
+
+## Repo rule — a change writes fragments, never the shared file
+
+Two files used to take an append from every branch, and both cost a conflict
+at the worst moment — after the broad gate has run, which forces it to run
+again.
+
+| Instead of | Write |
+|---|---|
+| an entry under `CHANGELOG.md`'s `## Unreleased` | `specs/<work-item-id>/changelog.md` |
+| rows appended to `.specseal/map.md` | `.specseal/map/<work-item-id>.md` |
+
+No two work items share an id, so no two branches share a file.
+
+**The changelog fragments are gathered; the ledger fragments never are.**
+Release preparation runs `.github/scripts/gather_changelog.py --version X.Y.Z`,
+which concatenates every ungathered fragment into the released section. A
+ledger fragment stays where it is forever — a row is checked against the code
+it cites rather than concatenated, and the checker already reads the whole
+`.specseal/map/*.md` glob.
+
+A ledger fragment carries **no baseline header**. It does not need one: every
+row in it measures from its own line's history.

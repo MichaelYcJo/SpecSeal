@@ -6,22 +6,33 @@
 > by machines (`evidence-check`); committed so it follows worktrees and other
 > machines.
 >
-> This is SpecSeal's ledger for SpecSeal. It opens with the tree's first
-> commit as its baseline, which is the only commit every row here can measure
-> from.
+> This is SpecSeal's ledger for SpecSeal, and it is now the OLD half of one.
+> **A work item writes `.specseal/map/<work-item-id>.md` instead of appending
+> here** — two branches never queue at one file, because no two work items
+> share an id. The checker reads both addresses, so nothing was moved: the rows
+> below stay where they are and this file stops growing.
 
 ## Baseline
 
 | Item | Value |
 |---|---|
-| Baseline commit | `9829412277fa11f81b61df7850183ae3fa9d8a05` (2026-08-31) — the fallback for rows with no baseline of their own; open with `git show 9829412:<path>` when in doubt |
+| Baseline commit | `9829412277fa11f81b61df7850183ae3fa9d8a05` (2026-08-31) — the fallback for rows `git blame` cannot answer for; open with `git show 9829412:<path>` when in doubt |
 | Coordinate notation | `<path>:<line>` from the repo root |
 | Trust exceptions | none |
 
-Each row's **Checked** column carries the date AND the commit SHA it was read
-at, and drift for that row is measured from there. Rows without one fall back
-to the baseline above. Re-verify row by row; bumping the header instead
-re-dates every claim without re-reading one.
+Each row's **Checked** column carries the **date** somebody read the code. The
+commit its drift is measured from comes from `git blame` of that row's own
+line, so nothing is written down for a rebase or a squash to orphan. Every row
+below also carries the SHA it was stamped with under the older rule, and a SHA
+written into a row still wins — they go on measuring from exactly what they
+always did.
+
+Two things blame cannot answer for, and the header above is what they fall back
+to: a row whose line is not committed yet, and a coordinate that resolves in
+another checkout, where a commit of this repository is not a diff base at all.
+
+Re-verify row by row. Bumping the header instead re-dates every claim without
+re-reading one.
 
 **Quote a markdown row's name without its pipes.** Write `` `Fixes checked by` ``
 and not `` `| Fixes checked by |` ``: a row of this table splits on every `|`

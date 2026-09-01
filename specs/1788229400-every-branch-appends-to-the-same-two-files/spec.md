@@ -28,12 +28,23 @@ The property that closes #52: blame is computed on the tree as it stands, so
 no rewrite can orphan it. After a squash it answers with the squash commit —
 the value pull request #49 wrote into seven cells by hand.
 
+Measured on this tree rather than argued: `9b5501d` — the commit seven rows
+named before #49 repaired them — is not an ancestor of `origin/main`, so a
+fresh clone and CI both see BROKEN. Blame of the same file attributes twenty
+lines to `e7ff924`, #48's squash commit, which is exactly what #49 typed in.
+
 - A row that DOES carry a resolvable SHA keeps using it. Rows written under
   the old rule go on working, and nothing has to be rewritten.
 - Where blame cannot answer, the ledger header's baseline is still the
   fallback. Two cases: a ledger line not committed yet (blame calls that the
   all-zero SHA), and a coordinate that resolves in another checkout, where a
   commit of THIS repository is not a diff base at all.
+- Blame is read in `--porcelain`, and the format is part of the design. The
+  default and `-s` forms decorate a boundary commit as `^9829412`, which
+  `git cat-file` rejects; porcelain spells it plainly. Every answer is checked
+  against `git cat-file` before it is used, so a name that does not resolve
+  falls back rather than reaching `git diff`, where it would report "nothing
+  changed".
 
 ### B. The ledger is fragmented, and the fragments are never gathered
 
@@ -69,7 +80,8 @@ is what a release pull request is checked against.
 |---|---|---|
 | 1 | A ledger row with no SHA in its Checked column is measured from the commit blame names for its line | `tests/test_a_row_measures_from_its_own_history.py` |
 | 2 | A row that carries a resolvable SHA still measures from it | the same file, and `tests/test_ledger_stamps_resolve.py` unchanged |
-| 3 | A ledger line not committed yet falls back to the header baseline and says so | `tests/test_evidence_check_hardening.py::test_missing_baseline_skips_drift_and_says_so` |
+| 3 | A ledger line not committed yet falls back to the header baseline and says so | `tests/test_a_row_measures_from_its_own_history.py`, and `tests/test_evidence_check_hardening.py::test_missing_baseline_skips_drift_and_says_so` unchanged |
+| 3b | A boundary line — the first line of every fragment — gets a name git resolves, not blame's `^`-decorated one | the same file |
 | 4 | A fragment with no header baseline is checked row by row rather than skipped | `tests/test_a_row_measures_from_its_own_history.py` |
 | 5 | The gather script concatenates every ungathered fragment into a dated section, in work-item order | `tests/test_the_changelog_is_gathered_at_release.py` |
 | 6 | Gathering twice writes one copy | the same file |

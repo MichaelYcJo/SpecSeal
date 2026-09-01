@@ -5,7 +5,7 @@ to delete wholesale **after the export rules below have run** — nothing that
 must survive is allowed to live only here.
 
 It is **committed** (gitignored files don't follow worktrees or other
-machines). Everything in it is permanent: `map.md`, `parity.md`, and
+machines). Everything in it is permanent: `map.md`, `map/`, `parity.md`, and
 `follow-up.md`.
 
 **A repository under review must never carry `.specseal/scratch`.** That file
@@ -24,7 +24,7 @@ item's directory exists from its first commit.
 
 | Item still here | Destination |
 |---|---|
-| Verified facts (`evidence-todo.md`) | `map.md` — the spec-clause ↔ coordinate table |
+| Verified facts (`evidence-todo.md`) | `map/<work-item-id>.md` — this work item's spec-clause ↔ coordinate rows |
 | Tests to plant (`tests-todo.md`) | the implementation commit — or `.specseal/follow-up.md` if blocked on prerequisite work |
 | Open decisions | the policy document's open-questions section |
 
@@ -35,7 +35,10 @@ prescribed test unplanted, a verified fact unmerged.
 
 ```
 .specseal/
-├── map.md               spec clause ↔ code coordinates (split into map/ if it grows)
+├── map.md               spec clause ↔ code coordinates, as they stood before
+│                        work items started writing their own fragments
+├── map/
+│   └── <work-item-id>.md  one work item's rows — no header, never gathered
 ├── parity.md            migration config, only where one is declared
 └── follow-up.md         schedulable items in a repository with no tracker
 ```

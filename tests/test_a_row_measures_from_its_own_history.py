@@ -252,6 +252,59 @@ def test_blame_drops_the_all_zero_sha(repo):
     )
 
 
+def test_a_boundary_line_gets_a_baseline_git_can_resolve(repo):
+    """Blame's default and `-s` forms decorate a boundary commit with `^`.
+
+    Measured on this repository: `git blame -s HEAD -- .specseal/map.md`
+    answers `^9829412` for every line reaching the walk's first commit, and
+    `git cat-file -e ^9829412` rejects that name. Porcelain spells the same
+    SHA plainly and puts `boundary` on a metadata line, which is why the
+    format is not interchangeable.
+
+    The first line of a fragment IS a boundary line — it reaches the commit
+    that created the file — so this is the ordinary case, not a corner. What
+    the row must get is a name git resolves.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("specseal_evidence_check", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    fragment(repo, "| POL-1 | `src/service.py:2` |\n")
+    lines = mod.blame_lines(str(repo), ".specseal/map/core.md", {})
+    assert lines, "blame answered for nothing at all"
+    for n, sha in lines.items():
+        assert not sha.startswith("^"), f"line {n} kept a boundary marker: {sha}"
+        assert (
+            git(repo, "cat-file", "-e", f"{sha}^{{commit}}", check=False).returncode
+            == 0
+        ), f"line {n} got a baseline git cannot resolve: {sha}"
+
+
+def test_a_baseline_that_does_not_resolve_is_refused(repo, monkeypatch):
+    """The check sits where blame's answer leaves `row_baseline`, so a name
+    from any format git might grow is refused rather than passed to
+    `git diff` — where an unresolvable base answers "nothing changed", a pass
+    produced by a failure."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("specseal_evidence_check", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    fragment(repo, "| POL-1 | `src/service.py:2` |\n")
+    path = repo / ".specseal" / "map" / "core.md"
+    text = path.read_text()
+    monkeypatch.setattr(mod, "blame_lines", lambda *a, **k: {1: "^9829412", 3: "^dead"})
+    assert (
+        mod.row_baseline(
+            text, text.index("POL-1"), str(repo), {}, ledger=str(path), root=str(repo)
+        )
+        is None
+    ), "a decorated boundary name was handed on as a baseline"
+
+
 # --- the documents ----------------------------------------------------------
 
 

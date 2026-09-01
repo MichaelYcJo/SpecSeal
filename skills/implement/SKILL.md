@@ -38,7 +38,10 @@ workflow. Everything in it is permanent:
 
 ```
 .specseal/
-├── map.md            spec clause ↔ code coordinates (split into map/ if it grows)
+├── map.md            spec clause ↔ code coordinates, as they stood before
+│                     work items wrote fragments
+├── map/
+│   └── <work-item-id>.md   one work item's rows — never gathered, no header
 ├── parity.md         migration config, only when declared
 └── follow-up.md      schedulable items in a repository with no tracker
 ```
@@ -81,8 +84,9 @@ When a root or file this skill needs doesn't exist, create it from
 `templates/` in this plugin and continue. In particular:
 
 - `.specseal/map.md` — stamp the baseline (current HEAD SHA, date) into its
-  header at creation time. The baseline is what makes recorded coordinates
-  verifiable later; an unstamped map cannot be trusted.
+  header at creation time. That header is the fallback for the rows `git blame`
+  cannot answer for; a work item's own rows go in `.specseal/map/<work-item-id>.md`,
+  which carries no header at all.
 - `.specseal/README.md` — carries the export rules so sessions that never load
   this skill still see them.
 - **Not** policy documents. If the repository has none, it has none; judge from
@@ -331,12 +335,20 @@ waits for the reply spends more.
 
 ### 2. Implement, and feed evidence back where you verified it
 
-When you open code or run something to settle a judgment, record the outcome in
-`.specseal/map.md` on the row it belongs to (spec clause ↔ `file:line`), stamping
-its Checked column with the date **and the HEAD SHA you read it at** — that SHA
-is the row's own drift baseline, so re-verification later drains row by row
-instead of ledger-wide. Only rows in this work's scope — full-ledger audits verify what is
-already correct and return nothing.
+When you open code or run something to settle a judgment, record the outcome on
+the row it belongs to (spec clause ↔ `file:line`) and put **the date you read
+it** in the Checked column. Only rows in this work's scope — full-ledger audits
+verify what is already correct and return nothing.
+
+**Rows a work item adds go in its own fragment**, `.specseal/map/<work-item-id>.md`,
+not appended to `.specseal/map.md`. Two branches cannot collide there, because
+no two work items share an id, and the checker reads the whole
+`.specseal/map/*.md` glob. A fragment needs no baseline header of its own.
+
+The commit a row's drift is measured from comes from `git blame` of that row's
+line, so re-verification drains row by row instead of ledger-wide, and nothing
+has to be typed that a rewrite could orphan. A SHA written into the row still
+wins, which is how rows stamped under the older rule go on working.
 
 **Draft as you go, write in one pass.** The recording is cheap and the round
 trip is not: one session made twenty-six separate edits to its ledger and
@@ -389,14 +401,14 @@ the rule above refuses. What must not happen is a run of commits reaching the
 reviewer with the ledger still empty, because by the paragraph above the
 reviewer sees only what was committed.
 
-**Commit freely; stamp nothing with a commit this branch made.** The two rules
-meet at the ledger and do not conflict. A `.specseal/map.md` row whose Checked
-column names a commit only this branch carries falls back to the header
-baseline — silently, in every clone except the one that wrote it. Two things
-orphan such a commit and only one of them is local: a squash discards it at
-the merge, where the repository squashes, and a rebase during the work does
-the same thing earlier and more quietly, anywhere. Stamp a commit the base
-branch already carries, or the date alone.
+**Commit freely; a ledger row names no commit for a merge to orphan.** This
+used to be the one place the cadence had to be steered around. A row's drift
+baseline was a SHA somebody typed, and no commit a feature branch could type
+was both reachable after the squash and current with its coordinates: name the
+base and the row read DRIFTED at birth, name the branch and the squash left it
+pointing at nothing. Blame of the row's own line has no such choice to make —
+it is computed on the tree as it stands, so after a squash it answers with the
+squash commit.
 
 **An edit must be able to fail.** Prefer the `Edit` tool: a pattern that does
 not match is an error you see immediately. When the environment routes edits
@@ -561,7 +573,7 @@ A session fixing review feedback starts at `specs/<work-item-id>/`,
 |---|---|---|
 | `round-N.md` | review orchestrator | next review round |
 | `tests-todo.md` | review orchestrator | **implementer** — plant each test in the file the row names |
-| `evidence-todo.md` | review orchestrator | **implementer** — merge each fact into `.specseal/map.md` |
+| `evidence-todo.md` | review orchestrator | **implementer** — merge each fact into `.specseal/map/<work-item-id>.md` |
 
 Inline comments may not contain these lists at all. Fixing only the comments
 ships the code change and silently drops the tests and the evidence.
@@ -607,7 +619,7 @@ Never invent them; write `none — <reason>` for anything not actually read.
 ```
 📋 implement applied
 · spec:     <policy/SDD files and clauses actually read>
-· evidence: <.specseal/map.md rows added or updated>
+· evidence: <ledger rows added or updated, with the file they went in>
 · verified: <what was executed vs. what was only read>
 ```
 

@@ -108,7 +108,10 @@ Cross-session memory lives in the repo, not the session:
 
 ```
 .specseal/
-├── map.md            spec clause ↔ code coordinates (split into map/ if it grows)
+├── map.md            spec clause ↔ code coordinates, from before work items
+│                     started writing fragments
+├── map/
+│   └── <work-item-id>.md   one work item's rows — no header, never gathered
 ├── parity.md         migration config, only when declared
 └── follow-up.md      schedulable items in a repository with no tracker
 ```
@@ -135,8 +138,7 @@ this implementation's answer to that, not the protocol.
 
 The ledger is *checked*, not merely kept. The `evidence-check` skill ships a
 CI-ready script that exits 2 when a coordinate no longer resolves and 1 when
-its lines were touched since **that row's** baseline — the commit SHA in its
-Checked column, falling back to the ledger header's. Both fail a default CI
+its lines were touched since **that row's** baseline. Both fail a default CI
 step, and `--strict` makes drift exit 2 as well. Per-row is what keeps
 re-verification honest: with one baseline for the file, any wide refactor
 drifts every row at once and the cheapest way out is bumping the header, which
@@ -144,6 +146,14 @@ re-dates every claim without re-reading one of them. What it proves is narrow
 and worth stating: that the citation still points somewhere, not that the
 claim it supports is still true. Specs rot silently everywhere else — here
 the rot shows up in CI.
+
+**A row's baseline is a commit nobody typed.** It comes from `git blame` of
+that row's own line, so it cannot be orphaned by a rebase or a squash — the
+answer is recomputed on whatever tree is in front of it. The Checked column
+holds the date somebody read the code, and that is all it holds. Blame is also
+what lets each work item write its own `map/<work-item-id>.md` instead of
+queueing at one shared file: a fragment needs no baseline header, because every
+row in it measures from its own line.
 
 ## The gates
 
