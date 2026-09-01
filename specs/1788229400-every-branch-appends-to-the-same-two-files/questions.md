@@ -71,3 +71,10 @@ reconstruct the hash.
 
 Swift's `case` therefore needs no ruling. It stays in the list, where being
 wrong is no longer expensive.
+
+**One clause was implemented differently, and the grounds are in
+`overview.md`.** Where NO place reconstructs the hash the answer here is
+DRIFTED; the code reports BROKEN. `--reverify` refuses a row that resolves to
+more than one place, so a DRIFTED it cannot heal is exit 1 for ever with no
+remedy anybody can run, while BROKEN says *go look*, which is the act that
+case needs. Overturn it by saying so — nothing else rests on it.
