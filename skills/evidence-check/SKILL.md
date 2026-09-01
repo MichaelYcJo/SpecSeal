@@ -105,8 +105,14 @@ one-declaration-one-call file BROKEN-ambiguous. A line with nothing at all
 before the name whose statement ends — `render(1);` — is a call on structure
 rather than on vocabulary, and is refused whatever the keyword list says.
 
+Swift, Kotlin, Go, Ruby and Lua end no statement with a semicolon, so that
+guard never reached them. **A line with nothing before the name, an opening
+paren, and a span of ONE line is treated as uncertain in every language**, and
+the span is what bounds it: `render() {` opens a block and stays a declaration
+the rule is sure of, while `render(y)` alone does not.
+
 **The rule reports how sure it is rather than being asked to be right.** Where
-the keyword list would leave no candidate at all, the blocked ones come back —
+the certain candidates would leave the set empty, the uncertain ones come back —
 a C# `public new void Render(int x)` and a Swift `case loading(String)` are
 declarations whose modifiers are statement keywords elsewhere — and the
 answer is marked as having survived only that way. What the marking buys is
@@ -115,7 +121,14 @@ place only where its content reconstructs the row's recorded hash, and
 otherwise treats the unit as GONE: `BROKEN` with the repo-wide scan naming the
 destination, which is the answer `ast` already gives `.py`. `--reverify`
 refuses to write onto such a place at all, because it is the command that
-MAKES the hash and has none to compare against.
+MAKES the hash and has none to compare against. `--migrate` answers the same
+way, with one exception it can prove: where the old stamp's commit holds the
+cited lines unchanged, the person's own line numbers vouch for that place and
+the row migrates.
+
+**A row citing such a unit is still written by hand.** The check names the
+place and the hash it holds — `1-2@a1b2c3d4` — so recording it is a copy
+rather than a computation somebody has to do themselves.
 
 Where it cannot resolve a unit, that is `BROKEN` and a person looks. Loud and
 honest beats a per-language parser nobody maintains.
@@ -232,12 +245,15 @@ pieces of code it is actually about.
   a renamed directory: no `(moved?)` hint and no `--reverify` heal, so it is
   fixed by `--map` or by hand.
 - `DRIFTED` means "someone must re-read this", not "the claim is wrong".
-- A declaration the keyword list blocked and the rule put back — C#'s `new`,
-  Swift's `case` — is never re-anchored by `--reverify`. Where its content
-  changed in place and no destination is provable, the command prints
-  `only a place the declaration rule resurrected` and leaves the row for a
-  hand edit. Accepting it instead is how a call site left behind by a move
-  becomes the row's permanent anchor.
+- A place the rule is unsure of — a C# `new`, a Swift `case`, a one-line
+  bare-name declaration — is never re-anchored by `--reverify`, and is
+  migrated only where the old stamp vouches for the cited lines. Where its
+  content changed in place and no destination is provable, both commands leave
+  the row and print the hash to record by hand. Accepting it instead is how a
+  call site left behind by a move becomes the row's permanent anchor.
+- Every row the check calls `BROKEN` or `DRIFTED` gets a line back from
+  `--reverify`, whether or not it could heal it. Silence there reads as a heal
+  that happened.
 - A nested `def` is anchored by its qualified name — `outer.inner` — and the
   short name alone resolves to nothing. Such a row reads `BROKEN` with the
   qualified unit named on the same line, and `--reverify` re-anchors it.

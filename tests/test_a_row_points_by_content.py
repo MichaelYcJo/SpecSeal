@@ -1739,11 +1739,19 @@ def test_a_moved_unit_in_a_semicolonless_file_is_broken_with_its_destination(rep
 
 
 def test_a_multi_line_declaration_with_a_bare_name_is_still_sure(repo):
-    """The widening is bounded by the span. `function f(x) {` opens a block, so
-    it is a declaration the rule is sure of, and only a ONE-LINE bare call
-    becomes unsure."""
-    text = "function render(x) {\n  return x;\n}\n"
-    assert ec.generic_units(text.splitlines(), "render") == ([(1, 2)], False)
+    """The widening is bounded by the SPAN, and the bound is what carries it.
+
+    A shell function is the case that needs it: `render() {` has nothing
+    before the name and an opening paren, exactly like a call, and only the
+    block it opens tells them apart. Without the one-line bound every one of
+    those would be a place the rule is unsure of.
+    """
+    shell = "render() {\n  echo x\n}\n"
+    assert ec.generic_units(shell.splitlines(), "render") == ([(1, 2)], False)
+    keyworded = "function render(x) {\n  return x;\n}\n"
+    assert ec.generic_units(keyworded.splitlines(), "render") == ([(1, 2)], False)
+    # And the one-liner it is meant to catch, in the same file shape.
+    assert ec.generic_units(["render(y)"], "render") == ([(1, 1)], True)
 
 
 def test_a_blocked_declaration_can_be_recorded_by_hand(repo):
@@ -1830,8 +1838,11 @@ def test_reverify_never_contradicts_the_checks_verdict(repo):
     # (b) a row with no place at all is not reported as a resurrection.
     ledger.write_text("# frag\n\n| CLAUSE | `src/service.py#gone@00000000` |\n")
     rr = run(["--reverify", "."], str(repo))
-    assert "resurrect" not in rr.stdout, rr.stdout
     assert "src/service.py#gone" in rr.stdout, rr.stdout
+    # The check calls this BROKEN with no place at all, so that is what this
+    # command must say about it — not that a place was found and doubted.
+    assert "no place — the check calls this row BROKEN" in rr.stdout, rr.stdout
+    assert "unsure" not in rr.stdout, rr.stdout
 
     # (c) the claim is part of the coordinate a left-behind line names.
     body = (repo / "src" / "service.py").read_text()
@@ -1872,3 +1883,29 @@ def test_every_row_the_check_flags_gets_a_line_from_reverify(repo):
     healed = run(["--reverify", "."], str(repo)).stdout
     for coord in flagged:
         assert coord in healed, f"{coord} got no line:\n{healed}"
+
+
+def test_migrate_still_anchors_an_unsure_place_the_stamp_vouches_for(tmp_path):
+    """The exception that keeps a `.cs` ledger migratable at all.
+
+    `proved` says the cited lines have not moved since the person wrote the
+    row, which is evidence about THAT place — the thing `--reverify` never has
+    and the reason the two commands can differ here without disagreeing.
+    """
+    top = tmp_path / "repo"
+    (top / "src").mkdir(parents=True)
+    (top / ".specseal" / "map").mkdir(parents=True)
+    (top / "src" / "a.cs").write_text(BLOCKED_CS)
+    git(top, "init", "-q")
+    git(top, "config", "user.email", "t@example.com")
+    git(top, "config", "user.name", "t")
+    git(top, "add", "-A")
+    git(top, "commit", "-qm", "base")
+    sha = git(top, "rev-parse", "HEAD").stdout.strip()
+
+    ledger = top / ".specseal" / "map" / "f.md"
+    ledger.write_text(f"# frag\n\n| CLAUSE | `src/a.cs:1-2` | 2026-08-31 `{sha}` |\n")
+    m = run(["--migrate", "."], str(top))
+    assert "1 row migrated · 0 left" in m.stdout, m.stdout
+    assert "#Render@" in ledger.read_text(), ledger.read_text()
+    assert run(["."], str(top)).returncode == 0, "the migrated row is not OK"

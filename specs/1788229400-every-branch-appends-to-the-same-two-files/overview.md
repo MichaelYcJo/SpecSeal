@@ -414,7 +414,10 @@ not care — so `resolve` keeps returning a plain list and a sibling
 `resolve_unit` carries the pair. What makes the split safe rather than a place
 for the fact to go quiet is a case, not a convention:
 `test_the_two_commands_that_must_know_ask_for_the_flag` walks the module's AST
-and fails if `check_ledger` or `reverify` reaches for the shorter name.
+and fails if `check_ledger` or `reverify` reaches for the shorter name. (Round
+7: `file_units` stopped being one of those callers when it began asking
+`generic_units` directly, so `resolve` now has no consumer inside the module
+at all — the wrapper survives for the cases and for anything importing it.)
 
 **What was NOT changed, deliberately.** The scan that proposes a destination —
 `file_units` feeding `content_matches` — still offers resurrected candidates.
@@ -446,6 +449,59 @@ refused, which is the price all three branches pay; and where the filesystem
 cannot resolve links, `os.path.realpath` degrades to a lexical normalisation
 that still catches `..` and stops catching symlinks. Neither direction fails
 toward reading the file.
+
+## What review round 7 changed
+
+The last fix pass; no round reviews it. Two of the three findings are this
+branch's own regressions, and the third is the same defect in both trees.
+
+**A declaration the rule is unsure of had become unrecordable.** Round 6 was
+right to make `--reverify` refuse it and wrong about what that left behind:
+the check answered `locator not found` while the unit sat at lines 1-2, and
+Known limits prescribed a hand edit that nothing made performable, because no
+command printed the unit's hash. The refusal stands and the sentence is now
+true — the check names the place and the hash, and recording it makes the row
+read `1 ok`. That is direction ⓐ as the owner chose it.
+
+**The call marking widened from the semicolon to the span.** Swift, Kotlin,
+Go, Ruby and Lua end no statement with a semicolon, so round 6's structural
+guard never reached them and a `render(y)` left behind by a move read as the
+unit — 🔴 J for every language the semicolon missed. Nothing before the name,
+an opening paren and a span of ONE line is a call everywhere. It is not a
+fourth vocabulary patch: the marking is what widened, and the machinery that
+acts on the marking is unchanged.
+
+**Where the implementation is narrower than the brief, and the grounds.** The
+brief said `--migrate` must answer an unsure place the way `--reverify` does,
+full stop. It does, EXCEPT where `proved` is true — where git can produce the
+file at the row's old stamp and the cited lines are unchanged since. The
+grounds are that the two commands are not answering the same question with the
+same evidence. `--reverify` is asked *may I overwrite this row's recorded
+content-claim*, and it has nothing but the place itself. `--migrate` is asked
+*which unit contains the lines this row already cites*, and where the stamp
+vouches for those lines, the person's own line numbers are evidence about that
+place. Without the exception, a `.cs` or `.kt` project could not migrate a
+pre-anchor ledger at all — every blocked-declaration row would be left, and
+the row `--migrate` would have written is exactly the row the check accepts.
+Both directions are pinned. **To take the brief literally instead, delete
+`and not proved` from the condition in `migrate`**; one case then goes red and
+names itself.
+
+**Three sentences that were not true.** A file with no candidate at all
+reported a resurrection, because the flag was `True` whenever the certain set
+was empty rather than whenever the uncertain set was not. `--reverify` called
+a row ambiguous that the check resolves to `1 ok`, printed a phantom re-anchor
+for a row where nothing had changed, and dropped the claim from the coordinate
+it named, so two claim rows on one unit read alike. The command now decides
+with the same evidence the check uses — the row's own recorded hash, taken
+from the minor region for a claim row — so the two can no longer describe one
+row differently.
+
+**Three 🟢 entries with them.** `resolve` has no callers left inside the
+module, and both its docstring and this memo said `file_units` still used it.
+`cross_repo_intent` carried two parameters it no longer read, with a docstring
+justifying one of them. The ledger fragment's brace-language row claimed more
+than its one `.js` case proved, and now carries the Kotlin case beside it.
 
 ## Not verified
 

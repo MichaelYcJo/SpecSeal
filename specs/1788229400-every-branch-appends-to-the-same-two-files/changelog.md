@@ -173,7 +173,23 @@
 
   A bare `render(1);` is refused on structure rather than vocabulary — nothing
   before the name, and the statement ends — which is kept alongside all of the
-  above because it needs no evidence at all.
+  above because it needs no evidence at all. Swift, Kotlin, Go, Ruby and Lua
+  end no statement with a semicolon, so the same shape is treated as uncertain
+  wherever it spans a single line, and the span is what keeps a real
+  declaration out of it: `render() {` opens a block, `render(y)` does not.
+
+  **A row citing a unit the rule is unsure of is written by hand, and the
+  check now says how.** It names the place and the hash it holds, so recording
+  it is a copy rather than a computation. `--migrate` refuses such a place the
+  same way `--reverify` does, with one exception it can prove: where the old
+  stamp's commit holds the cited lines unchanged, the person's own line
+  numbers vouch for that place and the row migrates.
+
+  **Every row the check calls broken or drifted gets a line back from
+  `--reverify`.** Two paths used to answer with nothing at all — a Python unit
+  that is gone with no provable destination, and a row whose narrowed claim
+  went stale, which is the row the check literally ends with *re-verify*.
+  Silence from a heal command reads as a heal that happened.
 
   **`--migrate` reads the file under the root it was given.** Run from a
   subdirectory, the proof that a cited line range had not moved since its
