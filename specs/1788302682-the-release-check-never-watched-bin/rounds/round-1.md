@@ -5,12 +5,12 @@
 | Target SHA | 2df3c18 |
 | PR | none yet |
 | Broad gate | not yet — the one full run follows the chain |
-| Fixes checked by | nobody — the fix pass for 🟡 2 and 🟡 3 has not run yet; the verifying round sets this |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | round-2 |
+| Contract changes | none — the fix diff (1c8bee4) tightens one assertion's direction at `tests/test_the_release_check_watches_what_ships.py:152` and adds a guard at `:81`; `ships_pattern()` still returns a compiled regex to its four call sites |
+| New units | none — the fixes add locals only. The original diff's top-level names, reviewed as this round's target, are the module constants `ROOT`, `WORKFLOW`, `RELEASE_DOC`, `STEP` (`:31-34`), the helpers `read`, `ships_pattern`, `tracked_top_level_entries`, and the six tests |
 | Needs a fix | no — 🟡 2 and 🟡 3 close by taking the supplied snippets or by answering with grounds; nothing blocks |
 
-- [ ] Pass
+- [x] Pass
 
 ## Verdicts
 
@@ -18,8 +18,8 @@
 |---|---|---|---|---|
 | 🟢 0 | Stage 1: both checkboxes of issue #10 are answered — `bin` is in the pattern, and every candidate outside the five roots is classified with a reason; `spec.md` cites the issue and the policy rather than restating the diff | `.github/workflows/hygiene.yml:40` · `specs/1788302682-the-release-check-never-watched-bin/questions.md:24-32` | pass | `install.sh:6-8` and `:16-18` say it distributes a CLAUDE.md block and is run as `bash install.sh` from a clone; `hooks/version-check.py:71` opens `plugin.json` and no other repository file; the `docs/` citations in shipped files are bare paths that resolve in the user's repository, so the loader never reads the plugin's copy. Orchestrator re-read `hygiene.yml:35-40` and the doc paragraph and agrees |
 | 🟢 1 | `bin/` ships — reproduced rather than taken from the account | `bin/evidence-check:3-5` | pass (executed) | warden's `command -v evidence-check` resolves into the plugin cache's `bin/`; the reference's *File locations* row was read by the smith, not by the reviewer, and the executed evidence stands on its own |
-| 🟡 2 | The document pin checks one direction: it asserts the six roots are *present* in the paragraph, so a seventh root or a sentence excluding one would pass while the pattern pin at `:119-126` holds set equality | `tests/test_the_release_check_watches_what_ships.py:147` | open | spec §Scope 2 says the document names *the same* roots. Orchestrator ran the reviewer's extraction on the current paragraph and it yields exactly the six; a set-equality assertion is the supplied fix |
-| 🟡 3 | When the step is renamed, `ships_pattern` fails with a bare `IndexError` rather than a message — a loud failure, but one that says nothing | `tests/test_the_release_check_watches_what_ships.py:80` | open | `:82` already shows the shape: an `assert STEP in text` with a message, one line earlier |
+| 🟡 2 | The document pin checks one direction: it asserts the six roots are *present* in the paragraph, so a seventh root or a sentence excluding one would pass while the pattern pin at `:119-126` holds set equality | `tests/test_the_release_check_watches_what_ships.py:147` | fixed — round-2 read it at `:151-152`, and a seventh token in the paragraph went red | spec §Scope 2 says the document names *the same* roots. Orchestrator ran the reviewer's extraction on the current paragraph and it yields exactly the six; a set-equality assertion is the supplied fix |
+| 🟡 3 | When the step is renamed, `ships_pattern` fails with a bare `IndexError` rather than a message — a loud failure, but one that says nothing | `tests/test_the_release_check_watches_what_ships.py:80` | fixed — round-2 renamed the step and saw the message at `:81`, no `IndexError` | `:82` already shows the shape: an `assert STEP in text` with a message, one line earlier |
 | 🟢 4 | `tracked_top_level_entries` reads git, not the filesystem, so an untracked local file cannot fail CI and a tracked entry cannot be missed; `ships_pattern` refuses to match nothing | `tests/test_the_release_check_watches_what_ships.py:78-90` | pass | `git ls-files` with `check=True`; `assert found` at `:82`; the step name occurs once in the workflow and the new comment carries neither `- name:` nor `grep -E '` |
 | 🟢 5 | The ledger row anchored on the hygiene step covers the pattern line | `.specseal/map/1788302682-the-release-check-never-watched-bin.md:10` | pass (executed) | warden changed `bin` to `bin2` at `hygiene.yml:40` and the row read DRIFTED at 22-51; restored, 71 ok |
 | 🟢 6 | Windows: `open(..., encoding="utf-8")`, no `grep` spawn, `git ls-files` prints `/` on every platform | `tests/test_the_release_check_watches_what_ships.py:73-75, 86-90` | pass | read |
