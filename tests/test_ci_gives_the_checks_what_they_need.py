@@ -94,9 +94,10 @@ def test_every_job_that_runs_pytest_has_the_whole_history():
                 offenders.append(f"{name}:{job}")
     assert not offenders, (
         f"jobs that run pytest on a shallow checkout: {offenders}. "
-        "`tests/test_a_rider_reaches_its_file.py` and "
-        "`tests/test_ledger_stamps_resolve.py` both ask git for ancestry, and "
-        "at depth 1 every recorded SHA is missing rather than wrong"
+        "`tests/test_a_rider_reaches_its_file.py` asks git for ancestry, and "
+        "at depth 1 every recorded SHA is missing rather than wrong. The "
+        "ledger's own stamp test is gone with the stamps — a ledger row names "
+        "no commit any more — so the rider stamps are what keeps this needed"
     )
 
 
