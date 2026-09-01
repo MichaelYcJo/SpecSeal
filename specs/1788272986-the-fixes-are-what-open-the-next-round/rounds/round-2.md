@@ -9,8 +9,8 @@ so it consumes the cap as a finding round. -->
 | PR | none yet |
 | Broad gate | not yet — the one full-suite run follows the last round |
 | Fixes checked by | nobody — round 2's fix is not yet written; the next verifying round sets this |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none — the fix rewrites one hash cell in the work item's ledger fragment; no unit's contract moves |
+| New units | none |
 | Needs a fix | yes — 🔴 1 (the re-anchored `## Comparison axes` ledger row is drifted at HEAD and CI's evidence check exits 1 on it; one `--reverify` run closes it). Every round-1 verdict is otherwise closed, and both fix-surface rows are truthful |
 
 - [ ] Pass
