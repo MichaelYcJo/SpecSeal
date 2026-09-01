@@ -173,6 +173,27 @@ under coordinate-trust exceptions. A verdict on current code carries nothing —
 no check exists that would tell you it went stale, which is exactly why the
 round has to reach it again.
 
+## Orchestrator: a fix pass resumes the implementer
+
+A round's findings are closed by fixes written after it ends, and the session
+that writes them is obtained by **resuming the session that built the branch**
+— never by spawning a fresh one while that session still exists. The resumed
+session's context already holds what the fixes need: the files it wrote, the
+tests it ran, the grounds it recorded. A fresh spawn holds none of it and
+re-establishes all of it before the first fix lands — the rediscovery cost the
+handoff before round 1 exists to bound, paid again in full for a pass that
+needed none of it.
+
+Measured three times, with no counterexample: as a fresh spawn, one fix pass
+cost 282 calls and 45 minutes (#33); as a resume, 30 calls and 3.9 minutes
+(#29) and 26 calls and 5.2 minutes (the #57 chain).
+
+When the implementing session no longer exists — a new day, another machine —
+the fresh spawn is the only option left, and what it takes is the handoff
+before round 1 (`docs/review-handoff-protocol.md`): coordinates rather than
+prose, each fact labelled. The rule decides which to reach for while both
+options exist.
+
 ## Orchestrator: the run ends with a verifying round
 
 A round's findings are closed after it ends, by whoever writes the fixes. Every
