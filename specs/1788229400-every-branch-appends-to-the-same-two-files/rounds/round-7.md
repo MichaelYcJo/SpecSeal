@@ -24,7 +24,9 @@ reviewed those fixes — which is why `Fixes checked by` reads what it reads and
 | 🔴 J | **fixed** `6f564d3` — the moved `.js` unit reads `BROKEN … identical content at src/other.js#render (moved?)` at exit 2, and `--reverify` heals to the true destination instead of nailing the row to the call | executed, both trees |
 | 🟡 K | **fixed** `6f564d3` — a source file inside the `--default-repo` checkout symlinked out of the tree is `BROKEN … path escapes the repository` at exit 2, where `f2f2ef0` read `1 ok`. A link-free `--default-repo` row still resolves | executed |
 
-## What this round opened, and how each was closed
+## Verdicts
+
+What this round opened, and how each was closed.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
