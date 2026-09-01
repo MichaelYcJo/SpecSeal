@@ -1,4 +1,4 @@
-"""A ledger row's drift baseline comes from `git blame`, not from a stamp.
+"""A ledger row's drift baseline is derived from history, not typed into it.
 
 Issue #52. A stamp is a SHA typed into the row by hand, and there is no commit
 a feature branch can type that is both reachable after the squash and current
@@ -6,18 +6,26 @@ with its coordinates. Stamp the base and the row reads DRIFTED at birth; stamp
 the branch and the squash orphans it. #48 merged, `9b5501d` stopped existing,
 seven rows pointed at it, and #49 repaired them one cell at a time.
 
-Blame has no such choice to make. The answer is computed on the tree as it
-stands, so after a squash it names the squash commit — which is exactly the
-value that repair wrote in by hand. `test_a_squash_does_not_orphan_the_baseline`
+Deriving it has no such choice to make. The answer is computed on the history
+in front of it, so after a squash it is the squash commit — exactly the value
+that repair wrote in by hand. `test_a_squash_does_not_orphan_the_baseline`
 builds that merge and measures it.
 
-Two things this file also pins, because both are how the fallback goes quiet:
+**First appearance, not last touch**, and that is the half a reader is most
+likely to get wrong: last touch is what one `git blame` answers for free, and
+it resets a row on any edit to its line. `test_a_bulk_rewrite_does_not_reset_a_row`
+builds the commit that made the difference measurable.
+
+Three more things this file pins, because each is how a derived baseline goes
+quiet:
 
   the stamp still wins  a row written under the old rule keeps measuring from
                         the SHA it wrote, or every stamped row in this
                         repository silently changes meaning
+  prose is not a stamp  a row about a commit names it, and that word used to
+                        become the row's baseline — and the ledger's
   a fragment is checked `.specseal/map/<work-item>.md` carries no baseline
-                        header. Before blame that meant "drift check skipped",
+                        header. Before this that meant "drift check skipped",
                         which is a pass nobody asked for
 """
 
@@ -245,11 +253,151 @@ def test_blame_drops_the_all_zero_sha(repo):
         f.write("| POL-2 | `src/service.py:3` |\n")
     lines = mod.blame_lines(str(repo), ".specseal/map/core.md", {})
     assert lines, "blame answered for nothing at all"
-    assert "0" * 40 not in lines.values()
+    assert all(sha != "0" * 40 for sha, _ in lines.values()), lines
     assert max(lines) < 5, (
-        f"the uncommitted line got a baseline: {lines}. Blame reports it as "
+        f"the uncommitted line got an anchor: {lines}. Blame reports it as "
         "the all-zero SHA, which resolves to no commit"
     )
+
+
+def test_a_bulk_rewrite_does_not_reset_a_row(repo):
+    """The case that decided last touch against first appearance.
+
+    A ledger's rows get rewritten en masse for reasons that re-read nothing —
+    a release commit fixing stamps, a reformat, a merge-conflict resolution.
+    Under last touch every row it touched takes that commit as its baseline
+    and the drift window collapses to nothing. Measured on this repository's
+    own ledger: one release commit held the baseline for 16 rows of 36 that
+    way, and for none of them by first appearance.
+
+    Here the rewrite is a re-worded Notes cell, which is the cheapest possible
+    version of it — nobody opened the code — and the row still has to report
+    the drift it had before.
+    """
+    fragment(repo, "| POL-1 | `src/service.py:2` | | | first wording |\n")
+    (repo / "src" / "service.py").write_text("CHANGED\n" * 8)
+    git(repo, "commit", "-qam", "rewrite the file")
+
+    r = run(["."], str(repo))
+    assert "DRIFTED" in r.stdout, f"the fixture never drifted:\n{r.stdout}"
+
+    path = repo / ".specseal" / "map" / "core.md"
+    path.write_text(path.read_text().replace("first wording", "second wording"))
+    git(repo, "commit", "-qam", "re-word the notes cell, reading nothing")
+
+    r = run(["."], str(repo))
+    assert "DRIFTED" in r.stdout, (
+        "re-wording the row cleared its drift — the baseline followed the "
+        f"edit instead of the row's first appearance:\n{r.stdout}"
+    )
+
+
+def test_a_moved_row_would_lose_its_history(repo):
+    """Why a migration carries every stamp forward verbatim.
+
+    A migration is a PARTIAL move: `.specseal/map.md` stays and some of its
+    rows go to a fragment. `git log -L` does not follow a row out of a file
+    that stays, so in the fragment the row's history begins at the move — and
+    a migration that stripped stamps would reset every window it touched in
+    one commit that re-read nothing.
+
+    The distinction is worth the fixture. A WHOLE-file move is a rename, which
+    git detects and follows; the first version of this case did that by
+    accident and the row's history came through intact. That is not the shape
+    a migration has, and reading the rename result as the general one is how
+    the stamp rule would get dropped as unnecessary.
+
+    This is the grounds for the rule rather than a behaviour of the checker,
+    which is why it asks git rather than `row_baseline`.
+    """
+    fragment(
+        repo,
+        "| POL-1 | `src/service.py:2` |\n| POL-2 | `src/service.py:3` |\n",
+        name="old.md",
+    )
+    born = head(repo)
+
+    old_map = repo / ".specseal" / "map" / "old.md"
+    old_map.write_text(old_map.read_text().replace("| POL-1 | `src/service.py:2` |\n", ""))
+    fragment(repo, "| POL-1 | `src/service.py:2` |\n", name="new.md")
+    moved = head(repo)
+
+    r = git(repo, "log", "-L", "3,3:.specseal/map/new.md", "--format=%H", "-s", "HEAD")
+    shas = [line.strip() for line in r.stdout.splitlines() if len(line.strip()) == 40]
+    assert shas and shas[-1] == moved, (
+        f"git followed the row out of a file that stayed: {shas}, born {born}. "
+        "If that is now true, the carry-the-stamp rule can be revisited"
+    )
+    assert born not in shas, born
+
+
+def test_a_commit_named_in_a_rows_prose_is_not_its_baseline(repo):
+    """Found by running the checker against this work item's own fragment.
+
+    A row that carries no stamp used to hand its baseline to the first
+    SHA-shaped word in the line that git could resolve. Rows write no stamp
+    now, so every hex word in a row is prose — and a row explaining why the
+    stamp went names commits, which is how that fragment came to measure from
+    a commit resolvable in the clone that wrote it and nowhere else.
+
+    A baseline is a date and a SHA together. Prose is not.
+    """
+    older = head(repo)
+    (repo / "src" / "service.py").write_text("CHANGED\n" * 8)
+    git(repo, "commit", "-qam", "rewrite the file")
+    fragment(
+        repo,
+        f"| POL-1 | `src/service.py:2` | | | the commit {older} is discussed here |\n",
+    )
+
+    r = run(["."], str(repo))
+    assert "DRIFTED" not in r.stdout, (
+        f"the row measured from a commit its prose merely named:\n{r.stdout}"
+    )
+    assert "1 ok" in r.stdout, r.stdout
+
+
+def test_a_commit_named_in_a_row_is_not_the_ledgers_baseline_either(repo):
+    """The same word, read by the header scan instead.
+
+    `find_baseline` reads the first 2000 characters, which reaches into the
+    rows of any ledger shorter than that — so the prose above also became the
+    whole file's declared baseline, and got printed as one. The header now
+    ends above the first row that cites code, and a Baseline declaration cites
+    none.
+    """
+    older = head(repo)
+    (repo / "src" / "service.py").write_text("CHANGED\n" * 8)
+    git(repo, "commit", "-qam", "rewrite the file")
+    fragment(
+        repo,
+        f"| POL-1 | `src/service.py:2` | | | the commit {older} is discussed here |\n",
+    )
+
+    r = run(["."], str(repo))
+    assert older[:9] not in r.stdout, (
+        f"a commit named in a row became the ledger's baseline:\n{r.stdout}"
+    )
+
+
+def test_a_baseline_declared_in_the_header_is_still_read(repo):
+    """The narrowing above must not cost the declaration it was narrowed
+    around. `.specseal/map.md` declares its baseline in a table ROW, so a cut
+    at the first table row would have thrown it away."""
+    base = head(repo)
+    (repo / ".specseal").mkdir(exist_ok=True)
+    (repo / ".specseal" / "map.md").write_text(
+        f"# map\n\n## Baseline\n\n| Item | Value |\n|---|---|\n"
+        f"| Baseline commit | `{base}` |\n| Coordinate notation | `<path>:<line>` |\n\n"
+        "| POL-1 | `src/service.py:2` |\n"
+    )
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "map")
+    (repo / "src" / "service.py").write_text("CHANGED\n" * 8)
+    git(repo, "commit", "-qam", "rewrite the file")
+
+    r = run(["."], str(repo))
+    assert f"baseline: {base[:9]}" in r.stdout, r.stdout
 
 
 def test_a_boundary_line_gets_a_baseline_git_can_resolve(repo):
@@ -274,12 +422,12 @@ def test_a_boundary_line_gets_a_baseline_git_can_resolve(repo):
     fragment(repo, "| POL-1 | `src/service.py:2` |\n")
     lines = mod.blame_lines(str(repo), ".specseal/map/core.md", {})
     assert lines, "blame answered for nothing at all"
-    for n, sha in lines.items():
+    for n, (sha, _) in lines.items():
         assert not sha.startswith("^"), f"line {n} kept a boundary marker: {sha}"
         assert (
             git(repo, "cat-file", "-e", f"{sha}^{{commit}}", check=False).returncode
             == 0
-        ), f"line {n} got a baseline git cannot resolve: {sha}"
+        ), f"line {n} got an anchor git cannot resolve: {sha}"
 
 
 def test_a_baseline_that_does_not_resolve_is_refused(repo, monkeypatch):
@@ -296,7 +444,8 @@ def test_a_baseline_that_does_not_resolve_is_refused(repo, monkeypatch):
     fragment(repo, "| POL-1 | `src/service.py:2` |\n")
     path = repo / ".specseal" / "map" / "core.md"
     text = path.read_text()
-    monkeypatch.setattr(mod, "blame_lines", lambda *a, **k: {1: "^9829412", 3: "^dead"})
+    monkeypatch.setattr(mod, "blame_lines", lambda *a, **k: {1: ("x", 1), 3: ("y", 3)})
+    monkeypatch.setattr(mod, "first_appearance", lambda *a, **k: "^9829412")
     assert (
         mod.row_baseline(
             text, text.index("POL-1"), str(repo), {}, ledger=str(path), root=str(repo)
@@ -334,27 +483,45 @@ def test_no_document_still_tells_a_session_to_stamp_a_sha():
 
 
 def test_the_documents_say_where_the_baseline_comes_from_now():
-    """Naming `git blame` is what makes the rule checkable by a reader. Two
-    documents state it: the one always loaded, and the one a session bootstraps
-    a ledger from."""
+    """A reader has to be able to check the rule, which means naming the
+    reading. `first appeared` and `last touch` are two different rules with
+    the same one-line summary, and the one-line summary is what a document
+    that skips this ends up carrying."""
     for parts in (
         ("CLAUDE.md",),
         ("templates", "map.md"),
-        ("skills", "implement", "SKILL.md"),
+        ("skills", "evidence-check", "SKILL.md"),
     ):
-        assert "git blame" in flat(*parts), "/".join(parts) + " does not say"
+        text = flat(*parts)
+        assert "first appear" in text, (
+            "/".join(parts) + " does not say WHICH commit of the row's history"
+        )
+        assert "last touch" in text, (
+            "/".join(parts) + " does not say what was rejected, so the next "
+            "reader takes the cheaper reading for the same rule"
+        )
 
 
-def test_the_known_limit_is_written_down_where_the_rule_is():
-    """Blame answers for the row's LINE, so re-wording a Notes cell moves the
-    baseline with nobody re-reading the code. A rule that hides its own cost
-    gets reverted by whoever finds it."""
+def test_the_reason_first_appearance_beats_last_touch_is_measured():
+    """A rule with no number behind it gets reverted by whoever finds the
+    cheaper implementation. The measurement is one release commit holding 16
+    of 36 baselines one way and none the other."""
     for parts in (("templates", "map.md"), ("skills", "evidence-check", "SKILL.md")):
         text = flat(*parts)
-        assert "re-wording" in text or "re-worded" in text, (
-            "/".join(parts) + " does not say what an unrelated edit to the row does"
+        assert "16 rows of 36" in text or "16 of them" in text, (
+            "/".join(parts) + " states the rule with no measurement behind it"
         )
-        assert "date" in text.lower()
+
+
+def test_the_migration_rule_is_written_down_beside_the_ledger():
+    """`git log -L` does not follow a line across a file boundary, so a row
+    moved into a fragment with its stamp stripped would take the move as its
+    baseline. Executed in `test_a_moved_row_would_lose_its_history`."""
+    for parts in (("CLAUDE.md",), ("templates", "map.md"), (".specseal", "map.md")):
+        text = flat(*parts)
+        assert "does not follow a row out of a file that stays" in text, (
+            "/".join(parts) + " does not say why a moved row keeps its stamp"
+        )
 
 
 def test_the_fragment_home_is_named_in_the_documents_that_instruct():

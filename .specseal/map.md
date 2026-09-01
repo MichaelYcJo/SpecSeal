@@ -21,15 +21,27 @@
 | Trust exceptions | none |
 
 Each row's **Checked** column carries the **date** somebody read the code. The
-commit its drift is measured from comes from `git blame` of that row's own
-line, so nothing is written down for a rebase or a squash to orphan. Every row
-below also carries the SHA it was stamped with under the older rule, and a SHA
-written into a row still wins — they go on measuring from exactly what they
-always did.
+commit its drift is measured from is the commit the row first appeared in,
+derived from that row's own line history, so nothing is written down for a
+rebase or a squash to orphan. Every row below also carries the SHA it was
+stamped with under the older rule, and a SHA written into a row still wins —
+they go on measuring from exactly what they always did.
 
-Two things blame cannot answer for, and the header above is what they fall back
-to: a row whose line is not committed yet, and a coordinate that resolves in
-another checkout, where a commit of this repository is not a diff base at all.
+**If these rows are ever moved into fragments, their stamps move with them,
+verbatim.** `git log -L` does not follow a row out of a file that stays, so a
+moved row's derived baseline would be the move itself and 36 drift windows
+would collapse in one commit that re-read nothing. That is also why this file
+is not being migrated: the rows stay, and only new work items write elsewhere.
+
+Two things the derivation cannot answer for, and the header above is what they
+fall back to: a row whose line is not committed yet, and a coordinate that
+resolves in another checkout, where a commit of this repository is not a diff
+base at all.
+
+A row's baseline has to be a date and a SHA together. A bare hex word in a row
+is prose — which matters here, because rows in this file discuss commits by
+name. In a HEADER the same word is read as the file's baseline, so a fragment's
+prose names no commit at all.
 
 Re-verify row by row. Bumping the header instead re-dates every claim without
 re-reading one.

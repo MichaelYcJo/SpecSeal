@@ -82,13 +82,21 @@ to the other branch or to leave them behind, and the answer that is usually
 right, *commit them here first*, is neither button.
 
 A ledger row carries no SHA at all. Its `Checked` column holds the **date**
-somebody read the code, and the commit its drift is measured from comes from
-`git blame` of that row's own line — computed on the tree as it stands, so
-nothing can orphan it. After a squash it names the squash commit, which is the
-value a repair pull request used to write into each cell by hand.
+somebody read the code, and the commit its drift is measured from is the
+commit that row first appeared in, derived from its own line history — so
+nothing is written down for a rebase or a squash to orphan. After a squash it
+is the squash commit, which is the value a repair pull request used to write
+into each cell by hand.
+
+First appearance rather than last touch, because a commit that rewrites rows
+in bulk would otherwise pull every one of them forward to itself. Measured on
+this repository's ledger: one release commit held the baseline for 16 rows of
+36 under last touch and for none under first appearance.
 
 Rows already stamped keep working and are not being rewritten; a SHA in the
-row still wins over blame.
+row still wins. **If rows are ever moved into a fragment, their stamps move
+with them verbatim** — `git log -L` does not follow a row out of a file that
+stays, so a stripped stamp would make the move itself the baseline.
 
 ## Repo rule — a change writes fragments, never the shared file
 

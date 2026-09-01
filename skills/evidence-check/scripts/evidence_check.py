@@ -11,16 +11,19 @@ and the pre-0.10 docs/**/_evidence.md) for `file:line` /
   OK       resolvable and untouched since that baseline
   EXTERNAL path not in this repo and no --map given — cannot judge here
 
-A row's baseline is the commit `git blame` names for the row's own line —
-falling back to a SHA written in the row, for rows stamped under the older
-rule, and to the ledger header's baseline where neither can answer. Without a
-per-row form, one wide refactor drifts every row at once and the cheapest way
-out is bumping the header, which re-dates every claim without re-reading any
-of them.
+A row's baseline is the commit the row FIRST APPEARED in — the tree its
+author read the code against. A stamp written in the row wins where there is
+one, for rows written under the older rule, and the ledger header's baseline
+is the fallback where neither can answer. Without a per-row form, one wide
+refactor drifts every row at once and the cheapest way out is bumping the
+header, which re-dates every claim without re-reading any of them.
 
-Blame is what lets a ledger split into `.specseal/map/<work-item>.md`
+Deriving it is what lets a ledger split into `.specseal/map/<work-item>.md`
 fragments that carry no header of their own, and what survives a squash: the
-answer is computed on the tree as it stands, so no rewrite can orphan it.
+answer is computed on the history in front of it, so no rewrite can orphan it.
+First appearance rather than last touch, because a commit that rewrites rows
+in bulk — a migration, a reformat, a merge resolution — would otherwise pull
+every row it touched forward to itself and report the ledger green.
 
 Exit codes: 0 clean · 1 drift only · 2 broken coordinates (or drift with
 --strict). Designed for CI: a spec-code link that stops resolving should fail
@@ -53,6 +56,11 @@ COORD_RE = re.compile(
 # the authority part of a URL.
 URL_HOST_RE = re.compile(r"(?://|\bhttps?:)[^\s)\]<>\"']*$")
 SHA_RE = re.compile(r"\b[0-9a-f]{7,40}\b")
+# A row's STAMP: the date and the SHA together, backticked or not. Rows write
+# no SHA under the current rule, so a bare hex word in a row is prose — and
+# prose that names a commit is exactly what a row about the ledger contains.
+# `tests/test_ledger_stamps_resolve.py` reads the same shape.
+STAMP_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\s+`?([0-9a-f]{7,40})`?")
 
 
 def git(args, cwd):
@@ -70,22 +78,47 @@ def is_commit(sha, repo, cache):
     return cache[key]
 
 
+def header_of(text):
+    """The ledger's header: everything above its first row that cites code.
+
+    A row carrying a coordinate is a claim, not a declaration, so the header
+    ends where the first one begins. Without that cut the scan below reaches
+    into the rows themselves — and a row ABOUT a commit names it in prose,
+    which then becomes the whole ledger's baseline. Measured on the first
+    fragment written here: a commit resolvable in one clone and nowhere else
+    was picked up out of a row and printed as the ledger's baseline.
+
+    A Baseline declaration cites no code, so nothing that was found before is
+    lost. The 2000-character cap stays as the outer bound.
+    """
+    header = text[:2000]
+    at = 0
+    for line in header.splitlines(keepends=True):
+        if line.lstrip().startswith("|") and COORD_RE.search(line):
+            return header[:at]
+        at += len(line)
+    return header
+
+
 def find_baseline(text, repo, cache=None):
     """First plausible commit SHA in the ledger's header that exists in repo."""
     cache = {} if cache is None else cache
-    header = text[:2000]
-    for m in SHA_RE.finditer(header):
+    for m in SHA_RE.finditer(header_of(text)):
         if is_commit(m.group(0), repo, cache):
             return m.group(0)
     return None
 
 
 def blame_lines(repo, rel, cache):
-    """{line number: the commit that last wrote that line} for one ledger file.
+    """{line in the working tree: (commit that last touched it, its line there)}.
 
     One `git blame` per ledger, cached, rather than one per row: a ledger has
     as many rows as the work has accumulated and blame reads the whole file
-    either way.
+    either way. This is not the baseline — `first_appearance` walks back from
+    here to find that — it is the anchor that makes the walk possible, because
+    the file is read from the WORKING TREE and `git log -L` counts lines in a
+    commit. An uncommitted insertion above a row shifts every number below it,
+    and blame is what maps one numbering to the other.
 
     **`--porcelain`, and the format is load-bearing.** Blame's default and
     `-s` forms mark a boundary commit by prefixing its SHA with `^` —
@@ -93,8 +126,7 @@ def blame_lines(repo, rel, cache):
     walk's first commit — and a reader that takes the first field verbatim
     hands `git cat-file` a name it rejects. Porcelain spells the same SHA
     plainly and puts `boundary` on a metadata line of its own, so there is
-    nothing to strip. A boundary commit is a real commit and a correct diff
-    base; it needs no special case, only a format that does not decorate it.
+    nothing to strip.
 
     Lines nobody has committed yet blame as the all-zero SHA — reachable in
     ordinary use, since a ledger is edited before it is committed. They are
@@ -110,10 +142,77 @@ def blame_lines(repo, rel, cache):
             # A porcelain header is `<40-hex> <orig line> <final line>` at the
             # start of a line; every content line is TAB-prefixed and every
             # other metadata line starts with a word.
-            for m in re.finditer(r"^([0-9a-f]{40}) \d+ (\d+)", out, re.MULTILINE):
+            for m in re.finditer(r"^([0-9a-f]{40}) (\d+) (\d+)", out, re.MULTILINE):
                 if m.group(1) != "0" * 40:
-                    found[int(m.group(2))] = m.group(1)
+                    found[int(m.group(3))] = (m.group(1), int(m.group(2)))
         cache[key] = found
+    return cache[key]
+
+
+def first_appearance(repo, rel, sha, lineno, cache):
+    """The commit a ledger row was WRITTEN in, or None.
+
+    `git log -L <n>,<n>:<file>` walks one line's history and lists every commit
+    that changed it, newest first. The oldest entry is where the row came into
+    existence, which is the tree its author read the code against — the
+    as-of date a claim actually has.
+
+    **Why not the last commit that touched the line**, which one `git blame`
+    would have answered for free. Measured on this repository's own ledger, at
+    36 coordinates: blame's answer is LATER than the stamp the row wrote on 36
+    of them, equal on none, earlier on none. A later baseline is a narrower
+    diff window, so last-touch catches strictly less drift than the stamps it
+    replaces — uniformly, and with nothing re-read to earn it.
+
+    The cause is in the same measurement. Under last touch, `cdb2434` — a
+    release-preparation commit that rewrote stamps in bulk — is the baseline
+    for 16 of the 36 rows, because any commit rewriting rows en masse pulls
+    every one of them forward to itself. Under first appearance `cdb2434` is
+    the baseline for none of them, and the 36 spread over four commits
+    reaching back to the ledger's first.
+
+    Stated precisely, because the loose version is wrong: a bulk rewrite
+    collapsing drift windows is not something a computed baseline introduces.
+    The written stamp does it too — `cdb2434` holds those 16 rows precisely
+    because it rewrote their stamps by hand. What differs is the trigger. The
+    written scheme resets a row only when somebody deliberately edits its
+    stamp; last touch resets it on any edit to the line, a typo included.
+    Deriving the baseline automates an existing failure and widens what fires
+    it, and first appearance is what narrows it back.
+
+    **A row moved between ledger files loses this**, and that is the rule the
+    migration turns on. `git log -L` does not follow a row out of a file that
+    STAYS — executed: a ledger keeps one row and gives another to a new file,
+    and in that file the row's history begins at the move. Renaming a whole
+    ledger is a different case, which git detects and follows; a migration is
+    not that shape. So rows carried into a fragment keep their written stamps
+    verbatim, the stamp wins over anything derived, and the move resets
+    nobody's window. A derived baseline is for rows born where they live.
+
+    What it costs: one git call per row instead of one per file. Measured here
+    at 455 ms for 36 rows against 17 ms for the single blame, about 13 ms a
+    row. Rows carrying a stamp never reach this, so the bill is proportional
+    to rows with no stamp of their own.
+
+    What neither reading fixes: a row written on one branch citing lines that
+    another branch changed, where the second branch merges first. The row's
+    first appearance is its own squash commit, which already contains the
+    other change, so it reads clean while its coordinate was stale on arrival.
+    Catching that needs the coordinate checked against the code it cites,
+    which is issue #31 — recorded in this work item's `questions.md`.
+    """
+    key = (repo, rel, sha, lineno)
+    if key not in cache:
+        code, out = git(
+            ["log", "-L", f"{lineno},{lineno}:{rel}", "--format=%H", "-s", sha], repo
+        )
+        oldest = None
+        if code == 0:
+            for line in out.splitlines():
+                word = line.strip()
+                if SHA_RE.fullmatch(word) and len(word) == 40:
+                    oldest = word
+        cache[key] = oldest
     return cache[key]
 
 
@@ -127,52 +226,65 @@ def row_baseline(text, pos, repo, cache, ledger=None, root=None, blame=None):
 
     Two things can answer, in this order.
 
-    **A SHA written in the row**, which is how rows were stamped before this.
-    Coordinates are stripped before the scan: a directory named like a short
-    SHA sits in the same row and must not be read as one.
+    **A stamp written in the row** — a date and a SHA together, `2026-08-24
+    a1b2c3d`, which is how rows were stamped before this. A bare SHA-shaped
+    word is NOT one, and requiring the date is what makes the difference
+    between a stamp and prose readable. Measured on the first fragment written
+    under the new rule: its rows discuss two commits by name, one of them
+    resolvable in the clone that wrote it and nowhere else, and the earlier
+    word won — so the row measured from a commit no other checkout has, and
+    said so in a report nobody would question. Coordinates are stripped before
+    the scan for the same reason: a directory named like a short SHA sits in
+    the same row and must not be read as one.
 
-    **`git blame` of the row's own line**, for a row that carries none. A
-    stamp typed by hand names a commit the branch made, and a squash discards
-    it: seven rows of this repository's own ledger named `9b5501d`, which
-    `git merge-base --is-ancestor 9b5501d origin/main` answers no to — it
-    survives on one unmerged local branch and nowhere a fresh clone can see.
-    Pull request #49 repaired those cells by hand. Blame is computed on the
-    tree as it stands, so nothing can orphan it: against the same file it
-    attributes twenty lines to `e7ff924`, the squash commit that discarded
-    `9b5501d`, which is the value #49 typed in.
+    **The commit the row first appeared in**, for a row that carries none.
+    A stamp typed by hand names a commit the branch made, and a squash
+    discards it: seven rows of this repository's own ledger named `9b5501d`,
+    which `git merge-base --is-ancestor 9b5501d origin/main` answers no to —
+    it survives on one unmerged local branch and nowhere a fresh clone can
+    see. Pull request #49 repaired those cells by hand. A row's first
+    appearance is computed on the history in front of it, so nothing can
+    orphan it: after the squash it is the squash commit, which is the value
+    #49 typed in.
+
+    `first_appearance` holds why this is the row's FIRST commit and not its
+    last, which is the reading one `git blame` would have given for free.
 
     The baseline is only ever a diff base (see `changed_ranges`), never an
     identity, so a commit that merely CONTAINS the row is the right answer.
 
-    What blame gives up: an edit that only re-words the row — a typo in a
-    Notes cell — moves the baseline forward without anybody re-reading the
-    code. The Checked column keeps the DATE for that reason, so a row read in
-    August and re-worded in September still says August.
+    Re-wording a row does not move its baseline: `git log -L` walks past the
+    edit to where the line came into existence. The Checked column keeps the
+    DATE all the same, because it is the one thing here a person asserts —
+    everything else is derived from history, and a derived date says when the
+    row was written rather than when somebody read the code.
 
-    Blame is skipped where it cannot answer, and the ledger header's baseline
-    is still the fallback there. `ledger`/`root` unset is one such caller —
-    `tests/test_ledger_stamps_resolve.py` asks only what the row wrote. The
-    other is a coordinate resolving in another checkout: this repository's
-    commits are not a diff base in that one.
+    The walk is skipped where it cannot answer, and the ledger header's
+    baseline is still the fallback there. `ledger`/`root` unset is one such
+    caller — `tests/test_ledger_stamps_resolve.py` asks only what the row
+    wrote. The other is a coordinate resolving in another checkout: this
+    repository's commits are not a diff base in that one.
     """
     start = text.rfind("\n", 0, pos) + 1
     end = text.find("\n", pos)
     line = text[start:] if end == -1 else text[start:end]
     line = COORD_RE.sub(" ", line)
-    for m in SHA_RE.finditer(line):
-        if is_commit(m.group(0), repo, cache):
-            return m.group(0)
+    for m in STAMP_RE.finditer(line):
+        if is_commit(m.group(1), repo, cache):
+            return m.group(1)
     if ledger is not None and root is not None and repo == root:
-        lines = blame_lines(
-            root, os.path.relpath(ledger, root), {} if blame is None else blame
-        )
-        sha = lines.get(text.count("\n", 0, pos) + 1)
-        # Checked before it is used, at the one place blame's answer leaves
-        # this function. Whatever a future git spells differently — a
-        # decorated boundary, a name from a graft — reaches `changed_ranges`
-        # only if it resolves, and falls back to the header if it does not.
-        if sha and is_commit(sha, root, cache):
-            return sha
+        blame = {} if blame is None else blame
+        rel = os.path.relpath(ledger, root)
+        anchor = blame_lines(root, rel, blame).get(text.count("\n", 0, pos) + 1)
+        if anchor:
+            sha = first_appearance(root, rel, anchor[0], anchor[1], blame)
+            # Checked before it is used, at the one place a derived answer
+            # leaves this function. Whatever a future git spells differently —
+            # a decorated boundary, a name from a graft — reaches
+            # `changed_ranges` only if it resolves, and falls back to the
+            # header if it does not.
+            if sha and is_commit(sha, root, cache):
+                return sha
     return None
 
 
@@ -347,8 +459,8 @@ def main():
         # A fragment carries no header baseline on purpose — every row in it
         # measures from its own line's history. Saying "skipped" there would
         # report the working case as the broken one, and the two have to be
-        # told apart: nothing measures from anything only when blame is
-        # silent too, which is a ledger git has never seen.
+        # told apart: nothing measures from anything only when the history
+        # walk is silent too, which is a ledger git has never seen.
         if baseline:
             base_note = baseline[:9]
         elif blame_lines(root, rel_ledger, blame):

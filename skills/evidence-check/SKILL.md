@@ -44,8 +44,11 @@ Drift is `git diff baseline..HEAD` per cited file, overlapped against the
 cited range. **Each row carries its own baseline**, and three things can supply
 it, in this order:
 
-1. a commit SHA written in the row, for rows stamped under the older rule;
-2. `git blame` of that row's own line — the ordinary case;
+1. a **stamp** written in the row — a date and a SHA together, `2026-08-24
+   a1b2c3d` — for rows written under the older rule. A bare hex word is prose,
+   not a stamp, and is not read as one;
+2. **the commit the row first appeared in**, derived from its own line's
+   history — the ordinary case;
 3. the ledger header's baseline, where neither can answer.
 
 Only when all three come up empty is drift checking skipped, and the run says
@@ -71,9 +74,25 @@ leaves it pointing at nothing. That happened — seven rows, repaired by hand,
 one cell at a time. Blame is computed on the tree as it stands, so after the
 squash it answers with the squash commit, which is what the repair wrote in.
 
-**What that gives up**: blame answers for the row's LINE, so re-wording a Notes
-cell moves the baseline with nobody re-reading the code. The date is the guard
-— a row read in August and re-worded in September still says August.
+**First appearance, not last touch.** Last touch is what a single `git blame`
+answers for free, and it resets a row on any edit to its line, a typo
+included. Measured on this plugin's own ledger: last touch is later than the
+written stamp on all 36 rows, never equal and never earlier — a strictly
+narrower diff window than the stamps it replaces, with nothing re-read to earn
+it — and one release commit that rewrote stamps in bulk held the baseline for
+16 of them. By first appearance it holds none. Deriving the baseline automates
+a failure the written stamp already had and widens what triggers it; first
+appearance narrows it back.
+
+**What it costs**: one git call per row rather than one per file, measured at
+about 13 ms a row against 17 ms for a whole-file blame. Rows with a stamp never
+reach it.
+
+**Moving a row between ledger files keeps its stamp, verbatim.** `git log -L`
+does not follow a row out of a file that stays, so a moved row's derived
+baseline is the move itself. Carrying the stamp is what makes a migration cost
+nothing; stripping it collapses every window it touched at once. (Renaming a
+whole ledger file is different — git detects that and follows it.)
 
 ### One fragment per work item
 

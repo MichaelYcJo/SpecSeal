@@ -20,16 +20,31 @@
 
 Each row's **Checked** column carries the **date** somebody read the code —
 `2026-08-24` — and nothing else. The commit that row's drift is measured from
-comes from `git blame` of its own line, so nothing has to be typed that a
-rebase or a squash could orphan, and re-verification drains row by row.
-A SHA written into a row still wins, which is how rows stamped under the older
-rule go on working.
+is **the commit the row first appeared in**, derived from its own line's
+history, so nothing has to be typed that a rebase or a squash could orphan and
+re-verification drains row by row. A SHA written into a row still wins, which
+is how rows stamped under the older rule go on working.
 
-**What blame gives up.** It answers for the row's LINE, so an edit that only
-re-words a Notes cell moves the baseline forward with nobody re-reading the
-code. The date is what makes that visible: a row read in August and re-worded
-in September still says August, and the gap against `git log` is the tell.
-Bumping the header instead re-dates every claim at once without re-reading one.
+**First appearance, not last touch.** Last touch is what one `git blame` would
+answer for free, and it resets a row's baseline on any edit to the line — a
+typo in a Notes cell included. Measured on this plugin's own ledger, a single
+release commit that rewrote stamps in bulk held the baseline for 16 rows of 36
+that way, and for none of them by first appearance. Bumping the header does
+the same thing to the whole file at once, which is why it is the last resort
+rather than the cheap way out.
+
+**A row names no commit in prose where it can be helped**, and a row's
+baseline has to be a date and a SHA together for exactly that reason. A bare
+hex word in a row is prose, not a stamp. In the header the same word IS read
+as the file's baseline, so a fragment's prose names no commit at all.
+
+**Moving a row between ledger files keeps its stamp, verbatim.** `git log -L`
+does not follow a row out of a file that stays — the row reports the MOVE as
+its first appearance in its new file — so a migration that stripped stamps
+would reset every window it touched and report the result green. A stamp
+written in the row wins over anything derived, which is what makes the move
+cost nothing. A derived baseline is for rows born where they live. Renaming a
+whole ledger file is a different case: git detects that and follows it.
 
 **A fragment carries no Baseline section at all.** It has no need of one —
 every row in it measures from its own line's history — and the two cases the

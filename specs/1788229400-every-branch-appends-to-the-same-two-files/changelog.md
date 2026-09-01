@@ -23,28 +23,49 @@
   reads DRIFTED at birth, name the branch and the squash leaves it pointing at
   nothing. Measured — seven rows named `9b5501d`, which
   `git merge-base --is-ancestor 9b5501d origin/main` answers no to, and a pull
-  request repaired those cells by hand. **The baseline comes from `git blame`
-  of the row's own line now.** Blame is computed on the tree as it stands, so
-  no rewrite can orphan it: against the same file it attributes twenty lines to
-  `e7ff924`, the squash commit that discarded `9b5501d` — exactly what the
-  repair typed in. The Checked column keeps the **date** somebody read the
-  code, which is also the guard on what blame gives up: it answers for the
-  row's line, so re-wording a Notes cell moves the baseline with nobody
-  re-reading the code, and a row read in August that says August is how a
-  reader sees the gap. Rows already stamped are unchanged and are not being
-  rewritten — a SHA written into a row still wins.
+  request repaired those cells by hand. **The baseline is now the commit the
+  row first appeared in**, derived from its own line's history and computed on
+  whatever history is in front of it, so no rewrite can orphan it: after a
+  squash it is the squash commit, which is what that repair typed in. The
+  Checked column keeps the **date** somebody read the code — the one thing in
+  the row a person still asserts.
 
-  Blame is what makes the second registry splittable. **A work item's evidence
-  rows go in `.specseal/map/<work-item-id>.md`**, which the checker's default
-  globs already read, and such a fragment needs no baseline header at all:
-  every row in it measures from its own line. `.specseal/map.md` is not moved —
-  the migration is incremental, the rows in it stay where they are, and its
-  header now says so. Ledger fragments are never gathered back, because a row
-  is checked against the code it cites rather than concatenated.
+  **First appearance, not last touch**, and the difference was measured rather
+  than argued. Last touch is what a single `git blame` answers for free, and
+  against the 36 coordinates in this repository's ledger it is later than the
+  written stamp on all 36, equal on none, earlier on none — a strictly
+  narrower drift window than the stamps it replaces, with nothing re-read to
+  earn it. One release commit that rewrote stamps in bulk holds the baseline
+  for 16 of those 36 that way, and for none of them by first appearance. A
+  bulk rewrite collapsing drift windows is not new — the written stamp does it
+  too, which is how that release commit got there — but last touch widens the
+  trigger from *somebody edited a stamp* to *somebody edited the line*, a typo
+  included. It costs one git call per row instead of one per file, about 13 ms
+  a row, and rows carrying a stamp never reach it.
 
-  Read in `--porcelain`, and the format is load-bearing: blame's default and
-  `-s` forms decorate a boundary commit as `^9829412`, which `git cat-file`
-  rejects, and the first line of every fragment is a boundary line. Every
+  Deriving the baseline is what makes the second registry splittable. **A work
+  item's evidence rows go in `.specseal/map/<work-item-id>.md`**, which the
+  checker's default globs already read, and such a fragment needs no baseline
+  header at all: every row in it measures from its own line. `.specseal/map.md`
+  is not moved — the migration is incremental, the rows in it stay where they
+  are, and its header now says so. Ledger fragments are never gathered back,
+  because a row is checked against the code it cites rather than concatenated.
+
+  Rows already stamped are unchanged and are not being rewritten: **a stamp
+  written into a row still wins**, and it has to be a date and a SHA together,
+  because a bare hex word in a row is prose. That distinction is load-bearing
+  now that rows write no stamp — a row explaining why the stamp went names
+  commits, and the first such word used to become the row's baseline, and the
+  ledger's. Wherever rows ARE moved into a fragment later, their stamps move
+  with them verbatim: `git log -L` does not follow a row out of a file that
+  stays, so a stripped stamp would make the move itself the baseline.
+
+  Blame is read in `--porcelain`, and the format is load-bearing twice over.
+  It spells a boundary commit plainly where the default and `-s` forms
+  decorate it as `^9829412`, which `git cat-file` rejects — and the first line
+  of every fragment is a boundary line. It also reports each line's number in
+  the commit that touched it, which is what lets the history walk start from
+  the right line when the file has uncommitted edits above the row. Every
   answer is checked against `git cat-file` before it reaches `git diff`, where
-  a name that resolves to nothing would report "nothing changed" — a pass
-  produced by a failure. (#52)
+  a name resolving to nothing would report "nothing changed" — a pass produced
+  by a failure. (#52)

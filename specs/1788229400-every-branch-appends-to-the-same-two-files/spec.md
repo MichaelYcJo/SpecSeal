@@ -18,20 +18,38 @@ its drift baseline comes from.
 
 ## Scope
 
-### A. A ledger row's baseline comes from `git blame`
+### A. A ledger row's baseline is derived from its own line's history
 
-A row carries a `Checked` **date** and no SHA. The commit its drift is
-measured from is the commit `git blame` names for that row's own line in its
-ledger file.
+A row carries a `Checked` **date** and no SHA. The commit its drift is measured
+from is **the commit that row first appeared in**.
 
-The property that closes #52: blame is computed on the tree as it stands, so
-no rewrite can orphan it. After a squash it answers with the squash commit —
-the value pull request #49 wrote into seven cells by hand.
+The property that closes #52: the answer is computed on the history in front of
+it, so no rewrite can orphan it. After a squash it is the squash commit — the
+value pull request #49 wrote into seven cells by hand.
 
 Measured on this tree rather than argued: `9b5501d` — the commit seven rows
 named before #49 repaired them — is not an ancestor of `origin/main`, so a
-fresh clone and CI both see BROKEN. Blame of the same file attributes twenty
-lines to `e7ff924`, #48's squash commit, which is exactly what #49 typed in.
+fresh clone and CI both see BROKEN.
+
+**First appearance, not last touch, and the difference is measured.** Last
+touch is what one `git blame` answers for free. Against the 36 coordinates in
+`.specseal/map.md` it is LATER than the stamp the row wrote on all 36, equal on
+none, earlier on none — a strictly narrower diff window than the stamps it
+replaces, with nothing re-read to earn it. The cause shows in the attribution:
+under last touch `cdb2434`, a release commit that rewrote stamps in bulk, holds
+the baseline for 16 of the 36; under first appearance it holds none, and the 36
+spread over four commits reaching back to the ledger's first.
+
+Stated precisely, because the loose version is wrong: a bulk rewrite collapsing
+drift windows is not something deriving the baseline introduces. The written
+stamp does it too — `cdb2434` holds those 16 rows precisely because it rewrote
+their stamps by hand. What differs is the trigger. The written scheme resets a
+row only when somebody deliberately edits its stamp; last touch resets it on
+any edit to the line, a typo included.
+
+It costs one git call per row rather than one per file: 455 ms for 36 rows
+against 17 ms for a single blame, about 13 ms a row. Rows carrying a stamp
+never reach it, so the whole checker still runs in about half a second here.
 
 - A row that DOES carry a resolvable SHA keeps using it. Rows written under
   the old rule go on working, and nothing has to be rewritten.
@@ -60,6 +78,14 @@ cases blame cannot answer.
 `.specseal/map.md` stays where it is. The migration is incremental — the
 existing rows are not moved, and the file's header says what it now is.
 
+**Whenever rows ARE moved, their stamps move with them verbatim.** `git log -L`
+does not follow a row out of a file that stays, so a moved row's derived
+baseline is the move itself, and a migration that stripped stamps would collapse
+every window it touched in one commit that re-read nothing. The stamp winning
+over anything derived is what makes the move cost nothing. (A whole-file rename
+is a different case, which git detects and follows — executed, and not the
+shape a migration has.)
+
 ### C. The changelog is fragmented, and the fragments ARE gathered
 
 A change writes `specs/<work-item-id>/changelog.md` and does not touch
@@ -78,7 +104,10 @@ is what a release pull request is checked against.
 
 | # | Scenario | Verified by |
 |---|---|---|
-| 1 | A ledger row with no SHA in its Checked column is measured from the commit blame names for its line | `tests/test_a_row_measures_from_its_own_history.py` |
+| 1 | A ledger row with no SHA in its Checked column is measured from the commit it first appeared in | `tests/test_a_row_measures_from_its_own_history.py` |
+| 1b | A commit that rewrites rows in bulk does not reset their baselines | the same file |
+| 1c | A row moved out of a ledger that stays loses its history, which is why a migration carries stamps | the same file, asserted against git |
+| 1d | A SHA a row names in prose is not its baseline, and not the ledger's either | the same file |
 | 2 | A row that carries a resolvable SHA still measures from it | the same file, and `tests/test_ledger_stamps_resolve.py` unchanged |
 | 3 | A ledger line not committed yet falls back to the header baseline and says so | `tests/test_a_row_measures_from_its_own_history.py`, and `tests/test_evidence_check_hardening.py::test_missing_baseline_skips_drift_and_says_so` unchanged |
 | 3b | A boundary line — the first line of every fragment — gets a name git resolves, not blame's `^`-decorated one | the same file |
