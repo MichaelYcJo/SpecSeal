@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 — 2026-09-01
+## 0.2.0 — 2026-09-01
 
 <!-- specs/1788229400-every-branch-appends-to-the-same-two-files -->
 - **Every branch appended to the same two files, and one of them broke at the
