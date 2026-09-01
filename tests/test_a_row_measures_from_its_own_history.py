@@ -318,7 +318,9 @@ def test_a_moved_row_would_lose_its_history(repo):
     born = head(repo)
 
     old_map = repo / ".specseal" / "map" / "old.md"
-    old_map.write_text(old_map.read_text().replace("| POL-1 | `src/service.py:2` |\n", ""))
+    old_map.write_text(
+        old_map.read_text().replace("| POL-1 | `src/service.py:2` |\n", "")
+    )
     fragment(repo, "| POL-1 | `src/service.py:2` |\n", name="new.md")
     moved = head(repo)
 
