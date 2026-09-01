@@ -101,7 +101,21 @@ constant reads BROKEN for a use somewhere else in the file. A statement
 keyword before the name — `return render(y);`, `await render(y)` — makes the
 line a use for the same reason: it is the commonest shape in every brace
 language, and reading it as a second declaration made an ordinary
-one-declaration-one-call file BROKEN-ambiguous.
+one-declaration-one-call file BROKEN-ambiguous. A line with nothing at all
+before the name whose statement ends — `render(1);` — is a call on structure
+rather than on vocabulary, and is refused whatever the keyword list says.
+
+**The rule reports how sure it is rather than being asked to be right.** Where
+the keyword list would leave no candidate at all, the blocked ones come back —
+a C# `public new void Render(int x)` and a Swift `case loading(String)` are
+declarations whose modifiers are statement keywords elsewhere — and the
+answer is marked as having survived only that way. What the marking buys is
+that nothing downstream has to tell the two apart. The check accepts such a
+place only where its content reconstructs the row's recorded hash, and
+otherwise treats the unit as GONE: `BROKEN` with the repo-wide scan naming the
+destination, which is the answer `ast` already gives `.py`. `--reverify`
+refuses to write onto such a place at all, because it is the command that
+MAKES the hash and has none to compare against.
 
 Where it cannot resolve a unit, that is `BROKEN` and a person looks. Loud and
 honest beats a per-language parser nobody maintains.
@@ -218,6 +232,12 @@ pieces of code it is actually about.
   a renamed directory: no `(moved?)` hint and no `--reverify` heal, so it is
   fixed by `--map` or by hand.
 - `DRIFTED` means "someone must re-read this", not "the claim is wrong".
+- A declaration the keyword list blocked and the rule put back — C#'s `new`,
+  Swift's `case` — is never re-anchored by `--reverify`. Where its content
+  changed in place and no destination is provable, the command prints
+  `only a place the declaration rule resurrected` and leaves the row for a
+  hand edit. Accepting it instead is how a call site left behind by a move
+  becomes the row's permanent anchor.
 - A nested `def` is anchored by its qualified name — `outer.inner` — and the
   short name alone resolves to nothing. Such a row reads `BROKEN` with the
   qualified unit named on the same line, and `--reverify` re-anchors it.

@@ -143,19 +143,37 @@
   session does not trust — and at that point the link should be replaced
   rather than followed.
 
-  **A declaration is no longer decided by a list of keywords alone.** The list
-  that stopped `return render(y);` from being read as a second declaration of
-  `render` also refused two real declarations whose modifiers are statement
-  keywords in another language — C#'s `public new void Render(int x)` and
-  Swift's `case loading(String)` — and reported live code as broken. The list
-  may now narrow a set of candidates and may never empty it, and where more
-  than one candidate survives, the place whose content reconstructs the row's
-  own recorded hash is the row's place. A use misread as a declaration
-  therefore costs nothing, because its span does not reconstruct the hash. A
-  bare `render(1);` is refused on structure instead of vocabulary — nothing
-  before the name and the statement ends — which is kept as well as the hash
-  rule, because `--reverify` resolves without a hash to compare against and
-  needs the row to resolve to one place on its own.
+  **The rule that decides what a declaration is now reports how sure it is,
+  instead of being asked to be right.** For files this skill reads without a
+  parser — everything that is not Python — a list of keywords used to settle
+  whether a line declares a name or merely uses it, and that list was wrong in
+  both directions at once. It refused two real declarations whose modifiers
+  are statement keywords in another language, C#'s `public new void
+  Render(int x)` and Swift's `case loading(String)`, reporting live code as
+  broken. Letting them back in when nothing else survived then resurrected
+  plain call statements, so a function moved to another file with
+  `return render(y);` left behind read as though it were still there — and
+  `--reverify` made that call site the row's permanent anchor.
+
+  No list of keywords separates those two cases, so the answer stops being a
+  list. The rule marks a candidate that survived only by being put back, and
+  the two commands act on the mark rather than trying to tell declarations
+  from calls themselves.
+
+  - The check accepts such a place only where its content reconstructs the
+    row's own recorded hash. Otherwise the unit is gone, and the answer is
+    broken-with-the-destination-named — the same answer Python already got
+    from its parser, and the one this path was missing.
+  - `--reverify` refuses to write onto such a place at all, and prints why. It
+    is the command that produces the hash, so it has no hash to compare
+    against.
+  - What that costs, stated: a declaration whose modifiers look like statement
+    keywords and whose content changed in place is re-verified by hand. The
+    command names the row rather than skipping it silently.
+
+  A bare `render(1);` is refused on structure rather than vocabulary — nothing
+  before the name, and the statement ends — which is kept alongside all of the
+  above because it needs no evidence at all.
 
   **`--migrate` reads the file under the root it was given.** Run from a
   subdirectory, the proof that a cited line range had not moved since its
@@ -185,3 +203,22 @@
   leaves nothing but the value, and a nested `def` is anchored by its
   qualified name — `outer.inner` — with the short name alone resolving to
   nothing until `--reverify` re-anchors it.
+
+- **Three more things the checker used to answer for without having read
+  them.** Found reviewing the fixes above.
+
+  **A row read through `--default-repo` is confined to that checkout.** Two of
+  the three ways a coordinate is placed already refused a path that climbs out
+  of the tree it names; the third did not, so a source file symlinked out of
+  the checkout was read and reported clean.
+
+  **`--reverify` stops answering a broken row with silence.** Where the check
+  says a row is ambiguous and tells the reader to look, running the heal
+  command printed nothing at all, which reads as a heal that happened. Every
+  row it leaves alone now gets a line saying which row and why.
+
+  **A declared `--map` prefix no longer affects rows that do not carry it.**
+  The per-row test that replaced the per-run one was written with a term that
+  could never fire, because a row carrying a declared prefix is resolved into
+  the mapped checkout before the question is asked. The term is removed; the
+  behaviour it was meant to produce was already there.

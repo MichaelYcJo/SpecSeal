@@ -390,6 +390,63 @@ had. The multi-line constant span is closed as answered: `ast` spans the whole
 assignment statement where the generic rule stops before the closing paren,
 which is deliberate and pinned in `test_a_constant_is_a_unit_too`.
 
+## What review round 6 changed
+
+Round 6 confirmed all nine of round 5's fixes and reopened two of them.
+
+**The 3+ Fix Rule fired, and the way out was one level up.** Round 4's 🔴 1,
+round 5's 🔴 C and round 6's 🔴 J are three attempts at the same text rule for
+what a declaration is. The two failure modes are one ambiguity: drop the
+resurrection of keyword-blocked candidates and a C# `public new void
+Render(int x)` reads BROKEN, keep it and a `return render(y);` left behind by a
+move reads as the unit — round 4's 🔴 2 returning for every file that is not
+`.py`, which SKILL.md says is most of what adopts this skill. No keyword list
+separates them, so the fourth patch was not written. The repository owner chose
+to carry the uncertainty out of the classifier instead: `generic_units` answers
+`(places, resurrected)`, `resolve_unit` carries it up, the check treats a
+resurrected place that reconstructs nothing as a unit that is GONE, and
+`--reverify` refuses to write onto one.
+
+**Where the shape was implemented differently from the sketch.** The brief
+suggested changing `resolve`'s return type. `resolve` has two module callers
+and about thirty case sites, and `file_units` is one of the callers that does
+not care — so `resolve` keeps returning a plain list and a sibling
+`resolve_unit` carries the pair. What makes the split safe rather than a place
+for the fact to go quiet is a case, not a convention:
+`test_the_two_commands_that_must_know_ask_for_the_flag` walks the module's AST
+and fails if `check_ledger` or `reverify` reaches for the shorter name.
+
+**What was NOT changed, deliberately.** The scan that proposes a destination —
+`file_units` feeding `content_matches` — still offers resurrected candidates.
+Filtering them there was considered and rejected: reconstruction against the
+row's recorded hash is the same evidence standard that decides the tie in the
+check, so refusing a candidate that reconstructs would contradict the rule this
+round is implementing. The refusal belongs where there is no hash to lean on,
+which is `--reverify` acting on the row's OWN place.
+
+The narrow semicolon widening the reviewer offered — dropping the empty-`pre`
+condition from the call-statement guard — was not taken. It closes the C
+family and leaves Go, Ruby, Kotlin and Lua, and it would have been the fourth
+patch at the site the rule change exists to stop patching.
+
+**🟡 K and the three 🟢 entries.** The `--default-repo` branch of `place`
+skipped the containment test the other two branches run, so a source file
+symlinked out of the checkout was read and reported `1 ok`; `place`'s docstring
+claimed all three branches ran it, which is now true rather than narrowed.
+`cross_repo_intent`'s prefix term could never fire — a row carrying a declared
+prefix is resolved into the mapped checkout before either call site asks — so
+it is gone and the docstring says what actually fixed 🟡 F. `--reverify` now
+prints a line for every row it leaves alone. The no-git document pin covers
+`.specseal/map.md` as well, where the corrected sentence had nothing guarding
+it.
+
+**`contained`'s two prices are now written into its docstring** rather than
+left in a round record: a source file symlinked OUT of the repository is
+refused, which is the price all three branches pay; and where the filesystem
+cannot resolve links, `os.path.realpath` degrades to a lexical normalisation
+that still catches `..` and stops catching symlinks. Neither direction fails
+toward reading the file.
+
 ## Not verified
 
 | Item | Who must answer |
@@ -400,6 +457,7 @@ which is deliberate and pinned in `test_a_constant_is_a_unit_too`.
 | ✅ Whether `git log -L` costs materially more on a ledger an order of magnitude larger | closed by removal: no row measures from a commit any more, and the check makes no git call at all — the cost question has no mechanism left to ask about |
 | `--migrate`'s `git show <sha>:./<rel>` form on Windows. Executed on macOS only; the `./` is what makes git resolve against `-C` rather than the top level | the broad gate's windows leg |
 | `write_atomic`'s symlink half on Windows. The case skips where symlinks cannot be created, so the windows leg proves the mode half alone | the broad gate's windows leg |
+| `contained`'s symlink half on a filesystem where `realpath` cannot resolve links. Read, not run — it degrades to a lexical normalisation rather than raising, and the `..` half still holds | the broad gate's windows leg |
 
 ## Fed back into the spec
 
