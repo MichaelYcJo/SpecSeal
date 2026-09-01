@@ -30,7 +30,7 @@ than by memory.
 
 | Item | Who must answer |
 |---|---|
-| the broad gate — full suite, lint, typecheck | the review chain, once after the rounds settle |
+| ✅ the broad gate — full suite, lint, typecheck | executed at 6dee2ca: 1142 passed · 1 failed · 1 skipped, ruff clean, evidence --strict 69 ok, unverified/chain/gather exit 0; the one failure (a PR #67 pin holding the draft's literal number) fixed at 0b126c4 and its file re-run in full, 31 passed — recorded as round-3. Session of 2026-09-02 |
 | ✅ that the next fix pass is actually run as a resume, and that the bars are applied per segment kind | executed by this work item's own chain: the round-1 fix pass ran as a resume (21 calls / 3.8m on the corrected meter) and the segments were read against the bars this change writes. Session of 2026-09-02 |
 
 ## Not done
