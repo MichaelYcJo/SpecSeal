@@ -76,13 +76,14 @@
   a change; indentation is kept, because in Python a dedent moves a statement
   out of the block it belonged to.
 
-  The verdicts follow from that. **BROKEN** where the anchor is gone or appears
-  more than once — an ambiguous anchor is refused loudly rather than measured,
-  since with two places to look an OK would be a claim about whichever one the
-  code reached first. **DRIFTED** where the content under it changed.
-  **OK** prints the region's current line numbers, for a reader to open. There
-  is no baseline, no stamp, no commit SHA in any row, and `evidence-check`
-  calls git for nothing at all.
+  The verdicts follow from that. **BROKEN** where the anchor is gone, or where
+  it resolves to several places and none of them holds the content the row
+  recorded — where one of them does, that is the row's place and the run is
+  clean. **DRIFTED** where the content under it changed. **OK** prints the
+  region's current line numbers, for a reader to open. There is no baseline,
+  no stamp and no commit SHA in any row, and the check calls git for nothing
+  — the one exception is `--migrate`, which consults the old stamp's commit
+  before it trusts a line number it is rewriting.
 
   **Re-verifying a row is recomputing its hash**, so it has a flag:
   `evidence-check --reverify` rewrites every resolvable row and names what it
@@ -97,3 +98,90 @@
   and merged first. That last one had been recorded as unreachable; a content
   hash sees it on the first run, because there is no time window to look at.
   (#12, #14, #23, #31, #52, #56)
+
+- **The evidence checker stops answering for files it never read.** Nine fixes
+  from the fifth review round, each with a case that was seen failing against
+  the unfixed code first.
+
+  **A ledger nobody can read now fails the build.** A permissions failure, a
+  directory named `.md`, an I/O error — all three used to be indistinguishable
+  from an empty ledger, and the run printed all zeros and exited 0. The check
+  reports the file as broken, `--migrate` counts it among the rows it left,
+  and `--reverify` exits non-zero. Nothing about this is new behaviour anyone
+  relied on: a green build over a ledger nothing checked is the state the
+  `OLD-FORMAT` verdict exists to prevent.
+
+  **A coordinate is now confined to the repository it is placed in.** A row
+  spelling a path that climbs out of the tree — `../elsewhere/file.py#name` —
+  was read from wherever it landed, and `--reverify` wrote back a hash of what
+  it found there. It is refused in all three commands: broken in the check,
+  left by `--migrate`, and untouched by `--reverify`. Whoever writes a ledger
+  already has write access to the repository, so this crosses no boundary in
+  an ordinary project; it matters where a repository is checked out but not
+  trusted, because the plain check and the session-start migration both read
+  what the ledger tells them to. Present since 0.1.0 in the `path:line` form,
+  so this is a new guard rather than a repair. The containment test is against
+  the checkout the row was placed in, not always the root, so a `--map` prefix
+  still reaches its own checkout.
+
+  **The ledger writer now follows a symlink and writes the file behind it.**
+  A symlinked ledger used to be replaced by a regular file: the real ledger
+  never updated, stayed stale, and the command reported success. The rename is
+  still atomic, and the mode is carried over — every ledger was being demoted
+  from 0644 to 0600, which git does not track outside the exec bit and which
+  therefore never appeared in a diff.
+
+  Following the link is a deliberate reversal, and it is the part of this
+  entry worth arguing with. A writer that replaces the name it was given never
+  writes outside the directory it was pointed at, and that is usually the
+  behaviour preferred at a write boundary. It is traded here for the silent
+  data loss above, on the grounds that the ledger path is the repository
+  owner's own: `.specseal/map.md` and `.specseal/map/*.md`, in a tree whoever
+  points them elsewhere can already write to. What would change the answer is
+  a ledger path that is not owner-controlled — one taken from an environment
+  variable, a command-line argument in a shared runner, or a checkout a
+  session does not trust — and at that point the link should be replaced
+  rather than followed.
+
+  **A declaration is no longer decided by a list of keywords alone.** The list
+  that stopped `return render(y);` from being read as a second declaration of
+  `render` also refused two real declarations whose modifiers are statement
+  keywords in another language — C#'s `public new void Render(int x)` and
+  Swift's `case loading(String)` — and reported live code as broken. The list
+  may now narrow a set of candidates and may never empty it, and where more
+  than one candidate survives, the place whose content reconstructs the row's
+  own recorded hash is the row's place. A use misread as a declaration
+  therefore costs nothing, because its span does not reconstruct the hash. A
+  bare `render(1);` is refused on structure instead of vocabulary — nothing
+  before the name and the statement ends — which is kept as well as the hash
+  rule, because `--reverify` resolves without a hash to compare against and
+  needs the row to resolve to one place on its own.
+
+  **`--migrate` reads the file under the root it was given.** Run from a
+  subdirectory, the proof that a cited line range had not moved since its
+  stamp was read against a same-named file elsewhere in the repository: an
+  untouched row was refused forever, and a row whose look-alike happened to
+  match was rewritten and reported as proved.
+
+  **A `--map` declaration no longer turns the rename scan off for local
+  rows.** One declared prefix used to switch the scan off for every row the
+  run could not place, so a purely local file rename lost both its
+  `(moved?)` hint and its `--reverify` heal. A row whose prefix is not among
+  the declared maps is a local row and keeps its scan. An unprefixed row in a
+  repository declaring `.specseal/parity.md` or `--default-repo` stays
+  undecidable — it may be citing the original repository, and nothing in the
+  coordinate says which — so those rows keep the scan off, and the skill's
+  Known limits now says that the loss is any move rather than a renamed
+  directory, and that it costs the `--reverify` heal as well as the hint.
+
+  **The migration that runs itself now prints the warning the typed command
+  prints.** `--migrate` reports how many rows were rewritten without the
+  since-the-stamp proof; the session-start hook dropped that count, so the
+  path a person asked for warned and the path nobody asked for was silent —
+  and it never asks twice.
+
+  Known limits also gains two entries it was missing: a one-line constant is
+  the most collidable of the boilerplate twins, since substituting the name
+  leaves nothing but the value, and a nested `def` is anchored by its
+  qualified name — `outer.inner` — with the short name alone resolving to
+  nothing until `--reverify` re-anchors it.

@@ -23,7 +23,9 @@ A coordinate names **content, never a position**. The anchor is a symbol name
 where the language has one — `.py` is read with Python's own parser — and a
 distinctive line of text otherwise; the hash covers the region under it. A row
 carries no line number and no commit SHA, so nothing in it goes stale for a
-reason unrelated to the claim, and `evidence-check` calls git for nothing.
+reason unrelated to the claim, and the check calls git for nothing — the one
+exception is `--migrate`, which consults the old stamp's commit before it
+trusts a line number it is rewriting.
 
 The **Checked** column carries the date somebody read the code. Re-verifying a
 row is re-reading it and running `evidence-check --reverify`, which recomputes

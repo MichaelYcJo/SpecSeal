@@ -327,6 +327,69 @@ unreadable ledger reports instead of crashing (🟡 14); "moved intact" became
 (🟡 7); and six documents were corrected (🟡 11-13), including the
 `.specseal/`-wide dirty-guard claim this memo itself carried.
 
+## What review round 5 changed
+
+Round 5 verified round 4's fourteen fixes — all closed — and reported eight
+findings that closing them opened. A ninth arrived from the orchestrator's
+security pass while these were being fixed.
+
+Four of them are one shape: the checker answered for something it had not
+actually read. `--migrate`'s since-the-stamp proof resolved its path against
+the repository TOP LEVEL rather than against the root it was handed, so a run
+from a subdirectory read a same-named file elsewhere and either refused an
+untouched row forever or stamped a look-alike as proved (🔴 A). An unreadable
+ledger was answered as an empty one, all zeros and exit 0 (🔴 B) — the
+fail-open direction `tests/test_gates_do_not_fail_open.py` exists for, one
+mechanism further out than the decode it was written about, which is why the
+new case went into that file rather than beside the other checker pins.
+`write_atomic` replaced the NAME it was given, so a symlinked ledger was
+replaced by a regular file while the real one behind it stayed stale (🔴 D).
+And a coordinate could climb out of the tree — `../elsewhere/file.py#name`
+was read from wherever it landed and `--reverify` wrote back a hash of it
+(🔴 I, reported by the orchestrator, present since 0.1.0 in the `path:line`
+form and so a new guard rather than a repair).
+
+**Where the answer diverged from the one that was given.** `questions.md` §Q3
+settles the declaration rule by letting the recorded hash break a tie and says
+that where no place matches, the row "stays the honest DRIFTED". It is BROKEN
+here instead, and the grounds are what the two verdicts cost: `--reverify`
+refuses a row that resolves to more than one place, so a DRIFTED it cannot
+heal is exit 1 forever with no remedy a person can run. BROKEN says *go look*,
+which is exactly the act that case needs. The rest of Q3 is implemented as
+written — the keyword list may narrow a candidate set and never empty it, so
+`public new void Render(int x)` and `case loading(String)` resolve, and Swift's
+`case` needed no ruling.
+
+The narrow structural guard Q3 left to judgement is IN: a line with nothing
+before the name whose statement ends is a call, not a declaration. It is kept
+alongside the hash rule rather than replaced by it, because `--reverify` has
+no hash to compare against — it is the command that writes one — so it needs
+the row to resolve to one place on its own.
+
+**Two findings closed as an answer rather than a fix.** 🟡 F's `--map` half is
+decidable per row and was fixed; its other half is not — an unprefixed row in
+a repository declaring `.specseal/parity.md` or `--default-repo` may be citing
+the original repository, and nothing in the coordinate says which. Those rows
+keep the scan off and SKILL.md's Known limits was corrected to say the loss is
+any move rather than a renamed directory, and that it costs the `--reverify`
+heal as well as the `(moved?)` hint. 🟡 G — a one-line constant colliding with
+an unrelated one-liner during a rename scan — closed as a Known-limits line
+rather than by excluding one-line assignments from the scan. Grounds: the
+design already accepts identity-of-content as its proof standard and already
+records the boilerplate twin, a constant is that same class rather than a new
+one, and excluding one-line units would take the `(moved?)` hint and the heal
+away from every constant a project cites, which is more BROKEN-go-edit-the-
+ledger than the limit it removes.
+
+Three of round 5's 🟢 entries were closed while in these files: the `ast` row
+in the ledger fragment described the behaviour round 4 replaced, the plan's
+phase 12 still said the dirty guard covers `.specseal/`-wide, and one row of
+the ledger fragment was cut from its table by a blank line. Finding 7's
+wording — `(identical content)`, not `moved intact` — gained the pin it never
+had. The multi-line constant span is closed as answered: `ast` spans the whole
+assignment statement where the generic rule stops before the closing paren,
+which is deliberate and pinned in `test_a_constant_is_a_unit_too`.
+
 ## Not verified
 
 | Item | Who must answer |
@@ -334,7 +397,9 @@ unreadable ledger reports instead of crashing (🟡 14); "moved intact" became
 | The full suite, lint and typecheck. The scope rule holds them until the review rounds settle, and the rounds are edits already scheduled | the review orchestrator |
 | `dirty()`'s pathspecs on Windows. The defensive `.replace(os.sep, "/")` is in; whether git accepts what the hook sends on Windows at all is the round-4 ❓ | the broad gate's windows leg |
 | That `.github/workflows/hygiene.yml`'s new step fires on a release pull request. Read, not run — the branch condition is the same shape as the version-bump step above it, and the script's own two directions are executed | the review orchestrator, at the release pull request |
-| Whether `git log -L` costs materially more on a ledger an order of magnitude larger. Measured at 36 rows, one clone, macOS | repository owner |
+| ✅ Whether `git log -L` costs materially more on a ledger an order of magnitude larger | closed by removal: no row measures from a commit any more, and the check makes no git call at all — the cost question has no mechanism left to ask about |
+| `--migrate`'s `git show <sha>:./<rel>` form on Windows. Executed on macOS only; the `./` is what makes git resolve against `-C` rather than the top level | the broad gate's windows leg |
+| `write_atomic`'s symlink half on Windows. The case skips where symlinks cannot be created, so the windows leg proves the mode half alone | the broad gate's windows leg |
 
 ## Fed back into the spec
 
