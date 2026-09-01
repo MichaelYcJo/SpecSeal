@@ -80,7 +80,9 @@ was right because their anchors all survive and only the hashes moved; the one
 row whose claim reversed keeps a Notes cell saying so, which removing and
 re-adding would have erased.
 
-## What this round opened
+## Verdicts
+
+What this round opened.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
