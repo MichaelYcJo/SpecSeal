@@ -18,7 +18,7 @@ about.
 
 | Item | Who must answer |
 |---|---|
-| The fix on an actual Windows runner. Attempt 1 (forward-slashed interpreter path) did not change the failure, so the surviving hypothesis is `bash` on PATH resolving to something that fails every command with its own exit code; the test now checks that precondition by executing `bash -c "exit 7"` and skips with the reason when it does not hold. Which of the two paths the runner takes is read, not executed | CI's windows leg on this work item's pull request |
+| ✅ The fix on an actual Windows runner | executed: this PR's windows leg went green at c888075, 1091 passed · 17 skipped — one more skip than before, which is the guard test taking the precondition path (bash there fails the `exit 7` probe). Attempt 1's forward-slash-only change had not moved the failure, which is what narrowed the cause to bash itself. Session of 2026-09-02 |
 
 ## Not done
 
