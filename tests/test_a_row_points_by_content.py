@@ -1690,3 +1690,185 @@ def test_the_two_commands_that_must_know_ask_for_the_flag(repo):
         assert calls.get(consumer) == {"resolve_unit"}, (
             f"{consumer} does not ask for the resurrection flag: {calls.get(consumer)}"
         )
+
+
+# --- round 7: the last pass -------------------------------------------------
+
+# A declaration whose modifiers are statement keywords elsewhere. `new` is C#'s
+# and it is in STATEMENT_WORDS, so the rule blocks this line and puts it back
+# only because nothing unblocked survives.
+BLOCKED_CS = "public new void Render(int x) {\n  log(x);\n}\n"
+
+
+def test_generic_units_reports_nothing_rather_than_a_resurrection(repo):
+    """`(blocked, True)` was returned even when `blocked` was empty, so a file
+    with no candidate at all was reported as having a resurrected one — a
+    sentence the consumers then acted on (round 7, 🟡 N)."""
+    assert ec.generic_units(["a = 1", "b = 2"], "missing") == ([], False)
+
+
+def test_a_moved_unit_in_a_semicolonless_file_is_broken_with_its_destination(repo):
+    """Swift, Kotlin, Go, Ruby and Lua end no statement with a semicolon, so
+    the structural call guard never fired for them and a `render(y)` left
+    behind by a move read as the unit — 🔴 J for every language the semicolon
+    rule missed (round 7, 🔴 L).
+
+    The marking widens structurally rather than by vocabulary: nothing before
+    the name, an opening paren, and a span of one line is a call everywhere.
+    """
+    app = repo / "src" / "app.kt"
+    app.write_text(
+        "fun render(x: Int): Int {\n"
+        "  return x\n"
+        "}\n"
+        "\n"
+        "fun page(y: Int): Int {\n"
+        "  render(y)\n"
+        "}\n"
+    )
+    write_row(repo, "src/app.kt", "render")
+    app.write_text("fun page(y: Int): Int {\n  render(y)\n}\n")
+    (repo / "src" / "other.kt").write_text("fun render(x: Int): Int {\n  return x\n}\n")
+
+    r = run(["."], str(repo))
+    assert "identical content at src/other.kt#render (moved?)" in r.stdout, r.stdout
+    assert r.returncode == 2, r.stdout
+    rr = run(["--reverify", "."], str(repo))
+    assert "src/other.kt#render" in rr.stdout, rr.stdout
+    assert run(["."], str(repo)).returncode == 0, "the healed row is not OK"
+
+
+def test_a_multi_line_declaration_with_a_bare_name_is_still_sure(repo):
+    """The widening is bounded by the span. `function f(x) {` opens a block, so
+    it is a declaration the rule is sure of, and only a ONE-LINE bare call
+    becomes unsure."""
+    text = "function render(x) {\n  return x;\n}\n"
+    assert ec.generic_units(text.splitlines(), "render") == ([(1, 2)], False)
+
+
+def test_a_blocked_declaration_can_be_recorded_by_hand(repo):
+    """A `.cs` unit the rule is unsure of could not be put in a ledger at all:
+    `--reverify` refused it and the check answered `locator not found` while
+    the unit sat at lines 1-2 (round 7, 🔴 M).
+
+    The refusal stays and the prescription becomes performable — the check
+    names the place and the hash to record.
+    """
+    (repo / "src" / "a.cs").write_text(BLOCKED_CS)
+    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger.write_text("# frag\n\n| CLAUSE | `src/a.cs#Render@00000000` |\n")
+
+    want = ec.content_hash(BLOCKED_CS.splitlines()[0:2])
+    r = run(["."], str(repo))
+    assert "locator not found" not in r.stdout, r.stdout
+    assert "1-2" in r.stdout and want in r.stdout, r.stdout
+    assert r.returncode == 2, r.stdout
+
+    # The prescription, carried out.
+    ledger.write_text(f"# frag\n\n| CLAUSE | `src/a.cs#Render@{want}` |\n")
+    ok = run(["."], str(repo))
+    assert "1 ok" in ok.stdout and ok.returncode == 0, ok.stdout
+
+
+def test_an_ordinary_new_row_is_still_anchored_by_reverify(repo):
+    """The workflow 🔴 M broke for blocked declarations must keep working
+    everywhere else: a row written with a placeholder hash is filled in."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger.write_text("# frag\n\n| CLAUSE | `src/service.py#handler@00000000` |\n")
+    rr = run(["--reverify", "."], str(repo))
+    assert "1 row re-verified" in rr.stdout, rr.stdout
+    assert run(["."], str(repo)).returncode == 0, "the filled row is not OK"
+
+
+def test_an_unchanged_blocked_row_is_not_re_anchored(repo):
+    """`--reverify` printed `#Render -> #Render (identical content)` and
+    counted a row for a row where nothing had changed (round 7, 🟢)."""
+    (repo / "src" / "a.cs").write_text(BLOCKED_CS)
+    want = ec.content_hash(BLOCKED_CS.splitlines()[0:2])
+    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger.write_text(f"# frag\n\n| CLAUSE | `src/a.cs#Render@{want}` |\n")
+    before = ledger.read_text()
+    rr = run(["--reverify", "."], str(repo))
+    assert "0 rows re-verified" in rr.stdout, rr.stdout
+    assert "->" not in rr.stdout, rr.stdout
+    assert ledger.read_text() == before
+
+
+def test_migrate_answers_an_unsure_place_the_way_reverify_does(repo):
+    """One placement question, two commands, two answers: `--reverify` refused
+    a place the rule is unsure of while `--migrate` anchored a row onto it
+    without a word (round 7, 🔴 M).
+
+    Unproven, `--migrate` now leaves the row and names the hash to record.
+    """
+    (repo / "src" / "a.cs").write_text(BLOCKED_CS)
+    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger.write_text("# frag\n\n| CLAUSE | `src/a.cs:1-2` | 2026-08-31 |\n")
+    before = ledger.read_text()
+    want = ec.content_hash(BLOCKED_CS.splitlines()[0:2])
+
+    m = run(["--migrate", "."], str(repo))
+    assert "0 rows migrated · 1 left" in m.stdout, m.stdout
+    assert want in m.stdout, m.stdout
+    assert ledger.read_text() == before, "an unsure place was anchored anyway"
+
+
+def test_reverify_never_contradicts_the_checks_verdict(repo):
+    """Three sentences this command printed, none of them true: it called a row
+    ambiguous that the check resolves to `1 ok`, it reported a resurrection for
+    a row with no candidate at all, and it dropped the claim from the
+    coordinate so two claim rows on one unit read alike (round 7, 🟡 N)."""
+    # (a) a blocked row the check calls OK — silence, and no phantom.
+    (repo / "src" / "a.cs").write_text(BLOCKED_CS)
+    want = ec.content_hash(BLOCKED_CS.splitlines()[0:2])
+    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger.write_text(f"# frag\n\n| CLAUSE | `src/a.cs#Render@{want}` |\n")
+    assert "1 ok" in run(["."], str(repo)).stdout
+    assert "ambiguous" not in run(["--reverify", "."], str(repo)).stdout
+
+    # (b) a row with no place at all is not reported as a resurrection.
+    ledger.write_text("# frag\n\n| CLAUSE | `src/service.py#gone@00000000` |\n")
+    rr = run(["--reverify", "."], str(repo))
+    assert "resurrect" not in rr.stdout, rr.stdout
+    assert "src/service.py#gone" in rr.stdout, rr.stdout
+
+    # (c) the claim is part of the coordinate a left-behind line names.
+    body = (repo / "src" / "service.py").read_text()
+    ledger.write_text(
+        '# frag\n\n| CLAUSE | `src/service.py#handler>"z = 9"@00000000` |\n'
+    )
+    assert "handler" in body
+    rr = run(["--reverify", "."], str(repo))
+    assert '>"z = 9"' in rr.stdout, rr.stdout
+
+
+def test_every_row_the_check_flags_gets_a_line_from_reverify(repo):
+    """`check` says *go look* and `--reverify` is the command a person then
+    runs. Two paths answered with nothing at all — a `.py` unit that is gone
+    with no provable destination, and a claim row whose minor anchor went
+    stale, where the check literally prints `— re-verify` (round 7, 🟢)."""
+    (repo / "src" / "a.cs").write_text(
+        "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n"
+    )
+    (repo / "src" / "b.cs").write_text(BLOCKED_CS.replace("log(x);", "log(x + 1);"))
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        "# frag\n\n"
+        "| A | `src/service.py#gone@00000000` |\n"
+        "| B | `src/app.cs#render@00000000` |\n"
+        '| C | `src/service.py#handler>"z = 9"@00000000` |\n'
+        "| D | `src/missing.py#thing@00000000` |\n"
+        "| E | `src/b.cs#Render@00000000` |\n"
+    )
+    (repo / "src" / "app.cs").write_text((repo / "src" / "a.cs").read_text())
+
+    checked = run(["."], str(repo))
+    flagged = [
+        line.split()[1]
+        for line in checked.stdout.splitlines()
+        if line.strip().startswith(("BROKEN", "DRIFTED"))
+    ]
+    assert len(flagged) >= 5, checked.stdout
+    healed = run(["--reverify", "."], str(repo)).stdout
+    for coord in flagged:
+        assert coord in healed, f"{coord} got no line:\n{healed}"

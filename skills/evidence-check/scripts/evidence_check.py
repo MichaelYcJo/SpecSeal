@@ -238,8 +238,11 @@ def resolve(path, locator, text):
     reads, some places survive only because the keyword blocklist emptied the
     set and they were put back; a consumer that acts on such a place — the
     check deciding OK, `--reverify` deciding to write — has to know that, and
-    calls `resolve_unit` instead. This wrapper is for the callers that only
-    need the places: `file_units`, and the cases that assert them.
+    calls `resolve_unit` instead. **Nothing inside this module calls it any
+    more** — `file_units` reaches `generic_units` directly — so the wrapper
+    survives for the cases that assert places and for anything importing this
+    module. Its docstring named `file_units` for one round after that stopped
+    being true (round 7, 🟢).
     """
     return resolve_unit(path, locator, text)[0]
 
@@ -399,7 +402,20 @@ def generic_units(lines, name):
         while j > i + 1 and not lines[j - 1].strip():
             j -= 1
         pre_words = pre.replace("*", " ").replace("&", " ").split()
-        target = blocked if STATEMENT_WORDS.intersection(pre_words) else out
+        # Nothing before the name, an opening paren, and a span of ONE line is
+        # a call in every language — Swift, Kotlin, Go, Ruby and Lua end no
+        # statement with a semicolon, so the structural guard above never
+        # reached them and `render(y)` left behind by a move read as the unit
+        # (round 7, 🔴 L). Marked rather than dropped, because a one-line
+        # declaration has the same shape and the recorded hash tells them
+        # apart. The span is what bounds this: `function f(x) {` opens a block
+        # and stays a declaration the rule is sure of.
+        bare_one_liner = not pre.strip() and delim == "(" and j == i + 1
+        target = (
+            blocked
+            if (STATEMENT_WORDS.intersection(pre_words) or bare_one_liner)
+            else out
+        )
         target.append((i + 1, j))
     # A keyword-prefixed candidate is dropped only where another survives, and
     # the caller is told when that resurrection is the only reason there is an
@@ -407,7 +423,7 @@ def generic_units(lines, name):
     # statements, not only the C#/Swift declarations the resurrection was
     # written for, so a consumer that cannot tell them apart must be able to
     # ask.
-    return (out, False) if out else (blocked, True)
+    return (out, False) if out else (blocked, bool(blocked))
 
 
 def name_statements(text, region, name):
@@ -501,18 +517,56 @@ def minor_region(path, text, region, minor):
     return found if len(found) == 1 else []
 
 
+def recorded_here(rel, body, place, want, claim):
+    """True when `want` is the hash of what `place` actually holds.
+
+    The row's own recorded content, asked about ONE place rather than used as
+    a verdict about the code. A claim row records the hash of its MINOR
+    region, so that is what gets hashed — otherwise a claim row could confirm
+    nothing and the check and `--reverify` would answer it differently
+    (round 7, 🟡 N).
+    """
+    if claim:
+        inside = minor_region(rel, body, place, claim)
+        if not inside:
+            return False
+        place = inside[0]
+    return content_hash(body.splitlines()[place[0] - 1 : place[1]]) == want
+
+
+def left_because(places, resurrected):
+    """Why `--reverify` wrote nothing for a row, in the check's own terms.
+
+    The two commands must never describe one row differently: this said
+    "ambiguous" about a row the check resolves and "resurrected" about a row
+    with no candidate at all (round 7, 🟡 N).
+    """
+    if resurrected:
+        return "only a place the declaration rule is unsure of"
+    if not places:
+        return "no place — the check calls this row BROKEN"
+    return f"{len(places)} places, none holding the recorded content"
+
+
 SCAN_FILE_CAP = 200
 SCAN_SIZE_CAP = 256 * 1024
 
 
 def file_units(rel, body):
-    """[(spelling, (start, end))] — every unit in one file, resolvable ones only."""
+    """[(spelling, (start, end), unsure)] — every unit in one file, resolvable
+    ones only, each saying whether the declaration rule is sure of it.
+
+    The flag exists for `--migrate`, which writes an anchor: a place the rule
+    is unsure of is not one to anchor a row onto without other evidence. The
+    destination scan below deliberately keeps them, because there the evidence
+    is reconstruction against the row's recorded hash.
+    """
     lines = body.splitlines()
     units = []
     if rel.endswith(".py"):
         for name, places in (py_spans(body) or {}).items():
             if len(places) == 1:
-                units.append((name, places[0]))
+                units.append((name, places[0], False))
     elif rel.endswith(".md"):
         seen = {}
         for i, line in enumerate(lines):
@@ -527,7 +581,7 @@ def file_units(rel, body):
                 j += 1
             name = '"' + line.strip().replace("|", "\\|").replace('"', '\\"') + '"'
             seen.setdefault(name, []).append((i + 1, j))
-        units = [(n, p[0]) for n, p in seen.items() if len(p) == 1]
+        units = [(n, p[0], False) for n, p in seen.items() if len(p) == 1]
     else:
         opener = re.compile(r"^([\w\s*&]*?)\b(\w+)\s*([({=]|:)")
         names = set()
@@ -536,9 +590,9 @@ def file_units(rel, body):
             if m and not (m.group(3) == ":" and m.group(1).strip()):
                 names.add(m.group(2))
         for name in sorted(names):
-            found, _resurrected = generic_units(lines, name)
+            found, resurrected = generic_units(lines, name)
             if len(found) == 1:
-                units.append((name, found[0]))
+                units.append((name, found[0], resurrected))
     return units
 
 
@@ -613,7 +667,7 @@ def content_matches(repo, rel, locator, want, cache):
         if body is None:
             continue
         lines = body.splitlines()
-        for name, (a, b) in file_units(path, body):
+        for name, (a, b), _unsure in file_units(path, body):
             region = lines[a - 1 : b]
             if markdown:
                 region = [old_name, *region[1:]]
@@ -732,7 +786,7 @@ def place(root, maps, default_repo, raw_path):
     return root, raw_path
 
 
-def cross_repo_intent(root, maps, default_repo, raw_path):
+def cross_repo_intent(root, default_repo):
     """True when THIS ROW may be citing another repository: a parity config in
     the tree, --default-repo, or a --map prefix this row actually carries.
 
@@ -742,18 +796,14 @@ def cross_repo_intent(root, maps, default_repo, raw_path):
     renaming a directory used to turn its rows EXTERNAL at exit 0, a green
     build over a false message (round 4, 🔴 3).
 
-    **The --map half is decidable per row, and answering it per RUN was the
-    bug.** One `--map` turned the rename scan off for every unplaceable row in
-    the ledger, so a purely local file rename lost its `(moved?)` hint and its
-    `--reverify` heal (round 5, 🟡 F). A row whose prefix is not among the
-    declared maps is a local row.
-
-    **What actually fixed it was dropping `--map` from the question.**
-    `raw_path` is here so that both call sites read per row rather than per
-    run, and a row carrying a declared prefix never reaches either of them:
-    `place` resolves it into the mapped checkout, so the `repo == root` both
-    callers stand behind is already false. A term testing the prefix was
-    written and could never fire (round 6, 🟢).
+    **What fixed round 5's 🟡 F was dropping `--map` from the question.** One
+    `--map` used to turn the rename scan off for every unplaceable row in the
+    ledger, so a purely local file rename lost its `(moved?)` hint and its
+    `--reverify` heal. A row carrying a declared prefix never reaches this
+    function at all: `place` resolves it into the mapped checkout, so the
+    `repo == root` both callers stand behind is already false. `maps` and the
+    row's path were parameters here for one round and neither was read
+    (round 7, 🟢).
 
     The other two halves are NOT decidable: an unprefixed row in a parity
     repository may be citing the original, and no part of the coordinate says
@@ -796,7 +846,7 @@ def check_ledger(ledger, root, maps, default_repo=None):
 
         body = read(full)
         if body is None:
-            if repo == root and cross_repo_intent(root, maps, default_repo, raw_path):
+            if repo == root and cross_repo_intent(root, default_repo):
                 # The row cannot be placed in any repository this run knows,
                 # and the declaration says another one exists. The scan stays
                 # OFF: searching THIS repo for a row that may cite the other
@@ -836,39 +886,51 @@ def check_ledger(ledger, root, maps, default_repo=None):
             continue
 
         places, resurrected = resolve_unit(rel, locator, body)
-        if places and not claim and (resurrected or len(places) > 1):
+        unsure = []
+        if places and (resurrected or len(places) > 1):
             # The row's OWN recorded content decides, in both directions. With
             # several places it breaks the tie (questions.md §Q3). With one
             # place the declaration rule is not sure of, it is the only thing
             # that can say whether the row's unit is still there — and where
             # nothing reconstructs, the unit is GONE, which is the answer
-            # `ast` already gives `.py` and the one this path was missing
-            # (round 6, 🔴 J). Two places reconstructing one hash are
-            # identical spans, so the choice between them is not a choice.
-            hit = [
-                p
-                for p in places
-                if content_hash(body.splitlines()[p[0] - 1 : p[1]]) == want
-            ]
+            # `ast` already gives `.py` (round 6, 🔴 J). Two places
+            # reconstructing one hash are identical spans, so the choice
+            # between them is not a choice.
+            hit = [p for p in places if recorded_here(rel, body, p, want, claim)]
             if hit:
                 places = hit[:1]
             elif resurrected:
-                places = []
+                # Kept, not discarded: the place is what the person needs to
+                # see, and its hash is what they need to record (round 7, 🔴 M).
+                unsure, places = places, []
         if len(places) > 1:
-            # A claim row cannot be decided that way: `want` is the hash of the
-            # MINOR region, so no unit reconstructs it and the tie stands.
             at = ", ".join(f"{a}-{b}" for a, b in places)
-            why = "" if claim else " (none holds the recorded content)"
             findings.append(
                 (
                     "BROKEN",
                     coord,
-                    f"locator is ambiguous — {len(places)} places: {at}{why}",
+                    f"locator is ambiguous — {len(places)} places: {at} "
+                    "(none holds the recorded content)",
                 )
             )
             continue
         if not places:
             detail = "locator not found"
+            if unsure:
+                # `locator not found` was a lie — the place was found and the
+                # rule is unsure of it. Saying which lines and what they hash
+                # to is what makes Known limits' *record it by hand* an act
+                # somebody can actually carry out (round 7, 🔴 M).
+                at = "; ".join(
+                    f"{a}-{b}@{content_hash(body.splitlines()[a - 1 : b])}"
+                    for a, b in unsure
+                )
+                detail = (
+                    "the declaration rule is unsure of the only place"
+                    f"{'' if len(unsure) == 1 else 's'} it found, and none holds "
+                    f"the recorded content — {at}; record one by hand if it is "
+                    "still the unit"
+                )
             scan = scan_cache.setdefault(repo, {})
             hashes, names, capped = content_matches(repo, rel, locator, want, scan)
             if len(hashes) == 1:
@@ -1074,18 +1136,36 @@ def migrate(ledgers, root, maps=None, default_repo=None):
                 while e > s and not lines[e - 1].strip():
                     e -= 1
                 best = None
-                for name, (a, b) in file_units(rel, body):
+                for name, (a, b), unsure in file_units(rel, body):
                     if (
                         a <= s
                         and e <= b
                         and (best is None or b - a < best[2] - best[1])
                     ):
-                        best = (name, a, b)
+                        best = (name, a, b, unsure)
                 if best is None:
                     left.append((m.group(0), f"no single unit contains {s}-{e}"))
                     failed = True
                     continue
-                name, a, b = best
+                name, a, b, unsure = best
+                if unsure and not proved:
+                    # One placement question, two commands: `--reverify` refuses
+                    # a place the rule is unsure of, and this used to anchor a
+                    # row onto one without a word (round 7, 🔴 M). `proved` is
+                    # the exception rather than a softening — it says the cited
+                    # lines have not moved since the person wrote them, which is
+                    # evidence about THIS place that `--reverify` never has.
+                    left.append(
+                        (
+                            m.group(0),
+                            f"the declaration rule is unsure of {name} ({a}-{b}) "
+                            "and the stamp cannot vouch for the cited lines — "
+                            f"record {content_hash(lines[a - 1 : b])} by hand if "
+                            "it is still the unit",
+                        )
+                    )
+                    failed = True
+                    continue
                 spliced.append(line[at : m.start()])
                 spliced.append(f"{raw}#{name}@{content_hash(lines[a - 1 : b])}")
                 at = m.end()
@@ -1134,19 +1214,28 @@ def reverify(ledgers, root, maps, default_repo=None):
             places, resurrected = (
                 resolve_unit(rel, locator, body) if body is not None else ([], False)
             )
-            if resurrected:
-                # This command MAKES the hash, so it has none to tell a
-                # declaration from a call with — the grounds are round 5's own
-                # for keeping the structural guard. It therefore treats a
-                # resurrected place as no place at all, heals only on a
-                # destination the scan can prove, and says so otherwise
-                # (round 6, 🔴 J).
-                places = []
+            left_as = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
+            if places and (resurrected or len(places) > 1):
+                if [
+                    p
+                    for p in places
+                    if recorded_here(rel, body, p, m.group("hash"), claim)
+                ]:
+                    # The row already records what one of these places holds,
+                    # which is what the check calls OK. Nothing to re-verify,
+                    # and nothing to say — this printed `#Render -> #Render
+                    # (identical content)` and counted a row (round 7, 🟢).
+                    continue
+                if resurrected:
+                    # No hash of its own to tell a declaration from a call, so
+                    # it treats the place as no place and heals only on a
+                    # destination the scan can prove (round 6, 🔴 J).
+                    places = []
             if not places and claim is None:
                 if (
                     body is None
                     and repo == root
-                    and cross_repo_intent(root, maps, default_repo, raw_path)
+                    and cross_repo_intent(root, default_repo)
                 ):
                     # The row cannot be placed in any repository this run
                     # knows, and the declaration says another one exists.
@@ -1154,6 +1243,10 @@ def reverify(ledgers, root, maps, default_repo=None):
                     # local look-alike (round 4, 🔴 4) — the check reports
                     # such a row EXTERNAL or file-not-found, and reverify
                     # must agree with the check rather than out-heal it.
+                    print(
+                        f"  {left_as}  not in any known checkout — pass "
+                        "--map/--default-repo; left"
+                    )
                     continue
                 # One unit reconstructing the RECORDED hash is what licenses
                 # the rewrite — never a name-alone match, which is a fact to
@@ -1190,28 +1283,31 @@ def reverify(ledgers, root, maps, default_repo=None):
                     # history is the reader's to judge from the diff
                     # (round 4, 🟡 7).
                     print(f"  {raw_path}#{locator} -> {shown}  (identical content)")
-                elif resurrected:
+                else:
                     print(
-                        f"  {raw_path}#{locator}  only a place the declaration "
-                        "rule resurrected, and no destination is provable — left"
+                        f"  {left_as}  {left_because(places, resurrected)}, and "
+                        "no destination is provable — left"
                     )
                 continue
             if body is None:
+                print(f"  {left_as}  the file could not be read — left")
                 continue
             if len(places) != 1:
                 # Never silence. The check calls this row BROKEN and tells the
                 # reader to look; running the heal command and getting nothing
                 # back reads as a heal that happened (round 6, 🟢).
-                why = (
-                    "only a place the declaration rule resurrected"
-                    if resurrected
-                    else f"{len(places)} places, which the check calls ambiguous"
-                )
-                print(f"  {raw_path}#{locator}  {why} — left")
+                print(f"  {left_as}  {left_because(places, resurrected)} — left")
                 continue
             if claim:
                 inside = minor_region(rel, body, places[0], claim)
                 if not inside:
+                    # The check prints `— re-verify` for exactly this row, so
+                    # answering it with nothing was the worst of the silences
+                    # (round 7, 🟢).
+                    print(
+                        f"  {left_as}  the anchored statement is gone from "
+                        f"{locator} — the check calls this DRIFTED; left"
+                    )
                     continue
                 places = inside
             start, end = places[0]
