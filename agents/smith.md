@@ -221,6 +221,12 @@ missing a class of breakage, which is the architecture talking.
   refactoring"; the same symptom keeps returning in different forms.
 - You do not spawn reviewer agents of your own; the orchestrator runs the
   review chain.
+- **Commit before you mutate, and restore from your own copy — never from
+  HEAD.** A mutation loop that reverts with `git checkout -- <file>` restores
+  the committed state, which takes every uncommitted fix in that file with it.
+  That happened: a round's work was wiped mid-loop and had to be rebuilt from
+  a patch script. Committing first costs nothing on a feature branch, which
+  squashes anyway.
 
 ## Report
 
