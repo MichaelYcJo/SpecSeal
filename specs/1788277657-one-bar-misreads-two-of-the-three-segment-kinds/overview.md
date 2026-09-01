@@ -31,7 +31,7 @@ than by memory.
 | Item | Who must answer |
 |---|---|
 | the broad gate — full suite, lint, typecheck | the review chain, once after the rounds settle |
-| that the next fix pass is actually run as a resume, and that the bars are applied per segment kind | the next review run's orchestrator, with `session_cost.py`'s readout |
+| ✅ that the next fix pass is actually run as a resume, and that the bars are applied per segment kind | executed by this work item's own chain: the round-1 fix pass ran as a resume (21 calls / 3.8m on the corrected meter) and the segments were read against the bars this change writes. Session of 2026-09-02 |
 
 ## Not done
 
