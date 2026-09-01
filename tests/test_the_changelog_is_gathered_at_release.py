@@ -48,7 +48,8 @@ def run(*args, root=None):
 def tree(tmp_path):
     """A repository shape with a released changelog and two fragments."""
     (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## 0.1.0 — 2026-09-01\n\n- the first release\n"
+        "# Changelog\n\n## 0.1.0 — 2026-09-01\n\n- the first release\n",
+        encoding="utf-8",
     )
     for work_item_id, body in (
         ("1788229400-later", "- **the later one.** What it changes.\n"),
@@ -56,12 +57,12 @@ def tree(tmp_path):
     ):
         d = tmp_path / "specs" / work_item_id
         d.mkdir(parents=True)
-        (d / "changelog.md").write_text(body)
+        (d / "changelog.md").write_text(body, encoding="utf-8")
     return tmp_path
 
 
 def changelog(tree):
-    return (tree / "CHANGELOG.md").read_text()
+    return (tree / "CHANGELOG.md").read_text(encoding="utf-8")
 
 
 def gather(tree, version="0.2.0", date="2026-09-15"):
@@ -156,7 +157,7 @@ def test_a_copy_edit_to_a_released_entry_does_not_reopen_it(tree):
     text = changelog(tree)
     assert "<!-- specs/1788229400-later -->" in text, text
     text = text.replace("the later one", "the later one, reworded")
-    (tree / "CHANGELOG.md").write_text(text)
+    (tree / "CHANGELOG.md").write_text(text, encoding="utf-8")
     assert "the later one." not in changelog(tree), (
         "the re-wording did not land, so this proves nothing about matching"
     )
@@ -169,7 +170,7 @@ def test_a_fragment_deleted_from_the_file_by_hand_is_reported(tree):
     """The other direction, or the case above passes by never failing."""
     gather(tree)
     text = changelog(tree).replace("<!-- specs/1788229400-later -->", "")
-    (tree / "CHANGELOG.md").write_text(text)
+    (tree / "CHANGELOG.md").write_text(text, encoding="utf-8")
     r = run("--check", root=tree)
     assert r.returncode == 1, r.stdout
     assert "1788229400-later" in r.stdout, r.stdout
@@ -192,7 +193,7 @@ def test_an_empty_fragment_is_not_gathered_as_a_blank_entry(tree):
     ships unexplained."""
     d = tree / "specs" / "1788300000-empty"
     d.mkdir(parents=True)
-    (d / "changelog.md").write_text("\n\n")
+    (d / "changelog.md").write_text("\n\n", encoding="utf-8")
     gather(tree)
     text = changelog(tree)
     # The positive control. Without it this case passes when the gather wrote
