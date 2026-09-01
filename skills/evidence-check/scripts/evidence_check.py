@@ -895,11 +895,17 @@ def check_ledger(ledger, root, maps, default_repo=None):
             # nothing reconstructs, the unit is GONE, which is the answer
             # `ast` already gives `.py` (round 6, 🔴 J). Two places
             # reconstructing one hash are identical spans, so the choice
-            # between them is not a choice.
+            # between them is not a choice — at the MAJOR level. A claim
+            # row's `want` is the hash of the minor region, which two
+            # unrelated units can share by holding one identical line, so
+            # neither move is licensed there: the tie stands, and an unsure
+            # place stays DRIFTED rather than being called gone. `CLAUDE.md`
+            # is the rule — *an anchor degrades to DRIFTED, never to BROKEN.
+            # Only the major level can be BROKEN* (round 8, 🔴 A and 🔴 B).
             hit = [p for p in places if recorded_here(rel, body, p, want, claim)]
-            if hit:
+            if hit and (len(hit) == 1 or not claim):
                 places = hit[:1]
-            elif resurrected:
+            elif resurrected and not claim:
                 # Kept, not discarded: the place is what the person needs to
                 # see, and its hash is what they need to record (round 7, 🔴 M).
                 unsure, places = places, []
@@ -1207,14 +1213,14 @@ def reverify(ledgers, root, maps, default_repo=None):
             raw_path = m.group("path")
             locator, claim = m.group("locator"), m.group("claim")
             repo, rel = place(root, maps, default_repo, raw_path)
+            left_as = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
             if repo is None:
-                print(f"  {raw_path}#{locator}  path escapes the repository — left")
+                print(f"  {left_as}  path escapes the repository — left")
                 continue
             body = read(os.path.join(repo, rel))
             places, resurrected = (
                 resolve_unit(rel, locator, body) if body is not None else ([], False)
             )
-            left_as = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
             if places and (resurrected or len(places) > 1):
                 if [
                     p
