@@ -130,7 +130,7 @@ def test_a_missing_anchor_is_broken(repo):
     write_row(repo, "src/service.py", "handler")
     (repo / "src" / "service.py").write_text(SERVICE.replace("def handler", "def gone"))
     r = run(["."], str(repo))
-    assert "BROKEN" in r.stdout and "anchor not found" in r.stdout, r.stdout
+    assert "BROKEN" in r.stdout and "locator not found" in r.stdout, r.stdout
     assert r.returncode == 2, r.stdout
 
 
@@ -225,6 +225,201 @@ def test_an_escaped_pipe_matches_a_real_one(repo):
     assert ec.unescape("a \\| b") == "a | b"
     text = "| Target SHA | value |\n"
     assert ec.resolve("t.md", '"| Target SHA | value |"', text) == [(1, 1)]
+
+
+# --- two levels: a major unit and an optional minor anchor -----------------
+
+
+BRACE = (
+    "export const OTHER = 1;\n"
+    "\n"
+    "export function handler(input: string): number {\n"
+    "  const y = input.length;\n"
+    "  if (y > 3) {\n"
+    "    return y;\n"
+    "  }\n"
+    "  return 0;\n"
+    "}\n"
+    "\n"
+    "class Box {\n"
+    "  open(): number {\n"
+    "    return 1;\n"
+    "  }\n"
+    "}\n"
+)
+
+
+def test_the_major_unit_resolves_without_a_parser(repo):
+    """`ast` exists for `.py` only, and a project adopting this skill is mostly
+    code that is not Python. Falling back to text anchors there would hand
+    those projects the brittle version of this design.
+
+    The rule needs no parser and no dependency: the name followed by `(`, `{`
+    or `:`, then the block to the next line at the same or lower indentation.
+    That closes a suite in an indentation language and lands on the closing
+    brace in a brace language, because the brace sits at the declaration's own
+    indent.
+    """
+    assert ec.resolve("svc.ts", "handler", BRACE) == [(3, 8)]
+    assert ec.resolve("svc.ts", "Box", BRACE) == [(11, 14)]
+    assert ec.resolve("svc.ts", "open", BRACE) == [(12, 13)]
+
+
+def test_a_unit_the_generic_rule_cannot_find_is_broken(repo):
+    """Loud and honest beats a per-language parser nobody maintains."""
+    assert ec.resolve("svc.ts", "missing", BRACE) == []
+    (repo / "svc.ts").write_text(BRACE)
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        "# frag\n\n| CLAUSE | `svc.ts#missing@00000000` |\n"
+    )
+    r = run(["."], str(repo))
+    assert "BROKEN" in r.stdout and "locator not found" in r.stdout, r.stdout
+    assert r.returncode == 2
+
+
+def test_a_brace_language_unit_drifts_on_a_change_inside_it(repo):
+    (repo / "svc.ts").write_text(BRACE)
+    h = ec.content_hash(BRACE.splitlines()[2:8])
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f"# frag\n\n| CLAUSE | `svc.ts#handler@{h}` |\n"
+    )
+    assert "1 ok" in run(["."], str(repo)).stdout
+    (repo / "svc.ts").write_text(BRACE.replace("y > 3", "y > 4"))
+    r = run(["."], str(repo))
+    assert "1 drifted" in r.stdout and r.returncode == 1, r.stdout
+
+
+def test_a_minor_anchor_that_matches_several_places_widens(repo):
+    """Several matches is not a place, so it widens like a stale one rather
+    than becoming a second way to report BROKEN.
+
+    `y` is both assigned and returned inside `handler`, which is two innermost
+    statements.
+    """
+    assert ec.minor_region("src/service.py", SERVICE, (4, 6), "y") == []
+
+
+def test_a_stale_minor_anchor_widens_to_drifted_rather_than_broken(repo):
+    """The joining rule, and the property this design turns on.
+
+    BROKEN says *I cannot find it, go edit the ledger* — the bookkeeping this
+    redesign removes. DRIFTED says *it changed, go re-read the claim* — the
+    work the ledger exists for. A minor anchor that stopped matching means
+    that place changed, so the row widens to its unit and reports DRIFTED.
+    """
+    body = (repo / "src" / "service.py").read_text()
+    inside = ec.minor_region("src/service.py", body, (4, 6), '"y = x + 1"')
+    a, b = inside[0]
+    h = ec.content_hash(body.splitlines()[a - 1 : b])
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f'# frag\n\n| CLAUSE | `src/service.py#handler>"y = x + 1"@{h}` |\n'
+    )
+    assert "1 ok" in run(["."], str(repo)).stdout
+
+    # The anchored statement is gone entirely.
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("    y = x + 1\n    return y", "    return x + 1")
+    )
+    r = run(["."], str(repo))
+    assert "BROKEN" not in r.stdout, (
+        f"a stale minor anchor reported BROKEN, which sends someone to edit "
+        f"the ledger:\n{r.stdout}"
+    )
+    assert "DRIFTED" in r.stdout and "anchored statement is gone" in r.stdout, r.stdout
+    assert r.returncode == 1, r.stdout
+
+
+def test_widening_does_not_swallow_a_real_broken(repo):
+    """The failure mode of the widening: if the UNIT is also gone, the row
+    must still be BROKEN. A widen that answered DRIFTED for a deleted function
+    would report `go re-read` about something nobody can open."""
+    body = (repo / "src" / "service.py").read_text()
+    inside = ec.minor_region("src/service.py", body, (4, 6), '"y = x + 1"')
+    a, b = inside[0]
+    h = ec.content_hash(body.splitlines()[a - 1 : b])
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f'# frag\n\n| CLAUSE | `src/service.py#handler>"y = x + 1"@{h}` |\n'
+    )
+    (repo / "src" / "service.py").write_text(SERVICE.replace("def handler", "def gone"))
+    r = run(["."], str(repo))
+    assert "BROKEN" in r.stdout and "locator not found" in r.stdout, r.stdout
+    assert r.returncode == 2, r.stdout
+
+
+def test_a_minor_anchor_is_resolved_by_what_it_references(repo):
+    """Not by the characters of its line. Renaming a local on that line then
+    changes nothing; renaming the thing it calls does, and widening to the
+    unit with a DRIFTED is the right answer there too."""
+    text = (
+        "def f(a):\n    # compute the total\n    total = compute(a)\n    return total\n"
+    )
+    # The comment names `compute` too, so a character search finds two places
+    # and a reference search finds the one statement that actually calls it.
+    # That difference is what this case exists to hold: found by mutation,
+    # because a fixture without the comment passes either way.
+    assert ec.minor_region("x.py", text, (1, 4), "compute") == [(3, 3)]
+    assert ec.literal_statements(text.splitlines(), (1, 4), "compute") != [(3, 3)]
+
+    renamed = text.replace("total", "sum_")
+    assert ec.minor_region("x.py", renamed, (1, 4), "compute") == [(3, 3)], (
+        "renaming a local broke a minor anchor that names what it calls"
+    )
+
+
+def test_a_markdown_locator_is_a_heading_path(repo):
+    """A sentence anchor breaks on any rewording. A heading is the document's
+    own structure and survives the prose beneath being rewritten."""
+    text = "# Top\n\n## A\n\nbody\n\n### Deep\n\nmore\n\n## B\n\nlast\n"
+    # A section runs to the line before the next heading at its level or
+    # above, trailing blank included — the hash normalises blanks away.
+    assert ec.resolve("d.md", '"## A"', text) == [(3, 10)]
+    assert ec.resolve("d.md", '"## A / ### Deep"', text) == [(7, 10)]
+
+
+def test_only_a_real_heading_opens_a_section(repo):
+    """A line with the same text that is NOT a heading must not match.
+
+    Found by mutation: treating any matching line as a level-1 heading left
+    every heading case green, because no fixture had a look-alike line.
+    """
+    # An INDENTED `## B` — inside a code block or a list — normalises to the
+    # same text as the heading but is not one. That is the case the guard is
+    # for, and a look-alike that differs in text never reaches it.
+    text = "## A\n\n    ## B\n\n## B\n\nreal\n"
+    assert ec.heading_level("    ## B") is None
+    assert ec.resolve("d.md", '"## B"', text) == [(5, 7)]
+
+
+def test_the_generic_rule_needs_a_declaration_not_a_mention(repo):
+    """`handler(x)` called somewhere is not `handler`'s declaration.
+
+    Found by mutation: dropping the `(`/`{`/`:` requirement left every brace
+    case green, because no fixture mentioned a name away from its declaration.
+    """
+    text = (
+        "// handler is described here\n"
+        "const r = handler(1);\n"
+        "\n"
+        "function handler(x) {\n"
+        "  return x;\n"
+        "}\n"
+    )
+    # The call site `handler(1)` is a mention that LOOKS like a declaration to
+    # a text rule, so this is genuinely two places and BROKEN is correct.
+    # The region stops AT the closing brace rather than including it: the
+    # brace sits at the declaration's own indent, and it carries no claim.
+    assert ec.resolve("svc.js", "handler", text) == [(2, 2), (4, 5)]
+    plain = "// handler is described here\n\nfunction handler(x) {\n  return x;\n}\n"
+    assert ec.resolve("svc.js", "handler", plain) == [(3, 4)], (
+        "a bare mention in a comment was read as a declaration"
+    )
+
+
+def test_a_repeated_heading_is_disambiguated_by_its_parent(repo):
+    """Rather than by a line number, which is the thing being removed."""
+    text = "## A\n\n### Same\n\none\n\n## B\n\n### Same\n\ntwo\n"
+    assert len(ec.resolve("d.md", '"### Same"', text)) == 2
+    assert ec.resolve("d.md", '"## B / ### Same"', text) == [(9, 11)]
 
 
 # --- the verdicts -----------------------------------------------------------
