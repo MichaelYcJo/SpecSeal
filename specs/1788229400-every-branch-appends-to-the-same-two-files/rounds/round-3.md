@@ -6,7 +6,7 @@
 | Diff base | `origin/main` (`708e348`) |
 | PR | not yet |
 | Broad gate | run by the orchestrator after the redesign below |
-| Fixes checked by | the orchestrator, by the mutations round 3 named |
+| Fixes checked by | `round-4` |
 | Needs a fix | no — and the branch then changed direction, see the closing section |
 
 - [x] Pass
@@ -30,7 +30,9 @@ The verifying round re-derived each rather than inheriting round 2's verdict.
 | 🟡 9 | **closed** | Mutation: the declared pass re-bounded turns its case red. Round 1's 🟡 6 fix went from no case to two |
 | 🟡 10 | **closed** | The assertion is restored for all six documents and accepts both wrappings. Verified not vacuous |
 
-## What round 3 opened, and what happened to it
+## Verdicts
+
+What round 3 opened, and what happened to it.
 
 No 🔴. Three items, all fixed at `2d56812`.
 
