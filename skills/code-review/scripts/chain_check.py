@@ -247,18 +247,29 @@ assert FIX_WORDS <= CLOSED_WORDS, "a fix word that is not a closing word"
 # and most cite a commit after it. Neither refusal that reads a verdict cell
 # had ever fired on a real record.
 EMPHASIS = re.compile(r"[*_`]+")
-# The commit citation that follows the word — `**fixed** `d3fe44d``, and
-# `**fixed** `96a1ae3`, closed by a final commit`. The verdict is what stands
-# BEFORE it, so the cell is cut here rather than searched for a closing word
-# anywhere inside it. That direction is what keeps a long `answered` cell
-# mentioning a fix from reading as a fix.
+# The vocabulary as a match ORDER, longest spelling first, so the `fixed`
+# inside `agreed, fixed` never takes the row from it. Derived from
+# `CLOSED_WORDS` rather than written out again: the assertion above
+# `FIX_WORDS` exists because two hand-kept lists drift, and a third list is
+# that same bet taken a second time.
 #
-# A digit is required inside the run. `defaced` and `acceded` are seven
-# characters of [0-9a-f] and ordinary English, and cutting a cell at one of
-# those would truncate a verdict that is citing nothing. A commit abbreviation
-# with no digit is a 1-in-800 spelling, and cutting late there costs nothing:
-# the verdict word before it is already complete.
-CITATION = re.compile(r"\s+(?=[0-9a-f]{7,40}\b)(?=[0-9a-f]*\d)")
+# This replaces a regex that located where the commit citation began and cut
+# the cell there. Cutting was the wrong shape for the question. The pattern
+# required a digit inside the hex run — `defaced` and `acceded` are seven
+# characters of [0-9a-f] and ordinary English — and a real seven-character
+# abbreviation carries no digit about one time in 959. At that point the
+# pattern did not cut LATE; it did not cut at all, so `**fixed** `deadbee``
+# normalized to `fixed deadbee`, which is in neither set, and a 🔴 that was
+# properly closed read as still open. Round 2 opened that at the same site
+# round 1 was closing, which `docs/review-chain-spec.md` calls the structure
+# signal whatever the count.
+#
+# Matching the vocabulary as a PREFIX of the cell asks the question directly
+# and never has to recognise a commit at all, so the digit question disappears
+# rather than moving one spelling further out. It keeps the direction the cut
+# was protecting: only the head of the cell is ever consulted, so
+# `answered, and **sharpened** in `96a1ae3`` is `answered` and not a fix.
+VOCAB = sorted(CLOSED_WORDS, key=len, reverse=True)
 # `Pass` says the findings are closed. This says who opened the work that
 # closed them, and it is the last record's answer to the question `Pass`
 # cannot reach. See the module docstring for what each value means.
@@ -890,21 +901,32 @@ def verdict_of(seen, col):
     from a silent pass never ran, and `open_blocking` read a 🔴 legitimately
     closed as `**fixed** `sha`` as still open.
 
-    Three layers come off, each of them a spelling the records actually hold:
+    Two layers come off and then the vocabulary is matched as a PREFIX:
 
       emphasis   `**fixed**`, `` `fixed` `` — `EMPHASIS`
-      citation   the commit and everything after it, so
-                 `**fixed** `96a1ae3`, closed by a final commit` is `fixed`
       the stop   a trailing full stop
+      the head   the first word of `VOCAB` the cell BEGINS with, ended by a
+                 space or a comma, so `fixed d3fe44d` and `fixed deadbee` are
+                 both `fixed` and neither has to be recognised as a commit
 
-    Cutting AT the citation rather than looking for a closing word inside the
-    cell is what keeps the other direction safe. `answered, and **sharpened**
-    in `96a1ae3` — …` normalizes to `answered, and sharpened in`, which is in
-    neither set and therefore counts open, where a reader scanning the cell
-    for a fix word would have found one.
+    Reading only the head of the cell is what keeps the other direction safe.
+    `answered, and **sharpened** in `96a1ae3` — …` begins with `answered,` and
+    stops there, so a long `answered` cell that mentions a fix does not read
+    as one — where a reader scanning the whole cell for a fix word would have
+    found one.
+
+    The boundary is what makes it a word rather than a prefix of one. Without
+    it `not a defect` would swallow `not a defective reading`, and the two are
+    opposite verdicts. Anything the vocabulary does not begin the cell with
+    comes back as the normalized cell itself, which is in neither set and
+    therefore counts OPEN — `not fixed` included, which is the direction this
+    whole file takes for a cell it cannot read.
     """
-    s = EMPHASIS.sub("", seen[col]).lower().strip()
-    return CITATION.split(s)[0].strip().rstrip(".").strip()
+    s = EMPHASIS.sub("", seen[col]).lower().strip().rstrip(".").strip()
+    for word in VOCAB:
+        if s == word or s.startswith(word + " ") or s.startswith(word + ","):
+            return word
+    return s
 
 
 def open_blocking(reader, lines, rel):
@@ -978,13 +1000,23 @@ def reviewed_later(reader, root, rel, rows, value, checker_rel):
     have opened them however its file is numbered. Rounds are also cheap to
     number and expensive to run.
 
+    Both sides are read at their NEWEST tree, which is `mine[-1]` and
+    `theirs[-1]`. `templates/sdd-round.md` lets the row name two SHAs — *both,
+    if HEAD moved mid-review* — and comparing the checker's newest against
+    this record's FIRST was a hole rather than a nicety: round 1 writing
+    `A and B` and round 2 writing `B` passed, where two records at one shared
+    SHA correctly failed. A round that read exactly what this round read has
+    seen nothing new, and how many SHAs each row happens to list does not
+    change that.
+
     Only positively established inversions are refused, never an absence:
 
-      the same commit          both records name one tree, compared as
-                               resolved commits where the repository still
-                               carries them and as written where it does not
+      the same commit          both records' newest trees are one commit,
+                               compared as resolved commits where the
+                               repository still carries them and as the whole
+                               written sets where it does not
       strictly earlier         the checker's newest tree is an ANCESTOR of
-                               what this round opened
+                               this record's newest
 
     Anything else passes, the unrelated-commit case included. A squash
     discards the commits a round reviewed, so *cannot be compared* is the
@@ -1002,7 +1034,7 @@ def reviewed_later(reader, root, rel, rows, value, checker_rel):
     same += "were written after it ended. The number is later; the review "
     same += "is not"
 
-    mine_head, theirs_head = resolves_to(root, mine[0]), resolves_to(root, theirs[-1])
+    mine_head, theirs_head = resolves_to(root, mine[-1]), resolves_to(root, theirs[-1])
     if mine_head is None or theirs_head is None:
         return [(rel, 0, same)] if set(mine) == set(theirs) else []
     if mine_head == theirs_head:

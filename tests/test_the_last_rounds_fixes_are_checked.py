@@ -302,6 +302,95 @@ def test_a_checker_that_reviewed_an_earlier_commit_fails(repo):
     assert "reviewed an EARLIER tree" in out
 
 
+def two_targets(first, second):
+    """A `Target SHA` cell naming both commits, the way the template allows.
+
+    `templates/sdd-round.md` says *both, if HEAD moved mid-review*, and every
+    comparison below has to read the NEWEST of them on each side. Reading the
+    checker's newest against this record's FIRST was a hole: it let a round
+    that read exactly what this round read pass as its checker.
+    """
+    return f"`{first}`, and `{second}` after this round's fixes"
+
+
+def test_a_checker_whose_newest_tree_is_this_records_newest_fails(repo):
+    """S4d. The two-SHA spelling of the same-commit refusal.
+
+    Round 1 opened `A` and saw `B` before it finished; round 2 opened `B`.
+    Nothing moved between them, so round 2 read exactly what round 1 read and
+    cannot have opened the fixes that closed it — the identical fact
+    `test_a_checker_that_reviewed_the_same_commit_fails` pins for one SHA
+    each. Compared against round 1's FIRST SHA this exited 0, where two
+    records at a single shared SHA correctly exited 1.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    early = commit(repo, "declare")
+    write(repo, "f.py", "x = 2\n")
+    late = commit(repo, "HEAD moved mid-review")
+    write(repo, f"{ROUNDS}/round-1.md", record(two_targets(early, late), "round-2"))
+    write(
+        repo,
+        f"{ROUNDS}/round-2.md",
+        record(late, "no fixes to check", verdict="answered"),
+    )
+    commit(repo, "rounds")
+    code, out = run(repo)
+    assert code == 1, out
+    assert "reviewed the same commit" in out
+
+
+def test_a_checker_that_moved_past_this_records_tree_passes(repo):
+    """The other side of the same read, and the reason it is `theirs[-1]`.
+
+    Round 2 opened the tree round 1 reviewed and then HEAD moved, so its
+    newest tree is later than anything round 1 saw. That is a real verifying
+    round with a real fix diff in it, and reading the checker's FIRST SHA
+    instead would refuse it for the commit it started at.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    early = commit(repo, "declare")
+    write(repo, "f.py", "x = 2\n")
+    late = commit(repo, "the fixes")
+    write(repo, f"{ROUNDS}/round-1.md", record(early, "round-2"))
+    write(
+        repo,
+        f"{ROUNDS}/round-2.md",
+        record(two_targets(early, late), "no fixes to check", verdict="answered"),
+    )
+    commit(repo, "rounds")
+    code, out = run(repo)
+    assert code == 0, out
+
+
+def test_two_records_naming_one_commit_git_cannot_see_still_fails(repo):
+    """The squash path, which is the only reading left when git has neither.
+
+    A squash discards the commits a round reviewed, so *cannot be compared* is
+    the ordinary state of a merged record and passing there is right. What is
+    still refusable is two records naming the SAME unresolvable commit: the
+    written cells are equal whatever git can no longer resolve, and the
+    inversion is established without resolving anything.
+
+    Neither of the first two records is the run's last, so no reachability
+    claim is made about the commit they name — that check reads `records[-1]`
+    alone, and round 3 carries a commit this repository does carry.
+    """
+    gone = "0" * 40
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(repo, f"{ROUNDS}/round-1.md", record(gone, "round-2"))
+    write(repo, f"{ROUNDS}/round-2.md", record(gone, "round-3"))
+    write(
+        repo,
+        f"{ROUNDS}/round-3.md",
+        record(sha, "no fixes to check", verdict="answered"),
+    )
+    commit(repo, "rounds")
+    code, out = run(repo)
+    assert code == 1, out
+    assert "reviewed the same commit" in out
+
+
 def test_a_checker_git_does_not_carry_fails(repo):
     """S5. The claim git can contradict, and the reason the check reads the
     repository instead of the record's word for it."""
@@ -388,7 +477,7 @@ def test_a_blocking_finding_closed_in_bold_is_closed(repo):
 
 
 def test_an_answered_cell_that_mentions_a_fix_is_not_a_fix(repo):
-    """The cut is AT the citation, not a search for a fix word inside the cell.
+    """Only the HEAD of the cell is consulted, never the whole of it.
 
     A reader scanning for `fixed` anywhere would find `sharpened in `abc123d``
     here and refuse a record whose round wrote no code at all. This is the
@@ -400,6 +489,103 @@ def test_an_answered_cell_that_mentions_a_fix_is_not_a_fix(repo):
     )
     code, out = run(repo)
     assert code == 0, out
+
+
+# Round 2 opened a 🔴 at the site round 1 was closing, and the four cases below
+# are the replacement's own coverage.
+#
+# What round 1 shipped located the commit citation with a regex and cut the
+# cell there. The pattern required a digit inside the hex run, so on a real
+# abbreviation carrying none it did not cut LATE -- it did not cut at all, and
+# `**fixed** `deadbee`` normalized to `fixed deadbee`, a verdict in neither
+# set. A 🔴 that was properly closed read as still open, at about one
+# seven-character abbreviation in 959 and in the exact spelling this
+# repository's house style writes.
+#
+# `verdict_of` now matches the vocabulary as a PREFIX of the cell and never
+# recognises a commit at all, so the digit question is gone rather than moved.
+# These pin the two directions of that and the two readings it must not
+# acquire while gaining them.
+
+NO_DIGIT_CITATIONS = ["deadbee", "defaced", "acceded", "dbaeded"]
+
+
+@pytest.mark.parametrize("abbrev", NO_DIGIT_CITATIONS)
+def test_a_commit_abbreviation_with_no_digit_is_still_a_fix(repo, abbrev):
+    """The blocker, in the direction that let a contradiction through.
+
+    Each of these is seven characters of [0-9a-f] and carries no digit, which
+    is the whole of what the old pattern needed to fail. `no fixes to check`
+    beside `**fixed** `deadbee`` is the same contradiction-inside-one-file as
+    beside `**fixed** `abc123d``, and it exited 0.
+    """
+    declared(
+        repo,
+        round1=lambda sha: record(sha, "no fixes to check", f"**fixed** `{abbrev}`"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "closed on a fix" in out
+
+
+@pytest.mark.parametrize("abbrev", NO_DIGIT_CITATIONS)
+def test_a_blocking_finding_closed_at_such_a_commit_is_closed(repo, abbrev):
+    """The same defect in the direction that fails a correct record.
+
+    This is what round 2 executed: a 🔴 closed as `**fixed** `deadbee`` read
+    as still open, so a round that closed its blocker honestly could not check
+    its own `Pass`.
+    """
+    declared(
+        repo,
+        round1=lambda sha: record(
+            sha,
+            "nobody — the run ended here",
+            f"**fixed** `{abbrev}`",
+            finding="🔴 1",
+        ),
+    )
+    code, out = run(repo)
+    assert code == 0, out
+
+
+def test_a_cell_that_negates_the_verdict_word_counts_open(repo):
+    """The unsafe direction stays closed.
+
+    `not fixed` begins with no word in the vocabulary, so it is not a verdict
+    this can read and an unreadable verdict counts OPEN — the direction
+    `CLOSED_WORDS` states above itself. A reader that looked for `fixed`
+    anywhere in the cell would close a 🔴 the cell says is not closed.
+    """
+    declared(
+        repo,
+        round1=lambda sha: record(
+            sha, "nobody — the run ended here", "not fixed", finding="🔴 1"
+        ),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "not fixed" in out
+
+
+def test_the_vocabulary_is_matched_as_a_word_and_not_as_a_prefix(repo):
+    """`not a defect` and `not a defective reading` are opposite verdicts.
+
+    The match ends at a space or a comma. Without that boundary the shorter
+    spelling swallows the longer one and a 🔴 whose grounds say the reviewer's
+    reading was defective reads as a 🔴 the reviewer withdrew.
+    """
+    declared(
+        repo,
+        round1=lambda sha: record(
+            sha,
+            "nobody — the run ended here",
+            "not a defective reading of the spec, so still open",
+            finding="🔴 1",
+        ),
+    )
+    code, out = run(repo)
+    assert code == 1, out
 
 
 def test_nobody_with_a_reason_passes_and_says_so(repo):
@@ -459,6 +645,31 @@ def test_the_same_record_only_prints_for_an_item_begun_before_it(repo):
     declared(repo, round1=lambda sha: record(sha, "nobody — the run ended here"))
     code, out = run(repo)
     assert code == 0, out
+    assert "opened by nobody" in out
+
+
+def test_a_work_item_begun_at_the_cutoff_second_is_held_to_the_rule(repo):
+    """The boundary is `>=`, and the item sitting on it is this one.
+
+    `STRICT_FROM` is the id of the work item that added the rule, so the first
+    item the rule reaches is the one that wrote it — that is the whole of what
+    "a fresh install creates every work item after it" rests on. The two
+    fixtures either side of it are hundreds of millions of seconds away and
+    hold the boundary at neither, so `>=` could become `>` and the item that
+    wrote the rule would quietly excuse itself.
+
+    The second is read from `chain_check.py` rather than typed here. Typed, it
+    would pin a number instead of the boundary, and a release that moved the
+    cutoff would leave this case testing an ordinary grandfathered item.
+    """
+    began = check_module().STRICT_FROM
+    declared(
+        repo,
+        item=f"specs/{began}-the-item-that-wrote-the-rule",
+        round1=lambda sha: record(sha, "nobody — the run ended here"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
     assert "opened by nobody" in out
 
 
@@ -915,6 +1126,13 @@ def test_the_smiths_account_of_the_bound_matches_the_spec():
     assert "Rounds are capped at **three**, and at **five while a 🔴 is open**." in spec
 
 
+def _load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def reader_module():
     """`unverified_check.py`, the same module `chain_check` loads.
 
@@ -922,11 +1140,21 @@ def reader_module():
     exactly as it does when the check reads a record, and a second
     implementation in this file would be free to drift from it.
     """
-    path = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
-    spec = importlib.util.spec_from_file_location("specseal_reader_for_tests", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return _load(
+        "specseal_reader_for_tests",
+        os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py"),
+    )
+
+
+def check_module():
+    """`chain_check.py` itself, for the constants a fixture has to sit on.
+
+    Every case above runs the check as a subprocess, which is what a hook
+    does. This is for the one thing a subprocess cannot hand back: the value
+    of `STRICT_FROM`, so the work item on the cutoff can be built at whatever
+    second the cutoff currently is rather than at a number typed here.
+    """
+    return _load("specseal_check_for_tests", CHECK)
 
 
 def test_the_template_row_is_a_row_and_not_an_explanation():
