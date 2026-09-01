@@ -117,7 +117,14 @@ def test_default_repo_resolves_unprefixed(ledger_repo, tmp_path):
         "# ledger\n| POL-9 | `apps/svc.py:2` |\n"
     )
     r = run(["--default-repo", str(orig), "."], str(ledger_repo))
-    assert "1 ok" in r.stdout and r.returncode == 0
+    # The property is RESOLUTION: the coordinate is found in the default repo
+    # rather than reported EXTERNAL or BROKEN. It used to read `1 ok`, and
+    # that reading was the defect round 1 raised as 🔴 4 — `orig` has no
+    # commit, so this row was never compared with anything, and `OK` said it
+    # had been. `UNMEASURED` is the same fact stated honestly.
+    assert r.returncode == 0, r.stdout
+    assert "EXTERNAL" not in r.stdout and "BROKEN" not in r.stdout, r.stdout
+    assert "UNMEASURED apps/svc.py:2" in r.stdout, r.stdout
 
 
 def test_clean_ledger_exits_zero(ledger_repo):

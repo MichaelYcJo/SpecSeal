@@ -90,21 +90,62 @@ def header_of(text):
 
     A Baseline declaration cites no code, so nothing that was found before is
     lost. The 2000-character cap stays as the outer bound.
+
+    **The first citing row is the bound, and the 2000-character cap is only a
+    backstop for a ledger that has none.** The cap used to run first and the
+    cut second, which made the cut dead on any ledger whose first citing row
+    sits past 2000 — measured on two of the three files it was written for:
+    `.specseal/map.md` capped at 2000 with its first citing row at char 3732,
+    `templates/map.md` capped, and only the fragment actually cut. Reversing
+    the order alone was not enough, because the cap then truncated the cut
+    result and the declaration could still fall outside it: this change grew
+    `.specseal/map.md`'s header by roughly 800 characters, and its `Baseline`
+    row sits at char 753, so another 1250 above it would push the declaration
+    out of the window and the fallback would vanish while the run printed the
+    same line as a healthy file.
+
+    So the cap applies only where no citing row was found. There is nothing to
+    check in such a ledger anyway, and the cap is there to stop a scan of an
+    unbounded body rather than to bound a header.
     """
-    header = text[:2000]
-    at = 0
-    for line in header.splitlines(keepends=True):
+    at, found = 0, False
+    for line in text.splitlines(keepends=True):
         if line.lstrip().startswith("|") and COORD_RE.search(line):
-            return header[:at]
+            found = True
+            break
         at += len(line)
-    return header
+    return text[:at] if found else text[:2000]
 
 
-def find_baseline(text, repo, cache=None):
-    """First plausible commit SHA in the ledger's header that exists in repo."""
+def find_baseline(text, repo, cache=None, source=None):
+    """First plausible commit SHA in the ledger's header that exists in repo.
+
+    A fragment declares no baseline, so a commit its PROSE names becomes the
+    whole file's — which happened twice on the first fragment written here,
+    the second time in the paragraph explaining the first. The answer is to
+    read it and say so rather than to refuse it: `source` comes back with
+    `a Baseline row` or `header prose`, and the run prints which. Refusing a
+    header SHA outside a labelled row would break a ledger whose header writes
+    a bare one, and its failure direction is the quiet one — such a ledger
+    loses its fallback while printing the same line as a healthy file.
+    """
     cache = {} if cache is None else cache
-    for m in SHA_RE.finditer(header_of(text)):
+    header = header_of(text)
+    for m in SHA_RE.finditer(header):
         if is_commit(m.group(0), repo, cache):
+            if source is not None:
+                line_start = header.rfind("\n", 0, m.start()) + 1
+                line_end = header.find("\n", m.start())
+                line = (
+                    header[line_start:]
+                    if line_end == -1
+                    else header[line_start:line_end]
+                )
+                source.append(
+                    "a Baseline row"
+                    if line.lstrip().startswith("|") and "aseline" in line
+                    else "header prose"
+                )
             return m.group(0)
     return None
 
@@ -142,9 +183,30 @@ def blame_lines(repo, rel, cache):
             # A porcelain header is `<40-hex> <orig line> <final line>` at the
             # start of a line; every content line is TAB-prefixed and every
             # other metadata line starts with a word.
-            for m in re.finditer(r"^([0-9a-f]{40}) (\d+) (\d+)", out, re.MULTILINE):
-                if m.group(1) != "0" * 40:
-                    found[int(m.group(3))] = (m.group(1), int(m.group(2)))
+            #
+            # `filename` is NOT emitted for every line. Git suppresses the
+            # whole metadata block for a commit it has already printed, so in
+            # a ledger of forty lines written by five commits only five blocks
+            # carry one — measured on this repository's own fragment, where
+            # line 1 has a block and line 2 has a bare header. A reader that
+            # expects `filename` beside each header therefore finds it for the
+            # first line of each commit and nothing else, so the path is
+            # remembered per commit and only the working-tree path is assumed
+            # when git named none.
+            names, sha, orig = {}, None, None
+            for line in out.splitlines():
+                head = re.match(r"^([0-9a-f]{40}) (\d+) (\d+)", line)
+                if head:
+                    sha, orig = head.group(1), int(head.group(2))
+                    if sha != "0" * 40:
+                        found[int(head.group(3))] = (sha, orig, names.get(sha, rel))
+                    continue
+                if sha and line.startswith("filename "):
+                    names[sha] = line[len("filename ") :]
+                    if int(orig) and sha != "0" * 40:
+                        for final, (s, o, _) in list(found.items()):
+                            if s == sha and o == orig:
+                                found[final] = (s, o, names[sha])
         cache[key] = found
     return cache[key]
 
@@ -216,6 +278,35 @@ def first_appearance(repo, rel, sha, lineno, cache):
     return cache[key]
 
 
+def row_stamps(text, pos, repo, cache):
+    """Every DISTINCT resolvable stamp written in the row at `pos`, in order.
+
+    A coordinate is blanked before the scan, because a directory named like a
+    short SHA sits in the same row and must not be read as one. The filler is
+    NUL rather than a space: a space is what `STAMP_RE` accepts between a date
+    and a hex word, so collapsing a row that reads `2026-01-01` then a
+    coordinate under `x/deadbeef1.py` then `cafe1234` to one space
+    manufactured a stamp out of a date and a hex word that were never beside
+    each other. NUL is not whitespace, so nothing joins across it.
+
+    The list is returned rather than the first hit because the first hit is
+    not obviously the author's. The scan reads the physical row, so a stamp in
+    any earlier cell wins over the one in `Checked` — and `Verified behavior`,
+    free prose where this repository's fragments do name commits, sits before
+    it. Rather than guess, `check_ledger` reports a row carrying two as
+    AMBIGUOUS and measures from neither.
+    """
+    start = text.rfind("\n", 0, pos) + 1
+    end = text.find("\n", pos)
+    line = text[start:] if end == -1 else text[start:end]
+    line = COORD_RE.sub("\x00", line)
+    out = []
+    for m in STAMP_RE.finditer(line):
+        if is_commit(m.group(1), repo, cache) and m.group(1) not in out:
+            out.append(m.group(1))
+    return out
+
+
 def row_baseline(text, pos, repo, cache, ledger=None, root=None, blame=None):
     """The commit a row's drift is measured from, or None.
 
@@ -265,19 +356,22 @@ def row_baseline(text, pos, repo, cache, ledger=None, root=None, blame=None):
     wrote. The other is a coordinate resolving in another checkout: this
     repository's commits are not a diff base in that one.
     """
-    start = text.rfind("\n", 0, pos) + 1
-    end = text.find("\n", pos)
-    line = text[start:] if end == -1 else text[start:end]
-    line = COORD_RE.sub(" ", line)
-    for m in STAMP_RE.finditer(line):
-        if is_commit(m.group(1), repo, cache):
-            return m.group(1)
+    stamps = row_stamps(text, pos, repo, cache)
+    if stamps:
+        return stamps[0]
     if ledger is not None and root is not None and repo == root:
         blame = {} if blame is None else blame
         rel = os.path.relpath(ledger, root)
         anchor = blame_lines(root, rel, blame).get(text.count("\n", 0, pos) + 1)
         if anchor:
-            sha = first_appearance(root, rel, anchor[0], anchor[1], blame)
+            # The path git knew this line by AT the anchor commit, not the one
+            # the file has now. `git log -L <n>,<n>:<path> <sha>` resolves the
+            # path inside `<sha>`, so handing it today's name after a rename
+            # is `fatal: There is no path ... in the commit`, rc 128 — and the
+            # row then measured from nothing and printed `ok`. Executed: a
+            # ledger renamed after its row drifted went from `1 drifted`/exit 1
+            # to `1 ok`/exit 0, which turned that file's drift check off.
+            sha = first_appearance(root, anchor[2], anchor[0], anchor[1], blame)
             # Checked before it is used, at the one place a derived answer
             # leaves this function. Whatever a future git spells differently —
             # a decorated boundary, a name from a graft — reaches
@@ -321,13 +415,20 @@ def file_lines(path):
 
 
 def check_ledger(
-    ledger, root, maps, cache, default_repo=None, sha_cache=None, blame=None
+    ledger,
+    root,
+    maps,
+    cache,
+    default_repo=None,
+    sha_cache=None,
+    blame=None,
+    source=None,
 ):
     sha_cache = {} if sha_cache is None else sha_cache
     blame = {} if blame is None else blame
     with open(ledger, encoding="utf-8", errors="replace") as f:
         text = f.read()
-    baseline = find_baseline(text, root, sha_cache)
+    baseline = find_baseline(text, root, sha_cache, source)
     default_baseline = (
         find_baseline(text, default_repo, sha_cache) if default_repo else None
     )
@@ -381,9 +482,23 @@ def check_ledger(
         if n is not None and end > n:
             findings.append(("BROKEN", coord, f"file has {n} lines"))
             continue
-        # A row is measured from its own last change — a SHA it wrote, else
-        # what `git blame` says about its line. The header baseline is the
-        # fallback for the rows neither can answer for.
+        # Two distinct stamps in one row: the scan reads the physical row, so
+        # the winner would be whichever cell came first rather than the
+        # author's. Say so instead of picking.
+        written = row_stamps(text, m.start(), repo, sha_cache)
+        if len(written) > 1:
+            findings.append(
+                (
+                    "AMBIGUOUS",
+                    coord,
+                    f"row carries {len(written)} stamps: "
+                    + ", ".join(s[:9] for s in written),
+                )
+            )
+            continue
+        # A row is measured from the commit it first appeared in — or a stamp
+        # it wrote. The header baseline is the fallback for the rows neither
+        # can answer for.
         base = row_baseline(
             text, m.start(), repo, sha_cache, ledger=ledger, root=root, blame=blame
         ) or (
@@ -391,15 +506,20 @@ def check_ledger(
             if repo == root
             else (default_baseline if repo == default_repo else None)
         )
-        if base:
-            key = (repo, base, rel)
-            if key not in cache:
-                cache[key] = changed_ranges(repo, base, rel)
-            if overlaps(start, end, cache[key]):
-                findings.append(
-                    ("DRIFTED", coord, f"touched since {base[:9]} — re-verify")
-                )
-                continue
+        if not base:
+            # Nothing to measure from, which is NOT the same as measured and
+            # found untouched. `OK` used to be appended here unconditionally,
+            # so a row nobody had committed yet was indistinguishable from a
+            # row that had been compared — and a fragment spends most of its
+            # working life uncommitted.
+            findings.append(("UNMEASURED", coord, "no baseline — nothing was compared"))
+            continue
+        key = (repo, base, rel)
+        if key not in cache:
+            cache[key] = changed_ranges(repo, base, rel)
+        if overlaps(start, end, cache[key]):
+            findings.append(("DRIFTED", coord, f"touched since {base[:9]} — re-verify"))
+            continue
         findings.append(("OK", coord, ""))
     return baseline, findings
 
@@ -449,11 +569,19 @@ def main():
         print("no evidence ledgers found — nothing to check")
         return 0
 
-    totals = {"OK": 0, "DRIFTED": 0, "BROKEN": 0, "EXTERNAL": 0}
+    totals = {
+        "OK": 0,
+        "DRIFTED": 0,
+        "BROKEN": 0,
+        "EXTERNAL": 0,
+        "UNMEASURED": 0,
+        "AMBIGUOUS": 0,
+    }
     cache, sha_cache, blame = {}, {}, {}
     for ledger in ledgers:
+        source = []
         baseline, findings = check_ledger(
-            ledger, root, maps, cache, default_repo, sha_cache, blame
+            ledger, root, maps, cache, default_repo, sha_cache, blame, source
         )
         rel_ledger = os.path.relpath(ledger, root)
         # A fragment carries no header baseline on purpose — every row in it
@@ -462,7 +590,9 @@ def main():
         # told apart: nothing measures from anything only when the history
         # walk is silent too, which is a ledger git has never seen.
         if baseline:
-            base_note = baseline[:9]
+            # WHERE it came from, because a fragment declares none and a
+            # commit its prose happens to name is read all the same.
+            base_note = f"{baseline[:9]} from {source[0] if source else 'the header'}"
         elif blame_lines(root, rel_ledger, blame):
             base_note = "none in the header — each row measures from its own history"
         else:
@@ -476,12 +606,15 @@ def main():
             f"  {sum(1 for s, _, _ in findings if s == 'OK')} ok · "
             f"{sum(1 for s, _, _ in findings if s == 'DRIFTED')} drifted · "
             f"{sum(1 for s, _, _ in findings if s == 'BROKEN')} broken · "
-            f"{sum(1 for s, _, _ in findings if s == 'EXTERNAL')} external"
+            f"{sum(1 for s, _, _ in findings if s == 'EXTERNAL')} external · "
+            f"{sum(1 for s, _, _ in findings if s == 'UNMEASURED')} unmeasured · "
+            f"{sum(1 for s, _, _ in findings if s == 'AMBIGUOUS')} ambiguous"
         )
 
     print(
         f"\ntotal: {totals['OK']} ok · {totals['DRIFTED']} drifted · "
-        f"{totals['BROKEN']} broken · {totals['EXTERNAL']} external"
+        f"{totals['BROKEN']} broken · {totals['EXTERNAL']} external · "
+        f"{totals['UNMEASURED']} unmeasured · {totals['AMBIGUOUS']} ambiguous"
     )
     if totals["BROKEN"]:
         return 2
@@ -489,6 +622,13 @@ def main():
         return 2
     if totals["DRIFTED"]:
         return 1
+    # UNMEASURED and AMBIGUOUS print and pass. A fragment is uncommitted for
+    # most of its working life, so failing on it would put a red light in
+    # front of a session on every ordinary run — one it would learn to click
+    # past, which is how a real finding gets missed. `--strict` is where a
+    # release asks for the stricter reading.
+    if (totals["UNMEASURED"] or totals["AMBIGUOUS"]) and args.strict:
+        return 2
     return 0
 
 

@@ -213,8 +213,13 @@ def test_a_cross_repo_coordinate_does_not_take_this_repos_blame(repo, tmp_path):
     fragment(repo, "| POL-1 | `legacy/src/old.py:2` |\n")
     r = run(["--map", f"legacy={other}", "."], str(repo))
     assert r.returncode == 0, r.stdout
-    assert "1 ok" in r.stdout, r.stdout
     assert "EXTERNAL" not in r.stdout, r.stdout
+    # UNMEASURED is what proves the derivation was NOT applied. Were this
+    # repository's history used, the row would have a baseline and read OK or
+    # DRIFTED; the mapped repo supplies none, so nothing was compared. Before
+    # round 1's 🔴 4 this printed `1 ok`, which is the same state described as
+    # a comparison that happened.
+    assert "UNMEASURED legacy/src/old.py:2" in r.stdout, r.stdout
 
 
 def test_the_reader_is_still_the_one_the_stamp_test_calls(repo):
@@ -253,7 +258,7 @@ def test_blame_drops_the_all_zero_sha(repo):
         f.write("| POL-2 | `src/service.py:3` |\n")
     lines = mod.blame_lines(str(repo), ".specseal/map/core.md", {})
     assert lines, "blame answered for nothing at all"
-    assert all(sha != "0" * 40 for sha, _ in lines.values()), lines
+    assert all(sha != "0" * 40 for sha, _, _ in lines.values()), lines
     assert max(lines) < 5, (
         f"the uncommitted line got an anchor: {lines}. Blame reports it as "
         "the all-zero SHA, which resolves to no commit"
@@ -424,7 +429,7 @@ def test_a_boundary_line_gets_a_baseline_git_can_resolve(repo):
     fragment(repo, "| POL-1 | `src/service.py:2` |\n")
     lines = mod.blame_lines(str(repo), ".specseal/map/core.md", {})
     assert lines, "blame answered for nothing at all"
-    for n, (sha, _) in lines.items():
+    for n, (sha, _, _) in lines.items():
         assert not sha.startswith("^"), f"line {n} kept a boundary marker: {sha}"
         assert (
             git(repo, "cat-file", "-e", f"{sha}^{{commit}}", check=False).returncode
@@ -446,7 +451,9 @@ def test_a_baseline_that_does_not_resolve_is_refused(repo, monkeypatch):
     fragment(repo, "| POL-1 | `src/service.py:2` |\n")
     path = repo / ".specseal" / "map" / "core.md"
     text = path.read_text()
-    monkeypatch.setattr(mod, "blame_lines", lambda *a, **k: {1: ("x", 1), 3: ("y", 3)})
+    monkeypatch.setattr(
+        mod, "blame_lines", lambda *a, **k: {1: ("x", 1, "f"), 3: ("y", 3, "f")}
+    )
     monkeypatch.setattr(mod, "first_appearance", lambda *a, **k: "^9829412")
     assert (
         mod.row_baseline(
