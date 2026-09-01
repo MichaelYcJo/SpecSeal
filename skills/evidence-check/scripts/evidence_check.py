@@ -18,7 +18,10 @@ moves for edits that have nothing to do with the claim, so a coordinate made of
 one rots on contact: the row gets re-anchored, which resets whatever the row
 was measured from, which needs a stamp, which a squash then orphans. Every one
 of those mechanisms was compensation for the line number, and none of them is
-here. There is no baseline, no stamp, no commit SHA and no call to git.
+here. There is no baseline, no stamp, no commit SHA, and the CHECK asks git
+for nothing — the single exception is `--migrate`, a one-shot writer that may
+consult the old stamp's commit before trusting a recorded line number, and
+`content_at` says why that is a different act.
 
 The anchor is a **symbol name** where the language offers one — `.py` is read
 with the stdlib `ast`, so `Class.method` names a span exactly and no dependency
@@ -49,7 +52,9 @@ import glob
 import hashlib
 import os
 import re
+import subprocess
 import sys
+import tempfile
 
 # `path#anchor@hash`. The anchor is either a dotted symbol name or a quoted
 # line of text; `\|` inside the quotes is an escaped pipe, so a row anchored to
@@ -70,6 +75,7 @@ OLD_COORD_RE = re.compile(
     r":(?P<start>\d+)(?:-(?P<end>\d+))?\b"
 )
 OLD_STAMP_RE = re.compile(r"(\b\d{4}-\d{2}-\d{2})\s+`?[0-9a-f]{7,40}`?")
+STAMP_SHA_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\s+`?(?P<sha>[0-9a-f]{7,40})`?")
 # `example.com:8080` in a URL has the old coordinate shape exactly; the
 # line-number checker learned this the same way, from ledgers citing links.
 URL_HOST_RE = re.compile(r"(?://|\bhttps?:)[^\s)\]<>\"']*$")
@@ -96,30 +102,50 @@ def content_hash(lines):
 
 
 def py_spans(text):
-    """{qualified name: [(start, end)]} for every def and class in a module.
+    """{qualified name: [(start, end)]} for defs, classes and constants — or
+    None for a file that will not parse.
 
     Decorators are part of the span: a decorator carries behaviour, and a row
     anchored to the function it decorates should notice one being added or
-    removed. A file that will not parse yields nothing, so its rows fall to
-    text anchors rather than reporting a false OK.
+    removed. A module- or class-level assignment is a unit too — this
+    repository's own ledger cites three constants — and its span is the whole
+    statement, multi-line value included. An assignment inside a function is a
+    local, not a unit, and is not collected.
+
+    None rather than `{}` for a SyntaxError, because the two callers diverge
+    on exactly that: a file that cannot be parsed falls back to the generic
+    text rule, while a file that parses and simply lacks the symbol is
+    BROKEN. Conflating the two anchored rows to leftover call sites, and
+    `--reverify` then made the wrong anchor permanent (round 4, 🔴 2).
     """
     out = {}
     try:
         tree = ast.parse(text)
     except SyntaxError:
-        return out
+        return None
 
-    def walk(node, prefix):
+    def walk(node, prefix, in_function):
         for child in ast.iter_child_nodes(node):
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 name = prefix + child.name
                 start = min([child.lineno] + [d.lineno for d in child.decorator_list])
                 out.setdefault(name, []).append((start, child.end_lineno))
-                walk(child, name + ".")
+                walk(child, name + ".", not isinstance(child, ast.ClassDef))
+            elif isinstance(child, (ast.Assign, ast.AnnAssign)) and not in_function:
+                targets = (
+                    child.targets if isinstance(child, ast.Assign) else [child.target]
+                )
+                for t in targets:
+                    elts = t.elts if isinstance(t, (ast.Tuple, ast.List)) else [t]
+                    for n in elts:
+                        if isinstance(n, ast.Name):
+                            out.setdefault(prefix + n.id, []).append(
+                                (child.lineno, child.end_lineno)
+                            )
             else:
-                walk(child, prefix)
+                walk(child, prefix, in_function)
 
-    walk(tree, "")
+    walk(tree, "", False)
     return out
 
 
@@ -234,10 +260,49 @@ def resolve(path, locator, text):
                 return heading_path(lines, parts)
         return text_regions(lines, body, markdown)
     if path.endswith(".py"):
-        found = py_spans(text).get(locator, [])
-        if found:
-            return found
+        spans = py_spans(text)
+        if spans is not None:
+            # The parse succeeded, so ast's answer is the whole answer: a
+            # symbol it cannot find is GONE. Falling back to the text rule
+            # here read a leftover call site as the unit — a moved function
+            # reported DRIFTED instead of BROKEN-with-hint, and --reverify
+            # anchored the row to the call permanently (round 4, 🔴 2). The
+            # fallback survives only for the file ast cannot read at all.
+            return spans.get(locator, [])
     return generic_units(lines, locator)
+
+
+# Words that BEGIN a statement and can be followed directly by a call —
+# `return render(y);`, `await render(y)`, `if render(x):`. Any of them in the
+# text before the name makes the line a use rather than a declaration.
+STATEMENT_WORDS = frozenset(
+    [
+        "return",
+        "raise",
+        "throw",
+        "yield",
+        "await",
+        "assert",
+        "case",
+        "match",
+        "if",
+        "elif",
+        "while",
+        "with",
+        "switch",
+        "do",
+        "else",
+        "new",
+        "not",
+        "and",
+        "or",
+        "in",
+        "of",
+        "until",
+        "unless",
+        "when",
+    ]
+)
 
 
 def generic_units(lines, name):
@@ -265,17 +330,24 @@ def generic_units(lines, name):
     """
     out = []
     # What may sit before the name on a declaration line: keywords and
-    # modifiers, nothing else. `def f(`, `export function f(`, `const M =` all
-    # qualify; `x = f(` and `if v not in NAME:` do not — the second is why the
-    # colon is stricter still. Measured on this repository: without that,
-    # `if review not in REVIEW_ANSWERS:` reads as a second declaration and the
-    # row goes BROKEN for citing a constant.
+    # modifiers, nothing else. `x = f(` is already blocked because `=` cannot
+    # appear in `pre`; `if v not in NAME:` is why the colon is stricter still.
+    # Statement keywords are blocked by name: `return render(y);` is the
+    # commonest shape in every brace language, and reading it as a second
+    # declaration made a one-declaration-one-call file BROKEN-ambiguous
+    # (round 4, 🔴 1). The list names the USES because declaration modifiers
+    # (`export`, `static`, `async`, `def`, ...) are unbounded across
+    # languages, and a wrong entry here fails loud — a declaration whose
+    # modifier matched would report BROKEN — never silent.
     esc = re.escape(name)
     opener = re.compile(r"^(?P<pre>[\w\s*&]*?)\b" + esc + r"\s*(?P<delim>[({=]|:)")
     for i, line in enumerate(lines):
         m = opener.match(line)
         if not m:
             continue
+        pre_words = m.group("pre").replace("*", " ").replace("&", " ").split()
+        if STATEMENT_WORDS.intersection(pre_words):
+            continue  # `return render(y);` is a use, not a declaration
         if m.group("delim") == ":" and m.group("pre").strip():
             continue  # `if v not in NAME:` is a use, not a declaration
         indent = len(line) - len(line.lstrip())
@@ -391,7 +463,7 @@ def file_units(rel, body):
     lines = body.splitlines()
     units = []
     if rel.endswith(".py"):
-        for name, places in py_spans(body).items():
+        for name, places in (py_spans(body) or {}).items():
             if len(places) == 1:
                 units.append((name, places[0]))
     elif rel.endswith(".md"):
@@ -478,6 +550,14 @@ def content_matches(repo, rel, locator, want, cache):
     markdown = rel.endswith(".md")
     old_name = unescape(locator[1:-1]) if locator.startswith('"') else locator
     old_last = old_name.rsplit(".", 1)[-1]
+    if markdown:
+        # A heading-PATH locator's recorded region starts at its LAST part's
+        # heading line, not at the whole path string — substituting the whole
+        # path made the parent-qualified form the one form that could never
+        # be healed (round 4, 🟡 8).
+        parts = [p for p in old_name.split(HEADING_SEP) if p.strip()]
+        if len(parts) > 1 and heading_level(parts[0].strip()) is not None:
+            old_name = parts[-1].strip()
 
     others, capped = scan_candidates(repo, rel, cache)
     hash_matches, name_matches = [], []
@@ -509,8 +589,74 @@ def read(path):
         return None
 
 
+def write_atomic(path, text):
+    """Write-then-rename, never truncate-then-write.
+
+    A crash mid-write used to leave a torn ledger whose only recovery was the
+    session-start hook's committed baseline (round 4, 🟡 14). The temp file
+    lands in the ledger's own directory so the rename never crosses a
+    filesystem.
+    """
+    fd, tmp = tempfile.mkstemp(
+        dir=os.path.dirname(path) or ".", prefix=os.path.basename(path) + "."
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def place(root, maps, default_repo, raw_path):
+    """(repo, rel) — the checkout a coordinate is read from.
+
+    A prefix named by --map wins; an unprefixed path missing from ROOT falls
+    to --default-repo when the file exists there, which is how a migration
+    ledger cites the original repository without a prefix. One function,
+    because check, --reverify and --migrate answered this differently and two
+    of the three were wrong (round 4, 🔴 4 and 🟡 9).
+    """
+    for name, mapped in maps.items():
+        if raw_path == name or raw_path.startswith(name + "/"):
+            return mapped, raw_path[len(name) :].lstrip("/") or "."
+    if (
+        default_repo
+        and not os.path.isfile(os.path.join(root, raw_path))
+        and os.path.isfile(os.path.join(default_repo, raw_path))
+    ):
+        return default_repo, raw_path
+    return root, raw_path
+
+
+def cross_repo_intent(root, maps, default_repo):
+    """True when this project has DECLARED that its ledger may cite another
+    repository: a parity config in the tree, or --map/--default-repo on the
+    command line.
+
+    EXTERNAL is a claim about another repo, and without one of these three
+    declarations there is no other repo to claim — a missing top-level
+    directory is then a broken citation, not an external one. Deleting or
+    renaming a directory used to turn its rows EXTERNAL at exit 0, a green
+    build over a false message (round 4, 🔴 3).
+    """
+    return (
+        bool(maps)
+        or bool(default_repo)
+        or os.path.isfile(os.path.join(root, ".specseal", "parity.md"))
+    )
+
+
 def check_ledger(ledger, root, maps, default_repo=None):
     text = read(ledger)
+    if text is None:
+        # An unreadable ledger used to be a TypeError — swallowed under
+        # dispatch, a traceback in CI (round 4, 🟡 14).
+        return []
     findings = []
     seen = set()
     scan_cache = {}
@@ -518,56 +664,55 @@ def check_ledger(ledger, root, maps, default_repo=None):
         raw_path, want = m.group("path"), m.group("hash")
         locator, claim = m.group("locator"), m.group("claim")
         coord = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
-        if coord in seen:
+        # The hash is part of the key: two rows citing one unit at different
+        # times disagree, and one of them is necessarily stale — deduping on
+        # the coordinate alone skipped the stale one silently (round 4, 🟡 5).
+        if (coord, want) in seen:
             continue
-        seen.add(coord)
+        seen.add((coord, want))
 
-        repo, rel = root, raw_path
-        for name, mapped in maps.items():
-            if raw_path == name or raw_path.startswith(name + "/"):
-                repo, rel = mapped, raw_path[len(name) :].lstrip("/") or "."
-                break
-        else:
-            if (
-                not os.path.isfile(os.path.join(root, raw_path))
-                and default_repo
-                and os.path.isfile(os.path.join(default_repo, raw_path))
-            ):
-                repo = default_repo
+        repo, rel = place(root, maps, default_repo, raw_path)
         full = os.path.join(repo, rel)
 
         body = read(full)
         if body is None:
-            # A cross-repo coordinate always carries a prefix directory. A bare
-            # root-level path whose file is gone is a broken citation, not an
-            # external one — EXTERNAL is exempt from --strict, and a deleted
-            # file must fail the build.
-            if (
-                repo == root
-                and "/" in rel
-                and not os.path.exists(os.path.join(root, rel.split("/")[0]))
-            ):
-                findings.append(
-                    ("EXTERNAL", coord, "not in this repo; pass --map/--default-repo")
-                )
-            else:
-                # A renamed FILE breaks every row on the old path at once, and
-                # the same graded scan heals it: each row's unit is findable
-                # in the new file by content and name.
-                detail = "file not found"
-                scan = scan_cache.setdefault(repo, {})
-                hashes, names, capped = content_matches(repo, rel, locator, want, scan)
-                if len(hashes) == 1:
-                    path, name, _ = hashes[0]
-                    tag = "moved?" if name == locator else "renamed?"
-                    detail += f" — identical content at {path}#{name} ({tag})"
-                elif hashes:
-                    detail += f" — identical content at {len(hashes)} units"
-                elif len(names) == 1:
-                    detail += f" — same name at {names[0][0]} (content differs)"
-                if capped:
-                    detail += f" (repo-wide scan skipped: over {SCAN_FILE_CAP} files)"
-                findings.append(("BROKEN", coord, detail))
+            if repo == root and cross_repo_intent(root, maps, default_repo):
+                # The row cannot be placed in any repository this run knows,
+                # and the declaration says another one exists. The scan stays
+                # OFF: searching THIS repo for a row that may cite the other
+                # one manufactures evidence, and did — a cross-repo row was
+                # re-anchored onto a local look-alike (round 4, 🔴 4).
+                if "/" in rel and not os.path.exists(
+                    os.path.join(root, rel.split("/")[0])
+                ):
+                    findings.append(
+                        (
+                            "EXTERNAL",
+                            coord,
+                            "not in this repo; pass --map/--default-repo",
+                        )
+                    )
+                else:
+                    findings.append(("BROKEN", coord, "file not found"))
+                continue
+            # No cross-repo intent anywhere, or the row is mapped into a repo
+            # we can honestly search: a missing file is a broken citation
+            # whatever directory it sat in, and the same graded scan that
+            # heals a renamed file heals a renamed DIRECTORY (round 4, 🔴 3).
+            detail = "file not found"
+            scan = scan_cache.setdefault(repo, {})
+            hashes, names, capped = content_matches(repo, rel, locator, want, scan)
+            if len(hashes) == 1:
+                path, name, _ = hashes[0]
+                tag = "moved?" if name == locator else "renamed?"
+                detail += f" — identical content at {path}#{name} ({tag})"
+            elif hashes:
+                detail += f" — identical content at {len(hashes)} units"
+            elif len(names) == 1:
+                detail += f" — same name at {names[0][0]} (content differs)"
+            if capped:
+                detail += f" (repo-wide scan skipped: over {SCAN_FILE_CAP} files)"
+            findings.append(("BROKEN", coord, detail))
             continue
 
         places = resolve(rel, locator, body)
@@ -660,7 +805,31 @@ def old_format_rows(text):
     return findings
 
 
-def migrate(ledgers, root):
+def content_at(root, sha, rel):
+    """The file as the stamped commit held it — or None where git cannot say.
+
+    The one git call in this file, and it belongs to the one-shot WRITER, not
+    to the checker: `check_ledger`, `resolve` and `--reverify` never reach for
+    git, which is what `test_the_checker_asks_git_for_nothing` pins. A
+    migration is a different act — it rewrites rows on the strength of line
+    numbers recorded long ago, and the old stamp's commit is the only
+    evidence that can say whether those numbers still mean anything
+    (round 4, 🟡 10).
+    """
+    try:
+        r = subprocess.run(
+            ["git", "-C", root, "show", f"{sha}:{rel}"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def migrate(ledgers, root, maps=None, default_repo=None):
     """Rewrite every old `path:line` row to `path#anchor@hash` — the shipped form of the
     migration this repository ran on its own 51 coordinates.
 
@@ -669,19 +838,32 @@ def migrate(ledgers, root):
     hash computed the normal way. The stamp drops and the date stays: nothing
     measures from a commit any more.
 
-    What cannot be proven is LEFT and reported, never guessed — a line past
-    the end of the file, a file that is gone, a range no single unit contains.
-    A left row keeps failing the plain check as OLD-FORMAT, so the loop
-    closes on a person rather than on silence. Running this twice is a no-op:
-    the second pass finds no old coordinates.
+    Before trusting a line number, the one evidence that can vouch for it is
+    consulted: where git can produce the file at the row's old stamp, a cited
+    range whose content CHANGED since that commit is LEFT — the numbers no
+    longer mean what they meant, and rewriting on them anchored a row to
+    whatever sits there now (round 4, 🟡 10). Where the proof is unavailable
+    — no git, no stamp, a commit a squash orphaned, a cross-repo row — the
+    row migrates on the current tree alone and the count of such rows is
+    returned, so the caller can say so.
 
-    Returns (rows migrated, [(coordinate, why) left]); printing belongs to the
-    callers, because the session-start hook says it in one line where the CLI
-    itemises.
+    What cannot be proven is LEFT and reported, never guessed — a line past
+    the end of the file, a file that is gone, a range no single unit contains,
+    a range that moved since the stamp. A left row keeps failing the plain
+    check as OLD-FORMAT, so the loop closes on a person rather than on
+    silence. Running this twice is a no-op: the second pass finds no old
+    coordinates.
+
+    Returns (rows migrated, [(coordinate, why) left], rows migrated without
+    the stamp proof); printing belongs to the callers, because the
+    session-start hook says it in one line where the CLI itemises.
     """
-    migrated, left = 0, []
+    maps = maps or {}
+    migrated, left, unproven = 0, [], 0
     for ledger in ledgers:
         text = read(ledger)
+        if text is None:
+            continue
         out_lines = []
         for line in text.splitlines(keepends=True):
             if not line.lstrip().startswith("|"):
@@ -696,11 +878,14 @@ def migrate(ledgers, root):
             if not hits:
                 out_lines.append(line)
                 continue
-            spliced, at, failed, row_n = [], 0, False, 0
+            sha_m = STAMP_SHA_RE.search(blanked)
+            row_sha = sha_m.group("sha") if sha_m else None
+            spliced, at, failed, row_n, row_unproven = [], 0, False, 0, 0
             for m in hits:
-                rel, s = m.group("path"), int(m.group("start"))
+                raw, s = m.group("path"), int(m.group("start"))
                 e = int(m.group("end") or s)
-                body = read(os.path.join(root, rel))
+                repo, rel = place(root, maps, default_repo, raw)
+                body = read(os.path.join(repo, rel))
                 if body is None:
                     left.append((m.group(0), "file not found"))
                     failed = True
@@ -710,6 +895,25 @@ def migrate(ledgers, root):
                     left.append((m.group(0), f"line past EOF ({len(lines)} lines)"))
                     failed = True
                     continue
+                proved = False
+                if repo == root and row_sha:
+                    old_body = content_at(root, row_sha, rel)
+                    if old_body is not None:
+                        old_lines = old_body.splitlines()
+                        if e > len(old_lines) or normalise(
+                            old_lines[s - 1 : e]
+                        ) != normalise(lines[s - 1 : e]):
+                            left.append(
+                                (
+                                    m.group(0),
+                                    "content changed since the stamp "
+                                    f"`{row_sha[:7]}` — the cited lines no "
+                                    "longer mean what they meant",
+                                )
+                            )
+                            failed = True
+                            continue
+                        proved = True
                 while s < e and not lines[s - 1].strip():
                     s += 1
                 while e > s and not lines[e - 1].strip():
@@ -728,22 +932,24 @@ def migrate(ledgers, root):
                     continue
                 name, a, b = best
                 spliced.append(line[at : m.start()])
-                spliced.append(f"{rel}#{name}@{content_hash(lines[a - 1 : b])}")
+                spliced.append(f"{raw}#{name}@{content_hash(lines[a - 1 : b])}")
                 at = m.end()
                 row_n += 1
+                if not proved:
+                    row_unproven += 1
             if failed or not spliced:
                 # All-or-nothing per row, so a partial rewrite never strands
                 # half a cell and the report stays per-row readable.
                 out_lines.append(line)
                 continue
             migrated += row_n
+            unproven += row_unproven
             spliced.append(line[at:])
             out_lines.append(OLD_STAMP_RE.sub(r"\1", "".join(spliced)))
         new_text = "".join(out_lines)
         if new_text != text:
-            with open(ledger, "w", encoding="utf-8") as f:
-                f.write(new_text)
-    return migrated, left
+            write_atomic(ledger, new_text)
+    return migrated, left, unproven
 
 
 def reverify(ledgers, root, maps, default_repo=None):
@@ -757,27 +963,36 @@ def reverify(ledgers, root, maps, default_repo=None):
     scan_cache = {}
     for ledger in ledgers:
         text = read(ledger)
+        if text is None:
+            continue
         out, at = [], 0
         for m in ANCHOR_RE.finditer(text):
             raw_path = m.group("path")
             locator, claim = m.group("locator"), m.group("claim")
-            repo, rel = root, raw_path
-            for name, mapped in maps.items():
-                if raw_path == name or raw_path.startswith(name + "/"):
-                    repo, rel = mapped, raw_path[len(name) :].lstrip("/") or "."
-                    break
+            repo, rel = place(root, maps, default_repo, raw_path)
             body = read(os.path.join(repo, rel))
             places = resolve(rel, locator, body) if body is not None else []
             if not places and claim is None:
-                # Reconstruction proving the content moved intact is what
-                # licenses the rewrite — one hash match across the scan, and
-                # never a name-alone match, which is a fact to print rather
-                # than evidence to act on. Path and locator both follow the
-                # unit, and the hash follows the locator. It cannot stay: the
-                # name is part of the unit's own hashed region, so the
-                # recorded hash is of the OLD spelling and keeping it would
-                # leave the re-anchored row DRIFTED with nothing to re-read.
-                # Measured, in the case that pins this.
+                if (
+                    body is None
+                    and repo == root
+                    and cross_repo_intent(root, maps, default_repo)
+                ):
+                    # The row cannot be placed in any repository this run
+                    # knows, and the declaration says another one exists.
+                    # Scanning THIS repo re-anchored a cross-repo row onto a
+                    # local look-alike (round 4, 🔴 4) — the check reports
+                    # such a row EXTERNAL or file-not-found, and reverify
+                    # must agree with the check rather than out-heal it.
+                    continue
+                # One unit reconstructing the RECORDED hash is what licenses
+                # the rewrite — never a name-alone match, which is a fact to
+                # print rather than evidence to act on. Path and locator both
+                # follow the unit, and the hash follows the locator. It
+                # cannot stay: the name is part of the unit's own hashed
+                # region, so the recorded hash is of the OLD spelling and
+                # keeping it would leave the re-anchored row DRIFTED with
+                # nothing to re-read. Measured, in the case that pins this.
                 scan = scan_cache.setdefault(repo, {})
                 hashes, _, _ = content_matches(
                     repo, rel, locator, m.group("hash"), scan
@@ -799,7 +1014,12 @@ def reverify(ledgers, root, maps, default_repo=None):
                     at = m.end("hash")
                     changed += 1
                     shown = f"#{name}" if path == rel else f"{path}#{name}"
-                    print(f"  {raw_path}#{locator} -> {shown}  (content moved intact)")
+                    # "identical content", not "moved intact": identity is
+                    # the whole of what reconstruction proved. A deletion
+                    # beside a boilerplate twin reconstructs too, and that
+                    # history is the reader's to judge from the diff
+                    # (round 4, 🟡 7).
+                    print(f"  {raw_path}#{locator} -> {shown}  (identical content)")
                 continue
             if body is None:
                 continue
@@ -822,8 +1042,7 @@ def reverify(ledgers, root, maps, default_repo=None):
             print(f"  {shown}  {m.group('hash')} -> {got}")
         if out:
             out.append(text[at:])
-            with open(ledger, "w", encoding="utf-8") as f:
-                f.write("".join(out))
+            write_atomic(ledger, "".join(out))
     print(f"{changed} row{'' if changed == 1 else 's'} re-verified")
     return 0
 
@@ -884,10 +1103,17 @@ def main():
         return 0
 
     if args.migrate:
-        migrated, left = migrate(ledgers, root)
+        migrated, left, unproven = migrate(ledgers, root, maps, default_repo)
         print(
             f"{migrated} row{'' if migrated == 1 else 's'} migrated · {len(left)} left"
         )
+        if unproven:
+            print(
+                f"  {unproven} rewritten without the since-the-stamp proof "
+                "(git, the stamp, or the stamped commit unavailable) — "
+                "those rows rest on the current tree alone; review them in "
+                "the diff"
+            )
         for coord, why in left:
             print(f"  LEFT  {coord}  {why}")
         return 1 if left else 0
@@ -903,14 +1129,18 @@ def main():
             if status != "OK":
                 print(f"  {status:8} {coord}  {detail}")
         counts = {k: sum(1 for s, _, _ in findings if s == k) for k in totals}
+        # old-format is on the line even at zero: a red build whose summary
+        # read all zeros is what round 4's 🟡 6 measured.
         print(
             f"  {counts['OK']} ok · {counts['DRIFTED']} drifted · "
-            f"{counts['BROKEN']} broken · {counts['EXTERNAL']} external"
+            f"{counts['BROKEN']} broken · {counts['EXTERNAL']} external · "
+            f"{counts['OLD-FORMAT']} old-format"
         )
 
     print(
         f"\ntotal: {totals['OK']} ok · {totals['DRIFTED']} drifted · "
-        f"{totals['BROKEN']} broken · {totals['EXTERNAL']} external"
+        f"{totals['BROKEN']} broken · {totals['EXTERNAL']} external · "
+        f"{totals['OLD-FORMAT']} old-format"
     )
     if totals["OLD-FORMAT"]:
         return 2

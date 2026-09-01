@@ -164,3 +164,71 @@ def test_the_hook_is_wired_into_session_start(hook):
     hook not named there is dead code with passing tests."""
     dispatch = load_hook_module("dispatch.py", "dispatch_for_migrate")
     assert "ledger-migrate.py" in dispatch.GROUPS["session-start"]
+
+
+# --- round 4, 🟡 10: line numbers are checked against the stamp -------------
+
+
+SCRIPT = os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py")
+
+
+def cli(args, repo):
+    return subprocess.run(
+        [sys.executable, SCRIPT, *args],
+        cwd=str(repo),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
+def head_sha(repo):
+    return subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        encoding="utf-8",
+    ).stdout.strip()
+
+
+def test_migrate_leaves_a_row_whose_lines_moved_since_the_stamp(repo):
+    """`--migrate` trusted the cited line numbers against the CURRENT tree: a
+    row written when `handler` sat at 1-2 anchored to whatever sits there
+    now, reported `1 row migrated · 0 left` (round 4, 🟡 10). With git
+    present, the cited range is checked against the old stamp's commit, and
+    a row whose content changed since is LEFT — loud, for a person — never
+    rewritten onto the wrong unit. The session-start hook fires this without
+    a user's choice, which is what makes the guard non-optional."""
+    sha = head_sha(repo)
+    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger.write_text(f"# map\n\n| A | `src/service.py:1-2` | 2026-08-31 `{sha}` |\n")
+    (repo / "src" / "service.py").write_text(
+        "def intruder(y):\n    return y\n\n\n" + OLD_SERVICE
+    )
+    r = cli(["--migrate", "."], repo)
+    assert "1 left" in r.stdout and "changed since the stamp" in r.stdout, r.stdout
+    after = ledger.read_text()
+    assert "src/service.py:1-2" in after, after
+    assert "#intruder@" not in after, f"anchored to whatever sits there now:\n{after}"
+
+
+def test_migrate_with_the_stamp_proof_says_nothing_extra(repo):
+    """Content unchanged since the stamped commit: the proof passes, the row
+    migrates, and no caveat prints."""
+    sha = head_sha(repo)
+    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger.write_text(f"# map\n\n| A | `src/service.py:1-2` | 2026-08-31 `{sha}` |\n")
+    r = cli(["--migrate", "."], repo)
+    assert "1 row migrated" in r.stdout, r.stdout
+    assert "without the since-the-stamp proof" not in r.stdout, r.stdout
+    assert "#handler@" in ledger.read_text()
+
+
+def test_migrate_without_git_or_the_stamped_commit_says_so(repo):
+    """The fixture ledger's stamp cites a commit this repository does not
+    carry — the orphaned-by-squash shape. The row still migrates (no-git is
+    the CHECKER's property, and a one-shot writer degrades rather than
+    refuses), but the summary says the proof was unavailable so a reader
+    knows those rows rest on the current tree alone (round 4, 🟡 10)."""
+    r = cli(["--migrate", "."], repo)
+    assert "1 row migrated" in r.stdout and "1 left" in r.stdout, r.stdout
+    assert "without the since-the-stamp proof" in r.stdout, r.stdout

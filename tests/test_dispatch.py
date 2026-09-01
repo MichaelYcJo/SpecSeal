@@ -229,3 +229,17 @@ def test_the_advisory_inherits_the_graded_hint(repo):
     out = run_dispatch("post-bash", payload("git commit -m move", repo))
     assert "identical content at elsewhere.py#handler (moved?)" in out, out
     assert "--reverify" in out, out
+
+
+def test_a_commit_with_a_pre_anchor_ledger_is_pointed_at_the_migrator(repo):
+    """OLD-FORMAT was absent from the advisory's filter — `broken_rows` read
+    BROKEN alone — so the commit that needs the migration line most got
+    silence from the hook (round 4, 🟡 6)."""
+    (repo / "app.py").write_text("def handler(x):\n    return x + 1\n")
+    (repo / ".specseal" / "map").mkdir(parents=True)
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        "# frag\n\n| CLAUSE | `app.py:1-2` | 2026-08-31 |\n"
+    )
+    out = run_dispatch("post-bash", payload("git commit -m x", repo))
+    assert "OLD-FORMAT" in out, out
+    assert "--migrate" in out, out

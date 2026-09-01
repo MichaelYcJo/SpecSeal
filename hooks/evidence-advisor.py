@@ -9,8 +9,9 @@ no git calls, which is what makes running it at every commit affordable.
 **Advisory, never a gate.** A pre-commit block would fire on every
 work-in-progress ledger state and fight the commit-early rule; PostToolUse
 cannot block, and this would not want to. What a broken anchor costs is one
-line here, naming the row and — where the content provably moved intact — the
-unit it moved to, plus the one command that repairs everything provable:
+line here, naming the row and — where exactly one unit reconstructs the
+recorded content — that unit, plus the one command that repairs everything
+provable:
 
     evidence-check: this commit leaves 2 anchors broken
       BROKEN  src/app.py#total  locator not found — identical content at #total_price (renamed?)
@@ -89,12 +90,16 @@ def commits_in(command):
     return False
 
 
-def broken_rows(root):
-    """[(coord, detail)] for every BROKEN row, by importing the checker.
+def failing_rows(root):
+    """[(status, coord, detail)] for every BROKEN and OLD-FORMAT row.
 
     Imported rather than spawned: dispatch already paid for this interpreter,
     and a second one would double the cost of the commit path for a check
     that usually says nothing.
+
+    OLD-FORMAT is in the filter because the commit that needs the migration
+    line most — one made in a repository whose ledger predates anchors — got
+    silence from this hook when only BROKEN was read (round 4, 🟡 6).
     """
     spec = importlib.util.spec_from_file_location("specseal_evidence", CHECKER)
     ec = importlib.util.module_from_spec(spec)
@@ -105,8 +110,8 @@ def broken_rows(root):
     for pat in (".specseal/map.md", ".specseal/map/*.md", "docs/**/_evidence.md"):
         for ledger in sorted(glob.glob(os.path.join(root, pat), recursive=True)):
             for status, coord, detail in ec.check_ledger(ledger, root, {}):
-                if status == "BROKEN":
-                    out.append((coord, detail))
+                if status in ("BROKEN", "OLD-FORMAT"):
+                    out.append((status, coord, detail))
     return out
 
 
@@ -124,13 +129,27 @@ def main():
     root = optin.repo_root(cwd)
     if not root or not optin.opted_in(cwd):
         return
-    rows = broken_rows(root)
+    rows = failing_rows(root)
     if not rows:
         return
-    n = len(rows)
-    lines = [f"evidence-check: this commit leaves {n} anchor{'s'[: n != 1]} broken"]
-    lines += [f"  BROKEN  {coord}  {detail}" for coord, detail in rows]
-    lines.append("`bin/evidence-check --reverify .` re-anchors what it can prove.")
+    broken = [(c, d) for s, c, d in rows if s == "BROKEN"]
+    old = [(c, d) for s, c, d in rows if s == "OLD-FORMAT"]
+    lines = []
+    if broken:
+        n = len(broken)
+        lines.append(
+            f"evidence-check: this commit leaves {n} anchor{'s'[: n != 1]} broken"
+        )
+        lines += [f"  BROKEN  {coord}  {detail}" for coord, detail in broken]
+        lines.append("`bin/evidence-check --reverify .` re-anchors what it can prove.")
+    if old:
+        n = len(old)
+        lines.append(
+            f"evidence-check: {n} pre-anchor ledger row{'s'[: n != 1]} — "
+            "nothing is checked until they migrate"
+        )
+        lines += [f"  OLD-FORMAT  {coord}" for coord, _ in old]
+        lines.append("`bin/evidence-check --migrate .` rewrites what it can prove.")
     print("\n".join(lines))
 
 

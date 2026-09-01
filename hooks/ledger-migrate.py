@@ -108,7 +108,11 @@ def dirty(root, paths):
     treated as work in progress: overwriting on a guess is the one direction
     this hook must never fail in.
     """
-    rels = [os.path.relpath(p, root) for p in paths]
+    # Forward slashes always: git pathspecs are slash-separated on every
+    # platform, and a backslash pathspec on Windows would read as permanently
+    # dirty — the migration never running, with a wrong reason printed
+    # (round 4, ❓; the broad gate's windows leg gives the real answer).
+    rels = [os.path.relpath(p, root).replace(os.sep, "/") for p in paths]
     try:
         r = subprocess.run(
             ["git", "-C", root, "status", "--porcelain", "--", *rels],
@@ -147,8 +151,8 @@ def main():
             json.dumps(
                 {
                     "systemMessage": (
-                        "specseal: the ledger has pre-anchor rows, but "
-                        ".specseal/ carries uncommitted changes — not "
+                        "specseal: the ledger has pre-anchor rows, but a "
+                        "ledger file carries uncommitted changes — not "
                         "touching work in progress. Commit, then the next "
                         "session start migrates (or run "
                         "`evidence-check --migrate .` yourself)."
@@ -158,7 +162,7 @@ def main():
         )
         return
 
-    migrated, left = ec.migrate(found, root)
+    migrated, left, _unproven = ec.migrate(found, root)
     stamp(root)
     rows = f"{migrated} row{'' if migrated == 1 else 's'}"
     tail = f"; {len(left)} left, run `evidence-check .` to see them" if left else ""

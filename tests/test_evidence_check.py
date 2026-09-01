@@ -114,9 +114,48 @@ def test_map_resolves_a_prefixed_cross_repo_path(proj, tmp_path):
     (other / "src").mkdir(parents=True)
     (other / "src" / "service.py").write_text(SERVICE)
     ledger(proj, f"| POL-1 | `legacy/src/service.py#handler@{GOOD}` |\n")
+    # EXTERNAL needs declared cross-repo intent since round 4's 🔴 3; a
+    # parity config is one of the three declarations.
+    (proj / ".specseal" / "parity.md").write_text("# parity\n")
     assert "1 external" in run(["."], proj).stdout
     r = run(["--map", f"legacy={other}", "."], proj)
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
+
+
+def test_a_missing_prefix_without_cross_repo_intent_is_broken(proj):
+    """EXTERNAL is a claim about ANOTHER repository, and only a declaration —
+    `.specseal/parity.md`, `--map`, `--default-repo` — says this project has
+    one. Without intent, a deleted or renamed directory turned its rows
+    EXTERNAL and the build stayed green (round 4, 🔴 3)."""
+    ledger(proj, "| POL-1 | `legacy/src/old.py#handler@00000000` |\n")
+    r = run(["."], proj)
+    assert "EXTERNAL" not in r.stdout and "BROKEN" in r.stdout, r.stdout
+    assert r.returncode == 2, r.stdout
+
+
+def test_migrate_reads_map_and_default_repo(proj, tmp_path):
+    """`--migrate` ignored both, so a legacy-parity ledger could never
+    migrate and the OLD-FORMAT prescription line was circular for exactly
+    those repositories (round 4, 🟡 9)."""
+    other = tmp_path / "legacy"
+    (other / "src").mkdir(parents=True)
+    (other / "src" / "old.py").write_text(SERVICE)
+    orig = tmp_path / "orig"
+    (orig / "apps").mkdir(parents=True)
+    (orig / "apps" / "svc.py").write_text(SERVICE)
+    ledger(
+        proj,
+        "| POL-1 | `legacy/src/old.py:1-2` | 2026-08-31 |\n"
+        "| POL-2 | `apps/svc.py:1-2` | 2026-08-31 |\n",
+    )
+    r = run(
+        ["--migrate", "--map", f"legacy={other}", "--default-repo", str(orig), "."],
+        proj,
+    )
+    assert "2 rows migrated" in r.stdout, r.stdout
+    text = (proj / ".specseal" / "map.md").read_text()
+    assert f"legacy/src/old.py#handler@{GOOD}" in text, text
+    assert f"apps/svc.py#handler@{GOOD}" in text, text
 
 
 def test_default_repo_resolves_an_unprefixed_cross_repo_path(proj, tmp_path):

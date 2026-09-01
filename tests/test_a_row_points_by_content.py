@@ -8,9 +8,10 @@ orphans the stamp. Three review rounds were spent on that chain, and half of
 the branch's commits touched `.specseal/` rather than the code it describes.
 
 An anchor plus a content hash removes the cause. There is no baseline, no
-stamp, no commit SHA, and `evidence_check.py` no longer imports `subprocess`
-at all — which is the shortest proof that the whole squash/rebase class is
-gone rather than handled.
+stamp, no commit SHA, and the CHECK path reaches for git nowhere — the one
+exception is `--migrate`, a one-shot writer that may consult the old stamp's
+commit before trusting a line number (round 4, 🟡 10), and
+`test_the_checker_asks_git_for_nothing` pins the boundary between the two.
 
 Four things this file holds, in the order they can go wrong:
 
@@ -108,9 +109,13 @@ def test_a_decorator_is_part_of_the_span(repo):
 
 
 def test_a_file_that_will_not_parse_yields_no_symbols(repo):
-    """The row then reports BROKEN rather than a hash of something arbitrary.
-    Silence here would be a false OK on a file nobody can even read."""
-    assert ec.py_spans("def broken(:\n") == {}
+    """The row then falls to the text rule rather than a false OK.
+
+    None, not `{}`: the two callers diverge on exactly this. A file that
+    cannot be parsed falls back to the generic rule; a file that parses and
+    simply lacks the symbol is BROKEN — conflating them anchored rows to
+    leftover call sites (round 4, 🔴 2)."""
+    assert ec.py_spans("def broken(:\n") is None
 
 
 def test_an_ambiguous_anchor_is_broken_and_says_where(repo):
@@ -437,7 +442,11 @@ def test_a_constant_is_a_unit_too(repo):
         "    if review not in REVIEW_ANSWERS:\n"
         "        return None\n"
     )
-    assert ec.resolve("r.py", "REVIEW_ANSWERS", text) == [(3, 5)]
+    # (3, 6), closing paren included: since round 4's 🔴 2 a parsing `.py`
+    # never falls to the generic rule, and `ast` spans the whole assignment
+    # statement. The generic rule still stops before the paren — that half of
+    # the pin lives in the `.ts` fixture above.
+    assert ec.resolve("r.py", "REVIEW_ANSWERS", text) == [(3, 6)]
     # A YAML key is the same shape, and there the colon DOES declare.
     assert ec.resolve("c.yml", "jobs", "name: x\njobs:\n  a: 1\n  b: 2\nz: 3\n") == [
         (2, 4)
@@ -857,6 +866,11 @@ def test_a_missing_file_is_broken_not_external(repo):
 
 
 def test_a_cross_repo_path_is_external_without_a_map(repo):
+    """EXTERNAL is a claim about another repository, and only declared intent
+    — a parity config, `--map`, `--default-repo` — says this project has one.
+    Without the declaration this read EXTERNAL too, which made deleting a
+    directory a green build (round 4, 🔴 3)."""
+    (repo / ".specseal" / "parity.md").write_text("# parity\n")
     (repo / ".specseal" / "map" / "f.md").write_text(
         "# frag\n\n| CLAUSE | `legacy/src/old.py#handler@00000000` |\n"
     )
@@ -971,24 +985,314 @@ def test_no_ledger_row_carries_a_line_number_or_a_commit(repo):
 
 
 def test_the_checker_asks_git_for_nothing(repo):
-    """The squash and rebase class is gone rather than handled, and the
-    shortest proof is that there is no git to be wrong about."""
+    """The squash and rebase class is gone rather than handled: the CHECK
+    path has no git to be wrong about.
+
+    Round 4's 🟡 10 drew the boundary rather than moving it: no-git is the
+    CHECKER's property, not a one-shot writer's. `--migrate` rewrites rows on
+    the strength of line numbers recorded long ago, and the old stamp's
+    commit is the only evidence that can say whether those numbers still mean
+    anything — so git may appear in exactly two functions, `content_at` and
+    `migrate`, and nowhere a plain check or a `--reverify` can reach.
+    """
+    import ast as ast_mod
+
     source = open(SCRIPT, encoding="utf-8").read()
-    assert "import subprocess" not in source, "the checker runs commands again"
-    # Prose may discuss git; code may not reach for it. Comment and docstring
-    # lines are excluded so the reasoning can stay where a reader finds it.
-    code = []
-    fence = False
-    for line in source.splitlines():
-        if line.count('"""') % 2:
-            fence = not fence
+    tree = ast_mod.parse(source)
+    # Reaching for the tool means using `subprocess` (prose and messages may
+    # say "git"; code may not run it). Only `content_at` may, and only
+    # `migrate` may call `content_at` — a call from anywhere else would put
+    # git back on a path a plain check or a --reverify can reach.
+    reaching, calling = set(), set()
+    for node in ast_mod.walk(tree):
+        if not isinstance(node, (ast_mod.FunctionDef, ast_mod.AsyncFunctionDef)):
             continue
-        if fence or line.lstrip().startswith("#"):
-            continue
-        code.append(line)
-    # `".git"` as a quoted path literal is the directory-skip in the scan
-    # walk, not a call; only a bare `git` in code is reaching for the tool.
-    offenders = [
-        ln for ln in code if "git" in ln.replace('".git"', "").replace("gitignore", "")
-    ]
-    assert not offenders, f"the checker reaches for git: {offenders}"
+        for inner in ast_mod.walk(node):
+            if isinstance(inner, ast_mod.Name) and inner.id == "subprocess":
+                reaching.add(node.name)
+            if (
+                isinstance(inner, ast_mod.Call)
+                and isinstance(inner.func, ast_mod.Name)
+                and inner.func.id == "content_at"
+            ):
+                calling.add(node.name)
+    assert reaching == {"content_at"}, (
+        f"the check path reaches for the shell: {sorted(reaching)}"
+    )
+    assert calling <= {"migrate"}, (
+        f"content_at is reachable outside --migrate: {sorted(calling)}"
+    )
+    # And the runtime proof: a plain check with no git on PATH still answers.
+    write_row(repo, "src/service.py", "handler")
+    r = subprocess.run(
+        [sys.executable, SCRIPT, "."],
+        cwd=str(repo),
+        capture_output=True,
+        encoding="utf-8",
+        env={**os.environ, "PATH": ""},
+    )
+    assert "1 ok" in r.stdout and r.returncode == 0, r.stdout + r.stderr
+
+
+# --- round 4: the resolution and heal fixes ---------------------------------
+
+
+def test_a_call_after_a_statement_keyword_is_not_a_declaration(repo):
+    """`return render(y);` is the commonest shape in every brace language, and
+    the rule read it as a second declaration of `render` — an ordinary
+    one-declaration-one-call file was `BROKEN locator is ambiguous`, exit 2
+    (round 4, 🔴 1). The existing mention pin covered `const r = handler(1);`,
+    where the `=` already blocks the match; a statement keyword carries none.
+    """
+    text = (
+        "function render(x) {\n"
+        "  return x;\n"
+        "}\n"
+        "\n"
+        "function page(y) {\n"
+        "  return render(y);\n"
+        "}\n"
+    )
+    assert ec.resolve("app.js", "render", text) == [(1, 2)]
+    for kw in ("return", "throw", "yield", "await", "if", "while", "case", "not"):
+        lines = ["function render(x) {", "  return x;", "}", "", f"{kw} render(y);"]
+        assert ec.generic_units(lines, "render") == [(1, 2)], kw
+    # Declaration modifiers are NOT statement keywords: nothing here narrows
+    # what `export async function f(` and friends already match.
+    decl = ["export async function render(x) {", "  return x;", "}"]
+    assert ec.generic_units(decl, "render") == [(1, 2)]
+
+
+def test_a_gone_symbol_in_a_parsing_python_file_is_broken_with_the_hint(repo):
+    """`.py` fell back to the generic text rule whenever `ast` found no
+    symbol — including when the parse SUCCEEDED and the unit is simply gone.
+    A function moved out with a bare call left behind read DRIFTED, and
+    `--reverify` then anchored the row to the call site permanently, with the
+    true heal unreachable (round 4, 🔴 2). A successful parse means ast's
+    answer is the whole answer."""
+    write_row(repo, "src/service.py", "handler")
+    (repo / "src" / "service.py").write_text(
+        "import os\n\n\ndef caller(x):\n    handler(x)\n    return x\n"
+    )
+    (repo / "src" / "lib.py").write_text(
+        "def handler(x):\n    y = x + 1\n    return y\n"
+    )
+    r = run(["."], str(repo))
+    assert "BROKEN" in r.stdout and "DRIFTED" not in r.stdout, r.stdout
+    assert "identical content at src/lib.py#handler (moved?)" in r.stdout, r.stdout
+    rr = run(["--reverify", "."], str(repo))
+    assert "src/service.py#handler -> src/lib.py#handler" in rr.stdout, rr.stdout
+    ledger = (repo / ".specseal" / "map" / "f.md").read_text()
+    assert "`src/lib.py#handler@" in ledger, ledger
+    assert run(["."], str(repo)).returncode == 0
+
+
+def test_a_syntax_error_still_falls_back_to_the_text_rule(repo):
+    """The fallback survives for the one thing it was for: a file ast cannot
+    read at all."""
+    text = "def handler(x):\n    return x + 1\n\ndef broken(:\n"
+    assert ec.py_spans(text) is None
+    assert ec.resolve("bad.py", "handler", text) == [(1, 2)]
+
+
+def test_a_module_constant_resolves_through_ast_in_a_parsing_file(repo):
+    """Round 4's 🔴 2 fix must not cost the constants: with the generic
+    fallback gone for parsing files, `ast` itself carries module- and
+    class-level assignments — this repository's ledger cites three. A local
+    assignment stays a local, not a unit."""
+    text = (
+        "LIMIT = 12\n"
+        "\n"
+        "\n"
+        "class Cfg:\n"
+        "    RETRIES = 3\n"
+        "\n"
+        "\n"
+        "def use():\n"
+        "    n = LIMIT\n"
+        "    return n\n"
+    )
+    assert ec.resolve("c.py", "LIMIT", text) == [(1, 1)]
+    assert ec.resolve("c.py", "Cfg.RETRIES", text) == [(5, 5)]
+    assert ec.resolve("c.py", "n", text) == []
+    assert ec.resolve("c.py", "use.n", text) == []
+
+
+def test_a_renamed_directory_is_broken_with_the_hint_not_external(repo):
+    """Renaming `pkg/` to `lib/` turned every row citing it EXTERNAL — "not
+    in this repo; pass --map" — and `--strict` exited 0 while `--reverify`
+    happily healed the same rows: two commands disagreeing about one row
+    (round 4, 🔴 3). Without cross-repo intent declared anywhere, a missing
+    file is a broken citation whatever directory it sat in, and the same
+    scan that heals a renamed file heals a renamed directory."""
+    (repo / "pkg").mkdir()
+    (repo / "pkg" / "mod.py").write_text("def handler(x):\n    return x * 3\n")
+    write_row(repo, "pkg/mod.py", "handler")
+    (repo / "pkg").rename(repo / "lib")
+    r = run(["."], str(repo))
+    assert "EXTERNAL" not in r.stdout, r.stdout
+    assert "BROKEN" in r.stdout and r.returncode == 2, r.stdout
+    assert "identical content at lib/mod.py#handler (moved?)" in r.stdout, r.stdout
+    rr = run(["--reverify", "."], str(repo))
+    assert "-> lib/mod.py#handler" in rr.stdout, rr.stdout
+    assert run(["."], str(repo)).returncode == 0
+
+
+def test_a_deleted_directory_fails_the_build_without_cross_repo_intent(repo):
+    """Deletion leaves nothing for the scan to find, so there is no hint —
+    but the build goes red instead of green (round 4, 🔴 3)."""
+    import shutil
+
+    (repo / "pkg").mkdir()
+    (repo / "pkg" / "mod.py").write_text("def handler(x):\n    return x * 3\n")
+    write_row(repo, "pkg/mod.py", "handler")
+    shutil.rmtree(repo / "pkg")
+    r = run(["."], str(repo))
+    assert "EXTERNAL" not in r.stdout, r.stdout
+    assert "BROKEN" in r.stdout and "file not found" in r.stdout, r.stdout
+    assert r.returncode == 2, r.stdout
+
+
+def test_reverify_reads_default_repo(repo, tmp_path):
+    """`reverify()` took `default_repo` and never read it: a migration
+    ledger's drifted rows answered `0 rows re-verified`, silently (round 4,
+    🔴 4)."""
+    orig = tmp_path / "orig"
+    (orig / "apps").mkdir(parents=True)
+    (orig / "apps" / "svc.py").write_text("def handler(x):\n    return x + 1\n")
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        "# frag\n\n| CLAUSE | `apps/svc.py#handler@00000000` |\n"
+    )
+    r = run(["--reverify", "--default-repo", str(orig), "."], str(repo))
+    assert "1 row re-verified" in r.stdout, r.stdout
+    check = run(["--default-repo", str(orig), "."], str(repo))
+    assert "1 ok" in check.stdout and check.returncode == 0, check.stdout
+
+
+def test_reverify_never_scans_this_repo_for_a_row_it_cannot_place(repo, tmp_path):
+    """Worse than the dead parameter: the row's file was absent from root, so
+    the graded scan searched THIS repository and re-anchored a cross-repo row
+    onto a local unit whose content happened to reconstruct (round 4, 🔴 4).
+    With intent declared and the file in neither checkout, there is no
+    repository the scan can honestly search — so it searches none."""
+    orig = tmp_path / "orig"
+    orig.mkdir()
+    h = ec.content_hash(["def fetch(x):", "    return x + 1"])
+    (repo / "src" / "copycat.py").write_text("def grab(x):\n    return x + 1\n")
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f"# frag\n\n| CLAUSE | `apps/svc.py#fetch@{h}` |\n"
+    )
+    before = (repo / ".specseal" / "map" / "f.md").read_text()
+    r = run(["--reverify", "--default-repo", str(orig), "."], str(repo))
+    assert "0 rows re-verified" in r.stdout, r.stdout
+    assert (repo / ".specseal" / "map" / "f.md").read_text() == before
+    check = run(["--default-repo", str(orig), "."], str(repo))
+    assert "grab" not in check.stdout, check.stdout
+
+
+def test_two_rows_at_one_coordinate_with_different_hashes_are_both_checked(repo):
+    """The dedup key was the coordinate without the hash, so a second row
+    citing the same unit at a different time — one of the two necessarily
+    stale — was silently skipped: a two-row fixture read `1 ok`, exit 0
+    (round 4, 🟡 5)."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger.write_text(
+        ledger.read_text() + "| STALE | `src/service.py#handler@00000000` |\n"
+    )
+    r = run(["."], str(repo))
+    assert "1 ok" in r.stdout and "1 drifted" in r.stdout, r.stdout
+    assert r.returncode == 1, r.stdout
+
+
+def test_old_format_reaches_the_totals_line(repo):
+    """The build failed red while the summary read all zeros (round 4, 🟡 6 —
+    the totals half was measured here during the --migrate demo before the
+    round reported it)."""
+    (repo / ".specseal" / "map" / "f.md").write_text(OLD_LEDGER)
+    r = run(["."], str(repo))
+    # Both summary lines, pinned separately: the per-ledger counts and the
+    # grand total each read all zeros before, and either one alone still
+    # sends a reader hunting for why the build is red.
+    assert "  0 ok · 0 drifted · 0 broken · 0 external · 2 old-format" in r.stdout, (
+        r.stdout
+    )
+    assert (
+        "total: 0 ok · 0 drifted · 0 broken · 0 external · 2 old-format" in r.stdout
+    ), r.stdout
+    assert r.returncode == 2, r.stdout
+
+
+def test_a_heading_path_locator_still_gets_the_rename_hint(repo):
+    """Reconstruction substituted the candidate's first line with the WHOLE
+    locator string, but a heading path's recorded region starts at its LAST
+    part's heading line — so the parent-qualified form the skill recommends
+    was the one form that could never be healed (round 4, 🟡 8)."""
+    doc = "## A\n\n### B\n\nbody stays put\n\n## C\n\ntail\n"
+    (repo / "notes.md").write_text(doc)
+    h = ec.content_hash(doc.splitlines()[2:6])
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f'# frag\n\n| CLAUSE | `notes.md#"## A / ### B"@{h}` |\n'
+    )
+    assert "1 ok" in run(["."], str(repo)).stdout
+    (repo / "notes.md").write_text(doc.replace("### B", "### D"))
+    r = run(["."], str(repo))
+    assert 'identical content at #"### D" (renamed?)' in r.stdout, r.stdout
+    rr = run(["--reverify", "."], str(repo))
+    assert '-> #"### D"' in rr.stdout, rr.stdout
+    assert run(["."], str(repo)).returncode == 0
+
+
+def test_a_failed_write_never_tears_the_ledger(repo, monkeypatch):
+    """`--migrate` truncated the ledger and then wrote, so a crash mid-write
+    left a torn file whose only recovery was the dirty guard's committed
+    baseline. The write goes to a temp file and lands by rename: a crash
+    leaves the old text in place (round 4, 🟡 14)."""
+    import builtins
+
+    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger.write_text(OLD_LEDGER)
+    real_open = builtins.open
+
+    class Refusing:
+        def __init__(self, f):
+            self.f = f
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            self.f.close()
+            return False
+
+        def write(self, s):
+            raise OSError("disk full")
+
+    def refusing_open(path, mode="r", *a, **k):
+        if str(path) == str(ledger) and "w" in str(mode):
+            return Refusing(real_open(path, mode, *a, **k))
+        return real_open(path, mode, *a, **k)
+
+    monkeypatch.setattr(builtins, "open", refusing_open)
+    try:
+        ec.migrate([str(ledger)], str(repo))
+    except OSError:
+        pass
+    monkeypatch.undo()
+    text = ledger.read_text()
+    assert text == OLD_LEDGER or "#handler@" in text, f"torn ledger:\n{text!r}"
+
+
+def test_an_unreadable_ledger_is_reported_not_a_traceback(repo):
+    """A ledger `read()` returning None crashed `check_ledger`, `migrate` and
+    `reverify` — swallowed under dispatch, a traceback in CI (round 4,
+    🟡 14)."""
+    write_row(repo, "src/service.py", "handler")
+    (repo / ".specseal" / "map" / "bad.md").mkdir()
+    r = run(["."], str(repo))
+    assert "Traceback" not in r.stderr, r.stderr
+    assert "1 ok" in r.stdout, r.stdout
+    m = run(["--migrate", "."], str(repo))
+    assert "Traceback" not in m.stderr, m.stderr
+    v = run(["--reverify", "."], str(repo))
+    assert "Traceback" not in v.stderr, v.stderr

@@ -270,9 +270,10 @@ The boundaries carry the design. It writes to a tree unasked, licensed by
 ownership (the ledger is the plugin's artifact, the same grounds as
 `preset-setup`'s marker block) and bounded by visibility — deterministic,
 idempotent, all-or-nothing per row, old text in git history. It never touches
-uncommitted `.specseal/` changes: a dirty tree is skipped with one line, the
-once-per-repo marker is NOT stamped, and the next clean session start
-migrates. An unanswerable `git status` reads as dirty, because overwriting on
+an uncommitted ledger file — the dirty check covers exactly the files it
+would rewrite (round 4's 🟡 13 fixed the documents that claimed
+`.specseal/`-wide): a dirty one is skipped with one line, the once-per-repo
+marker is NOT stamped, and the next clean session start migrates. An unanswerable `git status` reads as dirty, because overwriting on
 a guess is the one direction the hook must never fail in. Reading never
 rewrites — the plain checker stays pure, held by a case that sits beside the
 hook's own.
@@ -282,11 +283,56 @@ a repository can only hold a ledger while not opted in through the
 `.specseal/scratch` opt-out, and the git-cannot-answer path needed a raising
 `subprocess.run` to be reachable at all.
 
+## What review round 4 changed
+
+The redesign span's first review, and the findings clustered on one habit:
+the resolver answering where it should refuse. The generic rule read
+`return render(y);` as a second declaration (🔴 1, fixed by naming the
+statement keywords — the uses are a bounded list where declaration modifiers
+are not, and a wrong entry fails loud); a parsing `.py` fell back to that
+rule when a symbol was simply gone, so a moved function read DRIFTED off a
+leftover call and `--reverify` made the wrong anchor permanent (🔴 2, fixed
+by trusting a successful parse as the whole answer — which forced `ast` to
+carry module- and class-level assignments, or the fix would have broken the
+three constants this repository's own ledger cites).
+
+The other cluster was scans searching repositories a row may not cite.
+EXTERNAL now demands DECLARED cross-repo intent — a parity config, `--map`
+or `--default-repo` — because without one there is no other repo to claim,
+and a deleted directory was a green build (🔴 3). Where intent is declared
+and a row's file is in none of the named checkouts, both the check and
+`--reverify` refuse to scan at all: searching this repo for that row is how
+a cross-repo coordinate got re-anchored onto a local look-alike (🔴 4, plus
+the dead `default_repo` parameter now read). The trade is stated in Known
+limits: a renamed local directory in a parity repository heals by `--map` or
+by hand, never by a guessing scan.
+
+`--migrate` grew the same discipline in its own direction (🟡 10, the
+reviewer's stronger option taken as ordered): with git present, a cited
+range is checked against the old stamp's commit and a row whose content
+changed since is LEFT — the numbers no longer mean anything — while
+unprovable rows migrate and are counted out loud. That put git INSIDE
+`evidence_check.py`, so the no-git property was re-drawn rather than
+dropped: `test_the_checker_asks_git_for_nothing` now proves by AST that
+`subprocess` lives in `content_at` alone and only `migrate` calls it, and by
+execution that a plain check answers with no git on PATH.
+
+Smaller, each measured: the dedup key gained the hash (🟡 5); OLD-FORMAT
+reached both totals lines and the commit advisory (🟡 6); heading-path
+locators heal — reconstruction substitutes the path's LAST part (🟡 8);
+`--migrate` reads `--map`/`--default-repo` through the same `place()` both
+other commands use (🟡 9); ledger writes go write-then-rename and an
+unreadable ledger reports instead of crashing (🟡 14); "moved intact" became
+"identical content" everywhere, with the boilerplate-twin limit written down
+(🟡 7); and six documents were corrected (🟡 11-13), including the
+`.specseal/`-wide dirty-guard claim this memo itself carried.
+
 ## Not verified
 
 | Item | Who must answer |
 |---|---|
 | The full suite, lint and typecheck. The scope rule holds them until the review rounds settle, and the rounds are edits already scheduled | the review orchestrator |
+| `dirty()`'s pathspecs on Windows. The defensive `.replace(os.sep, "/")` is in; whether git accepts what the hook sends on Windows at all is the round-4 ❓ | the broad gate's windows leg |
 | That `.github/workflows/hygiene.yml`'s new step fires on a release pull request. Read, not run — the branch condition is the same shape as the version-bump step above it, and the script's own two directions are executed | the review orchestrator, at the release pull request |
 | Whether `git log -L` costs materially more on a ledger an order of magnitude larger. Measured at 36 rows, one clone, macOS | repository owner |
 

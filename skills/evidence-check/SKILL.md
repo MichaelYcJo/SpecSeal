@@ -1,8 +1,8 @@
 ---
 name: evidence-check
 description: |
-  Verify that the evidence ledger's spec-to-code coordinates still resolve —
-  broken links fail, ranges touched since the baseline demand re-verification.
+  Verify that the evidence ledger's content anchors still resolve — a missing
+  or ambiguous unit fails the build, changed content demands re-verification.
   Use when: checking ledger health, before merging spec-driven work, wiring
   the check into CI, or after large refactors.
   NOT for: judging whether the code is CORRECT — this checks that the
@@ -89,15 +89,19 @@ parent: `"## Verify / ### Scope"`.
 adopting this are mostly code that is not Python.
 
 The generic rule needs no parser and no dependency: **the name followed by
-`(`, `{`, `=` or `:`, with only keywords before it, then the block to the next
-line at the same or lower indentation.** That closes a suite in an indentation
-language and lands on the closing brace in a brace language, because the brace
-sits at the declaration's own indent.
+`(`, `{`, `=` or `:`, with only declaration keywords before it, then the block
+to the next line at the same or lower indentation.** That closes a suite in an
+indentation language and lands on the closing brace in a brace language,
+because the brace sits at the declaration's own indent.
 
 `=` is there because a module-level constant is a unit too, and a common one to
 cite. The colon is stricter — it declares only when the name opens the line —
 because `if v not in NAME:` also ends in one, and without that a row citing a
-constant reads BROKEN for a use somewhere else in the file.
+constant reads BROKEN for a use somewhere else in the file. A statement
+keyword before the name — `return render(y);`, `await render(y)` — makes the
+line a use for the same reason: it is the commonest shape in every brace
+language, and reading it as a second declaration made an ordinary
+one-declaration-one-call file BROKEN-ambiguous.
 
 Where it cannot resolve a unit, that is `BROKEN` and a person looks. Loud and
 honest beats a per-language parser nobody maintains.
@@ -139,7 +143,7 @@ evidence-check --reverify .    # after re-reading: rewrite each row's hash
 | `--default-repo PATH` | migration ledgers cite the ORIGINAL repo with unprefixed paths — resolve them against this checkout |
 | `--map NAME=PATH` | resolve `NAME/...` prefixed coordinates against another checkout |
 | `--strict` | drift exits 2, the broken-coordinate code, instead of 1 |
-| `--reverify` | rewrite every resolvable row's hash to what its anchor holds now — and re-anchor every BROKEN row whose content provably moved intact, path and locator both |
+| `--reverify` | rewrite every resolvable row's hash to what its anchor holds now — and re-anchor every BROKEN row that exactly one unit reconstructs, path and locator both |
 | `--migrate` | rewrite old `path:line` rows to `path#unit@hash`; what it cannot prove is left and named |
 
 ## Verdicts and what to do
@@ -149,7 +153,7 @@ evidence-check --reverify .    # after re-reading: rewrite each row's hash
 | `BROKEN` (exit 2) | the MAJOR unit — or its whole file — is not there, or the unit is there more than once | fix the coordinate now. Where the content still exists the line names the destination, graded by proof: `identical content at <where> (renamed?/moved?)` is content identity across a repo-wide scan and `--reverify` acts on it; `same name at <path> (content differs)` is a labelled fact only; several matches are counted, never named |
 | `OLD-FORMAT` (exit 2, `--strict` or not) | an old `path:line` row from before content anchoring, which nothing measures any more | run `evidence-check --migrate .` — a red build naming the migrator beats a green build checking nothing |
 | `DRIFTED` (exit 1; 2 under `--strict`) | the content changed, or a minor anchor's place is gone | re-open it, re-read the claim, then `--reverify` |
-| `EXTERNAL` | path resolves in no known checkout | pass `--map`/`--default-repo`, or accept as out of scope |
+| `EXTERNAL` (exit 0) | the path resolves in no known checkout, in a repository that has DECLARED cross-repo intent — a parity config, `--map`, or `--default-repo` | pass `--map`/`--default-repo`, or accept as out of scope. Without such a declaration a missing path is `BROKEN` instead: a deleted or renamed directory must fail the build, not read as somebody else's repo |
 | `OK` | the content is what the row recorded — the current line numbers are printed for you to open |
 
 **An ambiguous MAJOR unit is BROKEN, loudly, and never a measurement.** With
@@ -201,14 +205,23 @@ pieces of code it is actually about.
 
 ## Known limits
 
-- An anchor cited as a bare filename (`service.py#f`, no directory) cannot be
-  resolved and is reported EXTERNAL — the tool never guesses by fuzzy matching,
-  because a wrong resolution would validate the wrong evidence.
+- A missing file is `BROKEN` with the same graded scan hints as a missing
+  symbol — a renamed file or directory is findable by content. `EXTERNAL`
+  needs declared cross-repo intent, and where intent is declared but a row's
+  file is in none of the named checkouts, the scan stays OFF: searching this
+  repository for a row that may cite the other one manufactures evidence. A
+  renamed local directory in a parity repository is therefore healed by
+  `--map` or by hand, not by the scan.
 - `DRIFTED` means "someone must re-read this", not "the claim is wrong".
-- Renaming a symbol reads as `BROKEN` — but where reconstruction proves the
-  content moved intact, the line names the destination and `--reverify` fixes
-  it. The proof substitutes the candidate's name with the row's locator and
-  compares against the RECORDED hash, so content that changed AND moved
+- Reconstruction proves identity of content, not history. Deleting a unit
+  that has a boilerplate twin — an `__init__`, a trivial getter, a thin
+  wrapper — reads as `renamed?` pointing at the twin, and `--reverify` would
+  re-anchor to it. The line says *identical content*, which is the whole of
+  what was proven; the deletion is yours to spot in the diff.
+- Renaming a symbol reads as `BROKEN` — but where exactly one unit
+  reconstructs the recorded content, the line names it and `--reverify` fixes
+  the row. The proof substitutes the candidate's name with the row's locator
+  and compares against the RECORDED hash, so content that changed AND moved
   matches nothing and stays a plain BROKEN.
 - The rename scan is bounded so the clean path stays fast: same-extension
   files only, files over 256 KB skipped, and past 200 candidate files it
@@ -224,11 +237,20 @@ pieces of code it is actually about.
 
 **The default is that nobody runs anything**: at the first session start after
 updating, an opted-in repository's ledger migrates itself and prints one line
-ending *review the diff and commit*. Once per repository; never over
-uncommitted `.specseal/` changes — a dirty tree is skipped with one line and
-retried at the next clean session start. The write is licensed by ownership
-(the ledger is the plugin's artifact) and bounded by visibility: deterministic,
+ending *review the diff and commit*. Once per repository; never over an
+uncommitted ledger file — the dirty check covers exactly the files the
+migration would rewrite, and a dirty one is skipped with one line and retried
+at the next clean session start. The write is licensed by ownership (the
+ledger is the plugin's artifact) and bounded by visibility: deterministic,
 idempotent, all-or-nothing per row, old text in git history.
+
+A recorded line number is trusted only as far as it can be vouched for. Where
+git can produce the file at a row's old stamp, a cited range whose content
+changed since that commit is LEFT rather than rewritten onto whatever sits at
+those lines now. Where the proof is unavailable — no git, no stamp, a commit
+a squash orphaned — the row migrates against the current tree alone and the
+summary says how many did, so those rows are reviewed in the diff rather than
+assumed.
 
 For CI, for a skipped tree, or by hand:
 

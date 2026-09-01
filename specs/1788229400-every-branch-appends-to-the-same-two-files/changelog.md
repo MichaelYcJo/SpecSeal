@@ -29,9 +29,9 @@
   claim rests on one statement inside a large unit. The unit is a function or
   class for code and a heading path for a document. `.py` is read with the
   stdlib `ast`; every other language falls to a rule that needs no parser and
-  no dependency — the name followed by `(`, `{` or `:`, then the block to the
-  next line at the same or lower indentation, which lands on a closing brace
-  because that brace sits at the declaration's own indent.
+  no dependency — the name followed by `(`, `{`, `=` or `:`, then the block to
+  the next line at the same or lower indentation, which lands on a closing
+  brace because that brace sits at the declaration's own indent.
 
   **An anchor degrades to DRIFTED, never to BROKEN.** The two cost different
   things: BROKEN says *go edit the ledger*, which is the bookkeeping this
@@ -49,16 +49,18 @@
   **Behavior that writes to your tree without being asked, disclosed here on
   its own line: an existing 0.1.0 ledger migrates itself.** At the first
   session start after updating, in an opted-in repository, every `path:line`
-  row is rewritten to the new form against your current tree — stamps
-  dropped, dates kept — and one line tells you what happened:
+  row is rewritten to the new form — stamps dropped, dates kept, and where
+  git can produce the file at a row's old stamp, a cited range whose content
+  changed since that commit is left loud rather than rewritten onto whatever
+  sits at those lines now — and one line tells you what happened:
   *ledger migrated to anchor format (12 rows; 2 left…) — review the diff and
   commit*. `claude plugin update` is the whole of what you do. The write is
   deterministic, idempotent and all-or-nothing per row; the old text stays in
   git history; rows it cannot prove are left, named, and keep failing the
   ordinary check loudly (`OLD-FORMAT`, exit 2) rather than being guessed at.
-  It runs once per repository, never over uncommitted `.specseal/` changes —
-  a dirty tree is skipped with one line and retried at the next clean session
-  start. Fallback for CI or by hand: `bin/evidence-check --migrate .`, which
+  It runs once per repository, never over an uncommitted ledger file — the
+  dirty check covers exactly the files it would rewrite, and a dirty one is
+  skipped with one line and retried at the next clean session start. Fallback for CI or by hand: `bin/evidence-check --migrate .`, which
   the `OLD-FORMAT` line also names.
 
   **Two behaviours arrive without being asked for.** After a `git commit` in
