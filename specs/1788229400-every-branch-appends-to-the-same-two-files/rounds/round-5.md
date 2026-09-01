@@ -13,7 +13,7 @@ All fourteen are closed. What this round found is what closing them opened.
 | Fix commit under review | `38802bc` |
 | PR | not yet |
 | Broad gate | not yet — slices only this round; the full suite, lint and typecheck are the orchestrator's, once, after this round settles |
-| Fixes checked by | `nobody — the run reached its bound at this round; the way out is Q2 in questions.md` |
+| Fixes checked by | `round-6` |
 | Needs a fix | yes — four 🔴 and four 🟡 from the reviewer, and 🔴 I, which the orchestrator added after the round closed |
 
 - [ ] Pass
@@ -59,7 +59,9 @@ exception is finding 7's output wording, which has no pin — reverting
 `(identical content)` to `(content moved intact)` passes all 69 cases in the
 four files.
 
-## What the fixes opened
+## Verdicts
+
+What the fixes opened.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
