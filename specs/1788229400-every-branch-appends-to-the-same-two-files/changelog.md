@@ -17,92 +17,40 @@
   copy-edit to a released entry would make its fragment read as ungathered
   forever. `## Unreleased` is gone with the region it named. (#46)
 
-- **A ledger row no longer names a commit, because there was no commit it
-  could name.** A row's drift baseline was a SHA typed into its Checked column,
-  and a feature branch had no good value to type: name the base and the row
-  reads DRIFTED at birth, name the branch and the squash leaves it pointing at
-  nothing. Measured — seven rows named `9b5501d`, which
-  `git merge-base --is-ancestor 9b5501d origin/main` answers no to, and a pull
-  request repaired those cells by hand. **The baseline is now the commit the
-  row first appeared in**, derived from its own line's history and computed on
-  whatever history is in front of it, so no rewrite can orphan it: after a
-  squash it is the squash commit, which is what that repair typed in. The
-  Checked column keeps the **date** somebody read the code — the one thing in
-  the row a person still asserts.
+- **A ledger coordinate names content, not a position.** A row cited
+  `path/file.py:120-134`, and a line number moves for edits that have nothing
+  to do with the claim — so inserting a line above a cited function left the
+  row pointing at the wrong lines while still reporting OK. Everything built to
+  manage that was compensation: the coordinate rotted, so the row was
+  re-anchored, so whatever it was measured from reset, so a stamp was needed,
+  so a squash orphaned the stamp.
 
-  **First appearance, not last touch**, and the difference was measured rather
-  than argued. Last touch is what a single `git blame` answers for free, and
-  against the 36 coordinates in this repository's ledger it is later than the
-  written stamp on all 36, equal on none, earlier on none — a strictly
-  narrower drift window than the stamps it replaces, with nothing re-read to
-  earn it. One release commit that rewrote stamps in bulk holds the baseline
-  for 16 of those 36 that way, and for none of them by first appearance. A
-  bulk rewrite collapsing drift windows is not new — the written stamp does it
-  too, which is how that release commit got there — but last touch widens the
-  trigger from *somebody edited a stamp* to *somebody edited the line*, a typo
-  included. It costs one git call per row instead of one per file, about 13 ms
-  a row, and rows carrying a stamp never reach it.
+  **A row now cites `path#anchor@hash`.** The anchor is a symbol name where the
+  language offers one — `.py` is read with the stdlib `ast`, so `Class.method`
+  names a span exactly and nothing is installed to do it — and otherwise a
+  distinctive line of text in quotes. The hash covers the region under the
+  anchor with trailing whitespace and blank lines removed, so a reformat is not
+  a change; indentation is kept, because in Python a dedent moves a statement
+  out of the block it belonged to.
 
-  Deriving the baseline is what makes the second registry splittable. **A work
-  item's evidence rows go in `.specseal/map/<work-item-id>.md`**, which the
-  checker's default globs already read, and such a fragment needs no baseline
-  header at all: every row in it measures from its own line. `.specseal/map.md`
-  is not moved — the migration is incremental, the rows in it stay where they
-  are, and its header now says so. Ledger fragments are never gathered back,
-  because a row is checked against the code it cites rather than concatenated.
+  The verdicts follow from that. **BROKEN** where the anchor is gone or appears
+  more than once — an ambiguous anchor is refused loudly rather than measured,
+  since with two places to look an OK would be a claim about whichever one the
+  code reached first. **DRIFTED** where the content under it changed.
+  **OK** prints the region's current line numbers, for a reader to open. There
+  is no baseline, no stamp, no commit SHA in any row, and `evidence-check`
+  calls git for nothing at all.
 
-  Rows already stamped are unchanged and are not being rewritten: **a stamp
-  written into a row still wins**, and it has to be a date and a SHA together,
-  because a bare hex word in a row is prose. That distinction is load-bearing
-  now that rows write no stamp — a row explaining why the stamp went names
-  commits, and the first such word used to become the row's baseline, and the
-  ledger's. Wherever rows ARE moved into a fragment later, their stamps move
-  with them verbatim: `git log -L` does not follow a row out of a file that
-  stays, so a stripped stamp would make the move itself the baseline.
+  **Re-verifying a row is recomputing its hash**, so it has a flag:
+  `evidence-check --reverify` rewrites every resolvable row and names what it
+  changed. It is deliberately separate from the check — one that refreshed what
+  it was checking would report OK for ever — and it leaves a row whose anchor
+  is gone alone, because that is the one row somebody has to look at.
 
-  **Two verdicts join `ok`, `drifted`, `broken` and `external`.** A row with no
-  baseline at all now reads `UNMEASURED` instead of `ok` — the old word said a
-  comparison had happened and found the range untouched, which is not what an
-  uncommitted ledger line has been through, and a fragment is uncommitted for
-  most of its working life. A row carrying two stamps that name **different
-  commits** reads `AMBIGUOUS`, because the scan reads the physical row and
-  `Verified behavior` sits before `Checked`, so the winner would otherwise be
-  whichever cell came first. Such a row is still measured, from the wider of
-  the two candidates, so a genuinely drifted row still reports drift; skipping
-  the comparison had made a second stamp a way to silence a real finding. Two
-  spellings of ONE commit are not two stamps. Both verdicts print and pass and
-  fail only under `--strict`, because a red light on every ordinary run is one
-  a session learns to click past. The run also names where a header baseline
-  came from — `from a Baseline row` or `from header prose` — and a SHA that a
-  rationale paragraph merely mentions, deep in a header, is not read as one at
-  all, while a declaration is read wherever it sits.
-
-  Where two stamps disagree the row is measured from the **wider** of them —
-  the ancestor where git can rank them, the earlier committer date where it
-  cannot — so the reading can only report more drift, never less.
-
-  **A row whose coordinate a change invalidates is moved, not re-stamped.**
-  Remove it from `.specseal/map.md` and write it into the work item's own
-  fragment, in a commit after the one that removed it. The derivation walks
-  past edits to a line on purpose, so an edited row keeps the baseline it was
-  born with and re-anchoring it in place leaves a tripwire that can never fire
-  again; a new line's first appearance is the commit that added it. That is
-  what empties the shared ledger into fragments as work items touch the code
-  its rows cite. **A migration ledger declares a second baseline** for the
-  original repository, because a cross-repo row is never measured from this
-  repository's history and committing its line changes nothing.
-
-  Blame is read in `--porcelain`, and the format is load-bearing twice over.
-  It spells a boundary commit plainly where the default and `-s` forms
-  decorate it as `^9829412`, which `git cat-file` rejects — and the first line
-  of every fragment is a boundary line. It also reports each line's number in
-  the commit that touched it and the PATH git knew that line by. Without the
-  path, renaming a ledger file turned its drift check off entirely — `git
-  log -L` resolves a path inside the anchor commit, and the anchor predates
-  the rename — and the line number is what lets the walk start in the right
-  place when the file has uncommitted edits above the row. That block is
-  printed only for the first line of each commit, so the path is remembered
-  per commit rather than read from beside every line. Every
-  answer is checked against `git cat-file` before it reaches `git diff`, where
-  a name resolving to nothing would report "nothing changed" — a pass produced
-  by a failure. (#52)
+  What this closes rather than manages: a stamp a squash can orphan, a row
+  whose coordinate resolves while pointing at the wrong lines, a coordinate
+  into a file newer than the baseline that could never drift, and a row that
+  was stale the moment it landed because another branch changed the cited code
+  and merged first. That last one had been recorded as unreachable; a content
+  hash sees it on the first run, because there is no time window to look at.
+  (#12, #14, #23, #31, #52, #56)

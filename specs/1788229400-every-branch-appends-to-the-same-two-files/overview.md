@@ -155,6 +155,43 @@ The third was a sentence in the shipped skill that `--help` had already been
 corrected away from: `--strict` turns `UNMEASURED` and `AMBIGUOUS` into exit 2
 as well, and neither of those fails the run without it.
 
+## Then the rule changed rather than being reconciled
+
+Three review rounds went on one chain, and the branch's own shape is the
+argument: 23 commits, 12 of them touching `.specseal/`. Half the work was
+bookkeeping about the ledger rather than evidence in it.
+
+**The cause was that a coordinate was a line number.** A line moves for edits
+unrelated to the claim, so the coordinate rotted, so the row was re-anchored,
+so its derived baseline reset, so a stamp was needed to clear the drift, so a
+squash orphaned the stamp. Blame, first appearance, the two extra verdicts and
+the two rules that ended up forbidding each other were all compensation for
+that one fact.
+
+A row now names **content**: `path#anchor@hash`, where the anchor is a symbol
+read with the stdlib `ast` or a distinctive line of text, and the hash covers
+the region under it. `evidence_check.py` goes from 747 lines to 372 and no
+longer imports `subprocess` — the shortest statement of what was removed is
+that the checker asks git for nothing.
+
+**What the migration found, rather than what it assumed.** All 51 coordinates
+migrated faithfully, but only after three corrections the data forced:
+
+- a cited range usually runs to the line before the next definition, so it ends
+  on a blank separator that belongs to no content. Trimming blank padding took
+  symbol anchors from 20 to 28.
+- five rows cite a span across several definitions. Those become several
+  coordinates, one per definition, which is the row saying what it is actually
+  about. Treating it as one anchor was what produced the first 14 "partial"
+  results.
+- `#` opens a comment in Python and a heading in markdown. Reading one as the
+  other made a 23-line comment block resolve to its first line. The heading
+  rule is markdown-only, and that was found by migrating rather than by
+  reasoning.
+
+**Rows whose subject the change removed were removed, not re-anchored.** Twelve
+of them documented the baseline machinery; their claims went with the code.
+
 ## Not verified
 
 | Item | Who must answer |
