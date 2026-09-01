@@ -10,7 +10,12 @@ ends here and it does not consume the cap. -->
 | Target SHA | 0b126c4 (fix diff 6dee2ca..0b126c4, one test file) |
 | PR | none yet |
 | Broad gate | 6dee2ca vs origin/release/v0.3.0 — 1142 passed · 1 failed (the finding below) · 1 skipped; ruff clean; evidence --strict 69 ok · 0 drifted; unverified/chain/gather exit 0. The delta to 0b126c4 touches only the failing test file, re-run in full after the fix (31 passed) — no production code in the delta |
-| Fixes checked by | round-3 reads the orchestrator's own fix — recorded here because the fix was opened by the broad gate between rounds, not by a reviewer's finding |
+| Fixes checked by | no fixes to check |
+
+<!-- The 0b126c4 fix predates this record and is what this round READ — it was
+opened by the broad gate between rounds, not by a finding of this round's
+own, so this round closed nothing with a fix of its own. -->
+
 | Contract changes | none — one assertion reworded inside an existing test function; no unit's signature or returns moved |
 | New units | none |
 | Needs a fix | no |
