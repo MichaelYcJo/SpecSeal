@@ -125,3 +125,20 @@ def test_implement_and_the_preset_block_do_not_drift():
     ):
         assert both in implement, f"the skill lost `{both}`"
         assert both in preset, f"the preset block lost `{both}`"
+
+
+def test_the_fix_pass_resumes_the_implementer():
+    """A fix pass as a fresh spawn re-establishes what the implementing
+    session already holds. Measured three times with no counterexample —
+    282 calls / 45 minutes fresh (#33) against 30 / 3.9 (#29) and 26 / 5.2
+    (the #57 chain) resumed — and an expectation with no number behind it
+    reads as style advice (work item 1788277657, round 1's tests-todo)."""
+    skill = read("skills", "code-review", "SKILL.md")
+    assert "resuming the session that built the branch" in skill, (
+        "the orchestrator sections lost the sentence saying how the fixing "
+        "session is obtained"
+    )
+    assert "282 calls and 45 minutes" in skill, "the measurement went"
+    assert "the fresh spawn is the only option left" in skill, (
+        "the fallback for a session that no longer exists went"
+    )
