@@ -451,6 +451,133 @@ def test_a_repeated_heading_is_disambiguated_by_its_parent(repo):
     assert ec.resolve("d.md", '"## B / ### Same"', text) == [(9, 11)]
 
 
+# --- the rename hint ---------------------------------------------------------
+
+
+def test_a_renamed_unit_is_named_in_the_broken_report(repo):
+    """The checker already computed every unit's span; when a locator is gone
+    and exactly one other unit carries the row's RECORDED hash, say so. The
+    verdict stays BROKEN and the exit code stays 2 — the row still needs a
+    person, this hands them the answer.
+    """
+    write_row(repo, "src/service.py", "handler")
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("def handler(", "def total_price(")
+    )
+    r = run(["."], str(repo))
+    assert "BROKEN" in r.stdout and "locator not found" in r.stdout, r.stdout
+    assert "identical content at #total_price" in r.stdout, r.stdout
+    assert "renamed?" in r.stdout, r.stdout
+    assert r.returncode == 2, r.stdout
+
+
+def test_renamed_and_edited_prints_no_hint(repo):
+    """The comparison is on the RECORDED hash, never a recomputed one. If the
+    content changed AND moved there is nothing trustworthy to point at, and
+    the plain BROKEN is the honest answer."""
+    write_row(repo, "src/service.py", "handler")
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("def handler(", "def total_price(").replace("x + 1", "x + 2")
+    )
+    r = run(["."], str(repo))
+    assert "BROKEN" in r.stdout and "locator not found" in r.stdout, r.stdout
+    assert "identical content" not in r.stdout, (
+        f"a hint was printed for content that also changed:\n{r.stdout}"
+    )
+    assert r.returncode == 2, r.stdout
+
+
+def test_two_identical_units_are_counted_not_named(repo):
+    """A guess is not a measurement. With two units holding the recorded
+    content, the report says how many and names none."""
+    twin = "def alpha(x):\n    return x + 1\n\n\ndef beta(x):\n    return x + 1\n"
+    (repo / "src" / "twin.py").write_text(twin)
+    # The row records what a `gamma` unit WOULD hash to: reconstruction
+    # substitutes each candidate's name with the locator before comparing,
+    # so both alpha and beta reconstruct to exactly this.
+    h = ec.content_hash(["def gamma(x):", "    return x + 1"])
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f"# frag\n\n| CLAUSE | `src/twin.py#gamma@{h}` |\n"
+    )
+    r = run(["."], str(repo))
+    assert "BROKEN" in r.stdout and "locator not found" in r.stdout, r.stdout
+    assert "identical content at 2 units" in r.stdout, r.stdout
+    assert "#alpha" not in r.stdout and "#beta" not in r.stdout, (
+        f"one of the two was named, which is a guess:\n{r.stdout}"
+    )
+    assert r.returncode == 2, r.stdout
+
+
+def test_a_renamed_markdown_heading_is_named_too(repo):
+    """The same machinery covers a document: a section whose heading was
+    renamed still holds the recorded content."""
+    doc = "## Old name\n\nthe body stays put\n"
+    (repo / "notes.md").write_text(doc)
+    h = ec.content_hash(doc.splitlines())
+    (repo / ".specseal" / "map" / "f.md").write_text(
+        f'# frag\n\n| CLAUSE | `notes.md#"## Old name"@{h}` |\n'
+    )
+    assert "1 ok" in run(["."], str(repo)).stdout
+    (repo / "notes.md").write_text(doc.replace("## Old name", "## New name"))
+    r = run(["."], str(repo))
+    assert "BROKEN" in r.stdout, r.stdout
+    assert 'identical content at #"## New name"' in r.stdout, r.stdout
+
+
+def test_reverify_re_anchors_a_row_whose_content_provably_moved(repo):
+    """The hint's condition is strong enough to fix, not just to point.
+
+    Exactly one unit carrying the row's RECORDED hash is a proof the content
+    moved intact — deterministic, no guess — so `--reverify` rewrites the
+    locator and leaves the hash alone, identical content being the
+    precondition. The plain check keeps printing BROKEN with the hint:
+    reading never rewrites.
+    """
+    write_row(repo, "src/service.py", "handler")
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("def handler(", "def total_price(")
+    )
+    ledger = repo / ".specseal" / "map" / "f.md"
+    before = ledger.read_text()
+    assert run(["."], str(repo)).returncode == 2
+    assert ledger.read_text() == before, "the plain check rewrote the ledger"
+
+    r = run(["--reverify", "."], str(repo))
+    assert "#handler -> #total_price" in r.stdout, r.stdout
+    after = ledger.read_text()
+    assert "#total_price@" in after and "#handler@" not in after, after
+    # The hash follows the locator. It cannot stay: the name is part of the
+    # unit's own hashed region, so the recorded hash is of the OLD spelling
+    # and keeping it would leave the re-anchored row DRIFTED with nothing to
+    # re-read — this assertion held the first version of the feature red.
+    assert after.split("@")[1][:8] != before.split("@")[1][:8]
+    assert run(["."], str(repo)).returncode == 0, "the re-anchored row is not OK"
+
+
+def test_reverify_does_not_touch_a_renamed_and_edited_row(repo):
+    write_row(repo, "src/service.py", "handler")
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("def handler(", "def total_price(").replace("x + 1", "x + 2")
+    )
+    ledger = repo / ".specseal" / "map" / "f.md"
+    before = ledger.read_text()
+    r = run(["--reverify", "."], str(repo))
+    assert "0 rows re-verified" in r.stdout, r.stdout
+    assert ledger.read_text() == before, "an unprovable move was rewritten"
+    assert run(["."], str(repo)).returncode == 2
+
+
+def test_reverify_does_not_choose_between_two_identical_units(repo):
+    twin = "def alpha(x):\n    return x + 1\n\n\ndef beta(x):\n    return x + 1\n"
+    (repo / "src" / "twin.py").write_text(twin)
+    h = ec.content_hash(["def gamma(x):", "    return x + 1"])
+    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger.write_text(f"# frag\n\n| CLAUSE | `src/twin.py#gamma@{h}` |\n")
+    before = ledger.read_text()
+    run(["--reverify", "."], str(repo))
+    assert ledger.read_text() == before, "reverify picked one of two matches"
+
+
 # --- the verdicts -----------------------------------------------------------
 
 
@@ -533,10 +660,14 @@ def test_the_check_never_rewrites_on_its_own(repo):
 
 
 def test_reverify_leaves_an_unresolvable_row_alone(repo):
-    """It refreshes what it can see. A row whose anchor is gone is a row
-    somebody has to look at, and silently renaming its hash would hide it."""
+    """It refreshes what it can see. A row whose unit is gone WITHOUT a
+    provable move is a row somebody has to look at, and silently renaming its
+    hash would hide it. The fixture edits the body as well as the name,
+    because a pure rename is now provable and gets re-anchored instead."""
     write_row(repo, "src/service.py", "handler")
-    (repo / "src" / "service.py").write_text(SERVICE.replace("def handler", "def gone"))
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("def handler", "def gone").replace("x + 1", "x + 9")
+    )
     ledger = repo / ".specseal" / "map" / "f.md"
     before = ledger.read_text()
     r = run(["--reverify", "."], str(repo))

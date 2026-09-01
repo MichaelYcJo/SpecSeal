@@ -370,6 +370,79 @@ def minor_region(path, text, region, minor):
     return found if len(found) == 1 else []
 
 
+def moved_units(rel, body, locator, want):
+    """Units in this file that are the missing row's content under a new name
+    — [(spelling, (start, end))], resolvable spellings only.
+
+    **A unit's name is part of its own hashed region** — `def handler(x):` is
+    the first line of `handler`'s content — so a renamed unit's hash never
+    equals the recorded one and a bare hash comparison can never fire. The
+    comparison therefore RECONSTRUCTS: substitute the candidate's name with
+    the row's locator throughout the candidate's region, hash that, and
+    compare against what the row RECORDED. A pure rename — the name changed
+    everywhere it appears, recursion included, and nothing else did —
+    reconstructs the old region exactly.
+
+    Recorded, never recomputed: one match is then a proof the content moved
+    intact, strong enough to name in a report and to act on in `--reverify`.
+    Content that changed AND moved reconstructs nothing, and the plain BROKEN
+    is the honest answer — there is nothing trustworthy to point at.
+
+    Same file only. A rename stays in its file in the common case, scanning
+    the repository for a hash is a cost with no bound, and a move across
+    files deserves a person anyway.
+    """
+    lines = body.splitlines()
+    units = []
+    if rel.endswith(".py"):
+        for name, places in py_spans(body).items():
+            if len(places) == 1:
+                units.append((name, places[0]))
+    elif rel.endswith(".md"):
+        seen = {}
+        for i, line in enumerate(lines):
+            level = heading_level(line)
+            if level is None:
+                continue
+            j = i + 1
+            while j < len(lines):
+                k = heading_level(lines[j])
+                if k is not None and k <= level:
+                    break
+                j += 1
+            name = '"' + line.strip().replace("|", "\\|").replace('"', '\\"') + '"'
+            seen.setdefault(name, []).append((i + 1, j))
+        units = [(n, p[0]) for n, p in seen.items() if len(p) == 1]
+    else:
+        opener = re.compile(r"^([\w\s*&]*?)\b(\w+)\s*([({=]|:)")
+        names = set()
+        for line in lines:
+            m = opener.match(line)
+            if m and not (m.group(3) == ":" and m.group(1).strip()):
+                names.add(m.group(2))
+        for name in sorted(names):
+            found = generic_units(lines, name)
+            if len(found) == 1:
+                units.append((name, found[0]))
+    markdown = rel.endswith(".md")
+    old_name = unescape(locator[1:-1]) if locator.startswith('"') else locator
+    matches = []
+    for name, (a, b) in units:
+        region = lines[a - 1 : b]
+        if markdown:
+            # The heading IS the name: reconstruct by putting the old heading
+            # line back at the top of the candidate's section.
+            region = [old_name, *region[1:]]
+        else:
+            new_last = name.rsplit(".", 1)[-1]
+            old_last = old_name.rsplit(".", 1)[-1]
+            sub = re.compile(r"\b" + re.escape(new_last) + r"\b")
+            region = [sub.sub(old_last, line) for line in region]
+        if content_hash(region) == want:
+            matches.append((name, (a, b)))
+    return matches
+
+
 def read(path):
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
@@ -424,7 +497,13 @@ def check_ledger(ledger, root, maps, default_repo=None):
 
         places = resolve(rel, locator, body)
         if not places:
-            findings.append(("BROKEN", coord, "locator not found"))
+            detail = "locator not found"
+            moved = moved_units(rel, body, locator, want)
+            if len(moved) == 1:
+                detail += f" — identical content at #{moved[0][0]} (renamed?)"
+            elif moved:
+                detail += f" — identical content at {len(moved)} units"
+            findings.append(("BROKEN", coord, detail))
             continue
         if len(places) > 1:
             # Loudly, and never a measurement: with two places to look, an OK
@@ -486,6 +565,26 @@ def reverify(ledgers, root, maps, default_repo=None):
             if body is None:
                 continue
             places = resolve(rel, locator, body)
+            if not places and claim is None:
+                # Reconstruction proving the content moved intact is what
+                # licenses the rewrite, so the locator follows the unit — and
+                # the hash follows the locator. It cannot stay: the name is
+                # part of the unit's own hashed region, so the recorded hash
+                # is of the OLD spelling and keeping it would leave the
+                # re-anchored row DRIFTED with nothing to re-read. Measured,
+                # in the case that pins this. The only difference between the
+                # two hashes is the rename itself, which the proof covers.
+                moved = moved_units(rel, body, locator, m.group("hash"))
+                if len(moved) == 1:
+                    name, (a, b) = moved[0]
+                    out.append(text[at : m.start("locator")])
+                    out.append(name)
+                    out.append(text[m.end("locator") : m.start("hash")])
+                    out.append(content_hash(body.splitlines()[a - 1 : b]))
+                    at = m.end("hash")
+                    changed += 1
+                    print(f"  {raw_path}#{locator} -> #{name}  (content moved intact)")
+                continue
             if len(places) != 1:
                 continue
             if claim:
