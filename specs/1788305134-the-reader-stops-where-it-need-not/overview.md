@@ -52,7 +52,7 @@ closed.
 
 | Item | Who must answer |
 |---|---|
-| The full suite, lint and typecheck on this branch after the review rounds settle — the scope here was the seven files that import `hooks/cmdline.py` | the orchestrator's broad gate, once |
+| ✅ The full suite, lint and typecheck on this branch after the review rounds settle — the scope here was the seven files that import `hooks/cmdline.py` | run once at 7560066 after round 3: 1183 passed · 1 skipped (`/proc`-only), `ruff check .` and `ruff format --check .` clean, `evidence_check.py --strict .` 114 ok · 0 broken, `chain_check.py` and `unverified_check.py` exit 0 with CI's invocations. Session of 2026-09-02 |
 | The Windows and Linux legs — every expected path here goes through `os.path.normpath`, but the oracle ran on one platform | CI at the pull request |
 | Shapes whose oracle needs bash ≥ 4 — `mapfile`, `readarray`, `shopt -s lastpipe`. Under 3.2.57 each errors and leaves the name; the reader forgets on all of them, so nothing opens either way | whoever has bash 5 at hand; the answer can only widen the prompt count |
 | The original item's 26,400-input differential against `2f95d72`. Its generator did not travel with the branch; the differential now in the tree (`tests/test_the_reader_agrees_with_bash.py`) covers the compound-command family it did not, and covers none of the paren-model corpus, which `tests/test_what_the_reader_understands.py` pins case by case | the review chain, if it wants the old corpus rebuilt |
