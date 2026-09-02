@@ -1024,13 +1024,24 @@ def _nesting(tokens, stack):
     until `esac`. The cost is that a `case` arm that DOES match prompts too,
     because the reader cannot tell which arm bash took.
 
-    Two costs remain, and both are prompts. A closer glued to its last word
+    A `)` last in its segment is not the subshell's when the segment opened a
+    paren of its own: `SB=( a b )`, `SB=$( pwd )` and `<( … )` arrive as a word
+    ENDING in `(` -- `SB=(`, `SB=$(`, `<(` -- followed by their operands and a
+    spaced `)`. Round 2 found that `)` popping the subshell around it, so
+    `( echo hi; SB=( a b ); OT=/three; true ); git -C "$OT"` answered
+    `/three` where bash has `/one`. Such a `)` is skipped, which leaves the
+    subshell open when the two closers share a segment, `SB=( a b ) )`, and
+    that is a prompt.
+
+    Three costs remain, and all are prompts. A closer glued to its last word
     is not counted -- `(cd <x> && make)` arrives as `(cd` … `make)`, and only
     the opener is read, the rule `strip_subshell` applies -- because a `case`
     pattern `x)` closes nothing and nothing in the token tells the two apart.
-    And `shlex` is posix-mode, so a `"fi"` written as a command inside a body
-    closes it; telling the two apart means carrying quote provenance out of
-    the splitter, which the single-quoted operand already declined to do.
+    A subshell whose own closer shares a segment with an array's or a
+    substitution's, as above, stays open. And `shlex` is posix-mode, so a
+    `"fi"` written as a command inside a body closes it; telling the two apart
+    means carrying quote provenance out of the splitter, which the
+    single-quoted operand already declined to do.
 
     `((` is arithmetic, not a subshell: `for ((SB=0` arrives as `for` `((SB=0`,
     the `for` opens and the head does not, and `k++))` closes nothing either.
@@ -1045,6 +1056,13 @@ def _nesting(tokens, stack):
         elif tok.startswith("(") and not tok.startswith("((") and _leads(tokens, at):
             stack.append("(")
         elif tok in CLOSERS and (at == 0 or (tok == ")" and at == last)):
+            if tok == ")" and any(
+                t.endswith("(") and not t.startswith("(") for t in tokens[:at]
+            ):
+                # The segment opened its own paren -- an array, a command
+                # substitution, a process substitution -- and this `)` is that
+                # one's, not the subshell's.
+                continue
             if stack and stack[-1] in CLOSES[tok]:
                 stack.pop()
     return stack

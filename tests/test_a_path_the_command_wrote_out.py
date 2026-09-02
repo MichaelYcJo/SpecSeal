@@ -811,6 +811,13 @@ BODIES = [
     # Nested bodies and an `elif` branch that does not run.
     "if false; then :; elif false; then echo hi; SB=/three; fi",
     "while false; do case x in y) echo hi; SB=/three ;; esac; done",
+    # Round 2: inside a subshell body, the spaced `)` of an array, a command
+    # substitution or a process substitution is the segment's last token with
+    # `(` on top of the stack, and it popped the subshell -- the assignment
+    # after it bound at top level. bash: `/one`.
+    "( echo hi; OT=( a b ); SB=/three; true )",
+    "( echo hi; OT=$( pwd ); SB=/three; true )",
+    "( echo hi; cat <( echo x ); SB=/three; true )",
 ]
 
 
@@ -845,6 +852,10 @@ def test_the_body_ends_at_its_closer():
         "SB=/one; grep -c '(' f; SB=/three; git -C \"$SB\" commit -m x",
         'SB=/one; time { echo hi; }; SB=/three; git -C "$SB" commit -m x',
         'SB=/one; if true; then if true; then :; fi; fi; SB=/three; git -C "$SB" commit -m x',
+        # Round 2: the `)` an array or a substitution closes at top level is
+        # nobody's subshell closer, so the assignment after it still binds.
+        'SB=/one; OT=( a b ); ( echo hi ); SB=/three; git -C "$SB" commit -m x',
+        'SB=/one; X=$( pwd ); SB=/three; git -C "$SB" commit -m x',
     ):
         assert targets(command) == [os.path.normpath("/three")], command
     # A paren inside a commit message opened a body for the rest of the string.
@@ -880,6 +891,12 @@ def test_what_opens_a_body_and_what_closes_one():
     assert after("grep -c '(' f") == []
     assert after("time { echo") == ["{"]
     assert after("! ( cd /x )") == []
+    # A `)` that belongs to the segment's own `SB=(` or `$(` leaves the
+    # subshell on the stack; at top level it closes nothing either way.
+    assert after("OT=( a b )", ["("]) == ["("]
+    assert after("OT=$( pwd )", ["("]) == ["("]
+    assert after("cat <( echo x )", ["("]) == ["("]
+    assert after("X=$( pwd )") == []
 
 
 def test_a_glued_closer_costs_a_prompt_and_not_an_answer():

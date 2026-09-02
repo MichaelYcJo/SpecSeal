@@ -37,7 +37,8 @@ def usable_bash():
     """
     try:
         r = subprocess.run(["bash", "-c", "exit 7"], capture_output=True, timeout=30)
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
+        # Either way the answer is a skip, not a collection error.
         return False
     return r.returncode == 7
 
@@ -90,6 +91,10 @@ STATEMENTS = [
     "export SB=/three",
     "SB+=/x",
     "SB=(/three)",
+    # Round 2: a spaced `)` of an array or a substitution inside a subshell
+    # body is not the subshell's closer.
+    "SB=( a b )",
+    "X=$( pwd ); SB=/three",
     "unset SB",
     "((SB=3))",
     'let "SB = 3"',
