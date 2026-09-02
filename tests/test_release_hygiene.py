@@ -40,7 +40,18 @@ def tracked(*prefixes):
 def test_no_loaded_file_hardcodes_the_running_version():
     """A version number written into prose is right for exactly one release.
 
-    `seal/specs/` and `CHANGELOG.md` are records of a moment and keep theirs."""
+    `seal/specs/` and `CHANGELOG.md` are records of a moment and keep theirs.
+    So are a release's design record and the flow checklist that names the
+    release it plans: `docs/one-root-by-lifetime.md` is the 0.4.0 design and
+    says so in every other paragraph, and `docs/flow.md` is a list headed by
+    the version it tracks. Both are dated by their subject, not by prose that
+    happened to name the running version, and the 0.4.0 release is where this
+    test first met them."""
+    RECORDS_OF_A_MOMENT = (
+        "docs/one-root-by-lifetime.md",
+        "docs/one-root-by-lifetime.ko.md",
+        "docs/flow.md",
+    )
     offenders = []
     for rel in tracked(
         "skills",
@@ -53,6 +64,8 @@ def test_no_loaded_file_hardcodes_the_running_version():
         "install.sh",
         "uninstall.sh",
     ):
+        if rel in RECORDS_OF_A_MOMENT:
+            continue
         with open(os.path.join(ROOT, rel), encoding="utf-8", errors="replace") as f:
             if version() in f.read():
                 offenders.append(rel)
@@ -508,7 +521,7 @@ def test_the_chain_check_reuses_the_reader_rather_than_writing_a_second():
 
 
 def test_this_repository_has_one_root_laid_out_by_lifetime():
-    """S1 of the 0.4.0 root move. `seal/` holds the whole tree — the rows
+    """S1 of the root move to `seal/`. It holds the whole tree — the rows
     that outlive a work item at its top, every work item whole under
     `specs/` — and neither of the two old roots exists. A `.specseal/` here
     would opt nothing in and be read by nothing but the migration hook, which
@@ -516,7 +529,15 @@ def test_this_repository_has_one_root_laid_out_by_lifetime():
     seal = os.path.join(ROOT, "seal")
     for rel in ("README.md", "ledger.md", "follow-up.md"):
         assert os.path.isfile(os.path.join(seal, rel)), rel
-    assert os.path.isdir(os.path.join(seal, "ledger"))
+    # `seal/ledger/` holds fragments between releases and the release folds
+    # them away; git keeps no empty directory, so right after a release the
+    # directory is absent and that is the laid-out state, not a missing one.
+    ledger_dir = os.path.join(seal, "ledger")
+    if os.path.isdir(ledger_dir):
+        stray = [n for n in os.listdir(ledger_dir) if not n.endswith(".md")]
+        assert not stray, (
+            f"seal/ledger/ holds something that is not a fragment: {stray}"
+        )
     items = [
         n
         for n in os.listdir(os.path.join(seal, "specs"))
