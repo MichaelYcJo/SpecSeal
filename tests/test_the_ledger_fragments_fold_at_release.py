@@ -22,7 +22,6 @@ the shape of `gather_changelog.py`.
 import importlib.util
 import os
 import re
-import shutil
 import subprocess
 import sys
 
@@ -361,6 +360,27 @@ def test_the_last_row_keeps_its_trailing_whitespace_and_a_fenced_hash_is_text(tr
     assert "#### The area" in lines
 
 
+def test_a_blank_line_above_the_title_and_a_tilde_fence_are_read_right(tree):
+    """Round 2, 🟡 4. A whitespace-only first line left the title to be
+    demoted into a second `### <id>`, and only ``` counted as a fence, so a
+    `#` line inside `~~~` was demoted. A fence closes on its own kind only."""
+    body = (
+        "   \n# 1788229400-later\n\nA note:\n\n~~~\n# not a heading\n```\n"
+        "# still not a heading\n~~~\n\n## The area\n\n"
+        "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+        "|---|---|---|---|---|\n" + row("the claim", handler_hash()) + "\n"
+    )
+    (tree / ".specseal" / "map" / "1788229400-later.md").write_text(
+        body, encoding="utf-8"
+    )
+    fold(tree)
+    lines = ledger(tree).split("\n")
+    assert lines.count("### 1788229400-later") == 1, "the title was demoted twice"
+    assert "# not a heading" in lines, "the ~~~ fence was not recognised"
+    assert "# still not a heading" in lines, "a ``` inside ~~~ closed the fence"
+    assert "#### The area" in lines
+
+
 def test_dry_run_writes_and_removes_nothing(tree):
     before = ledger(tree)
     left = fragments_left(tree)
@@ -683,13 +703,23 @@ def test_this_work_item_wrote_its_own_fragment():
     this_work_items_rows_are_in_the_ledger(ROOT)
 
 
-def test_this_work_items_rows_are_still_found_after_the_release_folds_them(tmp_path):
-    """The same body, on a copy of this repository after the fold has run
-    there. `specs/` rides along because the guard reads every evidence-todo
-    file in the tree, this work item's included."""
-    for d in (".specseal", "specs"):
-        shutil.copytree(os.path.join(ROOT, d), tmp_path / d)
-    r = run("--version", "9.9.9", "--date", "2026-12-31", root=tmp_path)
-    assert r.returncode == 0, r.stdout + r.stderr
-    assert not (tmp_path / ".specseal" / "map").exists(), "the fold removed nothing"
-    this_work_items_rows_are_in_the_ledger(str(tmp_path))
+def test_this_work_items_rows_are_still_found_after_the_release_folds_them(tree):
+    """The same body, on the fixture with a fragment for this work item placed
+    there and folded. Round 2, 🔴 1 and 🟡 2: the first version copied the
+    real tree, so once the release-preparation commit had folded it the copy
+    held nothing to fold and the test went red on `main`; and the `specs/`
+    copy made any open evidence-todo row in the tree fail it, which is the
+    review's own mid-state."""
+    frag = tree / ".specseal" / "map" / f"{THIS_WORK_ITEM}.md"
+    frag.write_text(
+        fragment(
+            THIS_WORK_ITEM,
+            "Rows for this work item.",
+            [row("the fold", handler_hash(), "`.github/scripts/fold_ledger.py#main`")],
+        ),
+        encoding="utf-8",
+    )
+    this_work_items_rows_are_in_the_ledger(str(tree))
+    fold(tree)
+    assert not frag.exists(), "the fold removed nothing"
+    this_work_items_rows_are_in_the_ledger(str(tree))

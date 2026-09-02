@@ -141,16 +141,26 @@ def demote(text, work_item_id):
     on U+2028; only newlines are stripped at either end, because `strip()`
     would take the last row's trailing whitespace; and a `#` line inside a
     code fence is text, not a heading.
+
+    Two more from round 2 (🟡 4): blank lines above the title are skipped, so
+    a title after one is still recognised rather than demoted into a second
+    `### <id>`; and a fence is ``` or ~~~, closed only by its own kind, the
+    way CommonMark reads them.
     """
     lines = text.strip("\n").split("\n")
+    while lines and not lines[0].strip():
+        lines = lines[1:]
     if lines and lines[0].strip() == f"# {work_item_id}":
         lines = lines[1:]
     out = []
-    fenced = False
+    fence = None
     for line in lines:
-        if line.lstrip().startswith("```"):
-            fenced = not fenced
-        m = None if fenced else HEADING_RE.match(line)
+        head = line.lstrip()
+        if fence is None and (head.startswith("```") or head.startswith("~~~")):
+            fence = head[:3]
+        elif fence is not None and head.startswith(fence):
+            fence = None
+        m = None if fence else HEADING_RE.match(line)
         if m:
             line = "#" * min(len(m.group(1)) + 2, 6) + line[len(m.group(1)) :]
         out.append(line)
