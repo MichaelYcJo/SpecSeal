@@ -10,7 +10,7 @@ carries the format. -->
 | Target SHA | e4b74fc |
 | PR | none yet |
 | Broad gate | not yet — the one full run follows the verifying round |
-| Fixes checked by | nobody — the fixes landed at 855b8e8 and round 2, the verifying round, is what opens them; this cell is set to it when that record exists |
+| Fixes checked by | round-2 |
 | Contract changes | `folded` → `main` (predicate now line-anchored, signature unchanged); `demote` → `section` (returns trailing whitespace, U+2028 and fenced `#` lines untouched); `open_rows` → `open_items` (a U+2028/U+0085/form-feed cell no longer splits a row); `section` → `main` (an all-whitespace body counts as empty); `LEDGER`, `FRAGMENTS` → `fragments`, `main` (now `/`-joined strings, disk paths through `under`) |
 | New units | `.github/scripts/fold_ledger.py#under`, `#is_marked`; `tests/test_the_ledger_fragments_fold_at_release.py#this_work_items_rows_are_in_the_ledger`, `#THIS_WORK_ITEM`, `#U2028_ROW`, and six tests: `test_the_messages_print_slash_joined_paths_on_every_platform`, `test_this_work_items_rows_are_still_found_after_the_release_folds_them`, `test_a_marker_quoted_in_the_ledgers_prose_is_not_a_folded_work_item`, `test_a_row_holding_a_line_separator_arrives_as_one_row`, `test_a_line_separator_in_a_cell_does_not_close_the_file`, `test_the_last_row_keeps_its_trailing_whitespace_and_a_fenced_hash_is_text` |
 | Needs a fix | yes — 🔴 1 (the messages print `os.path.join` paths, so three tests fail on the Windows leg) and 🔴 2 (the self-check test reads the fragment the fold removes, so the release-preparation commit turns the tests red) |
