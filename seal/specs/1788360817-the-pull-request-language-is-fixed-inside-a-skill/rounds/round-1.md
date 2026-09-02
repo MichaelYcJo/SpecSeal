@@ -10,7 +10,7 @@ format. -->
 | Target SHA | ec3e252 |
 | PR | none yet |
 | Broad gate | not yet — findings are open |
-| Fixes checked by | nobody — the fixes landed at d7e609a and round 2, the verifying round, is what opens them; this cell is set to it when that record exists |
+| Fixes checked by | round-2 |
 | Contract changes | `items` → `configured_language`, `test_the_template_is_one_item_value_table_whose_first_row_is_the_language`, `test_the_check_can_fail`, `test_a_row_of_another_table_ends_this_one`, `test_a_second_table_further_down_is_not_read_as_more_rows` — signature and return type unchanged, the set of returnable values narrowed: a row following a row of another table is no longer returned |
 | New units | `tests/test_the_pull_request_language_is_the_repositorys.py#configured_language`, `#LANGUAGE_CODES`, `#UNNAMED`, and eleven cases: `test_the_default_is_stated_where_the_path_is`, `test_every_way_of_not_naming_a_language_lands_on_english`, `test_an_unreadable_config_lands_on_english_too`, `test_the_skill_names_every_way_of_not_naming_one`, `test_a_config_holding_the_templates_default_row_reads_as_english`, `test_a_korean_row_is_what_flips_the_refused_mirror_name`, `test_a_row_of_another_table_ends_this_one`, `test_a_second_table_further_down_is_not_read_as_more_rows`, `test_every_template_is_named_by_a_document_that_ships`. One unit removed: `test_absence_means_english_in_both_of_its_spellings`, whose five cases are now five |
 | Needs a fix | yes — 🟡 1 (no document names `templates/config.md`, so the file a repository is told to write has no source), 🟡 4 (this branch drifted two ledger rows in another work item's fragment and the smith's scoped check could not see them), 🟡 5 (a legitimate `seal/config.md` turns a new test red) |
