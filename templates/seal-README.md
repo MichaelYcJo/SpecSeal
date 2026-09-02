@@ -7,11 +7,22 @@ a later `settle` folds it. It is safe to delete a work item's directory
 wholesale **after the export rules below have run** — nothing that must
 survive is allowed to live only there.
 
-It is **committed** (gitignored files don't follow worktrees or other
-machines), and its presence at the repository root is what opts the
-repository into the workflow. There is no config key. Nothing reads
-`.specseal/` or a top-level `specs/` any more; a repository still holding
-them is moved here once, at session start, by the plugin.
+It lives at one of two places, and its presence at either is what opts the
+repository into the workflow. There is no config key. **Shared mode** keeps
+it at `<repo>/seal/` and commits it — gitignored files don't follow
+worktrees or other machines — so CI and every clone read it. **Local mode**
+keeps the same root at `$(git rev-parse --git-common-dir)/seal/`, under the
+common git directory: every linked worktree of the clone shares it, nothing
+under it is ever a commit candidate, and no `.gitignore` line is needed.
+What local mode gives up is CI — the pull-request checks read committed
+files — and any other machine, which starts empty. Switching is a move and
+a commit, spelled out in the plugin README's *Shared or local* section:
+local → shared is `mv "$(git rev-parse --git-common-dir)/seal" seal`,
+`git add seal` and a commit; shared → local is `git rm -r --cached seal`,
+`mv seal "$(git rev-parse --git-common-dir)/seal"` and a commit of the
+removal. Nothing reads `.specseal/` or a top-level `specs/` any more; a
+repository still holding them is moved into `<repo>/seal/` once, at session
+start, by the plugin.
 
 **The throwaway opt-out is the file `.git/specseal-scratch`, and it cannot be
 committed.** Where it exists, every gate reads the repository as one that
