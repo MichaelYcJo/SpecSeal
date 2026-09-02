@@ -144,8 +144,10 @@ def demote(text, work_item_id):
 
     Two more from round 2 (🟡 4): blank lines above the title are skipped, so
     a title after one is still recognised rather than demoted into a second
-    `### <id>`; and a fence is ``` or ~~~, closed only by its own kind, the
-    way CommonMark reads them.
+    `### <id>`; and a fence is ``` or ~~~, closed by the next line that
+    starts with the same three characters. That is looser than CommonMark,
+    which closes only on a run at least as long as the opener with nothing
+    after it; the rider below says what that misreads.
     """
     lines = text.strip("\n").split("\n")
     while lines and not lines[0].strip():
@@ -158,6 +160,16 @@ def demote(text, work_item_id):
         head = line.lstrip()
         if fence is None and (head.startswith("```") or head.startswith("~~~")):
             fence = head[:3]
+        # RIDER: a ```python line, or a ``` line inside a ```` block, closes
+        # the fence here and CommonMark says neither does — so a `#` line
+        # after one is demoted where it should be copied. Round 3 of the work
+        # item that wrote this measured it on probes and found no fence line
+        # in any fragment or in map.md; a fold of today's ledger is untouched.
+        # If a fragment ever quotes a fenced block, close on a run of the
+        # same character at least as long as the opener with nothing after it
+        # (`^(`{3,}|~{3,})(.*)$` and `len(run) >= len(fence) and not
+        # rest.strip()`), and plant the case beside the tilde test.
+        # Verified 2026-09-02 at 16c16c7.
         elif fence is not None and head.startswith(fence):
             fence = None
         m = None if fence else HEADING_RE.match(line)
