@@ -3,10 +3,14 @@
 *English · [한국어](./one-root-by-lifetime.ko.md)*
 
 The design 0.4.0 starts from, gathered from issue #74 and the ten comments
-under it (2026-09-02, after 0.3.0 shipped). Nothing here is for 0.3.x. Every
-name below is a placeholder until the owner decides it; where the thread
-leaned one way, the text says *recommended* and the reason. The decisions
-themselves are collected at the end, under "Decisions left open".
+under it (2026-09-02, after 0.3.0 shipped), plus the decisions the owner took
+after the thread while this document was reviewed: the opt-in is the root's
+presence, a work item's directory is removed only once a later `compact`
+step has folded it into `docs/` and the ledger, and 0.4.0 itself deletes
+nothing. Nothing here is for 0.3.x. Every name below is a placeholder until
+the owner decides it; where the thread leaned one way, the text says
+*recommended* and the reason. What is decided and what is still open are
+both collected at the end.
 
 The numbers in this document were re-measured against `origin/main` at
 `5685029` (the 0.3.0 merge) on 2026-09-02. Where the issue's own numbers
@@ -20,17 +24,20 @@ documents and its review records, which die at different times, and
 `.specseal/` holds the ledger (the table pairing spec clauses with code
 coordinates), whose rows outlive the work item that wrote them. After this
 change one root the plugin owns holds everything, sorted by how long it
-lives. The opt-in signal moves out of the tree into local git
-state, and `specs/` becomes a directory SpecSeal reads and never writes.
+lives. Where that root sits is a per-repository choice, shared (committed)
+or local (under `.git/`, never committed), and its presence there is the
+opt-in. `specs/` stops being SpecSeal's directory. A work item's directory
+lives until `compact` folds it into `docs/` and the ledger; 0.4.0 has no
+such step yet, so it moves everything and deletes nothing.
 
 ```
 today                                      after
 ─────                                      ─────
-specs/<id>/   spec plan questions overview  seal/specs/<id>/  the whole work item
-              routing rounds/ todos pr.ko  seal/ledger/<id>.md  its rows, until the release
+specs/<id>/   spec plan questions overview  seal/specs/<id>/  the whole work item, until compact folds it
+              routing rounds/ todos pr.ko  seal/ledger/<id>.md  its rows, until the release folds them
 .specseal/    map.md map/<id>.md            seal/ledger.md    the gathered ledger
               follow-up.md parity.md        seal/follow-up.md seal/parity.md
-(.specseal/ exists)  = opted in            git config specseal.*  = opted in
+(.specseal/ exists)  = opted in            seal/ exists at the mode's place = opted in
 ```
 
 ## The problem, as measured
@@ -39,7 +46,6 @@ specs/<id>/   spec plan questions overview  seal/specs/<id>/  the whole work ite
 |---|---|---|---|
 | `specs/` after one week | 13 work items · 101 files · 6,937 lines | 13 · 96 · 6,655 | after a merge nothing mechanical reads a round record, and people rarely do |
 | `.specseal/map/` | 6 fragment files, 79 anchored rows across `map.md` and `map/` | 83 live rows | the rows are bounded by live claims; the files are one per work item forever, and almost every pull request touches the directory |
-| `specs/` is spec-kit's directory too (GitHub's spec-driven toolkit writes `specs/NNN-feature/`) | — | — | two tools would write one folder |
 
 The issue's counts were taken before this document's; what was counted
 differently was not traced.
@@ -57,50 +63,53 @@ things with the same lifetime are split across two.**
 | ledger rows | as long as the code they cite lives, which is longer than the work item | `.specseal/map/<id>.md` |
 | follow-up · parity | as long as the repository | `.specseal/` |
 
-### Where the line between a person's files and the tool's actually runs
+### Where the line between the SDD set and the process record runs
 
-The criterion behind "keep `specs/`, hide `.specseal/`" was whether a person
-would have written and read the file without this tool. That criterion does
-not coincide with the `specs/` folder boundary.
+Comment 1 drew a line through the work item by asking whether a file would
+exist without this tool. Under SpecSeal the AI writes every file in the
+directory, so the line is not about who writes; it is about what the file
+is and who reads it after the merge.
 
-| A person's, the shape spec-driven development (SDD) prescribes | The tool's, in SpecSeal's vocabulary |
+| The SDD set: what was decided and why | The process record: what SpecSeal's checkers read |
 |---|---|
 | `spec.md` · `plan.md` · `questions.md` · `overview.md` · `changelog.md` | `routing.md` (read by the commit gate, the hook that stops an unrouted commit) · `rounds/round-N.md` (read by `chain_check.py`, the pull-request check that a declared review chain has its record) · `tests-todo.md` · `evidence-todo.md` |
+| exists under spec-driven development (SDD) with or without SpecSeal | exists because SpecSeal's gates read it |
+| read by people after the merge, for "why" | read by nothing after the merge |
 
 Separating the two kinds inside a work item is out of scope by the owner's
 decision. Round records have to be in the tree while the pull request is
 open, and pulling them apart from the spec is a larger change than this one.
-The design below therefore does not assume `specs/` is tool-free; it uses the
-line only to decide what is worth keeping after a release.
+The design below therefore does not assume `specs/` is tool-free. The line
+is used for one thing: saying what `compact` folds (the SDD set) and what it
+simply drops with the directory (the process record).
 
 ## The proposed tree
 
 One root the plugin owns. "Plugin-owned" means the plugin creates, moves and
-empties it and its checkers define the formats, the way `.github/` is
+folds it and its checkers define the formats, the way `.github/` is
 GitHub's. It is committed in the default mode, because the ledger and the
 round records must reach CI and other clones.
 
 ```
 <repo>/
-├── seal/                          created, moved and emptied by the plugin. Committed in shared mode.
-│   ├── README.md                  this folder's rules: export rules, what disappears when
+├── seal/                          created, moved and folded by the plugin. Committed in shared mode.
+│   ├── README.md                  this folder's rules: export rules, what moves when
 │   ├── ledger.md                  the gathered ledger. Permanent
-│   ├── ledger/<id>.md             rows of work items in development — folded into ledger.md at release, then deleted
+│   ├── ledger/<id>.md             rows of work items in development. Folded into ledger.md at release, then removed
 │   ├── follow-up.md               permanent
 │   ├── parity.md                  migration projects only. Permanent
-│   └── specs/<epoch>-<slug>/      the whole work item. See "Retention" for what survives the release
-│       ├── spec.md plan.md questions.md overview.md      what a person reads
+│   └── specs/<epoch>-<slug>/      the whole work item. Lives until compact folds it; 0.4.0 keeps it
+│       ├── spec.md plan.md questions.md overview.md      the SDD set: what was decided and why
 │       ├── changelog.md                                  gathered into CHANGELOG.md at release
-│       ├── routing.md rounds/round-N.md                  what the commit gate and CI read
-│       ├── tests-todo.md evidence-todo.md                evidence-todo must be empty before the release empties anything
+│       ├── routing.md rounds/round-N.md                  the process record: what the commit gate and CI read
+│       ├── tests-todo.md evidence-todo.md                evidence-todo must be empty before anything folds
 │       └── pr.ko.md
-├── docs/                          policy — where intent that outlives a release lives. Unchanged
-├── specs/                         never written by SpecSeal; if present (spec-kit, a person) read as policy input
+├── docs/                          policy, and where compact folds the SDD set. Read by people; written by people and by compact
 ├── CHANGELOG.md                   unchanged
-└── .git/                          session state, never committed. Unchanged
-    ├── specseal-implementer       the smith mark (the file a spawned smith agent leaves behind)
-    ├── specseal-worktree-choice/  the worktree question's record
-    └── config                     specseal.mode / specseal.optin: the opt-in signal, per clone or --global
+└── .git/                          never committed
+    ├── seal/                      local mode only: the whole root above lives here instead of <repo>/seal/
+    ├── specseal-implementer       the smith mark (the file a spawned smith agent leaves behind). Session state, unchanged
+    └── specseal-worktree-choice/  the worktree question's record. Session state, unchanged
 ```
 
 Three lifetimes, and each has one home.
@@ -108,111 +117,217 @@ Three lifetimes, and each has one home.
 | Lifetime | Lives in | Ends when |
 |---|---|---|
 | a session | `.git/` | the session ends |
-| between releases | the tool's files in `seal/specs/<id>/` · `seal/ledger/<id>.md` | the release-preparation step runs |
-| permanent | `seal/ledger.md` · `follow-up.md` · `parity.md` · `docs/` · `CHANGELOG.md` · the person's files in `seal/specs/<id>/`, under the proposed retention default | never |
+| between releases | `seal/ledger/<id>.md` · `seal/specs/<id>/` | the release step folds it: ledger fragments from 0.4.0 on, work items once `compact` exists |
+| permanent | `seal/ledger.md` · `follow-up.md` · `parity.md` · `docs/` · `CHANGELOG.md` | never |
 
-With `retain = none` the person's files join the middle row; with `all`,
-the tool's files join the last.
+A work item's directory has the middle lifetime, and 0.4.0 keeps it on disk
+anyway, because the step that folds it does not exist yet and deleting
+before folding is the half that cannot be undone. The dependency rule below
+is what keeps that step possible.
 
 Against today, the root itself changes in three ways: two roots become one,
-opt-in moves from a directory's existence to a local config key, and the
-work-item directory and the ledger fragments gain a lifetime. The later
-comments added on top of that, and the sections below carry them: two
-choices at first setup, a retention rule, and an export/import pair.
+the root may sit under `.git/` instead of in the tree, and the fragments and
+work items gain a lifetime. The later comments added on top of that, and
+the sections below carry them: the mode choice at first setup, and an
+export/import pair.
 
-**The relationship the names spell out.** The top-level `specs/` (spec-kit's,
-a person's) is what gets sealed. `seal/specs/<id>/` is the sealed copy with
-its process record. `seal/ledger*` is the seal itself: the binding of spec to
-code that breaks on drift.
+**What the names say.** `seal/specs/<id>/` holds the spec and its process
+record. `seal/ledger*` is the seal itself: the binding of spec to code that
+breaks on drift.
 
 ## What happens at a release
 
-Both accumulation problems end with one rule in the release-preparation
-step. The thread names only "the release-preparation script"; this document
-reads that as the step that already gathers `changelog.md` fragments by hand
+Both accumulation problems end in the release-preparation step. The thread
+names only "the release-preparation script"; this document reads that as
+the step that already gathers `changelog.md` fragments by hand
 (`.github/scripts/gather_changelog.py --version`, see
 `docs/branch-and-release.md`).
 
-1. `seal/ledger/<id>.md` of every released work item folds into
-   `seal/ledger.md`, and the fragment is deleted. A work item still unmerged
-   keeps its fragment.
-2. `seal/specs/<id>/` of every released work item is emptied according to
-   the retention setting below.
-3. **Guard before emptying.** A sentence in a work item's `spec.md` that must
-   outlive the release has to have moved into a `docs/` policy or a ledger
-   row before the merge. `evidence-todo.md` half-enforces that today; once
-   the step deletes files, it must refuse to run while any work item still
-   has an open `evidence-todo.md` row. The issue says "any work item"; an
-   unmerged one is not emptied, so this document reads it as any released
-   one.
+1. **`seal/ledger/<id>.md` folds into `seal/ledger.md`**, and the fragment
+   is removed. A work item still unmerged keeps its fragment. This is a
+   move, not a deletion: every row survives, and it is the one part of the
+   design that answers "almost every pull request touches the directory".
+   From 0.4.0.
+2. **`seal/specs/<id>/` folds into `docs/`, then the directory is
+   removed.** This is `compact`, a later item and not in 0.4.0. It merges
+   the SDD set of each released work item into `docs/<domain>` files,
+   merging into a document that already exists and creating one only for a
+   new area. The newest work item wins where two say different things.
+   Each folded sentence carries the work item id as an HTML comment, the
+   way a CHANGELOG entry does, so a reader can trace a rule back through git
+   history after the directory is gone. The process record is dropped with
+   the directory: nothing reads it after the merge. This rule replaces the
+   retention setting comment 4 proposed; there is nothing left to choose
+   to keep, because what is worth keeping has moved.
+3. **The guard.** A sentence in a work item's `spec.md` that must outlive
+   the release has to have moved into a `docs/` policy or a ledger row
+   before the merge. `evidence-todo.md` half-enforces that today. The
+   release step refuses to run while any released work item still has an
+   open `evidence-todo.md` row (the issue says "any work item"; an unmerged
+   one is not part of the release), and `compact` skips such an item:
+   neither folded nor removed, named in its output. The guard is what makes
+   removal safe: it is the proof that nothing permanent lives only in the
+   work item.
 
 Why the rows fold rather than stay is this document's reading, not the
 thread's: the fragment layout exists to stop two branches queueing at one
 file, and after the merge there is no branch left to queue.
 
+## The dependency rule
+
+**Anything that must outlive a release may not read `seal/specs/<id>/`
+after the merge.** The directory will be removed by `compact`, so the design
+treats it as already gone for every permanent purpose. Measured against the
+code on `origin/main`, the reads of that directory fall into three groups.
+
+- **Already safe.** A ledger row carries the clause text beside the code
+  coordinate, so it never points into `spec.md`. A round record's
+  `Target SHA` is read by `chain_check.py` only while the pull request is
+  open. The HTML comment above a released CHANGELOG entry, and the one
+  `compact` leaves in `docs/`, name the work item; a name is a pointer
+  rather than a read, and it still resolves through git history when the
+  folder is gone.
+- **Would break on removal, so must change before `compact` lands.**
+  `skills/verify/scripts/unverified_check.py --baseline` compares the
+  work-item tree against the base revision and fails for "a file that was
+  there and is gone"; it has to be scoped to work items the pull request
+  touches, or to unmerged ones. `.github/scripts/gather_changelog.py --check`
+  finds fragments that never reached `CHANGELOG.md` by reading the
+  fragments; after a removal it can only judge by the comment in
+  `CHANGELOG.md`. Both are named here so the `compact` item starts from
+  this list rather than rediscovering it.
+- **Kept on purpose.** The evidence-todo guard above; the export rules in
+  `seal/README.md`, which say where each kind of content must have gone
+  before the work item closes; and `compact` itself, the one sanctioned
+  reader after the merge, in the same position as the ledger fold.
+
+A new reader of `seal/specs/<id>/` after 0.4.0 lands in the second group by
+definition, and a review should say so.
+
+**The wider rule behind it: nothing may need to be found and updated when
+something else moves.** The ledger already went through this once. A row
+cited `path:line`, a line moves for edits that have nothing to do with the
+claim, so rows were re-anchored, stamped, and orphaned by a squash. 0.2.0
+replaced the position with a content anchor (`path#unit@hash`), and a row
+now changes state only when the code it is about changes. `compact` rewrites
+`docs/` and removes directories on every release, so anything coupled to a
+path or a position inside a work item would break the same way. What still
+carries such a coupling is short: the `Verified at <sha>` stamp on a
+`# RIDER:` comment (held together by the merge-method rulesets, and untouched
+by `compact`), and a round record's `Target SHA` (resolved through
+`refs/pull/<N>/head`, and gone with the record).
+
+**What keeps `compact` light**, since it is the heaviest step this design
+adds:
+
+- It moves and does not verify. Whether a coordinate still holds is
+  `evidence-check`'s job; folding it in would re-read the whole ledger on
+  every release.
+- It runs incrementally. Only work items released since the last fold are
+  read, and the folded ids are recorded so a second run folds nothing twice
+  and an interrupted run resumes.
+- The `docs/` merge replaces by provenance id. A sentence carrying a work
+  item's comment is swapped for the newer one; judgment is needed only when
+  an area gets its first document.
+- An item with an open `evidence-todo.md` row is skipped and named, never
+  folded or removed.
+- Its cost is measured with `session-cost`, so the release where it turns
+  heavy is visible.
+
 ## What "spec" means after this
 
-Nothing changes here. `spec.md` was always the spec of one change. What must outlive the
-change already has two homes: the `docs/` policy (judgment order is policy >
-SDD > code) and the ledger row, which carries the clause text beside the code
-coordinate. A person checking the AI's work does it while the pull request is
-open, when `spec.md` is there. A person asking "why does this behave so" after
-the release reads `docs/` and the ledger.
+Nothing changes here. `spec.md` was always the spec of one change. What must
+outlive the change already has two homes: the `docs/` policy (judgment order
+is policy > SDD > code) and the ledger row, which carries the clause text
+beside the code coordinate. `compact` is the step that moves it there for
+every released work item. A person checking the AI's work does it while the
+pull request is open, when `spec.md` is there. A person asking "why does
+this behave so" after the release reads `docs/` and the ledger, and `docs/`
+now holds the folded record of every change, not only the norms people
+wrote by hand.
 
-## The opt-in signal leaves the tree
+`docs/` is defined by who reads it, people, and not by who writes it. The
+`implement` skill's layout table says `docs/` is "never created here", and
+that sentence overclaims once `compact` writes there; it is one of the
+places the `compact` item corrects.
 
-Only what the checkers read must be committed: the ledger (CI's `ledger` job,
-other clones) and `routing.md` / `rounds/` (the commit gate and
-`chain_check.py` while the pull request is open). The signal itself is read
-locally by the hooks, so it can live in any of three places.
+## The opt-in signal is the root itself, wherever the mode put it
 
-- a git config key (`git config specseal.optin true`, per clone, or
-  `--global` per machine; linked worktrees share it). Nothing in the tree.
-- a marker under `.git/`, where the smith mark and the worktree choice
-  already live. Per clone.
-- the presence of a fetched ref, if the ledger ever moves to an orphan
-  branch. Follows a clone automatically.
-
-All three keep today's fail direction: absent means not opted in.
-
-**What changes is the meaning.** Today the committed root is the repository's
-declaration. Clone it and every collaborator's gates are on. A local signal
-makes it the developer's choice for that clone.
-
-A collaborator who does not opt in then commits without gates, and the
-repository-level guarantee becomes CI's, since the ledger and chain checks
-run from the workflow regardless of opt-in. For a plugin distributed to
-others that is the right split: the tool's user turns it on, the repository
-does not impose it. If chosen, the root loses its role as marker and the
-tree carries only what the checkers read.
+**A repository is opted in when `seal/` exists at its mode's location**:
+`<repo>/seal/` in shared mode, `.git/seal/` in local mode. The hooks look at
+the two places in that order; whichever exists says both "on" and which
+mode. Nothing else is read, and there is no config key. This is the owner's
+decision after the thread; the thread itself leaned another way, described
+below.
 
 | | Today | After |
 |---|---|---|
-| What opts a repository in | `.specseal/` exists at the root (`hooks/optin.py`) | a local config key or `.git/` marker |
-| Who decides | whoever committed the directory, for every clone | each developer, for their clone |
-| A collaborator who did not opt in | gated anyway | commits without gates; CI still checks the pull request |
-| The `.specseal/scratch` opt-out | an empty file that turns the gates off in a throwaway fixture | no longer needed as such: a fixture simply never sets the key (see "Decisions left open") |
+| What opts a repository in | `.specseal/` exists at the root (`hooks/optin.py`) | `seal/` exists at the mode's location |
+| Who decides | whoever committed the directory, for every clone | shared: whoever committed it, for every clone that installed the plugin. Local: the developer of that clone |
+| A collaborator who did not set anything up | gated anyway, if the plugin is installed | shared: the same. Local: nothing runs, because their clone has no `.git/seal/` |
+| The `.specseal/scratch` opt-out | an empty file that turns the gates off in a throwaway fixture | no longer needed as such: a fixture simply creates no `seal/` (see "Decisions left open") |
 
-## Two choices at first setup
+**What the thread proposed instead, and why it is not needed.** Comment 2
+argued that only what the checkers read must be committed, so the opt-in
+could be a local signal separate from the folder: a git config key
+(`specseal.optin`, later `specseal.mode`), a marker under `.git/`, or a
+fetched ref. The point was that a committed root should not impose the
+gates on every collaborator; a local key would make it each developer's
+choice per clone. Two things make the key redundant once local mode lives
+under `.git/`:
 
-The one moment this project allows a question is first setup, so both
-choices are asked there and never again.
+- In local mode the folder's presence already is a per-clone signal.
+  `.git/seal/` exists only in the clone that set it up, so a key beside it
+  would say the same thing twice.
+- In shared mode the imposition is smaller than it reads. The hooks belong
+  to the plugin, so a collaborator who never installed SpecSeal runs
+  nothing, key or no key. The only person a committed `seal/` reaches is one
+  who installed the plugin and cloned this repository, and that person is in
+  the same position under today's `.specseal/`.
+
+The fail direction is unchanged: no folder at either place means not opted
+in, and a hook that cannot tell does nothing.
+
+## What first setup asks
+
+The one moment this project allows a question is first setup. The thread
+proposed two questions there, the mode and the retention; retention went
+away with the `compact` rule, so one remains.
+
+Today the `implement` skill has one once-per-repo moment, when it creates
+`.specseal/README.md`; that moment becomes the question. One
+`AskUserQuestion` with two options, shared first as the default, each
+option saying what it does:
+
+- **shared** creates `<repo>/seal/` and commits it, and installs the hygiene
+  workflow.
+- **local** creates `.git/seal/` and installs no workflow. Nothing touches
+  the tree.
+
+A repository that already has `seal/` at either place has been through this
+and is never asked again; the mode is read from where the folder is.
 
 ### Shared or local
 
 The question is not "commit the folder or not" but "do CI and collaborators
-see this workflow".
+see this workflow". Which answer fits is mostly decided by whose repository
+it is.
 
-| Mode | `seal/` lives at | Gains | Loses |
-|---|---|---|---|
-| shared (default) | `<repo>/seal/`, committed | CI's ledger and chain checks; the same state in every clone and worktree; records survive a re-clone | one folder in the tree |
-| local | `.git/seal/`, never committed | nothing in the tree; gates and the review chain still run in this clone | every CI check; other machines; the records on re-clone |
+| | Local mode | Shared mode |
+|---|---|---|
+| Fits | a repository with its own conventions where this plugin's files must not appear in the tree: a company repository, a contribution to someone else's project. Also a solo repository that wants nothing extra committed | your own repository, or any repository where a committed `seal/` bothers nobody |
+| Where `seal/` lives | `.git/seal/`, inside the common git dir | `<repo>/seal/`, in the tree |
+| Committed | never; nothing to gitignore either | yes |
+| Linked worktrees and parallel sessions | read each other's records, because the git dir is common to every worktree of the clone | read each other's records, because the files are committed |
+| Other machines and a re-clone | start empty; `seal export` / `seal import` carry a copy by hand | have everything |
+| CI (`ledger` and chain checks) | cannot run; the hygiene workflow is not installed | runs |
+| Switching later | move `.git/seal/` to `<repo>/seal/` and commit | move `<repo>/seal/` to `.git/seal/` and remove from the tree |
 
-Local fits a solo repository or a contribution to someone else's tree. The
-implementation is a config key written at setup (`specseal.mode = shared |
-local`). The same flag decides that the hygiene workflow (the pull-request
-checks in `.github/workflows/hygiene.yml`) is not installed, because it
-would refuse a pull request with no round records.
+The mode needs no key of its own: the hooks find `<repo>/seal/` or
+`.git/seal/` and that is the mode. Setup also decides whether the hygiene
+workflow (the pull-request checks in `.github/workflows/hygiene.yml`) is
+installed; in local mode it is not, because it would refuse a pull request
+with no round records.
 
 **Why local mode is under `.git/` and not gitignored.** A linked worktree
 checks out committed files only, so an ignored `<repo>/seal/` in the main
@@ -271,38 +386,37 @@ copy" rather than "lose it".
   anywhere; where the copy goes is the user's business and not a question
   the plugin asks.
 
-### Retention of the work item after release
+### Retention: measured, and answered by `compact`
 
 The contents of `seal/specs/<id>/` split by who reads them after the merge.
 Measured on this repository's 13 work items at `5685029`:
 
 | | Files | Lines | Share | Value after release |
 |---|---|---|---|---|
-| a person's record | spec · plan · questions · overview · changelog | 3,737 | 54% | yes. Like architecture decision records, "why" is browsable without git archaeology |
-| the tool's record | rounds · routing · todos · pr.ko | 3,143 | 45% | none. Read only while the pull request is open |
+| the SDD set | spec · plan · questions · overview · changelog | 3,737 | 54% | yes. Like architecture decision records, "why" is browsable without git archaeology |
+| the process record | rounds · routing · todos · pr.ko | 3,143 | 45% | none. Read only while the pull request is open |
 | neither | `ab-comparison.md` (one work item) | 57 | 1% | — |
 
 The issue measured 3,736 (56%) against 2,975 (44%). What was counted
 differently was not traced; the split is the same.
 
-Default proposed: keep the person's record, delete the tool's at release.
-Growth halves and everything left is worth reading. Keeping all is a valid
-choice too, at the cost of size only, so `retain = people | all | none` can
-be the second setup option. The default matters more than the number of
-options.
-
-This choice and the root's name are linked: see the naming section.
+Comment 4 proposed keeping the SDD set and deleting the process record at
+release, with `retain = people | all | none` as a setup option. The owner's
+decision after the thread makes the setting unnecessary: the SDD set is
+folded into `docs/` by `compact` and the whole directory is then removed,
+so what the measurement says is worth keeping is kept, in `docs/`, and
+nothing is left in the directory to choose about. Until `compact` exists
+nothing is deleted.
 
 ## Naming
 
 **Product name, recommended: keep SpecSeal; use bare `seal` as the vocabulary
-inside it.** The
-root `seal/`, the `seal export` / `seal import` commands, "the seal" for the
-record.
+inside it.** The root `seal/`, the `seal export` / `seal import` commands,
+"the seal" for the record.
 
 | Name | Its one sentence | Why not |
 |---|---|---|
-| SpecSeal | seals a spec to the code that implements it | — names what and how; says "spec borrowed, seal ours"; reads the spec-kit relationship (they write, we seal) |
+| SpecSeal | seals a spec to the code that implements it | — names what and how; says "spec borrowed, seal ours" |
 | Seal | seals | circular without its object; heavy collisions (Microsoft SEAL, kubeseal); unfindable as a marketplace name |
 | AiSeal | seals what AI made | names the maker, not the thing sealed; the prefix dates; collisions |
 
@@ -313,21 +427,21 @@ three tags' worth of history. If the plugin is ever renamed, 0.4.0 is the one
 cheap moment, because this change renames the root anyway. Revisit only if
 the scope really outgrows "spec", and then among seal compounds, not AI ones.
 
-**Root name, recommended: `seal/`, visible, rather than `.seal/`.** A dot is a declaration
-about the folder's nature, not a mechanism. With opt-in in local config the
-hooks do not care either way. `specs/` in spec-kit is visible because people
-write and read what is in it. If the person's record is kept after release,
-as the retention default proposes, it is a document set and belongs in the
-visible row beside `docs/`. Choose `.seal/` only if the work item is emptied
-entirely at release and footprint is the priority. Either way, switching later
-means renaming one directory.
+**Root name, recommended: `seal/`, visible, rather than `.seal/`.** A dot is
+a declaration about the folder's nature, not a mechanism. The hooks look for
+the folder by name at two places and do not care whether it is dotted.
+Comment 9 tied the choice to what stays after release: visible if people
+read what is in the folder, dotted if it is emptied entirely. With
+`compact`, a released item leaves the folder, but the items in flight are
+exactly what people read while the pull request is open, so the visible
+name still fits. Either way, switching later means renaming one directory.
 
-**Sub-directory name, recommended: `seal/specs/<id>/`, not `work/`.** A directory has to say
-what is in it to whoever opens it first. `work` says nothing, and a metaphor
-(`forge/`) hides the contents. smith and warden stay as agent personas,
-where a name may describe character, and are not used for directories.
-`specs/` names the primary artifact and is the first half of the product's
-name, so the tree reads as the relationship it is.
+**Sub-directory name, recommended: `seal/specs/<id>/`, not `work/`.** A
+directory has to say what is in it to whoever opens it first. `work` says
+nothing, and a metaphor (`forge/`) hides the contents. smith and warden stay
+as agent personas, where a name may describe character, and are not used
+for directories. `specs/` names the primary artifact and is the first half
+of the product's name.
 
 **English stays for every shipped artifact**, since this is a plugin for
 others and every token costs. Korean is the owner's per-user setting: the
@@ -335,20 +449,16 @@ response language and `pr.ko.md`.
 
 ## What happens to the existing directories at the switch
 
-- **Released work items in `specs/`.** Every folder there at 0.3.0 belongs to
-  a released work item. The issue body says they are deleted rather than
-  moved, because history and the CHANGELOG comments keep them and every
-  `Target SHA` in a round record is a commit that still exists. With the
-  retention default of "keep the person's record", the consistent answer is
-  to apply that same rule at the switch: move the person's files under
-  `seal/specs/<id>/` and delete the tool's. Which of the two applies is a
-  decision (see below).
-- **A work item unmerged at the switch** is moved whole by the session-start
-  hook. `hooks/ledger-migrate.py` already owns that moment: it migrates once
-  per repository, never over uncommitted files, and prints one line. The
-  existing once-per-repo marker (`~/.claude/specseal/ledger-migrated`) is
-  keyed to the anchor-format migration, so the path move needs a marker of
-  its own.
+- **Every work item in `specs/`** moves whole to `seal/specs/<id>/`, released
+  or not. The issue body said released ones are deleted, because history
+  and the CHANGELOG comments keep them; under the `compact` rule they wait
+  there for the first fold instead, which is what "delete nothing before
+  folding" means at the switch.
+- **The move is done by the session-start hook, once.** `hooks/ledger-migrate.py`
+  already owns that moment: it migrates once per repository, never over
+  uncommitted files, and prints one line. The existing once-per-repo marker
+  (`~/.claude/specseal/ledger-migrated`) is keyed to the anchor-format
+  migration, so the path move needs a marker of its own.
 - **`.specseal/map.md` and `.specseal/map/`** become `seal/ledger.md` and
   `seal/ledger/`. `follow-up.md` and `parity.md` move as they are.
 - In this repository `specs/` then ends up empty and goes away.
@@ -379,45 +489,56 @@ The CI paths change in step 3 of the order below, together with the root.
   benefited from it on 2026-09-01.
 - `.git/` session state (the smith mark, the worktree choice, session
   leases) stays where it is, never committed.
-- `docs/` and `CHANGELOG.md`, and the judgment order policy > SDD > code.
+- `CHANGELOG.md`, and the judgment order policy > SDD > code. `docs/` keeps
+  its role as what people read; it gains `compact` as a writer.
+- Every file a work item writes today. 0.4.0 changes where they live, not
+  whether they exist.
 
 ## Order
 
 1. **Name decisions**: plugin name kept or not, root name, sub-directory
    name. The only human decision here.
-2. **The release-automation item** takes "fold `ledger/`, empty the work
-   item by the retention rule, refuse on open evidence-todo rows". Doable on
-   today's paths, before the root merges.
-3. **0.4.0: the root merge.** The session-start hook migrates once; CI paths
-   change; `docs/` and the skills' path references follow.
-4. **Later and separate**: taking state out of the working tree entirely,
+2. **The release-automation item** takes "fold `ledger/`, refuse on open
+   evidence-todo rows". Doable on today's paths, before the root merges.
+3. **0.4.0: the root merge.** The session-start hook moves everything once;
+   CI paths change; `docs/` and the skills' path references follow.
+4. **Later: the `compact` item.** First the two checks in "The dependency
+   rule" stop reading released work items; then `compact` folds released
+   work items into `docs/` and removes their directories, and the
+   `implement` skill's description of `docs/` is corrected to match.
+5. **Later and separate**: taking state out of the working tree entirely,
    with an orphan branch as the ledger's home, opt-in by ref. That was the
    first version of this issue.
 
 ## Out of scope
 
-- Separating the person's files from the tool's inside a work item while it
-  is in development. They move together. The issue body put this out of
-  scope outright; the retention rule from a later comment does split them,
-  but only at release and only by deleting. That is the one place the split
-  exists, and decision 4 is where it is decided.
+- Deleting anything from `seal/specs/<id>/` in 0.4.0. Removal arrives with
+  `compact`, and only after a fold.
+- Separating the SDD set from the process record inside a work item while
+  it is in development. They move together; the line between them is used
+  only to say what `compact` folds and what it drops.
 - Anything in 0.3.x.
+
+## Decided after the thread
+
+Taken by the owner on 2026-09-02, while this document was being reviewed.
+
+| Decision | Answer | What it closes |
+|---|---|---|
+| The opt-in signal | `seal/` existing at the mode's location; no config key | comment 2's key, marker and ref candidates; the question of the key's shape |
+| What happens to a work item's directory | it lives until `compact` has folded its SDD set into `docs/` and its rows into the ledger, then it is removed; 0.4.0 has no `compact` and deletes nothing | comment 4's `retain` setting and its default; the second setup question; the existing `specs/` moves whole |
+| Design stance toward the directory meanwhile | nothing permanent may depend on `seal/specs/<id>/` after the merge, and nothing may need finding and updating when a path or position moves | the dependency rule; the two checks that must change before `compact` |
+| Where the folded record lives | `docs/`, defined by who reads it (people), written by people and by `compact` | the `implement` skill's "never created here" sentence, to be corrected |
 
 ## Decisions left open
 
-Each item names the options and what decides between them. The first four
-are the ones the thread names as the owner's. Items 5 to 7 surfaced while
-writing this document: 6 sets two positions the thread took at different
-times against each other, and 5 and 7 are not in the thread at all.
+Each item names the options and what decides between them. The first three
+are the ones the thread names as the owner's. Item 4 surfaced while writing
+this document and is not in the thread.
 
 | # | Decision | Options | What decides it | Where the thread leaned |
 |---|---|---|---|---|
 | 1 | Plugin name | keep SpecSeal · rename | rename costs the URL, marketplace entry, `plugin.json`, hook prefixes, install docs, three tags of history; 0.4.0 is the one cheap moment | keep SpecSeal |
-| 2 | Root name | `seal/` · `.seal/` | visible if the person's record is kept after release (it is then a document set); dotted only if the work item is emptied entirely and footprint wins | `seal/` |
+| 2 | Root name | `seal/` · `.seal/` | the items in flight are what people read while a pull request is open, which argues for the visible row beside `docs/`; a dot only if footprint wins | `seal/` |
 | 3 | Sub-directory name | `specs/` · `work/` · a metaphor | it must say what it holds to a first-time reader | `specs/` |
-| 4 | Retention default | `people` · `all` · `none` | `people` halves growth and keeps what is readable; `all` costs size only; `.seal/` fits only under `none` | `people` |
-| 5 | The opt-in key's shape | `specseal.optin = true` (comment 2) · `specseal.mode = shared \| local` (comment 4) · both | one key is enough if `mode` set means opted in; two keys let a clone be opted in without having chosen a mode, which is a state nothing needs | not discussed as one question |
-| 6 | The existing `specs/` at the switch | delete all (issue body) · apply the retention rule (comment 4's default) | consistency with decision 4: if people's records are kept from 0.4.0 on, deleting the 13 that exist is the one exception | the body predates the retention comment |
-| 7 | The `scratch` opt-out | drop it · keep it as a `.git/` marker | with a local key, a throwaway fixture opts in by never setting the key, so the file has nothing left to do; the tests that use it need the new shape | not in the thread |
-
-Decisions 2, 4 and 6 are one choice seen from three sides. Take them together.
+| 4 | The `scratch` opt-out | drop it · keep it as a `.git/` marker | a throwaway fixture opts in by creating no `seal/`, so the file has nothing left to do; the tests that use it need the new shape | not in the thread |
