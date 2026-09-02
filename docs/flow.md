@@ -11,13 +11,13 @@ merge commit (`docs/branch-and-release.md`).
 
 ## 0.4.0 — `release/v0.4.0`
 
-- [ ] #78 the ledger fragments fold at release, and an open evidence-todo row refuses it (on today's paths)
-- [ ] #30 the sealer: one agent takes the seal, once, after the rounds settle
+- [x] #78 the ledger fragments fold at release, and an open evidence-todo row refuses it (on today's paths) — merged as #87
 - [ ] #79 the root merge: `specs/` + `.specseal/` → `seal/`, opt-in is the root's presence, session-start hook moves once, CI and path references follow
 - [ ] release: gather the changelog, fold the ledger, move `plugin.json`, merge to `main`, tag `v0.4.0`
 
 ## 0.5.0 — `release/v0.5.0`
 
+- [ ] #30 the sealer: one agent takes the seal, once, after the rounds settle — moved here from 0.4.0, because the orchestrator held that role through #78 and the root merge re-points the record path the sealer writes
 - [ ] #80 local mode under `.git/seal/`, and the first-setup question (shared / local)
 - [ ] #82 `seal/config.md`, first row the pull request language
 - [ ] #81 `seal export` / `seal import`
