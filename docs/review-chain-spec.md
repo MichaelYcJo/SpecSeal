@@ -718,6 +718,28 @@ nothing. What replaced the deadline is the pull-request check in CI, not this.
 
 Reminder-only (PostToolUse cannot block). Same `.specseal/` opt-in as the gate.
 
+## implementer-mark · implementer-notice (PreToolUse Agent|Task · PostToolUse Bash)
+
+The routing declaration's third axis, `Implementation`, names who builds the
+work item — `smith` or `the session` — and until these two existed the answer
+was written down and read by nothing. Two hooks, sharing one address module
+(`hooks/implementer.py`), so the writer and the reader cannot spell the path
+two ways:
+
+| | Fires | Does | Prompt budget |
+|---|---|---|---|
+| `implementer-mark` (`pre-agent`) | an Agent/Task spawn whose `subagent_type` is `smith` | writes the checked-out branch name to `<git-dir>/specseal-implementer`. Prints nothing | zero — it cannot deny or ask |
+| `implementer-notice` (`post-bash`) | a command that actually invokes `git commit` | where the declaration for this branch answers `smith` and no mark stands for this branch, prints one line naming the file; silent when the mark stands, when the row is absent or outside its vocabulary, or when it answers `the session` | zero — a reminder, once per session per repository, never a decision |
+
+The mark is keyed on the **branch**, not on HEAD as `specseal-reviewed` is: a
+work item commits many times and the implementer does not change when it does.
+It lives in the git dir and CI never sees it, which is why nothing at the pull
+request reads this axis — `smith` produces no committed artifact a session
+could not also write. Everything fails toward "no mark", which is toward a
+reminder: a mark gate that quietly stops running turns the notice on, not off,
+so a dead gate produces a line somebody reads rather than a silence nobody
+does. The commit gate's decision is byte-identical with the row and without it.
+
 ## Non-goals
 
 - No Stop-hook turn blocking (v0.2): high false-positive cost in sessions
