@@ -29,9 +29,11 @@ this file is for people. -->
      and the difference is deliberate: a wrong answer in the other two is
      caught at the next commit, because the gate stops recognising the file
      and goes back to asking. A wrong answer here is never contradicted by
-     anything. So the commonest mistake — copy the file, never revisit the
-     row — must land on "not answered" rather than on a confident `smith`
-     that nobody performed. Write the answer WITHOUT backticks; a backticked
+     anything that can stop a commit: a confident `smith` nobody performed
+     earns one printed line after a commit, and a confident `the session`
+     earns nothing at all. So the commonest mistake — copy the file, never
+     revisit the row — must land on "not answered" rather than on a
+     confident `smith` that nobody performed. Write the answer WITHOUT backticks; a backticked
      value reads as unanswered here and would have been rejected above.
      Branch — one declaration per branch. Two is not an answer, and the gate
      reads it as none. -->

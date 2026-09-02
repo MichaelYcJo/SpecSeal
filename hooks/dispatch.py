@@ -79,12 +79,17 @@ def run_gate(filename, payload):
         # tool call or take its neighbours down. What it costs is that an
         # IMPORT failure reads exactly like an allow. Measured with
         # `hooks/cmdline.py` deliberately broken: `pre-bash` and `pre-agent`
-        # both exit 0 with no output, and `pre-agent` holds only the worktree
-        # guard, so the Agent `isolation: "worktree"` path goes undefended
-        # with nobody told. Moving the shared reading into `cmdline.py`
-        # removed the likeliest trigger, not the silence. Whatever replaces
-        # this has to keep the isolation property `tests/test_dispatch.py`
-        # asserts. Verified 2026-08-31 at 9829412.
+        # both exit 0 with no output, and the worktree guard is the only gate
+        # in `pre-agent` that decides anything, so the Agent `isolation:
+        # "worktree"` path goes undefended with nobody told. The mark gate
+        # beside it does not import `cmdline.py` and prints nothing either
+        # way, so it neither widens nor narrows that silence (measured: with
+        # `cmdline.py` broken the group prints nothing and the mark is still
+        # written). Moving the shared reading into `cmdline.py` removed the
+        # likeliest trigger, not the silence. Whatever replaces this has to
+        # keep the isolation property `tests/test_dispatch.py` and
+        # `tests/test_the_implementer_is_recorded.py` assert.
+        # Verified 2026-09-02 at 9edc59f.
         return ""
     finally:
         sys.argv, sys.stdin = argv, stdin

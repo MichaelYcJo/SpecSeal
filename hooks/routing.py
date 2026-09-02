@@ -93,12 +93,14 @@ def parse(text):
     unanswered gate -- the review question would be asked again on branches
     whose answer is committed in the tree. The strict spelling below is
     deliberate for the first two, because a wrong answer there decides whether
-    a reviewer sees the work. NOTHING reads this one yet -- the notice that
-    would have is #26 -- so a wrong answer here is recorded and never
-    contradicted. That is why the row is optional rather than lenient, and it
-    is also the asymmetry to know about: a backticked or capitalised answer
-    is rejected loudly in the first two, because the gate goes back to asking,
-    and silently here. `templates/sdd-routing.md` is the only spelling a
+    a reviewer sees the work. The only reader of this one is
+    `hooks/implementer-notice.py`, which prints one line after a commit where
+    the answer is `smith` and no mark stands, and decides nothing -- so a
+    wrong answer here is recorded and at most reminded about, where a wrong
+    answer above stops a commit. That is why the row is optional rather than
+    lenient, and it is also the asymmetry to know about: a backticked or
+    capitalised answer is rejected loudly in the first two, because the gate
+    goes back to asking, and silently here. `templates/sdd-routing.md` is the only spelling a
     session should copy, and a test parses that file so it cannot drift.
     """
     found = dict(table_rows(text))
