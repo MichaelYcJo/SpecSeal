@@ -161,7 +161,13 @@ def dirty(root):
     its own earlier steps or a stopped move can never finish. Anything with
     a worktree change, anything untracked, and anything staged as an
     addition or a modification still refuses.
+
+    A `git ls-files` that cannot answer is the same case: `entries()` then
+    lists the directory, which is the listing 🔴 1 replaced, so the move is
+    refused here before that listing can move anything.
     """
+    if tracked_names(root, OLD_HOME) is None or tracked_names(root, OLD_ITEMS) is None:
+        return True
     try:
         r = git(root, "status", "--porcelain", "--", OLD_HOME, OLD_ITEMS)
     except (OSError, subprocess.SubprocessError):
@@ -223,7 +229,11 @@ def old_items(root):
     printed line names as left behind and comes from the directory, because
     what stays on disk is what a person will see there.
     """
-    items = [n for n in entries(root, OLD_ITEMS) if ITEM_RE.match(n)]
+    items = [
+        n
+        for n in entries(root, OLD_ITEMS)
+        if ITEM_RE.match(n) and os.path.isdir(under(root, f"{OLD_ITEMS}/{n}"))
+    ]
     try:
         names = sorted(os.listdir(under(root, OLD_ITEMS)))
     except OSError:
@@ -263,7 +273,9 @@ def git_mv(root, src, dst):
     try:
         os.makedirs(parent, exist_ok=True)
     except OSError as exc:
-        raise MoveError(src, f"cannot create {NEW}/: {exc}", resumable=False) from exc
+        raise MoveError(
+            src, f"cannot create {os.path.dirname(dst)}/: {exc}", resumable=False
+        ) from exc
     try:
         r = git(root, "mv", src, dst)
     except (OSError, subprocess.SubprocessError) as exc:
@@ -429,6 +441,17 @@ def main():
     # more, and a hook gated on the new signal would never meet what it moves.
     root = optin.repo_root(cwd)
     if not root:
+        return
+    if os.path.islink(under(root, OLD_HOME)):
+        # Git tracks the link as one blob, so the home lists no units: the
+        # work items would move, the marker would be stamped, and
+        # `seal/ledger.md` would never appear. Refused before anything else,
+        # every session start, until the link is gone.
+        say(
+            f"specseal: {OLD_HOME}/ is a symbolic link, which git tracks as the "
+            "link and not as its files — not moving it. Move by hand (README, "
+            '"Coming up from 0.3.x") and remove the link.'
+        )
         return
 
     units = moves(root)

@@ -108,7 +108,8 @@ The migration moves a directory `specs/<name>/` when `<name>` matches
 `^[0-9]{9,10}-[A-Za-z0-9._-]+$`, the shape `date +%s` and a slug produce.
 Anything else under `specs/` stays where it is and is named in the printed
 line, because `specs/` stops being SpecSeal's directory and a project may
-have had one before the plugin arrived. `specs/` is gone afterwards only if
+have had one before the plugin arrived. A tracked FILE with an item's
+name is not an item and stays, named the same way. `specs/` is gone afterwards only if
 git left it empty, which is what happens here.
 
 ### The move, in order
@@ -124,7 +125,9 @@ git left it empty, which is what happens here.
    units of every step are what `git ls-files` reports: an ignored file
    is not git's to move and stays where it is, so `.specseal/` may remain
    on disk holding nothing else. When git cannot answer, the units come
-   from the directory listing and the dirty test refuses the move
+   from the directory listing and the dirty test refuses the move —
+   `dirty()` answers true whenever `git ls-files` cannot, before that
+   listing can move anything
 5. each `specs/<id>/` → `seal/specs/<id>/`
 6. in every ledger the hook reads (`seal/ledger.md`, `seal/ledger/*.md`,
    `docs/**/_evidence.md`), every anchor whose path starts with
@@ -145,6 +148,7 @@ what did not, and stamps nothing; S7 is what makes the next start finish it.
 | State at session start | Printed (one line, `systemMessage`) | Marker |
 |---|---|---|
 | clean, moved | `specseal: moved .specseal/ and N work items into seal/ (M ledger rows re-pointed) — review the diff and commit`. `.specseal/` or the work-item count is left out when there was nothing of that kind to move, `item` and `row` are singular at 1, and an entry under `specs/` that is not a work item is named inside the parentheses: `(M ledger rows re-pointed; left specs/<name> where it is (not tracked as a SpecSeal work item))`. `.specseal/` may remain on disk holding only ignored files; nothing git tracks is left in it | stamped |
+| `.specseal/` is a symbolic link | `specseal: .specseal/ is a symbolic link, which git tracks as the link and not as its files — not moving it. Move by hand (README, "Coming up from 0.3.x") and remove the link.` Tested first, before the marker and the dirty test, so it prints at every session start until the link is gone; a link's units are none, so the alternative was the work items moved and the ledger left behind under a stamp | not stamped |
 | dirty (S6) | `specseal: .specseal/ and specs/ are the old layout, but they carry uncommitted changes — not touching work in progress. Commit, then the next session start moves them into seal/.` | not stamped |
 | `.specseal/scratch` present | `specseal: .specseal/scratch says this repository is throwaway — not migrating it. Delete the file if it is not.` Checked before the dirty test, so a throwaway repository gets this line whether or not it is dirty | not stamped |
 | a move failed | `specseal: moved K of N into seal/ and stopped at <path>: <error>. The next session start continues.` No ledger row is re-pointed until every unit has moved, so a stopped run leaves the rows as they were. Two failures do not resume by themselves and end with `Settle that by hand, then the next session start continues.` instead: `seal` present as a file (`cannot create seal/: <error>`), and a destination that already holds the file (`seal/ledger.md already exists — keep one by hand: git rm .specseal/map.md if seal/ledger.md is the newer, or git rm seal/ledger.md to let the move bring the old one over`) | not stamped |
@@ -152,8 +156,8 @@ what did not, and stamps nothing; S7 is what makes the next start finish it.
 | nothing old left | nothing | stamped if `seal/` exists at the root and the marker does not carry it yet. A repository with neither layout is not this hook's business: it is left alone and unlisted, because the stamp's one job is the once-per-repository rule, which only a repository that has something old can meet |
 | marker already carries the root, old layout still there | nothing: the once-per-repo rule holds and the silent gates are the backstop | — |
 
-The rows are tested in the order: nothing old left, marker, scratch,
-dirty, then the move. The last row is the ledger hook's rule applied here,
+The rows are tested in the order: the symbolic link, nothing old left,
+marker, scratch, dirty, then the move. The last row is the ledger hook's rule applied here,
 and it is the one place the two migrations differ in weight: a ledger left
 in the old format fails `evidence-check` loudly, where a tree left in the
 old layout gets silence from every gate. Q8 asks whether that row should

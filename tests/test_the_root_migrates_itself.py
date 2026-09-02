@@ -476,6 +476,7 @@ def test_a_file_named_seal_stops_with_a_line_not_an_exception(hook, repo):
     git(repo, "commit", "-qm", "a file in the way")
     out = message(start(hook, repo))
     assert "stopped at .specseal/map.md" in out and "seal" in out, out
+    assert "cannot create seal/:" in out, "the parent that could not be made is named"
     assert "by hand" in out, out
     assert (repo / ".specseal" / "map.md").is_file()
     assert not stamped(hook, repo)
@@ -535,13 +536,24 @@ def test_a_repoint_that_fails_after_the_moves_says_so_and_stamps_nothing(
     assert not stamped(hook, repo)
 
 
-HEADINGS = {"README.md": "### Coming up from 0.3.x", "README.ko.md": "### 0.3.x"}
+HEADINGS = {
+    "README.md": "### Coming up from 0.3.x",
+    "README.ko.md": "### 0.3.x 에서 올라오는 경우",
+}
 
 
-def by_hand_block(readme):
-    """The `bash` block under the README's coming-up section, comments off."""
-    text = open(os.path.join(ROOT, readme), encoding="utf-8").read()
-    section = text.split(HEADINGS[readme], 1)[1]
+def by_hand_block(readme, text=None):
+    """The `bash` block under the README's coming-up section, comments off.
+
+    Bounded at the next `## ` heading and asserted to be there: the lines are
+    run under `shell=True`, so a block that left its section must fail here
+    rather than let a later block in the document run in its place.
+    """
+    if text is None:
+        text = open(os.path.join(ROOT, readme), encoding="utf-8").read()
+    assert HEADINGS[readme] in text, f"{readme} lost its coming-up section"
+    section = text.split(HEADINGS[readme], 1)[1].split("\n## ", 1)[0]
+    assert "```bash\n" in section, f"{readme}: the by-hand block left its section"
     block = section.split("```bash\n", 1)[1].split("```", 1)[0]
     return [ln.split("#", 1)[0].strip() for ln in block.splitlines() if ln.strip()]
 
@@ -565,3 +577,84 @@ def test_the_readmes_by_hand_sequence_yields_the_hooks_tracked_set(
     assert tracked(hand) == tracked(repo), tracked(hand)
     totals = check(hand)
     assert "0 broken" in totals, totals
+
+
+# --- round 2: the shapes git tracks differently ------------------------------
+
+
+def test_a_symlinked_specseal_is_refused_not_half_moved(hook, repo):
+    """Round 2's 🟡 A. Git tracks a symbolic link as one blob, so the home
+    lists no units, the work items move, the marker is stamped and
+    `seal/ledger.md` never appears — a half-move reported as success. The
+    link is refused first, every session start, and nothing is stamped."""
+    git(repo, "mv", ".specseal", "vault")
+    os.symlink("vault", repo / ".specseal")
+    git(repo, "add", ".specseal")
+    git(repo, "commit", "-qm", "the home is a link")
+    assert (repo / ".specseal" / "map.md").is_file()
+    for _ in range(2):
+        out = message(start(hook, repo))
+        assert ".specseal/ is a symbolic link" in out, out
+        assert "Coming up from 0.3.x" in out and "remove the link" in out, out
+        assert os.path.islink(repo / ".specseal")
+        assert (repo / "specs" / ITEM / "routing.md").is_file()
+        assert not (repo / "seal").exists()
+        assert not stamped(hook, repo)
+
+
+def test_when_git_ls_files_cannot_answer_the_move_is_refused_as_dirty(
+    hook, repo, monkeypatch
+):
+    """Round 2's 🟢 B. The docstring said the listing stands in and `dirty()`
+    refuses; nothing made it true, so an `ls-files` that fails alone moved
+    from the directory listing and 🔴 1's shape came back."""
+    real = hook.git
+
+    def only_ls_files_down(root, *args):
+        if args[0] == "ls-files":
+            raise OSError("no ls-files today")
+        return real(root, *args)
+
+    monkeypatch.setattr(hook, "git", only_ls_files_down)
+    out = message(start(hook, repo))
+    assert "uncommitted changes" in out and "Commit, then" in out, out
+    assert (repo / ".specseal" / "map.md").is_file()
+    assert not (repo / "seal").exists()
+    assert not stamped(hook, repo)
+
+
+def test_an_item_shaped_tracked_file_under_specs_stays_and_is_named(hook, repo):
+    """Round 2's 🟢 C. §"Which entries of `specs/` are SpecSeal's" says a
+    DIRECTORY of that shape; a tracked file with an item's name is not one,
+    stays, and is named in the line as left where it is."""
+    write(repo, "specs/1788000001-a-file.md", "# a file with an item's name\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "a file shaped like an item")
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 1 work item into seal/" in out, out
+    assert "left specs/1788000001-a-file.md" in out and "where it is" in out, out
+    assert (repo / "specs" / "1788000001-a-file.md").is_file()
+    assert not (repo / "seal" / "specs" / "1788000001-a-file.md").exists()
+    assert stamped(hook, repo)
+
+
+@pytest.mark.parametrize("readme", ["README.md", "README.ko.md"])
+def test_by_hand_block_fails_loudly_when_the_block_leaves_its_section(readme):
+    """Round 2's 🟢 E. A README edited so the block sits under a later
+    heading must fail with the assertion, never run that later block."""
+    text = open(os.path.join(ROOT, readme), encoding="utf-8").read()
+    head, rest = text.split(HEADINGS[readme], 1)
+    before, after = rest.split("```bash\n", 1)
+    block, tail = after.split("```", 1)
+    moved = (
+        head
+        + HEADINGS[readme]
+        + before
+        + tail
+        + "\n\n## Elsewhere\n\n```bash\n"
+        + block
+        + "```\n"
+    )
+    with pytest.raises(AssertionError, match="left its section"):
+        by_hand_block(readme, text=moved)
+    assert by_hand_block(readme, text=text), "the real README still yields lines"
