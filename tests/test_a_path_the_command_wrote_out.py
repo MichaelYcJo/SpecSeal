@@ -22,7 +22,14 @@ import os
 import shlex
 import subprocess
 
-from conftest import decision_of, declare_routing, fired, load_hook_module, run_hook
+from conftest import (
+    decision_of,
+    declare_routing,
+    fired,
+    load_hook_module,
+    local_home,
+    run_hook,
+)
 
 reader = load_hook_module("cmdline.py", "cmdline_named")
 gate = load_hook_module("commit-review-gate.py", "crg_named")
@@ -266,8 +273,9 @@ def reason_of(out):
     return json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
 
 
-def make_repo(path, opted_in):
-    """A repository with one commit, and `seal/` when it opts in."""
+def make_repo(path, opted_in, local=False):
+    """A repository with one commit, and `seal/` when it opts in -- under the
+    git directory when `local` (#80)."""
     subprocess.run(["git", "init", "-q", str(path)], check=True)
     git = lambda *a: subprocess.run(
         ["git", "-C", str(path), *a], check=True, capture_output=True
@@ -277,7 +285,9 @@ def make_repo(path, opted_in):
     git("-c", "user.email=e@example.com", "-c", "user.name=e", "commit", "-qm", "base")
     (path / "f.py").write_text("x = 2\n")
     git("add", "-A")
-    if opted_in:
+    if opted_in and local:
+        local_home(path)
+    elif opted_in:
         (path / "seal").mkdir()
     return path
 
