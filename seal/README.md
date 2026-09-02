@@ -2,8 +2,8 @@
 
 This directory exists for AI sessions to hand work to each other. It is one
 root laid out by lifetime: the rows that outlive a work item at the top, and
-each work item whole under `specs/<work-item-id>/`, where it waits until a
-later `settle` folds it. It is safe to delete a work item's directory
+each work item whole under `seal/specs/<work-item-id>/`, where it waits until
+a later `settle` folds it. It is safe to delete a work item's directory
 wholesale **after the export rules below have run** — nothing that must
 survive is allowed to live only there.
 
@@ -25,8 +25,8 @@ off in every clone.
 
 | Item still here | Destination |
 |---|---|
-| Verified facts (`specs/<work-item-id>/evidence-todo.md`) | `ledger/<work-item-id>.md` — this work item's spec-clause ↔ coordinate rows |
-| Tests to plant (`specs/<work-item-id>/tests-todo.md`) | the implementation commit — or `follow-up.md` if blocked on prerequisite work |
+| Verified facts (`seal/specs/<work-item-id>/evidence-todo.md`) | `seal/ledger/<work-item-id>.md` — this work item's spec-clause ↔ coordinate rows |
+| Tests to plant (`seal/specs/<work-item-id>/tests-todo.md`) | the implementation commit — or `seal/follow-up.md` if blocked on prerequisite work |
 | Open decisions | the policy document's open-questions section |
 
 Closing without exporting leaves the list where nothing looks for it — a

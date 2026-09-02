@@ -100,7 +100,7 @@ def test_this_repository_keeps_no_record_at_the_old_location():
     protecting — a count nobody can reach is not a guard, and neither is one
     that is trivially true.
     """
-    specs = os.path.join(ROOT, "specs")
+    specs = os.path.join(ROOT, "seal", "specs")
     flat = []
     for n in sorted(os.listdir(specs)):
         d = os.path.join(specs, n)
@@ -133,8 +133,8 @@ def test_the_documents_that_instruct_never_name_the_old_directory():
     stops at the first path they see.
     """
     for parts in (
-        (".specseal", "README.md"),
-        ("templates", "specseal-README.md"),
+        ("seal", "README.md"),
+        ("templates", "seal-README.md"),
         ("templates", "sdd-round.md"),
         ("skills", "implement", "SKILL.md"),
         ("agents", "warden.md"),
@@ -318,8 +318,8 @@ def test_the_third_conformance_rule_closes_rather_than_deletes():
 def test_no_document_still_says_the_records_are_deleted():
     for parts in (
         ("docs", "review-handoff-protocol.md"),
-        (".specseal", "README.md"),
-        ("templates", "specseal-README.md"),
+        ("seal", "README.md"),
+        ("templates", "seal-README.md"),
         ("skills", "implement", "SKILL.md"),
     ):
         text = read(*parts)
