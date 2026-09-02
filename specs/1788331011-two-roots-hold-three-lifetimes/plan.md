@@ -1,5 +1,7 @@
 # Implementation Plan: two roots hold three lifetimes
 
+Approved 2026-09-02 by the repository owner, after reading the frame; Q1–Q8 stand at their defaults. Spawning the phase-1 smith is the approval.
+
 <!-- specs/1788331011-two-roots-hold-three-lifetimes/plan.md — HOW, in
 phases. This is the Design Gate's artifact: the work changes what every gate
 reads, so approval of this plan is the gate. Each phase is sized for one
