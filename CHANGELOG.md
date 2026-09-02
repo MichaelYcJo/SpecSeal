@@ -1,5 +1,158 @@
 # Changelog
 
+## 0.3.0 — 2026-09-02
+
+<!-- specs/1788272986-the-fixes-are-what-open-the-next-round -->
+- **A round record names its fix surface, and the check refuses to lose it.**
+  Ten regressions on one work item each traced to the fix that opened it, and
+  the largest class — four of ten — was a fix that changed a unit's contract
+  while not every place that contract reaches was revisited. The diff names
+  the changed signature; only a search names the reach; a person reading the
+  diff missed all four. So `round-N.md` carries two new rows, filled in when
+  the fixes land by the session that already has the fix diff open:
+  **`Contract changes`** — every unit whose signature, return arity, return
+  type, or set of returnable values the round's fixes changed, each with the
+  call sites it reaches (`unit → site, site`, units separated by `;`) — and
+  **`New units`**, the top-level definitions and constants the fixes added.
+  `chain_check.py` refuses a record without them and refuses a unit listed
+  without its reach; `none` is an answer, with or without a reason. Records
+  of work items begun before the rule landed print instead of failing — the
+  same grandfathering `Fixes checked by` carries, keyed to a new
+  `SURFACE_FROM` cutoff — so no merged record goes red. The verifying round
+  treats what `New units` names as a finding surface (*is this correct*)
+  rather than a verification surface, because a unit the fixes created has
+  been reviewed by nobody: the one measured fix commit that created eight
+  new units carried defects in four. The handoff protocol moves to draft
+  0.7 with the two rows. (#57)
+
+- **Four review-skill rules from the same measurement.** The comparison axes
+  table gains a **security row** — who can reach the path and as whom, the
+  trust of inputs at OS and process boundaries, whether each failure fails
+  open or closed, what a crafted name, path, or payload reaches — because
+  security was named in stage 2 and absent from the table, and the table is
+  what makes an axis mandatory. The paste-ready-fix rule gains its second
+  clause: **a fix touching an OS boundary states its assumed precondition**
+  (path resolution, file modes, symlinks, subprocess working directory,
+  encoding) — the first clause covers invented names, this covers unexamined
+  premises. And two closings are refused in writing: **an enumeration over
+  an unbounded domain is a recorded limit, not a closed finding**, and **a
+  mutation score licenses *tested*, never *safe*** — stated where the number
+  is reported, since three consecutive rounds each reported a perfect score
+  and all three were rounds whose fixes opened findings. A third written
+  rule, **a document claim gets a pin**, is what the new tests themselves
+  practice: every new sentence above is pinned by
+  `tests/test_the_fixes_name_their_surface.py` or
+  `tests/test_review_axes.py`. (#57)
+
+<!-- specs/1788276387-the-windows-step-never-reaches-its-guard -->
+### Fixed
+
+- The evidence-ci guard test resolves the interpreter on Windows: the bash
+  step quoted `sys.executable` with backslashes, so the step failed before
+  its guard ran and the Windows CI leg has been red since the test landed.
+  (`1788276387-the-windows-step-never-reaches-its-guard`)
+
+<!-- specs/1788277657-one-bar-misreads-two-of-the-three-segment-kinds -->
+- **The per-segment acceptance bars are written rules, and one bar no longer
+  misreads two of the three segment kinds.** The meter the handoff protocol
+  points at (`session_cost.py`) had numbers and no rule about what they mean;
+  the one figure that existed anywhere was a single acceptance bar on an
+  issue, right for a reviewing segment and wrong for the other two. The
+  protocol (draft 0.8, §After the run) now says it: a reviewing segment is
+  judged on tools per turn **≥ 1.8** (measured range 1.29–1.89, the batched
+  round at 1.89 the fastest); an implementing segment on **`repeats = 0`**
+  and calls per deliverable, never on tools per turn — an edit-test loop is
+  inherently serial (1.08–1.17 measured); a verifying segment is exempt. At
+  very small rounds the ratio has few independent batches to rise on (a
+  23-call round read 1.64 doing everything right), so the bar is a lens for
+  rounds of ordinary size, never a refusal threshold — no gate fails a round
+  on it. (#51)
+
+- **A fix pass resumes the implementer instead of respawning it.** The
+  code-review skill's orchestrator sections said when the verifying round
+  runs and nothing about how the fixing session is obtained. Now they do:
+  resume the session that built the branch — its context already holds the
+  files, the tests, and the grounds — and spawn fresh only when that session
+  no longer exists, with the handoff before round 1 as the price. Measured
+  three times with no counterexample: fresh spawn 282 calls / 45 minutes
+  (#33); resume 30 calls / 3.9 minutes (#29) and 26 calls / 5.2 minutes
+  (the #57 chain). (#51)
+
+- **Q1 of the meter work item is answered: the advisory stays at 1.2.** The
+  script cannot tell a reviewer's transcript from an edit-test loop, so its
+  threshold sits where it does not nag the serial case; the bars above are
+  the orchestrator's instrument, applied knowing the segment kind.
+  `session_cost.py` itself is unchanged. (#51)
+
+<!-- specs/1788302682-the-release-check-never-watched-bin -->
+- **The release check watches `bin/` now, and a test says which roots it
+  watches.** The hygiene step that asks a pull request into `main` for a
+  version bump filtered the diff through five roots — `skills/`, `agents/`,
+  `hooks/`, `templates/`, `.claude-plugin/` — and `bin/` was not one of them,
+  although the plugin loader puts `bin/` on the Bash tool's PATH while the
+  plugin is enabled. A pull request fixing only a wrapper would have shipped
+  without moving the version, which is the one way an update reaches nobody.
+  `bin/` is in the pattern; `docs/branch-and-release.md` names it with the
+  others; and `tests/test_the_release_check_watches_what_ships.py` classifies
+  every tracked top-level entry as shipping or staying home, so the next
+  `commands/` or `output-styles/` fails the suite until somebody decides,
+  instead of falling out of the pattern the way `bin/` did. Nothing else that
+  a user runs directly lives outside those roots: `install.sh` is run from a
+  clone, never through the plugin. (#10)
+
+<!-- specs/1788305134-the-reader-stops-where-it-need-not -->
+- **The command reader stopped commits it did not need to stop, and once
+  it stopped asking it answered where it should have refused.** A path the
+  command wrote out for itself one segment earlier is a path the gate can
+  read: `SB=/abs; git -C "$SB" commit` names `/abs`, and the gate's answer
+  is byte-identical to the written-out form. Nothing this process cannot
+  see is guessed at — `git -C "$WT"` from the environment, `$SB/r$n` in a
+  loop, `$(pwd)` and `$1` all still reach the ask — because the substitution
+  runs in FRONT of the test that refuses them rather than replacing it. A
+  `((` inside a `${…}` word is a word to both paren models, so the heredoc
+  below it opens and `echo ${x:-((} <<EOF / cd /target / EOF / git commit`
+  is judged where the shell is rather than where the body says. A refused
+  segment that carries no name — `fi`, `then echo hi`, a subshell — keeps
+  the names the command has written, where every refusal used to empty
+  them and `if …; then … fi` prompted for that alone. That aim was proven
+  against bash rather than assumed, and the proof found 82 shapes it had
+  opened: a body's SECOND statement arrived as a top-level assignment and
+  bound, so `if false; then echo hi; SB=/three; fi; git -C "$SB"` answered
+  `/three` where bash has `/one`; and `! for SB in …` passed as a simple
+  command because only the first word met the reserved-word test. A stack
+  of open bodies runs beside the name environment now, and a statement
+  inside a body is forgotten rather than bound — a stack, because a
+  multi-line `case` puts its arm pattern `a )` where a subshell's closer
+  stands and an integer count took it for one. A call to a function the
+  string itself defined empties the names it holds, an array assignment
+  `SB=(x)` empties the name rather than binding `(x)`, and `((SB=…))`,
+  `let` and `${SB:=…}` forget it. The differential that found all of this
+  is in the tree as `tests/test_the_reader_agrees_with_bash.py`: whatever
+  the reader answers, bash must answer the same, and a prompt is exempt.
+  `agents/warden.md` and `agents/scribe.md` say how to write a scratch-repo
+  probe that commits without raising the prompt.
+
+<!-- specs/1788310269-the-implementer-leaves-a-mark -->
+- **The routing declaration's third axis has a reader now.** `Implementation`
+  said whether `smith` or the session builds a work item, and nothing looked at
+  the answer again — a session could declare `smith`, build the whole item
+  itself, and leave a record saying otherwise. Two hooks close that. When
+  `smith` is spawned, a gate in the `pre-agent` group writes the checked-out
+  branch name to `.git/specseal-implementer` and prints nothing, so it can
+  neither deny nor ask. After a command that actually runs `git commit`, a
+  reminder in the `post-bash` group prints one line naming the declaration
+  where it answers `smith` and no mark stands for this branch — once per
+  session per repository, never a decision, and silent when the mark stands,
+  when the row is absent or unreadable, or when it answers `the session`. The
+  commit gate's verdict is byte-identical with the row and without it. Both
+  fail toward "no mark", which is toward a reminder: a mark gate that quietly
+  stops running turns the notice on rather than off. A mark gate broken on
+  disk leaves the worktree guard's verdict in the same group untouched, which
+  is the objection issue #26 recorded against putting a second gate there,
+  measured. `hooks/routing.py`, `templates/sdd-routing.md`, the README's gate
+  table and `docs/review-chain-spec.md` no longer say the axis is read by
+  nothing.
+
 ## 0.2.0 — 2026-09-01
 
 <!-- specs/1788229400-every-branch-appends-to-the-same-two-files -->
