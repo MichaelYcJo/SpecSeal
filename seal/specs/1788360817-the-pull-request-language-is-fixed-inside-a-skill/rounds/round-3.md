@@ -13,9 +13,9 @@ it opens nothing. Written by the review orchestrator. -->
 | Target SHA | c055de2 (the fix diff from a29ad72); HEAD ca317e2 at review time, record-only |
 | PR | none yet |
 | Broad gate | not yet — findings are open |
-| Fixes checked by | nobody — the fixes are not yet written; round 4 verifies them and this cell is set to it then |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes landed at 85602b6 and round 4, the verifying round, is what opens them; this cell is set to it when that record exists |
+| Contract changes | `shipped_templates` → `unreachable_templates`, `test_every_template_is_named_by_a_document_that_ships`, `test_the_templates_check_reads_prose_only_and_descends` — signature unchanged, the set of returnable values narrowed: an untracked file is no longer returned; `mirror_to_refuse` → `test_the_existing_mirrors_are_consistent_with_the_rule`, `test_a_language_this_file_has_no_code_for_does_not_raise`, `test_a_language_spelled_differently_is_the_same_language`, `test_a_language_that_is_genuinely_absent_still_answers_none` — widened: an emphasised or lower-case spelling now answers a code where it answered `None` |
+| New units | `tests/test_the_pull_request_language_is_the_repositorys.py#as_language_name`, `#CODES_BY_NAME`, `#ROUND_RECORD_FIELDS`, and five cases: `test_a_language_spelled_differently_is_the_same_language`, `test_a_language_that_is_genuinely_absent_still_answers_none`, `test_the_round_template_carries_every_field_the_skill_names`, `test_the_sentence_no_longer_claims_an_order`, `test_an_untracked_file_under_templates_is_not_a_template`. No unit removed |
 | Needs a fix | yes — 1 (`shipped_templates` globs the working tree while its corpus reads `git ls-files`, so an untracked `templates/.DS_Store` turns the check red at a file `git status` hides), 2 (`mirror_to_refuse` skips the mirror check for a language it does know, spelled `**Korean**` or `korean`), 3 and 4 (two sentences added last round describe files that do not read that way) |
 
 - [ ] Pass
