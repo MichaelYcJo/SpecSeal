@@ -91,7 +91,7 @@ def commits_in(command):
     return False
 
 
-def failing_rows(root):
+def failing_rows(root, home=None):
     """[(status, coord, detail)] for every BROKEN and OLD-FORMAT row.
 
     Imported rather than spawned: dispatch already paid for this interpreter,
@@ -101,15 +101,30 @@ def failing_rows(root):
     OLD-FORMAT is in the filter because the commit that needs the migration
     line most — one made in a repository whose ledger predates anchors — got
     silence from this hook when only BROKEN was read (round 4, 🟡 6).
+
+    `ledger.md` and `ledger/*.md` are under `home` — the `seal/` that
+    `optin.home_at(root)` resolves, which in local mode is under the git
+    directory (#80) — and `docs/**/_evidence.md` stays under the repository
+    root, because it is a committed file at an old address and not part of
+    the root that moved. Spelling `seal/` under `root` here is what left a
+    local-mode ledger unread at every commit.
     """
     spec = importlib.util.spec_from_file_location("specseal_evidence", CHECKER)
     ec = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ec)
     import glob
 
+    home = home or optin.home_at(root)
+    patterns = [os.path.join(root, "docs", "**", "_evidence.md")]
+    if home:
+        patterns = [
+            os.path.join(home, "ledger.md"),
+            os.path.join(home, "ledger", "*.md"),
+            *patterns,
+        ]
     out = []
-    for pat in ("seal/ledger.md", "seal/ledger/*.md", "docs/**/_evidence.md"):
-        for ledger in sorted(glob.glob(os.path.join(root, pat), recursive=True)):
+    for pat in patterns:
+        for ledger in sorted(glob.glob(pat, recursive=True)):
             for status, coord, detail in ec.check_ledger(ledger, root, {}):
                 if status in ("BROKEN", "OLD-FORMAT"):
                     out.append((status, coord, detail))
@@ -128,9 +143,10 @@ def main():
         return
     cwd = payload.get("cwd") or os.getcwd()
     root = optin.repo_root(cwd)
-    if not root or not optin.opted_in(cwd):
+    home = optin.home_at(root)
+    if not root or not home:
         return
-    rows = failing_rows(root)
+    rows = failing_rows(root, home)
     if not rows:
         return
     broken = [(c, d) for s, c, d in rows if s == "BROKEN"]

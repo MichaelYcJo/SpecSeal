@@ -21,8 +21,11 @@ thread death would need a locale the test cannot set portably.
 """
 
 import importlib.util
+import io
+import json
 import os
 import subprocess
+import sys
 
 import pytest
 
@@ -167,3 +170,78 @@ def test_a_ledger_that_could_not_be_read_is_never_read_as_empty(tmp_path, monkey
     assert ec.reverify([str(ledger)], str(tmp_path), {}) != 0, (
         "reverify rewrote nothing and exited clean"
     )
+
+
+def test_the_common_directory_reader_that_decoded_nothing_answers_empty(
+    tmp_path, monkeypatch
+):
+    """S10 (#80). `git_common_dir` has the same `subprocess.run` shape as
+    `repo_root` and, for a tree whose `.git` is a FILE, the same dead reader
+    thread: `stdout` comes back `None`. That reads as "" — no common
+    directory, so no local root, so not opted in — and never raises."""
+    linked = tmp_path / "linked"
+    linked.mkdir()
+    (linked / ".git").write_text("gitdir: /nowhere/.git/worktrees/linked\n")
+
+    def decoded_nothing(*args, **kwargs):
+        return subprocess.CompletedProcess(args, 0, stdout=None, stderr=None)
+
+    monkeypatch.setattr(optin.subprocess, "run", decoded_nothing)
+    assert optin.git_common_dir(str(linked)) == ""
+    assert optin.home_at(str(linked)) == ""
+    assert optin.home(str(linked)) == ""
+    assert optin.opted_in(str(linked)) is False
+
+
+def test_the_commit_gates_hint_survives_a_root_with_no_relative_spelling(
+    tmp_path, monkeypatch, capsys
+):
+    r"""Round 1 of #80, 🔴 1. The stop text names the declaration under the
+    resolved root, relative to the repository, and `os.path.relpath` is what
+    builds that. On Windows a linked worktree on another drive than the main
+    tree makes `ntpath.relpath` raise (`ValueError: path is on mount 'D:',
+    start on mount 'C:'`). The gate built the hint before it had judged
+    anything, so the exception left `main()`, `dispatch.py`'s crash isolation
+    swallowed it, and empty stdout is an allow: a commit went through in an
+    opted-in repository, unjudged.
+
+    The raise is induced rather than found, so the case runs on every leg.
+    What is asserted is the direction: the gate still stops, and the path it
+    names is the absolute one — there is no relative spelling of a path on
+    another drive, and the absolute path is the one to type.
+    """
+    gate = load("hooks/commit-review-gate.py", "specseal_gate_failopen")
+    repo = git_repo(tmp_path / "repo")
+    (repo / ".git" / "seal").mkdir()
+    home = optin.home(str(repo))
+    assert home and os.path.isabs(home), home
+
+    def refuses(path, start=None):
+        raise ValueError("path is on mount 'D:', start on mount 'C:'")
+
+    monkeypatch.setattr(os.path, "relpath", refuses)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "tool_name": "Bash",
+                    "session_id": "failopen-relpath",
+                    "tool_input": {"command": "git commit -m x"},
+                    "cwd": str(repo),
+                }
+            )
+        ),
+    )
+    gate.main()
+    out = capsys.readouterr().out
+    assert out.strip(), (
+        "the gate printed nothing — an allow for a commit it never judged"
+    )
+    decision = json.loads(out)["hookSpecificOutput"]
+    assert decision["permissionDecision"] in ("deny", "ask"), decision
+    expected = os.path.join(home, "specs", "<work-item-id>", "routing.md")
+    assert expected in decision["permissionDecisionReason"], decision[
+        "permissionDecisionReason"
+    ]

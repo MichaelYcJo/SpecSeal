@@ -274,3 +274,113 @@ def test_the_ci_skill_prints_the_step_that_matches_that_behavior():
         "the printed step keeps --strict, whose exit 2 the guard cannot swallow"
     )
     assert "drop `--strict`" in text, "the prose stopped naming the other half"
+
+
+# --- Q2 (#80): which `seal/` the defaults are joined under -------------------
+#
+# No git runs here either: a `.git` DIRECTORY at the root is the common git
+# directory, and `hooks/optin.py` answers that case without a process.
+
+
+def local_root(proj):
+    """`.git/seal/` and nothing at `<root>/seal/` — a local-mode repository
+    as the checker sees it."""
+    home = proj / ".git" / "seal"
+    home.mkdir(parents=True)
+    assert not (proj / "seal").exists()
+    return home
+
+
+def test_the_plugins_copy_resolves_the_root_under_the_git_directory(proj):
+    """Q2 (a). The plugin's copy sits beside `hooks/optin.py` and asks it
+    where `seal/` is; the defaults were joined under ROOT, so a local-mode
+    ledger was "no evidence ledgers found", exit 0 — a green run that
+    examined nothing."""
+    local_root(proj)
+    ledger(
+        proj, "| POL-1 | `src/service.py#gone@00000000` |\n", at=".git/seal/ledger.md"
+    )
+    r = run(["."], proj)
+    assert "no evidence ledgers found" not in r.stdout, r.stdout
+    assert "src/service.py#gone" in r.stdout, r.stdout
+    assert r.returncode == 2
+
+
+def test_the_plugins_copy_reads_the_parity_config_under_the_resolved_root(proj):
+    """The other join: `seal/parity.md` is the declaration that lets an
+    unplaceable prefixed row read EXTERNAL instead of BROKEN, and it was
+    looked for under ROOT only."""
+    local_root(proj)
+    (proj / ".git" / "seal" / "parity.md").write_text("# parity\n")
+    ledger(
+        proj,
+        "| POL-1 | `legacy/src/old.py#handler@00000000` |\n",
+        at=".git/seal/ledger.md",
+    )
+    r = run(["."], proj)
+    assert "EXTERNAL" in r.stdout and "BROKEN" not in r.stdout, r.stdout
+    assert r.returncode == 0, r.stdout
+
+
+def test_the_tree_root_still_wins_for_the_plugins_copy(proj):
+    """S1's order, through the checker: `<root>/seal/` first."""
+    local_root(proj)
+    ledger(
+        proj, "| POL-1 | `src/service.py#gone@00000000` |\n", at=".git/seal/ledger.md"
+    )
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    r = run(["."], proj)
+    assert "total: 1 ok" in r.stdout and ".git" not in r.stdout, r.stdout
+    assert r.returncode == 0
+
+
+def vendored_copy(tmp_path):
+    """The checker as `evidence-ci` vendors it: alone in `tools/`, with no
+    `hooks/` and no `SKILL.md` beside it."""
+    tools = tmp_path / "elsewhere" / "tools"
+    tools.mkdir(parents=True)
+    dst = tools / "evidence_check.py"
+    dst.write_bytes(open(SCRIPT, "rb").read())
+    return dst
+
+
+def test_a_copy_with_no_hooks_beside_it_reads_the_tree_root_only(proj, tmp_path):
+    """Q2 (a)'s other half. The vendored copy cannot import `hooks/optin.py`,
+    and it runs in CI, which is shared mode: it reads `<root>/seal/` as it
+    always did. A local-mode ledger is invisible to it, and says so."""
+    copy = vendored_copy(tmp_path)
+    local_root(proj)
+    ledger(
+        proj, "| POL-1 | `src/service.py#gone@00000000` |\n", at=".git/seal/ledger.md"
+    )
+    r = subprocess.run(
+        [sys.executable, str(copy), "."],
+        cwd=str(proj),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert "no evidence ledgers found" in r.stdout and r.returncode == 0, r.stdout
+
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    r = subprocess.run(
+        [sys.executable, str(copy), "."],
+        cwd=str(proj),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
+
+
+def test_the_ledger_flag_overrides_the_resolver_either_way(proj):
+    """`--ledger` is unchanged: a pattern given by hand is joined under ROOT,
+    whatever the resolver would have said."""
+    local_root(proj)
+    ledger(
+        proj, "| POL-1 | `src/service.py#gone@00000000` |\n", at=".git/seal/ledger.md"
+    )
+    (proj / "SPEC.md").write_text(f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    r = run(["--ledger", "SPEC.md", "."], proj)
+    assert "SPEC.md" in r.stdout and "1 ok" in r.stdout and r.returncode == 0
+    assert "gone" not in r.stdout, "the resolved default was read beside --ledger"

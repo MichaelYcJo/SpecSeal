@@ -326,8 +326,10 @@ it is.
 The mode needs no key of its own: the hooks find `<repo>/seal/` or
 `.git/seal/` and that is the mode. Setup also decides whether the hygiene
 workflow (the pull-request checks in `.github/workflows/hygiene.yml`) is
-installed; in local mode it is not, because it would refuse a pull request
-with no round records.
+installed; in local mode it is not, because both checks read committed files
+and local mode commits none, so the workflow would go green having examined
+nothing (`chain_check.py` exits 0 for a repository that declared nothing,
+`unverified_check.py` exits 2 for a path that is nowhere).
 
 **Why local mode is under `.git/` and not gitignored.** A linked worktree
 checks out committed files only, so an ignored `<repo>/seal/` in the main
@@ -535,6 +537,9 @@ for one release moved to 0.5.0, because even that set is large.
 ## Decided after the thread
 
 Taken by the owner on 2026-09-02, while this document was being reviewed.
+The rows from *The first-setup question's shape* on were taken the same day
+with #80's `questions.md` and are what that work item built; the last of
+them closes what was item 4 of the table below.
 
 | Decision | Answer | What it closes |
 |---|---|---|
@@ -542,16 +547,21 @@ Taken by the owner on 2026-09-02, while this document was being reviewed.
 | What happens to a work item's directory | it lives until `settle` has folded its SDD set into `docs/` and its rows into the ledger, then it is removed; 0.4.0 has no `settle` and deletes nothing | comment 4's `retain` setting and its default; the second setup question; the existing `specs/` moves whole |
 | Design stance toward the directory meanwhile | nothing permanent may depend on `seal/specs/<id>/` after the merge, and nothing may need finding and updating when a path or position moves | the dependency rule; the two checks that must change before `settle` |
 | Where the folded record lives | `docs/`, defined by who reads it (people), written by people and by `settle` | the `implement` skill's "never created here" sentence, to be corrected |
+| The first-setup question's shape | one `AskUserQuestion`, **shared** first as the default. Shared creates `<repo>/seal/` in the tree and the routing commit carries it; local creates `$(git rev-parse --git-common-dir)/seal/` and touches nothing in the tree. A repository with `seal/` at either place, or still on the 0.3.x layout, is not asked | Q6 and Q7 of #80; "creates `<repo>/seal/` and commits it" above is the flow as it reads, not a commit the bootstrap makes |
+| What shared mode installs | `.github/workflows/hygiene.yml` from `templates/hygiene.yml`, only when that path is absent: a clone of the plugin at the release installed at setup, and the two pull-request checks. Local mode installs nothing, because the checks read committed files | Q0-a and Q4 of #80; the sentence above that said the workflow would refuse a pull request, corrected — it would go green having examined nothing |
+| The migration hook's stamp | with nothing old left, a repository whose root is at either place is stamped as moved, so a local-mode repository that later checks out an old branch is not moved into the tree it chose to keep clean | Q3 of #80 |
+| How a session finds the root | one sentence in the `implement` skill's layout section and in both agents: every `seal/…` path means `<repo>/seal/` where it exists, else `$(git rev-parse --git-common-dir)/seal/`. The hooks resolve it in code; every other path stays spelled `seal/…` | Q1 of #80 |
+| The `scratch` opt-out | kept, as the file `.git/specseal-scratch` under the common git dir, which cannot be committed; its predecessor `.specseal/scratch` was committed once and silenced every clone | item 4 of the table below, closed by #79 |
 
 ## Decisions left open
 
-Each item names the options and what decides between them. The first three
-are the ones the thread names as the owner's. Item 4 surfaced while writing
-this document and is not in the thread.
+Each item names the options and what decides between them. All three are
+the ones the thread names as the owner's. A fourth surfaced while writing
+this document, was not in the thread, and was closed by #79; it moved to the
+table above.
 
 | # | Decision | Options | What decides it | Where the thread leaned |
 |---|---|---|---|---|
 | 1 | Plugin name | keep SpecSeal · rename | rename costs the URL, marketplace entry, `plugin.json`, hook prefixes, install docs, three tags of history; 0.4.0 is the one cheap moment | keep SpecSeal |
 | 2 | Root name | `seal/` · `.seal/` | the items in flight are what people read while a pull request is open, which argues for the visible row beside `docs/`; a dot only if footprint wins | `seal/` |
 | 3 | Sub-directory name | `specs/` · `work/` · a metaphor | it must say what it holds to a first-time reader | `specs/` |
-| 4 | The `scratch` opt-out | drop it · keep it as a `.git/` marker | a throwaway fixture opts in by creating no `seal/`, so the file has nothing left to do; the tests that use it need the new shape | not in the thread |

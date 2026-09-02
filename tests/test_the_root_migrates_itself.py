@@ -699,3 +699,101 @@ def test_by_hand_block_fails_loudly_when_the_block_leaves_its_section(readme):
     with pytest.raises(AssertionError, match="left its section"):
         by_hand_block(readme, text=moved)
     assert by_hand_block(readme, text=text), "the real README still yields lines"
+
+
+# --- S9 (#80): what the stamp reads beside a local-mode root -----------------
+
+
+def test_a_repository_with_only_a_local_root_is_silent_and_stamped(hook, tmp_path):
+    """Q3 (a). With nothing old the hook stamped only when `<repo>/seal/` was
+    a directory, so a local-mode repository was never stamped: it re-listed
+    the old names at every session start, and checking out a branch that
+    still carried `.specseal/` later moved it INTO the tree the person chose
+    to keep clean. Either place stamps now."""
+    d = tmp_path / "fresh"
+    d.mkdir()
+    git(d, "init", "-q")
+    (d / ".git" / "seal").mkdir()
+    assert start(hook, d) == ""
+    assert stamped(hook, d)
+
+
+def test_a_local_root_beside_an_old_layout_is_moved_into_the_tree(hook, repo):
+    """A repository on the old layout committed `.specseal/`, so it is shared
+    by definition: the move goes into `<repo>/seal/` with the existing line,
+    whatever sits under `.git/`. After it `<repo>/seal/` wins by S1."""
+    (repo / ".git" / "seal").mkdir()
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 1 work item into seal/" in out, out
+    assert "review the diff and commit" in out, out
+    assert (repo / "seal" / "ledger.md").is_file()
+    assert not (repo / ".specseal").exists()
+    assert stamped(hook, repo)
+
+
+def test_a_file_named_seal_under_the_git_directory_stamps_nothing(hook, tmp_path):
+    """The signal is a DIRECTORY at either place; a file of that name is
+    neither a root nor a reason to stamp, and nothing raises over it."""
+    d = tmp_path / "fresh"
+    d.mkdir()
+    git(d, "init", "-q")
+    (d / ".git" / "seal").write_text("")
+    assert start(hook, d) == ""
+    assert not stamped(hook, d)
+
+
+def test_a_linked_worktree_of_a_local_mode_repository_is_stamped_too(hook, tmp_path):
+    """The common directory is asked of git where `.git` is a file, so the
+    worktree reads the main tree's root and is stamped under its own path."""
+    d = tmp_path / "main"
+    d.mkdir()
+    git(d, "init", "-q", "-b", "main")
+    git(d, "config", "user.email", "t@example.com")
+    git(d, "config", "user.name", "t")
+    write(d, "f.txt", "one\n")
+    git(d, "add", "-A")
+    git(d, "commit", "-qm", "base")
+    (d / ".git" / "seal").mkdir()
+    other = tmp_path / "linked"
+    git(d, "worktree", "add", "-q", str(other), "-b", "feature/x")
+    assert os.path.isfile(other / ".git")
+    assert start(hook, other) == ""
+    assert stamped(hook, other)
+
+
+def test_a_stamped_local_mode_repository_leaves_an_old_layout_branch_alone(
+    hook, tmp_path
+):
+    """Round 1 of #80, P5, pinned. The stamp is what the local root buys: a
+    repository stamped with only `.git/seal/` that later checks out a branch
+    still carrying `.specseal/` and `specs/<id>/` is not moved — the hook
+    says nothing, creates no `<repo>/seal/`, stages nothing, and the tree the
+    person chose to keep clean stays clean. Before Q3 (a) the same repository
+    was never stamped, and that checkout moved the old layout INTO the tree.
+    """
+    d = tmp_path / "fresh"
+    d.mkdir()
+    git(d, "init", "-q", "-b", "main")
+    git(d, "config", "user.email", "t@example.com")
+    git(d, "config", "user.name", "t")
+    write(d, "f.txt", "one\n")
+    git(d, "add", "-A")
+    git(d, "commit", "-qm", "base")
+    git(d, "checkout", "-q", "-b", "old-layout")
+    write(d, ".specseal/README.md", OLD_README)
+    write(d, ".specseal/follow-up.md", FOLLOW_UP)
+    write(d, f"specs/{ITEM}/routing.md", ROUTING)
+    git(d, "add", "-A")
+    git(d, "commit", "-qm", "the 0.3.x layout")
+    git(d, "checkout", "-q", "main")
+
+    (d / ".git" / "seal").mkdir()
+    assert start(hook, d) == ""
+    assert stamped(hook, d)
+
+    git(d, "checkout", "-q", "old-layout")
+    assert (d / ".specseal").is_dir() and (d / "specs" / ITEM).is_dir()
+    assert start(hook, d) == ""
+    assert not (d / "seal").exists(), "the old layout was moved into the tree"
+    assert (d / ".specseal").is_dir() and (d / "specs" / ITEM).is_dir()
+    assert git(d, "status", "--porcelain").stdout == ""

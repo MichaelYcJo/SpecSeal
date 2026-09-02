@@ -5,8 +5,8 @@ once already and four divergent copies is how half of them keep the old answer.
 
 The signal is `seal/` — the root the plugin maintains, whose existence is the
 declaration — at the first of two places that has it: `<repo>/seal/`, which
-shared mode commits, then `<git-common-dir>/seal/`, where local mode will
-keep it (#80; nothing in 0.4.0 creates it). One root, read one way, and no
+shared mode commits, then `<git-common-dir>/seal/`, where local mode keeps
+it (#80). One root, read one way, and no
 config key (`docs/one-root-by-lifetime.md`, "The opt-in signal is the root
 itself"). `.specseal/` opts nothing in any more: the only reader left of that
 name is `hooks/root-migrate.py`, which moves it.
