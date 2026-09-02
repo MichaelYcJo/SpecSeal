@@ -1,6 +1,6 @@
 # verified facts to merge into the work item's ledger fragment
 
-drained — all four rows merged into `seal/ledger/1788331011-two-roots-hold-three-lifetimes.md` ("What round 1 settled") at RECORD_SHA; rows 1, 2 and 4 re-run in the fix pass rather than copied, row 3 pinned by the planted by-hand test.
+drained — all four rows merged into `seal/ledger/1788331011-two-roots-hold-three-lifetimes.md` ("What round 1 settled") at 2ba5301; rows 1, 2 and 4 re-run in the fix pass rather than copied, row 3 pinned by the planted by-hand test.
 
 | Claim | Grounds | Label |
 |---|---|---|
