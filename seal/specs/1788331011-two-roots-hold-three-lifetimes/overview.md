@@ -8,7 +8,7 @@ cannot show goes here. Facts that must outlive this work item are in
 
 📋 implement applied
 · spec:     `docs/one-root-by-lifetime.md` §"The opt-in signal is the root itself" and §"What happens to the existing directories at the switch"; `spec.md` S1–S16, "The move, in order", "What the session prints, and what it refuses", "The opt-in, read one way", the per-file table; `plan.md` alternative A and the Phases table; `questions.md` Q1–Q8 at their defaults; `changelog.md`; `seal/follow-up.md` (empty of items)
-· evidence: `seal/ledger/1788331011-two-roots-hold-three-lifetimes.md`, 13 rows (phase 1), 6 rows (phase 2) and 4 rows (phase 3); 12 rows in other fragments re-verified at `a4206b0`, after phase 2's re-point 5 more re-verified and one re-anchored to the sentence it cites, and after phase 3's fixture substitution one row in `seal/ledger/1788310269-the-implementer-leaves-a-mark.md` re-read and re-verified, its claim now naming `seal/specs/<item>/routing.md`; after round 1, eight rows in a *What round 1 settled* section (one per fix, and the four drained from `rounds/evidence-todo.md`, re-run here), and the row above that one in the same other fragment re-worded to `seal/` with its anchor untouched
+· evidence: `seal/ledger/1788331011-two-roots-hold-three-lifetimes.md`, 13 rows (phase 1), 6 rows (phase 2) and 4 rows (phase 3); 12 rows in other fragments re-verified at `a4206b0`, after phase 2's re-point 5 more re-verified and one re-anchored to the sentence it cites, and after phase 3's fixture substitution one row in `seal/ledger/1788310269-the-implementer-leaves-a-mark.md` re-read and re-verified, its claim now naming `seal/specs/<item>/routing.md`; after round 1, eight rows in a *What round 1 settled* section (one per fix, and the four drained from `rounds/evidence-todo.md`, re-run here), and the row above that one in the same other fragment re-worded to `seal/` with its anchor untouched; after round 2, six rows in a *What round 2 settled* section, one per finding, the last recording a shape git owns
 · verified: see the fragment — every row executed except the spec re-read in phase 3's last row, which says Read; `evidence_check.py --strict .` at `0 broken` at the close of phase 3 and again at the close of round 1's fix pass (totals in the fragment's last row); the full suite, lint and typecheck deliberately not run (the broad gate runs once after the rounds settle)
 
 ## Why this work exists
@@ -40,6 +40,7 @@ once at session start rather than left to find out.
 | `hooks/root-migrate.py` on Windows — porcelain's two columns and the `/`-joined pathspecs are written for it, nothing here ran there | CI's windows leg on the pull request |
 | ✅ the hook under `dispatch.py session-start` rather than `main()` called directly | round 1's P7, re-run in the fix pass on an old-layout fixture with `HOME` redirected: the `systemMessage` line delivered, the marker written, `.specseal/` and `specs/` gone |
 | a real repository other than this one, migrated at an actual session start after installing this branch's plugin | the repository owner, at the first session start in another opted-in repository |
+| case-insensitive filesystems: `tracked_names` compares git's exact names, and nothing here ran on one | CI's macOS and Windows legs on the pull request |
 
 ## Not done
 
@@ -49,6 +50,7 @@ once at session start rather than left to find out.
 - The READMEs' *coming up from 0.3.x* section describes a one-time move and has the same lifetime as `hooks/root-migrate.py`: nothing marks it as such in the README itself, so whoever deletes the hook once no repository is left to migrate has to know to delete the section. The fragment's S15 row says so; the README does not.
 - The by-hand sequence in that section was run on a fixture, not on a repository that had actually used 0.3.x, and since round 1 a test reads the block out of each README and runs it on a copy of that fixture; the difference is only what else such a repository keeps under `.specseal/` and `specs/`, which the sequence's *anything else in there* step covers by hand.
 - The hook and the by-hand block leave an ignored file under `.specseal/` where it is, and neither says so to the person; `.specseal/` holding only ignored files after the move is named in the spec's refusal table and nowhere a person reads.
+- A `specs/<id>` that is a relative symbolic link is moved as the link and dangles at its new depth, rows re-pointed and marker stamped (round 2's 🟢 F). Git moves a link as a link, by hand as well as here; the checker's BROKEN line is where the person meets it, and nothing is built for it.
 
 ## Fed back into the spec
 
@@ -84,3 +86,13 @@ implementation*:
   holding only ignored files; the *move failed* row names the two shapes
   that do not resume by themselves and the line they end with; a new row for
   every unit moved and the re-point failed.
+
+Round 2's fix pass, likewise:
+
+- The refusal table — a row for `.specseal/` as a symbolic link, tested
+  first and printed at every session start until the link is gone; the
+  order sentence under the table starts with it.
+- Step 4 — `dirty()` answers true whenever `git ls-files` cannot, before the
+  directory listing can move anything.
+- §"Which entries of `specs/` are SpecSeal's" — a tracked file with an
+  item's name is not an item; it stays and is named.
