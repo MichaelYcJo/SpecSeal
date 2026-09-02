@@ -79,6 +79,7 @@ FRAGMENTS = os.path.join(".specseal", "map")
 HEADING_RE = re.compile(r"^(#{1,6})(\s)")
 SEPARATOR_RE = re.compile(r"^\|(\s*:?-+:?\s*\|)+\s*$")
 DRAINED_RE = re.compile(r"^[\s*_]*drained\b", re.IGNORECASE)
+MARKER_LINE_RE = re.compile(r"^<!-- specs/\S+ -->$", re.M)
 
 
 def marker(work_item_id):
@@ -261,10 +262,13 @@ def main(argv=None):
             report_open(items)
         if bad:
             return 1
+        # Markers on a line of their own. The ledger's own header quotes the
+        # marker's shape inline, and a bare substring count read that as a
+        # work item (measured: 7 where 6 had been folded).
+        marked = len(MARKER_LINE_RE.findall(text))
         print(
             f"no ledger fragment left in {FRAGMENTS}/; "
-            f"{text.count('<!-- specs/')} work items marked in {LEDGER}; "
-            "no open evidence-todo row"
+            f"{marked} work items marked in {LEDGER}; no open evidence-todo row"
         )
         return 0
 
