@@ -4,13 +4,13 @@
 The commit gate used to be the only place the review chain was enforced, and
 it had nothing to read: a work item routed to the chain and a work item nobody
 had decided anything about were byte-identical to it, so it asked at every
-commit. Recording the answer in `specs/<id>/routing.md` lets the gate stay
+commit. Recording the answer in `seal/specs/<id>/routing.md` lets the gate stay
 quiet — but only if the check moves somewhere rather than disappearing. This
 is the somewhere. It runs on the pull request, where nobody has to be sitting.
 
 What it reads, for every routing declaration this pull request adds or changes:
 
-  through the review chain   at least one `specs/<id>/rounds/round-*.md` that
+  through the review chain   at least one `seal/specs/<id>/rounds/round-*.md` that
                              git carries, every commit its Target SHA names being
                              REACHABLE (below), whose last round has `Pass`
                              CHECKED, whose Pass claim does not sit beside
@@ -273,7 +273,7 @@ assert FIX_WORDS <= CLOSED_WORDS, "a fix word that is not a closing word"
 # Markdown emphasis around the verdict word, and the code fence a cell puts
 # round the commit after it. Both sets above are spelled bare, and a
 # normalizer that read only the bare word matched NOTHING this repository ever
-# wrote: every closed verdict in `specs/*/rounds/round-*.md` reads `**fixed**`,
+# wrote: every closed verdict in `seal/specs/*/rounds/round-*.md` reads `**fixed**`,
 # and most cite a commit after it. Neither refusal that reads a verdict cell
 # had ever fired on a real record.
 EMPHASIS = re.compile(r"[*_`]+")
@@ -425,17 +425,64 @@ def changed(root, base):
     disappeared for a record the pull request had just added -- exit 1 on the
     previous revision of this file, exit 0 on the one that introduced the test.
     The line printed `already merged`, which is why it was invisible.
+
+    Returns `(paths, renamed)`: every path the diff names under its NEW name,
+    and the subset that arrived as an exact rename (`R100`). `--name-status`
+    with `-M` rather than `--name-only`, because a rename has two names and
+    `--name-only` printed the new one indistinguishably from an added file.
+    The root move to `seal/` renames every declaration in a repository at once,
+    and `changed_routing` needs to know which of the paths it sees are those.
     """
-    out = git(root, "diff", "--name-only", "-z", f"{base}...HEAD")
-    return None if out is None else [p for p in out.split("\0") if p]
+    out = git(root, "diff", "--name-status", "-z", "-M", f"{base}...HEAD")
+    if out is None:
+        return None
+    fields = out.split("\0")
+    paths, renamed = [], set()
+    i = 0
+    while i < len(fields):
+        status = fields[i]
+        if not status:
+            i += 1
+            continue
+        if status[0] in "RC":
+            # A rename or a copy carries two names; the second is the one
+            # the tree holds now, and the one every reader below opens.
+            if i + 2 >= len(fields):
+                break
+            new = fields[i + 2]
+            paths.append(new)
+            if status == "R100":
+                renamed.add(new)
+            i += 3
+            continue
+        if i + 1 >= len(fields):
+            break
+        paths.append(fields[i + 1])
+        i += 2
+    return paths, renamed
 
 
-def changed_routing(paths):
-    """Routing declarations this pull request adds or changes."""
+def changed_routing(paths, renamed, work_items):
+    """Routing declarations this pull request adds or changes.
+
+    Never one it only renamed. The root move to `seal/` (`specs/<id>/` into
+    `seal/specs/<id>/`) renames every declaration in the repository, and each
+    shows up in the diff under its new path exactly as an added one would.
+    Judging them would put every released work item under review on the
+    pull request that moved it, each needing its round records' Target SHA
+    to resolve — a declaration the pull request only moved is not one it
+    made. A rename that also EDITED the file (`R` below 100) is judged: the
+    edit is the pull request's own.
+
+    `work_items` is `routing.WORK_ITEMS`, passed in rather than spelled here,
+    so the prefix has one spelling.
+    """
     return sorted(
         p
         for p in paths
-        if p.startswith("specs/") and os.path.basename(p) == "routing.md"
+        if p.startswith(f"{work_items}/")
+        and os.path.basename(p) == "routing.md"
+        and p not in renamed
     )
 
 
@@ -502,7 +549,7 @@ def read_record(root, rel):
 
 
 def round_records(routing, root, item):
-    """`specs/<id>/rounds/round-*.md` git actually carries, highest round last.
+    """`seal/specs/<id>/rounds/round-*.md` git actually carries, highest round last.
 
     `rounds/` rather than the work item's own directory: `round-N` is the one
     member of the SDD set that is plural and unbounded, and the structure
@@ -664,7 +711,7 @@ def table_rows(reader, lines):
 
 
 def tracked_declarations(root, routing):
-    """(path, parsed) for every `specs/<id>/routing.md` git carries at HEAD.
+    """(path, parsed) for every `seal/specs/<id>/routing.md` git carries at HEAD.
 
     `routing.declarations` walks the working tree, which is right where it is
     called from -- a hook fires before the commit, and an uncommitted
@@ -739,7 +786,7 @@ def declared_for_this_branch(root, routing):
     if not matching:
         return [], (
             "this pull request declared neither way, so the review-chain "
-            "check examined nothing. Add specs/<work-item>/routing.md to "
+            "check examined nothing. Add seal/specs/<work-item>/routing.md to"
             "declare."
         )
     return [matching[0]], ""
@@ -1108,7 +1155,7 @@ def reviewed_later(reader, root, rel, rows, value, checker_rel):
 
 
 def item_began(rel):
-    """The unix second in `specs/<seconds>-<slug>/rounds/round-N.md`, or None.
+    """The unix second in `seal/specs/<seconds>-<slug>/rounds/round-N.md`, or None.
 
     None is the grandfathered answer, and deliberately so. A repository that
     names its work items some other way has no date to compare, and failing
@@ -1578,18 +1625,21 @@ def main(argv=None):
         )
         return 2
 
-    touched = changed(root, args.baseline)
-    if touched is None:
+    diff = changed(root, args.baseline)
+    if diff is None:
         print(f"chain-check: cannot diff against {args.baseline}", file=sys.stderr)
         return 2
-    touched = set(touched)
-    declarations = changed_routing(touched)
-    why = (
-        "this pull request declared neither way, so the review-chain check "
-        "examined nothing. Add specs/<work-item>/routing.md to declare."
+    paths, renamed = diff
+    touched = set(paths)
+    # What the pull request added or edited, plus the one for this branch:
+    # the second used to be a fallback for when the first was empty, and the
+    # union is what the spec says — a pull request that adds only round
+    # records to an item declared in an earlier one is judged on that item,
+    # and one that moves every declaration (S10) is judged on its own alone.
+    own, why = declared_for_this_branch(root, routing)
+    declarations = sorted(
+        set(changed_routing(touched, renamed, routing.WORK_ITEMS)) | set(own)
     )
-    if not declarations:
-        declarations, why = declared_for_this_branch(root, routing)
 
     state, where = pull_request_state()
     strict = state != "draft"

@@ -1,6 +1,6 @@
 # Implementation Plan: <work item>
 
-<!-- specs/<unix-epoch-seconds>-<slug>/plan.md — HOW, in phases. This is the Design Gate's
+<!-- seal/specs/<unix-epoch-seconds>-<slug>/plan.md — HOW, in phases. This is the Design Gate's
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 

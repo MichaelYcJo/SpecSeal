@@ -188,7 +188,7 @@ def declare_routing(
         encoding="utf-8",
         errors="replace",
     ).stdout.strip()
-    d = repo / "specs" / item
+    d = repo / "seal" / "specs" / item
     d.mkdir(parents=True, exist_ok=True)
     (d / "routing.md").write_text(
         f"# {item} -- routing\n\n"

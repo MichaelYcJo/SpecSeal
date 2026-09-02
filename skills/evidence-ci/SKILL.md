@@ -59,7 +59,7 @@ of this command, not something that arrives silently.
      checker. Replace `src/**` with this repo's actual source roots; a filter
      that never matches is a check that never runs.
 
-5. **Say what happens next, honestly.** If the repo has no `.specseal/map.md` yet,
+5. **Say what happens next, honestly.** If the repo has no `seal/ledger.md` yet,
    the check passes trivially — `no evidence ledgers found` — until the smith
    records a first coordinate. That is not a failure, but it does mean the
    green check proves nothing yet.

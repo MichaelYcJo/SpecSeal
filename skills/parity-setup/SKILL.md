@@ -1,12 +1,12 @@
 ---
 name: parity-setup
-description: Declare that this repo ports behavior from another codebase — find the original, record the baseline, write .specseal/parity.md.
+description: Declare that this repo ports behavior from another codebase — find the original, record the baseline, write seal/parity.md.
 disable-model-invocation: true
 ---
 
 # /specseal:parity-setup — turn on parity mode
 
-Writes `.specseal/parity.md`, whose presence is the declaration that this
+Writes `seal/parity.md`, whose presence is the declaration that this
 repository ports behavior from another codebase. That turns on three-way
 judgment (policy ↔ original ↔ new code, with the original preserved when the
 policy is silent) and lets the `scribe` agent fetch what the original does.
@@ -17,7 +17,7 @@ predates the question, or when the original repo changes.
 
 ## Procedure
 
-1. **Stop if it already exists.** If `.specseal/parity.md` is present, show it and
+1. **Stop if it already exists.** If `seal/parity.md` is present, show it and
    ask what should change instead of overwriting a declaration someone made.
 
 2. **Find candidates for the original.** Do not ask the user to type a path
@@ -43,7 +43,7 @@ predates the question, or when the original repo changes.
    it will be created on first use.
 
 6. **Write two files.**
-   - `.specseal/parity.md` from `templates/parity.md`, committed. Coordinate-trust
+   - `seal/parity.md` from `templates/parity.md`, committed. Coordinate-trust
      exceptions start empty.
    - `~/.claude/specseal/parity-paths.md` — the machine-local checkout path,
      keyed by this repo's origin remote URL so worktrees and second checkouts

@@ -166,7 +166,7 @@ evidence-check --reverify .    # after re-reading: rewrite each row's hash
 
 | Flag | Meaning |
 |---|---|
-| `--ledger GLOB` | ledgers to scan (default `.specseal/map.md` and `.specseal/map/*.md`) |
+| `--ledger GLOB` | ledgers to scan (default `seal/ledger.md` and `seal/ledger/*.md`) |
 | `--default-repo PATH` | migration ledgers cite the ORIGINAL repo with unprefixed paths — resolve them against this checkout |
 | `--map NAME=PATH` | resolve `NAME/...` prefixed coordinates against another checkout |
 | `--strict` | drift exits 2, the broken-coordinate code, instead of 1 |
@@ -221,10 +221,12 @@ checker that shrugged at that would go quiet exactly where the edit matters.
 
 ## One fragment per work item
 
-A work item's rows go in `.specseal/map/<work-item-id>.md`, which the default
+A work item's rows go in `seal/ledger/<work-item-id>.md`, which the default
 globs already read. Two branches never queue at one file, because no two work
-items share an id. Fragments are never gathered back — a row is checked against
-the code it cites, not concatenated.
+items share an id. The release that ships the work item folds its fragment
+into `seal/ledger.md` and removes the file; a row is checked against the
+code it cites wherever it sits, so the fold changes nothing this check
+reports.
 
 A row citing a range that spans several definitions becomes several
 coordinates, one per definition. That is not a loss: it is the row saying which
@@ -239,7 +241,7 @@ pieces of code it is actually about.
   repository for a row that may cite the other one manufactures evidence.
   Intent is read per ROW where it can be: a row whose prefix is not among the
   `--map` names is a local row and keeps its scan. What cannot be read per row
-  is an UNPREFIXED row in a repository declaring `.specseal/parity.md` or
+  is an UNPREFIXED row in a repository declaring `seal/parity.md` or
   `--default-repo` — it may be citing the original, and nothing in the
   coordinate says which. Such a row loses the scan for any move, not just for
   a renamed directory: no `(moved?)` hint and no `--reverify` heal, so it is

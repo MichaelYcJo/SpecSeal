@@ -10,7 +10,7 @@ The conflict itself is cheap and arrives at the worst possible moment: after
 the broad gate has run and before the pull request opens, where nothing may be
 edited. Resolving it costs a second run of the whole broad gate.
 
-So a change writes `specs/<work-item-id>/changelog.md` and leaves `CHANGELOG.md`
+So a change writes `seal/specs/<work-item-id>/changelog.md` and leaves `CHANGELOG.md`
 alone. Two branches cannot collide, because no two work items share an id. This
 script is the other half — release preparation runs it, and it concatenates the
 fragments into `## X.Y.Z — <date>`.
@@ -54,7 +54,7 @@ def marker(work_item_id):
 
 
 def fragments(root):
-    """[(work item id, body)] for every `specs/*/changelog.md`, in id order.
+    """[(work item id, body)] for every `seal/specs/*/changelog.md`, in id order.
 
     The id is unix seconds, so sorting by it is chronological and stable — the
     same input always produces the same section, which is what makes a re-run
@@ -62,7 +62,7 @@ def fragments(root):
     gathered as a blank entry.
     """
     out = []
-    for path in glob.glob(os.path.join(root, "specs", "*", "changelog.md")):
+    for path in glob.glob(os.path.join(root, "seal", "specs", "*", "changelog.md")):
         work_item_id = os.path.basename(os.path.dirname(path))
         with open(path, encoding="utf-8") as f:
             body = f.read().strip()
@@ -128,7 +128,7 @@ def main(argv=None):
         if missing:
             print("changelog fragments that never reached CHANGELOG.md:")
             for work_item_id, _ in missing:
-                print(f"  specs/{work_item_id}/changelog.md")
+                print(f"  seal/specs/{work_item_id}/changelog.md")
             print(
                 "\nRelease preparation gathers them:\n"
                 "  python3 .github/scripts/gather_changelog.py --version X.Y.Z"
@@ -157,7 +157,7 @@ def main(argv=None):
         f.write(insert(text, block))
     print(f"gathered {len(missing)} fragments into ## {args.version} — {date}")
     for work_item_id, _ in missing:
-        print(f"  specs/{work_item_id}/changelog.md")
+        print(f"  seal/specs/{work_item_id}/changelog.md")
     return 0
 
 

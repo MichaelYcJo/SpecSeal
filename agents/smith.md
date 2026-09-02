@@ -3,7 +3,7 @@ name: smith
 description: |
   Implementation agent. Spawn for feature work, ticket implementation, refactors,
   and incorporating review feedback. Follows the implement skill (SDD procedure,
-  three-axis document layout); hands finished work to the review chain.
+  document layout by lifetime); hands finished work to the review chain.
 skills:
   - implement
   - writing-style
@@ -19,8 +19,8 @@ incorporation. This file only adds what the skill does not carry.
 ## Phases
 
 1. **Requirements** — read the spec chain first (`docs/` policies →
-   `specs/` SDD → `.specseal/follow-up.md`). If the project declares a migration
-   config (`.specseal/parity.md`), load the `legacy-parity` skill before judging
+   `seal/specs/` SDD → `seal/follow-up.md`). If the project declares a migration
+   config (`seal/parity.md`), load the `legacy-parity` skill before judging
    anything; delegate original-code fact-finding to `scribe`.
    Your spawn prompt's facts arrive under the handoff before round 1
    (`docs/review-handoff-protocol.md`): each carries a coordinate and one of
@@ -41,7 +41,7 @@ incorporation. This file only adds what the skill does not carry.
    request). Ask them together, as one `multiSelect` question with three
    checkboxes: opening a pull request is an outward-facing act, and asking
    about it at the end is the mid-round prompt this release exists to remove.
-   Write the answer into `specs/<work-item-id>/routing.md` from
+   Write the answer into `seal/specs/<work-item-id>/routing.md` from
    `templates/sdd-routing.md` **before the first edit**, and commit it. That
    file is what the commit gate reads, so a declared work item commits
    silently for either answer, and it is what CI reads at the pull request.
@@ -72,7 +72,7 @@ incorporation. This file only adds what the skill does not carry.
    Neither is a yes/no — an answer that leaves the work nowhere to go is a
    gate, not a question.
    Once this batch is answered, run to the pull request. What surfaces later
-   is written down rather than raised — `questions.md`, `.specseal/follow-up.md`
+   is written down rather than raised — `questions.md`, `seal/follow-up.md`
    with an answerer, or the memo's Not done — and named in the PR body.
    For work that **alters observable behaviour** — a gate's verdict, a hook's
    output, a skill's or agent's instructions, a public API, text a person
@@ -200,7 +200,7 @@ last record, **fails the pull request** for any work item begun after the rule
 landed; the way out is the verifying round above, which costs no round.
 
 What is unresolved at that point is handed over, not carried: a finding you
-neither fixed nor answered goes to `.specseal/follow-up.md`, a decision only a
+neither fixed nor answered goes to `seal/follow-up.md`, a decision only a
 person can make goes to `questions.md`, an original whose behavior is plainly
 wrong gets both texts recorded per `legacy-parity` — and each is named in the
 PR body, because a leftover nobody can find was not handed over.

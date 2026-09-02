@@ -57,7 +57,7 @@ def run_dispatch(group, payload, hooks=HOOKS):
 
 
 def opt_in(repo):
-    (repo / ".specseal").mkdir(exist_ok=True)
+    (repo / "seal").mkdir(exist_ok=True)
 
 
 def branch_of(repo):
@@ -84,7 +84,7 @@ def mark_path(repo):
 
 def declare(repo, implementation="smith", item=ITEM):
     """A declaration for this repo's branch; `implementation=None` omits the row."""
-    d = repo / "specs" / item
+    d = repo / "seal" / "specs" / item
     d.mkdir(parents=True, exist_ok=True)
     third = f"| Implementation | {implementation} |\n" if implementation else ""
     (d / "routing.md").write_text(
@@ -226,7 +226,7 @@ def test_the_notice_names_the_file_the_way_the_platform_spells_it(repo):
     opt_in(repo)
     declare(repo, implementation="smith")
     out = run_dispatch("post-bash", bash(repo))
-    assert os.path.join("specs", ITEM, "routing.md") in out, out
+    assert os.path.join("seal", "specs", ITEM, "routing.md") in out, out
 
 
 def test_with_the_mark_present_nothing_is_said(repo):
@@ -278,7 +278,7 @@ def test_a_command_that_does_not_commit_says_nothing(repo):
 def test_an_unrelated_repository_is_not_reminded(repo):
     opt_in(repo)
     declare(repo, implementation="smith")
-    (repo / ".specseal").rmdir()
+    shutil.rmtree(repo / "seal")
     assert NOTICE not in run_dispatch("post-bash", bash(repo))
 
 

@@ -42,7 +42,7 @@ def hook(tmp_path):
 def repo(tmp_path):
     d = tmp_path / "proj"
     (d / "src").mkdir(parents=True)
-    (d / ".specseal" / "map").mkdir(parents=True)
+    (d / "seal" / "ledger").mkdir(parents=True)
     git = lambda *a: subprocess.run(
         ["git", "-C", str(d), *a], check=True, capture_output=True, encoding="utf-8"
     )
@@ -50,7 +50,7 @@ def repo(tmp_path):
     git("config", "user.email", "t@example.com")
     git("config", "user.name", "t")
     (d / "src" / "service.py").write_text(OLD_SERVICE)
-    (d / ".specseal" / "map" / "f.md").write_text(
+    (d / "seal" / "ledger" / "f.md").write_text(
         "# map\n\n"
         "| A | `src/service.py:1-2` | 2026-08-31 `9829412` |\n"
         "| B | `src/service.py:999` | 2026-08-31 |\n"
@@ -78,7 +78,7 @@ def test_the_first_session_start_migrates_and_says_so_in_one_line(hook, repo):
     assert "ledger migrated to anchor format" in out, out
     assert "1 row" in out and "1 left" in out, out
     assert "review the diff and commit" in out, out
-    ledger = (repo / ".specseal" / "map" / "f.md").read_text()
+    ledger = (repo / "seal" / "ledger" / "f.md").read_text()
     assert "src/service.py#handler@" in ledger, ledger
     assert "src/service.py:1-2" not in ledger, ledger
     assert "src/service.py:999" in ledger, "the unprovable row was guessed at"
@@ -97,7 +97,7 @@ def test_uncommitted_ledger_changes_are_never_overwritten(hook, repo):
     """Work in progress outranks the migration. The skip says why, the marker
     is NOT stamped — so the next session with a clean tree migrates — and the
     OLD-FORMAT failure stays loud in between."""
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text(ledger.read_text() + "| C | someone's half-written row |\n")
     before = ledger.read_text()
     out = start(hook, repo)
@@ -116,7 +116,7 @@ def test_uncommitted_ledger_changes_are_never_overwritten(hook, repo):
 
 
 def test_a_clean_ledger_says_nothing(hook, repo):
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text("# map\n\n| A | `src/service.py#handler@00000000` |\n")
     subprocess.run(
         ["git", "-C", str(repo), "commit", "-qam", "already anchored"],
@@ -127,14 +127,14 @@ def test_a_clean_ledger_says_nothing(hook, repo):
 
 
 def test_a_scratch_repo_is_left_alone_even_with_an_old_ledger(hook, repo):
-    """`.specseal/scratch` takes the opt-in back, and it is the only way a
-    repository can HOLD a ledger while not being opted in — `.specseal/`
+    """`.git/specseal-scratch` takes the opt-in back, and it is the only way a
+    repository can HOLD a ledger while not being opted in — `seal/`
     existing is the opt-in itself. Found by mutation: a fixture with no
     ledger at all passed whether or not the opt-in was consulted."""
-    (repo / ".specseal" / "scratch").write_text("")
-    before = (repo / ".specseal" / "map" / "f.md").read_text()
+    (repo / ".git" / "specseal-scratch").write_text("")
+    before = (repo / "seal" / "ledger" / "f.md").read_text()
     assert start(hook, repo) == ""
-    assert (repo / ".specseal" / "map" / "f.md").read_text() == before
+    assert (repo / "seal" / "ledger" / "f.md").read_text() == before
 
 
 def test_a_git_that_cannot_answer_reads_as_dirty(hook, repo, monkeypatch):
@@ -145,18 +145,18 @@ def test_a_git_that_cannot_answer_reads_as_dirty(hook, repo, monkeypatch):
         "run",
         lambda *a, **k: (_ for _ in ()).throw(OSError("no git")),
     )
-    assert hook.dirty(str(repo), [str(repo / ".specseal" / "map" / "f.md")])
+    assert hook.dirty(str(repo), [str(repo / "seal" / "ledger" / "f.md")])
 
 
 def test_the_plain_checker_still_never_rewrites(repo):
     """Reading never rewrites — session start is the write moment, and the
     checker stays pure. Held here beside the hook so the pair is one read."""
     EC = os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py")
-    before = (repo / ".specseal" / "map" / "f.md").read_text()
+    before = (repo / "seal" / "ledger" / "f.md").read_text()
     subprocess.run(
         [sys.executable, EC, "."], cwd=str(repo), capture_output=True, encoding="utf-8"
     )
-    assert (repo / ".specseal" / "map" / "f.md").read_text() == before
+    assert (repo / "seal" / "ledger" / "f.md").read_text() == before
 
 
 def test_the_hook_is_wired_into_session_start(hook):
@@ -199,7 +199,7 @@ def test_migrate_leaves_a_row_whose_lines_moved_since_the_stamp(repo):
     rewritten onto the wrong unit. The session-start hook fires this without
     a user's choice, which is what makes the guard non-optional."""
     sha = head_sha(repo)
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text(f"# map\n\n| A | `src/service.py:1-2` | 2026-08-31 `{sha}` |\n")
     (repo / "src" / "service.py").write_text(
         "def intruder(y):\n    return y\n\n\n" + OLD_SERVICE
@@ -215,7 +215,7 @@ def test_migrate_with_the_stamp_proof_says_nothing_extra(repo):
     """Content unchanged since the stamped commit: the proof passes, the row
     migrates, and no caveat prints."""
     sha = head_sha(repo)
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text(f"# map\n\n| A | `src/service.py:1-2` | 2026-08-31 `{sha}` |\n")
     r = cli(["--migrate", "."], repo)
     assert "1 row migrated" in r.stdout, r.stdout

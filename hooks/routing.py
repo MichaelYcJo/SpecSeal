@@ -6,15 +6,16 @@ the absence of a review mark, and a mark only exists after a review passes.
 Every commit of every round was stopped on its way to the reviewer the answer
 had already named.
 
-A declaration lives at `specs/<work-item-id>/routing.md` and is committed.
+A declaration lives at `seal/specs/<work-item-id>/routing.md` and is committed.
 Committed is the load-bearing part: the check moves to the pull request, and CI
 sees only what is in the tree. `<git-dir>/specseal-reviewed` cannot travel
 there and never will.
 
-Beside the work item rather than under `.specseal/`, because a work item begins
-and ends in one directory and routing is its first fact. It also gives the work
-below the SDD ladder somewhere to exist: those items write no `spec.md`, so
-until now they left no trace anywhere, and they are most of what the gate sees.
+Beside the work item rather than at the root's top level, because a work item
+begins and ends in one directory and routing is its first fact. It also gives
+the work below the SDD ladder somewhere to exist: those items write no
+`spec.md`, so until now they left no trace anywhere, and they are most of what
+the gate sees.
 
 Imported by the gate and by the hygiene check rather than copied into each --
 the same reason `optin.py` gives for being a module: divergent copies is how
@@ -34,6 +35,10 @@ declaration down with it.
 import os
 import re
 import subprocess
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import optin
 
 REVIEW = "Review"
 DESTINATION = "Destination"
@@ -52,7 +57,11 @@ BY_SMITH = "smith"
 BY_SESSION = "the session"
 IMPLEMENTATION_ANSWERS = (BY_SMITH, BY_SESSION)
 
-WORK_ITEMS = "specs"
+# Repository-relative, `/`-joined, for the readers that classify paths as git
+# prints them — `chain_check.py` lists a tree under it. The hooks below never
+# join it under the root: they join `optin.WORK_ITEMS` under `optin.home_at`,
+# so a root under the git directory (#80) is read by the same code.
+WORK_ITEMS = f"{optin.HOME}/{optin.WORK_ITEMS}"
 FILENAME = "routing.md"
 
 
@@ -155,8 +164,15 @@ def declarations(root):
     One per work-item directory. Nothing here reads the directory name: the id
     orders the directories and names the work, but which declaration APPLIES is
     settled by the branch it names, not by its position in a sort.
+
+    `root` is the repository root; the work items are under whichever `seal/`
+    `optin.home_at` finds for it, and a repository with none has no
+    declarations — the same silence as a `seal/specs/` that is not there.
     """
-    where = os.path.join(root, WORK_ITEMS)
+    home = optin.home_at(root)
+    if not home:
+        return []
+    where = os.path.join(home, optin.WORK_ITEMS)
     try:
         names = sorted(os.listdir(where))
     except OSError:

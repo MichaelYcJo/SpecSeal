@@ -4,7 +4,7 @@ on a record that cannot be read.
 
 `verify` condition 4 lets a claim go out unproven as long as the row names who
 answers it. Nothing ever read those rows again. The measured failure: a row in
-`specs/1787495842-verify-the-unverified/overview.md` said nobody had seen the
+`seal/specs/1787495842-verify-the-unverified/overview.md` said nobody had seen the
 gates render in an interactive TUI and named the user as the answerer. Months
 later the user hit exactly that, from the other side, and asked why every gate
 renders as yes/no. The record was accurate and no procedure ever closed it.
@@ -530,7 +530,7 @@ def annotate(kind, path, line, message):
         # which is `os.sep`-spelled on purpose -- right for a line a person
         # reads, wrong for this. Unreachable while `hygiene.yml` pins
         # `ubuntu-latest`; live the moment these tools run on the Windows leg,
-        # which is what the decision in `.specseal/map.md` points at.
+        # which is what the decision in `seal/ledger.md` points at.
         where = f" file={git_path(path)},line={line}" if path else ""
         return f"::{kind}{where}::{message}"
     return f"{path}:{line}  {message}" if path else message

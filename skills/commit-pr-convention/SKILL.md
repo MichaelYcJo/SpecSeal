@@ -93,7 +93,7 @@ Where a translated body is wanted, **put it in the repository as a file and
 link it from the body.**
 
 - **Where** — the work item's own folder, as `pr.ko.md` (for example,
-  `specs/<work-item-id>/pr.ko.md`). Where a repository has no such structure,
+  `seal/specs/<work-item-id>/pr.ko.md`). Where a repository has no such structure,
   put it beside the documents the pull request already touches.
 - **Why there** — its permissions are the repository's, so anyone who can
   read the pull request can open it; it is versioned with the code; and it

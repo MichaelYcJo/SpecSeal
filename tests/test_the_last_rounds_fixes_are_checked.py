@@ -43,11 +43,11 @@ CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
 
 # A work item begun before `chain_check.STRICT_FROM`, so `Pass` beside
 # `nobody` prints here instead of failing.
-ITEM = "specs/1787700000-a-work-item"
+ITEM = "seal/specs/1787700000-a-work-item"
 ROUNDS = f"{ITEM}/rounds"
 # One begun after it. The two directories differ only in the second their
 # names start with, which is the whole of what the grandfathering reads.
-STRICT_ITEM = "specs/1799000000-a-later-work-item"
+STRICT_ITEM = "seal/specs/1799000000-a-later-work-item"
 
 
 def read(*parts):
@@ -430,7 +430,8 @@ def test_no_fixes_to_check_beside_a_fix_fails(repo):
 # --- the verdict cell as this repository actually spells it -----------------
 #
 # `CLOSED_WORDS` and `FIX_WORDS` are spelled bare and no round record is. Every
-# closed verdict in `specs/*/rounds/round-*.md` reads `**fixed**`, usually with
+# closed verdict in `seal/specs/*/rounds/round-*.md` reads `**fixed**`, usually
+# with
 # the commit that closed it beside the word, so the normalizer that lowercased
 # and stripped a full stop matched none of them. The three cases below pin both
 # directions of that gap and the one reading that must NOT change.
@@ -644,7 +645,8 @@ def test_pass_beside_nobody_fails_a_work_item_begun_after_the_cutoff(repo):
 
 def test_the_same_record_only_prints_for_an_item_begun_before_it(repo):
     """The grandfathering, which is the whole of what makes the refusal
-    shippable. `specs/1788184145-…/rounds/round-3.md` is in exactly this state
+    shippable. `seal/specs/1788184145-…/rounds/round-3.md` is in exactly this
+    state
     in this repository, it is merged, and there is no honest repair: writing a
     `round-4.md` for a review nobody ran fabricates one, and unchecking its
     `Pass` fails the ready-pull-request rule instead."""
@@ -671,7 +673,7 @@ def test_a_work_item_begun_at_the_cutoff_second_is_held_to_the_rule(repo):
     began = check_module().STRICT_FROM
     declared(
         repo,
-        item=f"specs/{began}-the-item-that-wrote-the-rule",
+        item=f"seal/specs/{began}-the-item-that-wrote-the-rule",
         round1=lambda sha: record(sha, "nobody — the run ended here"),
     )
     code, out = run(repo)
@@ -715,7 +717,7 @@ def test_a_work_item_with_no_timestamp_prefix_is_grandfathered(repo):
     convention rather than for a state anyone chose."""
     declared(
         repo,
-        item="specs/a-work-item-with-no-date",
+        item="seal/specs/a-work-item-with-no-date",
         round1=lambda sha: record(sha, "nobody — the run ended here"),
     )
     code, out = run(repo)

@@ -13,7 +13,7 @@
 ## Git
 - Run lint/format/typecheck before committing.
 - Worktrees only for concurrent sessions on the same tree — single-session work uses `git switch` (worktree-guard hook enforces this).
-- **Routing, decided at the start** — before the first edit, write `specs/<work-item-id>/routing.md` from `templates/sdd-routing.md` and commit it — the write **in a command of its own**, never batched with the commit. The gate reads that file from the working tree, so a declaration on disk silences the very commit that adds it and no first-commit waiver is needed; but the gate is a `PreToolUse` hook that denies the WHOLE Bash call, so `write && git add && git commit` in one call writes nothing and the declaration the gate then reports missing is the file that was lost. This is the one place the batching rule above misleads. **Ask all three axes as one `multiSelect` question with three checkboxes**, never one at a time: implementation (`smith` · `the session` — an optional row), review (`through the review chain` · `straight to the PR`) and destination (`open the pull request` · `stop before the pull request`). What is checked is the answer, and each box is a row of that file — asking the reviewer in the middle and the pull request at the end is three waits for one decision. The commit gate reads that file, so a declared work item commits silently for either review answer, and CI reads the same file at the pull request. For a change belonging to no work item, `[no-review]` still waives one command (`[no-parity]` too where a migration config is declared) — in front of the command, quotes included, `: '[no-review]'; git commit …`, because after `git commit` a bare word is a pathspec and git rejects it. Deciding at the commit is what stops a release mid-run.
+- **Routing, decided at the start** — before the first edit, write `seal/specs/<work-item-id>/routing.md` from `templates/sdd-routing.md` and commit it — the write **in a command of its own**, never batched with the commit. The gate reads that file from the working tree, so a declaration on disk silences the very commit that adds it and no first-commit waiver is needed; but the gate is a `PreToolUse` hook that denies the WHOLE Bash call, so `write && git add && git commit` in one call writes nothing and the declaration the gate then reports missing is the file that was lost. This is the one place the batching rule above misleads. **Ask all three axes as one `multiSelect` question with three checkboxes**, never one at a time: implementation (`smith` · `the session` — an optional row), review (`through the review chain` · `straight to the PR`) and destination (`open the pull request` · `stop before the pull request`). What is checked is the answer, and each box is a row of that file — asking the reviewer in the middle and the pull request at the end is three waits for one decision. The commit gate reads that file, so a declared work item commits silently for either review answer, and CI reads the same file at the pull request. For a change belonging to no work item, `[no-review]` still waives one command (`[no-parity]` too where a migration config is declared) — in front of the command, quotes included, `: '[no-review]'; git commit …`, because after `git commit` a bare word is a pathspec and git rejects it. Deciding at the commit is what stops a release mid-run.
 <!-- specseal:end -->
 
 <!-- Below: repo-local development rules for SpecSeal itself.
@@ -113,13 +113,13 @@ again.
 
 | Instead of | Write |
 |---|---|
-| an entry under `CHANGELOG.md`'s `## Unreleased` | `specs/<work-item-id>/changelog.md` |
-| rows appended to `.specseal/map.md` | `.specseal/map/<work-item-id>.md` |
+| an entry under `CHANGELOG.md`'s `## Unreleased` | `seal/specs/<work-item-id>/changelog.md` |
+| rows appended to `seal/ledger.md` | `seal/ledger/<work-item-id>.md` |
 
 No two work items share an id, so no two branches share a file.
 
 **Appended is the word, and a removal is not one.** A branch that removes code
-an existing `.specseal/map.md` row cites must touch that file to leave the
+an existing `seal/ledger.md` row cites must touch that file to leave the
 ledger true — the row is removed there, and the new claim is written into the
 branch's own fragment. `CONTRIBUTING.md` carries the same sentence, and the two
 used to disagree: one forbade editing the file at all while the other forbade
@@ -133,12 +133,18 @@ has one, and the fragments are where an entry accumulates here. Neither
 document names a heading any more; the override is about WHERE, not about a
 sentence they no longer carry.
 
-**The changelog fragments are gathered; the ledger fragments never are.**
-Release preparation runs `.github/scripts/gather_changelog.py --version X.Y.Z`,
-which concatenates every ungathered fragment into the released section. A
-ledger fragment stays where it is forever — a row is checked against the code
-it cites rather than concatenated, and the checker already reads the whole
-`.specseal/map/*.md` glob.
+**Both kinds of fragment are gathered at the release, by two commands in one
+commit.** `.github/scripts/gather_changelog.py --version X.Y.Z` concatenates
+every ungathered changelog fragment into the released section;
+`.github/scripts/fold_ledger.py --version X.Y.Z` moves every ledger fragment
+into `seal/ledger.md` under a heading for the release and removes the file.
+A fragment lives from the work item's first row to the release that ships it.
+The checker reads both `seal/ledger.md` and the `seal/ledger/*.md` glob,
+and a row is a content anchor, so the move changes nothing it measures. The
+fold refuses while any `seal/specs/<id>/evidence-todo.md` in the tree has an open
+row — a fact a reviewer verified that never reached the ledger — and the
+hygiene workflow runs `fold_ledger.py --check` on every pull request into
+`main`.
 
 A ledger fragment needs no header of its own. Every row in it carries its own
 anchor and hash, so there is nothing for a header to declare.

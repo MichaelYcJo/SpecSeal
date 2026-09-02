@@ -25,7 +25,7 @@ CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
 
 CHAIN = "through the review chain"
 DIRECT = "straight to the PR"
-ITEM = "specs/1787700000-a-work-item"
+ITEM = "seal/specs/1787700000-a-work-item"
 # One level down, because `round-N` is the only member of the SDD set that is
 # plural and unbounded. A record left at `ITEM` itself is a stray and fails.
 ROUNDS = f"{ITEM}/rounds"
@@ -473,6 +473,75 @@ def test_a_declaration_already_in_the_base_is_still_checked(repo):
     assert code == 1, out
     assert "holds no `round-N.md`" in out
     assert "examined nothing" not in out
+
+
+# --- S10 of the 0.4.0 root move: a declaration the pull request only moved --
+
+
+OLD_ITEM = "specs/1780000000-released"
+
+
+def move_into_seal(repo, *items):
+    """The root move as `hooks/root-migrate.py` and this repository's own
+    branch make it: a staged `git mv` of each work item under `seal/specs/`."""
+    (repo / "seal" / "specs").mkdir(parents=True, exist_ok=True)
+    for item in items:
+        git(repo, "mv", item, f"seal/{item}")
+
+
+def test_a_declaration_the_pull_request_only_renamed_is_not_judged(repo):
+    """The root move renames every declaration in the repository, and each
+    shows up in `git diff --name-only` under its new path exactly as an added
+    one would. Judged, the move would put every released work item under
+    review on the pull request that moved it — fifteen here — each needing
+    its round records' Target SHA to resolve. A declaration the pull request
+    only moved is not one it made."""
+    write(repo, f"{OLD_ITEM}/routing.md", declaration(branch="released"))
+    commit(repo, "a released work item, declared for a branch that is not this one")
+    git(repo, "branch", "-f", "base", "HEAD")
+    move_into_seal(repo, OLD_ITEM)
+    commit(repo, "the root move")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert "1780000000-released" not in out, out
+    assert "examined nothing" in out, (
+        "this branch declared nothing, and the notice says so"
+    )
+
+
+def test_the_branchs_own_declaration_is_still_judged_after_the_move(repo):
+    """The set the check judges is what the pull request added or edited PLUS
+    the declaration for this branch — so the move of this branch's own item
+    does not hide it, and the fourteen it moved beside it stay out."""
+    write(repo, "specs/1787700000-a-work-item/routing.md", declaration())
+    write(repo, f"{OLD_ITEM}/routing.md", declaration(branch="released"))
+    commit(repo, "two work items declared, one for this branch")
+    git(repo, "branch", "-f", "base", "HEAD")
+    move_into_seal(repo, "specs/1787700000-a-work-item", OLD_ITEM)
+    commit(repo, "the root move")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert ITEM in out and "holds no `round-N.md`" in out, out
+    assert "1780000000-released" not in out, out
+
+
+def test_a_declaration_the_pull_request_renamed_and_edited_is_judged(repo):
+    """Only an EXACT rename is a move. A declaration the pull request moved
+    and then changed carries an edit of its own, and the edit is what the
+    check exists to read."""
+    write(repo, f"{OLD_ITEM}/routing.md", declaration(branch="released"))
+    commit(repo, "a released work item")
+    git(repo, "branch", "-f", "base", "HEAD")
+    move_into_seal(repo, OLD_ITEM)
+    moved = repo / "seal" / OLD_ITEM / "routing.md"
+    moved.write_text(
+        moved.read_text(encoding="utf-8") + "\nEdited on the way over.\n",
+        encoding="utf-8",
+    )
+    commit(repo, "the root move, with an edit")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "1780000000-released" in out, out
 
 
 def test_a_working_tree_edit_cannot_close_a_round_git_carries_as_open(repo):
@@ -955,7 +1024,7 @@ def test_a_work_item_id_git_quotes_keeps_its_reachability_check(repo):
     reachability requirement DISAPPEARED for a record new in the pull request —
     exit 1 before the diff condition existed, exit 0 after it. The line read
     `already merged`, which is what hid it."""
-    item = "specs/1780000000-caf\u00e9"
+    item = "seal/specs/1780000000-caf\u00e9"
     write(repo, f"{item}/routing.md", declaration(branch="feature").replace(ITEM, item))
     commit(repo, "declare")
     write(repo, f"{item}/rounds/round-1.md", record("deadbeef1234567", passed=True))
