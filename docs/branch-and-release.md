@@ -168,8 +168,8 @@ There is no accumulation section any more. `## Unreleased` was the shared
 region, and the fragments are what replaced it.
 
 **The ledger fragments fold in the same commit.** A work item's evidence rows
-go to `seal/ledger/<work-item-id>.md` for the same reason, and until 0.4.0
-nothing gathered those: the directory gained one file per work item forever,
+go to `seal/ledger/<work-item-id>.md` for the same reason, and until the fold
+existed nothing gathered those: the directory gained one file per work item forever,
 and almost every pull request touched it (issue #78). After the merge there is
 no branch left to queue at the file, so release preparation also runs:
 
