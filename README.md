@@ -368,7 +368,8 @@ repo that has a `seal/` directory at its root or under its git directory, and
 stay silent everywhere else. You never create it by hand — the smith builds it
 the first time it works in a repo, after asking one question (*Shared or
 local*, below), and it is the only directory this plugin adds to your tree —
-or, in local mode, none at all.
+plus, in shared mode, one workflow file under `.github/workflows/`; in local
+mode, nothing at all.
 
 The other three carry their own conditions. worktree-guard and session-lease
 act in every git repo. lint-python acts only where the project has configured
@@ -415,16 +416,18 @@ line because a linked worktree checks out committed files only, so an ignored
 folder is simply absent there. The common git dir is shared by every worktree
 of the clone, and nothing under it is ever a commit candidate.
 
-Switching is a move and a commit; the hooks need no restart, because the next
-command reads the folder where it is. The workflow is installed or removed by
-hand — copy the plugin's `templates/hygiene.yml` in, with `v<version>`
-replaced by the release you run, or delete `.github/workflows/hygiene.yml`:
+Switching is a move and a commit, from the repository root — both paths are
+asked of git, so a subdirectory as the working directory lands them in the
+same place. The hooks need no restart, because the next command reads the
+folder where it is. The workflow is installed or removed by hand — copy
+`$CLAUDE_PLUGIN_ROOT/templates/hygiene.yml` in, with `v<version>` replaced
+by the release you run, or delete `.github/workflows/hygiene.yml`:
 
 ```bash
 # local → shared, then commit
-mv "$(git rev-parse --git-common-dir)/seal" seal && git add seal
+mv "$(git rev-parse --git-common-dir)/seal" "$(git rev-parse --show-toplevel)/seal" && git add "$(git rev-parse --show-toplevel)/seal"
 # shared → local, then commit the removal
-git rm -r --cached seal && mv seal "$(git rev-parse --git-common-dir)/seal"
+git rm -r --cached "$(git rev-parse --show-toplevel)/seal" && mv "$(git rev-parse --show-toplevel)/seal" "$(git rev-parse --git-common-dir)/seal"
 ```
 
 Carrying local records to another clone by hand, and the `seal export` /

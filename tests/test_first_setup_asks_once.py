@@ -16,8 +16,10 @@ body of the commit that added this file.
 
 import os
 import re
+import subprocess
 
 import pytest
+from conftest import local_home, shell_probe
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -188,6 +190,19 @@ def test_the_skill_writes_the_workflow_only_when_absent_and_local_installs_nothi
     assert "installs nothing" in boot
 
 
+def test_the_version_is_read_from_the_plugin_root_and_not_from_the_tree():
+    """Round 1 of #80, 🟡 4. The bootstrap said to read `version` from "the
+    plugin's `.claude-plugin/plugin.json`" with no path. The session sits in
+    the user's repository and that file sits in the plugin cache; a wrong read
+    leaves `v<version>` in the workflow, and CI's `git clone --branch` fails.
+    `skills/update/SKILL.md` already spells the path; the bootstrap does too,
+    with the one-line command that reads it."""
+    boot = flat(bootstrap())
+    assert "$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json" in boot
+    assert "python3 -c" in boot, "no command reads the version"
+    assert 'os.environ["CLAUDE_PLUGIN_ROOT"]' in boot
+
+
 # --- S8 and S1: the READMEs -----------------------------------------------
 
 READMES = {
@@ -202,12 +217,89 @@ def test_the_readme_gives_both_moves_under_first_run(readme):
     first_run, subsection = READMES[readme]
     assert text.index(subsection) > text.index(first_run)
     body = section(text, subsection, 3)
-    assert 'mv "$(git rev-parse --git-common-dir)/seal" seal' in body
-    assert "git add seal" in body
-    assert "git rm -r --cached seal" in body
-    assert 'mv seal "$(git rev-parse --git-common-dir)/seal"' in body
-    assert "hygiene.yml" in body, "the workflow is installed or removed by hand"
+    assert f'mv "{COMMON}" "{TOP}"' in body
+    assert f'git add "{TOP}"' in body
+    assert f'git rm -r --cached "{TOP}"' in body
+    assert f'mv "{TOP}" "{COMMON}"' in body
+    assert "$CLAUDE_PLUGIN_ROOT/templates/hygiene.yml" in body, (
+        "the workflow is installed by hand, from the plugin's cache"
+    )
     assert "#81" in body, "export/import is later work and is named as such"
+
+
+COMMON = "$(git rev-parse --git-common-dir)/seal"
+TOP = "$(git rev-parse --show-toplevel)/seal"
+
+
+def switch_block(readme):
+    """The `bash` block under the README's switch section, comments off: two
+    lines, local → shared and then shared → local.
+
+    Bounded at the next `## ` heading and asserted to be there, the way
+    `test_the_root_migrates_itself.by_hand_block` reads the coming-up block:
+    the lines are run under `bash -c`, so a block that left its section must
+    fail here rather than let a later block run in its place.
+    """
+    text = read(readme)
+    _first_run, heading = READMES[readme]
+    body = section(text, heading, 3).split("\n## ", 1)[0]
+    assert "```bash\n" in body, f"{readme}: the switch block left its section"
+    block = body.split("```bash\n", 1)[1].split("```", 1)[0]
+    lines = [ln.split("#", 1)[0].strip() for ln in block.splitlines()]
+    lines = [ln for ln in lines if ln]
+    assert len(lines) == 2, lines
+    return lines
+
+
+def porcelain(repo):
+    return subprocess.run(
+        ["git", "-C", str(repo), "status", "--porcelain"],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    ).stdout.splitlines()
+
+
+@pytest.mark.parametrize("readme", sorted(READMES))
+def test_the_switch_block_lands_the_root_at_the_tree_root_from_a_subdirectory(
+    readme, repo
+):
+    """Round 1 of #80, 🟡 3. The two moves were spelled relative to the
+    working directory: run from `src/`, `git rev-parse --git-common-dir`
+    answers `../.git` and `mv … seal && git add seal` created and staged
+    `src/seal/`, after which neither place held a root and the repository
+    was opted OUT. Both paths are asked of git now, so the block read out of
+    the document and run from a subdirectory lands the root at `<repo>/seal/`
+    one way and back under the common directory the other.
+
+    A bash block, run under `bash -c` line by line; the precondition is
+    executed, not assumed (`shell_probe`, for the reason the coming-up test
+    gives).
+    """
+    why = shell_probe("bash")
+    if why:
+        pytest.skip(f"bash: {why} -- the switch block is a bash block")
+    home = local_home(repo)
+    (home / "ledger").mkdir()
+    (home / "ledger" / "f.md").write_text("# rows\n", encoding="utf-8")
+    sub = repo / "src"
+    sub.mkdir()
+    to_shared, to_local = switch_block(readme)
+
+    r = subprocess.run(["bash", "-c", to_shared], cwd=str(sub), capture_output=True)
+    assert r.returncode == 0, r.stderr
+    assert (repo / "seal" / "ledger" / "f.md").is_file(), porcelain(repo)
+    assert not (sub / "seal").exists(), "the root landed under the subdirectory"
+    assert not home.exists(), "the local root was copied, not moved"
+    assert porcelain(repo) == ["A  seal/ledger/f.md"], porcelain(repo)
+
+    r = subprocess.run(["bash", "-c", to_local], cwd=str(sub), capture_output=True)
+    assert r.returncode == 0, r.stderr
+    assert (home / "ledger" / "f.md").is_file(), porcelain(repo)
+    assert not (repo / "seal").exists()
+    assert not (sub / "seal").exists()
+    assert porcelain(repo) == [], porcelain(repo)
 
 
 @pytest.mark.parametrize("readme", sorted(READMES))

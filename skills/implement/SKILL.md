@@ -122,9 +122,16 @@ the one this section would have asked about.
      written from `templates/hygiene.yml` only when that path is absent — an
      existing file is never overwritten, and say so when you leave one alone.
      Before writing it, replace `v<version>` in the template with the version
-     of the installed plugin (the `version` field of the plugin's
-     `.claude-plugin/plugin.json`, prefixed with `v`), so CI checks with the
-     release that wrote the file.
+     of the installed plugin, prefixed with `v`, so CI checks with the
+     release that wrote the file. The session sits in the user's repository
+     and the plugin sits in its cache, so the version is read from
+     `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json` and never from a file
+     in the tree — a wrong read leaves `v<version>` in the workflow, and
+     CI's `git clone --branch` fails on it. One line reads it:
+
+     ```bash
+     python3 -c 'import json, os; print("v" + json.load(open(os.path.join(os.environ["CLAUDE_PLUGIN_ROOT"], ".claude-plugin", "plugin.json")))["version"])'
+     ```
    - **local** — creates `$(git rev-parse --git-common-dir)/seal/`, installs
      nothing, touches nothing in the tree. Spell the path through the common
      git directory rather than through `.git`, which is a file in a linked

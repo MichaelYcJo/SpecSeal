@@ -359,7 +359,9 @@ evidence-check --reverify .                  # 옮겨진 파일을 가리키는 
 `seal/` 디렉터리가 있을 때만 동작하고, 그 전까지는 침묵합니다. 이 디렉터리를
 직접 만들 일은 없습니다. smith 가 그 레포에서 처음 일할 때 질문 하나(아래
 「shared 인가 local 인가」)를 하고 만들며, 이 플러그인이 사용자 트리에 추가하는
-것은 이것 하나뿐입니다. local 모드면 트리에는 아무것도 추가하지 않습니다.
+디렉터리는 이것 하나뿐입니다. shared 모드에서는 `.github/workflows/` 아래
+워크플로 파일 하나가 더 들어가고, local 모드면 트리에는 아무것도 추가하지
+않습니다.
 
 나머지 셋은 각자의 조건이 있습니다. worktree-guard 와 session-lease 는 모든 git
 레포에서 돕니다. lint-python 은 프로젝트가 ruff 를 설정한 곳에서만 돕니다 —
@@ -411,16 +413,18 @@ local 모드가 `.gitignore` 줄이 아니라 git 디렉터리 아래에 있는 
 거기서 그냥 없습니다. 공통 git 디렉터리는 그 클론의 모든 워크트리가
 공유하고, 그 아래의 것은 커밋 후보가 되지 않습니다.
 
-바꾸는 것은 옮기고 커밋하는 일입니다. 훅을 다시 띄울 필요는 없습니다. 다음
-명령이 폴더가 있는 자리를 그대로 읽습니다. 워크플로는 손으로 넣거나 뺍니다.
-플러그인의 `templates/hygiene.yml` 을 복사해 넣거나(`v<version>` 은 쓰는
-릴리스로 바꿔서), `.github/workflows/hygiene.yml` 을 지웁니다.
+바꾸는 것은 저장소 루트에서 옮기고 커밋하는 일입니다. 두 경로 모두 git 에
+물어서 얻으므로, 하위 디렉터리에서 실행해도 같은 자리에 놓입니다. 훅을 다시
+띄울 필요는 없습니다. 다음 명령이 폴더가 있는 자리를 그대로 읽습니다.
+워크플로는 손으로 넣거나 뺍니다. `$CLAUDE_PLUGIN_ROOT/templates/hygiene.yml`
+을 복사해 넣거나(`v<version>` 은 쓰는 릴리스로 바꿔서),
+`.github/workflows/hygiene.yml` 을 지웁니다.
 
 ```bash
 # local → shared, 그다음 커밋
-mv "$(git rev-parse --git-common-dir)/seal" seal && git add seal
+mv "$(git rev-parse --git-common-dir)/seal" "$(git rev-parse --show-toplevel)/seal" && git add "$(git rev-parse --show-toplevel)/seal"
 # shared → local, 그다음 지운 것을 커밋
-git rm -r --cached seal && mv seal "$(git rev-parse --git-common-dir)/seal"
+git rm -r --cached "$(git rev-parse --show-toplevel)/seal" && mv "$(git rev-parse --show-toplevel)/seal" "$(git rev-parse --git-common-dir)/seal"
 ```
 
 local 의 기록을 다른 클론으로 손으로 옮기는 일과, 그것을 묶어 주는

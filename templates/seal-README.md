@@ -16,11 +16,15 @@ common git directory: every linked worktree of the clone shares it, nothing
 under it is ever a commit candidate, and no `.gitignore` line is needed.
 What local mode gives up is CI — the pull-request checks read committed
 files — and any other machine, which starts empty. Switching is a move and
-a commit, spelled out in the plugin README's *Shared or local* section:
-local → shared is `mv "$(git rev-parse --git-common-dir)/seal" seal`,
-`git add seal` and a commit; shared → local is `git rm -r --cached seal`,
-`mv seal "$(git rev-parse --git-common-dir)/seal"` and a commit of the
-removal. Nothing reads `.specseal/` or a top-level `specs/` any more; a
+a commit from the repository root, spelled out in the plugin README's
+*Shared or local* section, with both paths asked of git so the commands
+land the same from a subdirectory: local → shared is
+`mv "$(git rev-parse --git-common-dir)/seal" "$(git rev-parse --show-toplevel)/seal"`,
+`git add "$(git rev-parse --show-toplevel)/seal"` and a commit; shared →
+local is `git rm -r --cached "$(git rev-parse --show-toplevel)/seal"`,
+`mv "$(git rev-parse --show-toplevel)/seal" "$(git rev-parse --git-common-dir)/seal"`
+and a commit of the removal.
+Nothing reads `.specseal/` or a top-level `specs/` any more; a
 repository still holding them is moved into `<repo>/seal/` once, at session
 start, by the plugin.
 
