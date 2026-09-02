@@ -89,9 +89,10 @@ When a root or file this skill needs doesn't exist, create it from
 
 - `seal/ledger.md` — written from `templates/ledger.md`, which carries the
   coordinate notation and the feed-back rule a session needs before it adds
-  a row. It starts with **no rows and no baseline to stamp**: a coordinate
-  names content rather than a position, so there is nothing for a header to
-  declare. A work item's own rows go in `seal/ledger/<work-item-id>.md`.
+  a row. Its **clause tables arrive empty** and there is no baseline to
+  stamp: a coordinate names content rather than a position, so there is
+  nothing for a header to declare. A work item's own rows go in
+  `seal/ledger/<work-item-id>.md`.
 - `seal/README.md` — carries the export rules so sessions that never load
   this skill still see them.
 - **Not** policy documents. If the repository has none, it has none; judge from

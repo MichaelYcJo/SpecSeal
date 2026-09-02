@@ -14,6 +14,6 @@ All in `tests/test_the_pull_request_language_is_the_repositorys.py` unless a row
 | 8 | the templates check reads only prose documents and descends into subdirectories | round 2 🟡 4 | ✅ planted |
 | 9 | a separator below the rows, and a repeated `\| Item \| Value \|` header, both end the table | round 2 🟡 5 | ✅ planted |
 | 10 | every committed mirror's code is one this file knows — `pr.kr.md` is caught | round 2 🟡 7 | ✅ planted |
-| 11 | an untracked file under `templates/` — a `.DS_Store` — is not a template the check reports | round 3 finding 1 | ⬜ |
-| 12 | `mirror_to_refuse("**Korean**")` and `mirror_to_refuse("korean")` both answer `pr.ko.md`, and `"French"` still answers `None` | round 3 finding 2 | ⬜ |
-| 13 | the fields `templates/sdd-round.md` carries are the fields `skills/code-review/SKILL.md` lists — the sentence's remaining claim, pinned | round 3 finding 3 | ⬜ |
+| 11 | an untracked file under `templates/` — a `.DS_Store` — is not a template the check reports | round 3 finding 1 | ✅ planted |
+| 12 | `mirror_to_refuse("**Korean**")` and `mirror_to_refuse("korean")` both answer `pr.ko.md`, and `"French"` still answers `None` | round 3 finding 2 | ✅ planted |
+| 13 | the fields `templates/sdd-round.md` carries are the fields `skills/code-review/SKILL.md` lists — the sentence's remaining claim, pinned | round 3 finding 3 | ✅ planted |

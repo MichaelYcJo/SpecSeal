@@ -222,7 +222,6 @@ def test_the_existing_mirrors_are_consistent_with_the_rule():
     Round 2 found that fix reproducing the same defect one line over, and the
     two assertions below are in the order the finding pairs demand.
     """
-    import glob
 
     mirrors = sorted(
         os.path.basename(p)
@@ -343,6 +342,18 @@ def items(text):
 # than where it sits.
 
 LANGUAGE_CODES = {"English": "en", "Korean": "ko", "Japanese": "ja"}
+CODES_BY_NAME = {name.casefold(): code for name, code in LANGUAGE_CODES.items()}
+
+
+def as_language_name(value):
+    """A row's value reduced to the language name it spells.
+
+    Markdown emphasis off both ends and case folded, because the row is typed
+    by a person into a table cell: `**Korean**`, `_Korean_` and `korean` all
+    name Korean. Nothing else is normalised — `Korean (KR)` is a different
+    value and answering for it would be guessing.
+    """
+    return value.strip().strip("*_`").strip().casefold()
 
 
 def mirror_to_refuse(language):
@@ -354,8 +365,16 @@ def mirror_to_refuse(language):
     config — round 2 🔴 1, where indexing it raised `KeyError` on `French`
     and turned a legitimate repository red. A table that must list every
     language is always one short.
+
+    But None has to mean the language is ABSENT, not spelled differently.
+    Round 3 finding 2: an exact lookup answered None for `**Korean**` and
+    `korean`, so the mirror case skipped saying the file has no code for the
+    language — which was false, and round 2's own probe table had already
+    recorded `configured_language` returning `**Korean**` for an emphasised
+    row. A person writing a markdown table emphasises a cell; that is the
+    same value.
     """
-    code = LANGUAGE_CODES.get(language)
+    code = CODES_BY_NAME.get(as_language_name(language))
     return f"pr.{code}.md" if code else None
 
 
@@ -463,6 +482,34 @@ def test_a_language_this_file_has_no_code_for_does_not_raise():
     assert mirror_to_refuse("English") == "pr.en.md"
     assert mirror_to_refuse("Korean") == "pr.ko.md", (
         "the two directions the skill gives as examples must both compute"
+    )
+
+
+@pytest.mark.parametrize(
+    "value", ["**Korean**", "korean", "KOREAN", " Korean ", "_Korean_", "`Korean`"]
+)
+def test_a_language_spelled_differently_is_the_same_language(value):
+    """tests-todo row 12, from round 3 finding 2.
+
+    None has to mean the language is ABSENT. An exact lookup answered None
+    for these, so the mirror case skipped with a message saying the file has
+    no code for the language — false, and the skip hid the check. A person
+    writing a markdown table emphasises a cell; that is the same value.
+    """
+    assert mirror_to_refuse(value) == "pr.ko.md", (
+        f"{value!r} is Korean spelled by a person, and answering None for it "
+        "makes the mirror case skip on a claim that is not true"
+    )
+
+
+def test_a_language_that_is_genuinely_absent_still_answers_none():
+    """The other half, so the normalisation above does not become guessing.
+    `French` is absent, and `Korean (KR)` is a different value this file has
+    no business resolving."""
+    assert mirror_to_refuse("French") is None
+    assert mirror_to_refuse("Korean (KR)") is None, (
+        "normalising past a parenthetical would be inventing an answer, not "
+        "reading the row"
     )
 
 
@@ -679,21 +726,28 @@ def test_a_second_table_further_down_is_not_read_as_more_rows():
 
 
 def shipped_templates(root):
-    """Every FILE under `<root>/templates/`, at any depth, as a `/` path.
+    """Every TRACKED file under `<root>/templates/`, at any depth.
 
-    `**` with `include_hidden`, and files only. Round 2 🟡 4: a plain `*`
-    returned a subdirectory as ONE entry whose name nothing names — so
-    everything inside it was invisible — and skipped dotfiles entirely.
+    Asked of `git ls-files`, which is the list the corpus is built from too,
+    so both sides of the comparison agree about what exists. It answers
+    repository-relative `/` paths, it descends, and it lists tracked
+    dotfiles — the three properties round 2 needed.
+
+    Round 3 finding 1: this globbed the WORKING TREE, and a glob and
+    `git ls-files` disagree wherever `.gitignore` does. `.DS_Store` is
+    ignored here and opening `templates/` in Finder creates one, so the check
+    failed naming a file that is not a template and that `git status` does
+    not show. Round 2's widening to dotfiles is what carried it in — the
+    plain `*` it replaced happened to skip them.
     """
-    return sorted(
-        os.path.relpath(path, root).replace(os.sep, "/")
-        for path in glob.glob(
-            os.path.join(str(root), "templates", "**"),
-            recursive=True,
-            include_hidden=True,
-        )
-        if os.path.isfile(path)
-    )
+    out = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "templates"],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+    ).stdout
+    return sorted(name for name in (out or "").splitlines() if name.strip())
 
 
 def unreachable_templates(root, listed):
@@ -767,37 +821,121 @@ def test_every_template_is_named_by_a_document_that_ships():
     )
 
 
-def test_the_templates_check_reads_prose_only_and_descends(tmp_path):
-    """tests-todo row 8, from round 2 🟡 4.
+def test_the_templates_check_reads_prose_only_and_descends(repo):
+    """tests-todo rows 8 and 11, from round 2 🟡 4 and round 3 finding 1.
 
-    The two narrowings, run against a tree built to have all three shapes.
-    A Python comment must NOT count as a reader — that is the whole finding
-    — and a template in a subdirectory or behind a dot must not be able to
-    hide from the glob.
+    Built on a real repository rather than a bare directory, because what is
+    under test is now a `git ls-files` call: a fixture git never sees would
+    report nothing and the case would pass having exercised nothing.
+
+    Three properties in one tree. A Python comment must NOT count as a reader
+    — that is round 2's finding. A template in a subdirectory or behind a dot
+    must not hide. And an UNTRACKED file must not be reported as a template
+    at all, which is round 3's: `.DS_Store` is gitignored here and arrives
+    from opening the folder in Finder.
     """
-    (tmp_path / "templates" / "sub").mkdir(parents=True)
-    (tmp_path / "templates" / "named.md").write_text("x", encoding="utf-8")
-    (tmp_path / "templates" / "sub" / "buried.md").write_text("x", encoding="utf-8")
-    (tmp_path / "templates" / ".hidden.md").write_text("x", encoding="utf-8")
-    (tmp_path / "doc.md").write_text(
-        "start from templates/named.md\n", encoding="utf-8"
-    )
-    (tmp_path / "code.py").write_text(
+    (repo / "templates" / "sub").mkdir(parents=True)
+    (repo / "templates" / "named.md").write_text("x", encoding="utf-8")
+    (repo / "templates" / "sub" / "buried.md").write_text("x", encoding="utf-8")
+    (repo / "templates" / ".hidden.md").write_text("x", encoding="utf-8")
+    (repo / "doc.md").write_text("start from templates/named.md\n", encoding="utf-8")
+    (repo / "code.py").write_text(
         "# see templates/sub/buried.md and templates/.hidden.md\n", encoding="utf-8"
     )
+    subprocess.run(
+        ["git", "-C", str(repo), "add", "templates", "doc.md", "code.py"],
+        check=True,
+        capture_output=True,
+    )
+    # Written AFTER the add, so it is untracked exactly as the real one is.
+    (repo / "templates" / ".DS_Store").write_bytes(b"\x00\x01")
 
-    assert shipped_templates(tmp_path) == [
+    assert shipped_templates(repo) == [
         "templates/.hidden.md",
         "templates/named.md",
         "templates/sub/buried.md",
-    ], "the glob does not descend, or skips dotfiles"
+    ], (
+        "either the listing does not descend or skips tracked dotfiles, or "
+        "the untracked `.DS_Store` came back as a template"
+    )
 
-    assert unreachable_templates(tmp_path, ["doc.md", "code.py"]) == [
+    assert unreachable_templates(repo, ["doc.md", "code.py"]) == [
         "templates/.hidden.md",
         "templates/sub/buried.md",
     ], (
         "a Python comment was accepted as a reader, which is exactly how "
         "`templates/sdd-round.md` passed on four comments in chain_check.py"
+    )
+
+
+ROUND_RECORD_FIELDS = [
+    "Target SHA",
+    "PR",
+    "Broad gate",
+    "Fixes checked by",
+    "Contract changes",
+    "New units",
+    "Needs a fix",
+    "## Verdicts",
+    "## Executed probes",
+    "## Inherited coordinates",
+    "## Deferred",
+]
+
+
+@pytest.mark.parametrize("field", ROUND_RECORD_FIELDS)
+def test_the_round_template_carries_every_field_the_skill_names(field):
+    """tests-todo row 13, from round 3 finding 3.
+
+    That sentence is the ONLY place in the whole prose corpus naming
+    `templates/sdd-round.md`, so what it claims is what a session gets told
+    about the file. It used to claim the template carries the fields "in the
+    order the row above lists them", and it does not — the header table and
+    the sections interleave that order, and the template also carries `PR`,
+    which the row does not list. The order claim is gone; what remains is
+    that every field named is there, and that is what this pins.
+    """
+    assert field in read("templates", "sdd-round.md"), (
+        f"{field!r} is named in `skills/code-review/SKILL.md` and is not in "
+        "the template a round is told to start from"
+    )
+
+
+def test_the_sentence_no_longer_claims_an_order():
+    """The absence half. Keeping the corrected sentence beside the old one is
+    how two answers ship at once, and this file's method is pinning both."""
+    text = flat("skills", "code-review", "SKILL.md")
+    assert "templates/sdd-round.md" in text, (
+        "the file's only mention in the prose corpus went, which makes it "
+        "unreachable again"
+    )
+    assert "in the order the row above lists them" not in text, (
+        "the order claim is back, and the template does not read that way"
+    )
+
+
+def test_an_untracked_file_under_templates_is_not_a_template(repo):
+    """tests-todo row 11, from round 3 finding 1, isolated.
+
+    The case above would also catch this, mixed in with two other
+    properties. This one fails for one reason only: before the fix,
+    `unreachable_templates` reported `templates/.DS_Store` and the check went
+    red naming a file that is not a template and that `git status` hides.
+    """
+    (repo / "templates").mkdir(parents=True)
+    (repo / "templates" / "named.md").write_text("x", encoding="utf-8")
+    (repo / "doc.md").write_text("start from templates/named.md\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "-C", str(repo), "add", "templates", "doc.md"],
+        check=True,
+        capture_output=True,
+    )
+    assert unreachable_templates(repo, ["doc.md"]) == []
+
+    (repo / "templates" / ".DS_Store").write_bytes(b"\x00\x01")
+    assert unreachable_templates(repo, ["doc.md"]) == [], (
+        "an untracked file under `templates/` is reported as an unreachable "
+        "template, so anyone who opens the folder in Finder fails this check"
     )
 
 
