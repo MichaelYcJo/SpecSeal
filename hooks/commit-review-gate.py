@@ -842,6 +842,24 @@ def judge(cwd, top, command, invocations, clean):
     # item; the declaration routes a work item.
     routed = routing.declared(cwd, top)
 
+    # The file the first option tells a session to write, under the root
+    # this repository resolves to and relative to it. In local mode (#80)
+    # that root is under the git directory, and the literal `seal/specs/…`
+    # named a file the gate never reads; from a linked worktree the path
+    # climbs out of the tree, which is still the one to type. Joined the way
+    # the platform spells it, for the reason `implementer-notice.py` gives.
+    home = optin.home_at(top)
+    declaration = (
+        os.path.join(
+            os.path.relpath(home, top),
+            optin.WORK_ITEMS,
+            "<work-item-id>",
+            routing.FILENAME,
+        )
+        if home
+        else f"{routing.WORK_ITEMS}/<work-item-id>/{routing.FILENAME}"
+    )
+
     if optin.opted_in(cwd) and not has_marker(command, "[no-review]") and not routed:
         if not head or read_mark(cwd, git_dir, "specseal-reviewed") != head:
             missing.append(
@@ -857,7 +875,7 @@ def judge(cwd, top, command, invocations, clean):
                     "also": (
                         "There is a third way out of the REVIEW arm when this "
                         "commit belongs to a work item: write "
-                        "`seal/specs/<work-item-id>/routing.md` naming this "
+                        f"`{declaration}` naming this "
                         "branch, in a command of its own, then re-issue the "
                         "commit. The declaration is read from the working "
                         "tree, so it silences the review arm for the very "
@@ -883,7 +901,7 @@ def judge(cwd, top, command, invocations, clean):
                         (
                             '1. "Declare the routing"',
                             "this commit belongs to a work item whose "
-                            "`seal/specs/<work-item-id>/routing.md` is not "
+                            f"`{declaration}` is not "
                             "written "
                             "yet. Write it from `templates/sdd-routing.md`, "
                             "naming THIS branch, IN A COMMAND OF ITS OWN, and "

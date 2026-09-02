@@ -64,7 +64,11 @@ CHECKER = os.path.join(
     "scripts",
     "evidence_check.py",
 )
-LEDGER_GLOBS = ("seal/ledger.md", "seal/ledger/*.md", "docs/**/_evidence.md")
+# Two of the three live under the root `optin.home_at` resolves — under the
+# git directory in local mode (#80) — and the pre-0.10 address stays under the
+# repository root, a committed file at an old address.
+HOME_GLOBS = ("ledger.md", "ledger/*.md")
+ROOT_GLOBS = ("docs/**/_evidence.md",)
 
 
 def checker():
@@ -74,14 +78,12 @@ def checker():
     return ec
 
 
-def ledgers(root):
-    return sorted(
-        {
-            p
-            for pat in LEDGER_GLOBS
-            for p in glob.glob(os.path.join(root, pat), recursive=True)
-        }
-    )
+def ledgers(root, home=None):
+    home = home or optin.home_at(root)
+    patterns = [os.path.join(root, pat) for pat in ROOT_GLOBS]
+    if home:
+        patterns += [os.path.join(home, pat) for pat in HOME_GLOBS]
+    return sorted({p for pat in patterns for p in glob.glob(pat, recursive=True)})
 
 
 def attempted(root):
@@ -112,7 +114,19 @@ def dirty(root, paths):
     # platform, and a backslash pathspec on Windows would read as permanently
     # dirty — the migration never running, with a wrong reason printed
     # (round 4, ❓; the broad gate's windows leg gives the real answer).
-    rels = [os.path.relpath(p, root).replace(os.sep, "/") for p in paths]
+    #
+    # Only paths inside the tree are asked about. A local-mode ledger lives
+    # under the git directory (#80), where nothing is ever committed, so
+    # "uncommitted" has no meaning for it — and from a linked worktree its
+    # path climbs out of the tree, which git refuses (`is outside
+    # repository`, exit 128) and this function then read as dirty forever.
+    rels = [
+        rel
+        for rel in (os.path.relpath(p, root).replace(os.sep, "/") for p in paths)
+        if not rel.startswith("../") and not rel.startswith(".git/")
+    ]
+    if not rels:
+        return False
     try:
         r = subprocess.run(
             ["git", "-C", root, "status", "--porcelain", "--", *rels],
@@ -132,13 +146,14 @@ def main():
         cwd = event.get("cwd")
     except (ValueError, AttributeError):
         return
-    if not cwd or not os.path.isdir(cwd) or not optin.opted_in(cwd):
+    if not cwd or not os.path.isdir(cwd):
         return
     root = optin.repo_root(cwd)
-    if not root:
+    home = optin.home_at(root)
+    if not root or not home:
         return
 
-    found = ledgers(root)
+    found = ledgers(root, home)
     if not found:
         return
     ec = checker()
