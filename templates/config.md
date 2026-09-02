@@ -24,9 +24,9 @@ lookup table.
 Three things it does **not** govern, so that changing it changes only the
 prose:
 
-- **The prefix vocabulary.** `feat:`, `fix:`, `docs:` and the rest stay as
-  they are, in every repository. They are scanned in a log and parsed by
-  tooling, and a translated prefix teaches neither.
+- **The prefix vocabulary is not translated.** `feat:`, `fix:`, `docs:` and
+  the rest stay as they are, in every repository. They are scanned in a log
+  and parsed by tooling, and a translated prefix teaches neither.
 - **Branch names.** Still `<prefix>/<kebab-case-slug>` in ASCII: a branch
   name is typed into a shell and pasted into a URL.
 - **The response language** — what the session says to *you*. That is a
