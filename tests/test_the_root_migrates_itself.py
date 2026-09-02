@@ -759,3 +759,41 @@ def test_a_linked_worktree_of_a_local_mode_repository_is_stamped_too(hook, tmp_p
     assert os.path.isfile(other / ".git")
     assert start(hook, other) == ""
     assert stamped(hook, other)
+
+
+def test_a_stamped_local_mode_repository_leaves_an_old_layout_branch_alone(
+    hook, tmp_path
+):
+    """Round 1 of #80, P5, pinned. The stamp is what the local root buys: a
+    repository stamped with only `.git/seal/` that later checks out a branch
+    still carrying `.specseal/` and `specs/<id>/` is not moved — the hook
+    says nothing, creates no `<repo>/seal/`, stages nothing, and the tree the
+    person chose to keep clean stays clean. Before Q3 (a) the same repository
+    was never stamped, and that checkout moved the old layout INTO the tree.
+    """
+    d = tmp_path / "fresh"
+    d.mkdir()
+    git(d, "init", "-q", "-b", "main")
+    git(d, "config", "user.email", "t@example.com")
+    git(d, "config", "user.name", "t")
+    write(d, "f.txt", "one\n")
+    git(d, "add", "-A")
+    git(d, "commit", "-qm", "base")
+    git(d, "checkout", "-q", "-b", "old-layout")
+    write(d, ".specseal/README.md", OLD_README)
+    write(d, ".specseal/follow-up.md", FOLLOW_UP)
+    write(d, f"specs/{ITEM}/routing.md", ROUTING)
+    git(d, "add", "-A")
+    git(d, "commit", "-qm", "the 0.3.x layout")
+    git(d, "checkout", "-q", "main")
+
+    (d / ".git" / "seal").mkdir()
+    assert start(hook, d) == ""
+    assert stamped(hook, d)
+
+    git(d, "checkout", "-q", "old-layout")
+    assert (d / ".specseal").is_dir() and (d / "specs" / ITEM).is_dir()
+    assert start(hook, d) == ""
+    assert not (d / "seal").exists(), "the old layout was moved into the tree"
+    assert (d / ".specseal").is_dir() and (d / "specs" / ITEM).is_dir()
+    assert git(d, "status", "--porcelain").stdout == ""
