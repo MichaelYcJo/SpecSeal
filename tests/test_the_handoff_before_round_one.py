@@ -14,6 +14,7 @@ Each case here was shown red before the prose it pins landed (#29).
 """
 
 import os
+import re
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -111,3 +112,58 @@ def test_the_smiths_contract_does_not_demand_what_a_serial_loop_cannot_give():
     assert "Independent reads and probes go out together" in smith
     assert "inherently serial" in smith
     assert "not forced to fake a batch" in smith
+
+
+# --- the per-segment bars (work item 1788277657, round 1's tests-todo) ------
+
+
+def test_the_protocol_names_a_bar_per_segment_kind():
+    """One bar misread two of the three segment kinds: the ratio that judges
+    a reviewer is the wrong question for an edit-test loop, and the meter's
+    numbers had no written rule at all about what they mean."""
+    protocol = flat("docs", "review-handoff-protocol.md")
+    assert "tools per turn **≥ 1.8**" in protocol, "the reviewing bar went"
+    assert "never tools per turn" in protocol, (
+        "the implementing row must say which number does NOT judge it"
+    )
+    assert "`repeats = 0`" in protocol, "the implementing bar went"
+    assert "| verifying | exempt |" in protocol
+    assert "never a refusal threshold" in protocol, (
+        "the bar is a lens for rounds of ordinary size — a 23-call round "
+        "read 1.64 doing everything right, and a gate failing it would "
+        "punish the small honest round"
+    )
+
+
+def test_the_title_and_the_status_section_agree_on_the_draft():
+    """🔴 1 of the work item's round 1: the title moved to draft 0.8 while
+    the Status section still opened with 0.7 — one document naming two
+    current drafts, and Status is what a conformance reader opens. This
+    case was planted against exactly that state and seen red."""
+    text = read("docs", "review-handoff-protocol.md")
+    title = re.search(r"^# Review Handoff Protocol — draft (\d+\.\d+)", text, re.M)
+    status = re.search(r"^Draft (\d+\.\d+), extracted", text, re.M)
+    assert title, "the title moved off its `draft N.N` pattern"
+    assert status, "the Status opening moved off its `Draft N.N, extracted` pattern"
+    assert title.group(1) == status.group(1), (
+        f"the title says draft {title.group(1)} and the Status section says "
+        f"{status.group(1)} — a draft bump rewrites both lines or neither"
+    )
+
+
+def test_the_advisory_and_the_tying_paragraph_name_one_value():
+    """The bars (1.8) live in the protocol and the advisory in the script,
+    tied by one sentence — the plan's own six-month failure scenario is the
+    script's threshold moving while the sentence keeps the old value. This
+    case reads both files, so that move turns it red."""
+    script = read("skills", "verify", "scripts", "session_cost.py")
+    threshold = re.search(r'data\["tools_per_turn"\] < ([\d.]+)', script)
+    assert threshold, "the advisory threshold moved off its pattern in session_cost.py"
+    protocol = flat("docs", "review-handoff-protocol.md")
+    assert (
+        f"batching advisory below {threshold.group(1)} and stays there" in protocol
+    ), (
+        "the protocol's tying paragraph names a different value than "
+        f"session_cost.py's {threshold.group(1)} — update the sentence, "
+        "or the reader meets 1.8 and the advisory as a contradiction"
+    )
