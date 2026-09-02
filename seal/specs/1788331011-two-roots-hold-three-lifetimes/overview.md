@@ -8,8 +8,8 @@ cannot show goes here. Facts that must outlive this work item are in
 
 📋 implement applied
 · spec:     `docs/one-root-by-lifetime.md` §"The opt-in signal is the root itself" and §"What happens to the existing directories at the switch"; `spec.md` S1–S16, "The move, in order", "What the session prints, and what it refuses", "The opt-in, read one way", the per-file table; `plan.md` alternative A and the Phases table; `questions.md` Q1–Q8 at their defaults; `changelog.md`; `seal/follow-up.md` (empty of items)
-· evidence: `seal/ledger/1788331011-two-roots-hold-three-lifetimes.md`, 13 rows (phase 1), 6 rows (phase 2) and 4 rows (phase 3); 12 rows in other fragments re-verified at `a4206b0`, after phase 2's re-point 5 more re-verified and one re-anchored to the sentence it cites, and after phase 3's fixture substitution one row in `seal/ledger/1788310269-the-implementer-leaves-a-mark.md` re-read and re-verified, its claim now naming `seal/specs/<item>/routing.md`
-· verified: see the fragment — every row executed except the spec re-read in phase 3's last row, which says Read; `evidence_check.py --strict .` at `208 ok · 0 drifted · 0 broken` at the close; the full suite, lint and typecheck deliberately not run (the broad gate runs once after the rounds settle)
+· evidence: `seal/ledger/1788331011-two-roots-hold-three-lifetimes.md`, 13 rows (phase 1), 6 rows (phase 2) and 4 rows (phase 3); 12 rows in other fragments re-verified at `a4206b0`, after phase 2's re-point 5 more re-verified and one re-anchored to the sentence it cites, and after phase 3's fixture substitution one row in `seal/ledger/1788310269-the-implementer-leaves-a-mark.md` re-read and re-verified, its claim now naming `seal/specs/<item>/routing.md`; after round 1, eight rows in a *What round 1 settled* section (one per fix, and the four drained from `rounds/evidence-todo.md`, re-run here), and the row above that one in the same other fragment re-worded to `seal/` with its anchor untouched
+· verified: see the fragment — every row executed except the spec re-read in phase 3's last row, which says Read; `evidence_check.py --strict .` at `0 broken` at the close of phase 3 and again at the close of round 1's fix pass (totals in the fragment's last row); the full suite, lint and typecheck deliberately not run (the broad gate runs once after the rounds settle)
 
 ## Why this work exists
 
@@ -25,8 +25,8 @@ once at session start rather than left to find out.
 |---|---|---|---|
 | The marker when nothing old is left | Spec table row 5 said *nothing old left → nothing printed, stamped if not already*. Code stamps only when `seal/` exists at the root; a repository with neither layout is left alone | code; the spec says so since phase 3 | The stamp's one job is the once-per-repository rule, which is consulted only where something old exists; the case it guards is an old branch checked out after the move (pinned by `test_a_moved_repository_is_stamped_so_an_old_branch_is_not_moved_again`). Stamping every repository the plugin ever opens would list them all in `~/.claude/specseal/root-migrated` for nothing |
 | What counts as dirty | S6 said *`git status --porcelain -- .specseal specs` prints anything*. Code ignores an entry whose index column is `R` or `D` with a clean worktree column | code; the spec says so since phase 3 | S7 is unreachable otherwise: a stopped run leaves staged renames whose SOURCE paths are under the old roots, so the literal rule refuses every resume as dirty. A staged addition or modification, anything untracked, and anything with a worktree change still refuse (`test_a_staged_edit_under_the_old_roots_is_work_in_progress_too`) |
-| `--follow` on the README | S1: *`git log --follow` on any moved file reaches its history*. `seal/README.md` does not: rewritten whole from the template in the same commit, git pairs no rename | spec, knowingly not met for one file | Q5 (a) chose the overwrite; the old text is in history under `.specseal/README.md`, and the file is plugin-owned. Every other moved file follows |
-| Which renames are excluded | S10: *never a renamed one*. Code excludes exact renames (`R100`) only; a rename carrying an edit is judged | code | The prompt's own words, *a `routing.md` that the pull request only renamed*: an edit on the way over is the pull request's, and the check exists to read it (`test_a_declaration_the_pull_request_renamed_and_edited_is_judged`) |
+| `--follow` on the README | S1: *`git log --follow` on any moved file reaches its history*. `seal/README.md` does not: rewritten whole from the template in the same commit, git pairs no rename | spec, knowingly not met for one file; S1 says so since round 1 | Q5 (a) chose the overwrite; the old text is in history under `.specseal/README.md`, and the file is plugin-owned. Every other moved file follows |
+| Which renames are excluded | S10: *never a renamed one*. Code excludes exact renames (`R100`) only; a rename carrying an edit is judged | code; S10 says so since round 1 | The prompt's own words, *a `routing.md` that the pull request only renamed*: an edit on the way over is the pull request's, and the check exists to read it (`test_a_declaration_the_pull_request_renamed_and_edited_is_judged`) |
 | Two routing cases inverted | `tests/test_routing_is_recorded.py` pinned *writing a declaration creates no plugin home*; a declaration under `seal/specs/` creates `seal/`, which is the opt-in | code, with the two cases rewritten to pin the consequence | The design record makes the root the signal and puts the whole work item under it; the hazard those cases guarded (four gates switched on by answering a routing question) is answered by the `implement` skill's once-per-repo moment creating `seal/` on purpose (S14, phase 2) |
 | `conftest.py#declare_routing` in phase 1 | `plan.md` puts the shared fixtures in phase 3 | one line moved forward | The S11 test files cannot pass while the fixture writes `specs/<item>/routing.md`, and the spawn prompt allows exactly that case; the rest of the fixture sweep stays in phase 3 |
 | Which lines keep the old name | S15: *except the design record and its twin, and `hooks/root-migrate.py`* | code, with six line-level exceptions as well, each carrying a reason and each required to still have a line under it | `tests/test_handoff_outlives_the_merge.py` asserts the retired `.specseal/handoff` key is still named as history in both specifications; the marker text is Q2; the README says what nothing reads any more; `docs/flow.md` describes the move. Deleting those sentences to meet the literal clause would delete the reasons the clause exists for |
@@ -38,7 +38,8 @@ once at session start rather than left to find out.
 |---|---|
 | the full suite, repository-wide lint and the typecheck on this branch | the orchestrator's broad gate, once after the review rounds settle |
 | `hooks/root-migrate.py` on Windows — porcelain's two columns and the `/`-joined pathspecs are written for it, nothing here ran there | CI's windows leg on the pull request |
-| a real repository other than this one migrated by the hook at an actual session start under `dispatch.py` (the fixture run and this repository's run both called `main()` directly) | the repository owner, at the first session start after installing this branch's plugin in another opted-in repository |
+| ✅ the hook under `dispatch.py session-start` rather than `main()` called directly | round 1's P7, re-run in the fix pass on an old-layout fixture with `HOME` redirected: the `systemMessage` line delivered, the marker written, `.specseal/` and `specs/` gone |
+| a real repository other than this one, migrated at an actual session start after installing this branch's plugin | the repository owner, at the first session start in another opted-in repository |
 
 ## Not done
 
@@ -46,8 +47,8 @@ once at session start rather than left to find out.
 - Prose paths in released round records, overviews and plans still read `specs/<id>/`, per the spec's Out list.
 - `docs/review-handoff-protocol.md` carries one 89-column line after phase 2: a work item's path in backticks, which cannot be broken, in a file `tests/test_docs_line_wrap.py` does not cover.
 - The READMEs' *coming up from 0.3.x* section describes a one-time move and has the same lifetime as `hooks/root-migrate.py`: nothing marks it as such in the README itself, so whoever deletes the hook once no repository is left to migrate has to know to delete the section. The fragment's S15 row says so; the README does not.
-- The by-hand sequence in that section was run on a fixture, not on a repository that had actually used 0.3.x; the difference is only what else such a repository keeps under `.specseal/` and `specs/`, which the sequence's *anything else in there* step covers by hand.
-- S1's *`--follow` reaches history on any moved file* and S10's *never a renamed one* are still the spec's words while the code and the divergence table above say otherwise for one file and for renames carrying an edit. Phase 3 fed back S6 and the table, which the memo had named as the open decision; these two are recorded here rather than rewritten, because each is one file or one qualifier and the table is where a reader looks first.
+- The by-hand sequence in that section was run on a fixture, not on a repository that had actually used 0.3.x, and since round 1 a test reads the block out of each README and runs it on a copy of that fixture; the difference is only what else such a repository keeps under `.specseal/` and `specs/`, which the sequence's *anything else in there* step covers by hand.
+- The hook and the by-hand block leave an ignored file under `.specseal/` where it is, and neither says so to the person; `.specseal/` holding only ignored files after the move is named in the spec's refusal table and nowhere a person reads.
 
 ## Fed back into the spec
 
@@ -67,5 +68,19 @@ it may be overturned:
 - "The move, in order", step 3 — a template that cannot be read leaves the
   moved README as it was.
 
-Not fed back: S1's one exception (`seal/README.md`, Q5) and S10's *exact
-renames only*; both stay in the divergence table above.
+Round 1's fix pass fed back the rest, each likewise *inferred during
+implementation*:
+
+- S1 — `git log --follow` reaches history on every moved file *except
+  `seal/README.md`, rewritten from the template (Q5)*.
+- S10 — a declaration the pull request only renamed is *an exact rename; one
+  carrying an edit is judged*.
+- "The move, in order", step 4 — every other *tracked* entry; the units are
+  what `git ls-files` reports, an ignored file stays, and when git cannot
+  answer the listing stands in and the dirty test refuses.
+- Step 6 — `specs/<id>/` where `<id>` is a work item; a row citing an entry
+  that stays, stays with it.
+- The refusal table — the *clean, moved* row says `.specseal/` may remain
+  holding only ignored files; the *move failed* row names the two shapes
+  that do not resume by themselves and the line they end with; a new row for
+  every unit moved and the re-point failed.

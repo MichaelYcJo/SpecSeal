@@ -1,5 +1,7 @@
 # verified facts to merge into the work item's ledger fragment
 
+drained — all four rows merged into `seal/ledger/1788331011-two-roots-hold-three-lifetimes.md` ("What round 1 settled") at RECORD_SHA; rows 1, 2 and 4 re-run in the fix pass rather than copied, row 3 pinned by the planted by-hand test.
+
 | Claim | Grounds | Label |
 |---|---|---|
 | `chain_check.py --baseline origin/release/v0.4.0` at 4516166 judges one declaration (this item) and excludes fourteen `R100` renames | `skills/code-review/scripts/chain_check.py#changed`, `#changed_routing` | Executed |
