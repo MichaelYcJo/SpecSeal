@@ -25,10 +25,10 @@ verified and the broad gate ran again. -->
 |---|---|---|---|---|
 | 🔴 2-M | round-2 🔴 M (the second gate-prompt assertion spelled the path with slashes; the windows leg failed) | `tests/test_routing_is_recorded.py#test_the_second_prompt_names_it_too` | answered — the fix is 46c658d's, this round reproduced its closure | executed: the five-file slice 195 passed; `ntpath.join` of the four parts contains the old literal → False and the new expression → True, `posixpath` both True, so the old assertion failed only on Windows and the new one holds on both; the finding itself re-read from run 33643327406's log (one failure, 1347 passed, 22 skipped); `git show --stat 46c658d`: three files, no hook line |
 | 🟢 grep | the smith's claim that no other `/`-literal compares a hook's printed path | `tests/*.py` | truthful | 79 hits of the first grep and 55 of a wider one classified by the reviewer: fixture writes, document text, negative assertions, `pathlib` checks, docstrings; `root-migrate.py` prints posix spellings from its constants and its cases passed on the windows leg |
-| 🟢 fix-surface | round-2's `Contract changes: none` / `New units: none` for 🔴 M | `rounds/round-2.md` | truthful | the diff holds one assertion, one ledger row, one overview clause |
+| 🟢 fix-surface | round-2's `Contract changes: none` / `New units: none` for finding M | `rounds/round-2.md` | truthful | the diff holds one assertion, one ledger row, one overview clause |
 | 🟡 A | the re-hashed ledger row's Evidence cell cited the 947-case run at the old hash as if it covered the new assertion | `seal/ledger.md` (the routing-recorded row) | answered — the Evidence sentence now says which run covered which assertion; a ledger sentence in this record's commit, no code | read |
 | 🟢 B | `overview.md`'s Windows row said "every other case passed on that leg"; 22 were skipped by their own platform guards | `overview.md` Not verified | answered — the clause added in this record's commit | read (the CI log) |
-| carried | round-2's other verdicts (🔴 1-1 … 🟢 D) | — | carried, not re-judged | the fix diff touched none of their surfaces |
+| carried | round-2's other verdicts (1-1 through D) | — | carried, not re-judged | the fix diff touched none of their surfaces |
 
 ## Executed probes
 
