@@ -55,6 +55,9 @@ COVERED = [
     # Wrapped from its first line, so it goes in at birth rather than waiting
     # for the sweep that would otherwise be needed to bring it under.
     "skills/commit-pr-convention/SKILL.md",
+    # Wrapped from its first line, so it goes in at birth rather than waiting
+    # for the sweep that would otherwise be needed to bring it under.
+    "docs/release-checklist.md",
 ]
 
 

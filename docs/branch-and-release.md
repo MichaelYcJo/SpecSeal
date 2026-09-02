@@ -6,6 +6,9 @@ read before a merge, and nobody opens a contribution guide at that moment.
 
 ## Cutting a release
 
+The day-of list, in the order the steps run and with what each check has
+caught before, is `docs/release-checklist.md`. This section is the why.
+
 Two things carry the version and they are read by different code. Both, or the
 release is invisible to the people already running the plugin.
 
