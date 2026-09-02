@@ -158,7 +158,9 @@ def test_no_committed_declaration_still_carries_a_template_placeholder():
     would sit in the record forever, reading to a person as an answer."""
     import glob
 
-    for path in sorted(glob.glob(os.path.join(ROOT, "specs", "*", "routing.md"))):
+    for path in sorted(
+        glob.glob(os.path.join(ROOT, "seal", "specs", "*", "routing.md"))
+    ):
         with open(path, encoding="utf-8") as f:
             for line in f:
                 if not line.startswith("|"):
