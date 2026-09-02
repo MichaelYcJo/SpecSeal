@@ -50,13 +50,11 @@
   uncommitted changes under `.specseal/` or `specs/` is refused with a line
   saying to commit first and retried at the next clean start; a move that
   stopped resumes; a repository carrying `.specseal/scratch` is left alone;
-  the once-per-repository marker is `~/.claude/specseal/root-migrated`. To
-  move by hand instead — the README's *Coming up from 0.3.x* carries the
-  same sequence: `mkdir -p seal/specs`, `git mv .specseal/map.md
-  seal/ledger.md`, `git mv .specseal/map seal/ledger`, the rest of
-  `.specseal/` into `seal/`, each `specs/<id>` into `seal/specs/<id>`,
-  `rmdir .specseal specs`, then `evidence-check --reverify .`, which
-  re-points each row citing a moved file. Every gate, checker and release
+  the once-per-repository marker is `~/.claude/specseal/root-migrated`. To move by hand instead, run the sequence in the README's *Coming up from
+  0.3.x*: it creates `seal/specs`, then does one `git mv` per entry of
+  `.specseal/` and per work item, removes the two emptied directories, and
+  ends with `evidence-check --reverify .`, which re-points each row citing a
+  moved file. Every gate, checker and release
   script reads the new paths; the `<!-- specs/<id> -->` markers in
   `CHANGELOG.md` and the ledger are unchanged; the chain check no longer
   judges a declaration that a pull request only renamed; `templates/map.md`
