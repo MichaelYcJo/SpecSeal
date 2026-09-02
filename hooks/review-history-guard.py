@@ -25,7 +25,7 @@ keyed by a pull request number. That number does not exist while the rounds
 that would fill it are running, so no correct session could create the
 directory, and none ever did — the reminder above fired against a path that
 has never existed in this repository. They now live beside the work item, at
-`specs/<work-item-id>/rounds/`, which exists from the first commit because the
+`seal/specs/<work-item-id>/rounds/`, which exists from the first commit because the
 routing declaration is written before the first edit.
 
 `rounds/` is one level below the work item, and the flat location it replaced
@@ -43,7 +43,7 @@ run from a branch that declared nothing is not reminded — the cost of one
 key instead of two, and the enforcement that replaced the deadline is the
 pull-request check in CI, not this.
 
-Reminder-only (PostToolUse cannot block). Active only in repos with `.specseal/`
+Reminder-only (PostToolUse cannot block). Active only in repos with `seal/`
 at the root — a globally installed plugin must not nag unrelated repos.
 """
 

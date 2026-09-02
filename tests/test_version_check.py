@@ -26,7 +26,7 @@ def hook(tmp_path, monkeypatch):
 
 
 def opt_in(repo):
-    (repo / ".specseal").mkdir(exist_ok=True)
+    (repo / "seal").mkdir(exist_ok=True)
 
 
 def drive(hook, repo, running=(0, 7, 1), remote=(0, 8, 0), monkeypatch=None):

@@ -40,7 +40,7 @@ def tracked(*prefixes):
 def test_no_loaded_file_hardcodes_the_running_version():
     """A version number written into prose is right for exactly one release.
 
-    `specs/` and `CHANGELOG.md` are records of a moment and keep theirs."""
+    `seal/specs/` and `CHANGELOG.md` are records of a moment and keep theirs."""
     offenders = []
     for rel in tracked(
         "skills",
@@ -115,7 +115,8 @@ def test_no_section_accumulates_entries_in_the_shared_file():
     This case used to check that it sat ABOVE every dated section, after a
     rebase conflict resolved the wrong way sank it below one. That ordering
     stopped being the problem when the section stopped existing: entries
-    accumulate as `specs/<work-item-id>/changelog.md` fragments now, and the
+    accumulate as `seal/specs/<work-item-id>/changelog.md` fragments now, and
+    the
     release gathers them into a dated section at the top. A heading by that
     name means somebody went back to the shared file, which is issue #46.
 
@@ -128,7 +129,7 @@ def test_no_section_accumulates_entries_in_the_shared_file():
     found = [h for h in headings if h.lower().startswith("unreleased")]
     assert not found, (
         f"CHANGELOG.md carries {found} again. An entry goes in "
-        "specs/<work-item-id>/changelog.md; `gather_changelog.py --version "
+        "seal/specs/<work-item-id>/changelog.md; `gather_changelog.py --version "
         "X.Y.Z` is what writes a section here"
     )
 
@@ -174,7 +175,8 @@ def test_the_release_target_is_asked_before_the_work_starts():
         )
         # Round 1, 🔴 7. This used to require the literal `## Unreleased`, and
         # that is a heading THIS repository no longer has: entries accumulate
-        # as `specs/<work-item-id>/changelog.md` fragments. A `smith` reading
+        # as `seal/specs/<work-item-id>/changelog.md` fragments. A `smith`
+        # reading
         # its own contract therefore either created the heading — reddening
         # `test_no_section_accumulates_entries_in_the_shared_file` — or
         # appended under the newest released section, which is the collision
@@ -347,7 +349,7 @@ def test_no_korean_pr_body_claims_a_close_that_did_not_happen():
     named #54, the issue this work item leaves open on purpose."""
     import glob
 
-    for path in sorted(glob.glob(os.path.join(ROOT, "specs", "*", "pr.ko.md"))):
+    for path in sorted(glob.glob(os.path.join(ROOT, "seal", "specs", "*", "pr.ko.md"))):
         text = open(path, encoding="utf-8").read()
         for line in text.splitlines():
             if "닫습니다" in line and "#" in line and "닫히지" not in line:
@@ -490,24 +492,6 @@ def test_the_pull_request_checks_the_chain_it_was_routed_to():
     ), "the workflow calls a script that is not there"
 
 
-def test_this_repository_carries_no_scratch_marker():
-    """`.specseal/scratch` turns every gate off for the repository holding it.
-
-    It is an opt-out for a repository built to be thrown away, and
-    `.specseal/` is committed by design — so one committed here would silence
-    the review gate, the migration gate and the review-skill gate in every
-    clone, with nothing in a diff that reads as "the workflow was switched
-    off". A repository that runs the review chain on itself is the last place
-    it belongs, and this is the only check that would notice.
-    """
-    marker = os.path.join(ROOT, ".specseal", "scratch")
-    assert not os.path.exists(marker), (
-        "this repository carries .specseal/scratch, which silences every gate "
-        "in every clone. Delete it — it is for a scratch repository, never for "
-        "one under review"
-    )
-
-
 def test_the_chain_check_reuses_the_reader_rather_than_writing_a_second():
     """Two readers of the same markdown drifted apart in four places across
     three review rounds here, and closing one pair opened another. A 🔴 inside
@@ -521,3 +505,25 @@ def test_the_chain_check_reuses_the_reader_rather_than_writing_a_second():
         "the check reads lines the shared reader never normalized"
     )
     assert "def split_row" not in check, "a second row reader"
+
+
+def test_this_repository_has_one_root_laid_out_by_lifetime():
+    """S1 of the 0.4.0 root move. `seal/` holds the whole tree — the rows
+    that outlive a work item at its top, every work item whole under
+    `specs/` — and neither of the two old roots exists. A `.specseal/` here
+    would opt nothing in and be read by nothing but the migration hook, which
+    is the silence every gate would give this repository."""
+    seal = os.path.join(ROOT, "seal")
+    for rel in ("README.md", "ledger.md", "follow-up.md"):
+        assert os.path.isfile(os.path.join(seal, rel)), rel
+    assert os.path.isdir(os.path.join(seal, "ledger"))
+    items = [
+        n
+        for n in os.listdir(os.path.join(seal, "specs"))
+        if os.path.isfile(os.path.join(seal, "specs", n, "routing.md"))
+    ]
+    assert items, "no work item under seal/specs/ carries a routing.md"
+    for old in (".specseal", "specs"):
+        assert not os.path.exists(os.path.join(ROOT, old)), (
+            f"{old}/ is back. Nothing reads it since 0.4.0; move it into seal/"
+        )

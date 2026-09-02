@@ -1,6 +1,6 @@
 # <work-item-id> — routing
 
-<!-- specs/<unix-epoch-seconds>-<slug>/routing.md — the answer given before the
+<!-- seal/specs/<unix-epoch-seconds>-<slug>/routing.md — the answer given before the
 first edit, in the batch the `implement` skill collects (§1). Committed,
 because the check happens at the pull request and CI sees only what is in the
 tree.

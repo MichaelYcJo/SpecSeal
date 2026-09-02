@@ -26,11 +26,11 @@ target: judging an unknown target against the session's marks would answer for
 a repository the commit may never touch.
 
 Opt-in per repository: the gate is active only where the preset workflow is in
-use, detected by a `.specseal/` directory at the repo root (see hooks/optin.py).
-Everywhere else this hook stays silent — a globally installed plugin must not
-nag unrelated repos.
+use, detected by a `seal/` root (see hooks/optin.py for the two places it is
+read at). Everywhere else this hook stays silent — a globally installed plugin
+must not nag unrelated repos.
 
-A repo that declares `.specseal/parity.md` opts into a second check: ported
+A repo that declares `seal/parity.md` opts into a second check: ported
 behavior follows the original where policy is silent, so a commit touching
 code should carry a record that the original was consulted. The legacy-parity
 skill writes the compared HEAD to <git-dir>/specseal-parity.
@@ -477,15 +477,18 @@ def changed_paths(cwd, invocations):
     return paths
 
 
-DOC_ROOTS = ("docs/", "specs/", ".specseal/")
+# `seal/` as a string rather than `optin.HOME` joined under anything: these
+# classify paths as `git diff` prints them, repository-relative, and a path
+# in a diff is only ever the shared root (`docs/one-root-by-lifetime.md`).
+DOC_ROOTS = ("docs/", "seal/")
 
 
 def touches_code(cwd, invocations):
     """True when the change is not confined to the document roots.
 
-    A commit that only moves docs/, specs/ or .specseal/ has nothing to compare
-    against an original, and asking there would train people to click through
-    the prompt — which costs more than the check is worth.
+    A commit that only moves docs/ or seal/ has nothing to compare against an
+    original, and asking there would train people to click through the
+    prompt — which costs more than the check is worth.
     """
     paths = changed_paths(cwd, invocations)
     return any(not path.startswith(DOC_ROOTS) for path in paths)
@@ -854,7 +857,7 @@ def judge(cwd, top, command, invocations, clean):
                     "also": (
                         "There is a third way out of the REVIEW arm when this "
                         "commit belongs to a work item: write "
-                        "`specs/<work-item-id>/routing.md` naming this "
+                        "`seal/specs/<work-item-id>/routing.md` naming this "
                         "branch, in a command of its own, then re-issue the "
                         "commit. The declaration is read from the working "
                         "tree, so it silences the review arm for the very "
@@ -880,7 +883,8 @@ def judge(cwd, top, command, invocations, clean):
                         (
                             '1. "Declare the routing"',
                             "this commit belongs to a work item whose "
-                            "`specs/<work-item-id>/routing.md` is not written "
+                            "`seal/specs/<work-item-id>/routing.md` is not "
+                            "written "
                             "yet. Write it from `templates/sdd-routing.md`, "
                             "naming THIS branch, IN A COMMAND OF ITS OWN, and "
                             "then re-issue the commit unchanged. The Review "

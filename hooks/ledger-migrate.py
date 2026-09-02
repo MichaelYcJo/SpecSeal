@@ -64,7 +64,7 @@ CHECKER = os.path.join(
     "scripts",
     "evidence_check.py",
 )
-LEDGER_GLOBS = (".specseal/map.md", ".specseal/map/*.md", "docs/**/_evidence.md")
+LEDGER_GLOBS = ("seal/ledger.md", "seal/ledger/*.md", "docs/**/_evidence.md")
 
 
 def checker():

@@ -20,7 +20,7 @@ def payload(cmd, repo, session="s1"):
 
 
 def opt_in(repo):
-    (repo / ".specseal").mkdir(exist_ok=True)
+    (repo / "seal").mkdir(exist_ok=True)
 
 
 def git(repo, *a):
@@ -326,7 +326,7 @@ def test_parity_declaration_is_bootstrappable_not_hand_written():
         os.path.join(ROOT, "skills", "implement", "SKILL.md"), encoding="utf-8"
     ).read()
     assert "templates/parity.md" in implement, "bootstrap never points at the template"
-    assert ".specseal/README.md" in implement
+    assert "seal/README.md" in implement
 
     setup = os.path.join(ROOT, "skills", "parity-setup", "SKILL.md")
     assert os.path.isfile(setup), "no command for declaring parity later"
@@ -367,7 +367,7 @@ def parity_repo(repo):
 
     It used to be possible to declare parity alone, through the pre-0.10
     `docs/parity.md`. That address is gone, and the current one lives INSIDE
-    `.specseal/`, so writing it creates the directory whose existence is the
+    `seal/`, so writing it creates the directory whose existence is the
     review opt-in. The two arms are still evaluated independently — own
     marker, own waiver token, own silence rules — but they can no longer be
     declared independently, and `docs/review-chain-spec.md` says so.
@@ -376,8 +376,8 @@ def parity_repo(repo):
     `[no-review]` to silence the other one. That is the per-command waiver
     doing exactly its job.
     """
-    (repo / ".specseal").mkdir(exist_ok=True)
-    (repo / ".specseal" / "parity.md").write_text("| Original repo | org/legacy |\n")
+    (repo / "seal").mkdir(exist_ok=True)
+    (repo / "seal" / "parity.md").write_text("| Original repo | org/legacy |\n")
 
 
 def parity_only(command):
@@ -859,14 +859,15 @@ def test_the_design_gate_belongs_to_the_smith():
 
 def test_spec_directories_carry_the_timestamp_prefix():
     # implement/SKILL.md: "A work item's directory is
-    # specs/<unix-epoch-seconds>-<slug>/ ... keeps directories in creation
-    # order and collision-free without a registry". Two were written without
+    # seal/specs/<unix-epoch-seconds>-<slug>/ ... keeps directories in
+    # creation order and collision-free without a registry". Two were written
+    # without
     # it and nothing noticed — the drift this plugin exists to catch, in its
     # own tree. The four that predate the convention were backfilled from the
     # commit that introduced each, so a plain listing now reads in order.
     import re
 
-    specs = os.path.join(ROOT, "specs")
+    specs = os.path.join(ROOT, "seal", "specs")
     offenders = [
         name
         for name in sorted(os.listdir(specs))
@@ -892,7 +893,7 @@ def test_every_spec_directory_that_reached_the_ladder_has_an_overview():
     `spec.md` or a `plan.md`, someone decided the work was worth describing,
     and the memo is the other half of that.
     """
-    specs = os.path.join(ROOT, "specs")
+    specs = os.path.join(ROOT, "seal", "specs")
     missing = []
     for n in sorted(os.listdir(specs)):
         d = os.path.join(specs, n)

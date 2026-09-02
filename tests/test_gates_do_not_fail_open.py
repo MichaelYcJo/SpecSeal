@@ -99,7 +99,7 @@ def test_a_repository_whose_path_the_locale_cannot_carry_still_resolves(tmp_path
     substitution in this work item.
     """
     repo = git_repo(tmp_path / KOREAN / "repo")
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir()
     got = optin.repo_root(str(repo))
     assert got, "the root came back empty for a repository that is right there"
     assert os.path.isdir(got), f"resolved to a directory that does not exist: {got!r}"
@@ -151,7 +151,7 @@ def test_a_ledger_that_could_not_be_read_is_never_read_as_empty(tmp_path, monkey
     as root on one platform.
     """
     ec = load("skills/evidence-check/scripts/evidence_check.py", "specseal_ec_failopen")
-    ledger = tmp_path / ".specseal" / "map" / "f.md"
+    ledger = tmp_path / "seal" / "ledger" / "f.md"
     ledger.parent.mkdir(parents=True)
     ledger.write_text("# frag\n\n| C | `src/a.py#f@00000000` |\n", encoding="utf-8")
     monkeypatch.setattr(ec, "read", lambda path: None)

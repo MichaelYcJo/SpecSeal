@@ -12,7 +12,7 @@ Coding agents make claims. SpecSeal makes each claim leave something you can
 open: a **proof block** the smith prints at the end of its response, naming the
 policy files it read and what it actually ran, a **review mark**
 (`.git/specseal-reviewed`, holding the reviewed HEAD sha) that a commit hook
-looks for, and an **evidence ledger** (`.specseal/map.md`) pairing each spec
+looks for, and an **evidence ledger** (`seal/ledger.md`) pairing each spec
 clause with the code that grounds it.
 
 Commit without a current review mark and the hook stops the commit and puts the
@@ -38,7 +38,7 @@ works outside the context entirely (hooks).
 |---|---|---|
 | **smith** (Claude Code subagent) | `implement` · `writing-style` | Implements against the spec, then prints a three-line proof block: which policy files it opened, which ledger rows it touched, what it executed versus merely read. The block is a disclosure the skill requires, not something a hook verifies — but `none — <reason>` in a row is visible to you |
 | **warden** (subagent) | `code-review` · `writing-style` | Reviews spec compliance first, then quality. Once its report is verified the orchestrator writes the reviewed HEAD sha to `.git/specseal-reviewed`, which is what the commit gate looks for — the reviewer never writes its own mark |
-| **scribe** (subagent) | `legacy-parity` | Records what the original code does as `path#anchor` coordinates and returns facts, not verdicts. Appears only in repos that declare `.specseal/parity.md` |
+| **scribe** (subagent) | `legacy-parity` | Records what the original code does as `path#anchor` coordinates and returns facts, not verdicts. Appears only in repos that declare `seal/parity.md` |
 | Skills | — | Twenty-one, in three groups. The four the agents follow are in the column to the left. Eleven more a session loads on its own when the work calls for them — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. Six you invoke by name; they are in the cheat sheet below |
 | Hooks | — | The gates themselves — auto-registered by the plugin, no settings wiring |
 | CLAUDE.md block | — | 12 always-on lines — four section headings (`Tooling`, `Safety`, `Session cost`, `Git`) over eight rules: one on tooling, three on safety, one on session cost, three on git. No response-language rule — that stays yours |
@@ -88,7 +88,7 @@ either way.
 The review run is bounded: three rounds, or five while something marked
 🔴 *blocks merge* is still open and only to close it. Then it ends whether
 or not everything was resolved. What is left is handed over rather than
-carried — an unanswered finding to `.specseal/follow-up.md`, a decision only
+carried — an unanswered finding to `seal/follow-up.md`, a decision only
 you can make to `questions.md`, an original whose behavior is plainly wrong
 recorded both ways — each named in the PR body. **The chain ends at a PR,
 never at a merge.**
@@ -102,27 +102,25 @@ Cross-session memory lives in the repo, not the session:
 
 | Root | Lifetime | Holds |
 |---|---|---|
-| `.specseal/` | permanent | everything this plugin maintains. Its existence is also what opts the repository in, for the four hooks that read it — the commit gate, the review-skill gate, the review-history guard and the version check. worktree-guard and session-lease act in every git repo regardless, and lint-python follows ruff (see Where below) |
-| `specs/` | one work item | SDD set: spec, plan, questions, and a closing memo holding only what the diff cannot show. A human approves `plan.md`, which is why this is a repository document and not tool state |
+| `seal/` | permanent | everything this plugin maintains — the ledger, the follow-up list, the migration config — and, beneath it, the work items. Its existence is also what opts the repository in, for the four hooks that read it — the commit gate, the review-skill gate, the review-history guard and the version check. worktree-guard and session-lease act in every git repo regardless, and lint-python follows ruff (see Where below) |
+| `seal/specs/<id>/` | one work item | SDD set: spec, plan, questions, and a closing memo holding only what the diff cannot show. A human approves `plan.md`, which is why this is a repository document and not tool state |
 | `docs/` | permanent | whatever policy documents the repository already keeps. **Never created here** — a project's documentation convention is its own |
 
 ```
-.specseal/
-├── map.md            spec clause ↔ code coordinates, from before work items
+seal/
+├── README.md         the export rules — what leaves a work item before it closes
+├── ledger.md         spec clause ↔ code coordinates, from before work items
 │                     started writing fragments
-├── map/
-│   └── <work-item-id>.md   one work item's rows — no header, folded into map.md at release
+├── ledger/
+│   └── <work-item-id>.md   one work item's rows — no header, folded into ledger.md at release
 ├── parity.md         migration config, only when declared
-└── follow-up.md      schedulable items in a repository with no tracker
-```
-
-```
-specs/<work-item-id>/
-├── routing.md        which way this work item goes, written before the first edit
-├── spec.md · plan.md · questions.md · overview.md
-├── rounds/
-│   └── round-N.md    review rounds — committed, drained, then closed and kept
-└── tests-todo.md · evidence-todo.md
+├── follow-up.md      schedulable items in a repository with no tracker
+└── specs/<work-item-id>/
+    ├── routing.md    which way this work item goes, written before the first edit
+    ├── spec.md · plan.md · questions.md · overview.md
+    ├── rounds/
+    │   └── round-N.md    review rounds — committed, drained, then closed and kept
+    └── tests-todo.md · evidence-todo.md
 ```
 
 Judgment runs policy > SDD > code where a repository has policy documents, and
@@ -133,7 +131,7 @@ Missing files bootstrap from `templates/`. The handoff convention is
 specified tool-agnostically in
 [docs/review-handoff-protocol.md](./docs/review-handoff-protocol.md) — any
 agent that reads and writes files in a git repo can conform. It names the
-records' home as *the directory that holds the work item*; `specs/<id>/` is
+records' home as *the directory that holds the work item*; `seal/specs/<id>/` is
 this implementation's answer to that, not the protocol.
 
 The ledger is *checked*, not merely kept. A coordinate names **content, not a
@@ -171,19 +169,19 @@ decision tables:
 
 | Gate | Fires | Does | Where |
 |---|---|---|---|
-| commit-review-gate | before `git commit` | stops the commit when `.git/specseal-reviewed` does not hold the current HEAD sha, and puts the two ways on to you as options: run the review chain, or commit with `[no-review]` (which stays visible in the command). In a repo that declares `.specseal/parity.md` it also stops a code commit with no `.git/specseal-parity` for this HEAD — compare against the original, or `[no-parity]`. Both arms are put up together, in one question each. **Once per session per repository** — after that it is the plain confirmation, where approving is the waiver. The repository judged is the one the command commits **into** — `git -C <path> commit` is judged at `<path>`, not where the shell sits. A `-C` the gate cannot resolve to a repository (a shell variable, since the gate reads the command before the shell expands it) stops the commit rather than passing it: it was never looked at, and that used to be indistinguishable from having passed | `.specseal/` at the root — silent elsewhere. A migration config lives inside it, so declaring one opts into both arms; waive the review arm per command with `[no-review]`, typed in FRONT of the command — `: '[no-review]'; git commit …`, quotes included |
-| review-history-guard | after posting/reading a PR review via `gh` | reminds to write / read `specs/<work-item>/rounds/round-N.md` and the two todo files beside `rounds/`. It also names any record left at the old flat location, since nothing reads one there. It finds the work item the way the commit gate does — through the routing declaration that names this branch — so a branch that declared nothing is not reminded | same opt-in |
-| implementer-mark | before an Agent/Task call whose `subagent_type` is `smith` (`specseal:smith`, or a project-local `smith`) | writes the checked-out branch name to `.git/specseal-implementer`. It prints nothing, so it can neither deny nor ask; it is the trace the notice below reads. Written before the group decides, so a spawn the worktree guard then stops still leaves one | `.specseal/` at the root — silent elsewhere, and writes nothing |
+| commit-review-gate | before `git commit` | stops the commit when `.git/specseal-reviewed` does not hold the current HEAD sha, and puts the two ways on to you as options: run the review chain, or commit with `[no-review]` (which stays visible in the command). In a repo that declares `seal/parity.md` it also stops a code commit with no `.git/specseal-parity` for this HEAD — compare against the original, or `[no-parity]`. Both arms are put up together, in one question each. **Once per session per repository** — after that it is the plain confirmation, where approving is the waiver. The repository judged is the one the command commits **into** — `git -C <path> commit` is judged at `<path>`, not where the shell sits. A `-C` the gate cannot resolve to a repository (a shell variable, since the gate reads the command before the shell expands it) stops the commit rather than passing it: it was never looked at, and that used to be indistinguishable from having passed | `seal/` at the root — silent elsewhere. A migration config lives inside it, so declaring one opts into both arms; waive the review arm per command with `[no-review]`, typed in FRONT of the command — `: '[no-review]'; git commit …`, quotes included |
+| review-history-guard | after posting/reading a PR review via `gh` | reminds to write / read `seal/specs/<work-item>/rounds/round-N.md` and the two todo files beside `rounds/`. It also names any record left at the old flat location, since nothing reads one there. It finds the work item the way the commit gate does — through the routing declaration that names this branch — so a branch that declared nothing is not reminded | same opt-in |
+| implementer-mark | before an Agent/Task call whose `subagent_type` is `smith` (`specseal:smith`, or a project-local `smith`) | writes the checked-out branch name to `.git/specseal-implementer`. It prints nothing, so it can neither deny nor ask; it is the trace the notice below reads. Written before the group decides, so a spawn the worktree guard then stops still leaves one | `seal/` at the root — silent elsewhere, and writes nothing |
 | implementer-notice | after a command that actually runs `git commit` | where this branch's `routing.md` answers `Implementation` with `smith` and no mark stands for this branch, prints one line naming the file. Nothing is said when the mark stands, when the row is absent or unreadable, or when it answers `the session`. **Once per session per repository**, and it never blocks — a declared `smith` nobody spawned is a session forgetting its own answer, and a reminder is what that costs | same opt-in |
-| review-skill-gate | before the model opens a skill named `code-review` | puts the choice to you rather than making it: that name is Claude Code's built-in, not this plugin's. The built-in sweeps the diff for bugs and cleanup; `specseal:code-review` judges spec compliance first and inherits earlier rounds' verdicts. Fires **once per session per working tree**, so picking the built-in and retrying goes straight through. A skill you invoke yourself never routes through here | `.specseal/` at the root — silent elsewhere |
+| review-skill-gate | before the model opens a skill named `code-review` | puts the choice to you rather than making it: that name is Claude Code's built-in, not this plugin's. The built-in sweeps the diff for bugs and cleanup; `specseal:code-review` judges spec compliance first and inherits earlier rounds' verdicts. Fires **once per session per working tree**, so picking the built-in and retrying goes straight through. A skill you invoke yourself never routes through here | `seal/` at the root — silent elsewhere |
 | worktree-guard | before `git checkout`/`switch`, `git worktree add`, and Agent calls with `isolation: "worktree"` | one rule in two directions: denies a switch while another session is actively working this tree, and denies creating a worktree when yours is the only live stream. Where the tree holds only idle sessions, or the environment cannot be read at all, it offers the two ways on as options instead — switch here, or split into a worktree — **once per session per repository per direction**, then the plain confirmation. The two directions are counted apart, so one session can legitimately meet the question twice. `[worktree-ok]` and `[shared-tree-ok]` carry your answer back through on the retry. The reason names the other session's host app, how long each signal has been quiet, and its last message | any git repo |
 | session-lease | after repo-touching tool calls (Bash · file edits) | writes a timestamp, host, and owning session pid to `.git/specseal-leases/<session-id>`. The guard's process heuristics miss sessions not named `claude`; a lease says outright which session is working here. Nothing removes the file at session end, so the owner is recorded: a lease whose session has exited is retired rather than counted, and one that cannot be attributed becomes a question instead of a block | any git repo |
-| version-check | at session start | asks this repository for its newest release tag and, when the running plugin is behind, shows one line naming `/specseal:update`. Once a day, and a lookup that fails retries about twenty minutes later. It never installs anything — telling you a release exists and installing it are different acts | `.specseal/` at the root — silent elsewhere |
+| version-check | at session start | asks this repository for its newest release tag and, when the running plugin is behind, shows one line naming `/specseal:update`. Once a day, and a lookup that fails retries about twenty minutes later. It never installs anything — telling you a release exists and installing it are different acts | `seal/` at the root — silent elsewhere |
 | lint-python | after Write/Edit/NotebookEdit on a `.py` file | runs `ruff check --fix` then `ruff format` on that file — autofixes included, so code changes, not just layout (uv → uvx → global ruff; skips silently if none). `SPECSEAL_LINT=off` disables it | **a project that configures ruff** — `ruff.toml`, `.ruff.toml`, or `[tool.ruff]` in `pyproject.toml`, searched up to the repo root. Silent everywhere else |
 
 The commit gate is not the only place the review chain is enforced any more,
 and for work that declares its route it is no longer the place at all. A work
-item writes `specs/<id>/routing.md` before its first edit — which way it goes,
+item writes `seal/specs/<id>/routing.md` before its first edit — which way it goes,
 and whether it opens a pull request — and the gate reads that instead of
 guessing from the absence of a mark. The check moved to the pull request: CI
 reads the same file out of the diff and, for anything routed through the
@@ -216,7 +214,7 @@ in ruff-configured projects only.
 
 Two hooks reach the network. lint-python falls back to `uvx ruff`, and uv
 fetches ruff from PyPI on first use. version-check runs one `git ls-remote
---tags` against this repository, once a day where `.specseal/` exists. A lookup
+--tags` against this repository, once a day where `seal/` exists. A lookup
 that fails retries about twenty minutes later rather than waiting out the day.
 What that tells GitHub is that a machine somewhere runs SpecSeal. Both stay
 silent when the network is unavailable.
@@ -229,7 +227,7 @@ stays on your machine.
 
 ## Honoring the original (migrations)
 
-A repo that declares `.specseal/parity.md` (original repo, baseline commit) gets
+A repo that declares `seal/parity.md` (original repo, baseline commit) gets
 three-way judgment — policy ↔ original ↔ new, with *preserve the original*
 as the fallback — and the scribe fetches the original's facts. Repos without
 the config never see any of it.
@@ -328,11 +326,45 @@ are warned about, not resolved. For a reviewed, deduplicating merge run
 `/specseal:preset-setup` inside Claude Code instead — every deletion goes through an
 approval diff.
 
+### Coming up from 0.3.x
+
+0.3.x kept the plugin's files in two directories (`.specseal/`, `specs/<id>/`);
+this release keeps them in one, `seal/`, and that folder's presence is now what
+opts a repository in. The old pair opts nothing in any more, so until it is
+moved every gate is silent there.
+
+The move happens once, at the first session start after updating. The hook
+renames every file with a staged `git mv` (history follows), re-points the
+ledger rows that cite a moved file with their hashes untouched, prints one
+line saying what moved, and stops there: you review `git diff --cached` and
+commit. That commit belongs to no work item, so inside a session the commit
+gate asks; waive it for that one command with
+`: '[no-review]'; git commit -m "specseal: the root move"`, and put `[no-parity]` in
+the same position where `seal/parity.md` exists.
+
+A tree with uncommitted changes under the old pair is refused with a line
+saying to commit first, and the next clean session start moves it. A
+repository carrying the throwaway marker `.specseal/scratch` is left alone;
+its successor is the file `.git/specseal-scratch`, which cannot be committed.
+
+To move by hand instead — in CI, or without waiting for a session:
+
+```bash
+mkdir -p seal/specs
+git mv .specseal/map.md seal/ledger.md
+git mv .specseal/map seal/ledger             # if it exists
+git mv .specseal/README.md seal/README.md    # then overwrite it from templates/seal-README.md
+git mv .specseal/follow-up.md seal/          # and parity.md, and anything else in there
+git mv specs/<id> seal/specs/<id>            # each work item
+rmdir .specseal specs                        # git mv leaves them empty on disk; one holding something else stays
+evidence-check --reverify .                  # re-points each row citing a moved file
+```
+
 ## First run
 
 Four of the seven gates wake only under a condition: the commit gate, the
 review-history reminder, the review-skill gate, and the version check act in a
-repo that has a `.specseal/` directory at its root, and stay silent everywhere
+repo that has a `seal/` directory at its root, and stay silent everywhere
 else. You never create it by hand — the smith builds it the first time it works
 in a repo, and it is the only directory this plugin adds to your tree.
 
@@ -356,9 +388,8 @@ prose works the same way, if you prefer it:
 
 The smith reads the spec chain, implements, verifies, and hands off to the
 warden for review — you decide what happens to the report. Anything the
-layout needs and the repo lacks (`.specseal/map.md` with
-its baseline stamped, `.specseal/README.md` carrying the export rules) the smith
-creates from `templates/` as it goes.
+layout needs and the repo lacks (`seal/ledger.md`, `seal/README.md` carrying
+the export rules) the smith creates from `templates/` as it goes.
 
 Two things work with no agent at all: the ledger drift check
 (`evidence_check.py`, the demo above) and every gate in the table.

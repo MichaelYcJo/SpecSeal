@@ -3,17 +3,26 @@
 Imported by the gates rather than copied into each, because the answer moved
 once already and four divergent copies is how half of them keep the old answer.
 
-The signal is `.specseal/` at the repository root — the directory the plugin
-maintains, whose existence is the declaration. One address, read one way.
+The signal is `seal/` — the root the plugin maintains, whose existence is the
+declaration — at the first of two places that has it: `<repo>/seal/`, which
+shared mode commits, then `<git-common-dir>/seal/`, where local mode will
+keep it (#80; nothing in 0.4.0 creates it). One root, read one way, and no
+config key (`docs/one-root-by-lifetime.md`, "The opt-in signal is the root
+itself"). `.specseal/` opts nothing in any more: the only reader left of that
+name is `hooks/root-migrate.py`, which moves it.
 
-`.specseal/scratch` beside it takes that declaration back. A repository that
-exists for thirty seconds — a fixture built by hand to reproduce a gate
+`<git-common-dir>/specseal-scratch` takes that declaration back. A repository
+that exists for thirty seconds — a fixture built by hand to reproduce a gate
 decision, which is what developing these gates consists of — carries the same
-`.specseal/` as a repository under review, and the gates cannot tell them
-apart: every probe stopped for a prompt about a repository that would be
-deleted before the answer meant anything. The marker is written
-once, by a person, in the repository being thrown away. It is an opt-out and
-it is not for a repository anyone reviews; `.specseal/README.md` says so.
+`seal/` as a repository under review, and the gates cannot tell them apart:
+every probe stopped for a prompt about a repository that would be deleted
+before the answer meant anything. The marker is written once, by a person, in
+the repository being thrown away. It lives under the git directory rather
+than inside the root because the root is committed: `.specseal/scratch` was a
+file in a committed directory, and one committed there silenced every gate in
+every clone with nothing in the diff that read as the workflow being switched
+off. Nothing under `.git/` can be committed, and a linked worktree shares the
+common directory, so it shares the opt-out. `seal/README.md` says so too.
 
 Everything here fails toward "not opted in": a gate that cannot tell should do
 nothing rather than act on a guess.
@@ -22,12 +31,19 @@ nothing rather than act on a guess.
 import os
 import subprocess
 
-HOME = ".specseal"
-# An empty FILE; its existence is the whole signal, read the way the home
-# directory beside it is read. It is not an entry inside an existing file
-# because every gate would then parse one to answer what is a directory test.
-# A directory of this name is not the marker — see `home()` below.
-SCRATCH = "scratch"
+HOME = "seal"
+# The sub-directory of the root that holds the work items. Readers that
+# classify repository-relative paths — the commit gate's `DOC_ROOTS`, the CI
+# scripts' globs, `chain_check.py`'s prefix — spell `seal/` as a string,
+# because a path in a diff or a tree listing is only ever the shared root;
+# every hook that opens a file joins this under `home()` instead, so #80
+# changes where the folder is created and nothing that reads it.
+WORK_ITEMS = "specs"
+# An empty FILE under the common git directory; its existence is the whole
+# signal, read the way the root is read. It is not an entry inside an existing
+# file because every gate would then parse one to answer what is a directory
+# test. A directory of this name is not the marker — see `home_at()` below.
+SCRATCH = "specseal-scratch"
 
 
 def repo_root(cwd):
@@ -80,26 +96,72 @@ def repo_root(cwd):
     return os.path.normpath(out) if out else ""
 
 
-def home(cwd):
-    """This repository's `.specseal/`, or "" when it does not run the workflow.
+def git_common_dir(root):
+    """The common git directory of the repository at `root`, or "".
 
-    Both reads below go through here, so the opt-out is read once and cannot
-    be honoured by one arm and missed by the other — the migration config sits
-    inside the directory the marker takes back, and a repository nobody
-    reviews has nothing to compare against an original either.
+    `.git` at the toplevel, when it is a directory, IS the repository's git
+    directory, and for a main worktree the common directory is that same
+    place — so that case is answered without a process. Every gated command
+    in every opted-in repository reaches this through `home_at()`, and the
+    rider on `repo_root` counts what one more `git` per call costs. A `.git`
+    that is a file (a linked worktree, a submodule) or absent is asked of git,
+    which answers relative to the directory it ran in unless the path is
+    absolute; `os.path.join` handles both spellings.
     """
-    root = repo_root(cwd)
     if not root:
         return ""
-    path = os.path.join(root, HOME)
-    if not os.path.isdir(path):
+    dotgit = os.path.join(root, ".git")
+    if os.path.isdir(dotgit):
+        return dotgit
+    try:
+        out = subprocess.run(
+            ["git", "-C", root, "rev-parse", "--git-common-dir"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=5,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
         return ""
-    # A FILE, which is what this module and `.specseal/README.md` both say the
+    out = (out or "").strip()
+    return os.path.normpath(os.path.join(root, out)) if out else ""
+
+
+def home_at(root):
+    """The `seal/` of the repository at `root`, or "" — for a caller that has
+    already resolved the root and should not pay for a second `git` call.
+
+    The two places are read in order, `<root>/seal/` then
+    `<git-common-dir>/seal/`, and whichever exists first is the answer;
+    nothing else is read. The opt-out is read once, here, so it cannot be
+    honoured by one arm of a gate and missed by the other — the migration
+    config sits inside the root the marker takes back, and a repository
+    nobody reviews has nothing to compare against an original either.
+    """
+    if not root:
+        return ""
+    common = None
+    found = os.path.join(root, HOME)
+    if not os.path.isdir(found):
+        common = git_common_dir(root)
+        found = os.path.join(common, HOME) if common else ""
+        if not found or not os.path.isdir(found):
+            return ""
+    if common is None:
+        common = git_common_dir(root)
+    # A FILE, which is what this module and `seal/README.md` both say the
     # signal is. `os.path.exists` also accepted a DIRECTORY of that name, and
-    # `.specseal/` is committed by design — so `.specseal/scratch/` created
-    # once turned every gate off in every clone, with nothing in the diff that
-    # reads as the workflow being switched off.
-    return "" if os.path.isfile(os.path.join(path, SCRATCH)) else path
+    # the marker used to sit in a committed directory — so `.specseal/scratch/`
+    # created once turned every gate off in every clone, with nothing in the
+    # diff that reads as the workflow being switched off.
+    if common and os.path.isfile(os.path.join(common, SCRATCH)):
+        return ""
+    return found
+
+
+def home(cwd):
+    """This repository's `seal/`, or "" when it does not run the workflow."""
+    return home_at(repo_root(cwd))
 
 
 def opted_in(cwd):
