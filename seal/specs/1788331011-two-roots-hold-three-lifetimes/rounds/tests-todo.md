@@ -17,3 +17,9 @@ round 2 added:
 | ✅ when `git ls-files` cannot answer, `dirty()` refuses (round-2 🟢 B) — `test_when_git_ls_files_cannot_answer_the_move_is_refused_as_dirty`, planted at 9f400d0 | `tests/test_the_root_migrates_itself.py` |
 | ✅ an item-shaped tracked file under `specs/` is left where it is (round-2 🟢 C) — `test_an_item_shaped_tracked_file_under_specs_stays_and_is_named`, planted at 9f400d0 | `tests/test_the_root_migrates_itself.py` |
 | ✅ `by_hand_block` fails loudly when the README's block leaves its section (round-2 🟢 E) — `test_by_hand_block_fails_loudly_when_the_block_leaves_its_section`, both editions, planted at 9f400d0 | `tests/test_the_root_migrates_itself.py` |
+
+round 3 added:
+
+| Asserts | Destination |
+|---|---|
+| a `specs/` that is a symbolic link holding work items is refused with the by-hand line, nothing moves, no rows re-pointed, nothing stamped, twice (round-3 🟡 H) | `tests/test_the_root_migrates_itself.py` |
