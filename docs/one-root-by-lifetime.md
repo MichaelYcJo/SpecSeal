@@ -498,17 +498,23 @@ The CI paths change in step 3 of the order below, together with the root.
 
 1. **Name decisions**: plugin name kept or not, root name, sub-directory
    name. The only human decision here.
-2. **The release-automation item** takes "fold `ledger/`, refuse on open
+1. **The sealer (#30)**, first of the tickets, because its rule applies to
+   every work item from here on, the root merge included.
+2. **The release-automation item (#78)** takes "fold `ledger/`, refuse on open
    evidence-todo rows". Doable on today's paths, before the root merges.
-3. **0.4.0: the root merge.** The session-start hook moves everything once;
-   CI paths change; `docs/` and the skills' path references follow.
-4. **Later: the `settle` item.** First the two checks in "The dependency
+3. **0.4.0: the root merge (#79)**, then local mode and the first-setup
+   question (#80), `seal/config.md` for per-repository settings such as the
+   pull request language (#82), and `seal export` / `seal import` (#81). The
+   session-start hook moves everything once; CI paths change; `docs/` and
+   the skills' path references follow.
+4. **Later: the `settle` item (#83)**, and the framer (#84), the agent
+   that writes the frame the smith fills. For `settle`, first the two checks in "The dependency
    rule" stop reading released work items; then `settle` folds released
    work items into `docs/` and removes their directories, and the
    `implement` skill's description of `docs/` is corrected to match.
-5. **Later and separate**: taking state out of the working tree entirely,
-   with an orphan branch as the ledger's home, opt-in by ref. That was the
-   first version of this issue.
+5. **Later and separate (#85)**: taking state out of the working tree
+   entirely, with an orphan branch as the ledger's home, opt-in by ref. That
+   was the first version of this issue.
 
 ## Out of scope
 
