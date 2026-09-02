@@ -9,14 +9,14 @@ the broad gate ran. -->
 | Field | Value |
 |---|---|
 | Target SHA | ab66282 (the fix diff is f049003..50a6eda; ab66282 is round-1's record edit only) |
-| PR | not yet opened |
+| PR | #95 |
 | Broad gate | ab66282 vs origin/release/v0.5.0 — `pytest tests/ -n auto` 1369 passed · 1 skipped, `ruff check .` clean, `ruff format --check .` 80 files formatted, `evidence_check.py --strict .` 299 ok · 0 drifted · 0 broken, `unverified_check.py --baseline` exit 0 (14 overviews · 32 open · 15 closed · 0 unreadable). The delta after the run is this record, round-1's `Fixes checked by` cell, one unit name in `evidence-todo.md`, and `pr.ko.md` — docs-only, the non-invalidating class |
-| Fixes checked by | no fixes to check |
-| Contract changes | none — this round wrote no fixes |
-| New units | none |
-| Needs a fix | no |
+| Fixes checked by | nobody — 🔴 M was opened by CI after this record was written and its fix pass has just landed; round-3 is the verifying round and sets this cell |
+| Contract changes | none — the fix for 🔴 M changed one test assertion; no hook code, no printed text |
+| New units | none — the fix for 🔴 M added no unit |
+| Needs a fix | yes — 🔴 M, opened by PR #95's windows CI leg after the reviewer answered `no`: a second gate-prompt assertion still spelled the path with slashes |
 
-- [x] Pass
+- [ ] Pass
 
 ## Verdicts
 
@@ -32,6 +32,7 @@ the broad gate ran. -->
 | ❓ 1-8 | round-1 ❓ 8 (the removed S12 row) | `seal/ledger.md` §1788331011, `seal/ledger/1788354065-…md` | answered — nothing lost | executed: `--strict .` 299 ok; the fragment row carries the five surviving anchors; the removed row's first Notes sentence lives in the fragment's phase-2 S12 row and its "each test file re-run" label went honestly from Executed to Read. The rule question itself stays the owner's (Deferred) |
 | 🟢 1-P5 | tests-todo row 5, green on first run | `tests/test_the_root_migrates_itself.py#test_a_stamped_local_mode_repository_leaves_an_old_layout_branch_alone` | discriminates | executed: `has_root` reverted to the release branch's inline form → the test fails at `assert stamped(hook, d)` |
 | 🟢 fix-surface | round-1's `Contract changes` and `New units` | `rounds/round-1.md` | truthful | callers grepped over `hooks tests skills templates .github`: `judge` and `declaration_hint` from the gate only, `dirty` from its `main` and one existing test (signature unchanged), `declared_for_this_branch` from `chain_check.py#main` only; `switch_block` bounds its section and asserts the fence; every fixture under `tmp_path` |
+| 🔴 M | `tests/test_routing_is_recorded.py::test_the_second_prompt_names_it_too` asserted the literal `seal/specs/<work-item-id>/routing.md` in the gate's reason; since phase 1 the hint is joined with `os.path.join`, so the windows leg of PR #95 (run 33643327406) read `seal\specs\…` and failed — phase 1 had fixed the first prompt's assertion in the same file and missed this one | `tests/test_routing_is_recorded.py#test_the_second_prompt_names_it_too` | fixed — 46c658d: the assertion joins the path the way the platform spells it (the file's first-prompt shape); every other `/`-literal in `tests/` was grepped and is document text, a negative assertion, or a ledger coordinate; the anchored row re-verified | opened by CI, not by the reviewer; `ntpath.join` reproduces the mismatch and `posixpath` the match |
 | 🟡 A | with `CLAUDE_PLUGIN_ROOT` unset the bootstrap's one-liner prints a `KeyError` and the skill does not say what to do next — a session might guess a version | `skills/implement/SKILL.md` §Bootstrap | answered with grounds — no fix: `skills/update/SKILL.md` already relies on the same variable in a Bash command, so the precedent stands; the failure is loud and leaves nothing as `v<version>`; a sentence forbidding a guess is one line for the next time that section is opened (Deferred) | executed |
 | 🟢 B | `rounds/evidence-todo.md` still named `chain_check.py#committed_declarations`, a unit that does not exist, after round-1's record said both files were corrected | `rounds/evidence-todo.md` | answered — the unit name in `evidence-todo.md`, the orchestrator's own record file, is corrected in this record's commit; no code, nothing for a round to open | read |
 | 🟢 C | `COMMON`/`TOP` are defined after their first use in the test module | `tests/test_first_setup_asks_once.py` | record only — cosmetic, runtime-correct | read |
