@@ -50,7 +50,7 @@ jobs:
             exit 1
           fi
 
-      # A change writes `specs/<work-item-id>/changelog.md` instead of
+      # A change writes `seal/specs/<work-item-id>/changelog.md` instead of
       # appending to `CHANGELOG.md` — three parallel branches shared that one
       # file and nothing else, and the conflict arrived after the broad gate
       # had run, where nothing may be edited.
@@ -71,11 +71,11 @@ jobs:
           fi
           python3 .github/scripts/gather_changelog.py --check
 
-      # The other fragment a change writes is `.specseal/map/<work-item-id>.md`,
-      # its evidence rows. The release folds those into `.specseal/map.md`
+      # The other fragment a change writes is `seal/ledger/<work-item-id>.md`,
+      # its evidence rows. The release folds those into `seal/ledger.md`
       # and removes the fragment; a fragment left behind is a directory that
       # grows by one file per work item forever, which is issue #78. The same
-      # step refuses while any `specs/<id>/evidence-todo.md` has an open row —
+      # step refuses while any `seal/specs/<id>/evidence-todo.md` has an open row —
       # a fact a reviewer verified that never reached the ledger — so the
       # check reads those too: a fold done by hand still meets the guard here.
       #
@@ -104,7 +104,7 @@ jobs:
         shell: bash
         run: |
           python3 skills/verify/scripts/unverified_check.py \
-            --baseline "origin/${{ github.base_ref }}" specs/
+            --baseline "origin/${{ github.base_ref }}" seal/specs/
 
       # The review chain used to be enforced only at the commit, where the
       # gate could not tell "routed to the chain, not reviewed yet" from
