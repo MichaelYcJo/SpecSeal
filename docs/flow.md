@@ -20,6 +20,7 @@ merge commit (`docs/branch-and-release.md`).
 - [ ] #80 local mode under `.git/seal/`, and the first-setup question (shared / local) — first, because the rest of 0.5.0 stands on it
 - [ ] #82 `seal/config.md`, first row the pull request language
 - [ ] #81 `seal export` / `seal import`
+- [ ] #96 the release guard globs one place for `evidence-todo.md` and two work items keep it in another — before the release, because the release runs that guard
 - [ ] release: gather, bump, merge, tag `v0.5.0`
 
 ## Later — not scheduled

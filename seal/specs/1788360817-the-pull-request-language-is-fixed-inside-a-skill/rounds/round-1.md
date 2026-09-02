@@ -56,5 +56,5 @@ format. -->
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| 🟡 7 — two work items keep `evidence-todo.md` under `rounds/`, where the release guard cannot see it | its own branch and pull request into `release/v0.5.0`, before the release is prepared: move both files to the work-item level and plant a test that the guard's glob reaches every one that exists | the orchestrator, tonight |
+| 🟡 7 — two work items keep `evidence-todo.md` under `rounds/`, where the release guard cannot see it | issue #96, on the 0.5.0 milestone and in `docs/flow.md` before the release line, because the release runs that guard | the orchestrator, before the release |
 | ❓ 9 — the design record still calls `pr.ko.md` a per-user setting | `docs/one-root-by-lifetime.md:449-450`, named in the pull request body | the repository owner |
