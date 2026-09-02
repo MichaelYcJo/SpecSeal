@@ -50,7 +50,7 @@ jobs:
             exit 1
           fi
 
-      # A change writes `specs/<work-item-id>/changelog.md` instead of
+      # A change writes `seal/specs/<work-item-id>/changelog.md` instead of
       # appending to `CHANGELOG.md` — three parallel branches shared that one
       # file and nothing else, and the conflict arrived after the broad gate
       # had run, where nothing may be edited.
@@ -71,6 +71,24 @@ jobs:
           fi
           python3 .github/scripts/gather_changelog.py --check
 
+      # The other fragment a change writes is `seal/ledger/<work-item-id>.md`,
+      # its evidence rows. The release folds those into `seal/ledger.md`
+      # and removes the fragment; a fragment left behind is a directory that
+      # grows by one file per work item forever, which is issue #78. The same
+      # step refuses while any `seal/specs/<id>/evidence-todo.md` has an open row —
+      # a fact a reviewer verified that never reached the ledger — so the
+      # check reads those too: a fold done by hand still meets the guard here.
+      #
+      # Release only, for the same reason as the changelog step: on a feature
+      # pull request every fragment on the branch is legitimately unfolded.
+      - name: every ledger fragment folded into the gathered ledger
+        shell: bash
+        run: |
+          if [ "${{ github.base_ref }}" != "main" ]; then
+            echo "base is ${{ github.base_ref }} — fragments are folded when the release reaches main"; exit 0
+          fi
+          python3 .github/scripts/fold_ledger.py --check
+
       # An `unverified` row records a claim nobody proved and names who can
       # answer it. Nothing ever read those rows again — one of them said the
       # gates had never been seen rendering in a TUI, and months later the
@@ -86,7 +104,7 @@ jobs:
         shell: bash
         run: |
           python3 skills/verify/scripts/unverified_check.py \
-            --baseline "origin/${{ github.base_ref }}" specs/
+            --baseline "origin/${{ github.base_ref }}" seal/specs/
 
       # The review chain used to be enforced only at the commit, where the
       # gate could not tell "routed to the chain, not reviewed yet" from

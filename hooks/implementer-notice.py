@@ -25,7 +25,7 @@ printed after every commit for the rest of a session.
 the commit gate derives, to decide whether to print one line.
 
 Reminder-only (PostToolUse cannot block). Active only in repositories with
-`.specseal/` at the root.
+`seal/` at the root.
 """
 
 import json

@@ -35,7 +35,7 @@ def payload(cmd, repo, tool="Bash", session="s1"):
 
 
 def test_the_group_reaches_the_gate_inside_it(repo):
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir()
     assert (
         decision_of(run_dispatch("pre-bash", payload("git commit -m x", repo)))
         == "deny"
@@ -43,7 +43,7 @@ def test_the_group_reaches_the_gate_inside_it(repo):
 
 
 def test_a_gate_with_nothing_to_say_leaves_the_group_silent(repo):
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir()
     assert run_dispatch("pre-bash", payload("ls", repo)).strip() == ""
 
 
@@ -52,7 +52,7 @@ def test_an_unknown_group_does_nothing(repo):
 
 
 def test_post_bash_carries_the_reminder_and_writes_the_lease(repo):
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir()
     item = declare_routing(repo)
     out = run_dispatch("post-bash", payload("gh pr comment 42 --body hi", repo))
     assert item.name in out, out
@@ -139,7 +139,7 @@ def test_a_crashing_gate_does_not_take_the_group_down(repo, monkeypatch):
     monkeypatch.setattr(
         d, "GROUPS", {"g": ("nonexistent-gate.py", "commit-review-gate.py")}
     )
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir()
     out = io.StringIO()
     argv, stdin = sys.argv, sys.stdin
     try:
@@ -168,8 +168,8 @@ def anchored_row(repo, rename=False, edit=False):
     ec = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ec)
     h = ec.content_hash(src.splitlines())
-    (repo / ".specseal" / "map").mkdir(parents=True)
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger").mkdir(parents=True)
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f"# frag\n\n| CLAUSE | `app.py#handler@{h}` |\n"
     )
     out = src
@@ -236,8 +236,8 @@ def test_a_commit_with_a_pre_anchor_ledger_is_pointed_at_the_migrator(repo):
     BROKEN alone — so the commit that needs the migration line most got
     silence from the hook (round 4, 🟡 6)."""
     (repo / "app.py").write_text("def handler(x):\n    return x + 1\n")
-    (repo / ".specseal" / "map").mkdir(parents=True)
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger").mkdir(parents=True)
+    (repo / "seal" / "ledger" / "f.md").write_text(
         "# frag\n\n| CLAUSE | `app.py:1-2` | 2026-08-31 |\n"
     )
     out = run_dispatch("post-bash", payload("git commit -m x", repo))

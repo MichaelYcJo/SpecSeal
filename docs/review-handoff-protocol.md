@@ -30,7 +30,7 @@ One work item, one directory; parallel reviews never share a file.
 └── evidence-todo.md
 ```
 
-In this plugin's implementation that directory is `specs/<work-item-id>/`.
+In this plugin's implementation that directory is `seal/specs/<work-item-id>/`.
 **That path is the implementation, not the protocol.** A project adopting this
 convention puts the files wherever its work items already live.
 
@@ -379,7 +379,7 @@ The bar and the meter's own advisory are different instruments.
 the script cannot tell a reviewer's transcript from an edit-test loop, so
 its threshold sits where it does not nag the serial case — the repository
 owner's answer to Q1 of
-`specs/1788224363-a-subagent-rediscovers-what-the-session-established/questions.md`.
+`seal/specs/1788224363-a-subagent-rediscovers-what-the-session-established/questions.md`.
 The bars above are the orchestrator's, applied knowing the segment kind.
 
 ## Conformance
