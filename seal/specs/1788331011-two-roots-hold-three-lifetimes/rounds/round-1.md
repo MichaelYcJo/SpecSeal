@@ -10,7 +10,7 @@ phases of plan.md, since no earlier record existed. -->
 | Target SHA | 4516166 (HEAD did not move during the round) |
 | PR | not yet opened |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fix pass had not run when this record was written; round-2 is the verifying round and sets this cell |
+| Fixes checked by | round-2 |
 | Contract changes | `hooks/root-migrate.py#MoveError.__init__` (a third parameter `resumable=True`) → `git_mv`, `taken`, `move`, `run_moves`, `main`, `tests/test_the_root_migrates_itself.py#test_a_step_that_fails_stops_the_run_and_stamps_nothing`; `hooks/root-migrate.py#old_items` (first list now from git-tracked names, same shape) → `moves`, `main`; `hooks/root-migrate.py#move` (raises `taken` instead of calling `git mv` when the destination holds a file) → `run_moves`; `hooks/root-migrate.py#repoint_path` (returns `specs/<foreign>/…` unchanged, same signature) → `repoint`; `hooks/root-migrate.py#main` (three new output sentences: the non-resumable tail, the re-point failure line, "not tracked as a SpecSeal work item") → `hooks/dispatch.py#GROUPS`, the spec's refusal table |
 | New units | `hooks/root-migrate.py#tracked_names`, `#entries`, `#taken`; `tests/test_the_root_migrates_itself.py#HEADINGS`, `#by_hand_block`, and six test functions (`tests-todo.md` names them, planted at f2c9570) |
 | Needs a fix | yes — 🔴 1 (an ignored file directly under `.specseal/` stops the move for good); 🟡 2–6 land in the same pass |
