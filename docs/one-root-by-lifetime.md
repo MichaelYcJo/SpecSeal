@@ -3,7 +3,7 @@
 *English · [한국어](./one-root-by-lifetime.ko.md)*
 
 The design 0.4.0 starts from, gathered from issue #74 and the ten comments
-under it (2026-09-02, after 0.3.0 shipped), plus the decisions the owner took
+under it (2026-09-02, after the previous release shipped), plus the decisions the owner took
 after the thread while this document was reviewed: the opt-in is the root's
 presence, a work item's directory is removed only once a later `settle`
 step has folded it into `docs/` and the ledger, and 0.4.0 itself deletes
@@ -13,7 +13,7 @@ the owner decides it; where the thread leaned one way, the text says
 both collected at the end.
 
 The numbers in this document were re-measured against `origin/main` at
-`5685029` (the 0.3.0 merge) on 2026-09-02. Where the issue's own numbers
+`5685029` (the previous release's merge commit) on 2026-09-02. Where the issue's own numbers
 differ, both are given.
 
 ## The change in four lines
@@ -496,19 +496,32 @@ The CI paths change in step 3 of the order below, together with the root.
 
 ## Order
 
+The tickets are grouped into releases on GitHub milestones, and
+`docs/flow.md` is the checklist that tracks them until the last one merges.
+0.4.0 carries #78, #30 and #79 only; everything a person can live without
+for one release moved to 0.5.0, because even that set is large.
+
+
 1. **Name decisions**: plugin name kept or not, root name, sub-directory
    name. The only human decision here.
-2. **The release-automation item** takes "fold `ledger/`, refuse on open
+1. **The sealer (#30)**, first of the tickets, because its rule applies to
+   every work item from here on, the root merge included.
+2. **The release-automation item (#78)** takes "fold `ledger/`, refuse on open
    evidence-todo rows". Doable on today's paths, before the root merges.
-3. **0.4.0: the root merge.** The session-start hook moves everything once;
-   CI paths change; `docs/` and the skills' path references follow.
-4. **Later: the `settle` item.** First the two checks in "The dependency
+3. **0.4.0: the root merge (#79).** The session-start hook moves
+   everything once; CI paths change; `docs/` and the skills' path
+   references follow. Shared mode only.
+3. **0.5.0**: local mode and the first-setup question (#80),
+   `seal/config.md` for per-repository settings such as the pull request
+   language (#82), and `seal export` / `seal import` (#81).
+4. **Later: the `settle` item (#83)**, and the framer (#84), the agent
+   that writes the frame the smith fills. For `settle`, first the two checks in "The dependency
    rule" stop reading released work items; then `settle` folds released
    work items into `docs/` and removes their directories, and the
    `implement` skill's description of `docs/` is corrected to match.
-5. **Later and separate**: taking state out of the working tree entirely,
-   with an orphan branch as the ledger's home, opt-in by ref. That was the
-   first version of this issue.
+5. **Later and separate (#85)**: taking state out of the working tree
+   entirely, with an orphan branch as the ledger's home, opt-in by ref. That
+   was the first version of this issue.
 
 ## Out of scope
 
