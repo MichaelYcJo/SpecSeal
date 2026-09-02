@@ -13,9 +13,9 @@ review orchestrator. -->
 | Target SHA | 85602b6 (the fix diff from b64d1a6); HEAD 2d610c2 at review time, record-only |
 | PR | none yet |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written; round 5 verifies them and this cell is set to it then |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written, and this pass is required to add none |
+| Fixes checked by | nobody — the fixes landed at 68cae4c and round 5, the verifying round, is what opens them; this cell is set to it when that record exists |
+| Contract changes | `shipped_templates` → `unreachable_templates`, `test_every_template_is_named_by_a_document_that_ships`, `test_the_templates_check_reads_prose_only_and_descends`, `test_an_untracked_file_under_templates_is_not_a_template` — signature unchanged, the set of returnable values narrowed: git failing to answer now raises `CalledProcessError` where it returned `[]`, and no call site catches it, so the silence becomes a red |
+| New units | none. The function count is 46 before and after; one case was renamed, `test_the_round_template_carries_every_field_the_skill_names` → `test_the_round_template_carries_the_fields_it_is_expected_to`, because the old name was a fourth place making the overclaim this round asked to narrow. The smith reported the rename as an exception to the constraint rather than letting it pass as none |
 | Needs a fix | yes — 발견 1 (`shipped_templates` 의 subprocess 에 `check=True` 가 없어 저장소를 읽지 못하는 상황이 "템플릿 없음"으로 읽히고, `test_an_untracked_file_under_templates_is_not_a_template` 은 단언이 `== []` 뿐이라 그 방향으로 실패하지 못함 — 라운드 3 발견 7 이 통과 근거로 적은 guard 가 사라짐) 과 발견 2 (`ROUND_RECORD_FIELDS` 가 템플릿에서 손으로 베껴져 템플릿에 대조되므로, 테스트·근거 대조표 `r3 3` 행·tests-todo 13행이 모두 "스킬이 명명한 필드"라고 부르는데 열한 개 중 네 개는 스킬에 없고, 스킬 쪽 표류를 이 pin 은 볼 수 없음) |
 
 - [ ] Pass
