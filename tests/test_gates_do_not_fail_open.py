@@ -167,3 +167,24 @@ def test_a_ledger_that_could_not_be_read_is_never_read_as_empty(tmp_path, monkey
     assert ec.reverify([str(ledger)], str(tmp_path), {}) != 0, (
         "reverify rewrote nothing and exited clean"
     )
+
+
+def test_the_common_directory_reader_that_decoded_nothing_answers_empty(
+    tmp_path, monkeypatch
+):
+    """S10 (#80). `git_common_dir` has the same `subprocess.run` shape as
+    `repo_root` and, for a tree whose `.git` is a FILE, the same dead reader
+    thread: `stdout` comes back `None`. That reads as "" — no common
+    directory, so no local root, so not opted in — and never raises."""
+    linked = tmp_path / "linked"
+    linked.mkdir()
+    (linked / ".git").write_text("gitdir: /nowhere/.git/worktrees/linked\n")
+
+    def decoded_nothing(*args, **kwargs):
+        return subprocess.CompletedProcess(args, 0, stdout=None, stderr=None)
+
+    monkeypatch.setattr(optin.subprocess, "run", decoded_nothing)
+    assert optin.git_common_dir(str(linked)) == ""
+    assert optin.home_at(str(linked)) == ""
+    assert optin.home(str(linked)) == ""
+    assert optin.opted_in(str(linked)) is False
