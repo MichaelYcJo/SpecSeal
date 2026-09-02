@@ -133,12 +133,18 @@ has one, and the fragments are where an entry accumulates here. Neither
 document names a heading any more; the override is about WHERE, not about a
 sentence they no longer carry.
 
-**The changelog fragments are gathered; the ledger fragments never are.**
-Release preparation runs `.github/scripts/gather_changelog.py --version X.Y.Z`,
-which concatenates every ungathered fragment into the released section. A
-ledger fragment stays where it is forever — a row is checked against the code
-it cites rather than concatenated, and the checker already reads the whole
-`.specseal/map/*.md` glob.
+**Both kinds of fragment are gathered at the release, by two commands in one
+commit.** `.github/scripts/gather_changelog.py --version X.Y.Z` concatenates
+every ungathered changelog fragment into the released section;
+`.github/scripts/fold_ledger.py --version X.Y.Z` moves every ledger fragment
+into `.specseal/map.md` under a heading for the release and removes the file.
+A fragment lives from the work item's first row to the release that ships it.
+The checker reads both `.specseal/map.md` and the `.specseal/map/*.md` glob,
+and a row is a content anchor, so the move changes nothing it measures. The
+fold refuses while any `specs/<id>/evidence-todo.md` in the tree has an open
+row — a fact a reviewer verified that never reached the ledger — and the
+hygiene workflow runs `fold_ledger.py --check` on every pull request into
+`main`.
 
 A ledger fragment needs no header of its own. Every row in it carries its own
 anchor and hash, so there is nothing for a header to declare.

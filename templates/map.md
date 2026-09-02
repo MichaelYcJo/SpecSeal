@@ -7,7 +7,10 @@
 >
 > Group rows by area with `##` headings. A work item's own rows go in
 > `.specseal/map/<work-item-id>.md` rather than being appended here, so two
-> branches never queue at one file — the checker reads both addresses.
+> branches never queue at one file — the checker reads both addresses. The
+> release folds each fragment into this file, under a heading for the release
+> and one for the work item, and removes the fragment: after the merge there
+> is no branch left to queue.
 
 ## Coordinates
 
