@@ -430,7 +430,7 @@ def changed(root, base):
     and the subset that arrived as an exact rename (`R100`). `--name-status`
     with `-M` rather than `--name-only`, because a rename has two names and
     `--name-only` printed the new one indistinguishably from an added file.
-    The 0.4.0 root move renames every declaration in a repository at once,
+    The root move to `seal/` renames every declaration in a repository at once,
     and `changed_routing` needs to know which of the paths it sees are those.
     """
     out = git(root, "diff", "--name-status", "-z", "-M", f"{base}...HEAD")
@@ -465,7 +465,7 @@ def changed(root, base):
 def changed_routing(paths, renamed, work_items):
     """Routing declarations this pull request adds or changes.
 
-    Never one it only renamed. The root move of 0.4.0 (`specs/<id>/` into
+    Never one it only renamed. The root move to `seal/` (`specs/<id>/` into
     `seal/specs/<id>/`) renames every declaration in the repository, and each
     shows up in the diff under its new path exactly as an added one would.
     Judging them would put every released work item under review on the
