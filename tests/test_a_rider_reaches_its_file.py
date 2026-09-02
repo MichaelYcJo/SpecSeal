@@ -20,7 +20,7 @@ import re
 import subprocess
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-FOLLOW_UP = os.path.join(ROOT, ".specseal", "follow-up.md")
+FOLLOW_UP = os.path.join(ROOT, "seal", "follow-up.md")
 
 # A coordinate is `path/to/file.ext:123` — the shape a rider is written at.
 COORDINATE = re.compile(r"[\w./-]+\.(?:py|md|json|yml|yaml|sh):\d+")

@@ -22,7 +22,7 @@ that answers by not spawning smith at all is missed once per session. The
 other direction — a mark written only on allow — would need the dispatcher to
 know one gate's semantics.
 
-Active only in repositories with `.specseal/` at the root, for the same reason
+Active only in repositories with `seal/` at the root, for the same reason
 every gate here is: a globally installed plugin must not write files into
 repositories that never asked for the workflow.
 

@@ -43,7 +43,9 @@ GROUPS = {
         "evidence-advisor.py",
     ),
     "post-edit": ("lint-python.py", "session-lease.py"),
-    "session-start": ("version-check.py", "ledger-migrate.py"),
+    # The root move precedes the ledger-format migration, because the second
+    # reads the ledgers at the addresses the first creates.
+    "session-start": ("version-check.py", "root-migrate.py", "ledger-migrate.py"),
 }
 
 RANK = {"deny": 3, "ask": 2, "allow": 1}

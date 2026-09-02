@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Fold each work item's ledger fragment into the gathered ledger.
 
-A work item writes its evidence rows to `.specseal/map/<work-item-id>.md` and
-leaves `.specseal/map.md` alone, so two branches never queue at one file
+A work item writes its evidence rows to `seal/ledger/<work-item-id>.md` and
+leaves `seal/ledger.md` alone, so two branches never queue at one file
 (issue #46). Nothing ever folded the fragments back, so the directory gained
 one file per work item forever and almost every pull request touched it
 (issue #78). After the merge there is no branch left to queue, which is why
@@ -13,12 +13,12 @@ This is the other half of that layout, the way `gather_changelog.py` is the
 other half of the changelog fragments. Release preparation runs both, in the
 same commit:
 
-  fold_ledger.py --version 0.4.0            move the fragments into map.md
+  fold_ledger.py --version 0.4.0            move the fragments into ledger.md
   fold_ledger.py --version 0.4.0 --dry-run  print the section, write nothing
   fold_ledger.py --check                    no fragment left, no open row
 
 **A fold is a move, not a deletion.** Every table row of a fragment is copied
-into `map.md` byte for byte, under a heading for the release and one for the
+into `ledger.md` byte for byte, under a heading for the release and one for the
 work item, and only then is the fragment removed. Nothing is written until
 every fragment has been read, and nothing is removed until the ledger has
 been written.
@@ -26,13 +26,13 @@ been written.
 **A folded work item is marked, not matched.** Each section is written under
 an HTML comment naming the work item, the same comment `gather_changelog.py`
 writes in `CHANGELOG.md`. A fragment that turns up while its marker is already
-in `map.md` is refused rather than folded twice: the same claim in the file
+in `ledger.md` is refused rather than folded twice: the same claim in the file
 twice, with no way to tell which is current, is worse than a stop that names
 the work item.
 
 **The guard.** A sentence in a work item's `spec.md` that must outlive the
 release has to have moved into a `docs/` policy or a ledger row before the
-merge, and `specs/<id>/evidence-todo.md` is where a reviewer lists the facts
+merge, and `seal/specs/<id>/evidence-todo.md` is where a reviewer lists the facts
 still waiting for the ledger. So the fold refuses to run while any such file
 in the tree has an open row, naming the file, and writes nothing (step 3 of
 the same section). What an open row is:
@@ -44,7 +44,7 @@ the same section). What an open row is:
      with a check mark (✅) — a header and its separator are not body rows;
   4. a file with a header and no body row is not open.
 
-Every `specs/*/evidence-todo.md` in the tree is read. The step runs on a
+Every `seal/specs/*/evidence-todo.md` in the tree is read. The step runs on a
 branch cut from the release branch, which holds merged work only, so "every
 released work item" and "every work item present" are the same set.
 
@@ -56,7 +56,7 @@ nothing measures from where a row sits.
 
 Exit codes: 0 done · 1 for nothing to fold, an open evidence-todo row, a
 fragment whose marker is already in the ledger, a fragment left at `--check`,
-or a missing `.specseal/map.md`. Every one is a failure a release pull request
+or a missing `seal/ledger.md`. Every one is a failure a release pull request
 should stop on.
 """
 
@@ -74,10 +74,10 @@ import console
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 # `/`-joined on every platform, because these are what the messages print and
-# what the tests and a person read; `ntpath.join` would print `.specseal\map`
+# what the tests and a person read; `ntpath.join` would print `seal\ledger`
 # (round 1, 🔴 1). Disk paths are built from them through `under()`.
-LEDGER = ".specseal/map.md"
-FRAGMENTS = ".specseal/map"
+LEDGER = "seal/ledger.md"
+FRAGMENTS = "seal/ledger"
 
 HEADING_RE = re.compile(r"^(#{1,6})(\s)")
 SEPARATOR_RE = re.compile(r"^\|(\s*:?-+:?\s*\|)+\s*$")
@@ -107,7 +107,7 @@ def is_marked(ledger_text, work_item_id):
 
 
 def fragments(root):
-    """[(work item id, text)] for every `.specseal/map/*.md`, in id order.
+    """[(work item id, text)] for every `seal/ledger/*.md`, in id order.
 
     The id is unix seconds, so sorting by it is chronological and stable: the
     same input always produces the same section, which is what makes a re-run
@@ -249,7 +249,7 @@ def open_items(root):
     """[(relative path, open row count)] for every evidence-todo file with one."""
     out = []
     for path in sorted(
-        glob.glob(os.path.join(under(root, "specs"), "*", "evidence-todo.md"))
+        glob.glob(os.path.join(under(root, "seal/specs"), "*", "evidence-todo.md"))
     ):
         with open(path, encoding="utf-8") as f:
             rows = open_rows(f.read())
@@ -276,7 +276,7 @@ def main(argv=None):
     ap.add_argument(
         "--check",
         action="store_true",
-        help="report fragments left in .specseal/map/ and open evidence-todo "
+        help="report fragments left in seal/ledger/ and open evidence-todo "
         "rows, and exit 1",
     )
     ap.add_argument("--dry-run", action="store_true", help="print, write nothing")

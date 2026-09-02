@@ -267,7 +267,7 @@ def reason_of(out):
 
 
 def make_repo(path, opted_in):
-    """A repository with one commit, and `.specseal/` when it opts in."""
+    """A repository with one commit, and `seal/` when it opts in."""
     subprocess.run(["git", "init", "-q", str(path)], check=True)
     git = lambda *a: subprocess.run(
         ["git", "-C", str(path), *a], check=True, capture_output=True
@@ -278,7 +278,7 @@ def make_repo(path, opted_in):
     (path / "f.py").write_text("x = 2\n")
     git("add", "-A")
     if opted_in:
-        (path / ".specseal").mkdir()
+        (path / "seal").mkdir()
     return path
 
 

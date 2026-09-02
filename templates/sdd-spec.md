@@ -1,6 +1,6 @@
 # Feature Specification: <work item>
 
-<!-- specs/<unix-epoch-seconds>-<slug>/spec.md — WHAT this work delivers and how we'll know.
+<!-- seal/specs/<unix-epoch-seconds>-<slug>/spec.md — WHAT this work delivers and how we'll know.
 The policy documents in docs/ outrank this file; cite them, don't restate. -->
 
 ## Grounding

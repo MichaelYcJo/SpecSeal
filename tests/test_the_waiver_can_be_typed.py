@@ -102,7 +102,7 @@ def opted_in_repo(tmp_path):
     """A repo the gate fires in, with a staged change ready to commit."""
     d = tmp_path / "repo"
     shutil.copytree(_waiver_repo_template(), d)
-    (d / ".specseal").mkdir()
+    (d / "seal").mkdir()
     return d
 
 
@@ -225,7 +225,7 @@ def test_every_prompt_shows_the_runnable_form(tmp_path):
     others saying the thing that fails.
     """
     repo = opted_in_repo(tmp_path / "prompts")
-    (repo / ".specseal" / "parity.md").write_text("| Original repo | org/legacy |\n")
+    (repo / "seal" / "parity.md").write_text("| Original repo | org/legacy |\n")
     seen = []
     for cmd, session in (
         ("git commit -m x", "s1"),  # deny: both arms, question form

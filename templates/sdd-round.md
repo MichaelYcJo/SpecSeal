@@ -1,6 +1,6 @@
 # <work-item-id> — review round <N>
 
-<!-- specs/<unix-epoch-seconds>-<slug>/rounds/round-<N>.md — what this round of the
+<!-- seal/specs/<unix-epoch-seconds>-<slug>/rounds/round-<N>.md — what this round of the
 review chain did, written by the review orchestrator right after it posts.
 
 It lives here rather than under a pull request number because the number does

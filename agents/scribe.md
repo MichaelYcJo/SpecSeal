@@ -2,7 +2,7 @@
 name: scribe
 description: |
   Migration fact-finder. Spawn only in projects with a migration config
-  (.specseal/parity.md) to establish what the original code actually does — facts
+  (seal/parity.md) to establish what the original code actually does — facts
   with coordinates, no verdicts. Called by smith during implementation and
   by the review orchestrator during parity review.
 skills:
