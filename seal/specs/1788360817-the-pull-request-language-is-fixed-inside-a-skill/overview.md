@@ -29,6 +29,38 @@ one that states nothing keeps English.
 | The template's wording on the prefix | `spec.md` S4 says only that the exclusion is stated; the template said the prefixes "stay as they are, in every repository" | The template now says **not translated**, the same words as the skill | The case pinning S4 was red against the first draft. Two documents saying the same rule in words that do not overlap is how a check ends up asserting one of them and calling it both |
 | Where the layout row sits in the READMEs | `spec.md` S9 asks only that the file be listed | Also added to the `seal/` row of each README's Root table, not the tree alone | A reader who scans the table and never the drawing is the reader who most needs to know a repository can answer here |
 
+## Each fix's new unit carried the next round's finding
+
+**Three rounds running, the finding was the same shape, and no single commit
+contains it — which is why it is here rather than in the diff.** A round
+found a prose fix that nothing pinned; the pass answering it wrote a helper
+to pin the prose; the helper was new code nobody had reviewed, so the next
+round found its defect instead.
+
+| Round | What its fix added | What the next round found in it |
+|---|---|---|
+| 1 | `configured_language`, the templates check | both reproducing the defect they had just closed |
+| 2 | `mirror_to_refuse`, a widened glob | the glob out of step with the corpus it is compared against |
+| 3 | `as_language_name`, `ROUND_RECORD_FIELDS`, a `git ls-files` call | a missing `check=True`, and a list hand-copied from the file it is checked against |
+
+The findings got smaller each time and did not stop, because the surface
+producing them grew with every fix. That is the 3+ Fix Rule's signal — the
+architecture talking rather than bad luck — and round 4 answered it by
+forbidding this pass any new unit at all. Both findings closed by correcting
+what existed: three arguments added to a subprocess call already there, one
+assertion added to a case already there, and three claims narrowed to what
+runs.
+
+**What that costs, stated rather than left to be found.** Drift on the
+`skills/code-review/SKILL.md` side of `ROUND_RECORD_FIELDS` is now
+explicitly unpinned. Closing it needs a second list read in the other
+direction, which is a new unit — the one thing this pass may not add.
+Whether that check is worth having at all is a judgment for a later round,
+not a gap to paper over here.
+
+The pattern itself is deferred to issue #89, where the flow's measurements
+live.
+
 ## What the scoped evidence check could not see
 
 **A whole-document anchor makes any edit to that document another work

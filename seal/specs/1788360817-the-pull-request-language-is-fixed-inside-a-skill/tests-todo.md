@@ -16,4 +16,4 @@ All in `tests/test_the_pull_request_language_is_the_repositorys.py` unless a row
 | 10 | every committed mirror's code is one this file knows — `pr.kr.md` is caught | round 2 🟡 7 | ✅ planted |
 | 11 | an untracked file under `templates/` — a `.DS_Store` — is not a template the check reports | round 3 finding 1 | ✅ planted |
 | 12 | `mirror_to_refuse("**Korean**")` and `mirror_to_refuse("korean")` both answer `pr.ko.md`, and `"French"` still answers `None` | round 3 finding 2 | ✅ planted |
-| 13 | the fields `templates/sdd-round.md` carries are the fields `skills/code-review/SKILL.md` lists — the sentence's remaining claim, pinned | round 3 finding 3 | ✅ planted |
+| 13 | `templates/sdd-round.md` still carries the eleven fields `ROUND_RECORD_FIELDS` expects of it. Narrowed by round 4's 2: the list is copied from that template and checked against it, so it pins the template and says nothing about the skill | round 3 finding 3, round 4 finding 2 | ✅ planted |

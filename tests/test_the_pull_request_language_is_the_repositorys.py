@@ -741,13 +741,34 @@ def shipped_templates(root):
     plain `*` it replaced happened to skip them.
     """
     out = subprocess.run(
-        ["git", "-C", str(root), "ls-files", "templates"],
+        # `check=True`: round 4 finding 1. Without it a path that is not a
+        # repository, a repository with no `templates/`, and this helper
+        # stubbed out all answered `[]` in silence — "git could not answer"
+        # reading exactly like "there are no templates", which is the one
+        # direction a check must never fail toward.
+        #
+        # `core.quotePath=false` with `-z`: round 4 finding 3. git C-escapes
+        # a non-ASCII path by default, so the name came back in a spelling no
+        # prose can contain and the check called it unreachable. `-z` is what
+        # makes turning that quoting off safe — an unquoted name may hold a
+        # newline, and NUL is the only separator that cannot.
+        [
+            "git",
+            "-c",
+            "core.quotePath=false",
+            "-C",
+            str(root),
+            "ls-files",
+            "-z",
+            "templates",
+        ],
+        check=True,
         capture_output=True,
         encoding="utf-8",
         errors="replace",
         timeout=30,
     ).stdout
-    return sorted(name for name in (out or "").splitlines() if name.strip())
+    return sorted(name for name in (out or "").split("\0") if name.strip())
 
 
 def unreachable_templates(root, listed):
@@ -868,6 +889,11 @@ def test_the_templates_check_reads_prose_only_and_descends(repo):
     )
 
 
+# Hand-copied from `templates/sdd-round.md` and checked against it, so this
+# list is the EXPECTATION and the template is what is checked. It is not a
+# reading of `skills/code-review/SKILL.md`: round 4's census found four of
+# these eleven absent from that file, and two more matching only as
+# substrings. Naming it after the skill was the overclaim; the list is fine.
 ROUND_RECORD_FIELDS = [
     "Target SHA",
     "PR",
@@ -884,20 +910,29 @@ ROUND_RECORD_FIELDS = [
 
 
 @pytest.mark.parametrize("field", ROUND_RECORD_FIELDS)
-def test_the_round_template_carries_every_field_the_skill_names(field):
-    """tests-todo row 13, from round 3 finding 3.
+def test_the_round_template_carries_the_fields_it_is_expected_to(field):
+    """tests-todo row 13, from round 3 finding 3, narrowed by round 4's 2.
 
-    That sentence is the ONLY place in the whole prose corpus naming
-    `templates/sdd-round.md`, so what it claims is what a session gets told
-    about the file. It used to claim the template carries the fields "in the
-    order the row above lists them", and it does not — the header table and
-    the sections interleave that order, and the template also carries `PR`,
-    which the row does not list. The order claim is gone; what remains is
-    that every field named is there, and that is what this pins.
+    `ROUND_RECORD_FIELDS` is hand-copied from `templates/sdd-round.md` and
+    checked against `templates/sdd-round.md`, so what runs is that the
+    template still carries the fields THIS LIST expects — a pin on the
+    template, and on nothing else.
+
+    It used to call them "the fields the skill names", and round 4's census
+    found four of the eleven absent from `skills/code-review/SKILL.md`, with
+    `PR` and `## Verdicts` matching only as substrings. Round 3's own finding
+    had said the template carries `PR` where the skill's row does not list
+    it, and `PR` went into this list anyway. Nothing about the check changed
+    here; the claim came down to it.
+
+    What that gives up, so nobody reads more into it: drift on the SKILL side
+    is invisible to this case. Closing that needs a second list and a second
+    direction, which is a new unit — round 4 forbids one, and round 5 is the
+    place to weigh whether it is worth having at all.
     """
     assert field in read("templates", "sdd-round.md"), (
-        f"{field!r} is named in `skills/code-review/SKILL.md` and is not in "
-        "the template a round is told to start from"
+        f"{field!r} is a field a round record is expected to carry and is "
+        "not in `templates/sdd-round.md`, the file a round starts from"
     )
 
 
@@ -921,6 +956,11 @@ def test_an_untracked_file_under_templates_is_not_a_template(repo):
     properties. This one fails for one reason only: before the fix,
     `unreachable_templates` reported `templates/.DS_Store` and the check went
     red naming a file that is not a template and that `git status` hides.
+
+    Round 4 finding 1: asserting `== []` twice pins only one direction. A
+    helper that had stopped seeing anything would satisfy both, so the
+    existence assertion below is what keeps this case from passing on
+    silence.
     """
     (repo / "templates").mkdir(parents=True)
     (repo / "templates" / "named.md").write_text("x", encoding="utf-8")
@@ -929,6 +969,10 @@ def test_an_untracked_file_under_templates_is_not_a_template(repo):
         ["git", "-C", str(repo), "add", "templates", "doc.md"],
         check=True,
         capture_output=True,
+    )
+    assert shipped_templates(repo) == ["templates/named.md"], (
+        "the listing sees nothing, so every `== []` below would pass on "
+        "silence rather than on the property they are here for"
     )
     assert unreachable_templates(repo, ["doc.md"]) == []
 
