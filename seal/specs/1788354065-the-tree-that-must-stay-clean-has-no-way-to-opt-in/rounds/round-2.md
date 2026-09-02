@@ -11,7 +11,7 @@ the broad gate ran. -->
 | Target SHA | ab66282 (the fix diff is f049003..50a6eda; ab66282 is round-1's record edit only) |
 | PR | #95 |
 | Broad gate | ab66282 vs origin/release/v0.5.0 — `pytest tests/ -n auto` 1369 passed · 1 skipped, `ruff check .` clean, `ruff format --check .` 80 files formatted, `evidence_check.py --strict .` 299 ok · 0 drifted · 0 broken, `unverified_check.py --baseline` exit 0 (14 overviews · 32 open · 15 closed · 0 unreadable). The delta after the run is this record, round-1's `Fixes checked by` cell, one unit name in `evidence-todo.md`, and `pr.ko.md` — docs-only, the non-invalidating class |
-| Fixes checked by | nobody — 🔴 M was opened by CI after this record was written and its fix pass has just landed; round-3 is the verifying round and sets this cell |
+| Fixes checked by | round-3 |
 | Contract changes | none — the fix for 🔴 M changed one test assertion; no hook code, no printed text |
 | New units | none — the fix for 🔴 M added no unit |
 | Needs a fix | yes — 🔴 M, opened by PR #95's windows CI leg after the reviewer answered `no`: a second gate-prompt assertion still spelled the path with slashes |
