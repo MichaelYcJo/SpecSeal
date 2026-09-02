@@ -37,7 +37,8 @@ the hash and names what it changed.
 
 **A row whose anchor a change removes is removed with it.** Its claim went
 with the code; the new claim is a new row, in the work item's own fragment.
-That is how this file empties as work items retire the claims it holds.
+So a claim leaves this file when the code it was about does, and the fold at
+the next release brings the new claim back in with the rest of its fragment.
 
 ## Scope decisions
 

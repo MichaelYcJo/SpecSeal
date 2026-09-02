@@ -22,6 +22,7 @@ the shape of `gather_changelog.py`.
 import importlib.util
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -290,6 +291,76 @@ def test_a_fragment_whose_marker_is_already_in_the_ledger_is_refused(tree):
     assert fragments_left(tree) == ["1788229400-later.md"], "the refusal removed it"
 
 
+def test_a_marker_quoted_in_the_ledgers_prose_is_not_a_folded_work_item(tree):
+    """Round 1, 🟡 3. A substring test read the marker's shape in prose as a
+    fold that had happened, and refused with advice to remove the fragment —
+    the only copy of the rows. The mark is a line of its own."""
+    text = ledger(tree).replace(
+        "> The gathered ledger.",
+        "> The gathered ledger. A folded item is marked like "
+        "`<!-- specs/1788229400-later -->`.",
+    )
+    assert "<!-- specs/1788229400-later -->" in text
+    (tree / ".specseal" / "map.md").write_text(text, encoding="utf-8")
+    fold(tree)
+    assert "| the later claim |" in ledger(tree)
+    r = run("--check", root=tree)
+    assert r.returncode == 0, r.stdout
+    assert "2 work items marked" in r.stdout, r.stdout
+
+
+def test_the_messages_print_slash_joined_paths_on_every_platform(tree):
+    """Round 1, 🔴 1. `os.path.join` printed `.specseal\\map` on Windows and
+    three assertions expected `/`. A backslash in either message is the
+    regression, on every leg and not only the Windows one."""
+    r = run("--check", root=tree)
+    assert r.returncode == 1, r.stdout
+    assert "\\" not in r.stdout, r.stdout
+    fold(tree)
+    (tree / ".specseal" / "map").mkdir()
+    (tree / ".specseal" / "map" / "1788229400-later.md").write_text(
+        fragment("1788229400-later", "Again.", [row("late", handler_hash())]),
+        encoding="utf-8",
+    )
+    for args in (("--version", "0.4.1"), ("--check",)):
+        r = run(*args, root=tree)
+        assert r.returncode == 1, r.stdout
+        assert ".specseal/map/1788229400-later.md" in r.stdout, r.stdout
+        assert "\\" not in r.stdout, r.stdout
+
+
+U2028_ROW = "| a claim\u2028with a line separator | `src/service.py#handler` | c |"
+
+
+def test_a_row_holding_a_line_separator_arrives_as_one_row(tree):
+    """Round 1, 🟡 5 (probe B). `splitlines()` breaks on U+2028, which is
+    not a newline to the file, so one row became two lines."""
+    (tree / ".specseal" / "map" / "1788229400-later.md").write_text(
+        fragment("1788229400-later", "Odd bytes.", [U2028_ROW]), encoding="utf-8"
+    )
+    fold(tree)
+    assert U2028_ROW in ledger(tree).split("\n"), ledger(tree)
+
+
+def test_the_last_row_keeps_its_trailing_whitespace_and_a_fenced_hash_is_text(tree):
+    """Round 1, 🟡 5 (probes A and C). `strip()` took the last row's trailing
+    tab, and a `#` line inside a code fence was demoted as a heading."""
+    last = row("the last claim", unit_hash("parse"), anchor="parse") + " \t"
+    body = (
+        "# 1788229400-later\n\nA note:\n\n```\n# not a heading\n```\n\n"
+        "## The area\n\n| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+        "|---|---|---|---|---|\n" + last + "\n"
+    )
+    (tree / ".specseal" / "map" / "1788229400-later.md").write_text(
+        body, encoding="utf-8"
+    )
+    fold(tree)
+    lines = ledger(tree).split("\n")
+    assert last in lines, "the trailing whitespace was stripped"
+    assert "# not a heading" in lines, "the fenced line was demoted"
+    assert "#### The area" in lines
+
+
 def test_dry_run_writes_and_removes_nothing(tree):
     before = ledger(tree)
     left = fragments_left(tree)
@@ -442,6 +513,21 @@ def test_an_open_shape_refuses(tree, shape, text):
     assert "1700000000-earlier/evidence-todo.md" in r.stdout, r.stdout
 
 
+def test_a_line_separator_in_a_cell_does_not_close_the_file(tree):
+    """Round 1, 🟡 4 (probe E). `splitlines()` read the cell's tail after
+    U+2028 as a line of its own, and `drained` there closed the file: zero
+    open rows where one was — the silent direction for a guard."""
+    evidence_todo(
+        tree,
+        "1700000000-earlier",
+        "# facts\n\n| Claim | Grounds | Label |\n|---|---|---|\n"
+        "| a claim\u2028drained | b | c |\n",
+    )
+    r = run("--version", "0.4.0", root=tree)
+    assert r.returncode == 1, r.stdout
+    assert "1700000000-earlier/evidence-todo.md  (1 open row)" in r.stdout, r.stdout
+
+
 def test_a_work_item_without_the_file_has_no_open_row(tree):
     """The fixture's second work item has no `specs/` directory at all."""
     assert not (tree / "specs" / "1700000000-earlier").exists()
@@ -563,15 +649,47 @@ def test_the_release_sequence_names_the_fold_beside_the_gather():
         )
 
 
+THIS_WORK_ITEM = "1788326734-the-ledger-fragments-are-never-gathered"
+
+
+def this_work_items_rows_are_in_the_ledger(root):
+    """The fragment while it exists, its folded section in `map.md` after.
+
+    Round 1, 🔴 2: reading the fragment alone is a permanent test of a file
+    that lives between releases, which is the shape the dependency rule names
+    "would break on removal" — the release-preparation commit would have
+    turned the tests red on its own pull request.
+    """
+    frag = os.path.join(root, ".specseal", "map", f"{THIS_WORK_ITEM}.md")
+    if os.path.isfile(frag):
+        with open(frag, encoding="utf-8") as f:
+            text = f.read()
+        where = "the fragment"
+    else:
+        with open(os.path.join(root, ".specseal", "map.md"), encoding="utf-8") as f:
+            text = f.read()
+        lines = text.split("\n")
+        assert f"<!-- specs/{THIS_WORK_ITEM} -->" in lines, (
+            "this work item wrote no ledger fragment, and no fold marked it"
+        )
+        text = text.split(f"<!-- specs/{THIS_WORK_ITEM} -->", 1)[1]
+        where = "the folded section"
+    assert "fold_ledger.py#" in text, f"{where} cites nothing in the script"
+
+
 def test_this_work_item_wrote_its_own_fragment():
     """Dogfood. A convention the branch introducing it did not follow is one
     nobody has tried."""
-    frag = os.path.join(
-        ROOT,
-        ".specseal",
-        "map",
-        "1788326734-the-ledger-fragments-are-never-gathered.md",
-    )
-    assert os.path.isfile(frag), "this work item wrote no ledger fragment"
-    with open(frag, encoding="utf-8") as f:
-        assert "fold_ledger.py#" in f.read(), "the fragment cites nothing in the script"
+    this_work_items_rows_are_in_the_ledger(ROOT)
+
+
+def test_this_work_items_rows_are_still_found_after_the_release_folds_them(tmp_path):
+    """The same body, on a copy of this repository after the fold has run
+    there. `specs/` rides along because the guard reads every evidence-todo
+    file in the tree, this work item's included."""
+    for d in (".specseal", "specs"):
+        shutil.copytree(os.path.join(ROOT, d), tmp_path / d)
+    r = run("--version", "9.9.9", "--date", "2026-12-31", root=tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not (tmp_path / ".specseal" / "map").exists(), "the fold removed nothing"
+    this_work_items_rows_are_in_the_ledger(str(tmp_path))

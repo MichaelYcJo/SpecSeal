@@ -1,5 +1,7 @@
 # verified facts to merge into the work item's ledger fragment
 
+drained — all three rows merged into `.specseal/map/1788326734-the-ledger-fragments-are-never-gathered.md` by the round-1 fix pass: the dedup fact as its own row under "The fold is a move", the hygiene-step reading into the `--check` row's Verified behavior cell, and the seven-fragments / 99-rows count into the first row's cell in place of the branch commit it used to cite. This is the first file the guard this work item adds ever reads, and `fold_ledger.py --check` on the tree is what proves it closed.
+
 Merge each into `.specseal/map/1788326734-the-ledger-fragments-are-never-gathered.md`, then write `drained` above this table or mark each row ✅. The fold this work item adds refuses to run while a row here is open, so this file is the first the guard will ever read.
 
 | Claim | Grounds | Label |

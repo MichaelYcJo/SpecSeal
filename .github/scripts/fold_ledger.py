@@ -73,8 +73,11 @@ sys.path.insert(
 import console
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-LEDGER = os.path.join(".specseal", "map.md")
-FRAGMENTS = os.path.join(".specseal", "map")
+# `/`-joined on every platform, because these are what the messages print and
+# what the tests and a person read; `ntpath.join` would print `.specseal\map`
+# (round 1, 🔴 1). Disk paths are built from them through `under()`.
+LEDGER = ".specseal/map.md"
+FRAGMENTS = ".specseal/map"
 
 HEADING_RE = re.compile(r"^(#{1,6})(\s)")
 SEPARATOR_RE = re.compile(r"^\|(\s*:?-+:?\s*\|)+\s*$")
@@ -82,9 +85,25 @@ DRAINED_RE = re.compile(r"^[\s*_]*drained\b", re.IGNORECASE)
 MARKER_LINE_RE = re.compile(r"^<!-- specs/\S+ -->$", re.M)
 
 
+def under(root, rel):
+    """The disk path of a `/`-joined repository-relative path."""
+    return os.path.join(root, *rel.split("/"))
+
+
 def marker(work_item_id):
     """The comment that says this work item's rows are in the ledger."""
     return f"<!-- specs/{work_item_id} -->"
+
+
+def is_marked(ledger_text, work_item_id):
+    """Whether the ledger carries this work item's marker on a line of its own.
+
+    A substring test would read the marker's shape quoted in the ledger's own
+    prose as a folded work item and refuse the fold, with advice that would
+    have a person remove the only copy of the rows (round 1, 🟡 3). One
+    line-anchored test serves the fold and `--check` alike.
+    """
+    return re.search(rf"^{re.escape(marker(work_item_id))}$", ledger_text, re.M)
 
 
 def fragments(root):
@@ -96,7 +115,7 @@ def fragments(root):
     not; `section()` decides what an empty one becomes.
     """
     out = []
-    for path in glob.glob(os.path.join(root, FRAGMENTS, "*.md")):
+    for path in glob.glob(os.path.join(under(root, FRAGMENTS), "*.md")):
         work_item_id = os.path.basename(path)[: -len(".md")]
         with open(path, encoding="utf-8") as f:
             out.append((work_item_id, f.read()))
@@ -104,8 +123,8 @@ def fragments(root):
 
 
 def folded(ledger_text, frags):
-    """The fragments whose marker is already in the ledger."""
-    return [(i, text) for i, text in frags if marker(i) in ledger_text]
+    """The fragments whose marker is already in the ledger, on its own line."""
+    return [(i, text) for i, text in frags if is_marked(ledger_text, i)]
 
 
 def demote(text, work_item_id):
@@ -114,19 +133,28 @@ def demote(text, work_item_id):
     The fragment's own `# <id>` title is dropped, because the heading above
     the body already carries it; every other heading moves down two levels
     so a fragment's `## area` becomes `#### area` under the work item. Only
-    lines outside tables are touched, and only their heading prefix: a table
-    row is copied byte for byte.
+    heading lines outside tables and code fences are touched, and only their
+    `#` prefix: every other line is copied byte for byte.
+
+    Byte for byte means three things `str` methods do not (round 1, 🟡 5):
+    lines are split on `\\n` alone, because `splitlines()` also breaks a row
+    on U+2028; only newlines are stripped at either end, because `strip()`
+    would take the last row's trailing whitespace; and a `#` line inside a
+    code fence is text, not a heading.
     """
-    lines = text.strip().splitlines()
+    lines = text.strip("\n").split("\n")
     if lines and lines[0].strip() == f"# {work_item_id}":
         lines = lines[1:]
     out = []
+    fenced = False
     for line in lines:
-        m = HEADING_RE.match(line)
-        if m and not line.startswith("|"):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+        m = None if fenced else HEADING_RE.match(line)
+        if m:
             line = "#" * min(len(m.group(1)) + 2, 6) + line[len(m.group(1)) :]
         out.append(line)
-    return "\n".join(out).strip()
+    return "\n".join(out).strip("\n")
 
 
 def section(version, date, entries):
@@ -141,7 +169,7 @@ def section(version, date, entries):
     empty = []
     for work_item_id, text in entries:
         body = demote(text, work_item_id)
-        if not body:
+        if not body.strip():
             empty.append(work_item_id)
             continue
         blocks.append(marker(work_item_id))
@@ -165,8 +193,12 @@ def open_rows(text):
     open unless its first cell begins with ✅. A table is a run of lines
     starting with `|`; its first line is the header when the second is a
     separator, and neither is a body row.
+
+    Split on `\\n` alone: `splitlines()` also breaks on U+2028, U+0085 and
+    form feed, so a cell holding one of those followed by `drained` closed the
+    file — the silent direction for a guard (round 1, 🟡 4).
     """
-    lines = text.splitlines()
+    lines = text.split("\n")
     rows = []
     n = 0
     while n < len(lines):
@@ -194,7 +226,9 @@ def open_rows(text):
 def open_items(root):
     """[(relative path, open row count)] for every evidence-todo file with one."""
     out = []
-    for path in sorted(glob.glob(os.path.join(root, "specs", "*", "evidence-todo.md"))):
+    for path in sorted(
+        glob.glob(os.path.join(under(root, "specs"), "*", "evidence-todo.md"))
+    ):
         with open(path, encoding="utf-8") as f:
             rows = open_rows(f.read())
         if rows:
@@ -231,7 +265,7 @@ def main(argv=None):
         ap.error("pass --version to fold, or --check to verify")
 
     root = os.path.abspath(args.root)
-    ledger = os.path.join(root, LEDGER)
+    ledger = under(root, LEDGER)
     if not os.path.isfile(ledger):
         print(f"{LEDGER} is not there — nothing to fold into")
         return 1
@@ -248,7 +282,7 @@ def main(argv=None):
             print(f"ledger fragments that never folded into {LEDGER}:")
             for work_item_id, _ in frags:
                 line = f"  {FRAGMENTS}/{work_item_id}.md"
-                if marker(work_item_id) in text:
+                if is_marked(text, work_item_id):
                     line += "  (its marker is already in the ledger — compare by hand)"
                 print(line)
             print(
@@ -313,9 +347,9 @@ def main(argv=None):
     # Removed only after the ledger is on disk, so a failed write leaves every
     # fragment where it was.
     for work_item_id, _ in frags:
-        os.remove(os.path.join(root, FRAGMENTS, f"{work_item_id}.md"))
+        os.remove(under(root, f"{FRAGMENTS}/{work_item_id}.md"))
     try:
-        os.rmdir(os.path.join(root, FRAGMENTS))
+        os.rmdir(under(root, FRAGMENTS))
     except OSError:
         pass  # something else is in it, or it is already gone; both are fine
     moved = len(frags) - len(empty)
