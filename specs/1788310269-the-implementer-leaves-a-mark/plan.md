@@ -70,7 +70,8 @@ cost is one line per session in that state.
   reminder, never toward a stop and never toward a silence that hides a dead
   gate.
 - **Platform.** Paths the notice prints are built with `os.path.join`; every
-  file open names `encoding="utf-8"`; no shell is spawned. The Windows leg is
+  file open that reads or writes text names `encoding="utf-8"` (the one
+  exception creates an empty marker and writes no bytes); no shell is spawned. The Windows leg is
   CI's to run.
 - No migration, no dependency, no environment variable, no change to
   `hooks/hooks.json`.
