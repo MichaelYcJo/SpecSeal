@@ -786,7 +786,7 @@ def declared_for_this_branch(root, routing):
     if not matching:
         return [], (
             "this pull request declared neither way, so the review-chain "
-            "check examined nothing. Add seal/specs/<work-item>/routing.md to"
+            "check examined nothing. Add seal/specs/<work-item>/routing.md to "
             "declare."
         )
     return [matching[0]], ""

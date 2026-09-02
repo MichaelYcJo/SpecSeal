@@ -48,8 +48,10 @@ Usage:
 
 import argparse
 import ast
+import functools
 import glob
 import hashlib
+import importlib.util
 import os
 import re
 import stat
@@ -810,7 +812,45 @@ def cross_repo_intent(root, default_repo):
     which. Those rows keep the scan off, and SKILL.md's Known limits says what
     that costs.
     """
-    return bool(default_repo) or os.path.isfile(os.path.join(root, "seal", "parity.md"))
+    return bool(default_repo) or os.path.isfile(
+        os.path.join(seal_home(root), "parity.md")
+    )
+
+
+@functools.cache
+def seal_home(root):
+    """The `seal/` of the repository at `root`: what `hooks/optin.py` resolves
+    when this is the plugin's own copy, else `<root>/seal/`.
+
+    Two copies of this script exist. The plugin's sits three directories
+    below `hooks/`, and asks `optin.home_at` — the one resolver, which reads
+    `<root>/seal/` and then `<git-common-dir>/seal/`, so a local-mode
+    repository (#80) is checked when `bin/evidence-check` runs by hand. The
+    vendored copy (`evidence-ci` puts it in a user repository's `tools/`) has
+    no `hooks/` beside it and runs in CI, which is shared mode: it reads
+    `<root>/seal/` as it always did. One resolver and no second `home_at`
+    here, for the reason `optin.py`'s docstring gives about divergent copies.
+
+    `<root>/seal/` is also the answer when the resolver says "" — a scratch
+    marker, or no root at either place — because this is a CLI a person is
+    watching rather than a gate: the defaults then find nothing and the run
+    says "no evidence ledgers found". `--ledger` bypasses this entirely.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    plugin = os.path.normpath(os.path.join(here, "..", "..", ".."))
+    optin_path = os.path.join(plugin, "hooks", "optin.py")
+    skill = os.path.join(here, "..", "SKILL.md")
+    if os.path.isfile(optin_path) and os.path.isfile(skill):
+        try:
+            spec = importlib.util.spec_from_file_location("specseal_optin", optin_path)
+            optin = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(optin)
+            home = optin.home_at(root)
+        except Exception:
+            home = ""
+        if home:
+            return home
+    return os.path.join(root, "seal")
 
 
 def check_ledger(ledger, root, maps, default_repo=None):
@@ -1375,18 +1415,21 @@ def main():
     # working. `.specseal/map.md` is NOT read: the root moved to `seal/` and
     # `hooks/root-migrate.py` moves it, so a ledger left there is a file in
     # the wrong place, not a second address.
-    patterns = args.ledger or [
-        "seal/ledger.md",
-        "seal/ledger/*.md",
-        "docs/**/_evidence.md",
-    ]
-    ledgers = sorted(
-        {
-            p
-            for pat in patterns
-            for p in glob.glob(os.path.join(root, pat), recursive=True)
-        }
-    )
+    #
+    # The first two are joined under the `seal/` that `seal_home` resolves —
+    # under the git directory in local mode (#80) — and the third under the
+    # root, a committed file at an old address. A `--ledger` pattern is
+    # joined under the root as given.
+    if args.ledger:
+        patterns = [os.path.join(root, pat) for pat in args.ledger]
+    else:
+        home = seal_home(root)
+        patterns = [
+            os.path.join(home, "ledger.md"),
+            os.path.join(home, "ledger", "*.md"),
+            os.path.join(root, "docs", "**", "_evidence.md"),
+        ]
+    ledgers = sorted({p for pat in patterns for p in glob.glob(pat, recursive=True)})
     if not ledgers:
         print("no evidence ledgers found — nothing to check")
         return 0

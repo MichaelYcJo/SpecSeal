@@ -29,7 +29,14 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from conftest import decision_of, declare_routing, fired, load_hook_module, run_hook
+from conftest import (
+    decision_of,
+    declare_routing,
+    fired,
+    load_hook_module,
+    local_home,
+    run_hook,
+)
 
 gate = load_hook_module("commit-review-gate.py", "crg_target")
 reader = load_hook_module("cmdline.py", "cmdline_cd")
@@ -82,10 +89,14 @@ def _gate_repo_template():
     return _GATE_REPO_TEMPLATE
 
 
-def make_repo(path, opted_in):
-    """A repo with one commit, `seal/` when it opts in, and a staged change."""
+def make_repo(path, opted_in, local=False):
+    """A repo with one commit, `seal/` when it opts in, and a staged change.
+
+    `local=True` puts the root under the git directory instead (#80)."""
     shutil.copytree(_gate_repo_template(), path)
-    if opted_in:
+    if opted_in and local:
+        local_home(path)
+    elif opted_in:
         (path / "seal").mkdir()
     return path
 
