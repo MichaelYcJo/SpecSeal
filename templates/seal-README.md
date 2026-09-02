@@ -1,0 +1,62 @@
+# seal/ — what this plugin maintains
+
+This directory exists for AI sessions to hand work to each other. It is one
+root laid out by lifetime: the rows that outlive a work item at the top, and
+each work item whole under `specs/<work-item-id>/`, where it waits until a
+later `settle` folds it. It is safe to delete a work item's directory
+wholesale **after the export rules below have run** — nothing that must
+survive is allowed to live only there.
+
+It is **committed** (gitignored files don't follow worktrees or other
+machines), and its presence at the repository root is what opts the
+repository into the workflow. There is no config key. Nothing reads
+`.specseal/` or a top-level `specs/` any more; a repository still holding
+them is moved here once, at session start, by the plugin.
+
+**The throwaway opt-out is the file `.git/specseal-scratch`, and it cannot be
+committed.** Where it exists, every gate reads the repository as one that
+never opted in and says nothing. It is for a repository built to be thrown
+away — a fixture made by hand to reproduce a gate decision — and it lives
+under the git directory because its predecessor, `.specseal/scratch`, sat in
+a committed directory and one committed there silently turned the workflow
+off in every clone.
+
+## Export rules — drain before closing
+
+| Item still here | Destination |
+|---|---|
+| Verified facts (`specs/<work-item-id>/evidence-todo.md`) | `ledger/<work-item-id>.md` — this work item's spec-clause ↔ coordinate rows |
+| Tests to plant (`specs/<work-item-id>/tests-todo.md`) | the implementation commit — or `follow-up.md` if blocked on prerequisite work |
+| Open decisions | the policy document's open-questions section |
+
+Closing without exporting leaves the list where nothing looks for it — a
+prescribed test unplanted, a verified fact unmerged.
+
+## Layout
+
+```
+seal/
+├── README.md              this file
+├── ledger.md              spec clause ↔ code coordinates: the gathered ledger,
+│                          which each release folds the fragments into
+├── ledger/
+│   └── <work-item-id>.md  one work item's rows while it is in development —
+│                          folded into ledger.md at the release, then removed
+├── parity.md              migration config, only where one is declared
+├── follow-up.md           schedulable items in a repository with no tracker
+└── specs/<work-item-id>/  one work item, whole
+    ├── routing.md         which way it was routed, written before the first edit
+    ├── spec.md · plan.md · questions.md · overview.md · changelog.md
+    ├── rounds/
+    │   └── round-N.md     target SHA · Pass · who checked the fixes · verdicts · executed probes · inherited coordinates · deferrals
+    ├── tests-todo.md      regression tests to plant, destination file per row
+    └── evidence-todo.md   facts to merge into the evidence ledger
+```
+
+There is no task list here and no directory for one. `plan.md`'s Phases table
+is where the work records how far it got, in a Status column whose closed value
+is the commit that closed the phase — a past state someone can open, rather
+than a tick anyone can type.
+
+Reports meant for humans go to PR comments; this directory is for the **next
+session** — the two audiences never share a file.
