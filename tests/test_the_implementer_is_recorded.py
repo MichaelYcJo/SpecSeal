@@ -182,18 +182,25 @@ def test_a_broken_mark_gate_leaves_the_worktree_guards_verdict_alone(repo, tmp_p
     opt_in(repo)
     hooks = tmp_path / "hooks"
     shutil.copytree(Path(HOOKS).resolve(), hooks)
-    isolated = spawn(repo, isolation="worktree")
+    # A fresh session id per call. The guard remembers which sessions it has
+    # already put the two-option question to (`already_asked`) and answers a
+    # repeat from the same session with the shorter fallback, so three calls
+    # under one id would differ on the guard's own state and say nothing
+    # about the mark gate. Measured on CI, where ps/lsof are absent and the
+    # guard reaches that site; macOS reached another and never showed it.
+    isolated = spawn(repo, isolation="worktree", session="s-intact")
 
     intact = run_dispatch("pre-agent", isolated, hooks=str(hooks))
     assert fired(intact), "the guard did not fire, so there is nothing to protect"
     assert os.path.isfile(mark_path(repo)), "Q2: written before the group decides"
 
-    for broken in ("def broken(:\n", None):
+    for n, broken in enumerate(("def broken(:\n", None)):
         if broken is None:
             (hooks / "implementer-mark.py").unlink()
         else:
             (hooks / "implementer-mark.py").write_text(broken, encoding="utf-8")
-        after = run_dispatch("pre-agent", isolated, hooks=str(hooks))
+        again = spawn(repo, isolation="worktree", session=f"s-broken-{n}")
+        after = run_dispatch("pre-agent", again, hooks=str(hooks))
         assert after == intact, (
             f"a broken mark gate changed the worktree guard's verdict:\n{after}"
         )
