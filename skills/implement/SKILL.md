@@ -87,7 +87,9 @@ keep.
 When a root or file this skill needs doesn't exist, create it from
 `templates/` in this plugin and continue. In particular:
 
-- `seal/ledger.md` — created empty, with no baseline to stamp: a coordinate
+- `seal/ledger.md` — written from `templates/ledger.md`, which carries the
+  coordinate notation and the feed-back rule a session needs before it adds
+  a row. It starts with **no rows and no baseline to stamp**: a coordinate
   names content rather than a position, so there is nothing for a header to
   declare. A work item's own rows go in `seal/ledger/<work-item-id>.md`.
 - `seal/README.md` — carries the export rules so sessions that never load

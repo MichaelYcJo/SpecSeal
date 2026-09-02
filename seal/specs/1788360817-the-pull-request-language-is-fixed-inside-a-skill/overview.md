@@ -75,14 +75,22 @@ record that cites one (`questions.md` Q2).
 **`docs/` untouched.** Issue #82 says so itself — *"Not in
 docs/one-root-by-lifetime.md (PR #77…); recorded here."*
 
-**`docs/flow.md` — one line, and not by this work item.** The memo said the
-file was untouched, and round 1 ❓ 8 found the branch tip moving one of its
-lines. The correction: that commit is the orchestrator's (`ec3e252`, the
-sealer moved from 0.5.0 to 0.6.0), made after this memo was written and
-riding on this branch because `release/v0.5.0` takes no direct push and a
-one-line planning change does not earn a pull request of its own. This work
-item still writes nothing there, and the `#82` checkbox belongs to whoever
-merges.
+**`docs/flow.md` — two lines, and neither by this work item.** The memo said
+the file was untouched; round 1 ❓ 8 found one line moving, and round 2 🟡 6
+found the second, which is the same mismatch arriving twice.
+`git log main..HEAD -- docs/flow.md` names both, and both are the
+orchestrator's:
+
+- `ec3e252` — the sealer moves from 0.5.0 to 0.6.0, a release-planning
+  decision.
+- `e71ed28` — the `#96` row, where round 1 deferred its 🟡 7. That is a
+  review round's decision about what leaves this branch.
+
+Both ride here because `release/v0.5.0` takes no direct push and a one-line
+planning change does not earn a pull request of its own. This work item
+still writes nothing in that file, and the `#82` checkbox belongs to whoever
+merges. **Naming one of two is how a finding comes back**, so this line is
+checked with the command above rather than from memory.
 
 ## Fed back into the spec
 
