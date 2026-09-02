@@ -223,8 +223,10 @@ checker that shrugged at that would go quiet exactly where the edit matters.
 
 A work item's rows go in `.specseal/map/<work-item-id>.md`, which the default
 globs already read. Two branches never queue at one file, because no two work
-items share an id. Fragments are never gathered back — a row is checked against
-the code it cites, not concatenated.
+items share an id. The release that ships the work item folds its fragment
+into `.specseal/map.md` and removes the file; a row is checked against the
+code it cites wherever it sits, so the fold changes nothing this check
+reports.
 
 A row citing a range that spans several definitions becomes several
 coordinates, one per definition. That is not a loss: it is the row saying which

@@ -35,10 +35,11 @@ prescribed test unplanted, a verified fact unmerged.
 
 ```
 .specseal/
-├── map.md               spec clause ↔ code coordinates, from before work
-│                        items started writing their own fragments
+├── map.md               spec clause ↔ code coordinates: the gathered ledger,
+│                        which each release folds the fragments into
 ├── map/
-│   └── <work-item-id>.md  one work item's rows — never gathered
+│   └── <work-item-id>.md  one work item's rows while it is in development —
+│                          folded into map.md at the release, then removed
 ├── parity.md            migration config, only where one is declared
 └── follow-up.md         schedulable items in a repository with no tracker
 ```

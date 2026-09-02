@@ -62,8 +62,9 @@ when it arrives.
   `CHANGELOG.md` nor `.specseal/map.md`. Three branches running in parallel
   shared exactly one file between them and it was the changelog; the conflict
   is three lines, and it arrives after the broad gate has run, where nothing
-  may be edited. The changelog fragments are gathered at the release
-  (`docs/branch-and-release.md`); the ledger fragments never are.
+  may be edited. Both kinds of fragment are gathered at the release
+  (`docs/branch-and-release.md`): the changelog fragments into the released
+  section, the ledger fragments into `.specseal/map.md`, where the rows stay.
 
   **Changing cited code is the case the rule has to answer, and it is not an
   append.** Change what an existing `.specseal/map.md` row cites and the
@@ -78,8 +79,8 @@ when it arrives.
     into your own fragment.** A row is not re-pointed at whatever now sits
     nearest to where it used to look.
 
-  So `.specseal/map.md` empties into fragments as work items retire the claims
-  its rows carry, which is the migration these fragments exist to enable.
+  So a claim leaves `.specseal/map.md` when the code it was about does, and
+  comes back at the release, folded in from the fragment that replaced it.
 
   **Renamed a cited symbol or file?** `bin/evidence-check --reverify .`
   re-anchors every row whose content provably moved intact and prints BROKEN
@@ -94,13 +95,20 @@ when it arrives.
 
   ```bash
   python3 .github/scripts/gather_changelog.py --version X.Y.Z   # --dry-run first
+  python3 .github/scripts/fold_ledger.py --version X.Y.Z        # --dry-run first
   python3 .github/scripts/gather_changelog.py --check           # what the workflow runs
+  python3 .github/scripts/fold_ledger.py --check                # and this
   ```
 
   This is the rule above being satisfied rather than broken: the branch is not
   adding an entry to a shared region, it is collecting the fragments that
   already exist. A hotfix taken straight to `main` is the case that meets this
   without expecting to.
+
+  The fold refuses, naming the file, while any `specs/<id>/evidence-todo.md`
+  in the tree still has an open row: a row in a file with no `drained` line,
+  whose first cell does not begin with ✅. Merge the fact into the fragment
+  and drain the file; that is one commit on the release branch.
 - **No real identifiers.** Examples, fixtures, and docs use `example.com`
   and `/Users/x/` only. `tests/test_no_real_identifiers.py` enforces it in
   CI — extend its allowlist deliberately, never to make a test pass.
