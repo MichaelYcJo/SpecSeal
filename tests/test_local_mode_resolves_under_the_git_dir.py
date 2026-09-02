@@ -263,6 +263,67 @@ def test_the_ledger_migration_hook_is_not_refused_from_a_linked_worktree(
     assert "src/service.py#handler@" in ledger.read_text(encoding="utf-8")
 
 
+def test_the_ledger_migration_hook_survives_a_ledger_with_no_relative_spelling(
+    local, migrate, monkeypatch
+):
+    r"""Round 1 of #80, 🔴 2. `dirty()` asks `os.path.relpath` for every ledger
+    path before it decides which ones to ask git about, and on Windows a root
+    on another drive than the tree makes `ntpath.relpath` raise (`ValueError:
+    path is on mount 'D:', start on mount 'C:'`). The exception left `main()`
+    at session start. A path with no relative spelling is outside the tree by
+    definition, which is the case `dirty()` already skips — so it is skipped,
+    and the migration proceeds.
+
+    Induced for every path rather than found on two drives, so the case runs
+    on every leg: with nothing left to ask git about, `dirty()` is False."""
+    repo, home = local
+    ledger = home / "ledger" / "f.md"
+    write(ledger, OLD_ROW)
+
+    def refuses(path, start=None):
+        raise ValueError("path is on mount 'D:', start on mount 'C:'")
+
+    monkeypatch.setattr(os.path, "relpath", refuses)
+    out = session_start(migrate, repo)
+    assert "ledger migrated to anchor format" in out, out
+    assert "src/service.py#handler@" in ledger.read_text(encoding="utf-8")
+
+
+def test_in_local_mode_the_migration_notice_does_not_promise_a_diff(local, migrate):
+    """Round 1 of #80, 🟡 5. The notice ended "review the diff and commit",
+    and the module docstring promised the old text safe in git history. Under
+    the git directory nothing is in a diff and nothing reaches history: the
+    rewritten ledger is the only copy. So in local mode the line ends by
+    naming what CAN be read — the checker's own output."""
+    repo, home = local
+    write(home / "ledger" / "f.md", OLD_ROW)
+    out = session_start(migrate, repo)
+    assert "ledger migrated to anchor format" in out, out
+    assert "no git history" in out, out
+    assert "`evidence-check .`" in out, out
+    assert "review the diff and commit" not in out, out
+
+
+def test_in_shared_mode_the_migration_notice_still_ends_with_the_diff(repo, migrate):
+    """The other half of 🟡 5: a shared root is committed, so the diff and
+    the history the old sentence promised are both there, and the line is
+    the one it always was."""
+    write(repo / "src" / "service.py", SERVICE)
+    write(repo / "seal" / "ledger" / "f.md", OLD_ROW)
+    subprocess.run(
+        ["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-qm", "shared root"],
+        check=True,
+        capture_output=True,
+    )
+    out = session_start(migrate, repo)
+    assert "ledger migrated to anchor format" in out, out
+    assert "review the diff and commit" in out, out
+    assert "no git history" not in out, out
+
+
 def test_a_dirty_ledger_under_the_tree_is_still_refused_in_local_mode(local, migrate):
     """The old address under the tree keeps its boundary: an uncommitted
     `docs/**/_evidence.md` is work in progress, whatever mode the root is in."""

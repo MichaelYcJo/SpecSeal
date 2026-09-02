@@ -11,9 +11,13 @@ the remembering.
 **What licenses writing to a tree unasked.** The ledger is the plugin's own
 artifact — the same ownership that lets `preset-setup` replace the CLAUDE.md
 marker block without asking — and the operation is deterministic, idempotent,
-all-or-nothing per row, and fully visible in `git diff`, with the old text
-safe in git history. The notice ends "review the diff and commit" because the
-write is the beginning of a review, not the end of one.
+all-or-nothing per row, and — in shared mode, where the root is committed —
+fully visible in `git diff`, with the old text safe in git history. There the
+notice ends "review the diff and commit" because the write is the beginning
+of a review, not the end of one. A local root (#80) sits under the git
+directory, where nothing is in a diff and the rewritten ledger is the only
+copy; the same deterministic, all-or-nothing rewrite runs, and the notice
+ends by naming what can be read instead: `evidence-check .`.
 
 Boundaries, each pinned in `tests/test_the_ledger_migrates_itself.py`:
 
@@ -36,7 +40,8 @@ unchanged from `--migrate`, whose engine this calls.
 What a change to a gate must carry (`CONTRIBUTING.md`), answered for a hook
 that writes: failure direction — wrong-silent leaves the loud OLD-FORMAT
 check failure, wrong-write is visible in `git diff` with the old text in git
-history, so both fail toward a person seeing it; prompt budget — zero
+history in shared mode, and in local mode is what `evidence-check .` reads
+next, so both fail toward a person seeing it; prompt budget — zero
 questions, one printed line once per repository; platform — pure Python plus
 one `git status --porcelain`, no process inspection. Under `dispatch.py`'s
 crash isolation a raising hook is skipped silently; here that loses one
@@ -120,11 +125,20 @@ def dirty(root, paths):
     # "uncommitted" has no meaning for it — and from a linked worktree its
     # path climbs out of the tree, which git refuses (`is outside
     # repository`, exit 128) and this function then read as dirty forever.
-    rels = [
-        rel
-        for rel in (os.path.relpath(p, root).replace(os.sep, "/") for p in paths)
-        if not rel.startswith("../") and not rel.startswith(".git/")
-    ]
+    #
+    # A path with no relative spelling at all — on Windows, a root on another
+    # drive than the tree, where `ntpath.relpath` raises `ValueError` — is
+    # outside the tree by definition, and is skipped the same way rather
+    # than raised out of `main()` at session start (round 1 of #80, 🔴 2).
+    rels = []
+    for p in paths:
+        try:
+            rel = os.path.relpath(p, root).replace(os.sep, "/")
+        except ValueError:
+            continue
+        if rel.startswith("../") or rel.startswith(".git/"):
+            continue
+        rels.append(rel)
     if not rels:
         return False
     try:
@@ -190,12 +204,28 @@ def main():
         if unproven
         else ""
     )
+    # "Review the diff" is a shared-mode sentence: the root is committed, so
+    # the rewrite is in a diff and the old text is in history. A local root
+    # (#80) lives under the git directory, where nothing is in a diff and the
+    # rewritten ledger is the only copy — so the line names what CAN be read
+    # (round 1 of #80, 🟡 5). Local is "not the shared root", whichever
+    # tree the session sits in: from a linked worktree the root is under the
+    # main tree's common directory, which is not under this tree at all.
+    shared = os.path.normcase(os.path.normpath(home)) == os.path.normcase(
+        os.path.normpath(os.path.join(root, optin.HOME))
+    )
+    ending = (
+        "review the diff and commit"
+        if shared
+        else "this root has no git history, so run `evidence-check .` to read "
+        "the result"
+    )
     print(
         json.dumps(
             {
                 "systemMessage": (
                     f"specseal: ledger migrated to anchor format ({rows}{tail}"
-                    f"{warn}) — review the diff and commit"
+                    f"{warn}) — {ending}"
                 )
             }
         )
