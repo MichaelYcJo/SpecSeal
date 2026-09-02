@@ -88,7 +88,7 @@ leases stay. `specs/` and `.specseal/` do not exist afterwards.
 | S3 `.specseal/` no longer opts in | Given a repository with `.specseal/` and no `seal/`, then every gate is silent, and the only thing that speaks is the migration hook at session start | `tests/test_optin_home.py`; the commit gate, review-skill gate and implementer hooks on such a fixture |
 | S4 the throwaway opt-out moves out of the tree | Given `<git-common-dir>/specseal-scratch` is a file, then `home()` is `""` and every gate is silent; given a directory of that name, it is not the marker; given the old `.specseal/scratch` file, nothing reads it (Q4) | `tests/test_optin_home.py`, the existing scratch cases re-pointed; `test_this_repository_carries_no_scratch_marker` removed, because a file under `.git/` cannot be committed |
 | S5 the migration moves once | Given a clean repository with `.specseal/` and `specs/<id>/…` and no `seal/`, when the session-start group runs, then the tree above exists, every move was a `git mv` (staged, history kept), one line is printed naming what moved, and `~/.claude/specseal/root-migrated` carries the root. A second session start does nothing | `tests/test_the_root_migrates_itself.py`, new, in the shape of `tests/test_the_ledger_migrates_itself.py` |
-| S6 a dirty tree is refused | Given `git status --porcelain -- .specseal specs` prints anything, or git cannot answer, then nothing moves, no marker is stamped, and one line says why and what to do (text below) | the same test file |
+| S6 a dirty tree is refused | Given `git status --porcelain -- .specseal specs` prints an entry other than a staged rename or deletion with a clean worktree column (`R ` and `D `), or git cannot answer, then nothing moves, no marker is stamped, and one line says why and what to do (text below). The two shapes it looks past are what a stopped run of this hook leaves behind; without the exception S7 can never finish, because every resume would read its own earlier steps as work in progress. A staged addition or modification, anything untracked, and anything with a worktree change still refuse | the same test file: `test_uncommitted_changes_under_the_old_roots_refuse_the_move`, `test_a_staged_edit_under_the_old_roots_is_work_in_progress_too`, `test_an_untracked_file_under_a_work_item_is_work_in_progress`, `test_a_git_that_cannot_answer_reads_as_dirty` |
 | S7 the move resumes | Given a run that stopped after some moves (`seal/` and `.specseal/` both exist), then the next session start moves what remains and stamps only when nothing old is left | the same test file; a fixture with `seal/ledger.md` already moved and `.specseal/map/` not |
 | S8 rows that cite a moved file follow it | Given a ledger row whose anchor path starts with `specs/` or `.specseal/`, then after the move the path reads `seal/specs/…` or `seal/…` with the hash unchanged, and `evidence_check.py` reports the same ok · drifted · broken totals before and after. On this repository: 160 ok before (executed, this branch at `07a0fc8`), one such row (`.specseal/map.md` citing `specs/1788184145-…/rounds/round-3.md`) | the same test file on a fixture; `evidence_check.py .` executed before and after phase 1's move, both outputs in the fragment |
 | S9 a repository declaring itself throwaway is not migrated | Given `.specseal/scratch` exists, then the hook prints one line and stamps nothing; the repository stays as it is | the same test file |
@@ -116,7 +116,9 @@ git left it empty, which is what happens here.
 1. `.specseal/map.md` → `seal/ledger.md`
 2. `.specseal/map/` → `seal/ledger/`
 3. `.specseal/README.md` → `seal/README.md`, then overwritten from
-   `templates/seal-README.md` (Q5)
+   `templates/seal-README.md` (Q5). A template that cannot be read leaves
+   the moved file as it was: a README describing the old layout beats
+   stopping the move for a file that is not the move
 4. every other file directly under `.specseal/` → `seal/<same name>`
    (`follow-up.md`, `parity.md`, anything a project added)
 5. each `specs/<id>/` → `seal/specs/<id>/`
@@ -137,17 +139,19 @@ what did not, and stamps nothing; S7 is what makes the next start finish it.
 
 | State at session start | Printed (one line, `systemMessage`) | Marker |
 |---|---|---|
-| clean, moved | `specseal: moved .specseal/ and N work items into seal/ (M ledger rows re-pointed) — review the diff and commit` | stamped |
-| dirty | `specseal: .specseal/ and specs/ are the old layout, but they carry uncommitted changes — not touching work in progress. Commit, then the next session start moves them into seal/.` | not stamped |
-| `.specseal/scratch` present | `specseal: .specseal/scratch says this repository is throwaway — not migrating it. Delete the file if it is not.` | not stamped |
-| a move failed | `specseal: moved K of N into seal/ and stopped at <path>: <error>. The next session start continues.` | not stamped |
-| nothing old left | nothing | stamped, if not already |
+| clean, moved | `specseal: moved .specseal/ and N work items into seal/ (M ledger rows re-pointed) — review the diff and commit`. `.specseal/` or the work-item count is left out when there was nothing of that kind to move, `item` and `row` are singular at 1, and an entry under `specs/` that is not a work item is named inside the parentheses: `(M ledger rows re-pointed; left specs/<name> where it is (not a SpecSeal work item))` | stamped |
+| dirty (S6) | `specseal: .specseal/ and specs/ are the old layout, but they carry uncommitted changes — not touching work in progress. Commit, then the next session start moves them into seal/.` | not stamped |
+| `.specseal/scratch` present | `specseal: .specseal/scratch says this repository is throwaway — not migrating it. Delete the file if it is not.` Checked before the dirty test, so a throwaway repository gets this line whether or not it is dirty | not stamped |
+| a move failed | `specseal: moved K of N into seal/ and stopped at <path>: <error>. The next session start continues.` No ledger row is re-pointed until every unit has moved, so a stopped run leaves the rows as they were | not stamped |
+| nothing old left | nothing | stamped if `seal/` exists at the root and the marker does not carry it yet. A repository with neither layout is not this hook's business: it is left alone and unlisted, because the stamp's one job is the once-per-repository rule, which only a repository that has something old can meet |
 | marker already carries the root, old layout still there | nothing: the once-per-repo rule holds and the silent gates are the backstop | — |
 
-The last row is the ledger hook's rule applied here, and it is the one
-place the two migrations differ in weight: a ledger left in the old format
-fails `evidence-check` loudly, where a tree left in the old layout gets
-silence from every gate. Q8 asks whether that row should keep printing.
+The rows are tested in the order: nothing old left, marker, scratch,
+dirty, then the move. The last row is the ledger hook's rule applied here,
+and it is the one place the two migrations differ in weight: a ledger left
+in the old format fails `evidence-check` loudly, where a tree left in the
+old layout gets silence from every gate. Q8 asks whether that row should
+keep printing.
 
 ### The opt-in, read one way
 
