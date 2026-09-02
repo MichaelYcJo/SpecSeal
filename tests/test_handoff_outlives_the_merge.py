@@ -64,7 +64,7 @@ def test_the_protocol_puts_the_records_with_the_work_item():
     protocol = read("docs", "review-handoff-protocol.md")
     assert "directory that holds the work item" in protocol, (
         "the protocol has to name the home abstractly — a project adopting it "
-        "does not have this repository's `specs/` layout"
+        "does not have this repository's `seal/specs/` layout"
     )
     assert "not the protocol" in protocol, (
         "without this the protocol has quietly acquired a path dependency"
@@ -350,7 +350,7 @@ def test_a_stray_record_is_named_along_with_where_it_must_go(repo):
     which file is in the wrong place, and where it goes. Degraded to a generic
     "no round record" it names neither, and the trade stops being sound.
     """
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir(exist_ok=True)
     item = declare_routing(repo)
     (item / "round-1.md").write_text("| Target SHA | abc |\n")
     out = run_hook(
@@ -382,7 +382,7 @@ def test_the_post_reminder_sends_the_session_to_rounds(repo):
     mention `ROUNDS_DIR` for an unrelated reason. Proximity is not the
     property; what the session is told to write is.
     """
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir(exist_ok=True)
     declare_routing(repo)
     out = run_hook(
         "review-history-guard.py", payload("gh pr comment 42 --body hi", repo)
@@ -397,7 +397,7 @@ def test_the_post_reminder_sends_the_session_to_rounds(repo):
 def test_a_stray_record_does_not_also_report_as_missing(repo):
     """One state, one message. "holds no round record" beside "your record is
     in the wrong place" teaches a reader to skim past both."""
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir(exist_ok=True)
     item = declare_routing(repo)
     (item / "round-1.md").write_text("| Target SHA | abc |\n")
     out = run_hook(
@@ -410,7 +410,7 @@ def test_a_migrated_work_item_is_not_told_to_migrate(repo):
     """The state every repository lands in after the move. A message here
     would fire forever, on every work item, which is how a reminder becomes
     something people click through."""
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir(exist_ok=True)
     item = declare_routing(repo)
     (rounds_dir(item) / "round-1.md").write_text("| Target SHA | abc |\n")
     out = run_hook(
@@ -423,7 +423,7 @@ def test_a_migrated_work_item_is_not_told_to_migrate(repo):
 
 
 def test_a_merge_with_unclosed_records_is_reminded(repo):
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir(exist_ok=True)
     item = declare_routing(repo)
     (rounds_dir(item) / "round-1.md").write_text("| Target SHA | abc123 |\n")
     out = run_hook("review-history-guard.py", payload("gh pr merge 7 --squash", repo))
@@ -431,7 +431,7 @@ def test_a_merge_with_unclosed_records_is_reminded(repo):
 
 
 def test_closed_records_are_not_reminded(repo):
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir(exist_ok=True)
     item = declare_routing(repo)
     (rounds_dir(item) / "round-1.md").write_text("| Deferred | nothing to drain |\n")
     out = run_hook("review-history-guard.py", payload("gh pr merge 7 --squash", repo))
@@ -448,7 +448,7 @@ def test_a_merge_in_a_repo_that_never_opted_in_says_nothing(repo):
 def test_a_merge_with_no_round_record_at_all_says_nothing(repo):
     """Most changes never open a review round. Reminding there would teach
     people to click through the reminder that matters."""
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir(exist_ok=True)
     declare_routing(repo)
     out = run_hook("review-history-guard.py", payload("gh pr merge 7 --squash", repo))
     assert out.strip() == "", out
@@ -460,7 +460,7 @@ routing = load_hook_module("routing.py", "routing_rounds")
 
 
 def item(tmp_path, name="1788138405-a-work-item"):
-    d = tmp_path / "specs" / name
+    d = tmp_path / "seal" / "specs" / name
     d.mkdir(parents=True)
     (d / "routing.md").write_text("| Branch | x |\n", encoding="utf-8")
     return d
@@ -542,6 +542,6 @@ def test_a_merge_on_an_undeclared_branch_says_nothing(repo):
     What replaced the deadline is the pull-request check in CI, which reads
     the same declaration from the diff.
     """
-    (repo / ".specseal").mkdir()
+    (repo / "seal").mkdir(exist_ok=True)
     out = run_hook("review-history-guard.py", payload("gh pr merge 7 --squash", repo))
     assert out.strip() == "", out

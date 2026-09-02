@@ -7,7 +7,8 @@ its part, which no single diff shows.
 
 The rule: how a work item is routed has **three axes**, all asked in the same
 batch before the first edit, and the answer goes into
-`specs/<work-item-id>/routing.md` rather than being re-derived at every commit.
+`seal/specs/<work-item-id>/routing.md` rather than being re-derived at every
+commit.
 
 `Implementation` is the third and it is read on looser terms — optional, and
 an unreadable answer means "not answered" rather than "not a declaration".
@@ -189,7 +190,7 @@ def test_the_skill_states_all_four_combinations():
 
 def test_the_skill_names_where_the_answer_is_written():
     skill = flat(read("skills", "implement", "SKILL.md"))
-    assert "specs/<work-item-id>/routing.md" in skill
+    assert "seal/specs/<work-item-id>/routing.md" in skill
     assert "templates/sdd-routing.md" in skill
     assert "Committed" in skill or "committed" in skill
 
@@ -253,7 +254,7 @@ def test_the_smith_carries_both_halves_rather_than_only_citing_them():
     assert "three axes" in smith and "two axes" not in smith
     for answer in AXES:
         assert answer in smith, f"the smith lost the answer `{answer}`"
-    assert "specs/<work-item-id>/routing.md" in smith
+    assert "seal/specs/<work-item-id>/routing.md" in smith
     assert "run to the pull request" in smith
     assert "answerer" in smith, (
         "a deferral with nobody named is how a follow-up becomes nobody's"
@@ -263,7 +264,7 @@ def test_the_smith_carries_both_halves_rather_than_only_citing_them():
 def test_the_preset_block_carries_it_too():
     """`CLAUDE.md` is the one file a session in this repository always has."""
     preset = flat(read("CLAUDE.md"))
-    assert "specs/<work-item-id>/routing.md" in preset
+    assert "seal/specs/<work-item-id>/routing.md" in preset
     for answer in AXES:
         assert answer in preset, f"the preset block lost `{answer}`"
 

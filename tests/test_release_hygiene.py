@@ -40,7 +40,7 @@ def tracked(*prefixes):
 def test_no_loaded_file_hardcodes_the_running_version():
     """A version number written into prose is right for exactly one release.
 
-    `specs/` and `CHANGELOG.md` are records of a moment and keep theirs."""
+    `seal/specs/` and `CHANGELOG.md` are records of a moment and keep theirs."""
     offenders = []
     for rel in tracked(
         "skills",
@@ -115,7 +115,8 @@ def test_no_section_accumulates_entries_in_the_shared_file():
     This case used to check that it sat ABOVE every dated section, after a
     rebase conflict resolved the wrong way sank it below one. That ordering
     stopped being the problem when the section stopped existing: entries
-    accumulate as `specs/<work-item-id>/changelog.md` fragments now, and the
+    accumulate as `seal/specs/<work-item-id>/changelog.md` fragments now, and
+    the
     release gathers them into a dated section at the top. A heading by that
     name means somebody went back to the shared file, which is issue #46.
 
@@ -128,7 +129,7 @@ def test_no_section_accumulates_entries_in_the_shared_file():
     found = [h for h in headings if h.lower().startswith("unreleased")]
     assert not found, (
         f"CHANGELOG.md carries {found} again. An entry goes in "
-        "specs/<work-item-id>/changelog.md; `gather_changelog.py --version "
+        "seal/specs/<work-item-id>/changelog.md; `gather_changelog.py --version "
         "X.Y.Z` is what writes a section here"
     )
 
@@ -174,7 +175,8 @@ def test_the_release_target_is_asked_before_the_work_starts():
         )
         # Round 1, 🔴 7. This used to require the literal `## Unreleased`, and
         # that is a heading THIS repository no longer has: entries accumulate
-        # as `specs/<work-item-id>/changelog.md` fragments. A `smith` reading
+        # as `seal/specs/<work-item-id>/changelog.md` fragments. A `smith`
+        # reading
         # its own contract therefore either created the heading — reddening
         # `test_no_section_accumulates_entries_in_the_shared_file` — or
         # appended under the newest released section, which is the collision
@@ -347,7 +349,7 @@ def test_no_korean_pr_body_claims_a_close_that_did_not_happen():
     named #54, the issue this work item leaves open on purpose."""
     import glob
 
-    for path in sorted(glob.glob(os.path.join(ROOT, "specs", "*", "pr.ko.md"))):
+    for path in sorted(glob.glob(os.path.join(ROOT, "seal", "specs", "*", "pr.ko.md"))):
         text = open(path, encoding="utf-8").read()
         for line in text.splitlines():
             if "닫습니다" in line and "#" in line and "닫히지" not in line:

@@ -549,7 +549,7 @@ def test_a_line_separator_in_a_cell_does_not_close_the_file(tree):
 
 
 def test_a_work_item_without_the_file_has_no_open_row(tree):
-    """The fixture's second work item has no `specs/` directory at all."""
+    """The fixture's second work item has no `seal/specs/` directory at all."""
     assert not (tree / "seal" / "specs" / "1700000000-earlier").exists()
     fold(tree)
 

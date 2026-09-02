@@ -238,7 +238,7 @@ def test_the_accumulation_section_no_longer_exists():
     unreleased = [h for h in headings if h.lower().startswith("unreleased")]
     assert not unreleased, (
         f"CHANGELOG.md has {unreleased} again. An entry goes in "
-        "specs/<work-item-id>/changelog.md, and the release gathers them"
+        "seal/specs/<work-item-id>/changelog.md, and the release gathers them"
     )
 
 
@@ -251,7 +251,7 @@ def test_the_documents_send_a_change_to_its_own_fragment():
         ("CLAUDE.md",),
     ):
         text = flat(*parts)
-        assert "specs/<work-item-id>/changelog.md" in text, (
+        assert "seal/specs/<work-item-id>/changelog.md" in text, (
             "/".join(parts) + " does not name the file a change writes"
         )
 
