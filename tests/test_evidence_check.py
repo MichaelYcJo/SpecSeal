@@ -84,7 +84,7 @@ def proj(tmp_path):
     return d
 
 
-def ledger(proj, body, at=".specseal/map.md"):
+def ledger(proj, body, at="seal/ledger.md"):
     path = proj / at
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("# map\n\n" + body)
@@ -147,7 +147,7 @@ def test_map_resolves_a_prefixed_cross_repo_path(proj, tmp_path):
     ledger(proj, f"| POL-1 | `legacy/src/service.py#handler@{GOOD}` |\n")
     # EXTERNAL needs declared cross-repo intent since round 4's 🔴 3; a
     # parity config is one of the three declarations.
-    (proj / ".specseal" / "parity.md").write_text("# parity\n")
+    (proj / "seal" / "parity.md").write_text("# parity\n")
     assert "1 external" in run(["."], proj).stdout
     r = run(["--map", f"legacy={other}", "."], proj)
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
@@ -155,7 +155,7 @@ def test_map_resolves_a_prefixed_cross_repo_path(proj, tmp_path):
 
 def test_a_missing_prefix_without_cross_repo_intent_is_broken(proj):
     """EXTERNAL is a claim about ANOTHER repository, and only a declaration —
-    `.specseal/parity.md`, `--map`, `--default-repo` — says this project has
+    `seal/parity.md`, `--map`, `--default-repo` — says this project has
     one. Without intent, a deleted or renamed directory turned its rows
     EXTERNAL and the build stayed green (round 4, 🔴 3)."""
     ledger(proj, "| POL-1 | `legacy/src/old.py#handler@00000000` |\n")
@@ -184,7 +184,7 @@ def test_migrate_reads_map_and_default_repo(proj, tmp_path):
         proj,
     )
     assert "2 rows migrated" in r.stdout, r.stdout
-    text = (proj / ".specseal" / "map.md").read_text()
+    text = (proj / "seal" / "ledger.md").read_text()
     assert f"legacy/src/old.py#handler@{GOOD}" in text, text
     assert f"apps/svc.py#handler@{GOOD}" in text, text
 
@@ -208,7 +208,7 @@ def test_no_ledger_at_all_is_a_no_op(proj):
 
 @pytest.mark.parametrize(
     "at",
-    [".specseal/map.md", ".specseal/map/core.md", "docs/policies/demo/_evidence.md"],
+    ["seal/ledger.md", "seal/ledger/core.md", "docs/policies/demo/_evidence.md"],
 )
 def test_the_checker_finds_the_ledger_with_no_arguments(proj, at):
     """The current home, the per-work-item fragment, and the pre-0.10 address."""
@@ -228,9 +228,7 @@ def test_a_custom_ledger_glob_is_read_instead(proj):
 
 def test_several_ledgers_aggregate_and_the_worst_one_decides(proj):
     ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
-    ledger(
-        proj, "| POL-9 | `src/service.py#gone@00000000` |\n", at=".specseal/map/b.md"
-    )
+    ledger(proj, "| POL-9 | `src/service.py#gone@00000000` |\n", at="seal/ledger/b.md")
     r = run(["."], proj)
     assert "1 ok" in r.stdout and "1 broken" in r.stdout
     assert r.returncode == 2, "a broken coordinate in the second ledger must fail"

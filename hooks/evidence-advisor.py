@@ -108,7 +108,7 @@ def failing_rows(root):
     import glob
 
     out = []
-    for pat in (".specseal/map.md", ".specseal/map/*.md", "docs/**/_evidence.md"):
+    for pat in ("seal/ledger.md", "seal/ledger/*.md", "docs/**/_evidence.md"):
         for ledger in sorted(glob.glob(os.path.join(root, pat), recursive=True)):
             for status, coord, detail in ec.check_ledger(ledger, root, {}):
                 if status in ("BROKEN", "OLD-FORMAT"):
