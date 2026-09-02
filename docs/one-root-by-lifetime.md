@@ -5,7 +5,7 @@
 The design 0.4.0 starts from, gathered from issue #74 and the ten comments
 under it (2026-09-02, after 0.3.0 shipped), plus the decisions the owner took
 after the thread while this document was reviewed: the opt-in is the root's
-presence, a work item's directory is removed only once a later `compact`
+presence, a work item's directory is removed only once a later `settle`
 step has folded it into `docs/` and the ledger, and 0.4.0 itself deletes
 nothing. Nothing here is for 0.3.x. Every name below is a placeholder until
 the owner decides it; where the thread leaned one way, the text says
@@ -27,13 +27,13 @@ change one root the plugin owns holds everything, sorted by how long it
 lives. Where that root sits is a per-repository choice, shared (committed)
 or local (under `.git/`, never committed), and its presence there is the
 opt-in. `specs/` stops being SpecSeal's directory. A work item's directory
-lives until `compact` folds it into `docs/` and the ledger; 0.4.0 has no
+lives until `settle` folds it into `docs/` and the ledger; 0.4.0 has no
 such step yet, so it moves everything and deletes nothing.
 
 ```
 today                                      after
 ─────                                      ─────
-specs/<id>/   spec plan questions overview  seal/specs/<id>/  the whole work item, until compact folds it
+specs/<id>/   spec plan questions overview  seal/specs/<id>/  the whole work item, until settle folds it
               routing rounds/ todos pr.ko  seal/ledger/<id>.md  its rows, until the release folds them
 .specseal/    map.md map/<id>.md            seal/ledger.md    the gathered ledger
               follow-up.md parity.md        seal/follow-up.md seal/parity.md
@@ -80,7 +80,7 @@ Separating the two kinds inside a work item is out of scope by the owner's
 decision. Round records have to be in the tree while the pull request is
 open, and pulling them apart from the spec is a larger change than this one.
 The design below therefore does not assume `specs/` is tool-free. The line
-is used for one thing: saying what `compact` folds (the SDD set) and what it
+is used for one thing: saying what `settle` folds (the SDD set) and what it
 simply drops with the directory (the process record).
 
 ## The proposed tree
@@ -98,13 +98,13 @@ round records must reach CI and other clones.
 │   ├── ledger/<id>.md             rows of work items in development. Folded into ledger.md at release, then removed
 │   ├── follow-up.md               permanent
 │   ├── parity.md                  migration projects only. Permanent
-│   └── specs/<epoch>-<slug>/      the whole work item. Lives until compact folds it; 0.4.0 keeps it
+│   └── specs/<epoch>-<slug>/      the whole work item. Lives until settle folds it; 0.4.0 keeps it
 │       ├── spec.md plan.md questions.md overview.md      the SDD set: what was decided and why
 │       ├── changelog.md                                  gathered into CHANGELOG.md at release
 │       ├── routing.md rounds/round-N.md                  the process record: what the commit gate and CI read
 │       ├── tests-todo.md evidence-todo.md                evidence-todo must be empty before anything folds
 │       └── pr.ko.md
-├── docs/                          policy, and where compact folds the SDD set. Read by people; written by people and by compact
+├── docs/                          policy, and where settle folds the SDD set. Read by people; written by people and by settle
 ├── CHANGELOG.md                   unchanged
 └── .git/                          never committed
     ├── seal/                      local mode only: the whole root above lives here instead of <repo>/seal/
@@ -117,7 +117,7 @@ Three lifetimes, and each has one home.
 | Lifetime | Lives in | Ends when |
 |---|---|---|
 | a session | `.git/` | the session ends |
-| between releases | `seal/ledger/<id>.md` · `seal/specs/<id>/` | the release step folds it: ledger fragments from 0.4.0 on, work items once `compact` exists |
+| between releases | `seal/ledger/<id>.md` · `seal/specs/<id>/` | the release step folds it: ledger fragments from 0.4.0 on, work items once `settle` exists |
 | permanent | `seal/ledger.md` · `follow-up.md` · `parity.md` · `docs/` · `CHANGELOG.md` | never |
 
 A work item's directory has the middle lifetime, and 0.4.0 keeps it on disk
@@ -149,7 +149,7 @@ the step that already gathers `changelog.md` fragments by hand
    design that answers "almost every pull request touches the directory".
    From 0.4.0.
 2. **`seal/specs/<id>/` folds into `docs/`, then the directory is
-   removed.** This is `compact`, a later item and not in 0.4.0. It merges
+   removed.** This is `settle`, a later item and not in 0.4.0. It merges
    the SDD set of each released work item into `docs/<domain>` files,
    merging into a document that already exists and creating one only for a
    new area. The newest work item wins where two say different things.
@@ -164,7 +164,7 @@ the step that already gathers `changelog.md` fragments by hand
    before the merge. `evidence-todo.md` half-enforces that today. The
    release step refuses to run while any released work item still has an
    open `evidence-todo.md` row (the issue says "any work item"; an unmerged
-   one is not part of the release), and `compact` skips such an item:
+   one is not part of the release), and `settle` skips such an item:
    neither folded nor removed, named in its output. The guard is what makes
    removal safe: it is the proof that nothing permanent lives only in the
    work item.
@@ -176,7 +176,7 @@ file, and after the merge there is no branch left to queue.
 ## The dependency rule
 
 **Anything that must outlive a release may not read `seal/specs/<id>/`
-after the merge.** The directory will be removed by `compact`, so the design
+after the merge.** The directory will be removed by `settle`, so the design
 treats it as already gone for every permanent purpose. Measured against the
 code on `origin/main`, the reads of that directory fall into three groups.
 
@@ -184,21 +184,21 @@ code on `origin/main`, the reads of that directory fall into three groups.
   coordinate, so it never points into `spec.md`. A round record's
   `Target SHA` is read by `chain_check.py` only while the pull request is
   open. The HTML comment above a released CHANGELOG entry, and the one
-  `compact` leaves in `docs/`, name the work item; a name is a pointer
+  `settle` leaves in `docs/`, name the work item; a name is a pointer
   rather than a read, and it still resolves through git history when the
   folder is gone.
-- **Would break on removal, so must change before `compact` lands.**
+- **Would break on removal, so must change before `settle` lands.**
   `skills/verify/scripts/unverified_check.py --baseline` compares the
   work-item tree against the base revision and fails for "a file that was
   there and is gone"; it has to be scoped to work items the pull request
   touches, or to unmerged ones. `.github/scripts/gather_changelog.py --check`
   finds fragments that never reached `CHANGELOG.md` by reading the
   fragments; after a removal it can only judge by the comment in
-  `CHANGELOG.md`. Both are named here so the `compact` item starts from
+  `CHANGELOG.md`. Both are named here so the `settle` item starts from
   this list rather than rediscovering it.
 - **Kept on purpose.** The evidence-todo guard above; the export rules in
   `seal/README.md`, which say where each kind of content must have gone
-  before the work item closes; and `compact` itself, the one sanctioned
+  before the work item closes; and `settle` itself, the one sanctioned
   reader after the merge, in the same position as the ledger fold.
 
 A new reader of `seal/specs/<id>/` after 0.4.0 lands in the second group by
@@ -209,15 +209,15 @@ something else moves.** The ledger already went through this once. A row
 cited `path:line`, a line moves for edits that have nothing to do with the
 claim, so rows were re-anchored, stamped, and orphaned by a squash. 0.2.0
 replaced the position with a content anchor (`path#unit@hash`), and a row
-now changes state only when the code it is about changes. `compact` rewrites
+now changes state only when the code it is about changes. `settle` rewrites
 `docs/` and removes directories on every release, so anything coupled to a
 path or a position inside a work item would break the same way. What still
 carries such a coupling is short: the `Verified at <sha>` stamp on a
 `# RIDER:` comment (held together by the merge-method rulesets, and untouched
-by `compact`), and a round record's `Target SHA` (resolved through
+by `settle`), and a round record's `Target SHA` (resolved through
 `refs/pull/<N>/head`, and gone with the record).
 
-**What keeps `compact` light**, since it is the heaviest step this design
+**What keeps `settle` light**, since it is the heaviest step this design
 adds:
 
 - It moves and does not verify. Whether a coordinate still holds is
@@ -239,7 +239,7 @@ adds:
 Nothing changes here. `spec.md` was always the spec of one change. What must
 outlive the change already has two homes: the `docs/` policy (judgment order
 is policy > SDD > code) and the ledger row, which carries the clause text
-beside the code coordinate. `compact` is the step that moves it there for
+beside the code coordinate. `settle` is the step that moves it there for
 every released work item. A person checking the AI's work does it while the
 pull request is open, when `spec.md` is there. A person asking "why does
 this behave so" after the release reads `docs/` and the ledger, and `docs/`
@@ -248,8 +248,8 @@ wrote by hand.
 
 `docs/` is defined by who reads it, people, and not by who writes it. The
 `implement` skill's layout table says `docs/` is "never created here", and
-that sentence overclaims once `compact` writes there; it is one of the
-places the `compact` item corrects.
+that sentence overclaims once `settle` writes there; it is one of the
+places the `settle` item corrects.
 
 ## The opt-in signal is the root itself, wherever the mode put it
 
@@ -292,7 +292,7 @@ in, and a hook that cannot tell does nothing.
 
 The one moment this project allows a question is first setup. The thread
 proposed two questions there, the mode and the retention; retention went
-away with the `compact` rule, so one remains.
+away with the `settle` rule, so one remains.
 
 Today the `implement` skill has one once-per-repo moment, when it creates
 `.specseal/README.md`; that moment becomes the question. One
@@ -386,7 +386,7 @@ copy" rather than "lose it".
   anywhere; where the copy goes is the user's business and not a question
   the plugin asks.
 
-### Retention: measured, and answered by `compact`
+### Retention: measured, and answered by `settle`
 
 The contents of `seal/specs/<id>/` split by who reads them after the merge.
 Measured on this repository's 13 work items at `5685029`:
@@ -403,9 +403,9 @@ differently was not traced; the split is the same.
 Comment 4 proposed keeping the SDD set and deleting the process record at
 release, with `retain = people | all | none` as a setup option. The owner's
 decision after the thread makes the setting unnecessary: the SDD set is
-folded into `docs/` by `compact` and the whole directory is then removed,
+folded into `docs/` by `settle` and the whole directory is then removed,
 so what the measurement says is worth keeping is kept, in `docs/`, and
-nothing is left in the directory to choose about. Until `compact` exists
+nothing is left in the directory to choose about. Until `settle` exists
 nothing is deleted.
 
 ## Naming
@@ -432,7 +432,7 @@ a declaration about the folder's nature, not a mechanism. The hooks look for
 the folder by name at two places and do not care whether it is dotted.
 Comment 9 tied the choice to what stays after release: visible if people
 read what is in the folder, dotted if it is emptied entirely. With
-`compact`, a released item leaves the folder, but the items in flight are
+`settle`, a released item leaves the folder, but the items in flight are
 exactly what people read while the pull request is open, so the visible
 name still fits. Either way, switching later means renaming one directory.
 
@@ -451,7 +451,7 @@ response language and `pr.ko.md`.
 
 - **Every work item in `specs/`** moves whole to `seal/specs/<id>/`, released
   or not. The issue body said released ones are deleted, because history
-  and the CHANGELOG comments keep them; under the `compact` rule they wait
+  and the CHANGELOG comments keep them; under the `settle` rule they wait
   there for the first fold instead, which is what "delete nothing before
   folding" means at the switch.
 - **The move is done by the session-start hook, once.** `hooks/ledger-migrate.py`
@@ -490,7 +490,7 @@ The CI paths change in step 3 of the order below, together with the root.
 - `.git/` session state (the smith mark, the worktree choice, session
   leases) stays where it is, never committed.
 - `CHANGELOG.md`, and the judgment order policy > SDD > code. `docs/` keeps
-  its role as what people read; it gains `compact` as a writer.
+  its role as what people read; it gains `settle` as a writer.
 - Every file a work item writes today. 0.4.0 changes where they live, not
   whether they exist.
 
@@ -502,8 +502,8 @@ The CI paths change in step 3 of the order below, together with the root.
    evidence-todo rows". Doable on today's paths, before the root merges.
 3. **0.4.0: the root merge.** The session-start hook moves everything once;
    CI paths change; `docs/` and the skills' path references follow.
-4. **Later: the `compact` item.** First the two checks in "The dependency
-   rule" stop reading released work items; then `compact` folds released
+4. **Later: the `settle` item.** First the two checks in "The dependency
+   rule" stop reading released work items; then `settle` folds released
    work items into `docs/` and removes their directories, and the
    `implement` skill's description of `docs/` is corrected to match.
 5. **Later and separate**: taking state out of the working tree entirely,
@@ -513,10 +513,10 @@ The CI paths change in step 3 of the order below, together with the root.
 ## Out of scope
 
 - Deleting anything from `seal/specs/<id>/` in 0.4.0. Removal arrives with
-  `compact`, and only after a fold.
+  `settle`, and only after a fold.
 - Separating the SDD set from the process record inside a work item while
   it is in development. They move together; the line between them is used
-  only to say what `compact` folds and what it drops.
+  only to say what `settle` folds and what it drops.
 - Anything in 0.3.x.
 
 ## Decided after the thread
@@ -526,9 +526,9 @@ Taken by the owner on 2026-09-02, while this document was being reviewed.
 | Decision | Answer | What it closes |
 |---|---|---|
 | The opt-in signal | `seal/` existing at the mode's location; no config key | comment 2's key, marker and ref candidates; the question of the key's shape |
-| What happens to a work item's directory | it lives until `compact` has folded its SDD set into `docs/` and its rows into the ledger, then it is removed; 0.4.0 has no `compact` and deletes nothing | comment 4's `retain` setting and its default; the second setup question; the existing `specs/` moves whole |
-| Design stance toward the directory meanwhile | nothing permanent may depend on `seal/specs/<id>/` after the merge, and nothing may need finding and updating when a path or position moves | the dependency rule; the two checks that must change before `compact` |
-| Where the folded record lives | `docs/`, defined by who reads it (people), written by people and by `compact` | the `implement` skill's "never created here" sentence, to be corrected |
+| What happens to a work item's directory | it lives until `settle` has folded its SDD set into `docs/` and its rows into the ledger, then it is removed; 0.4.0 has no `settle` and deletes nothing | comment 4's `retain` setting and its default; the second setup question; the existing `specs/` moves whole |
+| Design stance toward the directory meanwhile | nothing permanent may depend on `seal/specs/<id>/` after the merge, and nothing may need finding and updating when a path or position moves | the dependency rule; the two checks that must change before `settle` |
+| Where the folded record lives | `docs/`, defined by who reads it (people), written by people and by `settle` | the `implement` skill's "never created here" sentence, to be corrected |
 
 ## Decisions left open
 
