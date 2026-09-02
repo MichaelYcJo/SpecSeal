@@ -337,8 +337,13 @@ The move happens once, at the first session start after updating. The hook
 renames every file with a staged `git mv` (history follows), re-points the
 ledger rows that cite a moved file with their hashes untouched, prints one
 line saying what moved, and stops there: you review `git diff --cached` and
-commit. A tree with uncommitted changes under the old pair is refused with a
-line saying to commit first, and the next clean session start moves it. A
+commit. That commit belongs to no work item, so inside a session the commit
+gate asks; waive it for that one command with
+`: '[no-review]'; git commit -m "specseal: the root move"`, and put `[no-parity]` in
+the same position where `seal/parity.md` exists.
+
+A tree with uncommitted changes under the old pair is refused with a line
+saying to commit first, and the next clean session start moves it. A
 repository carrying the throwaway marker `.specseal/scratch` is left alone;
 its successor is the file `.git/specseal-scratch`, which cannot be committed.
 
@@ -351,8 +356,8 @@ git mv .specseal/map seal/ledger             # if it exists
 git mv .specseal/README.md seal/README.md    # then overwrite it from templates/seal-README.md
 git mv .specseal/follow-up.md seal/          # and parity.md, and anything else in there
 git mv specs/<id> seal/specs/<id>            # each work item
-rmdir .specseal specs                        # git mv leaves them empty on disk
-evidence-check .                             # names each row citing a moved file, and where it went
+rmdir .specseal specs                        # git mv leaves them empty on disk; one holding something else stays
+evidence-check --reverify .                  # re-points each row citing a moved file
 ```
 
 ## First run

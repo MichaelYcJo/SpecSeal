@@ -20,6 +20,7 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -442,3 +443,125 @@ def test_the_hook_reads_the_old_names_and_nothing_else_does(hook):
         if name.endswith(".py") and name != "root-migrate.py":
             text = open(os.path.join(ROOT, "hooks", name), encoding="utf-8").read()
             assert ".specseal/map" not in text, f"{name} still reads the old ledger"
+
+
+# --- round 1: what git does not track is not the hook's to move --------------
+
+
+def test_an_ignored_file_directly_under_the_old_root_does_not_stop_the_move(hook, repo):
+    """Round 1's 🔴 1. `.DS_Store` is macOS's default and it is usually
+    ignored, so `dirty()` never saw it — and `git mv` refused it, so every
+    session start stopped at the same unit and the tree stayed half-moved for
+    good. The units are what git tracks; an ignored file is left where it is,
+    and `.specseal/` may stay on disk holding nothing else."""
+    write(repo, ".gitignore", ".DS_Store\n")
+    git(repo, "add", ".gitignore")
+    git(repo, "commit", "-qm", "ignore the finder's file")
+    write(repo, ".specseal/.DS_Store", "\0")
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 1 work item into seal/" in out, out
+    assert (repo / "seal" / "specs" / ITEM / "routing.md").is_file()
+    assert stamped(hook, repo)
+    assert git(repo, "ls-files", "--", ".specseal", f"specs/{ITEM}").stdout == ""
+    assert os.listdir(repo / ".specseal") == [".DS_Store"]
+    assert start(hook, repo) == "", "nothing tracked is left, so nothing to say"
+
+
+def test_a_file_named_seal_stops_with_a_line_not_an_exception(hook, repo):
+    """Round 1's 🟡 2. `os.makedirs` sat outside `git_mv`'s try, so a
+    committed file named `seal` raised out of `main()`; under the dispatcher
+    that is silence at every session start."""
+    write(repo, "seal", "not a directory\n")
+    git(repo, "add", "seal")
+    git(repo, "commit", "-qm", "a file in the way")
+    out = message(start(hook, repo))
+    assert "stopped at .specseal/map.md" in out and "seal" in out, out
+    assert "by hand" in out, out
+    assert (repo / ".specseal" / "map.md").is_file()
+    assert not stamped(hook, repo)
+
+
+def test_a_destination_already_holding_the_file_is_named_and_left_to_the_person(
+    hook, repo
+):
+    """Round 1's 🟡 3. A branch bootstrapped on the new layout merged into
+    one still on the old leaves `seal/ledger.md` beside `.specseal/map.md`.
+    `git mv` failed with `destination exists` and the line promised a
+    continuation that never came; the person has to keep one."""
+    write(repo, "seal/ledger.md", "# the newer ledger\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "both ledgers")
+    out = message(start(hook, repo))
+    assert "seal/ledger.md already exists" in out, out
+    assert "keep one by hand" in out and "git rm .specseal/map.md" in out, out
+    assert not out.endswith("The next session start continues."), out
+    assert not stamped(hook, repo)
+    assert (repo / ".specseal" / "map.md").is_file()
+
+
+def test_a_row_citing_a_foreign_specs_entry_is_left_where_it_is(hook, repo):
+    """Round 1's 🟡 4. `specs/notes/` is not a work item and stays; a row
+    citing it has to stay with it, or S8's equal totals break."""
+    ledger = repo / ".specseal" / "map.md"
+    row = coordinate(repo, "specs/notes/todo.md", '"# not SpecSeal\'s"')
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8") + f"| D | `{row}` |\n", encoding="utf-8"
+    )
+    git(repo, "commit", "-qam", "a row citing a foreign entry")
+    before = check(repo, ".specseal/map.md", ".specseal/map/*.md")
+    out = message(start(hook, repo))
+    assert "3 ledger rows re-pointed" in out, out
+    after = (repo / "seal" / "ledger.md").read_text(encoding="utf-8")
+    assert "`specs/notes/todo.md#" in after and "seal/specs/notes" not in after, after
+    assert check(repo) == before
+
+
+def test_a_repoint_that_fails_after_the_moves_says_so_and_stamps_nothing(
+    hook, repo, monkeypatch
+):
+    """Round 1's 🟡 2, second half. An `OSError` out of `repoint()` used to
+    escape `main()` after every unit had moved, and the next start stamped
+    over rows still pointing at the old paths."""
+
+    def failing(root):
+        raise OSError("read-only ledger")
+
+    monkeypatch.setattr(hook, "repoint", failing)
+    out = message(start(hook, repo))
+    assert "could not re-point the ledger" in out and "read-only ledger" in out, out
+    assert "evidence-check --reverify ." in out, out
+    assert (repo / "seal" / "ledger.md").is_file()
+    assert not (repo / ".specseal").exists()
+    assert not stamped(hook, repo)
+
+
+HEADINGS = {"README.md": "### Coming up from 0.3.x", "README.ko.md": "### 0.3.x"}
+
+
+def by_hand_block(readme):
+    """The `bash` block under the README's coming-up section, comments off."""
+    text = open(os.path.join(ROOT, readme), encoding="utf-8").read()
+    section = text.split(HEADINGS[readme], 1)[1]
+    block = section.split("```bash\n", 1)[1].split("```", 1)[0]
+    return [ln.split("#", 1)[0].strip() for ln in block.splitlines() if ln.strip()]
+
+
+@pytest.mark.parametrize("readme", ["README.md", "README.ko.md"])
+def test_the_readmes_by_hand_sequence_yields_the_hooks_tracked_set(
+    hook, repo, tmp_path, readme
+):
+    """Round 1's P6, pinned to the document: the block a person copies is
+    read out of the README and run line by line on a copy of the fixture, and
+    `git ls-files` has to agree with the hook's. `--reverify` is what closes
+    the rows the hand sequence leaves broken."""
+    hand = tmp_path / "hand"
+    shutil.copytree(repo, hand)
+    start(hook, repo)
+    for line in by_hand_block(readme):
+        line = line.replace("<id>", ITEM)
+        line = line.replace("evidence-check ", f"{sys.executable} {EC} ")
+        subprocess.run(line, shell=True, cwd=str(hand), capture_output=True)
+    tracked = lambda d: git(d, "ls-files").stdout.split()
+    assert tracked(hand) == tracked(repo), tracked(hand)
+    totals = check(hand)
+    assert "0 broken" in totals, totals

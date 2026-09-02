@@ -37,6 +37,9 @@ Boundaries, each pinned in `tests/test_the_root_migrates_itself.py`:
   - **never over uncommitted work** — anything `git status --porcelain` reports
     under `.specseal/` or `specs/`, or a git that cannot answer, refuses the
     whole move with one line and stamps nothing
+  - **only what git tracks** — the units come from `git ls-files`, so an
+    ignored file under the old roots is not a unit and stays where it is;
+    `.specseal/` may remain on disk holding nothing else
   - **once per repository** — a completed move stamps the marker, and so does
     a repository that has nothing old left, so switching to an old branch
     later does not move it again
@@ -95,10 +98,16 @@ LEDGER_GLOBS = (f"{NEW}/ledger.md", f"{NEW}/ledger/*.md", "docs/**/_evidence.md"
 
 
 class MoveError(Exception):
-    def __init__(self, path, error):
+    """A unit that did not move. `resumable` says whether the next session
+    start can pick it up unaided; a destination already holding the file, or
+    a `seal` that is a file, needs a person first, and the line says so
+    instead of promising a continuation that never comes."""
+
+    def __init__(self, path, error, resumable=True):
         super().__init__(f"{path}: {error}")
         self.path = path
         self.error = error
+        self.resumable = resumable
 
 
 def checker():
@@ -168,38 +177,78 @@ def dirty(root):
     return False
 
 
-def old_items(root):
-    """(SpecSeal work items under `specs/`, everything else there), sorted."""
-    where = under(root, OLD_ITEMS)
+def tracked_names(root, rel):
+    """The top-level names git tracks under `rel`, sorted — or None when git
+    cannot say.
+
+    Every step of the move is a `git mv`, so a unit is what git tracks. An
+    ignored file directly under `.specseal/` (`.DS_Store` is macOS's default)
+    passes `dirty()`, which reads porcelain, and then stops `git mv` for good:
+    every session start met the same unit, and the tree stayed half-moved
+    with `seal/` present and `routing.md` still at the old path. Listing the
+    directory was the defect; git's own list is the fix.
+    """
     try:
-        names = sorted(os.listdir(where))
+        r = git(root, "ls-files", "-z", "--", rel)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    prefix = rel + "/"
+    names = set()
+    for path in r.stdout.split("\0"):
+        if path.startswith(prefix):
+            head = path[len(prefix) :].split("/", 1)[0]
+            if head:
+                names.add(head)
+    return sorted(names)
+
+
+def entries(root, rel):
+    """What is under `rel` as units: git's list, or the directory listing when
+    git cannot answer — `dirty()` reads as dirty then, so nothing moves."""
+    names = tracked_names(root, rel)
+    if names is not None:
+        return names
+    try:
+        return sorted(os.listdir(under(root, rel)))
     except OSError:
-        return [], []
-    items = [
-        n for n in names if ITEM_RE.match(n) and os.path.isdir(os.path.join(where, n))
-    ]
+        return []
+
+
+def old_items(root):
+    """(SpecSeal work items under `specs/`, everything else on disk there).
+
+    The first list is what moves and comes from git; the second is what the
+    printed line names as left behind and comes from the directory, because
+    what stays on disk is what a person will see there.
+    """
+    items = [n for n in entries(root, OLD_ITEMS) if ITEM_RE.match(n)]
+    try:
+        names = sorted(os.listdir(under(root, OLD_ITEMS)))
+    except OSError:
+        names = []
     return items, [n for n in names if n not in items]
 
 
 def moves(root):
     """The units still to move, in the spec's order, as (kind, src, dst).
 
-    Computed from the tree as it stands, which is what makes a stopped move
-    resume: a unit that already moved is not there to be listed.
+    Computed from what git tracks as it stands, which is what makes a stopped
+    move resume: a unit that already moved is not there to be listed.
     """
     units = []
-    old = under(root, OLD_HOME)
-    if os.path.isdir(old):
-        if os.path.exists(os.path.join(old, "map.md")):
-            units.append(("ledger", f"{OLD_HOME}/map.md", f"{NEW}/ledger.md"))
-        if os.path.isdir(os.path.join(old, "map")):
-            units.append(("ledger-dir", f"{OLD_HOME}/map", f"{NEW}/ledger"))
-        if os.path.exists(os.path.join(old, "README.md")):
-            units.append(("readme", f"{OLD_HOME}/README.md", f"{NEW}/README.md"))
-        for name in sorted(os.listdir(old)):
-            if name in ("map.md", "map", "README.md"):
-                continue
-            units.append(("other", f"{OLD_HOME}/{name}", f"{NEW}/{name}"))
+    names = entries(root, OLD_HOME)
+    if "map.md" in names:
+        units.append(("ledger", f"{OLD_HOME}/map.md", f"{NEW}/ledger.md"))
+    if "map" in names:
+        units.append(("ledger-dir", f"{OLD_HOME}/map", f"{NEW}/ledger"))
+    if "README.md" in names:
+        units.append(("readme", f"{OLD_HOME}/README.md", f"{NEW}/README.md"))
+    for name in names:
+        if name in ("map.md", "map", "README.md"):
+            continue
+        units.append(("other", f"{OLD_HOME}/{name}", f"{NEW}/{name}"))
     items, _ = old_items(root)
     for name in items:
         units.append(("item", f"{OLD_ITEMS}/{name}", f"{NEW}/specs/{name}"))
@@ -207,8 +256,14 @@ def moves(root):
 
 
 def git_mv(root, src, dst):
-    """One staged rename. `git mv` does not create its destination's parent."""
-    os.makedirs(os.path.dirname(under(root, dst)), exist_ok=True)
+    """One staged rename. `git mv` does not create its destination's parent,
+    and a `seal` that is a file makes creating it fail — inside the `try`,
+    because an exception out of here is silence under the dispatcher."""
+    parent = os.path.dirname(under(root, dst))
+    try:
+        os.makedirs(parent, exist_ok=True)
+    except OSError as exc:
+        raise MoveError(src, f"cannot create {NEW}/: {exc}", resumable=False) from exc
     try:
         r = git(root, "mv", src, dst)
     except (OSError, subprocess.SubprocessError) as exc:
@@ -217,21 +272,44 @@ def git_mv(root, src, dst):
         raise MoveError(src, (r.stderr or r.stdout).strip() or f"exit {r.returncode}")
 
 
+def taken(src, dst):
+    """The error for a destination that already holds a file: `git mv` would
+    say `destination exists` and the plain tail would promise a continuation
+    that never comes, because the state does not change by itself."""
+    return MoveError(
+        src,
+        f"{dst} already exists — keep one by hand: git rm {src} if {dst} is "
+        f"the newer, or git rm {dst} to let the move bring the old one over",
+        resumable=False,
+    )
+
+
 def move(root, src, dst):
     """`src` to `dst`, whole when nothing is at `dst` yet.
 
     When `dst` already exists — the state a stopped run leaves — a directory
     is moved file by file, because `git mv dir existing-dir` would put it
-    INSIDE the destination. The empty directories left behind are removed.
+    INSIDE the destination. A file already at its destination is the person's
+    to settle (a merge of a branch bootstrapped on the new layout leaves
+    exactly that), and is named rather than tried. The empty directories left
+    behind are removed.
     """
-    if not os.path.isdir(under(root, src)) or not os.path.exists(under(root, dst)):
+    if not os.path.isdir(under(root, src)):
+        if os.path.exists(under(root, dst)):
+            raise taken(src, dst)
+        git_mv(root, src, dst)
+        return
+    if not os.path.exists(under(root, dst)):
         git_mv(root, src, dst)
         return
     r = git(root, "ls-files", "-z", "--", src)
     if r.returncode != 0:
         raise MoveError(src, (r.stderr or "").strip() or "git ls-files failed")
     for rel in [p for p in r.stdout.split("\0") if p]:
-        git_mv(root, rel, dst + rel[len(src) :])
+        target = dst + rel[len(src) :]
+        if os.path.exists(under(root, target)):
+            raise taken(rel, target)
+        git_mv(root, rel, target)
     for here, dirs, files in os.walk(under(root, src), topdown=False):
         if not dirs and not files:
             try:
@@ -287,8 +365,15 @@ def ledgers(root):
 
 
 def repoint_path(path):
+    """The path after the move — unchanged when nothing moved it. An entry
+    under `specs/` that is not a work item stays where it is (step 5), so a
+    row citing it has to stay too, or the row breaks."""
     for old, new in PREFIXES:
         if path.startswith(old):
+            if old == f"{OLD_ITEMS}/":
+                head = path[len(old) :].split("/", 1)[0]
+                if not ITEM_RE.match(head):
+                    return path
             return new + path[len(old) :]
     return path
 
@@ -372,12 +457,27 @@ def main():
 
     done, error = run_moves(root, units)
     if error is not None:
+        tail = (
+            "The next session start continues."
+            if error.resumable
+            else "Settle that by hand, then the next session start continues."
+        )
         say(
             f"specseal: moved {done} of {len(units)} into {NEW}/ and stopped at "
-            f"{error.path}: {error.error}. The next session start continues."
+            f"{error.path}: {error.error}. {tail}"
         )
         return
-    rows = repoint(root)
+    try:
+        rows = repoint(root)
+    except OSError as exc:
+        # Every unit has moved and the rows still say the old paths. Not
+        # stamped: the checker reports them BROKEN loudly, and the next start
+        # finds nothing old and stamps then.
+        say(
+            f"specseal: moved everything into {NEW}/ but could not re-point the "
+            f"ledger: {exc}. Run `evidence-check --reverify .`"
+        )
+        return
     stamp(root)
 
     had_home = any(kind != "item" for kind, _, _ in units)
@@ -393,7 +493,7 @@ def main():
     _, left = old_items(root)
     tail = (
         f"; left {', '.join(f'{OLD_ITEMS}/{n}' for n in left)} where it is "
-        "(not a SpecSeal work item)"
+        "(not tracked as a SpecSeal work item)"
         if left
         else ""
     )

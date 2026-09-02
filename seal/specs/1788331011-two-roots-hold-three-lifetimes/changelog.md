@@ -14,7 +14,10 @@
   `git mv`, `seal/README.md` is rewritten from the template, the ledger rows
   that cite a moved file are re-pointed with their hashes untouched, one
   line says what moved, and the person reviews `git diff --cached` and
-  commits. Until that session start every gate is silent in that
+  commits. That commit belongs to no work item, so inside a session the
+  commit gate asks; `: '[no-review]'; git commit …` waives it for the one
+  command, with `[no-parity]` beside it where `seal/parity.md` exists.
+  Until that session start every gate is silent in that
   repository, because the signal it reads has moved. A tree with
   uncommitted changes under `.specseal/` or `specs/` is refused with a line
   saying to commit first and retried at the next clean start; a move that
@@ -24,8 +27,8 @@
   same sequence: `mkdir -p seal/specs`, `git mv .specseal/map.md
   seal/ledger.md`, `git mv .specseal/map seal/ledger`, the rest of
   `.specseal/` into `seal/`, each `specs/<id>` into `seal/specs/<id>`,
-  `rmdir .specseal specs`, then `evidence-check .`, which names each row
-  citing a moved file and where it went. Every gate, checker and release
+  `rmdir .specseal specs`, then `evidence-check --reverify .`, which
+  re-points each row citing a moved file. Every gate, checker and release
   script reads the new paths; the `<!-- specs/<id> -->` markers in
   `CHANGELOG.md` and the ledger are unchanged; the chain check no longer
   judges a declaration that a pull request only renamed; `templates/map.md`

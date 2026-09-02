@@ -329,10 +329,15 @@ claude plugin update specseal@specseal   # 그다음 재시작
 `git mv` 로 스테이징된 이름 바꾸기를 하고(이력이 따라옵니다), 옮겨진 파일을
 가리키는 대조표 행의 경로를 해시는 건드리지 않은 채 고쳐 쓰고, 무엇을 옮겼는지
 한 줄 알린 뒤 멈춥니다. 그다음은 사용자 몫입니다. `git diff --cached` 를 보고
-커밋하면 됩니다. 옛 두 디렉터리 아래에 커밋하지 않은 변경이 있으면 먼저
-커밋하라는 한 줄만 남기고 옮기지 않으며, 다음에 깨끗한 상태로 세션을 시작하면
-그때 옮깁니다. 일회용 표시 `.specseal/scratch` 가 있는 레포는 그대로 둡니다.
-그 표시의 후임은 커밋될 수 없는 파일 `.git/specseal-scratch` 입니다.
+커밋하면 됩니다. 이 커밋은 어느 작업 항목에도 속하지 않아 세션 안에서는
+커밋 게이트가 묻습니다. 그 명령 하나만 면제하려면
+`: '[no-review]'; git commit -m "specseal: the root move"` 로 커밋하고,
+`seal/parity.md` 가 있으면 같은 자리에 `[no-parity]` 도 붙입니다.
+
+옛 두 디렉터리 아래에 커밋하지 않은 변경이 있으면 먼저 커밋하라는 한 줄만
+남기고 옮기지 않으며, 다음에 깨끗한 상태로 세션을 시작하면 그때 옮깁니다.
+일회용 표시 `.specseal/scratch` 가 있는 레포는 그대로 둡니다. 그 표시의
+후임은 커밋될 수 없는 파일 `.git/specseal-scratch` 입니다.
 
 CI 에서, 또는 다음 세션을 기다리지 않고 직접 옮기려면 이렇게 합니다.
 
@@ -343,8 +348,8 @@ git mv .specseal/map seal/ledger             # 있을 때만
 git mv .specseal/README.md seal/README.md    # 그다음 templates/seal-README.md 로 덮어쓴다
 git mv .specseal/follow-up.md seal/          # parity.md 와 그 안의 나머지도 같이
 git mv specs/<id> seal/specs/<id>            # 작업 항목마다
-rmdir .specseal specs                        # git mv 는 빈 디렉터리를 디스크에 남긴다
-evidence-check .                             # 옮겨진 파일을 가리키는 행과 그 파일이 간 곳을 알려 준다
+rmdir .specseal specs                        # git mv 는 빈 디렉터리를 디스크에 남긴다. 다른 것이 든 쪽은 남는다
+evidence-check --reverify .                  # 옮겨진 파일을 가리키는 행을 고쳐 써 준다
 ```
 
 ## 처음 실행

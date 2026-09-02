@@ -83,7 +83,7 @@ leases stay. `specs/` and `.specseal/` do not exist afterwards.
 
 | Scenario | Given / When / Then | Verifiable how |
 |---|---|---|
-| S1 the tree | Given this branch after phase 1, then `seal/` holds the tree above, `git log --follow` on any moved file reaches its history, and neither `specs/` nor `.specseal/` exists | test over this repository (`tests/test_release_hygiene.py` shape); `git log --follow --oneline seal/ledger.md` read by hand |
+| S1 the tree | Given this branch after phase 1, then `seal/` holds the tree above, `git log --follow` on any moved file except `seal/README.md`, rewritten from the template (Q5), reaches its history, and neither `specs/` nor `.specseal/` exists | test over this repository (`tests/test_release_hygiene.py` shape); `git log --follow --oneline seal/ledger.md` read by hand |
 | S2 opt-in is the root | Given a repository with `seal/` at the root, then `optin.home()` returns it and `opted_in()` is true; given `.git/seal/` and no `<repo>/seal/`, the same (Q3); given neither, `""` and false; given both, `<repo>/seal/` wins and nothing else is read | `tests/test_optin_home.py` |
 | S3 `.specseal/` no longer opts in | Given a repository with `.specseal/` and no `seal/`, then every gate is silent, and the only thing that speaks is the migration hook at session start | `tests/test_optin_home.py`; the commit gate, review-skill gate and implementer hooks on such a fixture |
 | S4 the throwaway opt-out moves out of the tree | Given `<git-common-dir>/specseal-scratch` is a file, then `home()` is `""` and every gate is silent; given a directory of that name, it is not the marker; given the old `.specseal/scratch` file, nothing reads it (Q4) | `tests/test_optin_home.py`, the existing scratch cases re-pointed; `test_this_repository_carries_no_scratch_marker` removed, because a file under `.git/` cannot be committed |
@@ -92,7 +92,7 @@ leases stay. `specs/` and `.specseal/` do not exist afterwards.
 | S7 the move resumes | Given a run that stopped after some moves (`seal/` and `.specseal/` both exist), then the next session start moves what remains and stamps only when nothing old is left | the same test file; a fixture with `seal/ledger.md` already moved and `.specseal/map/` not |
 | S8 rows that cite a moved file follow it | Given a ledger row whose anchor path starts with `specs/` or `.specseal/`, then after the move the path reads `seal/specs/…` or `seal/…` with the hash unchanged, and `evidence_check.py` reports the same ok · drifted · broken totals before and after. On this repository: 160 ok before (executed, this branch at `07a0fc8`), one such row (`.specseal/map.md` citing `specs/1788184145-…/rounds/round-3.md`) | the same test file on a fixture; `evidence_check.py .` executed before and after phase 1's move, both outputs in the fragment |
 | S9 a repository declaring itself throwaway is not migrated | Given `.specseal/scratch` exists, then the hook prints one line and stamps nothing; the repository stays as it is | the same test file |
-| S10 a moved declaration is not one this pull request made | Given a pull request whose diff renames `specs/<id>/routing.md` to `seal/specs/<id>/routing.md`, then `chain_check.py --baseline` judges only declarations added or modified, plus the one for this branch — never a renamed one | `tests/test_chain_check_at_the_pull_request.py`; executed on this branch against `origin/release/v0.4.0` after phase 1, output in the fragment |
+| S10 a moved declaration is not one this pull request made | Given a pull request whose diff renames `specs/<id>/routing.md` to `seal/specs/<id>/routing.md`, then `chain_check.py --baseline` judges only declarations added or modified, plus the one for this branch — never one the pull request only renamed: an exact rename; one carrying an edit is judged | `tests/test_chain_check_at_the_pull_request.py`; executed on this branch against `origin/release/v0.4.0` after phase 1, output in the fragment |
 | S11 the commit gate reads `seal/specs/<id>/routing.md` | Given a declaration there naming the current branch, then a commit passes silently for either review answer; given none, the gate asks as before and its prompt names the new path; given a commit confined to `docs/` and `seal/`, the parity arm stays asleep | `tests/test_routing_is_recorded.py`, `tests/test_waiver_decided_at_start.py`, `tests/test_gate_judges_the_repo_it_commits_to.py` |
 | S12 every checker's default is the new path | `evidence_check.py .` reads `seal/ledger.md` and `seal/ledger/*.md` (and `docs/**/_evidence.md` still); `evidence-advisor.py` and `ledger-migrate.py` the same globs; `fold_ledger.py` folds `seal/ledger/*.md` into `seal/ledger.md` and reads `seal/specs/*/evidence-todo.md`; `gather_changelog.py` reads `seal/specs/*/changelog.md`; `unverified_check.py` is given `seal/specs/` by the workflow; the parity config is `seal/parity.md` | the existing test files for each, re-pointed; `hygiene.yml` read |
 | S13 the markers do not change | Given a released entry marked `<!-- specs/<id> -->` in `CHANGELOG.md` or `seal/ledger.md`, then `--check` still finds it, and a new fold or gather writes the same marker text (Q2) | `tests/test_the_changelog_is_gathered_at_release.py`, `tests/test_the_ledger_fragments_fold_at_release.py`; `gather_changelog.py --check` executed on this branch |
@@ -119,13 +119,18 @@ git left it empty, which is what happens here.
    `templates/seal-README.md` (Q5). A template that cannot be read leaves
    the moved file as it was: a README describing the old layout beats
    stopping the move for a file that is not the move
-4. every other file directly under `.specseal/` → `seal/<same name>`
-   (`follow-up.md`, `parity.md`, anything a project added)
+4. every other *tracked* entry directly under `.specseal/` → `seal/<same
+   name>` (`follow-up.md`, `parity.md`, anything a project added). The
+   units of every step are what `git ls-files` reports: an ignored file
+   is not git's to move and stays where it is, so `.specseal/` may remain
+   on disk holding nothing else. When git cannot answer, the units come
+   from the directory listing and the dirty test refuses the move
 5. each `specs/<id>/` → `seal/specs/<id>/`
 6. in every ledger the hook reads (`seal/ledger.md`, `seal/ledger/*.md`,
    `docs/**/_evidence.md`), every anchor whose path starts with
-   `.specseal/map.md`, `.specseal/map/`, `.specseal/` or `specs/` is
-   rewritten to the new prefix. The hash after `@` is not touched: it covers
+   `.specseal/map.md`, `.specseal/map/`, `.specseal/`, or `specs/<id>/`
+   where `<id>` is a work item by the rule above, is rewritten to the new
+   prefix; a row citing an entry that stays (`specs/notes/…`) stays with it. The hash after `@` is not touched: it covers
    the cited content, which did not change.
 7. the marker line for the root is appended to
    `~/.claude/specseal/root-migrated`.
@@ -139,10 +144,11 @@ what did not, and stamps nothing; S7 is what makes the next start finish it.
 
 | State at session start | Printed (one line, `systemMessage`) | Marker |
 |---|---|---|
-| clean, moved | `specseal: moved .specseal/ and N work items into seal/ (M ledger rows re-pointed) — review the diff and commit`. `.specseal/` or the work-item count is left out when there was nothing of that kind to move, `item` and `row` are singular at 1, and an entry under `specs/` that is not a work item is named inside the parentheses: `(M ledger rows re-pointed; left specs/<name> where it is (not a SpecSeal work item))` | stamped |
+| clean, moved | `specseal: moved .specseal/ and N work items into seal/ (M ledger rows re-pointed) — review the diff and commit`. `.specseal/` or the work-item count is left out when there was nothing of that kind to move, `item` and `row` are singular at 1, and an entry under `specs/` that is not a work item is named inside the parentheses: `(M ledger rows re-pointed; left specs/<name> where it is (not tracked as a SpecSeal work item))`. `.specseal/` may remain on disk holding only ignored files; nothing git tracks is left in it | stamped |
 | dirty (S6) | `specseal: .specseal/ and specs/ are the old layout, but they carry uncommitted changes — not touching work in progress. Commit, then the next session start moves them into seal/.` | not stamped |
 | `.specseal/scratch` present | `specseal: .specseal/scratch says this repository is throwaway — not migrating it. Delete the file if it is not.` Checked before the dirty test, so a throwaway repository gets this line whether or not it is dirty | not stamped |
-| a move failed | `specseal: moved K of N into seal/ and stopped at <path>: <error>. The next session start continues.` No ledger row is re-pointed until every unit has moved, so a stopped run leaves the rows as they were | not stamped |
+| a move failed | `specseal: moved K of N into seal/ and stopped at <path>: <error>. The next session start continues.` No ledger row is re-pointed until every unit has moved, so a stopped run leaves the rows as they were. Two failures do not resume by themselves and end with `Settle that by hand, then the next session start continues.` instead: `seal` present as a file (`cannot create seal/: <error>`), and a destination that already holds the file (`seal/ledger.md already exists — keep one by hand: git rm .specseal/map.md if seal/ledger.md is the newer, or git rm seal/ledger.md to let the move bring the old one over`) | not stamped |
+| every unit moved, the re-point failed | `specseal: moved everything into seal/ but could not re-point the ledger: <error>. Run `evidence-check --reverify .`` — the rows still say the old paths and the checker reports them BROKEN | not stamped; the next start finds nothing old and stamps then |
 | nothing old left | nothing | stamped if `seal/` exists at the root and the marker does not carry it yet. A repository with neither layout is not this hook's business: it is left alone and unlisted, because the stamp's one job is the once-per-repository rule, which only a repository that has something old can meet |
 | marker already carries the root, old layout still there | nothing: the once-per-repo rule holds and the silent gates are the backstop | — |
 
