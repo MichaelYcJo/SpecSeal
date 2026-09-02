@@ -1,14 +1,14 @@
 """A work item writes a ledger fragment; the release folds them.
 
 Issue #78. Every work item writes its evidence rows to
-`.specseal/map/<id>.md` and nothing ever folded them into `.specseal/map.md`,
+`seal/ledger/<id>.md` and nothing ever folded them into `seal/ledger.md`,
 so the directory gained one file per work item forever and almost every pull
 request touched it. The fragment layout exists to stop two branches queueing
 at one file, and after the merge there is no branch left to queue
 (`docs/one-root-by-lifetime.md`, "What happens at a release", step 1).
 
 Step 3 of the same section is the guard: a fact that must outlive the release
-has to have reached the ledger, and `specs/<id>/evidence-todo.md` is where a
+has to have reached the ledger, and `seal/specs/<id>/evidence-todo.md` is where a
 reviewer lists the ones still waiting. The fold refuses while any such file
 has an open row.
 
@@ -122,8 +122,8 @@ def tree(tmp_path):
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
     h = handler_hash()
-    (tmp_path / ".specseal" / "map").mkdir(parents=True)
-    (tmp_path / ".specseal" / "map.md").write_text(
+    (tmp_path / "seal" / "ledger").mkdir(parents=True)
+    (tmp_path / "seal" / "ledger.md").write_text(
         LEDGER_HEAD.format(h=h), encoding="utf-8"
     )
     later = fragment(
@@ -146,13 +146,13 @@ def tree(tmp_path):
             row("the earlier second claim", unit_hash("Box.open"), anchor="Box.open"),
         ],
     )
-    (tmp_path / ".specseal" / "map" / "1788229400-later.md").write_text(
+    (tmp_path / "seal" / "ledger" / "1788229400-later.md").write_text(
         later, encoding="utf-8"
     )
-    (tmp_path / ".specseal" / "map" / "1700000000-earlier.md").write_text(
+    (tmp_path / "seal" / "ledger" / "1700000000-earlier.md").write_text(
         earlier, encoding="utf-8"
     )
-    d = tmp_path / "specs" / "1788229400-later"
+    d = tmp_path / "seal" / "specs" / "1788229400-later"
     d.mkdir(parents=True)
     (d / "evidence-todo.md").write_text(
         "# verified facts to merge\n\ndrained — both rows merged at abc1234.\n\n"
@@ -164,11 +164,11 @@ def tree(tmp_path):
 
 
 def ledger(tree):
-    return (tree / ".specseal" / "map.md").read_text(encoding="utf-8")
+    return (tree / "seal" / "ledger.md").read_text(encoding="utf-8")
 
 
 def fragments_left(tree):
-    d = tree / ".specseal" / "map"
+    d = tree / "seal" / "ledger"
     return sorted(p.name for p in d.iterdir()) if d.exists() else []
 
 
@@ -188,7 +188,7 @@ def fold(tree, version="0.4.0", date="2026-09-15"):
 
 
 def evidence_todo(tree, work_item_id, text):
-    d = tree / "specs" / work_item_id
+    d = tree / "seal" / "specs" / work_item_id
     d.mkdir(parents=True, exist_ok=True)
     (d / "evidence-todo.md").write_text(text, encoding="utf-8")
 
@@ -205,7 +205,7 @@ OPEN_FILE = (
 def test_every_row_reaches_the_ledger_byte_for_byte_and_the_fragment_is_gone(tree):
     """A move, not a deletion: the ticket's first "done when"."""
     before = {
-        name: (tree / ".specseal" / "map" / name).read_text(encoding="utf-8")
+        name: (tree / "seal" / "ledger" / name).read_text(encoding="utf-8")
         for name in fragments_left(tree)
     }
     fold(tree)
@@ -220,7 +220,7 @@ def test_every_row_reaches_the_ledger_byte_for_byte_and_the_fragment_is_gone(tre
 
 def test_the_directory_is_removed_when_it_is_empty(tree):
     fold(tree)
-    assert not (tree / ".specseal" / "map").exists()
+    assert not (tree / "seal" / "ledger").exists()
 
 
 def test_the_rows_that_were_already_in_the_ledger_stay(tree):
@@ -275,8 +275,8 @@ def test_a_fragment_whose_marker_is_already_in_the_ledger_is_refused(tree):
     to tell which is current. A stop naming the file is cheaper."""
     fold(tree)
     once = ledger(tree)
-    (tree / ".specseal" / "map").mkdir()
-    (tree / ".specseal" / "map" / "1788229400-later.md").write_text(
+    (tree / "seal" / "ledger").mkdir()
+    (tree / "seal" / "ledger" / "1788229400-later.md").write_text(
         fragment(
             "1788229400-later", "Re-created.", [row("late claim", handler_hash())]
         ),
@@ -284,7 +284,7 @@ def test_a_fragment_whose_marker_is_already_in_the_ledger_is_refused(tree):
     )
     r = run("--version", "0.4.1", "--date", "2026-09-16", root=tree)
     assert r.returncode == 1, r.stdout
-    assert ".specseal/map/1788229400-later.md" in r.stdout, r.stdout
+    assert "seal/ledger/1788229400-later.md" in r.stdout, r.stdout
     assert "already" in r.stdout, r.stdout
     assert ledger(tree) == once, "the refusal wrote to the ledger"
     assert fragments_left(tree) == ["1788229400-later.md"], "the refusal removed it"
@@ -300,7 +300,7 @@ def test_a_marker_quoted_in_the_ledgers_prose_is_not_a_folded_work_item(tree):
         "`<!-- specs/1788229400-later -->`.",
     )
     assert "<!-- specs/1788229400-later -->" in text
-    (tree / ".specseal" / "map.md").write_text(text, encoding="utf-8")
+    (tree / "seal" / "ledger.md").write_text(text, encoding="utf-8")
     fold(tree)
     assert "| the later claim |" in ledger(tree)
     r = run("--check", root=tree)
@@ -316,15 +316,15 @@ def test_the_messages_print_slash_joined_paths_on_every_platform(tree):
     assert r.returncode == 1, r.stdout
     assert "\\" not in r.stdout, r.stdout
     fold(tree)
-    (tree / ".specseal" / "map").mkdir()
-    (tree / ".specseal" / "map" / "1788229400-later.md").write_text(
+    (tree / "seal" / "ledger").mkdir()
+    (tree / "seal" / "ledger" / "1788229400-later.md").write_text(
         fragment("1788229400-later", "Again.", [row("late", handler_hash())]),
         encoding="utf-8",
     )
     for args in (("--version", "0.4.1"), ("--check",)):
         r = run(*args, root=tree)
         assert r.returncode == 1, r.stdout
-        assert ".specseal/map/1788229400-later.md" in r.stdout, r.stdout
+        assert "seal/ledger/1788229400-later.md" in r.stdout, r.stdout
         assert "\\" not in r.stdout, r.stdout
 
 
@@ -334,7 +334,7 @@ U2028_ROW = "| a claim\u2028with a line separator | `src/service.py#handler` | c
 def test_a_row_holding_a_line_separator_arrives_as_one_row(tree):
     """Round 1, 🟡 5 (probe B). `splitlines()` breaks on U+2028, which is
     not a newline to the file, so one row became two lines."""
-    (tree / ".specseal" / "map" / "1788229400-later.md").write_text(
+    (tree / "seal" / "ledger" / "1788229400-later.md").write_text(
         fragment("1788229400-later", "Odd bytes.", [U2028_ROW]), encoding="utf-8"
     )
     fold(tree)
@@ -350,7 +350,7 @@ def test_the_last_row_keeps_its_trailing_whitespace_and_a_fenced_hash_is_text(tr
         "## The area\n\n| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
         "|---|---|---|---|---|\n" + last + "\n"
     )
-    (tree / ".specseal" / "map" / "1788229400-later.md").write_text(
+    (tree / "seal" / "ledger" / "1788229400-later.md").write_text(
         body, encoding="utf-8"
     )
     fold(tree)
@@ -370,7 +370,7 @@ def test_a_blank_line_above_the_title_and_a_tilde_fence_are_read_right(tree):
         "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
         "|---|---|---|---|---|\n" + row("the claim", handler_hash()) + "\n"
     )
-    (tree / ".specseal" / "map" / "1788229400-later.md").write_text(
+    (tree / "seal" / "ledger" / "1788229400-later.md").write_text(
         body, encoding="utf-8"
     )
     fold(tree)
@@ -395,7 +395,7 @@ def test_dry_run_writes_and_removes_nothing(tree):
 def test_an_empty_fragment_is_removed_and_named_and_gets_no_marker(tree):
     """A marker with nothing under it would make `--check` say the rows
     arrived when there were none."""
-    (tree / ".specseal" / "map" / "1788300000-empty.md").write_text(
+    (tree / "seal" / "ledger" / "1788300000-empty.md").write_text(
         "# 1788300000-empty\n\n", encoding="utf-8"
     )
     r = fold(tree)
@@ -406,7 +406,7 @@ def test_an_empty_fragment_is_removed_and_named_and_gets_no_marker(tree):
 
 def test_a_missing_ledger_is_a_failure_not_a_fresh_start(tree):
     """Nothing to fold INTO is a broken tree; creating one would hide it."""
-    (tree / ".specseal" / "map.md").unlink()
+    (tree / "seal" / "ledger.md").unlink()
     r = run("--version", "0.4.0", root=tree)
     assert r.returncode == 1, r.stdout
     assert fragments_left(tree) == ["1700000000-earlier.md", "1788229400-later.md"]
@@ -431,7 +431,7 @@ def test_the_one_thing_a_fold_changes_is_a_duplicate_counted_once(tree):
     a row a fragment repeats from `map.md` counts twice before the fold and
     once after. No finding changes; the spec's S6 names this so a release
     reading a smaller total does not go looking for a lost row."""
-    (tree / ".specseal" / "map" / "1788229400-later.md").write_text(
+    (tree / "seal" / "ledger" / "1788229400-later.md").write_text(
         fragment(
             "1788229400-later",
             "A repeat.",
@@ -455,7 +455,7 @@ def test_an_open_evidence_todo_row_refuses_the_fold_and_touches_nothing(tree):
     left = fragments_left(tree)
     r = run("--version", "0.4.0", "--date", "2026-09-15", root=tree)
     assert r.returncode == 1, r.stdout
-    assert "specs/1700000000-earlier/evidence-todo.md" in r.stdout, r.stdout
+    assert "seal/specs/1700000000-earlier/evidence-todo.md" in r.stdout, r.stdout
     assert "1 open row" in r.stdout, r.stdout
     assert ledger(tree) == before, "the refusal wrote to the ledger"
     assert fragments_left(tree) == left, "the refusal removed a fragment"
@@ -550,7 +550,7 @@ def test_a_line_separator_in_a_cell_does_not_close_the_file(tree):
 
 def test_a_work_item_without_the_file_has_no_open_row(tree):
     """The fixture's second work item has no `specs/` directory at all."""
-    assert not (tree / "specs" / "1700000000-earlier").exists()
+    assert not (tree / "seal" / "specs" / "1700000000-earlier").exists()
     fold(tree)
 
 
@@ -560,8 +560,8 @@ def test_a_work_item_without_the_file_has_no_open_row(tree):
 def test_check_fails_while_a_fragment_is_left(tree):
     r = run("--check", root=tree)
     assert r.returncode == 1, r.stdout
-    assert ".specseal/map/1788229400-later.md" in r.stdout, r.stdout
-    assert ".specseal/map/1700000000-earlier.md" in r.stdout, r.stdout
+    assert "seal/ledger/1788229400-later.md" in r.stdout, r.stdout
+    assert "seal/ledger/1700000000-earlier.md" in r.stdout, r.stdout
 
 
 def test_check_fails_on_an_open_evidence_todo_row_even_with_nothing_to_fold(tree):
@@ -580,22 +580,22 @@ def test_check_passes_once_folded_and_says_what_it_counted(tree):
     assert r.returncode == 0, r.stdout
     # A `--check` that exits 0 because it found nothing at all would satisfy
     # the line above. It has to say it saw both work items in the ledger.
-    assert "2 work items marked in .specseal/map.md" in r.stdout, r.stdout
+    assert "2 work items marked in seal/ledger.md" in r.stdout, r.stdout
 
 
 def test_a_copy_edit_to_a_folded_section_does_not_reopen_it(tree):
     """Marked, not matched: re-wording a folded note leaves `--check` green."""
     fold(tree)
     text = ledger(tree).replace("the later claim", "the later claim, reworded")
-    (tree / ".specseal" / "map.md").write_text(text, encoding="utf-8")
+    (tree / "seal" / "ledger.md").write_text(text, encoding="utf-8")
     r = run("--check", root=tree)
     assert r.returncode == 0, r.stdout
 
 
 def test_check_names_a_left_fragment_whose_marker_is_already_there(tree):
     fold(tree)
-    (tree / ".specseal" / "map").mkdir()
-    (tree / ".specseal" / "map" / "1788229400-later.md").write_text(
+    (tree / "seal" / "ledger").mkdir()
+    (tree / "seal" / "ledger" / "1788229400-later.md").write_text(
         fragment("1788229400-later", "Re-created.", [row("late", handler_hash())]),
         encoding="utf-8",
     )
@@ -636,8 +636,8 @@ def test_no_document_says_the_fragments_are_never_gathered():
         ("CONTRIBUTING.md",),
         ("README.md",),
         ("README.ko.md",),
-        (".specseal", "README.md"),
-        (".specseal", "map.md"),
+        ("seal", "README.md"),
+        ("seal", "ledger.md"),
         ("templates", "map.md"),
         ("templates", "specseal-README.md"),
         ("skills", "implement", "SKILL.md"),
@@ -680,13 +680,13 @@ def this_work_items_rows_are_in_the_ledger(root):
     "would break on removal" — the release-preparation commit would have
     turned the tests red on its own pull request.
     """
-    frag = os.path.join(root, ".specseal", "map", f"{THIS_WORK_ITEM}.md")
+    frag = os.path.join(root, "seal", "ledger", f"{THIS_WORK_ITEM}.md")
     if os.path.isfile(frag):
         with open(frag, encoding="utf-8") as f:
             text = f.read()
         where = "the fragment"
     else:
-        with open(os.path.join(root, ".specseal", "map.md"), encoding="utf-8") as f:
+        with open(os.path.join(root, "seal", "ledger.md"), encoding="utf-8") as f:
             text = f.read()
         lines = text.split("\n")
         assert f"<!-- specs/{THIS_WORK_ITEM} -->" in lines, (
@@ -710,7 +710,7 @@ def test_this_work_items_rows_are_still_found_after_the_release_folds_them(tree)
     held nothing to fold and the test went red on `main`; and the `specs/`
     copy made any open evidence-todo row in the tree fail it, which is the
     review's own mid-state."""
-    frag = tree / ".specseal" / "map" / f"{THIS_WORK_ITEM}.md"
+    frag = tree / "seal" / "ledger" / f"{THIS_WORK_ITEM}.md"
     frag.write_text(
         fragment(
             THIS_WORK_ITEM,

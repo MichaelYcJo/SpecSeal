@@ -55,7 +55,7 @@ def tree(tmp_path):
         ("1788229400-later", "- **the later one.** What it changes.\n"),
         ("1700000000-earlier", "- **the earlier one.** What it changes.\n"),
     ):
-        d = tmp_path / "specs" / work_item_id
+        d = tmp_path / "seal" / "specs" / work_item_id
         d.mkdir(parents=True)
         (d / "changelog.md").write_text(body, encoding="utf-8")
     return tmp_path
@@ -131,8 +131,8 @@ def test_a_release_with_nothing_to_gather_fails(tree):
 def test_check_fails_while_a_fragment_is_outstanding(tree):
     r = run("--check", root=tree)
     assert r.returncode == 1, r.stdout
-    assert "specs/1788229400-later/changelog.md" in r.stdout, r.stdout
-    assert "specs/1700000000-earlier/changelog.md" in r.stdout, r.stdout
+    assert "seal/specs/1788229400-later/changelog.md" in r.stdout, r.stdout
+    assert "seal/specs/1700000000-earlier/changelog.md" in r.stdout, r.stdout
 
 
 def test_check_passes_once_they_are_gathered(tree):
@@ -191,7 +191,7 @@ def test_an_empty_fragment_is_not_gathered_as_a_blank_entry(tree):
     """A work item that opened the file and wrote nothing has no entry, and a
     marker with nothing under it would make `--check` green for a change that
     ships unexplained."""
-    d = tree / "specs" / "1788300000-empty"
+    d = tree / "seal" / "specs" / "1788300000-empty"
     d.mkdir(parents=True)
     (d / "changelog.md").write_text("\n\n", encoding="utf-8")
     gather(tree)
@@ -285,6 +285,7 @@ def test_this_work_item_wrote_its_own_fragment():
     nobody has tried."""
     frag = os.path.join(
         ROOT,
+        "seal",
         "specs",
         "1788229400-every-branch-appends-to-the-same-two-files",
         "changelog.md",
