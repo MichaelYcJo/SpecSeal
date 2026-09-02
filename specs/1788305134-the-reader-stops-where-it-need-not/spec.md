@@ -10,7 +10,7 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 | `hooks/cmdline.py#understood` — *"The reader used to answer 'nothing moved' for every construct it did not implement, which is a CONFIDENT answer"* | The inversion this reader is built on. Every change here keeps the direction: what it cannot compute stops, and what it can compute is computed from the command string alone |
 | `hooks/cmdline.py#EXPANDS` — `"$`*?[]{}"` | Any operand containing `$` is unresolvable. Right for a value this process cannot see, wrong for one the command wrote out two tokens earlier. The substitution runs in FRONT of this test and the test stays |
 | `hooks/cmdline.py#walk_directories` — `states` and `parked` thread across segments | The mechanism a name environment joins. Nothing new is invented to thread names; the environment is a third thread and the body count a fourth |
-| `hooks/cmdline.py#_heredoc_split` — the arithmetic-region comment and its measurement of 51 shapes | The second defect the original item fixed, stated by the code that had it |
+| `hooks/cmdline.py#_heredoc_split` — the `braces` comment: *"the real number was 51, every one a `((` written inside a `${…}` parameter expansion, reproduced by all seventeen operators that take a WORD, and bash accepts them all"* | The second defect the original item fixed, stated by the code that had it, with the reproduction written beside it |
 | `docs/review-chain-spec.md` — an unreadable destination is a stop, never a silence | The fail direction every half must keep: the reader may stop where it previously stopped, never answer where it previously refused |
 | `CLAUDE.md` §*The goal a design is chosen against* | Between two designs that catch the same defect, the one that stops to ask is the more expensive. This is why the wide reset was aimed rather than kept, and why the aim had to be proven against an oracle rather than assumed |
 
@@ -56,6 +56,23 @@ item adds are both in scope, because the review chain reads this file.
 7. **The bare-name rule of the blind name-writer sweep is pinned.** It had
    no test; loosening it survived the suite.
 
+**Added by round 1 of this item's review.**
+
+8. **The body count is a stack, not an integer.** A multi-line `case` puts
+   its arm pattern on a line of its own, `a )`, and that `)` stands last in
+   its segment exactly where a subshell's closer stands; the integer count
+   reached zero before the arm body and the arm's assignment bound. A `)`
+   pops only when `(` is on top, every closer pops only its own opener, the
+   glued `f(){` opens a `{` body, and every opener is read in command
+   position only — so `git commit -m "(wip) x"; SB=/two` resolves again.
+9. **A call to a function this string defined empties the environment.**
+   `f() { SB=/three; }; SB=/one; f; git -C "$SB"` answered `/one` where bash
+   has `/three`; the definition is in the string, so the name is one the
+   reader can see.
+10. **Three more writers are forgotten.** `SB=(/three)` is an array and the
+    name is emptied rather than bound to `(/three)`; `((SB=3))`,
+    `let "SB = 3"` and `${SB:=…}` / `${SB=…}` in any argument forget `SB`.
+
 **Out.**
 
 - **Expanding a variable this process cannot see.** `git -C "$WT"` from the
@@ -63,9 +80,20 @@ item adds are both in scope, because the review chain reads this file.
 - **Loop and positional variables, command substitution, arithmetic
   expansion** in an operand. Same reason, one step further out.
 - **Quote provenance.** `shlex` is posix-mode, so `'$SB'` is filled and a
-  quoted `"("` opens a body. Both are recorded costs (`questions.md` Q1, Q4)
-  and both fall on the side of a prompt except the single-quoted operand,
-  which was pinned as a decision by the original item.
+  quoted word is a word. After the stack, exactly one shape still answers
+  where bash disagrees: a quoted closer written ALONE as a command inside a
+  body that does not run — `if false; then "fi"; SB=/three; fi` — pops the
+  body early, and the assignment after it binds. A quoted `")"` no longer
+  does, because `)` pops only a `(`, and a closer in argument position never
+  did. Recorded in `questions.md` Q1 and Q4; the single-quoted operand was
+  pinned as a decision by the original item.
+- **A function or alias defined OUTSIDE the string.** Its name arrives as an
+  ordinary word this reader has no reason to doubt, and no reading of the
+  string can close that; it is the edge `RELOCATORS` already records for
+  `alias`.
+- **`declare -n` (nameref, bash ≥ 4.3).** `declare -n ref=SB; ref=/three`
+  writes `SB` through `ref`. Not executable on this machine's bash 3.2.57;
+  carried in `overview.md`'s Not verified.
 - **The directory half's reading of bodies.** `if false; then :; cd /two;
   fi; git commit` reports both `/two` and the session's directory, because a
   `cd`'s own failure is parked and a `;` merges it back. That is a superset,
@@ -87,11 +115,19 @@ item adds are both in scope, because the review chain reads this file.
 | S10 A body's later statement is not top level *(inferred during implementation)* | Given a body that does not run — a false condition, an empty list, an arm that does not match, a function defined and never called — or runs in a subshell, with an assignment as its second statement · Then the name is forgotten, never bound; and after the body's closer a top-level assignment binds again | `::test_a_bodys_later_statement_is_not_a_top_level_one` (16 shapes), `::test_the_body_ends_at_its_closer`, `::test_what_moves_the_count_and_what_does_not` |
 | S11 A reserved word behind a prefix is refused *(inferred during implementation)* | `! for SB in /two /three; do :; done; git -C "$SB"` stops; `! true`, `time echo hi`, `command -p ls` are still understood | `::test_a_reserved_word_behind_a_prefix_is_not_a_simple_command` |
 | S12 The blind sweep forgets bare names only *(inferred during implementation)* | `if read -rp 'SB> ' ans` forgets `ans` and keeps `SB` | `::test_the_blind_sweep_forgets_bare_names_only` |
+| S13 A body is a stack entry, closed by its own closer *(round 1)* | Given a multi-line `case` with `a )`, `(a)` or `a)` patterns, a glued `f(){`, a quoted `")"` inside a body · Then the arm's or body's assignment is forgotten; after `esac` a top-level assignment binds again; `git commit -m "(wip) x"; SB=/two` and `grep -c '(' f; SB=/two` resolve | `::test_a_bodys_later_statement_is_not_a_top_level_one` (23 shapes), `::test_the_body_ends_at_its_closer`, `::test_what_opens_a_body_and_what_closes_one` |
+| S14 A call to a function the string defined empties the environment *(round 1)* | `f() { SB=/three; }; SB=/one; f; git -C "$SB"` stops; a word never defined here is a word | `::test_a_call_to_a_function_the_string_defined_empties_the_environment` |
+| S15 An array assignment empties the name *(round 1)* | `SB=(/three); git -C "$SB"` stops | `::test_an_array_assignment_empties_the_name` |
+| S16 `((NAME=…))`, `let`, `${NAME:=…}` / `${NAME=…}` forget NAME *(round 1)* | Each stops; `${SB:-…}` and `${#SB}` leave the name standing | `::test_the_writers_round_one_found_are_forgotten` |
+| S17 Whatever the reader answers, bash answers the same *(round 1)* | Given 25 wrappers (multi-line `case`, `f(){`, nested `if`, `elif` among them) × 27 statements · Then every input the reader resolves matches bash's `$SB`; prompts are exempt | `tests/test_the_reader_agrees_with_bash.py`, guarded by `usable_bash()`, one bash process |
 
 ## Data & interfaces
 
-`walk_directories` threads four things across segments: `states`, `parked`,
-`env` and, from this item, `depth`. No signature changes. Both gates and the
+`walk_directories` threads five things across segments: `states`, `parked`,
+`env` and, from this item, the `stack` of open bodies and the `defined`
+function names. Its signature is unchanged. `_nesting(tokens, stack) -> list`
+replaces round 0's `_nesting(tokens) -> int`; `walk_directories` is its only
+caller. Both gates and the
 worktree guard read the filled operand through the token list
 `walk_directories` yields (`_expanded`), so no consumer is touched.
 

@@ -12,17 +12,20 @@ than reconstructed at the end. -->
             · `CLAUDE.md` on this branch · `templates/sdd-*.md` ·
             `.specseal/map.md` header · `skills/evidence-check/scripts/evidence_check.py`
             usage
-· evidence: 9 rows in `.specseal/map/1788305134-the-reader-stops-where-it-need-not.md`;
-            no row of `.specseal/map.md` removed — this change deletes no
-            anchor
-· verified: executed — the scope run (301 passed across seven files), 14
-            mutations (7 from round 2's 🟡 7 against the code as found, 6 red;
-            7 against the mechanism added here, 7 red), a differential run of
-            1,790 inputs with bash 3.2.57 as the oracle, `ruff check` and
-            `ruff format --check`, `evidence-check --strict`. Read only — the
-            old branch's diff against this tree, its round records, the gate
-            and guard call sites that take the change without a signature
-            change
+· evidence: 13 rows in `.specseal/map/1788305134-the-reader-stops-where-it-need-not.md`
+            (9 at round 0, 4 from round 1's fixes); no row of `.specseal/map.md`
+            removed — this change deletes no anchor
+· verified: executed — the scope run (round 0: 301 passed across seven files;
+            round 1's fix pass: the reader's test files plus the in-tree
+            differential), 24 mutations (7 from round 2's 🟡 7 against the code
+            as found, 6 red; 7 against round 0's count, 7 red; 10 against
+            round 1's stack, call reset and writers, 10 red), differential
+            runs with bash 3.2.57 as the oracle (1,790 inputs at round 0;
+            2,109 against the reader at `dd7e45e` after round 1 — 0 fail-open
+            now, 124 there), `ruff check` and `ruff format --check`,
+            `evidence-check --strict`. Read only — the old branch's diff
+            against this tree, its round records, the gate and guard call
+            sites that take the change without a signature change
 
 ## Why this work exists
 
@@ -40,6 +43,10 @@ closed.
 | Where round 2's 🟡 3/4/5 close | The handoff asks this item to close them with code or grounds | They were closed in the tree before this item began — `_unseen` (🟡 3), the rewritten `else` comment (🟡 4), the `lastpipe` comment and its test (🟡 5) — by a commit that exists only inside the rewrite's initial commit and was reviewed by nobody | The tests carry a `b76fd99` measurement, the old branch's tip, so the work postdates it. This item's job became proving it, and the proof found S10 |
 | The `else` branch's comment on function bodies | *"It is narrower than it sounds, because a body defined in this command string is split on `;` like any other text, so its assignments arrive here as tokens"* | Rewritten. Arriving as tokens was the problem, not the mitigation: the second statement arrived as a top-level assignment and bound | Measured — `f() { echo hi; SB=/three; }; git -C "$SB"` answered `/three` where bash has `/one` |
 | How a closer is counted | First version counted `fi`/`done`/`}` wherever they stood | In command position only; `)` last as well | Eight shapes survived the first version, all `echo fi` inside a body; bash reads a closer as a word in argument position, so the count does too |
+| An integer or a stack (round 1) | Round 0 kept an integer body count | A stack of open bodies: `)` pops only a `(`, every closer only its own opener, `f(){` opens a `{` | Round 1 🔴 2 and 🔴 3: a multi-line `case` arm pattern `a )` is a `)` last in its segment and brought the count to zero; the glued `f(){` opened nothing. Both bound a body's assignment where bash has `/one`. Cost accepted: a `case` arm that does match prompts too |
+| Where an opener counts (round 1) | Round 0 counted openers wherever they stood, as the safe direction | Command position only | `git commit -m "(wip) x"; SB=/two` and `grep -c '(' f; SB=/two` prompted for the rest of the string. Safe because a closer pops only its own opener, so an uncounted opener inside a counted body cannot close the outer one |
+| The function-call edge (round 1) | Round 0's comment called a function call the alias open edge | A function this string defines is a name the reader can see; the call empties the environment. What remains open is a function or alias defined outside the string | `f() { SB=/three; }; SB=/one; f; git -C "$SB"` — bash `/three`, reader `/one` |
+| `${NAME:=…}` on a set name (round 1) | bash leaves a name that already has a value | Forgotten anyway, with `${NAME=…}` | The value the reader holds can be empty (`SB=`), where `:=` does write; one rule for both spellings costs a prompt on a rare shape and never an answer |
 
 ## Not verified
 
@@ -48,7 +55,8 @@ closed.
 | The full suite, lint and typecheck on this branch after the review rounds settle — the scope here was the seven files that import `hooks/cmdline.py` | the orchestrator's broad gate, once |
 | The Windows and Linux legs — every expected path here goes through `os.path.normpath`, but the oracle ran on one platform | CI at the pull request |
 | Shapes whose oracle needs bash ≥ 4 — `mapfile`, `readarray`, `shopt -s lastpipe`. Under 3.2.57 each errors and leaves the name; the reader forgets on all of them, so nothing opens either way | whoever has bash 5 at hand; the answer can only widen the prompt count |
-| The original item's 26,400-input differential against `2f95d72`. Its generator did not travel with the branch; the 1,790-input run here covers the compound-command family it did not, and covers none of the paren-model corpus, which `tests/test_what_the_reader_understands.py` pins case by case | the review chain, if it wants the old corpus rebuilt |
+| The original item's 26,400-input differential against `2f95d72`. Its generator did not travel with the branch; the differential now in the tree (`tests/test_the_reader_agrees_with_bash.py`) covers the compound-command family it did not, and covers none of the paren-model corpus, which `tests/test_what_the_reader_understands.py` pins case by case | the review chain, if it wants the old corpus rebuilt |
+| `declare -n ref=SB; ref=/three` — a nameref writes `SB` through `ref` on bash ≥ 4.3. This machine's 3.2.57 cannot run it, and the reader keeps `SB` (round 1 🟡 8 ③) | a maintainer with bash 5; if it writes, `declare -n` joins the writers `_forget` reads |
 
 ## Not done
 

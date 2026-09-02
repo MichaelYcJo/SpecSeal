@@ -44,7 +44,8 @@ them for that reason.
 | Keep the aimed reset as found | 82 fail-opens in 1,790 inputs, all newly opened by it. A body's second statement bound as top level in every compound-command shape bash has | rejected — this is the finding |
 | Empty the environment at every closer (`fi`, `done`, `}`) | Closes the class but reintroduces the wide reset for every compound command: a name bound BEFORE the body would be lost at `fi` | rejected — that is 🟡 3 again |
 | Count closers wherever they stand | `echo fi` inside a body closed it early and the assignment after it bound — measured, eight shapes | rejected — closers count in command position, `)` last as well |
-| Count openers only in command position | Under-counts a nested opener behind a `case` pattern, and the inner closer then ends the OUTER body early | rejected — openers count anywhere; the cost is prompts |
+| An integer count (round 0) | A count cannot say which body a closer closes: a multi-line `case` arm pattern `a )` is a `)` last in its segment, and it brought the count to zero before the arm body (round 1 🔴 2); the glued `f(){` opened nothing (🔴 3) | replaced in round 1 by a stack — `)` pops only a `(`, every closer only its own opener |
+| Count openers wherever they stand (round 0) | `git commit -m "(wip) x"; SB=/two` and `grep -c '(' f; SB=/two` opened a body that never closed and prompted for the rest of the string (round 1 🟡 6) | rejected in round 1 — openers count in command position only. Safe because a closer pops only its own opener, so an uncounted opener inside a counted body leaves the outer body open until its own closer |
 | Carry quote provenance out of the splitter | Would also close Q1's single-quoted operand. Costs a new field on every token through a splitter three readers share | deferred — `questions.md` Q4, the repository owner |
 | Model bodies for the directory half too | The directory half already reports a superset (`parked` keeps the un-moved shell), so it over-asks rather than opens. Changing it is a second work item with its own prompt-volume argument | deferred — `questions.md` Q5 |
 
@@ -56,14 +57,26 @@ them for that reason.
 | 2 | The aimed reset proven or corrected: a differential run of the wide reset against the aimed one over compound-command shapes, every newly resolved input checked against bash | **Executed**: 1,790 inputs, bash 3.2.57 as oracle — 82 fail-opens, two families, both closed; re-run 0 fail-open, 0 lost | 9ea31d8 |
 | 3 | The body count, the prefix refusal in `understood`, the blind-sweep pin, with tests; 7 mutations of the new mechanism each red | S10 · S11 · S12; 301 passed in the scope; `ruff check` and `ruff format --check` clean | 9ea31d8 |
 | 4 | The SDD set, `changelog.md`, the ledger fragment with content anchors, `evidence-check --strict` at 0 broken | the checker's own output — 104 ok · 0 broken; `unverified-check --baseline origin/release/v0.3.0` — 4 open, each with an answerer, 0 unreadable | 0903bfe |
+| 5 | Round 1's fixes: the body stack, the function-call reset, the array and the three writers, openers in command position; the differential in the tree as `tests/test_the_reader_agrees_with_bash.py` | S13–S17; 10 mutations of the new mechanism each red; the in-tree differential (25 × 27 inputs, bash 3.2.57) and a scratch differential of 2,109 inputs against the reader at `dd7e45e` — 0 fail-open now, 124 there, 0 resolutions lost | |
 
 ## Operational impact
 
-- **No new prompt for a shape that resolved correctly before.** Three shapes
-  newly stop, and bash disagrees with the old answer in every one: a body's
-  later statement, a reserved word behind a prefix, and `(cd <x> && make)`
-  followed by an assignment — the last is the one recorded cost, a prompt
-  where bash has the value.
+- **Shapes that newly prompt, measured against the reader at `dd7e45e` over
+  2,109 inputs.** Round 0 claimed no new prompt on a shape that resolved
+  correctly before; that was not true and round 1 said so. What newly prompts
+  falls in four families, and bash agrees with the old answer only in the
+  first two: (1) an assignment as a later statement of a body that DOES run —
+  a true `if`/`elif` branch, a matching `case` arm, a `for` with items, a
+  brace group, `time { … }`, a function body when the function is called —
+  because the reader cannot tell a body that ran from one that did not;
+  (2) `${SB:=…}` / `${SB=…}` on a name that already has a value, and `((SB=…))`
+  or `let` in a pipeline stage; (3) `! eval …`, `time source …`, `! select`
+  — the prefix hid a word `understood` refuses, and the same segments were
+  fail-opens under other inputs; (4) `(cd <x> && make)` followed by an
+  assignment, the glued-closer cost. Everyday shapes round 1 named —
+  `git commit -m "(wip) x"; SB=/two`, `grep -c '(' f; SB=/two`, nested `if`,
+  `time { …; }` — resolve. No shape newly answers: 0 fail-opens in the run,
+  where `dd7e45e` had 124.
 - **`understood` refuses more**, and the directory half inherits it in the
   fail-closed direction: `time pushd <x>; git commit` stops where it used to
   read as unmoved.
