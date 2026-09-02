@@ -12,8 +12,8 @@ not about the change. -->
 
 📋 implement applied
 · spec:     `seal/specs/1788360817-the-pull-request-language-is-fixed-inside-a-skill/{routing,spec,plan,questions}.md`; issue #82 (the done-when list is the acceptance criteria); `docs/one-root-by-lifetime.md#"## What the root is called"` (English for shipped artifacts, Korean as the owner's per-user setting); `CONTRIBUTING.md` (a change writes a fragment, never a shared registry); `README.md#"### Shared or local"` and `hooks/optin.py#home_at` (where the root is); `seal/follow-up.md` — nothing here was its prerequisite, and it gains nothing
-· evidence: `seal/ledger/1788360817-the-pull-request-language-is-fixed-inside-a-skill.md`, nine rows in four groups, 27 coordinates
-· verified: **Executed** — `tests/test_the_pull_request_language_is_the_repositorys.py` (24 cases; 6 red before the document edits, all green at `56ec644`), `tests/test_docs_line_wrap.py`, `tests/test_first_setup_asks_once.py`, `tests/test_no_document_names_the_old_roots.py`, `tests/test_release_hygiene.py`, `tests/test_chain_hooks_hardening.py`, `tests/test_the_set_a_work_item_always_has.py`, `tests/test_one_word_one_meaning.py`, `tests/test_the_release_check_watches_what_ships.py`, `tests/test_no_real_identifiers.py`, `tests/test_unverified_rows_close.py` — 194 passed in the widest slice; `bin/evidence-check --ledger 'seal/ledger/1788360817-*.md' --strict .` 27 ok · 0 drifted · 0 broken; `uvx ruff check` and `ruff format --check` on the two Python files this work touched. **Read** — `hooks/optin.py#home_at` (no hook reads the new file, so nothing here executes it), `.github/workflows/hygiene.yml`'s version step (base is `release/v0.5.0`, so `plugin.json` is left alone). **Not run, on purpose** — the full suite, a repository-wide lint and a typecheck: the broad gate is the orchestrator's, once, after the rounds settle
+· evidence: `seal/ledger/1788360817-the-pull-request-language-is-fixed-inside-a-skill.md`, thirteen rows in five groups, 36 coordinates — the last group is what round 1 changed. Two rows in `seal/ledger/1788354065-…md` were re-read and re-verified here (🟡 4), and each says so in its own Notes cell
+· verified: **Executed** — `tests/test_the_pull_request_language_is_the_repositorys.py` (36 cases after round 1's four planted rows; 24 before, of which 6 were red until the document edits), `tests/test_docs_line_wrap.py`, `tests/test_first_setup_asks_once.py`, `tests/test_no_document_names_the_old_roots.py`, `tests/test_release_hygiene.py`, `tests/test_chain_hooks_hardening.py`, `tests/test_the_set_a_work_item_always_has.py`, `tests/test_one_word_one_meaning.py`, `tests/test_the_release_check_watches_what_ships.py`, `tests/test_no_real_identifiers.py`, `tests/test_unverified_rows_close.py` — 194 passed in the widest slice; `bin/evidence-check --strict .` over the whole tree after round 1's fixes, `335 ok · 0 drifted · 0 broken` — unscoped, for the reason the section below gives; `uvx ruff check` and `ruff format --check` on the two Python files this work touched. The two checks round 1 asked for were run against the pre-fix text as well: the old parser returned the row behind a foreign one, and four templates were unreachable at `1280de9` where none is now. **Read** — `hooks/optin.py#home_at` (no hook reads the new file, so nothing here executes it), `.github/workflows/hygiene.yml`'s version step (base is `release/v0.5.0`, so `plugin.json` is left alone). **Not run, on purpose** — the full suite, a repository-wide lint and a typecheck: the broad gate is the orchestrator's, once, after the rounds settle
 
 ## Why this work exists
 
@@ -28,6 +28,23 @@ one that states nothing keeps English.
 |---|---|---|---|
 | The template's wording on the prefix | `spec.md` S4 says only that the exclusion is stated; the template said the prefixes "stay as they are, in every repository" | The template now says **not translated**, the same words as the skill | The case pinning S4 was red against the first draft. Two documents saying the same rule in words that do not overlap is how a check ends up asserting one of them and calling it both |
 | Where the layout row sits in the READMEs | `spec.md` S9 asks only that the file be listed | Also added to the `seal/` row of each README's Root table, not the tree alone | A reader who scans the table and never the drawing is the reader who most needs to know a repository can answer here |
+
+## What the scoped evidence check could not see
+
+**A whole-document anchor makes any edit to that document another work
+item's drift, and a fragment-scoped check cannot see it.** This branch added
+three lines to `templates/seal-README.md`'s Layout tree. Two rows in
+`seal/ledger/1788354065-…md` anchor on that document *whole*, so the tree
+read `325 ok · 1 drifted` while the run this memo first recorded —
+`--ledger 'seal/ledger/1788360817-*.md'`, this item's own fragment — read
+`27 ok · 0 drifted` and was right about everything it was asked.
+
+That is the sentence that would have caught it, and the rule it gives is:
+scope the check to your fragment while you work, and run it unscoped once
+before handing over, because the question *what did this branch do to
+anybody else's rows* is not a question a scoped run is being asked. Both
+claims were re-read here and both hold — only the hash moved — so
+`--reverify` was the whole fix.
 
 ## Not verified
 
@@ -58,10 +75,14 @@ record that cites one (`questions.md` Q2).
 **`docs/` untouched.** Issue #82 says so itself — *"Not in
 docs/one-root-by-lifetime.md (PR #77…); recorded here."*
 
-**`docs/flow.md` untouched.** Its `#82` checkbox belongs to whoever merges,
-and the file already carried an uncommitted edit from an earlier session
-when this branch began. That edit is not this work item's and was left where
-it was found.
+**`docs/flow.md` — one line, and not by this work item.** The memo said the
+file was untouched, and round 1 ❓ 8 found the branch tip moving one of its
+lines. The correction: that commit is the orchestrator's (`ec3e252`, the
+sealer moved from 0.5.0 to 0.6.0), made after this memo was written and
+riding on this branch because `release/v0.5.0` takes no direct push and a
+one-line planning change does not earn a pull request of its own. This work
+item still writes nothing there, and the `#82` checkbox belongs to whoever
+merges.
 
 ## Fed back into the spec
 

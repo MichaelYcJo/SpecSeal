@@ -67,15 +67,24 @@ def test_the_root_is_resolved_rather_than_spelled():
     assert "<repo>/seal/" in text, "the shared place went with the fix"
 
 
-def test_absence_means_english_in_both_of_its_spellings():
-    """S2. `No file` and `no row` are two different absences and a reader
-    hits them at different moments — one before creating anything, one while
-    reading a config somebody else wrote. Answering only the first leaves the
-    second looking like an error."""
-    text = flat(*SKILL)
-    assert "No file, or no such row, means English" in text, (
-        "the default is not stated where the path is, so a session that finds "
-        "no row has to guess"
+def test_the_default_is_stated_where_the_path_is():
+    """S2. A session that finds no row is standing in this section, so the
+    default has to be here rather than three sections down.
+
+    This case used to pin `No file, or no such row, means English` — the two
+    absences the first draft named. Round 1 🟡 3 found two more (an empty
+    value, an unreadable or unparseable file), so the sentence became a rule
+    over all of them and `test_the_skill_names_every_way_of_not_naming_one`
+    is where each one is now checked. What is left here is the placement.
+    """
+    section = read(*SKILL).split(
+        "## The language is the repository's, and it says so in a file", 1
+    )
+    assert len(section) == 2, "the section was renamed; this case is now blind"
+    body = section[1].split("\n## ", 1)[0]
+    assert "lands on English" in body, (
+        "the default is not stated in the section that sends a session to "
+        "the file, so whoever finds no row has to go looking for it"
     )
 
 
@@ -200,8 +209,13 @@ def test_the_mirror_is_named_for_its_own_language():
 
 def test_the_existing_mirrors_are_consistent_with_the_rule():
     """The twelve committed files, checked against the rule rather than
-    assumed to match it. This repository states no language, so the default
-    is English and the mirror is Korean."""
+    assumed to match it.
+
+    Round 1 🟡 5: this used to assert `seal/config.md` does not EXIST, so a
+    repository that legitimately created one — holding the template's own
+    default row, even — turned it red. Existence was never the question. The
+    row is, and it is read the same way a session reads it.
+    """
     import glob
 
     mirrors = sorted(
@@ -209,14 +223,39 @@ def test_the_existing_mirrors_are_consistent_with_the_rule():
         for p in glob.glob(os.path.join(ROOT, "seal", "specs", "*", "pr.*.md"))
     )
     assert mirrors, "no mirror files at all — this case is blind"
-    assert set(mirrors) == {"pr.ko.md"}, (
-        f"a mirror is not in the other language: {sorted(set(mirrors))}. This "
-        "repository names no pull request language, so the body is English "
-        "and every mirror here is `pr.ko.md`"
+    forbidden = f"pr.{LANGUAGE_CODES[configured_language()]}.md"
+    assert forbidden not in mirrors, (
+        f"{forbidden} is a mirror in the body's OWN language, which is not a "
+        f"mirror. This repository's pull request language is "
+        f"{configured_language()}"
     )
-    assert not os.path.exists(os.path.join(ROOT, "seal", "config.md")), (
-        "this repository now carries a config; if its row is not English the "
-        "line above is the wrong assertion"
+
+
+def test_a_config_holding_the_templates_default_row_reads_as_english(tmp_path):
+    """tests-todo row 1, first half. The file the plugin ships a template for
+    must not be the file that breaks the check."""
+    home = tmp_path / "seal"
+    home.mkdir()
+    (home / "config.md").write_text(read(*TEMPLATE), encoding="utf-8")
+    assert configured_language(tmp_path) == "English"
+    assert LANGUAGE_CODES[configured_language(tmp_path)] == "en", (
+        "so `pr.ko.md` stays a legitimate mirror and `pr.en.md` does not"
+    )
+
+
+def test_a_korean_row_is_what_flips_the_refused_mirror_name(tmp_path):
+    """tests-todo row 1, second half. The row is read, not the file's
+    presence — a different row gives a different answer."""
+    home = tmp_path / "seal"
+    home.mkdir()
+    (home / "config.md").write_text(
+        "| Item | Value |\n|---|---|\n| Pull request language | Korean |\n",
+        encoding="utf-8",
+    )
+    assert configured_language(tmp_path) == "Korean"
+    assert LANGUAGE_CODES[configured_language(tmp_path)] == "ko", (
+        "in a Korean repository `pr.ko.md` is the body's own language and "
+        "`pr.en.md` is the mirror — the opposite of this repository"
     )
 
 
@@ -246,13 +285,85 @@ def items(text):
             continue
         match = ROW.match(line)
         if not match:
-            if line.strip().startswith("|"):
-                continue  # a row of some other table
+            # ANY line that is not a row of this table ends it, a row of a
+            # different table included. Round 1 🟡 6: a three-cell row used
+            # to be skipped as though it were not there, so a `| a | b | c |`
+            # between two two-cell rows let the row AFTER it be read as part
+            # of this table. That is the separator defect one shape over.
             if found:
                 break
             continue
         found.append((match.group("item"), match.group("value")))
     return found
+
+
+# The mirror cases above call these two. They live here because they are
+# built on `items()`, and Python resolves a name when the call runs rather
+# than where it sits.
+
+LANGUAGE_CODES = {"English": "en", "Korean": "ko", "Japanese": "ja"}
+
+
+def configured_language(root=None):
+    """A repository's pull request language, read the way the skill says.
+
+    Every way of not naming one lands on English, and there are four: no
+    file, no such row, an empty value, and a file that cannot be read or does
+    not parse as that table. The direction is deliberate — a config nobody
+    can read must not stop a commit.
+    """
+    path = os.path.join(root or ROOT, "seal", "config.md")
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return "English"
+    for item, value in items(text):
+        if item == "Pull request language":
+            return value.strip() or "English"
+    return "English"
+
+
+UNNAMED = [
+    ("no file at all", None),
+    ("a file with no such row", "| Item | Value |\n|---|---|\n| Other | x |\n"),
+    ("an empty value", "| Item | Value |\n|---|---|\n| Pull request language |  |\n"),
+    ("a file that does not parse as that table", "# notes\n\nno table here.\n"),
+    ("a file whose table is another one", "| Field | Value |\n|---|---|\n| a | b |\n"),
+]
+
+
+@pytest.mark.parametrize("what, body", UNNAMED, ids=[w for w, _ in UNNAMED])
+def test_every_way_of_not_naming_a_language_lands_on_english(what, body, tmp_path):
+    """🟡 3, run rather than only asserted in prose. A session that meets one
+    of these and stops, asks, or guesses is the failure; all five answer the
+    same."""
+    home = tmp_path / "seal"
+    home.mkdir()
+    if body is not None:
+        (home / "config.md").write_text(body, encoding="utf-8")
+    assert configured_language(tmp_path) == "English", what
+
+
+def test_an_unreadable_config_lands_on_english_too(tmp_path):
+    """The fifth way, which needs a filesystem rather than a string: a
+    `config.md` that is a DIRECTORY. `open` raises `IsADirectoryError`, an
+    `OSError` — the class the reader catches, chosen so a permission error
+    lands the same way."""
+    (tmp_path / "seal" / "config.md").mkdir(parents=True)
+    assert configured_language(tmp_path) == "English"
+
+
+def test_the_skill_names_every_way_of_not_naming_one():
+    """tests-todo row 2. The prose half: the reader above can only be right
+    if the document says the same thing, and a session reads the document."""
+    text = flat(*SKILL)
+    assert "Every way of not naming a language lands on English" in text, (
+        "the rule is not stated as one rule, so its cases read as a list "
+        "somebody may believe is complete"
+    )
+    for phrase in ("no file", "no such row", "an empty value", "does not parse"):
+        assert phrase in text, f"the skill does not name {phrase!r} as one of them"
 
 
 def test_the_template_is_one_item_value_table_whose_first_row_is_the_language():
@@ -273,6 +384,107 @@ def test_the_check_can_fail():
     )
     assert items("| Item | Value |\n|---|---|\n| a | b |\n") == [("a", "b")], (
         "the separator is being read as a row again"
+    )
+
+
+def test_a_row_of_another_table_ends_this_one():
+    """tests-todo row 3, from round 1 🟡 6.
+
+    A three-cell row used to be skipped as though it were not there, so
+    everything after it was absorbed. The interesting half is the LAST
+    assertion: the danger was never the odd row itself, it was the ordinary
+    row behind it arriving as though it belonged here.
+    """
+    text = (
+        "| Item | Value |\n"
+        "|---|---|\n"
+        "| Pull request language | Korean |\n"
+        "| a | b | c |\n"
+        "| Something else | x |\n"
+    )
+    assert items(text) == [("Pull request language", "Korean")], (
+        "a row of a different table did not end this one"
+    )
+    assert ("Something else", "x") not in items(text), (
+        "the row behind the foreign one was read as part of this table"
+    )
+
+
+def test_a_second_table_further_down_is_not_read_as_more_rows():
+    """The same property at document scale, which is what `config.md`
+    actually looks like: a table, prose, then another table."""
+    text = (
+        "| Item | Value |\n"
+        "|---|---|\n"
+        "| Pull request language | Korean |\n"
+        "\n"
+        "## notes\n"
+        "\n"
+        "| Item | Value |\n"
+        "|---|---|\n"
+        "| Pull request language | English |\n"
+    )
+    assert items(text) == [("Pull request language", "Korean")], (
+        "the first table's answer must win; a second one further down is "
+        "prose about the first, not more rows of it"
+    )
+
+
+# --- every template has a reader --------------------------------------------
+
+
+def test_every_template_is_named_by_a_document_that_ships():
+    """tests-todo row 4, from round 1 🟡 1.
+
+    The finding was that `templates/config.md` was named by nothing except a
+    line-width list, so a session told to write `seal/config.md` had no
+    source for it. That is a property of the DIRECTORY rather than of the one
+    file it was found on: any template no document names is a file a session
+    cannot find, and it writes one from scratch instead.
+
+    `tests/` is excluded on purpose. A test naming a template is what the
+    finding was about — the mention that looks like a reader and is not.
+    """
+    import glob
+    import subprocess
+
+    readers = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "skills",
+            "agents",
+            "hooks",
+            "docs",
+            "README.md",
+            "README.ko.md",
+            "CONTRIBUTING.md",
+            "CLAUDE.md",
+            "seal/README.md",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+    ).stdout.split()
+    corpus = ""
+    for relative in readers:
+        try:
+            with open(os.path.join(ROOT, relative), encoding="utf-8") as handle:
+                corpus += handle.read()
+        except OSError:
+            continue
+    assert corpus, "no shipped documents were read — this case is blind"
+
+    unreachable = [
+        os.path.basename(path)
+        for path in sorted(glob.glob(os.path.join(ROOT, "templates", "*")))
+        if f"templates/{os.path.basename(path)}" not in corpus
+    ]
+    assert not unreachable, (
+        "templates no shipped document names, so a session bootstrapping one "
+        f"has nothing to copy: {unreachable}"
     )
 
 

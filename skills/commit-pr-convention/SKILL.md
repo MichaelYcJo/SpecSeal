@@ -58,9 +58,18 @@ stopping.
 ```
 
 That row governs the **commit subject and body** and the **pull request title
-and body** — all four, because a squash makes them one text. **No file, or no
-such row, means English**, which is what every repository got before the row
-existed.
+and body** — all four, because a squash makes them one text.
+
+**Every way of not naming a language lands on English**, which is what every
+repository got before the row existed. There are four of them and they are
+one rule: no file, no such row, an empty value, and a file that cannot be
+read or does not parse as that table. A config nobody can read must not stop
+a commit, so a session meeting any of these writes English and carries on
+rather than asking.
+
+**To create it, copy `templates/config.md` from this plugin into the root and
+edit the value.** That file repeats the exclusions below, because the person
+who writes a repository's config reads it and never reads this one.
 
 It governs nothing else, and the three exclusions are what make it safe to
 change:
@@ -132,15 +141,22 @@ that came out wrong is not recovered by fixing sentences.
 Where a translated body is wanted, **put it in the repository as a file and
 link it from the body.**
 
-- **Where** — the work item's own folder, as `pr.<lang>.md`, and `<lang>` is
-  the mirror's **own** language rather than the body's. An English
-  repository keeps a Korean mirror at `seal/specs/<work-item-id>/pr.ko.md`;
-  a Korean one keeps an English mirror at `pr.en.md`. Where a repository has
-  no such structure, put it beside the documents the pull request already
-  touches.
+- **Where** — the work item's own folder under the root, as `pr.<lang>.md`,
+  and `<lang>` is the mirror's **own** language rather than the body's. An
+  English repository keeps a Korean mirror at
+  `<root>/specs/<work-item-id>/pr.ko.md`; a Korean one keeps an English
+  mirror at `pr.en.md`. Resolve `<root>` the way the language section above
+  resolves it, and read the next bullet before you write there.
 - **Why there** — its permissions are the repository's, so anyone who can
   read the pull request can open it; it is versioned with the code; and it
   survives the merge.
+- **So not under the git directory.** Where the root resolves to
+  `$(git rev-parse --git-common-dir)/seal/`, nothing under it is ever a
+  commit candidate, which takes away all three reasons above at once: a
+  reviewer cannot open it, no version of it exists, and the merge carries
+  nothing. Put the mirror beside the documents the pull request already
+  touches instead — the same place a repository with no work-item structure
+  puts it.
 - **Not a hosted document or artifact.** One was tried and failed three ways
   at once: default-private, so the link in a public pull request opened for
   nobody but its author; kept alive only by a manual share each time; and

@@ -4,6 +4,10 @@ What this repository says about itself, one row per item, read by the skills
 that need it. It sits in the root the plugin maintains, beside `parity.md`,
 in the same shape: a markdown table.
 
+The root is at one of two places and whichever exists is the answer:
+`<repo>/seal/`, which is committed, or `$(git rev-parse --git-common-dir)/seal/`,
+which is not. This file goes wherever that root already is.
+
 **This file is optional, and an absent row is not an error.** Every item has
 a default, and the defaults are what every repository got before the row
 existed. Create the file when one of the answers is not the default; a file
@@ -35,6 +39,12 @@ prose:
   answers there and the same answer here.
 
 Where a translated body is wanted, it goes in the repository as a file, named
-for **its own** language rather than the body's: `seal/specs/<work-item-id>/`
+for **its own** language rather than the body's: the work item's own folder
 holds `pr.ko.md` when this row says English, and `pr.en.md` when it says
 Korean.
+
+That folder sits under the root, which is resolved rather than spelled — the
+same two places this file is looked for. Where the root resolves under the
+git directory, the mirror does **not** go there: nothing under it is ever a
+commit candidate, so a reviewer cannot open the file and the merge carries
+nothing. Put it beside the documents the pull request already touches.
