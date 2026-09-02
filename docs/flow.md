@@ -13,7 +13,7 @@ merge commit (`docs/branch-and-release.md`).
 
 - [x] #78 the ledger fragments fold at release, and an open evidence-todo row refuses it (on today's paths) — merged as #87
 - [x] #79 the root merge: `specs/` + `.specseal/` → `seal/`, opt-in is the root's presence, session-start hook moves once, CI and path references follow
-- [ ] release: gather the changelog, fold the ledger, move `plugin.json`, merge to `main`, tag `v0.4.0`
+- [x] release: gather the changelog, fold the ledger, move `plugin.json`, merge to `main`, tag `v0.4.0`
 
 ## 0.5.0 — `release/v0.5.0`
 
