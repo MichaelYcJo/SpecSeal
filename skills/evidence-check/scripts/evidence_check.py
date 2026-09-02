@@ -1372,7 +1372,7 @@ def main():
     # Three locations. `seal/ledger.md` is the gathered ledger; `ledger/*.md`
     # is one fragment per work item; `docs/**/_evidence.md` is the pre-0.10
     # address, still read because a repository that never moved it keeps
-    # working. `.specseal/map.md` is NOT read: the root moved in 0.4.0 and
+    # working. `.specseal/map.md` is NOT read: the root moved to `seal/` and
     # `hooks/root-migrate.py` moves it, so a ledger left there is a file in
     # the wrong place, not a second address.
     patterns = args.ledger or [
