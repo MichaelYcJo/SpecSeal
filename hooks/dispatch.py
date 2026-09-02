@@ -34,9 +34,14 @@ HOOKS = os.path.dirname(os.path.abspath(__file__))
 
 GROUPS = {
     "pre-bash": ("commit-review-gate.py", "worktree-guard.py"),
-    "pre-agent": ("worktree-guard.py",),
+    "pre-agent": ("worktree-guard.py", "implementer-mark.py"),
     "pre-skill": ("review-skill-gate.py",),
-    "post-bash": ("review-history-guard.py", "session-lease.py", "evidence-advisor.py"),
+    "post-bash": (
+        "review-history-guard.py",
+        "implementer-notice.py",
+        "session-lease.py",
+        "evidence-advisor.py",
+    ),
     "post-edit": ("lint-python.py", "session-lease.py"),
     "session-start": ("version-check.py", "ledger-migrate.py"),
 }
