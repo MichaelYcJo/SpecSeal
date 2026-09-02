@@ -41,7 +41,8 @@ workflow. Everything in it is permanent:
 ├── map.md            spec clause ↔ code coordinates, as they stood before
 │                     work items wrote fragments
 ├── map/
-│   └── <work-item-id>.md   one work item's rows — never gathered, no header
+│   └── <work-item-id>.md   one work item's rows, no header — folded into
+│                           map.md by the release that ships the work item
 ├── parity.md         migration config, only when declared
 └── follow-up.md      schedulable items in a repository with no tracker
 ```
@@ -363,7 +364,10 @@ rows on unrelated edits. Re-verifying is re-reading and running
 **Rows a work item adds go in its own fragment**, `.specseal/map/<work-item-id>.md`,
 not appended to `.specseal/map.md`. Two branches cannot collide there, because
 no two work items share an id, and the checker reads the whole
-`.specseal/map/*.md` glob.
+`.specseal/map/*.md` glob. The fragment lives until the release that ships
+the work item, whose preparation step folds it into `.specseal/map.md` and
+removes it; a row is a content anchor, so the move changes nothing the
+checker measures.
 
 **Draft as you go, write in one pass.** The recording is cheap and the round
 trip is not: one session made twenty-six separate edits to its ledger and
