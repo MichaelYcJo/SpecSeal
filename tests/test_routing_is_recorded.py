@@ -219,7 +219,9 @@ def test_the_first_prompt_names_the_declaration_as_a_way_out(repo):
     assert decision_of(out) == "deny"
     reason = reason_of(out)
     assert '1. "Declare the routing"' in reason
-    assert "seal/specs/<work-item-id>/routing.md" in reason
+    # The way the platform spells it: the path is joined under the resolved
+    # root (#80, Q5), so on Windows it arrives with backslashes.
+    assert os.path.join("seal", "specs", "<work-item-id>", "routing.md") in reason
     assert "IN A COMMAND OF ITS OWN" in reason, (
         "the option stopped saying the one thing that makes it work"
     )
@@ -276,7 +278,10 @@ def test_the_second_prompt_names_it_too(repo):
     out = gate(repo)
     assert decision_of(out) == "ask"
     reason = reason_of(out)
-    assert "seal/specs/<work-item-id>/routing.md" in reason
+    # The same platform spelling as the first prompt's assertion above: the
+    # windows leg of PR #95 (run 33643327406) failed on the `/` literal here
+    # after phase 1 had fixed only the first one.
+    assert os.path.join("seal", "specs", "<work-item-id>", "routing.md") in reason
     assert "for any commit" in reason, (
         "the two-way sentence must scope itself once a third way follows it"
     )

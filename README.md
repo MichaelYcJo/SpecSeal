@@ -169,14 +169,14 @@ decision tables:
 
 | Gate | Fires | Does | Where |
 |---|---|---|---|
-| commit-review-gate | before `git commit` | stops the commit when `.git/specseal-reviewed` does not hold the current HEAD sha, and puts the two ways on to you as options: run the review chain, or commit with `[no-review]` (which stays visible in the command). In a repo that declares `seal/parity.md` it also stops a code commit with no `.git/specseal-parity` for this HEAD — compare against the original, or `[no-parity]`. Both arms are put up together, in one question each. **Once per session per repository** — after that it is the plain confirmation, where approving is the waiver. The repository judged is the one the command commits **into** — `git -C <path> commit` is judged at `<path>`, not where the shell sits. A `-C` the gate cannot resolve to a repository (a shell variable, since the gate reads the command before the shell expands it) stops the commit rather than passing it: it was never looked at, and that used to be indistinguishable from having passed | `seal/` at the root — silent elsewhere. A migration config lives inside it, so declaring one opts into both arms; waive the review arm per command with `[no-review]`, typed in FRONT of the command — `: '[no-review]'; git commit …`, quotes included |
+| commit-review-gate | before `git commit` | stops the commit when `.git/specseal-reviewed` does not hold the current HEAD sha, and puts the two ways on to you as options: run the review chain, or commit with `[no-review]` (which stays visible in the command). In a repo that declares `seal/parity.md` it also stops a code commit with no `.git/specseal-parity` for this HEAD — compare against the original, or `[no-parity]`. Both arms are put up together, in one question each. **Once per session per repository** — after that it is the plain confirmation, where approving is the waiver. The repository judged is the one the command commits **into** — `git -C <path> commit` is judged at `<path>`, not where the shell sits. A `-C` the gate cannot resolve to a repository (a shell variable, since the gate reads the command before the shell expands it) stops the commit rather than passing it: it was never looked at, and that used to be indistinguishable from having passed | `seal/` at the root, or under the common git dir in local mode — silent elsewhere. A migration config lives inside it, so declaring one opts into both arms; waive the review arm per command with `[no-review]`, typed in FRONT of the command — `: '[no-review]'; git commit …`, quotes included |
 | review-history-guard | after posting/reading a PR review via `gh` | reminds to write / read `seal/specs/<work-item>/rounds/round-N.md` and the two todo files beside `rounds/`. It also names any record left at the old flat location, since nothing reads one there. It finds the work item the way the commit gate does — through the routing declaration that names this branch — so a branch that declared nothing is not reminded | same opt-in |
-| implementer-mark | before an Agent/Task call whose `subagent_type` is `smith` (`specseal:smith`, or a project-local `smith`) | writes the checked-out branch name to `.git/specseal-implementer`. It prints nothing, so it can neither deny nor ask; it is the trace the notice below reads. Written before the group decides, so a spawn the worktree guard then stops still leaves one | `seal/` at the root — silent elsewhere, and writes nothing |
+| implementer-mark | before an Agent/Task call whose `subagent_type` is `smith` (`specseal:smith`, or a project-local `smith`) | writes the checked-out branch name to `.git/specseal-implementer`. It prints nothing, so it can neither deny nor ask; it is the trace the notice below reads. Written before the group decides, so a spawn the worktree guard then stops still leaves one | `seal/` at the root, or under the common git dir in local mode — silent elsewhere, and writes nothing |
 | implementer-notice | after a command that actually runs `git commit` | where this branch's `routing.md` answers `Implementation` with `smith` and no mark stands for this branch, prints one line naming the file. Nothing is said when the mark stands, when the row is absent or unreadable, or when it answers `the session`. **Once per session per repository**, and it never blocks — a declared `smith` nobody spawned is a session forgetting its own answer, and a reminder is what that costs | same opt-in |
-| review-skill-gate | before the model opens a skill named `code-review` | puts the choice to you rather than making it: that name is Claude Code's built-in, not this plugin's. The built-in sweeps the diff for bugs and cleanup; `specseal:code-review` judges spec compliance first and inherits earlier rounds' verdicts. Fires **once per session per working tree**, so picking the built-in and retrying goes straight through. A skill you invoke yourself never routes through here | `seal/` at the root — silent elsewhere |
+| review-skill-gate | before the model opens a skill named `code-review` | puts the choice to you rather than making it: that name is Claude Code's built-in, not this plugin's. The built-in sweeps the diff for bugs and cleanup; `specseal:code-review` judges spec compliance first and inherits earlier rounds' verdicts. Fires **once per session per working tree**, so picking the built-in and retrying goes straight through. A skill you invoke yourself never routes through here | `seal/` at the root, or under the common git dir in local mode — silent elsewhere |
 | worktree-guard | before `git checkout`/`switch`, `git worktree add`, and Agent calls with `isolation: "worktree"` | one rule in two directions: denies a switch while another session is actively working this tree, and denies creating a worktree when yours is the only live stream. Where the tree holds only idle sessions, or the environment cannot be read at all, it offers the two ways on as options instead — switch here, or split into a worktree — **once per session per repository per direction**, then the plain confirmation. The two directions are counted apart, so one session can legitimately meet the question twice. `[worktree-ok]` and `[shared-tree-ok]` carry your answer back through on the retry. The reason names the other session's host app, how long each signal has been quiet, and its last message | any git repo |
 | session-lease | after repo-touching tool calls (Bash · file edits) | writes a timestamp, host, and owning session pid to `.git/specseal-leases/<session-id>`. The guard's process heuristics miss sessions not named `claude`; a lease says outright which session is working here. Nothing removes the file at session end, so the owner is recorded: a lease whose session has exited is retired rather than counted, and one that cannot be attributed becomes a question instead of a block | any git repo |
-| version-check | at session start | asks this repository for its newest release tag and, when the running plugin is behind, shows one line naming `/specseal:update`. Once a day, and a lookup that fails retries about twenty minutes later. It never installs anything — telling you a release exists and installing it are different acts | `seal/` at the root — silent elsewhere |
+| version-check | at session start | asks this repository for its newest release tag and, when the running plugin is behind, shows one line naming `/specseal:update`. Once a day, and a lookup that fails retries about twenty minutes later. It never installs anything — telling you a release exists and installing it are different acts | `seal/` at the root, or under the common git dir in local mode — silent elsewhere |
 | lint-python | after Write/Edit/NotebookEdit on a `.py` file | runs `ruff check --fix` then `ruff format` on that file — autofixes included, so code changes, not just layout (uv → uvx → global ruff; skips silently if none). `SPECSEAL_LINT=off` disables it | **a project that configures ruff** — `ruff.toml`, `.ruff.toml`, or `[tool.ruff]` in `pyproject.toml`, searched up to the repo root. Silent everywhere else |
 
 The commit gate is not the only place the review chain is enforced any more,
@@ -364,9 +364,12 @@ evidence-check --reverify .                  # re-points each row citing a moved
 
 Four of the seven gates wake only under a condition: the commit gate, the
 review-history reminder, the review-skill gate, and the version check act in a
-repo that has a `seal/` directory at its root, and stay silent everywhere
-else. You never create it by hand — the smith builds it the first time it works
-in a repo, and it is the only directory this plugin adds to your tree.
+repo that has a `seal/` directory at its root or under its git directory, and
+stay silent everywhere else. You never create it by hand — the smith builds it
+the first time it works in a repo, after asking one question (*Shared or
+local*, below), and it is the only directory this plugin adds to your tree —
+plus, in shared mode, one workflow file under `.github/workflows/`; in local
+mode, nothing at all.
 
 The other three carry their own conditions. worktree-guard and session-lease
 act in every git repo. lint-python acts only where the project has configured
@@ -393,6 +396,42 @@ the export rules) the smith creates from `templates/` as it goes.
 
 Two things work with no agent at all: the ledger drift check
 (`evidence_check.py`, the demo above) and every gate in the table.
+
+### Shared or local
+
+The first time the smith works in a repository it asks one question, once,
+and never again: where `seal/` lives. Whichever place holds the folder is the
+mode; there is no config key, and a repository with `seal/` at either place
+is not asked.
+
+| | Shared (the default) | Local |
+|---|---|---|
+| Where `seal/` lives | `<repo>/seal/`, committed | `$(git rev-parse --git-common-dir)/seal/` — under the common git dir, which is `.git/` in a main tree |
+| What setup installs | the pull-request checks, `.github/workflows/hygiene.yml` written from the plugin's `templates/hygiene.yml` only if no file is there | nothing; the tree is untouched |
+| Fits | your own repository, or one where a committed `seal/` bothers nobody | a repository whose tree must not carry this plugin's files: a company repository, a contribution to someone else's project |
+| Gives up | nothing | CI — the checks read committed files — and every other machine or re-clone, which starts empty |
+
+Local mode sits under the git directory rather than behind a `.gitignore`
+line because a linked worktree checks out committed files only, so an ignored
+folder is simply absent there. The common git dir is shared by every worktree
+of the clone, and nothing under it is ever a commit candidate.
+
+Switching is a move and a commit, from the repository root — both paths are
+asked of git, so a subdirectory as the working directory lands them in the
+same place. The hooks need no restart, because the next command reads the
+folder where it is. The workflow is installed or removed by hand — copy
+`$CLAUDE_PLUGIN_ROOT/templates/hygiene.yml` in, with `v<version>` replaced
+by the release you run, or delete `.github/workflows/hygiene.yml`:
+
+```bash
+# local → shared, then commit
+mv "$(git rev-parse --git-common-dir)/seal" "$(git rev-parse --show-toplevel)/seal" && git add "$(git rev-parse --show-toplevel)/seal"
+# shared → local, then commit the removal
+git rm -r --cached "$(git rev-parse --show-toplevel)/seal" && mv "$(git rev-parse --show-toplevel)/seal" "$(git rev-parse --git-common-dir)/seal"
+```
+
+Carrying local records to another clone by hand, and the `seal export` /
+`seal import` pair that packages them, arrive with #81.
 
 ## Limits
 

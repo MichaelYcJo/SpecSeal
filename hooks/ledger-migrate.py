@@ -11,9 +11,13 @@ the remembering.
 **What licenses writing to a tree unasked.** The ledger is the plugin's own
 artifact — the same ownership that lets `preset-setup` replace the CLAUDE.md
 marker block without asking — and the operation is deterministic, idempotent,
-all-or-nothing per row, and fully visible in `git diff`, with the old text
-safe in git history. The notice ends "review the diff and commit" because the
-write is the beginning of a review, not the end of one.
+all-or-nothing per row, and — in shared mode, where the root is committed —
+fully visible in `git diff`, with the old text safe in git history. There the
+notice ends "review the diff and commit" because the write is the beginning
+of a review, not the end of one. A local root (#80) sits under the git
+directory, where nothing is in a diff and the rewritten ledger is the only
+copy; the same deterministic, all-or-nothing rewrite runs, and the notice
+ends by naming what can be read instead: `evidence-check .`.
 
 Boundaries, each pinned in `tests/test_the_ledger_migrates_itself.py`:
 
@@ -36,7 +40,8 @@ unchanged from `--migrate`, whose engine this calls.
 What a change to a gate must carry (`CONTRIBUTING.md`), answered for a hook
 that writes: failure direction — wrong-silent leaves the loud OLD-FORMAT
 check failure, wrong-write is visible in `git diff` with the old text in git
-history, so both fail toward a person seeing it; prompt budget — zero
+history in shared mode, and in local mode is what `evidence-check .` reads
+next, so both fail toward a person seeing it; prompt budget — zero
 questions, one printed line once per repository; platform — pure Python plus
 one `git status --porcelain`, no process inspection. Under `dispatch.py`'s
 crash isolation a raising hook is skipped silently; here that loses one
@@ -64,7 +69,11 @@ CHECKER = os.path.join(
     "scripts",
     "evidence_check.py",
 )
-LEDGER_GLOBS = ("seal/ledger.md", "seal/ledger/*.md", "docs/**/_evidence.md")
+# Two of the three live under the root `optin.home_at` resolves — under the
+# git directory in local mode (#80) — and the pre-0.10 address stays under the
+# repository root, a committed file at an old address.
+HOME_GLOBS = ("ledger.md", "ledger/*.md")
+ROOT_GLOBS = ("docs/**/_evidence.md",)
 
 
 def checker():
@@ -74,14 +83,12 @@ def checker():
     return ec
 
 
-def ledgers(root):
-    return sorted(
-        {
-            p
-            for pat in LEDGER_GLOBS
-            for p in glob.glob(os.path.join(root, pat), recursive=True)
-        }
-    )
+def ledgers(root, home=None):
+    home = home or optin.home_at(root)
+    patterns = [os.path.join(root, pat) for pat in ROOT_GLOBS]
+    if home:
+        patterns += [os.path.join(home, pat) for pat in HOME_GLOBS]
+    return sorted({p for pat in patterns for p in glob.glob(pat, recursive=True)})
 
 
 def attempted(root):
@@ -112,7 +119,28 @@ def dirty(root, paths):
     # platform, and a backslash pathspec on Windows would read as permanently
     # dirty — the migration never running, with a wrong reason printed
     # (round 4, ❓; the broad gate's windows leg gives the real answer).
-    rels = [os.path.relpath(p, root).replace(os.sep, "/") for p in paths]
+    #
+    # Only paths inside the tree are asked about. A local-mode ledger lives
+    # under the git directory (#80), where nothing is ever committed, so
+    # "uncommitted" has no meaning for it — and from a linked worktree its
+    # path climbs out of the tree, which git refuses (`is outside
+    # repository`, exit 128) and this function then read as dirty forever.
+    #
+    # A path with no relative spelling at all — on Windows, a root on another
+    # drive than the tree, where `ntpath.relpath` raises `ValueError` — is
+    # outside the tree by definition, and is skipped the same way rather
+    # than raised out of `main()` at session start (round 1 of #80, 🔴 2).
+    rels = []
+    for p in paths:
+        try:
+            rel = os.path.relpath(p, root).replace(os.sep, "/")
+        except ValueError:
+            continue
+        if rel.startswith("../") or rel.startswith(".git/"):
+            continue
+        rels.append(rel)
+    if not rels:
+        return False
     try:
         r = subprocess.run(
             ["git", "-C", root, "status", "--porcelain", "--", *rels],
@@ -132,13 +160,14 @@ def main():
         cwd = event.get("cwd")
     except (ValueError, AttributeError):
         return
-    if not cwd or not os.path.isdir(cwd) or not optin.opted_in(cwd):
+    if not cwd or not os.path.isdir(cwd):
         return
     root = optin.repo_root(cwd)
-    if not root:
+    home = optin.home_at(root)
+    if not root or not home:
         return
 
-    found = ledgers(root)
+    found = ledgers(root, home)
     if not found:
         return
     ec = checker()
@@ -175,12 +204,28 @@ def main():
         if unproven
         else ""
     )
+    # "Review the diff" is a shared-mode sentence: the root is committed, so
+    # the rewrite is in a diff and the old text is in history. A local root
+    # (#80) lives under the git directory, where nothing is in a diff and the
+    # rewritten ledger is the only copy — so the line names what CAN be read
+    # (round 1 of #80, 🟡 5). Local is "not the shared root", whichever
+    # tree the session sits in: from a linked worktree the root is under the
+    # main tree's common directory, which is not under this tree at all.
+    shared = os.path.normcase(os.path.normpath(home)) == os.path.normcase(
+        os.path.normpath(os.path.join(root, optin.HOME))
+    )
+    ending = (
+        "review the diff and commit"
+        if shared
+        else "this root has no git history, so run `evidence-check .` to read "
+        "the result"
+    )
     print(
         json.dumps(
             {
                 "systemMessage": (
                     f"specseal: ledger migrated to anchor format ({rows}{tail}"
-                    f"{warn}) — review the diff and commit"
+                    f"{warn}) — {ending}"
                 )
             }
         )
