@@ -278,7 +278,10 @@ def test_the_second_prompt_names_it_too(repo):
     out = gate(repo)
     assert decision_of(out) == "ask"
     reason = reason_of(out)
-    assert "seal/specs/<work-item-id>/routing.md" in reason
+    # The same platform spelling as the first prompt's assertion above: the
+    # windows leg of PR #95 (run 33643327406) failed on the `/` literal here
+    # after phase 1 had fixed only the first one.
+    assert os.path.join("seal", "specs", "<work-item-id>", "routing.md") in reason
     assert "for any commit" in reason, (
         "the two-way sentence must scope itself once a third way follows it"
     )
