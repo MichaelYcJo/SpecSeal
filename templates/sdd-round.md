@@ -13,6 +13,8 @@ carries the format; this is the shape it takes in this repository. -->
 | PR | <the pull request, once one exists. A field, not the key> |
 | Broad gate | <`not yet`, or the SHA the one full-suite run happened at and the base it was compared against> |
 | Fixes checked by | <`round-<N>`, a LATER round · `no fixes to check` · `nobody — <why>`> |
+| Contract changes | <`none`, or every unit whose signature, return arity, return type, or set of returnable values this round's fixes changed, each with the call sites it reaches — `unit → site, site`, units separated by `;`> |
+| New units | <`none`, or the top-level definitions and constants this round's fixes added — the verifying round's finding surface> |
 | Needs a fix | <`yes — <what>` · `no`. The reviewer's own answer — what stands after the colon in its `Needs a fix:` line, never the whole line> |
 
 - [ ] Pass
@@ -42,6 +44,19 @@ claiming to have passed while its own fixes went unread. Work items begun
 before the rule landed are excused and only print. The way out costs no round:
 one verifying round at the diff of those fixes, and a round that opens nothing
 needing a fix does not consume the cap.
+
+`Contract changes` and `New units` are the fix surface, filled in when the
+fixes land — the same reach-back that sets `Fixes checked by`, written by the
+session that has the fix diff open. The largest regression class issue #57
+measured was a fix that changed a unit's contract while not every place that
+contract reaches was revisited: the diff names the changed signature, `grep`
+names the reach, and `chain_check.py` refuses a unit listed without its
+reach. What `New units` names is a finding surface for the verifying round —
+a unit the fixes created has been reviewed by nobody, so it is judged as code
+(*is this correct*), never as a fix. Both rows accept `none`, with or without
+a reason after it (`none — the fixes are not yet written` is the honest value
+while a round runs). Records of work items begun before the rule landed print
+instead of failing.
 
 `Needs a fix` is the answer the run ends on, and it is the reviewer's rather
 than the orchestrator's. A round that opened nothing needing a fix ends the

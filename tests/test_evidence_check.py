@@ -34,18 +34,41 @@ def run(args, cwd):
     )
 
 
+def usable_bash():
+    """Whether `bash` here actually executes what it is handed.
+
+    The precondition this file's guard tests assume, stated and checked
+    rather than assumed: on Windows, `bash` on PATH can resolve to the WSL
+    stub in System32, which fails every command with its own exit code no
+    matter what was asked — so every assertion expecting the guarded 1
+    passed for that wrong reason, and only the one expecting 0 could fail.
+    The step under test runs on the ubuntu leg of real CI, so a skip here
+    costs the guard nothing it is ever asked to do.
+    """
+    try:
+        r = subprocess.run(["bash", "-c", "exit 7"], capture_output=True, timeout=30)
+    except OSError:
+        return False
+    return r.returncode == 7
+
+
 def step(args, cwd):
     """The exit code of the CI step `evidence-ci` prints, guard included."""
     quoted = " ".join(f"'{a}'" for a in args)
+    # `sys.executable`, not `python3`: the name does not exist on Windows.
+    # Forward slashes, not `os.sep`: inside bash's single quotes a backslash
+    # is literal, so `C:\...\python.exe` never resolves to the interpreter,
+    # the command exits before the guard runs, and every case expecting the
+    # guarded 1 passed for that wrong reason while the one expecting 0
+    # failed. Both spellings name the same file to Windows Python.
+    exe = sys.executable.replace("\\", "/")
+    script = SCRIPT.replace("\\", "/")
     return subprocess.run(
         [
             "bash",
             "-e",
             "-c",
-            # `sys.executable`, not `python3`: the name does not exist on
-            # Windows, where the step then failed for a reason that had
-            # nothing to do with the guard it was testing.
-            f"'{sys.executable}' '{SCRIPT}' {quoted} || [ $? -eq 1 ]",
+            f"'{exe}' '{script}' {quoted} || [ $? -eq 1 ]",
         ],
         cwd=str(cwd),
         capture_output=True,
@@ -229,6 +252,8 @@ def test_letting_drift_warn_takes_both_halves(proj):
     Drift fails a `bash -e` step either way; the guard only lets it through
     once `--strict` is gone too, and a broken coordinate still fails through
     that same guard."""
+    if not usable_bash():
+        pytest.skip("no usable bash — the step under test runs on ubuntu CI")
     ledger(proj, "| POL-1 | `src/service.py#handler@00000000` |\n")
     assert run(["."], proj).returncode == 1, "drift already fails without --strict"
     assert run(["--strict", "."], proj).returncode == 2
