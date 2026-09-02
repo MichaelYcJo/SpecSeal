@@ -17,7 +17,6 @@ merge commit (`docs/branch-and-release.md`).
 
 ## 0.5.0 — `release/v0.5.0`
 
-- [ ] #30 the sealer: one agent takes the seal, once, after the rounds settle — moved here from 0.4.0, because the orchestrator held that role through #78 and the root merge re-points the record path the sealer writes
 - [ ] #80 local mode under `.git/seal/`, and the first-setup question (shared / local) — first, because the rest of 0.5.0 stands on it
 - [ ] #82 `seal/config.md`, first row the pull request language
 - [ ] #81 `seal export` / `seal import`
@@ -31,6 +30,7 @@ merge commit (`docs/branch-and-release.md`).
 
 ## 0.6.0 — what the measurements say to change
 
+- [ ] #30 the sealer: one agent takes the seal, once, after the rounds settle — the orchestrator has held that role since #78, and 0.5.0 is cut after #82 and #81 rather than waiting for it
 - [ ] #89 the running log: every agent segment of this flow is timed with `session-cost` and the improvement it points at is written there as a comment. Nothing on it is built during 0.4.0 or 0.5.0; when this checklist reaches here, the log becomes the tickets of 0.6.0.
 
 ## While the flow runs
