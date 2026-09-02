@@ -24,7 +24,7 @@ the broad gate ran again. -->
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
 | 🔴 4-M | round-4 🔴 M (the by-hand README test ran its block through cmd.exe on the windows leg) | `tests/test_the_root_migrates_itself.py#test_the_readmes_by_hand_sequence_yields_the_hooks_tracked_set` | answered — the fix is cbf6a4e's, this round reproduced its closure | executed: both parametrizations green; a stub `bash` exiting 1 on PATH → both skipped with `exited 1 -- not a shell here`; no `bash` on PATH → both skipped with `did not run (FileNotFoundError)`; every line of both READMEs' block executed under `bash -c` one by one with its exit code and index delta read (only `rmdir specs` exits 1, the README's own "one holding something else stays" case). Read: `shlex.quote` on a forward-slashed path has the same effect as `test_evidence_check.py#step`'s unconditional quoting, by a different technique |
-| ❓ N | cbf6a4e has not run on the windows leg yet — the fix's skip path is executed here against a stub, not on the runner | `overview.md` Not verified, the Windows row | out of verified scope — the next push's windows leg answers | read: the last CI runs on the branch are at 3796b00 |
+| ❓ N | cbf6a4e had not run on the windows leg when the reviewer reported | `overview.md` Not verified, the Windows row | answered — PR #90's CI at 7fa1442: `pytest (windows-latest, 3.12)` pass, and the macOS and ubuntu legs pass (runs/33630243895) | executed by CI after this record's first commit |
 | 🟢 O | the test's docstring gives `git mv … && …` as the cmd.exe example, but no README block line carries `&&` | `tests/test_the_root_migrates_itself.py` (the docstring) | nit, no fix | executed: the probe asserted `&&` in no line of either block |
 | 🟢 4-fix-surface | round-4's `Contract changes: none` and `New units: none` | `rounds/round-4.md` | truthful | `shell_probe` has three callers and an unchanged signature; the diff adds no top-level definition (grep) |
 | 🟢 fragment | the "What CI settled" row and the re-hashed 🟢 E row | `seal/ledger/1788331011-two-roots-hold-three-lifetimes.md` | anchors resolve | `--strict .` 222 ok · 0 drifted · 0 broken |
@@ -55,6 +55,5 @@ the broad gate ran again. -->
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| ❓ N the fixed by-hand test on the windows leg | PR #90's CI at the push that carries cbf6a4e | CI |
 | 🟢 O the docstring's `&&` example | this record only | nobody — recorded |
 | 🟢 K, 🟢 L | round-4's record | nobody — recorded |
