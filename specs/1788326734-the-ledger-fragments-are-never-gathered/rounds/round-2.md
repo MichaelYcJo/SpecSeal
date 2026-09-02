@@ -11,9 +11,9 @@ open. Written by the review orchestrator after opening the coordinates. -->
 | Target SHA | 855b8e8 (the fix diff from 27e5059); HEAD a96ffdc at review time, a record-only commit after it |
 | PR | none yet |
 | Broad gate | not yet — a 🔴 is open |
-| Fixes checked by | nobody — the fixes are not yet written; round 3 verifies them and this cell is set to it then |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes landed at ec3ffc1 and round 3, the verifying round, is what opens them; this cell is set to it when that record exists |
+| Contract changes | `demote` → `section` (same signature; a title after whitespace-only lines is dropped rather than demoted, and `~~~` fences are honoured, each fence closed only by its own kind) |
+| New units | `tests/test_the_ledger_fragments_fold_at_release.py#test_a_blank_line_above_the_title_and_a_tilde_fence_are_read_right`; `#test_this_work_items_rows_are_still_found_after_the_release_folds_them` rewritten on the `tree` fixture (same name, `import shutil` removed) |
 | Needs a fix | yes — 🔴 1 (the new after-fold test copies the real tree, so once the release-preparation commit has folded it the copy has nothing to fold and the test fails with `nothing to fold`, 1 failed / 41 passed on a folded copy); 🟡 3 is a ledger cell a run refutes; 🟡 2 and 🟡 4 can be answered with grounds |
 
 - [ ] Pass
