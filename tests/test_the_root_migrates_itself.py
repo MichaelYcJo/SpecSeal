@@ -20,12 +20,13 @@ import io
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 
 import pytest
-from conftest import load_hook_module
+from conftest import load_hook_module, shell_probe
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 EC = os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py")
@@ -546,7 +547,7 @@ def by_hand_block(readme, text=None):
     """The `bash` block under the README's coming-up section, comments off.
 
     Bounded at the next `## ` heading and asserted to be there: the lines are
-    run under `shell=True`, so a block that left its section must fail here
+    run under `bash -c`, so a block that left its section must fail here
     rather than let a later block in the document run in its place.
     """
     if text is None:
@@ -565,14 +566,30 @@ def test_the_readmes_by_hand_sequence_yields_the_hooks_tracked_set(
     """Round 1's P6, pinned to the document: the block a person copies is
     read out of the README and run line by line on a copy of the fixture, and
     `git ls-files` has to agree with the hook's. `--reverify` is what closes
-    the rows the hand sequence leaves broken."""
+    the rows the hand sequence leaves broken.
+
+    The block is a `bash` block, so each line runs under `bash -c` -- not
+    `shell=True`, which is `cmd.exe` on Windows and runs none of `mkdir -p`,
+    `git mv … && …` or `rmdir` as written. The precondition is executed, not
+    assumed: on a `windows-latest` runner `bash` on PATH is the WSL stub,
+    which fails everything, and PR #90's windows leg showed the hand copy
+    untouched at the comparison below. The hook's own tests passed on that
+    leg, so a skip here costs Windows nothing the hook is asked to do.
+    """
+    why = shell_probe("bash")
+    if why:
+        pytest.skip(f"bash: {why} -- the by-hand block is a bash block")
     hand = tmp_path / "hand"
     shutil.copytree(repo, hand)
     start(hook, repo)
+    # Forward slashes: inside `bash -c` a backslash escapes, so a Windows
+    # interpreter path would never resolve (`test_evidence_check.py::step`).
+    python = shlex.quote(sys.executable.replace("\\", "/"))
+    ec = shlex.quote(EC.replace("\\", "/"))
     for line in by_hand_block(readme):
         line = line.replace("<id>", ITEM)
-        line = line.replace("evidence-check ", f"{sys.executable} {EC} ")
-        subprocess.run(line, shell=True, cwd=str(hand), capture_output=True)
+        line = line.replace("evidence-check ", f"{python} {ec} ")
+        subprocess.run(["bash", "-c", line], cwd=str(hand), capture_output=True)
     tracked = lambda d: git(d, "ls-files").stdout.split()
     assert tracked(hand) == tracked(repo), tracked(hand)
     totals = check(hand)
