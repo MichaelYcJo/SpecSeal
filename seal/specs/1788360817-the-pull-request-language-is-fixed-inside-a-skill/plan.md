@@ -62,8 +62,8 @@ and the untested half is named in `overview.md` §Not verified.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `templates/config.md`, and the skill reading it: a new *The language* section carrying the path, the default, the resolved root and the three exclusions (prefix, branch names, response language), plus the five surfaces reworded and the mirror generalised to `pr.<lang>.md` | S1–S8 read off the two files; `tests/test_docs_line_wrap.py` on the skill, which is a covered file | |
-| 2 | The tests that pin it (`tests/test_the_pull_request_language_is_the_repositorys.py`), the four documents that describe the root (`templates/seal-README.md`, `seal/README.md`, `README.md`, `README.ko.md`), and the record — ledger fragment, `changelog.md`, `overview.md` | the new file run red before phase 1's commit and green after; `tests/test_docs_line_wrap.py`, `tests/test_first_setup_asks_once.py`, `tests/test_no_document_names_the_old_roots.py`, `tests/test_release_hygiene.py` | |
+| 1 | `templates/config.md`, and the skill reading it: a new *The language* section carrying the path, the default, the resolved root and the three exclusions (prefix, branch names, response language), plus the five surfaces reworded and the mirror generalised to `pr.<lang>.md` | S1–S8 read off the two files; `tests/test_docs_line_wrap.py` on the skill, which is a covered file | `5db37e8` |
+| 2 | The tests that pin it (`tests/test_the_pull_request_language_is_the_repositorys.py`), the four documents that describe the root (`templates/seal-README.md`, `seal/README.md`, `README.md`, `README.ko.md`), and the record — ledger fragment, `changelog.md`, `overview.md` | the new file run red before the document edits and green after; `tests/test_docs_line_wrap.py`, `tests/test_first_setup_asks_once.py`, `tests/test_no_document_names_the_old_roots.py`, `tests/test_release_hygiene.py` | `56ec644`, and the record in the commit after it |
 
 Phase 1 is the whole behaviour change and phase 2 is what keeps it. Splitting
 them the other way — tests first — would put a red suite in front of a
