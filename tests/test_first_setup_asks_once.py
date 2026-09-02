@@ -40,10 +40,16 @@ def section(text, heading, level):
 
 
 def paragraph(text, opening):
-    """The paragraph whose first words are OPENING."""
+    """The paragraph whose first words are OPENING, its line breaks folded."""
     i = text.find(opening)
     assert i >= 0, f"no paragraph opens with {opening!r}"
-    return text[i:].split("\n\n", 1)[0]
+    return flat(text[i:].split("\n\n", 1)[0])
+
+
+def flat(text):
+    """Runs of whitespace folded to one space, so a phrase that a hand-wrap
+    splits across two lines still reads as the phrase."""
+    return re.sub(r"\s+", " ", text)
 
 
 def bootstrap():
@@ -174,7 +180,7 @@ def test_the_template_header_says_why_local_mode_installs_none():
 
 
 def test_the_skill_writes_the_workflow_only_when_absent_and_local_installs_nothing():
-    boot = bootstrap()
+    boot = flat(bootstrap())
     assert "templates/hygiene.yml" in boot
     assert ".github/workflows/hygiene.yml" in boot
     assert "only when" in boot and "absent" in boot

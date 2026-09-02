@@ -32,10 +32,16 @@ The axis is lifetime and authority, **not audience** — humans and AI read all
 three. (Labeling policies "for humans" would push sessions away from reading
 them, and policy outranks everything else when a repository has it.)
 
-`seal/` is committed — gitignored files do not follow worktrees or other
-machines — and its presence at the repository root is what tells the gates
-this repository runs the workflow. What sits directly under it is permanent;
-what sits under `seal/specs/` lives as long as its work item:
+`seal/` lives at one of two places, and its presence at either is what tells
+the gates this repository runs the workflow. **Every `seal/…` path in this
+plugin's skills and agents means `<repo>/seal/` where that directory exists,
+and `$(git rev-parse --git-common-dir)/seal/` otherwise.** The first is
+shared mode: committed, because gitignored files do not follow worktrees or
+other machines. The second is local mode: under the common git directory, so
+every linked worktree of the clone shares it, and never a commit candidate.
+A repository with both is shared, and nothing else — no config key — is
+read. What sits directly under it is permanent; what sits under
+`seal/specs/` lives as long as its work item:
 
 ```
 seal/
@@ -93,27 +99,59 @@ When a root or file this skill needs doesn't exist, create it from
 - Leave evidence rows empty. They fill through the feedback rule below as work
   happens — do not pre-populate speculatively.
 
-**When you create `seal/` — the once-per-repo moment — do two more things
-before continuing.** Creating it is what opts the repository in: from the next
-command on, every gate here is awake. Nobody reads a README to discover a
-question they did not know to ask, so this is the only place the migration
-question gets asked at all.
+**When `seal/` exists at neither place — the once-per-repo moment — ask one
+question before creating anything, then do two more things before
+continuing.** Creating the root is what opts the repository in: from the
+next command on, every gate here is awake. Nobody reads a README to discover
+a question they did not know to ask, so this is the only place the mode and
+the migration question get asked at all.
 
-1. Say in three lines what you created, that its presence is the opt-in, and
-   what each part of the root is for. The layout is invisible otherwise: it
-   appears in a diff the user did not request.
-2. Ask, once: *"Does this project port behavior from an existing codebase? If
+First, look for the 0.3.x layout. A repository still holding
+`.specseal/` or a top-level `specs/` is on the 0.3.x layout and committed the
+plugin's files, so it chose shared already: do not ask, say *"this repository
+is on the 0.3.x layout; start a new session and the plugin moves it into
+`<repo>/seal/`, or follow the README's by-hand sequence"*, and stop the
+bootstrap there. The session-start hook moves it, and the root it creates is
+the one this section would have asked about.
+
+1. Ask, once, with one `AskUserQuestion` carrying two options, in this order:
+
+   - **shared** (the default, listed first) — creates `<repo>/seal/` in the
+     tree; the routing commit you make before the first edit carries it. It
+     installs the pull-request checks: `.github/workflows/hygiene.yml`,
+     written from `templates/hygiene.yml` only when that path is absent — an
+     existing file is never overwritten, and say so when you leave one alone.
+     Before writing it, replace `v<version>` in the template with the version
+     of the installed plugin (the `version` field of the plugin's
+     `.claude-plugin/plugin.json`, prefixed with `v`), so CI checks with the
+     release that wrote the file.
+   - **local** — creates `$(git rev-parse --git-common-dir)/seal/`, installs
+     nothing, touches nothing in the tree. Spell the path through the common
+     git directory rather than through `.git`, which is a file in a linked
+     worktree; the root lands beside the smith mark, shared by every
+     worktree of the clone, never a commit candidate, with no `.gitignore`
+     line. Say what it gives up: the pull-request checks read committed
+     files, so CI cannot run them, and a new machine or a re-clone starts
+     empty.
+
+   Whichever answer, the mode is the place: the hooks read `<repo>/seal/` and
+   then the common git directory, and a repository with both is shared.
+2. Say in three lines what you created, that its presence at that place is
+   the opt-in, and what each part of the root is for. The layout is invisible
+   otherwise: it appears in a diff the user did not request — or, in local
+   mode, in no diff at all.
+3. Ask, once: *"Does this project port behavior from an existing codebase? If
    so, tell me which one and I will set up parity mode."*
    - **Yes** → run the parity setup below, then continue the work.
    - **No** → continue, and never raise it again. Bootstrap does not re-run,
      so the question does not either.
 
-Nothing else is asked. This release creates the root at `<repo>/seal/` and
-nowhere else; the question of where it goes arrives with local mode, together
-with the second answer that makes it a question.
+Nothing else is asked.
 
-Ask only here. A repo that already has `seal/README.md` has been through this,
-and re-asking is the nagging this plugin exists to avoid.
+Ask only here. A repository that has `seal/` at either place — `<repo>/seal/`
+or `$(git rev-parse --git-common-dir)/seal/` — has been through this: the
+mode is read from where the folder is, and re-asking is the nagging this
+plugin exists to avoid.
 
 ### Parity setup — deriving what can be derived
 
