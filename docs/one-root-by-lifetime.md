@@ -3,7 +3,7 @@
 *English · [한국어](./one-root-by-lifetime.ko.md)*
 
 The design 0.4.0 starts from, gathered from issue #74 and the ten comments
-under it (2026-09-02, after 0.3.0 shipped), plus the decisions the owner took
+under it (2026-09-02, after the previous release shipped), plus the decisions the owner took
 after the thread while this document was reviewed: the opt-in is the root's
 presence, a work item's directory is removed only once a later `settle`
 step has folded it into `docs/` and the ledger, and 0.4.0 itself deletes
@@ -13,7 +13,7 @@ the owner decides it; where the thread leaned one way, the text says
 both collected at the end.
 
 The numbers in this document were re-measured against `origin/main` at
-`5685029` (the 0.3.0 merge) on 2026-09-02. Where the issue's own numbers
+`5685029` (the previous release's merge commit) on 2026-09-02. Where the issue's own numbers
 differ, both are given.
 
 ## The change in four lines
