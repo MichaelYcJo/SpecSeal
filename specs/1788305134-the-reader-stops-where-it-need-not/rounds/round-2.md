@@ -10,12 +10,12 @@ round 3 verifies its fix. -->
 | Target SHA | 356d116 — the fix diff `cc30ee0..356d116` (code at f0442a7), not the branch |
 | PR | none yet |
 | Broad gate | not yet — the one full run follows the chain |
-| Fixes checked by | nobody — the fix pass for 🔴 N1 has not run yet; round 3 sets this |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | round-3 |
+| Contract changes | none — `_nesting(tokens, stack) -> list` and `usable_bash() -> bool` keep their signatures and returns; the closer branch skips a `)` the segment opened itself |
+| New units | none — test data only (`BODIES` +3, body-ends +2, stack cases +4, `STATEMENTS` +2) |
 | Needs a fix | yes — N1: inside a subshell body, a spaced `)` belonging to `SB=( a b )`, `SB=$( pwd )` or `<( … )` pops the subshell's `(`, so the assignment after it binds at top level (`hooks/cmdline.py:1046-1049`); N2's `TimeoutExpired` handling in `usable_bash` is optional |
 
-- [ ] Pass
+- [x] Pass
 
 ## Verdicts
 
@@ -30,8 +30,8 @@ round 3 verifies its fix. -->
 | 🟢 7 | Round 1's 🟡 7 — array assignment bound `(/three)` | `hooks/cmdline.py:1121` | answered — closed by f0442a7; reproduced | probe M prompts |
 | 🟢 8 | Round 1's 🟡 8 ①② — `((SB=3))`, `let`, `${SB:=…}` | `hooks/cmdline.py:815-825`, `:839-843` | answered — closed by f0442a7; reproduced | probes F, F2, L prompt; `let x=SB+1` and `${SB:-}` keep `/one`. ③ nameref stays in the overview's Not verified for a bash 5 machine |
 | 🟢 9 | Round 1's 🟡 13 — the differential lived outside the tree | `tests/test_the_reader_agrees_with_bash.py` | answered — closed by f0442a7; the in-tree run is 675 inputs, 307 compared as answers, 0 disagreements, and each input runs in its own `( eval …; printf ) </dev/null` subshell so no name or `cd` leaks to the next | executed |
-| 🔴 N1 | Inside a subshell body, a spaced `)` that belongs to `SB=( a b )`, `SB=$( pwd )` or `<( … )` is the segment's last token with `(` on top of the stack, so it pops the subshell; the assignment after it binds at top level. bash `/one`, reader `/three`. Not a regression of this fix (dd7e45e answered the same), but it is in the reviewed unit and in the class the item says it closed | `hooks/cmdline.py:1046-1049` | open | reviewer's W1–W3; orchestrator reproduced W1 and W2 through the gate's pipeline: `['/three']`. Fix (validated on a copy): a `)` is not the subshell's when an earlier token of the segment ends in `(` without starting with `(`; leaving the `(` open costs a prompt |
-| 🟡 N2 | `usable_bash` catches `OSError` only; a `TimeoutExpired` at collection would be an error, not a skip. On windows-latest Git Bash is present, so the differential probably runs rather than skips there | `tests/test_the_reader_agrees_with_bash.py:33-44` | open (❓ on Windows — the PR's CI answers) | read; `test.yml:35-37` |
+| 🔴 N1 | Inside a subshell body, a spaced `)` that belongs to `SB=( a b )`, `SB=$( pwd )` or `<( … )` is the segment's last token with `(` on top of the stack, so it pops the subshell; the assignment after it binds at top level. bash `/one`, reader `/three`. Not a regression of this fix (dd7e45e answered the same), but it is in the reviewed unit and in the class the item says it closed | `hooks/cmdline.py:1046-1049` | fixed — round-3 read 5957122: W1–W3 prompt, W5–W7 still `/three`, the `)` skip mutated to `if False` reddens the W1 pin | reviewer's W1–W3; orchestrator reproduced W1 and W2 through the gate's pipeline: `['/three']`. Fix (validated on a copy): a `)` is not the subshell's when an earlier token of the segment ends in `(` without starting with `(`; leaving the `(` open costs a prompt |
+| 🟡 N2 | `usable_bash` catches `OSError` only; a `TimeoutExpired` at collection would be an error, not a skip. On windows-latest Git Bash is present, so the differential probably runs rather than skips there | `tests/test_the_reader_agrees_with_bash.py:33-44` | fixed — round-3 injected `TimeoutExpired` and `usable_bash` returned False; the Windows half stays ❓ for the PR's CI | read; `test.yml:35-37` |
 | 🟢 N3 | The differential's exemption is exact: only paths with `$` left are prompts; an absolute `-C` composed over an unresolved shell is an answer and is compared | `tests/test_the_reader_agrees_with_bash.py:143-166` | pass | executed: 675 inputs, 307 compared, 0 disagreements; the floor (`//4`) is a floor, not a pin |
 | 🟢 N4 | `_leads`: a `(pattern)` on its own line pushes `(` that `esac` cannot pop, so the rest prompts — safe direction, consistent with the docstring's uncounted-opener argument | `hooks/cmdline.py:978-993` | pass | executed X1; mutation `return True` reddens the `(wip)` / `grep -c '('` pins |
 | 🟢 N5 | `_definitions` collects `f()`, `f ()`, `f(){`, `function f`; the call check runs on `_runs`, so `then f`, `time f`, `command f`, `true && f` all reach it | `hooks/cmdline.py:1053-1075`, `:1682` | pass | executed X3, X4 |

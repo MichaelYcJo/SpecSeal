@@ -70,6 +70,15 @@ a body that never closes and a glued `make)` closes nothing; both cost prompts
 (`questions.md` Q4). Closing them closes Q1 with them and touches every
 consumer of the splitter.
 
+**A subshell whose first statement is a subshell still answers where bash
+disagrees.** `( ( echo hi ); SB=/three; true ); git -C "$SB"` reads `/three`
+(bash: `/one`) because the inner `(` is not counted and the inner `)` pops the
+outer subshell. Round 3 found it; the repository owner chose to record it
+rather than fix it here, since every reader since the rewrite answers the same
+and it would be the third special case on the same `)` rule. Issue #72 holds
+the shape and a single rule that replaces the special cases, prototyped
+against 33 shapes.
+
 **Loop and positional variables, and anything from the environment, stay
 unresolvable.** The substitution runs in front of the `EXPANDS` test rather
 than replacing it, which is the line the original item drew and this one does
