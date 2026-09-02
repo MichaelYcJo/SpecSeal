@@ -131,11 +131,12 @@ else about the sequence below changes.
   which is the only place the reason it was not merged is written down.
 - **The release branch merges into `main` as a merge commit**, carrying one
   commit of its own: the one that gathers the changelog fragments into
-  `## X.Y.Z — <date>` and moves `plugin.json`. Then the tag. It is also the moment every
+  `## X.Y.Z — <date>`, folds the ledger fragments into `seal/ledger.md`, and
+  moves `plugin.json`. Then the tag. It is also the moment every
   issue this release closes gets closed, by a workflow rather than by
   anybody's hand — the paragraphs below say how, and what to keep writing in
   a feature pull request so it has something to read.
-- Feature PRs write their entry to `specs/<work-item-id>/changelog.md` and
+- Feature PRs write their entry to `seal/specs/<work-item-id>/changelog.md` and
   leave both `CHANGELOG.md` and `plugin.json` alone. The hygiene workflow asks
   for the bump only when the base is `main`, which is what makes that
   enforceable instead of habitual.
@@ -147,7 +148,7 @@ overlapped at all. The conflict is three lines and always resolvable; what it
 costs is when it arrives. Nothing may be edited between the broad gate and the
 pull request, so resolving one buys a second run of the whole broad gate.
 
-So a change writes `specs/<work-item-id>/changelog.md` and leaves the shared
+So a change writes `seal/specs/<work-item-id>/changelog.md` and leaves the shared
 file alone. Two branches cannot collide there, because no two work items share
 an id. Release preparation runs:
 
@@ -165,6 +166,36 @@ section and writes nothing.
 
 There is no accumulation section any more. `## Unreleased` was the shared
 region, and the fragments are what replaced it.
+
+**The ledger fragments fold in the same commit.** A work item's evidence rows
+go to `seal/ledger/<work-item-id>.md` for the same reason, and until the fold
+existed nothing gathered those: the directory gained one file per work item forever,
+and almost every pull request touched it (issue #78). After the merge there is
+no branch left to queue at the file, so release preparation also runs:
+
+```
+python3 .github/scripts/fold_ledger.py --version X.Y.Z
+```
+
+which moves every fragment into `seal/ledger.md` under `## X.Y.Z — <date>`,
+one `###` section per work item marked with `<!-- specs/<work-item-id> -->`,
+and removes the fragment. Every row is copied byte for byte; a row is a content
+anchor, so `evidence-check` reports the same thing before and after. `--dry-run`
+prints the section and writes nothing; `--check` reports a fragment left
+behind, and the hygiene workflow runs it beside the changelog check on every
+pull request into `main`.
+
+**The fold refuses while a verified fact has not reached the ledger.** A
+reviewer lists such facts in `seal/specs/<work-item-id>/evidence-todo.md`, and a
+sentence that must outlive the release has to have moved into a `docs/` policy
+or a ledger row before the merge (`docs/one-root-by-lifetime.md`, "What
+happens at a release", step 3). So the fold, and `--check`, stop while any such
+file in the tree has an open row, naming the file. A row is open unless the
+file carries a line beginning `drained`, or the row's first cell begins with
+✅. Every work item in the tree is read: the step runs on a branch cut from the
+release branch, which holds merged work only, so "released" and "present" are
+the same set — and a work item released earlier whose file was never drained
+stops this release too. The remedy is one commit that drains it.
 
 **The two merge shapes are not interchangeable.** Squash into the release
 branch keeps one entry per change; a merge commit into `main` keeps

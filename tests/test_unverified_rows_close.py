@@ -337,7 +337,7 @@ def test_a_base_no_reader_can_make_sense_of_is_reported_as_not_compared(
 def test_this_repositorys_own_overviews_are_all_readable():
     """The corpus is the real test. It also states the rule for new work: a
     spec directory that writes an overview writes this section in it."""
-    assert run([os.path.join(ROOT, "specs")]) == 0
+    assert run([os.path.join(ROOT, "seal", "specs")]) == 0
 
 
 def collapsed(*parts):
@@ -692,9 +692,9 @@ def test_a_tracked_symlink_is_not_reported_as_deleted(tmp_path):
 
 
 def test_a_deleted_scan_path_is_compared_not_called_a_bad_argument(tmp_path, capsys):
-    """The workflow runs `--baseline origin/<base> specs/`. A change that
-    deletes specs/ wholesale was told it had mistyped an argument, while the
-    record it removed went unmentioned."""
+    """The workflow runs `--baseline origin/<base> seal/specs/`. A change that
+    deletes the scan path wholesale was told it had mistyped an argument, while
+    the    record it removed went unmentioned."""
     d, _ = git_repo(tmp_path, CANONICAL)
     subprocess.run(["rm", "-rf", str(d / "specs")], check=True)
     assert run([str(d / "specs"), "--baseline", "HEAD"]) == 1

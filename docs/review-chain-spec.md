@@ -52,7 +52,7 @@ branch with a known open blocker and no question for anyone to answer.
 
 **Five is a ceiling, not a target.** The moment the last 🔴 closes, the run
 ends; unused rounds are not spent on 🟡 findings. Those go to
-`.specseal/follow-up.md` or the tracker with an answerer named, exactly as
+`seal/follow-up.md` or the tracker with an answerer named, exactly as
 they would at three.
 
 🔴 is not a judgement layered on top of the cap. `code-review` already grades
@@ -109,8 +109,8 @@ each kind of leftover has a home that outlives the session:
 |---|---|
 | A finding the smith fixed | the diff |
 | A finding the smith answered with grounds | `round-N.md`, with the grounds |
-| A finding neither fixed nor answered | `.specseal/follow-up.md`, and named in the PR body |
-| A decision only a person can make | `specs/<item>/questions.md`, and named in the PR body |
+| A finding neither fixed nor answered | `seal/follow-up.md`, and named in the PR body |
+| A decision only a person can make | `seal/specs/<item>/questions.md`, and named in the PR body |
 | An original whose behavior is plainly wrong | both texts side by side per `legacy-parity`, and named in the PR body |
 
 Then the broad gate runs once, and the change opens as a pull request.
@@ -133,7 +133,7 @@ The mark and the round record are both "this was reviewed", and they are not
 interchangeable. Reading one for the other is how three branches came to have
 no readable review state at all.
 
-| | `<git-dir>/specseal-reviewed` | `specs/<work-item-id>/rounds/round-N.md` |
+| | `<git-dir>/specseal-reviewed` | `seal/specs/<work-item-id>/rounds/round-N.md` |
 |---|---|---|
 | Says | **this tree, right now** is reviewed at this HEAD | **that SHA, back then** was reviewed, and what came of it |
 | Lives | under the git directory, per worktree | in the tree, committed |
@@ -169,7 +169,7 @@ Measured on two consecutive work items here (#33). Round 2 of the first found
 **seven** defects inside round 1's own fixes, which is the entire hit rate on
 the one set of fixes anybody looked at, and round 2's fixes then went in
 unread. The work item after it recorded the same ending in a comment
-(`specs/1788184145-…/rounds/round-3.md`): four findings, fixed by the
+(`seal/specs/1788184145-…/rounds/round-3.md`): four findings, fixed by the
 orchestrator, opened by nobody, `- [x] Pass`.
 
 So the record carries a second field, `| Fixes checked by |`, and it names a
@@ -211,8 +211,8 @@ mark, its own waiver token and its own silence rules, and neither is nested
 behind the other: one arm being satisfied never suppresses the other's prompt.
 
 They are no longer declared independently, and that changed at 0.10 without
-anyone noticing. The migration config lives at `.specseal/parity.md`, so
-writing it creates `.specseal/` — the directory whose existence is the review
+anyone noticing. The migration config lives at `seal/parity.md`, so
+writing it creates `seal/` — the directory whose existence is the review
 opt-in. A repository with a migration config and no review opt-in cannot be
 built through any address the plugin documents or writes.
 
@@ -436,7 +436,7 @@ four combined options. The arms are waived independently, so combining them
 makes every label carry two facts and multiplies the option count; one call
 still costs one interruption.
 
-### Review arm — opt-in: `.specseal/` at the repo root
+### Review arm — opt-in: `seal/` at the repo root
 
 | Condition | Decision |
 |---|---|
@@ -486,7 +486,7 @@ needs a tty and sources a user's rc.
 
 #### The declaration, and where the check went instead
 
-The gate reads `specs/<work-item-id>/routing.md` before it reads anything
+The gate reads `seal/specs/<work-item-id>/routing.md` before it reads anything
 else. Where a declaration is in force the review arm stays silent — for
 **either** answer, because the routing question was answered before the first
 edit and asking for `[no-review]` as well is asking for the same answer twice.
@@ -659,7 +659,7 @@ What it costs, stated rather than buried:
 - Deleting the routing file restores today's behavior exactly, because the
   fallback for a missing declaration is today's decision table.
 
-### Parity arm — opt-in: `.specseal/parity.md` at the repo root
+### Parity arm — opt-in: `seal/parity.md` at the repo root
 
 Ported behavior follows the original where policy is silent, so a commit that
 changes code should carry a record that the original was consulted. Mark:
@@ -669,7 +669,7 @@ actual comparison.
 | Condition | Decision |
 |---|---|
 | `[no-parity]` in the command | silent (explicit skip, visible in history). Same placement as `[no-review]` |
-| the change confined to `docs/`, `specs/`, `.specseal/` | silent — nothing there can be compared against an original, and a gate that fires where no comparison was possible teaches people to click through it |
+| the change confined to `docs/`, `seal/` | silent — nothing there can be compared against an original, and a gate that fires where no comparison was possible teaches people to click through it |
 | `specseal-parity` equals current HEAD | satisfied |
 | otherwise | contributes an ask |
 
@@ -708,7 +708,7 @@ Two branches with **opposite conditions** — the failure modes differ:
 | review posted (`gh pr review/comment`, `gh api -X POST …/pulls/N/(reviews\|comments)`) | the work item's `rounds/` holds **no** `round-*.md` | write `round-N.md` / `tests-todo.md` / `evidence-todo.md` now — the posting session is the only one that still holds its verdicts and probe results |
 | review read (`gh pr view --json …comments`, `gh api …/pulls/N/(comments\|reviews)` without POST) | a round record **exists** | read it before acting on inline comments — the todo lists may not be in the comments at all |
 
-Which work item: the one whose `specs/<id>/routing.md` names the checked-out
+Which work item: the one whose `seal/specs/<id>/routing.md` names the checked-out
 branch — the same key the commit gate reads. The records used to be keyed by
 the pull request number, at `.specseal/handoff/PR-<n>/`, and that directory
 was never once created in this repository: the number does not exist while the
@@ -716,7 +716,7 @@ rounds that would fill it are running. One key instead of two costs this
 reminder the case where `gh pr merge` runs from a branch that declared
 nothing. What replaced the deadline is the pull-request check in CI, not this.
 
-Reminder-only (PostToolUse cannot block). Same `.specseal/` opt-in as the gate.
+Reminder-only (PostToolUse cannot block). Same `seal/` opt-in as the gate.
 
 ## implementer-mark · implementer-notice (PreToolUse Agent|Task · PostToolUse Bash)
 

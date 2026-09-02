@@ -124,7 +124,7 @@ def test_the_warden_audits_the_scope_of_a_seal():
 def test_the_warden_refuses_the_same_widening_the_smith_does():
     """Both agents carry a scope rule; only one carried the refusal.
 
-    The claim in `.specseal/map.md` and scenario S10 are both written as *an
+    The claim in `seal/ledger.md` and scenario S10 are both written as *an
     agent's* contract, and the review orchestrator's spawn prompt is the same
     channel the failure was measured on. One of the two had to move: either
     the refusal reaches both, or the claim gets narrowed to name smith."""
