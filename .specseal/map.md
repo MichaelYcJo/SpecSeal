@@ -6,11 +6,15 @@
 > by machines (`evidence-check`); committed so it follows worktrees and other
 > machines.
 >
-> This is SpecSeal's ledger for SpecSeal, and it is now the OLD half of one.
+> This is SpecSeal's ledger for SpecSeal, and it is the gathered half of one.
 > **A work item writes `.specseal/map/<work-item-id>.md` instead of appending
 > here** — two branches never queue at one file, because no two work items
-> share an id. The checker reads both addresses, so nothing was moved: the rows
-> below stay where they are and this file stops growing.
+> share an id. The checker reads both addresses. At each release,
+> `.github/scripts/fold_ledger.py` moves every fragment into this file under a
+> `## X.Y.Z — <date>` heading, one `###` section per work item marked with
+> `<!-- specs/<work-item-id> -->`, and removes the fragment. So this file grows
+> once per release, by the rows that release's work items wrote, and the
+> areas above those sections are the rows from before the fragments existed.
 
 ## Coordinates
 
@@ -33,7 +37,8 @@ the hash and names what it changed.
 
 **A row whose anchor a change removes is removed with it.** Its claim went
 with the code; the new claim is a new row, in the work item's own fragment.
-That is how this file empties as work items retire the claims it holds.
+So a claim leaves this file when the code it was about does, and the fold at
+the next release brings the new claim back in with the rest of its fragment.
 
 ## Scope decisions
 
