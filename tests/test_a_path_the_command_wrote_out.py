@@ -1,17 +1,18 @@
 """A path the command defines one line earlier was still a path the gate could
 not read.
 
-Issue #82. `SB=/abs/path; git -C "$SB" commit` names its destination twice:
-once as an assignment three readers step past and throw away, once as a `$SB`
-the `EXPANDS` test calls unresolvable. A review agent's scratch-repo probes
-were written that way, two of them reached a user who was not driving the
-session as permission prompts inside five minutes, and stopping the agent to
-end the prompts cost the review round.
+`SB=/abs/path; git -C "$SB" commit` names its destination twice: once as an
+assignment three readers step past and throw away, once as a `$SB` the
+`EXPANDS` test calls unresolvable. A review agent's scratch-repo probes were
+written that way, two of them reached a user who was not driving the session
+as permission prompts inside five minutes, and stopping the agent to end the
+prompts cost the review round.
 
 The reader now keeps the names a command string writes for ITSELF. What it
 must NOT do is guess at an environment this process cannot see: `git -C "$WT"`
-with no assignment in the string stays unresolvable, which is the whole of
-issue #56, and a loop variable stays unresolvable because it has as many
+with no assignment in the string stays unresolvable, because a hook's
+environment is not the shell's and an answer from it would be silently wrong
+wherever the two differ, and a loop variable stays unresolvable because it has as many
 values as the loop has iterations. Those two are the cases that keep the
 change bounded, and they are asserted here beside the ones that now resolve.
 """
@@ -123,7 +124,7 @@ def test_the_later_assignment_is_the_one_used():
 
 
 def test_an_environment_variable_is_still_unresolvable():
-    """S3, and it is the whole of issue #56.
+    """S3, and it is the line the whole mechanism is bounded by.
 
     `$WT` comes from a shell this process cannot see. A reader that answered
     from its OWN environment would be silently wrong wherever the two differ,
@@ -310,7 +311,7 @@ def test_the_gate_reaches_a_repository_the_command_named_for_itself(tmp_path):
 
 
 def test_a_declaration_silences_the_name_the_way_it_silences_the_path(tmp_path):
-    """S1's other direction, and the one issue #82 measured: the repository
+    """S1's other direction, and the one the original probes measured: the repository
     IS declared, so the written-out form is silent and the named form asked."""
     here = make_repo(tmp_path / "plain", opted_in=False)
     there = make_repo(tmp_path / "opted-in", opted_in=True)
@@ -347,7 +348,7 @@ def test_a_cd_to_a_named_path_reaches_the_same_repository(tmp_path):
 
 
 def test_an_environment_name_still_stops_the_gate(tmp_path):
-    """S3 at the gate. Issue #56's answer must not move: the gate has no way
+    """S3 at the gate. The environment-variable answer must not move: the gate has no way
     to know what `$WT` holds, and a silence there is indistinguishable from a
     repository checked and found clean."""
     here = make_repo(tmp_path / "opted-in", opted_in=True)
@@ -740,3 +741,249 @@ def test_the_arithmetic_loop_head_forgets_its_counter_and_not_the_rest():
     assert reader._unseen({"SB": "/one"}, shlex.split("for $v in a b")) == {}, (
         "a loop head with no readable name left a value standing"
     )
+
+
+def test_the_blind_sweep_forgets_bare_names_only():
+    """`_unseen` asks `NAME_WRITERS` of every word and then forgets the bare
+    names beside it. The operand test is `end == len(tok)`, the same line
+    `_forget` carries, and loosening it here survived every test while the
+    same loosening in `_forget` did not: `read -rp 'SB> ' ans` would forget
+    `SB` on the strength of a prompt string. Executed under bash 3.2.57 with
+    stdin closed, `SB` is `/one` after it."""
+    kept = reader._unseen(
+        {"SB": "/one", "ans": "x"}, shlex.split("if read -rp 'SB> ' ans")
+    )
+    assert kept.get("SB") == "/one", "`SB> ` is not the name `SB`"
+    assert "ans" not in kept, "the name the `read` writes survived it"
+    where = targets(
+        "SB=/one; if read -rp 'SB> ' ans; then :; fi; git -C \"$SB\" commit -m x"
+    )
+    assert where == [os.path.normpath("/one")], where
+
+
+# --- a body's later statements are still inside the body -------------------
+
+# Executed under bash 3.2.57: `SB=/one; <middle>; printf '%s' "$SB"` prints
+# `/one` for every one of these, because the body never runs -- a false
+# condition, an empty list, an arm that does not match, a function defined
+# and never called -- or runs in a subshell. Once the reset was aimed the
+# reader answered `/three` for all of them: the body's FIRST statement is
+# refused with the structure word in front of it, and the SECOND arrives as a
+# segment of its own, indistinguishable from a top-level assignment. The wide
+# reset had hidden that by accident, because the closer emptied the
+# environment, and a closer carries no name. 80 of the 82 fail-opens one
+# differential run found against the wide reset were this shape.
+BODIES = [
+    "if false; then echo hi; SB=/three; fi",
+    "if true; then :; else echo hi; SB=/three; fi",
+    "while false; do echo hi; SB=/three; done",
+    "until true; do echo hi; SB=/three; done",
+    "for i in; do echo hi; SB=/three; done",
+    "case x in y) echo hi; SB=/three ;; esac",
+    "f() { echo hi; SB=/three; }",
+    "function f { echo hi; SB=/three; }",
+    "( echo hi; SB=/three )",
+    "(SB=/two; SB=/three)",
+    "if false; then { :; }; SB=/three; fi",
+    "if false; then if true; then :; fi; SB=/three; fi",
+    # A closer in argument position closes nothing -- bash reads `fi` as a
+    # word there, and so does the count. These eight were what was left after
+    # the first version counted a closer wherever it stood.
+    "if false; then echo fi; SB=/three; fi",
+    "f() { echo done; SB=/three; }",
+    # The other spellings `_bind` handles, inside a body.
+    "if false; then :; export SB=/three; fi",
+    "if false; then :; SB+=/x; fi",
+    # Round 1 of the re-application. A multi-line `case` puts its arm pattern
+    # on a line of its own, and that `a )` is a `)` last in its segment --
+    # exactly where a subshell's closer stands. The integer count took it as
+    # one and reached zero before the arm body; the stack pops a `)` only when
+    # a `(` is on top.
+    "case x in\na )\necho hi; SB=/three ;;\nesac",
+    "case x in\n(a)\necho hi; SB=/three ;;\nesac",
+    "case x in\na)\nSB=/three;;\nesac",
+    # The glued spelling: `f(){` is one token, neither in `OPENERS` nor a bare
+    # `{`, so nothing opened and the second statement bound.
+    "f(){ echo hi; SB=/three; }",
+    # A quoted `")"` in argument position, last in its segment, closed the
+    # count the same way the arm pattern did.
+    'if false; then echo ")"; SB=/three; fi',
+    # Nested bodies and an `elif` branch that does not run.
+    "if false; then :; elif false; then echo hi; SB=/three; fi",
+    "while false; do case x in y) echo hi; SB=/three ;; esac; done",
+    # Round 2: inside a subshell body, the spaced `)` of an array, a command
+    # substitution or a process substitution is the segment's last token with
+    # `(` on top of the stack, and it popped the subshell -- the assignment
+    # after it bound at top level. bash: `/one`.
+    "( echo hi; OT=( a b ); SB=/three; true )",
+    "( echo hi; OT=$( pwd ); SB=/three; true )",
+    "( echo hi; cat <( echo x ); SB=/three; true )",
+]
+
+
+def test_a_bodys_later_statement_is_not_a_top_level_one():
+    for middle in BODIES:
+        where = targets(f'SB=/one; {middle}; git -C "$SB" commit -m x')
+        assert any("$SB" in w for w in where), (
+            f"`{middle}` -- a statement inside a body this reader cannot say "
+            f"ran was bound as if it were top level: {where}"
+        )
+
+
+def test_the_body_ends_at_its_closer():
+    """The count has to come back down, or the aim is lost again one level
+    up: every assignment after the first compound command would be forgotten
+    and the string would prompt from there on."""
+    for command in (
+        'SB=/one; if false; then echo hi; SB=/two; fi; SB=/three; git -C "$SB" commit -m x',
+        'SB=/one; if false; then { :; }; SB=/two; fi; SB=/three; git -C "$SB" commit -m x',
+        'SB=/one; ( echo hi ); SB=/three; git -C "$SB" commit -m x',
+        'SB=/one; f() { echo hi; }; SB=/three; git -C "$SB" commit -m x',
+        'SB=/one; case x in x) echo hi ;; esac; SB=/three; git -C "$SB" commit -m x',
+        # The arithmetic head is not a subshell, so the loop nets to zero.
+        'SB=/one; for ((k=0; k<2; k++)); do :; done; SB=/three; git -C "$SB" commit -m x',
+        # A closer in argument position is a word, and does not close early.
+        'SB=/one; if true; then echo fi; fi; SB=/three; git -C "$SB" commit -m x',
+        # Round 1: the multi-line `case` ends at its `esac`, so the stack has
+        # to pop `case` there -- with `stack.pop()` removed this one prompts.
+        'SB=/one; case x in\na )\necho hi ;;\nesac; SB=/three; git -C "$SB" commit -m x',
+        # And an opener outside command position opens nothing, so the
+        # everyday shapes round 1 found newly prompting resolve again.
+        "SB=/one; grep -c '(' f; SB=/three; git -C \"$SB\" commit -m x",
+        'SB=/one; time { echo hi; }; SB=/three; git -C "$SB" commit -m x',
+        'SB=/one; if true; then if true; then :; fi; fi; SB=/three; git -C "$SB" commit -m x',
+        # Round 2: the `)` an array or a substitution closes at top level is
+        # nobody's subshell closer, so the assignment after it still binds.
+        'SB=/one; OT=( a b ); ( echo hi ); SB=/three; git -C "$SB" commit -m x',
+        'SB=/one; X=$( pwd ); SB=/three; git -C "$SB" commit -m x',
+    ):
+        assert targets(command) == [os.path.normpath("/three")], command
+    # A paren inside a commit message opened a body for the rest of the string.
+    where = targets(
+        'SB=/one; git commit -m "(wip) x"; SB=/three; git -C "$SB" commit -m x'
+    )
+    assert os.path.normpath("/three") in where, where
+
+
+def test_what_opens_a_body_and_what_closes_one():
+    def after(segment, stack=()):
+        return reader._nesting(shlex.split(segment), list(stack))
+
+    assert after("for ((SB=0") == ["for"]
+    assert after("k++))") == []
+    assert after("(cd /x") == ["("]
+    assert after("case x in x)") == ["case"]
+    assert after("( echo hi )") == []
+    assert after("} > out", ["{"]) == []
+    assert after("echo fi done esac", ["if"]) == ["if"]
+    assert after("then if true", ["if"]) == ["if", "if"]
+    # A `)` closes only a `(`: a multi-line arm pattern and a quoted `")"`
+    # inside a `case` or an `if` close nothing.
+    assert after("a )", ["case"]) == ["case"]
+    assert after('echo ")"', ["if"]) == ["if"]
+    # And every closer pops only its own opener.
+    assert after("fi", ["case"]) == ["case"]
+    # The glued function head opens a `{` body.
+    assert after("f(){ echo hi") == ["{"]
+    assert after("function f {") == ["{"]
+    # Openers count in command position only.
+    assert after('git commit -m "(wip) x"') == []
+    assert after("grep -c '(' f") == []
+    assert after("time { echo") == ["{"]
+    assert after("! ( cd /x )") == []
+    # A `)` that belongs to the segment's own `SB=(` or `$(` leaves the
+    # subshell on the stack; at top level it closes nothing either way.
+    assert after("OT=( a b )", ["("]) == ["("]
+    assert after("OT=$( pwd )", ["("]) == ["("]
+    assert after("cat <( echo x )", ["("]) == ["("]
+    assert after("X=$( pwd )") == []
+
+
+def test_a_glued_closer_costs_a_prompt_and_not_an_answer():
+    """`(cd <x> && make)` arrives as `(cd` … `make)`, and the glued closer is
+    not counted because a `case` pattern `x)` looks the same. The count stays
+    open and the assignment after it is forgotten -- a prompt where bash has
+    `/three`. Recorded as the cost rather than fixed, because the direction is
+    the safe one."""
+    where = targets('SB=/one; (cd /x && echo hi); SB=/three; git -C "$SB" commit -m x')
+    assert any("$SB" in w for w in where), where
+
+
+def test_a_reserved_word_behind_a_prefix_is_not_a_simple_command():
+    """`understood` asked the reserved-word question of the FIRST token only,
+    and `!` and `time` are prefixes it steps past. `! for SB in /two /three`
+    then reached `_bind` as something that runs, `_forget` found no `=` in
+    it, and `/one` stood where bash has `/three`. Two of the 82."""
+    assert not reader.understood(shlex.split("! for SB in /two /three"))
+    assert not reader.understood(shlex.split("time pushd /x"))
+    assert not reader.understood(shlex.split("command pushd /x"))
+    # And what the prefixes still pass through.
+    assert reader.understood(shlex.split("! true"))
+    assert reader.understood(shlex.split("time echo hi"))
+    assert reader.understood(shlex.split("command -p ls"))
+    for middle in (
+        "! for SB in /two /three; do :; done",
+        "time for SB in /two; do :; done",
+    ):
+        where = targets(f'SB=/one; {middle}; git -C "$SB" commit -m x')
+        assert any("$SB" in w for w in where), (
+            f"`{middle}` kept the value from before the loop: {where}"
+        )
+
+
+# --- round 1 of the re-application: three writers and a call ---------------
+
+
+def test_an_array_assignment_empties_the_name():
+    """`SB=(/three)` makes an array whose `$SB` is `/three`, and the reader
+    bound the text between the parens: `git -C "$SB"` composed `(/three)`
+    onto the session directory. Unmodelled, so the name is emptied."""
+    kept = reader._bind({"SB": "/one"}, shlex.split("SB=(/three)"))
+    assert "SB" not in kept, "an array assignment kept the value from before it"
+    where = targets('SB=(/three); git -C "$SB" commit -m x')
+    assert any("$SB" in w for w in where), where
+
+
+def test_a_call_to_a_function_the_string_defined_empties_the_environment():
+    """`f() { SB=/three; }; SB=/one; f; git -C "$SB"` -- bash `/three`, the
+    reader `/one`. The call is a plain word `understood` accepts and `_forget`
+    finds nothing in, but the definition is in the same string, so the reader
+    has seen the name."""
+    for command in (
+        'f() { SB=/three; }; SB=/one; f; git -C "$SB" commit -m x',
+        'function f { SB=/three; }; SB=/one; OT=/o; f; git -C "$OT" commit -m x',
+        'f(){ SB=/three; }; SB=/one; time f; git -C "$SB" commit -m x',
+        'f () { SB=/three; }; SB=/one; if true; then f; fi; git -C "$SB" commit -m x',
+        'f() { SB=/three; }; SB=/one; true && f; git -C "$SB" commit -m x',
+    ):
+        where = targets(command)
+        assert any("$" in w for w in where), (
+            f"{command!r} kept a name the call may have rewritten: {where}"
+        )
+    # A definition is not a call, and a word never defined here is a word.
+    assert targets('f() { SB=/three; }; SB=/one; g; git -C "$SB" commit -m x') == [
+        os.path.normpath("/one")
+    ]
+
+
+def test_the_writers_round_one_found_are_forgotten():
+    """`((SB=3))`, `let "SB = 3"` and `${SB:=/three}` each write `SB` with no
+    `NAME=` at the start of a word. Executed under bash 3.2.57: `SB` is `3`,
+    `3` and -- for `:=` on a set name -- `/one`; the reader forgets on all of
+    them, which is a prompt and never an answer."""
+    for middle in (
+        "((SB=3))",
+        'let "SB = 3"',
+        "let SB++",
+        ': "${SB:=/three}"',
+        'echo "${SB=/three}"',
+        "if ((SB=3)); then :; fi",
+        'while let "SB = 3"; do break; done',
+        'if true; then : "${SB:=/three}"; fi',
+    ):
+        where = targets(f'SB=/one; {middle}; git -C "$SB" commit -m x')
+        assert any("$SB" in w for w in where), f"`{middle}` kept `/one`: {where}"
+    # The operators that read a name without writing it are left standing.
+    assert targets(
+        'SB=/one; echo "${SB:-/three}" "${#SB}"; git -C "$SB" commit -m x'
+    ) == [os.path.normpath("/one")]

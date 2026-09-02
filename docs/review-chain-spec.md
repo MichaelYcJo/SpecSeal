@@ -590,6 +590,39 @@ later, and the last record has none. What that costs is a repository updating
 the plugin: every record in a work item whose declaration the pull request
 touches needs the row, not just the newest.
 
+##### The fix surface — `Contract changes` and `New units`
+
+Two more rows, read on every record the same way `Fixes checked by` is, and
+for the same reason: every round has its own fixes. Issue #57 measured ten
+regressions each traced to the fix that opened it, and the largest class —
+four of ten — was a fix that changed a unit's contract while not every place
+that contract reaches was revisited. The diff names the changed signature and
+`grep` names the reach, which is why this can be a gate rather than a
+question.
+
+| The row | The check |
+|---|---|
+| `Contract changes` or `New units` absent, work item begun on or after the cutoff | **fails**, naming the row and what it buys |
+| either row absent, work item begun before the cutoff (or with no timestamp prefix) | prints — the same grandfathering as above, keyed to `chain_check.py`'s `SURFACE_FROM`, whose value is the id of the work item that added the rows |
+| `none`, with or without a reason after it | passes — `none — the fixes are not yet written` is the honest value while a round runs |
+| an empty cell | **fails** on any record — a row that says nothing answers nothing, and an empty cell is always the author's to fill |
+| a `Contract changes` entry (`;`-separated) carrying `unit → call sites` (`→` or `->`) | passes |
+| an entry with no arrow, or an empty half | **fails** on any record, naming the entry — a unit without its reach restates the diff and leaves the measured failure's unchecked half unchecked |
+
+Only the ABSENT row is grandfathered. A merged record has no honest repair
+for a missing row — writing reach rows for fixes nobody re-read fabricates a
+review — where a malformed row's repair is formatting, which is always the
+author's. One limit is recorded rather than parsed away: the arrow is found
+by substring, so an ASCII `->` inside a backticked unit name reads as the
+reach separator, and such a unit passes without its reach. `→` is the
+spelling that avoids it — parsing code spans to close the gap would be an
+enumeration over an unbounded domain, the closing the review skill's own
+rules refuse. The rows are filled when the fixes land, by the session that has
+the fix diff open, so their prompt budget is zero. What `New units` buys sits
+with the verifying round: what it names is a finding surface — *is this
+correct* — rather than a verification surface, because a unit the fixes
+created has been reviewed by nobody.
+
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a
 detached HEAD, two declarations naming one branch, a file that will not parse
@@ -684,6 +717,28 @@ reminder the case where `gh pr merge` runs from a branch that declared
 nothing. What replaced the deadline is the pull-request check in CI, not this.
 
 Reminder-only (PostToolUse cannot block). Same `.specseal/` opt-in as the gate.
+
+## implementer-mark · implementer-notice (PreToolUse Agent|Task · PostToolUse Bash)
+
+The routing declaration's third axis, `Implementation`, names who builds the
+work item — `smith` or `the session` — and until these two existed the answer
+was written down and read by nothing. Two hooks, sharing one address module
+(`hooks/implementer.py`), so the writer and the reader cannot spell the path
+two ways:
+
+| | Fires | Does | Prompt budget |
+|---|---|---|---|
+| `implementer-mark` (`pre-agent`) | an Agent/Task spawn whose `subagent_type` is `smith` | writes the checked-out branch name to `<git-dir>/specseal-implementer`. Prints nothing | zero — it cannot deny or ask |
+| `implementer-notice` (`post-bash`) | a command that actually invokes `git commit` | where the declaration for this branch answers `smith` and no mark stands for this branch, prints one line naming the file; silent when the mark stands, when the row is absent or outside its vocabulary, or when it answers `the session` | zero — a reminder, once per session per repository, never a decision |
+
+The mark is keyed on the **branch**, not on HEAD as `specseal-reviewed` is: a
+work item commits many times and the implementer does not change when it does.
+It lives in the git dir and CI never sees it, which is why nothing at the pull
+request reads this axis — `smith` produces no committed artifact a session
+could not also write. Everything fails toward "no mark", which is toward a
+reminder: a mark gate that quietly stops running turns the notice on, not off,
+so a dead gate produces a line somebody reads rather than a silence nobody
+does. The commit gate's decision is byte-identical with the row and without it.
 
 ## Non-goals
 

@@ -26,6 +26,26 @@ def test_the_table_asks_what_a_second_actor_does():
         assert probe in axes, f"the concurrency row lost `{probe}`"
 
 
+def test_the_table_asks_the_security_questions():
+    """Security was named in stage 2 and absent from the table, and the table
+    is what makes an axis mandatory — an axis in prose leaves no `❓` when
+    nobody walks it. Three of one round's four blocking findings had a
+    stronger security frame than the one they were given, one of them a
+    fail-open in a repository that keeps `test_gates_do_not_fail_open.py`
+    for that class alone (issue #57)."""
+    axes = read("skills", "code-review", "SKILL.md")
+    assert "| Security |" in axes, "the axes table has no security row"
+    for probe in ("fails open or closed", "crafted name, path, or payload"):
+        assert probe in axes, f"the security row lost `{probe}`"
+    # Round 1's 🟡 4: the prose groups Security with Concurrency as
+    # not-settled-by-one-request-read and grounded only concurrency, so a
+    # prose tightening could read the grouping as licensing a revert. The
+    # ground is what makes the grouping earned rather than asserted.
+    assert "nobody sends in good faith" in axes, (
+        "the security paragraph lost the ground for its one-path exemption"
+    )
+
+
 def test_the_table_says_it_is_a_floor():
     """A fixed list is repeatable and blind in the same move.
 
@@ -105,3 +125,20 @@ def test_implement_and_the_preset_block_do_not_drift():
     ):
         assert both in implement, f"the skill lost `{both}`"
         assert both in preset, f"the preset block lost `{both}`"
+
+
+def test_the_fix_pass_resumes_the_implementer():
+    """A fix pass as a fresh spawn re-establishes what the implementing
+    session already holds. Measured three times with no counterexample —
+    282 calls / 45 minutes fresh (#33) against 30 / 3.9 (#29) and 26 / 5.2
+    (the #57 chain) resumed — and an expectation with no number behind it
+    reads as style advice (work item 1788277657, round 1's tests-todo)."""
+    skill = read("skills", "code-review", "SKILL.md")
+    assert "resuming the session that built the branch" in skill, (
+        "the orchestrator sections lost the sentence saying how the fixing "
+        "session is obtained"
+    )
+    assert "282 calls and 45 minutes" in skill, "the measurement went"
+    assert "the fresh spawn is the only option left" in skill, (
+        "the fallback for a session that no longer exists went"
+    )
