@@ -51,6 +51,7 @@ once at session start rather than left to find out.
 - The by-hand sequence in that section was run on a fixture, not on a repository that had actually used 0.3.x, and since round 1 a test reads the block out of each README and runs it on a copy of that fixture; the difference is only what else such a repository keeps under `.specseal/` and `specs/`, which the sequence's *anything else in there* step covers by hand.
 - The hook and the by-hand block leave an ignored file under `.specseal/` where it is, and neither says so to the person; `.specseal/` holding only ignored files after the move is named in the spec's refusal table and nowhere a person reads.
 - A `specs/<id>` that is a relative symbolic link is moved as the link and dangles at its new depth, rows re-pointed and marker stamped (round 2's 🟢 F). Git moves a link as a link, by hand as well as here; the checker's BROKEN line is where the person meets it, and nothing is built for it.
+- `dirty()` runs `git ls-files` twice more on the two paths `moves()` has just listed (round 3's 🟢 J): two git processes, once per repository, on the old-layout path only. Recorded in the round record and here; `seal/follow-up.md` is not written for two processes.
 
 ## Fed back into the spec
 
@@ -96,3 +97,12 @@ Round 2's fix pass, likewise:
   directory listing can move anything.
 - §"Which entries of `specs/` are SpecSeal's" — a tracked file with an
   item's name is not an item; it stays and is named.
+
+Round 3's fix pass, likewise:
+
+- The refusal table — a row for `specs/` as a symbolic link holding work
+  items, tested after the unit and marker checks and before the dirty test,
+  and only when the link holds at least one item-shaped directory; the
+  order sentence under the table names both links. The `.specseal/` row
+  says its line also prints on a migrated repository that kept
+  `.specseal → seal` as a link for old tooling, which is not a half-move.

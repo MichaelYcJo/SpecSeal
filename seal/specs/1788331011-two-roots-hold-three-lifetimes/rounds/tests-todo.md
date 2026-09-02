@@ -22,4 +22,4 @@ round 3 added:
 
 | Asserts | Destination |
 |---|---|
-| a `specs/` that is a symbolic link holding work items is refused with the by-hand line, nothing moves, no rows re-pointed, nothing stamped, twice (round-3 🟡 H) | `tests/test_the_root_migrates_itself.py` |
+| ✅ a `specs/` that is a symbolic link holding work items is refused with the by-hand line, nothing moves, no rows re-pointed, nothing stamped, twice (round-3 🟡 H) — `test_a_symlinked_specs_holding_work_items_is_refused_not_half_moved`, planted at bb6c5e3 | `tests/test_the_root_migrates_itself.py` |
