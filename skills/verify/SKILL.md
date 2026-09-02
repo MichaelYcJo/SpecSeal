@@ -174,8 +174,8 @@ here said the gates had never been seen rendering in a TUI and named the user;
 months later the user hit exactly that and asked why every gate is yes/no.
 
 ```
-unverified-check .                              # what is still open, and where
-unverified-check --baseline origin/main specs/  # and nothing was deleted from it
+unverified-check .                                   # what is still open, and where
+unverified-check --baseline origin/main seal/specs/  # and nothing was deleted from it
 ```
 
 It never fails for an open item — punishing an honest row is how sessions learn
@@ -305,7 +305,7 @@ ships assuming somebody else made it. It belongs in `round-N.md` too, where
 the next session actually looks.
 
 The block feeds forward: the smith ends reports with it, the warden audits
-the seal instead of re-deriving it, and `.specseal/` handoffs carry it across
+the seal instead of re-deriving it, and the round records carry it across
 sessions. A seal the warden cannot audit from the block alone was not a
 seal.
 

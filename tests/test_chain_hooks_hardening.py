@@ -326,7 +326,7 @@ def test_parity_declaration_is_bootstrappable_not_hand_written():
         os.path.join(ROOT, "skills", "implement", "SKILL.md"), encoding="utf-8"
     ).read()
     assert "templates/parity.md" in implement, "bootstrap never points at the template"
-    assert ".specseal/README.md" in implement
+    assert "seal/README.md" in implement
 
     setup = os.path.join(ROOT, "skills", "parity-setup", "SKILL.md")
     assert os.path.isfile(setup), "no command for declaring parity later"

@@ -273,7 +273,7 @@ assert FIX_WORDS <= CLOSED_WORDS, "a fix word that is not a closing word"
 # Markdown emphasis around the verdict word, and the code fence a cell puts
 # round the commit after it. Both sets above are spelled bare, and a
 # normalizer that read only the bare word matched NOTHING this repository ever
-# wrote: every closed verdict in `specs/*/rounds/round-*.md` reads `**fixed**`,
+# wrote: every closed verdict in `seal/specs/*/rounds/round-*.md` reads `**fixed**`,
 # and most cite a commit after it. Neither refusal that reads a verdict cell
 # had ever fired on a real record.
 EMPHASIS = re.compile(r"[*_`]+")

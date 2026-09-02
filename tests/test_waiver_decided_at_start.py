@@ -238,7 +238,7 @@ def test_the_gate_has_no_path_from_an_unreadable_declaration_to_silence():
 def test_the_session_runs_to_the_pull_request():
     skill = read("skills", "implement", "SKILL.md")
     assert "the session runs to the pull request" in skill
-    for destination in ("questions.md", ".specseal/follow-up.md", "Not done"):
+    for destination in ("questions.md", "seal/follow-up.md", "Not done"):
         assert destination in skill, (
             f"the skill lost `{destination}` as somewhere a late finding goes"
         )
