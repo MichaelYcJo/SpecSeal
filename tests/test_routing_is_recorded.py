@@ -6,7 +6,7 @@ the absence of a review mark -- a mark that only exists after a review passes.
 Every commit of every round was stopped on its way to the reviewer the answer
 had already named.
 
-A declaration under `.specseal/routing/` is what the gate reads instead.
+A declaration at `seal/specs/<work-item-id>/routing.md` is what the gate reads instead.
 Enforcement does not disappear; it moves to the pull request, where CI checks a
 branch that said "through the chain" against its review record.
 
@@ -39,7 +39,7 @@ def payload(cmd, repo, session="s1", **extra):
 
 
 def opt_in(repo):
-    (repo / ".specseal").mkdir(exist_ok=True)
+    (repo / "seal").mkdir(exist_ok=True)
 
 
 def branch_of(repo):
@@ -65,7 +65,7 @@ def declare(
     `implementation` is left out by default, which is what every declaration
     written before that axis existed looks like.
     """
-    d = repo / "specs" / item
+    d = repo / "seal" / "specs" / item
     d.mkdir(parents=True, exist_ok=True)
     if body is None:
         third = f"| Implementation | {implementation} |\n" if implementation else ""
@@ -142,7 +142,7 @@ def test_an_unknown_answer_is_not_an_answer(repo):
 
 def test_an_empty_routing_directory_changes_nothing(repo):
     opt_in(repo)
-    (repo / ".specseal" / "routing").mkdir(parents=True)
+    (repo / "seal" / "routing").mkdir(parents=True)
     assert fired(gate(repo))
 
 
@@ -219,7 +219,7 @@ def test_the_first_prompt_names_the_declaration_as_a_way_out(repo):
     assert decision_of(out) == "deny"
     reason = reason_of(out)
     assert '1. "Declare the routing"' in reason
-    assert "specs/<work-item-id>/routing.md" in reason
+    assert "seal/specs/<work-item-id>/routing.md" in reason
     assert "IN A COMMAND OF ITS OWN" in reason, (
         "the option stopped saying the one thing that makes it work"
     )
@@ -276,7 +276,7 @@ def test_the_second_prompt_names_it_too(repo):
     out = gate(repo)
     assert decision_of(out) == "ask"
     reason = reason_of(out)
-    assert "specs/<work-item-id>/routing.md" in reason
+    assert "seal/specs/<work-item-id>/routing.md" in reason
     assert "for any commit" in reason, (
         "the two-way sentence must scope itself once a third way follows it"
     )
@@ -293,7 +293,7 @@ def test_the_third_way_names_its_arm_where_two_are_listed(repo):
     say what it does NOT do.
     """
     opt_in(repo)
-    (repo / ".specseal" / "parity.md").write_text("# migration config\n")
+    (repo / "seal" / "parity.md").write_text("# migration config\n")
     (repo / "code.py").write_text("x = 1\n")
     subprocess.run(
         ["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True
@@ -325,7 +325,7 @@ def test_the_parity_arm_gains_no_third_way(repo):
     silences nothing.
     """
     opt_in(repo)
-    (repo / ".specseal" / "parity.md").write_text("# migration config\n")
+    (repo / "seal" / "parity.md").write_text("# migration config\n")
     declare(repo, review=CHAIN)
     (repo / "code.py").write_text("x = 1\n")
     subprocess.run(
@@ -350,7 +350,7 @@ def test_the_declaration_does_not_waive_the_parity_arm(repo):
     """Routing answers whether a reviewer sees the work. Whether the original
     was consulted is a different question, and nobody answered it."""
     opt_in(repo)
-    (repo / ".specseal" / "parity.md").write_text("# migration config\n")
+    (repo / "seal" / "parity.md").write_text("# migration config\n")
     declare(repo, review=CHAIN)
     (repo / "code.py").write_text("x = 1\n")
     subprocess.run(
@@ -369,32 +369,35 @@ def test_no_review_still_waives_one_command_on_its_own(repo):
     assert decision_of(gate(repo, cmd="git commit -m x [no-review]")) == "silent"
 
 
-def test_declaring_does_not_opt_a_repository_in(repo):
-    """The declaration sits beside the work item, not under `.specseal/`, so
-    writing one says nothing about whether this repository runs the workflow.
-    That separation is what keeps a declaration from creating the plugin's home
-    as a side effect -- see the legacy-home test below."""
+def test_declaring_creates_the_root_and_the_root_is_the_opt_in(repo):
+    """Since 0.4.0 the whole work item lives under `seal/`, so writing the
+    first declaration creates the root, and the root's presence IS the
+    opt-in (`docs/one-root-by-lifetime.md`, "The opt-in signal is the root
+    itself"). Two cases used to pin the opposite -- that a declaration under
+    `specs/` created no `.specseal/` -- because answering where a work item
+    was going must not switch four gates on in a repository that never asked.
+    That hazard is answered differently now: the once-per-repo moment of the
+    `implement` skill creates `seal/` on purpose and says so, and a session
+    that writes a declaration is one that has been through it. What this
+    case pins is the consequence, so a reader finds it stated rather than
+    inferred: a declared repository is an opted-in repository, and the
+    declaration it just wrote silences the review arm for the branch it
+    names."""
+    assert not (repo / "seal").exists()
     declare(repo, review=CHAIN)
-    assert not (repo / ".specseal").exists()
-    assert decision_of(gate(repo)) == "silent"  # never opted in: nothing to gate
-    opt_in(repo)
-    assert decision_of(gate(repo)) == "silent"  # opted in, and now declared
+    assert (repo / "seal").is_dir(), "the declaration lives under the root"
+    assert decision_of(gate(repo)) == "silent"  # opted in, and declared
 
 
 # --- the home question the location dissolves --------------------------------
 
 
-def test_declaring_never_creates_the_plugin_home(repo):
-    """Routing lives under `specs/`, which is neither the home nor the signal.
-
-    Had it lived under `.specseal/`, writing a declaration would have created
-    the directory whose existence IS the opt-in. Answering a question about
-    where this work item is going would then have switched four gates on in a
-    repository that never asked for them.
-    """
-    declare(repo, review=CHAIN)
-    assert not (repo / ".specseal").exists()
-    assert decision_of(gate(repo)) == "silent"
+def test_a_declaration_for_another_branch_leaves_the_gate_asking(repo):
+    """The root exists once anything is declared, so the gate is on; but a
+    declaration naming some OTHER branch is not this commit's answer."""
+    declare(repo, review=CHAIN, branch="somebody-elses-branch")
+    assert (repo / "seal").is_dir()
+    assert fired(gate(repo))
 
 
 def test_a_routing_only_work_item_is_a_whole_work_item(repo):
@@ -460,7 +463,7 @@ def test_every_declaration_in_this_repository_still_parses():
     import glob
 
     root = os.path.join(os.path.dirname(__file__), "..")
-    found = sorted(glob.glob(os.path.join(root, "specs", "*", "routing.md")))
+    found = sorted(glob.glob(os.path.join(root, "seal", "specs", "*", "routing.md")))
     assert found, "no declarations found -- the check would pass vacuously"
     for path in found:
         with open(path, encoding="utf-8") as f:

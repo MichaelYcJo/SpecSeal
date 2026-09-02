@@ -43,10 +43,10 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
 
 # A work item begun before `chain_check.SURFACE_FROM`: missing rows print.
-OLD_ITEM = "specs/1787700000-a-work-item"
+OLD_ITEM = "seal/specs/1787700000-a-work-item"
 # One begun after it: missing rows fail. The two differ only in the second
 # their names start with, which is the whole of what the grandfathering reads.
-NEW_ITEM = "specs/1799000000-a-later-work-item"
+NEW_ITEM = "seal/specs/1799000000-a-later-work-item"
 
 
 def read(*parts):
@@ -237,7 +237,7 @@ def test_a_work_item_begun_at_the_cutoff_second_is_held_to_the_rule(repo):
     began = check_module().SURFACE_FROM
     declared(
         repo,
-        f"specs/{began}-the-item-that-wrote-the-rule",
+        f"seal/specs/{began}-the-item-that-wrote-the-rule",
         lambda sha: record(sha, contract=None),
     )
     code, out = run(repo)
@@ -248,7 +248,7 @@ def test_a_work_item_with_no_timestamp_prefix_is_grandfathered(repo):
     """No date to compare — failing would fail a naming convention."""
     declared(
         repo,
-        "specs/a-work-item-with-no-date",
+        "seal/specs/a-work-item-with-no-date",
         lambda sha: record(sha, contract=None, new_units=None),
     )
     code, out = run(repo)

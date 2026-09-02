@@ -57,17 +57,17 @@ when it arrives.
 ## House rules
 
 - **A change writes a fragment, never a shared registry.** Its changelog
-  entry goes in `specs/<work-item-id>/changelog.md` and its evidence rows in
-  `.specseal/map/<work-item-id>.md`. A feature branch **appends** to neither
-  `CHANGELOG.md` nor `.specseal/map.md`. Three branches running in parallel
+  entry goes in `seal/specs/<work-item-id>/changelog.md` and its evidence rows in
+  `seal/ledger/<work-item-id>.md`. A feature branch **appends** to neither
+  `CHANGELOG.md` nor `seal/ledger.md`. Three branches running in parallel
   shared exactly one file between them and it was the changelog; the conflict
   is three lines, and it arrives after the broad gate has run, where nothing
   may be edited. Both kinds of fragment are gathered at the release
   (`docs/branch-and-release.md`): the changelog fragments into the released
-  section, the ledger fragments into `.specseal/map.md`, where the rows stay.
+  section, the ledger fragments into `seal/ledger.md`, where the rows stay.
 
   **Changing cited code is the case the rule has to answer, and it is not an
-  append.** Change what an existing `.specseal/map.md` row cites and the
+  append.** Change what an existing `seal/ledger.md` row cites and the
   checker reports DRIFTED, which needs that row touched in the file this rule
   covers. Two answers, and which one applies is about the claim rather than
   the code:
@@ -79,7 +79,7 @@ when it arrives.
     into your own fragment.** A row is not re-pointed at whatever now sits
     nearest to where it used to look.
 
-  So a claim leaves `.specseal/map.md` when the code it was about does, and
+  So a claim leaves `seal/ledger.md` when the code it was about does, and
   comes back at the release, folded in from the fragment that replaced it.
 
   **Renamed a cited symbol or file?** `bin/evidence-check --reverify .`
@@ -105,7 +105,7 @@ when it arrives.
   already exist. A hotfix taken straight to `main` is the case that meets this
   without expecting to.
 
-  The fold refuses, naming the file, while any `specs/<id>/evidence-todo.md`
+  The fold refuses, naming the file, while any `seal/specs/<id>/evidence-todo.md`
   in the tree still has an open row: a row in a file with no `drained` line,
   whose first cell does not begin with ✅. Merge the fact into the fragment
   and drain the file; that is one commit on the release branch.

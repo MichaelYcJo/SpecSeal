@@ -8,7 +8,7 @@ evidence ledger, not here. -->
 
 📋 implement applied
 · spec:     <policy/SDD files and clauses actually read>
-· evidence: <.specseal/map.md rows added or updated>
+· evidence: <seal/ledger/<work-item-id>.md rows added or updated>
 · verified: <what was executed vs. what was only read>
 
 ## Scope confirmation

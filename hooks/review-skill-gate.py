@@ -31,7 +31,7 @@ This gate only ever sees a skill the MODEL chose. A user typing
 `/code-review` does not route through the Skill tool at all (measured), so a
 decision already made is never second-guessed.
 
-Opt-in per repository, by the `.specseal/` directory the other gates use: a
+Opt-in per repository, by the `seal/` directory the other gates use: a
 globally installed plugin must not nag repos that do not run this workflow.
 
 Failure direction: this gate interrupts more. A wrong interruption costs one

@@ -50,11 +50,10 @@ SHIPS = {
 STAYS_HOME = {
     "docs",
     "tests",
-    "specs",
+    "seal",
     "evals",
     "assets",
     ".github",
-    ".specseal",
     ".gitattributes",
     ".gitignore",
     "CHANGELOG.md",

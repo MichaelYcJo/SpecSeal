@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """evidence_check — does the evidence ledger still point at what it claims?
 
-Scans the spec-to-code map (default: .specseal/map.md, .specseal/map/*.md,
-and the pre-0.10 docs/**/_evidence.md) for coordinates of the form
+Scans the evidence ledger (default: seal/ledger.md, seal/ledger/*.md, and
+the pre-0.10 docs/**/_evidence.md) for coordinates of the form
 
     path#anchor@hash
 
@@ -810,9 +810,7 @@ def cross_repo_intent(root, default_repo):
     which. Those rows keep the scan off, and SKILL.md's Known limits says what
     that costs.
     """
-    return bool(default_repo) or os.path.isfile(
-        os.path.join(root, ".specseal", "parity.md")
-    )
+    return bool(default_repo) or os.path.isfile(os.path.join(root, "seal", "parity.md"))
 
 
 def check_ledger(ledger, root, maps, default_repo=None):
@@ -1371,12 +1369,15 @@ def main():
         name, _, path = spec.partition("=")
         maps[name] = os.path.abspath(os.path.expanduser(path))
 
-    # Three locations, because the map moved and old repos keep working.
-    # `.specseal/map.md` is where it lives now; `map/*.md` is one fragment per
-    # work item; `docs/**/_evidence.md` is the pre-0.10 address.
+    # Three locations. `seal/ledger.md` is the gathered ledger; `ledger/*.md`
+    # is one fragment per work item; `docs/**/_evidence.md` is the pre-0.10
+    # address, still read because a repository that never moved it keeps
+    # working. `.specseal/map.md` is NOT read: the root moved in 0.4.0 and
+    # `hooks/root-migrate.py` moves it, so a ledger left there is a file in
+    # the wrong place, not a second address.
     patterns = args.ledger or [
-        ".specseal/map.md",
-        ".specseal/map/*.md",
+        "seal/ledger.md",
+        "seal/ledger/*.md",
         "docs/**/_evidence.md",
     ]
     ledgers = sorted(
