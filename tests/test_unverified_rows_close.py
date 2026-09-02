@@ -337,7 +337,7 @@ def test_a_base_no_reader_can_make_sense_of_is_reported_as_not_compared(
 def test_this_repositorys_own_overviews_are_all_readable():
     """The corpus is the real test. It also states the rule for new work: a
     spec directory that writes an overview writes this section in it."""
-    assert run([os.path.join(ROOT, "specs")]) == 0
+    assert run([os.path.join(ROOT, "seal", "specs")]) == 0
 
 
 def collapsed(*parts):

@@ -47,13 +47,15 @@ Boundaries, each pinned in `tests/test_the_root_migrates_itself.py`:
     so, and a repository still carrying it is not moved; the marker's
     successor is `.git/specseal-scratch`
   - **silent when there is nothing to do**
+"""
 
 # RIDER: this file is a reader of the OLD tree — `.specseal/` and a top-level
 # `specs/` — and of nothing under `seal/specs/<id>/`. It can be deleted once
 # no repository is left to migrate, and nothing else has to change when it
 # goes; `hooks/dispatch.py`'s session-start group is the one place that names
-# it. Verified 2026-09-02 at 2f51b8c.
-"""
+# it. A comment rather than a docstring line on purpose: a docstring survives
+# into the `.pyc`, and the rider test greps `hooks/` where a stale
+# `__pycache__` then answers for a file. Verified 2026-09-02 at 2f51b8c.
 
 import glob
 import importlib.util

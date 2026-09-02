@@ -163,8 +163,8 @@ def test_the_rung_gives_both_directions():
 # reason `tasks/` is gone lives in the changelog and in the work item's memo,
 # which are read by people rather than followed by sessions.
 INSTRUCTING = (
-    (".specseal", "README.md"),
-    ("templates", "specseal-README.md"),
+    ("seal", "README.md"),
+    ("templates", "seal-README.md"),
     ("skills", "implement", "SKILL.md"),
     ("skills", "feature-planner", "SKILL.md"),
     ("README.md",),
@@ -183,7 +183,7 @@ def test_no_shipped_document_still_names_a_task_list_directory():
 def test_the_two_layout_trees_no_longer_show_it():
     """The tree is the half a session copies. Prose can be skimmed; a tree
     that lists a directory is read as a directory to create."""
-    for parts in ((".specseal", "README.md"), ("templates", "specseal-README.md")):
+    for parts in (("seal", "README.md"), ("templates", "seal-README.md")):
         text = read(*parts)
         assert "follow-up.md         schedulable items" in text, (
             f"{'/'.join(parts)}: the tree changed shape — re-read it"
@@ -201,7 +201,7 @@ def test_the_plugin_home_is_described_as_permanent_throughout():
     mutating the cell back and watching the test stay green.
     """
     for parts in (
-        (".specseal", "README.md"),
+        ("seal", "README.md"),
         ("skills", "implement", "SKILL.md"),
         ("README.md",),
         ("README.ko.md",),

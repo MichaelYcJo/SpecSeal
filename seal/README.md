@@ -36,14 +36,14 @@ prescribed test unplanted, a verified fact unmerged.
 
 ```
 seal/
-├── README.md              this file
-├── ledger.md              spec clause ↔ code coordinates: the gathered ledger,
-│                          which each release folds the fragments into
+├── README.md            this file
+├── ledger.md            spec clause ↔ code coordinates: the gathered ledger,
+│                        which each release folds the fragments into
 ├── ledger/
 │   └── <work-item-id>.md  one work item's rows while it is in development —
 │                          folded into ledger.md at the release, then removed
-├── parity.md              migration config, only where one is declared
-├── follow-up.md           schedulable items in a repository with no tracker
+├── parity.md            migration config, only where one is declared
+├── follow-up.md         schedulable items in a repository with no tracker
 └── specs/<work-item-id>/  one work item, whole
     ├── routing.md         which way it was routed, written before the first edit
     ├── spec.md · plan.md · questions.md · overview.md · changelog.md

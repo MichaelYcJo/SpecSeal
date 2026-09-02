@@ -503,3 +503,25 @@ def test_the_chain_check_reuses_the_reader_rather_than_writing_a_second():
         "the check reads lines the shared reader never normalized"
     )
     assert "def split_row" not in check, "a second row reader"
+
+
+def test_this_repository_has_one_root_laid_out_by_lifetime():
+    """S1 of the 0.4.0 root move. `seal/` holds the whole tree — the rows
+    that outlive a work item at its top, every work item whole under
+    `specs/` — and neither of the two old roots exists. A `.specseal/` here
+    would opt nothing in and be read by nothing but the migration hook, which
+    is the silence every gate would give this repository."""
+    seal = os.path.join(ROOT, "seal")
+    for rel in ("README.md", "ledger.md", "follow-up.md"):
+        assert os.path.isfile(os.path.join(seal, rel)), rel
+    assert os.path.isdir(os.path.join(seal, "ledger"))
+    items = [
+        n
+        for n in os.listdir(os.path.join(seal, "specs"))
+        if os.path.isfile(os.path.join(seal, "specs", n, "routing.md"))
+    ]
+    assert items, "no work item under seal/specs/ carries a routing.md"
+    for old in (".specseal", "specs"):
+        assert not os.path.exists(os.path.join(ROOT, old)), (
+            f"{old}/ is back. Nothing reads it since 0.4.0; move it into seal/"
+        )
