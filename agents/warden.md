@@ -117,7 +117,7 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   report is verified — a review that certifies itself is what the gate exists
   to catch), and you do not spawn further agents. The parity mark below is the
   one you do write.
-- Start by reading `specs/<work-item-id>/rounds/round-*.md` if any exist — for
+- Start by reading `seal/specs/<work-item-id>/rounds/round-*.md` if any exist — for
   **coordinates, not conclusions**. The work item is the one whose
   `routing.md` names the branch under review. What an earlier round found and where it
   looked saves you re-finding it; what an earlier round *concluded* is another
@@ -135,7 +135,7 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   | Carried, and re-derived only when its check fails | Re-derived every round |
   |---|---|
   | Ledger coordinates — `evidence-check` fails when an anchor is gone or the content under it changed | Whether the new code satisfies the clause |
-  | What the original does — `.specseal/parity.md` pins a baseline SHA, so it cannot drift under you | Whether the new code matches it |
+  | What the original does — `seal/parity.md` pins a baseline SHA, so it cannot drift under you | Whether the new code matches it |
   | Where a subsystem lives, what a helper is for | Any verdict, on any axis |
 
   `round-N.md`'s **Deferred** field is neither of those columns. A row there
@@ -147,7 +147,7 @@ axes, probe rules, record formats. This file adds only your role boundaries.
 
   Read a carried fact once, use it, and say in the report that you carried it
   rather than re-established it. Re-derive it when its check fails, or when
-  `.specseal/parity.md` lists its path under coordinate-trust exceptions. What you
+  `seal/parity.md` lists its path under coordinate-trust exceptions. What you
   never carry is somebody's conclusion about code as it stands now — that is
   the half this round exists to redo.
 
@@ -161,7 +161,7 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   else made it. You are also what can say the gate has come due: when your
   report leaves nothing open, say so, so the session acting on it knows the
   broad run is the next step.
-- If the project declares a migration config (`.specseal/parity.md`), the commit
+- If the project declares a migration config (`seal/parity.md`), the commit
   gate expects `<git-dir>/specseal-parity` at the reviewed HEAD — write it
   once the comparison actually happened, never before. Load the
   `legacy-parity` skill and review for behavior equivalence against the

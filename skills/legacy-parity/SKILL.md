@@ -3,7 +3,7 @@ name: legacy-parity
 description: |
   Behavior-equivalence methodology for legacy migrations: three-way judgment
   (policy ↔ original code ↔ new code) with original-preservation as the default.
-  Use when: a project declares a migration config (.specseal/parity.md), porting or
+  Use when: a project declares a migration config (seal/parity.md), porting or
   reviewing ported behavior, judging divergence from a legacy original.
   NOT for: greenfield work — implement/code-review alone cover that.
 ---
@@ -21,7 +21,7 @@ design" or "more consistent API" is never grounds to diverge. If the original
 looks wrong, report that judgment — changing it is the planner's call, not
 yours.
 
-## Migration config — `.specseal/parity.md`
+## Migration config — `seal/parity.md`
 
 A migrating project declares, committed with the repo:
 
@@ -66,7 +66,7 @@ pre-fix version preserves nothing.
 
 ## Evidence ledger
 
-`.specseal/map.md` maps spec clauses to **original**
+`seal/ledger.md` maps spec clauses to **original**
 coordinates (`path#anchor@hash`). Start every comparison
 there instead of grepping the original; feed newly verified original behavior
 back into the row you used (see `implement`). When a coordinate is suspect,
@@ -106,7 +106,7 @@ git rev-parse HEAD > "$(git rev-parse --git-dir)/specseal-parity"
 ```
 
 A commit closes the cycle; the next change to code starts an uncompared one.
-In a repo that declares `.specseal/parity.md`, committing code with no such record
+In a repo that declares `seal/parity.md`, committing code with no such record
 makes the gate ask — approving is the waiver, and `[no-parity]` skips it
 visibly. Type it in FRONT of the command, quotes included:
 `: '[no-parity]'; git commit …`. After `git commit` a bare word is a pathspec

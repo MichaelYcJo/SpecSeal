@@ -1,0 +1,13 @@
+# regression tests to plant — prescribed by round 1, planted by the implementer
+
+All in `tests/test_the_ledger_fragments_fold_at_release.py` unless a row says otherwise.
+
+| # | What it asserts | Destination | Grounds | Status |
+|---|---|---|---|---|
+| 1 | `--check` output and the already-folded refusal contain no `\` on any platform — the paths in messages are `/`-joined | `tests/test_the_ledger_fragments_fold_at_release.py` | round 1 🔴 1: three assertions fail on `windows-latest` today; a test that asserts no backslash catches the regression on all three legs, not only Windows | ✅ planted — `test_the_messages_print_slash_joined_paths_on_every_platform` |
+| 2 | `test_this_work_item_wrote_its_own_fragment` passes on a copy of `ROOT` after the fold has run there — the proof moves from the fragment file to its marker in `map.md` | same file, the "this repository" block | round 1 🔴 2: the release-preparation commit removes the file the test reads | ✅ planted — `test_this_work_items_rows_are_still_found_after_the_release_folds_them`, sharing `this_work_items_rows_are_in_the_ledger` with the original |
+| 3 | a marker for a real work item id quoted in `map.md` prose neither folds nor refuses: the fold runs and exits 0 | same file | round 1 🟡 3 | ✅ planted — `test_a_marker_quoted_in_the_ledgers_prose_is_not_a_folded_work_item` |
+| 4 | a row holding U+2028 in a cell arrives in `map.md` as one row, and the same row in `evidence-todo.md` with `drained` after the separator still reads as one open row | same file | round 1 🟡 4 and 🟡 5 | ✅ planted — `test_a_row_holding_a_line_separator_arrives_as_one_row`, `test_a_line_separator_in_a_cell_does_not_close_the_file` |
+| 5 | the last row of a fragment keeps its trailing whitespace; a `#` line inside a code fence is not demoted | same file | round 1 🟡 5 | ✅ planted — `test_the_last_row_keeps_its_trailing_whitespace_and_a_fenced_hash_is_text` |
+| 6 | the after-fold self-check runs on the `tree` fixture with a fragment for this work item placed there, not on a copy of `ROOT`, so it passes before and after the release-preparation commit and whatever the tree's evidence-todo state | same file, replacing `test_this_work_items_rows_are_still_found_after_the_release_folds_them` | round 2 🔴 1 and 🟡 2 | ✅ planted — `test_this_work_items_rows_are_still_found_after_the_release_folds_them` now takes the `tree` fixture, writes a fragment for `THIS_WORK_ITEM`, folds, and calls the shared body before and after |
+| 7 | a whitespace-only first line before `# <id>` does not leave the title as a demoted heading; a `#` line inside a `~~~` fence is not demoted | same file, beside the fence test | round 2 🟡 4 | ✅ planted — `test_a_blank_line_above_the_title_and_a_tilde_fence_are_read_right` |

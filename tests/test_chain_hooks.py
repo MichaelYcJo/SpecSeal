@@ -30,7 +30,7 @@ def payload(cmd, repo, session="s1", tool="Bash", **extra):
 
 
 def opt_in(repo):
-    (repo / ".specseal").mkdir(exist_ok=True)
+    (repo / "seal").mkdir(exist_ok=True)
 
 
 def git_dir(repo):

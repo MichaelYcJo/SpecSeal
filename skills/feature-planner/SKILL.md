@@ -49,7 +49,7 @@ it is what makes the boundary hold later.
 
 ## Where the output goes
 
-Into `specs/<work-item-id>/plan.md`, as its Phases table — one row per phase,
+Into `seal/specs/<work-item-id>/plan.md`, as its Phases table — one row per phase,
 with the **Verified by** and **Status** columns that table carries. There is
 no separate task-list file and no separate root for one.
 

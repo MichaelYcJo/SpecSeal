@@ -70,7 +70,7 @@ def _console_repo_template():
 def opted_in_repo(where):
     """A repository the commit gate fires in, at a path holding non-ASCII."""
     shutil.copytree(_console_repo_template(), where)
-    (where / ".specseal").mkdir(exist_ok=True)
+    (where / "seal").mkdir(exist_ok=True)
     return where
 
 
@@ -154,7 +154,7 @@ def test_a_reminder_the_console_cannot_encode_is_still_printed(tmp_path, encodin
         encoding="utf-8",
         errors="replace",
     ).stdout.strip()
-    item = repo / "specs" / "1780000000-work"
+    item = repo / "seal" / "specs" / "1780000000-work"
     item.mkdir(parents=True)
     (item / "routing.md").write_text(
         "\n".join(
@@ -206,7 +206,7 @@ def test_a_declaration_that_cannot_be_decoded_is_not_an_answer(tmp_path):
     import routing
 
     repo = opted_in_repo(tmp_path / "declared" / "repo")
-    item = repo / "specs" / "1780000000-work"
+    item = repo / "seal" / "specs" / "1780000000-work"
     item.mkdir(parents=True)
     # Valid UTF-16, which is not valid UTF-8 anywhere in it.
     (item / "routing.md").write_bytes(

@@ -1,7 +1,7 @@
 ---
 name: implement
 description: |
-  Spec-driven implementation methodology: document layout (specs/ + .specseal/), policy-first
+  Spec-driven implementation methodology: document layout (docs/ + seal/), policy-first
   judgment, evidence feedback, and review incorporation.
   Use when: implementing a feature, starting a ticket — including deciding how to
   start one, incorporating review feedback, or when a repo needs its document
@@ -17,50 +17,48 @@ description: |
 Methodology for implementing against written specs, leaving durable evidence,
 and closing the loop with review. Loaded by the `smith` agent; usable directly.
 
-## Document layout — three axes
+## Document layout — two roots, three lifetimes
 
-Every artifact this skill produces goes to exactly one of three roots, split by
-**lifetime**, not by who wrote it:
+Every artifact this skill produces goes to one of two roots, and the second is
+laid out by **lifetime**, not by who wrote it:
 
 | Root | Lifetime | Test | Authority |
 |---|---|---|---|
 | `docs/` | Permanent, cumulative | Must still be true in 6 months | **Norms, ratified by humans.** Read when the repository has them; **never created here** — a project's documentation convention is its own |
-| `specs/` | One work item | Its role ends when this work ships (SDD, overview) | The contract this work executes against. A human approves `plan.md`, which is why this is a repository document and not tool state |
-| `.specseal/` | Permanent | Everything this plugin maintains | Written and read by machines: the map, the migration config, the follow-up list |
+| `seal/specs/<work-item-id>/` | One work item | Its role ends when this work ships (SDD, overview, round records) | The contract this work executes against. A human approves `plan.md`, which is why this is a repository document and not tool state |
+| `seal/`, everything above `specs/` | Permanent | Everything this plugin maintains | Written and read by machines: the ledger, the migration config, the follow-up list |
 
 The axis is lifetime and authority, **not audience** — humans and AI read all
 three. (Labeling policies "for humans" would push sessions away from reading
 them, and policy outranks everything else when a repository has it.)
 
-`.specseal/` is committed — gitignored files do not follow worktrees or other
-machines — and its existence is what tells the gates this repository runs the
-workflow. Everything in it is permanent:
+`seal/` is committed — gitignored files do not follow worktrees or other
+machines — and its presence at the repository root is what tells the gates
+this repository runs the workflow. What sits directly under it is permanent;
+what sits under `seal/specs/` lives as long as its work item:
 
 ```
-.specseal/
-├── map.md            spec clause ↔ code coordinates, as they stood before
+seal/
+├── README.md         the export rules, for sessions that never load this skill
+├── ledger.md         spec clause ↔ code coordinates, as they stood before
 │                     work items wrote fragments
-├── map/
-│   └── <work-item-id>.md   one work item's rows — never gathered, no header
+├── ledger/
+│   └── <work-item-id>.md   one work item's rows, no header — folded into
+│                           ledger.md by the release that ships the work item
 ├── parity.md         migration config, only when declared
-└── follow-up.md      schedulable items in a repository with no tracker
+├── follow-up.md      schedulable items in a repository with no tracker
+└── specs/<work-item-id>/
+    ├── routing.md    the routing answer, written before the first edit
+    ├── spec.md · plan.md · questions.md · overview.md
+    ├── rounds/
+    │   └── round-N.md    one review round — closed at merge and kept
+    └── tests-todo.md · evidence-todo.md
 ```
 
-The review round records are **not** here. They live beside the work item they
-are about, in `specs/<work-item-id>/`, together with the routing declaration
-and the rest of the SDD set:
-
-```
-specs/<work-item-id>/
-├── routing.md        the routing answer, written before the first edit
-├── spec.md · plan.md · questions.md · overview.md
-├── rounds/
-│   └── round-N.md    one review round — closed at merge and kept
-└── tests-todo.md · evidence-todo.md
-```
-
-They used to sit under the plugin's own directory, keyed by a pull request
-number that does not exist while the rounds that would fill it are running.
+The review round records live beside the work item they are about, with the
+routing declaration and the rest of the SDD set. They used to sit under the
+plugin's own directory, keyed by a pull request number that does not exist
+while the rounds that would fill it are running.
 No correct session could create that directory, and none ever did
 (`docs/review-handoff-protocol.md` carries the whole reasoning). A work
 item's directory exists from its first commit, because routing is written
@@ -83,10 +81,10 @@ keep.
 When a root or file this skill needs doesn't exist, create it from
 `templates/` in this plugin and continue. In particular:
 
-- `.specseal/map.md` — created empty, with no baseline to stamp: a coordinate
+- `seal/ledger.md` — created empty, with no baseline to stamp: a coordinate
   names content rather than a position, so there is nothing for a header to
-  declare. A work item's own rows go in `.specseal/map/<work-item-id>.md`.
-- `.specseal/README.md` — carries the export rules so sessions that never load
+  declare. A work item's own rows go in `seal/ledger/<work-item-id>.md`.
+- `seal/README.md` — carries the export rules so sessions that never load
   this skill still see them.
 - **Not** policy documents. If the repository has none, it has none; judge from
   the SDD set and the code. Creating `docs/policies/<domain>/` imposes one
@@ -95,20 +93,26 @@ When a root or file this skill needs doesn't exist, create it from
 - Leave evidence rows empty. They fill through the feedback rule below as work
   happens — do not pre-populate speculatively.
 
-**When you create `.specseal/README.md` — the once-per-repo moment — do two more
-things before continuing.** Nobody reads a README to discover a question they
-did not know to ask, so this is the only place the migration question gets
-asked at all.
+**When you create `seal/` — the once-per-repo moment — do two more things
+before continuing.** Creating it is what opts the repository in: from the next
+command on, every gate here is awake. Nobody reads a README to discover a
+question they did not know to ask, so this is the only place the migration
+question gets asked at all.
 
-1. Say in three lines what you created and what each root is for. The layout
-   is invisible otherwise: it appears in a diff the user did not request.
+1. Say in three lines what you created, that its presence is the opt-in, and
+   what each part of the root is for. The layout is invisible otherwise: it
+   appears in a diff the user did not request.
 2. Ask, once: *"Does this project port behavior from an existing codebase? If
    so, tell me which one and I will set up parity mode."*
    - **Yes** → run the parity setup below, then continue the work.
    - **No** → continue, and never raise it again. Bootstrap does not re-run,
      so the question does not either.
 
-Ask only here. A repo that already has `.specseal/README.md` has been through this,
+Nothing else is asked. This release creates the root at `<repo>/seal/` and
+nowhere else; the question of where it goes arrives with local mode, together
+with the second answer that makes it a question.
+
+Ask only here. A repo that already has `seal/README.md` has been through this,
 and re-asking is the nagging this plugin exists to avoid.
 
 ### Parity setup — deriving what can be derived
@@ -124,7 +128,7 @@ Never guess the original: a comparison against a guessed repo proves nothing.
 3. **Policy root** — `docs/policies/` if it exists, else propose it.
 4. **Coordinate-trust exceptions** — leave empty. Rows arrive from real work.
 
-Write `.specseal/parity.md` from `templates/parity.md` with those values, and
+Write `seal/parity.md` from `templates/parity.md` with those values, and
 record the machine-local checkout path in `~/.claude/specseal/parity-paths.md`
 keyed by the origin remote URL. The path never goes in the committed file.
 
@@ -132,7 +136,7 @@ keyed by the origin remote URL. The path never goes in the committed file.
 
 ### 1. Read the spec before the code
 
-Judgment precedence: **policy (`docs/`) > SDD (`specs/`) > the ticket >
+Judgment precedence: **policy (`docs/`) > SDD (`seal/specs/`) > the ticket >
 existing code** — and, where the repository declares a migration config, the
 original sits between the ticket and the existing code, because policy being
 silent is what makes the original decide (see `legacy-parity`).
@@ -146,7 +150,7 @@ it or dropping it.
 
 - Policy documents delegate to each other. "This document doesn't answer it"
   is not a policy gap until sibling documents in the same domain are checked.
-- Read `.specseal/follow-up.md` before starting. It holds items
+- Read `seal/follow-up.md` before starting. It holds items
   whose answer exists but which waited on prerequisite work — **this work may
   be that prerequisite.** If so, include the item in this change and delete its
   row; what remains in that file is the definition of remaining scope.
@@ -221,7 +225,7 @@ one-batch rule loaded. Nothing had said the three belonged to one question, so
 obeying the rule for the first of them looked like obeying it.
 
 **Write the answer down before the first edit**, in
-`specs/<work-item-id>/routing.md`, from `templates/sdd-routing.md`. Committed,
+`seal/specs/<work-item-id>/routing.md`, from `templates/sdd-routing.md`. Committed,
 because the check happens at the pull request and CI sees only what is in the
 tree. Below the SDD ladder this may be the only file a work item ever gets,
 and it is the first place such a change exists at all.
@@ -256,12 +260,12 @@ it is a table:
 
 | | Review arm | Parity arm |
 |---|---|---|
-| **Wakes when** | `.specseal/` exists in the repository the commit lands in | `.specseal/parity.md` exists there, **and** the change touches something outside `docs/`, `specs/` and `.specseal/` |
+| **Wakes when** | `seal/` exists in the repository the commit lands in | `seal/parity.md` exists there, **and** the change touches something outside `docs/` and `seal/` |
 | **Quiets when** | a `routing.md` declaration names this branch, for either answer · the review mark stands at HEAD, written by the review chain · `[no-review]` rides in front of one command | the parity mark stands at HEAD, written by a recorded comparison against the original · `[no-parity]` rides in front of one command |
 
 Two things the sentences kept dropping. A declaration reaches the review arm
 only, so a migration repository still meets the parity arm on a code-touching
-commit. And a commit confined to those three directories never wakes that arm
+commit. And a commit confined to those two directories never wakes that arm
 at all — which is why the `routing.md` commit this section mandates costs
 nothing even there, and why asking would only teach a reader to click through
 the prompt.
@@ -334,7 +338,7 @@ answering it costs a reply rather than a stopped session.
 **Once the batch is answered, the session runs to the pull request.** What
 surfaces after it is written down rather than raised: a decision only a person
 can make goes to `questions.md`, a finding you neither fixed nor answered to
-`.specseal/follow-up.md` with an answerer named — a deferral to nobody is how
+`seal/follow-up.md` with an answerer named — a deferral to nobody is how
 "someone will look at it" becomes nobody did (`verify` §The answerer has to
 exist) — and what was deliberately left goes to the overview's Not done
 section. Each is named in the PR body, because a leftover nobody can find was
@@ -360,10 +364,13 @@ leave the minor level off unless whole-unit hashing has been measured to drift
 rows on unrelated edits. Re-verifying is re-reading and running
 `evidence-check --reverify`.
 
-**Rows a work item adds go in its own fragment**, `.specseal/map/<work-item-id>.md`,
-not appended to `.specseal/map.md`. Two branches cannot collide there, because
+**Rows a work item adds go in its own fragment**, `seal/ledger/<work-item-id>.md`,
+not appended to `seal/ledger.md`. Two branches cannot collide there, because
 no two work items share an id, and the checker reads the whole
-`.specseal/map/*.md` glob.
+`seal/ledger/*.md` glob. The fragment lives until the release that ships
+the work item, whose preparation step folds it into `seal/ledger.md` and
+removes it; a row is a content anchor, so the move changes nothing the
+checker measures.
 
 **Draft as you go, write in one pass.** The recording is cheap and the round
 trip is not: one session made twenty-six separate edits to its ledger and
@@ -490,8 +497,8 @@ before the first edit (step 1) and gains a row whenever a decision only a
 human can make appears later, at any size. A late one still gets written — the
 batch is what keeps it from being the only way they arrive.
 
-A work item's directory is `specs/<unix-epoch-seconds>-<slug>/` (e.g.
-`specs/1784780439-center-list-sort/`), bootstrapped from `templates/`. The
+A work item's directory is `seal/specs/<unix-epoch-seconds>-<slug>/` (e.g.
+`seal/specs/1784780439-center-list-sort/`), bootstrapped from `templates/`. The
 timestamp prefix keeps directories in creation order and collision-free
 without a registry — take it from `date +%s` when creating the directory.
 
@@ -520,12 +527,12 @@ What this gives up, stated rather than left to be found: the finer structure
 does not fit in a phase row and is not kept anywhere between sessions. Phases
 are already ordered and already vertical slices, so what is lost is the
 parallel marker, and the judgment is that a list nobody ever wrote had no
-structure to lose. It had a home in `.specseal/` for three releases, no code
-ever read it, and it was never once created.
+structure to lose. It had a home under the plugin's own root for three
+releases, no code ever read it, and it was never once created.
 
 ### 4. The closing memo — only what the diff cannot show
 
-`specs/<work-item>/overview.md` is not a summary of the work. `git diff --stat`
+`seal/specs/<work-item>/overview.md` is not a summary of the work. `git diff --stat`
 already holds the file list and the diff holds the detail; re-deriving them at
 the end costs a re-read of your own change and lands further from the truth
 than the command would.
@@ -577,14 +584,14 @@ and findings from execution are labeled separately.
 
 ### 5. Incorporate review — read the round records first
 
-A session fixing review feedback starts at `specs/<work-item-id>/`,
+A session fixing review feedback starts at `seal/specs/<work-item-id>/`,
 **not** at the inline comments. Two of its files are owned by the implementer:
 
 | File | Written by | Acted on by |
 |---|---|---|
 | `round-N.md` | review orchestrator | next review round |
 | `tests-todo.md` | review orchestrator | **implementer** — plant each test in the file the row names |
-| `evidence-todo.md` | review orchestrator | **implementer** — merge each fact into `.specseal/map/<work-item-id>.md` |
+| `evidence-todo.md` | review orchestrator | **implementer** — merge each fact into `seal/ledger/<work-item-id>.md` |
 
 Inline comments may not contain these lists at all. Fixing only the comments
 ships the code change and silently drops the tests and the evidence.
@@ -606,7 +613,7 @@ Before the PR merges, every unresolved (⬜) row must move out:
 | Remaining item | Destination |
 |---|---|
 | Doable within this PR | Do it now — merging is the last moment anyone is looking |
-| Waiting on prerequisite work | `.specseal/follow-up.md` |
+| Waiting on prerequisite work | `seal/follow-up.md` |
 | Needs a decision | The policy document's open-questions section |
 
 Then say so in the round record: what went where, or `nothing to drain`. The

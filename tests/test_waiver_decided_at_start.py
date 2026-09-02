@@ -7,7 +7,8 @@ its part, which no single diff shows.
 
 The rule: how a work item is routed has **three axes**, all asked in the same
 batch before the first edit, and the answer goes into
-`specs/<work-item-id>/routing.md` rather than being re-derived at every commit.
+`seal/specs/<work-item-id>/routing.md` rather than being re-derived at every
+commit.
 
 `Implementation` is the third and it is read on looser terms — optional, and
 an unreadable answer means "not answered" rather than "not a declaration".
@@ -158,7 +159,9 @@ def test_no_committed_declaration_still_carries_a_template_placeholder():
     would sit in the record forever, reading to a person as an answer."""
     import glob
 
-    for path in sorted(glob.glob(os.path.join(ROOT, "specs", "*", "routing.md"))):
+    for path in sorted(
+        glob.glob(os.path.join(ROOT, "seal", "specs", "*", "routing.md"))
+    ):
         with open(path, encoding="utf-8") as f:
             for line in f:
                 if not line.startswith("|"):
@@ -187,7 +190,7 @@ def test_the_skill_states_all_four_combinations():
 
 def test_the_skill_names_where_the_answer_is_written():
     skill = flat(read("skills", "implement", "SKILL.md"))
-    assert "specs/<work-item-id>/routing.md" in skill
+    assert "seal/specs/<work-item-id>/routing.md" in skill
     assert "templates/sdd-routing.md" in skill
     assert "Committed" in skill or "committed" in skill
 
@@ -236,7 +239,7 @@ def test_the_gate_has_no_path_from_an_unreadable_declaration_to_silence():
 def test_the_session_runs_to_the_pull_request():
     skill = read("skills", "implement", "SKILL.md")
     assert "the session runs to the pull request" in skill
-    for destination in ("questions.md", ".specseal/follow-up.md", "Not done"):
+    for destination in ("questions.md", "seal/follow-up.md", "Not done"):
         assert destination in skill, (
             f"the skill lost `{destination}` as somewhere a late finding goes"
         )
@@ -251,7 +254,7 @@ def test_the_smith_carries_both_halves_rather_than_only_citing_them():
     assert "three axes" in smith and "two axes" not in smith
     for answer in AXES:
         assert answer in smith, f"the smith lost the answer `{answer}`"
-    assert "specs/<work-item-id>/routing.md" in smith
+    assert "seal/specs/<work-item-id>/routing.md" in smith
     assert "run to the pull request" in smith
     assert "answerer" in smith, (
         "a deferral with nobody named is how a follow-up becomes nobody's"
@@ -261,7 +264,7 @@ def test_the_smith_carries_both_halves_rather_than_only_citing_them():
 def test_the_preset_block_carries_it_too():
     """`CLAUDE.md` is the one file a session in this repository always has."""
     preset = flat(read("CLAUDE.md"))
-    assert "specs/<work-item-id>/routing.md" in preset
+    assert "seal/specs/<work-item-id>/routing.md" in preset
     for answer in AXES:
         assert answer in preset, f"the preset block lost `{answer}`"
 
