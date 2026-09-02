@@ -5,7 +5,7 @@ coordinate made of a line number rots on contact. A line moves for edits that
 have nothing to do with the claim, so the coordinate is re-anchored, so the
 row's derived baseline resets, so a stamp is needed to clear it, so a squash
 orphans the stamp. Three review rounds were spent on that chain, and half of
-the branch's commits touched `.specseal/` rather than the code it describes.
+the branch's commits touched `seal/` rather than the code it describes.
 
 An anchor plus a content hash removes the cause. There is no baseline, no
 stamp, no commit SHA, and the CHECK path reaches for git nowhere — the one
@@ -76,7 +76,7 @@ SERVICE = (
 def repo(tmp_path):
     d = tmp_path / "proj"
     (d / "src").mkdir(parents=True)
-    (d / ".specseal" / "map").mkdir(parents=True)
+    (d / "seal" / "ledger").mkdir(parents=True)
     (d / "src" / "service.py").write_text(SERVICE)
     return d
 
@@ -88,7 +88,7 @@ def write_row(repo, path, anchor):
     assert len(places) == 1, f"fixture anchor is not unique: {places}"
     a, b = places[0]
     h = ec.content_hash(body.splitlines()[a - 1 : b])
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f"# frag\n\n| CLAUSE | `{path}#{anchor}@{h}` |\n"
     )
     return (a, b)
@@ -124,7 +124,7 @@ def test_an_ambiguous_anchor_is_broken_and_says_where(repo):
     """Two places to look is not a measurement. Reporting OK would be a claim
     about whichever one the code happened to reach first."""
     (repo / "notes.md").write_text("same line\n\nmiddle\n\nsame line\n")
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         '# frag\n\n| CLAUSE | `notes.md#"same line"@00000000` |\n'
     )
     r = run(["."], str(repo))
@@ -276,7 +276,7 @@ def test_a_unit_the_generic_rule_cannot_find_is_broken(repo):
     """Loud and honest beats a per-language parser nobody maintains."""
     assert ec.resolve("svc.ts", "missing", BRACE) == []
     (repo / "svc.ts").write_text(BRACE)
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         "# frag\n\n| CLAUSE | `svc.ts#missing@00000000` |\n"
     )
     r = run(["."], str(repo))
@@ -287,7 +287,7 @@ def test_a_unit_the_generic_rule_cannot_find_is_broken(repo):
 def test_a_brace_language_unit_drifts_on_a_change_inside_it(repo):
     (repo / "svc.ts").write_text(BRACE)
     h = ec.content_hash(BRACE.splitlines()[2:8])
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f"# frag\n\n| CLAUSE | `svc.ts#handler@{h}` |\n"
     )
     assert "1 ok" in run(["."], str(repo)).stdout
@@ -318,7 +318,7 @@ def test_a_stale_minor_anchor_widens_to_drifted_rather_than_broken(repo):
     inside = ec.minor_region("src/service.py", body, (4, 6), '"y = x + 1"')
     a, b = inside[0]
     h = ec.content_hash(body.splitlines()[a - 1 : b])
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f'# frag\n\n| CLAUSE | `src/service.py#handler>"y = x + 1"@{h}` |\n'
     )
     assert "1 ok" in run(["."], str(repo)).stdout
@@ -344,7 +344,7 @@ def test_widening_does_not_swallow_a_real_broken(repo):
     inside = ec.minor_region("src/service.py", body, (4, 6), '"y = x + 1"')
     a, b = inside[0]
     h = ec.content_hash(body.splitlines()[a - 1 : b])
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f'# frag\n\n| CLAUSE | `src/service.py#handler>"y = x + 1"@{h}` |\n'
     )
     (repo / "src" / "service.py").write_text(SERVICE.replace("def handler", "def gone"))
@@ -507,7 +507,7 @@ def test_two_identical_units_are_counted_not_named(repo):
     # substitutes each candidate's name with the locator before comparing,
     # so both alpha and beta reconstruct to exactly this.
     h = ec.content_hash(["def gamma(x):", "    return x + 1"])
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f"# frag\n\n| CLAUSE | `src/twin.py#gamma@{h}` |\n"
     )
     r = run(["."], str(repo))
@@ -525,7 +525,7 @@ def test_a_renamed_markdown_heading_is_named_too(repo):
     doc = "## Old name\n\nthe body stays put\n"
     (repo / "notes.md").write_text(doc)
     h = ec.content_hash(doc.splitlines())
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f'# frag\n\n| CLAUSE | `notes.md#"## Old name"@{h}` |\n'
     )
     assert "1 ok" in run(["."], str(repo)).stdout
@@ -548,7 +548,7 @@ def test_reverify_re_anchors_a_row_whose_content_provably_moved(repo):
     (repo / "src" / "service.py").write_text(
         SERVICE.replace("def handler(", "def total_price(")
     )
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     before = ledger.read_text()
     assert run(["."], str(repo)).returncode == 2
     assert ledger.read_text() == before, "the plain check rewrote the ledger"
@@ -570,7 +570,7 @@ def test_reverify_does_not_touch_a_renamed_and_edited_row(repo):
     (repo / "src" / "service.py").write_text(
         SERVICE.replace("def handler(", "def total_price(").replace("x + 1", "x + 2")
     )
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     before = ledger.read_text()
     r = run(["--reverify", "."], str(repo))
     assert "0 rows re-verified" in r.stdout, r.stdout
@@ -582,7 +582,7 @@ def test_reverify_does_not_choose_between_two_identical_units(repo):
     twin = "def alpha(x):\n    return x + 1\n\n\ndef beta(x):\n    return x + 1\n"
     (repo / "src" / "twin.py").write_text(twin)
     h = ec.content_hash(["def gamma(x):", "    return x + 1"])
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text(f"# frag\n\n| CLAUSE | `src/twin.py#gamma@{h}` |\n")
     before = ledger.read_text()
     run(["--reverify", "."], str(repo))
@@ -605,7 +605,7 @@ def test_a_move_to_another_file_is_named_with_its_path(repo):
 
     rr = run(["--reverify", "."], str(repo))
     assert "src/service.py#handler -> src/moved.py#handler" in rr.stdout, rr.stdout
-    ledger = (repo / ".specseal" / "map" / "f.md").read_text()
+    ledger = (repo / "seal" / "ledger" / "f.md").read_text()
     assert "`src/moved.py#handler@" in ledger, ledger
     assert run(["."], str(repo)).returncode == 0, run(["."], str(repo)).stdout
 
@@ -644,7 +644,7 @@ def test_a_name_alone_is_a_labelled_fact_and_never_a_fix(repo):
     assert "same name at src/other.py (content differs)" in r.stdout, r.stdout
     assert "renamed" not in r.stdout, r.stdout
 
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     before = ledger.read_text()
     rr = run(["--reverify", "."], str(repo))
     assert "0 rows re-verified" in rr.stdout, rr.stdout
@@ -683,7 +683,7 @@ def test_the_same_unit_in_two_files_is_counted_not_rewritten(repo):
     (repo / "src" / "b.py").write_text(unit)
     r = run(["."], str(repo))
     assert "identical content at 2 units" in r.stdout, r.stdout
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     before = ledger.read_text()
     run(["--reverify", "."], str(repo))
     assert ledger.read_text() == before, "reverify picked one of two files"
@@ -696,7 +696,7 @@ def test_a_whole_file_rename_heals_mechanically(repo):
     body = (repo / "src" / "service.py").read_text()
     h1 = ec.content_hash(body.splitlines()[3:6])
     h2 = ec.content_hash(body.splitlines()[8:11])
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f"# frag\n\n| A | `src/service.py#handler@{h1}` |\n"
         f"| B | `src/service.py#Box@{h2}` |\n"
     )
@@ -770,7 +770,7 @@ def test_an_old_format_ledger_is_loud_never_invisible(repo):
     not: a red build saying "run the migrator" beats a green build checking
     nothing.
     """
-    (repo / ".specseal" / "map" / "f.md").write_text(OLD_LEDGER)
+    (repo / "seal" / "ledger" / "f.md").write_text(OLD_LEDGER)
     r = run(["."], str(repo))
     assert "OLD-FORMAT" in r.stdout, f"today's silent pass, verbatim:\n{r.stdout}"
     assert "src/service.py:4-6" in r.stdout, r.stdout
@@ -795,7 +795,7 @@ def test_a_quoted_anchor_naming_an_old_coordinate_is_not_old_format(repo):
     (repo / "notes.md").write_text("the row cited hooks/gate.py:12 back then\n")
     body = (repo / "notes.md").read_text()
     h = ec.content_hash(body.splitlines())
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f'# frag\n\n| CLAUSE | `notes.md#"the row cited hooks/gate.py:12 back then"@{h}` |\n'
     )
     r = run(["."], str(repo))
@@ -804,10 +804,10 @@ def test_a_quoted_anchor_naming_an_old_coordinate_is_not_old_format(repo):
 
 
 def test_migrate_rewrites_an_old_row_to_its_enclosing_unit(repo):
-    (repo / ".specseal" / "map" / "f.md").write_text(OLD_LEDGER)
+    (repo / "seal" / "ledger" / "f.md").write_text(OLD_LEDGER)
     r = run(["--migrate", "."], str(repo))
     assert "2 rows migrated" in r.stdout, r.stdout
-    after = (repo / ".specseal" / "map" / "f.md").read_text()
+    after = (repo / "seal" / "ledger" / "f.md").read_text()
     assert "src/service.py#handler@" in after, after
     assert "src/service.py#Box.open@" in after, after
     assert "src/service.py:4-6" not in after, after
@@ -820,7 +820,7 @@ def test_migrate_rewrites_an_old_row_to_its_enclosing_unit(repo):
 
 def test_migrate_leaves_what_it_cannot_prove_and_says_why(repo):
     """Beyond EOF, a file that is gone — LEFT and reported, never guessed."""
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         "# map\n\n"
         "| A | `src/service.py:999` | | 2026-08-31 |\n"
         "| B | `src/gone.py:3` | | 2026-08-31 |\n"
@@ -840,20 +840,20 @@ def test_a_row_migrate_can_only_half_prove_is_left_whole(repo):
     the row stays exactly as the person left it. Found by mutation: no
     fixture carried two coordinates in one row."""
     row = "| X | `src/service.py:5` and `src/gone.py:2` | 2026-08-31 `9829412` |\n"
-    (repo / ".specseal" / "map" / "f.md").write_text("# map\n\n" + row)
+    (repo / "seal" / "ledger" / "f.md").write_text("# map\n\n" + row)
     r = run(["--migrate", "."], str(repo))
     assert "1 left" in r.stdout, r.stdout
-    after = (repo / ".specseal" / "map" / "f.md").read_text()
+    after = (repo / "seal" / "ledger" / "f.md").read_text()
     assert row in after, f"the row was partly rewritten:\n{after}"
 
 
 def test_migrate_twice_is_a_no_op(repo):
-    (repo / ".specseal" / "map" / "f.md").write_text(OLD_LEDGER)
+    (repo / "seal" / "ledger" / "f.md").write_text(OLD_LEDGER)
     run(["--migrate", "."], str(repo))
-    once = (repo / ".specseal" / "map" / "f.md").read_text()
+    once = (repo / "seal" / "ledger" / "f.md").read_text()
     r = run(["--migrate", "."], str(repo))
     assert "0 rows migrated" in r.stdout, r.stdout
-    assert (repo / ".specseal" / "map" / "f.md").read_text() == once
+    assert (repo / "seal" / "ledger" / "f.md").read_text() == once
 
 
 # --- the verdicts -----------------------------------------------------------
@@ -872,8 +872,8 @@ def test_a_cross_repo_path_is_external_without_a_map(repo):
     — a parity config, `--map`, `--default-repo` — says this project has one.
     Without the declaration this read EXTERNAL too, which made deleting a
     directory a green build (round 4, 🔴 3)."""
-    (repo / ".specseal" / "parity.md").write_text("# parity\n")
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "parity.md").write_text("# parity\n")
+    (repo / "seal" / "ledger" / "f.md").write_text(
         "# frag\n\n| CLAUSE | `legacy/src/old.py#handler@00000000` |\n"
     )
     r = run(["."], str(repo))
@@ -888,7 +888,7 @@ def test_a_mapped_cross_repo_row_is_checked_like_any_other(repo, tmp_path):
     (other / "src").mkdir(parents=True)
     (other / "src" / "old.py").write_text(SERVICE)
     h = ec.content_hash(SERVICE.splitlines()[3:6])
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f"# frag\n\n| CLAUSE | `legacy/src/old.py#handler@{h}` |\n"
     )
     r = run(["--map", f"legacy={other}", "."], str(repo))
@@ -911,7 +911,7 @@ def test_an_ok_row_prints_the_regions_current_lines(repo):
     r = run(["."], str(repo))
     assert "1 ok" in r.stdout
     findings = ec.check_ledger(
-        str(repo / ".specseal" / "map" / "f.md"), str(repo), {}, None
+        str(repo / "seal" / "ledger" / "f.md"), str(repo), {}, None
     )
     assert findings == [("OK", "src/service.py#handler", "5-7")], findings
 
@@ -935,7 +935,7 @@ def test_the_check_never_rewrites_on_its_own(repo):
     command and the ordinary run must leave the file alone."""
     write_row(repo, "src/service.py", "handler")
     (repo / "src" / "service.py").write_text(SERVICE.replace("x + 1", "x + 2"))
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     before = ledger.read_text()
     run(["."], str(repo))
     run(["--strict", "."], str(repo))
@@ -951,7 +951,7 @@ def test_reverify_leaves_an_unresolvable_row_alone(repo):
     (repo / "src" / "service.py").write_text(
         SERVICE.replace("def handler", "def gone").replace("x + 1", "x + 9")
     )
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     before = ledger.read_text()
     r = run(["--reverify", "."], str(repo))
     assert "0 rows re-verified" in r.stdout, r.stdout
@@ -975,8 +975,8 @@ def test_no_ledger_row_carries_a_line_number_or_a_commit(repo):
     old_coord = re.compile(r"[A-Za-z0-9_./-]+\.(?:py|md|yml|yaml|sh|toml):\d+")
     stamp = re.compile(r"\b\d{4}-\d{2}-\d{2}\s+`?[0-9a-f]{7,40}`?")
     for path in sorted(
-        glob.glob(os.path.join(ROOT, ".specseal", "map.md"))
-        + glob.glob(os.path.join(ROOT, ".specseal", "map", "*.md"))
+        glob.glob(os.path.join(ROOT, "seal", "ledger.md"))
+        + glob.glob(os.path.join(ROOT, "seal", "ledger", "*.md"))
     ):
         for n, line in enumerate(open(path, encoding="utf-8").read().splitlines(), 1):
             if not line.strip().startswith("|"):
@@ -1084,7 +1084,7 @@ def test_a_gone_symbol_in_a_parsing_python_file_is_broken_with_the_hint(repo):
     assert "identical content at src/lib.py#handler (moved?)" in r.stdout, r.stdout
     rr = run(["--reverify", "."], str(repo))
     assert "src/service.py#handler -> src/lib.py#handler" in rr.stdout, rr.stdout
-    ledger = (repo / ".specseal" / "map" / "f.md").read_text()
+    ledger = (repo / "seal" / "ledger" / "f.md").read_text()
     assert "`src/lib.py#handler@" in ledger, ledger
     assert run(["."], str(repo)).returncode == 0
 
@@ -1162,7 +1162,7 @@ def test_reverify_reads_default_repo(repo, tmp_path):
     orig = tmp_path / "orig"
     (orig / "apps").mkdir(parents=True)
     (orig / "apps" / "svc.py").write_text("def handler(x):\n    return x + 1\n")
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         "# frag\n\n| CLAUSE | `apps/svc.py#handler@00000000` |\n"
     )
     r = run(["--reverify", "--default-repo", str(orig), "."], str(repo))
@@ -1181,13 +1181,13 @@ def test_reverify_never_scans_this_repo_for_a_row_it_cannot_place(repo, tmp_path
     orig.mkdir()
     h = ec.content_hash(["def fetch(x):", "    return x + 1"])
     (repo / "src" / "copycat.py").write_text("def grab(x):\n    return x + 1\n")
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f"# frag\n\n| CLAUSE | `apps/svc.py#fetch@{h}` |\n"
     )
-    before = (repo / ".specseal" / "map" / "f.md").read_text()
+    before = (repo / "seal" / "ledger" / "f.md").read_text()
     r = run(["--reverify", "--default-repo", str(orig), "."], str(repo))
     assert "0 rows re-verified" in r.stdout, r.stdout
-    assert (repo / ".specseal" / "map" / "f.md").read_text() == before
+    assert (repo / "seal" / "ledger" / "f.md").read_text() == before
     check = run(["--default-repo", str(orig), "."], str(repo))
     assert "grab" not in check.stdout, check.stdout
 
@@ -1198,7 +1198,7 @@ def test_two_rows_at_one_coordinate_with_different_hashes_are_both_checked(repo)
     stale — was silently skipped: a two-row fixture read `1 ok`, exit 0
     (round 4, 🟡 5)."""
     write_row(repo, "src/service.py", "handler")
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text(
         ledger.read_text() + "| STALE | `src/service.py#handler@00000000` |\n"
     )
@@ -1211,7 +1211,7 @@ def test_old_format_reaches_the_totals_line(repo):
     """The build failed red while the summary read all zeros (round 4, 🟡 6 —
     the totals half was measured here during the --migrate demo before the
     round reported it)."""
-    (repo / ".specseal" / "map" / "f.md").write_text(OLD_LEDGER)
+    (repo / "seal" / "ledger" / "f.md").write_text(OLD_LEDGER)
     r = run(["."], str(repo))
     # Both summary lines, pinned separately: the per-ledger counts and the
     # grand total each read all zeros before, and either one alone still
@@ -1233,7 +1233,7 @@ def test_a_heading_path_locator_still_gets_the_rename_hint(repo):
     doc = "## A\n\n### B\n\nbody stays put\n\n## C\n\ntail\n"
     (repo / "notes.md").write_text(doc)
     h = ec.content_hash(doc.splitlines()[2:6])
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f'# frag\n\n| CLAUSE | `notes.md#"## A / ### B"@{h}` |\n'
     )
     assert "1 ok" in run(["."], str(repo)).stdout
@@ -1252,7 +1252,7 @@ def test_a_failed_write_never_tears_the_ledger(repo, monkeypatch):
     leaves the old text in place (round 4, 🟡 14)."""
     import builtins
 
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text(OLD_LEDGER)
     real_open = builtins.open
 
@@ -1290,7 +1290,7 @@ def test_an_unreadable_ledger_is_reported_not_a_traceback(repo):
     `reverify` — swallowed under dispatch, a traceback in CI (round 4,
     🟡 14)."""
     write_row(repo, "src/service.py", "handler")
-    (repo / ".specseal" / "map" / "bad.md").mkdir()
+    (repo / "seal" / "ledger" / "bad.md").mkdir()
     r = run(["."], str(repo))
     assert "Traceback" not in r.stderr, r.stderr
     assert "1 ok" in r.stdout, r.stdout
@@ -1323,7 +1323,7 @@ def test_migrate_proves_a_row_against_the_file_under_its_own_root(tmp_path):
     top = tmp_path / "repo"
     (top / "src").mkdir(parents=True)
     (top / "sub" / "src").mkdir(parents=True)
-    (top / "sub" / ".specseal" / "map").mkdir(parents=True)
+    (top / "sub" / "seal" / "ledger").mkdir(parents=True)
     # Same path, different content: the decoy the top-level resolution reads.
     (top / "src" / "service.py").write_text(
         "import os\n\n\ndef handler(x):\n    return 999\n"
@@ -1336,7 +1336,7 @@ def test_migrate_proves_a_row_against_the_file_under_its_own_root(tmp_path):
     git(top, "commit", "-qm", "base")
     sha = git(top, "rev-parse", "HEAD").stdout.strip()
 
-    ledger = top / "sub" / ".specseal" / "map" / "f.md"
+    ledger = top / "sub" / "seal" / "ledger" / "f.md"
     ledger.write_text(
         f"# frag\n\n| CLAUSE | `src/service.py:4-6` | 2026-08-31 `{sha}` |\n"
     )
@@ -1350,7 +1350,7 @@ def test_migrate_still_proves_a_row_at_the_top_level(tmp_path):
     """The other half of 🔴 A's fix: `./` must not break the ordinary case."""
     top = tmp_path / "repo"
     (top / "src").mkdir(parents=True)
-    (top / ".specseal" / "map").mkdir(parents=True)
+    (top / "seal" / "ledger").mkdir(parents=True)
     (top / "src" / "service.py").write_text(SERVICE)
     git(top, "init", "-q")
     git(top, "config", "user.email", "t@example.com")
@@ -1359,7 +1359,7 @@ def test_migrate_still_proves_a_row_at_the_top_level(tmp_path):
     git(top, "commit", "-qm", "base")
     sha = git(top, "rev-parse", "HEAD").stdout.strip()
 
-    ledger = top / ".specseal" / "map" / "f.md"
+    ledger = top / "seal" / "ledger" / "f.md"
     ledger.write_text(
         f"# frag\n\n| CLAUSE | `src/service.py:4-6` | 2026-08-31 `{sha}` |\n"
     )
@@ -1377,7 +1377,7 @@ def test_write_atomic_writes_through_a_symlink_and_keeps_the_mode(repo, tmp_path
     real = tmp_path / "real.md"
     real.write_text("old\n")
     os.chmod(str(real), 0o664)
-    link = repo / ".specseal" / "map" / "linked.md"
+    link = repo / "seal" / "ledger" / "linked.md"
     symlink_or_skip(str(real), str(link))
 
     ec.write_atomic(str(link), "new\n")
@@ -1434,7 +1434,7 @@ def test_the_recorded_hash_breaks_a_tie_between_two_places(repo):
     )
     (repo / "src" / "app.cs").write_text(text)
     h = ec.content_hash(["void render(int x) {", "  log(x);"])
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f"# frag\n\n| CLAUSE | `src/app.cs#render@{h}` |\n"
     )
     r = run(["."], str(repo))
@@ -1448,7 +1448,7 @@ def test_a_tie_no_place_reconstructs_is_still_broken(repo):
         "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n"
     )
     (repo / "src" / "app.cs").write_text(text)
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         "# frag\n\n| CLAUSE | `src/app.cs#render@00000000` |\n"
     )
     r = run(["."], str(repo))
@@ -1488,7 +1488,7 @@ def test_no_document_claims_the_checker_never_calls_git(repo):
     """Round 4's 🟡 10 put a git call in the file — one, in `--migrate` — and
     four documents kept saying the checker calls git for nothing at all. The
     exception belongs in the same paragraph as the claim (round 5, 🟡 H)."""
-    for rel in ("CLAUDE.md", "README.md", "README.ko.md", ".specseal/map.md"):
+    for rel in ("CLAUDE.md", "README.md", "README.ko.md", "seal/ledger.md"):
         with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
             paragraphs = f.read().split("\n\n")
         claiming = [p for p in paragraphs if NO_GIT_CLAIM.search(p)]
@@ -1534,7 +1534,7 @@ def test_a_row_cannot_read_outside_the_repository_it_is_placed_in(repo, tmp_path
     outside = tmp_path / "outside"
     outside.mkdir()
     (outside / "creds.py").write_text("def secret():\n    return 'SENTINEL'\n")
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text("# frag\n\n| CLAUSE | `../outside/creds.py#secret@00000000` |\n")
     before = ledger.read_text()
 
@@ -1561,14 +1561,14 @@ def test_a_mapped_prefix_still_reaches_its_own_checkout(repo, tmp_path):
     (other / "src").mkdir(parents=True)
     (other / "src" / "service.py").write_text(SERVICE)
     h = ec.content_hash(SERVICE.splitlines()[3:6])
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f"# frag\n\n| CLAUSE | `legacy/src/service.py#handler@{h}` |\n"
     )
     r = run(["--map", f"legacy={other}", "."], str(repo))
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
 
     # And the prefix is not a way back out of the checkout it names.
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         "# frag\n\n| CLAUSE | `legacy/../outside/creds.py#secret@00000000` |\n"
     )
     (tmp_path / "outside").mkdir()
@@ -1628,7 +1628,7 @@ def test_reverify_refuses_a_place_the_declaration_rule_resurrected(repo):
         "}\n"
     )
     write_row(repo, "src/app.js", "render")
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     before = ledger.read_text()
     app.write_text("function page(y) {\n  return render(y);\n}\n")
     # Moved AND edited, so nothing reconstructs and no destination is provable.
@@ -1646,7 +1646,7 @@ def test_reverify_says_something_about_a_row_the_check_called_broken(repo):
     (repo / "src" / "app.cs").write_text(
         "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n"
     )
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         "# frag\n\n| CLAUSE | `src/app.cs#render@00000000` |\n"
     )
     rr = run(["--reverify", "."], str(repo))
@@ -1669,7 +1669,7 @@ def test_default_repo_cannot_reach_outside_its_own_checkout(repo, tmp_path):
     symlink_or_skip(str(secret), str(orig / "src" / "creds.py"))
 
     h = ec.content_hash(secret.read_text().splitlines())
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f"# frag\n\n| CLAUSE | `src/creds.py#secret@{h}` |\n"
     )
     r = run(["--default-repo", str(orig), "."], str(repo))
@@ -1772,7 +1772,7 @@ def test_a_blocked_declaration_can_be_recorded_by_hand(repo):
     names the place and the hash to record.
     """
     (repo / "src" / "a.cs").write_text(BLOCKED_CS)
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text("# frag\n\n| CLAUSE | `src/a.cs#Render@00000000` |\n")
 
     want = ec.content_hash(BLOCKED_CS.splitlines()[0:2])
@@ -1791,7 +1791,7 @@ def test_an_ordinary_new_row_is_still_anchored_by_reverify(repo):
     """The workflow 🔴 M broke for blocked declarations must keep working
     everywhere else: a row written with a placeholder hash is filled in."""
     write_row(repo, "src/service.py", "handler")
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text("# frag\n\n| CLAUSE | `src/service.py#handler@00000000` |\n")
     rr = run(["--reverify", "."], str(repo))
     assert "1 row re-verified" in rr.stdout, rr.stdout
@@ -1803,7 +1803,7 @@ def test_an_unchanged_blocked_row_is_not_re_anchored(repo):
     counted a row for a row where nothing had changed (round 7, 🟢)."""
     (repo / "src" / "a.cs").write_text(BLOCKED_CS)
     want = ec.content_hash(BLOCKED_CS.splitlines()[0:2])
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text(f"# frag\n\n| CLAUSE | `src/a.cs#Render@{want}` |\n")
     before = ledger.read_text()
     rr = run(["--reverify", "."], str(repo))
@@ -1820,7 +1820,7 @@ def test_migrate_answers_an_unsure_place_the_way_reverify_does(repo):
     Unproven, `--migrate` now leaves the row and names the hash to record.
     """
     (repo / "src" / "a.cs").write_text(BLOCKED_CS)
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text("# frag\n\n| CLAUSE | `src/a.cs:1-2` | 2026-08-31 |\n")
     before = ledger.read_text()
     want = ec.content_hash(BLOCKED_CS.splitlines()[0:2])
@@ -1839,7 +1839,7 @@ def test_reverify_never_contradicts_the_checks_verdict(repo):
     # (a) a blocked row the check calls OK — silence, and no phantom.
     (repo / "src" / "a.cs").write_text(BLOCKED_CS)
     want = ec.content_hash(BLOCKED_CS.splitlines()[0:2])
-    ledger = repo / ".specseal" / "map" / "f.md"
+    ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text(f"# frag\n\n| CLAUSE | `src/a.cs#Render@{want}` |\n")
     assert "1 ok" in run(["."], str(repo)).stdout
     assert "ambiguous" not in run(["--reverify", "."], str(repo)).stdout
@@ -1872,7 +1872,7 @@ def test_every_row_the_check_flags_gets_a_line_from_reverify(repo):
         "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n"
     )
     (repo / "src" / "b.cs").write_text(BLOCKED_CS.replace("log(x);", "log(x + 1);"))
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         "# frag\n\n"
         "| A | `src/service.py#gone@00000000` |\n"
         "| B | `src/app.cs#render@00000000` |\n"
@@ -1903,7 +1903,7 @@ def test_migrate_still_anchors_an_unsure_place_the_stamp_vouches_for(tmp_path):
     """
     top = tmp_path / "repo"
     (top / "src").mkdir(parents=True)
-    (top / ".specseal" / "map").mkdir(parents=True)
+    (top / "seal" / "ledger").mkdir(parents=True)
     (top / "src" / "a.cs").write_text(BLOCKED_CS)
     git(top, "init", "-q")
     git(top, "config", "user.email", "t@example.com")
@@ -1912,7 +1912,7 @@ def test_migrate_still_anchors_an_unsure_place_the_stamp_vouches_for(tmp_path):
     git(top, "commit", "-qm", "base")
     sha = git(top, "rev-parse", "HEAD").stdout.strip()
 
-    ledger = top / ".specseal" / "map" / "f.md"
+    ledger = top / "seal" / "ledger" / "f.md"
     ledger.write_text(f"# frag\n\n| CLAUSE | `src/a.cs:1-2` | 2026-08-31 `{sha}` |\n")
     m = run(["--migrate", "."], str(top))
     assert "1 row migrated · 0 left" in m.stdout, m.stdout
@@ -1938,7 +1938,7 @@ def test_a_stale_claim_on_an_unsure_place_drifts_rather_than_breaking(repo):
     only place it finds — and round 7's fix then called the unit GONE on the
     strength of a hash that was never the unit's (round 8, 🔴 A)."""
     _cs(repo, "public new void Render(int x) {\n    var a = x + 1;\n}\n")
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         '# frag\n\n| C | `src/a.cs#Render>"var a = x + 1;"@00000000` |\n',
         encoding="utf-8",
     )
@@ -1961,7 +1961,7 @@ def test_two_units_sharing_one_claim_line_stay_ambiguous(repo):
     )
     body = (repo / "src" / "a.cs").read_text(encoding="utf-8")
     h = ec.content_hash(body.splitlines()[1:2])
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         f'# frag\n\n| C | `src/a.cs#Render>"var a = x + 1;"@{h}` |\n',
         encoding="utf-8",
     )
@@ -1973,7 +1973,7 @@ def test_two_units_sharing_one_claim_line_stay_ambiguous(repo):
 def test_the_escaping_row_reverify_leaves_names_its_claim(repo):
     """Every other line `--reverify` prints carries the claim; this one did
     not, so two claim rows on one unit read as the same row (round 8, 🟡 F)."""
-    (repo / ".specseal" / "map" / "f.md").write_text(
+    (repo / "seal" / "ledger" / "f.md").write_text(
         '# frag\n\n| C | `../outside/a.py#f>"x = 1"@00000000` |\n',
         encoding="utf-8",
     )

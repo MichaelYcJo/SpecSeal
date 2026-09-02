@@ -479,7 +479,7 @@ def test_the_commit_gate_says_what_declining_does(tmp_path):
     from conftest import run_hook
 
     repo = tmp_path / "repo"
-    (repo / ".specseal").mkdir(parents=True)
+    (repo / "seal").mkdir(parents=True)
     git = lambda *a: subprocess.run(
         ["git", "-C", str(repo), *a], capture_output=True, check=True
     )

@@ -57,7 +57,7 @@ follows a link or changes a mode the user did not choose.
 Findings that require the reporter to already control the repository under
 review, unless they reach one of the two situations above. Denial of service
 against a checker whose whole runtime is measured in milliseconds. Anything
-in `specs/` or `.specseal/`, which are records rather than code.
+in `seal/`, which holds records rather than code.
 
 ## Supported versions
 

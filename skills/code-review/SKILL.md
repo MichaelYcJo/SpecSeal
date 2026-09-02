@@ -20,7 +20,7 @@ uncertain, write a question, not a pass.
 ## Two stages, in order
 
 1. **Spec compliance** — actual code vs. the written spec (`docs/` policies
-   first, then `specs/` SDD). Look for both missing *and* unrequested extra
+   first, then `seal/specs/` SDD). Look for both missing *and* unrequested extra
    behavior. Do not trust the implementer's report; read the code.
 2. **Quality** — only after stage 1 passes: correctness, error handling,
    security, performance, test quality.
@@ -121,7 +121,7 @@ So: build fixtures with `&&`, and give any call that could run long a timeout
 you chose rather than one you assumed. A probe that hangs costs more than
 every probe that round put together.
 
-## Cross-session records — `specs/<work-item-id>/`
+## Cross-session records — `seal/specs/<work-item-id>/`
 
 **Before starting**, read this directory if it exists. Axes a previous round
 already judged are not re-walked — unchanged code keeps its verdict. Probes a
@@ -141,7 +141,7 @@ and worker findings are pre-verification):
 |---|---|
 | `round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — and **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table |
 | `tests-todo.md` | regression tests to plant, with the destination file per row |
-| `evidence-todo.md` | verified facts to merge into `.specseal/map.md` |
+| `evidence-todo.md` | verified facts to merge into `seal/ledger.md` |
 
 Skipping this step makes review round *n* cost *n* full walks — the next
 round re-finds every coordinate from scratch.
@@ -150,7 +150,7 @@ The directory is **closed at merge, not deleted**: the drained rows move to
 their durable homes and a closing note says what went where. A deferral that
 leaves this directory leaves what the next round reads, and comes back as a
 finding — which is why it is also a row in `round-N.md` rather than only a
-line in `.specseal/follow-up.md`.
+line in `seal/follow-up.md`.
 
 What carries is **where to look, not what was concluded**. A later round opens
 those coordinates and reaches its own verdict; an axis marked clean in round 1
@@ -167,7 +167,7 @@ covering for a round-2 regression.
 The test for what may be carried is whether staleness is detectable, not
 whether the fact feels durable. A ledger coordinate carries because
 `evidence-check` fails when the cited lines move; what the original does
-carries because `.specseal/parity.md` pins the baseline SHA it was read at. Both
+carries because `seal/parity.md` pins the baseline SHA it was read at. Both
 are re-established when their check fails, or when `parity.md` lists the path
 under coordinate-trust exceptions. A verdict on current code carries nothing —
 no check exists that would tell you it went stale, which is exactly why the

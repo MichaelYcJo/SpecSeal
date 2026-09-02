@@ -73,7 +73,7 @@ def test_the_preset_block_carries_the_routing_decision():
     never been written at all."""
     preset = read("CLAUDE.md").split("<!-- specseal:end -->")[0]
     assert "Routing, decided at the start" in preset
-    assert "specs/<work-item-id>/routing.md" in preset
+    assert "seal/specs/<work-item-id>/routing.md" in preset
     assert "[no-review]" in preset and "[no-parity]" in preset
 
 
@@ -99,7 +99,7 @@ def test_implement_and_the_preset_block_do_not_drift():
     implement = " ".join(read("skills", "implement", "SKILL.md").split())
     preset = " ".join(read("CLAUDE.md").split("<!-- specseal:end -->")[0].split())
     for both in (
-        "specs/<work-item-id>/routing.md",
+        "seal/specs/<work-item-id>/routing.md",
         # The write is its own command. Both documents mandate it and the
         # commit gate's first prompt now names it as a way out, so all three
         # drift together or not at all -- and this is the one the gate cannot

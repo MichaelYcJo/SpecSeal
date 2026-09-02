@@ -83,10 +83,10 @@ def _gate_repo_template():
 
 
 def make_repo(path, opted_in):
-    """A repo with one commit, `.specseal/` when it opts in, and a staged change."""
+    """A repo with one commit, `seal/` when it opts in, and a staged change."""
     shutil.copytree(_gate_repo_template(), path)
     if opted_in:
-        (path / ".specseal").mkdir()
+        (path / "seal").mkdir()
     return path
 
 
@@ -858,6 +858,10 @@ def test_the_same_root_forms_answer_what_the_release_did(tmp_path):
     """
     here = make_repo(tmp_path / "opted-in", opted_in=True)
     (here / "src").mkdir()
+    # The released hooks read the root at its 0.3 address. Both roots are
+    # present so each revision sees an opted-in repository, and the comparison
+    # stays about the command forms, which is the only thing it is about.
+    (here / ".specseal").mkdir()
     old = tmp_path / "released"
     tag = released_hooks(old)
 
@@ -1295,7 +1299,7 @@ def test_an_unreadable_target_says_nothing_where_the_plugin_has_no_standing(
 
 
 def test_a_directory_with_the_home_marker_but_no_repository(tmp_path):
-    """`.specseal/` outside a repository is still not an opt-in.
+    """`seal/` outside a repository is still not an opt-in.
 
     Two halves, and they now differ. Named by a `-C`, it is a target the gate
     could not resolve, so it stops (above). Sitting in it with no `-C`, there
@@ -1303,7 +1307,7 @@ def test_a_directory_with_the_home_marker_but_no_repository(tmp_path):
     """
     here = make_repo(tmp_path / "opted-in", opted_in=True)
     fake = tmp_path / "looks-opted-in"
-    (fake / ".specseal").mkdir(parents=True)
+    (fake / "seal").mkdir(parents=True)
     assert fired(run(f"git -C {sh(fake)} commit -m 'x'", here, session="s1"))
     assert decision_of(run("git commit -m 'x'", fake, session="s1")) == "silent"
 
@@ -1351,7 +1355,7 @@ def test_the_parity_arm_names_the_repository_too(tmp_path):
     """
     here = make_repo(tmp_path / "repoA", opted_in=True)
     there = make_repo(tmp_path / "repoB", opted_in=True)
-    (there / ".specseal" / "parity.md").write_text("# migration config\n")
+    (there / "seal" / "parity.md").write_text("# migration config\n")
     command = f"git -C {sh(there)} commit -m 'change' [no-review]"
 
     first = run(command, here, session="s1")
@@ -1476,8 +1480,8 @@ def test_a_subdirectory_commit_does_not_hide_the_migration_arm(tmp_path):
     went out with no prompt at all.
     """
     repo = tmp_path / "repoP"
-    (repo / ".specseal").mkdir(parents=True)
-    (repo / ".specseal" / "parity.md").write_text("# migration config\n")
+    (repo / "seal").mkdir(parents=True)
+    (repo / "seal" / "parity.md").write_text("# migration config\n")
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
 
     def git(*a):

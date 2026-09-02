@@ -11,14 +11,14 @@ merge commit (`docs/branch-and-release.md`).
 
 ## 0.4.0 — `release/v0.4.0`
 
-- [ ] #78 the ledger fragments fold at release, and an open evidence-todo row refuses it (on today's paths)
-- [ ] #30 the sealer: one agent takes the seal, once, after the rounds settle
+- [x] #78 the ledger fragments fold at release, and an open evidence-todo row refuses it (on today's paths) — merged as #87
 - [ ] #79 the root merge: `specs/` + `.specseal/` → `seal/`, opt-in is the root's presence, session-start hook moves once, CI and path references follow
 - [ ] release: gather the changelog, fold the ledger, move `plugin.json`, merge to `main`, tag `v0.4.0`
 
 ## 0.5.0 — `release/v0.5.0`
 
-- [ ] #80 local mode under `.git/seal/`, and the first-setup question (shared / local)
+- [ ] #30 the sealer: one agent takes the seal, once, after the rounds settle — moved here from 0.4.0, because the orchestrator held that role through #78 and the root merge re-points the record path the sealer writes
+- [ ] #80 local mode under `.git/seal/`, and the first-setup question (shared / local) — first, because the rest of 0.5.0 stands on it
 - [ ] #82 `seal/config.md`, first row the pull request language
 - [ ] #81 `seal export` / `seal import`
 - [ ] release: gather, bump, merge, tag `v0.5.0`
@@ -28,6 +28,14 @@ merge commit (`docs/branch-and-release.md`).
 - [ ] #83 `settle`: fold a released work item into `docs/` and the ledger, then remove it (fix the two readers first)
 - [ ] #84 framer: the agent that writes the frame the smith fills
 - [ ] #85 an orphan branch as the ledger's home, opt-in by ref
+
+## 0.6.0 — what the measurements say to change
+
+- [ ] #89 the running log: every agent segment of this flow is timed with `session-cost` and the improvement it points at is written there as a comment. Nothing on it is built during 0.4.0 or 0.5.0; when this checklist reaches here, the log becomes the tickets of 0.6.0.
+
+## While the flow runs
+
+After every smith or warden segment, measure its transcript and add the numbers and what they say to #89. The two changes already being trialled are per-phase smith spawns and scripted multi-file edits; compare each phase of #79 against #78's single segment.
 
 ## Order inside a ticket
 
