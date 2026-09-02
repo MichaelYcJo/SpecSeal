@@ -10,7 +10,7 @@ review orchestrator after the report was verified and the broad gate ran. -->
 | Target SHA | 4250a71 (the fix diff is e19c9ee..9717028; 4250a71 is round-3's record edit only) |
 | PR | #90 |
 | Broad gate | 4250a71 vs origin/release/v0.4.0 — `pytest tests/ -n auto` 1298 passed · 1 skipped, `ruff check .` clean, `ruff format --check .` 78 files formatted, `evidence_check.py --strict .` 220 ok · 0 drifted · 0 broken, `unverified_check.py --baseline` exit 0 (13 overviews · 30 open · 13 closed · 0 unreadable). The delta after the run is this record, round-2's separator cell, round-3's `Fixes checked by` cell and `pr.ko.md` — docs-only, the non-invalidating class |
-| Fixes checked by | nobody — 🔴 M was opened by CI after this record was written and its fix pass has just landed; round-5 is the verifying round and sets this cell |
+| Fixes checked by | round-5 |
 | Contract changes | none — the fix for 🔴 M changed no unit's signature or callers; `tests/conftest.py#shell_probe` gains one more caller |
 | New units | none — the fix for 🔴 M added no top-level def, constant or test function |
 | Needs a fix | yes — 🔴 M, opened by PR #90's windows CI leg after the reviewer answered `no`: the by-hand README test ran its block through cmd.exe |
