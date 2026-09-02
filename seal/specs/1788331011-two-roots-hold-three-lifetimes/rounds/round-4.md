@@ -8,14 +8,14 @@ review orchestrator after the report was verified and the broad gate ran. -->
 | Field | Value |
 |---|---|
 | Target SHA | 4250a71 (the fix diff is e19c9ee..9717028; 4250a71 is round-3's record edit only) |
-| PR | not yet opened |
+| PR | #90 |
 | Broad gate | 4250a71 vs origin/release/v0.4.0 — `pytest tests/ -n auto` 1298 passed · 1 skipped, `ruff check .` clean, `ruff format --check .` 78 files formatted, `evidence_check.py --strict .` 220 ok · 0 drifted · 0 broken, `unverified_check.py --baseline` exit 0 (13 overviews · 30 open · 13 closed · 0 unreadable). The delta after the run is this record, round-2's separator cell, round-3's `Fixes checked by` cell and `pr.ko.md` — docs-only, the non-invalidating class |
-| Fixes checked by | no fixes to check |
-| Contract changes | none — this round wrote no fixes |
-| New units | none |
-| Needs a fix | no |
+| Fixes checked by | nobody — 🔴 M was opened by CI after this record was written and its fix pass has just landed; round-5 is the verifying round and sets this cell |
+| Contract changes | none — the fix for 🔴 M changed no unit's signature or callers; `tests/conftest.py#shell_probe` gains one more caller |
+| New units | none — the fix for 🔴 M added no top-level def, constant or test function |
+| Needs a fix | yes — 🔴 M, opened by PR #90's windows CI leg after the reviewer answered `no`: the by-hand README test ran its block through cmd.exe |
 
-- [x] Pass
+- [ ] Pass
 
 ## Verdicts
 
@@ -27,7 +27,10 @@ review orchestrator after the report was verified and the broad gate ran. -->
 | 🟢 K | no `.specseal/` at all and a linked `specs/` full of items is silent and unstamped, while the same tree with a real `specs/` moves and stamps | `hooks/root-migrate.py#main` (the "nothing old left" branch runs before the link check) | record only — no fix | executed both shapes; nothing of SpecSeal's is behind the link (no ledger exists), and the spec's *nothing old left* row covers it as written. Reading says the link line appears once a `.specseal/` shows up (a branch switch); not executed |
 | 🟢 L | the item filter `ITEM_RE.match(n) and os.path.isdir(…)` is written twice, in `old_items` and in the link refusal | `hooks/root-migrate.py#old_items`, `#main` | nit, no fix | read; a drift between the two would make the refusal and the move disagree on what an item is |
 | 🟢 3-fix-surface | round-3's `Contract changes: none` and `New units` (one test) | `rounds/round-3.md` | truthful | `old_items` has three uses, all inside the hook; `main` is reached from `hooks/dispatch.py` and the test's `start()` only (grep over `hooks tests skills`); the test fails against e19c9ee on its first assertion with the hook's line and writes only under `tmp_path` |
-| ❓ 2-G, ❓ 1-a, 🟢 1-10 | the deferred items | — | still deferred | CI's legs; the PR body |
+| 🔴 M | `test_the_readmes_by_hand_sequence_yields_the_hooks_tracked_set` ran the README's bash block with `shell=True`, which is cmd.exe on Windows, so the hand copy stayed unchanged and both parametrizations failed on PR #90's windows leg (2 failed · 1279 passed · 18 skipped) | `tests/test_the_root_migrates_itself.py#test_the_readmes_by_hand_sequence_yields_the_hooks_tracked_set` | fixed — cbf6a4e: the test executes `conftest.py#shell_probe("bash")` first and skips with its reason where bash is not a shell, then runs each line as `bash -c`; the skip path executed against a stub bash that exits 1 | opened by CI (run 33628905815), not by the reviewer; the house pattern from PR #68 |
+| ❓ 1-a | round-1 ❓ a (Windows porcelain / pathspec in the hook) | `hooks/root-migrate.py#dirty` | answered — the hook's own migration tests passed on the windows leg | executed by CI, run 33628905815 |
+| ❓ 2-G | round-2 ❓ G (case-insensitive filesystems) | `hooks/root-migrate.py#tracked_names` | answered — the macOS leg passed | executed by CI, run 33628905815 |
+| 🟢 1-10 | the eight defaults of questions.md | `questions.md` | answered — named in PR #90's body | read |
 
 ## Executed probes
 
@@ -55,8 +58,5 @@ review orchestrator after the report was verified and the broad gate ran. -->
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| 🟢 1-10 the eight defaults of questions.md | the PR body, at opening | the orchestrator |
-| ❓ 1-a Windows porcelain / pathspec | CI's windows leg on the PR | CI |
-| ❓ 2-G case-insensitive filesystems | CI's macOS / Windows legs on the PR | CI |
 | 🟢 K the no-`.specseal/` asymmetry | this record only; the spec's *nothing old left* row covers it | nobody — recorded |
 | 🟢 L the filter written twice | this record only | nobody — recorded |
