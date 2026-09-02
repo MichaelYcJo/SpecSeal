@@ -111,7 +111,7 @@ Cross-session memory lives in the repo, not the session:
 ├── map.md            spec clause ↔ code coordinates, from before work items
 │                     started writing fragments
 ├── map/
-│   └── <work-item-id>.md   one work item's rows — no header, never gathered
+│   └── <work-item-id>.md   one work item's rows — no header, folded into map.md at release
 ├── parity.md         migration config, only when declared
 └── follow-up.md      schedulable items in a repository with no tracker
 ```
