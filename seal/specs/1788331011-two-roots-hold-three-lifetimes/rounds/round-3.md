@@ -10,7 +10,7 @@ five `fixed` verdicts and the four planted tests as a finding surface. -->
 | Target SHA | b591ba1 (the fix diff is 207b432..bc11b81; b591ba1 is round-2's record edit only) |
 | PR | not yet opened |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fix pass for 🟡 H had not run when this record was written; round-4 is the verifying round and sets this cell |
+| Fixes checked by | round-4 |
 | Contract changes | none — `hooks/root-migrate.py#main`'s body gained a refusal; no signature or module-level name changed (reach grep over `hooks tests skills docs README*`: `old_items` and `main` have no caller outside the hook and its test) |
 | New units | `tests/test_the_root_migrates_itself.py#test_a_symlinked_specs_holding_work_items_is_refused_not_half_moved` (planted at bb6c5e3); no new top-level def or constant in the hook |
 | Needs a fix | yes — 🟡 H (a `specs/` symbolic link half-moves under a stamp with a broken ledger; the caller may instead record it with 🟡 A's grounds, which turns this line to `no`) |
