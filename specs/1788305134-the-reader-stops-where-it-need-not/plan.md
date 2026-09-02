@@ -57,7 +57,7 @@ them for that reason.
 | 2 | The aimed reset proven or corrected: a differential run of the wide reset against the aimed one over compound-command shapes, every newly resolved input checked against bash | **Executed**: 1,790 inputs, bash 3.2.57 as oracle — 82 fail-opens, two families, both closed; re-run 0 fail-open, 0 lost | 9ea31d8 |
 | 3 | The body count, the prefix refusal in `understood`, the blind-sweep pin, with tests; 7 mutations of the new mechanism each red | S10 · S11 · S12; 301 passed in the scope; `ruff check` and `ruff format --check` clean | 9ea31d8 |
 | 4 | The SDD set, `changelog.md`, the ledger fragment with content anchors, `evidence-check --strict` at 0 broken | the checker's own output — 104 ok · 0 broken; `unverified-check --baseline origin/release/v0.3.0` — 4 open, each with an answerer, 0 unreadable | 0903bfe |
-| 5 | Round 1's fixes: the body stack, the function-call reset, the array and the three writers, openers in command position; the differential in the tree as `tests/test_the_reader_agrees_with_bash.py` | S13–S17; 10 mutations of the new mechanism each red; the in-tree differential (25 × 27 inputs, bash 3.2.57) and a scratch differential of 2,109 inputs against the reader at `dd7e45e` — 0 fail-open now, 124 there, 0 resolutions lost | |
+| 5 | Round 1's fixes: the body stack, the function-call reset, the array and the three writers, openers in command position; the differential in the tree as `tests/test_the_reader_agrees_with_bash.py` | S13–S17; 10 mutations of the new mechanism each red; the in-tree differential (25 × 27 inputs, bash 3.2.57) and a scratch differential of 2,109 inputs against the reader at `dd7e45e` — 0 fail-open now, 124 there, 0 resolutions lost | f0442a7 |
 
 ## Operational impact
 

@@ -16,8 +16,15 @@
   opened: a body's SECOND statement arrived as a top-level assignment and
   bound, so `if false; then echo hi; SB=/three; fi; git -C "$SB"` answered
   `/three` where bash has `/one`; and `! for SB in …` passed as a simple
-  command because only the first word met the reserved-word test. A body
-  count runs beside the name environment now, and a statement inside a
-  body is forgotten rather than bound; the re-run is 1,790 inputs and 0
-  mismatches with bash. `agents/warden.md` and `agents/scribe.md` say how
-  to write a scratch-repo probe that commits without raising the prompt.
+  command because only the first word met the reserved-word test. A stack
+  of open bodies runs beside the name environment now, and a statement
+  inside a body is forgotten rather than bound — a stack, because a
+  multi-line `case` puts its arm pattern `a )` where a subshell's closer
+  stands and an integer count took it for one. A call to a function the
+  string itself defined empties the names it holds, an array assignment
+  `SB=(x)` empties the name rather than binding `(x)`, and `((SB=…))`,
+  `let` and `${SB:=…}` forget it. The differential that found all of this
+  is in the tree as `tests/test_the_reader_agrees_with_bash.py`: whatever
+  the reader answers, bash must answer the same, and a prompt is exempt.
+  `agents/warden.md` and `agents/scribe.md` say how to write a scratch-repo
+  probe that commits without raising the prompt.
