@@ -343,7 +343,8 @@ git mv .specseal/map seal/ledger             # 있을 때만
 git mv .specseal/README.md seal/README.md    # 그다음 templates/seal-README.md 로 덮어쓴다
 git mv .specseal/follow-up.md seal/          # parity.md 와 그 안의 나머지도 같이
 git mv specs/<id> seal/specs/<id>            # 작업 항목마다
-evidence-check .                             # 고쳐 써야 할 대조표 행을 알려 준다
+rmdir .specseal specs                        # git mv 는 빈 디렉터리를 디스크에 남긴다
+evidence-check .                             # 옮겨진 파일을 가리키는 행과 그 파일이 간 곳을 알려 준다
 ```
 
 ## 처음 실행

@@ -351,7 +351,8 @@ git mv .specseal/map seal/ledger             # if it exists
 git mv .specseal/README.md seal/README.md    # then overwrite it from templates/seal-README.md
 git mv .specseal/follow-up.md seal/          # and parity.md, and anything else in there
 git mv specs/<id> seal/specs/<id>            # each work item
-evidence-check .                             # names the ledger rows to re-point
+rmdir .specseal specs                        # git mv leaves them empty on disk
+evidence-check .                             # names each row citing a moved file, and where it went
 ```
 
 ## First run
