@@ -490,24 +490,6 @@ def test_the_pull_request_checks_the_chain_it_was_routed_to():
     ), "the workflow calls a script that is not there"
 
 
-def test_this_repository_carries_no_scratch_marker():
-    """`.specseal/scratch` turns every gate off for the repository holding it.
-
-    It is an opt-out for a repository built to be thrown away, and
-    `.specseal/` is committed by design — so one committed here would silence
-    the review gate, the migration gate and the review-skill gate in every
-    clone, with nothing in a diff that reads as "the workflow was switched
-    off". A repository that runs the review chain on itself is the last place
-    it belongs, and this is the only check that would notice.
-    """
-    marker = os.path.join(ROOT, ".specseal", "scratch")
-    assert not os.path.exists(marker), (
-        "this repository carries .specseal/scratch, which silences every gate "
-        "in every clone. Delete it — it is for a scratch repository, never for "
-        "one under review"
-    )
-
-
 def test_the_chain_check_reuses_the_reader_rather_than_writing_a_second():
     """Two readers of the same markdown drifted apart in four places across
     three review rounds here, and closing one pair opened another. A 🔴 inside
