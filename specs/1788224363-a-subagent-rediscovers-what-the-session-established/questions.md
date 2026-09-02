@@ -8,12 +8,20 @@ NEW rules belong here. -->
 
 | # | Question | Options & what each implies | Default until answered | Status |
 |---|---|---|---|---|
-| Q1 | The `batching` advisory prints below 1.2 tools per turn. The pre-fix meter could not read above ~1.00, so the threshold was never really exercised; the corrected meter reads 1.08–1.89 on real segments, and issue #29's acceptance bar for a review segment is ≥ 2.0. Where does the advisory threshold sit? | **Keep 1.2** — the line stays a nudge for near-serial runs, and the wording now distinguishes exactly-1.00 ("one at a time") from above-1 ("most turns send a single call"). Costs nothing to a serial edit-test loop, which the contracts say is not forced to fake batching. **Raise to 2.0** — the advisory matches the acceptance bar, but then an inherently serial loop at 1.1 is told to batch on every run, which is the demand the smith's contract caveat exists to remove | Keep 1.2. The acceptance bar on the issue is for reviewing segments, where reads are independent; the script cannot tell a reviewer's transcript from an edit-test loop, so its advisory stays at the value that does not nag the serial case. Answered by: repository owner | ⬜ |
+| Q1 | The `batching` advisory prints below 1.2 tools per turn. The pre-fix meter could not read above ~1.00, so the threshold was never really exercised; the corrected meter reads 1.08–1.89 on real segments, and issue #29's acceptance bar for a review segment is ≥ 2.0. Where does the advisory threshold sit? | **Keep 1.2** — the line stays a nudge for near-serial runs, and the wording now distinguishes exactly-1.00 ("one at a time") from above-1 ("most turns send a single call"). Costs nothing to a serial edit-test loop, which the contracts say is not forced to fake batching. **Raise to 2.0** — the advisory matches the acceptance bar, but then an inherently serial loop at 1.1 is told to batch on every run, which is the demand the smith's contract caveat exists to remove | **Answered by the repository owner: keep 1.2** — the default stood on its own grounds. The acceptance bar on the issue is for reviewing segments, where reads are independent; the script cannot tell a reviewer's transcript from an edit-test loop, so its advisory stays at the value that does not nag the serial case | ✅ |
 
-**Who answers Q1**: the repository owner — the threshold is a value every
-future run is measured against, and the issue's own comment says a target is
-a decision nobody has made yet ("1.00 is the measurement; nobody has said
-what good looks like").
+**Q1 was answered on 2026-09-01 by the repository owner**: keep 1.2.
+`session_cost.py` is unchanged. The same decision approved written bars for
+the numbers the advisory cannot judge — a reviewing segment at tools per
+turn ≥ 1.8, an implementing segment on `repeats = 0` and calls per
+deliverable, a verifying segment exempt — now in
+`docs/review-handoff-protocol.md` §After the run. Recorded by work item
+`1788277657-one-bar-misreads-two-of-the-three-segment-kinds`.
+
+**Who answers Q1** (as asked): the repository owner — the threshold is a
+value every future run is measured against, and the issue's own comment says
+a target is a decision nobody has made yet ("1.00 is the measurement; nobody
+has said what good looks like").
 
 **Asked and answered before this file existed**: routing (all three axes, in
 `routing.md`), the PR's target branch (`release/v0.0.2`), and the five-piece

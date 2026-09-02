@@ -135,6 +135,10 @@ def record(sha, checked_by, verdict="fixed", finding="🟢 1", passed=True):
     `Pass` beside `nobody` refusal.
     """
     who = f"| Fixes checked by | {checked_by} |\n" if checked_by is not None else ""
+    # The fix-surface rows are `none` so a failure can only come from the row
+    # each case is about; `STRICT_ITEM` began after `SURFACE_FROM`, so leaving
+    # them out would fail every record for a rule this file is not pinning.
+    who += "| Contract changes | none |\n| New units | none |\n"
     return (
         "# a round\n\n"
         f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n{who}\n"
