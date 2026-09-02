@@ -602,6 +602,30 @@ def test_a_symlinked_specseal_is_refused_not_half_moved(hook, repo):
         assert not stamped(hook, repo)
 
 
+def test_a_symlinked_specs_holding_work_items_is_refused_not_half_moved(hook, repo):
+    """Round 3's 🟡 H — 🟡 A on the other root. Git tracks `specs` as one
+    blob, so it lists no work items: the home moved, the work item was called
+    "not tracked as a SpecSeal work item" and left, its rows were re-pointed
+    to a `seal/specs/<id>/` that does not exist, and the marker was stamped —
+    a half-move with the ledger left BROKEN and the next start silent. The
+    link is refused after the unit and marker checks, every session start,
+    nothing moves, no row is re-pointed and nothing is stamped."""
+    git(repo, "mv", "specs", "items")
+    os.symlink("items", repo / "specs")
+    git(repo, "add", "specs")
+    git(repo, "commit", "-qm", "the work items are behind a link")
+    assert (repo / "specs" / ITEM / "routing.md").is_file()
+    ledger = (repo / ".specseal" / "map.md").read_text(encoding="utf-8")
+    for _ in range(2):
+        out = message(start(hook, repo))
+        assert "specs/ is a symbolic link holding work items" in out, out
+        assert "Coming up from 0.3.x" in out and "remove the link" in out, out
+        assert not (repo / "seal").exists()
+        assert (repo / "items" / ITEM / "routing.md").is_file()
+        assert (repo / ".specseal" / "map.md").read_text(encoding="utf-8") == ledger
+        assert not stamped(hook, repo)
+
+
 def test_when_git_ls_files_cannot_answer_the_move_is_refused_as_dirty(
     hook, repo, monkeypatch
 ):

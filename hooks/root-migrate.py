@@ -49,6 +49,10 @@ Boundaries, each pinned in `tests/test_the_root_migrates_itself.py`:
   - **a throwaway repository is left alone** — `.specseal/scratch` used to say
     so, and a repository still carrying it is not moved; the marker's
     successor is `.git/specseal-scratch`
+  - **a symbolic link is refused, not half-moved** — git tracks a link as one
+    blob, so a linked `.specseal/` or a linked `specs/` holding work items
+    lists no units; either is refused with a line naming the by-hand
+    section and nothing is stamped
   - **silent when there is nothing to do**
 """
 
@@ -468,6 +472,23 @@ def main():
         say(
             "specseal: .specseal/scratch says this repository is throwaway — "
             "not migrating it. Delete the file if it is not."
+        )
+        return
+    if os.path.islink(under(root, OLD_ITEMS)) and any(
+        ITEM_RE.match(n) and os.path.isdir(under(root, f"{OLD_ITEMS}/{n}"))
+        for n in old_items(root)[1]
+    ):
+        # The same blob on the other root. Git lists no work items behind
+        # the link, so the home would move, the items would be named as
+        # "not tracked" and left, their rows re-pointed to a `seal/specs/`
+        # that never appears, and the marker stamped over a broken ledger.
+        # After the unit and marker checks, so a migrated repository stays
+        # silent; a linked `specs/` holding no work items is not SpecSeal's
+        # name and is not refused.
+        say(
+            f"specseal: {OLD_ITEMS}/ is a symbolic link holding work items, which "
+            "git tracks as the link and not as its files — not moving it. Move by "
+            'hand (README, "Coming up from 0.3.x") and remove the link.'
         )
         return
     if dirty(root):
