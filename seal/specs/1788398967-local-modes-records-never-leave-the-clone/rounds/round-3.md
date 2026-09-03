@@ -12,7 +12,7 @@ Written by the review orchestrator, which did not implement this work item. -->
 | PR | none yet |
 | Broad gate | not yet — a 🔴 was open |
 | Fixes checked by | round-4 |
-| Contract changes | `write_zip` opens its temporary name with `O_EXCL`. `unused` reads candidates with `lexists`. `unsafe` bounds the manifest's size. `import_` bounds the member count, runs the checks in one order (count, bytes, names, data, manifest) and refuses a name the zip needs as a directory that is a file. `write_members` returns a third value naming what the write turned down. `read_manifest`'s docstring stops claiming it never raises |
+| Contract changes | `write_zip` → `export`; `unused` → `export`; `unsafe` → `import_`; `blocked_path` → `import_`; `import_` → `main`; `write_members` → `import_`, `tests/test_the_records_can_be_carried_out_and_in.py`; `read_manifest`'s docstring → none, prose only |
 | New units | `blocked_path`, `MEMBER_COUNT_LIMIT`, the `refused` list, and nine test cases |
 | Needs a fix | yes — 🔴 1 (`seal export` writes every record outside the clone through a link at `<stem>.zip.partial`, exit 0), 🟡 2 (`unused` kept `exists`), 🟡 3 (a name the zip needs as a directory and the root holds as a file crashes mid-write), 🟡 4 and 🟡 5 (a corrupt manifest, an encrypted member and an unknown compression method each reach the console as a traceback), 🟡 6 (round 2's 🟡 2 did not close for the case it measured), 🟡 7 (the reorder is covered by no case), 🟡 8 (neither bound counts members), 🟡 9 (a record the write turns down is dropped in silence), 🟡 10 (three documented claims the code does not support) |
 

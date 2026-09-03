@@ -12,12 +12,12 @@ work item. -->
 | Target SHA | 3f2a7b1 (the fix diff from d420708); 80e5d08 is round 4's record and carries no code |
 | PR | none yet |
 | Broad gate | due after this record — see the row below, filled in at the gate's commit |
-| Fixes checked by | nobody — this is the cap, and the orchestrator verified each closure by executing it |
-| Contract changes | `normalise_remote` reads a non-string as "". The closing line reads `head` and `exported_at` for their type. `import_`'s manifest size bound matches `manifest.json/` as well |
+| Fixes checked by | round-6 |
+| Contract changes | `normalise_remote` → `import_`; `import_` → `main` |
 | New units | none — three conditions, two comments, four test cases |
 | Needs a fix | no |
 
-- [x] Pass
+- [ ] Pass
 
 Five rounds, three escapes, and the curve is unambiguous. Rounds 1, 2 and 3
 each ended with a record outside the root — the member's own name, the name a
@@ -25,9 +25,11 @@ collision falls back to, the name the export writes through. Round 4 found no
 escape and three crashes. Round 5 found no escape, no crash the change had
 caused, and one the change had walked past.
 
-`Fixes checked by` is `nobody` and that is the cap's meaning: no round reads
-7cc4fb3. What stands in for one is that every condition it changed was
-reverted against its case, and each reddened alone.
+`Needs a fix: no` and the fixes still get a reader. The chain checker
+refuses a `Pass` beside `Fixes checked by: nobody`, and it is right to: a run
+cannot say it passed while the fixes that closed its findings were opened by
+nobody. A round that opens nothing needing a fix does not consume the cap, so
+round 6 reads 7cc4fb3 and this record names it.
 
 ## Verdicts
 

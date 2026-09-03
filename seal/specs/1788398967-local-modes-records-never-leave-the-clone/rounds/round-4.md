@@ -11,7 +11,7 @@ the review orchestrator, which did not implement this work item. -->
 | PR | none yet |
 | Broad gate | not yet — round 5 verifies these fixes, and the one broad run comes after it |
 | Fixes checked by | round-5 |
-| Contract changes | `write_zip` opens the temporary name outside its cleanup. `blocked_path` asks `lexists and not isdir`. `unsafe` no longer bounds the manifest's size; `import_` does, and reads the format before the names. `import_` catches `OSError` from `write_members`, and gives the clash two messages |
+| Contract changes | `write_zip` → `export`; `blocked_path` → `import_`; `unsafe` → `import_`; `import_` → `main` |
 | New units | `fifo_or_skip` in `conftest.py`, and five test cases |
 | Needs a fix | yes — 🟡 1 (the refusal removes what it refused), 🟡 2 (`isfile` is not the question `makedirs` answers), 🟡 3 (the write loop has no guard), 🟡 4 (the format message is spoken over by the name message), 🟡 5 (a clash inside the zip gets the root's remedy), 🟡 6 (the Korean README names one side of two), 🟡 7 (a line of output is in no acceptance criterion) |
 
