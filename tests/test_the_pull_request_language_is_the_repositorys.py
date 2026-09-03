@@ -1161,8 +1161,12 @@ ROW_READERS = [
     ("skills", "implement", "SKILL.md"),
     ("skills", "commit-pr-convention", "SKILL.md"),
     ("skills", "code-review", "SKILL.md"),
+    # Phase 3 of #107 re-pointed the warden's row here: the record-language
+    # section was in two definitions in near-identical words and in the third
+    # not at all, and it is §11 of the agent contract now. `agents/smith.md`
+    # still carries its copy; phase 4 moves that one.
+    ("skills", "agent-contract", "SKILL.md"),
     ("agents", "smith.md"),
-    ("agents", "warden.md"),
 ]
 
 

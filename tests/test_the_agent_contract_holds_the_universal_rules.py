@@ -49,6 +49,7 @@ PINS = {
     13: "until the guarantee is removed and the code still refuses",
     14: "In the same commit",
     15: "before it is committed as a case",
+    16: "`$(git rev-parse --git-common-dir)/seal/` otherwise",
 }
 
 
@@ -165,6 +166,26 @@ def test_the_exit_code_rule_carries_both_forms_in_one_sentence():
     assert "cmd | tail; echo $?" in sentence
     assert "never" in sentence
     assert "always 0" in sentence
+
+
+def test_the_root_resolution_rule_says_why_it_is_universal():
+    """§16, added by phase 3 as the next number rather than folded into §11.
+
+    `spec.md`'s universal table has no row for it, so the grounds are stated
+    in the section itself and in `overview.md`: §11 sends an agent to
+    `config.md` under the `seal/` root and never says where the root is, and
+    the definition that carried no copy is the one that reads `seal/parity.md`
+    through `legacy-parity`."""
+    body = bodies(read())[16]
+    assert "means `<repo>/seal/` where" in body, (
+        "§16 lost the shared-mode half; a session reading only the fallback "
+        "writes into the common git directory of a repository that committed "
+        "its root"
+    )
+    assert "§11 cannot be followed without it" in " ".join(body.split()), (
+        "the grounds for calling this universal went, and a section with no "
+        "grounds is the next one somebody folds back into a definition"
+    )
 
 
 def test_the_method_lessons_moved_in():

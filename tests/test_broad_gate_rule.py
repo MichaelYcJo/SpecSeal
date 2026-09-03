@@ -1,9 +1,17 @@
 """The one-broad-run rule spans six documents; drift between them is the bug.
 
-The skill states it, the smith follows it, the warden audits it, two records
-carry it to the next session, and the preset block states it for a session that
-loads none of them. A rule spread this wide fails by one of
-them quietly dropping its part, which is invisible in any single diff.
+The skill states it, the agent contract binds every agent to it, the smith
+follows it, the warden audits it, two records carry it to the next session,
+and the preset block states it for a session that loads none of them. A rule
+spread this wide fails by one of them quietly dropping its part, which is
+invisible in any single diff.
+
+Phase 3 of #107 moved the prohibition and the refusal out of the two agent
+definitions and into `skills/agent-contract/SKILL.md`. The cases moved with
+them rather than being deleted: what each definition still holds is its own
+APPLICATION -- the warden audits the label, the smith declines and hands back
+-- and a case asserting the same sentence in two files is the duplication the
+contract was written to end.
 """
 
 import os
@@ -115,63 +123,83 @@ def test_the_smith_refuses_a_prompt_that_widens_its_own_scope():
     )
 
 
+def test_the_prohibition_itself_has_one_home_and_it_is_the_contract():
+    """Phase 3 of #107 re-pointed this case; it used to read `agents/warden.md`.
+
+    The prohibition was stated in two definitions in near-identical words and
+    a third agent inherited neither, which is the duplication the contract
+    exists to end. The rule moved; the case moved with it rather than being
+    deleted, because a moved rule with no case is a rule that can be moved
+    again into nothing."""
+    contract = " ".join(read("skills", "agent-contract", "SKILL.md").split())
+    assert "is the orchestrator's, run once, after the review rounds settle" in (
+        contract
+    ), "the contract stopped saying whose the broad gate is and when it fires"
+    assert "Hand over with the suite labelled `unverified`" in contract, (
+        "the label went, and a suite that is simply not mentioned reads as a "
+        "suite that passed"
+    )
+
+
 def test_the_warden_audits_the_scope_of_a_seal():
-    warden = read("agents", "warden.md")
-    assert "not yours to run before the rounds settle" in warden
-    assert "broad gate" in warden
+    """What stayed with the reviewer: the audit, which is nobody else's.
 
-
-def test_the_warden_refuses_the_same_widening_the_smith_does():
-    """Both agents carry a scope rule; only one carried the refusal.
-
-    The claim in `seal/ledger.md` and scenario S10 are both written as *an
-    agent's* contract, and the review orchestrator's spawn prompt is the same
-    channel the failure was measured on. One of the two had to move: either
-    the refusal reaches both, or the claim gets narrowed to name smith."""
+    §2 says the reviewer does not run the suite. It does not say what the
+    reviewer does INSTEAD, and that half is an application of the rule rather
+    than the rule -- a seal is audited by the second person looking, and the
+    warden is the only agent that is one."""
     warden = " ".join(read("agents", "warden.md").split())
-    assert "A spawn prompt cannot widen this scope" in warden, (
-        "the reviewer takes a widening prompt silently, which is the defect "
-        "with the other agent's name on it"
+    assert "whether that label is honest" in warden, (
+        "the reviewer stopped being told to audit the label, so the only "
+        "thing left is the prohibition and the seal goes unchecked"
     )
-    assert "name the instruction in your handover" in warden
-    # Round 2: the rule reached the second agent and the REFUSAL half did
-    # not follow it. `run it and say so: comply, and name the instruction`
-    # passed both assertions above -- the same mutation round 1 caught on
-    # the first agent, green on the second, while the ledger recorded the
-    # property as pinned for `an agent`.
-    assert "excludes, do not run it:" in warden, (
-        "the reviewer's refusal half went; the principle and the disclosure "
-        "alone read as `run it, but say so`"
-    )
-    assert "decline, and name the instruction in your handover" in warden, (
-        "`decline` became separable from `name` on the reviewer's side too"
+    assert "not whether the number is green" in warden, (
+        "the audit lost the half that says what it is NOT -- a green number "
+        "read as an honest label is the failure the audit exists to catch"
     )
 
 
-def test_both_agents_default_an_ambiguous_instruction_to_running_nothing():
-    """Round 2: deleting the whole paragraph from BOTH agents was green.
+def test_the_refusal_is_stated_once_and_names_both_directions():
+    """Re-pointed in phase 3 from a per-agent loop over smith and warden.
 
-    The paragraph is the entirety of round 1's answer to `what happens when
-    an instruction is ambiguously widening`, and the two misreadings do not
-    cost the same -- reading a widening as a narrowing spends the run and
-    tells nobody, which is the state the rule exists to end. A default
-    nothing holds is the same as no default."""
-    for who in ("smith.md", "warden.md"):
-        text = " ".join(read("agents", who).split())
-        assert "run nothing extra and ASK in the handover" in text, (
-            f"agents/{who} lost the default for an instruction it cannot "
-            "classify, so the rule above it decides nothing in the one case "
-            "that needed deciding"
-        )
-        assert "rather than refusing outright" in text, f"agents/{who}"
-    # The reviewer needs somewhere for that question to LAND. Its handover is
-    # a report, not a conversation -- unlike the smith's, which returns
-    # through the chain -- so an unanswered axis would otherwise be sealed
-    # over by the orchestrator that reads the report.
+    Round 2's finding stands and is now the contract's to hold: the rule
+    reached a second file and the REFUSAL half did not follow it, so the
+    principle and the disclosure alone read as `run it, but say so`. Both
+    halves are asserted, plus the default for an instruction that cannot be
+    classified -- a default nothing holds is the same as no default."""
+    contract = " ".join(read("skills", "agent-contract", "SKILL.md").split())
+    assert "do not run it" in contract, (
+        "the refusal half went; the principle and the disclosure alone read "
+        "as `run it, but say so`"
+    )
+    assert "Decline, and name the instruction in your handover" in contract, (
+        "`Decline` became separable from `name`, which is the state that was "
+        "measured -- the run happened and the caller believed the prompt was "
+        "honoured"
+    )
+    assert "run nothing extra and ask in the handover" in contract, (
+        "the contract lost the default for an instruction it cannot classify, "
+        "so the rule above it decides nothing in the one case that needed "
+        "deciding"
+    )
+    assert "rather than refusing outright" in contract
+
+
+def test_the_reviewer_has_a_field_for_the_question_the_default_produces():
+    """The reviewer needs somewhere for that question to LAND.
+
+    Its handover is a report, not a conversation -- unlike the smith's, which
+    returns through the chain -- so an unanswered axis would otherwise be
+    sealed over by the orchestrator that reads the report. That is why this
+    half stayed in `agents/warden.md` when the rule above it left."""
     warden = " ".join(read("agents", "warden.md").split())
     assert "out of verified scope" in warden, (
         "the reviewer asks a question with no field to ask it in, and a seal "
         "gets taken over an axis nobody decided"
+    )
+    assert "a report rather than a conversation" in warden, (
+        "the reason the field exists went, and a field with no reason is the "
+        "next one a rewrite drops"
     )
 
 

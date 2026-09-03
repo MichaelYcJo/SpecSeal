@@ -179,7 +179,9 @@ gate reads a heredoc body as shell, on purpose, and two kinds of segment
 count. One is a segment whose command word is `git` with the `commit`
 subcommand, whatever the outer command does with the body — a patch to a
 file carrying shell commands as test data, or to a document showing a waiver
-example verbatim, can leave one there. The other has no commit in it at all:
+example verbatim, can leave a commit in command position. That is why a whole
+fixture file is clean and a fragment of one is not: what counts is the
+position, never the presence of the word. The other has no commit in it at all:
 an `eval` whose argument holds a variable, a command substitution or a glob
 stops the session, because nothing can tell what it reduces to without
 running the shell, and the gate fails closed. So searching your patch for a
@@ -240,3 +242,19 @@ very defect it was written for, and reverting the fix is the only thing that
 has ever caught one. Show the case failing — against the old code, or with
 the sentence it pins deleted — before it is committed as a case, and say in
 the handover how it was shown.
+
+## §16 Where a `seal/…` path resolves
+
+Every `seal/…` path here and in the skills means `<repo>/seal/` where that
+directory exists, and `$(git rev-parse --git-common-dir)/seal/` otherwise —
+local mode, where the root sits under the common git directory and nothing
+under it is committed. A repository with both is shared, and no config key is
+read to decide it.
+
+This is here because §11 cannot be followed without it: that section sends
+you to `config.md` under the `seal/` root and says nothing about where the
+root is. Two definitions carried the sentence in identical words and the
+third carried none, which is §11's own missing-copy failure one file over —
+and the agent without it is the one that reads `seal/parity.md` through
+`legacy-parity`. No role needs an exception to it, which is the test this
+file applies to itself.

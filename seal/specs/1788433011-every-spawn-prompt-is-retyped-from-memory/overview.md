@@ -34,6 +34,9 @@ prompt holding only what is specific to the round.
 | What phase 1 touches | `plan.md`'s phase-1 row names the contract, its test and the wrap list | both READMEs' skills row edited too (22 → 23, on-demand 11 → 12, `agent-contract` listed) | `tests/test_chain_hooks_hardening.py` derives the README's skill count from the `skills/*/SKILL.md` glob, so a new skill is red in both editions until the row moves. Phase 2 moves the name again, into the agents column, and the preloaded group becomes five — a spelling that test does not yet carry |
 | The opening line's first clause | `spec.md` decided *Read the agent contract before your first tool call* | rewritten to *The agent contract binds you, and you already have it* — `agent-contract` is in the `skills:` list above, so it arrived at startup | Q1 answered B′, where nothing is read and no path is resolved. An imperative to go and read it describes a delivery this work item measured and did not build, and it contradicts the contract's own first paragraph — *You received this file at startup*. `spec.md` carries the new text, so the decided sentence and the three definitions are one string, which is what `test_every_agent_reads_the_contract.py`'s identity case holds them to |
 | What a pin is | `plan.md` phase 1: *one phrase per section that cannot survive the drift it guards* | the pin is a sentence from the section's BODY, matched inside that section only; the heading is excluded by construction | the first draft pinned eight headings, and the move check was red for the wrong reason: a heading that outlives its rule satisfied the pin. `tests/test_the_agent_contract_holds_the_universal_rules.py`'s docstring records it |
+| Where the `seal/…` root rule lives | `spec.md`'s universal table has no row for it, and phase 1 declined to add a section because the split is decided in the spec rather than by an implementer | **contract §16**, appended as the next number; `agents/warden.md` gives its copy up | §11 is already in the contract and sends an agent to `config.md` *under the `seal/` root* without saying where the root is, so the contract could not be followed as it stood. The rule needs no per-role exception, which is the universality test the contract applies to itself. And the definition that carried no copy — `agents/scribe.md` — is the one that reads `seal/parity.md` through `legacy-parity`, which is §11's own missing-copy failure one file over. `spec.md` is left as written: a divergence row is how a difference between spec and tree is recorded, and editing the table would erase the thing being recorded. Phase 4 follows this for `agents/smith.md` |
+| §9's account of what the gate counts | phase 1 condensed the two agent paragraphs into §9 | the phrase *command position* restored, with the sentence that a whole fixture file is clean and a fragment of one is not | found by re-pointing `test_edits_go_through_the_edit_tool.py` at the contract: the case went red because the condensation had dropped the half that explains why only some fragments trip. Without it a reader cannot apply the command-word rule to their own patch |
+| The warden's paste-ready fix | `agents/warden.md` said *a paste-ready fix for blocking items* | *each 🔴 and each 🟡* | narrower than the format the same sentence points at. `skills/code-review/SKILL.md:345` makes 🟡 *fix or justify* rather than blocking, and `:351` already asks for a paste-ready fix for both — read, this session |
 
 ## Not verified
 
@@ -55,6 +58,18 @@ prompt holding only what is specific to the round.
   `tests/test_docs_line_wrap.py`.** Their prose maxima are 148 and 160
   columns; bringing them under is a sweep that would bury this diff. The
   contract itself is written wrapped and joins `COVERED` at birth.
+
+  Phase 3 measured the ground under that sentence and it has shrunk. After
+  the move `agents/scribe.md` has exactly **one** prose line over the limit
+  (`:22`, 160 columns) — not a sweep, a rewrap. `agents/warden.md` is already
+  covered and its two long lines are table rows, which the check excludes.
+  The decision still stands, for a different reason than the one `spec.md`
+  gave: *at birth* is the precedent for a file written wrapped from its first
+  line, this file is not being born, and adding a path to `COVERED` changes
+  what a test guards — which `CONTRIBUTING.md` asks a separate argument for.
+  Doing it for the scribe while `agents/smith.md` stays out would also read
+  as an oversight rather than a decision. The row is in `seal/follow-up.md`
+  so the two definitions can be taken together, once.
 - **`chain_check.py` gains no required field.** That is #119's, and it is a
   change to a gate needing the argument `CONTRIBUTING.md` asks for.
 

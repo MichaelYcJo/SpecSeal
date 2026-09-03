@@ -37,6 +37,7 @@ read, the trade was wrong and the list comes back.
 
 | Item | Who must answer |
 |---|---|
+| Bring `agents/smith.md` and `agents/scribe.md` under `tests/test_docs_line_wrap.py`, together. `spec.md` of work item 1788433011 put this out of scope as a sweep at 148 and 160 columns; after phase 3 of that item the scribe has **one** prose line over the limit (measured 2026-09-03) and the smith is unmeasured until phase 4 lands. Covering one and not the other reads as an oversight, so the two go in one change with the argument `CONTRIBUTING.md` asks of a change to what a test guards | the repository owner, after phase 4 of 1788433011 lands and the smith's maximum can be re-measured |
 
 ## Riders waiting on a file another branch holds
 

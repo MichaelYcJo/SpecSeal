@@ -32,25 +32,19 @@ yourself.)
 1. Resolve the original checkout via `legacy-parity`'s resolution order
    (recorded path → sibling dir → remote check → ask). A guessed original
    proves nothing — if unresolved, return "original not found", not findings.
-2. Start from the evidence ledger's coordinates for the clauses in scope;
-   open all coordinates from one row in a single batched call. Grep the
-   original only for axes the ledger doesn't cover, and say so in the report.
+2. Start from the evidence ledger's coordinates for the clauses in scope —
+   that row is what §10 batches for you. Grep the original only for axes the
+   ledger doesn't cover, and say so in the report: an axis nobody has looked
+   at is a fact your caller needs, and it looks identical to one that came
+   back empty.
 3. Trace to the response: what the original sends the client outranks its
    internal structure. Note mid-layer conditions that never affect the
    response as exactly that.
-4. Probe only what reading can't settle (`test_tmp_*`, one file, one run,
-   delete after). Constraints, enums, and defaults are read, not probed.
-   **A probe that commits has to be written so it does not stop the commit
-   gate**, because the prompt lands on whoever is at the keyboard and that is
-   not the session that spawned you — #36 cost a review round exactly
-   that way. Prefer driving git from Python —
-   `subprocess.run(["git", "-C", d, "commit", …])` — where no Bash command
-   line carries the commit at all; from Bash, write the path out,
-   `git -C /abs/path/r1 commit …` (a name the command assigns itself is read
-   too, but a loop variable is not); and
-   `: '[no-review]';` in front of the command is the last resort, waiving one
-   command, quotes included and BEFORE it — after `git commit` a bare word is
-   a pathspec and git rejects it.
+4. **Constraints, enums, and defaults are read, not probed.** §7 says to
+   probe only what reading cannot settle, and in an original most of what you
+   are asked is settled by reading — so that list is where the rule bites for
+   you. When a probe is the only way, §7 says how it is written and §8 how it
+   commits without stopping the session that spawned you.
 5. **An absence carries its search.** "No caller exists", "the original has
    no such branch" — the whole evidence is that a search did not find one, so
    the search is the fact. Report the command and the scope it ran over, and
