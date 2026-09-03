@@ -282,7 +282,10 @@ def test_the_way_back_it_names_works_from_a_subdirectory(seal, local_repo, capsy
     assert ":/" in out, "the way back is spelled from where you stand"
 
     named = [line.split("`")[1] for line in out.splitlines() if "`git reset" in line]
-    assert named, out
+    # Both of them. The one run below is the first, and the second was pinned
+    # by nothing — removing its `:/` alone survived every case in this file.
+    assert len(named) == 2, out
+    assert all(":/" in command for command in named), named
     subprocess.run(
         named[0].split(),
         cwd=str(local_repo / "docs"),
@@ -297,6 +300,48 @@ def test_the_way_back_it_names_works_from_a_subdirectory(seal, local_repo, capsy
     code, out = run(seal, ["mode", "local"], local_repo / "docs", capsys)
     assert code == 0, out
     assert not (local_repo / "seal").exists()
+
+
+def test_the_recovery_commands_work_where_they_are_printed(seal, local_repo, capsys):
+    """Round 4's finding, and the fifth member of the class.
+
+    Two sentences got `:/` and three printed commands did not. All three are
+    RECOVERY lines — handed to a person after something has already failed —
+    and from a subdirectory each exits 128 with `did not match any files`.
+    The command that diagnoses an ignore rule and then names one that fails
+    under that same rule is the sharpest: it told the truth and prescribed
+    something that cannot work.
+
+    The two cases that already cover ignore rules assert the diagnosis and
+    have never run the prescription.
+    """
+    (local_repo / "docs").mkdir(exist_ok=True)
+    (local_repo / "docs" / "x.md").write_text("x\n")
+    (local_repo / ".gitignore").write_text(".github/\n")
+    git(local_repo, "add", "-A")
+    git(local_repo, "commit", "-qm", "a subdirectory and an ignore rule")
+
+    code, out = run(seal, ["mode", "shared"], local_repo / "docs", capsys)
+    assert code == 0, out
+    # The backticked span that IS the command — the same line also quotes
+    # `.github/` as the cause, and taking the first pair gets that instead.
+    prescribed = [
+        span
+        for line in out.splitlines()
+        for span in line.split("`")[1::2]
+        if span.startswith("git add -f")
+    ]
+    assert prescribed, out
+
+    done = subprocess.run(
+        prescribed[0].split(),
+        cwd=str(local_repo / "docs"),
+        capture_output=True,
+        encoding="utf-8",
+    )
+    assert done.returncode == 0, done.stderr
+    staged = git(local_repo, "diff", "--cached", "--name-only").stdout
+    assert ".github/workflows/hygiene.yml" in staged, staged
 
 
 def test_an_ignored_workflow_path_is_not_reported_as_staged(seal, local_repo, capsys):

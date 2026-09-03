@@ -1587,7 +1587,7 @@ def install_workflow(repo):
             f"be staged: {(done.stderr or '').strip()}\n"
             f"  A commit now would not carry it, so the pull-request checks "
             f"would never run. An ignore rule matching {WORKFLOW} or "
-            f"`.github/` is the usual cause. Run `git add -f {WORKFLOW}` "
+            f"`.github/` is the usual cause. Run `git add -f :/{WORKFLOW}` "
             "yourself, or take the rule out."
         )
     return "written", f"  wrote {WORKFLOW} (pinned to v{version}) and staged it"
@@ -1891,7 +1891,8 @@ def switch(args, repo, home, shared, local, current, wanted):
             "`:/` makes each path mean the same thing from any directory — a "
             "git pathspec is read from where you stand, and without it the "
             "command exits 0 having unstaged nothing when you are not at the "
-            "root. "
+            "root. Every command this file hands you to run carries it, for "
+            "that reason. "
             "After the commit they are in the history, and taking "
             "them out of the tree later does not take them out of it."
         )
@@ -1966,7 +1967,7 @@ def switch(args, repo, home, shared, local, current, wanted):
                 print(
                     f"  the records are still tracked: "
                     f"{(done.stderr or '').strip()}\n"
-                    f"  Run `git rm -r --cached {optin.HOME}` yourself, or "
+                    f"  Run `git rm -r --cached :/{optin.HOME}` yourself, or "
                     "this command again."
                 )
             else:
@@ -1996,7 +1997,7 @@ def switch(args, repo, home, shared, local, current, wanted):
                 f"{(done.stderr or '').strip()}\n"
                 f"  A commit now would record nothing. An ignore rule "
                 f"matching the root is the usual cause. Run "
-                f"`git add {optin.HOME}` yourself, or this command again."
+                f"`git add -f :/{optin.HOME}` yourself, or this command again."
             )
         else:
             print(f"  staged {optin.HOME}/")
