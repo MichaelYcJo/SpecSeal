@@ -18,8 +18,8 @@ no session until the release is tagged and the plugin updated, so anything
 built beside these three is built without them — which is why 0.7.0 is three
 items and not the ten once staged here.
 
-- [ ] **#121 + #119, one branch — a build phase gets `round-N`'s equivalent, and the record says what it was asked.** `#121`: the review chain hands the next round a committed record (`rounds/round-N.md`) and a build phase hands the next phase a conversation — measured on #107, where four discoveries reached the next phase only because the orchestrator retyped them by hand and a fifth reached nobody and a rule was deleted. `#119`: the record also says what the segment was asked and under which version of the rules it ran. They land in the same files (`templates/sdd-plan.md`, `templates/sdd-round.md`, `agents/smith.md`), so one branch. #119 carries two items marked "needs a second look" before either is built.
-- [ ] **#109 — measuring a segment and recording what it says becomes automatic.** After #121+#119, so it measures a channel that already exists rather than building the channel and the measurement at once. Its third part — the release closes this version's log and opens the next — is what makes 0.8.0's measurement issue exist without anybody opening it.
+- [x] **#121 + #119, one branch — a build phase gets `round-N`'s equivalent, and the record says what it was asked.** `#121`: the review chain hands the next round a committed record (`rounds/round-N.md`) and a build phase hands the next phase a conversation — measured on #107, where four discoveries reached the next phase only because the orchestrator retyped them by hand and a fifth reached nobody and a rule was deleted. `#119`: the record also says what the segment was asked and under which version of the rules it ran. They land in the same files (`templates/sdd-plan.md`, `templates/sdd-round.md`, `agents/smith.md`), so one branch. #119 carries two items marked "needs a second look" before either is built.
+- [x] **#109 — measuring a segment and recording what it says becomes automatic.** After #121+#119, so it measures a channel that already exists rather than building the channel and the measurement at once. Its third part — the release closes this version's log and opens the next — is what makes 0.8.0's measurement issue exist without anybody opening it.
 - [ ] #89 — the log, until #109 replaces it with a versioned one.
 
 ## 0.8.0 — the first version built under both machines
@@ -56,15 +56,6 @@ exist.
 
 - [ ] #83 `settle` · #85 the orphan branch as the ledger's home · #101 the export's size — the root's later steps.
 - [ ] #88 — the routing question asks three boxes and has no way to say "all three".
-
-## While the flow runs
-
-After every smith or warden segment, measure its transcript and add the
-numbers and what they say to the version's measurement issue.
-
-**#109 deletes this section.** Moving that instruction into
-`skills/verify/SKILL.md` is #109's first part, and an instruction that lives
-only where somebody has to remember to read it is the defect #109 names.
 
 ## Order inside a ticket
 

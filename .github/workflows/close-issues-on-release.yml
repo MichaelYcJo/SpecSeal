@@ -38,3 +38,10 @@ jobs:
           REPO: ${{ github.repository }}
         shell: bash
         run: python3 .github/scripts/close_issues_on_release.py
+
+      - name: roll the flow-measurement issue to the next version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: python3 .github/scripts/roll_flow_measurement_issue.py

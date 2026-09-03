@@ -309,6 +309,41 @@ the seal instead of re-deriving it, and the round records carry it across
 sessions. A seal the warden cannot audit from the block alone was not a
 seal.
 
+## Measure the segment, and feed the flow log
+
+After every smith or warden segment ends, measure its transcript with
+`skills/verify/scripts/session_cost.py` (the `session-cost` command above is
+the same script) and post the numbers, and what they say, as a comment on
+this repository's open `flow-measurement`-labelled issue.
+
+Find that issue first — `gh issue list --label flow-measurement --state open`
+— rather than assuming a number. Exactly one such issue is the invariant a
+repository following this convention keeps; if the search returns none, this
+whole section is a no-op: nothing is measured, nothing is posted, nothing
+fails, and nothing asks. Most installed repositories never create the label,
+so most segments end without any of the steps below running — that is the
+expected case, not a missed one. Where more than one such issue is open,
+treat it the way any broken invariant is treated: name it rather than
+guessing which one is current.
+
+Where the label is open, do the two steps as part of the segment that just
+finished, not as a follow-up someone might do later:
+
+1. Run `session_cost.py` against the segment's transcript. A subagent's
+   transcript lives under `~/.claude/projects/<project-dir>/<session-id>/subagents/agent-*.jsonl`;
+   a resumed smith's transcript holds several segments in one file — split
+   it at the user lines where the coordinator sent it a new message, and
+   measure only the slice that belongs to the segment just watched.
+2. Post what the numbers say with `gh issue comment <n> --body-file
+   <file>`, where `<n>` is the issue number the lookup above returned.
+
+Do this before the next segment spawns, or at the latest together with the
+round or phase record that closes this one — never later, and never as a
+question. The destination issue is a log, not a decision: whoever is
+watching a segment finish posts to it without asking whether to, the same
+way the rest of this skill's completion claims are not asked about before
+they are made.
+
 ## Counterfeits (stop on sight)
 
 - Output quoted from an earlier run — freshness is per tree state, not per
