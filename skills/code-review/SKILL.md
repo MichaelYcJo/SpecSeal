@@ -325,6 +325,42 @@ last set of fixes still needs a reader, and the round above is it. A record
 that met the floor is followed by at most one more round record, and a second
 is the run carrying on past its own stopping rule.
 
+### A fix pass adds the unit that pins it, and that unit ships unreviewed
+
+**A unit a fix pass may not add has somewhere to go.** It is deferred with a
+named answerer, or becomes an issue — the two homes the floor above already
+gives whatever a stopped round found. That sentence comes first on purpose: a
+rule that refuses without saying where the refused work goes stops the chain
+at a wall.
+
+**A fix pass may add a unit. That unit's fix may not.**
+
+Depth one, stated rather than discovered. A fix answering a finding in code
+that predates the run may add the helper or the case that pins it, and that
+unit is depth 1. A fix answering a finding *inside* a unit an earlier round's
+fixes created may not add another to pin it — that would be depth 2, and it
+takes the exit above.
+
+The reason is in the commits. The fix is read by the round that follows; the
+unit it added to pin the fix is read by nobody, and the two ship together.
+Measured across four rounds of #82: round 1's fixes added `configured_language`
+and a templates check, and round 2 found the defect reproduced in both; round
+2's fixes added `mirror_to_refuse` and a widened glob, and round 3 found the
+glob out of step with its corpus; round 3's fixes added `as_language_name`,
+`ROUND_RECORD_FIELDS` and a `git ls-files` helper, and round 4 found a
+subprocess without `check=True` and a list hand-copied from the file it checks.
+Three consecutive rounds found their finding inside the previous round's fixes.
+
+The floor above is what turns this from tidy into required. The rounds the
+floor removes are the rounds that were reading those units, so shipping the
+floor alone cuts the eyes and leaves the generation.
+
+`round-N.md`'s `New units` row carries the depth, one per entry —
+`unit (depth N)`, entries separated by `;`. Per entry rather than per round,
+because a single fix pass can answer a finding in code that predates the run
+and a finding inside an earlier unit in the same breath, and one number for the
+round would be false of one of them.
+
 ### Then say who checked them, in the record
 
 `round-N.md` carries `| Fixes checked by |` beside `Pass`, and the two answer

@@ -14,7 +14,7 @@ carries the format; this is the shape it takes in this repository. -->
 | Broad gate | <`not yet`, or the SHA the one full-suite run happened at and the base it was compared against> |
 | Fixes checked by | <`round-<N>`, a LATER round · `no fixes to check` · `nobody — <why>`> |
 | Contract changes | <`none`, or every unit whose signature, return arity, return type, or set of returnable values this round's fixes changed, each with the call sites it reaches — `unit → site, site`, units separated by `;`> |
-| New units | <`none`, or the top-level definitions and constants this round's fixes added — the verifying round's finding surface> |
+| New units | <`none`, or the top-level definitions and constants this round's fixes added, each with the depth it was added at — `unit (depth N)`, entries separated by `;`. The verifying round's finding surface> |
 | Needs a fix | <`yes — <what>` · `no`. The reviewer's own answer — what stands after the colon in its `Needs a fix:` line, never the whole line> |
 | Loses a record or crashes | <`no` — and the run stops here · `yes — <what>`> |
 
@@ -58,6 +58,22 @@ a unit the fixes created has been reviewed by nobody, so it is judged as code
 a reason after it (`none — the fixes are not yet written` is the honest value
 while a round runs). Records of work items begun before the rule landed print
 instead of failing.
+
+`New units` carries the DEPTH of each entry as well as its name. A fix pass may
+add a unit. That unit's fix may not. Depth 1 is a unit added by a fix answering
+a finding in code that predates the run; depth 2 would be one added by a fix
+answering a finding INSIDE a depth-1 unit, and no entry reads that way — such a
+unit is deferred with a named answerer, or becomes an issue. One entry per
+unit, `;`-separated, and these are copyable as they stand:
+
+  | New units | configured_language (depth 1); mirror_to_refuse (depth 1) |
+  | New units | none |
+  | New units | none — the fixes are not yet written |
+
+The depth goes per entry rather than in a row of its own, because a single fix
+pass can answer a finding in code that predates the run and a finding inside an
+earlier unit in the same breath, so one number for the whole round would be
+false of one of them.
 
 `Needs a fix` is one of the two answers the run ends on, and it is the
 reviewer's rather than the orchestrator's. A round that opened nothing needing a fix ends the

@@ -169,6 +169,21 @@ last fixes nobody opened. That pair, `nobody` beside a checked `Pass` on the
 last record, **fails the pull request** for any work item begun after the rule
 landed; the way out is the verifying round above, which costs no round.
 
+**A unit you may not add has somewhere to go.** It is deferred with a named
+answerer, or becomes an issue — the same homes the paragraph below gives
+everything else the run could not close. Then the bound: **A fix pass may add
+a unit. That unit's fix may not.** Fixing a finding in code that predates the
+run, you may add the helper or the case that pins it. Fixing a finding inside
+a unit an earlier round's fixes created, you may not add another to pin that
+one; it takes the exit instead.
+
+The reason is in your own commits. Your fix is read by the round that follows,
+the unit you added to pin it is read by nobody, and the two go in together.
+Across four rounds of #82 three consecutive rounds found their finding inside
+the previous round's fixes, every time in the unit rather than in the fix. The
+orchestrator records what you added and at what depth in `round-N.md`'s
+`New units` row, so say both when you hand over.
+
 What is unresolved at that point is handed over, not carried: a finding you
 neither fixed nor answered goes to `seal/follow-up.md`, a decision only a
 person can make goes to `questions.md`, an original whose behavior is plainly

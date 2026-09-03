@@ -191,18 +191,38 @@ def test_the_template_explains_the_row_below_its_table():
     )
 
 
+# Each file's old claim that `Needs a fix` was the only thing the run ends on,
+# beside the sentence that replaced it. The pair is the point: `skills/verify`
+# says an absence claim is only as good as the search behind it, and a search
+# that read nothing finds nothing — the mutation that made `read()` return an
+# empty string left this case green until the present half was added.
+ONLY_ENDING = {
+    TEMPLATE: (
+        "is the answer the run ends on",
+        "is one of the two answers the run ends on",
+    ),
+    SKILL: (
+        "that line is the run's terminal condition",
+        "that line is one of the two the run ends on",
+    ),
+    WARDEN: (
+        "It is the run's terminal condition, and what",
+        "They are the run's terminal conditions",
+    ),
+}
+
+
 def test_needs_a_fix_no_longer_claims_to_be_the_only_ending():
-    """The absence half. The run now ends on either of two answers, and a
-    template that still calls one of them *the* answer ships both readings."""
-    assert "is the answer the run ends on" not in flat(*TEMPLATE), (
-        "`templates/sdd-round.md` still presents `Needs a fix` as the only "
-        "terminal condition, two rows above a second one"
-    )
-    assert "that line is the run's terminal condition" not in flat(*SKILL), (
-        "`skills/code-review/SKILL.md` still presents `Needs a fix` as the "
-        "only terminal condition"
-    )
-    assert "It is the run's terminal condition, and what" not in flat(*WARDEN), (
-        "`agents/warden.md` still presents one line as the run's only "
-        "terminal condition while asking the reviewer to write two"
-    )
+    """The run now ends on either of two answers, and a file that still calls
+    one of them *the* answer ships both readings two paragraphs apart."""
+    for parts, (gone, stands) in ONLY_ENDING.items():
+        text = flat(*parts)
+        assert stands in text, (
+            f"{'/'.join(parts)} does not carry the corrected sentence, so the "
+            "absence below is a search that found nothing rather than a file "
+            "that says nothing"
+        )
+        assert gone not in text, (
+            f"{'/'.join(parts)} still presents `Needs a fix` as the run's only "
+            "terminal condition, beside a second one"
+        )
