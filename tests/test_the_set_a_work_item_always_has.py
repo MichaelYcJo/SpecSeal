@@ -340,10 +340,13 @@ def test_the_two_todo_files_sit_where_the_release_guard_looks():
         f"{[os.path.relpath(p, ROOT) for p in stray]}. The release guard "
         "reads `seal/specs/*/evidence-todo.md`, one level only"
     )
-    at_level = glob.glob(
-        os.path.join(ROOT, "seal", "specs", "*", "evidence-todo.md")
-    ) + glob.glob(os.path.join(ROOT, "seal", "specs", "*", "tests-todo.md"))
-    assert at_level, (
+    assert glob.glob(os.path.join(ROOT, "seal", "specs", "*", "evidence-todo.md")), (
         "no evidence-todo file at the work-item level at all — this case is "
-        "blind, and would stay green if every one of them moved"
+        "blind, and would stay green if every one of them moved. "
+        "`fold_ledger.py` globs this filename and no other"
+    )
+    assert glob.glob(os.path.join(ROOT, "seal", "specs", "*", "tests-todo.md")), (
+        "no tests-todo file at the work-item level either. The stray glob "
+        "above covers both names, so both need a live specimen or half of it "
+        "is unexercised"
     )

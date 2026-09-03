@@ -203,7 +203,7 @@ def main():
             print(
                 f"[specseal] A review was just posted but "
                 f"{where}{os.sep} holds no round record. Write "
-                f"{os.path.join(routing.ROUNDS_DIR, 'round-N.md')} (target "
+                f"{os.path.join(where, 'round-N.md')} (target "
                 f"SHA, verdicts, probe "
                 f"results, the Pass checkbox, and who checked the fixes), "
                 f"and {os.path.join(rel, 'tests-todo.md')} and "

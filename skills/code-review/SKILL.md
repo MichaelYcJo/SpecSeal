@@ -138,9 +138,10 @@ The work item is the key now, and its `routing.md` names the branch.
 and worker findings are pre-verification). One of them gets a directory and
 two do not: `round-N` is the only member of the set that is plural and
 unbounded, so the two todo files sit at the work item's own level, beside
-`rounds/` rather than inside it. The release guard reads them there
-(`.github/scripts/fold_ledger.py`, `seal/specs/*/evidence-todo.md`), and a
-file one directory deeper is one it cannot see:
+`rounds/` rather than inside it. The release guard reads `evidence-todo.md`
+there (`.github/scripts/fold_ledger.py`, `seal/specs/*/evidence-todo.md`), and
+one written a directory deeper is one it cannot see; `tests-todo.md` keeps it
+company because the layout is one rule rather than two:
 
 | File | Contents |
 |---|---|

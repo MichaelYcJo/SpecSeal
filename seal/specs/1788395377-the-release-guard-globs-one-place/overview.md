@@ -1,12 +1,16 @@
 # the release guard globs one place — the closing memo
 
 <!-- seal/specs/1788395377-the-release-guard-globs-one-place/overview.md —
-only what the diff cannot show. It alters no gate's verdict today — every
-evidence-todo file in the tree carries a `drained` line, so
-`fold_ledger.py --check` prints the same bytes before and after the move —
-which is the second rung of the SDD ladder, not the file count: no `spec.md`,
-no `plan.md`. `skills/implement/SKILL.md` takes the count out of that
-judgement by name. -->
+only what the diff cannot show. The move itself alters no gate's verdict:
+every evidence-todo file in the tree carries a `drained` line, so
+`fold_ledger.py --check` prints the same bytes before and after it, which is
+the second rung of the SDD ladder rather than the file count that ladder
+excludes by name. Round 1's fixes then changed a hook's reminder text, a
+skill's instructions and a spec table — three of the five clauses the ladder
+puts on the rung ABOVE — and the grounds sentence was rewritten in the same
+commit without being re-read against them. A plan cannot be written after the
+fact, so this note is the record that they went in without one; round 2 is
+what found it. -->
 
 ## What the diff does not show
 

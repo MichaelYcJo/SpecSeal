@@ -12,3 +12,12 @@
   glob — the glob is one line and the layout is written by hand once per
   work item, so the layout is the half that drifts. Found by asking what the
   guard's glob actually reaches, during another work item's review round.
+
+  **And the rule is now said where a session meets it.** The reminder
+  `hooks/review-history-guard.py` prints after a review is posted names the
+  two todo files at the work item's own level, spelled from the same base as
+  the round record beside them; `docs/review-chain-spec.md` and the
+  `code-review` skill say the same, with the reason — `round-N` is the only
+  member of the set that is plural, so it is the only one that gets a
+  directory. The protocol already said where the files go, and the sentence
+  a session actually reads at the moment it creates them did not.
