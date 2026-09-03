@@ -176,9 +176,17 @@ def test_the_template_header_says_why_local_mode_installs_none():
         if line.startswith("#")
     )
     assert "local mode" in header
+    # Both directions, not one. Round 1 of #104 found the header carrying the
+    # two exit codes correctly and the conclusion drawn from them wrong: a
+    # step that exits 2 is not a green build. `unverified_check.py` is red
+    # forever and `chain_check.py` reports a pass it never earned, and the
+    # header has to say both or it teaches the milder half.
+    assert "red forever" in header
     assert "examined nothing" in header
     assert "exits 0" in header and "exits 2" in header
-    assert "shared" in header, "the header does not name the switch that gets CI"
+    assert "seal mode shared" in header, (
+        "the header does not name the command that gets CI"
+    )
 
 
 def test_the_skill_writes_the_workflow_only_when_absent_and_local_installs_nothing():
@@ -370,9 +378,11 @@ def test_the_seal_readme_is_the_template_verbatim():
 def test_the_record_no_longer_says_the_checks_would_refuse(parts, wrong):
     text = read(*parts)
     assert wrong not in text, "/".join(parts)
-    assert "examined nothing" in text or "아무것도 보지 않은 채" in text, "/".join(
-        parts
-    )
+    # And it says both directions. A workflow left behind after a switch to
+    # local is red on every pull request AND reports an unearned pass beside
+    # it; a record naming only the green half teaches the milder failure.
+    assert "examined nothing" in text or "아무것도 안 본 채" in text, "/".join(parts)
+    assert "red forever" in text or "영원히 빨간불" in text, "/".join(parts)
 
 
 @pytest.mark.parametrize(

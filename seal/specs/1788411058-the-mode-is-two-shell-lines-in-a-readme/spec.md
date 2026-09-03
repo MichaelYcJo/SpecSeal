@@ -117,7 +117,7 @@ nothing to disagree with — so it reports the row as not declared and passes.
 | S9 | Given a local-mode repository, when `seal mode shared` runs, then the root is at `<repo>/seal/`, staged as an addition, and the `Mode` row reads `shared` | S9 case |
 | S10 | Given a repository already in the mode asked for, when `seal mode <that mode>` runs, then it finishes what is unfinished — the row, the index, the workflow file — says so, and exits 0 | S10 case: a root already moved by hand with the index untouched |
 | S11 | Given an edited row and a folder that disagrees, when `seal mode --apply` runs, then the folder moves to what the row says and the two agree afterwards | S11 case, both directions |
-| S12 | Given the local → shared direction, when it runs, then before anything is moved it says that a commit puts the records in the history for good, that `seal mode local` walks it back only until that commit, and that removing them later removes them from the tree and not from the history | S12 case: read stdout, assert the line precedes the *now commit* line |
+| S12 | Given the local → shared direction, when it runs, then before anything is moved it says that a commit puts the records in the history for good, that `git reset` and then `seal mode local` walk it back only until that commit, and that removing them later removes them from the tree and not from the history | S12 case: run the way back it names and assert the root returns. Asserting the line's position let a false promise pass — the switch stages, and the guard refuses a switch over a staged change |
 | S13 | Given the shared → local direction, when it runs, then it says every other clone loses the records at the next pull and names `seal export` / `seal import` as how a teammate gets a copy | S13 case |
 
 ### Refusing
@@ -129,7 +129,11 @@ nothing to disagree with — so it reports the row as not declared and passes.
 | S15b | Given an **untracked** file under `seal/` and nothing else, when an applying spelling runs, then it proceeds, names the file as travelling with the folder, and the file is at the destination afterwards | S15b case, both directions |
 | S16 | Given the destination path already exists as anything — a file, a directory, a symbolic link, a broken link — when an applying spelling runs, then it refuses naming it, and nothing moves | S16 case, four shapes |
 | S17 | Given the source root is a symbolic link rather than a directory, when an applying spelling runs, then it refuses rather than moving the link, and nothing moves | S17 case |
-| S18 | Given `.github/workflows/hygiene.yml` is dirty in `git status --porcelain`, when an applying spelling runs, then it refuses before moving anything | S18 case |
+| S18 | Given `.github/workflows/hygiene.yml` carries an index change, when an applying spelling runs, then it refuses before moving anything | S18 case |
+| S18b | Given that file is UNTRACKED, when the switch to local runs, then it is left where it is and named — git holds no copy of it, so removing it takes the only one | S18b case: assert the file survives the switch |
+| S26 | Given a submodule under the root, when an applying spelling runs, then it refuses and the index is unchanged | S26 case |
+| S27 | Given `git add` fails while staging the root, when the switch to shared runs, then it says the stage failed and that a commit would record nothing | S27 case: an ignore rule matching the root |
+| S28 | Given no git repository can be resolved, when `--check` runs, then it exits non-zero saying the check could not run — which is not the same answer as nothing disagreeing | S28 case |
 | S19 | Given the rename cannot be performed — the two paths are on different filesystems, or the destination's parent cannot be written — when an applying spelling runs, then it refuses, names the error, and prints the `mv` that does work, and nothing else has been done | S19 case: a destination parent with its write bit cleared |
 | S20 | Given a `config.md` that is a directory, a symbolic link, or unreadable, when an applying spelling runs, then it refuses before moving anything, naming the path | S20 case, three shapes |
 
@@ -253,7 +257,8 @@ where a finding points, because that is what #81 cost seven rounds:
 |---|---|---|---|
 | 1 | `<repo>/seal` ↔ `<git-common-dir>/seal` | renamed | source is a directory and not a link · destination does not `lexists` · both roots do not exist at once · the rename itself may fail, and then nothing else has run |
 | 2 | index entries under `seal/` | `git rm -r --cached` going to local, `git add` going to shared | the tree is clean under `seal/` · skipped entirely when git tracks nothing there, because the pathspec would fail |
-| 3 | `<home>/config.md` | the `Mode` row written, the rest of the file preserved | not a link, not a directory, readable |
+| 3 | `<home>/config.md` | the `Mode` row written, the rest of the file preserved | not a link, not a directory, readable · a worktree-only change to THIS file does not refuse, because this command wrote it |
+| 3b | a gitlink under `seal/` | nothing — refused | `git rm -r --cached` drops a gitlink and leaves `.gitmodules` naming the path, and moving the root breaks the submodule's relative gitdir. Measured 2026-09-03: exit 0, and `git status` in the moved root died |
 | 4 | `.github/workflows/hygiene.yml` | written going to shared, removed going to local | that path is clean · written only when absent · removed only when it is this plugin's · not written at all when the version cannot be read |
 | 5 | `.github/workflows/` | created going to shared | a failure to create it is reported as the workflow step failing, and a second run retries it |
 

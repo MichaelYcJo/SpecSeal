@@ -114,7 +114,8 @@ seal/
 ├── ledger/
 │   └── <work-item-id>.md   one work item's rows — no header, folded into ledger.md at release
 ├── config.md         what this repository says about itself — the pull request
-│                     language is the first row. Optional: absent means English
+│                     language and the mode. Optional, and an absent row is
+│                     not an error
 ├── parity.md         migration config, only when declared
 ├── follow-up.md      schedulable items in a repository with no tracker
 └── specs/<work-item-id>/
@@ -428,10 +429,12 @@ seal mode shared     # move it into the tree
 
 The move itself is two shell lines, printed further down. What the command
 adds is everything around them: it refuses when the other mode's root is
-already there, refuses when the index carries a change under `seal/` — `git
-rm -r --cached` takes a staged edit out of the index without a word about it
-— carries `.github/workflows/hygiene.yml` in and out, and writes the mode
-into `seal/config.md` so the file and the folder agree afterwards. The hooks
+already there, refuses over a submodule under the root, refuses when the
+index carries a change under `seal/` or at the workflow's own path — `git rm
+-r --cached` takes a staged edit out of the index without a word about it —
+carries `.github/workflows/hygiene.yml` in and out where it can and says so
+where it cannot, and writes the mode into `seal/config.md` so the file and
+the folder agree afterwards. The hooks
 need no restart: the next command reads the folder where it is.
 
 **The row says what you want; the folder says what you have.** Nothing at
@@ -455,7 +458,9 @@ out of the tree, and every other clone loses them at the next pull — `seal
 export` here and `seal import` there is how a teammate gets a copy. Going to
 shared is the one to be sure about: once you commit, the records are in the
 history, and taking them out of the tree later does not take them out of it.
-Until that commit, `seal mode local` walks the whole thing back.
+Until that commit, `git reset` and then `seal mode local` walk the whole
+thing back — the switch stages, and the guard refuses a switch over a
+staged change, so the reset is the first half of the way back.
 
 By hand it is a move and a commit, from the repository root — both paths are
 asked of git, so a subdirectory as the working directory lands them in the

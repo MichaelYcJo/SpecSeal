@@ -32,7 +32,7 @@
   clone loses them at the next pull, which is what `seal export` and `seal
   import` are for. Going to shared is the one to be sure about: the commit,
   not the move, is the point of no return, and until it lands `seal mode
-  local` walks the whole thing back.
+  reset` and then `seal mode local` walk the whole thing back.
   The rename runs first and every step after it is idempotent, so a stopped
   run — or a person who already ran the README's `mv` by hand — is finished
   by running the command again rather than refused. (#104)

@@ -17,8 +17,9 @@ under it is ever a commit candidate, and no `.gitignore` line is needed.
 What local mode gives up is CI — the pull-request checks read committed
 files — and any other machine, which starts empty. **Switching is
 `seal mode local` or `seal mode shared`**, which moves the root, stages the
-change, carries `.github/workflows/hygiene.yml` in or out, and writes the
-mode into `config.md` beside this file; you commit. `seal mode` alone says
+change, carries `.github/workflows/hygiene.yml` in or out where it can and
+says so where it cannot, and writes the mode into `config.md` beside this
+file; you commit. `seal mode` alone says
 where the root is and what that row claims, and `seal mode --check` — which
 the pull-request checks run — exits non-zero when the two disagree. The row
 is never read at runtime: the folder's location is the only signal, and the

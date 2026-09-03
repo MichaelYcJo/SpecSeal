@@ -1138,6 +1138,9 @@ MODES = (LOCAL, SHARED)
 # two dialects that equals nothing any caller built (`hooks/optin.py`
 # carries the same reasoning about `repo_root`).
 WORKFLOW = ".github/workflows/hygiene.yml"
+# The row this command writes itself, spelled as git spells a pathspec —
+# beside WORKFLOW and for the same reason.
+CONFIG_PATHSPEC = f"{optin.HOME}/{CONFIG}"
 
 # The line CI's own workflow uses to clone this plugin. A file at WORKFLOW
 # carrying it is one this plugin wrote; a file that does not is somebody
@@ -1286,7 +1289,10 @@ def table_span(lines):
                 break
             continue
         end = i + 1
-        if match.group("item").strip() == ROW_ITEM:
+        # The FIRST match, because `config_rows` reads the first. A reader
+        # and a writer that disagree about which row is the row leave a file
+        # two rows deep that no command can bring into agreement.
+        if mode_at < 0 and match.group("item").strip() == ROW_ITEM:
             mode_at = i
     return mode_at, end
 
@@ -1409,12 +1415,27 @@ def indexed(line, moved=False):
     else — `MD` and `AD` still refuse, because a staged edit is precisely
     what `git rm -r --cached` drops without a word.
 
+    **The row this command wrote itself is not, either.** `seal mode` fills
+    an absent row in from the folder, so the switch a person runs next meets
+    a worktree-only modification of the one file the switch rewrites anyway.
+    The `??` exception above was written for this and reached half of it: an
+    untracked `config.md` passed and a TRACKED one still refused — and the
+    tracked spelling is every repository `hooks/root-migrate.py` carried over
+    from the 0.3.x layout, whose `.specseal/config.md` arrives committed.
+    That is the population this whole work item exists for. Measured
+    2026-09-03: `seal mode` then `seal mode local` exits 1.
+
+    A STAGED edit to it still refuses, for the reason every staged edit does:
+    `git rm -r --cached` drops it without a word.
+
     A line git could not produce at all does not start with a status pair,
     and reads as indexed — the unanswerable question refuses, which is
     `hooks/root-migrate.py#dirty`'s direction.
     """
     pair = line[:2]
     if pair == "??":
+        return False
+    if pair == " M" and line[3:].strip() == CONFIG_PATHSPEC:
         return False
     return not (moved and pair in ("D ", " D"))
 
@@ -1564,24 +1585,31 @@ def remove_workflow(repo):
             "alone. Its checks read committed files and local mode commits "
             "none, so whatever it runs there will read nothing."
         )
-    if tracked(repo, WORKFLOW):
-        done = subprocess.run(
-            ["git", "-C", repo, "rm", "--quiet", "--", WORKFLOW],
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=30,
+    if not tracked(repo, WORKFLOW):
+        # git holds no copy, so removing it would take the only one. The
+        # guard above watches this path in `git status --porcelain` for
+        # exactly that reason, and the `??` exception was written for a file
+        # under the root — which travels with the folder either way. This one
+        # does not travel and is not under the root. Measured 2026-09-03: it
+        # was removed at exit 0, with nothing in the index or the history.
+        return "kept", (
+            f"  {WORKFLOW} is not tracked, so git holds no copy of it and "
+            "removing it would take the only one — left alone. Its checks "
+            "read committed files and local mode commits none, so look at it "
+            "and delete it yourself."
         )
-        if done.returncode != 0:
-            return "failed", (
-                f"  {WORKFLOW} could not be removed: {(done.stderr or '').strip()}"
-            )
-        return "removed", f"  removed {WORKFLOW} and staged the removal"
-    try:
-        os.remove(path)
-    except OSError as exc:
-        return "failed", f"  {WORKFLOW} could not be removed: {exc}"
-    return "removed", f"  removed {WORKFLOW}"
+    done = subprocess.run(
+        ["git", "-C", repo, "rm", "--quiet", "--", WORKFLOW],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+    )
+    if done.returncode != 0:
+        return "failed", (
+            f"  {WORKFLOW} could not be removed: {(done.stderr or '').strip()}"
+        )
+    return "removed", f"  removed {WORKFLOW} and staged the removal"
 
 
 def say_report(repo, home, shared, local, current, kind, value):
@@ -1657,6 +1685,22 @@ def both_roots(shared, local):
     )
 
 
+def gitlinks_under_root(repo):
+    """Submodule entries under the root, as `git ls-files --stage` prints them.
+
+    `git rm -r --cached <root>` drops a gitlink from the index and leaves
+    `.gitmodules` naming the path, and moving the root breaks the submodule's
+    relative gitdir. Measured 2026-09-03: the switch exited 0 and `git
+    status` in the moved root died with `fatal: not a git repository`.
+
+    A sixth member of the class `spec.md`'s *What the switch touches* table
+    enumerates — the table that says it is enumerated rather than fixed where
+    a finding points, and then listed five.
+    """
+    listing = git(repo, "ls-files", "--stage", "--", optin.HOME)
+    return [line for line in listing.splitlines() if line.startswith("160000")]
+
+
 def refusals(repo, home, shared, local, wanted):
     """Every reason not to switch, gathered before anything is written.
 
@@ -1674,6 +1718,16 @@ def refusals(repo, home, shared, local, wanted):
     source = shared if wanted == LOCAL else local
     destination = local if wanted == LOCAL else shared
     found = []
+
+    gitlinks = gitlinks_under_root(repo)
+    if gitlinks:
+        found.append(
+            f"there is a submodule under {optin.HOME}/:\n  "
+            + "\n  ".join(gitlinks)
+            + f"\nMoving the root breaks its relative gitdir, and `git rm -r "
+            f"--cached {optin.HOME}` drops the gitlink while .gitmodules goes "
+            "on naming the path. Deinit it or move it out of the root first."
+        )
 
     if os.path.islink(source):
         found.append(
@@ -1742,9 +1796,11 @@ def switch(args, repo, home, shared, local, current, wanted):
     if wanted == SHARED:
         print(
             "Going to shared mode puts the records in the tree. Until you "
-            "commit, `seal mode local` walks the whole thing back; after the "
-            "commit they are in the history, and taking them out of the tree "
-            "later does not take them out of it."
+            "commit, `git reset` and then `seal mode local` walk the whole "
+            "thing back — the switch stages, and the guard refuses a switch "
+            "over a staged change, so the reset is the first half of the way "
+            "back. After the commit they are in the history, and taking "
+            "them out of the tree later does not take them out of it."
         )
     else:
         print(
@@ -1824,15 +1880,40 @@ def switch(args, repo, home, shared, local, current, wanted):
         if line:
             print(line)
     else:
-        git(repo, "add", "--", optin.HOME)
-        print(f"  staged {optin.HOME}/")
+        # The return code, not the call. `git()` reads a failure as "" — and
+        # `git add` exits non-zero for an ignore rule matching the root, or a
+        # held `index.lock`. Measured 2026-09-03: the root moved into the
+        # tree, nothing was staged, and the command printed `staged seal/`
+        # and `Now commit`. The local direction has read this code since it
+        # was written; this side had not.
+        done = subprocess.run(
+            ["git", "-C", repo, "add", "--", optin.HOME],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+        )
+        if done.returncode != 0:
+            print(
+                f"  {optin.HOME}/ could NOT be staged: "
+                f"{(done.stderr or '').strip()}\n"
+                f"  A commit now would record nothing. An ignore rule "
+                f"matching the root is the usual cause. Run "
+                f"`git add {optin.HOME}` yourself, or this command again."
+            )
+        else:
+            print(f"  staged {optin.HOME}/")
         _, line = install_workflow(repo)
         if line:
             print(line)
 
     print("\nNow commit. The switch is what the commit records:\n  git commit")
     if moved and wanted == SHARED:
-        print("Until then, `seal mode local` puts it back.")
+        print(
+            "Until then, `git reset` and then `seal mode local` puts it back "
+            "— the switch stages, and the guard refuses a switch over a "
+            "staged change."
+        )
     return 0
 
 
@@ -1840,6 +1921,20 @@ def mode(args, cwd):
     repo, home, shared, local, current = resolve(cwd)
     if not home:
         if args.check:
+            if not repo:
+                # Not the same answer as "there is no root". A repository
+                # that could not be resolved is a check that did not RUN, and
+                # a gate that cannot tell reads exactly like an allow — the
+                # shape issue #28 is open on. `optin.repo_root` answers ""
+                # for a timeout or a git that is not on PATH, and a shared
+                # root committed beside a row saying `local` is what CI is
+                # here to catch.
+                print(
+                    "no git repository could be resolved here, so the mode "
+                    "was never read. This is not agreement and it is not a "
+                    "disagreement — the check could not run."
+                )
+                return 1
             # A check that fails where there is nothing to check teaches
             # people to delete the check. A workflow that outlived its root
             # already goes red on `unverified_check.py`, which exits 2 for a

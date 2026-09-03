@@ -124,6 +124,170 @@ def local_repo(repo):
     return repo
 
 
+def test_a_committed_config_does_not_block_the_switch_it_advertises(
+    seal, shared_repo, capsys
+):
+    """Round 1's heaviest 🔴, and it lands on the population this work item
+    exists for.
+
+    `seal mode` fills an absent row in from the folder. On a repository whose
+    `config.md` is TRACKED — which is every repository `hooks/root-migrate.py`
+    carried over from the 0.3.x layout, since `.specseal/config.md` arrives
+    committed — that write leaves ` M seal/config.md`, and the switch the
+    person runs next refuses over the file the reporting command had just
+    written.
+
+    The `??` exception written for exactly this reached the untracked
+    spelling and not the tracked one: the same finding one name apart, which
+    is what #81 cost seven rounds.
+    """
+    config = shared_repo / "seal" / "config.md"
+    config.write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n"
+        "| Pull request language | English |\n"
+    )
+    git(shared_repo, "add", "-A")
+    git(shared_repo, "commit", "-qm", "a config with no Mode row")
+
+    code, _out = run(seal, ["mode"], shared_repo, capsys)
+    assert code == 0
+    assert any("config.md" in line for line in porcelain(shared_repo)), (
+        "the row was not written, so this case is not the one it names"
+    )
+
+    code, out = run(seal, ["mode", "local"], shared_repo, capsys)
+    assert code == 0, out
+    assert not (shared_repo / "seal").exists()
+
+
+def test_the_way_back_it_names_actually_walks_back(seal, local_repo, capsys):
+    """Round 1's 🔴 2. The switch to shared promises `seal mode local` walks
+    it back until you commit, and its own guard refuses that command: the
+    switch stages, and a staged change is what the guard turns down.
+
+    The case that covered this asserted the command was NAMED. It ran the
+    words and not the way back.
+    """
+    code, out = run(seal, ["mode", "shared"], local_repo, capsys)
+    assert code == 0, out
+    # Both sentences, because there are two and each was false on its own.
+    # Counting is what makes the mutation land: asserting the substring is
+    # present passes while one of the pair still says `seal mode local`
+    # alone.
+    assert out.count("git reset") == 2, out
+    assert "walks the whole thing back" not in out, out
+
+    git(local_repo, "reset", "--quiet")
+    code, out = run(seal, ["mode", "local"], local_repo, capsys)
+    assert code == 0, out
+    assert not (local_repo / "seal").exists(), "the way back did not walk back"
+    assert local_home(local_repo).is_dir()
+
+
+def test_an_untracked_workflow_is_not_deleted(seal, shared_repo, capsys):
+    """Round 1's 🔴 3. `os.remove` took a file git held no copy of.
+
+    The guard watches this path in `git status --porcelain` precisely so an
+    uncommitted edit is not taken by `git rm`. The `??` exception was written
+    for a file under the root, which travels with the folder either way —
+    this one is not under the root and does not travel.
+    """
+    workflow = shared_repo / ".github" / "workflows" / "hygiene.yml"
+    workflow.parent.mkdir(parents=True, exist_ok=True)
+    workflow.write_text(
+        "# somebody's own, never committed\n" + seal.PLUGIN_CLONE + "\n"
+    )
+
+    code, out = run(seal, ["mode", "local"], shared_repo, capsys)
+    assert code == 0, out
+    assert workflow.exists(), "a file git holds no copy of was removed"
+    assert "not tracked" in out
+
+
+def test_a_stage_that_fails_is_not_reported_as_staged(seal, local_repo, capsys):
+    """Round 1's 🔴 4. `git()` reads a failure as "", and the shared
+    direction printed `staged seal/` and `Now commit` without looking.
+
+    An ignore rule matching the root is the reachable cause: the root lands
+    in the tree, nothing enters the index, and the person is told to commit.
+    """
+    (local_repo / ".gitignore").write_text("seal/\n")
+    git(local_repo, "add", "-A")
+    git(local_repo, "commit", "-qm", "ignore the root")
+
+    code, out = run(seal, ["mode", "shared"], local_repo, capsys)
+    assert code == 0, out
+    assert "could NOT be staged" in out, out
+    assert "record nothing" in out
+
+
+def test_two_mode_rows_converge(seal, shared_repo, capsys):
+    """Round 1's 🟡 5. The reader took the first `Mode` row and the writer
+    wrote the last, so a file with two of them disagreed with itself and no
+    number of runs closed it."""
+    config = shared_repo / "seal" / "config.md"
+    config.write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n"
+        "| Mode | local |\n| Mode | local |\n"
+    )
+    code, out = run(seal, ["mode", "shared"], shared_repo, capsys)
+    assert code == 0, out
+    code, out = run(seal, ["mode", "--check"], shared_repo, capsys)
+    assert code == 0, out
+
+
+def test_check_does_not_pass_when_the_repository_cannot_be_resolved(
+    seal, tmp_path, capsys
+):
+    """Round 1's 🟡 6. `--check` answered `no seal/ here` and exit 0 for a
+    directory that is not a repository at all — and reaches the same answer
+    when `optin.repo_root` times out or git is not on PATH, which is a shared
+    root committed beside a row saying `local` going unchecked.
+
+    A gate that cannot tell reads exactly like an allow. That is issue #28's
+    shape.
+    """
+    outside = tmp_path / "not-a-repository"
+    outside.mkdir()
+    code, out = run(seal, ["mode", "--check"], outside, capsys)
+    assert code == 1, out
+    assert "could not run" in out
+
+
+def test_a_submodule_under_the_root_refuses(seal, shared_repo, tmp_path, capsys):
+    """Round 1's 🟡 7. `git rm -r --cached` drops a gitlink from the index and
+    leaves `.gitmodules` naming the path, and moving the root breaks the
+    submodule's relative gitdir — at exit 0, reported as a success."""
+    inner = tmp_path / "inner"
+    inner.mkdir()
+    git(inner, "init", "-q", ".")
+    git(inner, "config", "user.email", "a@b.c")
+    git(inner, "config", "user.name", "a")
+    (inner / "x.md").write_text("x\n")
+    git(inner, "add", "-A")
+    git(inner, "commit", "-qm", "x")
+    added = git(
+        shared_repo,
+        "-c",
+        "protocol.file.allow=always",
+        "submodule",
+        "add",
+        "--quiet",
+        str(inner),
+        "seal/vendor",
+        check=False,
+    )
+    if added.returncode != 0 or not (shared_repo / "seal" / "vendor").exists():
+        pytest.skip("this git refuses a file-protocol submodule")
+    git(shared_repo, "commit", "-qm", "a submodule under the root")
+    before = sorted(porcelain(shared_repo))
+
+    code, out = run(seal, ["mode", "local"], shared_repo, capsys)
+    assert code == 1, out
+    assert "submodule" in out
+    assert sorted(porcelain(shared_repo)) == before, "a refusal changed the index"
+
+
 def run(seal, argv, cwd, capsys):
     code = seal.main(argv, cwd=str(cwd))
     return code, capsys.readouterr().out
