@@ -196,6 +196,35 @@ def test_history_guard_reminds_posting_without_record(repo):
     assert item.name in out, out
 
 
+def test_the_posting_reminder_spells_all_three_paths_from_one_base(repo):
+    """A reminder is read to be TYPED, so its paths must share a base.
+
+    Round 2 of #96: the fix that put the two todo files at the work item's
+    level spelled them from the repository root and left `round-N.md`
+    spelled from the work item, so a session typing the three paths it was
+    handed got two right and one in the wrong place. The case above asserts
+    only that the work item's name appears, which every one of the four
+    spellings satisfies.
+    """
+    opt_in(repo)
+    item = declare_routing(repo)
+    out = run_hook(
+        "review-history-guard.py", payload("gh pr comment 42 --body hi", repo)
+    )
+    # `*name.split("/")` rather than the literal: `os.path.join` with a `/`
+    # inside one argument writes `…\rounds/round-N.md` on Windows against the
+    # hook's `…\rounds\round-N.md`, which is the dialect mixing
+    # `review-history-guard.py:152-158` records CI's windows leg catching once
+    # already — reproduced here with `ntpath` before this line was written.
+    for name in ("rounds/round-N.md", "tests-todo.md", "evidence-todo.md"):
+        expected = os.path.join("seal", "specs", item.name, *name.split("/"))
+        assert expected in out, (
+            f"the reminder does not name {expected}; a path spelled from "
+            f"another base is one a session types from where it is standing "
+            f"and gets wrong. Message was:\n{out}"
+        )
+
+
 def test_history_guard_silent_when_record_exists_on_post(repo):
     opt_in(repo)
     item = declare_routing(repo)
