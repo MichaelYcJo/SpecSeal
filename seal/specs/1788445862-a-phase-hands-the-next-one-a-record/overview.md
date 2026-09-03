@@ -55,9 +55,9 @@ what was built.
 
 | Item | Who must answer |
 |---|---|
-| Full test suite (repository-wide) | orchestrator — this branch ran only the modules the four phases' diffs can break, per `agent-contract` §2 |
-| Repository-wide lint | orchestrator |
-| Typecheck | orchestrator |
+| ✅ Full test suite (repository-wide) | orchestrator, broad gate at 32d926b — `1839 passed, 1 skipped`; 4 pre-existing failures in `tests/test_the_records_can_be_carried_out_and_in.py` reproduce identically on unmodified `origin/release/v0.7.0` (root cause found and filed as #127 — the four tests build their expected zip name from local date, `seal export` writes it in UTC; not this branch's finding, this branch never touches `seal.py` or that test file) |
+| ✅ Repository-wide lint | orchestrator, broad gate — `ruff check .` found 2 findings in this branch's own new test files (E741 ambiguous `l`, B905 `zip()` without `strict=`), fixed at 32d926b; `ruff check .` and `ruff format --check .` both clean afterward |
+| ✅ Typecheck | orchestrator — this repository has no typecheck step at all; `CONTRIBUTING.md`'s "Running the checks" names only pytest, ruff, and `evidence_check.py`, so there is nothing to run |
 | Whether the new `agents/smith.md` phase-record instruction is actually read by a subagent spawned under the next plugin release | not observable from this branch — phase 3's own record notes that a mid-session `specseal:smith` spawn loads its persona and skills from the plugin's version cache, frozen for the session rather than the working tree, so this is verifiable only after the next plugin release and a reload, by whichever session runs then |
 
 ## Not done
