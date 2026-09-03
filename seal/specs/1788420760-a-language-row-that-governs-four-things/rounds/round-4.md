@@ -51,9 +51,9 @@ constant to name.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| r3 🟡 1 | 🔴 and four more unreached by the derivation | `tests/…`, `templates/config.md` | answered — reproduced across all twenty literals | reviewer imported both modules and checked each backticked form against the section |
+| r3 🟡 1 | the blocking marker and four more unreached by the derivation | `tests/…`, `templates/config.md` | answered — reproduced across all twenty literals | reviewer imported both modules and checked each backticked form against the section |
 | r3 ❓ 2 | three strings said to have no constant | `chain_check.py`, `fold_ledger.py` | answered — the claim holds, which the previous round's cost estimate did not | reviewer read all four patterns |
-| 🟢 1 | `skills/implement/SKILL.md` restates the markers half by hand and still writes `✅` unbackticked with 🔴 absent | `skills/implement/SKILL.md:50` | pass — no action. The same sentence points at `templates/config.md` for every checker-matched string and closes with *and the other markers*, so it misleads nobody. Recorded because it is round 2's 🟡 4 one file over and no round had seen it | reviewer grepped; no case pins that clause |
+| 🟢 1 | `skills/implement/SKILL.md` restates the markers half by hand and still writes `✅` unbackticked, with the blocking marker absent | `skills/implement/SKILL.md:50` | pass — no action. The same sentence points at `templates/config.md` for every checker-matched string and closes with *and the other markers*, so it misleads nobody. Recorded because it is round 2's 🟡 4 one file over and no round had seen it | reviewer grepped; no case pins that clause |
 | 🟢 2 | five messages in `chain_check.py` write `none` by hand while `NONE_WORD` exists, and one names three of five `CLOSED_WORDS` | `chain_check.py:959, 1411, 1419, 1445, 1462, 1583` | pass — every one agrees with its constant today, and `none` is on the exclusion list as fixed English, so nothing can drift under them | reviewer ran an AST scan for non-docstring strings carrying a constant's value |
 | 🟢 3 | the twelve move spellings and their comment | `tests/test_the_settings_have_a_front_door.py` | pass — the comment states the limit rather than hiding it, and none of the twelve fires on this skill's prose | reviewer ran all twelve plus a near-miss scan |
 
