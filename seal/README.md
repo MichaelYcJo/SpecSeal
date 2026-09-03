@@ -57,6 +57,9 @@ seal/
 ├── ledger/
 │   └── <work-item-id>.md  one work item's rows while it is in development —
 │                          folded into ledger.md at the release, then removed
+├── config.md            what this repository says about itself, one row per
+│                        item — the pull request language is the first one.
+│                        Optional: no file and no row both mean the default
 ├── parity.md            migration config, only where one is declared
 ├── follow-up.md         schedulable items in a repository with no tracker
 └── specs/<work-item-id>/  one work item, whole

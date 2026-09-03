@@ -58,6 +58,10 @@ COVERED = [
     # Wrapped from its first line, so it goes in at birth rather than waiting
     # for the sweep that would otherwise be needed to bring it under.
     "docs/release-checklist.md",
+    # The same, and the first `templates/` entry. Its siblings are not here
+    # because they hold tree drawings and placeholder rows wider than the
+    # limit, and bringing those under is a sweep, not this work item.
+    "templates/config.md",
 ]
 
 
