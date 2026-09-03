@@ -7,7 +7,7 @@ review chain did, written by the review orchestrator right after it posts. -->
 |---|---|
 | Target SHA | 2b2003b0ab4c12ebd2115cbc4789d23efb28f157 |
 | PR | not yet opened |
-| Broad gate | not yet |
+| Broad gate | ran at 05b4258 vs. base origin/release/v0.7.0 — 1853 passed · 1 skipped (4 pre-existing failures, unrelated, same #127 as #121+#119); ruff check/format clean; evidence-check 451 ok · 0 drifted · 0 broken |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |

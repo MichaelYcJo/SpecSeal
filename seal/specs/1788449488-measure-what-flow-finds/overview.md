@@ -51,7 +51,9 @@ remember to.
 
 | Item | Who must answer |
 |---|---|
-| Full test suite (repository-wide), repository-wide lint, typecheck | orchestrator, broad gate — unverified by this branch per this repository's Verification Scope rule (narrow and often, broad once, after the review rounds settle) |
+| ✅ Full test suite (repository-wide) | orchestrator, broad gate at 05b4258 — `1853 passed, 1 skipped`; the same 4 pre-existing failures in `tests/test_the_records_can_be_carried_out_and_in.py` as #121+#119's broad gate (filed as #127, local-vs-UTC date mismatch, unrelated to this branch) |
+| ✅ Repository-wide lint | orchestrator, broad gate — `ruff check .` and `ruff format --check .` both clean |
+| ✅ Typecheck | orchestrator — this repository has no typecheck step (`CONTRIBUTING.md`'s "Running the checks") |
 | Whether `roll_flow_measurement_issue.py` actually closes `#89` and opens a correctly-titled `0.8.0` issue at the real release | not observable from this branch — `spec.md`'s own acceptance table names this as executed at the actual release, not by this work item; this branch verifies the script's logic in isolation against mocked `gh` calls |
 | Whether the label-lookup retry is ever exercised outside the one manual observation phase 1 made | not observable from this branch — the retry path is covered by a mocked test (`test_zero_open_issues_after_the_retry_fails_loudly`) but the real `gh` search-index lag it defends against is a live-service timing behaviour, next observable only at a real release run |
 
