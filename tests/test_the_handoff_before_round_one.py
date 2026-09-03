@@ -82,6 +82,77 @@ def test_the_implementer_documents_point_at_the_section():
     )
 
 
+# --- the interim home stops being one ---------------------------------------
+
+
+def pointer_section(text):
+    """The body of `## What every spawn prompt used to carry`, heading to the
+    next `## `. Scoped rather than whole-file on purpose: the sentence this
+    pins is also stated in `## Status`, so a document-wide search would stay
+    green with the section itself gutted -- which is the one edit this case
+    exists to catch."""
+    match = re.search(
+        r"^## What every spawn prompt used to carry$(.*?)(?=^## )",
+        text,
+        re.M | re.S,
+    )
+    assert match, (
+        "the pointer section is gone or renamed. It replaced the interim home "
+        "that carried the method half of every spawn prompt (#107 phase 5); a "
+        "rename has to bring this case with it"
+    )
+    return " ".join(match.group(1).split())
+
+
+def test_the_protocol_points_at_the_contract_instead_of_restating_it():
+    """#107 phase 5. The section named itself an interim home and named the
+    issue that would end it. It now points at the two files that carry those
+    rules, and the sentence a prompt is actually governed by is what stands
+    in its place.
+
+    Both halves matter and only the second is unusual. A pointer that keeps
+    the rules beside it is two answers in front of one reader, which is the
+    duplication the move was made to end -- so the absence half is asserted
+    as hard as the presence half."""
+    section = pointer_section(read("docs", "review-handoff-protocol.md"))
+    assert "a prompt carries what is specific to the round and nothing else" in (
+        section.lower()
+    ), (
+        "the section stopped saying what a prompt is left holding, which is "
+        "the one rule that stayed here when the rest moved"
+    )
+    assert "skills/agent-contract/SKILL.md" in section, (
+        "the pointer names no contract, so a reader arriving for the rules "
+        "leaves with neither them nor the path to them"
+    )
+    assert "agents/<name>.md" in section, (
+        "the pointer names the shared half and not the per-agent half, which "
+        "is half of the three-layer split"
+    )
+
+
+def test_the_protocol_no_longer_states_the_rules_it_points_at():
+    """The restatement check, one phrase per list that used to sit here.
+
+    Each is verbatim from what phase 5 removed, so a paste-back is red rather
+    than invisible -- the same reasoning `test_a_moved_rule_leaves_its_
+    definition.py` applies to the agent definitions, applied to the document
+    those rules were moved OUT of."""
+    protocol = flat("docs", "review-handoff-protocol.md")
+    for phrase, whose in (
+        ("never `cmd | tail; echo $?`", "the contract's §1"),
+        ("enumerate the class, do not fix the coordinate", "the contract's §12"),
+        ("Do not push, do not open a pull request", "the contract's §6"),
+        ("make a `uv` venv", "`agents/warden.md`"),
+        ("Mutation-test every unit added", "`agents/smith.md`"),
+    ):
+        assert phrase not in protocol, (
+            f"the protocol states {whose} again: {phrase!r}. This document is "
+            "a pointer at those rules now, and a copy beside the pointer is "
+            "the state #107 opens with"
+        )
+
+
 # --- progress observability -------------------------------------------------
 
 
