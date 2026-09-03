@@ -21,9 +21,16 @@ merge commit (`docs/branch-and-release.md`).
 - [x] #82 `seal/config.md`, first row the pull request language — merged as #99
 - [x] #96 the release guard globs one place for `evidence-todo.md` and two work items keep it in another — before the release, because the release runs that guard — merged as #100
 - [x] #81 `seal export` / `seal import` — merged as #102, after seven review rounds and a defect CI's windows leg caught
-- [ ] #104 the mode is two shell lines in a README, and a repository migrated from 0.3.x was never asked which it wanted — a `Mode` row in `seal/config.md` and `seal mode`
-- [ ] #105 `/specseal:config` — the front door to every row, routing the ones that have side effects
-- [ ] release: gather, bump, merge, tag `v0.5.0`
+- [x] #104 the mode is two shell lines in a README, and a repository migrated from 0.3.x was never asked which it wanted — merged as #112, after five review rounds that each found the previous fix aimed at the coordinate rather than the class
+- [x] #106 the language row governed the commits and pull requests and nothing else — merged as #113 with #105, four rounds
+- [x] #105 `/specseal:config` — the front door to every row, routing the ones that have side effects — merged as #113
+- [x] release preparation: sixteen changelog fragments gathered, six ledger fragments folded, `plugin.json` at 0.5.0 — merged as #114
+- [ ] release: **the merge into `main` and the `v0.5.0` tag, which are the repository owner's.** `hooks/version-check.py` asks `git ls-remote --tags` and nothing else, so an untagged release is one no installed session is ever told about
+
+**#106 arrived after this list was written.** It is in the 0.5.0 line above
+because the row it renames ships in this release: widening it later renames a
+key every repository that wrote the file already has, and a rename is the one
+change a config file cannot absorb quietly.
 
 **Why #104 and #105 arrived after the other four merged.** 0.5.0 is the release
 that introduces the two modes, and it is also the release where every
