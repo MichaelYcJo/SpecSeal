@@ -7,6 +7,19 @@ in place — the `extractall` pair — because the measurement is the row's whol
 value: a later session reading only the corrected sentence would not know the
 claim had ever been the other way, and would be tempted to widen it back. -->
 
+<!-- Four rows OUTSIDE this fragment drifted on this branch and were
+re-verified rather than re-pointed, because every one of their claims still
+holds. Three cite `hooks/optin.py#home_at` — two in `seal/ledger.md` and one
+in #80's fragment — which this work rewrote without changing what it answers.
+Two cite the whole-document anchor on `templates/seal-README.md`, which this
+work added a paragraph to.
+
+The second group is #80's own 🟡 4 — *a whole-document anchor makes any edit
+to that document another work item's drift, which a fragment-scoped check
+cannot see* — and it has now demonstrated itself. Nothing here acts on it; it
+is recorded so the next reader knows that row describes something observed
+twice rather than once. -->
+
 ## The root's two places
 
 | Clause | Code grounds | Verified behavior | Checked | Notes |
