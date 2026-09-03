@@ -40,7 +40,7 @@ The two directions are not symmetric, which is what the command is for.
 |---|---|---|
 | What moves | `<git-common-dir>/seal/` into the tree, staged | the tree's `seal/` out, `git rm -r --cached` staging the deletion |
 | What it costs | the records enter the history, and going back removes them from the tree and not from the history | every other clone loses them on the next pull; `seal import` is how they get them back |
-| What a `mv` leaves behind | the pull-request workflow is not installed | the workflow is not removed — **and with `seal/` no longer committed the checkers exit 0 having read nothing**, measured 2026-09-03, which is the silent-gate state this plugin exists to prevent |
+| What a `mv` leaves behind | the pull-request workflow is not installed | the workflow is not removed — **and with `seal/` no longer committed `unverified_check` exits 2 while `chain_check` exits 0 having read nothing**, measured 2026-09-03: a workflow red forever beside a check reporting a pass it did not earn. An earlier note here said both exit 0; that reading came from `$?` after a pipe, which reports the pipe's status and not the checker's — the mistake `seal/specs/1788395377-…/rounds/round-4.md` recorded once already |
 
 ## Later — not scheduled
 
