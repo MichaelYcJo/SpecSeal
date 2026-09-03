@@ -50,8 +50,16 @@ The two directions are not symmetric, which is what the command is for.
 
 ## 0.6.0 — what the measurements say to change
 
-- [ ] #30 the sealer: one agent takes the seal, once, after the rounds settle — the orchestrator has held that role since #78, and 0.5.0 is cut after #82 and #81 rather than waiting for it
-- [ ] #89 the running log: every agent segment of this flow is timed with `session-cost` and the improvement it points at is written there as a comment. Nothing on it is built during 0.4.0 or 0.5.0; when this checklist reaches here, the log becomes the tickets of 0.6.0.
+In this order. Each one stands on the one before it, and taking them the
+other way round means undoing work.
+
+- [ ] **#107 — the rules that go to every agent move out of the prompt and into a file.** First, because #30 adds a fifth agent: without that file the new one gets its own copy of the rules and #107 then has to take it back out. #107 also rewrites `agents/smith.md` and `agents/warden.md`, which #30 changes too.
+- [ ] **#109 — measuring a segment and recording what it says becomes automatic.** Early, so the rest of 0.6.0 is the thing that tries it. Landing it last means finding out whether it works in 0.7.0. Its third part — a release opening the next version's log — is tried by 0.6.0's own release.
+- [ ] **#97 and #110 — when a review run stops, and what one round's fixes may add.** One branch: both land in `skills/code-review/SKILL.md` and `docs/review-chain-spec.md`, and doing them apart means editing the same paragraphs twice. Different questions, same place — how many rounds to run, and how much new code a single fix pass may leave behind.
+- [ ] **#103 — the two defect shapes only Windows has caught are made visible without Windows.** Half of it is a line in the file #97 and #110 have just settled; the other half is a sweep that stands alone.
+- [ ] **#30 — the fifth agent, which owns the one full-suite run.** Largest, and last: today the smith and the warden are both forbidden that run and nobody is assigned it. It inherits everything above.
+- [ ] #98 — three sentences say `-z` is what turns git's path quoting off. One line, and it rides whichever branch is open.
+- [ ] #89 — the running log. It is read rather than done, and it closes at the release. Every agent segment of the flow is timed with `session-cost` and what the numbers say is written there as a comment; when this checklist reached here, that log became the list above.
 
 ## While the flow runs
 
