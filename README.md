@@ -432,8 +432,66 @@ mv "$(git rev-parse --git-common-dir)/seal" "$(git rev-parse --show-toplevel)/se
 git rm -r --cached "$(git rev-parse --show-toplevel)/seal" && mv "$(git rev-parse --show-toplevel)/seal" "$(git rev-parse --git-common-dir)/seal"
 ```
 
-Carrying local records to another clone by hand, and the `seal export` /
-`seal import` pair that packages them, arrive with #81.
+Between two machines the move is not available, because the other machine has
+no folder to move. That is what `seal export` and `seal import` below are for,
+and they are the second way to switch modes as well.
+
+### Carrying local records to another machine
+
+Local mode's trade-off is that the records never leave the clone. `seal
+export` and `seal import` make that *take a copy* rather than *lose it*.
+Both ship on the Bash tool's PATH while the plugin is enabled.
+
+```bash
+seal export                 # writes seal-<repo>-<date>.zip beside the clone
+seal import <the zip>       # takes one in, overwriting nothing
+```
+
+The zip holds the root and nothing else. The smith mark, the worktree
+choices, the review and parity marks and every lease sit *beside* the root
+under the git directory, so none of them travels — the export walks the root,
+which is why the root has to be its own directory. A symbolic link inside it
+is skipped and named rather than followed. Alongside the files goes a
+manifest naming the remote URL and the HEAD SHA at export.
+
+**Import never overwrites and never asks.** A file that is not there is
+added. One that is there with the same bytes is left alone, so re-importing
+the same zip writes nothing. One that is there with different bytes gets the
+incoming copy beside it — `ledger/<id>.incoming.md` next to
+`ledger/<id>.md` — and the collision is listed. Which of a pair is right is a
+reading, not a merge, and no answer the command could pick would avoid
+sometimes throwing work away. `evidence-check .` afterwards says which ledger
+rows drift against this tree.
+
+It refuses, writing nothing, when the zip came from another repository
+(`--allow-other-repo` if the two are one repository under two spellings),
+when the manifest declares a format this build does not read,
+when a member would land outside the root, when a member or the whole zip
+declares more bytes or more members than a root of records holds, when a
+member cannot be read — a bad checksum, encryption, a compression method this
+build has no decompressor for — when a name has to be a directory for the zip
+and is a file, and when both roots already exist.
+
+Those all stop before the first byte. One failure cannot: if a directory in
+the root cannot be written into, or the disk fills, the copy stops part-way
+and says what the filesystem said. Fix that and run it again — nothing is
+overwritten, so a second run finishes the copy and reports what was already
+there byte for byte.
+
+A symbolic link at a name a collision would fall back to is treated as taken:
+the copy lands at the next free name rather than being written through it.
+`seal export` does the same with the zip's own name. If anything is already
+at the temporary name it writes through, it refuses and leaves that alone —
+it removes a half-written archive of its own, never a file it found there.
+`seal import --into shared` or `--into local` creates the named mode's root,
+which is the other way to switch modes: export, import into the other place,
+commit or remove.
+
+In shared mode `seal export` writes no zip. The records are committed, so
+every clone and CI already have them, and it prints the path and the `mv`
+that switches to local mode instead. Once per release, `seal export --check`
+prints one line — how many work items changed since the last export — and
+uploads nothing anywhere. Where the copy goes is nobody's business but yours.
 
 ## Limits
 
