@@ -12,7 +12,7 @@ work item's implementer. -->
 | Target SHA | 7607d12 (the fix diff from 5c69b96); HEAD 1fb5507 at review time, record-only |
 | PR | none yet |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes landed at c1748e4 and round 3, the verifying round, is what opens them; this cell is set to it when that record exists |
+| Fixes checked by | round-3 |
 | Contract changes | `hooks/review-history-guard.py`'s posting reminder → the string a session reads, no unit's signature: `round-N.md` is now spelled from the work item like the two beside it; `test_the_two_todo_files_sit_where_the_release_guard_looks` → itself only — one assertion became two, so the case fails when either file leaves the work-item level rather than only when both do |
 | New units | `tests/test_chain_hooks.py#test_the_posting_reminder_spells_all_three_paths_from_one_base` |
 | Needs a fix | yes — 1 (the blindness sentinel became an OR and passes with every `evidence-todo.md` gone from the work-item level), 2 (the skill's new paragraph says the guard reads both todo files and it reads one), 3 (the reminder spells two of three paths from the repository root and the third from the work item), 4 (the memo's rewritten rung grounds answer one clause of the ladder's five while the same commit put the work on three others), 5 (the changelog fragment describes the move alone) |
