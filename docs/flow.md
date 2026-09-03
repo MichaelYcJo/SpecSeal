@@ -10,25 +10,36 @@ Each release branch is cut from `main`; each ticket is a branch cut from the
 release branch and squashed back; the release branch merges into `main` as a
 merge commit (`docs/branch-and-release.md`).
 
-## 0.8.0 — the first version built under both machines
+## 0.8.0 — the chain's own machinery, and nothing else
 
-What 0.6.0 (the contract) and 0.7.0 (the phase channel and automatic
-measurement) hand it. Not ordered beyond the one pair that must stay
-together.
+Three items, and the shape of the list is the argument. A change to
+`templates/`, `agents/` or `skills/` binds no session until the release is
+tagged and the plugin updated, so **anything built beside these three is built
+without them** — a review chain with no floor reviewing the branch that adds
+one, a segment measured by a meter that cannot say what ran it. That is the
+sentence 0.7.0 wrote here when it cut ten items to three, and 0.8.0 is the
+first release to be planned against it rather than to discover it.
 
 - [ ] **#110 + #117 — when a review run stops, and how deep a fix may pin.** One branch, because apart they undo each other: #110 removes the late rounds, and the late rounds are where the previous round's pins get read.
-- [ ] #97 — the three pin levers left after #117 took the fourth. Each changes pins that already exist, so each needs a question batch.
-- [ ] #103 — the two defect shapes only Windows has caught are made visible without Windows.
-- [ ] #111 — `git()` reads every failure as `""`, and in `seal import` that empty string switches off the refusal that keeps another project's records out.
-- [ ] #98 — three sentences say `-z` is what turns git's path quoting off, and the instruction they give is right while the reason they give for it is false. One line, and it rides whichever branch of this release is open.
-- [ ] **#136 — the roll opens the next measurement log with no body and no index, and this release is what fires it.** Two issues collect the same shape of comment, one of them is deleted every release, and nothing says which gets what. It has to land before 0.8.0 reaches `main`: after that the 0.9.0 log is already open, unlinked, and the next chance is a release away.
-- [ ] #137 — a segment's record says what it cost and not what ran it or what its output cost the next reader. Every segment run before this lands is one nothing can attribute afterwards, which is why it is here rather than beside #84.
-- [ ] #134 — the update notice names a restart and never the reload this repository measured and wrote down. One notice and one skill, and it rides whichever branch of this release is open, like #98.
+- [ ] **#136 — the roll opens the next measurement log with no body and no index, and this release is what fires it.** Two issues collect the same shape of comment, one of them is deleted every release, and nothing says which gets what. It has to land before 0.8.0 reaches `main`: that push runs the roll, and after it the 0.9.0 log is already open, empty and unlabelled, with the next chance a release away.
+- [ ] **#137 — a segment's record says what it cost, and not what ran it or what its output cost the next reader.** Every segment measured before this lands is one nothing can attribute afterwards, which is a deadline with no date on it. It is also what #84 needs before its own last line can be answered.
 
 Its measurement log is the first one taken without anybody being told to
 take it — #109's own test.
 
-## 0.9.0 — the agent set
+## 0.9.0 — the five that were 0.8.0's, built under 0.8.0's machines
+
+These sat in 0.8.0 until 2026-09-04 and moved down one, for the reason the
+section above states rather than because the list was long. Not ordered; #98
+rides whichever branch is open.
+
+- [ ] #97 — the three pin levers left after #117 took the fourth. Each changes pins that already exist, so each needs a question batch.
+- [ ] #103 — the two defect shapes only Windows has caught are made visible without Windows.
+- [ ] #111 — `git()` reads every failure as `""`, and in `seal import` that empty string switches off the refusal that keeps another project's records out.
+- [ ] #134 — the update notice names a restart and never the reload this repository measured and wrote down. One notice and one skill.
+- [ ] #98 — three sentences say `-z` is what turns git's path quoting off, and the instruction they give is right while the reason they give for it is false. One line, and it rides whichever branch of this release is open.
+
+## 0.10.0 — the agent set
 
 In this order, and the third is not optional.
 
@@ -36,13 +47,15 @@ In this order, and the third is not optional.
 - [ ] **#84 — `framer` writes the frame the smith fills**, so the writer of the contract is not its executor. Needs #121's phase channel — a framer that draws the plan and never authors the half of a phase prompt only building can teach is a partial answer.
 - [ ] **#120 — the agent contract is settled against five agents rather than three, and it lands before either of the two above is released.** Three of its sixteen sections apply to all five; §2 forbids the broad gate the sealer exists to run, and §6 forbids the durable record the framer and the sealer both write. A release that ships five agents under a contract contradicting two of them is the release that teaches readers the contract has exceptions.
 
-**Why 0.9.0 and not sooner.** #84 needs the channel 0.7.0 builds. These three
-are designed and #120's table is already counted, which is why they have a
-release at all while the rest of what the measurements ask for does not yet:
-what is not written down cannot be scheduled, and arrives as its own ticket
-sized when it exists. Three arrived that way on 2026-09-04 — #136, #137 and
-#134, out of the segments of 0.8.0's own first work item — and they are in
-0.8.0 above rather than here.
+**Why last, and why the number moved.** #84 needs the channel 0.7.0 builds and
+the attribution #137 builds. These three were 0.9.0 until 2026-09-04, when the
+two releases above took their numbers; nothing about the set changed. They are
+designed and #120's table is already counted, which is why they have a release
+at all while the rest of what the measurements ask for does not yet: what is
+not written down cannot be scheduled, and arrives as its own ticket sized when
+it exists. Three arrived that way in one afternoon — #136, #137 and #134, out
+of the segments of 0.8.0's own first work item — which is the rate this
+paragraph should be read at.
 
 ## Later — not scheduled
 
