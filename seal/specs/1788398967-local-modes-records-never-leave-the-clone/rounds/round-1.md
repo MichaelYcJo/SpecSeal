@@ -12,7 +12,7 @@ item — the smith did. -->
 | PR | none yet |
 | Broad gate | not yet — a 🔴 was open |
 | Fixes checked by | round-2 |
-| Contract changes | `linked_directory` is renamed `linked_path` and now covers the member's own name. `destination_root` refuses both roots present whatever `--into` says. `git` returns "" for a non-zero exit. `unsafe` refuses a member declaring more than `MEMBER_LIMIT`, and `import_` refuses an archive declaring more than `ARCHIVE_LIMIT` |
+| Contract changes | `linked_directory` renamed `linked_path` → `import_`; `destination_root` → `import_`; `git` → `manifest_of`, `import_`; `unsafe` → `import_`; `import_` → `main` |
 | New units | `MEMBER_LIMIT`, `ARCHIVE_LIMIT`, and four test cases |
 | Needs a fix | yes — 🔴 1 (a symbolic link named for the record, broken, takes it outside the root at exit 0), 🟡 2 (both roots present is refused only with `--into`, against four documents), 🟡 3 (an unborn branch records `"HEAD"` as the SHA), 🟡 4 (the NUL check cannot fire), 🟡 5 (a member is read whole with no bound) |
 
