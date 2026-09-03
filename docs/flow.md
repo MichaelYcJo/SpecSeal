@@ -21,8 +21,7 @@ nothing a session does until `v0.6.0` is tagged and the plugin updated.
 Shipping it by itself is what makes everything after it built **under** the
 contract rather than beside it.
 
-- [ ] **#107 — the rules that go to every agent move out of the prompt and into the plugin.** Framed at `c48bf65`; six phases, one smith spawn each. Its review chain is the last one this repository runs under hand-typed spawn prompts, so its segments are the before-figure everything in 0.7.0 is measured against.
-- [ ] #98 — three sentences say `-z` is what turns git's path quoting off. One line, and it rides #107's branch.
+- [ ] **#107 — the rules that go to every agent move out of the prompt and into the plugin.** Framed at `c48bf65`; six phases, one smith spawn each. Phases 1–4 landed at `37f8c11`, `8188f12`, `2b9d415`, `4b85d80`. Its review chain is the last one this repository runs under hand-typed spawn prompts, so its segments are the before-figure everything in 0.7.0 is measured against.
 - [ ] release: gather the changelog, fold the ledger, move `plugin.json`, merge to `main`, tag `v0.6.0` — **and update the installed plugin, then `/reload-plugins`** — that pair is what actually puts the contract in force. Preloaded skill bodies are read at session start and at `/reload-plugins`, never at spawn.
 
 ## 0.7.0 — the first version built under the contract
@@ -35,11 +34,21 @@ In this order. Each one stands on the one before it.
 - [ ] #97 — the three pin levers left after #117 took the fourth. Each changes pins that already exist, so each needs a question batch.
 - [ ] #103 — the two defect shapes only Windows has caught are made visible without Windows.
 - [ ] #111 — `git()` reads every failure as `""`, and in `seal import` that empty string switches off the refusal that keeps another project's records out.
+- [ ] #98 — three sentences say `-z` is what turns git's path quoting off, and the instruction they give is right while the reason they give for it is false. One line, and it sits here rather than riding 0.6.0 because that release is one subject.
 - [ ] #89 — the log, until #109 replaces it with a versioned one.
+
+## 0.8.0 — the agent set
+
+In this order, and the third is not optional.
+
+- [ ] **#30 — `sealer` owns the one full-suite run.** Today the smith and the warden are both forbidden it and nobody is assigned it.
+- [ ] **#84 — `framer` writes the frame the smith fills**, so the writer of the contract is not its executor.
+- [ ] **#120 — the agent contract is settled against five agents rather than three, and it lands before either of the two above is released.** Three of its sixteen sections apply to all five; §2 forbids the broad gate the sealer exists to run, and §6 forbids the durable record the framer and the sealer both write. A release that ships five agents under a contract contradicting two of them is the release that teaches readers the contract has exceptions.
+
+**Why these three and not the 0.7.0 measurements' own tickets.** What 0.7.0 measures is not yet written down, so it cannot be scheduled; these three are designed, and #120's table is already counted. Whatever the measurement asks for arrives as its own tickets and is sized when it exists.
 
 ## Later — not scheduled
 
-- [ ] #30 and #84 — the agent set: `sealer` owns the one full-suite run, `framer` writes the frame the smith fills. Both want #107's file first.
 - [ ] #83 `settle` · #85 the orphan branch as the ledger's home · #101 the export's size — the root's later steps.
 - [ ] #88 — the routing question asks three boxes and has no way to say "all three".
 
