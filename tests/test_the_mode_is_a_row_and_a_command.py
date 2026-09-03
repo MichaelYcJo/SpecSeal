@@ -576,7 +576,7 @@ def test_a_source_that_is_a_symbolic_link_refuses(local_repo, seal, capsys):
     """S17. `hooks/root-migrate.py` refuses a linked `.specseal/` rather than
     half-moving it, for the same reason: moving the link moves one entry and
     leaves every record where it was."""
-    _repo, home, shared, local, _mode = seal.resolve(str(local_repo))
+    _repo, _home, shared, local, _mode = seal.resolve(str(local_repo))
     real = os.path.join(str(local_repo), "elsewhere")
     shutil.move(local, real)
     symlink_or_skip(real, local)
