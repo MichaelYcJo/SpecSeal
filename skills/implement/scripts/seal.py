@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Carry a local-mode root out of a clone and back into another one.
+"""The root this plugin maintains: where it lives, and how a copy travels.
+
+Three subcommands over one directory. `mode` says which of the two places
+the root is at and moves it between them; `export` and `import` carry a copy
+of it to another clone.
 
 In local mode the ledger and the work-item records live under the common git
 directory, so a new machine or a re-clone starts with nothing and CI's checks
@@ -11,6 +15,17 @@ way:
   seal export                 write the root to a zip beside the clone
   seal export --check         the release reminder; writes nothing
   seal import <zip>           merge a zip's records in, overwriting nothing
+
+Switching between the two modes was two shell lines in `README.md` that a
+person had to find, and a repository arriving from the 0.3.x layout was
+never asked which mode it wanted (#104). `seal mode` is that section made
+runnable, and the section on the mode below this one is its reasoning:
+
+  seal mode                   the folder, the row, and whether they agree
+  seal mode --check           the same, writing nothing; exit 1 when they
+                              disagree. This is what CI runs
+  seal mode local|shared      switch, and write the row
+  seal mode --apply           switch to whatever the row says
 
 **The root is its own directory, and that is what makes the export safe.**
 Beside it under the git directory sit the smith mark, the worktree choices,
@@ -524,7 +539,10 @@ def no_root(repo, shared, local):
             "with its records."
         )
         return 1
-    print("no seal/ here, so there is nothing to carry. It is looked for at:")
+    # Not "nothing to carry": `seal mode` reaches this too, and it carries
+    # nothing anywhere. What all three subcommands share is that the root is
+    # what they work on, and it is looked for at exactly two places.
+    print("no seal/ here, so there is nothing to work with. It is looked for at:")
     print(f"  {shared}   (shared mode)")
     print(f"  {local}   (local mode)")
     print(
@@ -1085,6 +1103,755 @@ def write_members(archive, into):
     return counts, collisions, refused
 
 
+# --- the mode: a row that is declared, and a folder that decides ------------
+#
+# `README.md`'s *Shared or local* section carried both directions as two shell
+# lines — a `mv`, a commit, and the workflow file copied in or deleted by
+# hand. They are correct, and a person who has not read that section has no
+# way to arrive at them. This is that section made runnable, plus the four
+# things a `mv` cannot do: refuse when the other root is already there, refuse
+# when the tree is dirty under what it is about to stage, carry the workflow
+# file, and write the row so the file and the folder agree afterwards.
+#
+# **Nothing at runtime reads the row.** Every hook resolves the root through
+# `hooks/optin.py#home_at`, which reads `<repo>/seal/` then
+# `<git-common-dir>/seal/`, and that stays the only signal. The row says what
+# the repository WANTS; the folder's location says what it HAS. A gate that
+# trusted the row would go looking in a place with no folder, and everything
+# in `optin` is documented to fail toward "not opted in" rather than toward a
+# guess (`docs/one-root-by-lifetime.md`, "The opt-in signal is the root
+# itself").
+
+CONFIG = "config.md"
+ROW_ITEM = "Mode"
+
+# The two modes, spelled the way every document in this repository spells
+# them. Read case-insensitively, written lowercase.
+LOCAL, SHARED = "local", "shared"
+MODES = (LOCAL, SHARED)
+
+# The workflow shared mode installs, as GIT spells a pathspec: forward
+# slashes on every platform. `under()` turns it into a path for this
+# filesystem. The two dialects live as separate strings rather than one
+# string used for both, because a literal separator inside an
+# `os.path.join` argument produces `C:/proj\.github/workflows` — a path in
+# two dialects that equals nothing any caller built (`hooks/optin.py`
+# carries the same reasoning about `repo_root`).
+WORKFLOW = ".github/workflows/hygiene.yml"
+
+# The line CI's own workflow uses to clone this plugin. A file at WORKFLOW
+# carrying it is one this plugin wrote; a file that does not is somebody
+# else's with our name, and the switch leaves it alone rather than deleting
+# it. `tests/test_the_mode_is_a_row_and_a_command.py` asserts the template
+# still contains this, so the marker cannot drift away from what it
+# identifies.
+PLUGIN_CLONE = "https://github.com/MichaelYcJo/SpecSeal.git"
+
+# The version placeholder in `templates/hygiene.yml`. A workflow written with
+# it still in place fails CI's `git clone --branch` on the first pull
+# request, so a version that cannot be read writes no file at all.
+PLACEHOLDER = "v<version>"
+
+PLUGIN_ROOT = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")
+)
+
+# The `| Item | Value |` table, read exactly as `templates/parity.md` and the
+# pull-request-language row are read.
+CONFIG_HEADER = re.compile(r"^\|\s*Item\s*\|\s*Value\s*\|\s*$")
+CONFIG_ROW = re.compile(r"^\|\s*(?P<item>[^|]+?)\s*\|\s*(?P<value>[^|]*?)\s*\|\s*$")
+CONFIG_SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
+
+NEW_CONFIG = """# Repository config
+
+<!-- What this repository says about itself, one row per item. This file was
+created by `seal mode`; `templates/config.md` in the plugin documents every
+row and what an absent one means. -->
+
+| Item | Value |
+|---|---|
+| {item} | {value} |
+"""
+
+
+def under(root, rel):
+    """The disk path of a `/`-joined repository-relative path.
+
+    Spelled the way `hooks/root-migrate.py#under` spells it, and the split
+    happens HERE rather than inside `os.path.join`, for the reason WORKFLOW
+    gives above.
+    """
+    return os.path.join(root, *rel.split("/"))
+
+
+def config_path(home):
+    return os.path.join(home, CONFIG)
+
+
+def config_rows(text):
+    """Every `| Item | Value |` row under the first such header, in order.
+
+    The header and the separator are this table's own furniture ABOVE its
+    first row and somebody else's table BELOW it; any other line ends the
+    table. Both rules are the ones
+    `tests/test_the_pull_request_language_is_the_repositorys.py#items`
+    arrived at over two review rounds, and a second reader that read the
+    table differently would answer a different question about the same file.
+    """
+    found, seen_header = [], False
+    for line in text.splitlines():
+        if not seen_header:
+            if CONFIG_HEADER.match(line):
+                seen_header = True
+            continue
+        if CONFIG_HEADER.match(line) or CONFIG_SEPARATOR.match(line.strip()):
+            if found:
+                break
+            continue
+        match = CONFIG_ROW.match(line)
+        if not match:
+            if found:
+                break
+            continue
+        found.append((match.group("item").strip(), match.group("value").strip()))
+    return found
+
+
+def declared(home):
+    """(kind, value) for the `Mode` row — what the repository SAYS it wants.
+
+      "none"     nothing is declared: no file, no such row, an empty value,
+                 or a file that does not parse as that table. Four spellings
+                 of one state, the same four the pull-request-language row
+                 has for not naming a language
+      "mode"     `local` or `shared`, lowercased
+      "unknown"  a row is there and its value is not a mode — a claim nobody
+                 can act on, which is not the same as no claim
+
+    **There is no default.** Every other item in `config.md` falls back to
+    what every repository got before the row existed; for the mode that is
+    *the folder decides*, so an absent row is filled in from the folder by
+    `seal mode` rather than assumed here. A default of `shared` would report
+    every undeclared local-mode repository as lying.
+    """
+    try:
+        with open(config_path(home), encoding="utf-8") as handle:
+            text = handle.read()
+    except (OSError, ValueError):
+        # Unreadable is one of the four, not a failure: `IsADirectoryError`
+        # and a file this locale cannot decode both land here, and neither is
+        # a reason to stop answering where the folder is.
+        return "none", ""
+    for item, value in config_rows(text):
+        if item == ROW_ITEM:
+            lowered = value.lower()
+            if not lowered:
+                return "none", ""
+            return ("mode", lowered) if lowered in MODES else ("unknown", value)
+    return "none", ""
+
+
+def ending_of(line, fallback):
+    """The line's own ending, or FALLBACK where it has none."""
+    bare = line.rstrip("\r\n")
+    return line[len(bare) :] or fallback
+
+
+def line_ending(lines):
+    """The first ending in the file, so a CRLF file stays CRLF."""
+    for line in lines:
+        found = ending_of(line, "")
+        if found:
+            return found
+    return "\n"
+
+
+def table_span(lines):
+    """(index of the `Mode` row or -1, index just past the first table's last
+    row or -1) — one pass, reading exactly what `config_rows` reads."""
+    seen_header, mode_at, end = False, -1, -1
+    for i, raw in enumerate(lines):
+        line = raw.rstrip("\r\n")
+        if not seen_header:
+            if CONFIG_HEADER.match(line):
+                seen_header = True
+            continue
+        if CONFIG_HEADER.match(line) or CONFIG_SEPARATOR.match(line.strip()):
+            if end >= 0:
+                break
+            continue
+        match = CONFIG_ROW.match(line)
+        if not match:
+            if end >= 0:
+                break
+            continue
+        end = i + 1
+        if match.group("item").strip() == ROW_ITEM:
+            mode_at = i
+    return mode_at, end
+
+
+def with_row(text, value):
+    """TEXT with the `Mode` row set to VALUE, every other line's bytes kept.
+
+    Three cases, and the file is a person's in all three: an existing row is
+    replaced where it stands, a table with no such row gains one at its end,
+    and a file with no such table at all gets one appended after a blank
+    line. Nothing is re-wrapped, re-ordered, or re-ended.
+    """
+    row = f"| {ROW_ITEM} | {value} |"
+    lines = text.splitlines(keepends=True)
+    ending = line_ending(lines)
+    mode_at, end = table_span(lines)
+
+    if mode_at >= 0:
+        lines[mode_at] = row + ending_of(lines[mode_at], ending)
+        return "".join(lines)
+    if end >= 0:
+        lines.insert(end, row + ending)
+        return "".join(lines)
+
+    if lines and not lines[-1].endswith(("\n", "\r")):
+        lines[-1] += ending
+    if lines:
+        lines.append(ending)
+    lines.extend([f"| Item | Value |{ending}", f"|---|---|{ending}", row + ending])
+    return "".join(lines)
+
+
+def write_row(home, value):
+    """Write `| Mode | value |` into the root's `config.md`; "" or why not.
+
+    Refused rather than followed: a symbolic link at that name is a write
+    that leaves the root, which is the one way out of a structure the export
+    walks (`root_files`), and a directory is `IsADirectoryError` arriving as
+    a traceback.
+    """
+    path = config_path(home)
+    if os.path.islink(path):
+        return f"{path} is a symbolic link"
+    if os.path.isdir(path):
+        return f"{path} is a directory"
+    try:
+        # `newline=""` on both sides, so a CRLF file is read and written back
+        # as one: with translation on, every line of somebody's file would be
+        # rewritten by an edit to one row of it.
+        with open(path, encoding="utf-8", newline="") as handle:
+            text = handle.read()
+    except FileNotFoundError:
+        text = None
+    except (OSError, ValueError) as exc:
+        return f"{path} could not be read: {exc}"
+
+    new = (
+        NEW_CONFIG.format(item=ROW_ITEM, value=value)
+        if text is None
+        else with_row(text, value)
+    )
+    try:
+        with open(path, "w", encoding="utf-8", newline="") as handle:
+            handle.write(new)
+    except (OSError, ValueError) as exc:
+        return f"{path} could not be written: {exc}"
+    return ""
+
+
+def porcelain(repo, *paths):
+    """`git status --porcelain` lines under PATHS, or one line saying git
+    could not answer.
+
+    **Both paths this command stages, not just the root.** The switch stages
+    a removal or an addition of the workflow file too, and a guard watching
+    only the root would leave that path's uncommitted work to be taken by
+    `git rm`. Enumerating the class is the point; `spec.md` §"What the switch
+    touches" lists all five.
+
+    An unanswerable question reads as dirty, the direction
+    `hooks/root-migrate.py#dirty` takes: moving on a guess is the one
+    direction with no undo. `git rm -r --cached` drops a staged edit out of
+    the index and prints nothing about it (measured 2026-09-03).
+    """
+    try:
+        done = subprocess.run(
+            ["git", "-C", repo, "status", "--porcelain", "--", *paths],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return [f"git status could not be run ({exc})"]
+    if done.returncode != 0:
+        return [(done.stderr or "").strip() or f"git status exited {done.returncode}"]
+    return [line for line in (done.stdout or "").splitlines() if line.strip()]
+
+
+def indexed(line):
+    """Whether a porcelain line is something the index can lose.
+
+    **Untracked is not.** The guard exists because `git rm -r --cached` takes
+    a staged edit out of the index and prints nothing about it (measured
+    2026-09-03); a file the index has never heard of cannot be taken out of
+    it, and it travels with the folder in both directions — moved out with
+    the root going to local, staged by `git add` going to shared. Refusing
+    over one was not a stricter version of the same rule, it was a different
+    rule with no grounds, and it made the ordinary first run refuse: `seal
+    mode` writes an absent row, and the switch a person runs next met the
+    file it had just written.
+
+    A line git could not produce at all does not start with a status pair,
+    and reads as indexed — the unanswerable question refuses, which is
+    `hooks/root-migrate.py#dirty`'s direction.
+    """
+    return line[:2] != "??"
+
+
+def tracked(repo, rel):
+    """True when git tracks anything under REL.
+
+    `git rm -r --cached` on a pathspec matching no index entry exits 128
+    (measured 2026-09-03), so the step is skipped rather than run and
+    excused — which is also what makes a second run of a stopped switch
+    finish it instead of failing.
+    """
+    try:
+        done = subprocess.run(
+            ["git", "-C", repo, "ls-files", "-z", "--", rel],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if done.returncode != 0:
+        return False
+    return bool([p for p in (done.stdout or "").split("\0") if p])
+
+
+def other_worktrees(repo):
+    """Every other worktree of this clone, by path.
+
+    Measured 2026-09-03: switching shared → local from one worktree leaves
+    every other one holding the committed `<repo>/seal/` on its own branch,
+    so the two read two different roots until the commit reaches both. It
+    heals itself and loses nothing, so it is named rather than refused.
+    """
+    here = os.path.realpath(repo)
+    found = []
+    for line in git(repo, "worktree", "list", "--porcelain").splitlines():
+        if line.startswith("worktree "):
+            path = line[len("worktree ") :].strip()
+            if path and os.path.realpath(path) != here:
+                found.append(path)
+    return found
+
+
+def plugin_version():
+    """The installed plugin's version, or "".
+
+    Read from beside this script rather than from `CLAUDE_PLUGIN_ROOT`: this
+    file IS in the plugin, and an environment variable is one more thing that
+    can be unset in the shell a person happens to be in.
+    """
+    try:
+        with open(
+            os.path.join(PLUGIN_ROOT, ".claude-plugin", "plugin.json"),
+            encoding="utf-8",
+        ) as handle:
+            version = json.load(handle).get("version")
+    except (OSError, ValueError, AttributeError):
+        return ""
+    return version if isinstance(version, str) else ""
+
+
+def install_workflow(repo):
+    """Write the pull-request checks; (what happened, the line to print).
+
+    Never overwrites — the same stance the `implement` skill's bootstrap
+    takes at first setup, and the same one the rest of this command takes.
+    """
+    path = under(repo, WORKFLOW)
+    if os.path.lexists(path):
+        return "kept", (
+            f"  {WORKFLOW} was already there and was left alone — check that "
+            "it runs the checks you want"
+        )
+    version = plugin_version()
+    if not version:
+        return "no-version", (
+            f"  {WORKFLOW} was NOT written: the plugin's version could not be "
+            f"read from {os.path.join(PLUGIN_ROOT, '.claude-plugin', 'plugin.json')}, "
+            f"and a workflow still carrying `{PLACEHOLDER}` fails CI's clone "
+            "on the first pull request. Copy templates/hygiene.yml in by hand "
+            "and replace that placeholder with the release you run."
+        )
+    source = os.path.join(PLUGIN_ROOT, "templates", "hygiene.yml")
+    try:
+        with open(source, encoding="utf-8") as handle:
+            text = handle.read()
+    except (OSError, ValueError) as exc:
+        return "unreadable", f"  {WORKFLOW} was NOT written: {source} — {exc}"
+    if PLACEHOLDER not in text:
+        # The substitution has to be able to fail. A template that stopped
+        # carrying the placeholder would be written pinned to whatever it
+        # says instead, and nothing would report it.
+        return "no-placeholder", (
+            f"  {WORKFLOW} was NOT written: {source} no longer carries "
+            f"`{PLACEHOLDER}`, so the version could not be pinned. This is a "
+            "defect in the plugin — report it rather than working around it."
+        )
+    text = text.replace(PLACEHOLDER, "v" + version)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(text)
+    except (OSError, ValueError) as exc:
+        return "failed", (
+            f"  {WORKFLOW} was NOT written: {exc}. Copy "
+            "templates/hygiene.yml in by hand, or run this command again."
+        )
+    git(repo, "add", "--", WORKFLOW)
+    return "written", f"  wrote {WORKFLOW} (pinned to v{version}) and staged it"
+
+
+def remove_workflow(repo):
+    """Remove the pull-request checks; (what happened, the line to print).
+
+    **Not tidiness.** Measured 2026-09-03 in a repository with no `seal/`:
+    `unverified_check.py` exits 2 for a path that is nowhere and
+    `chain_check.py` exits 0 having examined nothing. A workflow left behind
+    after a switch to local gets both — a build that is red forever for a
+    repository doing the right thing, and a review-chain check reporting a
+    pass it never earned.
+
+    A file this plugin did not write is left alone: deleting somebody's
+    workflow because it shares a name is the destructive direction.
+    """
+    path = under(repo, WORKFLOW)
+    if not os.path.lexists(path):
+        return "absent", ""
+    if os.path.islink(path):
+        return "kept", (
+            f"  {WORKFLOW} is a symbolic link, so it is not this plugin's "
+            "file to remove — left alone. The checks it runs read committed "
+            "files, and local mode commits none."
+        )
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except (OSError, ValueError) as exc:
+        return "kept", (
+            f"  {WORKFLOW} could not be read ({exc}), so it was left alone. "
+            "Check by hand whether it is this plugin's."
+        )
+    if PLUGIN_CLONE not in text:
+        return "kept", (
+            f"  {WORKFLOW} was not written by this plugin, so it was left "
+            "alone. Its checks read committed files and local mode commits "
+            "none, so whatever it runs there will read nothing."
+        )
+    if tracked(repo, WORKFLOW):
+        done = subprocess.run(
+            ["git", "-C", repo, "rm", "--quiet", "--", WORKFLOW],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+        )
+        if done.returncode != 0:
+            return "failed", (
+                f"  {WORKFLOW} could not be removed: {(done.stderr or '').strip()}"
+            )
+        return "removed", f"  removed {WORKFLOW} and staged the removal"
+    try:
+        os.remove(path)
+    except OSError as exc:
+        return "failed", f"  {WORKFLOW} could not be removed: {exc}"
+    return "removed", f"  removed {WORKFLOW}"
+
+
+def say_report(repo, home, shared, local, current, kind, value):
+    """The report both `seal mode` and `seal mode --check` print."""
+    print(f"  folder: {current:<7}{display(repo, home)}/")
+    if kind == "mode":
+        print(f"  row:    {value:<7}{display(repo, config_path(home))}")
+    elif kind == "unknown":
+        print(
+            f"  row:    {value} — which is not a mode. The two values are "
+            f"`{LOCAL}` and `{SHARED}`."
+        )
+    else:
+        print(f"  row:    not declared  ({display(repo, config_path(home))})")
+
+
+def mode_report(args, repo, home, shared, local, current):
+    """`seal mode` and `seal mode --check`: the folder, the row, and whether
+    they agree. The folder is never moved here.
+
+    An absent row is written from the folder — the state every repository
+    with a `config.md` is in today, since the pull-request language shipped
+    as its only row. The value is an observation this command just made, so
+    it cannot be wrong; nothing falls back to a default, because there is
+    none. `--check` writes nothing at all: it runs in CI, and a check that
+    mutates the tree it checks is not a check.
+    """
+    kind, value = declared(home)
+    if kind == "none" and not args.check:
+        failed = write_row(home, current)
+        if failed:
+            print(f"the `{ROW_ITEM}` row could not be written: {failed}")
+            print("The folder is still the answer, and it is:")
+        else:
+            print(
+                f"no `{ROW_ITEM}` row was declared, so one was written from "
+                f"where the folder is: `| {ROW_ITEM} | {current} |` in "
+                f"{display(repo, config_path(home))}"
+            )
+            kind, value = "mode", current
+
+    say_report(repo, home, shared, local, current, kind, value)
+
+    if kind == "unknown":
+        print(
+            f"\nThe row names no mode, so nothing can be applied from it. "
+            f"`seal mode {current}` writes what the folder says; editing the "
+            f"row to `{LOCAL}` or `{SHARED}` and running `seal mode --apply` "
+            "moves the folder."
+        )
+        return 1 if args.check else 0
+    if kind == "none":
+        return 0
+    if value == current:
+        print("\nThey agree.")
+        return 0
+    print(
+        f"\nThey disagree: the row says `{value}` and the folder is "
+        f"{current}. Two commands end it —"
+    )
+    print(f"  seal mode --apply     move the folder to {value}, as the row says")
+    print(f"  seal mode {current:<11}correct the row to {current}, as the folder is")
+    return 1 if args.check else 0
+
+
+def both_roots(shared, local):
+    return (
+        "both roots exist, and the gates read the first of them:\n"
+        f"  {shared}   (shared mode — read first)\n"
+        f"  {local}   (local mode)\n"
+        "Switching from here would leave the other where nothing reads it. "
+        "Move or remove one first."
+    )
+
+
+def refusals(repo, home, shared, local, wanted):
+    """Every reason not to switch, gathered before anything is written.
+
+    The list is the class in `spec.md` §"What the switch touches", walked in
+    order, rather than the guards a reader thinks of first. The one act that
+    is NOT preflighted is the workflow file, because it is the last step and
+    a second run finishes it — the resume is what makes preflighting it
+    unnecessary.
+    """
+    if not local:
+        return ["the common git directory could not be resolved"]
+    if os.path.isdir(shared) and os.path.isdir(local):
+        return [both_roots(shared, local)]
+
+    source = shared if wanted == LOCAL else local
+    destination = local if wanted == LOCAL else shared
+    found = []
+
+    if os.path.islink(source):
+        found.append(
+            f"{source} is a symbolic link, not the root itself. Moving it "
+            "would move the link and leave the records where they are."
+        )
+    if os.path.isdir(source) and os.path.lexists(destination):
+        found.append(
+            f"{destination} already exists, and nothing here overwrites. "
+            "Move or remove it first."
+        )
+
+    lines = [line for line in porcelain(repo, optin.HOME, WORKFLOW) if indexed(line)]
+    if lines:
+        found.append(
+            "the tree is not clean under the paths this would stage:\n  "
+            + "\n  ".join(lines)
+            + "\nCommit or stash them first. `git rm -r --cached` takes a "
+            "staged edit out of the index and prints nothing about it, so a "
+            "half-staged switch is worse than none."
+        )
+
+    config = config_path(home)
+    if os.path.islink(config):
+        found.append(f"{config} is a symbolic link, and the row is written there")
+    elif os.path.isdir(config):
+        found.append(f"{config} is a directory, and the row is written there")
+    elif os.path.isfile(config):
+        try:
+            with open(config, encoding="utf-8", newline="") as handle:
+                handle.read()
+        except (OSError, ValueError) as exc:
+            found.append(
+                f"{config} could not be read ({exc}), and the row is written there"
+            )
+    return found
+
+
+def switch(args, repo, home, shared, local, current, wanted):
+    """Move the root, write the row, stage the index, carry the workflow file.
+
+    In the order of `spec.md` §"Order, and what a stopped run leaves": the
+    rename first, because it is the step that can fail for reasons outside
+    this command and until it succeeds nothing has happened. Every step after
+    it is idempotent, so `seal mode <the same mode>` finishes a stopped run —
+    and so does a person who already ran the README's `mv` by hand.
+    """
+    source = shared if wanted == LOCAL else local
+    destination = local if wanted == LOCAL else shared
+
+    stop = refusals(repo, home, shared, local, wanted)
+    if stop:
+        for line in stop:
+            print(line)
+        print("\nNothing was moved.")
+        return 1
+
+    if wanted == SHARED:
+        print(
+            "Going to shared mode puts the records in the tree. Until you "
+            "commit, `seal mode local` walks the whole thing back; after the "
+            "commit they are in the history, and taking them out of the tree "
+            "later does not take them out of it."
+        )
+    else:
+        print(
+            "Going to local mode takes the records out of the tree. Every "
+            "other clone loses them at the next pull — `seal export` here "
+            "and `seal import` there is how a teammate gets a copy."
+        )
+    for line in porcelain(repo, optin.HOME):
+        if not indexed(line):
+            print(
+                f"note: {line[3:]} is untracked, so the index cannot lose it "
+                "— it travels with the folder."
+            )
+    for path in other_worktrees(repo):
+        print(
+            f"note: {path} is another worktree of this clone. Until the "
+            "commit reaches its branch it reads the root its own tree has, "
+            "which is not the one this move leaves."
+        )
+    print("")
+
+    moved = False
+    if os.path.isdir(source):
+        try:
+            os.rename(source, destination)
+        except OSError as exc:
+            print(f"the root could not be moved: {exc}")
+            print(
+                "Nothing else has run. From the repository root, this does "
+                "the move across filesystems:\n"
+                f'  mv "{source}" "{destination}"\n'
+                "then run this command again to finish."
+            )
+            return 1
+        moved = True
+        print(f"  moved {display(repo, source)} to {display(repo, destination)}")
+    else:
+        print(f"  {display(repo, destination)} is already the root")
+
+    failed = write_row(destination, wanted)
+    if failed:
+        print(f"  the `{ROW_ITEM}` row was NOT written: {failed}")
+    else:
+        print(f"  wrote `| {ROW_ITEM} | {wanted} |` in {CONFIG}")
+
+    if wanted == LOCAL:
+        if tracked(repo, optin.HOME):
+            done = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    repo,
+                    "rm",
+                    "-r",
+                    "--cached",
+                    "--quiet",
+                    "--",
+                    optin.HOME,
+                ],
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+            )
+            if done.returncode != 0:
+                print(
+                    f"  the records are still tracked: "
+                    f"{(done.stderr or '').strip()}\n"
+                    f"  Run `git rm -r --cached {optin.HOME}` yourself, or "
+                    "this command again."
+                )
+            else:
+                print(f"  staged the removal of {optin.HOME}/ from the tree")
+        else:
+            print(f"  nothing under {optin.HOME}/ was tracked")
+        _, line = remove_workflow(repo)
+        if line:
+            print(line)
+    else:
+        git(repo, "add", "--", optin.HOME)
+        print(f"  staged {optin.HOME}/")
+        _, line = install_workflow(repo)
+        if line:
+            print(line)
+
+    print("\nNow commit. The switch is what the commit records:\n  git commit")
+    if moved and wanted == SHARED:
+        print("Until then, `seal mode local` puts it back.")
+    return 0
+
+
+def mode(args, cwd):
+    repo, home, shared, local, current = resolve(cwd)
+    if not home:
+        if args.check:
+            # A check that fails where there is nothing to check teaches
+            # people to delete the check. A workflow that outlived its root
+            # already goes red on `unverified_check.py`, which exits 2 for a
+            # path that is nowhere; this one has nothing to add to that.
+            print("no seal/ here, so nothing is declared and nothing can disagree.")
+            return 0
+        return no_root(repo, shared, local)
+
+    wanted = args.mode
+    if args.apply:
+        kind, value = declared(home)
+        if kind == "mode":
+            wanted = value
+        else:
+            named = (
+                f"names `{value}`, which is not a mode"
+                if kind == "unknown"
+                else "is not declared"
+            )
+            print(f"the `{ROW_ITEM}` row {named}, so there is nothing to apply.")
+            print(
+                f"Write one in {display(repo, config_path(home))} —\n"
+                f"  | {ROW_ITEM} | {LOCAL} |\n"
+                f"or run `seal mode {LOCAL}` / `seal mode {SHARED}` to switch "
+                "and write the row in one step."
+            )
+            return 1
+
+    if not wanted:
+        return mode_report(args, repo, home, shared, local, current)
+    return switch(args, repo, home, shared, local, current, wanted)
+
+
 # --- the release reminder ---------------------------------------------------
 
 
@@ -1123,7 +1890,9 @@ def check(cwd):
 def main(argv=None, cwd=None):
     cwd = cwd or os.getcwd()
     parser = argparse.ArgumentParser(
-        prog="seal", description="carry a local-mode seal/ root between clones"
+        prog="seal",
+        description="where this repository's seal/ root lives, and how a copy "
+        "of it travels between clones",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -1150,9 +1919,45 @@ def main(argv=None, cwd=None):
         help="import although the manifest names a different remote",
     )
 
+    md = sub.add_parser(
+        "mode", help="report the mode, or switch between shared and local"
+    )
+    md.add_argument(
+        "mode",
+        nargs="?",
+        choices=MODES,
+        help="the mode to switch to. With none, the mode is reported",
+    )
+    md.add_argument(
+        "--check",
+        action="store_true",
+        help="report, write nothing, and exit 1 when the row and the folder "
+        "disagree. This is what CI runs",
+    )
+    md.add_argument(
+        "--apply", action="store_true", help="switch to whatever the `Mode` row says"
+    )
+
     args = parser.parse_args(argv)
     if args.command == "export":
         return check(cwd) if args.check else export(args, cwd)
+    if args.command == "mode":
+        # Three spellings of one answer, and any two together is a question
+        # with two answers rather than a shorthand. Refused here rather than
+        # resolved by precedence: a person who typed both meant one of them,
+        # and this command moves directories.
+        given = [
+            name
+            for name, on in (
+                ("a mode", bool(args.mode)),
+                ("--check", args.check),
+                ("--apply", args.apply),
+            )
+            if on
+        ]
+        if len(given) > 1:
+            parser.error(f"{' and '.join(given)} cannot be given together")
+        return mode(args, cwd)
     return import_(args, cwd)
 
 

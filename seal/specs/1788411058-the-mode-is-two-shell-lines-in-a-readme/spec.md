@@ -125,7 +125,8 @@ nothing to disagree with — so it reports the row as not declared and passes.
 | Scenario | Given / When / Then | Verifiable how |
 |---|---|---|
 | S14 | Given both roots exist, when any applying spelling runs, then it refuses, names both paths and which one the gates read, and writes nothing | S14 case, three spellings |
-| S15 | Given anything at all under `seal/` in `git status --porcelain` — a modification, a staged edit, an untracked file, a deletion — when an applying spelling runs, then it refuses naming the porcelain lines, and nothing moves | S15 case, four shapes |
+| S15 | Given anything the index carries under `seal/` — a modification, a staged edit, a deletion — when an applying spelling runs, then it refuses naming the porcelain lines, and nothing moves | S15 case, three shapes |
+| S15b | Given an **untracked** file under `seal/` and nothing else, when an applying spelling runs, then it proceeds, names the file as travelling with the folder, and the file is at the destination afterwards | S15b case, both directions |
 | S16 | Given the destination path already exists as anything — a file, a directory, a symbolic link, a broken link — when an applying spelling runs, then it refuses naming it, and nothing moves | S16 case, four shapes |
 | S17 | Given the source root is a symbolic link rather than a directory, when an applying spelling runs, then it refuses rather than moving the link, and nothing moves | S17 case |
 | S18 | Given `.github/workflows/hygiene.yml` is dirty in `git status --porcelain`, when an applying spelling runs, then it refuses before moving anything | S18 case |
@@ -156,7 +157,8 @@ already takes: *treat it as work in progress and refuse.*
 
 | Question | Cannot answer → | Why that direction |
 |---|---|---|
-| Is the tree clean under `seal/`? | refuse | Moving on a guess is the one direction with no undo: `git rm -r --cached` drops a staged edit out of the index with nothing printed (measured, S15's grounds) |
+| Does the index carry a change under `seal/` or the workflow path? | refuse | Moving on a guess is the one direction with no undo: `git rm -r --cached` drops a staged edit out of the index with nothing printed (measured, S15's grounds) |
+| Is an **untracked** file under `seal/` a reason to refuse? | no — name it and proceed | The index cannot lose what it never had, and the file travels with the folder either way. Refusing was not a stricter version of the guard above, it was a different guard with no grounds — and it made the ordinary first run refuse, because `seal mode` writes an absent row and the switch met the file it had just written (found by running it, before any test existed) |
 | Is this path a symbolic link? | refuse | `os.path.lexists` answers it without following; there is no unanswerable case, and a link followed is a move out of the root |
 | Is `hygiene.yml` this plugin's? | leave it | Removing someone else's file is the destructive direction. The report says what was left and what it means |
 | What version is installed? | write no workflow | A workflow carrying a literal `v<version>` fails CI's clone at the first pull request, which is worse than no workflow — and the report names the by-hand copy |
@@ -253,11 +255,14 @@ where a finding points, because that is what #81 cost seven rounds:
 | 2 | index entries under `seal/` | `git rm -r --cached` going to local, `git add` going to shared | the tree is clean under `seal/` · skipped entirely when git tracks nothing there, because the pathspec would fail |
 | 3 | `<home>/config.md` | the `Mode` row written, the rest of the file preserved | not a link, not a directory, readable |
 | 4 | `.github/workflows/hygiene.yml` | written going to shared, removed going to local | that path is clean · written only when absent · removed only when it is this plugin's · not written at all when the version cannot be read |
-| 5 | `.github/workflows/` | created going to shared | a failure to create it refuses before anything moves |
+| 5 | `.github/workflows/` | created going to shared | a failure to create it is reported as the workflow step failing, and a second run retries it |
 
 Path 5 is the one a coordinate-shaped fix would have missed: it is not a file
 anybody names, it is created as a side effect of path 4, and on a repository
-with no `.github/` at all it is the first thing that can fail.
+with no `.github/` at all it is the first thing that can fail. It is the one
+act not preflighted, because preflighting it would mean creating it — a write
+during a pass whose whole contract is to write nothing — and the resume in
+§"Order" makes that unnecessary.
 
 ### Order, and what a stopped run leaves
 
