@@ -1001,6 +1001,14 @@ def test_a_manifest_missing_exported_at_still_ends_with_a_line_of_its_own(
     assert "Exported at an unrecorded time from aaaaaaaaaaaa." in out
 
 
+# RIDER: add `("exported_at", 12345)` here, and in the body assert the line
+# reads `Exported at an unrecorded time from aaaaaaaaaaaa.` Round 5 fixed the
+# closing line with three type guards; two are pinned by this list and the
+# third — `isinstance(when, str)` at `seal.py`'s closing print — is pinned by
+# nothing. Three mutations of it were green at 3f8f846, measured 2026-09-03,
+# and the loosest prints `Exported at 12345 from …`. Not added when it was
+# found, because it was found by round 7, a verifying round, and a fix there
+# needs a round of its own to read it.
 @pytest.mark.parametrize(
     "field, value",
     [("head", 12345), ("head", True), ("remote", ["a"]), ("remote", {"a": 1})],

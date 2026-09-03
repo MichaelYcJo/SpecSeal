@@ -11,7 +11,7 @@ the review orchestrator, which did not implement this work item. -->
 | Target SHA | 7cc4fb3 (the fix diff from 3f2a7b1); dc79a57 and a1e7bf3 change only `rounds/*.md` cells |
 | PR | none yet |
 | Broad gate | at the tree this record is committed in — see the table below |
-| Fixes checked by | no fixes to check |
+| Fixes checked by | round-7 |
 | Contract changes | none |
 | New units | none — one test case and two assertions |
 | Needs a fix | no |
