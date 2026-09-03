@@ -138,8 +138,12 @@ def test_the_smiths_contract_does_not_demand_what_a_serial_loop_cannot_give():
         "and a figure with no home is one that measures the wrong agent"
     )
     smith = flat("agents", "smith.md")
-    assert "1.08–1.17" in smith
-    assert "1.29–1.89" in smith
+    # U+2013 EN DASH, built rather than typed: the definition spells both
+    # ranges with one, so a hyphen would match nothing, and a typed one is
+    # what the linter reads as an ambiguous character.
+    dash = chr(0x2013)
+    assert f"1.08{dash}1.17" in smith
+    assert f"1.29{dash}1.89" in smith
     assert "never obliged to fake a batch" in smith
 
 

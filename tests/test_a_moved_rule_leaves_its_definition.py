@@ -251,7 +251,9 @@ def test_a_citation_is_not_a_copy():
             "1.89",
         ),
         ("agents", "smith.md"): (
-            "1.08–1.17",
+            # U+2013 EN DASH, built rather than typed: the definition spells
+            # the range with one, so a hyphen would match nothing.
+            "1.08" + chr(0x2013) + "1.17",
             "hand-back",
             "§10's number for you",
         ),

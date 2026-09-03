@@ -158,7 +158,12 @@ def test_the_file_it_names_is_a_contract(path):
 
 @pytest.mark.parametrize("path", AGENTS, ids=name)
 def test_a_bare_name_is_delivered_by_the_frontmatter(path):
-    """Q1 answered B′: the harness preloads what the `skills:` list holds.
+    """Q1 answered B-prime: the harness preloads what the `skills:` list holds.
+
+    The work item's records spell that answer `B` followed by U+2032 PRIME.
+    Written out here instead, because `ruff check .` runs over `tests/` in CI
+    and reads a prime in a docstring as an ambiguous character — phase 2
+    shipped one and the branch has been failing that step since.
 
     A definition that names the contract in prose but does not list it has
     written down an intention, not a delivery."""

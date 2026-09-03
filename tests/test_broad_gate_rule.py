@@ -32,6 +32,12 @@ def flat(*parts):
     return " ".join(read(*parts).split())
 
 
+# U+2013 EN DASH, built rather than typed. The definitions spell every ratio
+# range with one, so a hyphen would match nothing; a typed one is what the
+# linter reads as an ambiguous character.
+DASH = chr(0x2013)
+
+
 def test_verify_says_when_not_only_what():
     scope = read("skills", "verify", "SKILL.md")
     assert "## Scope" in scope, "verify lost the section that bounds the moment"
@@ -95,12 +101,12 @@ def test_the_smith_carries_the_batching_rule_it_actually_spends():
     for something a serial loop cannot give, which is how a rule stops being
     read at all."""
     smith = flat("agents", "smith.md")
-    assert "1.08–1.17" in smith, (
+    assert f"1.08{DASH}1.17" in smith, (
         "the implementer's own measured ratio went, and the only number left "
         "in the tree is the one that judges a reviewer"
     )
-    assert "1.29–1.89" in smith, (
-        "the comparison went; a bare 1.08–1.17 reads as a target rather than "
+    assert f"1.29{DASH}1.89" in smith, (
+        "the comparison went; a bare 1.08-1.17 reads as a target rather than "
         "as what a serial loop can give"
     )
     assert "§10" in smith, "the implementer can no longer reach the rule"

@@ -59,11 +59,15 @@ def test_the_rule_names_the_tool_and_pairs_its_two_reasons():
         text = flat(*parts)
         who = "/".join(parts)
         assert "`Edit` tool" in text, f"{who} stopped naming the tool"
-        # Not the whole clause: the contract says `Two reasons point the same
-        # way` and the smith says `for two reasons that point the same way`.
-        # Pinning either spelling would fail the other file for a difference
-        # that is not the drift this case is about.
-        assert "point the same way" in text, (
+        # The whole clause, which phase 4 could tighten and phase 3 could
+        # not. Two files stated the pairing in two spellings -- the contract's
+        # `Two reasons point the same way` and the smith's `for two reasons
+        # that point the same way` -- so the shared fragment was all either
+        # could be pinned to, and a sentence that kept the fragment while
+        # losing the count would have passed. One carrier means one spelling,
+        # and the split is settled by there being nothing left to disagree
+        # with rather than by choosing between them.
+        assert "Two reasons point the same way" in text, (
             f"{who} lost the pairing. One reason alone reads as a style "
             "preference, and the gate half is the one no other document says"
         )
