@@ -1117,7 +1117,12 @@ def _literal_strings():
         chain.CONTRACT,
         chain.NEW_UNITS,
         chain.NONE_WORD,
+        chain.NO_FIXES,
+        chain.NOBODY,
+        chain.BLOCKING,
+        chain.PR_FIELD,
         unverified.HEADING,
+        unverified.CLOSED,
         *unverified.HEADER,
         *chain.CLOSED_WORDS,
     }

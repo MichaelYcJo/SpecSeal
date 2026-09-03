@@ -73,7 +73,24 @@ def test_the_mode_row_is_routed_and_not_read():
     # and round 2 found that a presence assertion cannot see a move ADDED
     # somewhere else in the file: a paragraph telling the session to `cp -a`
     # the root and delete the original left all of these green.
-    for spelled in ("mv ", "cp -a", "rsync", "shutil.move", "git mv"):
+    # An enumeration, not a closure — no list of strings can cover every way
+    # of writing a move, and round 3 walked past the first five with `cp -r`
+    # and `shutil.copytree`. What it buys is that the common spellings cannot
+    # arrive unnoticed; what it does not buy is proof that none did.
+    for spelled in (
+        "mv ",
+        "cp -a",
+        "cp -r",
+        "cp -R",
+        "rsync",
+        "ditto ",
+        "shutil.move",
+        "shutil.copytree",
+        "os.rename",
+        "os.replace",
+        "Path.rename",
+        "git mv",
+    ):
         assert spelled not in text, (
             f"the skill spells a move of its own (`{spelled}`) — the "
             "prohibition below being present cannot see one added elsewhere"

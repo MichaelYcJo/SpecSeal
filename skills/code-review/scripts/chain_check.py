@@ -987,7 +987,8 @@ def verdict_table(reader, lines, rel):
                 (
                     rel,
                     line_no,
-                    f"{len(cells)} cells, and the `Verdict` column is number {col + 1}",
+                    f"{len(cells)} cells, and the `{VERDICT_COLUMN}` column is "
+                    f"number {col + 1}",
                 )
             )
             continue
