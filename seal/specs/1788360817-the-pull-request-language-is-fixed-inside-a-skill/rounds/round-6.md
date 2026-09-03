@@ -12,7 +12,7 @@ is true. Written by the review orchestrator. -->
 |---|---|
 | Target SHA | eb18a40 (the fix diff from e0874cd); HEAD f0dc0e2 at review time |
 | PR | none yet |
-| Broad gate | taken after this record, once, at the branch head |
+| Broad gate | 78ace81 against `origin/release/v0.5.0`: `pytest tests/ -q -n auto` 1436 passed · 1 skipped; `ruff check .` clean; `ruff format --check .` 81 files formatted; `evidence_check.py --strict .` 357 ok · 0 drifted · 0 broken; `chain_check.py --baseline` exit 0; `unverified_check.py --baseline` 15 overviews · 34 open · 15 closed · 0 unreadable |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
