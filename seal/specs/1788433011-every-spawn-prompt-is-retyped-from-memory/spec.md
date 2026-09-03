@@ -122,19 +122,24 @@ three-layer split exists to remove. The contract says this at its top.
 ## The opening line, decided
 
 Each agent definition opens, immediately under its `# <name>` heading and
-before anything else, with one sentence naming the contract and saying what it
-is. Identical in all three files except the last clause, so that a fourth
-agent's author copies it without thinking:
+before anything else, with one paragraph naming the contract and saying what
+it is. Identical in all three files, so that a fourth agent's author copies it
+without thinking:
 
-> **Read the agent contract before your first tool call** — it carries the
-> rules every agent this plugin spawns is bound by: how to read an exit code,
-> what you must not run, what you must not write, and how a probe is written.
-> This file adds only what is yours.
+> **The agent contract binds you, and you already have it** —
+> `agent-contract` is in the `skills:` list above, so it arrived at startup,
+> before your first tool call, with nothing typed and no path to resolve. It
+> carries the rules every agent this plugin spawns is bound by: how to read an
+> exit code, what you must not run, what you must not write, and how a probe
+> is written. This file adds only what is yours.
 
-How the contract is reached — a path this sentence names, or a `skills:`
-frontmatter entry that preloads it — is Q1, and it changes only this
-sentence's last clause and the frontmatter. Every other decision above holds
-under either answer.
+How the contract is reached was Q1, and it is answered B′: the `skills:`
+frontmatter list preloads it, so no sentence names a path and no agent
+resolves one. The opening clause says exactly that, and it is the fact the
+contract's own first paragraph already states — *You received this file at
+startup, before your first tool call, and nobody typed a command to send it*.
+An imperative to go and read it would describe a delivery this work item
+measured and did not build. Every other decision above holds either way.
 
 ## User scenarios & acceptance *(mandatory)*
 
