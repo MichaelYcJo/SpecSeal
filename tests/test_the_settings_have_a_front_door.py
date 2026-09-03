@@ -50,7 +50,13 @@ def test_the_skill_shows_rows_that_are_absent():
     `default` — both are in the file's own opening paragraph, so the first
     spelling of this case stayed green with the instruction deleted.
     """
-    assert "including the ones the file does not carry" in flat(*SKILL), (
+    # The whole clause, with its polarity. A fragment is satisfied by its own
+    # negation — `never including the ones the file does not carry` left the
+    # first spelling of this green (round 2).
+    assert (
+        "print all three with their current values — including the ones the "
+        "file does not carry"
+    ) in flat(*SKILL), (
         "the skill no longer tells the session to print the rows the file "
         "does not carry, which are the ones somebody came to change"
     )
@@ -63,10 +69,18 @@ def test_the_mode_row_is_routed_and_not_read():
     assert "Run `seal mode local` or `seal mode shared`" in text, (
         "the skill does not hand the move to the command that owns it"
     )
-    assert "Do not do any of that by hand" in text, (
-        "nothing forbids the skill from growing a move of its own. Asserting "
-        "the absence of `mv ` did not: a rewrite using `cp -a` and a delete "
-        "stayed green"
+    # Both halves. Round 1 replaced an absence assertion with a presence one,
+    # and round 2 found that a presence assertion cannot see a move ADDED
+    # somewhere else in the file: a paragraph telling the session to `cp -a`
+    # the root and delete the original left all of these green.
+    for spelled in ("mv ", "cp -a", "rsync", "shutil.move", "git mv"):
+        assert spelled not in text, (
+            f"the skill spells a move of its own (`{spelled}`) — the "
+            "prohibition below being present cannot see one added elsewhere"
+        )
+    assert "Do not do any of that by hand." in text, (
+        "the prohibition was re-scoped. It must end the sentence: a qualifier "
+        "after it narrows the rule while the substring survives"
     )
     assert "second reader is a second answer" in text, (
         "the skill does not say why it routes rather than reading the row"

@@ -1111,6 +1111,7 @@ def _literal_strings():
     )
     found = {
         chain.VERDICTS,
+        chain.VERDICT_COLUMN,
         chain.TARGET,
         chain.CHECKED_BY,
         chain.CONTRACT,
@@ -1134,10 +1135,14 @@ def test_the_exclusion_list_holds_every_string_a_checker_matches(literal):
     report a record that says nothing about what it found, and the second
     turns `unverified_check.py` red on every pull request.
     """
-    assert literal in _governs_nothing(), (
+    # Backticked, because the section spells every literal that way and a
+    # BARE substring is satisfied by a longer entry that contains it —
+    # `fixed` was held by `agreed, fixed` alone, and deleting the standalone
+    # entry left this case green (round 2).
+    assert f"`{literal}`" in _governs_nothing(), (
         f"a checker matches `{literal}` literally and the exclusion list does "
-        "not hold it, so a repository translating its records breaks that "
-        "checker with nothing to warn it"
+        "not hold it as an item of its own, so a repository translating its "
+        "records breaks that checker with nothing to warn it"
     )
 
 
@@ -1165,9 +1170,28 @@ def test_every_document_that_names_a_language_row_names_the_shipped_one(parts):
         f"{'/'.join(parts)} does not name `Record language`, the row that "
         "governs the prose it is about"
     )
-    assert "Pull request language" not in text.replace(
-        "Commit and pull request language", ""
+    # Case-folded: `the \`pull request language\` row` in lower case is the
+    # spelling that actually survives in this tree, and round 2 found it green.
+    assert "pull request language" not in text.casefold().replace(
+        "commit and pull request language", ""
     ), (
         f"{'/'.join(parts)} still names the row `Pull request language`, "
         "which #106 renamed"
+    )
+
+
+@pytest.mark.parametrize("field", ROUND_RECORD_FIELDS)
+def test_the_exclusion_list_holds_every_field_a_pinned_case_reads(field):
+    """The list's grounds are *a checker OR a pinned case*, and this is the
+    pinned case.
+
+    `_literal_strings()` reaches only what a checker holds in a module
+    constant, so the second half of those grounds had nothing checking it —
+    and round 2 found the fix for round 1 removing `Needs a fix` from the list
+    while adding `Broad gate` on identical footing. Three section headings had
+    never been on it at all.
+    """
+    assert f"`{field}`" in _governs_nothing(), (
+        f"a pinned case reads `{field}` literally and the exclusion list does "
+        "not hold it, so a repository translating its records is told it may"
     )
