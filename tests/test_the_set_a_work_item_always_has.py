@@ -325,9 +325,14 @@ def test_the_two_todo_files_sit_where_the_release_guard_looks():
     glob is one line and the layout is written by hand once per work item.
     """
     stray = sorted(
-        glob.glob(os.path.join(ROOT, "seal", "specs", "*", "**", "todo-*.md"))
-        + glob.glob(os.path.join(ROOT, "seal", "specs", "*", "*", "tests-todo.md"))
-        + glob.glob(os.path.join(ROOT, "seal", "specs", "*", "*", "evidence-todo.md"))
+        glob.glob(
+            os.path.join(ROOT, "seal", "specs", "*", "*", "**", "tests-todo.md"),
+            recursive=True,
+        )
+        + glob.glob(
+            os.path.join(ROOT, "seal", "specs", "*", "*", "**", "evidence-todo.md"),
+            recursive=True,
+        )
     )
     assert not stray, (
         "a todo file sits below the work item's own directory, where "
@@ -335,7 +340,9 @@ def test_the_two_todo_files_sit_where_the_release_guard_looks():
         f"{[os.path.relpath(p, ROOT) for p in stray]}. The release guard "
         "reads `seal/specs/*/evidence-todo.md`, one level only"
     )
-    at_level = glob.glob(os.path.join(ROOT, "seal", "specs", "*", "evidence-todo.md"))
+    at_level = glob.glob(
+        os.path.join(ROOT, "seal", "specs", "*", "evidence-todo.md")
+    ) + glob.glob(os.path.join(ROOT, "seal", "specs", "*", "tests-todo.md"))
     assert at_level, (
         "no evidence-todo file at the work-item level at all — this case is "
         "blind, and would stay green if every one of them moved"

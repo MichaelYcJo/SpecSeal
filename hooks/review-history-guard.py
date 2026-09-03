@@ -206,8 +206,10 @@ def main():
                 f"{os.path.join(routing.ROUNDS_DIR, 'round-N.md')} (target "
                 f"SHA, verdicts, probe "
                 f"results, the Pass checkbox, and who checked the fixes), "
-                f"tests-todo.md, and "
-                f"evidence-todo.md now — after this session ends, nobody can."
+                f"and {os.path.join(rel, 'tests-todo.md')} and "
+                f"{os.path.join(rel, 'evidence-todo.md')} BESIDE that "
+                f"directory rather than inside it, now — after this session "
+                f"ends, nobody can."
             )
     elif MERGE_RE.search(command):
         if records and not is_closed(records):

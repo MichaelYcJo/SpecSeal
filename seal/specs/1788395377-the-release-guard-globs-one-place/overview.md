@@ -1,8 +1,12 @@
 # the release guard globs one place — the closing memo
 
 <!-- seal/specs/1788395377-the-release-guard-globs-one-place/overview.md —
-only what the diff cannot show. The work is four `git mv`s and one test, so
-this is the second rung of the SDD ladder: no `spec.md`, no `plan.md`. -->
+only what the diff cannot show. It alters no gate's verdict today — every
+evidence-todo file in the tree carries a `drained` line, so
+`fold_ledger.py --check` prints the same bytes before and after the move —
+which is the second rung of the SDD ladder, not the file count: no `spec.md`,
+no `plan.md`. `skills/implement/SKILL.md` takes the count out of that
+judgement by name. -->
 
 ## What the diff does not show
 
@@ -34,7 +38,7 @@ Nothing. The ticket's three done-when rows are the whole of the work.
 
 ## Not verified
 
-| What | Who answers it |
+| Item | Who must answer |
 |---|---|
 | The guard refusing a real release with a real open row — every file in the tree is drained, so the refusal path is exercised only by fixtures | the repository owner, at the first release that meets one |
 | The broad gate | the orchestrator, after the review round |

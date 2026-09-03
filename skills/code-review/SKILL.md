@@ -135,11 +135,16 @@ The work item is the key now, and its `routing.md` names the branch.
 
 **Right after posting the report**, the orchestrator writes three files
 (reviewer workers never write here — parallel writers overwrite each other,
-and worker findings are pre-verification):
+and worker findings are pre-verification). One of them gets a directory and
+two do not: `round-N` is the only member of the set that is plural and
+unbounded, so the two todo files sit at the work item's own level, beside
+`rounds/` rather than inside it. The release guard reads them there
+(`.github/scripts/fold_ledger.py`, `seal/specs/*/evidence-todo.md`), and a
+file one directory deeper is one it cannot see:
 
 | File | Contents |
 |---|---|
-| `round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — and **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table |
+| `rounds/round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — and **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table |
 | `tests-todo.md` | regression tests to plant, with the destination file per row |
 | `evidence-todo.md` | verified facts to merge into `seal/ledger.md` |
 
