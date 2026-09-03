@@ -70,7 +70,8 @@ every repository, whatever either row says:
 - **The field names, section headings and vocabulary a checker or a pinned
   case reads literally** — a round record's `Target SHA`, `PR`, `Broad gate`,
   `Fixes checked by`, `Contract changes`, `New units` and the `depth` its
-  entries carry, `Needs a fix`, `Loses a record or crashes` and its `Pass`
+  entries carry, `Needs a fix`, `Loses a record or crashes` with the `no` and
+  `yes` its answer is written in, and the `Pass`
   checkbox; its `## Verdicts`, `## Executed probes`, `## Inherited
   coordinates` and `## Deferred` headings, and the `Verdict` column of the
   first; the verdict words `fixed`, `answered`, `withdrawn`, `not a defect`

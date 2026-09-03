@@ -668,6 +668,56 @@ with the verifying round: what it names is a finding surface — *is this
 correct* — rather than a verification surface, because a unit the fixes
 created has been reviewed by nobody.
 
+##### The floor — `Loses a record or crashes`, and what may follow it
+
+The floor is stated at the top of this document, and this is what the check
+makes of it. The row is read on every record, like the two above and for the
+same reason: every round has its own answer, and the run's stopping point is a
+fact about the round that met the floor rather than about the last one.
+
+| The row | The check |
+|---|---|
+| absent, work item begun on or after the cutoff | **fails**, naming the row and what it buys |
+| absent, work item begun before the cutoff (or with no timestamp prefix) | prints — the grandfathering above, keyed to `chain_check.py`'s `FLOOR_FROM`, whose value is the id of the work item that added the row |
+| `no`, or `yes — <what>` | passes |
+| an empty cell, or a word that is neither | **fails** on any record — a word the check cannot read is never the reassuring reading, and `nothing anybody can see` is a sentence rather than an answer |
+| `yes` with nothing after it | **fails** on any record — the cell then records that something was found and not what |
+| `no`, with two or more later round records | **fails**, naming the exit. One later record is the verifying round; a second is the run carrying on past its own stopping rule |
+
+Only the ABSENT row and the run that went past it are grandfathered, and they
+are grandfathered for different reasons. The first is the reason the rows
+above are: the round is over, and a record written before the rule has no
+honest repair. The second is one this document has not needed before — the
+repair for a run that ran three rounds too long is a round that was never
+spawned, which nobody can write now. A malformed row is refused at any age,
+because formatting is always the author's.
+
+##### The depth in `New units`
+
+`New units` carries a second thing beyond the names, and it has a cutoff of
+its own — `chain_check.py`'s `DEPTH_FROM`, later than `SURFACE_FROM`. A work
+item begun between the two owes the row and not the depth in it: its records
+were written when the row named units alone, and deriving a depth now for
+fixes nobody re-read fabricates the answer.
+
+| The entry | The check |
+|---|---|
+| `unit (depth 1)`, entries separated by `;` | passes |
+| `none`, with or without a reason | passes, unchanged — the depth did not take the value a round with no fixes yet has to be able to write |
+| an entry with no depth, work item begun on or after `DEPTH_FROM` | **fails**, naming the entry and showing the shape |
+| an entry at depth 2 or above | **fails**, naming the entry and where the unit goes instead: deferred with a named answerer, or an issue |
+| an entry below depth 1 | **fails** — it names no level the rule defines, and read permissively it sits under the bound |
+| any of those, work item begun before `DEPTH_FROM` | prints |
+
+**The refusal names the exit because a refusal that does not is a wall.** The
+rule and its exit shipped one phase before this check, in that order and on
+purpose: a session meeting *this unit may not exist* with nowhere to put it
+stops the chain, which costs more than the unreviewed unit did.
+
+What no check can see is a depth declared wrong — `(depth 1)` on a unit that
+is really second-level. The rule is a declaration, and the verifying round
+reading the `New units` surface is what looks at it.
+
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a
 detached HEAD, two declarations naming one branch, a file that will not parse

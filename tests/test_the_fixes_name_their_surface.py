@@ -134,6 +134,12 @@ def record(sha, contract="none", new_units="none"):
         rows += f"| Contract changes | {contract} |\n"
     if new_units is not None:
         rows += f"| New units | {new_units} |\n"
+    # The floor row is `no` for the same reason the verdict closes without a
+    # fix: `NEW_ITEM` began after `chain_check.FLOOR_FROM`, so leaving it out
+    # would fail every record here for a rule this file does not pin.
+    # `tests/test_the_record_is_held_to_the_floor_and_the_depth.py` is where
+    # that one is pinned.
+    rows += "| Loses a record or crashes | no |\n"
     return (
         "# a round\n\n"
         f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n"
@@ -299,7 +305,9 @@ def test_a_unit_with_its_reach_passes(repo):
             sha,
             contract="`read()` gained a `None` return → `check_ledger`, "
             "`reverify`; `place()` grew a guard → its own three branches",
-            new_units="`SURFACE_FROM`, `fix_surface`",
+            # Each entry carries the depth it was added at, which
+            # `chain_check.DEPTH_FROM` requires of an item begun this late.
+            new_units="`SURFACE_FROM` (depth 1); `fix_surface` (depth 1)",
         ),
     )
     code, out = run(repo)
