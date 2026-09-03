@@ -37,7 +37,7 @@ git 이 있는 곳이면 어디서든 동작합니다.
 | **smith** (Claude Code 서브에이전트) | `implement` · `writing-style` | 스펙에 맞춰 구현한 뒤 증명 블록 세 줄을 적는다. 어떤 정책서를 열었는지, 어떤 대조표 행을 고쳤는지, 무엇을 실행하고 무엇을 읽기만 했는지. 훅이 검사하는 것이 아니라 스킬이 요구하는 공개이며, `none — <이유>` 로 채워진 줄은 사용자 눈에 그대로 보인다 |
 | **warden** (서브에이전트) | `code-review` · `writing-style` | 스펙 준수를 먼저 보고 그다음 품질을 본다. 보고서가 검증되면 오케스트레이터가 리뷰 시점의 HEAD sha 를 `.git/specseal-reviewed` 에 적고, 커밋 게이트는 그 파일을 확인한다. 리뷰어가 자기 표시를 직접 쓰지는 않는다 |
 | **scribe** (서브에이전트) | `legacy-parity` | 원본 코드가 실제로 하는 일을 `경로#앵커` 좌표로 기록하고, 판정이 아니라 사실만 돌려준다. `seal/parity.md` 를 선언한 레포에서만 등장한다 |
-| 스킬 | — | 스물한 개이고 세 묶음이다. 에이전트가 따르는 네 개는 왼쪽 열에 있다. 열한 개는 작업이 그것을 요구할 때 세션이 알아서 로드한다 — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. 나머지 여섯은 사용자가 이름을 불러야 움직이며 아래 치트시트에 있다 |
+| 스킬 | — | 스물두 개이고 세 묶음이다. 에이전트가 따르는 네 개는 왼쪽 열에 있다. 열한 개는 작업이 그것을 요구할 때 세션이 알아서 로드한다 — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. 나머지 일곱은 사용자가 이름을 불러야 움직이며 아래 치트시트에 있다 |
 | 훅 | — | 게이트 그 자체. 플러그인이 자동으로 등록하므로 설정을 따로 만질 필요가 없다 |
 | CLAUDE.md 블록 | — | 늘 로드되는 12줄 — 절 제목 넷(`Tooling`·`Safety`·`Session cost`·`Git`)에 규칙 여덟이다. 툴링 하나, 안전 셋, 세션 비용 하나, git 셋. 응답 언어 규칙은 없다. 그것은 사용자 몫이다 |
 
@@ -97,7 +97,7 @@ warden 은 그 기록을 다시 돌리는 대신 감사합니다. 명령이 실�
 
 | 루트 | 수명 | 담는 것 |
 |---|---|---|
-| `seal/` | 영구 | 이 플러그인이 유지하는 전부 — 대조표, follow-up 목록, 저장소 자신의 설정(PR 언어가 여기 있다), 이관 설정 — 와 그 아래의 작업 항목들. 이 디렉터리가 있다는 것 자체가 옵트인이며, 이것을 보는 훅은 넷이다 — 커밋 게이트, 리뷰 스킬 게이트, 리뷰 이력 가드, 버전 확인. worktree-guard 와 session-lease 는 git 레포면 어디서든 돌고, lint-python 은 ruff 설정을 따른다(아래 Where 열 참조) |
+| `seal/` | 영구 | 이 플러그인이 유지하는 전부 — 대조표, follow-up 목록, 저장소 자신의 설정(언어 두 행과 모드가 여기 있다), 이관 설정 — 와 그 아래의 작업 항목들. 이 디렉터리가 있다는 것 자체가 옵트인이며, 이것을 보는 훅은 넷이다 — 커밋 게이트, 리뷰 스킬 게이트, 리뷰 이력 가드, 버전 확인. worktree-guard 와 session-lease 는 git 레포면 어디서든 돌고, lint-python 은 ruff 설정을 따른다(아래 Where 열 참조) |
 | `seal/specs/<id>/` | 작업 항목 하나 | SDD 세트 — spec, plan, questions, 그리고 diff 가 보여 주지 못하는 것만 적는 마무리 메모. `plan.md` 는 사람이 승인하므로 도구 상태가 아니라 레포의 문서다 |
 | `docs/` | 영구 | 레포가 원래 갖고 있는 정책서. **여기서 만들지 않는다** — 문서 관례는 그 프로젝트의 것이다 |
 
@@ -107,7 +107,7 @@ seal/
 ├── ledger.md         조항 ↔ 코드 좌표. 작업 항목별 파일이 생기기 전에 쌓인 것
 ├── ledger/
 │   └── <작업항목-id>.md   그 작업 항목의 행. 머리글이 없고, 릴리스 때 ledger.md 로 합친다
-├── config.md         이 저장소가 자기에 대해 말하는 것. PR 언어와 모드.
+├── config.md         이 저장소가 자기에 대해 말하는 것. 언어 두 행과 모드.
 │                     선택이고, 행이 없는 것은 오류가 아니다
 ├── parity.md         이관 설정, 선언했을 때만
 ├── follow-up.md      추적기가 없는 레포에서 일정을 잡을 수 있는 항목
@@ -253,6 +253,7 @@ origin remote 를 키로 저장됩니다. 다른 기계에서는 틀린 값이�
 | `/specseal:evidence-ci` | 드리프트 검사를 CI 에 건다. 검사기를 레포에 복사하고 워크플로 파일을 써 준다 |
 | `/specseal:parity-setup` | 이 레포가 다른 코드베이스를 옮겨 온 것임을 선언한다. 원본을 찾아 기준 커밋을 기록한다 |
 | `/specseal:security-audit` · `/specseal:testing` | 모델이 훑는 점검 목록 — OWASP 형태의 보안 점검과 테스트 전략 점검 |
+| `/specseal:config` | 이 저장소가 자기에 대해 정한 것을 보여 주고 바꾼다. 글을 쓰는 언어 두 행과 기록이 사는 자리. 바꾸는 것은 그 행을 가진 명령에 넘기고, 뒤에서 직접 고치지 않는다 |
 | `/specseal:update` | 최신 릴리스를 받고 무엇이 들어 있는지 본다. 갱신 명령 두 줄을 순서대로 돌린 뒤, 쓰던 버전과 새 버전 사이의 변경 항목을 알려 준다. 적용은 재시작 후 |
 | `bash install.sh [--project]` / `bash uninstall.sh` | CLAUDE.md 마커 블록을 넣거나 뺀다 |
 
