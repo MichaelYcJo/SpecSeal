@@ -10,7 +10,7 @@ this work item. -->
 |---|---|
 | Target SHA | the fix diff from abb6319, reviewed at 112b104 |
 | PR | none yet |
-| Broad gate | filled in at the gate's commit |
+| Broad gate | 5f2af60 against `origin/release/v0.5.0`: `pytest tests/ -q -n auto` 1596 passed · 1 skipped; `ruff check .` clean; `ruff format --check .` 84 files; `evidence_check.py --strict .` 437 ok · 0 drifted · 0 broken; `unverified_check.py --baseline` exit 0 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
