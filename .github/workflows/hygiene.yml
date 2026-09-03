@@ -147,6 +147,28 @@ jobs:
           python3 skills/code-review/scripts/chain_check.py \
             --baseline "origin/${{ github.base_ref }}"
 
+      # `seal/config.md`'s `Mode` row says which of the two places the root
+      # should live at; the folder's location says where it is. Nothing at
+      # runtime reads the row — every gate resolves the root through
+      # `hooks/optin.py#home_at` — so the row is the one thing here that can
+      # quietly stop being true, and this is what stops it.
+      #
+      # It fails only for a disagreement, which is always the author's and
+      # always one command from fixed (`seal mode --apply` moves the folder,
+      # `seal mode <the folder's mode>` corrects the row). An absent row is
+      # not a disagreement and passes: it is the state every repository with
+      # a config.md is in today, since the pull-request language shipped as
+      # its only row.
+      #
+      # Only one direction can ever reach CI, and that is the whole of what
+      # is observable here: local mode commits nothing, so a repository in it
+      # has no workflow and no committed row. What this catches is a row
+      # saying `local` beside a root that is committed in the tree.
+      - name: the mode the row declares is the mode the folder is in
+        shell: bash
+        run: |
+          python3 skills/implement/scripts/seal.py mode --check
+
       # A reminder, not a gate: the language policy keeps the Korean README a
       # human-facing mirror, and mirrors drift one edit at a time.
       - name: both READMEs move together

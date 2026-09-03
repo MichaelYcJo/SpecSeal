@@ -176,9 +176,24 @@ def test_the_template_header_says_why_local_mode_installs_none():
         if line.startswith("#")
     )
     assert "local mode" in header
+    # Both directions, not one. Round 1 of #104 found the header carrying the
+    # two exit codes correctly and the conclusion drawn from them wrong: a
+    # step that exits 2 is not a green build. `unverified_check.py` is red
+    # forever and `chain_check.py` reports a pass it never earned, and the
+    # header has to say both or it teaches the milder half.
+    assert "red forever" in header
+    # And why only red. Round 2 of #104 found the previous wording — "fails in
+    # both directions at once" — describing something the workflow does not
+    # do: `unverified_check.py` runs before `chain_check.py` and nothing
+    # carries `continue-on-error`, so the job stops and the second check never
+    # runs at all. Right exit codes, wrong conclusion, for the second time on
+    # the same sentence.
+    assert "never run" in header
     assert "examined nothing" in header
-    assert "exits 0" in header and "exits 2" in header
-    assert "shared" in header, "the header does not name the switch that gets CI"
+    assert "exits 2" in header
+    assert "seal mode shared" in header, (
+        "the header does not name the command that gets CI"
+    )
 
 
 def test_the_skill_writes_the_workflow_only_when_absent_and_local_installs_nothing():
@@ -236,23 +251,38 @@ TOP = "$(git rev-parse --show-toplevel)/seal"
 
 
 def switch_block(readme):
-    """The `bash` block under the README's switch section, comments off: two
-    lines, local → shared and then shared → local.
+    """The BY-HAND `bash` block under the README's switch section, comments
+    off: two lines, local → shared and then shared → local.
 
     Bounded at the next `## ` heading and asserted to be there, the way
     `test_the_root_migrates_itself.by_hand_block` reads the coming-up block:
     the lines are run under `bash -c`, so a block that left its section must
     fail here rather than let a later block run in its place.
+
+    The section holds more than one block since #104, which made switching a
+    command (`seal mode`) and kept the by-hand pair below it. Taking "the
+    first block" would hand `seal mode local` to `bash -c` and fail on a
+    PATH this suite does not set up — so the block is chosen by what is IN
+    it, and every candidate is read rather than the search stopping at the
+    first that parses. A section that stopped carrying the by-hand pair
+    fails here, which is the point: those two lines are what the command's
+    move has to keep doing.
     """
     text = read(readme)
     _first_run, heading = READMES[readme]
     body = section(text, heading, 3).split("\n## ", 1)[0]
     assert "```bash\n" in body, f"{readme}: the switch block left its section"
-    block = body.split("```bash\n", 1)[1].split("```", 1)[0]
-    lines = [ln.split("#", 1)[0].strip() for ln in block.splitlines()]
-    lines = [ln for ln in lines if ln]
-    assert len(lines) == 2, lines
-    return lines
+    for chunk in body.split("```bash\n")[1:]:
+        block = chunk.split("```", 1)[0]
+        lines = [ln.split("#", 1)[0].strip() for ln in block.splitlines()]
+        lines = [ln for ln in lines if ln]
+        if len(lines) == 2 and all("mv " in ln for ln in lines):
+            return lines
+    raise AssertionError(
+        f"{readme}: no bash block in the switch section holds the two by-hand "
+        "moves. `seal mode` does that move, and this is where the move itself "
+        "is checked against a subdirectory as the working directory"
+    )
 
 
 def porcelain(repo):
@@ -355,9 +385,11 @@ def test_the_seal_readme_is_the_template_verbatim():
 def test_the_record_no_longer_says_the_checks_would_refuse(parts, wrong):
     text = read(*parts)
     assert wrong not in text, "/".join(parts)
-    assert "examined nothing" in text or "아무것도 보지 않은 채" in text, "/".join(
-        parts
-    )
+    # And it says both directions. A workflow left behind after a switch to
+    # local is red on every pull request AND reports an unearned pass beside
+    # it; a record naming only the green half teaches the milder failure.
+    assert "examined nothing" in text or "아무것도 안 본 채" in text, "/".join(parts)
+    assert "red forever" in text or "영원히 빨간불" in text, "/".join(parts)
 
 
 @pytest.mark.parametrize(
