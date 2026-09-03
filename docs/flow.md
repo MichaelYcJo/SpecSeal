@@ -1,76 +1,48 @@
-# 0.4.0 → 0.5.0 flow
+# Release flow
 
-A checklist for the tickets that carry `docs/one-root-by-lifetime.md`. Tick
-a box when the ticket's pull request has merged into its release branch.
-Delete this file when the last box is ticked; the design record and the
-tickets are the durable copies, this is only the place to look each morning.
+A checklist for the tickets in flight. Tick a box when the ticket's pull
+request has merged into its release branch. **A shipped version's section is
+deleted, not kept** — the design record, the CHANGELOG and the tickets are the
+durable copies, and a list long enough to scroll costs the reading it exists
+to save. Delete the file only when nothing is scheduled.
 
 Each release branch is cut from `main`; each ticket is a branch cut from the
 release branch and squashed back; the release branch merges into `main` as a
 merge commit (`docs/branch-and-release.md`).
 
-## 0.4.0 — `release/v0.4.0`
+## 0.6.0 — the flow measures itself, and stops when it should
 
-- [x] #78 the ledger fragments fold at release, and an open evidence-todo row refuses it (on today's paths) — merged as #87
-- [x] #79 the root merge: `specs/` + `.specseal/` → `seal/`, opt-in is the root's presence, session-start hook moves once, CI and path references follow
-- [x] release: gather the changelog, fold the ledger, move `plugin.json`, merge to `main`, tag `v0.4.0`
+In this order. Each one stands on the one before it, and taking them the other
+way round means undoing work.
 
-## 0.5.0 — `release/v0.5.0`
+- [ ] **#107 — the rules that go to every agent move out of the prompt and into a file.** First, because everything after it is a comparison: while half of each spawn prompt is retyped from memory, two segments differ by what the orchestrator happened to recall and the numbers cannot be read against each other. It is also the file #30 and #84 need before either adds an agent.
+- [ ] **#109 — measuring a segment and recording what it says becomes automatic.** Second, so #110 and #117 are what tries the machinery, rather than 0.7.0 finding out whether it works. Its third part — the release closes this version's log and opens the next — is what makes 0.7.0's measurement issue exist without anybody opening it. First act: #89 carries no version in its title, and #109 requires exactly one open versioned issue at a time.
+- [ ] **#110 + #117 — when a review run stops, and how deep a fix may pin.** One branch, because apart they undo each other. #110 gives the cap the floor it never had; #117 bounds what a single fix pass may create. The late rounds #110 removes are the rounds where the pins get read, so the floor without the bound cuts the eyes and leaves the generation.
+- [ ] #98 — three sentences say `-z` is what turns git's path quoting off. One line, and it rides whichever branch is open.
+- [ ] #89 — the running log. It is read rather than done, and it closes at the release.
 
-- [x] #80 local mode under `.git/seal/`, and the first-setup question (shared / local) — first, because the rest of 0.5.0 stands on it — merged as #95
-- [x] #82 `seal/config.md`, first row the pull request language — merged as #99
-- [x] #96 the release guard globs one place for `evidence-todo.md` and two work items keep it in another — before the release, because the release runs that guard — merged as #100
-- [x] #81 `seal export` / `seal import` — merged as #102, after seven review rounds and a defect CI's windows leg caught
-- [x] #104 the mode is two shell lines in a README, and a repository migrated from 0.3.x was never asked which it wanted — merged as #112, after five review rounds that each found the previous fix aimed at the coordinate rather than the class
-- [x] #106 the language row governed the commits and pull requests and nothing else — merged as #113 with #105, four rounds
-- [x] #105 `/specseal:config` — the front door to every row, routing the ones that have side effects — merged as #113
-- [x] release preparation: sixteen changelog fragments gathered, six ledger fragments folded, `plugin.json` at 0.5.0 — merged as #114
-- [ ] release: **the merge into `main` and the `v0.5.0` tag, which are the repository owner's.** `hooks/version-check.py` asks `git ls-remote --tags` and nothing else, so an untagged release is one no installed session is ever told about
+## 0.7.0 — the first version measured under the machinery above
 
-**#106 arrived after this list was written.** It is in the 0.5.0 line above
-because the row it renames ships in this release: widening it later renames a
-key every repository that wrote the file already has, and a rename is the one
-change a config file cannot absorb quietly.
+Not ordered yet. The 0.6.0 log is what orders them.
 
-**Why #104 and #105 arrived after the other four merged.** 0.5.0 is the release
-that introduces the two modes, and it is also the release where every
-repository coming from the 0.3.x layout lands in **shared** without being
-asked — `hooks/root-migrate.py` moves the committed folders in-tree, which is
-shared mode, and `tests/test_first_setup_asks_once.py` pins that the skill
-says so rather than offering local beside a layout the hook is about to move.
-A switch that exists only as two shell lines in a README leaves those
-repositories a whole release cycle with nothing to run.
-
-The two directions are not symmetric, which is what the command is for.
-
-| | local → shared | shared → local |
-|---|---|---|
-| What moves | `<git-common-dir>/seal/` into the tree, staged | the tree's `seal/` out, `git rm -r --cached` staging the deletion |
-| What it costs | the records enter the history, and going back removes them from the tree and not from the history | every other clone loses them on the next pull; `seal import` is how they get them back |
-| What a `mv` leaves behind | the pull-request workflow is not installed | the workflow is not removed — **and with `seal/` no longer committed `unverified_check` exits 2 while `chain_check` exits 0 having read nothing**, measured 2026-09-03: a workflow red forever beside a check reporting a pass it did not earn. An earlier note here said both exit 0; that reading came from `$?` after a pipe, which reports the pipe's status and not the checker's — the mistake `seal/specs/1788395377-…/rounds/round-4.md` recorded once already |
+- [ ] #97 — the three pin levers left after #117 took the fourth: what is worth pinning at all, whether a pin must derive rather than duplicate, and whether a pin waits for a ticket of its own. Each changes pins that already exist, so each needs a question batch.
+- [ ] #103 — the two defect shapes only Windows has caught are made visible without Windows.
+- [ ] #111 — `git()` reads every failure as `""`, and in `seal import` that empty string switches off the refusal that keeps another project's records out.
 
 ## Later — not scheduled
 
-- [ ] #83 `settle`: fold a released work item into `docs/` and the ledger, then remove it (fix the two readers first)
-- [ ] #84 framer: the agent that writes the frame the smith fills
-- [ ] #85 an orphan branch as the ledger's home, opt-in by ref
-
-## 0.6.0 — what the measurements say to change
-
-In this order. Each one stands on the one before it, and taking them the
-other way round means undoing work.
-
-- [ ] **#107 — the rules that go to every agent move out of the prompt and into a file.** First, because #30 adds a fifth agent: without that file the new one gets its own copy of the rules and #107 then has to take it back out. #107 also rewrites `agents/smith.md` and `agents/warden.md`, which #30 changes too.
-- [ ] **#109 — measuring a segment and recording what it says becomes automatic.** Early, so the rest of 0.6.0 is the thing that tries it. Landing it last means finding out whether it works in 0.7.0. Its third part — a release opening the next version's log — is tried by 0.6.0's own release.
-- [ ] **#97 and #110 — when a review run stops, and what one round's fixes may add.** One branch: both land in `skills/code-review/SKILL.md` and `docs/review-chain-spec.md`, and doing them apart means editing the same paragraphs twice. Different questions, same place — how many rounds to run, and how much new code a single fix pass may leave behind.
-- [ ] **#103 — the two defect shapes only Windows has caught are made visible without Windows.** Half of it is a line in the file #97 and #110 have just settled; the other half is a sweep that stands alone.
-- [ ] **#30 — the fifth agent, which owns the one full-suite run.** Largest, and last: today the smith and the warden are both forbidden that run and nobody is assigned it. It inherits everything above.
-- [ ] #98 — three sentences say `-z` is what turns git's path quoting off. One line, and it rides whichever branch is open.
-- [ ] #89 — the running log. It is read rather than done, and it closes at the release. Every agent segment of the flow is timed with `session-cost` and what the numbers say is written there as a comment; when this checklist reached here, that log became the list above.
+- [ ] #30 and #84 — the agent set: `sealer` owns the one full-suite run, `framer` writes the frame the smith fills. Both want #107's file first.
+- [ ] #83 `settle` · #85 the orphan branch as the ledger's home · #101 the export's size — the root's later steps.
+- [ ] #88 — the routing question asks three boxes and has no way to say "all three".
 
 ## While the flow runs
 
-After every smith or warden segment, measure its transcript and add the numbers and what they say to #89. The two changes already being trialled are per-phase smith spawns and scripted multi-file edits; compare each phase of #79 against #78's single segment.
+After every smith or warden segment, measure its transcript and add the
+numbers and what they say to the version's measurement issue.
+
+**#109 deletes this section.** Moving that instruction into
+`skills/verify/SKILL.md` is #109's first part, and an instruction that lives
+only where somebody has to remember to read it is the defect #109 names.
 
 ## Order inside a ticket
 
