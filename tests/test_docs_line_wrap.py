@@ -62,6 +62,12 @@ COVERED = [
     # because they hold tree drawings and placeholder rows wider than the
     # limit, and bringing those under is a sweep, not this work item.
     "templates/config.md",
+    # Wrapped from their first line, so they go in at birth rather than
+    # waiting for a sweep; the directory holds measured platform facts.
+    "docs/experiments/README.md",
+    "docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.md",
+    "docs/experiments/README.ko.md",
+    "docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.ko.md",
 ]
 
 
