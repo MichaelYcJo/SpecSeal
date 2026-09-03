@@ -10,20 +10,6 @@ Each release branch is cut from `main`; each ticket is a branch cut from the
 release branch and squashed back; the release branch merges into `main` as a
 merge commit (`docs/branch-and-release.md`).
 
-## 0.6.0 — the agent contract, and nothing else
-
-**One work item, and the reason is that a rule in this tree binds no session.**
-What is in force is the installed plugin, not this repository: measured
-2026-09-03, what loads is the version cache under `~/.claude/plugins/cache/`, copied
-from the marketplace clone at the `v0.5.0` tag, while this tree is on a 0.6.0
-branch, and no `.claude/` here overrides it. So the contract changes
-nothing a session does until `v0.6.0` is tagged and the plugin updated.
-Shipping it by itself is what makes everything after it built **under** the
-contract rather than beside it.
-
-- [x] **#107 — the rules that go to every agent move out of the prompt and into the plugin.** Framed at `c48bf65`; six phases, one smith spawn each, `37f8c11` → `5f5d071`. Three review rounds, no 🔴, three 🟡 all closed — round records at `seal/specs/1788433011-…/rounds/round-{1,2,3}.md`. Broad gate green at `b49cfb9` (1821 passed, lint clean, both ledgers 0 drifted / 0 broken). Merged as #123. Its review chain is the last one this repository runs under hand-typed spawn prompts, so its segments are the before-figure everything in 0.7.0 is measured against.
-- [ ] release: changelog gathered, ledger folded, `plugin.json` at `0.6.0` — done, at the preparation commit. Left: merge to `main`, tag `v0.6.0` — **and update the installed plugin, then `/reload-plugins`** — that pair is what actually puts the contract in force. Preloaded skill bodies are read at session start and at `/reload-plugins`, never at spawn.
-
 ## 0.7.0 — records and measurement, and nothing else
 
 The channel a build phase has never had, built first; the machine that
@@ -32,8 +18,8 @@ no session until the release is tagged and the plugin updated, so anything
 built beside these three is built without them — which is why 0.7.0 is three
 items and not the ten once staged here.
 
-- [ ] **#121 + #119, one branch — a build phase gets `round-N`'s equivalent, and the record says what it was asked.** `#121`: the review chain hands the next round a committed record (`rounds/round-N.md`) and a build phase hands the next phase a conversation — measured on #107, where four discoveries reached the next phase only because the orchestrator retyped them by hand and a fifth reached nobody and a rule was deleted. `#119`: the record also says what the segment was asked and under which version of the rules it ran. They land in the same files (`templates/sdd-plan.md`, `templates/sdd-round.md`, `agents/smith.md`), so one branch. #119 carries two items marked "needs a second look" before either is built.
-- [ ] **#109 — measuring a segment and recording what it says becomes automatic.** After #121+#119, so it measures a channel that already exists rather than building the channel and the measurement at once. Its third part — the release closes this version's log and opens the next — is what makes 0.8.0's measurement issue exist without anybody opening it.
+- [x] **#121 + #119, one branch — a build phase gets `round-N`'s equivalent, and the record says what it was asked.** `#121`: the review chain hands the next round a committed record (`rounds/round-N.md`) and a build phase hands the next phase a conversation — measured on #107, where four discoveries reached the next phase only because the orchestrator retyped them by hand and a fifth reached nobody and a rule was deleted. `#119`: the record also says what the segment was asked and under which version of the rules it ran. They land in the same files (`templates/sdd-plan.md`, `templates/sdd-round.md`, `agents/smith.md`), so one branch. #119 carries two items marked "needs a second look" before either is built.
+- [x] **#109 — measuring a segment and recording what it says becomes automatic.** After #121+#119, so it measures a channel that already exists rather than building the channel and the measurement at once. Its third part — the release closes this version's log and opens the next — is what makes 0.8.0's measurement issue exist without anybody opening it.
 - [ ] #89 — the log, until #109 replaces it with a versioned one.
 
 ## 0.8.0 — the first version built under both machines
@@ -70,15 +56,6 @@ exist.
 
 - [ ] #83 `settle` · #85 the orphan branch as the ledger's home · #101 the export's size — the root's later steps.
 - [ ] #88 — the routing question asks three boxes and has no way to say "all three".
-
-## While the flow runs
-
-After every smith or warden segment, measure its transcript and add the
-numbers and what they say to the version's measurement issue.
-
-**#109 deletes this section.** Moving that instruction into
-`skills/verify/SKILL.md` is #109's first part, and an instruction that lives
-only where somebody has to remember to read it is the defect #109 names.
 
 ## Order inside a ticket
 

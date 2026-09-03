@@ -173,6 +173,18 @@ field named above, already spelled, and says beside each one what its values
 may be. A round that opens a blank file instead writes the fields it happens
 to remember, and the one it forgets is the one nobody notices is missing.
 
+**What goes into `round-N.md`'s `## What this round was asked` section is
+the round-specific content of the spawn prompt that started it** — never the
+boilerplate `agent-contract` and `agents/warden.md` already carry, which
+every round gets told by definition and none of them need repeated in its
+own record. Copy it in right after posting the report, the same moment the
+other three files are written: what the spawn prompt told this round,
+specifically, to attack, in what order, and which facts arrived as
+coordinates rather than as something still to verify. #81's round 1 is the
+measured reason — the cheapest round on record, because its prompt named
+eight specific things to try to break, and that fact today survives only in
+a transcript.
+
 Skipping this step makes review round *n* cost *n* full walks — the next
 round re-finds every coordinate from scratch.
 

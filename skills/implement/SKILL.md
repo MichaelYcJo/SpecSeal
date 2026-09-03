@@ -38,7 +38,8 @@ or a pull request. The root is resolved the way every path in this skill is.
 
 It governs the **prose** in `spec.md`, `plan.md`, `overview.md`,
 `questions.md`, `changelog.md`, the cell contents of `rounds/round-N.md` and
-the text beneath its tables, and the claim and grounds of a ledger row.
+`phases/phase-N.md` and the text beneath their tables, and the claim and
+grounds of a ledger row.
 
 **Every way of not naming one lands on English** — no file, no such row, an
 empty value, a file that cannot be read. A config nobody can read must not
@@ -613,11 +614,21 @@ without a registry — take it from `date +%s` when creating the directory.
 | `plan.md` | `templates/sdd-plan.md` | HOW — phases as vertical slices, alternatives with failure scenarios; this is the Design Gate's artifact | before implementing (gated work) |
 | `questions.md` | `templates/sdd-questions.md` | decisions only a human can make — extracted so nothing ships on a silent assumption | one batch before the first edit, then as they arise |
 | `overview.md` | `templates/sdd-overview.md` | the closing memo — one line of purpose, then what the diff cannot show (below) | opened at the first divergence, unverified item, or fed-back clause; closed when implementation ends |
+| `phases/phase-N.md` | `templates/sdd-phase.md` | what this phase was asked, what building it found, what it removed from the tree — never the commit or the one-line delivery description `plan.md`'s Status/Delivers cells already own | written when the phase closes |
 
 The middle column is not decoration. A template that no shipped document
 names is a template a session cannot find: it reads *bootstrapped from
 `templates/`*, cannot tell which file that means, and writes one from
-scratch. Two of these four were in exactly that state.
+scratch. Two of the original four — before `phases/phase-N.md` joined the
+table — were in exactly that state.
+
+**What goes into `phases/phase-N.md`'s `## What this phase was asked`
+section is the phase-specific content of the spawn or task that started
+it** — never the boilerplate the contract, this skill, and `agents/smith.md`
+already carry, which every phase gets told by definition and none of them
+need repeated in their own record. Copy it in when the phase closes: what
+the spawn prompt or task description said this phase, specifically, had to
+build.
 
 **`plan.md`'s Phases table is the task list, and there is no other.** Each
 phase carries a **Verified by** column, so it cannot be called done the way a
