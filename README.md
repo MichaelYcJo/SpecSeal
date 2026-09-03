@@ -465,11 +465,18 @@ rows drift against this tree.
 
 It refuses, writing nothing, when the zip came from another repository
 (`--allow-other-repo` if the two are one repository under two spellings),
+when the manifest declares a format this build does not read,
 when a member would land outside the root, when a member or the whole zip
 declares more bytes or more members than a root of records holds, when a
 member cannot be read — a bad checksum, encryption, a compression method this
 build has no decompressor for — when a name has to be a directory for the zip
 and is a file, and when both roots already exist.
+
+Those all stop before the first byte. One failure cannot: if a directory in
+the root cannot be written into, or the disk fills, the copy stops part-way
+and says what the filesystem said. Fix that and run it again — nothing is
+overwritten, so a second run finishes the copy and reports what was already
+there byte for byte.
 
 A symbolic link at a name a collision would fall back to is treated as taken:
 the copy lands at the next free name rather than being written through it.

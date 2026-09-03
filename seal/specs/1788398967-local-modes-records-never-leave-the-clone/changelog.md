@@ -134,3 +134,21 @@
 - **Two messages stopped sending people to the wrong place.** A clash inside
   the zip told a person to rename a file that was not on their machine, and
   the Korean README described that clash as always coming from their own clone.
+- **The last round found no way out and no crash the change had caused, and
+  one the change had walked past.** A manifest is another machine's file, and
+  this build checked that it was an object and that its version number was one
+  it reads — every other field was trusted to be the kind of thing it looked
+  like. A manifest naming a commit but no time raised at the closing line,
+  *after* every record was written: the person saw a Python traceback and exit
+  1 for a copy that had succeeded, and exit 1 reads as nothing happened. Those
+  fields are read as text or as absent now.
+- **And a name that means the manifest to one check meant a record to
+  another.** `manifest.json/` was exempt from the name rules as the manifest
+  and outside the size bound as not-the-manifest, so it could declare any size
+  at all. Both spellings answer to both checks now.
+- **Three sentences and a table row that described something else.** Both
+  READMEs said the import writes nothing when it stops, and the round before
+  had added a stop that writes. The refusal for a zip from a later version of
+  this format was in no document a person is pointed at. And the ledger row
+  saying which bounds are read before the manifest was wrong a second time, in
+  the same place.

@@ -941,6 +941,89 @@ def test_a_file_the_root_already_holds_blocks_a_member_under_it(seal, carried, c
     assert files_under(home) == before, "a refusal wrote files"
 
 
+def test_a_manifest_missing_exported_at_still_ends_with_a_line_of_its_own(
+    seal, carried, capsys
+):
+    """Round 5. `head` was read with `.get` and `exported_at` was not, so a
+    manifest carrying one without the other raised `KeyError` at the closing
+    line — after every record was written.
+
+    A person saw exit 1 and a traceback for a copy that had succeeded, and the
+    two lines this command ends on never printed. Exit 1 reads as *nothing
+    happened*, which is the one thing that was not true.
+    """
+    _zip_path, other, home = carried
+    z = other.parent / "no-when.zip"
+    with zipfile.ZipFile(z, "w") as archive:
+        archive.writestr(
+            "manifest.json",
+            json.dumps({"format": 1, "remote": "", "head": "a" * 40}),
+        )
+        archive.writestr("seal/ledger/w.md", "# w\n")
+
+    code, out = run(seal, ["import", str(z)], other, capsys)
+    assert code == 0, out
+    assert "evidence-check" in out, "the closing lines were not reached"
+    assert (home / "ledger" / "w.md").exists()
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [("head", 12345), ("head", True), ("remote", ["a"]), ("remote", {"a": 1})],
+)
+def test_a_manifest_field_of_the_wrong_type_does_not_raise(
+    seal, carried, capsys, field, value
+):
+    """`read_manifest` checks that the manifest is an object and that `format`
+    is one this build reads. Every other field is whatever the zip says, and
+    three shapes reached the console as a traceback — two of them after the
+    records were on disk."""
+    _zip_path, other, _home = carried
+    manifest = {"format": 1, "remote": "", "head": "a" * 40, "exported_at": "x"}
+    manifest[field] = value
+    z = other.parent / f"bad-{field}-{type(value).__name__}.zip"
+    with zipfile.ZipFile(z, "w") as archive:
+        archive.writestr("manifest.json", json.dumps(manifest))
+        archive.writestr("seal/ledger/w.md", "# w\n")
+
+    code, out = run(seal, ["import", str(z)], other, capsys)
+    assert code == 0, out
+    assert "evidence-check" in out, "the closing lines were not reached"
+
+
+def test_the_manifests_other_spelling_gets_the_size_bound_too(seal, carried, capsys):
+    """`unsafe` exempts `manifest.json/` from the name checks and the size
+    bound matched `manifest.json` exactly, so that spelling passed both at any
+    declared size.
+
+    One question answered by two tests, which is `unused` and `place` again:
+    the fix that moved the bound out of `unsafe` visited one of the pair.
+    """
+    _zip_path, other, home = carried
+    before = files_under(home)
+    z = other.parent / "slash.zip"
+    with zipfile.ZipFile(z, "w") as archive:
+        archive.writestr("manifest.json/", "")
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": ""}))
+        archive.writestr("seal/ledger/w.md", "# w\n")
+    # `writestr` recomputes `file_size` from the data, so the declared size has
+    # to go into the central directory afterwards.
+    raw = bytearray(z.read_bytes())
+    declared = (400 * 1024 * 1024).to_bytes(4, "little")
+    start = 0
+    while (at := raw.find(b"PK\x01\x02", start)) != -1:
+        length = int.from_bytes(raw[at + 28 : at + 30], "little")
+        if raw[at + 46 : at + 46 + length] == b"manifest.json/":
+            raw[at + 24 : at + 28] = declared
+        start = at + 4
+    z.write_bytes(bytes(raw))
+
+    code, out = run(seal, ["import", str(z)], other, capsys)
+    assert code == 1, out
+    assert "a manifest may hold" in out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
 def test_a_manifest_larger_than_a_record_refuses_the_zip(seal, carried, capsys):
     """Round 2 closed the unbounded manifest read by summing the archive
     total first — and the case round 2 measured did not close. 400 MB is

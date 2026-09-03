@@ -106,7 +106,7 @@ ADDED, IDENTICAL, COLLIDED = "added", "identical", "collided"
 # arrives from another machine, so its declared sizes are the sender's choice
 # rather than this root's honest contents: measured 2026-09-03, a 408 KB zip
 # declaring 400 MB in one member wrote 419 MB and added as much to memory in
-# 0.2 s. Both limits are read before a byte is written.
+# 0.2 s. All three limits are read before a byte is written.
 MEMBER_LIMIT = 32 * 1024 * 1024
 ARCHIVE_LIMIT = 512 * 1024 * 1024
 # The other axis. A member declaring zero bytes passes the member limit and
@@ -163,8 +163,16 @@ def normalise_remote(url):
     reduce to the same host and path, which is the same repository. Wrong in
     the refusing direction costs a message naming `--allow-other-repo`. That
     asymmetry is why this is done at all.
+
+    Anything that is not text reduces to "", because one caller passes a field
+    out of a manifest another machine wrote. `read_manifest` checks that the
+    manifest is an object and that its `format` is one this build reads; every
+    other field is whatever the zip says, and a list here used to reach the
+    console as an `AttributeError`.
     """
-    text = (url or "").strip()
+    if not isinstance(url, str):
+        return ""
+    text = url.strip()
     if not text:
         return ""
     schemed = "://" in text
@@ -810,11 +818,13 @@ def import_(args, cwd):
         return 1
 
     with archive:
-        # The order here is the fix for three separate measurements, and it is
-        # the order itself rather than any one check: how big, then what the
-        # names are, then whether the data reads, and only then the manifest.
-        # `read_manifest` reads its member whole, so anything that runs after
-        # it has already paid for whatever the manifest declared.
+        # The order here is the fix for four separate measurements, and it is
+        # the order itself rather than any one check: how big, then whether
+        # the data reads, then the manifest, and only then the names. The
+        # names go last because a later format is exactly what moves them.
+        # `read_manifest` reads its member whole, so the bounds above it are
+        # what keep that read affordable — and the member bound, which lives
+        # in `unsafe`, is therefore read after the manifest rather than before.
         members = archive.infolist()
         if len(members) > MEMBER_COUNT_LIMIT:
             print(
@@ -839,7 +849,10 @@ def import_(args, cwd):
         fat = [
             info
             for info in members
-            if info.filename == MANIFEST and info.file_size > MEMBER_LIMIT
+            # `rstrip("/")`, matching the spelling `unsafe` exempts. The two
+            # asked one question by different tests, so `manifest.json/`
+            # passed the exemption there and the bound here.
+            if info.filename.rstrip("/") == MANIFEST and info.file_size > MEMBER_LIMIT
         ]
         if fat:
             print(
@@ -983,8 +996,17 @@ def import_(args, cwd):
         print(f"    {existing}  ->  {landed}")
     for name in refused:
         print(f"  {name} was not written — its name was taken during the import")
-    if manifest.get("head"):
-        print(f"\nExported at {manifest['exported_at']} from {manifest['head'][:12]}.")
+    # Both fields read the way `remote` is read, and for the same reason: they
+    # come from a manifest another machine wrote. `head` was guarded and
+    # `exported_at` was not, so a manifest carrying one without the other
+    # raised `KeyError` HERE — after every record was written, so the person
+    # saw exit 1 and a traceback for a copy that had succeeded, and the two
+    # lines below never printed.
+    head = manifest.get("head")
+    when = manifest.get("exported_at")
+    if isinstance(head, str) and head:
+        stamp = when if isinstance(when, str) and when else "an unrecorded time"
+        print(f"\nExported at {stamp} from {head[:12]}.")
     print(
         "Which of a collided pair is right is a reading, not a merge — this "
         "command overwrites nothing.\n"
