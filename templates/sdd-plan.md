@@ -38,6 +38,11 @@ beside the contract rather than in tool state.
 Fill it in as each phase closes, not at the end. A phase reconstructed
 afterwards is reconstructed from the diff, which is where it already was.
 
+What a phase discovers while it is being built, and needs the next phase to
+know, does not fit in this table's cells. Write it to
+`seal/specs/<work-item-id>/phases/phase-N.md`, from `templates/sdd-phase.md`,
+when the phase closes.
+
 One caveat, so nobody builds on it, and it has two halves. Where feature
 branches squash, these commits stop resolving at the merge — and **a rebase
 during the work does the same thing earlier and far more quietly**, because the
