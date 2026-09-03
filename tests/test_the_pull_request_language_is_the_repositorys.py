@@ -741,17 +741,25 @@ def shipped_templates(root):
     plain `*` it replaced happened to skip them.
     """
     out = subprocess.run(
-        # `check=True`: round 4 finding 1. Without it a path that is not a
-        # repository, a repository with no `templates/`, and this helper
-        # stubbed out all answered `[]` in silence — "git could not answer"
-        # reading exactly like "there are no templates", which is the one
-        # direction a check must never fail toward.
+        # `check=True`: round 4 finding 1, narrowed by round 5's 1. It closes
+        # ONE state — a path git cannot read as a repository, which used to
+        # answer `[]` and so read exactly like "there are no templates".
+        # Two states this comment used to claim are not this argument's. A
+        # repository with no tracked `templates/` answers `[]` at exit 0, and
+        # that IS the true answer. A stubbed helper never reaches git at all,
+        # and the existence assertion in
+        # `test_an_untracked_file_under_templates_is_not_a_template` is what
+        # catches that one, as its own docstring says.
         #
-        # `core.quotePath=false` with `-z`: round 4 finding 3. git C-escapes
-        # a non-ASCII path by default, so the name came back in a spelling no
-        # prose can contain and the check called it unreachable. `-z` is what
-        # makes turning that quoting off safe — an unquoted name may hold a
-        # newline, and NUL is the only separator that cannot.
+        # `-z`: round 4 finding 3. git C-escapes a non-ASCII path by default,
+        # so the name came back in a spelling no prose can contain and the
+        # check called it unreachable. Round 5's 2 measured which argument
+        # does the work: `-z` alone turns the quoting off, and
+        # `core.quotePath=false` alone does not.
+        #
+        # `core.quotePath=false` therefore changes nothing while `-z` is
+        # here. It stays as the argument that WOULD be needed if `-z` were
+        # ever dropped — so if one of the two is ever pruned, prune this one.
         [
             "git",
             "-c",
@@ -811,10 +819,23 @@ def test_every_template_is_named_by_a_document_that_ships():
     narrowings went with it: the glob returned a subdirectory as one entry
     and never descended, and it skipped dotfiles.
     """
+    # The same three arguments `shipped_templates` carries, for the same
+    # reason. Round 5 finding 3: round 4 applied them to one of two sibling
+    # calls, and this one still C-escaped a non-ASCII name and — through
+    # `.split()`, which splits on ANY whitespace — cut a name with a space in
+    # two. `unreachable_templates` then dropped that document from the corpus
+    # through its `except OSError: continue`, in silence, and a template only
+    # that document named was reported unreachable.
+    #
+    # No `check=True` here: the assertion on the next line already turns an
+    # empty listing red, which is what that argument buys above.
     listed = subprocess.run(
         [
             "git",
+            "-c",
+            "core.quotePath=false",
             "ls-files",
+            "-z",
             "skills",
             "agents",
             "hooks",
@@ -830,7 +851,8 @@ def test_every_template_is_named_by_a_document_that_ships():
         encoding="utf-8",
         errors="replace",
         timeout=30,
-    ).stdout.split()
+    ).stdout
+    listed = [name for name in listed.split("\0") if name.strip()]
     assert [name for name in listed if name.endswith(".md")], (
         "no shipped prose documents were listed — this case is blind"
     )
@@ -849,22 +871,36 @@ def test_the_templates_check_reads_prose_only_and_descends(repo):
     under test is now a `git ls-files` call: a fixture git never sees would
     report nothing and the case would pass having exercised nothing.
 
-    Three properties in one tree. A Python comment must NOT count as a reader
+    Four properties in one tree. A Python comment must NOT count as a reader
     — that is round 2's finding. A template in a subdirectory or behind a dot
-    must not hide. And an UNTRACKED file must not be reported as a template
-    at all, which is round 3's: `.DS_Store` is gitignored here and arrives
-    from opening the folder in Finder.
+    must not hide. An UNTRACKED file must not be reported as a template at
+    all, which is round 3's: `.DS_Store` is gitignored here and arrives from
+    opening the folder in Finder.
+
+    And tests-todo row 14, from round 5's 3: a prose document whose own NAME
+    is not ASCII, or holds a space, has to reach the corpus. git C-escapes
+    the first and `.split()` cut the second in two, and either way
+    `unreachable_templates` dropped that document silently and called the
+    template only it names unreachable. The two documents below carry the
+    only mention of `templates/sub/buried.md`, so if either is dropped the
+    assertion at the end of this case goes red.
     """
     (repo / "templates" / "sub").mkdir(parents=True)
     (repo / "templates" / "named.md").write_text("x", encoding="utf-8")
     (repo / "templates" / "sub" / "buried.md").write_text("x", encoding="utf-8")
     (repo / "templates" / ".hidden.md").write_text("x", encoding="utf-8")
     (repo / "doc.md").write_text("start from templates/named.md\n", encoding="utf-8")
+    (repo / "안내.md").write_text(
+        "templates/sub/buried.md 에서 시작합니다\n", encoding="utf-8"
+    )
+    (repo / "two words.md").write_text(
+        "start from templates/.hidden.md\n", encoding="utf-8"
+    )
     (repo / "code.py").write_text(
         "# see templates/sub/buried.md and templates/.hidden.md\n", encoding="utf-8"
     )
     subprocess.run(
-        ["git", "-C", str(repo), "add", "templates", "doc.md", "code.py"],
+        ["git", "-C", str(repo), "add", "-A"],
         check=True,
         capture_output=True,
     )
@@ -886,6 +922,17 @@ def test_the_templates_check_reads_prose_only_and_descends(repo):
     ], (
         "a Python comment was accepted as a reader, which is exactly how "
         "`templates/sdd-round.md` passed on four comments in chain_check.py"
+    )
+
+    # Row 14. The two documents whose own names git used to mangle are the
+    # only prose naming these two templates, so a corpus that drops either
+    # one reports the template it names as unreachable — which is what this
+    # empty list refuses.
+    assert unreachable_templates(repo, ["안내.md", "two words.md"]) == [
+        "templates/named.md",
+    ], (
+        "a prose document whose name is not ASCII, or holds a space, did not "
+        "reach the corpus, so the template only it names reads as unreachable"
     )
 
 

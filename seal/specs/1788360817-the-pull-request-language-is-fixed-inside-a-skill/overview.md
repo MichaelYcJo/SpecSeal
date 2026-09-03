@@ -53,13 +53,23 @@ runs.
 
 **What that costs, stated rather than left to be found.** Drift on the
 `skills/code-review/SKILL.md` side of `ROUND_RECORD_FIELDS` is now
-explicitly unpinned. Closing it needs a second list read in the other
-direction, which is a new unit — the one thing this pass may not add.
-Whether that check is worth having at all is a judgment for a later round,
-not a gap to paper over here.
+explicitly unpinned.
+
+**Round 5 supplied the reason that actually settles it, and it is not the
+one recorded here first.** This memo said the check was too expensive — a
+new unit, which the pass could not add. Opening the skill gives a better
+answer: `skills/code-review/SKILL.md:141-146` **describes** the fields in
+prose (*"broad-gate state"*, *"executed probe results"*) rather than
+spelling them as headings. A check reading the other direction is therefore
+not a second list, it is a prose-to-heading correspondence table living in
+code — a new drift source of exactly the shape the four rounds above
+measured. So the check is not deferred until someone has budget for it. It
+is **wrong to build**, and the difference matters to whoever reads this next
+looking for a gap to close.
 
 The pattern itself is deferred to issue #89, where the flow's measurements
-live.
+live, and issue #97 carries what should bound the units a finding may
+create.
 
 ## What the scoped evidence check could not see
 
