@@ -68,7 +68,7 @@ smith spawn per phase; this table is the handoff between them.
 | 3 | `agents/warden.md` and `agents/scribe.md` absorb their own invariants and give up the universal ones (Q2). The warden gains the clone rule, the `uv` venv line and the report format completed; both lose whatever phase 1 now holds. Every case that asserted a moved sentence in these two files is **re-pointed at the contract, never deleted**, and each must still be able to fail | `uvx --with pytest python3 -m pytest tests/test_broad_gate_rule.py tests/test_edits_go_through_the_edit_tool.py tests/test_a_probe_that_commits_says_so.py tests/test_absence_claims.py tests/test_handoff_outlives_the_merge.py -q`, plus each re-pointed case shown red against the contract | 2b9d415 |
 | 4 | `agents/smith.md` does the same: it keeps the SDD set, the design gate, routing, vertical slices, mutation testing, the hand-back shape and the 3+ Fix Rule, and gives up the universal ones. Its cases re-pointed on the same terms. Plus the gap phase 3's measurement opened: `tests/test_a_moved_rule_leaves_its_definition.py`, holding for all three definitions that a rule moved into the contract did not stay behind — derived from the contract's own sections and the `agents/*.md` glob, so a §17 and a fourth agent are both checked on the day they land | `uvx --with pytest python3 -m pytest tests/test_broad_gate_rule.py tests/test_the_set_a_work_item_always_has.py tests/test_one_word_one_meaning.py tests/test_a_probe_does_not_outlive_its_round.py tests/test_unverified_rows_close.py tests/test_the_last_rounds_fixes_are_checked.py -q`, plus `tests/test_a_moved_rule_leaves_its_definition.py`, `tests/test_edits_go_through_the_edit_tool.py`, `tests/test_first_setup_asks_once.py`, `tests/test_the_pull_request_language_is_the_repositorys.py` and `tests/test_the_handoff_before_round_one.py` — the last of these is named in phase 5's row and not this one, and phase 4's removals are what break it. Each re-pointed case shown red, and the new module shown red by pasting a section body back into a definition | 4b85d80 |
 | 5 | `docs/review-handoff-protocol.md` stops being the interim home: §385 becomes a pointer at the contract and the definitions; the *What a prompt is left holding* section gains the sentence that a prompt carries what is specific to the round and nothing else; the draft moves 0.8 → 0.9 with its paragraph in `## Status`. Q4's two lines in `skills/implement/SKILL.md` and `skills/code-review/SKILL.md` if it is answered `A` | `uvx --with pytest python3 -m pytest tests/test_the_handoff_before_round_one.py tests/test_the_fixes_name_their_surface.py tests/test_review_axes.py tests/test_chain_check_at_the_pull_request.py -q`, plus the new pinned sentence shown red | 72cbcda |
-| 6 | `changelog.md` and `seal/ledger/1788433011-….md` in this directory, `overview.md` closed, and the narrow verification for every module the branch touched. Hand to the review chain | `uvx --with pytest python3 -m pytest tests/test_the_changelog_is_gathered_at_release.py tests/test_the_ledger_fragments_fold_at_release.py tests/test_a_row_points_by_content.py tests/test_no_real_identifiers.py tests/test_no_document_names_the_old_roots.py -q` | |
+| 6 | `changelog.md` and `seal/ledger/1788433011-….md` in this directory, `overview.md` closed, and the narrow verification for every module the branch touched. Hand to the review chain | `uvx --with pytest python3 -m pytest tests/test_the_changelog_is_gathered_at_release.py tests/test_the_ledger_fragments_fold_at_release.py tests/test_a_row_points_by_content.py tests/test_no_real_identifiers.py tests/test_no_document_names_the_old_roots.py -q` | 5e610a3 · 5047442 |
 
 **Why this order.** Phase 1 before phase 2, because the opening line has to
 name a file that exists. Phase 2 before phases 3 and 4, because no
@@ -86,6 +86,14 @@ reviewer.
 This table is also where the work records how far it got. There is no separate
 task list: a list of tasks is mutable progress, and a stale one asserts a state
 that is not true, which is the failure the evidence ledger exists to prevent.
+
+**Phase 6 names two commits.** The first, `5e610a3`, repairs a rule this
+work item deleted: `spec.md`:90 assigns *mutation-test every unit added,
+one at a time, before handing over* to the smith's own layer, phase 4 did
+not move it into `agents/smith.md`, and phase 5 removed its only home. It
+is a commit of phase 6's rather than a seventh phase, because it is this
+phase's own finding and the plan's phases are slices of the work rather
+than of the calendar. The second is what closed the phase.
 
 **Status is empty, or the commit that closed the phase.** A tick is refused,
 and so is `done`: both can be typed without anything having happened, and both
