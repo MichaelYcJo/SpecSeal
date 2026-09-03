@@ -261,6 +261,86 @@ def test_check_does_not_pass_when_the_repository_cannot_be_resolved(
     assert "could not run" in out
 
 
+def test_the_way_back_it_names_works_from_a_subdirectory(seal, local_repo, capsys):
+    """Round 3's 🔴, and round 1's 🔴 2 returning under a different condition.
+
+    A git pathspec is read from where you stand. `git reset -- seal <wf>` run
+    from a subdirectory exits 0, prints nothing, and unstages nothing, so the
+    switch back then refuses over the changes the switch itself staged. The
+    bare `git reset` it replaced worked from anywhere; the fix for one member
+    of the class broke another.
+
+    `:/` makes each path mean the same thing from any directory.
+    """
+    (local_repo / "docs").mkdir(exist_ok=True)
+    (local_repo / "docs" / "x.md").write_text("x\n")
+    git(local_repo, "add", "-A")
+    git(local_repo, "commit", "-qm", "a subdirectory")
+
+    code, out = run(seal, ["mode", "shared"], local_repo / "docs", capsys)
+    assert code == 0, out
+    assert ":/" in out, "the way back is spelled from where you stand"
+
+    named = [line.split("`")[1] for line in out.splitlines() if "`git reset" in line]
+    assert named, out
+    subprocess.run(
+        named[0].split(),
+        cwd=str(local_repo / "docs"),
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+    )
+    assert not any(
+        line[:2].strip() and line[:2] != "??" for line in porcelain(local_repo)
+    ), "the command it named left the index staged"
+
+    code, out = run(seal, ["mode", "local"], local_repo / "docs", capsys)
+    assert code == 0, out
+    assert not (local_repo / "seal").exists()
+
+
+def test_an_ignored_workflow_path_is_not_reported_as_staged(seal, local_repo, capsys):
+    """Round 3's 🟡. The case for round 2's fix ignored `seal/` and so covered
+    the ROOT's staging, never the workflow's — disabling the workflow's return
+    code check reddened nothing.
+
+    `.github/` ignored is the reachable cause: the file is written, nothing
+    enters the index, and without this the command says `staged it` and `Now
+    commit`, so the checks the switch exists to get never run.
+    """
+    (local_repo / ".gitignore").write_text(".github/\n")
+    git(local_repo, "add", "-A")
+    git(local_repo, "commit", "-qm", "ignore the workflow's directory")
+
+    code, out = run(seal, ["mode", "shared"], local_repo, capsys)
+    assert code == 0, out
+    assert "could NOT be staged" in out, out
+    assert "never run" in out
+    staged = git(local_repo, "diff", "--cached", "--name-only").stdout
+    assert ".github" not in staged, staged
+
+
+def test_a_tracked_config_is_not_announced_as_untracked(seal, shared_repo, capsys):
+    """Round 3's 🟡. `switch` read `indexed`'s answer as *is this untracked*,
+    and that function has three exceptions with only one meaning untracked.
+
+    The note's whole subject is what the index can lose, so calling a tracked
+    file untracked there is the one place the word has to be right. Reverting
+    to `not indexed(line)` reddened nothing, because the only case looking at
+    that note plants a genuinely untracked file.
+    """
+    config = shared_repo / "seal" / "config.md"
+    config.write_text("# Repository config\n\n| Item | Value |\n|---|---|\n")
+    git(shared_repo, "add", "-A")
+    git(shared_repo, "commit", "-qm", "a config with no Mode row")
+
+    code, _out = run(seal, ["mode"], shared_repo, capsys)
+    assert code == 0
+    code, out = run(seal, ["mode", "local"], shared_repo, capsys)
+    assert code == 0, out
+    assert "config.md is untracked" not in out, out
+
+
 @pytest.mark.parametrize("pair", ["M ", "MM"])
 def test_a_staged_edit_to_the_config_still_refuses(seal, shared_repo, capsys, pair):
     """The boundary round 1 wrote into its own fix and nothing held.

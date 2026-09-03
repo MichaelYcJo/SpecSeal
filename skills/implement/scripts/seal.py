@@ -1640,10 +1640,12 @@ def remove_workflow(repo):
         if text != plugin_workflow():
             return "kept", (
                 f"  {WORKFLOW} is not tracked and is not byte for byte what "
-                "this plugin writes, so git holds no copy of it and removing "
-                "it would take the only one — left alone. Its checks read "
-                "committed files and local mode commits none, so look at it "
-                "and delete it yourself."
+                "this plugin writes NOW — it may be somebody's own, or this "
+                "plugin's from another release, since the file is pinned to "
+                "the version that wrote it. Either way git holds no copy and "
+                "removing it would take the only one, so it is left alone. "
+                "Its checks read committed files and local mode commits none, "
+                "so look at it and delete it yourself."
             )
         try:
             os.remove(path)
@@ -1881,11 +1883,15 @@ def switch(args, repo, home, shared, local, current, wanted):
     if wanted == SHARED:
         print(
             "Going to shared mode puts the records in the tree. Until you "
-            f"commit, `git reset -- {optin.HOME} {WORKFLOW}` and then "
+            f"commit, `git reset -- :/{optin.HOME} :/{WORKFLOW}` and then "
             "`seal mode local` walk the whole thing back — the switch stages, "
             "and the guard refuses a switch over a staged change. The "
             "pathspec is there because a bare `git reset` unstages the whole "
             "index, and this guard has never looked outside those two paths. "
+            "`:/` makes each path mean the same thing from any directory — a "
+            "git pathspec is read from where you stand, and without it the "
+            "command exits 0 having unstaged nothing when you are not at the "
+            "root. "
             "After the commit they are in the history, and taking "
             "them out of the tree later does not take them out of it."
         )
@@ -2001,7 +2007,7 @@ def switch(args, repo, home, shared, local, current, wanted):
     print("\nNow commit. The switch is what the commit records:\n  git commit")
     if moved and wanted == SHARED:
         print(
-            f"Until then, `git reset -- {optin.HOME} {WORKFLOW}` and then "
+            f"Until then, `git reset -- :/{optin.HOME} :/{WORKFLOW}` and then "
             "`seal mode local` puts it back — the switch stages, and the "
             "guard refuses a switch over a staged change. The pathspec is "
             "there because a bare `git reset` unstages the whole index."

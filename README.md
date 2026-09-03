@@ -458,7 +458,8 @@ out of the tree, and every other clone loses them at the next pull — `seal
 export` here and `seal import` there is how a teammate gets a copy. Going to
 shared is the one to be sure about: once you commit, the records are in the
 history, and taking them out of the tree later does not take them out of it.
-Until that commit, `git reset -- seal .github/workflows/hygiene.yml` and then
+Until that commit, `git reset -- :/seal :/.github/workflows/hygiene.yml` and
+then
 `seal mode local` walk the whole thing back — the switch stages, and the guard
 refuses a switch over a staged change. The pathspec is there because a bare
 `git reset` unstages the whole index, and the guard has never looked outside

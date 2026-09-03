@@ -455,7 +455,7 @@ seal mode --check    # 아무것도 쓰지 않고, 어긋나 있으면 0 이 아
 `seal import` 가 동료가 사본을 받는 길입니다. 확실히 하고 넘어가야 하는
 쪽은 shared 입니다. 커밋하고 나면 기록이 히스토리에 들어가고, 나중에 트리
 에서 빼도 히스토리에서는 빠지지 않습니다. 그 커밋 전까지는
-`git reset -- seal .github/workflows/hygiene.yml` 뒤에 `seal mode local` 이
+`git reset -- :/seal :/.github/workflows/hygiene.yml` 뒤에 `seal mode local` 이
 전부 되돌립니다. 스위치가 스테이징을 하고 가드는 스테이징된 변경 위에서의
 전환을 거부하기 때문입니다. 경로를 적는 이유는 그냥 `git reset` 이 인덱스
 전체를 풀어 버리는데, 이 가드는 저 두 경로 밖을 본 적이 없어서입니다.
