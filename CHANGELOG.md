@@ -1,5 +1,83 @@
 # Changelog
 
+## 0.7.0 — 2026-09-03
+
+<!-- specs/1788445862-a-phase-hands-the-next-one-a-record -->
+- **A build phase now leaves the same committed, per-segment record a review
+  round already does, and both records now say what they were asked to do
+  as well as what they found.** What a phase discovered used to reach the
+  next phase only if the orchestrator retyped it into the next spawn prompt,
+  and it went missing without a trace when it didn't: phase 4 of an earlier
+  work item moved a rule out of `agents/smith.md` into an interim home, and
+  phase 5 removed that interim home before the rule had actually reached
+  anywhere else, deleting it from the repository with nothing recording that
+  it had gone missing (#107, #121). New `templates/sdd-phase.md` mirrors
+  `templates/sdd-round.md`'s shape for the build side: a field table
+  carrying only `Phase` and `Commit` — a phase has no `Target SHA` to
+  squash away and no `Pass` checkbox to answer — then `## What this phase
+  was asked`, `## What this phase found`, and `## What this phase removes`
+  (a table naming what left the tree and where it must land; `none` is a
+  valid row, a blank table is not). `templates/sdd-plan.md`, `agents/smith.md`
+  and `skills/implement/SKILL.md` are wired to it, so a spawned session
+  writes `seal/specs/<work-item-id>/phases/phase-N.md` at each phase's close
+  without having to be told twice.
+  **Separately, neither a round record nor a phase record said what it was
+  *asked* to do, only what it found.** #81's round 1 was the cheapest round
+  measured — 7.6 minutes, 29 tool calls, one 🔴 and four 🟡 — because its
+  spawn prompt named eight specific things to try to break, in order; that
+  fact was recoverable only from a transcript. `templates/sdd-round.md`
+  gains `## What this round was asked`, between the field table and the
+  verdicts, and `skills/code-review/SKILL.md` instructs the orchestrator to
+  copy the round-specific spawn content into it right after posting (#119).
+  **Enforcement is a template blank plus a skill instruction, not a gate.**
+  A `chain_check.py` refusal for a missing section was considered and set
+  aside: it would need a red test, a stated failure direction, a prompt
+  budget and a platform-honesty case for a mechanism that has shipped zero
+  records yet to measure a cutoff against, and is revisitable once real
+  phase records exist to learn from.
+  **Two follow-on questions from #119 — naming which plugin version or
+  commit ran a segment, and a `CONTRIBUTING.md` paragraph on the
+  plugin-copy-in-force confusion — are explicitly out of scope here** and
+  recorded as deferred, per the issue's own scoping, rather than silently
+  dropped. (#121, #119)
+
+<!-- specs/1788449488-measure-what-flow-finds -->
+- **Measuring a smith or warden segment and logging what it found is now
+  automatic, in every repository this plugin installs into, instead of a
+  message a person had to remember to retype.** Issue #109: the instruction
+  used to live only in one operator's own memory file, naming a fixed issue
+  number that went stale twice. `skills/verify/SKILL.md` gains "Measure the
+  segment, and feed the flow log" — after every segment, find this
+  repository's open `flow-measurement`-labelled issue
+  (`gh issue list --label flow-measurement --state open`) and post
+  `session_cost.py`'s numbers to it; where no such issue is open (nearly
+  every installed repository, today), the step is a no-op — nothing is
+  measured, nothing is posted, nothing asks. A new
+  `.github/scripts/roll_flow_measurement_issue.py`, wired into
+  `close-issues-on-release.yml`, closes the current log and opens the next
+  one — titled with the release's version bumped to the next minor — every
+  time a release reaches `main`, so the log keeps growing without anyone
+  opening the next issue by hand. This repository's own log (`#89`) is
+  labelled as part of this change, so `0.8.0`'s issue opens on this
+  repository's own next release without further action.
+  **The rollover script retries once before treating "no issue open" as the
+  invariant broken**, not on "more than one open": a search-index lag right
+  after a label write can only ever undercount what is actually open, never
+  overcount, so only a zero reading gets a second look. Found while building
+  the label bootstrap in this same branch — `gh issue list` returned empty
+  immediately after `gh issue edit --add-label`, while `gh issue view` in
+  the same breath showed the label already applied.
+  **Filed separately, out of this branch's scope: `agents/smith.md`'s
+  mutation-testing instruction says to clear `tests/__pycache__` between
+  mutations, and that is not the only cache a mutated module can leave
+  behind** — a script loaded from `.github/scripts/` by path, the way this
+  branch's own new tests load the file under test, caches its bytecode under
+  `.github/scripts/__pycache__` instead, and a stale copy there survived one
+  mutation's restore long enough to fail an unrelated later test run.
+  `docs/flow.md`'s "While the flow runs" section — the instruction this work
+  replaces — is deleted, and the two boxes it names as done (`#121 + #119`,
+  `#109` itself) are ticked. (#109)
+
 ## 0.6.0 — 2026-09-03
 
 <!-- specs/1788433011-every-spawn-prompt-is-retyped-from-memory -->
