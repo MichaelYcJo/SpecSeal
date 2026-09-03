@@ -224,7 +224,11 @@ def test_the_readme_gives_both_moves_under_first_run(readme):
     assert "$CLAUDE_PLUGIN_ROOT/templates/hygiene.yml" in body, (
         "the workflow is installed by hand, from the plugin's cache"
     )
-    assert "#81" in body, "export/import is later work and is named as such"
+    assert "seal export" in body and "seal import" in body, (
+        "the move is only available where both folders are on one machine, so "
+        "this section has to point at the pair that works between two (#81). "
+        "It named the issue number while the pair was later work"
+    )
 
 
 COMMON = "$(git rev-parse --git-common-dir)/seal"

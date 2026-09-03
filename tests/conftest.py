@@ -174,6 +174,24 @@ def symlink_or_skip(target, link):
         pytest.skip(f"symbolic links are not available here ({exc})")
 
 
+def fifo_or_skip(path):
+    """`os.mkfifo(path)`, or skip the test where it is not available.
+
+    Asked by attempting the call, for the reason `symlink_or_skip` gives:
+    `os.mkfifo` does not exist on Windows at all, and on a POSIX filesystem
+    that has no named pipes it raises. Nothing is inferred from the platform.
+    """
+    parent = os.path.dirname(os.path.abspath(str(path)))
+    assert os.path.isdir(parent), f"the fifo's parent does not exist: {parent}"
+    maker = getattr(os, "mkfifo", None)
+    if maker is None:
+        pytest.skip("named pipes are not available here (no os.mkfifo)")
+    try:
+        maker(path)
+    except OSError as exc:
+        pytest.skip(f"named pipes are not available here ({exc})")
+
+
 def local_home(repo):
     """Create `<git-common-dir>/seal/` for `repo` and return its path.
 
