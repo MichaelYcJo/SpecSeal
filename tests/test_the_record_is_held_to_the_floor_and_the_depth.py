@@ -306,6 +306,17 @@ def test_yes_without_what_fails(repo):
     assert "does not say what" in out
 
 
+def test_yes_with_a_separator_and_nothing_after_fails(repo):
+    """`yes —` is the half-written cell, and it is the one that survives a
+    reason read loosely: the value is not the bare word, so an equality test
+    passes it, and what follows the separator is empty. Found by mutation —
+    replacing the reason with a constant left every other case green."""
+    declared(repo, NEW_ITEM, lambda sha: record(sha, floor="yes —"))
+    code, out = run(repo)
+    assert code == 1, out
+    assert "does not say what" in out
+
+
 def test_a_word_that_merely_starts_with_no_is_not_a_no(repo):
     """The separator boundary `says_none` and `nobody_reason` both use.
     `nothing anybody can see` reads as a `no` to a prefix match, and it is a
@@ -482,6 +493,21 @@ def test_a_depth_below_one_is_not_a_depth(repo):
     code, out = run(repo)
     assert code == 1, out
     assert "depth 1" in out
+
+
+def test_a_digit_in_the_unit_name_is_not_a_depth(repo):
+    """`sha256_of` carries a number and no depth, and a check that looks for
+    a number rather than for the marked form reads it as depth 256 — which is
+    over the bound, so the tolerant read here fails in the WRONG direction as
+    well. Found by mutation: degrading the pattern to `(\\d+)` left every
+    other case green, because no fixture had a digit in a unit name."""
+    declared(repo, NEW_ITEM, lambda sha: record(sha, new_units="`sha256_of`"))
+    code, out = run(repo)
+    assert code == 1, out
+    assert "without the depth" in out, (
+        "the entry has no depth, so the failure is the missing one and never "
+        "a level read out of the name"
+    )
 
 
 def test_one_entry_without_a_depth_fails_among_good_ones(repo):
