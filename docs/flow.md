@@ -21,6 +21,9 @@ together.
 - [ ] #103 — the two defect shapes only Windows has caught are made visible without Windows.
 - [ ] #111 — `git()` reads every failure as `""`, and in `seal import` that empty string switches off the refusal that keeps another project's records out.
 - [ ] #98 — three sentences say `-z` is what turns git's path quoting off, and the instruction they give is right while the reason they give for it is false. One line, and it rides whichever branch of this release is open.
+- [ ] **#136 — the roll opens the next measurement log with no body and no index, and this release is what fires it.** Two issues collect the same shape of comment, one of them is deleted every release, and nothing says which gets what. It has to land before 0.8.0 reaches `main`: after that the 0.9.0 log is already open, unlinked, and the next chance is a release away.
+- [ ] #137 — a segment's record says what it cost and not what ran it or what its output cost the next reader. Every segment run before this lands is one nothing can attribute afterwards, which is why it is here rather than beside #84.
+- [ ] #134 — the update notice names a restart and never the reload this repository measured and wrote down. One notice and one skill, and it rides whichever branch of this release is open, like #98.
 
 Its measurement log is the first one taken without anybody being told to
 take it — #109's own test.
@@ -35,15 +38,17 @@ In this order, and the third is not optional.
 
 **Why 0.9.0 and not sooner.** #84 needs the channel 0.7.0 builds. These three
 are designed and #120's table is already counted, which is why they have a
-release at all while 0.7.0's and 0.8.0's later tickets — what the
-measurements themselves ask for — do not yet: those are not written down,
-so they cannot be scheduled, and arrive as their own tickets sized when they
-exist.
+release at all while the rest of what the measurements ask for does not yet:
+what is not written down cannot be scheduled, and arrives as its own ticket
+sized when it exists. Three arrived that way on 2026-09-04 — #136, #137 and
+#134, out of the segments of 0.8.0's own first work item — and they are in
+0.8.0 above rather than here.
 
 ## Later — not scheduled
 
 - [ ] #83 `settle` · #85 the orphan branch as the ledger's home · #101 the export's size — the root's later steps.
 - [ ] #88 — the routing question asks three boxes and has no way to say "all three".
+- [ ] #135 — `user-invocable: false` sits in the copy that loads and the skill is listed as a command anyway. One measurement decides whether it has a fix or only a correction to the record.
 
 ## Order inside a ticket
 
