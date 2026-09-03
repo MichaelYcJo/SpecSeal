@@ -75,10 +75,10 @@ is the operation this whole command is built to make safe.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `hooks/optin.py#home_paths` — the two places `seal/` is read from, in order, so nothing outside this module spells either path. `home_at` reads through it and still costs one `git` call | `tests/test_optin_home.py` (existing cases, unchanged) plus a new case for the pair | |
-| 2 | `seal export`: the walker, the digest, the manifest, the zip, the shared-mode refusal, the fail directions. `bin/seal` + `bin/seal.cmd` | S1–S4, S12, S16, and the walker/namelist seam case | |
-| 3 | `seal import`: name validation, the three outcomes, `--into`, the foreign-zip refusal | S5–S11, S17–S20 | |
-| 4 | `seal export --check`: the one-line reminder and the state file it reads | S13–S15 | |
+| 1 | `hooks/optin.py#home_paths` — the two places `seal/` is read from, in order, so nothing outside this module spells either path. `home_at` reads through it and still costs one `git` call | `tests/test_optin_home.py` (existing cases, unchanged) plus a new case for the pair | f2fdcbe |
+| 2 | `seal export`: the walker, the digest, the manifest, the zip, the shared-mode refusal, the fail directions. `bin/seal` + `bin/seal.cmd` | S1–S4, S12, S16, and the walker/namelist seam case | 43023e9 |
+| 3 | `seal import`: name validation, the three outcomes, `--into`, the foreign-zip refusal | S5–S11, S17–S20 | 43023e9 |
+| 4 | `seal export --check`: the one-line reminder and the state file it reads | S13–S15 | 43023e9 |
 | 5 | The documents that already promise this pair: `README.md`, `README.ko.md`, `seal/README.md`, the changelog and ledger fragments, the closing memo | the doc-wrap and identifier tests; a read of each edited paragraph | |
 
 Each phase ends with something runnable: phase 1 with the suite's opt-in

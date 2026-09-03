@@ -429,8 +429,50 @@ mv "$(git rev-parse --git-common-dir)/seal" "$(git rev-parse --show-toplevel)/se
 git rm -r --cached "$(git rev-parse --show-toplevel)/seal" && mv "$(git rev-parse --show-toplevel)/seal" "$(git rev-parse --git-common-dir)/seal"
 ```
 
-local 의 기록을 다른 클론으로 손으로 옮기는 일과, 그것을 묶어 주는
-`seal export` / `seal import` 는 #81 로 옵니다.
+기계가 둘이면 이 방법을 쓸 수 없습니다. 다른 기계에는 옮길 폴더 자체가
+없기 때문입니다. 아래의 `seal export` 와 `seal import` 가 그것을 위한
+것이고, 모드를 바꾸는 두 번째 방법이기도 합니다.
+
+### local 의 기록을 다른 기계로 가져가기
+
+local 모드가 감수하는 것은 기록이 그 클론을 벗어나지 않는다는 점입니다.
+`seal export` 와 `seal import` 는 그것을 *잃는다* 가 아니라 *복사본을
+가져간다* 로 바꿔 줍니다. 플러그인이 켜져 있는 동안 두 명령 모두 그냥
+칠 수 있습니다.
+
+```bash
+seal export                 # 클론 옆에 seal-<repo>-<date>.zip 을 씁니다
+seal import <그 zip>        # 받아 들이되, 아무것도 덮어쓰지 않습니다
+```
+
+zip 에는 루트만 들어갑니다. smith 표식, 워크트리 선택, 리뷰·parity 표식,
+리스 파일은 모두 루트 *옆* 의 git 디렉터리에 있어서 따라가지 않습니다.
+export 가 루트만 걸어서 그렇고, 루트가 자기 디렉터리여야 하는 이유가
+이것입니다. 루트 안의 심볼릭 링크는 따라가지 않고 건너뛴 뒤 이름을
+알려 줍니다. 파일들과 함께 export 시점의 remote URL 과 HEAD SHA 를 적은
+manifest 가 들어갑니다.
+
+**import 는 덮어쓰지 않고 묻지도 않습니다.** 없던 파일은 추가하고, 바이트가
+같은 파일은 그대로 둡니다. 그래서 같은 zip 을 다시 받아도 아무것도 쓰지
+않습니다. 바이트가 다르면 받은 쪽을 옆에 놓습니다. `ledger/<id>.md` 옆의
+`ledger/<id>.incoming.md` 입니다. 그리고 그 목록을 알려 줍니다. 둘 중
+어느 쪽이 맞는지는 합치는 일이 아니라 읽는 일이고, 명령이 어느 쪽을 골라도
+어떤 경우에는 작업을 버리게 됩니다. 그다음 `evidence-check .` 이 이 트리에
+대해 어느 행이 어긋났는지 알려 줍니다.
+
+다음 세 경우에는 아무것도 쓰지 않고 멈춥니다. zip 이 다른 저장소에서 나온
+경우(같은 저장소를 두 가지로 적은 것이라면 `--allow-other-repo`), 멤버가
+루트 밖으로 나가는 경우, 두 루트가 이미 다 있는 경우입니다.
+`seal import --into shared` 나 `--into local` 은 지정한 모드의 루트를
+만들어 줍니다. 모드를 바꾸는 다른 방법이기도 합니다. export 하고, 다른
+자리로 import 하고, 커밋하거나 지웁니다.
+
+shared 모드에서 `seal export` 는 zip 을 쓰지 않습니다. 기록이 이미
+커밋돼 있어서 모든 클론과 CI 가 갖고 있기 때문입니다. 대신 그 경로와
+local 로 바꾸는 `mv` 명령을 알려 줍니다. 릴리스마다 한 번,
+`seal export --check` 가 지난 export 이후 몇 개의 작업 항목이 바뀌었는지
+한 줄로 알려 주고, 어디에도 올리지 않습니다. 복사본을 어디에 두는지는
+쓰는 사람의 일입니다.
 
 ## 한계
 
