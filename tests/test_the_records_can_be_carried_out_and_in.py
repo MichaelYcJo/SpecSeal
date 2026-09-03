@@ -941,6 +941,36 @@ def test_a_file_the_root_already_holds_blocks_a_member_under_it(seal, carried, c
     assert files_under(home) == before, "a refusal wrote files"
 
 
+def test_a_manifest_with_both_fields_prints_the_time_and_the_sha(seal, carried, capsys):
+    """The line a person reads to tell one copy from another, and nothing
+    pinned it: deleting it left the suite green.
+
+    Its guarded sibling is what round 5 added, and guarding a line is not the
+    same as keeping it — this is the half that says the ordinary case still
+    prints what it always printed.
+    """
+    _zip_path, other, _home = carried
+    z = other.parent / "stamped.zip"
+    with zipfile.ZipFile(z, "w") as archive:
+        archive.writestr(
+            "manifest.json",
+            json.dumps(
+                {
+                    "format": 1,
+                    "remote": "",
+                    "head": "0123456789abcdef" + "0" * 24,
+                    "exported_at": "2026-09-03T00:00:00Z",
+                }
+            ),
+        )
+        archive.writestr("seal/ledger/w.md", "# w\n")
+
+    code, out = run(seal, ["import", str(z)], other, capsys)
+    assert code == 0, out
+    assert "Exported at 2026-09-03T00:00:00Z from 0123456789ab." in out
+    assert "an unrecorded time" not in out
+
+
 def test_a_manifest_missing_exported_at_still_ends_with_a_line_of_its_own(
     seal, carried, capsys
 ):
@@ -965,6 +995,10 @@ def test_a_manifest_missing_exported_at_still_ends_with_a_line_of_its_own(
     assert code == 0, out
     assert "evidence-check" in out, "the closing lines were not reached"
     assert (home / "ledger" / "w.md").exists()
+    # What it says instead, not only that it does not raise. Round 6 deleted
+    # the whole block, then wrote a different phrase into it, and the suite
+    # stayed green both times.
+    assert "Exported at an unrecorded time from aaaaaaaaaaaa." in out
 
 
 @pytest.mark.parametrize(

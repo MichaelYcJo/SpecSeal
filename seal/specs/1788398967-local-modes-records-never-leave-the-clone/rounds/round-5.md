@@ -13,11 +13,11 @@ work item. -->
 | PR | none yet |
 | Broad gate | due after this record — see the row below, filled in at the gate's commit |
 | Fixes checked by | round-6 |
-| Contract changes | `normalise_remote` → `import_`; `import_` → `main` |
+| Contract changes | `normalise_remote` → `import_`, `tests/test_the_records_can_be_carried_out_and_in.py`; `import_` → `main` |
 | New units | none — three conditions, two comments, four test cases |
 | Needs a fix | no |
 
-- [ ] Pass
+- [x] Pass
 
 Five rounds, three escapes, and the curve is unambiguous. Rounds 1, 2 and 3
 each ended with a record outside the root — the member's own name, the name a

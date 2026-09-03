@@ -12,7 +12,7 @@ Written by the review orchestrator, which did not implement this work item. -->
 | PR | none yet |
 | Broad gate | not yet — a 🔴 was open |
 | Fixes checked by | round-3 |
-| Contract changes | `place` → `write_members`; `write_members` → `import_`; `import_` → `main`; `destination_root`'s docstring → none, prose only |
+| Contract changes | `place` → `write_members`; `write_members` → `import_`, `tests/test_the_records_can_be_carried_out_and_in.py`; `import_` → `main`; `destination_root`'s docstring → none, prose only |
 | New units | three test cases from the reviewer's report, one written to pin `O_EXCL` on its own |
 | Needs a fix | yes — 🔴 1 (a record still leaves the root through the `.incoming` fallback name), 🟡 2 (both limits read after the manifest is whole in memory), 🟡 3 (`ARCHIVE_LIMIT` reddens no case), 🟡 4 (a corrupt member writes the records before it, then crashes), 🟡 5 (the ledger files the unborn-branch fact under the collision clause), 🟡 6 (the archive-total refusal is in no README and no fail-direction row) |
 
