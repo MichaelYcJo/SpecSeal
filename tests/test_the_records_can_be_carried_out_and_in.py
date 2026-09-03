@@ -43,7 +43,7 @@ import subprocess
 import zipfile
 
 import pytest
-from conftest import local_home, symlink_or_skip
+from conftest import fifo_or_skip, local_home, symlink_or_skip
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, "skills", "implement", "scripts", "seal.py")
@@ -759,14 +759,38 @@ def test_a_link_at_the_partial_name_refuses_the_export(seal, repo, capsys):
     outside = repo.parent / "outside"
     outside.mkdir()
     stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
-    symlink_or_skip(
-        str(outside / "stolen.bin"), str(repo.parent / f"{stem}.zip.partial")
-    )
+    partial = repo.parent / f"{stem}.zip.partial"
+    symlink_or_skip(str(outside / "stolen.bin"), str(partial))
 
     code, out = run(seal, ["export"], repo, capsys)
     assert code == 1, out
     assert list(outside.iterdir()) == [], "the export wrote outside the clone"
     assert sorted(repo.parent.glob("seal-*.zip")) == [], "a zip was reported written"
+    # The sibling case asserts this for the zip's own name and this one did
+    # not, which is how the cleanup came to remove a link it had just refused.
+    assert os.path.islink(partial), "the refusal removed the link"
+
+
+def test_a_file_at_the_partial_name_survives_the_refusal(seal, repo, capsys):
+    """Round 4's heaviest 🟡. The temporary name is refused and then removed.
+
+    `os.open` sat inside the try, so `O_EXCL`'s refusal ran the cleanup that
+    exists to remove a HALF-WRITTEN archive — and took a name this call never
+    created. A link, somebody's file, or a concurrent export's `.partial` in
+    flight, which loses that export the finished zip it was about to rename.
+    """
+    home = local_home(repo)
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "ledger.md").write_text("# ledger\n")
+    stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
+    partial = repo.parent / f"{stem}.zip.partial"
+    partial.write_text("somebody else's bytes\n")
+
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 1, out
+    assert partial.read_text() == "somebody else's bytes\n", (
+        "the refusal removed a file it did not create"
+    )
 
 
 def test_a_broken_link_at_the_zips_own_name_is_not_a_free_name(seal, repo, capsys):
@@ -813,7 +837,89 @@ def test_a_member_under_a_member_refuses_the_zip(seal, carried, capsys):
 
     code, out = run(seal, ["import", str(clash)], other, capsys)
     assert code == 1, out
-    assert "has to be a directory" in out
+    # The clash is inside the zip; there is nothing in this clone to rename,
+    # and the message used to send a person looking for one.
+    assert "names seal/a as a file" in out
+    assert "ask the machine that exported it" in out.lower()
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_a_named_pipe_where_a_directory_goes_refuses_the_zip(seal, carried, capsys):
+    """The clash check asked `isfile`, and `isfile` is not the question
+    `os.makedirs` answers.
+
+    `makedirs(exist_ok=True)` raises when the name exists and is not a
+    directory. `isfile` is False for a FIFO, a socket and a device node, so
+    all three walked past the check and met `makedirs` mid-write — one record
+    on disk, the rest lost, and a traceback with no line of this command's
+    own.
+    """
+    _zip_path, other, home = carried
+    fifo_or_skip(home / "a")
+    before = files_under(home)
+    under = other.parent / "under-fifo.zip"
+    with zipfile.ZipFile(under, "w") as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": ""}))
+        archive.writestr("seal/a/b.md", "under it\n")
+
+    code, out = run(seal, ["import", str(under)], other, capsys)
+    assert code == 1, out
+    assert "not a directory" in out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_a_directory_the_copy_cannot_write_into_stops_with_a_line_of_its_own(
+    seal, carried, capsys
+):
+    """The one failure that cannot happen before the first byte.
+
+    Every other refusal here runs before anything is written; the filesystem
+    can say no with records already on disk. A directory in the root that
+    cannot be written into, or a full disk, left a partial copy and a
+    traceback. What the person needs to hear is that a second run finishes it,
+    because this command overwrites nothing.
+    """
+    _zip_path, other, home = carried
+    shut = home / "specs"
+    shut.mkdir(parents=True, exist_ok=True)
+    into = other.parent / "into.zip"
+    with zipfile.ZipFile(into, "w") as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": ""}))
+        archive.writestr("seal/specs/x.md", "blocked\n")
+    os.chmod(shut, 0o555)
+    try:
+        if os.access(shut, os.W_OK):
+            pytest.skip("this filesystem ignores the directory's write bit")
+        code, out = run(seal, ["import", str(into)], other, capsys)
+    finally:
+        os.chmod(shut, 0o755)
+    assert code == 1, out
+    assert "stopped part-way" in out
+    assert "run this again" in out
+
+
+def test_a_zip_whose_format_moved_the_names_says_so(seal, carried, capsys):
+    """S20. The name checks ran before the format check, and a later format is
+    exactly what moves the names those checks read.
+
+    A zip declaring format 2 with its records under `records/` answered "is
+    not under seal/", which reads as a malformed zip where the truth is a
+    build too old — and the format field exists for no other day.
+    """
+    _zip_path, other, home = carried
+    before = files_under(home)
+    # Not named for the format: the message prints the path, so a file called
+    # `format-2.zip` satisfies `"format" in out` whatever the message says.
+    # That assertion passed under the reverted order until the mutation caught
+    # it.
+    later = other.parent / "later.zip"
+    with zipfile.ZipFile(later, "w") as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 2, "remote": ""}))
+        archive.writestr("records/ledger.md", "moved\n")
+
+    code, out = run(seal, ["import", str(later)], other, capsys)
+    assert code == 1, out
+    assert "reads format 1" in out, "the name refusal spoke over the format refusal"
     assert files_under(home) == before, "a refusal wrote files"
 
 
@@ -831,7 +937,7 @@ def test_a_file_the_root_already_holds_blocks_a_member_under_it(seal, carried, c
 
     code, out = run(seal, ["import", str(under)], other, capsys)
     assert code == 1, out
-    assert "has to be a directory" in out
+    assert "in this clone is not a directory" in out
     assert files_under(home) == before, "a refusal wrote files"
 
 

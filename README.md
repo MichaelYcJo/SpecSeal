@@ -473,8 +473,9 @@ and is a file, and when both roots already exist.
 
 A symbolic link at a name a collision would fall back to is treated as taken:
 the copy lands at the next free name rather than being written through it.
-`seal export` does the same with the zip's own name, and refuses outright if
-the temporary name it writes through is a link.
+`seal export` does the same with the zip's own name. If anything is already
+at the temporary name it writes through, it refuses and leaves that alone —
+it removes a half-written archive of its own, never a file it found there.
 `seal import --into shared` or `--into local` creates the named mode's root,
 which is the other way to switch modes: export, import into the other place,
 commit or remove.

@@ -113,3 +113,24 @@
   leaving the records before it on disk. The sender corrupts nothing to reach
   it — two members named that way is enough — and the root's own contents
   raise it from the other side.
+- **The fourth round found no way out of the root, and one thing the fix
+  before it had broken.** Refusing to write through something at the export's
+  temporary name also removed it — a link, a file somebody left, or a
+  concurrent export's archive still being written, which loses that export the
+  zip it was about to rename. The cleanup that removes a half-written archive
+  is for a name this command created, and it now runs only for one.
+- **A zip can no longer end an import in a traceback for a reason the
+  filesystem gave, either.** The check for a name the zip needs as a directory
+  asked whether it was a file, and a named pipe is not a file — it walked past
+  and met the same crash. And nothing at all guarded the write loop: a
+  directory in the root that cannot be written into, or a full disk, left a
+  partial copy and a traceback. Both stop with a line of their own now, and
+  the second says what is true — this command overwrites nothing, so running
+  it again finishes the copy.
+- **A zip from a later version of this format is told so.** The name checks
+  ran first, and a later format is exactly what moves the names they read, so
+  a zip declaring format 2 was answered as a malformed zip rather than as a
+  build too old. The format field exists for no other day.
+- **Two messages stopped sending people to the wrong place.** A clash inside
+  the zip told a person to rename a file that was not on their machine, and
+  the Korean README described that clash as always coming from their own clone.

@@ -345,8 +345,14 @@ def write_zip(path, home, files, manifest):
     0, printing `wrote <path>` for a path that was the link.
     """
     partial = path + ".partial"
+    # The open sits OUTSIDE the try. A name this call did not create is not
+    # this call's to remove, and the cleanup below exists so a failed write
+    # leaves no half archive — a `.partial` that was already there is not one.
+    # Round 3 graded `os.replace` removing a link at the zip's own name; this
+    # was that same removal one name over, and it took a concurrent export's
+    # in-flight temporary file too (measured 2026-09-03).
+    opened = os.open(partial, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o666)
     try:
-        opened = os.open(partial, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o666)
         with (
             os.fdopen(opened, "w+b") as raw,
             zipfile.ZipFile(raw, "w", zipfile.ZIP_DEFLATED) as archive,
@@ -590,14 +596,9 @@ def unsafe(info):
     if (info.external_attr >> 16) & 0o170000 == 0o120000:
         return f"{name!r} is a symbolic link"
     if name == MANIFEST or name.rstrip("/") == MANIFEST:
-        # Exempt from the name checks and not from the size one. The exemption
-        # used to cover both, and `read_manifest` reads this member whole: a
-        # 400 MB manifest cost 400 MB of memory on its way to a verdict.
-        if info.file_size > MEMBER_LIMIT:
-            return (
-                f"{name!r} declares {info.file_size} bytes, more than the "
-                f"{MEMBER_LIMIT} a manifest may hold"
-            )
+        # The manifest is exempt from the NAME checks — it is the one member
+        # that is not a record. Its size is checked in `import_`, which has to
+        # know it before reading the manifest and therefore before this runs.
         return ""
     if not parts or parts[0] != optin.HOME:
         return f"{name!r} is not under {optin.HOME}/ and is not the manifest"
@@ -675,7 +676,13 @@ def blocked_path(into, archive):
     for parts in sorted(members):
         for depth in range(1, len(parts)):
             prefix = tuple(parts[:depth])
-            if prefix in members or os.path.isfile(os.path.join(into, *prefix)):
+            here = os.path.join(into, *prefix)
+            # `isfile` is not the question `makedirs` answers. It is False for
+            # a FIFO, a socket and a device node, and `makedirs(exist_ok=True)`
+            # raises on all three — measured 2026-09-03, a FIFO at `seal/a`
+            # left one record on disk and lost the rest. `lexists and not
+            # isdir` is the condition `makedirs` itself checks.
+            if prefix in members or (os.path.lexists(here) and not os.path.isdir(here)):
                 return "/".join(prefix)
     return ""
 
@@ -826,15 +833,20 @@ def import_(args, cwd):
             print("\nNothing was written. A root this large is not a root of records.")
             return 1
 
-        refusals = [reason for info in members if (reason := unsafe(info))]
-        if refusals:
-            print(f"{path} holds members this command will not write:")
-            for reason in refusals:
-                print(f"  {reason}")
+        # The manifest's own size, before it is read. It is exempt from the
+        # name checks in `unsafe` and used to inherit the size exemption with
+        # them, so a 400 MB one cost 400 MB of memory on its way to a verdict.
+        fat = [
+            info
+            for info in members
+            if info.filename == MANIFEST and info.file_size > MEMBER_LIMIT
+        ]
+        if fat:
             print(
-                "\nNothing was written. A zip carrying one of these is not a "
-                "zip to take a partial copy from."
+                f"{path} declares {fat[0].file_size} bytes for {MANIFEST}, "
+                f"more than the {MEMBER_LIMIT} a manifest may hold."
             )
+            print("\nNothing was written. A root this large is not a root of records.")
             return 1
 
         # Every member's data, before the manifest is decoded and before the
@@ -867,6 +879,22 @@ def import_(args, cwd):
         manifest, why = read_manifest(archive, path)
         if not manifest:
             print(why)
+            return 1
+
+        # The names AFTER the format, because a later format is exactly what
+        # moves the names this checks. Measured 2026-09-03: a zip declaring
+        # format 2 with its records under `records/` answered "is not under
+        # seal/", which reads as a malformed zip where the truth is a build
+        # too old — and that field exists for no other day.
+        refusals = [reason for info in members if (reason := unsafe(info))]
+        if refusals:
+            print(f"{path} holds members this command will not write:")
+            for reason in refusals:
+                print(f"  {reason}")
+            print(
+                "\nNothing was written. A zip carrying one of these is not a "
+                "zip to take a partial copy from."
+            )
             return 1
 
         here = normalise_remote(git(repo, "config", "--get", "remote.origin.url"))
@@ -905,14 +933,44 @@ def import_(args, cwd):
 
         blocked = blocked_path(into, archive)
         if blocked:
-            print(
-                f"{optin.HOME}/{blocked} has to be a directory for this zip "
-                "and is a file."
-            )
-            print("\nNothing was written. Move or rename it and run this again.")
+            # Two sides, two remedies. The clash comes from this clone (move
+            # the file) or from the zip alone (there is nothing here to move,
+            # and the machine that exported it is who has to send another).
+            # Measured 2026-09-03: the second answered with the first's words,
+            # sending a person to rename a file they do not have.
+            if os.path.lexists(os.path.join(into, *blocked.split("/"))):
+                print(
+                    f"{optin.HOME}/{blocked} in this clone is not a directory, "
+                    "and this zip needs it as one."
+                )
+                print("\nNothing was written. Move or rename it and run this again.")
+            else:
+                print(
+                    f"{path} names {optin.HOME}/{blocked} as a file and puts "
+                    "members under it, which no filesystem can hold at once."
+                )
+                print(
+                    "\nNothing was written. Ask the machine that exported it "
+                    "for another zip."
+                )
             return 1
 
-        counts, collisions, refused = write_members(archive, into)
+        try:
+            counts, collisions, refused = write_members(archive, into)
+        except OSError as stopped:
+            # Every refusal above happens before the first byte, and this is
+            # the one failure that cannot: the filesystem can say no with
+            # records already written — a directory in the root that is not
+            # writable, a full disk. Measured 2026-09-03, both left a partial
+            # copy and a traceback with no line of this command's own.
+            print(f"the copy stopped part-way: {stopped}")
+            print(
+                "\nSome records were written and some were not. Fix what the "
+                "line above names and run this again — this command "
+                "overwrites nothing, so a second run finishes the copy and "
+                "reports what was already here byte for byte."
+            )
+            return 1
 
     print(f"imported into {display(repo, into)}")
     print(f"  {plural(counts[ADDED], 'file')} added")

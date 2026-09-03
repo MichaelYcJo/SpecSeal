@@ -44,7 +44,7 @@ than only within one.
 | `bin/seal.cmd` on Windows — that `py -3` is preferred and `python` is the fallback is asserted by reading the file, never by running it | the Windows CI job on the release pull request, or the repository owner on a Windows machine |
 | The full suite, `ruff check .` and a repository-wide format check | the review orchestrator's broad gate, once the rounds settle. This branch ran the tests for what it touched and lint on the files it touched, per the verification-scope rule |
 | Whether `<git-common-dir>/specseal-last-export.json` should be listed anywhere a person reads besides `seal/README.md` — the gate table in `README.md` names the other markers under `.git/` | the repository owner |
-| Whether the three limits are the right numbers — 32 MB a member, 512 MB a zip, 20,000 members. Round 1 measured the unbounded read (408 KB declaring 400 MB wrote 419 MB in 0.2 s) and the limits answer it, but no record has approached either | the repository owner, at the first root that meets one |
+| Whether the three limits are the right numbers — 32 MB a member, 512 MB a zip, 20,000 members. Round 1 measured the unbounded read (408 KB declaring 400 MB wrote 419 MB in 0.2 s) and the limits answer it, but no record has approached any of them | the repository owner, at the first root that meets one |
 | Whether a root that is itself a symbolic link should be refused. `home_at` follows it, so it reads as a valid root and an import writes through it — which is also what a person who deliberately put the root elsewhere would want | the repository owner |
 
 ## Not done
