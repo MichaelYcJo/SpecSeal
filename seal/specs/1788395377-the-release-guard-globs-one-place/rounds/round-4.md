@@ -12,12 +12,19 @@ by the review orchestrator, which is also this work item's implementer. -->
 | Target SHA | d21b13a (the fix diff from afb3217); HEAD 796ef3d at review time, record-only. One further commit, 476e67f, re-wraps a changelog line this round noted |
 | PR | none yet |
 | Broad gate | 171cfc0 against `origin/release/v0.5.0`: `pytest tests/ -q -n auto` 1438 passed · 1 skipped; `ruff check .` clean; `ruff format --check .` 81 files formatted; `evidence_check.py --strict .` 357 ok · 0 drifted · 0 broken; `unverified_check.py --baseline` 16 overviews · 36 open · 15 closed · 0 unreadable; `chain_check.py --baseline` exit 0 once this record is committed. **Its first run, at 476e67f, failed one case** — see the row below |
-| Fixes checked by | no fixes to check — nothing in the table below closed by writing code. Two writes followed this round and neither is one of its findings: a courtesy re-wrap of a line the reviewer graded as violating nothing (476e67f), and the one-line fix the broad gate's own run demanded (171cfc0), which the gate then re-ran green |
+| Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | no |
 
 - [x] Pass
+
+`Fixes checked by` is `no fixes to check` and that is the whole truth of it:
+nothing in the table below closed by writing code. Two writes did follow this
+round and neither is one of its findings — a courtesy re-wrap of a line the
+reviewer graded as violating nothing (476e67f), and the one-line fix the broad
+gate's own run demanded (171cfc0), which the gate then re-ran green at the
+commit this record names.
 
 ## Verdicts
 
