@@ -1386,7 +1386,7 @@ def porcelain(repo, *paths):
     return [line for line in (done.stdout or "").splitlines() if line.strip()]
 
 
-def indexed(line):
+def indexed(line, moved=False):
     """Whether a porcelain line is something the index can lose.
 
     **Untracked is not.** The guard exists because `git rm -r --cached` takes
@@ -1399,11 +1399,24 @@ def indexed(line):
     mode` writes an absent row, and the switch a person runs next met the
     file it had just written.
 
+    **A pure deletion is not, once the move has already happened.** That is
+    the shape a stopped run — or a person who ran the README's `mv` by hand —
+    leaves behind: the files are gone from the worktree because they are at
+    the other root now, and the `git rm -r --cached` that stages it is the
+    step still owed. `hooks/root-migrate.py#dirty` makes exactly this
+    exception, in the same words: "a resume has to see past its own earlier
+    steps or a stopped move can never finish". It is a deletion and NOTHING
+    else — `MD` and `AD` still refuse, because a staged edit is precisely
+    what `git rm -r --cached` drops without a word.
+
     A line git could not produce at all does not start with a status pair,
     and reads as indexed — the unanswerable question refuses, which is
     `hooks/root-migrate.py#dirty`'s direction.
     """
-    return line[:2] != "??"
+    pair = line[:2]
+    if pair == "??":
+        return False
+    return not (moved and pair in ("D ", " D"))
 
 
 def tracked(repo, rel):
@@ -1673,7 +1686,15 @@ def refusals(repo, home, shared, local, wanted):
             "Move or remove it first."
         )
 
-    lines = [line for line in porcelain(repo, optin.HOME, WORKFLOW) if indexed(line)]
+    # Whether the root is already where this is trying to put it. A move
+    # somebody already made by hand is the one state whose deletions are not
+    # work in progress — see `indexed`.
+    moved = os.path.isdir(destination) and not os.path.lexists(source)
+    lines = [
+        line
+        for line in porcelain(repo, optin.HOME, WORKFLOW)
+        if indexed(line, moved=moved)
+    ]
     if lines:
         found.append(
             "the tree is not clean under the paths this would stage:\n  "
