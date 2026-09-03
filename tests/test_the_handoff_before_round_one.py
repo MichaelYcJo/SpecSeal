@@ -153,6 +153,57 @@ def test_the_protocol_no_longer_states_the_rules_it_points_at():
         )
 
 
+def test_the_smiths_definition_mandates_mutating_every_unit_it_added():
+    """The rule the case above says is `agents/smith.md`'s is actually there.
+
+    Measured 2026-09-03 at `dcdf4e4`, phase 6 of #107: it was not. Phase 4
+    never moved *mutation-test every unit added, one at a time, before
+    handing over* into the definition, and phase 5 removed the one place it
+    had ever been written -- the protocol's interim list. So the case above
+    went green over a rule that had left the repository altogether, and the
+    work item built to stop rules going missing is what deleted it.
+
+    That is the general lesson, and it is why this case sits here rather
+    than in a module of its own: an absence check with no presence check
+    beside it cannot tell a rule that MOVED from a rule that was DELETED.
+    The other four rows of that table point at contract sections, which
+    `test_the_agent_contract_holds_the_universal_rules.py` pins from the
+    other side; this row pointed at a definition and nothing pinned it.
+
+    Contract §15 is the neighbour, not this rule. It asks that a case be
+    seen red on the day it is planted; this asks that every unit the branch
+    added be broken before the branch leaves the implementer's hands. Both
+    halves are asserted -- the act and its timing -- because a definition
+    that kept only the act would read as §15 restated, which
+    `test_a_moved_rule_leaves_its_definition.py` would then be right to
+    refuse."""
+    smith = flat("agents", "smith.md")
+    # The whole clause, not its words one by one. Asserting `one at a time`
+    # alone passed under the mutation that removed the cadence, because the
+    # design gate two hundred lines up says asking questions `one at a time`
+    # is a cost paid repeatedly -- an unrelated sentence holding the phrase
+    # up. Measured while showing this case red, 2026-09-03.
+    assert (
+        "Mutation-test every unit you added, one at a time, before you hand "
+        "over." in smith
+    ), (
+        "`agents/smith.md` does not mandate mutating what it added, on that "
+        "cadence, at that moment. `spec.md` of work item 1788433011 puts the "
+        "rule in the smith's own layer -- *only the agent that adds units "
+        "can* -- and the protocol that used to carry it is a pointer now, so "
+        "a definition without it leaves the rule stated nowhere at all. "
+        "Units broken together cannot say which case caught which, and a "
+        "mutation run after the handover is one the next reader takes on "
+        "trust, which is why the cadence and the timing are in the assertion "
+        "rather than beside it"
+    )
+    assert "watch one go red" in smith, (
+        "the rule stopped asking for the observation that makes it a "
+        "measurement. Breaking a unit and running the suite is not a "
+        "mutation test until a case is seen to fail for it"
+    )
+
+
 # --- progress observability -------------------------------------------------
 
 

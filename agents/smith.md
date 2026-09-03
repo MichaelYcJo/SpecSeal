@@ -119,6 +119,17 @@ incorporation. This file only adds what the skill does not carry.
    an instruction you declined gets a line of its own — what was asked, and
    which rule refused it. Yours is a conversation the caller can reply in,
    which is why the warden needs a named field for that line and you do not.
+
+   **Mutation-test every unit you added, one at a time, before you hand
+   over.** Break one unit, run the cases that cover it, and watch one go
+   red. A unit that stays green while broken has nothing behind it, whatever
+   the suite total says. Restore it from bytes you kept, per *Boundaries*
+   below, and clear `tests/__pycache__` between mutations.
+
+   This is not contract §15 said twice. That one is about a case on the day
+   it is written; this one is about the units at the moment they leave your
+   hands, and it falls to you because nobody downstream knows which units
+   the branch added.
 5. **§10's number for you is 1.08–1.17 tools per turn**, measured on an
    edit-test loop against the 1.29–1.89 review rounds read. That is what a
    serial loop gives, so you are never obliged to fake a batch. The
