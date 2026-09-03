@@ -238,6 +238,53 @@ def test_the_local_root_is_never_a_commit_candidate_and_needs_no_gitignore(repo)
     assert not (repo / ".gitignore").exists()
 
 
+# --- both places, for a caller that has to name the mode it is not in -------
+
+
+def test_home_paths_names_the_two_places_shared_first(optin, repo):
+    """#81. `seal import --into shared|local` has to be able to CREATE the
+    root the user named, which `home_at` cannot answer: it reports where the
+    root is, and the other mode's root is exactly the one that is not there.
+
+    The pair is produced here so that command spells neither path itself.
+    """
+    shared, local = optin.home_paths(str(repo))
+    assert shared == os.path.join(str(repo), "seal")
+    assert local == os.path.join(str(repo), ".git", "seal")
+    assert not os.path.isdir(shared) and not os.path.isdir(local), (
+        "home_paths answers where a root WOULD be; nothing here exists yet"
+    )
+
+
+def test_home_paths_puts_the_answer_home_at_gives_first(optin, repo):
+    """The order is the mode's precedence, and it belongs with the pair
+    rather than at each caller. With both roots present `home_at` returns the
+    shared one, which is `home_paths`' first entry."""
+    home(repo)
+    local_home(repo)
+    assert optin.home_at(str(repo)) == optin.home_paths(str(repo))[0]
+
+
+def test_home_paths_is_empty_without_a_root(optin):
+    assert optin.home_paths("") == ("", "")
+
+
+def test_home_paths_costs_no_second_git_call_when_common_is_passed(optin, repo):
+    """The rider on `repo_root` counts `git` calls per gated command. A caller
+    that already resolved the common directory passes it, and nothing here
+    asks git again."""
+    common = optin.git_common_dir(str(repo))
+
+    def refuse(*a, **k):
+        raise AssertionError("home_paths asked git a second time")
+
+    optin.subprocess.run, saved = refuse, optin.subprocess.run
+    try:
+        assert optin.home_paths(str(repo), common)[1] == os.path.join(common, "seal")
+    finally:
+        optin.subprocess.run = saved
+
+
 # --- the throwaway repository -----------------------------------------------
 
 

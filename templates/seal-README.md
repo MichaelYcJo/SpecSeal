@@ -24,6 +24,17 @@ land the same from a subdirectory: local → shared is
 local is `git rm -r --cached "$(git rev-parse --show-toplevel)/seal"`,
 `mv "$(git rev-parse --show-toplevel)/seal" "$(git rev-parse --git-common-dir)/seal"`
 and a commit of the removal.
+
+**`seal export` and `seal import` are the way across between machines**, and
+the only one there is: local mode's records reach no other clone by
+themselves. `seal export` zips this root alone; `seal import` merges a zip
+back and never overwrites a file, so a name already here keeps its bytes and
+the incoming copy lands beside it as `<name>.incoming<ext>`. What sits
+*beside* this root under the git directory is what must not travel — the
+smith mark, the worktree choices, the review and parity marks, any lease, and
+the last export's manifest at `specseal-last-export.json`. The export walks
+this directory and nothing else, which is why the root has to be its own.
+
 Nothing reads `.specseal/` or a top-level `specs/` any more; a
 repository still holding them is moved into `<repo>/seal/` once, at session
 start, by the plugin.
