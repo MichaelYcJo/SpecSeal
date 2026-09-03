@@ -49,5 +49,9 @@ Nothing. The ticket's three done-when rows are the whole of the work.
 
 ## Fed back into the spec
 
-Nothing. `docs/review-handoff-protocol.md` already said where the two files
-go; the tree disagreed with it and now does not.
+Nothing, in the sense the template means: no clause this work inferred and
+added. `docs/review-handoff-protocol.md` already said where the two files go
+and the tree disagreed with it; the tree now agrees. What round 1's fixes then
+did was repeat that existing rule in the three places a session actually meets
+it — the hook's reminder, the chain spec's table, the `code-review` skill —
+which is a change to those documents rather than a new clause.

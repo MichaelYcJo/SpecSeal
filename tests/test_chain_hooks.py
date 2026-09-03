@@ -211,8 +211,13 @@ def test_the_posting_reminder_spells_all_three_paths_from_one_base(repo):
     out = run_hook(
         "review-history-guard.py", payload("gh pr comment 42 --body hi", repo)
     )
+    # `*name.split("/")` rather than the literal: `os.path.join` with a `/`
+    # inside one argument writes `…\rounds/round-N.md` on Windows against the
+    # hook's `…\rounds\round-N.md`, which is the dialect mixing
+    # `review-history-guard.py:152-158` records CI's windows leg catching once
+    # already — reproduced here with `ntpath` before this line was written.
     for name in ("rounds/round-N.md", "tests-todo.md", "evidence-todo.md"):
-        expected = os.path.join("seal", "specs", item.name, name)
+        expected = os.path.join("seal", "specs", item.name, *name.split("/"))
         assert expected in out, (
             f"the reminder does not name {expected}; a path spelled from "
             f"another base is one a session types from where it is standing "
