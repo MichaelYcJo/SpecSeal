@@ -224,13 +224,20 @@ before round 1 (`docs/review-handoff-protocol.md`): coordinates rather than
 prose, each fact labelled. The rule decides which to reach for while both
 options exist.
 
-**Read that file's *What every spawn prompt carries* section before writing
-one.** It holds the half of a prompt that does not change between rounds —
-the probe rules, the exit-code rule, what not to run, what to hand back — and
-it is there because that half was retyped from memory every round and drifted
-without a trace: one rule arrived at round 2 of a seven-round chain and round
-1 ran without it. The prompt is then left holding only what is specific to
-this round.
+**The half of a prompt that does not change between rounds is not yours to
+type.** `skills/agent-contract/SKILL.md` reaches every agent you spawn at
+startup, through the `skills:` list in its definition, and each agent's own
+half is in `agents/<name>.md`. So the prompt is left holding what is specific
+to this round and nothing else. That half used to be retyped from memory every
+round and drifted without a trace: one rule arrived at round 2 of a seven-round
+chain and round 1 ran without it.
+
+**That contract binds you too, and only if you load it.** An orchestrator
+reads this skill and never `agents/*.md`, so the file reaches it by being
+opened rather than by arriving — `user-invocable: false` permits the load and
+does not oblige it. #107's headline failure is an orchestrator breaking a rule
+it had put into every prompt it sent, which no rule reaching only the agents
+would have caught.
 
 ## Orchestrator: the run ends with a verifying round
 
