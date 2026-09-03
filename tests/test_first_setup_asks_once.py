@@ -128,14 +128,28 @@ def test_an_unmoved_old_layout_is_not_asked_but_told():
     "parts",
     [
         ("skills", "implement", "SKILL.md"),
-        ("agents", "smith.md"),
-        ("agents", "warden.md"),
+        # Phases 3 and 4 of #107 re-pointed both definitions' rows here. The
+        # sentence was in two of them verbatim and in the third not at all,
+        # and the agent without it is the one that reads `seal/parity.md`. It
+        # is §16 of the contract now, which every agent receives at startup.
+        ("skills", "agent-contract", "SKILL.md"),
     ],
 )
 def test_the_session_rule_appears_once(parts):
     text = read(*parts)
     assert text.count(SESSION_RULE) == 1, "/".join(parts)
     assert "means `<repo>/seal/` where" in text, "/".join(parts)
+
+
+@pytest.mark.parametrize("agent", ["warden.md", "smith.md"])
+def test_no_definition_carries_its_own_copy_of_the_root_rule(agent):
+    """The move has to be a move. A definition that keeps the sentence beside
+    the contract's is the duplication §16 was written to end, and it is
+    invisible in a diff that only adds."""
+    assert SESSION_RULE not in read("agents", agent), (
+        f"agents/{agent} still spells the root rule out, so the tree holds "
+        "two homes for it again"
+    )
 
 
 def test_the_session_rule_sits_in_the_layout_section_of_the_skill():
