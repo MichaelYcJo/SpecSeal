@@ -180,6 +180,59 @@ def test_one_open_issue_closes_it_and_opens_the_next(monkeypatch):
     )
 
 
+def test_close_succeeds_but_open_fails_names_both_in_the_message(monkeypatch):
+    """`main` closes the old issue, then opens the next one -- not one
+    transaction. Warden round 1 on `0d59003` found that a `gh issue create`
+    failure after a successful close left the failure message naming only
+    the failed create call, with nothing saying the old issue was already
+    closed -- an operator debugging a red release-workflow step had to
+    separately check whether the old issue was still open or already closed.
+    This pins that the recovery message names both: the closed issue's
+    number, and the title to open by hand to restore the invariant."""
+    m = _roller()
+    monkeypatch.setattr(
+        m, "list_open_issues", lambda repo: [{"number": 89, "title": "x"}]
+    )
+    monkeypatch.setattr(m, "read_version", lambda: "0.7.0")
+    closed = []
+    monkeypatch.setattr(
+        m, "close_issue", lambda repo, number: closed.append((repo, number))
+    )
+
+    def fake_open_issue(repo, version):
+        raise SystemExit("gh issue create failed: some network error")
+
+    monkeypatch.setattr(m, "open_issue", fake_open_issue)
+    monkeypatch.setenv("REPO", "example/repo")
+
+    raised = False
+    try:
+        m.main()
+    except SystemExit as exc:
+        raised = True
+        message = str(exc)
+        assert "89" in message, (
+            f"the failure message must name the already-closed issue's "
+            f"number, so an operator does not have to separately check "
+            f"whether it is still open: {message!r}"
+        )
+        assert "0.8.0" in message, (
+            f"the failure message must carry the recovery title (the next "
+            f"version) so an operator can open the replacement issue by "
+            f"hand: {message!r}"
+        )
+        assert m.LABEL in message, (
+            f"the failure message must name the label the recovery issue "
+            f"needs: {message!r}"
+        )
+    assert raised, (
+        "an open_issue failure after a successful close must still exit loudly"
+    )
+    assert closed == [("example/repo", 89)], (
+        "close_issue must still have run before the open failed"
+    )
+
+
 def test_read_version_reads_plugin_json(tmp_path):
     """`read_version` is a filesystem read, not a `gh`/`git` call -- covered
     directly rather than mocked, the same way `tests/test_release_hygiene.py`'s

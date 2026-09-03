@@ -52,8 +52,24 @@ artifact and is never retried.
                                       one open flow-measurement issue and
                                       open the next
 
+**The close and the open are not one transaction.** `main` closes the old
+issue first and only then opens the next one, so a `gh issue create` failure
+after a successful close leaves the flow-measurement log with zero open
+issues -- the same state the exactly-one-open invariant above exists to
+catch, except now self-inflicted rather than found on the next run. The
+failure message names both facts: which issue was already closed, and the
+title a human should open by hand to restore the invariant before the next
+release runs. Ordering the close first is a stated trade-off, not an
+oversight it would be better to fix by making the open ordered first: opening
+before closing would leave two open issues rather than zero on any of this
+script's own failures after the create, which is the exact reading the
+retry-once hardening above treats as never a lag artifact and always the
+invariant broken -- closing first turns every failure mode into a state the
+existing zero-issue recovery already tells the operator how to fix by hand.
+
 Exit codes: 0 done. Non-zero: the open-issue count was not exactly 1 (after
-the retry), or a `gh` call failed.
+the retry), a `gh` call failed, or the close succeeded and the open then
+failed (message names the closed issue and the recovery title).
 """
 
 import json
@@ -169,7 +185,15 @@ def main():
 
     number = issues[0]["number"]
     close_issue(repo, number)
-    title = open_issue(repo, next_v)
+    try:
+        title = open_issue(repo, next_v)
+    except SystemExit as exc:
+        sys.exit(
+            f"closed #{number}, but opening the next issue failed: {exc}. "
+            f"The flow-measurement log now has zero open issues -- open one "
+            f"by hand (label `{LABEL}`, title `chore: flow measurement — "
+            f"{next_v}`) before the next release runs."
+        )
     print(f"closed #{number}, opened {title!r}")
 
 

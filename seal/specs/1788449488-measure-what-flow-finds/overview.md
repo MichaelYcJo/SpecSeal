@@ -23,9 +23,11 @@ evidence ledger, not here. -->
 · verified: executed — `uvx --with pytest python3 -m pytest
   tests/test_a_segment_feeds_the_flow_log.py
   tests/test_a_release_rolls_the_flow_measurement_issue.py
-  tests/test_release_hygiene.py tests/test_docs_line_wrap.py -q` → 48
-  passed, exit 0. Full suite, repository-wide lint, and typecheck are
-  unverified by this branch — see below
+  tests/test_release_hygiene.py tests/test_docs_line_wrap.py -q` → 49
+  passed, exit 0 (48 plus the new regression test added for warden round 1's
+  finding on `0d59003`, shown red against the pre-fix code before being
+  fixed and shown green). Full suite, repository-wide lint, and typecheck
+  are unverified by this branch — see below
 
 ## Why this work exists
 
@@ -43,6 +45,7 @@ remember to.
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | `plan.md`'s Phase 2 row describes the exactly-one-open-issue invariant as a direct fail-loud check, with no retry | Spec/plan says: read the count once, fail loudly if it is not exactly one. Code does: retry once, only on a zero reading, before treating zero as the invariant broken | Code's addition, not the plan's literal shape | Phase 1's own finding, carried forward and recorded again in phase 2: `gh issue list --label flow-measurement --state open` returned empty immediately after `gh issue edit ... --add-label flow-measurement` on that same issue, while `gh issue view` in the same breath showed the label already applied — a search-index lag, not a bug. A lag can only ever undercount, never overcount, so the retry fires on zero and never on two-or-more (`tests/test_a_release_rolls_the_flow_measurement_issue.py::test_two_open_issues_fails_loudly_without_retrying` pins that a two-open reading never calls `time.sleep`). `spec.md`'s own acceptance table already treated "exactly one open" as the invariant to enforce rather than a check that must be instantaneous after a label write, so this needed no design change — only the retry, which the plan's own phase 2 row did not spell out (phase-2.md, "What this phase found") |
+| Neither `plan.md` nor the phase records said what `main` should do when the close succeeds and the following `gh issue create` fails | Original code (`0d59003`) let that failure propagate with only the `gh issue create` command's own error, naming nothing about the already-closed issue | `main` now catches that `SystemExit`, wraps it with the closed issue's number and a by-hand recovery title, then re-raises | Warden round 1 on `0d59003`: an operator debugging a red release-workflow step had to separately check whether the old issue was still open or already closed. Closing before opening is kept rather than reordered — opening first and failing there would leave two open issues, which is the reading the retry-once hardening above treats as never a lag artifact and always the invariant broken, so closing first turns every failure mode into a state with a stated by-hand fix. `.github/scripts/roll_flow_measurement_issue.py`'s own docstring now carries the same reasoning next to the code; `tests/test_a_release_rolls_the_flow_measurement_issue.py::test_close_succeeds_but_open_fails_names_both_in_the_message` pins the message shape, shown red against the pre-fix code before being shown green |
 
 ## Not verified
 
