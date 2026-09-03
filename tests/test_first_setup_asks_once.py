@@ -236,23 +236,38 @@ TOP = "$(git rev-parse --show-toplevel)/seal"
 
 
 def switch_block(readme):
-    """The `bash` block under the README's switch section, comments off: two
-    lines, local → shared and then shared → local.
+    """The BY-HAND `bash` block under the README's switch section, comments
+    off: two lines, local → shared and then shared → local.
 
     Bounded at the next `## ` heading and asserted to be there, the way
     `test_the_root_migrates_itself.by_hand_block` reads the coming-up block:
     the lines are run under `bash -c`, so a block that left its section must
     fail here rather than let a later block run in its place.
+
+    The section holds more than one block since #104, which made switching a
+    command (`seal mode`) and kept the by-hand pair below it. Taking "the
+    first block" would hand `seal mode local` to `bash -c` and fail on a
+    PATH this suite does not set up — so the block is chosen by what is IN
+    it, and every candidate is read rather than the search stopping at the
+    first that parses. A section that stopped carrying the by-hand pair
+    fails here, which is the point: those two lines are what the command's
+    move has to keep doing.
     """
     text = read(readme)
     _first_run, heading = READMES[readme]
     body = section(text, heading, 3).split("\n## ", 1)[0]
     assert "```bash\n" in body, f"{readme}: the switch block left its section"
-    block = body.split("```bash\n", 1)[1].split("```", 1)[0]
-    lines = [ln.split("#", 1)[0].strip() for ln in block.splitlines()]
-    lines = [ln for ln in lines if ln]
-    assert len(lines) == 2, lines
-    return lines
+    for chunk in body.split("```bash\n")[1:]:
+        block = chunk.split("```", 1)[0]
+        lines = [ln.split("#", 1)[0].strip() for ln in block.splitlines()]
+        lines = [ln for ln in lines if ln]
+        if len(lines) == 2 and all("mv " in ln for ln in lines):
+            return lines
+    raise AssertionError(
+        f"{readme}: no bash block in the switch section holds the two by-hand "
+        "moves. `seal mode` does that move, and this is where the move itself "
+        "is checked against a subdirectory as the working directory"
+    )
 
 
 def porcelain(repo):

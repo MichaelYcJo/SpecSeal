@@ -86,3 +86,15 @@ jobs:
         run: |
           python3 "$RUNNER_TEMP/specseal/skills/code-review/scripts/chain_check.py" \
             --baseline "origin/${{ github.base_ref }}"
+
+      # `seal/config.md`'s `Mode` row is what this repository says its mode
+      # should be; where the root actually sits is what it is. Nothing at
+      # runtime reads the row, so it is the one thing here that can quietly
+      # stop being true. This fails for a disagreement left standing — always
+      # the author's, and always one command from fixed — and passes for an
+      # absent row, which declares nothing.
+      - name: the mode the row declares is the mode the folder is in
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/specseal/skills/implement/scripts/seal.py" \
+            mode --check

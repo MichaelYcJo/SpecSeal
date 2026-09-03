@@ -418,12 +418,48 @@ line because a linked worktree checks out committed files only, so an ignored
 folder is simply absent there. The common git dir is shared by every worktree
 of the clone, and nothing under it is ever a commit candidate.
 
-Switching is a move and a commit, from the repository root — both paths are
+**Switching is one command.** It stages; you commit.
+
+```bash
+seal mode            # where the root is, what the config says, whether they agree
+seal mode local      # move it out of the tree
+seal mode shared     # move it into the tree
+```
+
+The move itself is two shell lines, printed further down. What the command
+adds is everything around them: it refuses when the other mode's root is
+already there, refuses when the index carries a change under `seal/` — `git
+rm -r --cached` takes a staged edit out of the index without a word about it
+— carries `.github/workflows/hygiene.yml` in and out, and writes the mode
+into `seal/config.md` so the file and the folder agree afterwards. The hooks
+need no restart: the next command reads the folder where it is.
+
+**The row says what you want; the folder says what you have.** Nothing at
+runtime reads the row — every gate finds the root by looking for it, in the
+two places above — so the two can disagree, and that is the input the command
+consumes rather than an error:
+
+```bash
+# edit seal/config.md to say `| Mode | local |`, then
+seal mode --apply    # move the folder to what the row says
+seal mode --check    # writes nothing; exits non-zero if they disagree
+```
+
+`--check` is what the pull-request checks run, so a row that stops being true
+is caught rather than left standing. A repository that has never declared one
+is not lying about anything: the first `seal mode` writes the row from where
+the folder actually is.
+
+**The two directions do not cost the same.** Going to local takes the records
+out of the tree, and every other clone loses them at the next pull — `seal
+export` here and `seal import` there is how a teammate gets a copy. Going to
+shared is the one to be sure about: once you commit, the records are in the
+history, and taking them out of the tree later does not take them out of it.
+Until that commit, `seal mode local` walks the whole thing back.
+
+By hand it is a move and a commit, from the repository root — both paths are
 asked of git, so a subdirectory as the working directory lands them in the
-same place. The hooks need no restart, because the next command reads the
-folder where it is. The workflow is installed or removed by hand — copy
-`$CLAUDE_PLUGIN_ROOT/templates/hygiene.yml` in, with `v<version>` replaced
-by the release you run, or delete `.github/workflows/hygiene.yml`:
+same place:
 
 ```bash
 # local → shared, then commit
@@ -431,6 +467,14 @@ mv "$(git rev-parse --git-common-dir)/seal" "$(git rev-parse --show-toplevel)/se
 # shared → local, then commit the removal
 git rm -r --cached "$(git rev-parse --show-toplevel)/seal" && mv "$(git rev-parse --show-toplevel)/seal" "$(git rev-parse --git-common-dir)/seal"
 ```
+
+Doing it that way leaves the workflow file where it was, and that is the half
+worth knowing about. Copy `$CLAUDE_PLUGIN_ROOT/templates/hygiene.yml` in with
+`v<version>` replaced by the release you run, or delete
+`.github/workflows/hygiene.yml`. Left behind after a move to local it runs
+checks that read committed files in a repository that commits none: one of
+them goes red on every pull request forever, and the other goes green having
+examined nothing.
 
 Between two machines the move is not available, because the other machine has
 no folder to move. That is what `seal export` and `seal import` below are for,

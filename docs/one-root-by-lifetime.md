@@ -321,10 +321,23 @@ it is.
 | Linked worktrees and parallel sessions | read each other's records, because the git dir is common to every worktree of the clone | read each other's records, because the files are committed |
 | Other machines and a re-clone | start empty; `seal export` / `seal import` carry a copy by hand | have everything |
 | CI (`ledger` and chain checks) | cannot run; the hygiene workflow is not installed | runs |
-| Switching later | move `.git/seal/` to `<repo>/seal/` and commit | move `<repo>/seal/` to `.git/seal/` and remove from the tree |
+| Switching later | `seal mode shared` — it moves `.git/seal/` to `<repo>/seal/`, stages it, and installs the workflow; you commit | `seal mode local` — it moves `<repo>/seal/` back, stages the removal, and takes the workflow out; you commit |
 
 The mode needs no key of its own: the hooks find `<repo>/seal/` or
-`.git/seal/` and that is the mode. Setup also decides whether the hygiene
+`.git/seal/` and that is the mode.
+
+**`seal/config.md`'s `Mode` row is not that key, and the difference is what
+reads it.** The row says where the root *should* be; the folder's location
+says where it *is*, and no hook, gate or check resolves the root through the
+row — `hooks/optin.py#home_at` stays the only reader of the question, in the
+two places above (#104). A gate that trusted a hand-editable row would go
+looking in a place with no folder, and everything in that module is
+documented to fail toward *not opted in* rather than toward a guess. What the
+row buys is a repository that can say which mode it wants before the folder
+is moved, and a check that names a disagreement left standing rather than
+letting the file quietly stop being true. It has no default: an absent row is
+filled in from where the folder is, because that is the only value that
+cannot be wrong. Setup also decides whether the hygiene
 workflow (the pull-request checks in `.github/workflows/hygiene.yml`) is
 installed; in local mode it is not, because both checks read committed files
 and local mode commits none, so the workflow would go green having examined
@@ -367,8 +380,16 @@ that machine's session state.
 **A copy is not a sync, and the modes convert into each other.** Last copy
 wins, and the person tracks which rows went, so needing a copy twice is the
 signal to switch to shared mode. Either switch moves `.git/seal/` to
-`<repo>/seal/` or back, then commits or removes. The setup choice is "where
+`<repo>/seal/` or back, then commits or removes, and `seal mode local` /
+`seal mode shared` is the command that does it. The setup choice is "where
 does it live now", not a one-way door.
+
+**The mode is not a one-way door; the history is.** Going to shared puts the
+records in the tree, and the moment that commit lands they are in the
+repository's history — coming back removes them from the tree and not from
+it. The direction local mode exists to prevent is exactly the one that cannot
+be walked back, so the command says so before it acts, and stages rather than
+commits so that the point of no return stays the person's.
 
 **Local mode gets an export/import pair**, so its trade-off becomes "take a
 copy" rather than "lose it".
