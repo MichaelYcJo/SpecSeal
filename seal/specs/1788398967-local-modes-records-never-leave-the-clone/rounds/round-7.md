@@ -10,7 +10,7 @@ not implement this work item. -->
 
 | Field | Value |
 |---|---|
-| Target SHA | 3f8f846 (the fix diff from 7cc4fb3) |
+| Target SHA | the fix diff from 7cc4fb3, reviewed at 3f8f846 |
 | PR | none yet |
 | Broad gate | at the tree this record is committed in — see the table below |
 | Fixes checked by | no fixes to check |

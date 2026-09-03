@@ -8,7 +8,7 @@ item — the smith did. -->
 
 | Field | Value |
 |---|---|
-| Target SHA | 016dacd (the whole branch from e9aa6e9); 21 files, +2459/−21 |
+| Target SHA | the whole branch from its base e9aa6e9; 21 files, +2459/−21, reviewed at 016dacd |
 | PR | none yet |
 | Broad gate | not yet — a 🔴 was open |
 | Fixes checked by | round-2 |
