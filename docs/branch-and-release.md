@@ -6,6 +6,9 @@ read before a merge, and nobody opens a contribution guide at that moment.
 
 ## Cutting a release
 
+The day-of list, in the order the steps run and with what each check has
+caught before, is `docs/release-checklist.md`. This section is the why.
+
 Two things carry the version and they are read by different code. Both, or the
 release is invisible to the people already running the plugin.
 
@@ -124,7 +127,11 @@ else about the sequence below changes.
   `refs/pull/<N>/head` now: GitHub writes it, a squash does not touch it,
   deleting the branch does not touch it, and every one of those six commits was
   sitting there. `.github/workflows/hygiene.yml` fetches the namespace, because
-  a default clone has none of it.
+  a default clone has none of it. That step and the two checks it serves ship
+  to user repositories as `templates/hygiene.yml`, run from a clone of this
+  repository at the release installed when the `implement` skill wrote the
+  file at a shared-mode first setup; local mode installs none, because the
+  checks read committed files and local mode commits none.
 
   Keeping the branch is still worth something and is no longer load-bearing:
   it leaves the rounds and the verdict readable on a branch nobody merged,

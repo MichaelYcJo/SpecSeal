@@ -2,6 +2,7 @@ import atexit
 import importlib.util
 import json
 import os
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -173,14 +174,54 @@ def symlink_or_skip(target, link):
         pytest.skip(f"symbolic links are not available here ({exc})")
 
 
+def fifo_or_skip(path):
+    """`os.mkfifo(path)`, or skip the test where it is not available.
+
+    Asked by attempting the call, for the reason `symlink_or_skip` gives:
+    `os.mkfifo` does not exist on Windows at all, and on a POSIX filesystem
+    that has no named pipes it raises. Nothing is inferred from the platform.
+    """
+    parent = os.path.dirname(os.path.abspath(str(path)))
+    assert os.path.isdir(parent), f"the fifo's parent does not exist: {parent}"
+    maker = getattr(os, "mkfifo", None)
+    if maker is None:
+        pytest.skip("named pipes are not available here (no os.mkfifo)")
+    try:
+        maker(path)
+    except OSError as exc:
+        pytest.skip(f"named pipes are not available here ({exc})")
+
+
+def local_home(repo):
+    """Create `<git-common-dir>/seal/` for `repo` and return its path.
+
+    The local-mode root (#80). Asked of git rather than spelled `.git/seal`,
+    because in a linked worktree `.git` is a FILE and the root belongs to
+    the main tree's common directory, which is what the hooks read.
+    """
+    common = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "--git-common-dir"],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    ).stdout.strip()
+    home = pathlib.Path(os.path.normpath(os.path.join(str(repo), common))) / "seal"
+    home.mkdir(parents=True, exist_ok=True)
+    return home
+
+
 def declare_routing(
-    repo, item="1787708604-a-work-item", review="through the review chain"
+    repo, item="1787708604-a-work-item", review="through the review chain", home=None
 ):
     """Write a routing declaration for the repo's current branch, and return
     the work-item directory the round records now live in.
 
     Everything that used to key on a pull request number keys on this: the
     declaration names its branch, and the checked-out branch looks it up.
+
+    `home` is the root to write under when it is not `<repo>/seal/` -- the
+    path `local_home` returned, for a local-mode fixture.
     """
     branch = subprocess.run(
         ["git", "-C", str(repo), "rev-parse", "--abbrev-ref", "HEAD"],
@@ -188,7 +229,7 @@ def declare_routing(
         encoding="utf-8",
         errors="replace",
     ).stdout.strip()
-    d = repo / "seal" / "specs" / item
+    d = (pathlib.Path(home) if home else repo / "seal") / "specs" / item
     d.mkdir(parents=True, exist_ok=True)
     (d / "routing.md").write_text(
         f"# {item} -- routing\n\n"

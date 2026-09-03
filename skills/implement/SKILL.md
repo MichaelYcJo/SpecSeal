@@ -17,6 +17,41 @@ description: |
 Methodology for implementing against written specs, leaving durable evidence,
 and closing the loop with review. Loaded by the `smith` agent; usable directly.
 
+## The language the records are written in
+
+**Read `Record language` in `config.md` before writing any of the documents
+below**, the same way `commit-pr-convention` reads its own row before a commit
+or a pull request. The root is resolved the way every path in this skill is.
+
+```markdown
+| Item | Value |
+|---|---|
+| Record language | Korean |
+```
+
+It governs the **prose** in `spec.md`, `plan.md`, `overview.md`,
+`questions.md`, `changelog.md`, the cell contents of `rounds/round-N.md` and
+the text beneath its tables, and the claim and grounds of a ledger row.
+
+**Every way of not naming one lands on English** — no file, no such row, an
+empty value, a file that cannot be read. A config nobody can read must not
+stop the work.
+
+**It is independent of `Commit and pull request language`.** Setting one does
+not carry the other, and the two surfaces have different audiences: a pull
+request is read by whoever opens it, and a record is read by whoever comes
+back to the decision six months later.
+
+**What stays English whatever it says**, because these are read literally
+rather than by a person: every field name, section heading and vocabulary
+word the checkers match, listed in `templates/config.md` under *What no row
+governs* — that list is derived from the checkers' own constants, so it
+cannot drift from them; `<!-- specs/<work-item-id> -->` and the other
+markers; a `drained` line and a ✅; a ledger anchor's `path#unit@hash`; and
+all code — identifiers, comments, docstrings, file names, test function
+names. A translated field name is not a translation, it is a checker that
+stops reading.
+
 ## Document layout — two roots, three lifetimes
 
 Every artifact this skill produces goes to one of two roots, and the second is
@@ -32,10 +67,16 @@ The axis is lifetime and authority, **not audience** — humans and AI read all
 three. (Labeling policies "for humans" would push sessions away from reading
 them, and policy outranks everything else when a repository has it.)
 
-`seal/` is committed — gitignored files do not follow worktrees or other
-machines — and its presence at the repository root is what tells the gates
-this repository runs the workflow. What sits directly under it is permanent;
-what sits under `seal/specs/` lives as long as its work item:
+`seal/` lives at one of two places, and its presence at either is what tells
+the gates this repository runs the workflow. **Every `seal/…` path in this
+plugin's skills and agents means `<repo>/seal/` where that directory exists,
+and `$(git rev-parse --git-common-dir)/seal/` otherwise.** The first is
+shared mode: committed, because gitignored files do not follow worktrees or
+other machines. The second is local mode: under the common git directory, so
+every linked worktree of the clone shares it, and never a commit candidate.
+A repository with both is shared, and nothing else — no config key — is
+read. What sits directly under it is permanent; what sits under
+`seal/specs/` lives as long as its work item:
 
 ```
 seal/
@@ -81,9 +122,12 @@ keep.
 When a root or file this skill needs doesn't exist, create it from
 `templates/` in this plugin and continue. In particular:
 
-- `seal/ledger.md` — created empty, with no baseline to stamp: a coordinate
-  names content rather than a position, so there is nothing for a header to
-  declare. A work item's own rows go in `seal/ledger/<work-item-id>.md`.
+- `seal/ledger.md` — written from `templates/ledger.md`, which carries the
+  coordinate notation and the feed-back rule a session needs before it adds
+  a row. Its **clause tables arrive empty** and there is no baseline to
+  stamp: a coordinate names content rather than a position, so there is
+  nothing for a header to declare. A work item's own rows go in
+  `seal/ledger/<work-item-id>.md`.
 - `seal/README.md` — carries the export rules so sessions that never load
   this skill still see them.
 - **Not** policy documents. If the repository has none, it has none; judge from
@@ -93,27 +137,81 @@ When a root or file this skill needs doesn't exist, create it from
 - Leave evidence rows empty. They fill through the feedback rule below as work
   happens — do not pre-populate speculatively.
 
-**When you create `seal/` — the once-per-repo moment — do two more things
-before continuing.** Creating it is what opts the repository in: from the next
-command on, every gate here is awake. Nobody reads a README to discover a
-question they did not know to ask, so this is the only place the migration
-question gets asked at all.
+**When `seal/` exists at neither place — the once-per-repo moment — ask one
+question before creating anything, then do two more things before
+continuing.** Creating the root is what opts the repository in: from the
+next command on, every gate here is awake. Nobody reads a README to discover
+a question they did not know to ask, so this is the only place the mode and
+the migration question get asked at all.
 
-1. Say in three lines what you created, that its presence is the opt-in, and
-   what each part of the root is for. The layout is invisible otherwise: it
-   appears in a diff the user did not request.
-2. Ask, once: *"Does this project port behavior from an existing codebase? If
+First, look for the 0.3.x layout. A repository still holding
+`.specseal/` or a top-level `specs/` is on the 0.3.x layout and committed the
+plugin's files, so it chose shared already: do not ask, say *"this repository
+is on the 0.3.x layout; start a new session and the plugin moves it into
+`<repo>/seal/`, or follow the README's by-hand sequence — and `seal mode
+local` moves it out of the tree afterwards if that is what you wanted"*, and
+stop the bootstrap there. The session-start hook moves it, and the root it
+creates is the one this section would have asked about. Naming the command
+is what keeps *not asked* from meaning *not offered*: nobody who lands in
+shared mode without a question goes looking in a README for the way out.
+
+1. Ask, once, with one `AskUserQuestion` carrying two options, in this order:
+
+   - **shared** (the default, listed first) — creates `<repo>/seal/` in the
+     tree; the routing commit you make before the first edit carries it. It
+     installs the pull-request checks: `.github/workflows/hygiene.yml`,
+     written from `templates/hygiene.yml` only when that path is absent — an
+     existing file is never overwritten, and say so when you leave one alone.
+     Before writing it, replace `v<version>` in the template with the version
+     of the installed plugin, prefixed with `v`, so CI checks with the
+     release that wrote the file. The session sits in the user's repository
+     and the plugin sits in its cache, so the version is read from
+     `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json` and never from a file
+     in the tree — a wrong read leaves `v<version>` in the workflow, and
+     CI's `git clone --branch` fails on it. One line reads it:
+
+     ```bash
+     python3 -c 'import json, os; print("v" + json.load(open(os.path.join(os.environ["CLAUDE_PLUGIN_ROOT"], ".claude-plugin", "plugin.json")))["version"])'
+     ```
+   - **local** — creates `$(git rev-parse --git-common-dir)/seal/`, installs
+     nothing, touches nothing in the tree. Spell the path through the common
+     git directory rather than through `.git`, which is a file in a linked
+     worktree; the root lands beside the smith mark, shared by every
+     worktree of the clone, never a commit candidate, with no `.gitignore`
+     line. Say what it gives up: the pull-request checks read committed
+     files, so CI cannot run them, and a new machine or a re-clone starts
+     empty.
+
+   Whichever answer, the mode is the place: the hooks read `<repo>/seal/` and
+   then the common git directory, and a repository with both is shared.
+
+   **The answer is not a door that shuts.** `seal mode` reports where the
+   root is and `seal mode local` / `seal mode shared` moves it, carrying the
+   workflow file and writing the mode into `seal/config.md` on the way. Say
+   so in one line when you create the root, because this question is asked
+   once and the person answering it does not yet know what they will want.
+   Do **not** write that config row here: it has no default, an absent one is
+   not an error, and the first `seal mode` fills it in from where the folder
+   actually is.
+2. Say in three lines what you created, that its presence at that place is
+   the opt-in, and what each part of the root is for. The layout is invisible
+   otherwise: it appears in a diff the user did not request — or, in local
+   mode, in no diff at all.
+3. Ask, once: *"Does this project port behavior from an existing codebase? If
    so, tell me which one and I will set up parity mode."*
    - **Yes** → run the parity setup below, then continue the work.
    - **No** → continue, and never raise it again. Bootstrap does not re-run,
      so the question does not either.
 
-Nothing else is asked. This release creates the root at `<repo>/seal/` and
-nowhere else; the question of where it goes arrives with local mode, together
-with the second answer that makes it a question.
+Nothing else is asked. **`/specseal:config` is how any of it is changed
+later** — it shows every row with its value, and routes a change to
+whatever owns that row. Say so once, here, because a person who answers a
+question in a batch has no reason to expect a way back to it.
 
-Ask only here. A repo that already has `seal/README.md` has been through this,
-and re-asking is the nagging this plugin exists to avoid.
+Ask only here. A repository that has `seal/` at either place — `<repo>/seal/`
+or `$(git rev-parse --git-common-dir)/seal/` — has been through this: the
+mode is read from where the folder is, and re-asking is the nagging this
+plugin exists to avoid.
 
 ### Parity setup — deriving what can be derived
 
@@ -502,12 +600,17 @@ A work item's directory is `seal/specs/<unix-epoch-seconds>-<slug>/` (e.g.
 timestamp prefix keeps directories in creation order and collision-free
 without a registry — take it from `date +%s` when creating the directory.
 
-| File | Holds | When |
-|---|---|---|
-| `spec.md` | WHAT — scope, mandatory user scenarios & acceptance, grounding clauses | before implementing |
-| `plan.md` | HOW — phases as vertical slices, alternatives with failure scenarios; this is the Design Gate's artifact | before implementing (gated work) |
-| `questions.md` | decisions only a human can make — extracted so nothing ships on a silent assumption | one batch before the first edit, then as they arise |
-| `overview.md` | the closing memo — one line of purpose, then what the diff cannot show (below) | opened at the first divergence, unverified item, or fed-back clause; closed when implementation ends |
+| File | Starts from | Holds | When |
+|---|---|---|---|
+| `spec.md` | `templates/sdd-spec.md` | WHAT — scope, mandatory user scenarios & acceptance, grounding clauses | before implementing |
+| `plan.md` | `templates/sdd-plan.md` | HOW — phases as vertical slices, alternatives with failure scenarios; this is the Design Gate's artifact | before implementing (gated work) |
+| `questions.md` | `templates/sdd-questions.md` | decisions only a human can make — extracted so nothing ships on a silent assumption | one batch before the first edit, then as they arise |
+| `overview.md` | `templates/sdd-overview.md` | the closing memo — one line of purpose, then what the diff cannot show (below) | opened at the first divergence, unverified item, or fed-back clause; closed when implementation ends |
+
+The middle column is not decoration. A template that no shipped document
+names is a template a session cannot find: it reads *bootstrapped from
+`templates/`*, cannot tell which file that means, and writes one from
+scratch. Two of these four were in exactly that state.
 
 **`plan.md`'s Phases table is the task list, and there is no other.** Each
 phase carries a **Verified by** column, so it cannot be called done the way a
