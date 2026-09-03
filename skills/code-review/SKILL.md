@@ -143,6 +143,11 @@ and worker findings are pre-verification):
 | `tests-todo.md` | regression tests to plant, with the destination file per row |
 | `evidence-todo.md` | verified facts to merge into `seal/ledger.md` |
 
+**A round record starts from `templates/sdd-round.md`**, which carries every
+field named above, already spelled, and says beside each one what its values
+may be. A round that opens a blank file instead writes the fields it happens
+to remember, and the one it forgets is the one nobody notices is missing.
+
 Skipping this step makes review round *n* cost *n* full walks — the next
 round re-finds every coordinate from scratch.
 
