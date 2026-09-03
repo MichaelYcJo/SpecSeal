@@ -127,6 +127,31 @@ def git_common_dir(root):
     return os.path.normpath(os.path.join(root, out)) if out else ""
 
 
+def home_paths(root, common=None):
+    """The two places `seal/` is read from at `root`, shared first then local.
+
+    `("", "")` for no root, and the local entry is "" where the common git
+    directory could not be resolved. Neither is tested for existence: this
+    answers *where would it be*, and `home_at` below answers *where is it*.
+
+    It exists because the second question is not the only one asked. `seal
+    import` has to be able to create the root the user names — including the
+    mode this repository is not in — and a caller that spelled
+    `os.path.join(root, "seal")` for itself would hold a second answer to the
+    question this module is named for having ONE of. The order is part of
+    that answer and lives here with it.
+
+    `common` is passed by a caller that has already resolved the common git
+    directory, so nothing here costs a second `git` call; the rider on
+    `repo_root` counts what one more per gated command is worth.
+    """
+    if not root:
+        return ("", "")
+    if common is None:
+        common = git_common_dir(root)
+    return (os.path.join(root, HOME), os.path.join(common, HOME) if common else "")
+
+
 def home_at(root):
     """The `seal/` of the repository at `root`, or "" — for a caller that has
     already resolved the root and should not pay for a second `git` call.
@@ -140,15 +165,11 @@ def home_at(root):
     """
     if not root:
         return ""
-    common = None
-    found = os.path.join(root, HOME)
-    if not os.path.isdir(found):
-        common = git_common_dir(root)
-        found = os.path.join(common, HOME) if common else ""
-        if not found or not os.path.isdir(found):
-            return ""
-    if common is None:
-        common = git_common_dir(root)
+    # One `git_common_dir` call, which is what this cost before `home_paths`
+    # existed too: the opt-out below needs the common directory even when the
+    # shared root is the answer, so the old fast path never actually skipped
+    # it. Hoisting it is what lets the two places be produced in one place.
+    common = git_common_dir(root)
     # A FILE, which is what this module and `seal/README.md` both say the
     # signal is. `os.path.exists` also accepted a DIRECTORY of that name, and
     # the marker used to sit in a committed directory — so `.specseal/scratch/`
@@ -156,7 +177,10 @@ def home_at(root):
     # diff that reads as the workflow being switched off.
     if common and os.path.isfile(os.path.join(common, SCRATCH)):
         return ""
-    return found
+    for found in home_paths(root, common):
+        if found and os.path.isdir(found):
+            return found
+    return ""
 
 
 def home(cwd):
