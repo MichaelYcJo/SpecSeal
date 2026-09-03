@@ -36,7 +36,7 @@ lands in the same branch rather than after it.
 | Item | Who must answer |
 |---|---|
 | The full test suite, repository-wide lint, and typecheck | The sealer's single broad run, after the review rounds settle |
-| ✅ That `chain_check.py` refuses what phases 1–2 wrote down | 31 executed cases in `tests/test_the_record_is_held_to_the_floor_and_the_depth.py`, 19 of them seen red at `f01f394`; 21 mutations of the units phase 3 added, none surviving |
+| ✅ That `chain_check.py` refuses what phases 1–2 wrote down | 34 executed cases in `tests/test_the_record_is_held_to_the_floor_and_the_depth.py`. The 29 that existed before the code did were run at `f01f394` and 19 were red; 21 mutations of the units phase 3 added, none surviving |
 | That the two new record rows survive a real round record written against them | The first `round-N.md` this work item's own review chain writes |
 | That a depth declared wrong — `(depth 1)` on a unit that is really second-level — is caught | Nothing in the check can see it; the verifying round reading the `New units` surface is the reader, and `docs/review-chain-spec.md` records the limit |
 | That a repository setting `Record language` leaves the floor's `no` and `yes` in English | The exclusion list says so and CI derives it from the constants, but no repository has been run in another language |
