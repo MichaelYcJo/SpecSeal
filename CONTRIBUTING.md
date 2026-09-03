@@ -18,6 +18,13 @@ ubuntu, macOS and Windows at the stated floor of 3.12, the evidence ledger
 against this repository, and the hygiene workflow that guards releases. A change to any
 hook needs a test that fails without it — see the counterfeit rule below.
 
+Two steps of the hygiene workflow ship to user repositories as well, as
+`templates/hygiene.yml`: the unverified-rows tally and the chain check, run
+from a clone of this repository at the release the user installed. The
+`implement` skill writes it at a shared-mode first setup, so a change to
+either step here reaches a user at their next first setup, and the template
+has to keep telling the same story as the workflow.
+
 Run the broad ones once, at the end. The `verify` skill's Scope rule applies
 to work on this repo too: narrow runs while you are still editing, everything
 after the review rounds settle, and nothing edited between that run and the PR.

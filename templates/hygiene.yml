@@ -1,0 +1,102 @@
+# Pull-request checks for the SpecSeal workflow, run against what the pull
+# request committed: the review chain's round record, and the closing memo's
+# rows of what nobody verified.
+#
+# Setup: the `implement` skill writes this file to
+# .github/workflows/hygiene.yml at first setup, in shared mode only, and only
+# when nothing is there yet — an existing file is never overwritten. It pins
+# `v<version>` below to the plugin version installed at that moment, so the
+# checks come from the release that wrote the file. To move that line, edit
+# it, or delete this file and let the next first setup write it again.
+#
+# Why local mode installs no copy: both checks read committed files —
+# `chain_check.py` lists `seal/specs/` with `git ls-tree HEAD`, and
+# `unverified_check.py` diffs against `--baseline <ref>` — and local mode
+# keeps the root under the git directory, where nothing is ever committed.
+# A workflow left there is red forever. `unverified_check.py` runs second and
+# exits 2 for a path that is nowhere, and nothing here carries
+# `continue-on-error` or `if: always()` — so the job stops and the steps
+# after it, `chain_check.py` among them, never run. That check would have
+# exited 0 for a repository that declared nothing, green having
+# examined nothing, and it does not get the chance. The build is red for a
+# repository doing the right thing. The way to get CI is the switch to shared mode:
+# `seal mode shared` moves the root into the tree, stages it, and writes this
+# file pinned to the plugin release it runs. You commit.
+#
+# Doing it by hand instead: copy this file to .github/workflows/hygiene.yml
+# and replace v<version> with the tag of the plugin release you run.
+
+name: hygiene
+
+on:
+  pull_request:
+    # `ready_for_review` and `converted_to_draft` are not in the default set,
+    # and without them a pull request opened as a draft keeps the green it
+    # earned on the draft's terms: pressing Ready for review makes no commit,
+    # so nothing re-runs. `chain_check.py` reads the draft state and requires
+    # a checked `Pass` on the last round only once the draft is over.
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # both checks diff against the base branch
+
+      # The checks ship with the plugin and load `hooks/routing.py` and
+      # `hooks/optin.py` from beside themselves, so the plugin is cloned whole
+      # rather than copied file by file — and outside the tree, so it is never
+      # a commit candidate here either. `actions/checkout` refuses a path
+      # outside the workspace, which is why this is a clone and not a step of
+      # that action.
+      - name: the plugin, at the release this file was written against
+        shell: bash
+        run: |
+          git clone --quiet --depth 1 --branch v<version> \
+            https://github.com/MichaelYcJo/SpecSeal.git "$RUNNER_TEMP/specseal"
+
+      # An `unverified` row records a claim nobody proved and names who can
+      # answer it. The tally is printed on every pull request and never fails
+      # for an open row; it fails for a section that cannot be read, a table
+      # with fewer rows than at the base, a file that was there and is gone,
+      # and a base ref that does not resolve.
+      - name: the unverified record is readable, and rows leave it closed
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/specseal/skills/verify/scripts/unverified_check.py" \
+            --baseline "origin/${{ github.base_ref }}" seal/specs/
+
+      # `chain_check.py` looks for a round's `Target SHA` on HEAD, on the
+      # branch the declaration names, and on the pull request head that
+      # carried it. Only the last one survives a squash and a deleted branch,
+      # and `actions/checkout` never fetches that namespace.
+      - name: the pull request heads a round record may name
+        shell: bash
+        run: |
+          git fetch --no-tags --quiet origin \
+            '+refs/pull/*/head:refs/remotes/pull/*/head'
+
+      # A work item routed "through the review chain" has to carry the round
+      # record it claimed. It never fails a pull request that declared
+      # nothing; it fails a declaration with no committed round, a round whose
+      # `Pass` is checked over an open 🔴, and — once the pull request is no
+      # longer a draft — a last round whose `Pass` was never checked.
+      - name: a declared review chain has the round record it claimed
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/specseal/skills/code-review/scripts/chain_check.py" \
+            --baseline "origin/${{ github.base_ref }}"
+
+      # `seal/config.md`'s `Mode` row is what this repository says its mode
+      # should be; where the root actually sits is what it is. Nothing at
+      # runtime reads the row, so it is the one thing here that can quietly
+      # stop being true. This fails for a disagreement left standing — always
+      # the author's, and always one command from fixed — and passes for an
+      # absent row, which declares nothing.
+      - name: the mode the row declares is the mode the folder is in
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/specseal/skills/implement/scripts/seal.py" \
+            mode --check

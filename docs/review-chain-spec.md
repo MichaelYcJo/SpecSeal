@@ -705,7 +705,7 @@ Two branches with **opposite conditions** — the failure modes differ:
 
 | Trigger | Condition | Reminder |
 |---|---|---|
-| review posted (`gh pr review/comment`, `gh api -X POST …/pulls/N/(reviews\|comments)`) | the work item's `rounds/` holds **no** `round-*.md` | write `round-N.md` / `tests-todo.md` / `evidence-todo.md` now — the posting session is the only one that still holds its verdicts and probe results |
+| review posted (`gh pr review/comment`, `gh api -X POST …/pulls/N/(reviews\|comments)`) | the work item's `rounds/` holds **no** `round-*.md` | write `rounds/round-N.md`, and `tests-todo.md` and `evidence-todo.md` beside `rounds/` rather than inside it, now — the posting session is the only one that still holds its verdicts and probe results |
 | review read (`gh pr view --json …comments`, `gh api …/pulls/N/(comments\|reviews)` without POST) | a round record **exists** | read it before acting on inline comments — the todo lists may not be in the comments at all |
 
 Which work item: the one whose `seal/specs/<id>/routing.md` names the checked-out

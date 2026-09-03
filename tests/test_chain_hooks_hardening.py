@@ -696,6 +696,7 @@ def test_the_readme_group_counts_are_derived_too():
     spellings = {
         4: ("four", "네"),
         6: ("Six", "여섯"),
+        7: ("Seven", "일곱"),
         10: ("Ten", "열"),
         11: ("Eleven", "열한"),
         12: ("Twelve", "열두"),

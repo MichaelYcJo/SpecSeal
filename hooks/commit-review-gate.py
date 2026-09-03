@@ -802,6 +802,32 @@ def decide(decision, reason):
     )
 
 
+def declaration_hint(top):
+    """The declaration path the review arm's stop text tells a session to write.
+
+    Under the root this repository resolves to, and relative to it. In local
+    mode (#80) that root is under the git directory, and the literal
+    `seal/specs/…` named a file the gate never reads; from a linked worktree
+    the path climbs out of the tree, which is still the one to type. Joined
+    the way the platform spells it, for the reason `implementer-notice.py`
+    gives.
+
+    On Windows a linked worktree on another drive than the main tree has no
+    relative spelling at all — `ntpath.relpath` raises `ValueError` — and the
+    absolute path is the one to type. Left unguarded, that exception left
+    `main()`, `dispatch.py` swallowed it, and empty stdout was an allow for a
+    commit the gate never judged (round 1 of #80, 🔴 1).
+    """
+    home = optin.home_at(top)
+    if not home:
+        return f"{routing.WORK_ITEMS}/<work-item-id>/{routing.FILENAME}"
+    try:
+        rel = os.path.relpath(home, top)
+    except ValueError:
+        rel = home
+    return os.path.join(rel, optin.WORK_ITEMS, "<work-item-id>", routing.FILENAME)
+
+
 def judge(cwd, top, command, invocations, clean):
     """The marks this commit is missing in ONE repository, and that repo's git-dir.
 
@@ -844,6 +870,11 @@ def judge(cwd, top, command, invocations, clean):
 
     if optin.opted_in(cwd) and not has_marker(command, "[no-review]") and not routed:
         if not head or read_mark(cwd, git_dir, "specseal-reviewed") != head:
+            # Built here, inside the arm that stands, and nowhere earlier:
+            # it costs one more `git` in a linked worktree, and building it
+            # before the judgment put a `relpath` that can raise in front of
+            # every commit (round 1 of #80, 🔴 1 and 🟢 6).
+            declaration = declaration_hint(top)
             missing.append(
                 {
                     "marker": "[no-review]",
@@ -857,7 +888,7 @@ def judge(cwd, top, command, invocations, clean):
                     "also": (
                         "There is a third way out of the REVIEW arm when this "
                         "commit belongs to a work item: write "
-                        "`seal/specs/<work-item-id>/routing.md` naming this "
+                        f"`{declaration}` naming this "
                         "branch, in a command of its own, then re-issue the "
                         "commit. The declaration is read from the working "
                         "tree, so it silences the review arm for the very "
@@ -883,7 +914,7 @@ def judge(cwd, top, command, invocations, clean):
                         (
                             '1. "Declare the routing"',
                             "this commit belongs to a work item whose "
-                            "`seal/specs/<work-item-id>/routing.md` is not "
+                            f"`{declaration}` is not "
                             "written "
                             "yet. Write it from `templates/sdd-routing.md`, "
                             "naming THIS branch, IN A COMMAND OF ITS OWN, and "
