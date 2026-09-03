@@ -17,11 +17,30 @@ merge commit (`docs/branch-and-release.md`).
 
 ## 0.5.0 — `release/v0.5.0`
 
-- [ ] #80 local mode under `.git/seal/`, and the first-setup question (shared / local) — first, because the rest of 0.5.0 stands on it
-- [ ] #82 `seal/config.md`, first row the pull request language
-- [ ] #81 `seal export` / `seal import`
-- [ ] #96 the release guard globs one place for `evidence-todo.md` and two work items keep it in another — before the release, because the release runs that guard
+- [x] #80 local mode under `.git/seal/`, and the first-setup question (shared / local) — first, because the rest of 0.5.0 stands on it — merged as #95
+- [x] #82 `seal/config.md`, first row the pull request language — merged as #99
+- [x] #96 the release guard globs one place for `evidence-todo.md` and two work items keep it in another — before the release, because the release runs that guard — merged as #100
+- [x] #81 `seal export` / `seal import` — merged as #102, after seven review rounds and a defect CI's windows leg caught
+- [ ] #104 the mode is two shell lines in a README, and a repository migrated from 0.3.x was never asked which it wanted — a `Mode` row in `seal/config.md` and `seal mode`
+- [ ] #105 `/specseal:config` — the front door to every row, routing the ones that have side effects
 - [ ] release: gather, bump, merge, tag `v0.5.0`
+
+**Why #104 and #105 arrived after the other four merged.** 0.5.0 is the release
+that introduces the two modes, and it is also the release where every
+repository coming from the 0.3.x layout lands in **shared** without being
+asked — `hooks/root-migrate.py` moves the committed folders in-tree, which is
+shared mode, and `tests/test_first_setup_asks_once.py` pins that the skill
+says so rather than offering local beside a layout the hook is about to move.
+A switch that exists only as two shell lines in a README leaves those
+repositories a whole release cycle with nothing to run.
+
+The two directions are not symmetric, which is what the command is for.
+
+| | local → shared | shared → local |
+|---|---|---|
+| What moves | `<git-common-dir>/seal/` into the tree, staged | the tree's `seal/` out, `git rm -r --cached` staging the deletion |
+| What it costs | the records enter the history, and going back removes them from the tree and not from the history | every other clone loses them on the next pull; `seal import` is how they get them back |
+| What a `mv` leaves behind | the pull-request workflow is not installed | the workflow is not removed — **and with `seal/` no longer committed the checkers exit 0 having read nothing**, measured 2026-09-03, which is the silent-gate state this plugin exists to prevent |
 
 ## Later — not scheduled
 
