@@ -22,7 +22,7 @@ Shipping it by itself is what makes everything after it built **under** the
 contract rather than beside it.
 
 - [x] **#107 — the rules that go to every agent move out of the prompt and into the plugin.** Framed at `c48bf65`; six phases, one smith spawn each, `37f8c11` → `5f5d071`. Three review rounds, no 🔴, three 🟡 all closed — round records at `seal/specs/1788433011-…/rounds/round-{1,2,3}.md`. Broad gate green at `b49cfb9` (1821 passed, lint clean, both ledgers 0 drifted / 0 broken). Merged as #123. Its review chain is the last one this repository runs under hand-typed spawn prompts, so its segments are the before-figure everything in 0.7.0 is measured against.
-- [ ] release: gather the changelog, fold the ledger, move `plugin.json`, merge to `main`, tag `v0.6.0` — **and update the installed plugin, then `/reload-plugins`** — that pair is what actually puts the contract in force. Preloaded skill bodies are read at session start and at `/reload-plugins`, never at spawn.
+- [ ] release: changelog gathered, ledger folded, `plugin.json` at `0.6.0` — done, at the preparation commit. Left: merge to `main`, tag `v0.6.0` — **and update the installed plugin, then `/reload-plugins`** — that pair is what actually puts the contract in force. Preloaded skill bodies are read at session start and at `/reload-plugins`, never at spawn.
 
 ## 0.7.0 — records and measurement, and nothing else
 
