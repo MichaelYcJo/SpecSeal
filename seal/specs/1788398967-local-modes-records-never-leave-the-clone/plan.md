@@ -79,7 +79,7 @@ is the operation this whole command is built to make safe.
 | 2 | `seal export`: the walker, the digest, the manifest, the zip, the shared-mode refusal, the fail directions. `bin/seal` + `bin/seal.cmd` | S1–S4, S12, S16, and the walker/namelist seam case | 43023e9 |
 | 3 | `seal import`: name validation, the three outcomes, `--into`, the foreign-zip refusal | S5–S11, S17–S20 | 43023e9 |
 | 4 | `seal export --check`: the one-line reminder and the state file it reads | S13–S15 | 43023e9 |
-| 5 | The documents that already promise this pair: `README.md`, `README.ko.md`, `seal/README.md`, the changelog and ledger fragments, the closing memo | the doc-wrap and identifier tests; a read of each edited paragraph | |
+| 5 | The documents that already promise this pair: `README.md`, `README.ko.md`, `seal/README.md`, the changelog and ledger fragments, the closing memo | the doc-wrap and identifier tests; a read of each edited paragraph | a936035 |
 
 Each phase ends with something runnable: phase 1 with the suite's opt-in
 cases, phases 2–4 with the command doing the thing the phase names, phase 5
