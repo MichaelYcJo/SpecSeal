@@ -10,24 +10,31 @@ Each release branch is cut from `main`; each ticket is a branch cut from the
 release branch and squashed back; the release branch merges into `main` as a
 merge commit (`docs/branch-and-release.md`).
 
-## 0.6.0 — the flow measures itself, and stops when it should
+## 0.6.0 — the agent contract, and nothing else
 
-In this order. Each one stands on the one before it, and taking them the other
-way round means undoing work.
+**One work item, and the reason is that a rule in this tree binds no session.**
+What is in force is the installed plugin, not this repository: measured
+2026-09-03, that clone sits on `main` at the `v0.5.0` tag while this tree is on
+a 0.6.0 branch, and no `.claude/` here overrides it. So the contract changes
+nothing a session does until `v0.6.0` is tagged and the plugin updated.
+Shipping it by itself is what makes everything after it built **under** the
+contract rather than beside it.
 
-- [ ] **#107 — the rules that go to every agent move out of the prompt and into a file.** First, because everything after it is a comparison: while half of each spawn prompt is retyped from memory, two segments differ by what the orchestrator happened to recall and the numbers cannot be read against each other. It is also the file #30 and #84 need before either adds an agent.
-- [ ] **#109 — measuring a segment and recording what it says becomes automatic.** Second, so #110 and #117 are what tries the machinery, rather than 0.7.0 finding out whether it works. Its third part — the release closes this version's log and opens the next — is what makes 0.7.0's measurement issue exist without anybody opening it. First act: #89 carries no version in its title, and #109 requires exactly one open versioned issue at a time.
-- [ ] **#110 + #117 — when a review run stops, and how deep a fix may pin.** One branch, because apart they undo each other. #110 gives the cap the floor it never had; #117 bounds what a single fix pass may create. The late rounds #110 removes are the rounds where the pins get read, so the floor without the bound cuts the eyes and leaves the generation.
-- [ ] #98 — three sentences say `-z` is what turns git's path quoting off. One line, and it rides whichever branch is open.
-- [ ] #89 — the running log. It is read rather than done, and it closes at the release.
+- [ ] **#107 — the rules that go to every agent move out of the prompt and into the plugin.** Framed at `c48bf65`; six phases, one smith spawn each. Its review chain is the last one this repository runs under hand-typed spawn prompts, so its segments are the before-figure everything in 0.7.0 is measured against.
+- [ ] #98 — three sentences say `-z` is what turns git's path quoting off. One line, and it rides #107's branch.
+- [ ] release: gather the changelog, fold the ledger, move `plugin.json`, merge to `main`, tag `v0.6.0` — **and update the installed plugin**, which is the step that actually puts the contract in force.
 
-## 0.7.0 — the first version measured under the machinery above
+## 0.7.0 — the first version built under the contract
 
-Not ordered yet. The 0.6.0 log is what orders them.
+In this order. Each one stands on the one before it.
 
-- [ ] #97 — the three pin levers left after #117 took the fourth: what is worth pinning at all, whether a pin must derive rather than duplicate, and whether a pin waits for a ticket of its own. Each changes pins that already exist, so each needs a question batch.
+- [ ] **#109 — measuring a segment and recording what it says becomes automatic.** First, so the rest of the version is what tries it rather than 0.8.0 finding out. Its third part — the release closes this version's log and opens the next — is what makes 0.8.0's measurement issue exist without anybody opening it.
+- [ ] **#119 — a segment's record says what it was asked, and under which version of the rules it ran.** After #109, because a record and its measurement are the same handoff. Two items were added to it in conversation and are marked in the issue as needing a second look before they are built.
+- [ ] **#110 + #117 — when a review run stops, and how deep a fix may pin.** One branch, because apart they undo each other: #110 removes the late rounds, and the late rounds are where the previous round's pins get read.
+- [ ] #97 — the three pin levers left after #117 took the fourth. Each changes pins that already exist, so each needs a question batch.
 - [ ] #103 — the two defect shapes only Windows has caught are made visible without Windows.
 - [ ] #111 — `git()` reads every failure as `""`, and in `seal import` that empty string switches off the refusal that keeps another project's records out.
+- [ ] #89 — the log, until #109 replaces it with a versioned one.
 
 ## Later — not scheduled
 
