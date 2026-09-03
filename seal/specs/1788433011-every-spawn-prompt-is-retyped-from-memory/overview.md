@@ -11,7 +11,11 @@ evidence ledger, not here. -->
              the shared file), `CONTRIBUTING.md` §What a change to a gate must
              carry, `docs/review-handoff-protocol.md` §§385–467, issue #107 and
              its two comments, this work item's `routing.md`
-· evidence: none yet — the ledger fragment is written in phase 6
+· evidence: `seal/ledger/1788433011-every-spawn-prompt-is-retyped-from-
+             memory.md`, five rows (L1 the single home · L2 the 15-word
+             window and both measured bounds · L3 the protocol as a pointer
+             · L4 the two orchestrator lines · L5 the rule the pointer
+             deleted). Ten coordinates, all OK — `evidence_check.py` exit 0
 · verified: read — every coordinate named in `plan.md`'s Technical context.
              executed — `$CLAUDE_PLUGIN_ROOT` is unset in this subagent;
              `tests/test_the_handoff_before_round_one.py` passes at 623487f
@@ -46,13 +50,17 @@ prompt holding only what is specific to the round.
 | The section was renamed, not only emptied | `plan.md` and `spec.md` both say §385 *becomes a pointer* and neither mentions its title | `## What every spawn prompt carries, until the definitions carry it` → `## What every spawn prompt used to carry` | the old title asserts an interim state that stopped being true in the same commit, and a heading is what a reader scanning the document acts on. One document named the old title — `skills/code-review/SKILL.md`, whose paragraph told an orchestrator to read that section before writing a prompt — and that paragraph is rewritten in this phase anyway, because what it sent a reader to fetch now arrives without being fetched. The historical mention in another work item's `round-4.md` is left as written: a round record names what it read at the time |
 | Where Q4's two lines went | `questions.md` Q4 says *one line in each of those two skills* and does not place them | `skills/implement/SKILL.md` immediately under the intro line; `skills/code-review/SKILL.md` inside *Orchestrator: a fix pass resumes the implementer*, replacing the paragraph that pointed at the removed section | the two skills are read differently. `implement` is loaded whole by a session that is about to build, so the binding belongs where the file says who loads it. `code-review` already had a paragraph about what a spawn prompt carries, and leaving it pointing at a section that no longer holds the rules would have been the one stale reference this phase created. Both are worded as pointers: neither states an exit-code form, a broad-gate boundary or a label, and the longest run either shares with any contract section is 8 words against the 15-word window `tests/test_a_moved_rule_leaves_its_definition.py` measures |
 | Where the smith's prose maximum landed | the `seal/follow-up.md` row phase 3 left open, on whether the scribe and the smith join `tests/test_docs_line_wrap.py`'s `COVERED` | left open, unchanged | phase 3's argument holds and this phase strengthens it in one direction only. `agents/smith.md` lost eight long paragraphs, so its prose maximum fell — but adding a path to `COVERED` changes what a test guards, which `CONTRIBUTING.md` asks a separate argument for, and the two definitions were deliberately paired so that doing one alone reads as an oversight. The row still names both, and it is still the right shape |
+| A rule this work item deleted | `spec.md`:90 puts *mutation-test every unit added, one at a time, before handing over* in the smith's own layer; phase 4 did not move it and phase 5 removed its only home, filing a `seal/follow-up.md` row | restored to `agents/smith.md` in that file's own words, pinned by a case in `tests/test_the_handoff_before_round_one.py`, and the follow-up row removed | the home was decided in `spec.md` and never open, so a row naming the repository owner was a question nobody had to answer — and `seal/follow-up.md`'s own preamble asks that every row name a person with **no condition attached**, which an item with a written answer and a written home does not. Where it went is the smith's Verify step, because the act is a verification and its timing is the handover. Measured against every contract section before writing: the longest run it shares with any is 10 words, the bound `test_a_moved_rule_leaves_its_definition.py` recorded at phase 4, and it creates no 15-word copy. §15 is named in the prose as the neighbour it is not, because *a new case is seen red* and *every unit added is broken* read as one rule until someone puts them side by side |
+| Why the pin sits beside an absence check | nothing in `plan.md` or `spec.md` places it | `tests/test_the_handoff_before_round_one.py`, immediately under `test_the_protocol_no_longer_states_the_rules_it_points_at` | that case asserts five phrases have LEFT the protocol and names, for each, the file that now carries it. Four name contract sections, which `test_the_agent_contract_holds_the_universal_rules.py` pins from the other side. The fifth named `agents/smith.md` and nothing pinned it, so the case went green over a rule that had left the repository altogether. The general claim is that an absence check with no presence check beside it cannot tell a rule that MOVED from a rule that was DELETED, and it is written into the new case's docstring and into ledger row L5 rather than left in this memo alone |
+| Phase 5's measurement of its own two lines | this memo's phase-5 row says *the longest run either shares with any contract section is 8 words against the 15-word window* | **4 words**, re-measured this phase | the claim is a number a later session would take rather than re-derive, so it was re-run before being written into ledger row L4. Each added paragraph's longest run against any section is 4. The conclusion phase 5 drew is unchanged and the margin is wider than it claimed; what changed is that the number in the ledger is one that was measured rather than one that was inherited |
+| What the same re-measurement turned up | `spec.md` scopes the single-home rule to the three agent definitions, and Q2 answered `full` for those | left alone, recorded under *Not done* and in L4's notes | measured over the WHOLE of `skills/implement/SKILL.md` rather than the paragraph phase 5 added, the file shares a 30-word sentence with contract §5 — the aggregate-is-not-a-coordinate sentence. It predates the contract, no case is red, and bringing the skills under the definition check is a change to what a test guards, which `CONTRIBUTING.md` asks a separate argument for. Recorded because the next reader who measures the file rather than the paragraph finds the same 30 and has no way to tell it was seen |
 
 ## Not verified
 
 | Item | Who must answer |
 |---|---|
 | The full suite and typecheck at this branch head | the orchestrator, once, after the review rounds settle |
-| ✅ The repository-wide lint and format check | re-run in phase 5 at the phase-5 tree — `ruff check .` exit 0 (*All checks passed!*) and `ruff format --check .` exit 0 (*88 files already formatted*). First run in phase 4 — both exit 0 at `4b85d80` plus the phase-4 doc commit. This was a widening of phase 4's stated scope and it is recorded rather than left to be inferred: the narrow run over the seven changed files came first and was clean, `ruff check tests/` was the run that surfaced the phase-2 `RUF002`, and `ruff check .` confirmed the fix. The seal is void the moment anything edits, so the orchestrator's one broad run still stands as owed |
+| ✅ The repository-wide lint and format check | re-run in phase 6 at the phase-6 tree — `ruff check .` exit 0 (*All checks passed!*) and `ruff format --check .` exit 0 (*88 files already formatted*). **This is wider than `plan.md`'s per-phase scope allows**, which says no phase runs the repository-wide lint, and the spawn prompt asked for it: run and disclosed rather than run quietly, which is the failure contract §3 names. The grounds are phase 4's finding — the branch failed CI's lint step for two phases because three consecutive verifications ran pytest only — and the cost is under two seconds. Phase 6's own Python diff is one file and it is clean narrowly too. Before that, re-run in phase 5 — `ruff check .` exit 0 (*All checks passed!*) and `ruff format --check .` exit 0 (*88 files already formatted*). First run in phase 4 — both exit 0 at `4b85d80` plus the phase-4 doc commit. This was a widening of phase 4's stated scope and it is recorded rather than left to be inferred: the narrow run over the seven changed files came first and was clean, `ruff check tests/` was the run that surfaced the phase-2 `RUF002`, and `ruff check .` confirmed the fix. The seal is void the moment anything edits, so the orchestrator's one broad run still stands as owed |
 | That a `skills:` frontmatter entry preloads for a **newly added** skill name in an installed plugin build (observed only for skills that already ship) | the orchestrator, with `/reload-plugins` and one spawn once this branch is installed. Phase 2 could not: the copy in force is the 0.5.0 version cache, which holds no `agent-contract/` at all, and neither a reload nor a spawn is an agent's to make |
 | ✅ That `$CLAUDE_PLUGIN_ROOT` is unset for every agent kind and not only this one | moot — Q1 answered B′, and phase 1 (37f8c11) reads no path |
 | That the user's `/` menu omits `agent-contract` under `user-invocable: false` (the experiment's stated gap; the cost if not is a listed entry nobody should run, not a contract that fails to arrive) | the repository owner, at the first 0.6.0 install |
@@ -92,9 +100,35 @@ prompt holding only what is specific to the round.
   into it buries the argument `CONTRIBUTING.md` asks for. The row's answerer
   is now the repository owner with no condition attached, which is what
   `seal/follow-up.md` requires of every row.
+- **The contract and `skills/implement/SKILL.md` still share a 30-word
+  sentence.** Measured this phase over the whole skill rather than the
+  paragraph phase 5 added: §5's *is not a coordinate: the number can be
+  checked while the claim it stands for cannot, and one such fact reached
+  five documents before a review round found it false* stands in both files.
+  Nothing is red — Q2 scoped the single-home rule to `agents/*.md`, and
+  `tests/test_a_moved_rule_leaves_its_definition.py` globs that directory
+  alone. Left because widening that glob to `skills/*/SKILL.md` changes what
+  a test guards, which `CONTRIBUTING.md` asks a separate argument for, and
+  because the skills are procedures a session loads rather than definitions
+  an agent is spawned with — whether the same rule applies to them is the
+  argument, and it is not this work item's.
+- **The presence-beside-absence rule is not a contract section.** It is
+  written into a docstring and a ledger row instead. Making it §17 would
+  change what every agent reads, on the strength of one measurement, in a
+  branch already changing that surface for all three of them.
 - **`chain_check.py` gains no required field.** That is #119's, and it is a
   change to a gate needing the argument `CONTRIBUTING.md` asks for.
 
 ## Fed back into the spec
 
-<none yet — phase 6>
+Three clauses this work added that `spec.md` did not decide. Each is marked
+**inferred during implementation**, which is a planner's permission to
+overturn it: none of the three was argued in front of a person before it was
+built, and each was settled by a measurement or by a document that turned out
+to be already binding.
+
+| Clause | Where it now lives | Inferred from |
+|---|---|---|
+| **The contract carries §16, where a `seal/…` path resolves.** `spec.md`'s universal table has no row for it | `skills/agent-contract/SKILL.md` §16 | §11 sends an agent to `config.md` *under the `seal/` root* and never says where the root is, so the contract could not be followed as it stood. Two definitions carried the sentence and the third — the one that reads `seal/parity.md` — carried none, which is §11's own missing-copy failure one file over. Phase 1's divergence row above holds the argument |
+| **The duplication check is a 15-word verbatim window, with both ends of its margin asserted.** `plan.md` said the defence was *the numbering rule plus a test asserting a moved sentence is re-pointed, never duplicated* — which needed a person to notice two cases asserting one phrase | `tests/test_a_moved_rule_leaves_its_definition.py`, and ledger row L2 | the stated defence was a reading rather than a check, and the orchestrator's paste at `e51fd0b` proved it: four modules green under §9 pasted whole into a definition. The number is measured at both ends — 10 words is the longest legitimate shared run, 25 the smallest real duplication — because a window chosen by taste is one a later edit widens to quiet a failure |
+| **An absence check needs a presence check beside it.** Nothing in either document says so, and this work item is the case that proves it | the new case's docstring in `tests/test_the_handoff_before_round_one.py`, and ledger row L5 | phase 5 asserted a rule had left the protocol without anything asserting it had arrived anywhere, and the rule was gone from the repository for two commits with a green suite. Written as a claim rather than as a contract section: making it §17 changes what every agent reads, which is a change to a gate's neighbourhood needing the argument `CONTRIBUTING.md` asks for, and this work item is already changing that surface for all three agents. Named in the pull request body so the decision is somebody's rather than nobody's |
