@@ -18,5 +18,6 @@
   two todo files at the work item's own level, spelled from the same base as
   the round record beside them, and `docs/review-chain-spec.md` says the same.
   The `code-review` skill says why: `round-N` is the only member of the set
-  that is plural, so it is the only one that gets a directory. The protocol already said where the files go, and the sentence
-  a session actually reads at the moment it creates them did not.
+  that is plural and unbounded, so it is the only one that gets a directory.
+  The protocol already said where the files go, and the sentence a session
+  actually reads at the moment it creates them did not.
