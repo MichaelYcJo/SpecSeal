@@ -10,7 +10,7 @@ the review orchestrator, which did not implement this work item. -->
 |---|---|
 | Target SHA | 7cc4fb3 (the fix diff from 3f2a7b1); dc79a57 and a1e7bf3 change only `rounds/*.md` cells |
 | PR | none yet |
-| Broad gate | at the tree this record is committed in — see the table below |
+| Broad gate | 03c4f8b against `origin/release/v0.5.0` — see the table below |
 | Fixes checked by | round-7 |
 | Contract changes | none |
 | New units | none — one test case and two assertions |
@@ -66,11 +66,11 @@ Run at the tree this record is committed in. The code is identical to
 
 | Check | Result |
 |---|---|
-| `pytest tests/ -q -n auto` | filled in at the gate's commit |
-| `ruff check .` · `ruff format --check .` | filled in at the gate's commit |
-| `evidence_check.py --strict .` | filled in at the gate's commit |
-| `unverified_check.py --baseline` | filled in at the gate's commit |
-| `chain_check.py --baseline` | filled in at the gate's commit |
+| `pytest tests/ -q -n auto` | 1519 passed · 1 skipped |
+| `ruff check .` · `ruff format --check .` | clean · 83 files formatted |
+| `evidence_check.py --strict .` | 408 ok · 0 drifted · 0 broken |
+| `unverified_check.py --baseline` | 17 overviews · 41 open · 15 closed · 0 unreadable, exit 0 |
+| `chain_check.py --baseline` | exit 0 |
 
 ## Inherited coordinates
 
