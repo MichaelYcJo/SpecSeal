@@ -775,18 +775,30 @@ def test_an_existing_workflow_is_never_overwritten(local_repo, seal, capsys):
 
 
 def test_a_version_that_cannot_be_read_writes_no_workflow(
-    local_repo, seal, capsys, tmp_path, monkeypatch
+    local_repo, seal, capsys, monkeypatch
 ):
     """S25. Writing a workflow pinned to nothing is worse than writing none:
     the first fails CI's clone on every pull request and the second is a
-    documented by-hand step, which the report names."""
-    monkeypatch.setattr(seal, "PLUGIN_ROOT", str(tmp_path / "not-a-plugin"))
+    documented by-hand step, which the report names.
+
+    The VERSION is what is removed, and nothing else. This used to point
+    `PLUGIN_ROOT` at a directory with no plugin in it, which takes the
+    template away too — so the case passed through the unreadable-template
+    branch and said nothing about the version at all. Mutation-tested: making
+    a missing version fall back to `0.0.0` left it green. That is #81's
+    defect, where a case asserted `"format" in out` against a fixture named
+    `format-2.zip`.
+    """
+    monkeypatch.setattr(seal, "plugin_version", lambda: "")
 
     code, out = run(seal, ["mode", "shared"], local_repo, capsys)
 
     assert code == 0, out
     assert not os.path.exists(os.path.join(str(local_repo), WORKFLOW))
     assert "was NOT written" in out
+    assert "version could not be read" in out, (
+        "the report does not say which of the two reasons stopped it"
+    )
     assert "templates/hygiene.yml" in out, "the by-hand step is not named"
 
 
@@ -820,12 +832,29 @@ def read(*parts):
 @pytest.mark.parametrize("readme", ["README.md", "README.ko.md"])
 def test_both_readmes_name_the_command_before_the_by_hand_lines(readme):
     """The issue's fifth done-when: the section stops being two shell lines
-    and starts naming a command. Order is the assertion — the by-hand pair
-    stays, and a person who reads the section top to bottom meets the command
-    first."""
+    and starts naming a command.
+
+    The FIRST runnable block of the section is the assertion, not an index
+    comparison between two strings. Mutation-tested: deleting the command
+    block outright left an index comparison green, because `seal mode local`
+    is named in the prose above the by-hand block as well.
+    """
     text = read(readme)
-    assert "seal mode local" in text and "seal mode --check" in text, readme
-    assert text.index("seal mode local") < text.index('git rm -r --cached "$('), readme
+    assert "seal mode --check" in text, readme
+    heading = (
+        "### Shared or local" if readme == "README.md" else "### shared 인가 local 인가"
+    )
+    body = text.split(heading, 1)[1].split("\n## ", 1)[0]
+    blocks = [chunk.split("```", 1)[0] for chunk in body.split("```bash\n")[1:]]
+    assert blocks, f"{readme}: the section runs nothing at all"
+    assert "seal mode local" in blocks[0] and "seal mode shared" in blocks[0], (
+        f"{readme}: the first block of the section is not the switch — a "
+        "person reading top to bottom still meets the shell lines first. "
+        "Naming any `seal mode` spelling is not enough: the two directions "
+        "are what the section is about, and deleting the block that carries "
+        "them left a looser assertion green (mutation-tested)"
+    )
+    assert "mv " not in blocks[0], f"{readme}: the first block is the by-hand move"
 
 
 def test_the_config_template_ships_the_row_with_no_value():
