@@ -45,7 +45,7 @@ history the next one is compared against.
 
 ## The language is the repository's, and it says so in a file
 
-**Read `config.md` in the root before writing any of the four things below.**
+**Read `config.md` in the root before writing any of the five things below.**
 The root is `<repo>/seal/` where that directory exists and
 `$(git rev-parse --git-common-dir)/seal/` otherwise, which is where local
 mode keeps it — resolve it that way rather than spelling the first place and
@@ -54,11 +54,19 @@ stopping.
 ```markdown
 | Item | Value |
 |---|---|
-| Pull request language | Korean |
+| Commit and pull request language | Korean |
 ```
 
-That row governs the **commit subject and body** and the **pull request title
-and body** — all four, because a squash makes them one text.
+That row governs the **commit subject and body**, the **pull request title and
+body** — all four, because a squash makes them one text — and the **review
+report posted as a pull-request comment**, which is prose for whoever opens
+that pull request.
+
+**It does not govern the work-item records.** `spec.md`, `plan.md`,
+`overview.md`, `questions.md`, `changelog.md`, `rounds/round-N.md`'s cells and
+a ledger row's prose follow a second row, `Record language`, read by the
+`implement` and `code-review` skills. The two are independent: setting one
+does not carry the other.
 
 **Every way of not naming a language lands on English**, which is what every
 repository got before the row existed. There are four of them and they are
@@ -74,14 +82,22 @@ a move — `seal mode --apply` then moves the folder to what you wrote. That
 file repeats the exclusions below, because the person who writes a
 repository's config reads it and never reads this one.
 
-It governs nothing else, and the three exclusions are what make it safe to
-change:
+It governs prose and nothing else, and the exclusions are what make it safe
+to change:
 
 - **The prefix vocabulary is not translated.** `feat:`, `fix:`, `docs:` stay
   as they are in every repository. They are scanned in a log and parsed by
   tooling, and `기능:` teaches neither.
 - **Branch names stay ASCII** — `<prefix>/<kebab-case-slug>` — because a
   branch name is typed into a shell and pasted into a URL.
+- **The field names and vocabulary a checker reads literally**, which belong
+  to the other row's surface and are excluded from both: a round record's
+  `Target SHA`, `Fixes checked by`, `Contract changes`, `New units`, `Needs a
+  fix` and `Pass`; the verdict words; the `<!-- -->` markers; a ledger
+  anchor's `path#unit@hash`. A translated field name is not a translation, it
+  is a broken gate.
+- **Code**: identifiers, comments, docstrings, file names, test function
+  names.
 - **The response language is not in that file.** What the session says to
   you is a person's setting and lives in the user's own configuration. Two
   people in one repository can want different answers there and the same one
@@ -193,7 +209,7 @@ Answer these, rather than assuming them.
 1. Did you run `gh pr list` **and compare your title to what it returned**?
 2. Does the title carry a prefix, from the vocabulary the commits used?
 3. Did you **open `config.md` in the root** — and are the title and body in
-   the language its `Pull request language` row names? No file and no such
+   the language its `Commit and pull request language` row names? No file and no such
    row both mean English.
 4. If there is a translation, is it a file in the repository — not a hosted
    document — and is it named for its own language?

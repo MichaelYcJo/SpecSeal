@@ -54,7 +54,7 @@ def test_the_skill_names_the_file_and_the_row():
     has nowhere to look."""
     text = flat(*SKILL)
     assert "config.md" in text, "the skill does not name the file it reads"
-    assert "Pull request language" in text, "the skill does not name the row"
+    assert "Commit and pull request language" in text, "the skill does not name the row"
 
 
 def test_the_root_is_resolved_rather_than_spelled():
@@ -144,7 +144,7 @@ def test_the_pull_request_body_section_no_longer_opens_with_english():
         ("the commit subject", "in the repository's language"),
         ("the commit body", "One language, in the subject and in the body"),
         ("the pull request title", "and the same language"),
-        ("the self-check question", "Pull request language` row names"),
+        ("the self-check question", "Commit and pull request language` row names"),
     ],
 )
 def test_the_surface_defers_to_the_row_instead(surface, phrase):
@@ -281,7 +281,7 @@ def test_a_korean_row_is_what_flips_the_refused_mirror_name(tmp_path):
     home = tmp_path / "seal"
     home.mkdir()
     (home / "config.md").write_text(
-        "| Item | Value |\n|---|---|\n| Pull request language | Korean |\n",
+        "| Item | Value |\n|---|---|\n| Commit and pull request language | Korean |\n",
         encoding="utf-8",
     )
     assert configured_language(tmp_path) == "Korean"
@@ -410,7 +410,7 @@ def config_homes(root):
 
 
 def configured_language(root=None):
-    """A repository's pull request language, read the way the skill says.
+    """A repository's commit and pull request language, read the way the skill says.
 
     Every way of not naming one lands on English, and there are four: no
     file, no such row, an empty value, and a file that cannot be read or does
@@ -431,7 +431,7 @@ def configured_language(root=None):
         except OSError:
             return "English"
         for item, value in items(text):
-            if item == "Pull request language":
+            if item == "Commit and pull request language":
                 return value.strip() or "English"
         return "English"
     return "English"
@@ -445,7 +445,10 @@ def configured_language(root=None):
 UNNAMED = [
     ("no file at all", None),
     ("a file with no such row", "| Item | Value |\n|---|---|\n| Other | x |\n"),
-    ("an empty value", "| Item | Value |\n|---|---|\n| Pull request language |  |\n"),
+    (
+        "an empty value",
+        "| Item | Value |\n|---|---|\n| Commit and pull request language |  |\n",
+    ),
     ("a file that does not parse as that table", "# notes\n\nno table here.\n"),
     ("a file whose table is another one", "| Field | Value |\n|---|---|\n| a | b |\n"),
 ]
@@ -524,7 +527,7 @@ def test_the_reader_finds_a_config_under_the_git_directory(repo):
     """
     home = local_home(repo)
     (home / "config.md").write_text(
-        "| Item | Value |\n|---|---|\n| Pull request language | Korean |\n",
+        "| Item | Value |\n|---|---|\n| Commit and pull request language | Korean |\n",
         encoding="utf-8",
     )
     assert configured_language(repo) == "Korean", (
@@ -540,13 +543,13 @@ def test_the_tree_root_still_wins_over_the_git_directory(repo):
     disagreed would send a session to the wrong file."""
     local = local_home(repo)
     (local / "config.md").write_text(
-        "| Item | Value |\n|---|---|\n| Pull request language | Korean |\n",
+        "| Item | Value |\n|---|---|\n| Commit and pull request language | Korean |\n",
         encoding="utf-8",
     )
     shared = repo / "seal"
     shared.mkdir(parents=True, exist_ok=True)
     (shared / "config.md").write_text(
-        "| Item | Value |\n|---|---|\n| Pull request language | Japanese |\n",
+        "| Item | Value |\n|---|---|\n| Commit and pull request language | Japanese |\n",
         encoding="utf-8",
     )
     assert configured_language(repo) == "Japanese"
@@ -583,11 +586,11 @@ def test_a_separator_below_the_rows_ends_the_table():
     text = (
         "| Item | Value |\n"
         "|---|---|\n"
-        "| Pull request language | Korean |\n"
+        "| Commit and pull request language | Korean |\n"
         "|---|---|\n"
         "| Something else | x |\n"
     )
-    assert items(text) == [("Pull request language", "Korean")], (
+    assert items(text) == [("Commit and pull request language", "Korean")], (
         "a separator below the first row was stepped past, so the rows "
         "behind it were read as more of this table"
     )
@@ -600,11 +603,11 @@ def test_a_repeated_header_ends_the_table():
     text = (
         "| Item | Value |\n"
         "|---|---|\n"
-        "| Pull request language | Korean |\n"
+        "| Commit and pull request language | Korean |\n"
         "| Item | Value |\n"
-        "| Pull request language | English |\n"
+        "| Commit and pull request language | English |\n"
     )
-    assert items(text) == [("Pull request language", "Korean")], (
+    assert items(text) == [("Commit and pull request language", "Korean")], (
         "a repeated header did not end the table, so a second table's rows "
         "arrived as this one's"
     )
@@ -633,8 +636,10 @@ def test_junk_above_the_first_row_is_still_tolerated():
     """The other direction, so the fix above does not become a stricter rule
     than the one intended: between the header and the first row, a separator
     is the table's own furniture and a blank line is nothing."""
-    text = "| Item | Value |\n|---|---|\n\n| Pull request language | Korean |\n"
-    assert items(text) == [("Pull request language", "Korean")]
+    text = (
+        "| Item | Value |\n|---|---|\n\n| Commit and pull request language | Korean |\n"
+    )
+    assert items(text) == [("Commit and pull request language", "Korean")]
 
 
 def test_an_unreadable_config_lands_on_english_too(tmp_path):
@@ -662,8 +667,14 @@ def test_the_template_is_one_item_value_table_whose_first_row_is_the_language():
     """S8. Parsed, not eyeballed: the file's whole job is to be read."""
     rows = items(read(*TEMPLATE))
     assert rows, "no `| Item | Value |` table in the template"
-    assert rows[0] == ("Pull request language", "English"), (
+    assert rows[0] == ("Commit and pull request language", "English"), (
         f"the first row is not the language defaulting to English: {rows[0]}"
+    )
+    # The second row is the records' own, and it is not the same question.
+    # #106 split them because a repository can want Korean pull requests and
+    # English specifications, and one row cannot say that.
+    assert rows[1] == ("Record language", "English"), (
+        f"the second row is not the record language defaulting to English: {rows[1]}"
     )
 
 
@@ -690,11 +701,11 @@ def test_a_row_of_another_table_ends_this_one():
     text = (
         "| Item | Value |\n"
         "|---|---|\n"
-        "| Pull request language | Korean |\n"
+        "| Commit and pull request language | Korean |\n"
         "| a | b | c |\n"
         "| Something else | x |\n"
     )
-    assert items(text) == [("Pull request language", "Korean")], (
+    assert items(text) == [("Commit and pull request language", "Korean")], (
         "a row of a different table did not end this one"
     )
     assert ("Something else", "x") not in items(text), (
@@ -708,15 +719,15 @@ def test_a_second_table_further_down_is_not_read_as_more_rows():
     text = (
         "| Item | Value |\n"
         "|---|---|\n"
-        "| Pull request language | Korean |\n"
+        "| Commit and pull request language | Korean |\n"
         "\n"
         "## notes\n"
         "\n"
         "| Item | Value |\n"
         "|---|---|\n"
-        "| Pull request language | English |\n"
+        "| Commit and pull request language | English |\n"
     )
-    assert items(text) == [("Pull request language", "Korean")], (
+    assert items(text) == [("Commit and pull request language", "Korean")], (
         "the first table's answer must win; a second one further down is "
         "prose about the first, not more rows of it"
     )

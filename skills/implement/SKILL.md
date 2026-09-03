@@ -17,6 +17,42 @@ description: |
 Methodology for implementing against written specs, leaving durable evidence,
 and closing the loop with review. Loaded by the `smith` agent; usable directly.
 
+## The language the records are written in
+
+**Read `Record language` in `config.md` before writing any of the documents
+below**, the same way `commit-pr-convention` reads its own row before a commit
+or a pull request. The root is resolved the way every path in this skill is.
+
+```markdown
+| Item | Value |
+|---|---|
+| Record language | Korean |
+```
+
+It governs the **prose** in `spec.md`, `plan.md`, `overview.md`,
+`questions.md`, `changelog.md`, the cell contents of `rounds/round-N.md` and
+the text beneath its tables, and the claim and grounds of a ledger row.
+
+**Every way of not naming one lands on English** — no file, no such row, an
+empty value, a file that cannot be read. A config nobody can read must not
+stop the work.
+
+**It is independent of `Commit and pull request language`.** Setting one does
+not carry the other, and the two surfaces have different audiences: a pull
+request is read by whoever opens it, and a record is read by whoever comes
+back to the decision six months later.
+
+**What stays English whatever it says**, because these are read literally
+rather than by a person: a round record's `Target SHA`, `Fixes checked by`,
+`Contract changes`, `New units`, `Needs a fix` and its `Pass` checkbox; the
+verdict words `fixed`, `answered`, `withdrawn`, `not a defect`, `agreed`;
+`round-N`, `no fixes to check` and `nobody — <why>`; the `Item` and `Who must
+answer` headings; `<!-- specs/<work-item-id> -->` and the other markers; a
+`drained` line and a ✅; a ledger anchor's `path#unit@hash`; and all code —
+identifiers, comments, docstrings, file names, test function names. A
+translated field name is not a translation, it is a checker that stops
+reading.
+
 ## Document layout — two roots, three lifetimes
 
 Every artifact this skill produces goes to one of two roots, and the second is
