@@ -11,7 +11,7 @@ orchestrator, which is also this work item's implementer. -->
 | Target SHA | 2f8b12a (the fix diff from 1fb5507); HEAD afb3217 at review time, record-only |
 | PR | none yet |
 | Broad gate | not yet — a 🔴 was open |
-| Fixes checked by | nobody — the fixes landed at d21b13a and round 4, the verifying round, is what opens them; this cell is set to it when that record exists |
+| Fixes checked by | round-4 |
 | Contract changes | none — the fixes are one argument in a test, and two sentences |
 | New units | none |
 | Needs a fix | yes — 🔴 1 (`tests/test_chain_hooks.py:215` builds its expected path with `os.path.join` around a literal `/`, so the windows leg fails on the first iteration), 🟡 2 (the changelog credits the chain spec with a reason only the skill gives), 🟡 3 (the memo's `Fed back into the spec` says Nothing beside a header naming three documents this branch changed) |
