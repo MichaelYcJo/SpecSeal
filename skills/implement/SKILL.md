@@ -17,6 +17,13 @@ description: |
 Methodology for implementing against written specs, leaving durable evidence,
 and closing the loop with review. Loaded by the `smith` agent; usable directly.
 
+**`skills/agent-contract/SKILL.md` binds this session too, and only if you
+load it.** A session driving the work directly reads this skill and never
+`agents/*.md`, so the contract every agent it spawns receives at startup
+reaches it by being opened rather than by arriving — `user-invocable: false`
+permits the load and does not oblige it. #107's headline failure is an
+orchestrator breaking a rule it had put into every prompt it sent.
+
 ## The language the records are written in
 
 **Read `Record language` in `config.md` before writing any of the documents

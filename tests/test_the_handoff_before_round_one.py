@@ -66,7 +66,142 @@ def test_the_implementer_documents_point_at_the_section():
     for parts in (("skills", "implement", "SKILL.md"), ("agents", "smith.md")):
         text = flat(*parts)
         assert "handoff before round 1" in text, "/".join(parts)
-        assert "assertion nobody has opened" in text, "/".join(parts)
+
+    # Phase 4 of #107 re-pointed the second half. The rule that a fact with
+    # no coordinate and no label is an assertion nobody has opened is §5 of
+    # the agent contract, which every agent receives at startup -- the smith
+    # was one of two definitions stating it and the scribe stated it nowhere.
+    # What stays in the definitions is the ROUTE: the section a prompt's
+    # facts arrive under, which is what this case is about.
+    assert "assertion nobody has opened" in flat(
+        "skills", "agent-contract", "SKILL.md"
+    ), (
+        "the contract stopped saying what a fact with neither a coordinate "
+        "nor a label is, so the route above leads to a section whose rule "
+        "nothing states"
+    )
+
+
+# --- the interim home stops being one ---------------------------------------
+
+
+def pointer_section(text):
+    """The body of `## What every spawn prompt used to carry`, heading to the
+    next `## `. Scoped rather than whole-file on purpose: the sentence this
+    pins is also stated in `## Status`, so a document-wide search would stay
+    green with the section itself gutted -- which is the one edit this case
+    exists to catch."""
+    match = re.search(
+        r"^## What every spawn prompt used to carry$(.*?)(?=^## )",
+        text,
+        re.M | re.S,
+    )
+    assert match, (
+        "the pointer section is gone or renamed. It replaced the interim home "
+        "that carried the method half of every spawn prompt (#107 phase 5); a "
+        "rename has to bring this case with it"
+    )
+    return " ".join(match.group(1).split())
+
+
+def test_the_protocol_points_at_the_contract_instead_of_restating_it():
+    """#107 phase 5. The section named itself an interim home and named the
+    issue that would end it. It now points at the two files that carry those
+    rules, and the sentence a prompt is actually governed by is what stands
+    in its place.
+
+    Both halves matter and only the second is unusual. A pointer that keeps
+    the rules beside it is two answers in front of one reader, which is the
+    duplication the move was made to end -- so the absence half is asserted
+    as hard as the presence half."""
+    section = pointer_section(read("docs", "review-handoff-protocol.md"))
+    assert "a prompt carries what is specific to the round and nothing else" in (
+        section.lower()
+    ), (
+        "the section stopped saying what a prompt is left holding, which is "
+        "the one rule that stayed here when the rest moved"
+    )
+    assert "skills/agent-contract/SKILL.md" in section, (
+        "the pointer names no contract, so a reader arriving for the rules "
+        "leaves with neither them nor the path to them"
+    )
+    assert "agents/<name>.md" in section, (
+        "the pointer names the shared half and not the per-agent half, which "
+        "is half of the three-layer split"
+    )
+
+
+def test_the_protocol_no_longer_states_the_rules_it_points_at():
+    """The restatement check, one phrase per list that used to sit here.
+
+    Each is verbatim from what phase 5 removed, so a paste-back is red rather
+    than invisible -- the same reasoning `test_a_moved_rule_leaves_its_
+    definition.py` applies to the agent definitions, applied to the document
+    those rules were moved OUT of."""
+    protocol = flat("docs", "review-handoff-protocol.md")
+    for phrase, whose in (
+        ("never `cmd | tail; echo $?`", "the contract's §1"),
+        ("enumerate the class, do not fix the coordinate", "the contract's §12"),
+        ("Do not push, do not open a pull request", "the contract's §6"),
+        ("make a `uv` venv", "`agents/warden.md`"),
+        ("Mutation-test every unit added", "`agents/smith.md`"),
+    ):
+        assert phrase not in protocol, (
+            f"the protocol states {whose} again: {phrase!r}. This document is "
+            "a pointer at those rules now, and a copy beside the pointer is "
+            "the state #107 opens with"
+        )
+
+
+def test_the_smiths_definition_mandates_mutating_every_unit_it_added():
+    """The rule the case above says is `agents/smith.md`'s is actually there.
+
+    Measured 2026-09-03 at `dcdf4e4`, phase 6 of #107: it was not. Phase 4
+    never moved *mutation-test every unit added, one at a time, before
+    handing over* into the definition, and phase 5 removed the one place it
+    had ever been written -- the protocol's interim list. So the case above
+    went green over a rule that had left the repository altogether, and the
+    work item built to stop rules going missing is what deleted it.
+
+    That is the general lesson, and it is why this case sits here rather
+    than in a module of its own: an absence check with no presence check
+    beside it cannot tell a rule that MOVED from a rule that was DELETED.
+    The other four rows of that table point at contract sections, which
+    `test_the_agent_contract_holds_the_universal_rules.py` pins from the
+    other side; this row pointed at a definition and nothing pinned it.
+
+    Contract §15 is the neighbour, not this rule. It asks that a case be
+    seen red on the day it is planted; this asks that every unit the branch
+    added be broken before the branch leaves the implementer's hands. Both
+    halves are asserted -- the act and its timing -- because a definition
+    that kept only the act would read as §15 restated, which
+    `test_a_moved_rule_leaves_its_definition.py` would then be right to
+    refuse."""
+    smith = flat("agents", "smith.md")
+    # The whole clause, not its words one by one. Asserting `one at a time`
+    # alone passed under the mutation that removed the cadence, because the
+    # design gate two hundred lines up says asking questions `one at a time`
+    # is a cost paid repeatedly -- an unrelated sentence holding the phrase
+    # up. Measured while showing this case red, 2026-09-03.
+    assert (
+        "Mutation-test every unit you added, one at a time, before you hand "
+        "over." in smith
+    ), (
+        "`agents/smith.md` does not mandate mutating what it added, on that "
+        "cadence, at that moment. `spec.md` of work item 1788433011 puts the "
+        "rule in the smith's own layer -- *only the agent that adds units "
+        "can* -- and the protocol that used to carry it is a pointer now, so "
+        "a definition without it leaves the rule stated nowhere at all. "
+        "Units broken together cannot say which case caught which, and a "
+        "mutation run after the handover is one the next reader takes on "
+        "trust, which is why the cadence and the timing are in the assertion "
+        "rather than beside it"
+    )
+    assert "watch one go red" in smith, (
+        "the rule stopped asking for the observation that makes it a "
+        "measurement. Breaking a unit and running the suite is not a "
+        "mutation test until a case is seen to fail for it"
+    )
 
 
 # --- progress observability -------------------------------------------------
@@ -107,11 +242,31 @@ def test_the_smiths_contract_does_not_demand_what_a_serial_loop_cannot_give():
     """The same rule lands on the smith with the caveat that keeps it
     honest: an edit-test loop is inherently serial (1.08-1.17 measured
     against 1.29-1.89 for review rounds), and a rule that ignores that is a
-    demand the work cannot meet — which is how rules stop being read."""
+    demand the work cannot meet — which is how rules stop being read.
+
+    Re-pointed in phase 4 of #107. The rule and the caveat are §10's, which
+    the smith receives at startup; what §10 sends back to the definition is
+    the NUMBER, because a figure that measures a reviewer does not measure an
+    implementer. So the caveat is asserted against the contract and the
+    number against the definition, which is where each of them can go missing
+    without the other noticing."""
+    contract = flat("skills", "agent-contract", "SKILL.md")
+    assert "An edit-test loop is serial" in contract, (
+        "the contract stopped conceding what a serial loop cannot give, so "
+        "the batching rule became a demand the work cannot meet"
+    )
+    assert "in that agent's definition" in contract, (
+        "the contract stopped sending the numbers back to the definitions, "
+        "and a figure with no home is one that measures the wrong agent"
+    )
     smith = flat("agents", "smith.md")
-    assert "Independent reads and probes go out together" in smith
-    assert "inherently serial" in smith
-    assert "not forced to fake a batch" in smith
+    # U+2013 EN DASH, built rather than typed: the definition spells both
+    # ranges with one, so a hyphen would match nothing, and a typed one is
+    # what the linter reads as an ambiguous character.
+    dash = chr(0x2013)
+    assert f"1.08{dash}1.17" in smith
+    assert f"1.29{dash}1.89" in smith
+    assert "never obliged to fake a batch" in smith
 
 
 # --- the per-segment bars (work item 1788277657, round 1's tests-todo) ------

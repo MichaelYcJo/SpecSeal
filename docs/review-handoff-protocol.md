@@ -1,4 +1,4 @@
-# Review Handoff Protocol — draft 0.8
+# Review Handoff Protocol — draft 0.9
 
 A file convention for handing review work between agent sessions — across
 time, machines, and tools. Tool-agnostic on purpose: nothing here requires
@@ -382,89 +382,57 @@ owner's answer to Q1 of
 `seal/specs/1788224363-a-subagent-rediscovers-what-the-session-established/questions.md`.
 The bars above are the orchestrator's, applied knowing the segment kind.
 
-## What every spawn prompt carries, until the definitions carry it
+## What every spawn prompt used to carry
 
-The section above says what a handoff owes about the *work*. This one says
-what it owes about the *method*, and it exists because that half is retyped
-from memory every time.
+The section above says what a handoff owes about the *work*. This one used to
+say what it owes about the *method*, and it carried that half in full because
+nowhere else did.
 
-**This is an interim home.** These belong in the agent definitions and in a
-contract file all of them read — issue #107 — and they sit here until that
-lands, because a rule kept only in whoever last wrote a prompt is a rule that
-goes missing without a trace. It already has: `read exit codes directly,
-never through a pipe` arrived at round 2 of one work item and round 1 ran
-without it, and the `uv` venv line arrived at round 3 after two rounds each
-rediscovered the same thing. Nothing recorded either.
+**It said so at the time, and named what would end it.** The rules belonged in
+the agent definitions and in a contract file all of them read — issue #107 —
+and they sat here until that landed, because a rule kept only in whoever last
+wrote a prompt goes missing without a trace. It already had, twice: one rule
+arrived at round 2 of a seven-round chain and round 1 ran without it, and
+another arrived at round 3 after two rounds had each rediscovered it.
 
-### Every agent
+That work is done, so what follows is a pointer and nothing else. Restating
+any of it here would put a second copy in front of the same reader, which is
+the duplication the move was made to end.
 
-- **Read exit codes directly, never through a pipe.** `cmd >/dev/null 2>&1;
-  echo $?` — never `cmd | tail; echo $?`, which reports the pipe's status and
-  is always 0. Written out in both forms on purpose: the failure is a habit,
-  so the right form has to be as easy to copy as the wrong one. An
-  orchestrator that had put this line in every prompt it wrote then broke it
-  itself and committed the wrong value.
-- **Do not run the full suite, repository-wide lint, or a typecheck.** The
-  broad gate is the orchestrator's, once, after the rounds settle. Label them
-  `unverified` naming that answerer.
-- **Do not push, do not open a pull request, do not spawn another agent.**
-- **Label what was executed apart from what was read**, and name who answers
-  what was left unverified.
+### Where each half went
 
-### The warden
+**The rules every agent is bound by are `skills/agent-contract/SKILL.md`.**
+The harness injects it into each agent at startup through the `skills:` list
+in that agent's definition, so nothing is typed and no path is resolved. Its
+sections are numbered, and a number is never reused or re-ordered, so a
+prompt and a round record can both cite one. What stood here under *Every
+agent* is §1 to §4 — how an exit code is read, what an agent must not run,
+what a prompt may narrow and may not widen, and which labels a report keeps
+apart. What stood here as four method lessons the review chain paid for is
+§12 to §15.
 
-- **Work in a `git clone --no-local` of the repository at the target SHA, and
-  only there.** Read-only commands against the user's checkout are fine;
-  never write in it, and say plainly if that is broken.
-- **`pytest` is not installed for the system interpreter** — make a `uv` venv
-  in the clone.
-- **Probes are named `test_tmp_*`, run once, deleted**, and git is driven
-  from Python where a probe needs a repository.
-- **Write nothing into `rounds/`, leave no review mark, post nothing.**
-- **The report**: the `code-review` findings shape, `file:line` on every
-  finding, a paste-ready fix for each 🔴/🟡, sections for regression tests to
-  plant and for facts for the ledger, findings from reading and from
-  execution labelled apart, the line `Needs a fix: no` or `Needs a fix: yes —
-  <what>`, and a proof block.
-- **On a verifying round**, re-derive the previous round's closures rather
-  than taking them; if one did not close, say so and name what reproduces.
+**An agent's own rules are in `agents/<name>.md`.** The list that stood here
+under *The warden* is absorbed into `agents/warden.md` in full — where it
+works, the `uv` venv, the report format, the verifying round's re-derivation,
+and the records it must not write. The list under *The smith* is
+`agents/smith.md` and the `implement` skill it loads.
 
-### The smith
-
-- **Frame before building** — `spec.md`, `plan.md`, `questions.md`,
-  `overview.md`, `changelog.md` and a ledger fragment, before the first line
-  of implementation.
-- **Confirm the facts the prompt hands over rather than taking them.** Two
-  spawn prompts in one session handed over a false one each, and the smith
-  caught both by measuring.
-- **Mutation-test every unit added, one at a time, before handing over.**
-- **Hand back** what was built, what was measured, what was declined and why,
-  the branch head SHA, and every open question with the default built to.
-
-### The method, which is neither of the above
-
-Four rules the review chain paid for, pasted into every prompt after the
-round that produced them:
-
-1. **A defect belongs to a class — enumerate the class, do not fix the
-   coordinate.** One work item closed a single class three times, one name
-   apart each time, because each fix was aimed where the finding pointed.
-2. **A defence resting on a platform guarantee is not verified until the
-   guarantee is removed and the code still refuses.** Seven rounds and a full
-   local gate on one operating system missed a record leaving the root.
-3. **A fix that changes what a person sees documents it AND pins it in the
-   same commit.** *Nothing raises* is not the claim *says this*.
-4. **A new case is not planted until it has been seen red.** Three
-   consecutive work items each produced a case that passed against the very
-   defect it was written for, and reverting the fix is the only thing that
-   has ever caught one.
+Nothing that was a rule here reaches an agent by being typed any more. A
+prompt that repeats one is redundant rather than wrong, and a prompt that
+forgets one changes nothing — which is the whole of what this move bought.
 
 ### What a prompt is left holding
 
-The branch and base, the target SHA and what the diff contains, the
-acceptance criteria, the class to enumerate *for this change*, the shapes to
-try to break, corrections the orchestrator has to hand over, and any state
-the agent needs. Everything specific, nothing general.
+**A prompt carries what is specific to the round and nothing else.** The
+branch and base, the target SHA and what the diff contains, the acceptance
+criteria, the class to enumerate *for this change*, the shapes to try to
+break, corrections the orchestrator has to hand over, and any state the agent
+needs. Everything specific, nothing general.
+
+The general half now arrives on its own, so a prompt that states it is
+retyping what a file already holds — and what is retyped can be retyped
+wrong. That is not a style preference: it is the failure the two paragraphs
+above are the record of.
 
 ## Conformance
 
@@ -496,7 +464,7 @@ A tool claiming to support this protocol:
 
 ## Status
 
-Draft 0.8, extracted from the convention this plugin's `code-review` and
+Draft 0.9, extracted from the convention this plugin's `code-review` and
 `implement` skills already operate (they are its reference implementation).
 Field names and layout may change; the three conformance rules are stable in
 shape. 0.2 changed the third from *delete after draining* to *close and keep*.
@@ -536,6 +504,17 @@ anywhere (an acceptance bar on an issue) was a single bar for three kinds of
 segment — right for the reviewing kind and wrong for the other two. No
 conformance rule is added: the bars judge a transcript, not a file this
 protocol can check, and the section itself says they refuse nothing.
+
+0.9 gives up the method half of a spawn prompt. The section that held it
+called itself an interim home and named the issue that would end it; that
+issue closed, and what stood there now lives in a contract every agent
+receives at startup and in each agent's own definition. A pointer replaces it,
+because a document that keeps a copy beside the pointer puts two answers in
+front of one reader — the failure the move was made to end, arriving from the
+fix. What is stated here instead is the rule about the prompt itself: it
+carries what is specific to the round and nothing else. No conformance rule
+changes, for the reason 0.6 gave when it added none — a spawn prompt is not a
+file this protocol can check.
 
 0.3 also states the path as this implementation's choice rather than as the
 protocol. Draft 0.2 claimed to be tool-agnostic while naming a directory
