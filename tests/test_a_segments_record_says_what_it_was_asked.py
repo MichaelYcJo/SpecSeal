@@ -127,7 +127,7 @@ def test_the_round_section_ships_a_placeholder():
     lines = stripped_lines(ROUND_TEMPLATE)
     body = section_body(lines, ROUND_HEADING)
     assert body, f"`{ROUND_HEADING}` has no content outside comments"
-    text = " ".join(l.strip() for l in body)
+    text = " ".join(line.strip() for line in body)
     assert text.startswith("<") and text.endswith(">"), (
         f"`{ROUND_HEADING}` ships `{text}` — a template must offer a "
         "placeholder, not a filled-in claim"

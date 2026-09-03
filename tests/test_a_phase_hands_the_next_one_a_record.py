@@ -101,7 +101,7 @@ def section_body(lines, heading):
 def test_the_field_table_is_phase_and_commit_only():
     lines = stripped_lines()
     header_idx = next(
-        (i for i, l in enumerate(lines) if l.strip().startswith("| Field")), None
+        (i for i, line in enumerate(lines) if line.strip().startswith("| Field")), None
     )
     assert header_idx is not None, "no `| Field | Value |` header outside comments"
     # The field table ends at the first `## ` heading — rows past it belong
@@ -115,14 +115,16 @@ def test_the_field_table_is_phase_and_commit_only():
         len(lines),
     )
     table_lines = lines[header_idx + 1 : end]
-    rows = [l.strip() for l in table_lines if l.strip().startswith("|")]
-    field_rows = [l for l in rows if not set(l.replace("|", "").strip()) <= {"-"}]
-    names = [l.split("|")[1].strip() for l in field_rows]
+    rows = [line.strip() for line in table_lines if line.strip().startswith("|")]
+    field_rows = [
+        line for line in rows if not set(line.replace("|", "").strip()) <= {"-"}
+    ]
+    names = [line.split("|")[1].strip() for line in field_rows]
     assert names == ["Phase", "Commit"], (
         f"the field table carries {names}, not just Phase/Commit — a phase "
         "has no Target SHA to squash away and no Pass checkbox to answer"
     )
-    for name, row in zip(names, field_rows):
+    for name, row in zip(names, field_rows, strict=True):
         value = row.split("|")[2].strip()
         assert value.startswith("<") and value.endswith(">"), (
             f"a template must not ship a claim, and `{value}` is one ({name})"
@@ -147,7 +149,7 @@ def test_asked_and_found_sections_ship_a_placeholder():
     for heading in ("## What this phase was asked", "## What this phase found"):
         body = section_body(lines, heading)
         assert body, f"`{heading}` has no content outside comments"
-        text = " ".join(l.strip() for l in body)
+        text = " ".join(line.strip() for line in body)
         assert text.startswith("<") and text.endswith(">"), (
             f"`{heading}` ships `{text}` — a template must offer a "
             "placeholder, not a filled-in claim"
@@ -157,7 +159,7 @@ def test_asked_and_found_sections_ship_a_placeholder():
 def test_removes_section_is_a_table_with_a_none_row():
     lines = stripped_lines()
     body = section_body(lines, "## What this phase removes")
-    rows = [l.strip() for l in body if l.strip().startswith("|")]
+    rows = [line.strip() for line in body if line.strip().startswith("|")]
     header = next((r for r in rows if "Removed item" in r), None)
     assert header is not None, (
         "`## What this phase removes` has no `Removed item` column — "
