@@ -1,4 +1,4 @@
-"""The two agent files route file edits through the `Edit` tool, and say why.
+"""File edits go through the `Edit` tool, and the rule says why.
 
 Nothing pinned this prose when it landed. `grep -rn "nothing to read" tests/`
 returned zero lines, so deleting both paragraphs left the suite green — and
@@ -21,6 +21,16 @@ So each case asserts the pinned phrasing AND the absence of the loose one,
 following `tests/test_one_word_one_meaning.py:6`. A document can gain the
 corrected sentence and keep the wrong one two paragraphs down, which is how
 two answers ship at once.
+
+Phases 3 and 4 of #107 re-pointed both halves. The rule is §9 of the agent
+contract now, which every agent receives at startup, and each definition
+keeps only its own application — for `agents/warden.md` that a probe script
+and a scratch fixture are edits too, for `agents/smith.md` that it edits more
+than anyone and its own waiver example is the shape the gate reads a commit
+out of. So the four cases below assert one carrier, not three: a case
+asserting the same sentence in two files is the duplication the contract was
+written to end, and `tests/test_a_moved_rule_leaves_its_definition.py` is
+what now refuses it.
 """
 
 import os
@@ -28,7 +38,9 @@ import os
 from conftest import load_hook_module
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
-AGENTS = (("agents", "smith.md"), ("agents", "warden.md"))
+CONTRACT = ("skills", "agent-contract", "SKILL.md")
+SMITH = ("agents", "smith.md")
+CARRIERS = (CONTRACT,)
 
 
 def read(*parts):
@@ -41,27 +53,36 @@ def flat(*parts):
     return " ".join(read(*parts).split())
 
 
-def test_both_agent_files_route_file_edits_through_the_edit_tool():
-    """The instruction itself, in the two files a spawned agent reads."""
-    for parts in AGENTS:
+def test_the_rule_names_the_tool_and_pairs_its_two_reasons():
+    """The instruction itself, in each file that states it."""
+    for parts in CARRIERS:
         text = flat(*parts)
-        who = parts[-1]
+        who = "/".join(parts)
         assert "`Edit` tool" in text, f"{who} stopped naming the tool"
-        assert "two reasons that point the same way" in text, (
+        # The whole clause, which phase 4 could tighten and phase 3 could
+        # not. Two files stated the pairing in two spellings -- the contract's
+        # `Two reasons point the same way` and the smith's `for two reasons
+        # that point the same way` -- so the shared fragment was all either
+        # could be pinned to, and a sentence that kept the fragment while
+        # losing the count would have passed. One carrier means one spelling,
+        # and the split is settled by there being nothing left to disagree
+        # with rather than by choosing between them.
+        assert "Two reasons point the same way" in text, (
             f"{who} lost the pairing. One reason alone reads as a style "
             "preference, and the gate half is the one no other document says"
         )
 
 
-def test_both_agent_files_name_the_second_reason():
+def test_the_rule_names_the_second_reason():
     """Reason 1 is in `skills/implement/SKILL.md`; reason 2 is only here.
 
-    The warden never loads `implement`, so for that file this is the only
-    place either reason is stated at all.
+    The warden never loads `implement`, so for every agent this is the only
+    place either reason is stated at all — which is why it is a contract
+    section rather than a paragraph in one definition.
     """
-    for parts in AGENTS:
+    for parts in CARRIERS:
         text = flat(*parts)
-        who = parts[-1]
+        who = "/".join(parts)
         assert "no Bash command line exists" in text, (
             f"{who} lost reason 2 — that an edit made through the tool "
             "leaves the commit gate nothing to read"
@@ -69,16 +90,16 @@ def test_both_agent_files_name_the_second_reason():
         assert "nothing to read" in text, f"{who} lost the consequence"
 
 
-def test_both_agent_files_state_the_rule_the_gate_actually_applies():
+def test_the_rule_states_what_the_gate_actually_applies():
     """Round 1's finding 1: the mechanism, not either example of it.
 
     The absence half matters more than usual here. The loose diagnosis is
     plausible and was believed by two readers, so a file can gain the rule
     and keep the wrong explanation beside it.
     """
-    for parts in AGENTS:
+    for parts in CARRIERS:
         text = flat(*parts)
-        who = parts[-1]
+        who = "/".join(parts)
         assert "command word is `git`" in text, (
             f"{who} stopped saying what the reader counts. Without the "
             "command-word rule, a reader cannot tell why a whole fixture "
@@ -97,7 +118,7 @@ def test_both_agent_files_state_the_rule_the_gate_actually_applies():
             )
 
 
-def test_both_agent_files_name_the_branch_that_has_no_commit_in_it():
+def test_the_rule_names_the_branch_that_has_no_commit_in_it():
     """Round 2's finding 1: the command-word rule is one branch of two.
 
     A segment the reader cannot expand counts the same way, so `eval "$CMD"`
@@ -113,20 +134,22 @@ def test_both_agent_files_name_the_branch_that_has_no_commit_in_it():
     meets the prompt anyway — which is the failure this work item exists to
     remove, arriving through the fix for it.
     """
-    for parts in AGENTS:
+    for parts in CARRIERS:
         text = flat(*parts)
-        who = parts[-1]
+        who = "/".join(parts)
         assert "`eval`" in text, (
             f"{who} names only the command-word branch. A reader following "
             "it clears a patch that still stops the session"
         )
-        assert "cannot expand" in text, (
+        assert "reduces to without running the shell" in text or (
+            "cannot expand" in text
+        ), (
             f"{who} lost the rule behind the example — an `eval` mentioned "
             "without saying WHY it counts reads as a special case"
         )
 
 
-def test_neither_agent_file_claims_a_fact_about_the_reader_repository():
+def test_no_carrier_claims_a_fact_about_the_reader_repository():
     """Round 1's finding 2.
 
     These files ship as a plugin and are read inside repositories that have
@@ -134,9 +157,9 @@ def test_neither_agent_file_claims_a_fact_about_the_reader_repository():
     claim about the READER's repository, and it is false there. The memo
     records the same reasoning for keeping the line coordinate out.
     """
-    for parts in AGENTS:
+    for parts in (*CARRIERS, SMITH, ("agents", "warden.md")):
         text = flat(*parts)
-        who = parts[-1]
+        who = "/".join(parts)
         for loose in (
             "This repository's are",
             "and this one's are",
@@ -147,26 +170,77 @@ def test_neither_agent_file_claims_a_fact_about_the_reader_repository():
             )
 
 
-def test_the_warden_file_does_not_itself_trip_the_commit_gate():
-    """A patch to this file must not become the thing it warns about.
+def test_the_reviewer_keeps_the_half_that_makes_the_rule_its_own():
+    """What stayed in `agents/warden.md` when §9 took the rest.
 
-    `agents/warden.md` carries a `[no-review]` waiver example in its probe
-    table, and that line alone is counted. The whole file is not, because the
-    single quotes around the example are balanced by the rest of the
-    document — and THAT is what an edit here can break.
+    A reviewer edits less than an implementer and would read a rule about
+    edits as somebody else's. Its paragraph is the one that names what its
+    own edits are — a probe script, a scratch fixture, a file patched to see
+    whether a finding reproduces — and without it the contract's §9 arrives
+    at an agent that does not think it is addressed.
+    """
+    warden = flat("agents", "warden.md")
+    assert "§9" in warden, "the reviewer can no longer reach the rule"
+    assert "scratch fixture" in warden, (
+        "the reviewer stopped being told which of its own acts are edits"
+    )
 
-    Measured while fixing round 1: adding one paragraph containing a single
-    apostrophe (`the fragment's own quoting`) flipped the quote state for
-    everything after it and pushed the waiver row into command position, so
-    the whole file started tripping. `agents/smith.md` is deliberately not
-    asserted here — it has tripped at its own waiver example since before
-    this work, and pinning that would be pinning a defect as a requirement.
+
+def test_the_implementer_keeps_the_half_that_makes_the_rule_its_own():
+    """What stayed in `agents/smith.md` when §9 took the rest.
+
+    The reviewer's half answers *are my acts edits at all*. The smith never
+    had that doubt — it is the agent that edits — so its half is the other
+    end of the same reason: which of the documents in front of it is the one
+    the gate reads a commit out of. Its own routing paragraph is that
+    document, and the RIDER beside it is why the example stays.
+    """
+    smith = flat(*SMITH)
+    assert "§9" in smith, "the implementer can no longer reach the rule"
+    assert "waiver" in smith and "RIDER" in smith, (
+        "the smith stopped being told that its own waiver example is the "
+        "patch the gate reads a commit out of, which is the one instance of "
+        "§9 that is nobody else's"
+    )
+
+
+def test_the_contract_file_does_not_itself_trip_the_commit_gate():
+    """A patch to the file carrying the waiver example must not become the
+    thing it warns about.
+
+    Re-pointed in phase 3 of #107. `agents/warden.md` used to carry the
+    `[no-review]` example in its probe table and was asserted here; §8 of the
+    contract carries it now. The hazard did NOT come with it unchanged, and
+    saying it had would have been a case that cannot fail — measured while
+    re-pointing: the warden's apostrophe mutation (`the fragment's own
+    quoting`, which flipped its quote state and pushed its table row into
+    command position) leaves the contract clean at 21 apostrophes, whether
+    the paragraph goes above §1 or above §8.
+
+    What differs is the example itself. The warden's table row spelled the
+    waiver AND the command it waives on one line, so a quote flip had a
+    `git commit` to promote. §8 writes the token without a command after it,
+    so today there is nothing to promote. That is the state this case holds:
+    the realistic edit is a future one completing the example, and it trips
+    immediately. `agents/smith.md` is deliberately not asserted — it has
+    tripped at its own waiver example since before this work, and pinning
+    that would be pinning a defect as a requirement.
     """
     gate = load_hook_module("commit-review-gate.py", "crg_edit_tool")
-    text = read("agents", "warden.md")
-    assert not gate._hides_a_commit(text), (
-        "agents/warden.md now reads as carrying a commit. An odd number of "
-        "apostrophes in added prose flips the reader's quote state, which "
-        "puts the `[no-review]` example in its probe table into command "
-        "position — a session patching this file would meet the gate"
+    text = read(*CONTRACT)
+    assert ": '[no-review]';" in text, (
+        "the example this case exists to guard is gone; the case would pass "
+        "on a file that no longer carries the hazard"
     )
+    assert not gate._hides_a_commit(text), (
+        "the agent contract now reads as carrying a commit. An odd number of "
+        "apostrophes in added prose flips the reader's quote state, which "
+        "puts the `[no-review]` example in §8 into command position — a "
+        "session patching this file would meet the gate"
+    )
+
+
+def test_the_reviewer_file_still_does_not_trip_the_gate():
+    """The warden lost the waiver example with §8, and must stay clean."""
+    gate = load_hook_module("commit-review-gate.py", "crg_edit_tool")
+    assert not gate._hides_a_commit(read("agents", "warden.md"))
