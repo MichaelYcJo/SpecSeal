@@ -14,15 +14,16 @@ merge commit (`docs/branch-and-release.md`).
 
 **One work item, and the reason is that a rule in this tree binds no session.**
 What is in force is the installed plugin, not this repository: measured
-2026-09-03, that clone sits on `main` at the `v0.5.0` tag while this tree is on
-a 0.6.0 branch, and no `.claude/` here overrides it. So the contract changes
+2026-09-03, what loads is the version cache under `~/.claude/plugins/cache/`, copied
+from the marketplace clone at the `v0.5.0` tag, while this tree is on a 0.6.0
+branch, and no `.claude/` here overrides it. So the contract changes
 nothing a session does until `v0.6.0` is tagged and the plugin updated.
 Shipping it by itself is what makes everything after it built **under** the
 contract rather than beside it.
 
 - [ ] **#107 — the rules that go to every agent move out of the prompt and into the plugin.** Framed at `c48bf65`; six phases, one smith spawn each. Its review chain is the last one this repository runs under hand-typed spawn prompts, so its segments are the before-figure everything in 0.7.0 is measured against.
 - [ ] #98 — three sentences say `-z` is what turns git's path quoting off. One line, and it rides #107's branch.
-- [ ] release: gather the changelog, fold the ledger, move `plugin.json`, merge to `main`, tag `v0.6.0` — **and update the installed plugin**, which is the step that actually puts the contract in force.
+- [ ] release: gather the changelog, fold the ledger, move `plugin.json`, merge to `main`, tag `v0.6.0` — **and update the installed plugin, then `/reload-plugins`** — that pair is what actually puts the contract in force. Preloaded skill bodies are read at session start and at `/reload-plugins`, never at spawn.
 
 ## 0.7.0 — the first version built under the contract
 
