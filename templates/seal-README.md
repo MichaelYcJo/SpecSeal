@@ -76,10 +76,11 @@ seal/
 │   └── <work-item-id>.md  one work item's rows while it is in development —
 │                          folded into ledger.md at the release, then removed
 ├── config.md            what this repository says about itself, one row per
-│                        item — the pull request language, and `Mode`, which
-│                        `seal mode` reads and writes. Optional: no file and
-│                        no row both mean the default, and `Mode` has none —
-│                        an absent one is filled in from where the root is
+│                        item — `Commit and pull request language`,
+│                        `Record language`, and `Mode`, which `seal mode`
+│                        reads and writes. Optional: no file and no row both
+│                        mean the default, and `Mode` has none — an absent
+│                        one is filled in from where the root is
 ├── parity.md            migration config, only where one is declared
 ├── follow-up.md         schedulable items in a repository with no tracker
 └── specs/<work-item-id>/  one work item, whole

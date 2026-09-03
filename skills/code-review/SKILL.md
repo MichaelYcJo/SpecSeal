@@ -17,6 +17,25 @@ review. The default assumption is **"this code has defects"** — try to find
 them, not to prove their absence. An ungrounded LGTM is forbidden; when
 uncertain, write a question, not a pass.
 
+## The language the round records are written in
+
+The prose in `rounds/round-N.md` — its cell contents and the text beneath its
+tables — follows `Record language` in `config.md`, English when the row is
+absent. The root is `<repo>/seal/` where that directory exists and
+`$(git rev-parse --git-common-dir)/seal/` otherwise.
+
+What stays English regardless: every field name, section heading and
+vocabulary word the checkers match, listed in `templates/config.md` under
+*What no row governs*. `chain_check.py` reads those strings literally, so a
+translated `## Verdicts` or `Verdict` column is not a translation — it is a
+record the checker cannot read.
+
+**The report you post to the pull request is not a record.** It is prose for
+whoever opens that pull request, and follows `Commit and pull request
+language` instead, per `commit-pr-convention`. Posting and recording are
+separate acts producing different texts, which is why the two rows split
+here.
+
 ## Two stages, in order
 
 1. **Spec compliance** — actual code vs. the written spec (`docs/` policies
