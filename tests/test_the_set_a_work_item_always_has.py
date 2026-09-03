@@ -77,7 +77,6 @@ KNOWN_PROSE = {
     ("agents", "smith.md"): frozenset(
         {
             "A two-file wording change to an agent's persona is over it at the first",
-            "call; run the cases from one file in one command. A round is mostly",
         }
     ),
 }
