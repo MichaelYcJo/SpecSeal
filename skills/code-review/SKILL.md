@@ -205,6 +205,14 @@ before round 1 (`docs/review-handoff-protocol.md`): coordinates rather than
 prose, each fact labelled. The rule decides which to reach for while both
 options exist.
 
+**Read that file's *What every spawn prompt carries* section before writing
+one.** It holds the half of a prompt that does not change between rounds —
+the probe rules, the exit-code rule, what not to run, what to hand back — and
+it is there because that half was retyped from memory every round and drifted
+without a trace: one rule arrived at round 2 of a seven-round chain and round
+1 ran without it. The prompt is then left holding only what is specific to
+this round.
+
 ## Orchestrator: the run ends with a verifying round
 
 A round's findings are closed after it ends, by whoever writes the fixes. Every

@@ -382,6 +382,90 @@ owner's answer to Q1 of
 `seal/specs/1788224363-a-subagent-rediscovers-what-the-session-established/questions.md`.
 The bars above are the orchestrator's, applied knowing the segment kind.
 
+## What every spawn prompt carries, until the definitions carry it
+
+The section above says what a handoff owes about the *work*. This one says
+what it owes about the *method*, and it exists because that half is retyped
+from memory every time.
+
+**This is an interim home.** These belong in the agent definitions and in a
+contract file all of them read — issue #107 — and they sit here until that
+lands, because a rule kept only in whoever last wrote a prompt is a rule that
+goes missing without a trace. It already has: `read exit codes directly,
+never through a pipe` arrived at round 2 of one work item and round 1 ran
+without it, and the `uv` venv line arrived at round 3 after two rounds each
+rediscovered the same thing. Nothing recorded either.
+
+### Every agent
+
+- **Read exit codes directly, never through a pipe.** `cmd >/dev/null 2>&1;
+  echo $?` — never `cmd | tail; echo $?`, which reports the pipe's status and
+  is always 0. Written out in both forms on purpose: the failure is a habit,
+  so the right form has to be as easy to copy as the wrong one. An
+  orchestrator that had put this line in every prompt it wrote then broke it
+  itself and committed the wrong value.
+- **Do not run the full suite, repository-wide lint, or a typecheck.** The
+  broad gate is the orchestrator's, once, after the rounds settle. Label them
+  `unverified` naming that answerer.
+- **Do not push, do not open a pull request, do not spawn another agent.**
+- **Label what was executed apart from what was read**, and name who answers
+  what was left unverified.
+
+### The warden
+
+- **Work in a `git clone --no-local` of the repository at the target SHA, and
+  only there.** Read-only commands against the user's checkout are fine;
+  never write in it, and say plainly if that is broken.
+- **`pytest` is not installed for the system interpreter** — make a `uv` venv
+  in the clone.
+- **Probes are named `test_tmp_*`, run once, deleted**, and git is driven
+  from Python where a probe needs a repository.
+- **Write nothing into `rounds/`, leave no review mark, post nothing.**
+- **The report**: the `code-review` findings shape, `file:line` on every
+  finding, a paste-ready fix for each 🔴/🟡, sections for regression tests to
+  plant and for facts for the ledger, findings from reading and from
+  execution labelled apart, the line `Needs a fix: no` or `Needs a fix: yes —
+  <what>`, and a proof block.
+- **On a verifying round**, re-derive the previous round's closures rather
+  than taking them; if one did not close, say so and name what reproduces.
+
+### The smith
+
+- **Frame before building** — `spec.md`, `plan.md`, `questions.md`,
+  `overview.md`, `changelog.md` and a ledger fragment, before the first line
+  of implementation.
+- **Confirm the facts the prompt hands over rather than taking them.** Two
+  spawn prompts in one session handed over a false one each, and the smith
+  caught both by measuring.
+- **Mutation-test every unit added, one at a time, before handing over.**
+- **Hand back** what was built, what was measured, what was declined and why,
+  the branch head SHA, and every open question with the default built to.
+
+### The method, which is neither of the above
+
+Four rules the review chain paid for, pasted into every prompt after the
+round that produced them:
+
+1. **A defect belongs to a class — enumerate the class, do not fix the
+   coordinate.** One work item closed a single class three times, one name
+   apart each time, because each fix was aimed where the finding pointed.
+2. **A defence resting on a platform guarantee is not verified until the
+   guarantee is removed and the code still refuses.** Seven rounds and a full
+   local gate on one operating system missed a record leaving the root.
+3. **A fix that changes what a person sees documents it AND pins it in the
+   same commit.** *Nothing raises* is not the claim *says this*.
+4. **A new case is not planted until it has been seen red.** Three
+   consecutive work items each produced a case that passed against the very
+   defect it was written for, and reverting the fix is the only thing that
+   has ever caught one.
+
+### What a prompt is left holding
+
+The branch and base, the target SHA and what the diff contains, the
+acceptance criteria, the class to enumerate *for this change*, the shapes to
+try to break, corrections the orchestrator has to hand over, and any state
+the agent needs. Everything specific, nothing general.
+
 ## Conformance
 
 A tool claiming to support this protocol:
