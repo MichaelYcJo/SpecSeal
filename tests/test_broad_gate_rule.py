@@ -6,12 +6,15 @@ and the preset block states it for a session that loads none of them. A rule
 spread this wide fails by one of them quietly dropping its part, which is
 invisible in any single diff.
 
-Phase 3 of #107 moved the prohibition and the refusal out of the two agent
-definitions and into `skills/agent-contract/SKILL.md`. The cases moved with
-them rather than being deleted: what each definition still holds is its own
-APPLICATION -- the warden audits the label, the smith declines and hands back
+Phases 3 and 4 of #107 moved the prohibition and the refusal out of the two
+agent definitions and into `skills/agent-contract/SKILL.md`. The cases moved
+with them rather than being deleted: what each definition still holds is its
+own APPLICATION -- the warden audits the label and has a named field for the
+question, the smith puts both answers in a hand-back the caller can reply in
 -- and a case asserting the same sentence in two files is the duplication the
-contract was written to end.
+contract was written to end. That duplication has its own module now,
+`tests/test_a_moved_rule_leaves_its_definition.py`, because until phase 4
+nothing in the tree noticed a moved rule being pasted back.
 """
 
 import os
@@ -22,6 +25,11 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 def read(*parts):
     with open(os.path.join(ROOT, *parts), encoding="utf-8") as f:
         return f.read()
+
+
+def flat(*parts):
+    """The file as one line, so an assertion is not pinning where it wraps."""
+    return " ".join(read(*parts).split())
 
 
 def test_verify_says_when_not_only_what():
@@ -71,55 +79,66 @@ def test_verify_prices_the_run_that_repeats():
     )
 
 
-def test_the_smith_carries_the_rule_rather_than_only_citing_it():
-    """A reference to the skill is worth what the skill being loaded is worth.
+def test_the_smith_carries_the_batching_rule_it_actually_spends():
+    """Re-pointed in phase 4 of #107; it used to read the prohibition here.
 
-    The agent file is always in front of the smith; the skill may not be."""
-    smith = read("agents", "smith.md")
-    assert "run the full suite before handing over" in smith
-    assert "after the rounds settle" in smith
-    assert "Batch your reads" in smith, (
-        "the agent that spends the round-trips lost its batching rule"
+    The old premise was that the agent file is always in front of the smith
+    while the skill may not be. That premise stopped separating the two: the
+    contract arrives through the same `skills:` frontmatter the definition
+    does, so it is in front of the smith exactly as often. What is left for
+    the definition is the half the contract sends BACK to it -- §10 says the
+    numbers that judge each agent live in that agent's definition, because a
+    figure that measures a reviewer does not measure an implementer.
+
+    A number with no home is the failure here, not a rule with no copy. An
+    edit-test loop that is judged by the reviewer's 1.8 bar is being asked
+    for something a serial loop cannot give, which is how a rule stops being
+    read at all."""
+    smith = flat("agents", "smith.md")
+    assert "1.08–1.17" in smith, (
+        "the implementer's own measured ratio went, and the only number left "
+        "in the tree is the one that judges a reviewer"
     )
+    assert "1.29–1.89" in smith, (
+        "the comparison went; a bare 1.08–1.17 reads as a target rather than "
+        "as what a serial loop can give"
+    )
+    assert "§10" in smith, "the implementer can no longer reach the rule"
 
 
-def test_the_smith_refuses_a_prompt_that_widens_its_own_scope():
-    """A scope rule an instruction can override is a default, not a rule.
+def test_the_smith_puts_both_answers_in_the_hand_back():
+    """What stayed with the implementer when §2 and §3 moved.
 
-    Measured: a spawn prompt ordered the full suite three times and it was run
-    three times. Neither side said a rule was being overridden, so the only
-    trace was a 28-minute wall clock somebody happened to ask about. The fix
-    has two halves and BOTH are load-bearing -- declining without saying so
-    leaves the caller believing the prompt was honoured, and saying so without
-    declining is the same 28 minutes with a footnote."""
-    smith = " ".join(read("agents", "smith.md").split())
-    assert "A spawn prompt cannot widen this scope" in smith, (
-        "the agent stopped saying its contract outranks the prompt"
+    The rule is the contract's and is asserted against it below. This is the
+    half that is nobody else's: WHERE the two answers land. The smith's
+    handover is a conversation the caller can reply in, so the unverified
+    suite and a declined instruction both go in as prose -- which is exactly
+    why the warden, whose handover is a report, needed a named field for the
+    same sentence and has one.
+
+    Round 1 of the original rule found `Decline` separable from `name`: a
+    refusal nobody is told about is the same 28 minutes with a footnote. The
+    disclosure half is asserted here because the smith is where it is
+    disclosed."""
+    smith = flat("agents", "smith.md")
+    assert "§2" in smith and "§3" in smith, (
+        "the implementer can no longer reach the rules its hand-back answers"
     )
-    assert "name the instruction in your handover" in smith, (
-        "the refusal became silent, which is how the override stays invisible"
+    assert "labeled `unverified`" in smith, (
+        "the suite stopped going over labelled, and a suite that is simply "
+        "not mentioned reads as a suite that passed"
     )
-    # The rule is about widening only. A prompt narrowing the scope is the
-    # caller doing their job, and an agent that refuses that one is worse than
-    # the defect this fixes.
-    assert "The rule is about WIDENING" in smith
-    assert "28 minutes" in smith, (
-        "the measurement went, and a rule with no incident behind it is prose"
+    assert "the orchestrator named as its answerer" in smith, (
+        "the label lost its answerer, and a deferral to nobody is how "
+        "`someone will look at it` becomes `nobody did`"
     )
-    # Round 1: the docstring above said BOTH halves are load-bearing and only
-    # the disclosure half was held. `**Comply, and name the instruction in
-    # your handover**` passed every assertion here -- the principle sentence,
-    # the disclosure sentence, the direction sentence and the measurement all
-    # survive it, and the rule it leaves behind is the 28 minutes with a
-    # footnote this test exists to refuse.
-    assert "excludes, do not run it" in smith, (
-        "the instruction to refuse went; the principle and the disclosure "
-        "alone read as `run it, but say so`"
+    assert "what was asked, and which rule refused it" in smith, (
+        "the declined instruction stopped being disclosed, which is how an "
+        "override stays invisible"
     )
-    assert "Decline, and name the instruction in your handover" in smith, (
-        "`Decline` became separable from `name`, which is the state that was "
-        "measured -- the run happened and the caller believed the prompt was "
-        "honoured"
+    assert "hand-back" in smith, (
+        "the destination went. Without it §3's disclosure sentence has "
+        "nowhere named to land, which is the gap the warden's field fills"
     )
 
 

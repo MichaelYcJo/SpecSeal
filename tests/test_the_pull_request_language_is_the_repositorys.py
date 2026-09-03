@@ -1161,12 +1161,13 @@ ROW_READERS = [
     ("skills", "implement", "SKILL.md"),
     ("skills", "commit-pr-convention", "SKILL.md"),
     ("skills", "code-review", "SKILL.md"),
-    # Phase 3 of #107 re-pointed the warden's row here: the record-language
-    # section was in two definitions in near-identical words and in the third
-    # not at all, and it is §11 of the agent contract now. `agents/smith.md`
-    # still carries its copy; phase 4 moves that one.
+    # Phases 3 and 4 of #107 re-pointed both definitions' rows here: the
+    # record-language section was in two of them in near-identical words and
+    # in the third not at all, and it is §11 of the agent contract now. That
+    # neither definition kept a copy is held by
+    # `tests/test_a_moved_rule_leaves_its_definition.py`, so removing a row
+    # from this list is a move rather than a deletion.
     ("skills", "agent-contract", "SKILL.md"),
-    ("agents", "smith.md"),
 ]
 
 

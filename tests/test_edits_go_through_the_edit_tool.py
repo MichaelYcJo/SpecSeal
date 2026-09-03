@@ -22,11 +22,15 @@ following `tests/test_one_word_one_meaning.py:6`. A document can gain the
 corrected sentence and keep the wrong one two paragraphs down, which is how
 two answers ship at once.
 
-Phase 3 of #107 re-pointed the warden's half. The rule is §9 of the agent
-contract now, which every agent receives at startup, and `agents/warden.md`
-keeps only its own application — that a probe script and a scratch fixture
-are edits too. `agents/smith.md` still carries its copy and is still asserted
-here; phase 4 is where that one moves.
+Phases 3 and 4 of #107 re-pointed both halves. The rule is §9 of the agent
+contract now, which every agent receives at startup, and each definition
+keeps only its own application — for `agents/warden.md` that a probe script
+and a scratch fixture are edits too, for `agents/smith.md` that it edits more
+than anyone and its own waiver example is the shape the gate reads a commit
+out of. So the four cases below assert one carrier, not three: a case
+asserting the same sentence in two files is the duplication the contract was
+written to end, and `tests/test_a_moved_rule_leaves_its_definition.py` is
+what now refuses it.
 """
 
 import os
@@ -35,10 +39,8 @@ from conftest import load_hook_module
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 CONTRACT = ("skills", "agent-contract", "SKILL.md")
-# Phase 4 moves this one into the contract and re-points the cases below on
-# the same terms. Until then the smith's copy is real and stays held.
 SMITH = ("agents", "smith.md")
-CARRIERS = (CONTRACT, SMITH)
+CARRIERS = (CONTRACT,)
 
 
 def read(*parts):
@@ -151,7 +153,7 @@ def test_no_carrier_claims_a_fact_about_the_reader_repository():
     claim about the READER's repository, and it is false there. The memo
     records the same reasoning for keeping the line coordinate out.
     """
-    for parts in (*CARRIERS, ("agents", "warden.md")):
+    for parts in (*CARRIERS, SMITH, ("agents", "warden.md")):
         text = flat(*parts)
         who = "/".join(parts)
         for loose in (
@@ -177,6 +179,24 @@ def test_the_reviewer_keeps_the_half_that_makes_the_rule_its_own():
     assert "§9" in warden, "the reviewer can no longer reach the rule"
     assert "scratch fixture" in warden, (
         "the reviewer stopped being told which of its own acts are edits"
+    )
+
+
+def test_the_implementer_keeps_the_half_that_makes_the_rule_its_own():
+    """What stayed in `agents/smith.md` when §9 took the rest.
+
+    The reviewer's half answers *are my acts edits at all*. The smith never
+    had that doubt — it is the agent that edits — so its half is the other
+    end of the same reason: which of the documents in front of it is the one
+    the gate reads a commit out of. Its own routing paragraph is that
+    document, and the RIDER beside it is why the example stays.
+    """
+    smith = flat(*SMITH)
+    assert "§9" in smith, "the implementer can no longer reach the rule"
+    assert "waiver" in smith and "RIDER" in smith, (
+        "the smith stopped being told that its own waiver example is the "
+        "patch the gate reads a commit out of, which is the one instance of "
+        "§9 that is nobody else's"
     )
 
 

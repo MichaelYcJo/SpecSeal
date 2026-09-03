@@ -66,7 +66,20 @@ def test_the_implementer_documents_point_at_the_section():
     for parts in (("skills", "implement", "SKILL.md"), ("agents", "smith.md")):
         text = flat(*parts)
         assert "handoff before round 1" in text, "/".join(parts)
-        assert "assertion nobody has opened" in text, "/".join(parts)
+
+    # Phase 4 of #107 re-pointed the second half. The rule that a fact with
+    # no coordinate and no label is an assertion nobody has opened is §5 of
+    # the agent contract, which every agent receives at startup -- the smith
+    # was one of two definitions stating it and the scribe stated it nowhere.
+    # What stays in the definitions is the ROUTE: the section a prompt's
+    # facts arrive under, which is what this case is about.
+    assert "assertion nobody has opened" in flat(
+        "skills", "agent-contract", "SKILL.md"
+    ), (
+        "the contract stopped saying what a fact with neither a coordinate "
+        "nor a label is, so the route above leads to a section whose rule "
+        "nothing states"
+    )
 
 
 # --- progress observability -------------------------------------------------
@@ -107,11 +120,27 @@ def test_the_smiths_contract_does_not_demand_what_a_serial_loop_cannot_give():
     """The same rule lands on the smith with the caveat that keeps it
     honest: an edit-test loop is inherently serial (1.08-1.17 measured
     against 1.29-1.89 for review rounds), and a rule that ignores that is a
-    demand the work cannot meet — which is how rules stop being read."""
+    demand the work cannot meet — which is how rules stop being read.
+
+    Re-pointed in phase 4 of #107. The rule and the caveat are §10's, which
+    the smith receives at startup; what §10 sends back to the definition is
+    the NUMBER, because a figure that measures a reviewer does not measure an
+    implementer. So the caveat is asserted against the contract and the
+    number against the definition, which is where each of them can go missing
+    without the other noticing."""
+    contract = flat("skills", "agent-contract", "SKILL.md")
+    assert "An edit-test loop is serial" in contract, (
+        "the contract stopped conceding what a serial loop cannot give, so "
+        "the batching rule became a demand the work cannot meet"
+    )
+    assert "in that agent's definition" in contract, (
+        "the contract stopped sending the numbers back to the definitions, "
+        "and a figure with no home is one that measures the wrong agent"
+    )
     smith = flat("agents", "smith.md")
-    assert "Independent reads and probes go out together" in smith
-    assert "inherently serial" in smith
-    assert "not forced to fake a batch" in smith
+    assert "1.08–1.17" in smith
+    assert "1.29–1.89" in smith
+    assert "never obliged to fake a batch" in smith
 
 
 # --- the per-segment bars (work item 1788277657, round 1's tests-todo) ------
