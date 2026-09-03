@@ -27,6 +27,7 @@ substrings are chosen to be. Each one below picks a phrase that cannot survive
 the drift it is guarding against.
 """
 
+import glob
 import os
 import re
 
@@ -302,4 +303,50 @@ def test_the_cost_of_a_judgment_over_a_count_is_stated():
     assert "two people can disagree" in skill, (
         "the trade is a judgment for a measurement, and a document that does "
         "not say so reads as though nothing was given up"
+    )
+
+
+def test_the_two_todo_files_sit_where_the_release_guard_looks():
+    """A glob is a claim about layout, and nothing checked the layout.
+
+    `.github/scripts/fold_ledger.py` refuses a release while any work item
+    has an open row in `evidence-todo.md`, and it finds those files with
+    `seal/specs/*/evidence-todo.md`. Two work items kept theirs one
+    directory deeper, under `rounds/`, so the guard was blind to two of five
+    — silently, because a guard that finds nothing and a guard that looks in
+    the wrong place say the same thing (issue #96).
+
+    `docs/review-handoff-protocol.md` puts the two todo files at the work
+    item's own level and gives the reason: `round-N` is the only member of
+    the set that is plural and unbounded, so it gets a directory and they do
+    not.
+
+    This pins the layout the glob assumes rather than the glob, because the
+    glob is one line and the layout is written by hand once per work item.
+    """
+    stray = sorted(
+        glob.glob(
+            os.path.join(ROOT, "seal", "specs", "*", "*", "**", "tests-todo.md"),
+            recursive=True,
+        )
+        + glob.glob(
+            os.path.join(ROOT, "seal", "specs", "*", "*", "**", "evidence-todo.md"),
+            recursive=True,
+        )
+    )
+    assert not stray, (
+        "a todo file sits below the work item's own directory, where "
+        "`fold_ledger.py`'s glob cannot see it: "
+        f"{[os.path.relpath(p, ROOT) for p in stray]}. The release guard "
+        "reads `seal/specs/*/evidence-todo.md`, one level only"
+    )
+    assert glob.glob(os.path.join(ROOT, "seal", "specs", "*", "evidence-todo.md")), (
+        "no evidence-todo file at the work-item level at all — this case is "
+        "blind, and would stay green if every one of them moved. "
+        "`fold_ledger.py` globs this filename and no other"
+    )
+    assert glob.glob(os.path.join(ROOT, "seal", "specs", "*", "tests-todo.md")), (
+        "no tests-todo file at the work-item level either. The stray glob "
+        "above covers both names, so both need a live specimen or half of it "
+        "is unexercised"
     )
