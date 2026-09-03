@@ -15,10 +15,17 @@ keeps the same root at `$(git rev-parse --git-common-dir)/seal/`, under the
 common git directory: every linked worktree of the clone shares it, nothing
 under it is ever a commit candidate, and no `.gitignore` line is needed.
 What local mode gives up is CI — the pull-request checks read committed
-files — and any other machine, which starts empty. Switching is a move and
-a commit from the repository root, spelled out in the plugin README's
-*Shared or local* section, with both paths asked of git so the commands
-land the same from a subdirectory: local → shared is
+files — and any other machine, which starts empty. **Switching is
+`seal mode local` or `seal mode shared`**, which moves the root, stages the
+change, carries `.github/workflows/hygiene.yml` in or out where it can and
+says so where it cannot, and writes the mode into `config.md` beside this
+file; you commit. `seal mode` alone says
+where the root is and what that row claims, and `seal mode --check` — which
+the pull-request checks run — exits non-zero when the two disagree. The row
+is never read at runtime: the folder's location is the only signal, and the
+plugin README's *Shared or local* section has the by-hand move as well,
+with both paths asked of git so the commands land the same from a
+subdirectory: local → shared is
 `mv "$(git rev-parse --git-common-dir)/seal" "$(git rev-parse --show-toplevel)/seal"`,
 `git add "$(git rev-parse --show-toplevel)/seal"` and a commit; shared →
 local is `git rm -r --cached "$(git rev-parse --show-toplevel)/seal"`,
@@ -69,8 +76,10 @@ seal/
 │   └── <work-item-id>.md  one work item's rows while it is in development —
 │                          folded into ledger.md at the release, then removed
 ├── config.md            what this repository says about itself, one row per
-│                        item — the pull request language is the first one.
-│                        Optional: no file and no row both mean the default
+│                        item — the pull request language, and `Mode`, which
+│                        `seal mode` reads and writes. Optional: no file and
+│                        no row both mean the default, and `Mode` has none —
+│                        an absent one is filled in from where the root is
 ├── parity.md            migration config, only where one is declared
 ├── follow-up.md         schedulable items in a repository with no tracker
 └── specs/<work-item-id>/  one work item, whole

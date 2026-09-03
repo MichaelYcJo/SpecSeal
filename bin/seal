@@ -8,5 +8,7 @@
 # from any directory. Arguments pass straight through:
 #   seal export                   seal export --check
 #   seal export --output ~/keys   seal import seal-repo-2026-09-03.zip
+#   seal mode                     seal mode --check
+#   seal mode local               seal mode shared
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 exec python3 "$here/../skills/implement/scripts/seal.py" "$@"

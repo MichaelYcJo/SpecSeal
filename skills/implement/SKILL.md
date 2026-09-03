@@ -113,9 +113,12 @@ First, look for the 0.3.x layout. A repository still holding
 `.specseal/` or a top-level `specs/` is on the 0.3.x layout and committed the
 plugin's files, so it chose shared already: do not ask, say *"this repository
 is on the 0.3.x layout; start a new session and the plugin moves it into
-`<repo>/seal/`, or follow the README's by-hand sequence"*, and stop the
-bootstrap there. The session-start hook moves it, and the root it creates is
-the one this section would have asked about.
+`<repo>/seal/`, or follow the README's by-hand sequence — and `seal mode
+local` moves it out of the tree afterwards if that is what you wanted"*, and
+stop the bootstrap there. The session-start hook moves it, and the root it
+creates is the one this section would have asked about. Naming the command
+is what keeps *not asked* from meaning *not offered*: nobody who lands in
+shared mode without a question goes looking in a README for the way out.
 
 1. Ask, once, with one `AskUserQuestion` carrying two options, in this order:
 
@@ -146,6 +149,15 @@ the one this section would have asked about.
 
    Whichever answer, the mode is the place: the hooks read `<repo>/seal/` and
    then the common git directory, and a repository with both is shared.
+
+   **The answer is not a door that shuts.** `seal mode` reports where the
+   root is and `seal mode local` / `seal mode shared` moves it, carrying the
+   workflow file and writing the mode into `seal/config.md` on the way. Say
+   so in one line when you create the root, because this question is asked
+   once and the person answering it does not yet know what they will want.
+   Do **not** write that config row here: it has no default, an absent one is
+   not an error, and the first `seal mode` fills it in from where the folder
+   actually is.
 2. Say in three lines what you created, that its presence at that place is
    the opt-in, and what each part of the root is for. The layout is invisible
    otherwise: it appears in a diff the user did not request — or, in local
