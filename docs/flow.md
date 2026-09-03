@@ -10,18 +10,6 @@ Each release branch is cut from `main`; each ticket is a branch cut from the
 release branch and squashed back; the release branch merges into `main` as a
 merge commit (`docs/branch-and-release.md`).
 
-## 0.7.0 — records and measurement, and nothing else
-
-The channel a build phase has never had, built first; the machine that
-measures it, second. A change to `templates/`, `agents/` or `skills/` binds
-no session until the release is tagged and the plugin updated, so anything
-built beside these three is built without them — which is why 0.7.0 is three
-items and not the ten once staged here.
-
-- [x] **#121 + #119, one branch — a build phase gets `round-N`'s equivalent, and the record says what it was asked.** `#121`: the review chain hands the next round a committed record (`rounds/round-N.md`) and a build phase hands the next phase a conversation — measured on #107, where four discoveries reached the next phase only because the orchestrator retyped them by hand and a fifth reached nobody and a rule was deleted. `#119`: the record also says what the segment was asked and under which version of the rules it ran. They land in the same files (`templates/sdd-plan.md`, `templates/sdd-round.md`, `agents/smith.md`), so one branch. #119 carries two items marked "needs a second look" before either is built.
-- [x] **#109 — measuring a segment and recording what it says becomes automatic.** After #121+#119, so it measures a channel that already exists rather than building the channel and the measurement at once. Its third part — the release closes this version's log and opens the next — is what makes 0.8.0's measurement issue exist without anybody opening it.
-- [ ] #89 — the log, until #109 replaces it with a versioned one.
-
 ## 0.8.0 — the first version built under both machines
 
 What 0.6.0 (the contract) and 0.7.0 (the phase channel and automatic
@@ -62,3 +50,4 @@ exist.
 1. Branch from the release branch; write `routing.md` before the first edit.
 2. spec · plan (framer, once #84 exists; the session until then) → smith → warden rounds → sealer → pull request.
 3. The pull request body carries `Closes #N`; the release workflow closes the ticket when the release reaches `main`.
+
