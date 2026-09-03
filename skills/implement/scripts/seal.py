@@ -1,0 +1,885 @@
+#!/usr/bin/env python3
+"""Carry a local-mode root out of a clone and back into another one.
+
+In local mode the ledger and the work-item records live under the common git
+directory, so a new machine or a re-clone starts with nothing and CI's checks
+cannot run. That is the mode's whole trade-off
+(`docs/one-root-by-lifetime.md`, "Shared or local"), and without a way to
+carry a copy it reads as *lose it* rather than *take a copy*. This is that
+way:
+
+  seal export                 write the root to a zip beside the clone
+  seal export --check         the release reminder; writes nothing
+  seal import <zip>           merge a zip's records in, overwriting nothing
+
+**The root is its own directory, and that is what makes the export safe.**
+Beside it under the git directory sit the smith mark, the worktree choices,
+the review and parity marks, the throwaway opt-out, any lease file and this
+command's own state. None of that belongs to another machine, and none of it
+is in the zip — not because a list is maintained here, but because the export
+walks the root and nothing else. A symbolic link inside the root is the one
+way back out, so links are skipped and named rather than followed.
+
+**A zip is untrusted input**, and `ZipFile.extractall` is not used on it.
+What that buys is narrower than the usual telling, so it is written down
+measured rather than repeated: on the CPython this ships on (3.12 to 3.14,
+checked 2026-09-03) `extractall` already strips `..` and a leading `/` from a
+member's name, and writes a link entry as an ordinary file. It is **not** a
+path-traversal sink there.
+
+What actually disqualifies it, in order:
+
+  1. **it overwrites**, which is the one rule this command exists to keep;
+  2. it writes members this format has no place for — a name like
+     `a\\..\\..\\b.md` lands in the root as a literal file on POSIX;
+  3. it follows a symbolic link that is already a directory in the
+     destination, and so would a plain `open()`. That one is real and is
+     checked for by `linked_directory` below.
+
+So every member's name is checked first, one bad member refuses the whole
+archive before a byte is written, and each file is written at a path built
+from segments this module produced. The name checks are defence that does not
+depend on the standard library's sanitiser staying what it is today.
+
+**Import never overwrites and never asks.** A path that is not there is
+added. A path that is there with the same bytes is left alone. A path that is
+there with different bytes gets the incoming copy beside it as
+`<name>.incoming<ext>` — `ledger/<id>.incoming.md` beside
+`ledger/<id>.md` — and the collision is reported. A copy is not a sync: which
+of the two files is right is a judgement the person makes by reading them,
+and there is no answer this command could give that would not sometimes throw
+work away.
+
+**What the reminder counts, and what it does not.** `--check` prints
+`N work items changed since the last export`, where a work item is
+`specs/<id>/` together with `ledger/<id>.md`. Root-level files — `ledger.md`,
+`follow-up.md`, `config.md`, `parity.md` — are NOT counted, because the line
+the design specifies says *work items* and this command does not get to widen
+it. So a release whose only change was to `follow-up.md` reports 0. That gap
+is Q1 in the work item's `questions.md`, with the owner named; it is written
+here as well because this docstring is where the next reader meets the count.
+
+Exit codes: 0 done · 1 nothing was written, and the message says why. There
+is no third one; every refusal here names the file, the path, or the flag
+that gets past it.
+"""
+
+import argparse
+import datetime
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import zipfile
+
+sys.path.insert(
+    0,
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "hooks"),
+)
+import optin
+
+# The manifest's shape. An import refuses a number it does not know rather
+# than guessing at fields: a zip whose fields moved, read by a build that
+# assumes the old ones, merges records at the wrong paths — and that merge is
+# the operation this command exists to make safe.
+FORMAT = 1
+MANIFEST = "manifest.json"
+
+# Machine-local state, beside the root with everything else that must never
+# leave this clone. Inside the root it would ride into the next zip and, in
+# shared mode, into a commit.
+STATE = "specseal-last-export.json"
+
+# The root's sub-directory holding one file per work item in development.
+# `optin.WORK_ITEMS` is the other half of the pair; there is no constant for
+# this one because no hook opens it.
+LEDGER_DIR = "ledger"
+
+UNSAFE_IN_A_NAME = re.compile(r"[^A-Za-z0-9._-]")
+DRIVE = re.compile(r"^[A-Za-z]:")
+
+ADDED, IDENTICAL, COLLIDED = "added", "identical", "collided"
+
+
+# --- git, asked the way `hooks/optin.py` asks it ----------------------------
+
+
+def git(root, *args):
+    """`git -C root <args>` stdout, stripped, or "" for any failure.
+
+    Encoding named for the reason `optin.repo_root` names it: `text=True`
+    alone decodes with the parent's locale, git answers UTF-8, and a
+    repository under a path this locale cannot decode kills subprocess's
+    reader thread without the exception propagating.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", root, *args],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return (out or "").strip()
+
+
+def normalise_remote(url):
+    """A remote URL reduced to host and path, so two spellings of one
+    repository compare equal.
+
+    `git@example.com:org/repo.git` and `https://example.com/org/repo` are one
+    repository, and ssh at one machine with https at another is the ordinary
+    case — comparing the strings would refuse every real import.
+
+    The scheme goes, a `user@` prefix goes, the scp-style `host:path` colon
+    becomes `/` **only where there was no scheme** (so the port in
+    `https://example.com:8443/x` is left alone), a trailing `.git` and `/` go,
+    and the result is lowercased.
+
+    Wrong in the accepting direction would need two different repositories to
+    reduce to the same host and path, which is the same repository. Wrong in
+    the refusing direction costs a message naming `--allow-other-repo`. That
+    asymmetry is why this is done at all.
+    """
+    text = (url or "").strip()
+    if not text:
+        return ""
+    schemed = "://" in text
+    if schemed:
+        text = text.split("://", 1)[1]
+    authority = text.split("/", 1)[0]
+    if "@" in authority:
+        text = text.split("@", 1)[1]
+    if not schemed and ":" in text:
+        text = text.replace(":", "/", 1)
+    text = text.rstrip("/")
+    if text.endswith(".git"):
+        text = text[: -len(".git")]
+    return text.lower()
+
+
+# --- the root, and the one walk everything reads it through -----------------
+
+
+def resolve(cwd):
+    """(repository root, root in force, shared path, local path, mode).
+
+    Every path comes from `optin`: `home_at` says which root is in force and
+    `home_paths` says where each mode's root would be, so nothing here spells
+    `<repo>/seal` or `.git/seal` for itself.
+    """
+    repo = optin.repo_root(cwd)
+    if not repo:
+        return "", "", "", "", ""
+    shared, local = optin.home_paths(repo)
+    home = optin.home_at(repo)
+    mode = "shared" if home and home == shared else "local" if home else ""
+    return repo, home, shared, local, mode
+
+
+def root_files(home):
+    """([(relative path, disk path)], [skipped link]) for the whole root.
+
+    Relative paths are `/`-joined on every platform, because they go into a
+    zip that another machine reads. Both lists are sorted, so the same tree
+    always produces the same zip and the same digest.
+
+    **This is the only walk.** The zip's members and the digests the manifest
+    records come from this one list, and `test_the_records_can_be_carried_out_
+    and_in.py` asserts the zip's namelist against it. Two enumerations would
+    drift at the seam — the manifest recording what one of them saw while the
+    reminder compares against what the other sees — and the difference would
+    read as a work item somebody changed.
+
+    Symbolic links are excluded here rather than at the zip, so they are
+    absent from the members and from the digest together. Excluding them in
+    one place only would make every export of a repository holding one report
+    a change that nothing made. `os.walk` does not descend into a linked
+    directory by default; it is pruned as well so the exclusion is a decision
+    in this function rather than a default somewhere else.
+    """
+    files, links = [], []
+
+    def relative(path):
+        return os.path.relpath(path, home).replace(os.sep, "/")
+
+    for dirpath, dirnames, filenames in os.walk(home):
+        linked = [d for d in dirnames if os.path.islink(os.path.join(dirpath, d))]
+        for name in linked:
+            links.append(relative(os.path.join(dirpath, name)) + "/")
+        dirnames[:] = sorted(d for d in dirnames if d not in linked)
+        for name in sorted(filenames):
+            path = os.path.join(dirpath, name)
+            if os.path.islink(path):
+                links.append(relative(path))
+            else:
+                files.append((relative(path), path))
+    return sorted(files), sorted(links)
+
+
+def read_bytes(path):
+    with open(path, "rb") as handle:
+        return handle.read()
+
+
+def digest(entries):
+    """SHA-256 over a sorted [(relative path, disk path)].
+
+    The path, a NUL, the byte length, a NUL, the bytes — so a file renamed to
+    another file's name, or two files whose contents swap, change the digest.
+    Hashing the concatenated contents alone would not.
+    """
+    running = hashlib.sha256()
+    for rel, path in entries:
+        data = read_bytes(path)
+        running.update(rel.encode("utf-8"))
+        running.update(b"\0")
+        running.update(str(len(data)).encode("ascii"))
+        running.update(b"\0")
+        running.update(data)
+    return running.hexdigest()
+
+
+def work_item_of(rel):
+    """The work item a root-relative path belongs to, or "".
+
+    One work item writes in two places: its directory under `specs/` and its
+    ledger fragment under `ledger/`. Both count as the same item, so a release
+    that only wrote evidence rows is still a work item that changed.
+    """
+    parts = rel.split("/")
+    if len(parts) >= 3 and parts[0] == optin.WORK_ITEMS:
+        return parts[1]
+    if len(parts) == 2 and parts[0] == LEDGER_DIR and parts[1].endswith(".md"):
+        return parts[1][: -len(".md")]
+    return ""
+
+
+def work_item_digests(files):
+    """{work item id: digest}, built from the list the zip is built from."""
+    groups = {}
+    for rel, path in files:
+        item = work_item_of(rel)
+        if item:
+            groups.setdefault(item, []).append((rel, path))
+    return {item: digest(sorted(entries)) for item, entries in groups.items()}
+
+
+# --- export -----------------------------------------------------------------
+
+
+def manifest_of(repo, mode, files):
+    return {
+        "format": FORMAT,
+        "mode": mode,
+        "remote": git(repo, "config", "--get", "remote.origin.url"),
+        "head": git(repo, "rev-parse", "HEAD"),
+        "exported_at": datetime.datetime.now(datetime.UTC).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        ),
+        "items": work_item_digests(files),
+    }
+
+
+def unused(directory, stem, suffix):
+    """`<stem><suffix>`, then `<stem>-2<suffix>`, … — the first free path.
+
+    Both places that must never overwrite go through this: the zip's name and
+    the `.incoming` sibling an import leaves. The cap is a refusal to spin
+    rather than a limit anyone should reach.
+    """
+    for n in range(1, 1000):
+        tail = suffix if n == 1 else f"-{n}{suffix}"
+        path = os.path.join(directory, stem + tail)
+        if not os.path.exists(path):
+            return path
+    return ""
+
+
+def zip_stem(repo, when):
+    """`seal-<repo>-<date>` — the name a person recognises on a USB stick."""
+    base = UNSAFE_IN_A_NAME.sub("-", os.path.basename(repo.rstrip(os.sep))) or "repo"
+    return f"seal-{base}-{when}"
+
+
+def write_zip(path, home, files, manifest):
+    """The zip, written to a temporary name and renamed once it is complete.
+
+    A failed write leaves no half archive for someone to carry away and
+    discover on the machine that has nothing else.
+    """
+    partial = path + ".partial"
+    try:
+        with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr(MANIFEST, json.dumps(manifest, indent=2, sort_keys=True))
+            for rel, disk in files:
+                archive.write(disk, f"{optin.HOME}/{rel}")
+        os.replace(partial, path)
+    except BaseException:
+        try:
+            os.remove(partial)
+        except OSError:
+            pass
+        raise
+
+
+def export(args, cwd):
+    repo, home, shared, local, mode = resolve(cwd)
+    if not home:
+        return no_root(repo, shared, local)
+
+    if mode == "shared":
+        print(
+            f"shared mode: the records are committed at {display(repo, shared)}/, "
+            "so every clone and CI already have them."
+        )
+        print(
+            "A zip would be a second copy of what git carries, and nothing "
+            "would keep it current — so none was written."
+        )
+        print(
+            "\nTo switch this repository to local mode, from the repository "
+            "root:\n"
+            '  git rm -r --cached "$(git rev-parse --show-toplevel)/seal"\n'
+            '  mv "$(git rev-parse --show-toplevel)/seal" '
+            '"$(git rev-parse --git-common-dir)/seal"\n'
+            "then commit the removal."
+        )
+        return 1
+
+    files, links = root_files(home)
+    when = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+    stem = zip_stem(repo, when)
+
+    if args.output:
+        target = os.path.abspath(args.output)
+        if os.path.isdir(target):
+            target = unused(target, stem, ".zip")
+        directory = os.path.dirname(target) or "."
+        if inside(repo, target):
+            print(
+                f"note: {target} is inside the working tree, so `git add -A` "
+                "can commit it — which is what local mode keeps the records "
+                "out of the tree to avoid."
+            )
+    else:
+        # Beside the clone, never in it. The normal place to run this is the
+        # repository root, and an untracked zip there is one `git add -A` away
+        # from committing the records local mode exists to keep out of the tree.
+        directory = os.path.dirname(repo.rstrip(os.sep)) or "."
+        target = unused(directory, stem, ".zip")
+
+    if not target:
+        print(f"no free name for {stem}*.zip in {directory} — pass --output")
+        return 1
+    if not os.path.isdir(directory):
+        print(f"{directory} is not a directory — pass --output somewhere that is")
+        return 1
+
+    manifest = manifest_of(repo, mode, files)
+    try:
+        write_zip(target, home, files, manifest)
+    except OSError as exc:
+        print(f"the zip could not be written to {target}: {exc}")
+        return 1
+
+    write_state(repo, manifest)
+    print(f"wrote {target}")
+    print(
+        f"  {plural(len(files), 'file')} from {display(repo, home)}, "
+        f"{plural(len(manifest['items']), 'work item')}"
+    )
+    for rel in links:
+        print(
+            f"  skipped the symbolic link {optin.HOME}/{rel} — links are not followed"
+        )
+    print(
+        f"\nTake it in on the other machine with:\n  seal import {os.path.basename(target)}"
+    )
+    return 0
+
+
+# --- shared plumbing --------------------------------------------------------
+
+
+def plural(count, noun):
+    """`1 file` · `2 files`.
+
+    `check()` does NOT use this. Its line is quoted text — the design and the
+    issue's done-when list both write `N work items changed since the last
+    export` — so it stays that, and at N=1 it reads `1 work items`. Reading
+    the quoted line as a template with a grammar rule attached is a change to
+    an acceptance criterion, which is not this command's to make; the work
+    item's `overview.md` records it where the owner can overturn it.
+    """
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
+
+
+def display(repo, path):
+    """A path as the reader recognises it: relative to the repository and
+    `/`-joined where it is inside, absolute where it is not."""
+    if not path:
+        return ""
+    if inside(repo, path):
+        return os.path.relpath(path, repo).replace(os.sep, "/")
+    return path
+
+
+def inside(repo, path):
+    """Whether `path` is inside the repository's working tree.
+
+    `commonpath` rather than `startswith`, which reads `/repo-2/x` as being
+    inside `/repo`. The git directory of a main worktree is inside the tree by
+    this test, and that is correct: nothing here asks the question about it.
+    """
+    try:
+        return os.path.commonpath(
+            [os.path.abspath(repo), os.path.abspath(path)]
+        ) == os.path.abspath(repo)
+    except ValueError:  # different drives on Windows
+        return False
+
+
+def no_root(repo, shared, local):
+    if not repo:
+        print("not inside a git repository — seal works on a clone")
+        return 1
+    if optin.git_common_dir(repo) and os.path.isfile(
+        os.path.join(optin.git_common_dir(repo), optin.SCRATCH)
+    ):
+        print(
+            f"this repository is marked throwaway "
+            f"({optin.SCRATCH} under the common git directory), so every gate "
+            "reads it as one that never opted in. Remove the marker to work "
+            "with its records."
+        )
+        return 1
+    print("no seal/ here, so there is nothing to carry. It is looked for at:")
+    print(f"  {shared}   (shared mode)")
+    print(f"  {local}   (local mode)")
+    print(
+        "\nThe first time the smith works in a repository it asks which one, "
+        "and creates it."
+    )
+    return 1
+
+
+def state_path(repo):
+    common = optin.git_common_dir(repo)
+    return os.path.join(common, STATE) if common else ""
+
+
+def write_state(repo, manifest):
+    """Record the manifest of this export, after the zip is on disk.
+
+    Written even when `--output` sent the zip somewhere unusual: an export
+    happened, and the reminder measures against the last one wherever it went.
+    """
+    path = state_path(repo)
+    if not path:
+        return
+    try:
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(manifest, handle, indent=2, sort_keys=True)
+    except OSError:
+        # The zip is written and the export succeeded. A reminder that cannot
+        # remember costs one over-count at the next release; failing the
+        # export here would cost the copy.
+        pass
+
+
+def read_state(repo):
+    path = state_path(repo)
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, ValueError):
+        return None
+
+
+# --- import -----------------------------------------------------------------
+
+
+def unsafe(info):
+    """Why this zip member may not be written, or "" when it may.
+
+    Checked before anything is written, and one bad member refuses the whole
+    archive: a partial import from a hostile zip is still a decision the zip
+    made, and the person is then holding records they believe are a copy and
+    cannot say of what.
+
+    Some of these `extractall` would also have handled — it strips `..` and a
+    leading `/` on today's CPython (the module docstring measures it). They
+    are checked here anyway, because a defence that holds only while a
+    standard-library sanitiser keeps its current shape is not one this file
+    can claim, and because a refusal says what happened where a silent
+    sanitise leaves a name nobody chose.
+
+    What is refused, and why each one:
+
+      - a backslash anywhere. A zip stores `/`-separated names (APPNOTE
+        4.4.17), so a `\\` is a literal character on POSIX and a separator on
+        Windows. `a\\..\\..\\b` is inert on one platform and an escape on the
+        other, and a name that means two things is refused on both;
+      - an absolute name, or one starting with a drive letter;
+      - any `..` segment, which is the escape itself;
+      - a NUL, which truncates the path at the C boundary underneath;
+      - a symbolic link entry. A link written into the root is a way to reach
+        outside it on the NEXT export, which is the loop this closes;
+      - anything not under `seal/` and not the manifest. A member this build
+        has no place for is a zip it does not understand, and writing the
+        parts it does understand is guessing.
+    """
+    name = info.filename
+    if not name:
+        return "a member with no name"
+    if "\\" in name:
+        return f"{name!r} holds a backslash, which is a separator on one platform only"
+    if name.startswith("/") or DRIVE.match(name):
+        return f"{name!r} is an absolute path"
+    if "\0" in name:
+        return f"{name!r} holds a NUL"
+    parts = [p for p in name.split("/") if p]
+    if any(p == ".." for p in parts):
+        return f"{name!r} climbs out of the root with `..`"
+    if (info.external_attr >> 16) & 0o170000 == 0o120000:
+        return f"{name!r} is a symbolic link"
+    if name == MANIFEST or name.rstrip("/") == MANIFEST:
+        return ""
+    if not parts or parts[0] != optin.HOME:
+        return f"{name!r} is not under {optin.HOME}/ and is not the manifest"
+    return ""
+
+
+def linked_directory(into, archive):
+    """A directory inside the root that is a symbolic link, or "".
+
+    This is the one way a member can still land outside the root, and it is
+    measured rather than assumed. `extractall` on the CPython this ships on
+    (3.12 to 3.14, checked 2026-09-03) strips `..` and a leading `/` from a
+    member's name and writes a link entry as an ordinary file, so those are
+    not what a member can escape through. A directory in the DESTINATION that
+    is a symbolic link is: `extractall` follows it, and so does the plain
+    `open()` this module writes with. `seal/specs` pointed elsewhere puts
+    every work item there.
+
+    So it is refused before anything is written, and the whole import is
+    refused rather than the member: the link is this clone's own state, not
+    the zip's, and a person who removes it gets a complete copy on the next
+    run instead of a partial one now.
+
+    A link this command created is not possible — the export skips links and
+    an import refuses a link member — so reaching this means someone made one
+    by hand, which is exactly when a stop is worth more than a guess.
+    """
+    seen = set()
+    for info in archive.infolist():
+        parts = [p for p in info.filename.split("/") if p][1:]
+        for depth in range(1, len(parts)):
+            prefix = tuple(parts[:depth])
+            if prefix in seen:
+                continue
+            seen.add(prefix)
+            if os.path.islink(os.path.join(into, *prefix)):
+                return "/".join(prefix)
+    return ""
+
+
+def read_manifest(archive, path):
+    """The manifest, or (None, message). Never raises for a bad archive."""
+    try:
+        raw = archive.read(MANIFEST)
+    except KeyError:
+        return None, (
+            f"{path} holds no {MANIFEST} — it was not written by `seal export`"
+        )
+    try:
+        manifest = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        return None, f"{path}'s {MANIFEST} could not be read: {exc}"
+    if not isinstance(manifest, dict):
+        return None, f"{path}'s {MANIFEST} is not an object"
+    if manifest.get("format") != FORMAT:
+        return None, (
+            f"{path} is format {manifest.get('format')!r} and this build reads "
+            f"format {FORMAT}. Reading it anyway would place records by fields "
+            "that may have moved"
+        )
+    return manifest, ""
+
+
+def place(destination, data):
+    """(path to write, outcome) for one incoming file — never overwriting.
+
+    `None` as the path means nothing to write. The candidates are the
+    destination itself and then its `.incoming` siblings, in order, and the
+    first one whose bytes already equal `data` ends the search: re-importing
+    the same zip is then a run that writes nothing, rather than a second pile
+    of `.incoming` copies of files that are already there.
+    """
+    if not os.path.exists(destination):
+        return destination, ADDED
+    directory = os.path.dirname(destination)
+    stem, ext = os.path.splitext(os.path.basename(destination))
+    for n in range(0, 1000):
+        candidate = (
+            destination
+            if n == 0
+            else os.path.join(
+                directory,
+                f"{stem}.incoming{ext}" if n == 1 else f"{stem}.incoming-{n}{ext}",
+            )
+        )
+        if not os.path.exists(candidate):
+            return candidate, COLLIDED
+        try:
+            if read_bytes(candidate) == data:
+                return None, IDENTICAL
+        except OSError:
+            continue
+    return None, COLLIDED
+
+
+def destination_root(repo, home, shared, local, into):
+    """(root to write into, message). Creates it when the mode is named.
+
+    With no `--into`, the root in force wins; with none in force, local — the
+    direction that puts nothing in the tree. Guessing shared would write this
+    plugin's files into a repository that may be someone else's, which is the
+    harm local mode exists to prevent, so the safe guess is the one made.
+    """
+    if into:
+        wanted = shared if into == "shared" else local
+        other = local if into == "shared" else shared
+        if not wanted:
+            return "", "the common git directory could not be resolved"
+        if os.path.isdir(wanted) and os.path.isdir(other):
+            return "", (
+                "both roots exist, and the gates read the first of them:\n"
+                f"  {shared}   (shared mode — read first)\n"
+                f"  {local}   (local mode)\n"
+                "Importing into one would leave the other where nothing reads "
+                "it. Move or remove one first; the plugin README's *Shared or "
+                "local* section has both commands."
+            )
+        return wanted, ""
+    if home:
+        return home, ""
+    if not local:
+        return "", "the common git directory could not be resolved"
+    return local, ""
+
+
+def import_(args, cwd):
+    repo, home, shared, local, _ = resolve(cwd)
+    if not repo:
+        print("not inside a git repository — seal works on a clone")
+        return 1
+
+    path = os.path.abspath(args.zip)
+    if not os.path.isfile(path):
+        print(f"{path} is not a file")
+        return 1
+
+    try:
+        archive = zipfile.ZipFile(path)
+    except (zipfile.BadZipFile, OSError) as exc:
+        print(f"{path} is not a readable zip: {exc}")
+        return 1
+
+    with archive:
+        manifest, why = read_manifest(archive, path)
+        if not manifest:
+            print(why)
+            return 1
+
+        refusals = [reason for info in archive.infolist() if (reason := unsafe(info))]
+        if refusals:
+            print(f"{path} holds members this command will not write:")
+            for reason in refusals:
+                print(f"  {reason}")
+            print(
+                "\nNothing was written. A zip carrying one of these is not a "
+                "zip to take a partial copy from."
+            )
+            return 1
+
+        here = normalise_remote(git(repo, "config", "--get", "remote.origin.url"))
+        there = normalise_remote(manifest.get("remote"))
+        if here and there and here != there and not args.allow_other_repo:
+            print("this zip was exported from another repository:")
+            print(f"  the zip says   {manifest.get('remote')}")
+            print(
+                f"  this clone is  {git(repo, 'config', '--get', 'remote.origin.url')}"
+            )
+            print(
+                "\nNothing was written. Records are keyed by work-item id, so "
+                "merging another project's would spread through the root with "
+                "nothing to tell them apart afterwards.\n"
+                "If the two are one repository under two spellings, pass "
+                "--allow-other-repo."
+            )
+            return 1
+
+        into, why = destination_root(repo, home, shared, local, args.into)
+        if not into:
+            print(why)
+            return 1
+
+        linked = linked_directory(into, archive)
+        if linked:
+            print(
+                f"{optin.HOME}/{linked} in this clone is a symbolic link, and "
+                "writing through it would put records outside the root."
+            )
+            print(
+                "\nNothing was written. Replace the link with a real "
+                "directory and run this again."
+            )
+            return 1
+
+        counts, collisions = write_members(archive, into)
+
+    print(f"imported into {display(repo, into)}")
+    print(f"  {plural(counts[ADDED], 'file')} added")
+    print(f"  {plural(counts[IDENTICAL], 'file')} already here, byte for byte")
+    print(
+        f"  {plural(counts[COLLIDED], 'file')} landed beside an existing one"
+        + (":" if collisions else "")
+    )
+    for existing, landed in collisions:
+        print(f"    {existing}  ->  {landed}")
+    if manifest.get("head"):
+        print(f"\nExported at {manifest['exported_at']} from {manifest['head'][:12]}.")
+    print(
+        "Which of a collided pair is right is a reading, not a merge — this "
+        "command overwrites nothing.\n"
+        "`evidence-check .` says which ledger rows drift against this tree."
+    )
+    return 0
+
+
+def write_members(archive, into):
+    """Write every `seal/…` member under `into`. Names are already checked.
+
+    The path is rebuilt from segments rather than joined from the member's
+    name, so nothing the archive wrote reaches the filesystem as a path.
+    """
+    counts = {ADDED: 0, IDENTICAL: 0, COLLIDED: 0}
+    collisions = []
+    for info in archive.infolist():
+        name = info.filename
+        if info.is_dir() or name == MANIFEST:
+            continue
+        parts = [p for p in name.split("/") if p][1:]  # drop the `seal/` prefix
+        if not parts:
+            continue
+        destination = os.path.join(into, *parts)
+        data = archive.read(name)
+        target, outcome = place(destination, data)
+        counts[outcome] += 1
+        if target is None:
+            continue
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "wb") as handle:
+            handle.write(data)
+        if outcome == COLLIDED:
+            collisions.append(
+                (
+                    "/".join(parts),
+                    os.path.relpath(target, into).replace(os.sep, "/"),
+                )
+            )
+    return counts, collisions
+
+
+# --- the release reminder ---------------------------------------------------
+
+
+def check(cwd):
+    repo, home, shared, local, mode = resolve(cwd)
+    if not home:
+        return no_root(repo, shared, local)
+    if mode == "shared":
+        # Never a failure. A release script runs this unconditionally, and a
+        # shared-mode repository has nothing to be reminded about: the records
+        # are in the commit range already.
+        print("shared mode: the records are committed, so there is nothing to export.")
+        return 0
+
+    files, _ = root_files(home)
+    now = work_item_digests(files)
+    last = read_state(repo)
+    if not last or not isinstance(last.get("items"), dict):
+        print(
+            f"{len(now)} work items here and no export yet — "
+            "`seal export` writes the first copy."
+        )
+        return 0
+
+    then = last["items"]
+    changed = len({*now, *then}) - sum(
+        1 for item in now if item in then and now[item] == then[item]
+    )
+    print(f"{changed} work items changed since the last export")
+    return 0
+
+
+# --- entry point ------------------------------------------------------------
+
+
+def main(argv=None, cwd=None):
+    cwd = cwd or os.getcwd()
+    parser = argparse.ArgumentParser(
+        prog="seal", description="carry a local-mode seal/ root between clones"
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    ex = sub.add_parser("export", help="write the root to a zip")
+    ex.add_argument("--output", help="the zip's path, or a directory to put it in")
+    ex.add_argument(
+        "--check",
+        action="store_true",
+        help="print how many work items changed since the last export, and "
+        "write nothing",
+    )
+
+    im = sub.add_parser("import", help="merge a zip's records in")
+    im.add_argument("zip", help="the zip `seal export` wrote")
+    im.add_argument(
+        "--into",
+        choices=("shared", "local"),
+        help="which mode's root to write into, creating it. Default: the one "
+        "in force, or local where neither exists",
+    )
+    im.add_argument(
+        "--allow-other-repo",
+        action="store_true",
+        help="import although the manifest names a different remote",
+    )
+
+    args = parser.parse_args(argv)
+    if args.command == "export":
+        return check(cwd) if args.check else export(args, cwd)
+    return import_(args, cwd)
+
+
+if __name__ == "__main__":
+    # A console that cannot encode what this prints kills it with stdout
+    # empty, which is how a hook says "nothing to see here". `hooks/console.py`
+    # owns the reasoning and the three decisions behind these lines.
+    for _name, _errors in (
+        ("stdin", "replace"),
+        ("stdout", "replace"),
+        ("stderr", "backslashreplace"),
+    ):
+        _stream = getattr(sys, _name, None)
+        if hasattr(_stream, "reconfigure"):
+            _stream.reconfigure(encoding="utf-8", errors=_errors)
+    sys.exit(main())

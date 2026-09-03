@@ -168,11 +168,38 @@ acceptance costs records.
 | Shared mode, `seal export` | exit 1, naming the mode, the path, and the `mv` that switches to local | A zip of committed files is a second copy that nothing keeps current, and git already carries the first. The message answers the question the user was really asking |
 | The output path is inside the working tree | written, with a warning naming the risk | The default is never inside the tree; a path the user named is the user's call, and refusing it would make `--output` a suggestion |
 | Not a zip, or truncated | exit 1, root untouched | `zipfile.BadZipFile` and a short read are the same answer to the user: this file is not a copy of anything |
-| A member escapes the root | the whole zip is refused before a byte is written | `extractall` is the classic path-traversal sink, so it is not used. Every member's name is validated first, and one bad member refuses the archive rather than the member: a zip carrying one is not a zip to take a partial copy from |
-| A member is a symlink entry | the whole zip is refused, naming it | Same reasoning. A link written into the root is a way to reach outside it later |
+| A member escapes the root | the whole zip is refused before a byte is written | Every member's name is validated first, and one bad member refuses the archive rather than the member: a zip carrying one is not a zip to take a partial copy from. See *What `extractall` does and does not do* below — this is defence that does not depend on a standard-library sanitiser |
+| A member is a symlink entry | the whole zip is refused, naming it | A link written into the root is a way to reach outside it on the NEXT export, which is the loop the export's own link handling closes from the other end |
+| A directory inside the destination root is a symbolic link | the whole zip is refused, naming it | This is the one way a member still lands outside the root, and it is the clone's own state rather than the zip's — so the person removes the link and gets a complete copy, instead of a partial one now |
 | The manifest names another remote | exit 1 printing both URLs and naming `--allow-other-repo` | Merging another project's records is silent corruption spread across files keyed by id; a refusal is one flag away from being wrong and costs a message |
 | Both roots exist | exit 1, naming both and which the gates read | Writing into one while the other exists leaves a dead root the hooks never read, which is worse than a stop |
 | A collision that already has an `.incoming` sibling | numbered, never overwritten | Losing the second copy silently is the only outcome worse than a file with a long name |
+
+### What `extractall` does and does not do
+
+This document said, before the code was written, that `ZipFile.extractall` is
+the classic path-traversal sink. **Measured on 2026-09-03 under CPython 3.13
+and 3.12, that is false**: `extractall` strips `..` segments and a leading
+`/` from a member's name, and writes a symbolic-link entry as an ordinary
+file. A zip of `seal/../../escaped.md` extracted into `<dest>/seal` wrote
+`<dest>/seal/escaped.md` and nothing outside.
+
+What actually disqualifies it, in the order that matters:
+
+1. **It overwrites.** That is the one rule this command exists to keep, and
+   it settles the question on its own.
+2. It writes members this format has no place for. `a\..\..\b.md` landed in
+   the destination as a literal file on POSIX.
+3. **It follows a symbolic link that is already a directory in the
+   destination** — and so does a plain `open()`. A zip of
+   `specs/<id>/spec.md` extracted into a root whose `specs` is a link wrote
+   through it. This is the only measured escape, so it is the one the command
+   checks for, before writing anything.
+
+The name validation stays regardless. A defence that holds only while a
+standard-library sanitiser keeps its current shape is not a defence this
+work can claim, and a refusal naming the member says what happened where a
+silent sanitise leaves a file under a name nobody chose.
 
 ### How two remote URLs are compared
 
