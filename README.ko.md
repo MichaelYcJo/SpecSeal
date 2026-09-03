@@ -37,7 +37,7 @@ git 이 있는 곳이면 어디서든 동작합니다.
 | **smith** (Claude Code 서브에이전트) | `implement` · `writing-style` | 스펙에 맞춰 구현한 뒤 증명 블록 세 줄을 적는다. 어떤 정책서를 열었는지, 어떤 대조표 행을 고쳤는지, 무엇을 실행하고 무엇을 읽기만 했는지. 훅이 검사하는 것이 아니라 스킬이 요구하는 공개이며, `none — <이유>` 로 채워진 줄은 사용자 눈에 그대로 보인다 |
 | **warden** (서브에이전트) | `code-review` · `writing-style` | 스펙 준수를 먼저 보고 그다음 품질을 본다. 보고서가 검증되면 오케스트레이터가 리뷰 시점의 HEAD sha 를 `.git/specseal-reviewed` 에 적고, 커밋 게이트는 그 파일을 확인한다. 리뷰어가 자기 표시를 직접 쓰지는 않는다 |
 | **scribe** (서브에이전트) | `legacy-parity` | 원본 코드가 실제로 하는 일을 `경로#앵커` 좌표로 기록하고, 판정이 아니라 사실만 돌려준다. `seal/parity.md` 를 선언한 레포에서만 등장한다 |
-| 스킬 | — | 스물두 개이고 세 묶음이다. 에이전트가 따르는 네 개는 왼쪽 열에 있다. 열한 개는 작업이 그것을 요구할 때 세션이 알아서 로드한다 — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. 나머지 일곱은 사용자가 이름을 불러야 움직이며 아래 치트시트에 있다 |
+| 스킬 | — | 스물세 개이고 세 묶음이다. 에이전트가 따르는 네 개는 왼쪽 열에 있다. 열두 개는 작업이 그것을 요구할 때 세션이 알아서 로드한다 — `agent-contract`, `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. 나머지 일곱은 사용자가 이름을 불러야 움직이며 아래 치트시트에 있다 |
 | 훅 | — | 게이트 그 자체. 플러그인이 자동으로 등록하므로 설정을 따로 만질 필요가 없다 |
 | CLAUDE.md 블록 | — | 늘 로드되는 12줄 — 절 제목 넷(`Tooling`·`Safety`·`Session cost`·`Git`)에 규칙 여덟이다. 툴링 하나, 안전 셋, 세션 비용 하나, git 셋. 응답 언어 규칙은 없다. 그것은 사용자 몫이다 |
 
