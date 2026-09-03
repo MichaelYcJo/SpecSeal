@@ -10,8 +10,20 @@ implementation ends. Only what the diff cannot show goes here. -->
             skills/code-review/SKILL.md §Orchestrator: the run ends with a verifying round;
             agents/warden.md, agents/smith.md, templates/{sdd-round.md, sdd-phase.md, config.md};
             CLAUDE.md §fragments, §merge method, §the goal a design is chosen against
-· evidence: <phase 4 writes seal/ledger/1788472135-the-run-outlives-its-last-finding.md>
-· verified: <filled when implementation ends>
+· evidence: seven rows in seal/ledger/1788472135-the-run-outlives-its-last-finding.md (F1–F7), 18 coordinates, all OK.
+            F1–F6 are the claims inside chain_check.py that the two new test modules do not already say; F7 replaces
+            a count this branch moved in a row seal/ledger.md carries. What deliberately earns no row is written into
+            the fragment's own header comment. Fifteen rows in seal/ledger.md re-verified and re-dated, their regions
+            re-read first; two rows left DRIFTED on purpose — see Not verified
+· verified: executed — `.venv/bin/python -m pytest tests/test_the_record_is_held_to_the_floor_and_the_depth.py
+            tests/test_the_run_stops_at_the_last_finding.py tests/test_a_fix_pass_may_add_a_unit.py
+            tests/test_the_fixes_name_their_surface.py tests/test_the_last_rounds_fixes_are_checked.py -q` → 154
+            passed, exit 0; `tests/test_the_pull_request_language_is_the_repositorys.py` → exit 0;
+            `evidence-check .` → 465 ok · 2 drifted · 0 broken, exit 1 (drift is CI's warning, and both rows are
+            named below); `evidence-check --ledger seal/ledger/1788472135-…md .` → 18 ok, exit 0;
+            `fold_ledger.py --version 0.8.0 --dry-run` → all seven rows move, exit 0, nothing written;
+            `bin/unverified-check` → exit 0. read — the diff under every ledger anchor this branch moved, before
+            any row was re-dated. unverified — the full suite, repository-wide lint and typecheck, per §2
 
 ## Why this work exists
 
@@ -39,7 +51,9 @@ lands in the same branch rather than after it.
 | ✅ That `chain_check.py` refuses what phases 1–2 wrote down | 34 executed cases in `tests/test_the_record_is_held_to_the_floor_and_the_depth.py`. The 29 that existed before the code did were run at `f01f394` and 19 were red; 21 mutations of the units phase 3 added, none surviving |
 | That the two new record rows survive a real round record written against them | The first `round-N.md` this work item's own review chain writes |
 | That a depth declared wrong — `(depth 1)` on a unit that is really second-level — is caught | Nothing in the check can see it; the verifying round reading the `New units` surface is the reader, and `docs/review-chain-spec.md` records the limit |
-| That a repository setting `Record language` leaves the floor's `no` and `yes` in English | The exclusion list says so and CI derives it from the constants, but no repository has been run in another language |
+| That a repository setting `Record language` leaves the floor's `no` and `yes` in English | The repository owner, on the first repository that sets the row. The exclusion list says so and CI derives it from the module's constants, but no repository has been run in another language |
+| ✅ That both fragments this branch writes are the shapes the release gathers | `fold_ledger.py --version 0.8.0 --dry-run` moves all seven ledger rows and writes nothing, exit 0; `evidence-check` reports 18 ok on the fragment, exit 0. `gather_changelog.py --check` and `fold_ledger.py --check` both report the fragments as ungathered, which is the state a feature branch is meant to be in — the hygiene workflow runs neither unless the base is `main` |
+| Whether the two rows this branch left DRIFTED in `seal/ledger.md` should be rewritten or removed. Row *r3 3 / r4 2* under `## 0.5.0` says *the eleven fields*, and this branch made the list twelve; row *S8* under the same heading says the config template's first row is `Pull request language`, which its own work item renamed to `Commit and pull request language` before this branch existed | The review chain, then the repository owner. Neither was re-dated, because stamping a claim whose text is wrong records a read that did not agree. F7 of this work item's ledger fragment carries the corrected count; the second is not this branch's claim to rewrite |
 
 ## Not done
 
