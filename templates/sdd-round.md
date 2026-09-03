@@ -88,6 +88,19 @@ and CI fails the pull request for that too. It fails the same way for a
 verdict table it cannot read — a tolerant reader finds no open findings there,
 and no open findings reads exactly like all of them closed. -->
 
+## What this round was asked
+
+<the round-specific content of the spawn prompt that started this round —
+never the boilerplate `agent-contract` and `agents/warden.md` already carry:
+what this round was told to attack, in what order, and which facts arrived
+as coordinates vs. which were left to verify>
+
+<!-- #81: round 1 of the work item that issue measured was the cheapest
+round measured — 7.6 minutes, 29 tool calls, one 🔴 and four 🟡 — because
+its spawn prompt named eight specific things to try to break, in order.
+That fact is recoverable today only from a transcript; this section is its
+durable, committed home instead. -->
+
 ## Verdicts
 
 | # | Finding | Location | Verdict | Grounds |

@@ -110,6 +110,14 @@ incorporation. This file only adds what the skill does not carry.
    than they do — and its second reason is why the design gate's waiver
    example above carries a RIDER. A patch to that paragraph is exactly the
    shape the gate reads a commit out of, without your having written one.
+
+   **At each phase's close, also write `seal/specs/<work-item-id>/phases/phase-N.md`
+   from `templates/sdd-phase.md`** — what this phase was asked, what building
+   it found, what it removed from the tree. `plan.md`'s Status cell for that
+   phase already carries the commit; this record carries what the commit
+   alone cannot show, the way `rounds/round-N.md` does for a review round.
+   `skills/implement/SKILL.md` §3 says what belongs in each section and what
+   stays out because this file, the skill, and the contract already carry it.
 4. **Verify** — run the actual checks and read their output before any
    completion claim. Fresh output only; a previous run proves nothing. §2
    bounds what you run and §3 answers a prompt that orders more.
