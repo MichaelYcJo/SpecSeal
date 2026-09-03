@@ -35,6 +35,7 @@ saw while the reminder compares against what the other sees, and the
 difference reads as a work item somebody changed.
 """
 
+import datetime
 import importlib.util
 import json
 import os
@@ -724,18 +725,210 @@ def test_the_write_itself_refuses_a_name_that_became_a_link(
     stolen = outside / "stolen.md"
     symlink_or_skip(str(stolen), str(root / "ledger.md"))
 
-    monkeypatch.setattr(seal, "place", lambda destination, data: (destination, "added"))
+    monkeypatch.setattr(
+        seal, "place", lambda destination, data: (destination, seal.ADDED)
+    )
 
     archive_path = tmp_path / "z.zip"
     with zipfile.ZipFile(archive_path, "w") as archive:
         archive.writestr("seal/ledger.md", "FROM THE ZIP")
     with zipfile.ZipFile(archive_path) as archive:
-        counts, collisions = seal.write_members(archive, str(root))
+        counts, collisions, refused = seal.write_members(archive, str(root))
 
     assert not stolen.exists(), "the write followed a link out of the root"
     assert list(outside.iterdir()) == [], "something was written outside the root"
-    assert counts["added"] == 0, "the report named a file that was not written"
+    assert counts[seal.ADDED] == 0, "the report named a file that was not written"
     assert collisions == []
+    assert refused == ["ledger.md"], "a record was dropped without being named"
+
+
+def test_a_link_at_the_partial_name_refuses_the_export(seal, repo, capsys):
+    """Round 3's 🔴, and the third escape in three rounds — the first on the
+    export side, which the two rounds before it never opened.
+
+    `write_zip` builds `<path>.partial` and used to hand that string to
+    `zipfile.ZipFile(..., "w")`, which opens with a plain `open()` and follows
+    a link. The name is fully predictable: `seal-<repo>-<date>.zip.partial`,
+    beside the clone, which is where the default export writes. A broken link
+    there put the manifest and every record outside the clone at exit 0, with
+    `wrote <path>` printed for what was the link.
+    """
+    home = local_home(repo)
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "ledger.md").write_text("# ledger\n")
+    outside = repo.parent / "outside"
+    outside.mkdir()
+    stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
+    symlink_or_skip(
+        str(outside / "stolen.bin"), str(repo.parent / f"{stem}.zip.partial")
+    )
+
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 1, out
+    assert list(outside.iterdir()) == [], "the export wrote outside the clone"
+    assert sorted(repo.parent.glob("seal-*.zip")) == [], "a zip was reported written"
+
+
+def test_a_broken_link_at_the_zips_own_name_is_not_a_free_name(seal, repo, capsys):
+    """`unused` kept `exists` when `place` moved to `lexists`, and its own
+    docstring claimed the two shared this function — so the fix to one had no
+    reason to visit the other.
+
+    A broken link at the zip's name read as free, and `os.replace` then
+    removed the link somebody had made. A function whose whole contract is
+    *never overwrite* overwrote.
+    """
+    home = local_home(repo)
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "ledger.md").write_text("# ledger\n")
+    stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
+    taken = repo.parent / f"{stem}.zip"
+    symlink_or_skip(str(repo.parent / "nowhere.bin"), str(taken))
+
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 0, out
+    assert os.path.islink(taken), "the link was replaced by the zip"
+    assert (repo.parent / f"{stem}-2.zip").exists(), (
+        "the zip did not take the next name"
+    )
+
+
+def test_a_member_under_a_member_refuses_the_zip(seal, carried, capsys):
+    """`os.makedirs(exist_ok=True)` raises when the name exists and is not a
+    directory, and that call sits outside the try the corrupt-member fix
+    added. A zip naming a file and a directory the same left the records
+    before the clash on disk, lost the one after it, and printed a traceback
+    with no line of this command's own.
+
+    The sender needs to corrupt nothing — only to name two members that way.
+    """
+    _zip_path, other, home = carried
+    before = files_under(home)
+    clash = other.parent / "clash.zip"
+    with zipfile.ZipFile(clash, "w") as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": ""}))
+        archive.writestr("seal/a", "a file\n")
+        archive.writestr("seal/a/b.md", "under it\n")
+        archive.writestr("seal/zzz.md", "after it\n")
+
+    code, out = run(seal, ["import", str(clash)], other, capsys)
+    assert code == 1, out
+    assert "has to be a directory" in out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_a_file_the_root_already_holds_blocks_a_member_under_it(seal, carried, capsys):
+    """The other side of the same clash: the zip is well formed and the ROOT
+    holds the name as a file. A check over the zip's own names alone would
+    miss it."""
+    _zip_path, other, home = carried
+    (home / "a").write_text("already a file\n")
+    before = files_under(home)
+    under = other.parent / "under.zip"
+    with zipfile.ZipFile(under, "w") as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": ""}))
+        archive.writestr("seal/a/b.md", "under it\n")
+
+    code, out = run(seal, ["import", str(under)], other, capsys)
+    assert code == 1, out
+    assert "has to be a directory" in out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_a_manifest_larger_than_a_record_refuses_the_zip(seal, carried, capsys):
+    """Round 2 closed the unbounded manifest read by summing the archive
+    total first — and the case round 2 measured did not close. 400 MB is
+    under the 512 MB total, and `unsafe` exempted the manifest from the member
+    limit, so that zip imported at exit 0 having cost 422 MB.
+
+    The exemption covers the name checks now, not the size one.
+    """
+    _zip_path, other, home = carried
+    before = files_under(home)
+    fat = other.parent / "fat-manifest.zip"
+    with zipfile.ZipFile(fat, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", "{" + " " * (40 * 1024 * 1024))
+        archive.writestr("seal/ledger.md", "row\n")
+
+    code, out = run(seal, ["import", str(fat)], other, capsys)
+    assert code == 1, out
+    assert "a manifest may hold" in out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_the_data_is_read_before_the_manifest_is(seal, carried, capsys):
+    """The fix for a corrupt manifest is an ORDER, and an order no case
+    pinned: round 3 moved `testzip` above `read_manifest` and moving it back
+    reddened nothing in the file.
+
+    Here the manifest's own data is corrupt, so which message comes out says
+    which ran first. Before the reorder this was a `BadZipFile` traceback out
+    of `read_manifest`, whose docstring said it never raises.
+    """
+    _zip_path, other, home = carried
+    before = files_under(home)
+    broken = other.parent / "broken-manifest.zip"
+    with zipfile.ZipFile(broken, "w") as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": "MARKER"}))
+        archive.writestr("seal/ledger.md", "row\n")
+    raw = bytearray(broken.read_bytes())
+    at = raw.find(b"MARKER")
+    assert at != -1
+    raw[at : at + 6] = b"marker"
+    broken.write_bytes(bytes(raw))
+
+    code, out = run(seal, ["import", str(broken)], other, capsys)
+    assert code == 1, out
+    assert "cannot read" in out, "the manifest was read before the data was"
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_a_member_this_build_cannot_decompress_refuses_the_zip(seal, carried, capsys):
+    """`testzip` catches `BadZipFile` itself, so the clause around it could
+    not fire. What does leave it is an encrypted member and a compression
+    method with no decompressor here — both reached the console as tracebacks
+    where every other refusal prints a line of its own."""
+    _zip_path, other, home = carried
+    before = files_under(home)
+    odd = other.parent / "odd-method.zip"
+    with zipfile.ZipFile(odd, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": ""}))
+        archive.writestr("seal/ledger.md", "row\n")
+    # The compression method is two bytes at +8 in a local header and at +10
+    # in a central-directory entry. 99 is the AES marker, which this build has
+    # no decompressor for.
+    patched = bytearray(odd.read_bytes())
+    ninety_nine = (99).to_bytes(2, "little")
+    for signature, at in ((b"PK\x03\x04", 8), (b"PK\x01\x02", 10)):
+        start = 0
+        while (found := patched.find(signature, start)) != -1:
+            patched[found + at : found + at + 2] = ninety_nine
+            start = found + 4
+    odd.write_bytes(bytes(patched))
+
+    code, out = run(seal, ["import", str(odd)], other, capsys)
+    assert code == 1, out
+    assert "cannot read" in out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_a_zip_of_more_members_than_a_root_holds_refuses_it(seal, carried, capsys):
+    """Both size bounds count bytes, and a member declaring zero bytes passes
+    the member one and adds nothing to the total. Measured: a 31 MB zip of
+    300,000 empty members wrote 300,002 files into the root at exit 0, leaving
+    a person to remove them by hand from inside the git directory."""
+    _zip_path, other, home = carried
+    before = files_under(home)
+    many = other.parent / "many.zip"
+    with zipfile.ZipFile(many, "w") as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": ""}))
+        for n in range(seal.MEMBER_COUNT_LIMIT + 1):
+            archive.writestr(f"seal/m{n}.md", "")
+
+    code, out = run(seal, ["import", str(many)], other, capsys)
+    assert code == 1, out
+    assert "this command will write" in out
+    assert files_under(home) == before, "a refusal wrote files"
 
 
 def test_an_archive_declaring_more_than_a_root_refuses_the_zip(seal, carried, capsys):

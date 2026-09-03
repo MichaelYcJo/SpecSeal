@@ -466,8 +466,15 @@ rows drift against this tree.
 It refuses, writing nothing, when the zip came from another repository
 (`--allow-other-repo` if the two are one repository under two spellings),
 when a member would land outside the root, when a member or the whole zip
-declares more bytes than a root of records holds, when a member's data does
-not match its checksum, and when both roots already exist.
+declares more bytes or more members than a root of records holds, when a
+member cannot be read — a bad checksum, encryption, a compression method this
+build has no decompressor for — when a name has to be a directory for the zip
+and is a file, and when both roots already exist.
+
+A symbolic link at a name a collision would fall back to is treated as taken:
+the copy lands at the next free name rather than being written through it.
+`seal export` does the same with the zip's own name, and refuses outright if
+the temporary name it writes through is a link.
 `seal import --into shared` or `--into local` creates the named mode's root,
 which is the other way to switch modes: export, import into the other place,
 commit or remove.

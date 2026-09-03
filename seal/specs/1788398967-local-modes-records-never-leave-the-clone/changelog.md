@@ -90,3 +90,26 @@
   wrote. And a repository with no commit yet records an empty SHA in the
   manifest rather than the four letters `HEAD`, which is what `git rev-parse`
   prints on its way to exiting 128.
+- **The third round opened the half the first two never had, and found the
+  same shape there.** Both earlier rounds read the import. `seal export`
+  writes its zip to a temporary name first, so a failed write leaves no half
+  archive — and that name is `seal-<repo>-<date>.zip.partial`, beside the
+  clone, which anyone can predict. A symbolic link planted there took the
+  manifest and every record outside the clone at exit 0, while the command
+  printed `wrote <path>` for a path that was the link. The temporary name is
+  now opened with the same flag the import writes with, and the zip's own name
+  is read as a link rather than as a file — a check whose docstring claimed
+  the import shared it, which is why the import's fix never visited it.
+- **A zip can no longer end an import in a traceback.** Three ways in: a
+  member the build cannot decompress, an encrypted member, and a corrupt
+  manifest — the last one because the manifest was read before the data was
+  checked. The checks now run in one order, largest question first: how many
+  members, how many bytes, what the names are, whether the data reads, and
+  only then what the manifest says. A member count is bounded too, because
+  both size bounds count bytes and a zip of 300,000 empty members wrote
+  300,002 files into the root at exit 0.
+- **And a name that has to be a directory for the zip and is a file is
+  refused before anything is written.** `os.makedirs` raised on it mid-write,
+  leaving the records before it on disk. The sender corrupts nothing to reach
+  it — two members named that way is enough — and the root's own contents
+  raise it from the other side.

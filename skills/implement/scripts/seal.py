@@ -109,6 +109,12 @@ ADDED, IDENTICAL, COLLIDED = "added", "identical", "collided"
 # 0.2 s. Both limits are read before a byte is written.
 MEMBER_LIMIT = 32 * 1024 * 1024
 ARCHIVE_LIMIT = 512 * 1024 * 1024
+# The other axis. A member declaring zero bytes passes the member limit and
+# adds nothing to the total, so neither byte bound sees a zip that is only a
+# count: measured 2026-09-03, a 31 MB zip of 300,000 empty members wrote
+# 300,002 files into the root at exit 0, in 34.5 s. A root of records is one
+# directory per work item and one ledger fragment each.
+MEMBER_COUNT_LIMIT = 20_000
 
 
 # --- git, asked the way `hooks/optin.py` asks it ----------------------------
@@ -301,14 +307,20 @@ def manifest_of(repo, mode, files):
 def unused(directory, stem, suffix):
     """`<stem><suffix>`, then `<stem>-2<suffix>`, … — the first free path.
 
-    Both places that must never overwrite go through this: the zip's name and
-    the `.incoming` sibling an import leaves. The cap is a refusal to spin
-    rather than a limit anyone should reach.
+    The zip's name goes through this. (`place` has its own chain for the
+    `.incoming` siblings, because it also compares bytes — this docstring used
+    to claim both went through here, and a fix to one therefore missed the
+    other.) The cap is a refusal to spin rather than a limit anyone should
+    reach.
+
+    `lexists`, for the reason `place` uses it: a symbolic link to nothing
+    reads as absent to `exists`, so this returned a name somebody had made a
+    link, and `os.replace` then removed it.
     """
     for n in range(1, 1000):
         tail = suffix if n == 1 else f"-{n}{suffix}"
         path = os.path.join(directory, stem + tail)
-        if not os.path.exists(path):
+        if not os.path.lexists(path):
             return path
     return ""
 
@@ -324,10 +336,21 @@ def write_zip(path, home, files, manifest):
 
     A failed write leaves no half archive for someone to carry away and
     discover on the machine that has nothing else.
+
+    `O_EXCL` for the reason `write_members` opens with it: the kernel refuses
+    an existing name and refuses to open THROUGH a symbolic link. This name is
+    predictable — `seal-<repo>-<date>.zip.partial`, beside the clone, which is
+    where the default export writes. Measured 2026-09-03: a broken link
+    planted there put the manifest and every record outside the clone at exit
+    0, printing `wrote <path>` for a path that was the link.
     """
     partial = path + ".partial"
     try:
-        with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED) as archive:
+        opened = os.open(partial, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o666)
+        with (
+            os.fdopen(opened, "w+b") as raw,
+            zipfile.ZipFile(raw, "w", zipfile.ZIP_DEFLATED) as archive,
+        ):
             archive.writestr(MANIFEST, json.dumps(manifest, indent=2, sort_keys=True))
             for rel, disk in files:
                 archive.write(disk, f"{optin.HOME}/{rel}")
@@ -567,6 +590,14 @@ def unsafe(info):
     if (info.external_attr >> 16) & 0o170000 == 0o120000:
         return f"{name!r} is a symbolic link"
     if name == MANIFEST or name.rstrip("/") == MANIFEST:
+        # Exempt from the name checks and not from the size one. The exemption
+        # used to cover both, and `read_manifest` reads this member whole: a
+        # 400 MB manifest cost 400 MB of memory on its way to a verdict.
+        if info.file_size > MEMBER_LIMIT:
+            return (
+                f"{name!r} declares {info.file_size} bytes, more than the "
+                f"{MEMBER_LIMIT} a manifest may hold"
+            )
         return ""
     if not parts or parts[0] != optin.HOME:
         return f"{name!r} is not under {optin.HOME}/ and is not the manifest"
@@ -620,8 +651,43 @@ def linked_path(into, archive):
     return ""
 
 
+def blocked_path(into, archive):
+    """A path a member needs as a directory that is already a file, or "".
+
+    `write_members` calls `os.makedirs(exist_ok=True)`, which raises
+    `FileExistsError` when the name exists and is not a directory — uncaught,
+    mid-write, with the records before it already on disk. Measured
+    2026-09-03: a zip holding `seal/a` and `seal/a/b.md` left two records
+    written, lost the one after them, and printed a traceback with no line of
+    this command's own.
+
+    Both the zip's own members and what the root already holds, because the
+    clash comes from either side. Refused whole, like every other refusal
+    here, and for the same reason: a partial copy is the thing this command
+    exists not to leave.
+    """
+    members = set()
+    for info in archive.infolist():
+        parts = [p for p in info.filename.split("/") if p][1:]
+        if info.is_dir() or not parts:
+            continue
+        members.add(tuple(parts))
+    for parts in sorted(members):
+        for depth in range(1, len(parts)):
+            prefix = tuple(parts[:depth])
+            if prefix in members or os.path.isfile(os.path.join(into, *prefix)):
+                return "/".join(prefix)
+    return ""
+
+
 def read_manifest(archive, path):
-    """The manifest, or (None, message). Never raises for a bad archive."""
+    """The manifest, or (None, message).
+
+    Never raises for a manifest this command cannot make sense of. It can
+    still raise for a manifest whose DATA does not read — a bad CRC leaves
+    `archive.read` as `BadZipFile`, which is not one of the three this
+    catches. `import_` runs `testzip` before reaching here for that reason.
+    """
     try:
         raw = archive.read(MANIFEST)
     except KeyError:
@@ -737,11 +803,21 @@ def import_(args, cwd):
         return 1
 
     with archive:
-        # Before the manifest, not after it. `read_manifest` reads that member
-        # whole and `unsafe` exempts it from the member limit, so a 400 MB
-        # `manifest.json` was read and decoded before anything refused it —
-        # measured 2026-09-03, 400 MB of memory for a zip that then exits 1.
-        declared = sum(info.file_size for info in archive.infolist())
+        # The order here is the fix for three separate measurements, and it is
+        # the order itself rather than any one check: how big, then what the
+        # names are, then whether the data reads, and only then the manifest.
+        # `read_manifest` reads its member whole, so anything that runs after
+        # it has already paid for whatever the manifest declared.
+        members = archive.infolist()
+        if len(members) > MEMBER_COUNT_LIMIT:
+            print(
+                f"{path} holds {len(members)} members, more than the "
+                f"{MEMBER_COUNT_LIMIT} this command will write."
+            )
+            print("\nNothing was written. A root this large is not a root of records.")
+            return 1
+
+        declared = sum(info.file_size for info in members)
         if declared > ARCHIVE_LIMIT:
             print(
                 f"{path} declares {declared} bytes unpacked, more than the "
@@ -750,12 +826,7 @@ def import_(args, cwd):
             print("\nNothing was written. A root this large is not a root of records.")
             return 1
 
-        manifest, why = read_manifest(archive, path)
-        if not manifest:
-            print(why)
-            return 1
-
-        refusals = [reason for info in archive.infolist() if (reason := unsafe(info))]
+        refusals = [reason for info in members if (reason := unsafe(info))]
         if refusals:
             print(f"{path} holds members this command will not write:")
             for reason in refusals:
@@ -766,17 +837,24 @@ def import_(args, cwd):
             )
             return 1
 
-        # Every member's data, before the first of them is written. `read`
-        # raises `BadZipFile` on a bad CRC, and this loop used to meet that
-        # mid-write: the records before the corrupt one were on disk and the
-        # traceback printed no line of this command's own. That is a partial
-        # import from a zip that chose to be corrupt, which is the outcome
-        # every other refusal here exists to prevent. `testzip` streams and
-        # holds nothing, and `ARCHIVE_LIMIT` above bounds what it can be
-        # asked to read.
+        # Every member's data, before the manifest is decoded and before the
+        # first record is written. The manifest is a member too: a bad CRC on
+        # it reached the console as a `BadZipFile` traceback, because
+        # `read_manifest` ran first and its own `except` does not name that
+        # type.
+        #
+        # `testzip` catches `BadZipFile` itself and answers with the member's
+        # name, so that clause is a guard rather than a claim — it is the line
+        # that would still be right if `testzip` stopped swallowing it. What
+        # does leave `testzip` is an encrypted member (`RuntimeError`) and a
+        # compression method this build has no decompressor for
+        # (`NotImplementedError`), both measured 2026-09-03 as tracebacks.
+        #
+        # It reads every member, which the two bounds above are what make
+        # affordable.
         try:
             corrupt = archive.testzip()
-        except zipfile.BadZipFile as bad:
+        except (zipfile.BadZipFile, RuntimeError, NotImplementedError) as bad:
             corrupt = str(bad)
         if corrupt:
             print(f"{path} holds a member this command cannot read: {corrupt}")
@@ -784,6 +862,11 @@ def import_(args, cwd):
                 "\nNothing was written. A zip that cannot be read whole is "
                 "not a copy of anything."
             )
+            return 1
+
+        manifest, why = read_manifest(archive, path)
+        if not manifest:
+            print(why)
             return 1
 
         here = normalise_remote(git(repo, "config", "--get", "remote.origin.url"))
@@ -820,7 +903,16 @@ def import_(args, cwd):
             )
             return 1
 
-        counts, collisions = write_members(archive, into)
+        blocked = blocked_path(into, archive)
+        if blocked:
+            print(
+                f"{optin.HOME}/{blocked} has to be a directory for this zip "
+                "and is a file."
+            )
+            print("\nNothing was written. Move or rename it and run this again.")
+            return 1
+
+        counts, collisions, refused = write_members(archive, into)
 
     print(f"imported into {display(repo, into)}")
     print(f"  {plural(counts[ADDED], 'file')} added")
@@ -831,6 +923,8 @@ def import_(args, cwd):
     )
     for existing, landed in collisions:
         print(f"    {existing}  ->  {landed}")
+    for name in refused:
+        print(f"  {name} was not written — its name was taken during the import")
     if manifest.get("head"):
         print(f"\nExported at {manifest['exported_at']} from {manifest['head'][:12]}.")
     print(
@@ -848,7 +942,7 @@ def write_members(archive, into):
     name, so nothing the archive wrote reaches the filesystem as a path.
     """
     counts = {ADDED: 0, IDENTICAL: 0, COLLIDED: 0}
-    collisions = []
+    collisions, refused = [], []
     for info in archive.infolist():
         name = info.filename
         if info.is_dir() or name == MANIFEST:
@@ -873,6 +967,10 @@ def write_members(archive, into):
         try:
             opened = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
         except FileExistsError:
+            # The name was free when `place` chose it and is taken now. Named
+            # rather than skipped: a silent drop reads as a zip that held one
+            # fewer record, which is the one thing this report must not say.
+            refused.append("/".join(parts))
             continue
         with os.fdopen(opened, "wb") as handle:
             handle.write(data)
@@ -884,7 +982,7 @@ def write_members(archive, into):
                     os.path.relpath(target, into).replace(os.sep, "/"),
                 )
             )
-    return counts, collisions
+    return counts, collisions, refused
 
 
 # --- the release reminder ---------------------------------------------------
