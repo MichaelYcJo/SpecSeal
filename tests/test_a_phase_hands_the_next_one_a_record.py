@@ -40,9 +40,13 @@ is absent to any reader that strips comments first, template included.
 import importlib.util
 import os
 
+import pytest
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 PHASE_TEMPLATE = os.path.join(ROOT, "templates", "sdd-phase.md")
 PLAN_TEMPLATE = os.path.join(ROOT, "templates", "sdd-plan.md")
+SMITH_AGENT = os.path.join(ROOT, "agents", "smith.md")
+IMPLEMENT_SKILL = os.path.join(ROOT, "skills", "implement", "SKILL.md")
 
 SECTIONS = (
     "## What this phase was asked",
@@ -214,4 +218,97 @@ def test_plan_names_the_phase_record_path():
     )
     assert "templates/sdd-phase.md" in plan, (
         "templates/sdd-plan.md does not name the template a phase record starts from"
+    )
+
+
+# --- phase 2: smith is told to write the record, and where ------------------
+#
+# Phase 1 built the template with nothing pointing a spawned smith at it
+# except `plan.md`'s own pointer sentence — which a session reads only if it
+# opens `plan.md` at all. `agents/smith.md` phase 3 ("Implement") is read by
+# every spawn regardless, so the instruction to write `phases/phase-N.md` at
+# each phase's close belongs there, not only in the plan template.
+
+
+def test_smith_is_told_to_write_the_phase_record():
+    smith = read(SMITH_AGENT)
+    assert "phases/phase-N.md" in smith, (
+        "agents/smith.md does not name `phases/phase-N.md` — a spawned "
+        "smith has no instruction pointing it at the file to write"
+    )
+    assert "templates/sdd-phase.md" in smith, (
+        "agents/smith.md does not name the template a phase record starts from"
+    )
+    assert "each phase's close" in smith or "phase's close" in smith, (
+        "agents/smith.md does not say WHEN to write the record — a "
+        "session that finds the file but not the timing writes it late or "
+        "never"
+    )
+
+
+# --- phase 2: the skill carries the file-set row and the copy instruction ---
+
+
+def test_skill_file_set_table_carries_the_phase_row():
+    skill = read(IMPLEMENT_SKILL)
+    assert "phases/phase-N.md" in skill, (
+        "skills/implement/SKILL.md's SDD file-set table has no `phases/phase-N.md` row"
+    )
+    assert "templates/sdd-phase.md" in skill, (
+        "skills/implement/SKILL.md does not name the template the "
+        "`phases/phase-N.md` row starts from"
+    )
+
+
+def test_skill_says_what_is_copied_into_what_this_phase_was_asked():
+    skill = read(IMPLEMENT_SKILL)
+    assert "What this phase was asked" in skill, (
+        "skills/implement/SKILL.md never names the section the copied content lands in"
+    )
+    assert "boilerplate" in skill, (
+        "skills/implement/SKILL.md does not say that the copied content "
+        "excludes the boilerplate the contract, the skill, and "
+        "agents/smith.md already carry — without that line, a session "
+        "copies the whole spawn prompt in, including what every phase "
+        "already gets told"
+    )
+    assert "agents/smith.md" in skill
+
+
+# --- phase 2: carrier consistency ---------------------------------------------
+#
+# The four files phase 1 and 2 touch have to name the record path the same
+# way for a reader to find it by grepping any one of them. A template's own
+# self-description is one exception: `templates/sdd-phase.md` names its own
+# path the way `templates/sdd-round.md` names its own — `round-<N>.md`, the
+# angle bracket marking a template placeholder, matching every other
+# `<...>` already in that file's path comment (`<unix-epoch-seconds>-<slug>`
+# sits in the same sentence). Every file that instead POINTS AT the record
+# from prose — `templates/sdd-plan.md`, `agents/smith.md`,
+# `skills/implement/SKILL.md` — uses the bracket-free form the file is
+# actually created with, `phase-N.md`, matching how those same three files
+# already write `round-N.md` for the sibling record
+# (`docs/review-handoff-protocol.md`, `skills/code-review/SKILL.md`,
+# `agents/warden.md` never write `round-<N>.md` in prose either).
+
+PROSE_CARRIERS = (
+    ("templates", "sdd-plan.md"),
+    ("agents", "smith.md"),
+    ("skills", "implement", "SKILL.md"),
+)
+
+
+@pytest.mark.parametrize("parts", PROSE_CARRIERS)
+def test_the_phase_record_path_is_spelled_the_same_in_every_prose_carrier(parts):
+    text = read(os.path.join(ROOT, *parts))
+    assert "phases/phase-N.md" in text, "/".join(parts)
+
+
+def test_the_phase_templates_own_path_comment_matches_the_round_templates():
+    phase = read(PHASE_TEMPLATE)
+    assert "phases/phase-<N>.md" in phase, (
+        "templates/sdd-phase.md's own path comment does not spell its path "
+        "`phase-<N>.md` — the same templated form `templates/sdd-round.md` "
+        "uses for `round-<N>.md`, and the form every OTHER `<...>` in that "
+        "same comment already uses"
     )
