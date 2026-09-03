@@ -651,8 +651,16 @@ def place(destination, data):
     first one whose bytes already equal `data` ends the search: re-importing
     the same zip is then a run that writes nothing, rather than a second pile
     of `.incoming` copies of files that are already there.
+
+    `lexists`, not `exists`. A candidate that is a symbolic link to nothing
+    reads as absent to `exists`, and returning it would have the caller write
+    THROUGH the link — round 2 measured a record leaving the root that way,
+    at exit 0, reported as an ordinary collision. `lexists` calls such a name
+    taken, `read_bytes` on it raises, and the copy moves to the next name.
+    `linked_path` refuses the member's own name before any of this; the
+    fallback names it never sees are what this covers.
     """
-    if not os.path.exists(destination):
+    if not os.path.lexists(destination):
         return destination, ADDED
     directory = os.path.dirname(destination)
     stem, ext = os.path.splitext(os.path.basename(destination))
@@ -665,7 +673,7 @@ def place(destination, data):
                 f"{stem}.incoming{ext}" if n == 1 else f"{stem}.incoming-{n}{ext}",
             )
         )
-        if not os.path.exists(candidate):
+        if not os.path.lexists(candidate):
             return candidate, COLLIDED
         try:
             if read_bytes(candidate) == data:
@@ -676,7 +684,7 @@ def place(destination, data):
 
 
 def destination_root(repo, home, shared, local, into):
-    """(root to write into, message). Creates it when the mode is named.
+    """(root to write into, message). Names it; `write_members` creates it.
 
     With no `--into`, the root in force wins; with none in force, local — the
     direction that puts nothing in the tree. Guessing shared would write this
@@ -729,6 +737,19 @@ def import_(args, cwd):
         return 1
 
     with archive:
+        # Before the manifest, not after it. `read_manifest` reads that member
+        # whole and `unsafe` exempts it from the member limit, so a 400 MB
+        # `manifest.json` was read and decoded before anything refused it —
+        # measured 2026-09-03, 400 MB of memory for a zip that then exits 1.
+        declared = sum(info.file_size for info in archive.infolist())
+        if declared > ARCHIVE_LIMIT:
+            print(
+                f"{path} declares {declared} bytes unpacked, more than the "
+                f"{ARCHIVE_LIMIT} this command will read."
+            )
+            print("\nNothing was written. A root this large is not a root of records.")
+            return 1
+
         manifest, why = read_manifest(archive, path)
         if not manifest:
             print(why)
@@ -745,13 +766,24 @@ def import_(args, cwd):
             )
             return 1
 
-        declared = sum(info.file_size for info in archive.infolist())
-        if declared > ARCHIVE_LIMIT:
+        # Every member's data, before the first of them is written. `read`
+        # raises `BadZipFile` on a bad CRC, and this loop used to meet that
+        # mid-write: the records before the corrupt one were on disk and the
+        # traceback printed no line of this command's own. That is a partial
+        # import from a zip that chose to be corrupt, which is the outcome
+        # every other refusal here exists to prevent. `testzip` streams and
+        # holds nothing, and `ARCHIVE_LIMIT` above bounds what it can be
+        # asked to read.
+        try:
+            corrupt = archive.testzip()
+        except zipfile.BadZipFile as bad:
+            corrupt = str(bad)
+        if corrupt:
+            print(f"{path} holds a member this command cannot read: {corrupt}")
             print(
-                f"{path} declares {declared} bytes unpacked, more than the "
-                f"{ARCHIVE_LIMIT} this command will read."
+                "\nNothing was written. A zip that cannot be read whole is "
+                "not a copy of anything."
             )
-            print("\nNothing was written. A root this large is not a root of records.")
             return 1
 
         here = normalise_remote(git(repo, "config", "--get", "remote.origin.url"))
@@ -827,12 +859,24 @@ def write_members(archive, into):
         destination = os.path.join(into, *parts)
         data = archive.read(name)
         target, outcome = place(destination, data)
-        counts[outcome] += 1
         if target is None:
+            counts[outcome] += 1
             continue
         os.makedirs(os.path.dirname(target), exist_ok=True)
-        with open(target, "wb") as handle:
+        # O_EXCL is this command's own contract said to the kernel: it refuses
+        # an existing file and it refuses to open THROUGH a symbolic link.
+        # `place` has already turned every taken name down, so a target that
+        # exists by the time of this open is a name something else took in
+        # between — and the answer to both is the same, do not write here.
+        # Counted after the write, so the report never names a file that was
+        # not written.
+        try:
+            opened = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+        except FileExistsError:
+            continue
+        with os.fdopen(opened, "wb") as handle:
             handle.write(data)
+        counts[outcome] += 1
         if outcome == COLLIDED:
             collisions.append(
                 (

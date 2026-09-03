@@ -670,6 +670,123 @@ def test_a_broken_link_where_a_record_goes_refuses_the_zip(seal, carried, capsys
     assert files_under(outside) == [], "something was written outside the root"
 
 
+def test_a_broken_link_at_the_fallback_name_refuses_to_be_written_through(
+    seal, carried, capsys
+):
+    """Round 2's 🔴. The leaf fix covered the name a member is written to and
+    not the name it falls back to when that one is taken.
+
+    `place` walks `<name>`, then `<name>.incoming<ext>`, then the numbered
+    siblings, and `linked_path` never sees any of the fallbacks. A broken link
+    at the first fallback read as absent, so `place` returned it as a
+    collision and the write followed it out of the root — exit 0, reported as
+    an ordinary collision. The sender of the zip chooses whether the collision
+    happens at all, by sending bytes that differ.
+
+    The copy must still land, and inside the root: this is a link somebody
+    made by hand at one name, not a reason to lose the record.
+    """
+    zip_path, other, home = carried
+    outside = other.parent / "outside"
+    outside.mkdir()
+    stolen = outside / "stolen.md"
+    (home / "ledger.md").write_text("bytes that differ from the zip's\n")
+    symlink_or_skip(str(stolen), str(home / "ledger.incoming.md"))
+    assert not stolen.exists(), "the link must be broken for this to be the case"
+
+    code, out = run(seal, ["import", zip_path], other, capsys)
+    assert code == 0, out
+    assert not stolen.exists(), "a record was written outside the root"
+    assert files_under(outside) == [], "something was written outside the root"
+    assert (home / "ledger.incoming-2.md").exists(), (
+        "the copy must still land, past the name that is a link"
+    )
+
+
+def test_the_write_itself_refuses_a_name_that_became_a_link(
+    seal, tmp_path, monkeypatch
+):
+    """The second layer under round 2's 🔴, pinned on its own.
+
+    `place` turning a link down is a check, and a check can be raced: the name
+    is free when it is chosen and a link by the time it is opened. `O_EXCL` is
+    the same refusal said to the kernel, where nothing can get in between.
+
+    Reverting `O_EXCL` alone reddens no case through the command, because
+    `place` already turns the link down — so the race is what this case
+    stands in for, by having `place` hand back the name a raced check would
+    have handed back. Nothing is written and nothing is counted.
+    """
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    stolen = outside / "stolen.md"
+    symlink_or_skip(str(stolen), str(root / "ledger.md"))
+
+    monkeypatch.setattr(seal, "place", lambda destination, data: (destination, "added"))
+
+    archive_path = tmp_path / "z.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("seal/ledger.md", "FROM THE ZIP")
+    with zipfile.ZipFile(archive_path) as archive:
+        counts, collisions = seal.write_members(archive, str(root))
+
+    assert not stolen.exists(), "the write followed a link out of the root"
+    assert list(outside.iterdir()) == [], "something was written outside the root"
+    assert counts["added"] == 0, "the report named a file that was not written"
+    assert collisions == []
+
+
+def test_an_archive_declaring_more_than_a_root_refuses_the_zip(seal, carried, capsys):
+    """S19b's other half. Every member can be under the member limit and the
+    archive still be more than this command will read — twenty members of
+    31 MB is 620 MB, and each one passes `unsafe` on its own."""
+    _zip_path, other, home = carried
+    before = files_under(home)
+    fat = other.parent / "fat-archive.zip"
+    chunk = b"\0" * (31 * 1024 * 1024)
+    with zipfile.ZipFile(fat, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": ""}))
+        for n in range(20):
+            archive.writestr(f"seal/m{n}.md", chunk)
+
+    code, out = run(seal, ["import", str(fat)], other, capsys)
+    assert code == 1, out
+    assert "this command will read" in out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_a_member_whose_data_is_corrupt_writes_none_of_the_others(
+    seal, carried, capsys
+):
+    """S17. A zip truncated on disk was already refused; corruption inside an
+    otherwise well-formed central directory was not.
+
+    `archive.read` raises on a bad CRC, and the loop met that mid-write: the
+    records before the corrupt one were on disk and the traceback printed no
+    line of this command's own. Every other refusal in this file happens
+    before the first byte, and this one now does too.
+    """
+    _zip_path, other, home = carried
+    before = files_under(home)
+    broken = other.parent / "broken.zip"
+    with zipfile.ZipFile(broken, "w") as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": ""}))
+        archive.writestr("seal/first.md", "first\n")
+        archive.writestr("seal/second.md", "second\n")
+    raw = bytearray(broken.read_bytes())
+    at = raw.find(b"second\n")
+    assert at != -1
+    raw[at : at + 6] = b"SECOND"
+    broken.write_bytes(bytes(raw))
+
+    code, out = run(seal, ["import", str(broken)], other, capsys)
+    assert code == 1, out
+    assert "cannot read" in out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
 def test_extractall_would_have_written_through_that_link(seal, tmp_path):
     """The counterfeit rule, applied to the case above: it has to be able to
     fail. This is the behaviour it guards against, run against the standard

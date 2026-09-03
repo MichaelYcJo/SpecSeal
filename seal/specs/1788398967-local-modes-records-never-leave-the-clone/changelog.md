@@ -63,12 +63,27 @@
   at exit 0 with nothing printed. The check now covers the leaf, and three
   documents that called the directory case the only way out say what was
   measured instead.
+- **Review then found the same escape one name over, and it is closed at two
+  levels.** A collision does not write to the member's name — it falls back to
+  `<name>.incoming<ext>`, and the check that refuses links had never seen the
+  fallback names. A broken link there read as absent, so the copy was written
+  straight through it, outside the root, at exit 0 and printed as an ordinary
+  collision. The sender of the zip chooses whether the collision happens at
+  all, by sending bytes that differ. Every candidate name is now read as a
+  link rather than as a file, and the write itself opens with a flag the
+  kernel refuses to follow a link through — so a name that becomes a link
+  after it was checked is refused too.
 - **An import now refuses a zip that declares more than a root of records
-  holds.** Each member is read whole, and the zip arrives from another
+  holds, and a zip whose data does not match its own checksums.** Each member is read whole, and the zip arrives from another
   machine, so its declared sizes are the sender's choice: a 408 KB file
   declaring 400 MB in one member wrote 419 MB and took as much memory, in
-  0.2 s. A member is capped at 32 MB and an archive at 512 MB, both read
-  before a byte is written.
+  0.2 s. A member is capped at 32 MB and an archive at 512 MB, and the total
+  is summed before the manifest is parsed — that read is unbounded too, so a
+  400 MB `manifest.json` used to take 400 MB of memory on its way to being
+  rejected. A bad checksum was the other way in: a zip whose central directory
+  is well formed and whose data is corrupt used to write the records before
+  the corrupt one and then die on a traceback, which is a partial import from
+  a zip that chose to be one.
 - **Two smaller corrections.** A clone holding both roots is now refused
   however the import is asked, including with no `--into` flag — the case the
   specification and both READMEs describe was the one spelling that still
