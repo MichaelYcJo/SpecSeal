@@ -10,7 +10,7 @@ work item. -->
 |---|---|
 | Target SHA | the fix diff from adc3b9d, reviewed at 133ddf3 |
 | PR | none yet |
-| Broad gate | filled in at the gate's commit |
+| Broad gate | a73de50 against `origin/release/v0.5.0`: `pytest tests/ -q -n auto` 1647 passed · 1 skipped; `ruff check .` clean; `ruff format --check .` 85 files; `evidence_check.py --strict .` 455 ok · 0 drifted · 0 broken; `unverified_check.py --baseline` exit 0 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
