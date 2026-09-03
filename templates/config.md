@@ -67,12 +67,15 @@ every repository, whatever either row says:
   prefix teaches neither.
 - **Branch names.** Still `<prefix>/<kebab-case-slug>` in ASCII: a branch
   name is typed into a shell and pasted into a URL.
-- **The field names and vocabulary a checker reads literally** — a round
-  record's `Target SHA`, `Fixes checked by`, `Contract changes`, `New units`,
-  `Needs a fix` and its `Pass` checkbox; the verdict words `fixed`,
-  `answered`, `withdrawn`, `not a defect`, `agreed`; `round-N`, `no fixes to
-  check` and `nobody — <why>`; an unverified record's `Item` and `Who must
-  answer`. A translated field name is not a translation, it is a broken gate.
+- **The field names, section headings and vocabulary a checker or a pinned
+  case reads literally** — a round record's `Target SHA`, `PR`, `Broad gate`, `Fixes
+  checked by`, `Contract changes`, `New units` and its `Pass` checkbox, its
+  `## Verdicts` heading and that table's `Verdict` column; the verdict words
+  `fixed`, `answered`, `withdrawn`, `not a defect` and `agreed, fixed`;
+  `round-N`, `none`, `no fixes to check` and `nobody — <why>`; an
+  `overview.md`'s `## Not verified` heading with its `Item` and `Who must
+  answer` columns. A translated field name is not a translation, it is a
+  broken gate.
 - **The markers and anchors.** `<!-- specs/<work-item-id> -->`, a release
   section's `## X.Y.Z — <date>`, a drained file's `drained` line, the ✅ that
   closes a row, and a ledger anchor's `path#unit@hash`.

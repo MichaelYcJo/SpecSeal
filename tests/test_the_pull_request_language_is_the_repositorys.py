@@ -1071,3 +1071,103 @@ def test_the_layout_lists_the_config(parts):
     assert "config.md" in read(*parts), (
         "/".join(parts) + " draws the root without the config file in it"
     )
+
+
+# --- the exclusion list, derived rather than compared ----------------------
+
+
+def _checker(name, *parts):
+    """Import a checker by path, the way this repository's own cases do."""
+    import importlib.util
+
+    path = os.path.join(ROOT, *parts)
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _governs_nothing():
+    """The `What no row governs` section of the template, flattened."""
+    text = read(*TEMPLATE)
+    start = text.index("## What no row governs")
+    end = text.index("\n## ", start + 1)
+    return " ".join(text[start:end].split())
+
+
+def _literal_strings():
+    """Every string the checkers match literally, read from the checkers.
+
+    Derived, not copied. Round 1 of #106 found two headings missing from a
+    hand-written list that had been copied into three documents — and the
+    list's own grounds are *what a checker reads*, so a second source of it
+    is a second source of the truth it claims to state.
+    """
+    chain = _checker(
+        "chain_check", "skills", "code-review", "scripts", "chain_check.py"
+    )
+    unverified = _checker(
+        "unverified_check", "skills", "verify", "scripts", "unverified_check.py"
+    )
+    found = {
+        chain.VERDICTS,
+        chain.TARGET,
+        chain.CHECKED_BY,
+        chain.CONTRACT,
+        chain.NEW_UNITS,
+        chain.NONE_WORD,
+        unverified.HEADING,
+        *unverified.HEADER,
+        *chain.CLOSED_WORDS,
+    }
+    return sorted(found)
+
+
+@pytest.mark.parametrize("literal", _literal_strings())
+def test_the_exclusion_list_holds_every_string_a_checker_matches(literal):
+    """S6. The list's grounds are *what a checker reads literally*, so it is
+    checked against the checkers rather than against itself.
+
+    Two were missing when this case was written — `## Verdicts` and
+    `## Not verified` — and a repository that set `Record language` to another
+    language would have translated both: the first makes `chain_check.py`
+    report a record that says nothing about what it found, and the second
+    turns `unverified_check.py` red on every pull request.
+    """
+    assert literal in _governs_nothing(), (
+        f"a checker matches `{literal}` literally and the exclusion list does "
+        "not hold it, so a repository translating its records breaks that "
+        "checker with nothing to warn it"
+    )
+
+
+# Every shipped document that tells a session which row to read. A document
+# naming the wrong row sends the session to a row that does not exist, and
+# round 1 found two that had drifted with nothing red.
+ROW_READERS = [
+    ("templates", "config.md"),
+    ("templates", "seal-README.md"),
+    ("skills", "config", "SKILL.md"),
+    ("skills", "implement", "SKILL.md"),
+    ("skills", "commit-pr-convention", "SKILL.md"),
+    ("skills", "code-review", "SKILL.md"),
+    ("agents", "smith.md"),
+    ("agents", "warden.md"),
+]
+
+
+@pytest.mark.parametrize("parts", ROW_READERS, ids=lambda p: "/".join(p))
+def test_every_document_that_names_a_language_row_names_the_shipped_one(parts):
+    """The pairing this branch was reviewed as one round for: a document
+    naming the wrong row is invisible until somebody follows it."""
+    text = flat(*parts)
+    assert "Record language" in text, (
+        f"{'/'.join(parts)} does not name `Record language`, the row that "
+        "governs the prose it is about"
+    )
+    assert "Pull request language" not in text.replace(
+        "Commit and pull request language", ""
+    ), (
+        f"{'/'.join(parts)} still names the row `Pull request language`, "
+        "which #106 renamed"
+    )

@@ -44,21 +44,33 @@ def test_the_skill_names_every_row_the_template_ships(row):
 def test_the_skill_shows_rows_that_are_absent():
     """S1, the half that is easy to drop. A row a repository never set is the
     most likely one somebody wants to change, and a file that shows only what
-    is present hides exactly those."""
-    text = flat(*SKILL)
-    assert "absent" in text or "not carry" in text
-    assert "default" in text
+    is present hides exactly those.
+
+    Asserted on the INSTRUCTION rather than on the words `absent` and
+    `default` — both are in the file's own opening paragraph, so the first
+    spelling of this case stayed green with the instruction deleted.
+    """
+    assert "including the ones the file does not carry" in flat(*SKILL), (
+        "the skill no longer tells the session to print the rows the file "
+        "does not carry, which are the ones somebody came to change"
+    )
 
 
 def test_the_mode_row_is_routed_and_not_read():
     """S2 and S3. `seal mode` is what the pull-request checks run, and a
     second reader of that row is a second answer."""
     text = flat(*SKILL)
-    assert "seal mode" in text, "the skill does not name the command that owns the row"
+    assert "Run `seal mode local` or `seal mode shared`" in text, (
+        "the skill does not hand the move to the command that owns it"
+    )
+    assert "Do not do any of that by hand" in text, (
+        "nothing forbids the skill from growing a move of its own. Asserting "
+        "the absence of `mv ` did not: a rewrite using `cp -a` and a delete "
+        "stayed green"
+    )
     assert "second reader is a second answer" in text, (
         "the skill does not say why it routes rather than reading the row"
     )
-    assert "mv " not in text, "the skill spells a move of its own"
 
 
 def test_the_one_way_door_is_named_before_it_is_walked_through():

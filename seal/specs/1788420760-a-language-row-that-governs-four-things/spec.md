@@ -59,12 +59,12 @@ for the second.
 
 | # | Given / when / then | Verifiable how |
 |---|---|---|
-| S1 | Given `seal/config.md` with `Commit and pull request language | Korean`, when a session writes a commit or a pull request, then it writes Korean | S1 case: the skill names the row and defers to it |
-| S2 | Given `Record language | Korean`, when a session writes any of the SDD documents or a ledger row's prose, then it writes Korean | S2 case: the implement skill and both agents name the row |
+| S1 | Given `seal/config.md` with `Commit and pull request language \| Korean`, when a session writes a commit or a pull request, then it writes Korean | S1 case: the skill names the row and defers to it |
+| S2 | Given `Record language \| Korean`, when a session writes any of the SDD documents or a ledger row's prose, then it writes Korean | S2 case: the implement skill and both agents name the row |
 | S3 | Given one row set and the other absent, when either surface is written, then the absent one is English | S3 case: no coupling in either direction |
 | S4 | Given no file, no such row, an empty value, or a file that does not parse, when either surface is written, then it is English and nothing stops | S4 case, four shapes × two rows |
 | S5 | Given any value, when anything is written, then the commit prefix vocabulary, branch names, code, identifiers, docstrings, file names and test function names stay English | S5 case, unchanged from #82 and widened |
-| S6 | Given `Record language | Korean`, when a round record is written, then its field names, verdict vocabulary, `Pass` checkbox and `<!-- -->` markers stay English and only the cell prose is Korean | S6 case: the checkers read those strings literally |
+| S6 | Given `Record language \| Korean`, when a round record is written, then its field names, verdict vocabulary, `Pass` checkbox and `<!-- -->` markers stay English and only the cell prose is Korean | S6 case: the checkers read those strings literally |
 | S7 | Given the ledger, when a row is written, then the anchors `path#unit@hash` stay as they are whatever the row says | S7 case |
 | S8 | Given the response language, when anything is written, then it is not in this file — it stays the person's own setting | S8 case, unchanged from #82 |
 

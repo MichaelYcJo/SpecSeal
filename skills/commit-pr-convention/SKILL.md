@@ -90,12 +90,12 @@ to change:
   tooling, and `기능:` teaches neither.
 - **Branch names stay ASCII** — `<prefix>/<kebab-case-slug>` — because a
   branch name is typed into a shell and pasted into a URL.
-- **The field names and vocabulary a checker reads literally**, which belong
-  to the other row's surface and are excluded from both: a round record's
-  `Target SHA`, `Fixes checked by`, `Contract changes`, `New units`, `Needs a
-  fix` and `Pass`; the verdict words; the `<!-- -->` markers; a ledger
-  anchor's `path#unit@hash`. A translated field name is not a translation, it
-  is a broken gate.
+- **The field names, section headings and vocabulary a checker reads
+  literally**, which belong to the other row's surface and are excluded from
+  both. The whole list is in `templates/config.md` under *What no row
+  governs*, and it is derived from the checkers' own constants rather than
+  copied — a hand-copied list is a second source that drifts, which is how
+  two headings went missing from it once already.
 - **Code**: identifiers, comments, docstrings, file names, test function
   names.
 - **The response language is not in that file.** What the session says to

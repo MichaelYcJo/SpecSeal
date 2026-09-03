@@ -54,9 +54,12 @@ second answer.
 **3. Take a change, and route it.**
 
 - **A language row** is only a row. Edit the value in place, leaving the rest
-  of the file as it is. If the file does not exist, copy
-  `$CLAUDE_PLUGIN_ROOT/templates/config.md` into the root first and edit that
-  — it carries every row's documentation, which is the half a person reads.
+  of the file as it is. Where the file carries no language row at all — the
+  stub `seal mode` writes has only `Mode`, and that is every repository that
+  has set its mode — take the row *and its section* from
+  `$CLAUDE_PLUGIN_ROOT/templates/config.md` rather than writing a bare row.
+  The documentation beside it is the half a person reads, and a repository
+  that reached this file through `seal mode` has none of it.
 - **The mode row moves files.** Run `seal mode local` or `seal mode shared`.
   It moves the root, stages the change, carries
   `.github/workflows/hygiene.yml` in or out, and writes the row, so the file
