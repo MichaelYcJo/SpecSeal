@@ -87,9 +87,12 @@ keep.
 When a root or file this skill needs doesn't exist, create it from
 `templates/` in this plugin and continue. In particular:
 
-- `seal/ledger.md` — created empty, with no baseline to stamp: a coordinate
-  names content rather than a position, so there is nothing for a header to
-  declare. A work item's own rows go in `seal/ledger/<work-item-id>.md`.
+- `seal/ledger.md` — written from `templates/ledger.md`, which carries the
+  coordinate notation and the feed-back rule a session needs before it adds
+  a row. Its **clause tables arrive empty** and there is no baseline to
+  stamp: a coordinate names content rather than a position, so there is
+  nothing for a header to declare. A work item's own rows go in
+  `seal/ledger/<work-item-id>.md`.
 - `seal/README.md` — carries the export rules so sessions that never load
   this skill still see them.
 - **Not** policy documents. If the repository has none, it has none; judge from
@@ -547,12 +550,17 @@ A work item's directory is `seal/specs/<unix-epoch-seconds>-<slug>/` (e.g.
 timestamp prefix keeps directories in creation order and collision-free
 without a registry — take it from `date +%s` when creating the directory.
 
-| File | Holds | When |
-|---|---|---|
-| `spec.md` | WHAT — scope, mandatory user scenarios & acceptance, grounding clauses | before implementing |
-| `plan.md` | HOW — phases as vertical slices, alternatives with failure scenarios; this is the Design Gate's artifact | before implementing (gated work) |
-| `questions.md` | decisions only a human can make — extracted so nothing ships on a silent assumption | one batch before the first edit, then as they arise |
-| `overview.md` | the closing memo — one line of purpose, then what the diff cannot show (below) | opened at the first divergence, unverified item, or fed-back clause; closed when implementation ends |
+| File | Starts from | Holds | When |
+|---|---|---|---|
+| `spec.md` | `templates/sdd-spec.md` | WHAT — scope, mandatory user scenarios & acceptance, grounding clauses | before implementing |
+| `plan.md` | `templates/sdd-plan.md` | HOW — phases as vertical slices, alternatives with failure scenarios; this is the Design Gate's artifact | before implementing (gated work) |
+| `questions.md` | `templates/sdd-questions.md` | decisions only a human can make — extracted so nothing ships on a silent assumption | one batch before the first edit, then as they arise |
+| `overview.md` | `templates/sdd-overview.md` | the closing memo — one line of purpose, then what the diff cannot show (below) | opened at the first divergence, unverified item, or fed-back clause; closed when implementation ends |
+
+The middle column is not decoration. A template that no shipped document
+names is a template a session cannot find: it reads *bootstrapped from
+`templates/`*, cannot tell which file that means, and writes one from
+scratch. Two of these four were in exactly that state.
 
 **`plan.md`'s Phases table is the task list, and there is no other.** Each
 phase carries a **Verified by** column, so it cannot be called done the way a

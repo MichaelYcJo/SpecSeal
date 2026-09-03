@@ -102,7 +102,7 @@ Cross-session memory lives in the repo, not the session:
 
 | Root | Lifetime | Holds |
 |---|---|---|
-| `seal/` | permanent | everything this plugin maintains — the ledger, the follow-up list, the migration config — and, beneath it, the work items. Its existence is also what opts the repository in, for the four hooks that read it — the commit gate, the review-skill gate, the review-history guard and the version check. worktree-guard and session-lease act in every git repo regardless, and lint-python follows ruff (see Where below) |
+| `seal/` | permanent | everything this plugin maintains — the ledger, the follow-up list, the repository's own config (the pull request language lives there), the migration config — and, beneath it, the work items. Its existence is also what opts the repository in, for the four hooks that read it — the commit gate, the review-skill gate, the review-history guard and the version check. worktree-guard and session-lease act in every git repo regardless, and lint-python follows ruff (see Where below) |
 | `seal/specs/<id>/` | one work item | SDD set: spec, plan, questions, and a closing memo holding only what the diff cannot show. A human approves `plan.md`, which is why this is a repository document and not tool state |
 | `docs/` | permanent | whatever policy documents the repository already keeps. **Never created here** — a project's documentation convention is its own |
 
@@ -113,6 +113,8 @@ seal/
 │                     started writing fragments
 ├── ledger/
 │   └── <work-item-id>.md   one work item's rows — no header, folded into ledger.md at release
+├── config.md         what this repository says about itself — the pull request
+│                     language is the first row. Optional: absent means English
 ├── parity.md         migration config, only when declared
 ├── follow-up.md      schedulable items in a repository with no tracker
 └── specs/<work-item-id>/
