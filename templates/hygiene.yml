@@ -13,13 +13,15 @@
 # `chain_check.py` lists `seal/specs/` with `git ls-tree HEAD`, and
 # `unverified_check.py` diffs against `--baseline <ref>` — and local mode
 # keeps the root under the git directory, where nothing is ever committed.
-# A workflow there fails in both directions at once. `unverified_check.py`
-# exits 2 for a path that is nowhere — a build red forever for a repository
-# doing the right thing — while `chain_check.py` exits 0 for a repository
-# that declared nothing — green having examined nothing, a pass it never
-# earned. The way to get CI is the switch to shared mode: `seal mode shared`
-# moves the root into the tree, stages it, and writes this file pinned to the
-# plugin release it runs. You commit.
+# A workflow left there is red forever. `unverified_check.py` runs second and
+# exits 2 for a path that is nowhere, and nothing here carries
+# `continue-on-error` or `if: always()` — so the job stops and the steps
+# after it, `chain_check.py` among them, never run. That check would have
+# exited 0 for a repository that declared nothing, green having
+# examined nothing, and it does not get the chance. The build is red for a
+# repository doing the right thing. The way to get CI is the switch to shared mode:
+# `seal mode shared` moves the root into the tree, stages it, and writes this
+# file pinned to the plugin release it runs. You commit.
 #
 # Doing it by hand instead: copy this file to .github/workflows/hygiene.yml
 # and replace v<version> with the tag of the plugin release you run.

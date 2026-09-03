@@ -182,8 +182,15 @@ def test_the_template_header_says_why_local_mode_installs_none():
     # forever and `chain_check.py` reports a pass it never earned, and the
     # header has to say both or it teaches the milder half.
     assert "red forever" in header
+    # And why only red. Round 2 of #104 found the previous wording — "fails in
+    # both directions at once" — describing something the workflow does not
+    # do: `unverified_check.py` runs before `chain_check.py` and nothing
+    # carries `continue-on-error`, so the job stops and the second check never
+    # runs at all. Right exit codes, wrong conclusion, for the second time on
+    # the same sentence.
+    assert "never run" in header
     assert "examined nothing" in header
-    assert "exits 0" in header and "exits 2" in header
+    assert "exits 2" in header
     assert "seal mode shared" in header, (
         "the header does not name the command that gets CI"
     )

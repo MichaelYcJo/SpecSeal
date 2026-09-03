@@ -68,10 +68,11 @@ a commit, so a session meeting any of these writes English and carries on
 rather than asking.
 
 **To create it, copy `templates/config.md` from this plugin into the root and
-edit the row you mean.** It ships more than one; the mode's row is filled
-in by `seal mode` rather than by hand. That file repeats the exclusions
-below, because the person who writes a repository's config reads it and
-never reads this one.
+edit the row you mean.** It ships more than one. The mode's row is written
+by `seal mode` from where the folder is, and edited by hand only to ask for
+a move — `seal mode --apply` then moves the folder to what you wrote. That
+file repeats the exclusions below, because the person who writes a
+repository's config reads it and never reads this one.
 
 It governs nothing else, and the three exclusions are what make it safe to
 change:

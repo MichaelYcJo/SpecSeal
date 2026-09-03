@@ -340,10 +340,11 @@ filled in from where the folder is, because that is the only value that
 cannot be wrong. Setup also decides whether the hygiene
 workflow (the pull-request checks in `.github/workflows/hygiene.yml`) is
 installed; in local mode it is not, because both checks read committed files
-and local mode commits none, so the workflow would fail in both directions at
-once — `unverified_check.py` exits 2 for a path that is nowhere, a build red
-forever for a repository doing the right thing, while `chain_check.py` exits 0
-for a repository that declared nothing, reporting a pass it never earned.
+and local mode commits none, so a workflow left there is red forever —
+`unverified_check.py` runs second and exits 2 for a path that is nowhere, and
+with no `continue-on-error` the job stops, so `chain_check.py` never runs at
+all. It would have exited 0 having examined nothing; it does not get the
+chance.
 
 **Why local mode is under `.git/` and not gitignored.** A linked worktree
 checks out committed files only, so an ignored `<repo>/seal/` in the main
@@ -570,7 +571,7 @@ them closes what was item 4 of the table below.
 | Design stance toward the directory meanwhile | nothing permanent may depend on `seal/specs/<id>/` after the merge, and nothing may need finding and updating when a path or position moves | the dependency rule; the two checks that must change before `settle` |
 | Where the folded record lives | `docs/`, defined by who reads it (people), written by people and by `settle` | the `implement` skill's "never created here" sentence, to be corrected |
 | The first-setup question's shape | one `AskUserQuestion`, **shared** first as the default. Shared creates `<repo>/seal/` in the tree and the routing commit carries it; local creates `$(git rev-parse --git-common-dir)/seal/` and touches nothing in the tree. A repository with `seal/` at either place, or still on the 0.3.x layout, is not asked | Q6 and Q7 of #80; "creates `<repo>/seal/` and commits it" above is the flow as it reads, not a commit the bootstrap makes |
-| What shared mode installs | `.github/workflows/hygiene.yml` from `templates/hygiene.yml`, only when that path is absent: a clone of the plugin at the release installed at setup, and the two pull-request checks. Local mode installs nothing, because the checks read committed files | Q0-a and Q4 of #80; the sentence above that said the workflow would refuse a pull request, corrected twice — it fails in both directions at once, `unverified_check.py` red forever on a path that is nowhere and `chain_check.py` green having examined nothing |
+| What shared mode installs | `.github/workflows/hygiene.yml` from `templates/hygiene.yml`, only when that path is absent: a clone of the plugin at the release installed at setup, and the two pull-request checks. Local mode installs nothing, because the checks read committed files | Q0-a and Q4 of #80; the sentence above that said the workflow would refuse a pull request, corrected twice — the workflow is red forever, because `unverified_check.py` exits 2 on a path that is nowhere and the job stops before `chain_check.py`, which would have been green having examined nothing |
 | The migration hook's stamp | with nothing old left, a repository whose root is at either place is stamped as moved, so a local-mode repository that later checks out an old branch is not moved into the tree it chose to keep clean | Q3 of #80 |
 | How a session finds the root | one sentence in the `implement` skill's layout section and in both agents: every `seal/…` path means `<repo>/seal/` where it exists, else `$(git rev-parse --git-common-dir)/seal/`. The hooks resolve it in code; every other path stays spelled `seal/…` | Q1 of #80 |
 | The `scratch` opt-out | kept, as the file `.git/specseal-scratch` under the common git dir, which cannot be committed; its predecessor `.specseal/scratch` was committed once and silenced every clone | item 4 of the table below, closed by #79 |

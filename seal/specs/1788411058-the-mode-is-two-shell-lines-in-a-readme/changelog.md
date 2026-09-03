@@ -26,13 +26,14 @@
   tidiness.** Measured in a repository with no `seal/`: the two checks it
   runs fail in opposite directions — one goes red on every pull request
   forever for a repository that did the right thing, and the other goes green
-  having examined nothing. Left behind, a switch to local buys both at once.
+  having examined nothing. Left behind, a switch to local turns the build red at the first of them.
   **The two directions do not cost the same, and the command says so before
   it acts.** Going to local takes the records out of the tree and every other
   clone loses them at the next pull, which is what `seal export` and `seal
   import` are for. Going to shared is the one to be sure about: the commit,
-  not the move, is the point of no return, and until it lands `seal mode
-  reset` and then `seal mode local` walk the whole thing back.
+  not the move, is the point of no return, and until it lands
+  `git reset -- seal .github/workflows/hygiene.yml` and then `seal mode
+  local` walk the whole thing back.
   The rename runs first and every step after it is idempotent, so a stopped
   run — or a person who already ran the README's `mv` by hand — is finished
   by running the command again rather than refused. (#104)

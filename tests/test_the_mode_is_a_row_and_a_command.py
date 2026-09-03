@@ -174,14 +174,21 @@ def test_the_way_back_it_names_actually_walks_back(seal, local_repo, capsys):
     # Counting is what makes the mutation land: asserting the substring is
     # present passes while one of the pair still says `seal mode local`
     # alone.
-    assert out.count("git reset") == 2, out
+    assert out.count("git reset -- ") == 2, out
     assert "walks the whole thing back" not in out, out
 
-    git(local_repo, "reset", "--quiet")
+    git(local_repo, "reset", "--quiet", "--", "seal", ".github/workflows/hygiene.yml")
     code, out = run(seal, ["mode", "local"], local_repo, capsys)
     assert code == 0, out
     assert not (local_repo / "seal").exists(), "the way back did not walk back"
     assert local_home(local_repo).is_dir()
+    # The whole thing, which includes the file the switch had just written.
+    # Round 1's guard was reasoned about somebody else's file and applied to
+    # one this command wrote a moment earlier, so the way back left it there —
+    # and `git add -A` next would commit a workflow whose checks read nothing.
+    assert not (local_repo / ".github" / "workflows" / "hygiene.yml").exists(), (
+        "the way back left the workflow it had written"
+    )
 
 
 def test_an_untracked_workflow_is_not_deleted(seal, shared_repo, capsys):
@@ -252,6 +259,87 @@ def test_check_does_not_pass_when_the_repository_cannot_be_resolved(
     code, out = run(seal, ["mode", "--check"], outside, capsys)
     assert code == 1, out
     assert "could not run" in out
+
+
+@pytest.mark.parametrize("pair", ["M ", "MM"])
+def test_a_staged_edit_to_the_config_still_refuses(seal, shared_repo, capsys, pair):
+    """The boundary round 1 wrote into its own fix and nothing held.
+
+    A worktree-only change to `config.md` passes, because this command wrote
+    it. A STAGED one must not: `git rm -r --cached` drops a staged edit
+    without a word. The mutant `pair[1] == "M"` let `MM` and `AM` through and
+    reddened nothing.
+    """
+    config = shared_repo / "seal" / "config.md"
+    config.write_text("# Repository config\n\n| Item | Value |\n|---|---|\n")
+    git(shared_repo, "add", "-A")
+    git(shared_repo, "commit", "-qm", "a config")
+    config.write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n"
+    )
+    git(shared_repo, "add", "--", "seal/config.md")
+    if pair == "MM":
+        config.write_text(
+            "# Repository config\n\n| Item | Value |\n|---|---|\n| Mode | local |\n"
+        )
+
+    code, out = run(seal, ["mode", "local"], shared_repo, capsys)
+    assert code == 1, out
+    assert "not clean" in out
+    assert (shared_repo / "seal").is_dir(), "a refusal moved the root"
+
+
+def test_a_submodule_outside_the_root_does_not_refuse(
+    seal, shared_repo, tmp_path, capsys
+):
+    """The guard's reach. Dropping its pathspec would stop every repository
+    that has a submodule anywhere from changing mode, and no case said so."""
+    inner = tmp_path / "outer-inner"
+    inner.mkdir()
+    git(inner, "init", "-q", ".")
+    git(inner, "config", "user.email", "a@b.c")
+    git(inner, "config", "user.name", "a")
+    (inner / "x.md").write_text("x\n")
+    git(inner, "add", "-A")
+    git(inner, "commit", "-qm", "x")
+    added = git(
+        shared_repo,
+        "-c",
+        "protocol.file.allow=always",
+        "submodule",
+        "add",
+        "--quiet",
+        str(inner),
+        "vendor",
+        check=False,
+    )
+    if added.returncode != 0 or not (shared_repo / "vendor").exists():
+        pytest.skip("this git refuses a file-protocol submodule")
+    git(shared_repo, "commit", "-qm", "a submodule outside the root")
+
+    code, out = run(seal, ["mode", "local"], shared_repo, capsys)
+    assert code == 0, out
+    assert not (shared_repo / "seal").exists()
+
+
+def test_a_git_that_cannot_answer_does_not_report_no_submodule(
+    seal, shared_repo, capsys, monkeypatch
+):
+    """`git()` reads every failure as "", so asking through it answered *no
+    submodule* for a timeout or a git that is not on PATH. This guard stops a
+    break that cannot be undone, and the unanswerable question refuses — the
+    direction `porcelain` and `indexed` already take."""
+    real = seal.subprocess.run
+
+    def fails(argv, *a, **k):
+        if "ls-files" in argv:
+            raise OSError("git is not here")
+        return real(argv, *a, **k)
+
+    monkeypatch.setattr(seal.subprocess, "run", fails)
+    code, out = run(seal, ["mode", "local"], shared_repo, capsys)
+    assert code == 1, out
+    assert "could not be read" in out
 
 
 def test_a_submodule_under_the_root_refuses(seal, shared_repo, tmp_path, capsys):

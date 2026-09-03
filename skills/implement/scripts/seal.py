@@ -1499,6 +1499,28 @@ def plugin_version():
     return version if isinstance(version, str) else ""
 
 
+def plugin_workflow():
+    """The exact bytes `install_workflow` writes, or "" when it could not.
+
+    One reader for two questions — what to write, and whether a file already
+    there is the one this plugin would have written. `remove_workflow` asks
+    the second: an untracked workflow this plugin can put back byte for byte
+    costs nothing to remove, and that is the state the way back names.
+    """
+    version = plugin_version()
+    if not version:
+        return ""
+    source = os.path.join(PLUGIN_ROOT, "templates", "hygiene.yml")
+    try:
+        with open(source, encoding="utf-8") as handle:
+            text = handle.read()
+    except (OSError, ValueError):
+        return ""
+    if PLACEHOLDER not in text:
+        return ""
+    return text.replace(PLACEHOLDER, "v" + version)
+
+
 def install_workflow(repo):
     """Write the pull-request checks; (what happened, the line to print).
 
@@ -1545,7 +1567,29 @@ def install_workflow(repo):
             f"  {WORKFLOW} was NOT written: {exc}. Copy "
             "templates/hygiene.yml in by hand, or run this command again."
         )
-    git(repo, "add", "--", WORKFLOW)
+    # The return code here for the reason the root's `git add` reads it, one
+    # screen down: `git()` answers "" for a failure, and an ignore rule
+    # matching `.github/` reaches this one. Measured 2026-09-03 — the file was
+    # written, nothing entered the index, and the command said `staged it`
+    # and `Now commit`. The switch to shared exists to get the checks running,
+    # so a workflow that never reaches the commit is the whole point lost,
+    # silently.
+    done = subprocess.run(
+        ["git", "-C", repo, "add", "--", WORKFLOW],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+    )
+    if done.returncode != 0:
+        return "unstaged", (
+            f"  {WORKFLOW} was written (pinned to v{version}) but could NOT "
+            f"be staged: {(done.stderr or '').strip()}\n"
+            f"  A commit now would not carry it, so the pull-request checks "
+            f"would never run. An ignore rule matching {WORKFLOW} or "
+            f"`.github/` is the usual cause. Run `git add -f {WORKFLOW}` "
+            "yourself, or take the rule out."
+        )
     return "written", f"  wrote {WORKFLOW} (pinned to v{version}) and staged it"
 
 
@@ -1586,17 +1630,28 @@ def remove_workflow(repo):
             "none, so whatever it runs there will read nothing."
         )
     if not tracked(repo, WORKFLOW):
-        # git holds no copy, so removing it would take the only one. The
-        # guard above watches this path in `git status --porcelain` for
-        # exactly that reason, and the `??` exception was written for a file
-        # under the root — which travels with the folder either way. This one
-        # does not travel and is not under the root. Measured 2026-09-03: it
-        # was removed at exit 0, with nothing in the index or the history.
-        return "kept", (
-            f"  {WORKFLOW} is not tracked, so git holds no copy of it and "
-            "removing it would take the only one — left alone. Its checks "
-            "read committed files and local mode commits none, so look at it "
-            "and delete it yourself."
+        # git holds no copy, so removing it would take the only one — unless
+        # this plugin can write it back byte for byte, which is exactly the
+        # state the way back it names creates: the switch to shared wrote the
+        # file and staged it, `git reset` untracked it again, and the switch
+        # back then left it behind. Round 1's guard was reasoned about
+        # SOMEBODY ELSE'S file and applied to one this command had written a
+        # moment earlier.
+        if text != plugin_workflow():
+            return "kept", (
+                f"  {WORKFLOW} is not tracked and is not byte for byte what "
+                "this plugin writes, so git holds no copy of it and removing "
+                "it would take the only one — left alone. Its checks read "
+                "committed files and local mode commits none, so look at it "
+                "and delete it yourself."
+            )
+        try:
+            os.remove(path)
+        except OSError as exc:
+            return "failed", f"  {WORKFLOW} could not be removed: {exc}"
+        return "removed", (
+            f"  removed {WORKFLOW} — untracked, and byte for byte this "
+            "plugin's, so `seal mode shared` writes it back"
         )
     done = subprocess.run(
         ["git", "-C", repo, "rm", "--quiet", "--", WORKFLOW],
@@ -1686,7 +1741,15 @@ def both_roots(shared, local):
 
 
 def gitlinks_under_root(repo):
-    """Submodule entries under the root, as `git ls-files --stage` prints them.
+    """(submodule entries under the root, why they could not be read).
+
+    Entries is None when the question could not be answered. `git()` reads
+    every failure as "", so asking through it would answer "no submodule" for
+    a timeout or a git that is not on PATH — and this guard exists to stop a
+    break that cannot be undone, which is the shape `indexed`'s docstring
+    calls the unanswerable question refusing.
+
+    Entries are as `git ls-files --stage` prints them.
 
     `git rm -r --cached <root>` drops a gitlink from the index and leaves
     `.gitmodules` naming the path, and moving the root breaks the submodule's
@@ -1697,8 +1760,23 @@ def gitlinks_under_root(repo):
     enumerates — the table that says it is enumerated rather than fixed where
     a finding points, and then listed five.
     """
-    listing = git(repo, "ls-files", "--stage", "--", optin.HOME)
-    return [line for line in listing.splitlines() if line.startswith("160000")]
+    try:
+        done = subprocess.run(
+            ["git", "-C", repo, "ls-files", "--stage", "--", optin.HOME],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, f"git ls-files could not be run ({exc})"
+    if done.returncode != 0:
+        return None, (done.stderr or "").strip() or (
+            f"git ls-files exited {done.returncode}"
+        )
+    return [
+        line for line in (done.stdout or "").splitlines() if line.startswith("160000")
+    ], ""
 
 
 def refusals(repo, home, shared, local, wanted):
@@ -1719,8 +1797,15 @@ def refusals(repo, home, shared, local, wanted):
     destination = local if wanted == LOCAL else shared
     found = []
 
-    gitlinks = gitlinks_under_root(repo)
-    if gitlinks:
+    gitlinks, unreadable = gitlinks_under_root(repo)
+    if gitlinks is None:
+        found.append(
+            f"whether there is a submodule under {optin.HOME}/ could not be "
+            f"read: {unreadable}. A gitlink does not survive the move, so the "
+            "unanswerable question refuses — the direction `porcelain` and "
+            "`indexed` already take."
+        )
+    elif gitlinks:
         found.append(
             f"there is a submodule under {optin.HOME}/:\n  "
             + "\n  ".join(gitlinks)
@@ -1796,10 +1881,12 @@ def switch(args, repo, home, shared, local, current, wanted):
     if wanted == SHARED:
         print(
             "Going to shared mode puts the records in the tree. Until you "
-            "commit, `git reset` and then `seal mode local` walk the whole "
-            "thing back — the switch stages, and the guard refuses a switch "
-            "over a staged change, so the reset is the first half of the way "
-            "back. After the commit they are in the history, and taking "
+            f"commit, `git reset -- {optin.HOME} {WORKFLOW}` and then "
+            "`seal mode local` walk the whole thing back — the switch stages, "
+            "and the guard refuses a switch over a staged change. The "
+            "pathspec is there because a bare `git reset` unstages the whole "
+            "index, and this guard has never looked outside those two paths. "
+            "After the commit they are in the history, and taking "
             "them out of the tree later does not take them out of it."
         )
     else:
@@ -1809,7 +1896,11 @@ def switch(args, repo, home, shared, local, current, wanted):
             "and `seal import` there is how a teammate gets a copy."
         )
     for line in porcelain(repo, optin.HOME):
-        if not indexed(line):
+        # `??` itself, not `indexed`. That function has three exceptions now
+        # and only this one means untracked — reading its answer as the
+        # question called a tracked, modified `config.md` untracked, in a
+        # note whose whole subject is what the index can lose.
+        if line[:2] == "??":
             print(
                 f"note: {line[3:]} is untracked, so the index cannot lose it "
                 "— it travels with the folder."
@@ -1910,9 +2001,10 @@ def switch(args, repo, home, shared, local, current, wanted):
     print("\nNow commit. The switch is what the commit records:\n  git commit")
     if moved and wanted == SHARED:
         print(
-            "Until then, `git reset` and then `seal mode local` puts it back "
-            "— the switch stages, and the guard refuses a switch over a "
-            "staged change."
+            f"Until then, `git reset -- {optin.HOME} {WORKFLOW}` and then "
+            "`seal mode local` puts it back — the switch stages, and the "
+            "guard refuses a switch over a staged change. The pathspec is "
+            "there because a bare `git reset` unstages the whole index."
         )
     return 0
 

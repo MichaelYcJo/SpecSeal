@@ -259,7 +259,7 @@ where a finding points, because that is what #81 cost seven rounds:
 | 2 | index entries under `seal/` | `git rm -r --cached` going to local, `git add` going to shared | the tree is clean under `seal/` · skipped entirely when git tracks nothing there, because the pathspec would fail |
 | 3 | `<home>/config.md` | the `Mode` row written, the rest of the file preserved | not a link, not a directory, readable · a worktree-only change to THIS file does not refuse, because this command wrote it |
 | 3b | a gitlink under `seal/` | nothing — refused | `git rm -r --cached` drops a gitlink and leaves `.gitmodules` naming the path, and moving the root breaks the submodule's relative gitdir. Measured 2026-09-03: exit 0, and `git status` in the moved root died |
-| 4 | `.github/workflows/hygiene.yml` | written going to shared, removed going to local | that path is clean · written only when absent · removed only when it is this plugin's · not written at all when the version cannot be read |
+| 4 | `.github/workflows/hygiene.yml` | written going to shared, removed going to local | that path is clean · written only when absent · removed only when git tracks it, or when it is untracked and byte for byte what this plugin writes · not written at all when the version cannot be read · a `git add` that fails is reported rather than called staged |
 | 5 | `.github/workflows/` | created going to shared | a failure to create it is reported as the workflow step failing, and a second run retries it |
 
 Path 5 is the one a coordinate-shaped fix would have missed: it is not a file
