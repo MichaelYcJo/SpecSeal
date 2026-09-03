@@ -39,7 +39,7 @@ works outside the context entirely (hooks).
 | **smith** (Claude Code subagent) | `implement` · `writing-style` | Implements against the spec, then prints a three-line proof block: which policy files it opened, which ledger rows it touched, what it executed versus merely read. The block is a disclosure the skill requires, not something a hook verifies — but `none — <reason>` in a row is visible to you |
 | **warden** (subagent) | `code-review` · `writing-style` | Reviews spec compliance first, then quality. Once its report is verified the orchestrator writes the reviewed HEAD sha to `.git/specseal-reviewed`, which is what the commit gate looks for — the reviewer never writes its own mark |
 | **scribe** (subagent) | `legacy-parity` | Records what the original code does as `path#anchor` coordinates and returns facts, not verdicts. Appears only in repos that declare `seal/parity.md` |
-| Skills | — | Twenty-one, in three groups. The four the agents follow are in the column to the left. Eleven more a session loads on its own when the work calls for them — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. Six you invoke by name; they are in the cheat sheet below |
+| Skills | — | Twenty-two, in three groups. The four the agents follow are in the column to the left. Eleven more a session loads on its own when the work calls for them — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. Seven you invoke by name; they are in the cheat sheet below |
 | Hooks | — | The gates themselves — auto-registered by the plugin, no settings wiring |
 | CLAUDE.md block | — | 12 always-on lines — four section headings (`Tooling`, `Safety`, `Session cost`, `Git`) over eight rules: one on tooling, three on safety, one on session cost, three on git. No response-language rule — that stays yours |
 
@@ -262,6 +262,7 @@ wrong for every other machine.
 | `/specseal:evidence-ci` | wire the drift check into CI — vendors the checker and writes the workflow |
 | `/specseal:parity-setup` | declare that this repo ports from another codebase — finds the original, records the baseline |
 | `/specseal:security-audit` · `/specseal:testing` | prompt checklists the model walks — an OWASP-shaped security pass and a test-strategy pass |
+| `/specseal:config` | show what this repository decided for itself — the two languages it writes in and where its records live — and change any of it. Routes a change to whatever owns that row rather than editing behind it |
 | `/specseal:update` | take the newest release and see what is in it — runs both update commands in the right order, then names the changelog entries between your version and the new one. Restart to load it |
 | `bash install.sh [--project]` / `bash uninstall.sh` | add / remove the CLAUDE.md marker block |
 

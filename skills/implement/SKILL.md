@@ -204,7 +204,10 @@ shared mode without a question goes looking in a README for the way out.
    - **No** → continue, and never raise it again. Bootstrap does not re-run,
      so the question does not either.
 
-Nothing else is asked.
+Nothing else is asked. **`/specseal:config` is how any of it is changed
+later** — it shows every row with its value, and routes a change to
+whatever owns that row. Say so once, here, because a person who answers a
+question in a batch has no reason to expect a way back to it.
 
 Ask only here. A repository that has `seal/` at either place — `<repo>/seal/`
 or `$(git rev-parse --git-common-dir)/seal/` — has been through this: the
