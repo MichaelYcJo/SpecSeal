@@ -54,7 +54,7 @@ def test_the_skill_names_the_file_and_the_row():
     has nowhere to look."""
     text = flat(*SKILL)
     assert "config.md" in text, "the skill does not name the file it reads"
-    assert "Pull request language" in text, "the skill does not name the row"
+    assert "Commit and pull request language" in text, "the skill does not name the row"
 
 
 def test_the_root_is_resolved_rather_than_spelled():
@@ -144,7 +144,7 @@ def test_the_pull_request_body_section_no_longer_opens_with_english():
         ("the commit subject", "in the repository's language"),
         ("the commit body", "One language, in the subject and in the body"),
         ("the pull request title", "and the same language"),
-        ("the self-check question", "Pull request language` row names"),
+        ("the self-check question", "Commit and pull request language` row names"),
     ],
 )
 def test_the_surface_defers_to_the_row_instead(surface, phrase):
@@ -281,7 +281,7 @@ def test_a_korean_row_is_what_flips_the_refused_mirror_name(tmp_path):
     home = tmp_path / "seal"
     home.mkdir()
     (home / "config.md").write_text(
-        "| Item | Value |\n|---|---|\n| Pull request language | Korean |\n",
+        "| Item | Value |\n|---|---|\n| Commit and pull request language | Korean |\n",
         encoding="utf-8",
     )
     assert configured_language(tmp_path) == "Korean"
@@ -410,7 +410,7 @@ def config_homes(root):
 
 
 def configured_language(root=None):
-    """A repository's pull request language, read the way the skill says.
+    """A repository's commit and pull request language, read the way the skill says.
 
     Every way of not naming one lands on English, and there are four: no
     file, no such row, an empty value, and a file that cannot be read or does
@@ -431,7 +431,7 @@ def configured_language(root=None):
         except OSError:
             return "English"
         for item, value in items(text):
-            if item == "Pull request language":
+            if item == "Commit and pull request language":
                 return value.strip() or "English"
         return "English"
     return "English"
@@ -445,7 +445,10 @@ def configured_language(root=None):
 UNNAMED = [
     ("no file at all", None),
     ("a file with no such row", "| Item | Value |\n|---|---|\n| Other | x |\n"),
-    ("an empty value", "| Item | Value |\n|---|---|\n| Pull request language |  |\n"),
+    (
+        "an empty value",
+        "| Item | Value |\n|---|---|\n| Commit and pull request language |  |\n",
+    ),
     ("a file that does not parse as that table", "# notes\n\nno table here.\n"),
     ("a file whose table is another one", "| Field | Value |\n|---|---|\n| a | b |\n"),
 ]
@@ -524,7 +527,7 @@ def test_the_reader_finds_a_config_under_the_git_directory(repo):
     """
     home = local_home(repo)
     (home / "config.md").write_text(
-        "| Item | Value |\n|---|---|\n| Pull request language | Korean |\n",
+        "| Item | Value |\n|---|---|\n| Commit and pull request language | Korean |\n",
         encoding="utf-8",
     )
     assert configured_language(repo) == "Korean", (
@@ -540,13 +543,13 @@ def test_the_tree_root_still_wins_over_the_git_directory(repo):
     disagreed would send a session to the wrong file."""
     local = local_home(repo)
     (local / "config.md").write_text(
-        "| Item | Value |\n|---|---|\n| Pull request language | Korean |\n",
+        "| Item | Value |\n|---|---|\n| Commit and pull request language | Korean |\n",
         encoding="utf-8",
     )
     shared = repo / "seal"
     shared.mkdir(parents=True, exist_ok=True)
     (shared / "config.md").write_text(
-        "| Item | Value |\n|---|---|\n| Pull request language | Japanese |\n",
+        "| Item | Value |\n|---|---|\n| Commit and pull request language | Japanese |\n",
         encoding="utf-8",
     )
     assert configured_language(repo) == "Japanese"
@@ -583,11 +586,11 @@ def test_a_separator_below_the_rows_ends_the_table():
     text = (
         "| Item | Value |\n"
         "|---|---|\n"
-        "| Pull request language | Korean |\n"
+        "| Commit and pull request language | Korean |\n"
         "|---|---|\n"
         "| Something else | x |\n"
     )
-    assert items(text) == [("Pull request language", "Korean")], (
+    assert items(text) == [("Commit and pull request language", "Korean")], (
         "a separator below the first row was stepped past, so the rows "
         "behind it were read as more of this table"
     )
@@ -600,11 +603,11 @@ def test_a_repeated_header_ends_the_table():
     text = (
         "| Item | Value |\n"
         "|---|---|\n"
-        "| Pull request language | Korean |\n"
+        "| Commit and pull request language | Korean |\n"
         "| Item | Value |\n"
-        "| Pull request language | English |\n"
+        "| Commit and pull request language | English |\n"
     )
-    assert items(text) == [("Pull request language", "Korean")], (
+    assert items(text) == [("Commit and pull request language", "Korean")], (
         "a repeated header did not end the table, so a second table's rows "
         "arrived as this one's"
     )
@@ -633,8 +636,10 @@ def test_junk_above_the_first_row_is_still_tolerated():
     """The other direction, so the fix above does not become a stricter rule
     than the one intended: between the header and the first row, a separator
     is the table's own furniture and a blank line is nothing."""
-    text = "| Item | Value |\n|---|---|\n\n| Pull request language | Korean |\n"
-    assert items(text) == [("Pull request language", "Korean")]
+    text = (
+        "| Item | Value |\n|---|---|\n\n| Commit and pull request language | Korean |\n"
+    )
+    assert items(text) == [("Commit and pull request language", "Korean")]
 
 
 def test_an_unreadable_config_lands_on_english_too(tmp_path):
@@ -662,8 +667,14 @@ def test_the_template_is_one_item_value_table_whose_first_row_is_the_language():
     """S8. Parsed, not eyeballed: the file's whole job is to be read."""
     rows = items(read(*TEMPLATE))
     assert rows, "no `| Item | Value |` table in the template"
-    assert rows[0] == ("Pull request language", "English"), (
+    assert rows[0] == ("Commit and pull request language", "English"), (
         f"the first row is not the language defaulting to English: {rows[0]}"
+    )
+    # The second row is the records' own, and it is not the same question.
+    # #106 split them because a repository can want Korean pull requests and
+    # English specifications, and one row cannot say that.
+    assert rows[1] == ("Record language", "English"), (
+        f"the second row is not the record language defaulting to English: {rows[1]}"
     )
 
 
@@ -690,11 +701,11 @@ def test_a_row_of_another_table_ends_this_one():
     text = (
         "| Item | Value |\n"
         "|---|---|\n"
-        "| Pull request language | Korean |\n"
+        "| Commit and pull request language | Korean |\n"
         "| a | b | c |\n"
         "| Something else | x |\n"
     )
-    assert items(text) == [("Pull request language", "Korean")], (
+    assert items(text) == [("Commit and pull request language", "Korean")], (
         "a row of a different table did not end this one"
     )
     assert ("Something else", "x") not in items(text), (
@@ -708,15 +719,15 @@ def test_a_second_table_further_down_is_not_read_as_more_rows():
     text = (
         "| Item | Value |\n"
         "|---|---|\n"
-        "| Pull request language | Korean |\n"
+        "| Commit and pull request language | Korean |\n"
         "\n"
         "## notes\n"
         "\n"
         "| Item | Value |\n"
         "|---|---|\n"
-        "| Pull request language | English |\n"
+        "| Commit and pull request language | English |\n"
     )
-    assert items(text) == [("Pull request language", "Korean")], (
+    assert items(text) == [("Commit and pull request language", "Korean")], (
         "the first table's answer must win; a second one further down is "
         "prose about the first, not more rows of it"
     )
@@ -1059,4 +1070,133 @@ def test_the_layout_lists_the_config(parts):
     one edit."""
     assert "config.md" in read(*parts), (
         "/".join(parts) + " draws the root without the config file in it"
+    )
+
+
+# --- the exclusion list, derived rather than compared ----------------------
+
+
+def _checker(name, *parts):
+    """Import a checker by path, the way this repository's own cases do."""
+    import importlib.util
+
+    path = os.path.join(ROOT, *parts)
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _governs_nothing():
+    """The `What no row governs` section of the template, flattened."""
+    text = read(*TEMPLATE)
+    start = text.index("## What no row governs")
+    end = text.index("\n## ", start + 1)
+    return " ".join(text[start:end].split())
+
+
+def _literal_strings():
+    """Every string the checkers match literally, read from the checkers.
+
+    Derived, not copied. Round 1 of #106 found two headings missing from a
+    hand-written list that had been copied into three documents — and the
+    list's own grounds are *what a checker reads*, so a second source of it
+    is a second source of the truth it claims to state.
+    """
+    chain = _checker(
+        "chain_check", "skills", "code-review", "scripts", "chain_check.py"
+    )
+    unverified = _checker(
+        "unverified_check", "skills", "verify", "scripts", "unverified_check.py"
+    )
+    found = {
+        chain.VERDICTS,
+        chain.VERDICT_COLUMN,
+        chain.TARGET,
+        chain.CHECKED_BY,
+        chain.CONTRACT,
+        chain.NEW_UNITS,
+        chain.NONE_WORD,
+        chain.NO_FIXES,
+        chain.NOBODY,
+        chain.BLOCKING,
+        chain.PR_FIELD,
+        unverified.HEADING,
+        unverified.CLOSED,
+        *unverified.HEADER,
+        *chain.CLOSED_WORDS,
+    }
+    return sorted(found)
+
+
+@pytest.mark.parametrize("literal", _literal_strings())
+def test_the_exclusion_list_holds_every_string_a_checker_matches(literal):
+    """S6. The list's grounds are *what a checker reads literally*, so it is
+    checked against the checkers rather than against itself.
+
+    Two were missing when this case was written — `## Verdicts` and
+    `## Not verified` — and a repository that set `Record language` to another
+    language would have translated both: the first makes `chain_check.py`
+    report a record that says nothing about what it found, and the second
+    turns `unverified_check.py` red on every pull request.
+    """
+    # Backticked, because the section spells every literal that way and a
+    # BARE substring is satisfied by a longer entry that contains it —
+    # `fixed` was held by `agreed, fixed` alone, and deleting the standalone
+    # entry left this case green (round 2).
+    assert f"`{literal}`" in _governs_nothing(), (
+        f"a checker matches `{literal}` literally and the exclusion list does "
+        "not hold it as an item of its own, so a repository translating its "
+        "records breaks that checker with nothing to warn it"
+    )
+
+
+# Every shipped document that tells a session which row to read. A document
+# naming the wrong row sends the session to a row that does not exist, and
+# round 1 found two that had drifted with nothing red.
+ROW_READERS = [
+    ("templates", "config.md"),
+    ("templates", "seal-README.md"),
+    ("skills", "config", "SKILL.md"),
+    ("skills", "implement", "SKILL.md"),
+    ("skills", "commit-pr-convention", "SKILL.md"),
+    ("skills", "code-review", "SKILL.md"),
+    ("agents", "smith.md"),
+    ("agents", "warden.md"),
+]
+
+
+@pytest.mark.parametrize("parts", ROW_READERS, ids=lambda p: "/".join(p))
+def test_every_document_that_names_a_language_row_names_the_shipped_one(parts):
+    """The pairing this branch was reviewed as one round for: a document
+    naming the wrong row is invisible until somebody follows it."""
+    text = flat(*parts)
+    assert "Record language" in text, (
+        f"{'/'.join(parts)} does not name `Record language`, the row that "
+        "governs the prose it is about"
+    )
+    # Case-folded: `the \`pull request language\` row` in lower case is the
+    # spelling that actually survives in this tree, and round 2 found it green.
+    assert "pull request language" not in text.casefold().replace(
+        "commit and pull request language", ""
+    ), (
+        f"{'/'.join(parts)} still names the row `Pull request language`, "
+        "which #106 renamed"
+    )
+
+
+@pytest.mark.parametrize("field", ROUND_RECORD_FIELDS)
+def test_the_exclusion_list_holds_every_field_a_pinned_case_reads(field):
+    """The list's grounds are *a checker OR a pinned case*, and this is the
+    pinned case.
+
+    `_literal_strings()` reaches only what a checker holds in a module
+    constant, so the second half of those grounds had nothing checking it —
+    and round 2 found the fix for round 1 removing `Needs a fix` from the list
+    while adding `Broad gate` on identical footing. Three section headings had
+    never been on it at all.
+    """
+    assert f"`{field}`" in _governs_nothing(), (
+        f"a pinned case reads `{field}` literally and the exclusion list does "
+        "not hold it, so a repository translating its records is told it may"
     )

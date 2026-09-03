@@ -17,6 +17,41 @@ description: |
 Methodology for implementing against written specs, leaving durable evidence,
 and closing the loop with review. Loaded by the `smith` agent; usable directly.
 
+## The language the records are written in
+
+**Read `Record language` in `config.md` before writing any of the documents
+below**, the same way `commit-pr-convention` reads its own row before a commit
+or a pull request. The root is resolved the way every path in this skill is.
+
+```markdown
+| Item | Value |
+|---|---|
+| Record language | Korean |
+```
+
+It governs the **prose** in `spec.md`, `plan.md`, `overview.md`,
+`questions.md`, `changelog.md`, the cell contents of `rounds/round-N.md` and
+the text beneath its tables, and the claim and grounds of a ledger row.
+
+**Every way of not naming one lands on English** — no file, no such row, an
+empty value, a file that cannot be read. A config nobody can read must not
+stop the work.
+
+**It is independent of `Commit and pull request language`.** Setting one does
+not carry the other, and the two surfaces have different audiences: a pull
+request is read by whoever opens it, and a record is read by whoever comes
+back to the decision six months later.
+
+**What stays English whatever it says**, because these are read literally
+rather than by a person: every field name, section heading and vocabulary
+word the checkers match, listed in `templates/config.md` under *What no row
+governs* — that list is derived from the checkers' own constants, so it
+cannot drift from them; `<!-- specs/<work-item-id> -->` and the other
+markers; a `drained` line and a ✅; a ledger anchor's `path#unit@hash`; and
+all code — identifiers, comments, docstrings, file names, test function
+names. A translated field name is not a translation, it is a checker that
+stops reading.
+
 ## Document layout — two roots, three lifetimes
 
 Every artifact this skill produces goes to one of two roots, and the second is
@@ -168,7 +203,10 @@ shared mode without a question goes looking in a README for the way out.
    - **No** → continue, and never raise it again. Bootstrap does not re-run,
      so the question does not either.
 
-Nothing else is asked.
+Nothing else is asked. **`/specseal:config` is how any of it is changed
+later** — it shows every row with its value, and routes a change to
+whatever owns that row. Say so once, here, because a person who answers a
+question in a batch has no reason to expect a way back to it.
 
 Ask only here. A repository that has `seal/` at either place — `<repo>/seal/`
 or `$(git rev-parse --git-common-dir)/seal/` — has been through this: the

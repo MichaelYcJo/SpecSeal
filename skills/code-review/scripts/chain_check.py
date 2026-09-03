@@ -254,6 +254,12 @@ READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.p
 ROUTING = os.path.join(HERE, "..", "..", "..", "hooks", "routing.py")
 
 VERDICTS = "## Verdicts"
+# The verdict table's own column, matched case-folded below. Named here rather
+# than spelled at the call sites so a reader that has to know every string
+# this file matches literally can be derived from these constants — round 2 of
+# #106 found the exclusion list holding this column with nothing pinning it,
+# because there was no constant to derive it from.
+VERDICT_COLUMN = "Verdict"
 TARGET = "Target SHA"
 PASS_RE = re.compile(r"^\s*-\s*\[( |x|X)\]\s*Pass\b")
 BLOCKING = "🔴"
@@ -955,8 +961,8 @@ def verdict_table(reader, lines, rel):
             ],
         )
 
-    header = [reader.visible(c).lower() for c in rows[0][1]]
-    if "verdict" not in header:
+    header = [reader.visible(c).casefold() for c in rows[0][1]]
+    if VERDICT_COLUMN.casefold() not in header:
         return (
             [],
             -1,
@@ -964,12 +970,12 @@ def verdict_table(reader, lines, rel):
                 (
                     rel,
                     rows[0][0],
-                    "the verdict table has no `Verdict` "
+                    f"the verdict table has no `{VERDICT_COLUMN}` "
                     f"column; its header is |{'|'.join(rows[0][1])}|",
                 )
             ],
         )
-    col = header.index("verdict")
+    col = header.index(VERDICT_COLUMN.casefold())
 
     seen_rows, errors = [], []
     for line_no, cells in rows[1:]:
@@ -981,7 +987,8 @@ def verdict_table(reader, lines, rel):
                 (
                     rel,
                     line_no,
-                    f"{len(cells)} cells, and the `Verdict` column is number {col + 1}",
+                    f"{len(cells)} cells, and the `{VERDICT_COLUMN}` column is "
+                    f"number {col + 1}",
                 )
             )
             continue
