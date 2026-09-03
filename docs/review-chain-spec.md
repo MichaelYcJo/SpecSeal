@@ -60,6 +60,51 @@ by what a finding requires rather than by rank, and 🔴 means *blocks merge* �
 so "a 🔴 is open" is a state the review already reports, readable from the
 last round record's verdict table and its `Pass` checkbox.
 
+### The bound has a floor, and a quiet round is where it stops
+
+**Stop when a round finds nothing that leaves the root and nothing that
+crashes.** Whatever else it found is deferred with a named answerer, or becomes
+an issue — the same homes the table at the end of this section gives any other
+leftover.
+
+The numbers above are a ceiling and say nothing about when to stop under one,
+so the cap was spent like a budget. #81 ran seven rounds: rounds 1 through 4
+each found something that loses a record, and rounds 5, 6 and 7 found none of
+either kind. That is roughly an hour of agent time on the flat part of the
+curve, and the curve is not one chain's luck — the most expensive round in the
+flow log (63 tool calls) was also the most productive (four 🔴), and cost per
+finding rose in the late rounds, where the reviewer was searching a diff it had
+already read three times.
+
+Nothing new has to be measured for it. The evidence is the round's own verdict
+table, which already separates what needs a fix from what does not, and the
+answer goes into `round-N.md`'s `| Loses a record or crashes |` row — the
+reviewer's own, given in a line of its own, exactly as `Needs a fix` is.
+
+**A first round is never optional, and the floor does not make it one.** #104
+looked small and cost four 🔴 in round 1, three of them losing a record or
+sending a person down a path that does not work. What the floor makes optional
+is the round after a quiet one.
+
+**This is not the cap's arithmetic.** The next subsection carries a rule that
+reads like this one said twice, and the two decide different things.
+
+| Rule | What it decides |
+|---|---|
+| A round that opens nothing needing a fix does not consume the cap | whether a round that has already run counts toward three or five |
+| Stop when a round finds nothing that leaves the root and nothing that crashes | whether the next round is spawned at all, with the cap nowhere near spent |
+
+They also reach different rounds. A round that opened nothing needing a fix has
+opened nothing that loses a record either, so it meets the floor as well. A
+round that meets the floor may still have opened a 🔴 in a line a person reads,
+and that round consumes the cap and ends the run in the same breath.
+
+**The verifying round still runs.** The floor ends the finding rounds, not the
+run's obligation to have somebody read its last set of fixes. A record that met
+the floor is followed by at most one more round record: the verifying round
+defined next, at the diff of the fixes that closed it. A second one is the run
+carrying on past its own stopping rule.
+
 ### The last round verifies, and what it verifies is a diff
 
 A run ends with a **verifying round**. It is spawned after the previous

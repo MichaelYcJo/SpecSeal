@@ -278,11 +278,12 @@ surface — *is this correct* — rather than a verification surface. Measured:
 one fix commit created eight new units, and four carried defects.
 
 The reviewer answers the third one in a line of its own — `Needs a fix: no`,
-or `yes` and what does — and that line is the run's terminal condition. Copy
-it into `round-N.md`'s `| Needs a fix |` row rather than re-deriving it from
-the verdict table: a 🟡 the smith answers with grounds is `no`, so a round can
-report findings and still end the run. No check reads the row; without it the
-answer the run ends on lives only in a transcript.
+or `yes` and what does — and that line is one of the two the run ends on, the
+floor below being the other. Copy it into `round-N.md`'s `| Needs a fix |` row
+rather than re-deriving it from the verdict table: a 🟡 the smith answers with
+grounds is `no`, so a round can report findings and still end the run. No check
+reads the row; without it the answer the run ends on lives only in a
+transcript.
 
 **A round that opens nothing needing a fix does not consume the cap.** The cap
 counts rounds that found something, because it exists to stop a loop that is
@@ -294,6 +295,35 @@ definition the last one, because the run ends at it.
 The condition is not *this round found nothing* — that would be unbounded, and
 it was considered and rejected. A verifying round that raises a 🟡 the smith
 answers with grounds has opened nothing needing a fix, and the run ends there.
+
+### The cap is a ceiling, and this is the floor it never had
+
+**Stop when a round finds nothing that leaves the root and nothing that
+crashes.** Whatever else it found is deferred with a named answerer, or becomes
+an issue. `docs/review-chain-spec.md` owns the definition and the measurement
+behind it; what matters where you decide to spawn another round is that three
+and five are a ceiling rather than a budget to spend down.
+
+The reviewer answers this in a line of its own too — `Loses a record or
+crashes: no`, or `yes` and what does — and it is copied into `round-N.md`'s row
+of the same name, after the colon. It is a second terminal condition and not
+the first one reworded:
+
+| The reviewer's line | What it says | What follows |
+|---|---|---|
+| `Needs a fix: no` | this round wrote no code nobody read | the run ends, and the round does not consume the cap |
+| `Loses a record or crashes: no` | nothing this round found leaves the root or crashes | the run ends, and the round counts toward the cap if it found anything needing a fix |
+
+The paragraph above is about the cap's arithmetic — whether a round that has
+already run counts toward three or five. This is about whether the next round
+is spawned at all. A round that reported a 🔴 in a line a person reads answers
+`yes` to the first question and `no` to the second, and that round ends the run
+with the finding handed over rather than chased.
+
+**Spawn the verifying round anyway.** The floor stops the finding rounds; the
+last set of fixes still needs a reader, and the round above is it. A record
+that met the floor is followed by at most one more round record, and a second
+is the run carrying on past its own stopping rule.
 
 ### Then say who checked them, in the record
 
