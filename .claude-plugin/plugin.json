@@ -1,7 +1,7 @@
 {
   "name": "specseal",
   "displayName": "SpecSeal",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "SpecSeal — specs, sealed: an implement/review agent chain with hook enforcement, an evidence ledger with drift detection, and a tool-agnostic review handoff protocol.",
   "author": {
     "name": "MichaelYcJo"
