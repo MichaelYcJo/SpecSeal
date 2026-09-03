@@ -10,7 +10,7 @@ implementer: `routing.md` says `the session`. Every finding below was fixed at
 | Target SHA | 5c69b96 |
 | PR | none yet |
 | Broad gate | not yet — findings were open |
-| Fixes checked by | nobody — the fixes landed at 7607d12 and round 2, the verifying round, is what opens them; this cell is set to it when that record exists |
+| Fixes checked by | round-2 |
 | Contract changes | `test_the_two_todo_files_sit_where_the_release_guard_looks` → itself only, no caller — the set of paths it treats as stray widened from exactly one directory below the work item to any depth, and narrowed by dropping a pattern that matched nothing; `hooks/review-history-guard.py`'s post reminder → the string a session reads, no unit's signature |
 | New units | none |
 | Needs a fix | yes — 🔴 1 (the closing memo's `Not verified` header is not the one `unverified_check.py` reads, so CI exits 1 on this branch), 🟡 2 and 3 (the new case looks exactly one directory down, and one of its three patterns matches a filename nothing uses), 🟡 4 (the hook message a session reads at the moment it creates those files names only `rounds/`), 🟡 5 (the memo justifies its rung by file count, which the ladder excludes by name) |
