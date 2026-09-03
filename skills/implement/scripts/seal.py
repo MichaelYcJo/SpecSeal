@@ -66,6 +66,7 @@ that gets past it.
 
 import argparse
 import datetime
+import errno
 import hashlib
 import json
 import os
@@ -345,20 +346,35 @@ def write_zip(path, home, files, manifest):
     A failed write leaves no half archive for someone to carry away and
     discover on the machine that has nothing else.
 
-    `O_EXCL` for the reason `write_members` opens with it: the kernel refuses
-    an existing name and refuses to open THROUGH a symbolic link. This name is
-    predictable — `seal-<repo>-<date>.zip.partial`, beside the clone, which is
-    where the default export writes. Measured 2026-09-03: a broken link
+    `lexists` and then `O_EXCL`, in that order and for two different reasons.
+    This name is predictable — `seal-<repo>-<date>.zip.partial`, beside the
+    clone, which is where the default export writes — and a broken link
     planted there put the manifest and every record outside the clone at exit
-    0, printing `wrote <path>` for a path that was the link.
+    0, printing `wrote <path>` for a path that was the link (measured
+    2026-09-03).
+
+    `lexists` is the check: a link to nothing reads as absent to `exists`, so
+    only the l-form sees it. `O_EXCL` is the backstop for the moment between
+    the check and the open — **on POSIX**, where the kernel refuses to satisfy
+    it through a symbolic link. It does not carry that meaning on Windows:
+    CI's windows leg wrote the manifest and every record through a broken link
+    at this name, at exit 0, with `O_EXCL` set and nothing else in front of it
+    (run 33715420379, 2026-09-03). Seven review rounds and the broad gate all
+    ran on macOS and none of them could see it.
+
+    So the check is the defence on every platform and the flag narrows the
+    race on one. The race stays open on Windows, recorded rather than closed:
+    there is no portable open that refuses a reparse point.
     """
     partial = path + ".partial"
-    # The open sits OUTSIDE the try. A name this call did not create is not
-    # this call's to remove, and the cleanup below exists so a failed write
-    # leaves no half archive — a `.partial` that was already there is not one.
-    # Round 3 graded `os.replace` removing a link at the zip's own name; this
-    # was that same removal one name over, and it took a concurrent export's
-    # in-flight temporary file too (measured 2026-09-03).
+    # The check and the open sit OUTSIDE the try. A name this call did not
+    # create is not this call's to remove, and the cleanup below exists so a
+    # failed write leaves no half archive — a `.partial` that was already
+    # there is not one. Round 3 graded `os.replace` removing a link at the
+    # zip's own name; this was that same removal one name over, and it took a
+    # concurrent export's in-flight temporary file too.
+    if os.path.lexists(partial):
+        raise FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), partial)
     opened = os.open(partial, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o666)
     try:
         with (
@@ -1037,14 +1053,18 @@ def write_members(archive, into):
             counts[outcome] += 1
             continue
         os.makedirs(os.path.dirname(target), exist_ok=True)
-        # O_EXCL is this command's own contract said to the kernel: it refuses
-        # an existing file and it refuses to open THROUGH a symbolic link.
         # `place` has already turned every taken name down, so a target that
-        # exists by the time of this open is a name something else took in
-        # between — and the answer to both is the same, do not write here.
+        # is taken by the time of this open is a name something else took in
+        # between. `lexists` asks that question on every platform; `O_EXCL`
+        # narrows the moment between the asking and the answering, and it
+        # refuses to open THROUGH a symbolic link only on POSIX — CI's windows
+        # leg wrote through a broken link with the flag set (run 33715420379,
+        # 2026-09-03). Both answers are the same: do not write here.
         # Counted after the write, so the report never names a file that was
         # not written.
         try:
+            if os.path.lexists(target):
+                raise FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), target)
             opened = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
         except FileExistsError:
             # The name was free when `place` chose it and is taken now. Named

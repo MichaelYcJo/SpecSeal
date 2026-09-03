@@ -728,6 +728,13 @@ def test_the_write_itself_refuses_a_name_that_became_a_link(
     monkeypatch.setattr(
         seal, "place", lambda destination, data: (destination, seal.ADDED)
     )
+    # And with `O_EXCL` stripped, which is what Windows gave for this shape
+    # (run 33715420379): the `lexists` check is then the only thing standing,
+    # and it is the one that has to refuse.
+    real_open = os.open
+    monkeypatch.setattr(
+        seal.os, "open", lambda path, flags, *a: real_open(path, flags & ~os.O_EXCL, *a)
+    )
 
     archive_path = tmp_path / "z.zip"
     with zipfile.ZipFile(archive_path, "w") as archive:
@@ -791,6 +798,40 @@ def test_a_file_at_the_partial_name_survives_the_refusal(seal, repo, capsys):
     assert partial.read_text() == "somebody else's bytes\n", (
         "the refusal removed a file it did not create"
     )
+
+
+def test_the_export_refuses_the_link_where_o_excl_does_not_catch_it(
+    seal, repo, capsys, monkeypatch
+):
+    """CI's windows leg found what seven rounds and the broad gate could not.
+
+    `O_EXCL` refuses to open THROUGH a symbolic link on POSIX, and that is a
+    POSIX guarantee — Windows followed a broken link at the temporary name and
+    wrote the manifest and every record outside the clone, at exit 0, with the
+    flag set (run 33715420379). Every round and the broad gate ran on macOS.
+
+    Here the flag is stripped at the call, which is Windows' effective
+    behaviour for this shape. What is left standing is the `lexists` check,
+    and the refusal has to come from it.
+    """
+    home = local_home(repo)
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "ledger.md").write_text("# ledger\n")
+    outside = repo.parent / "outside"
+    outside.mkdir()
+    stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
+    partial = repo.parent / f"{stem}.zip.partial"
+    symlink_or_skip(str(outside / "stolen.bin"), str(partial))
+
+    real_open = os.open
+    monkeypatch.setattr(
+        seal.os, "open", lambda path, flags, *a: real_open(path, flags & ~os.O_EXCL, *a)
+    )
+
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 1, out
+    assert list(outside.iterdir()) == [], "the export wrote outside the clone"
+    assert os.path.islink(partial), "the refusal removed the link"
 
 
 def test_a_broken_link_at_the_zips_own_name_is_not_a_free_name(seal, repo, capsys):
