@@ -28,14 +28,18 @@ lands in the same branch rather than after it.
 | Which direction the template-fields test can go red | The plan said to watch `ROUND_RECORD_FIELDS` fail before adding the row to the list | The row went into the LIST first, and the red was watched with the TEMPLATE still empty | `test_the_round_template_carries_the_fields_it_is_expected_to` is parametrized over the list, so a row absent from the list cannot be run at all. The check has one direction — list → template — and the plan named the other |
 | Where the reviewer's report line lives in `agents/warden.md` | The plan named `:93-99`, the passage that carries the grounds | Both that passage and the `## Report` format block | The format block is what a reviewer copies while writing the report; a line only in the prose is a line nobody types |
 | Whether `Needs a fix` is the run's terminal condition | Three files said it was the only one | All three amended | A second terminal condition two paragraphs away turns a single file into two answers at once, which is the contradiction-inside-one-file these records already refuse |
+| How many shapes the depth refuses | The plan and the spec name two — an entry with no depth, and a depth of 2 or above | Three: a depth below 1 is refused as well, with a message of its own | `(depth 0)` parses, and read permissively it sits UNDER the bound and passes. The documents define depth 1 and depth 2; nothing is added at depth 0, so the tolerant read is the one this file refuses everywhere else. The message differs from the depth-2 one because the exits differ — there is nowhere to send a level that does not exist |
+| Whether phase 3 writes prose | The phases table gives phase 3 the refusals and phases 1–2 the prose | `docs/review-chain-spec.md` gained a subsection for each new refusal | The gate's verdict is what a person reads and acts on, and that document already carries a `The row \| The check` table for every other refusal in this checker. Two of its facts exist nowhere else: that a malformed row is refused at any age, and that a run past its floor is grandfathered for a different reason than an absent row is |
 
 ## Not verified
 
 | Item | Who must answer |
 |---|---|
 | The full test suite, repository-wide lint, and typecheck | The sealer's single broad run, after the review rounds settle |
-| That `chain_check.py` refuses what phases 1–2 wrote down | Phase 3, which is where the refusals are built |
+| ✅ That `chain_check.py` refuses what phases 1–2 wrote down | 31 executed cases in `tests/test_the_record_is_held_to_the_floor_and_the_depth.py`, 19 of them seen red at `f01f394`; 21 mutations of the units phase 3 added, none surviving |
 | That the two new record rows survive a real round record written against them | The first `round-N.md` this work item's own review chain writes |
+| That a depth declared wrong — `(depth 1)` on a unit that is really second-level — is caught | Nothing in the check can see it; the verifying round reading the `New units` surface is the reader, and `docs/review-chain-spec.md` records the limit |
+| That a repository setting `Record language` leaves the floor's `no` and `yes` in English | The exclusion list says so and CI derives it from the constants, but no repository has been run in another language |
 
 ## Not done
 
