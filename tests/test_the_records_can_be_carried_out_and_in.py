@@ -20,10 +20,12 @@ confidence.
 **A zip is untrusted input**, and the cases say precisely what that buys.
 `extractall` is not used, but not for the reason usually given: measured
 here, today's CPython already strips `..` and a leading `/` from a member's
-name. What disqualifies it is that it overwrites, and that it writes through
-a directory in the destination that is a symbolic link — the second is the
-only escape that measured, so it has a case of its own AND a case that runs
-`extractall` against the standard library to show the hazard is still there.
+name. What disqualifies it is that it overwrites, and that it writes through a
+symbolic link in the destination — the second is the escape that measured, so
+it has cases of its own AND a case that runs `extractall` against the standard
+library to show the hazard is still there. It is not only directories: round 1
+found the leaf uncovered, and a broken link named `ledger/w1.md` put a record
+outside the root at exit 0.
 The name checks stay regardless: a defence that holds only while a
 standard-library sanitiser keeps its shape is not one this file can claim.
 
@@ -364,17 +366,77 @@ def test_neither_root_present_defaults_to_local(seal, carried, capsys):
     assert not (other / "seal").exists()
 
 
+def test_a_repository_with_no_commit_records_no_head(seal, tmp_path, capsys):
+    """Round 1's 🟡 3. `git rev-parse HEAD` on a branch with no commit exits
+    128 and prints `HEAD` on stdout, and the helper read the output without
+    the exit code — so the manifest recorded the four letters as this export's
+    SHA and the import printed them back as one.
+
+    The spec says the field is the SHA or empty. Empty is what a reader can
+    act on; a string that is not a SHA is one they cannot tell from one.
+    """
+    repo = tmp_path / "unborn"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    home = local_home(repo)
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "ledger.md").write_text("# ledger\n")
+
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 0, out
+    written = sorted(repo.parent.glob("seal-*.zip"))
+    assert len(written) == 1, out
+    with zipfile.ZipFile(written[0]) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+    assert manifest["head"] == "", manifest
+
+
+def test_a_member_declaring_more_than_a_record_refuses_the_zip(seal, carried, capsys):
+    """Round 1's 🟡 5. `write_members` reads each member whole, and the zip
+    comes from another machine — so the declared size is the sender's choice.
+    Measured: a 408 KB zip declaring 400 MB in one member wrote 419 MB and
+    added as much to memory, in 0.2 s.
+
+    The refusal happens before a byte is written, which is where this file's
+    other refusals already are.
+    """
+    _zip_path, other, home = carried
+    before = files_under(home)
+    fat = other.parent / "fat.zip"
+    with zipfile.ZipFile(fat, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": ""}))
+        archive.writestr("seal/ledger.md", "\0" * (40 * 1024 * 1024))
+
+    code, out = run(seal, ["import", str(fat)], other, capsys)
+    assert code == 1, out
+    assert "one record may hold" in out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
 def test_both_roots_present_refuses_and_names_which_is_read(seal, carried, capsys):
     """S11. Writing into one while the other exists leaves a dead root the
     hooks never read, which is worse than a stop."""
     zip_path, other, home = carried
     (other / "seal").mkdir()
     before = files_under(home)
-    code, out = run(seal, ["import", zip_path, "--into", "local"], other, capsys)
-    assert code == 1
-    assert "both roots exist" in out
-    assert "read first" in out
-    assert files_under(home) == before, "a refusal wrote files"
+    shared_before = files_under(other / "seal")
+
+    # Every way of asking, because the spec and both READMEs say it refuses
+    # with no flag, and that was the one spelling the code did not refuse:
+    # the flagless call fell through to the root in force and wrote into it.
+    for argv in (
+        ["import", zip_path, "--into", "local"],
+        ["import", zip_path, "--into", "shared"],
+        ["import", zip_path],
+    ):
+        code, out = run(seal, argv, other, capsys)
+        assert code == 1, f"{argv} was not refused: {out}"
+        assert "both roots exist" in out
+        assert "read first" in out
+        assert files_under(home) == before, f"{argv} wrote into the local root"
+        assert files_under(other / "seal") == shared_before, (
+            f"{argv} wrote into the shared root"
+        )
 
 
 # --- S12: the shared-mode answer --------------------------------------------
@@ -581,6 +643,31 @@ def test_a_linked_directory_in_the_destination_refuses_the_zip(seal, carried, ca
     assert "symbolic link" in out
     assert files_under(outside) == [], "a record was written outside the root"
     assert not (home / "ledger.md").exists(), "a refusal wrote a file"
+
+
+def test_a_broken_link_where_a_record_goes_refuses_the_zip(seal, carried, capsys):
+    """Round 1's 🔴. The linked-directory check walked the directories above a
+    member and stopped short of the member itself, so a link named for the
+    record was never looked at.
+
+    A BROKEN link is what leaked: `os.path.exists` follows it, reports False,
+    and the member is called ADDED — then `open(target, "wb")` follows the same
+    link and writes outside the root, at exit 0 with nothing printed. A link
+    whose target exists is caught by the byte comparison instead and lands as
+    `.incoming`, which is why only this one got out.
+    """
+    zip_path, other, home = carried
+    outside = other.parent / "outside"
+    outside.mkdir()
+    target = outside / "ledger.md"
+    symlink_or_skip(str(target), str(home / "ledger.md"))
+    assert not target.exists(), "the link must be broken for this to be the case"
+
+    code, out = run(seal, ["import", zip_path], other, capsys)
+    assert code == 1, out
+    assert "symbolic link" in out
+    assert not target.exists(), "a record was written outside the root"
+    assert files_under(outside) == [], "something was written outside the root"
 
 
 def test_extractall_would_have_written_through_that_link(seal, tmp_path):

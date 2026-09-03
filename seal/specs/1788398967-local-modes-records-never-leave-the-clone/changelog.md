@@ -50,8 +50,28 @@
   the plugin ships on that is false: it already strips `..` and a leading `/`
   from a member's name, and writes a symbolic-link entry as an ordinary file.
   What actually disqualifies it is that it **overwrites**, and that it writes
-  through a directory in the destination that is a symbolic link. That second
-  one is a real escape, the import's own writer had it too, and it is now
-  refused before anything is written. The member-name validation was kept
-  regardless: a defence that holds only while a standard-library sanitiser
-  keeps its current shape is not one this plugin can claim.
+  through a symbolic link in the destination. That second one is a real
+  escape, the import's own writer had it too, and it is now refused before
+  anything is written. The member-name validation was kept regardless: a
+  defence that holds only while a standard-library sanitiser keeps its
+  current shape is not one this plugin can claim.
+- **Review then measured the same claim one level down and found it still too
+  narrow.** The check that closed the escape walked every directory above a
+  member and stopped short of the member itself, so a symbolic link named for
+  the record was never looked at. A broken one reads as absent, so the file
+  was treated as new and written straight through the link, outside the root,
+  at exit 0 with nothing printed. The check now covers the leaf, and three
+  documents that called the directory case the only way out say what was
+  measured instead.
+- **An import now refuses a zip that declares more than a root of records
+  holds.** Each member is read whole, and the zip arrives from another
+  machine, so its declared sizes are the sender's choice: a 408 KB file
+  declaring 400 MB in one member wrote 419 MB and took as much memory, in
+  0.2 s. A member is capped at 32 MB and an archive at 512 MB, both read
+  before a byte is written.
+- **Two smaller corrections.** A clone holding both roots is now refused
+  however the import is asked, including with no `--into` flag — the case the
+  specification and both READMEs describe was the one spelling that still
+  wrote. And a repository with no commit yet records an empty SHA in the
+  manifest rather than the four letters `HEAD`, which is what `git rev-parse`
+  prints on its way to exiting 128.

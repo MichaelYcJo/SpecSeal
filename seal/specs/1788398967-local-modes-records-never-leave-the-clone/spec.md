@@ -58,7 +58,7 @@ which sense is meant.
 | S8 | Given a collision whose `.incoming` sibling already exists with different bytes, when `seal import` runs, then the copy lands as `<name>.incoming-2<ext>`, and nothing is ever overwritten | S8 case |
 | S9 | When `seal import` runs, then it asks no question — it reports and exits — and it prints the `evidence-check` command as the next step | S9 case: run with stdin closed, read stdout |
 | S10 | Given a local-mode repository, when `seal import --into shared` runs, then `<repo>/seal/` is created and the records land there; the reverse holds for `--into local` | S10 case, both directions |
-| S11 | Given both roots already exist, when `seal import` runs, then it refuses, names both paths and which one the gates read, and writes nothing | S11 case |
+| S11 | Given both roots already exist, when `seal import` runs — with `--into shared`, with `--into local`, or with neither — then it refuses, names both paths and which one the gates read, and writes nothing | S11 case, all three spellings |
 | S12 | Given a shared-mode repository, when `seal export` runs, then it writes no zip, exits 1, and names the mode, the committed path, and the `mv` command that switches to local mode | S12 case |
 | S13 | Given a local-mode repository and a manifest of the last export, when `seal export --check` runs, then it prints exactly `N work items changed since the last export` and nothing else, and writes nothing | S13 case: compare stdout to the exact line |
 | S14 | Given no manifest of a last export, when `seal export --check` runs, then it prints one line saying how many work items are here and that no export has happened | S14 case |
@@ -67,6 +67,8 @@ which sense is meant.
 | S17 | Given a path that is not a zip, or a zip that is truncated, when `seal import` runs, then it exits 1 naming the file, and the root is untouched | S17 case: assert the root's file list is unchanged |
 | S18 | Given a zip whose manifest names another repository's remote, when `seal import` runs, then it refuses, prints both URLs, names `--allow-other-repo`, and writes nothing — and with that flag it proceeds | S18 case, both halves |
 | S19 | Given a zip holding a member named `../escape.md`, `/etc/passwd`, `C:\x`, `a\..\..\b`, or a symlink entry, when `seal import` runs, then it refuses the whole zip before writing anything, naming the member | S19 case, one per shape |
+| S19b | Given a zip whose members declare more bytes unpacked than a root of records holds, when `seal import` runs, then it refuses before writing anything | S19b case: a 408 KB zip declaring 400 MB |
+| S19c | Given a destination where any path a member would take is a symbolic link — a directory above it, or the record's own name — when `seal import` runs, then it refuses the whole zip, naming the path | S19c case, the leaf and a directory |
 | S20 | Given a zip with no `manifest.json`, or one whose `format` is a number this build does not know, when `seal import` runs, then it exits 1 saying so | S20 case |
 
 ## Data & interfaces
@@ -170,7 +172,8 @@ acceptance costs records.
 | Not a zip, or truncated | exit 1, root untouched | `zipfile.BadZipFile` and a short read are the same answer to the user: this file is not a copy of anything |
 | A member escapes the root | the whole zip is refused before a byte is written | Every member's name is validated first, and one bad member refuses the archive rather than the member: a zip carrying one is not a zip to take a partial copy from. See *What `extractall` does and does not do* below — this is defence that does not depend on a standard-library sanitiser |
 | A member is a symlink entry | the whole zip is refused, naming it | A link written into the root is a way to reach outside it on the NEXT export, which is the loop the export's own link handling closes from the other end |
-| A directory inside the destination root is a symbolic link | the whole zip is refused, naming it | This is the one way a member still lands outside the root, and it is the clone's own state rather than the zip's — so the person removes the link and gets a complete copy, instead of a partial one now |
+| Any path inside the destination root is a symbolic link — a directory above the member, or the member's own name | the whole zip is refused, naming it | This is the way a member still lands outside the root, and it is the clone's own state rather than the zip's — so the person removes the link and gets a complete copy, instead of a partial one now. The leaf counts: a link named `ledger/w1.md` whose target does not exist reads as absent, so the member is called ADDED and `open()` follows the link out (measured 2026-09-03, round 1) |
+| A member declares more bytes unpacked than a root of records holds | the whole zip is refused, naming the member and the limit | Each member is read whole, and the zip is another machine's file: the declared size is the sender's choice, not this root's contents. Measured 2026-09-03: 408 KB on disk declaring 400 MB wrote 419 MB and took as much memory, in 0.2 s |
 | The manifest names another remote | exit 1 printing both URLs and naming `--allow-other-repo` | Merging another project's records is silent corruption spread across files keyed by id; a refusal is one flag away from being wrong and costs a message |
 | Both roots exist | exit 1, naming both and which the gates read | Writing into one while the other exists leaves a dead root the hooks never read, which is worse than a stop |
 | A collision that already has an `.incoming` sibling | numbered, never overwritten | Losing the second copy silently is the only outcome worse than a file with a long name |
@@ -190,11 +193,13 @@ What actually disqualifies it, in the order that matters:
    it settles the question on its own.
 2. It writes members this format has no place for. `a\..\..\b.md` landed in
    the destination as a literal file on POSIX.
-3. **It follows a symbolic link that is already a directory in the
-   destination** — and so does a plain `open()`. A zip of
-   `specs/<id>/spec.md` extracted into a root whose `specs` is a link wrote
-   through it. This is the only measured escape, so it is the one the command
-   checks for, before writing anything.
+3. **It follows a symbolic link already in the destination** — and so does
+   a plain `open()`. A zip of `specs/<id>/spec.md` extracted into a root
+   whose `specs` is a link wrote through it. This is the escape that
+   measured, so it is the one the command checks for, before writing
+   anything. Not directories alone: round 1 measured a broken link named
+   `ledger/w1.md` taking a record outside the root at exit 0, because
+   `os.path.exists` follows a link and reports a broken one absent.
 
 The name validation stays regardless. A defence that holds only while a
 standard-library sanitiser keeps its current shape is not a defence this

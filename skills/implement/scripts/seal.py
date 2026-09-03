@@ -34,7 +34,7 @@ What actually disqualifies it, in order:
      `a\\..\\..\\b.md` lands in the root as a literal file on POSIX;
   3. it follows a symbolic link that is already a directory in the
      destination, and so would a plain `open()`. That one is real and is
-     checked for by `linked_directory` below.
+     checked for by `linked_path` below.
 
 So every member's name is checked first, one bad member refuses the whole
 archive before a byte is written, and each file is written at a path built
@@ -102,6 +102,14 @@ DRIVE = re.compile(r"^[A-Za-z]:")
 
 ADDED, IDENTICAL, COLLIDED = "added", "identical", "collided"
 
+# A record is markdown, and `write_members` reads each member whole. The zip
+# arrives from another machine, so its declared sizes are the sender's choice
+# rather than this root's honest contents: measured 2026-09-03, a 408 KB zip
+# declaring 400 MB in one member wrote 419 MB and added as much to memory in
+# 0.2 s. Both limits are read before a byte is written.
+MEMBER_LIMIT = 32 * 1024 * 1024
+ARCHIVE_LIMIT = 512 * 1024 * 1024
+
 
 # --- git, asked the way `hooks/optin.py` asks it ----------------------------
 
@@ -115,16 +123,21 @@ def git(root, *args):
     reader thread without the exception propagating.
     """
     try:
-        out = subprocess.run(
+        done = subprocess.run(
             ["git", "-C", root, *args],
             capture_output=True,
             encoding="utf-8",
             errors="replace",
             timeout=15,
-        ).stdout
+        )
     except (OSError, subprocess.SubprocessError):
         return ""
-    return (out or "").strip()
+    # The return code, not the output alone. `git rev-parse HEAD` on a branch
+    # with no commit yet exits 128 and still prints `HEAD`, which the manifest
+    # would record as this export's SHA (measured 2026-09-03).
+    if done.returncode != 0:
+        return ""
+    return (done.stdout or "").strip()
 
 
 def normalise_remote(url):
@@ -529,7 +542,10 @@ def unsafe(info):
         other, and a name that means two things is refused on both;
       - an absolute name, or one starting with a drive letter;
       - any `..` segment, which is the escape itself;
-      - a NUL, which truncates the path at the C boundary underneath;
+      - a NUL, which truncates the path at the C boundary underneath. Kept
+        as a guard rather than a claim: `zipfile` cuts the name at the NUL
+        before this reads it (measured 2026-09-03), so such a member arrives
+        under a shortened name inside the root rather than being refused;
       - a symbolic link entry. A link written into the root is a way to reach
         outside it on the NEXT export, which is the loop this closes;
       - anything not under `seal/` and not the manifest. A member this build
@@ -554,20 +570,33 @@ def unsafe(info):
         return ""
     if not parts or parts[0] != optin.HOME:
         return f"{name!r} is not under {optin.HOME}/ and is not the manifest"
+    if info.file_size > MEMBER_LIMIT:
+        return (
+            f"{name!r} declares {info.file_size} bytes, more than the "
+            f"{MEMBER_LIMIT} one record may hold"
+        )
     return ""
 
 
-def linked_directory(into, archive):
-    """A directory inside the root that is a symbolic link, or "".
+def linked_path(into, archive):
+    """A path inside the root that is a symbolic link, or "".
 
-    This is the one way a member can still land outside the root, and it is
+    This is the way a member can still land outside the root, and it is
     measured rather than assumed. `extractall` on the CPython this ships on
     (3.12 to 3.14, checked 2026-09-03) strips `..` and a leading `/` from a
     member's name and writes a link entry as an ordinary file, so those are
-    not what a member can escape through. A directory in the DESTINATION that
-    is a symbolic link is: `extractall` follows it, and so does the plain
-    `open()` this module writes with. `seal/specs` pointed elsewhere puts
-    every work item there.
+    not what a member can escape through. A path in the DESTINATION that is a
+    symbolic link is: `extractall` follows it, and so does the plain `open()`
+    this module writes with. `seal/specs` pointed elsewhere puts every work
+    item there.
+
+    The leaf counts, not only the directories above it. A link named
+    `ledger/w1.md` whose target does not exist reads as absent to
+    `os.path.exists`, so `place` calls the member ADDED and `open(target,
+    "wb")` follows the link and writes outside the root — measured
+    2026-09-03, exit 0 with no warning. A link whose target does exist is
+    caught by the byte comparison instead and lands as `.incoming`, which is
+    why only the broken one leaked.
 
     So it is refused before anything is written, and the whole import is
     refused rather than the member: the link is this clone's own state, not
@@ -581,7 +610,7 @@ def linked_directory(into, archive):
     seen = set()
     for info in archive.infolist():
         parts = [p for p in info.filename.split("/") if p][1:]
-        for depth in range(1, len(parts)):
+        for depth in range(1, len(parts) + 1):
             prefix = tuple(parts[:depth])
             if prefix in seen:
                 continue
@@ -653,21 +682,27 @@ def destination_root(repo, home, shared, local, into):
     direction that puts nothing in the tree. Guessing shared would write this
     plugin's files into a repository that may be someone else's, which is the
     harm local mode exists to prevent, so the safe guess is the one made.
+
+    Both roots present refuses whatever `--into` says, including nothing.
+    The refusal used to sit inside the `--into` branch, which left the case
+    the spec and both READMEs describe — `seal import` with no flag — writing
+    into whichever root the gates happen to read first. A clone holding two
+    roots is a clone whose owner has not said which is the real one, and a
+    copy landing in one of them is not the moment to decide it.
     """
+    if os.path.isdir(shared) and local and os.path.isdir(local):
+        return "", (
+            "both roots exist, and the gates read the first of them:\n"
+            f"  {shared}   (shared mode — read first)\n"
+            f"  {local}   (local mode)\n"
+            "Importing into one would leave the other where nothing reads "
+            "it. Move or remove one first; the plugin README's *Shared or "
+            "local* section has both commands."
+        )
     if into:
         wanted = shared if into == "shared" else local
-        other = local if into == "shared" else shared
         if not wanted:
             return "", "the common git directory could not be resolved"
-        if os.path.isdir(wanted) and os.path.isdir(other):
-            return "", (
-                "both roots exist, and the gates read the first of them:\n"
-                f"  {shared}   (shared mode — read first)\n"
-                f"  {local}   (local mode)\n"
-                "Importing into one would leave the other where nothing reads "
-                "it. Move or remove one first; the plugin README's *Shared or "
-                "local* section has both commands."
-            )
         return wanted, ""
     if home:
         return home, ""
@@ -710,6 +745,15 @@ def import_(args, cwd):
             )
             return 1
 
+        declared = sum(info.file_size for info in archive.infolist())
+        if declared > ARCHIVE_LIMIT:
+            print(
+                f"{path} declares {declared} bytes unpacked, more than the "
+                f"{ARCHIVE_LIMIT} this command will read."
+            )
+            print("\nNothing was written. A root this large is not a root of records.")
+            return 1
+
         here = normalise_remote(git(repo, "config", "--get", "remote.origin.url"))
         there = normalise_remote(manifest.get("remote"))
         if here and there and here != there and not args.allow_other_repo:
@@ -732,7 +776,7 @@ def import_(args, cwd):
             print(why)
             return 1
 
-        linked = linked_directory(into, archive)
+        linked = linked_path(into, archive)
         if linked:
             print(
                 f"{optin.HOME}/{linked} in this clone is a symbolic link, and "
@@ -740,7 +784,7 @@ def import_(args, cwd):
             )
             print(
                 "\nNothing was written. Replace the link with a real "
-                "directory and run this again."
+                "file or directory and run this again."
             )
             return 1
 

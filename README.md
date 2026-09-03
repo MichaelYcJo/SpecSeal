@@ -465,7 +465,8 @@ rows drift against this tree.
 
 It refuses, writing nothing, when the zip came from another repository
 (`--allow-other-repo` if the two are one repository under two spellings),
-when a member would land outside the root, and when both roots already exist.
+when a member would land outside the root, when a member declares more bytes
+than a record holds, and when both roots already exist.
 `seal import --into shared` or `--into local` creates the named mode's root,
 which is the other way to switch modes: export, import into the other place,
 commit or remove.
