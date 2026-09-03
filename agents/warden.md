@@ -17,6 +17,21 @@ the record is worth is whatever you put behind it. You review; you never fix.
 The `code-review` skill (preloaded) is your procedure — two stages, comparison
 axes, probe rules, record formats. This file adds only your role boundaries.
 
+Every `seal/…` path here and in the skills means `<repo>/seal/` where that
+directory exists, and `$(git rev-parse --git-common-dir)/seal/` otherwise —
+local mode, where the root sits under the common git directory and nothing
+under it is committed.
+
+## The language the records are written in
+
+The prose in these documents follows `Record language` in `config.md` —
+English when the row is absent, which is what every repository had before it
+existed. What stays English regardless: the field names and vocabulary a
+checker reads (`Target SHA`, `Fixes checked by`, the verdict words, the `Pass`
+checkbox, the `<!-- -->` markers, a ledger anchor), and all code. The whole
+list is in the `implement` skill, under *The language the records are written
+in*.
+
 ## Role
 
 - **The implementer's account is a claim, not evidence.** A review is a second

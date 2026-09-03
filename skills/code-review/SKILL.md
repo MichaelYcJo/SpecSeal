@@ -17,6 +17,25 @@ review. The default assumption is **"this code has defects"** — try to find
 them, not to prove their absence. An ungrounded LGTM is forbidden; when
 uncertain, write a question, not a pass.
 
+## The language the round records are written in
+
+The prose in `rounds/round-N.md` — its cell contents and the text beneath its
+tables — follows `Record language` in `config.md`, English when the row is
+absent. The root is `<repo>/seal/` where that directory exists and
+`$(git rev-parse --git-common-dir)/seal/` otherwise.
+
+What stays English regardless: every field name, section heading and
+vocabulary word the checkers match, listed in `templates/config.md` under
+*What no row governs*. `chain_check.py` reads those strings literally, so a
+translated `## Verdicts` or `Verdict` column is not a translation — it is a
+record the checker cannot read.
+
+**The report you post to the pull request is not a record.** It is prose for
+whoever opens that pull request, and follows `Commit and pull request
+language` instead, per `commit-pr-convention`. Posting and recording are
+separate acts producing different texts, which is why the two rows split
+here.
+
 ## Two stages, in order
 
 1. **Spec compliance** — actual code vs. the written spec (`docs/` policies
@@ -135,13 +154,24 @@ The work item is the key now, and its `routing.md` names the branch.
 
 **Right after posting the report**, the orchestrator writes three files
 (reviewer workers never write here — parallel writers overwrite each other,
-and worker findings are pre-verification):
+and worker findings are pre-verification). One of them gets a directory and
+two do not: `round-N` is the only member of the set that is plural and
+unbounded, so the two todo files sit at the work item's own level, beside
+`rounds/` rather than inside it. The release guard reads `evidence-todo.md`
+there (`.github/scripts/fold_ledger.py`, `seal/specs/*/evidence-todo.md`), and
+one written a directory deeper is one it cannot see; `tests-todo.md` keeps it
+company because the layout is one rule rather than two:
 
 | File | Contents |
 |---|---|
-| `round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — and **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table |
+| `rounds/round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — and **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table |
 | `tests-todo.md` | regression tests to plant, with the destination file per row |
 | `evidence-todo.md` | verified facts to merge into `seal/ledger.md` |
+
+**A round record starts from `templates/sdd-round.md`**, which carries every
+field named above, already spelled, and says beside each one what its values
+may be. A round that opens a blank file instead writes the fields it happens
+to remember, and the one it forgets is the one nobody notices is missing.
 
 Skipping this step makes review round *n* cost *n* full walks — the next
 round re-finds every coordinate from scratch.
@@ -193,6 +223,14 @@ the fresh spawn is the only option left, and what it takes is the handoff
 before round 1 (`docs/review-handoff-protocol.md`): coordinates rather than
 prose, each fact labelled. The rule decides which to reach for while both
 options exist.
+
+**Read that file's *What every spawn prompt carries* section before writing
+one.** It holds the half of a prompt that does not change between rounds —
+the probe rules, the exit-code rule, what not to run, what to hand back — and
+it is there because that half was retyped from memory every round and drifted
+without a trace: one rule arrived at round 2 of a seven-round chain and round
+1 ran without it. The prompt is then left holding only what is specific to
+this round.
 
 ## Orchestrator: the run ends with a verifying round
 

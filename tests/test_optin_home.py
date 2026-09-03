@@ -23,7 +23,7 @@ import os
 import subprocess
 
 import pytest
-from conftest import decision_of, fired, load_hook_module, run_hook
+from conftest import decision_of, fired, load_hook_module, local_home, run_hook
 
 
 @pytest.fixture
@@ -33,10 +33,6 @@ def optin():
 
 def home(repo):
     (repo / "seal").mkdir(exist_ok=True)
-
-
-def local_home(repo):
-    (repo / ".git" / "seal").mkdir(exist_ok=True)
 
 
 def legacy(repo):
@@ -121,6 +117,172 @@ def test_the_common_git_directory_is_asked_of_git_for_a_linked_worktree(
     )
     assert os.path.isfile(other / ".git"), "a linked worktree carries a .git FILE"
     assert os.path.samefile(optin.git_common_dir(str(other)), repo / ".git")
+
+
+def linked_worktree(repo, tmp_path):
+    other = tmp_path / "linked"
+    subprocess.run(
+        ["git", "-C", str(repo), "worktree", "add", "-q", str(other), "feature/x"],
+        check=True,
+        capture_output=True,
+    )
+    assert os.path.isfile(other / ".git"), "a linked worktree carries a .git FILE"
+    return other
+
+
+# --- #80: where the root lives, and no key -----------------------------------
+
+
+def test_the_mode_is_read_from_the_folder_and_from_no_key(optin, repo, monkeypatch):
+    """S1. The place the root is at says both "on" and which mode; nothing
+    else is read. Asked two ways: the module's source names no config key
+    and no environment variable, and a repository carrying both a git config
+    answer and an environment variable, with `seal/` at neither place, is
+    still out."""
+    src = open(optin.__file__, encoding="utf-8").read()
+    for word in ('"config"', "'config'", "environ", "getenv"):
+        assert word not in src, f"optin.py reads a key: {word}"
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "specseal.mode", "local"],
+        check=True,
+        capture_output=True,
+    )
+    monkeypatch.setenv("SPECSEAL_MODE", "local")
+    assert not optin.opted_in(str(repo))
+    assert optin.home(str(repo)) == ""
+
+
+def test_a_linked_worktree_resolves_to_the_main_trees_common_root(
+    optin, repo, tmp_path
+):
+    """S2. `.git/seal/` is under the COMMON git directory, so a linked
+    worktree, whose `.git` is a file, reads the main tree's root."""
+    home = local_home(repo)
+    other = linked_worktree(repo, tmp_path)
+    assert optin.opted_in(str(other))
+    assert os.path.samefile(optin.home(str(other)), home)
+    assert os.path.samefile(home, repo / ".git" / "seal")
+
+
+def test_the_worktrees_own_shared_root_wins_over_the_common_local_one(
+    optin, repo, tmp_path
+):
+    """S1's order, from a linked worktree: `<repo>/seal/` is read first, and
+    the worktree's own tree is the repository here."""
+    local_home(repo)
+    other = linked_worktree(repo, tmp_path)
+    (other / "seal").mkdir()
+    assert os.path.samefile(optin.home(str(other)), other / "seal")
+
+
+@pytest.mark.parametrize("shape", ["relative", "absolute"])
+def test_gits_common_dir_answer_is_joined_whichever_shape_it_has(
+    optin, repo, tmp_path, monkeypatch, shape
+):
+    """S2, S11. `git rev-parse --git-common-dir` answers relative to the
+    directory it ran in unless the path is absolute, and with forward
+    slashes on every platform. Both shapes are joined and normalised; no
+    drive-letter logic is added for the second."""
+    home = local_home(repo)
+    other = linked_worktree(repo, tmp_path)
+    real = subprocess.run
+    answer = (
+        os.path.relpath(repo / ".git", other)
+        if shape == "relative"
+        else str(repo / ".git")
+    ).replace(os.sep, "/")
+
+    def answering(args, **kwargs):
+        if "--git-common-dir" in args:
+            return subprocess.CompletedProcess(args, 0, stdout=answer + "\n", stderr="")
+        return real(args, **kwargs)
+
+    monkeypatch.setattr(optin.subprocess, "run", answering)
+    got = optin.git_common_dir(str(other))
+    assert got == os.path.normpath(got), "the answer was not normalised"
+    assert os.path.samefile(got, repo / ".git")
+    assert os.path.samefile(optin.home(str(other)), home)
+
+
+def test_a_file_named_seal_under_the_git_directory_is_not_a_root(optin, repo):
+    """The signal is a DIRECTORY at either place. A file of that name under
+    the common directory is not a home, and nothing raises over it."""
+    (repo / ".git" / "seal").write_text("")
+    assert not optin.opted_in(str(repo))
+    assert optin.home(str(repo)) == ""
+
+
+def test_the_local_root_is_never_a_commit_candidate_and_needs_no_gitignore(repo):
+    """S3. A declaration, a round record and a ledger fragment under the
+    local root are listed by nothing and staged by nothing: git never lists
+    its own directory, so no `.gitignore` line exists for it."""
+    home = local_home(repo)
+    item = home / "specs" / "1788000000-a-work-item"
+    (item / "rounds").mkdir(parents=True)
+    (item / "routing.md").write_text("# routing\n", encoding="utf-8")
+    (item / "rounds" / "round-1.md").write_text("# round 1\n", encoding="utf-8")
+    (home / "ledger").mkdir()
+    (home / "ledger" / "1788000000-a-work-item.md").write_text("# rows\n")
+    git = lambda *a: (
+        subprocess.run(
+            ["git", "-C", str(repo), *a],
+            check=True,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        ).stdout
+    )
+    assert git("status", "--porcelain") == ""
+    git("add", "-A")
+    assert git("diff", "--cached", "--name-only") == ""
+    assert not (repo / ".gitignore").exists()
+
+
+# --- both places, for a caller that has to name the mode it is not in -------
+
+
+def test_home_paths_names_the_two_places_shared_first(optin, repo):
+    """#81. `seal import --into shared|local` has to be able to CREATE the
+    root the user named, which `home_at` cannot answer: it reports where the
+    root is, and the other mode's root is exactly the one that is not there.
+
+    The pair is produced here so that command spells neither path itself.
+    """
+    shared, local = optin.home_paths(str(repo))
+    assert shared == os.path.join(str(repo), "seal")
+    assert local == os.path.join(str(repo), ".git", "seal")
+    assert not os.path.isdir(shared) and not os.path.isdir(local), (
+        "home_paths answers where a root WOULD be; nothing here exists yet"
+    )
+
+
+def test_home_paths_puts_the_answer_home_at_gives_first(optin, repo):
+    """The order is the mode's precedence, and it belongs with the pair
+    rather than at each caller. With both roots present `home_at` returns the
+    shared one, which is `home_paths`' first entry."""
+    home(repo)
+    local_home(repo)
+    assert optin.home_at(str(repo)) == optin.home_paths(str(repo))[0]
+
+
+def test_home_paths_is_empty_without_a_root(optin):
+    assert optin.home_paths("") == ("", "")
+
+
+def test_home_paths_costs_no_second_git_call_when_common_is_passed(optin, repo):
+    """The rider on `repo_root` counts `git` calls per gated command. A caller
+    that already resolved the common directory passes it, and nothing here
+    asks git again."""
+    common = optin.git_common_dir(str(repo))
+
+    def refuse(*a, **k):
+        raise AssertionError("home_paths asked git a second time")
+
+    optin.subprocess.run, saved = refuse, optin.subprocess.run
+    try:
+        assert optin.home_paths(str(repo), common)[1] == os.path.join(common, "seal")
+    finally:
+        optin.subprocess.run = saved
 
 
 # --- the throwaway repository -----------------------------------------------

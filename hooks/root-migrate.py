@@ -41,8 +41,10 @@ Boundaries, each pinned in `tests/test_the_root_migrates_itself.py`:
     ignored file under the old roots is not a unit and stays where it is;
     `.specseal/` may remain on disk holding nothing else
   - **once per repository** — a completed move stamps the marker, and so does
-    a repository that has nothing old left, so switching to an old branch
-    later does not move it again
+    a repository that has nothing old left and a root at EITHER place,
+    `<repo>/seal/` or `<git-common-dir>/seal/`, so switching to an old branch
+    later does not move it again — into a tree that local mode (#80) chose
+    to keep clean, in the second case
   - **a stopped move resumes** — a step that fails stops the run, prints what
     moved and what did not, and stamps nothing; the next session start moves
     what remains and stamps only when nothing old is left
@@ -429,6 +431,14 @@ def repoint(root):
     return rows
 
 
+def has_root(root):
+    """True when `seal/` is a directory at either place the root can be."""
+    if os.path.isdir(under(root, NEW)):
+        return True
+    common = optin.git_common_dir(root)
+    return bool(common) and os.path.isdir(os.path.join(common, NEW))
+
+
 def say(message):
     print(json.dumps({"systemMessage": message}))
 
@@ -463,7 +473,14 @@ def main():
         # Nothing old left. Stamped so that checking out a branch that still
         # carries the old layout later finds the once-per-repository rule
         # already answered, rather than a move staged onto that branch.
-        if os.path.isdir(under(root, NEW)) and not attempted(root):
+        #
+        # Either place, read directly rather than through `optin.home_at`,
+        # so the scratch marker does not hide the root from this rule. A
+        # local-mode repository (#80) keeps the root under the git directory
+        # and was never stamped by the tree-only test: it re-listed the old
+        # names at every session start, and an old branch checked out later
+        # was moved INTO the tree the person chose to keep clean.
+        if not attempted(root) and has_root(root):
             stamp(root)
         return
     if attempted(root):
