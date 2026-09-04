@@ -166,12 +166,41 @@ evidence-check --reverify .    # after re-reading: rewrite each row's hash
 
 | Flag | Meaning |
 |---|---|
-| `--ledger GLOB` | ledgers to scan (default `seal/ledger.md` and `seal/ledger/*.md`) |
+| `--ledger GLOB` | ledgers to scan (default `seal/ledger.md` and `seal/ledger/*.md`). A run given this prints which ledgers it did not read, and how to read them |
 | `--default-repo PATH` | migration ledgers cite the ORIGINAL repo with unprefixed paths — resolve them against this checkout |
 | `--map NAME=PATH` | resolve `NAME/...` prefixed coordinates against another checkout |
 | `--strict` | drift exits 2, the broken-coordinate code, instead of 1 |
 | `--reverify` | rewrite every resolvable row's hash to what its anchor holds now — and re-anchor every BROKEN row that exactly one unit reconstructs, path and locator both |
 | `--migrate` | rewrite old `path:line` rows to `path#unit@hash`; what it cannot prove is left and named |
+
+### A narrowed run says what it did not read
+
+`--ledger` is right for one of this tool's two jobs and blinding for the
+other. Narrowing is what keeps `--reverify` off a row whose claim is false and
+belongs to somebody else; carried into reading, it hides every row the branch
+broke in a ledger it does not own. So a `--ledger` run opens with the files it
+skipped, named one per line:
+
+```
+--ledger narrowed this run — 1 ledger this repository carries was not read:
+  seal/ledger.md
+run without --ledger to read them; a branch falsifies rows in ledgers it does
+not own, and those are the rows with the longest reach
+```
+
+It prints before anything is read, so it is above the totals rather than
+behind them, and it prints even when the pattern matched nothing at all —
+otherwise a typo in the glob reports `no evidence ledgers found`, which is the
+sentence a repository with no ledger gets. A run that narrowed to exactly what
+the defaults would have opened skips nothing and says nothing.
+
+The line is a report, not a second pass: nothing in a skipped ledger is
+opened, hashed or re-stamped.
+
+Measured (#153): one work item's three review rounds and two fix passes all
+ran the scoped form and all reported ok. The unscoped read at the pull request
+found fifteen drifted rows and one broken claim, every one in a file the
+branch had touched.
 
 ## Verdicts and what to do
 

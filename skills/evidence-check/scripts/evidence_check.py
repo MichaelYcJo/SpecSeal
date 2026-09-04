@@ -834,7 +834,8 @@ def seal_home(root):
     `<root>/seal/` is also the answer when the resolver says "" — a scratch
     marker, or no root at either place — because this is a CLI a person is
     watching rather than a gate: the defaults then find nothing and the run
-    says "no evidence ledgers found". `--ledger` bypasses this entirely.
+    says "no evidence ledgers found". `--ledger` bypasses this entirely, and
+    the run then names the ledgers it did not read — see `skipped_by_narrowing`.
     """
     here = os.path.dirname(os.path.abspath(__file__))
     plugin = os.path.normpath(os.path.join(here, "..", "..", ".."))
@@ -851,6 +852,67 @@ def seal_home(root):
         if home:
             return home
     return os.path.join(root, "seal")
+
+
+def default_patterns(root):
+    """Where a run with NO `--ledger` looks for ledgers.
+
+    Three locations. `seal/ledger.md` is the gathered ledger; `ledger/*.md` is
+    one fragment per work item; `docs/**/_evidence.md` is the pre-0.10 address,
+    still read because a repository that never moved it keeps working.
+    `.specseal/map.md` is NOT read: the root moved to `seal/` and
+    `hooks/root-migrate.py` moves it, so a ledger left there is a file in the
+    wrong place, not a second address.
+
+    The first two are joined under the `seal/` that `seal_home` resolves —
+    under the git directory in local mode (#80) — and the third under the root,
+    a committed file at an old address.
+
+    A function rather than a list inside `main`, because `--ledger` now has to
+    say what it SKIPPED and the skipped set is this list minus what was given.
+    Two spellings of the default would be one rule today and two after the
+    first edit to either, and the quiet half would be the one deciding whether
+    a skipped ledger gets named.
+    """
+    home = seal_home(root)
+    return [
+        os.path.join(home, "ledger.md"),
+        os.path.join(home, "ledger", "*.md"),
+        os.path.join(root, "docs", "**", "_evidence.md"),
+    ]
+
+
+def resolve_patterns(patterns):
+    """Every file the patterns match, deduplicated and in a stable order."""
+    return sorted({p for pat in patterns for p in glob.glob(pat, recursive=True)})
+
+
+def skipped_by_narrowing(root, read):
+    """Ledgers the default discovery would have opened and `--ledger` did not.
+
+    Issue #153: the narrowing was adopted for a correct reason — it is what
+    keeps `--reverify` off a row whose claim is false and belongs to somebody
+    else — and carried into READING, where it blinds. One work item's three
+    review rounds and two fix passes all ran the scoped form and all reported
+    ok; the unscoped read at the pull request found fifteen drifted rows and
+    one broken claim, every one in a file the branch had touched.
+
+    Guidance closes that for a session that reads the guidance. This closes it
+    for the session that narrows on its own initiative, which is the one the
+    trap was sprung on: the orchestrator that handed three rounds the scoped
+    form is the party that wrote the guidance.
+
+    Compared by real path and normalized case, so `--ledger seal/ledger.md`
+    and the resolver's own answer are one file rather than two spellings of
+    it — the same defect one directory up that `round_records` records for
+    `\\` against `/`.
+    """
+    seen = {os.path.normcase(os.path.realpath(p)) for p in read}
+    return [
+        p
+        for p in resolve_patterns(default_patterns(root))
+        if os.path.normcase(os.path.realpath(p)) not in seen
+    ]
 
 
 def check_ledger(ledger, root, maps, default_repo=None):
@@ -1409,27 +1471,35 @@ def main():
         name, _, path = spec.partition("=")
         maps[name] = os.path.abspath(os.path.expanduser(path))
 
-    # Three locations. `seal/ledger.md` is the gathered ledger; `ledger/*.md`
-    # is one fragment per work item; `docs/**/_evidence.md` is the pre-0.10
-    # address, still read because a repository that never moved it keeps
-    # working. `.specseal/map.md` is NOT read: the root moved to `seal/` and
-    # `hooks/root-migrate.py` moves it, so a ledger left there is a file in
-    # the wrong place, not a second address.
-    #
-    # The first two are joined under the `seal/` that `seal_home` resolves —
-    # under the git directory in local mode (#80) — and the third under the
-    # root, a committed file at an old address. A `--ledger` pattern is
-    # joined under the root as given.
+    # `default_patterns` holds the three locations and why each is read. A
+    # `--ledger` pattern is joined under the root as given, and overrides
+    # them.
     if args.ledger:
-        patterns = [os.path.join(root, pat) for pat in args.ledger]
+        ledgers = resolve_patterns([os.path.join(root, pat) for pat in args.ledger])
+        # BEFORE the empty check below, and before anything is read. A
+        # narrowing that matched nothing is the worst silence of the set:
+        # `no evidence ledgers found` is the same sentence a repository with
+        # no ledger at all gets, and here the ledgers are sitting right
+        # there. Printing this first also puts it above the per-ledger
+        # output, where a reader meets it before the totals rather than
+        # after them.
+        missed = skipped_by_narrowing(root, ledgers)
+        if missed:
+            one = len(missed) == 1
+            print(
+                f"--ledger narrowed this run — {len(missed)} "
+                f"ledger{'' if one else 's'} this repository carries "
+                f"{'was' if one else 'were'} not read:"
+            )
+            for path in missed:
+                print(f"  {os.path.relpath(path, root)}")
+            print(
+                "run without --ledger to read them; a branch falsifies rows "
+                "in ledgers it does not own, and those are the rows with the "
+                "longest reach"
+            )
     else:
-        home = seal_home(root)
-        patterns = [
-            os.path.join(home, "ledger.md"),
-            os.path.join(home, "ledger", "*.md"),
-            os.path.join(root, "docs", "**", "_evidence.md"),
-        ]
-    ledgers = sorted({p for pat in patterns for p in glob.glob(pat, recursive=True)})
+        ledgers = resolve_patterns(default_patterns(root))
     if not ledgers:
         print("no evidence ledgers found — nothing to check")
         return 0
