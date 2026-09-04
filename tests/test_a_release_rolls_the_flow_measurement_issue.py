@@ -16,6 +16,8 @@ network.
 import json
 import os
 
+import pytest
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
@@ -190,6 +192,17 @@ def test_one_open_issue_closes_it_and_opens_the_next(monkeypatch):
     )
     assert "--label" in create_args
     assert create_args[create_args.index("--label") + 1] == "flow-measurement"
+    labels = [create_args[i + 1] for i, a in enumerate(create_args) if a == "--label"]
+    assert labels == ["flow-measurement", "measurement"], (
+        f"the create must carry the lookup key and this repository's index "
+        f"label, in that order -- the first is what the roll and the skill "
+        f"find the log by, the second is what puts it beside the durable "
+        f"ledger: {labels}"
+    )
+    assert "--milestone" in create_args, (
+        f"the create must ask for the `log: measurement` milestone: {create_args}"
+    )
+    assert create_args[create_args.index("--milestone") + 1] == "log: measurement"
     assert "--body" in create_args
     body = create_args[create_args.index("--body") + 1]
     assert "#89" in body, (
@@ -203,6 +216,125 @@ def test_one_open_issue_closes_it_and_opens_the_next(monkeypatch):
     assert "0.8.0 ships" in body, (
         f"the new issue's body must say when it closes -- it is a rolling "
         f"log, and nothing on the issue itself says so: {body!r}"
+    )
+
+
+def _ladder_harness(m, monkeypatch, create_results, readings):
+    """Drive `main` with the create call answering from `create_results` and
+    the open-issue lookup from `readings`.
+
+    `create_results` is one entry per create attempt: a string for a call that
+    succeeded, `None` for one that reported failure. `readings` is what
+    `list_open_issues` answers, in order -- the first is `main`'s own lookup,
+    and each later one is the re-read a failed attempt does before it retries.
+    Returns the list of `gh issue create` argument tuples that were made.
+    """
+    creates = []
+
+    def fake_try_run(*args):
+        if args[:3] == ("gh", "issue", "create"):
+            creates.append(args)
+            return create_results.pop(0)
+        return "[]"
+
+    monkeypatch.setattr(m, "try_run", fake_try_run)
+    monkeypatch.setattr(
+        m, "list_open_issues", lambda repo: readings.pop(0) if readings else []
+    )
+    monkeypatch.setattr(m, "close_issue", lambda repo, number: None)
+    monkeypatch.setattr(m, "read_version", lambda: "0.7.0")
+    monkeypatch.setattr(m.time, "sleep", lambda s: None)
+    monkeypatch.setenv("REPO", "example/repo")
+    return creates
+
+
+OPEN_ONE = [{"number": 89, "title": "chore: flow measurement — 0.7.0"}]
+
+
+def test_a_milestone_that_cannot_be_set_does_not_fail_the_release(monkeypatch):
+    """`gh issue create --milestone` fails outright on a name it cannot
+    resolve, and a milestone is repository state -- it gets renamed and
+    deleted. The invariant this script protects is the one-open rule, which no
+    milestone touches, so the release does not stop for it."""
+    m = _roller()
+    creates = _ladder_harness(m, monkeypatch, [None, ""], [list(OPEN_ONE), []])
+    monkeypatch.setattr(m, "run", lambda *a: pytest.fail(f"fell through to run: {a}"))
+
+    m.main()
+
+    assert len(creates) == 2, f"expected one fallback attempt: {creates}"
+    assert "--milestone" not in creates[1], (
+        f"the fallback must drop the milestone -- retrying with the argument "
+        f"that failed is not a fallback: {creates[1]}"
+    )
+    assert "measurement" in creates[1], (
+        f"the fallback must keep the index label; only the milestone failed: "
+        f"{creates[1]}"
+    )
+    body = creates[1][creates[1].index("--body") + 1]
+    assert "log: measurement" in body and "could not be set" in body, (
+        f"the issue's own body must say the milestone could not be set. It is "
+        f"the one artifact a person opens; a line in a workflow log is not "
+        f"read: {body!r}"
+    )
+
+
+def test_both_best_effort_arguments_failing_still_opens_the_issue(monkeypatch):
+    m = _roller()
+    creates = _ladder_harness(m, monkeypatch, [None, None], [list(OPEN_ONE), [], []])
+    monkeypatch.setattr(m, "run", lambda *a: creates.append(a) or "")
+
+    m.main()
+
+    assert len(creates) == 3, f"expected two fallbacks then the plain create: {creates}"
+    final = creates[2]
+    assert "--milestone" not in final and final.count("--label") == 1, (
+        f"the last attempt carries the lookup key alone -- that is the one "
+        f"argument the invariant depends on: {final}"
+    )
+    body = final[final.index("--body") + 1]
+    assert "log: measurement" in body and "`measurement` index label" in body, (
+        f"the body must name both things that could not be set, not just the "
+        f"last one tried: {body!r}"
+    )
+
+
+def test_a_create_that_landed_despite_a_failed_call_is_not_retried(monkeypatch):
+    """The hazard the ladder introduces. A `gh issue create` that fails after
+    the mutation lands would, on retry, open a second issue -- the
+    exactly-one-open invariant broken from the other side, by the script that
+    exists to keep it."""
+    m = _roller()
+    landed = [{"number": 90, "title": "chore: flow measurement — 0.8.0"}]
+    creates = _ladder_harness(m, monkeypatch, [None], [list(OPEN_ONE), landed])
+    monkeypatch.setattr(m, "run", lambda *a: pytest.fail(f"fell through to run: {a}"))
+
+    m.main()
+
+    assert len(creates) == 1, (
+        f"a failed attempt whose issue is nonetheless open must end the "
+        f"ladder; retrying opens a second one: {creates}"
+    )
+
+
+def test_every_attempt_failing_still_exits_loudly(monkeypatch):
+    """The ladder tolerates the two best-effort arguments, never the create.
+    A create that fails all the way down is the zero-open state the module
+    docstring's recovery message exists for."""
+    m = _roller()
+    _ladder_harness(m, monkeypatch, [None, None], [list(OPEN_ONE)])
+
+    def fatal(*args):
+        raise SystemExit("gh issue create failed: some network error")
+
+    monkeypatch.setattr(m, "run", fatal)
+
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    message = str(exc.value)
+    assert "89" in message and "0.8.0" in message and m.LABEL in message, (
+        f"the recovery message must survive the ladder -- it names the "
+        f"already-closed issue and the title to open by hand: {message!r}"
     )
 
 

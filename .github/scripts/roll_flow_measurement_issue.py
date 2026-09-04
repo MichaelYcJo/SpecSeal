@@ -62,6 +62,32 @@ and never by number. Where a repository has no such issue that clause is left
 out rather than the roll failing: a durable ledger is a thing a repository may
 not have, and a release is not the place to insist on one.
 
+**The index label and the milestone are best-effort, and a failure to set
+either is written into the body of the issue this just created.** `gh issue
+create` resolves labels and milestones before it creates anything, so a
+milestone somebody renamed or deleted fails the whole call -- and a milestone
+is repository state, not code. The invariant this script protects is the
+one-open rule, which neither argument touches, so a release does not stop for
+them. The create is attempted with both, then with the index label alone, then
+with neither, and each fallback carries into the body what the attempt above
+it could not set. The body is where that goes because it is the one artifact
+a person opens; a line in a workflow log is not read (#136).
+
+**A failed attempt re-reads the open-issue list before it retries.** A `gh
+issue create` that fails after the mutation lands would, on retry, open a
+second issue -- the exactly-one-open invariant broken from the other side, by
+the script that exists to keep it. So a failure is followed by the lookup, and
+a reading that is no longer empty ends the ladder with the issue that landed.
+The last rung uses `run` rather than `try_run`, so a create that fails all the
+way down still exits loudly into the recovery message below.
+
+**The index label and the milestone are this repository's own names, and they
+belong here rather than in the skill.** `skills/verify/SKILL.md` ships to
+repositories that have neither, so it names `flow-measurement` and
+`flow-baseline` and stops there. `.github/` stays home
+(`tests/test_the_release_check_watches_what_ships.py`), which is what lets
+this file name `measurement` and `log: measurement`.
+
 **The close and the open are not one transaction.** `main` closes the old
 issue first and only then opens the next one, so a `gh issue create` failure
 after a successful close leaves the flow-measurement log with zero open
@@ -91,7 +117,23 @@ import time
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LABEL = "flow-measurement"
 BASELINE_LABEL = "flow-baseline"
+INDEX_LABEL = "measurement"
+INDEX_MILESTONE = "log: measurement"
 RETRY_DELAY_SECONDS = 5
+
+MILESTONE_NOTE = (
+    f"The `{INDEX_MILESTONE}` milestone could not be set on this issue -- it "
+    f"has been renamed, deleted, or is not resolvable from the release "
+    f"workflow. Set it by hand if it still exists. Nothing automated reads a "
+    f"milestone (`docs/issues-and-milestones.md`), so this costs a person a "
+    f'wrong answer to "what is in this version" and costs no check anything.'
+)
+
+INDEX_NOTE = (
+    f"The `{INDEX_LABEL}` index label could not be applied either. Add it by "
+    f"hand so this issue turns up beside the durable ledger when the whole "
+    f"concern is queried by label."
+)
 
 
 def run(*args):
@@ -207,24 +249,28 @@ def find_baseline_issue(repo):
     return issues[0]["number"] if issues else None
 
 
-def issue_body(version, closed_number, baseline_number):
-    """What the rolling log says about itself on the day it is opened."""
+def issue_body(version, closed_number, baseline_number, notes=()):
+    """What the rolling log says about itself on the day it is opened.
+
+    `notes` are what the create could not set -- see the module docstring.
+    They go in the body rather than in the workflow log because the issue is
+    the artifact a person opens.
+    """
     ledger = (
         f"Baselines and the observations that span versions live in "
         f"#{baseline_number}; this"
         if baseline_number is not None
         else "This"
     )
-    return (
+    opening = (
         f"Rolls from #{closed_number}. {ledger} issue takes one comment per "
         f"segment and is closed when {version} ships."
     )
+    return "\n\n".join([opening, *notes])
 
 
-def open_issue(repo, version, closed_number):
-    title = f"chore: flow measurement — {version}"
-    body = issue_body(version, closed_number, find_baseline_issue(repo))
-    run(
+def create_args(repo, title, body, extras):
+    return (
         "gh",
         "issue",
         "create",
@@ -234,9 +280,34 @@ def open_issue(repo, version, closed_number):
         title,
         "--label",
         LABEL,
+        *extras,
         "--body",
         body,
     )
+
+
+def open_issue(repo, version, closed_number):
+    title = f"chore: flow measurement — {version}"
+    baseline = find_baseline_issue(repo)
+
+    # Most to least. Each rung drops the argument the rung above it could not
+    # set and says so in the body; only `LABEL` is on every rung, because that
+    # is the one the exactly-one-open invariant is read through.
+    for extras, notes in (
+        (("--label", INDEX_LABEL, "--milestone", INDEX_MILESTONE), ()),
+        (("--label", INDEX_LABEL), (MILESTONE_NOTE,)),
+    ):
+        body = issue_body(version, closed_number, baseline, notes)
+        if try_run(*create_args(repo, title, body, extras)) is not None:
+            return title
+        if list_open_issues(repo):
+            # The call reported failure and an issue is open anyway, so the
+            # create landed and the failure arrived after it. Retrying here
+            # opens a second one.
+            return title
+
+    body = issue_body(version, closed_number, baseline, (MILESTONE_NOTE, INDEX_NOTE))
+    run(*create_args(repo, title, body, ()))
     return title
 
 
