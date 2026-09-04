@@ -660,6 +660,39 @@ def test_a_reason_the_checker_does_not_recognise_passes(repo):
         )
         assert code == 0, f"refused a cell it does not recognise, {units!r}:\n{out}"
 
+    # Round 4's 🟡 3, as an assertion here rather than as a unit of its own:
+    # the finding is INSIDE `says_not_yet`, which round 2's fix pass created,
+    # so a new unit answering it would be depth 2. A bare `none` is what
+    # `templates/sdd-round.md` prints, `says_none` answers True for it by
+    # `s == NONE_WORD` with nothing after the word, and it reaches
+    # `says_not_yet` with an empty `rest`. The docstring called both guards
+    # duplicates that cannot change the answer; the `not rest` conjunct is
+    # what keeps `rest[0]` from raising on the commonest cell there is.
+    module = check_module()
+    assert module.says_none("none") is True, (
+        "the bare `none` route is what makes the separator guard load-bearing"
+    )
+    assert module.says_not_yet("none") is False, (
+        "a bare `none` says nothing about whether the fixes exist yet"
+    )
+    for bare in ("none", "NONE", "`none`", "none.", "none;"):
+        assert module.says_not_yet(bare) is False, (
+            f"{bare!r} reached the separator guard with an empty tail and the "
+            "guard did not hold — dropping `not rest` raises IndexError here"
+        )
+
+    # Round 4's 🟡 3 on the document side, in this same case for the same
+    # reason: the corrected limit is a sentence a person reads and acts on
+    # (§14), and a mutation battery reads a recorded limit as permission to
+    # delete the line it describes.
+    chain = flat("skills", "code-review", "scripts", "chain_check.py")
+    assert "The separator guard does NOT" in chain, (
+        "`says_not_yet` is back to calling both guards duplicates"
+    )
+    assert "prefix guard really is unreachable" in chain, (
+        "the surviving half of the limit lost its statement"
+    )
+
 
 def test_a_forgotten_checker_cell_leaves_the_arm_nothing_to_key_on(repo):
     """Round 3's 🟡 1. The arm reads `Fixes checked by`, so the session that
@@ -729,17 +762,28 @@ def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
     rewording**, and three spellings escape with the template's words
     untouched. The case above runs them; this is the claim about them.
 
-    Pinned in all three copies on purpose. The measurement is one fact and
-    it was written into three places, so a correction that reaches one of
-    them leaves the other two saying what was measured false — which is the
-    class round 2 fixed three instances of and round 3 found a fourth of.
+    **Pinned in all FIVE copies, and it used to pin three of them** (round
+    4's 🟡 6). `phases/phase-7.md`'s own removal table names five places the
+    rewording claim was written into, and this loop covered the spec, the
+    ledger fragment and the changelog — leaving `chain_check.py#says_not_yet`
+    and `overview.md` free to keep saying what was measured false. A case
+    written to close *a correction reaches one copy and not the rest* was
+    itself an instance of it.
+
+    The measurement is one fact written into five places, so counting the
+    copies is part of the claim: if a sixth copy is added, it is added here
+    too.
     """
     item = "1788501054-a-check-reports-clean-while-something-is-missing"
-    for where in (
+    copies = (
         ("docs", "review-chain-spec.md"),
+        ("skills", "code-review", "scripts", "chain_check.py"),
         ("seal", "ledger", f"{item}.md"),
         ("seal", "specs", item, "changelog.md"),
-    ):
+        ("seal", "specs", item, "overview.md"),
+    )
+    assert len(copies) == 5, "the removal table in phase-7.md names five copies"
+    for where in copies:
         text = flat(*where)
         assert "wider than a rewording" in text, (
             f"{'/'.join(where)} still declares the escape as a rewording"

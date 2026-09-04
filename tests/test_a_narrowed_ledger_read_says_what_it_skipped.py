@@ -279,6 +279,43 @@ def test_an_inode_of_zero_does_not_fold_two_files_into_one(proj, monkeypatch):
             f"nothing — every zeroed ledger had one identity. Got {missed}"
         )
 
+    # Round 4's 🟡 5, as assertions here rather than as a unit of its own.
+    # Both corrected paragraphs are inside `skipped_by_narrowing`, which is
+    # what this case already covers, and both were false in the same way:
+    # they explained a guard through a platform fact that is not the reason.
+    # A recorded limit that is wrong tells the next battery a live line is
+    # dead, so the corrected words are pinned (§14).
+    # `read` is the local list of ledgers above, so the module-level reader
+    # is reached through `flat`.
+    source = flat("skills", "evidence-check", "scripts", "evidence_check.py")
+    assert (
+        "folds case on WINDOWS alone, not wherever the platform folds it" in source
+    ), (
+        "the fallback sentence is back to tying `normcase` to what the "
+        "filesystem does — it folds on Windows and nowhere else, which is "
+        "round 1's 🟡 9 restated one function over"
+    )
+    assert "reached by `OSError` on every platform" in source, (
+        "the reachability paragraph is back to explaining the fallback "
+        "through the zeroed inode alone, which is Windows-only where the "
+        "fallback is not"
+    )
+    memo = flat(
+        "seal",
+        "specs",
+        "1788501054-a-check-reports-clean-while-something-is-missing",
+        "overview.md",
+    )
+    for phrase in (
+        "re-deriving all four found three of the four reasons false",
+        "reached by `OSError` on EVERY platform",
+    ):
+        assert phrase in memo, (
+            f"the memo's limit table no longer says: {phrase} — the "
+            "measurement is written in two places and pinning one is the "
+            "class this branch keeps finding"
+        )
+
 
 def test_two_devices_that_share_an_inode_number_are_two_ledgers(proj, monkeypatch):
     """The device is half the identity, and dropping it left every case

@@ -36,7 +36,7 @@ them.
 | Whether the handoff protocol's draft moves | Nothing in `plan.md` or `spec.md` says | Moved, 1.1 → 1.2, with a Status paragraph | The protocol's own `Status` section is what a conformance reader opens, and every previous change that added a requirement moved the draft. `tests/test_the_handoff_before_round_one.py` already refuses a title and a Status naming different drafts, so half-moving it is refused; not moving it at all would leave a fourth requirement under a draft that documents three |
 | One work item, one test file | The repository's habit is prose cases and execution cases in sibling files | Two files for #153, one for #150 | #153's prose landed in phase 1 and its output in phase 2, and a phase-1 commit carrying phase 2's red cases does not stand on its own. #150's prose and execution landed in the same phase, so they share a file |
 | Which add `added_on_branch` reads | Phase 3's docstring: *"the LAST line is the first add. A file added, removed and re-added is judged on the first of those, which is when its author committed it"* | The **latest** add, `found[0]`, and the docstring rewritten | Round 1's 🟡 8 mutated the index and all twenty cases stayed green, so the file documented a decision nothing held. The reasoning in it was also wrong: the version anybody reads was authored at the LAST add, so a stub committed on time, deleted, and rewritten after the fixes passed on the strength of a commit holding none of its content. The declared failure direction is *blocks more*, and the cost — a record accidentally deleted and restored is refused — is named in the docstring and visible in the failure |
-| The direction a checker takes for a value it cannot read | `CONTRIBUTING.md` §*What a change to a gate must carry* and this branch's own `plan.md`: **failure direction: blocks more** | **Allow**, for the pending fix-surface arm alone | The alternative refuses an honest custom reason (`none — the fixes deleted a line`) for its wording, and a rule about which English sentences mean *not yet* is the enumeration over an unbounded domain `docs/review-chain-spec.md` declines twice already. What is caught is the measured failure — the template's own words left standing — and the phrase is a checker constant the template prints, tied by a case, so the two cannot drift. The cost is what escapes, which is written into the spec and the ledger row rather than left to be found — and round 3's 🟡 5 measured it wider than *a rewording*: three spellings carry the template's words unchanged (a dash outside the separator set, a doubled space inside the phrase, any clause in front of it), and only the first of the three is punctuation, so widening the separator set would close one and leave the sentence false about the other two. The arm's key is a second cost of the same shape: it reads `Fixes checked by`, so it reaches the session that filled that cell and stopped, and neither `nobody` nor `no fixes to check` beside a pending row is refused |
+| The direction a checker takes for a value it cannot read | `CONTRIBUTING.md` §*What a change to a gate must carry* and this branch's own `plan.md`: **failure direction: blocks more** | **Allow**, for the pending fix-surface arm alone | The alternative refuses an honest custom reason (`none — the fixes deleted a line`) for its wording, and a rule about which English sentences mean *not yet* is the enumeration over an unbounded domain `docs/review-chain-spec.md` declines twice already. What is caught is the measured failure — the template's own words left standing — and the phrase is a checker constant the template prints, tied by a case, so the two cannot drift. The cost is what escapes, which is written into the spec and the ledger row rather than left to be found — and round 3's 🟡 5 measured it wider than a rewording: three spellings carry the template's words unchanged (a dash outside the separator set, a doubled space inside the phrase, any clause in front of it), and only the first of the three is punctuation, so widening the separator set would close one and leave the sentence false about the other two. The arm's key is a second cost of the same shape: it reads `Fixes checked by`, so it reaches the session that filled that cell and stopped, and neither `nobody` nor `no fixes to check` beside a pending row is refused |
 | Round 1's count of the bare fix cells | `round-1.md`'s 🟡 7 and its probe table: *"231 fix-word verdict cells, 212 carrying a SHA, 19 carrying none"* | **235 · 215 · 20**, re-measured | An aggregate is not a coordinate (`docs/review-handoff-protocol.md`), so the number was re-taken through the checker's own `verdict_table`, `verdict_of`, `FIX_WORDS` and `SHA_RE` over every record git carries — identical at the round's target `15278db` and at HEAD. The finding's direction is untouched and only its number moved, so the fix stands and the measured figure is what went into the template and the spec |
 
 ## Not verified
@@ -63,17 +63,27 @@ row R7 records as the property that makes the narrow key defensible at all.
 It is `questions.md` Q4, with three options and the repository owner as the
 answerer, and Q3 is its sibling for the terminal value.
 
-**Four mutation survivors are recorded rather than closed, because no state a
-case can build reaches any of them.** `says_not_yet`'s `none` prefix and its
-separator boundary duplicate `says_none`'s and sit behind it at the only call
-site; `normcase` in the skipped set's path fallback is reachable only where
-CPython zeroes an inode, which is the one platform where `normcase` is not the
-identity; and `seal_home`'s `SKILL.md` conjunct needs a vendored copy inside a
-tree that has a plugin above it, which no fixture builds. The first three are
-stated in the docstrings that carry them, and the first and last also carry a
-`# RIDER:` — a mutation battery cannot tell an unreachable guard from an
-unheld decision, so the next one will find them again and read them as
-findings unless the code says otherwise.
+**Four mutation survivors were recorded as unreachable, and re-deriving all
+four found three of the four reasons false.** Round 3's fix pass wrote a
+paragraph for each; round 4 reopened two of them and the fix pass re-measured
+every one, because a recorded limit that is wrong is worse than one that is
+missing — it tells the next battery that a live line is dead. What the four
+say now:
+
+| The guard | What was recorded | What re-deriving it found |
+|---|---|---|
+| `says_not_yet`'s `none` prefix | duplicates `says_none`'s and cannot change the answer | **Stands.** Both of `says_none`'s True routes imply the prefix, and deleting the guard leaves the suites green |
+| `says_not_yet`'s separator boundary | the same sentence covered both | **False.** `says_none` answers True for a bare `none` by `s == NONE_WORD`, so a value reaches here with nothing after the word — the spelling `templates/sdd-round.md` itself produces. Dropping the `not rest` conjunct alone turns **20** cases red; only deleting the guard WHOLE is answer-neutral |
+| `normcase` in the skipped set's path fallback | reachable only where CPython zeroes an inode, which is the one platform where `normcase` is not the identity | **The conclusion stands and the reason is false.** The fallback is reached by `OSError` on EVERY platform; only the zero-inode route is Windows-only. What is Windows-only is `normcase` differing from the identity, so it is unkillable off Windows and load-bearing on it. The fallback sentence one paragraph up was false the same way, and that one is round 1's 🟡 9 restated — measured on a case-insensitive volume, one inode and two identities |
+| `seal_home`'s `SKILL.md` conjunct | needs a vendored copy inside a tree that has a plugin above it, which no fixture builds | **False, and now closed.** The state is constructible, the two answers differ against a local-mode repository, and `test_a_copy_under_a_plugin_tree_without_a_skill_beside_it_is_still_vendored` builds it. The mutation that survived every evidence suite now dies |
+
+So one limit of the four survives as written, one keeps its conclusion with a
+new reason, one was a real hole that is now held by a case, and one is a guard
+whose halves behave differently. Both `# RIDER:` comments are gone: each stood
+in for a case, and both cases exist. What each surviving limit says is in the
+docstring that carries it, because a mutation battery cannot tell an
+unreachable guard from an unheld decision and the next one will find them
+again.
 
 **No issue was opened for the row selector `--reverify` does not have.** Phase
 1 tells every round to run the unscoped read, so from now on every branch will

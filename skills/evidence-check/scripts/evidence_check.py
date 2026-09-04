@@ -817,16 +817,6 @@ def cross_repo_intent(root, default_repo):
     )
 
 
-# RIDER: the `os.path.isfile(skill)` half of the test below is what tells the
-# plugin's own copy from a vendored one, and no case holds it — dropping the
-# conjunct leaves the evidence suites green, because every fixture that builds
-# a vendored copy puts it somewhere with no `hooks/optin.py` three levels up,
-# so the first half already decides. The state that separates them is a
-# vendored copy inside a tree that HAS a plugin above it, which nothing
-# constructs today. Found by mutation in work item 1788501054's round 3 fix
-# pass and left rather than closed: it is outside that round's agenda, and a
-# case for it is a fixture rather than a line. If you open this resolver,
-# build that fixture. Verified 2026-09-04 at e94c3de.
 @functools.cache
 def seal_home(root):
     """The `seal/` of the repository at `root`: what `hooks/optin.py` resolves
@@ -840,6 +830,16 @@ def seal_home(root):
     no `hooks/` beside it and runs in CI, which is shared mode: it reads
     `<root>/seal/` as it always did. One resolver and no second `home_at`
     here, for the reason `optin.py`'s docstring gives about divergent copies.
+
+    **`SKILL.md` is the half of the test that does the telling**, and it was
+    recorded as an unreachable guard for a round because every vendored
+    fixture also lacked `hooks/optin.py` three levels up, so the first
+    conjunct decided every time. That state is constructible — a copy three
+    directories under a tree that HAS a plugin, with no skill beside it —
+    and against a local-mode repository the two answers differ, so dropping
+    the conjunct makes a vendored copy read `<git-common-dir>/seal/` when it
+    must read `<root>/seal/`. It is held now, by
+    `test_a_copy_under_a_plugin_tree_without_a_skill_beside_it_is_still_vendored`.
 
     `<root>/seal/` is also the answer when the resolver says "" — a scratch
     marker, or no root at either place — because this is a CLI a person is
@@ -946,19 +946,31 @@ def skipped_by_narrowing(root, read):
     the same fallback: the normalized absolute path. It is a WEAKER identity
     than the inode rather than a stricter one, and the sentence here used to
     claim the opposite. `abspath` already folds `./seal/ledger.md` into
-    `seal/ledger.md`, and `normcase` folds case where the platform folds it,
-    so two spellings of one unstattable file read as one wherever the
-    platform says they are one. What the fallback cannot do is unify two
-    spellings the platform keeps apart — a symlink, a hard link — so those
-    read as two, and the direction is to NAME a ledger as skipped rather
-    than pass over it in silence. Nothing goes unread either way.
+    `seal/ledger.md`. **`normcase` folds case on WINDOWS alone, not
+    wherever the platform folds it** — that second wording stood here for a
+    round (round 4's 🟡 5) and it is round 1's 🟡 9 restated one function
+    over, which is the finding this whole fallback was written to answer.
+    `ntpath.normcase` lowercases and `posixpath.normcase` is the identity,
+    and neither asks the filesystem: on a case-insensitive macOS volume
+    `seal/ledger.md` and `SEAL/Ledger.md` are ONE file with one inode and
+    TWO fallback identities. Measured on such a volume, one inode and two
+    identities. So the fallback over-reports off Windows, which is the
+    declared direction — NAME a ledger as skipped rather than pass over it
+    in silence — and the same is true of the two spellings the platform
+    keeps apart anywhere, a symlink and a hard link. Nothing goes unread
+    either way.
 
-    `normcase` here is unheld by any case and reachable in no state this
-    repository can build: CPython zeroes the inode on Windows alone, which
-    is also the only platform where `normcase` is not the identity, so
-    removing it changes nothing anywhere a case can run. Recorded rather
-    than deleted — what it guards is the Windows pairing, and a mutation
-    battery cannot tell an unreachable guard from an unheld decision.
+    `normcase` here is unheld by any case, and the reason is the PLATFORM
+    rather than the fallback's reachability. The paragraph here used to
+    explain it through *CPython zeroes the inode on Windows alone*, and
+    that is false: the fallback is reached by `OSError` on every platform,
+    and only the zero-inode route is Windows-only. What is Windows-only is
+    `normcase` itself DIFFERING from the identity, so off Windows removing
+    it changes nothing and no case this repository can run kills it — while
+    on Windows it is both reachable and load-bearing. Recorded rather than
+    deleted, per `agent-contract` §13: what it guards is the Windows
+    pairing, no run here removes that guarantee, and a mutation battery
+    cannot tell an unreachable guard from an unheld decision.
 
     One loop over both sides, because the identity rule has to have one
     spelling. Two would be one rule today and two after the first edit to

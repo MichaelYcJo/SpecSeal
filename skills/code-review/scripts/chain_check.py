@@ -1560,17 +1560,6 @@ def says_none(value):
     return bool(rest) and rest[0] in SEPARATORS
 
 
-# RIDER: two claims in the docstring below have no case of their own — that
-# the constant is a PREFIX of the reason (round 3's 🟡 4, which found this
-# paragraph stating it backwards), and that the two guards duplicate
-# `says_none`'s. Neither can get one while this unit is where it is: it was
-# created by a fix pass, so a unit added to answer a finding INSIDE it is
-# depth 2, which `docs/review-chain-spec.md` refuses and this file reports.
-# Depth is measured per RUN, so once the run that added this function has
-# merged, a later work item's fix pass answering a finding here is depth 1 —
-# plant the pin then, beside
-# `test_the_pending_spelling_is_the_one_the_template_prints`.
-# Verified 2026-09-04 at e94c3de.
 def says_not_yet(value):
     """True when a fix-surface cell answers `none` because the fixes do not
     exist YET, in the spelling `templates/sdd-round.md` prints.
@@ -1618,13 +1607,28 @@ def says_not_yet(value):
     What *this record passed* means is *its cell does not carry the
     template's own pending words*, never *its fix surface is complete*.
 
-    **The two guards below duplicate `says_none`'s and cannot change the
-    answer**, which is worth saying because a mutation battery cannot tell
-    that from a decision nothing holds: `fix_surface` is the only call site
-    and it calls this behind `says_none`, so a value arriving here has
-    already been shown to start with `none` and to carry a separator after
-    it. Both survive mutation for that reason and no case through the CLI
-    can kill either. They stay because this reads as a predicate on its own.
+    **The prefix guard below duplicates `says_none`'s. The separator guard
+    does NOT, and half of it is load-bearing.** This paragraph claimed both
+    were duplicates that could not change the answer, and it was wrong twice
+    (round 4's 🟡 3). A recorded limit that is wrong is worse than one that
+    is missing: it tells the next mutation battery that a live line is dead.
+
+    `fix_surface` is the only call site and it calls this behind
+    `says_none`, so a value arriving here HAS been shown to start with
+    `none` -- both of `says_none`'s True routes imply that, and the prefix
+    guard really is unreachable. It has NOT been shown to carry anything
+    after the word. `says_none` answers True for a bare `none` by
+    `s == NONE_WORD`, which is the value `templates/sdd-round.md`'s own
+    instruction produces, and that value arrives here with `rest` empty --
+    so the `not rest` conjunct is what stops `rest[0]` from raising on the
+    commonest cell in the vocabulary.
+
+    Measured, cache purged between runs: dropping `not rest` alone turns 20
+    cases red. Deleting EITHER guard whole leaves the suites green, because
+    an empty `rest` cannot start with `NOT_YET` either. So the guards are
+    answer-neutral as wholes and not by halves, and the reason is not the
+    one this paragraph gave for a round. They stay because this reads as a
+    predicate on its own, and because one of them is a crash away.
     """
     s = EMPHASIS.sub("", value).lower().strip().rstrip(".;").strip()
     if not s.startswith(NONE_WORD):
