@@ -35,6 +35,8 @@ them.
 | Where the rebase caveat is settled | `plan.md`: *"read the record's first commit on the branch rather than in the whole history, **or** accept that a rebase can turn a passing record failing and say so in the message"* | Both halves, not one | Reading `<baseline>..HEAD` closes the direction that fails an honest record, and it does not close the other one: a rebase rewrites the fix commit too, so the SHA in the verdict cell resolves to nothing and no claim is made. That hole is real and it is the safe direction, so it is stated in `docs/review-chain-spec.md` rather than left for someone to discover by being confused. The plan's `or` reads as a choice between two answers; the two turn out to answer different halves |
 | Whether the handoff protocol's draft moves | Nothing in `plan.md` or `spec.md` says | Moved, 1.1 → 1.2, with a Status paragraph | The protocol's own `Status` section is what a conformance reader opens, and every previous change that added a requirement moved the draft. `tests/test_the_handoff_before_round_one.py` already refuses a title and a Status naming different drafts, so half-moving it is refused; not moving it at all would leave a fourth requirement under a draft that documents three |
 | One work item, one test file | The repository's habit is prose cases and execution cases in sibling files | Two files for #153, one for #150 | #153's prose landed in phase 1 and its output in phase 2, and a phase-1 commit carrying phase 2's red cases does not stand on its own. #150's prose and execution landed in the same phase, so they share a file |
+| Which add `added_on_branch` reads | Phase 3's docstring: *"the LAST line is the first add. A file added, removed and re-added is judged on the first of those, which is when its author committed it"* | The **latest** add, `found[0]`, and the docstring rewritten | Round 1's 🟡 8 mutated the index and all twenty cases stayed green, so the file documented a decision nothing held. The reasoning in it was also wrong: the version anybody reads was authored at the LAST add, so a stub committed on time, deleted, and rewritten after the fixes passed on the strength of a commit holding none of its content. The declared failure direction is *blocks more*, and the cost — a record accidentally deleted and restored is refused — is named in the docstring and visible in the failure |
+| Round 1's count of the bare fix cells | `round-1.md`'s 🟡 7 and its probe table: *"231 fix-word verdict cells, 212 carrying a SHA, 19 carrying none"* | **235 · 215 · 20**, re-measured | An aggregate is not a coordinate (`docs/review-handoff-protocol.md`), so the number was re-taken through the checker's own `verdict_table`, `verdict_of`, `FIX_WORDS` and `SHA_RE` over every record git carries — identical at the round's target `15278db` and at HEAD. The finding's direction is untouched and only its number moved, so the fix stands and the measured figure is what went into the template and the spec |
 
 ## Not verified
 
@@ -63,6 +65,24 @@ connected to the failure.
 
 **`docs/flow.md` gained no new numbered row**, because the only ticket this
 work opens is the one above and it has no number.
+
+**Round 1's ⬜ 10 is left as it stands, with grounds.** A verdict cell naming
+two late commits prints the failure once per commit, because the grouping key
+is the resolved commit — seven cells naming one commit is solved and one cell
+naming two is not. It over-reports on a shape nobody has produced, and both
+paragraphs would be true. Collapsing further means putting two commits and two
+row lists into one 90-word failure, which is harder to read than two of them,
+for a message rewrite and a case. The direction is stricter, which is the
+declared one.
+
+**One mutation survives the battery and no case kills it.** Making
+`commissioned_fixes` substitute `HEAD` for a cell that names no commit leaves
+all 23 cases green, because `HEAD` is the last record's own commit and not an
+ancestor of the earlier record's. It is a mutation with no plausible author —
+nothing in the file reads a missing SHA as a commit — and the property that
+matters is pinned instead by running the SAME late record twice, once with the
+commit in the cell and once without: refused, then passed. That is the reach's
+limit measured rather than an exit code that could have come from anywhere.
 
 ## Fed back into the spec
 

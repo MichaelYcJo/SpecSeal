@@ -881,7 +881,28 @@ the one record the defect cannot reach.
 | a verdict closing with `answered`, `withdrawn` or `not a defect` | passes, whatever commit sits in the cell — those close a finding and produce no code, so there is no fix the record could have been written after |
 | a fix commit that is an ancestor of this record's own `Target SHA` | passes — the round already reviewed that commit, so it is a fix this round did not commission. Round N+1's record is committed after round N's fixes by construction, and reading those as commissioned would fail the second round of every run |
 | a fix commit this repository cannot resolve | passes — after a squash that is the ordinary state of a reviewed commit, the reading `resolves_to` gives every other consumer |
+| **a `fixed` verdict that names no commit at all** | passes, and this is the commonest of the pass states rather than an edge — measured across this repository's own records, 235 cells close with a fix word, 215 name a commit and **20 do not**. `\| fixed \|` and `\| fixed — round-2 read it \|` are house style, not malformed |
 | a record with no adding commit in `<baseline>..HEAD` | passes — it arrived before the base, and nothing is claimed about it. The same *no claim* the reachability requirement already makes for a record the pull request does not touch. This is also what a base moving under a long branch produces: the record's own adding commit leaves the range and the commit that UPDATED its verdicts stays inside it, so *the oldest commit that touched the file* would refuse a record for doing exactly what a correct record does |
+
+**So the refusal's reach is the commit a cell happens to carry, and that is a
+limit rather than a choice about which column to read.** A record written
+entirely in the third style above is invisible to it however late it was
+committed. Two answers were weighed and the cheaper one is not a check:
+
+- **Refuse a `fixed` cell that names no commit.** It would be a sixth refusal,
+  owed its own cutoff and its own subsection, refusing a spelling 20 of this
+  repository's own cells already use — and the value it would add is reach
+  over records whose authors were never asked for the commit.
+- **Ask for the commit where a person writes the cell.**
+  `templates/sdd-round.md` does, beside the vocabulary, with the reason: a
+  reader six months on has no other route to the change, and this refusal
+  cannot see a cell without one. Records written afterwards carry it; the
+  reach grows as they land, and nothing red is inherited.
+
+The second is what shipped. What it costs, stated rather than buried: the
+reach is a convention rather than a guarantee, so *this record passed* means
+*no cell in it named a commit the record descends from* and never *this record
+was written on time*.
 
 **What a rebase does to this, stated rather than left to be found.** The
 refusal reads a commit relationship and a rebase rewrites commits, so the

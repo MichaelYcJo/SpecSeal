@@ -23,7 +23,12 @@
   evidence ledgers found`, which is the sentence a repository with no ledger
   at all gets — and a run that narrowed to exactly what the defaults would
   have opened says nothing. Nothing in a skipped ledger is read: the line is a
-  report on what was skipped, not a second pass over it. (#153)
+  report on what was skipped, not a second pass over it.
+  **Two names for one file are one ledger**, matched by inode rather than by a
+  spelling of the path, so a case variant on a case-insensitive filesystem, a
+  hard link and a symlink all count as read. Comparing paths put a platform
+  inside the answer — `os.path.normcase` folds case on Windows alone — and
+  `--ledger SEAL/ledger.md` then read the ledger and listed it as unread. (#153)
 - **A round record written after the fixes it commissioned looked exactly like
   one written before them.** `templates/sdd-round.md` says a record is written
   right after the round posts and nothing observed it; measured twice in one
@@ -47,6 +52,20 @@
   did not commission — that one is red on the second record of every well-run
   chain without it; and a record with no adding commit in `<baseline>..HEAD`,
   which arrived before the base and about which nothing is claimed.
+  **Where a record was deleted and re-added, the LATER add is what counts.**
+  That is the only shape producing more than one add, and it is the one that
+  makes a late record look early: a stub committed on time, removed, and the
+  real record written after the fixes. The version anybody reads was authored
+  at the last add.
+  **The reach is the commit a verdict cell carries, and that is a bound rather
+  than a choice.** Measured across this repository's own records: 235 cells
+  close with a fix word, 215 name a commit and 20 do not, and `| fixed |` is
+  house style rather than malformed. So a record written entirely that way is
+  invisible to the refusal however late it was committed.
+  `templates/sdd-round.md` now asks for the commit beside the word, with the
+  reason, rather than a sixth refusal being added for a spelling twenty
+  existing cells already use — the reach grows as records land and nothing red
+  is inherited.
   **What a rebase does to it is stated rather than left to be found.** The
   adding commit is read on the branch, and a rebase replays a branch's commits
   in order, so a passing record cannot be turned failing. What a rebase

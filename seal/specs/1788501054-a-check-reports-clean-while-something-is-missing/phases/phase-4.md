@@ -61,14 +61,22 @@ one-off, because phase 1 sends every round to the unscoped read; it is Q2 in
 opens is Q2's, and it has no number — opening an issue is an outward-facing
 act this session does not take. The box for #153 + #150 is ticked.
 
-**Two rows in the shared ledger were re-read rather than re-stamped
-blindly.** `chain_check.py#"# The vocabulary as a match ORDER…"` and
-`docs/review-chain-spec.md#"### Review arm — opt-in…"` drifted because this
-branch's new constant and new subsections sit inside those units. Both claims
-are about things the branch did not touch — how a commit pattern is matched,
-and that the two opt-in headings name `seal/` — so the rows are re-verified
-rather than removed. No row anywhere cites something this branch deleted, so
-`CLAUDE.md`'s *a row whose anchor a change removes is REMOVED* does not fire.
+**Eight rows in the shared ledger were re-stamped, and this phase re-read
+two of them.** The sentence that first stood here said the two and left the
+other six to be inferred, which round 1 read as what it was — `CLAUDE.md`
+says the `Checked` column holds the date somebody read the code, and six rows
+got a new hash without one. The eight, by line, are `:79`, `:83`, `:102`,
+`:189`, `:197`, `:359`, `:381` and `:434`.
+
+| Rows | What happened, and when |
+|---|---|
+| `:83`, `:359` | re-read in **this phase**, on their merits: `chain_check.py`'s vocabulary comment and the review arm's heading drifted because this branch's new constant and new subsections sit inside those units, and neither claim is about anything the branch touched |
+| `:79`, `:189`, `:197` | re-stamped here and **only re-read in the fix pass for round 1's 🟡 6**. Their `Checked` cells already read 2026-09-04, so the date could not show the difference — which is the sharper half of that finding |
+| `:102`, `:381`, `:434` | re-stamped here with `Checked` left at **2026-09-02**, a date two days before the content the new hash covers. Corrected in the same fix pass, each with what the re-read found |
+
+No row anywhere cites something this branch deleted, so `CLAUDE.md`'s *a row
+whose anchor a change removes is REMOVED* does not fire — that part of the
+original sentence stands.
 
 ## What this phase removes
 

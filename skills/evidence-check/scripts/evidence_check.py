@@ -902,17 +902,39 @@ def skipped_by_narrowing(root, read):
     trap was sprung on: the orchestrator that handed three rounds the scoped
     form is the party that wrote the guidance.
 
-    Compared by real path and normalized case, so `--ledger seal/ledger.md`
-    and the resolver's own answer are one file rather than two spellings of
-    it — the same defect one directory up that `round_records` records for
-    `\\` against `/`.
+    **Two names are one file when they reach one inode**, so the fold is
+    `st_dev`/`st_ino` rather than a spelling of the path. That answers case
+    folding, hard links and symlinks with one rule and no platform in it.
+
+    The path comparison it replaces had a platform inside it, and round 1
+    executed the consequence: `os.path.normcase` folds case on Windows and is
+    the identity everywhere else, and `os.path.realpath` canonicalises case
+    nowhere — so on a case-insensitive filesystem `--ledger SEAL/ledger.md`
+    read the ledger and then listed it as unread. A notice that names a file
+    it just read is worse than the silence this was added to end, and it fails
+    exactly where nobody removed the guarantee (`agent-contract` §13).
+
+    `os.stat` is what can fail here — a file that vanishes between the glob
+    and this call, or a path that cannot be traversed — and the fallback is
+    the normalized absolute path. That direction over-reports: two spellings
+    of a vanished file read as two, so a ledger is named as skipped rather
+    than passed over in silence. Nothing goes unread either way.
+
+    One loop over both sides, because the identity rule has to have one
+    spelling. Two would be one rule today and two after the first edit to
+    either, and the quiet copy would be the one deciding what gets NAMED —
+    which is this work item's own failure shape (ledger row R4).
     """
-    seen = {os.path.normcase(os.path.realpath(p)) for p in read}
-    return [
-        p
-        for p in resolve_patterns(default_patterns(root))
-        if os.path.normcase(os.path.realpath(p)) not in seen
-    ]
+    candidates = resolve_patterns(default_patterns(root))
+    identity = {}
+    for path in list(read) + candidates:
+        try:
+            info = os.stat(path)
+            identity[path] = (info.st_dev, info.st_ino)
+        except OSError:
+            identity[path] = os.path.normcase(os.path.abspath(path))
+    seen = {identity[p] for p in read}
+    return [p for p in candidates if identity[p] not in seen]
 
 
 def check_ledger(ledger, root, maps, default_repo=None):

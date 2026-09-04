@@ -197,6 +197,15 @@ the defaults would have opened skips nothing and says nothing.
 The line is a report, not a second pass: nothing in a skipped ledger is
 opened, hashed or re-stamped.
 
+**Two names for one file are one ledger.** What was read and what the defaults
+would have opened are matched by inode (`st_dev`/`st_ino`), so a case variant
+on a case-insensitive filesystem, a hard link and a symlink all count as read.
+Comparing spellings of the path instead put a platform inside the answer:
+`--ledger SEAL/ledger.md` read the ledger and then listed it as unread, which
+is a notice naming a file it had just opened. Where `os.stat` cannot answer —
+a file that vanishes between the glob and the check — the normalized absolute
+path decides, which over-reports rather than under-reports.
+
 Measured (#153): one work item's three review rounds and two fix passes all
 ran the scoped form and all reported ok. The unscoped read at the pull request
 found fifteen drifted rows and one broken claim, every one in a file the

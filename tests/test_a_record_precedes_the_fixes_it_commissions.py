@@ -418,6 +418,53 @@ def test_a_record_added_before_the_base_and_updated_on_the_branch_passes(repo):
     )
 
 
+def test_a_record_deleted_and_re_added_after_the_fix_is_judged_on_the_later_add(repo):
+    """Round 1's 🟡 8. `--diff-filter=A` returns more than one commit exactly
+    once — a delete-and-re-add — and that is the shape which makes a late
+    record look early: a stub committed on time, removed, and the real record
+    written after the fixes.
+
+    The version anyone reads was authored at the LAST add, so that is the
+    commit the refusal reads. Taking the first was the permissive direction
+    and nothing held it: mutating `found[0]` to `found[-1]` left every other
+    case in this file green, because a file added and then only modified has
+    one add either way.
+
+    What it costs, stated rather than hidden: a record accidentally deleted
+    and restored after the fixes is refused, and the message names the
+    restoring commit. The declared failure direction is *blocks more*, and
+    the repair is visible in the failure.
+    """
+    item = NEW_ITEM
+    write(repo, f"{item}/routing.md", declaration(item))
+    reviewed = commit(repo, "declare")
+    write(
+        repo,
+        f"{item}/rounds/round-1.md",
+        record(reviewed, verdict="open", checked_by="round-2"),
+    )
+    early = commit(repo, "round 1, a stub committed on time")
+    (repo / item / "rounds" / "round-1.md").unlink()
+    commit(repo, "round 1 removed")
+    fix = touch(repo, "x = 2\n")
+    write(
+        repo,
+        f"{item}/rounds/round-1.md",
+        record(reviewed, verdict=f"**fixed** `{fix}`", checked_by="round-2"),
+    )
+    again = commit(repo, "round 1, written for real after the fixes")
+    write(repo, f"{item}/rounds/round-2.md", record(again))
+    commit(repo, "round 2")
+    code, out = run(repo)
+    assert code == 1, out
+    assert again[:7] in out, (
+        "the refusal read the FIRST add, which is the stub — a record whose "
+        "content was written after the fixes passes on the strength of a "
+        "commit that no longer holds any of it"
+    )
+    assert early[:7] not in out, out
+
+
 def test_a_fix_sha_this_repository_cannot_see_makes_no_claim(repo):
     """After a squash or a rebase the commit a verdict names is gone, and a
     gone commit is `no claim` rather than a fault — the reading
@@ -561,6 +608,67 @@ def test_the_review_skill_tells_the_orchestrator_when_to_commit_it():
     assert "ORDER_FROM" in skill, (
         "the skill describes the habit and never names the check that "
         "enforces it, so a reader cannot tell a convention from a gate"
+    )
+
+
+def test_a_fixed_verdict_naming_no_commit_passes(repo):
+    """Round 1's 🟡 7, executed. A record whose cells read `| fixed |` with no
+    commit in them is invisible to the refusal however late it was committed.
+
+    The two halves are run against **the same late record**, differing only in
+    whether the verdict cell carries the SHA — which is what makes this a
+    measurement of the reach rather than an exit code that could come from
+    anywhere. With the commit: refused. Without it: passes.
+    """
+    item = NEW_ITEM
+
+    def late(verdict):
+        git(repo, "checkout", "-q", "-B", "feature", "base")
+        write(repo, f"{item}/routing.md", declaration(item))
+        reviewed = commit(repo, "declare")
+        fix = touch(repo, "x = 2\n")
+        write(
+            repo,
+            f"{item}/rounds/round-1.md",
+            record(reviewed, verdict=verdict(fix), checked_by="round-2"),
+        )
+        added = commit(repo, "round 1, written after its own fixes")
+        write(repo, f"{item}/rounds/round-2.md", record(added))
+        commit(repo, "round 2")
+        return run(repo)
+
+    named_code, named_out = late(lambda fix: f"**fixed** `{fix}`")
+    assert named_code == 1, named_out
+    assert "was ADDED by" in named_out, named_out
+
+    bare_code, bare_out = late(lambda _fix: "**fixed** — round-2 read it")
+    assert bare_code == 0, bare_out
+    assert "was ADDED by" not in bare_out, (
+        "the same late record, and the only difference is the commit in the "
+        "cell — so this is the reach's limit and not a second defect"
+    )
+
+
+def test_the_spec_and_the_template_state_the_reach_and_ask_for_the_commit():
+    """The limit above is a fact a reader has to be able to find, and the
+    template is where the person writing the cell meets it. Round 1 counted
+    the cells; this keeps both halves of the answer in the tree."""
+    spec = flat("docs", "review-chain-spec.md")
+    assert "the refusal's reach is the commit a cell happens to carry" in spec, (
+        "the reach's limit is not stated, so the six pass states read as an "
+        "enumeration rather than as a bound"
+    )
+    assert "a convention rather than a guarantee" in spec, (
+        "without this the table reads as though a passing record was shown "
+        "to have been written on time"
+    )
+    template = flat("templates", "sdd-round.md")
+    assert "A `fixed` verdict names the commit that fixed it" in template, (
+        "the reach depends on a commit nobody is asked for"
+    )
+    assert "215 name a commit" in template and "215 name a commit" in spec, (
+        "the measurement that decides this is in neither place, so the next "
+        "reader cannot tell an edge case from the commonest one"
     )
 
 

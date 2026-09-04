@@ -1961,15 +1961,30 @@ def added_on_branch(root, base, rel):
       passing and never a passing one failing -- the safe direction, stated
       in `docs/review-chain-spec.md` rather than left to be found.
 
-    `git log` prints newest first, so the LAST line is the first add. A file
-    added, removed and re-added is judged on the first of those, which is
-    when its author committed it.
+    `git log` prints newest first, so the FIRST line is the LATEST add, and
+    that is the one taken. More than one add means the file was deleted and
+    re-added, and the version anybody reads was authored at the last of them:
+    a stub committed on time, removed, and the real record written after the
+    fixes is exactly the shape that makes a late record look early. Taking the
+    earliest add passes such a record on the strength of a commit that no
+    longer holds any of its content.
+
+    Round 1 measured that the choice was undefended — mutating it left all
+    twenty cases green, because `--diff-filter=A` returns one commit for a
+    file that was added and then only modified, which every other case here
+    builds. `test_a_record_deleted_and_re_added_after_the_fix_is_judged_on_the_later_add`
+    is the one that separates them.
+
+    What it costs, stated rather than hidden: a record accidentally deleted
+    and restored after the fixes is refused, and the failure names the
+    restoring commit. The declared failure direction is *blocks more*, and a
+    repair that is visible in the message is the cheaper mistake here.
     """
     out = git(root, "log", "--diff-filter=A", "--format=%H", f"{base}..HEAD", "--", rel)
     if not out:
         return None
     found = [line.strip() for line in out.splitlines() if line.strip()]
-    return found[-1] if found else None
+    return found[0] if found else None
 
 
 def commissioned_fixes(reader, root, rel):

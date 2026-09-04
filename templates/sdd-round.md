@@ -173,7 +173,18 @@ durable, committed home instead. -->
      🔴 blocks merge · 🟡 needs grounds · 🟢 matches · ❓ could not be judged.
      Earlier rounds' verdicts set this round's agenda. Every one needs an
      answer here, on this round's grounds — a verdict on current code carries
-     nothing, because no check would tell you it went stale. -->
+     nothing, because no check would tell you it went stale.
+
+     **A `fixed` verdict names the commit that fixed it**, beside the word:
+     `**fixed** `d3fe44d``. Two readers depend on it and neither can ask.
+     A person reading this record six months from now has no other way to
+     reach the change; and `chain_check.py`'s ordering refusal compares that
+     commit against the one that ADDED this record, so a cell with no commit
+     in it is a cell the refusal cannot see. Measured across this
+     repository's own records: 235 verdict cells close with a fix word, 215
+     name a commit, and 20 do not — `| fixed |` and `| fixed — round-2 read
+     it |` are ordinary house style rather than malformed, which is why this
+     is asked for here instead of being refused at the pull request. -->
 
 ## Executed probes
 

@@ -158,6 +158,55 @@ def test_a_second_spelling_of_the_same_file_is_not_reported_as_skipped(proj):
     assert "not read" not in r.stdout, r.stdout
 
 
+def case_insensitive(tmp_path):
+    """Whether this filesystem really folds case, probed rather than assumed.
+
+    The precondition the case below needs, stated and checked. A platform
+    assertion nobody removed the guarantee from is exactly what round 1's
+    🟡 9 was about, so this file does not get to assume its own.
+    """
+    d = tmp_path / "case-probe"
+    d.mkdir()
+    (d / "x").write_text("", encoding="utf-8")
+    return (d / "X").exists()
+
+
+def test_a_hard_link_to_the_ledger_is_not_reported_as_skipped(proj):
+    """Round 1's 🟡 9, in the form that is red on every platform.
+
+    `realpath` resolves symlinks and knows nothing about hard links, so two
+    names for one inode look like two files and the run reports the ledger it
+    just read as one it skipped. Folding by `st_dev`/`st_ino` answers hard
+    links, case folding and symlinks in one, and needs no platform to be true.
+    """
+    target = ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    link = proj / "seal" / "same-file.md"
+    os.link(target, link)
+    r = run(["--ledger", os.path.join("seal", "same-file.md"), "."], proj)
+    assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
+    assert "not read" not in r.stdout, (
+        "the run names as skipped a file it read under another name — the "
+        "notice is false on the one run that narrowed nothing"
+    )
+
+
+def test_a_case_spelling_of_the_ledger_is_not_reported_as_skipped(proj, tmp_path):
+    """The platform half of 🟡 9, executed where the platform allows it.
+
+    `os.path.normcase` folds case on Windows and is the identity everywhere
+    else, and `realpath` canonicalises case nowhere — so on the
+    case-insensitive filesystem this was built on, `--ledger SEAL/ledger.md`
+    read the ledger and then listed it as unread. `agent-contract` §13: a
+    defence resting on the platform where nobody removed the guarantee.
+    """
+    if not case_insensitive(tmp_path):
+        pytest.skip("case-sensitive filesystem — the hard-link case covers it")
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    r = run(["--ledger", os.path.join("SEAL", "ledger.md"), "."], proj)
+    assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
+    assert "not read" not in r.stdout, r.stdout
+
+
 def test_the_notice_survives_a_narrowing_that_matches_nothing(proj):
     """The worst silence of the set. `--ledger` with a typo in it matches no
     file, the run says `no evidence ledgers found` and exits 0, and the
