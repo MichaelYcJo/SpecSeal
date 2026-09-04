@@ -521,6 +521,19 @@ RUNNER_FROM = 1788491830
 # `added_on_branch`'s: a record that arrived before the base has no adding
 # commit on this branch, so nothing is claimed about it at all.
 ORDER_FROM = 1788501054
+# The reason `templates/sdd-round.md` prints for a fix-surface row while the
+# round is still running, and the value `ORDER_FROM` made the STARTING value
+# of every record: a record now has to be committed before its fixes exist,
+# so `Contract changes` and `New units` cannot be filled when it is written.
+# Nothing required the second step, and `says_none` accepts a reason, so a
+# record that never got the reach-back reads exactly like one that did --
+# which is this work item's own title produced by this work item (round 2,
+# 🟡 6).
+#
+# One spelling, here rather than in the template, so the two cannot drift:
+# `tests/test_a_record_precedes_the_fixes_it_commissions.py` reads this
+# constant and asserts the template shows it.
+NOT_YET = "the fixes are not yet written"
 # `templates/sdd-round.md:12` and `docs/review-handoff-protocol.md:84` both say
 # the Target SHA cell may name BOTH commits when HEAD moved mid-review. The
 # whole cell used to be handed to `merge-base` as one ref, so the documented
@@ -1547,6 +1560,35 @@ def says_none(value):
     return bool(rest) and rest[0] in SEPARATORS
 
 
+def says_not_yet(value):
+    """True when a fix-surface cell answers `none` because the fixes do not
+    exist YET, in the spelling `templates/sdd-round.md` prints.
+
+    Normalized the way `says_none` normalizes, then the reason after the
+    separator is matched as a PREFIX of `NOT_YET` -- so
+    `none — the fixes are not yet written (round 2)` is the same answer and
+    `none — nothing was added` is not.
+
+    **A reason this does not recognise PASSES, and that is the deliberate
+    exception to this file's `blocks more` direction.** Every other refusal
+    here treats what it cannot read as the failing case; this one cannot,
+    because the alternative is refusing an honest custom reason for its
+    wording, and a rule about which English sentences mean *not yet* is the
+    enumeration over an unbounded domain the arrow's and the comma's limits
+    already decline. What is caught instead is the measured failure: the
+    template's own words, copied into a record and left standing. Reworded,
+    the cell escapes -- and somebody who reworded it was not the session
+    that forgot.
+    """
+    s = EMPHASIS.sub("", value).lower().strip().rstrip(".;").strip()
+    if not s.startswith(NONE_WORD):
+        return False
+    rest = s[len(NONE_WORD) :]
+    if not rest or rest[0] not in SEPARATORS:
+        return False
+    return rest.strip(SEPARATORS).startswith(NOT_YET)
+
+
 def yes_or_no(value):
     """(`no`, reason), (`yes`, reason), or (None, "") for a `no`/`yes` cell.
 
@@ -1672,6 +1714,26 @@ def fix_surface(reader, root, rel):
     rows = table_rows(reader, reader.readable(text))
     began = item_began(rel)
     excused = began is None or began < SURFACE_FROM
+    # A SECOND cutoff on the same rows, later than `SURFACE_FROM`, for the
+    # arm below: the state it refuses only became structural with
+    # `ORDER_FROM`. Before that a record could be written after its fixes and
+    # the rows filled from the start; now they MUST start as `none — <not
+    # yet>` and nothing required the second step.
+    excused_order = began is None or began < ORDER_FROM
+    # Whether a LATER round has opened this record's fixes, read from the row
+    # two above. `nobody — <why>` means no round has, so *not yet written* may
+    # still be true; a `round-N` means one did, so the fixes exist. Normalized
+    # exactly as `checked_by` normalizes it, because two readings of one cell
+    # is the split this file spends its docstrings closing.
+    checker = (
+        reader.visible(field(rows, CHECKED_BY) or "")
+        .strip()
+        .strip("`")
+        .strip()
+        .rstrip(".")
+        .lower()
+    )
+    fixes_exist = bool(CHECKER_RE.match(checker))
     errors, notices = [], []
     for label, bought in (
         (
@@ -1720,6 +1782,32 @@ def fix_surface(reader, root, rel):
             )
             continue
         if says_none(value):
+            if fixes_exist and says_not_yet(value):
+                message = (
+                    f"`{label}` still says the fixes are not yet written, "
+                    f"and `{CHECKED_BY}` names `{checker}` two rows above "
+                    "it — so a later round opened those fixes and they do "
+                    "exist. The cell contradicts its own file, the way "
+                    f"`{NO_FIXES}` beside a `fixed` verdict does. It is the "
+                    "starting value every record now carries, because a "
+                    "record is committed BEFORE its fixes; what is missing "
+                    "is the reach-back that fills it when they land. Write "
+                    f"what the fixes changed and added, or a bare `{NONE_WORD}` "
+                    "if they changed and added nothing"
+                )
+                if excused_order:
+                    notices.append(
+                        (
+                            rel,
+                            0,
+                            message + ". This work item began before the "
+                            "rule landed, so this prints instead of failing "
+                            "— the grandfathering `Fixes checked by` "
+                            "already uses",
+                        )
+                    )
+                else:
+                    errors.append((rel, 0, message))
             continue
         if not EMPHASIS.sub("", value).strip(SEPARATORS + ";"):
             # `;` alone survived both refusals above: not `none`, not empty,
@@ -1942,7 +2030,7 @@ def ran_by(reader, root, rel):
 
 
 def added_on_branch(root, base, rel):
-    """The commit on THIS BRANCH that first added `rel`, or None.
+    """The LATEST commit on THIS BRANCH that added `rel`, or None.
 
     `<base>..HEAD` rather than the whole history, and that is the answer to
     the rebase question rather than an optimisation. Two things fall out of
@@ -1974,6 +2062,17 @@ def added_on_branch(root, base, rel):
     file that was added and then only modified, which every other case here
     builds. `test_a_record_deleted_and_re_added_after_the_fix_is_judged_on_the_later_add`
     is the one that separates them.
+
+    **What `--diff-filter=A` carries changed with that index, and it now
+    protects the ORDINARY record rather than a rare one.** Under the earliest
+    add, dropping the flag was separable only by a base that moves under a
+    long branch, because a file added and then modified has the same oldest
+    commit either way. Under the latest add, the newest commit that merely
+    TOUCHED a record is the one that updated its verdicts — which descends
+    from the fix, because updating them is what a correct record does when
+    the fixes land. So dropping the flag now refuses every correctly updated
+    record, and round 2 measured it: two cases red for that one mutation,
+    where round 1's battery saw one.
 
     What it costs, stated rather than hidden: a record accidentally deleted
     and restored after the fixes is refused, and the failure names the

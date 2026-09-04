@@ -71,7 +71,7 @@ got a new hash without one. The eight, by line, are `:79`, `:83`, `:102`,
 | Rows | What happened, and when |
 |---|---|
 | `:83`, `:359` | re-read in **this phase**, on their merits: `chain_check.py`'s vocabulary comment and the review arm's heading drifted because this branch's new constant and new subsections sit inside those units, and neither claim is about anything the branch touched |
-| `:79`, `:189`, `:197` | re-stamped here and **only re-read in the fix pass for round 1's 🟡 6**. Their `Checked` cells already read 2026-09-04, so the date could not show the difference — which is the sharper half of that finding |
+| `:79`, `:189`, `:197` | re-stamped here and **only re-read in the fix pass for round 1's 🟡 6**. Their `Checked` cells already read 2026-09-04, so the date could not show the difference — which is the sharper half of that finding. Round 2's 🟡 10 then found the answer: the date cannot show it and the **Notes** column can, so all eight rows now carry a `Re-read <date>` clause naming what the re-read found, and this table is no longer the only place the split is recorded |
 | `:102`, `:381`, `:434` | re-stamped here with `Checked` left at **2026-09-02**, a date two days before the content the new hash covers. Corrected in the same fix pass, each with what the re-read found |
 
 No row anywhere cites something this branch deleted, so `CLAUDE.md`'s *a row

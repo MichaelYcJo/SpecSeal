@@ -17,9 +17,11 @@ prints read back.
 Every case here was seen red at `23c7ccb`, before the line existed.
 """
 
+import importlib.util
 import os
 import subprocess
 import sys
+import types
 
 import pytest
 
@@ -205,6 +207,88 @@ def test_a_case_spelling_of_the_ledger_is_not_reported_as_skipped(proj, tmp_path
     r = run(["--ledger", os.path.join("SEAL", "ledger.md"), "."], proj)
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
     assert "not read" not in r.stdout, r.stdout
+
+
+def checker_module():
+    """`evidence_check.py` in this process, for the one case a subprocess
+    cannot reach: the platform state has to be produced from inside."""
+    spec = importlib.util.spec_from_file_location("specseal_ec_for_tests", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_an_inode_of_zero_does_not_fold_two_files_into_one(proj, monkeypatch):
+    """Round 2's 🟡 8. Python's contract is *"if non-zero, uniquely identifies
+    the file"*, and CPython's Windows `stat` leaves both fields 0 when it
+    cannot open a file. A zero reaches no `OSError`, so it went straight into
+    the identity — and every zeroed file then had the SAME identity, so a
+    ledger that was read swallowed every ledger that was not.
+
+    **That is silence, which is the direction this notice exists to end** and
+    the reverse of the one its docstring declares. Whether a zero actually
+    arrives on `windows-latest` is the CI leg's to answer; what is pinned
+    here is what the code does with one.
+
+    In-process rather than through the CLI, because the state cannot be
+    produced from outside. `os.stat` is zeroed for the two ledgers alone, so
+    everything else that stats on the way — `glob`, and `seal_home` looking
+    for its own `SKILL.md` — keeps working.
+    """
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    ledger(
+        proj,
+        f"| POL-2 | `src/service.py#handler@{GOOD}` |\n",
+        at="seal/ledger/1788501054-unread.md",
+    )
+    read = [str(proj / "seal" / "ledger.md")]
+    zeroable = {
+        os.path.realpath(read[0]),
+        os.path.realpath(proj / "seal" / "ledger" / "1788501054-unread.md"),
+    }
+
+    module = checker_module()
+    real = module.os.stat
+
+    def zeroed(path, *args, **kwargs):
+        info = real(path, *args, **kwargs)
+        if os.path.realpath(path) in zeroable:
+            return types.SimpleNamespace(st_dev=0, st_ino=0)
+        return info
+
+    monkeypatch.setattr(module.os, "stat", zeroed)
+    missed = module.skipped_by_narrowing(str(proj), read)
+    assert [os.path.basename(p) for p in missed] == ["1788501054-unread.md"], (
+        "a zeroed inode gave every ledger one identity, so the fragment "
+        f"nobody read was named by nothing — got {missed}"
+    )
+
+
+def test_a_ledger_that_cannot_be_stat_ed_is_named_rather_than_crashing(proj):
+    """The `OSError` half of the fallback, and nothing reached it until the
+    mutation loop asked: dropping the fallback and letting `os.stat` raise
+    left every case green.
+
+    A broken symlink is how it arrives through the CLI. `glob` returns one
+    for a literal pattern, because it tests `lexists`, and `os.stat` then
+    raises `ENOENT` — so the checker meets a path it found and cannot stat.
+    The fallback keys it by path, which over-reports: the fragment is NAMED
+    as unread rather than swallowed, which is the direction this notice
+    declares.
+    """
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    dangling = proj / "seal" / "ledger" / "1788501054-gone.md"
+    dangling.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.symlink(proj / "seal" / "ledger" / "nothing-here.md", dangling)
+    except (OSError, NotImplementedError, AttributeError):
+        pytest.skip("this platform will not create a symlink without privileges")
+    r = run(["--ledger", os.path.join("seal", "ledger.md"), "."], proj)
+    assert r.returncode == 0, r.stdout
+    assert "1788501054-gone.md" in r.stdout, (
+        "a ledger the run found and could not stat was passed over in "
+        f"silence, which is the state the notice exists to end:\n{r.stdout}"
+    )
 
 
 def test_the_notice_survives_a_narrowing_that_matches_nothing(proj):

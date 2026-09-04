@@ -403,6 +403,20 @@ Both accept `none`, with or without a reason after it. `chain_check.py`
 refuses a record without the rows and a unit listed without its reach, for
 work items begun on or after its `SURFACE_FROM`; records of earlier work
 items print instead — the grandfathering `Fixes checked by` already uses.
+
+**The reach-back is the whole of these two rows now, and forgetting it is
+silent.** The ordering rule above requires the record to be committed before
+its fixes exist, so both rows begin at `none — the fixes are not yet written`
+— and a record that never gets the second step reads exactly like one whose
+fixes added nothing. A verifying round opening it sees no finding surface at
+all. Measured on the work item that added the ordering rule: its own round 1
+record sat that way for two rounds, and the six units its fix pass created
+reached the next round only because a reviewer went and looked.
+
+So `chain_check.py` refuses that value on a record whose `Fixes checked by`
+names a `round-N` — a later round opened those fixes, so they exist — for
+work items begun on or after `ORDER_FROM`. While the cell still reads
+`nobody — <why>`, *not yet written* is true and nothing refuses it.
 The depth inside `New units` has a cutoff of its own, `DEPTH_FROM`, later
 than that one: a work item between the two owes the row and not the depth in
 it, because its records were written when the row named units alone.

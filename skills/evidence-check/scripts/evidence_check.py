@@ -914,11 +914,22 @@ def skipped_by_narrowing(root, read):
     it just read is worse than the silence this was added to end, and it fails
     exactly where nobody removed the guarantee (`agent-contract` §13).
 
-    `os.stat` is what can fail here — a file that vanishes between the glob
-    and this call, or a path that cannot be traversed — and the fallback is
-    the normalized absolute path. That direction over-reports: two spellings
-    of a vanished file read as two, so a ledger is named as skipped rather
-    than passed over in silence. Nothing goes unread either way.
+    **A zero `st_ino` is not an identity, and it does not raise.** Python's
+    own contract is *"if non-zero, uniquely identifies the file"*, and
+    CPython's Windows `stat` leaves both fields 0 when it cannot open a file.
+    Taken at face value every such file has ONE identity, so a ledger that
+    WAS read swallows every ledger that was not and the run says nothing —
+    silence, which is the direction this notice exists to end and the reverse
+    of the one declared below. `st_ino` is what the contract makes the test,
+    so a zero there falls back with the failures; `st_dev` is not tested,
+    because a valid inode on device 0 is still unique for that device.
+
+    `os.stat` raising is the other way out — a file that vanishes between the
+    glob and this call, or a path that cannot be traversed — and both take
+    the same fallback: the normalized absolute path. That direction
+    over-reports, because two spellings of an unstattable file read as two,
+    so a ledger is named as skipped rather than passed over in silence.
+    Nothing goes unread either way.
 
     One loop over both sides, because the identity rule has to have one
     spelling. Two would be one rule today and two after the first edit to
@@ -930,8 +941,11 @@ def skipped_by_narrowing(root, read):
     for path in list(read) + candidates:
         try:
             info = os.stat(path)
-            identity[path] = (info.st_dev, info.st_ino)
         except OSError:
+            info = None
+        if info is not None and info.st_ino:
+            identity[path] = (info.st_dev, info.st_ino)
+        else:
             identity[path] = os.path.normcase(os.path.abspath(path))
     seen = {identity[p] for p in read}
     return [p for p in candidates if identity[p] not in seen]

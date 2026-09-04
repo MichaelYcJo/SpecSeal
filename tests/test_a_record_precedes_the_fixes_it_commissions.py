@@ -148,13 +148,24 @@ def declaration(item):
     )
 
 
-def record(target, verdict="answered", checked_by="no fixes to check", severity="🟡"):
+def record(
+    target,
+    verdict="answered",
+    checked_by="no fixes to check",
+    severity="🟡",
+    contract="none",
+    units="none",
+):
     """A record that passes every check but the one each case is about.
 
     `verdict` is the whole cell, so a case can write `**fixed** <sha>` or the
     `open` a record written on time carries before its fixes land. 🟡 rather
     than 🔴 so that an `open` verdict is not also an unanswered blocking
     finding, which is a different refusal.
+
+    `contract` and `units` are the fix-surface cells, so a case can write the
+    provisional `none — the fixes are not yet written` that every record now
+    starts with.
     """
     return (
         "# a round\n\n"
@@ -162,8 +173,8 @@ def record(target, verdict="answered", checked_by="no fixes to check", severity=
         f"| Target SHA | {target} |\n"
         f"| Ran by | {RUNNER} |\n"
         f"| Fixes checked by | {checked_by} |\n"
-        "| Contract changes | none |\n"
-        "| New units | none |\n"
+        f"| Contract changes | {contract} |\n"
+        f"| New units | {units} |\n"
         "| Needs a fix | no |\n"
         "| Loses a record or crashes | no |\n\n"
         "- [x] Pass\n\n"
@@ -378,16 +389,23 @@ def test_a_record_added_before_the_base_and_updated_on_the_branch_passes(repo):
     adding commit out of `<baseline>..HEAD` and leaves the commit that
     updated its verdicts inside it — and that commit descends from the fix,
     because updating the verdicts is what a correct record does when the
-    fixes land. Read as *the oldest commit that touched the file*, this
-    refuses a record that did everything right.
+    fixes land. Read as *any commit that touched the file*, this refuses a
+    record that did everything right.
 
     **This case cannot be red at HEAD**: the behaviour it pins is already
     correct there. It is red only under the mutation that drops
-    `--diff-filter=A`, which is how §15 was satisfied for it — and that
-    mutation SURVIVED every other case in this file, including the
-    updated-in-place one, because a file that was added and then modified has
-    the same oldest-touching commit either way. Do not delete this as a case
-    that never fails.
+    `--diff-filter=A`, which is how §15 was satisfied for it. Do not delete
+    it as a case that never fails.
+
+    **It was written when it was the ONLY case that mutation reached, and it
+    is not any more.** Under the earliest add — the index round 1 inverted —
+    a file added and then modified had the same oldest commit whether or not
+    the flag was there, so this fixture's moving base was the only separator.
+    Under the latest add the newest touching commit is the verdict update, so
+    the ordinary updated-in-place case is red under the same mutation: round
+    2 measured two cases red where round 1's battery saw one. Both are worth
+    keeping, because they fail for different reasons — that one for a record
+    updated on the branch, this one for a record whose add left the range.
     """
     item = NEW_ITEM
     git(repo, "switch", "-q", "base")
@@ -505,6 +523,161 @@ def test_a_verdict_that_closed_without_writing_anything_passes(repo):
     commit(repo, "round 1")
     code, out = run(repo)
     assert code == 0, out
+
+
+# --- the fix surface the ordering rule made provisional ----------------------
+#
+# Round 2's 🟡 6, and the state is this branch's own doing. Before `ORDER_FROM`
+# a record could be written after its fixes and its `Contract changes` / `New
+# units` filled from the start; now the record is committed FIRST, so both
+# rows begin at `none — the fixes are not yet written` and nothing required
+# the second step. `says_none` accepts a reason, so a record that never got
+# the reach-back reads exactly like one that did — which is this work item's
+# own title, produced by this work item.
+#
+# The sibling cases for the rest of `fix_surface` are in
+# `tests/test_the_fixes_name_their_surface.py`. These live here because the
+# arm is keyed to `ORDER_FROM` and exists only because of the ordering rule.
+
+
+def surface_run(repo, item, checked_by, contract="none", units="none"):
+    """A two-record item whose FIRST record carries the fix-surface cells
+    under test, with `Fixes checked by` saying whether a later round has
+    opened its fixes."""
+    write(repo, f"{item}/routing.md", declaration(item))
+    reviewed = commit(repo, "declare")
+    write(
+        repo,
+        f"{item}/rounds/round-1.md",
+        record(reviewed, checked_by=checked_by, contract=contract, units=units),
+    )
+    added = commit(repo, "round 1")
+    write(repo, f"{item}/rounds/round-2.md", record(added))
+    commit(repo, "round 2")
+    return run(repo)
+
+
+PENDING = "none — the fixes are not yet written"
+
+
+def test_the_pending_spelling_is_the_one_the_template_prints():
+    """The checker owns the phrase and the template shows it, so the two
+    cannot drift. Read off the module rather than typed here — a literal
+    would pin a string and not the tie between the two files."""
+    not_yet = check_module().NOT_YET
+    assert not_yet in flat("templates", "sdd-round.md"), (
+        "the checker refuses a spelling the template never prints, so a "
+        "session copying the template is refused for following it"
+    )
+    assert PENDING.endswith(not_yet), "this file's fixture drifted from the module"
+
+
+def test_a_surface_still_pending_after_a_round_read_the_fixes_fails(repo):
+    """The defect. `Fixes checked by` naming a round says a later round
+    opened these fixes, so the fixes exist — and a cell two rows below still
+    saying they are not yet written is false about a fact the same file
+    states. The contradiction-inside-one-file shape `no fixes to check`
+    beside a `fixed` verdict already takes."""
+    code, out = surface_run(repo, NEW_ITEM, "round-2", units=PENDING)
+    assert code == 1, out
+    assert "New units" in out and "not yet written" in out, out
+    assert "round-1.md" in out, out
+
+
+def test_the_same_arm_reaches_contract_changes(repo):
+    """Both rows or neither: `fix_surface` walks the two together and the
+    argument for one is the argument for the other."""
+    code, out = surface_run(repo, NEW_ITEM, "round-2", contract=PENDING)
+    assert code == 1, out
+    assert "Contract changes" in out and "not yet written" in out, out
+
+
+def test_the_honest_mid_run_state_is_not_refused(repo):
+    """**The direction that must keep passing**, and the one a careless
+    refusal breaks: a record committed before its fixes, which is exactly
+    what `ORDER_FROM` requires, says *not yet written* truthfully. Nothing
+    has opened its fixes, `Fixes checked by` says `nobody`, and the cell is
+    the honest value rather than an abandoned one."""
+    code, out = surface_run(
+        repo, NEW_ITEM, "nobody — this round's fixes are not written", units=PENDING
+    )
+    assert code == 0, out
+    assert "still says the fixes are not yet written" not in out, (
+        "the refusal fired on the state the ordering rule requires, which "
+        "would refuse every correctly written record at the moment it lands"
+    )
+
+
+def test_a_bare_none_after_the_fixes_landed_passes(repo):
+    """A fix pass may change no contract and add no unit — a deletion, a
+    reworded message — so `none` after a round read the fixes is an answer
+    and not an omission."""
+    code, out = surface_run(repo, NEW_ITEM, "round-2")
+    assert code == 0, out
+
+
+def test_a_reason_the_checker_does_not_recognise_passes(repo):
+    """The deliberate exception to this file's `blocks more` direction.
+
+    A rule about which English sentences mean *not yet* is the enumeration
+    over an unbounded domain the arrow's and the comma's limits decline, so
+    an unrecognised reason is an answer. What is caught is the measured
+    failure — the template's own words left standing — and someone who
+    reworded the cell is not the session that forgot it.
+    """
+    code, out = surface_run(
+        repo, NEW_ITEM, "round-2", units="none — the fixes deleted a line"
+    )
+    assert code == 0, out
+
+
+def test_the_pending_surface_only_prints_before_the_cutoff(repo):
+    """The state became structural with `ORDER_FROM`, so records of earlier
+    work items print. A merged record has no honest repair: nobody can
+    recover now what a fix pass added months ago."""
+    code, out = surface_run(repo, OLD_ITEM, "round-2", units=PENDING)
+    assert code == 0, out
+    assert "not yet written" in out, (
+        "passing in silence would hide the state the arm exists to surface"
+    )
+    assert "prints instead of failing" in out, out
+
+
+def test_a_work_item_between_the_two_cutoffs_owes_the_rows_and_not_this_arm(repo):
+    """The boundary that decides WHICH cutoff this arm takes, and nothing
+    held it: every other case here sits below both cutoffs or above both, so
+    keying the arm to `SURFACE_FROM` left them all green.
+
+    A work item begun between the two owes the rows — `SURFACE_FROM` has
+    required them since it landed — and does not owe this arm, because its
+    records were written when a record could be committed after its fixes and
+    both rows filled from the start. That is the same split `DEPTH_FROM`
+    already makes inside `New units`.
+    """
+    module = check_module()
+    between = (module.SURFACE_FROM + module.ORDER_FROM) // 2
+    assert module.SURFACE_FROM < between < module.ORDER_FROM
+    code, out = surface_run(
+        repo, f"seal/specs/{between}-a-work-item-between", "round-2", units=PENDING
+    )
+    assert code == 0, (
+        "a work item that predates the ordering rule is refused for a state "
+        "the ordering rule created"
+    )
+    assert "prints instead of failing" in out, out
+
+
+def test_the_pending_surface_cutoff_is_this_work_items_own_second(repo):
+    """Keyed to `ORDER_FROM` rather than `SURFACE_FROM`: the rows have been
+    required since the earlier cutoff, and only the ordering rule made them
+    start out provisional."""
+    began = check_module().ORDER_FROM
+    item = f"seal/specs/{began}-the-item-that-added-the-rule"
+    code, _out = surface_run(repo, item, "round-2", units=PENDING)
+    assert code == 1, (
+        "the work item that ADDED the ordering rule is the first one held to "
+        f"this arm, and {began} is its own second"
+    )
 
 
 # --- what the failure reads like --------------------------------------------
@@ -670,6 +843,67 @@ def test_the_spec_and_the_template_state_the_reach_and_ask_for_the_commit():
         "the measurement that decides this is in neither place, so the next "
         "reader cannot tell an edge case from the commonest one"
     )
+
+
+def test_every_description_of_which_add_is_read_says_the_latest():
+    """Round 2's 🟡 4 and 🟡 5. Round 1 inverted the index and left three
+    descriptions of the old rule standing — the function's own summary line,
+    the case docstring, and the spec's table row — one of them false by
+    measurement rather than merely stale.
+
+    A reader skimming a function reads its summary, and this is the function
+    round 1 found undefended, so the summary is the copy that matters most.
+    """
+    source = flat("skills", "code-review", "scripts", "chain_check.py")
+    assert "The LATEST commit on THIS BRANCH that added" in source, (
+        "the summary line still states the rule the inversion replaced, "
+        "twenty-six lines above the body that contradicts it"
+    )
+    assert "first added `rel`" not in source
+
+    # Built from pieces rather than written out, because this case reads the
+    # file it lives in: spelled as a literal, the needle would be satisfied
+    # by this very line and the case would pass whatever the docstring says.
+    # That is the shape `seal/ledger.md` records as a case green against its
+    # own mutation, met from the inside.
+    stale = "oldest commit " + "that touched"
+    for parts in (
+        ("docs", "review-chain-spec.md"),
+        ("tests", "test_a_record_precedes_the_fixes_it_commissions.py"),
+    ):
+        assert stale not in flat(*parts), "/".join(parts)
+
+
+def test_the_docstring_says_what_the_flag_now_protects():
+    """The flag's reach changed with the index and only the ledger row said
+    so. Under the earliest add, dropping `--diff-filter=A` was separable by a
+    base that moves under a long branch; under the latest add it refuses
+    every correctly updated record, because the newest commit that touched a
+    record is its verdict update. Two cases red for one mutation, where round
+    1's battery saw one."""
+    source = flat("skills", "code-review", "scripts", "chain_check.py")
+    assert "it now protects the ORDINARY record rather than a rare one" in source
+    assert "two cases red for that one mutation" in source
+
+
+def test_the_spec_points_at_the_row_it_means():
+    """Round 2's 🟡 9. The bound sentence exists so a reader can find the
+    limit themselves, so a pointer that counts to the wrong row is the whole
+    of it — neither the third row nor the third pass row is the no-commit
+    one."""
+    spec = flat("docs", "review-chain-spec.md")
+    assert "the bolded row above" in spec, (
+        "the sentence still counts rows, and no third row is the one it means"
+    )
+    assert "the third style above" not in spec
+
+
+def test_the_spec_carries_the_delete_and_re_add_state():
+    """The one shape producing more than one add is a state the table never
+    enumerated, and it is the shape that makes a late record look early."""
+    spec = flat("docs", "review-chain-spec.md")
+    assert "a record DELETED and re-added on the branch" in spec
+    assert "judged on the **latest** add" in spec
 
 
 def test_the_spec_answers_whether_carrying_is_checkable():

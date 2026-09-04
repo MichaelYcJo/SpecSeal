@@ -73,6 +73,25 @@ a reason after it (`none — the fixes are not yet written` is the honest value
 while a round runs). Records of work items begun before the rule landed print
 instead of failing.
 
+**That value is now where every record STARTS, so the reach-back is the whole
+of these two rows.** The ordering rule above requires this file to be
+committed before its fixes exist, so neither row can be filled when it is
+written — and until `chain_check.py` read for it, nothing required the second
+step. A record that never got it reads exactly like one whose fixes added
+nothing, and a verifying round opening such a record sees no finding surface
+at all. Measured: `round-1.md` of the work item that ADDED the ordering rule
+sat with both rows saying *not yet written* for two rounds, and the units its
+fix pass created reached the next round only because a reviewer went and
+looked.
+
+So the refusal: `Fixes checked by` naming a `round-N` says a later round
+opened these fixes, so the fixes EXIST — and a row still saying they are not
+yet written contradicts its own file two rows down, the way `no fixes to
+check` beside a `fixed` verdict does. Write what the fixes changed and added,
+or a bare `none` if they changed and added nothing. While `Fixes checked by`
+still reads `nobody — <why>`, *not yet written* is the truth and nothing
+refuses it.
+
 `New units` carries the DEPTH of each entry as well as its name. A fix pass may
 add a unit. That unit's fix may not. Depth 1 is a unit added by a fix answering
 a finding in code that predates the run; depth 2 would be one added by a fix

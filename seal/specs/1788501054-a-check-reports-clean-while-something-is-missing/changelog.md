@@ -28,7 +28,14 @@
   spelling of the path, so a case variant on a case-insensitive filesystem, a
   hard link and a symlink all count as read. Comparing paths put a platform
   inside the answer — `os.path.normcase` folds case on Windows alone — and
-  `--ledger SEAL/ledger.md` then read the ledger and listed it as unread. (#153)
+  `--ledger SEAL/ledger.md` then read the ledger and listed it as unread.
+  A file the run cannot identify falls back to its path rather than to a
+  shared blank: an inode of 0 is not an identity (Python's own contract says
+  so, and CPython's Windows `stat` leaves both fields 0 when it cannot open a
+  file), and taken at face value it gave every such file ONE identity — so a
+  ledger that was read swallowed every ledger that was not, and the run said
+  nothing. Over-reporting is the declared direction here, and silence was its
+  reverse. (#153)
 - **A round record written after the fixes it commissioned looked exactly like
   one written before them.** `templates/sdd-round.md` says a record is written
   right after the round posts and nothing observed it; measured twice in one
@@ -66,6 +73,23 @@
   reason, rather than a sixth refusal being added for a spelling twenty
   existing cells already use — the reach grows as records land and nothing red
   is inherited.
+  **The ordering rule made a record's fix surface start out empty, and
+  `chain_check.py` now requires the second step.** Because the record is
+  committed before its fixes exist, `Contract changes` and `New units` both
+  begin at `none — the fixes are not yet written`, and until this landed
+  nothing required anyone to come back and fill them — a record that never
+  did read exactly like one whose fixes added nothing, and a verifying round
+  opening it saw no finding surface at all. A row still saying *not yet
+  written* on a record whose `Fixes checked by` names a later round is now
+  refused: that round opened the fixes, so they exist, and the cell
+  contradicts its own file two rows down. While `Fixes checked by` still says
+  `nobody`, the value is the truth and nothing refuses it. Behind the same
+  cutoff, so records of earlier work items print.
+  This is the one place in the checker whose direction for a value it cannot
+  read is **allow** rather than refuse. A rule about which English sentences
+  mean *not yet* would be a rule about English, so the phrase is a constant
+  the template prints and the checker matches; a reworded cell escapes, and
+  somebody who reworded it is not the session that forgot it.
   **What a rebase does to it is stated rather than left to be found.** The
   adding commit is read on the branch, and a rebase replays a branch's commits
   in order, so a passing record cannot be turned failing. What a rebase
