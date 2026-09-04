@@ -129,6 +129,13 @@ MILESTONE_NOTE = (
     f'wrong answer to "what is in this version" and costs no check anything.'
 )
 
+BASELINE_AMBIGUOUS_NOTE = (
+    f"More than one open `{BASELINE_LABEL}` issue, so this one points at no "
+    f"durable ledger. That label carries the same exactly-one-open invariant "
+    f"the rolling log does, and naming a broken invariant is what this does "
+    f"instead of picking whichever the search listed first."
+)
+
 INDEX_NOTE = (
     f"The `{INDEX_LABEL}` index label could not be applied either. Add it by "
     f"hand so this issue turns up beside the durable ledger when the whole "
@@ -218,7 +225,7 @@ def close_issue(repo, number):
 
 
 def find_baseline_issue(repo):
-    """The durable measurement ledger's number, by label, or `None`.
+    """The durable measurement ledger, by label: `(number, note)`.
 
     Best-effort in every direction: a repository that never created
     `flow-baseline` has no durable ledger, a `gh` failure here is not worth a
@@ -226,6 +233,15 @@ def find_baseline_issue(repo):
     is the rolling log's own shape -- a label, never a number -- because a
     number goes stale the moment its issue closes, which is what `#109`
     removed from the rolling log's lookup for the same reason.
+
+    **The note separates two silences.** No durable ledger is the ordinary
+    case and says nothing, because a note about it would appear on every
+    rolling log every repository ever opens. Two or more open is that label's
+    invariant broken, and it answers `None` with a note rather than taking
+    the first: `skills/verify/SKILL.md` gives both labels the same
+    exactly-one-open rule and says a broken invariant is named rather than
+    guessed at, and a body carrying one of two numbers looks exactly like a
+    body carrying the only one.
     """
     out = try_run(
         "gh",
@@ -241,12 +257,14 @@ def find_baseline_issue(repo):
         "number",
     )
     if not out:
-        return None
+        return None, None
     try:
         issues = json.loads(out)
     except ValueError:
-        return None
-    return issues[0]["number"] if issues else None
+        return None, None
+    if len(issues) > 1:
+        return None, BASELINE_AMBIGUOUS_NOTE
+    return (issues[0]["number"], None) if issues else (None, None)
 
 
 def issue_body(version, closed_number, baseline_number, notes=()):
@@ -286,9 +304,29 @@ def create_args(repo, title, body, extras):
     )
 
 
+def landed_create(repo, closed_number):
+    """An open `flow-measurement` issue that is not the one `main` just closed.
+
+    The ladder's guard. `closed_number` is excluded because the reading can
+    still carry it: `gh issue list` lagging a write is what this module's
+    docstring records, and a lag behind a *close* is a reading with an extra
+    issue in it rather than one short a result. The empty reading gets the
+    same one retry `open_flow_measurement_issues` gives it, and for the same
+    reason -- a lag behind the create sends the ladder on to open a second.
+    """
+    for attempt in (0, 1):
+        if attempt:
+            time.sleep(RETRY_DELAY_SECONDS)
+        landed = [i for i in list_open_issues(repo) if i["number"] != closed_number]
+        if landed:
+            return True
+    return False
+
+
 def open_issue(repo, version, closed_number):
     title = f"chore: flow measurement — {version}"
-    baseline = find_baseline_issue(repo)
+    baseline, baseline_note = find_baseline_issue(repo)
+    ledger_notes = (baseline_note,) if baseline_note else ()
 
     # Most to least. Each rung drops the argument the rung above it could not
     # set and says so in the body; only `LABEL` is on every rung, because that
@@ -297,16 +335,18 @@ def open_issue(repo, version, closed_number):
         (("--label", INDEX_LABEL, "--milestone", INDEX_MILESTONE), ()),
         (("--label", INDEX_LABEL), (MILESTONE_NOTE,)),
     ):
-        body = issue_body(version, closed_number, baseline, notes)
+        body = issue_body(version, closed_number, baseline, (*notes, *ledger_notes))
         if try_run(*create_args(repo, title, body, extras)) is not None:
             return title
-        if list_open_issues(repo):
-            # The call reported failure and an issue is open anyway, so the
-            # create landed and the failure arrived after it. Retrying here
-            # opens a second one.
+        if landed_create(repo, closed_number):
+            # The call reported failure and an issue that is not the one just
+            # closed is open, so the create landed and the failure arrived
+            # after it. Retrying here opens a second one.
             return title
 
-    body = issue_body(version, closed_number, baseline, (MILESTONE_NOTE, INDEX_NOTE))
+    body = issue_body(
+        version, closed_number, baseline, (MILESTONE_NOTE, INDEX_NOTE, *ledger_notes)
+    )
     run(*create_args(repo, title, body, ()))
     return title
 
@@ -331,8 +371,9 @@ def main():
     except SystemExit as exc:
         sys.exit(
             f"closed #{number}, but opening the next issue failed: {exc}. "
-            f"The flow-measurement log now has zero open issues -- open one "
-            f"by hand (label `{LABEL}`, title `chore: flow measurement — "
+            f"Check the `{LABEL}` label before opening anything: a create "
+            f"that failed may still have landed. Where none is open, open "
+            f"one by hand (label `{LABEL}`, title `chore: flow measurement — "
             f"{next_v}`) before the next release runs."
         )
     print(f"closed #{number}, opened {title!r}")

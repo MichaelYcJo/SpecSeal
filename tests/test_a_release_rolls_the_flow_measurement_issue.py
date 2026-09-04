@@ -219,23 +219,30 @@ def test_one_open_issue_closes_it_and_opens_the_next(monkeypatch):
     )
 
 
-def _ladder_harness(m, monkeypatch, create_results, readings):
+def _ladder_harness(m, monkeypatch, create_results, readings, baseline="[]"):
     """Drive `main` with the create call answering from `create_results` and
     the open-issue lookup from `readings`.
 
     `create_results` is one entry per create attempt: a string for a call that
     succeeded, `None` for one that reported failure. `readings` is what
     `list_open_issues` answers, in order -- the first is `main`'s own lookup,
-    and each later one is the re-read a failed attempt does before it retries.
-    Returns the list of `gh issue create` argument tuples that were made.
+    and each later one is a read `landed_create` takes. `baseline` is what the
+    durable ledger's own lookup answers with.
+
+    Returns `(creates, slept)` -- the `gh issue create` argument tuples that
+    were made, and the delays that were waited. The second exists because the
+    guard's retry is worth nothing without its sleep: an immediate second read
+    hits the same lagged index, and a mutation removing the sleep left every
+    case in this module green until it was added.
     """
     creates = []
+    slept = []
 
     def fake_try_run(*args):
         if args[:3] == ("gh", "issue", "create"):
             creates.append(args)
             return create_results.pop(0)
-        return "[]"
+        return baseline
 
     monkeypatch.setattr(m, "try_run", fake_try_run)
     monkeypatch.setattr(
@@ -243,9 +250,9 @@ def _ladder_harness(m, monkeypatch, create_results, readings):
     )
     monkeypatch.setattr(m, "close_issue", lambda repo, number: None)
     monkeypatch.setattr(m, "read_version", lambda: "0.7.0")
-    monkeypatch.setattr(m.time, "sleep", lambda s: None)
+    monkeypatch.setattr(m.time, "sleep", lambda s: slept.append(s))
     monkeypatch.setenv("REPO", "example/repo")
-    return creates
+    return creates, slept
 
 
 OPEN_ONE = [{"number": 89, "title": "chore: flow measurement — 0.7.0"}]
@@ -257,7 +264,7 @@ def test_a_milestone_that_cannot_be_set_does_not_fail_the_release(monkeypatch):
     deleted. The invariant this script protects is the one-open rule, which no
     milestone touches, so the release does not stop for it."""
     m = _roller()
-    creates = _ladder_harness(m, monkeypatch, [None, ""], [list(OPEN_ONE), []])
+    creates, _ = _ladder_harness(m, monkeypatch, [None, ""], [list(OPEN_ONE), []])
     monkeypatch.setattr(m, "run", lambda *a: pytest.fail(f"fell through to run: {a}"))
 
     m.main()
@@ -281,7 +288,7 @@ def test_a_milestone_that_cannot_be_set_does_not_fail_the_release(monkeypatch):
 
 def test_both_best_effort_arguments_failing_still_opens_the_issue(monkeypatch):
     m = _roller()
-    creates = _ladder_harness(m, monkeypatch, [None, None], [list(OPEN_ONE), [], []])
+    creates, _ = _ladder_harness(m, monkeypatch, [None, None], [list(OPEN_ONE), [], []])
     monkeypatch.setattr(m, "run", lambda *a: creates.append(a) or "")
 
     m.main()
@@ -306,7 +313,7 @@ def test_a_create_that_landed_despite_a_failed_call_is_not_retried(monkeypatch):
     exists to keep it."""
     m = _roller()
     landed = [{"number": 90, "title": "chore: flow measurement — 0.8.0"}]
-    creates = _ladder_harness(m, monkeypatch, [None], [list(OPEN_ONE), landed])
+    creates, _ = _ladder_harness(m, monkeypatch, [None], [list(OPEN_ONE), landed])
     monkeypatch.setattr(m, "run", lambda *a: pytest.fail(f"fell through to run: {a}"))
 
     m.main()
@@ -314,6 +321,87 @@ def test_a_create_that_landed_despite_a_failed_call_is_not_retried(monkeypatch):
     assert len(creates) == 1, (
         f"a failed attempt whose issue is nonetheless open must end the "
         f"ladder; retrying opens a second one: {creates}"
+    )
+
+
+def test_the_issue_main_just_closed_does_not_count_as_the_create_landing(monkeypatch):
+    """The guard asks whether a failed create landed anyway. `gh issue list`
+    lagging the close that ran seconds earlier answers with the issue `main`
+    has already closed, and reading that as the new log ends the release with
+    no rolling issue open and the workflow green."""
+    m = _roller()
+    creates, _ = _ladder_harness(
+        m, monkeypatch, [None, ""], [list(OPEN_ONE), list(OPEN_ONE), list(OPEN_ONE)]
+    )
+    monkeypatch.setattr(m, "run", lambda *a: pytest.fail(f"fell through to run: {a}"))
+
+    m.main()
+
+    assert len(creates) == 2, (
+        f"the reading still carries #89, the issue `main` closed before the "
+        f"ladder started -- only an issue that is not that one is evidence "
+        f"the create landed: {creates}"
+    )
+
+
+def test_the_landed_create_guard_retries_an_empty_reading(monkeypatch):
+    """The mirror of the case above, and the reason the guard cannot be one
+    lookup. A create that landed followed by a stale empty reading sends the
+    ladder down a rung and opens a second issue -- the lag this file already
+    retries for in `open_flow_measurement_issues`."""
+    m = _roller()
+    landed = [{"number": 90, "title": "chore: flow measurement — 0.8.0"}]
+    creates, slept = _ladder_harness(
+        m, monkeypatch, [None, ""], [list(OPEN_ONE), [], landed]
+    )
+    monkeypatch.setattr(m, "run", lambda *a: pytest.fail(f"fell through to run: {a}"))
+
+    m.main()
+
+    assert len(creates) == 1, (
+        f"the first reading was empty and the second found the issue the "
+        f"create had already opened -- an empty reading gets the one retry "
+        f"this module gives every other empty reading: {creates}"
+    )
+    assert slept == [m.RETRY_DELAY_SECONDS], (
+        f"the retry must sleep before the second reading, using the module's "
+        f"own delay constant. An immediate second read hits the same lagged "
+        f"index, so a retry without the sleep is one lookup wearing two "
+        f"names -- and removing the sleep left every case here green until "
+        f"this line: {slept}"
+    )
+
+
+def test_the_recovery_message_does_not_promise_the_log_is_empty(monkeypatch):
+    """`list_open_issues` exits on a `gh` failure, so a lookup that stumbles
+    mid-ladder raises `SystemExit` into `main`'s handler. By then the first
+    rung's create may already have landed, and an operator told the log has
+    zero open issues opens the second one."""
+    m = _roller()
+    monkeypatch.setattr(
+        m, "list_open_issues", lambda repo: [{"number": 89, "title": "x"}]
+    )
+    monkeypatch.setattr(m, "read_version", lambda: "0.7.0")
+    monkeypatch.setattr(m, "close_issue", lambda repo, number: None)
+
+    def fake_open_issue(repo, version, closed_number):
+        raise SystemExit("gh issue list failed: some network error")
+
+    monkeypatch.setattr(m, "open_issue", fake_open_issue)
+    monkeypatch.setenv("REPO", "example/repo")
+
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    message = str(exc.value)
+    assert "may still have landed" in message, (
+        f"the recovery message must say the create may have landed, because "
+        f"`main` cannot know: the failure can arrive from a lookup taken "
+        f"after a create that worked: {message!r}"
+    )
+    assert "zero open issues" not in message, (
+        f"the message asserts a state it cannot observe. Somebody following "
+        f"it opens the second issue and the next release fails on "
+        f"two-or-more: {message!r}"
     )
 
 
@@ -358,16 +446,71 @@ def test_the_body_drops_the_ledger_clause_where_no_durable_log_exists():
 def test_the_durable_logs_lookup_answers_none_rather_than_failing(monkeypatch):
     """Three ways for the lookup to come back with nothing, and none of them
     may reach a release: the `gh` call failed, the label exists with nothing
-    open, and the output is not JSON at all."""
+    open, and the output is not JSON at all. All three are silent -- most
+    repositories have no durable ledger, and that is not a fault to report."""
     m = _roller()
     for answer in (None, "[]", "not json"):
         monkeypatch.setattr(m, "try_run", lambda *a, _r=answer: _r)
-        assert m.find_baseline_issue("example/repo") is None, (
+        number, note = m.find_baseline_issue("example/repo")
+        assert number is None, (
             f"a lookup answering {answer!r} must be `None`, not an exception "
             f"and not a truthy value the body would interpolate"
         )
+        assert note is None, (
+            f"a repository with no durable ledger is the ordinary case, and "
+            f"a note about it would appear on every rolling log: {note!r}"
+        )
     monkeypatch.setattr(m, "try_run", lambda *a: json.dumps([{"number": 51}]))
-    assert m.find_baseline_issue("example/repo") == 51
+    assert m.find_baseline_issue("example/repo") == (51, None)
+
+
+def test_two_open_durable_logs_are_named_rather_than_guessed_between(monkeypatch):
+    """The rolling log's invariant and the durable one's are the same
+    sentence in `skills/verify/SKILL.md`, and that section says a broken
+    invariant is named rather than guessed at. Taking the first of two is the
+    guess -- and it is silent, because a body carrying one of two numbers
+    looks exactly like a body carrying the only one."""
+    m = _roller()
+    monkeypatch.setattr(
+        m, "try_run", lambda *a: json.dumps([{"number": 51}, {"number": 77}])
+    )
+    number, note = m.find_baseline_issue("example/repo")
+    assert number is None, (
+        f"two open `flow-baseline` issues is that invariant broken, and the "
+        f"body must not point at one of them as though it were the ledger: "
+        f"{number}"
+    )
+    assert note and "flow-baseline" in note, (
+        f"omitting the clause with no note says the repository has no durable "
+        f"ledger, which is a different fact from having two: {note!r}"
+    )
+
+
+def test_the_ambiguous_ledger_note_reaches_the_issue_it_is_about(monkeypatch):
+    """The other half, and the one a mutation found. `find_baseline_issue`
+    answering with a note buys nothing if `open_issue` drops it: setting the
+    note aside left every case in this module green, because none of them
+    drove a two-open reading through to a created issue's body."""
+    m = _roller()
+    two_open = json.dumps([{"number": 51}, {"number": 77}])
+    creates, _ = _ladder_harness(
+        m, monkeypatch, [""], [list(OPEN_ONE)], baseline=two_open
+    )
+    monkeypatch.setattr(m, "run", lambda *a: pytest.fail(f"fell through to run: {a}"))
+
+    m.main()
+
+    assert len(creates) == 1
+    body = creates[0][creates[0].index("--body") + 1]
+    assert "flow-baseline" in body and "picking whichever" in body, (
+        f"the note never reached the body, so the issue says nothing about "
+        f"the ledger and looks exactly like one opened in a repository that "
+        f"has none: {body!r}"
+    )
+    assert "live in #" not in body, (
+        f"the body points at a ledger anyway, which is the guess the note "
+        f"exists instead of: {body!r}"
+    )
 
 
 def test_close_succeeds_but_open_fails_names_both_in_the_message(monkeypatch):

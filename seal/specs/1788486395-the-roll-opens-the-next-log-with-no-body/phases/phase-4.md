@@ -7,7 +7,7 @@ closes. -->
 | Field | Value |
 |---|---|
 | Phase | 4 |
-| Commit | <pending> |
+| Commit | 5e76246 |
 
 ## What this phase was asked
 
@@ -79,4 +79,4 @@ by sentence, and a coordinate per sentence would be an inventory of the diff.
 
 | Removed item | Where it must land |
 |---|---|
-| none | none |
+| `docs/flow.md`'s `#110 + #117` tick — carried into `5e76246` by a `git add -A`, declared nowhere, and taken back out by round 1's fix pass | PR #144, which the orchestrator opened for exactly that one-character change on `docs/the-flow-ticks-110-and-117` before this work item started. Two open pull requests carrying it is a conflict waiting at whichever merges second. `git diff f187b39 -- docs/flow.md` is now empty, so this branch touches the file not at all |

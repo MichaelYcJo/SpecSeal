@@ -25,6 +25,7 @@ an empty body and no link back to the one it replaced.
 |---|---|---|---|
 | Which existing cases grow | `plan.md`'s technical context and the spawn prompt both name `test_one_open_issue_closes_it_and_opens_the_next` as "the one that grows" | Three cases grew | `test_one_open_issue_after_the_retry_succeeds` and `test_close_succeeds_but_open_fails_names_both_in_the_message` both stub `open_issue` with a two-argument callable. `main` now passes the closed issue's number as a third argument, so both stubs raise `TypeError` until their signatures follow. Neither document is wrong about intent; both undercount the blast radius of a signature change |
 | What phase 3's cases cover | `plan.md` phase 3 asks for "a case with the milestone call failing" and says nothing about a partial create | Four cases, and one of them pins that a failed call whose create actually landed is not retried | The ladder phase 3 introduces retries `gh issue create`. A call that fails after the mutation lands would, on retry, open a second issue — which is the exactly-one-open invariant broken from the other side, by the script whose whole purpose is to keep it. The plan's stated failure direction for phases 2 and 3 is *allows more*, and that is about the two best-effort arguments; it was never a licence for the retry to break the invariant |
+| Whether the round's `issues[0]` note rode this pass | Round 1 left it as a note rather than a finding — "your call whether it rides this pass" | Taken | It is the same class as 🟡 5, which was a finding: this branch gives `flow-baseline` the same exactly-one-open invariant in prose and then honours it nowhere. `agent-contract` §12 says the fix is owed to every instance the cause produces, and fixing only the sentence would leave the script picking whichever of two `gh` listed first while the sentence it ships beside says a broken invariant is named rather than guessed at |
 | Where the ledger's `--reverify` was pointed | The spawn prompt says `evidence-check --reverify` takes no row selector, so `seal/ledger.md`'s S8 hash has to be restored by hand afterwards | `--ledger` scoped the run to this work item's own fragment, and S8 was never touched | `--ledger GLOB` bypasses discovery entirely (`evidence_check.py`, *"`--ledger` bypasses this entirely"*), so the twelve anchors this branch added were stamped without any other file being opened. `45edf260` is still the hash on S8, checked by grep after the run |
 
 ## Not verified
@@ -53,15 +54,17 @@ wants a durable log creates the label and applies it by hand. Automating it
 would mean a session or a script writing to somebody's tracker, which is the
 act #136 is explicit about refusing.
 
-**The skill does not say the durable log's invariant is checked by anything.**
-It is not. `flow-measurement`'s exactly-one-open rule is enforced at every
-release by the roll script, which fails loudly on zero and on two.
-`flow-baseline`'s is stated in the same sentence and enforced by nobody: a
-repository with two open `flow-baseline` issues gets whichever `gh` lists
-first. Writing a checker for it would mean deciding what a release does about
-a durable ledger it does not otherwise touch, which is a larger question than
-the one #136 asked. Named here so the symmetry in the prose is not read as
-symmetry in the machinery.
+**Nothing fails on a broken `flow-baseline` invariant, and the asymmetry is
+deliberate.** `flow-measurement`'s exactly-one-open rule stops a release: the
+roll script exits non-zero on zero and on two. `flow-baseline`'s is stated in
+the same sentence and stops nothing. Round 1 closed the half that was simply
+wrong — a session now names a durable log that stopped instead of reading it
+as a repository that never measured, and the roll writes a note into the
+issue it opens instead of pointing at whichever of two `gh` listed first — so
+a broken invariant is **said** in both places it can be seen. What still does
+not happen is anything failing. Making it fail would mean deciding what a
+release does about a ledger it does not otherwise touch, which is a larger
+question than the one #136 asked.
 
 **`gh issue create`'s stderr is not parsed, so which best-effort argument
 failed is inferred from the rung rather than read.** A first attempt that fails
@@ -70,6 +73,12 @@ could not be set. The note is written to survive that — it names three possibl
 causes and asks a person to set the milestone by hand *if it still exists* —
 and it never asserts the milestone is gone. Distinguishing the causes would
 mean matching on a string this repository does not own.
+
+**`docs/flow.md`'s `#110 + #117` tick left this branch.** It rode into
+`5e76246` on a `git add -A`, was declared in no commit body and in no phase
+record, and PR #144 already carries the same one-character change on a branch
+of its own. Two open pull requests holding it is a conflict waiting at
+whichever merges second. `git diff f187b39 -- docs/flow.md` is now empty.
 
 ## Fed back into the spec
 

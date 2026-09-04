@@ -313,8 +313,11 @@ seal.
 
 After every smith or warden segment ends, measure its transcript with
 `skills/verify/scripts/session_cost.py` (the `session-cost` command above is
-the same script) and post the numbers, and what they say, as a comment on
-this repository's open `flow-measurement`-labelled issue.
+the same script) and post the numbers, and what they say, as a comment on one
+of this repository's two measurement logs. Which of the two is not a filing
+detail — one of them is deleted at every release, so a reading put in the
+wrong one is a reading thrown away, and the paragraph below is what decides
+it.
 
 **There are two logs, and the difference is kind rather than scope.** A
 reading about the segment that just ended — its span, its calls, its tools
@@ -353,9 +356,14 @@ the label has any history at all:
   (`.github/scripts/roll_flow_measurement_issue.py`, where a repository has
   one) is where that invariant and its reasoning are written.
 
-An absent `flow-baseline` log is the first of those and nothing more: post
-the segment's own numbers to the rolling log, and leave the cross-version
-reading in the record that would have cited it.
+**`flow-baseline` splits the same way, and for the same reason.** Run the
+`--state all` lookup against it too. No issue has ever carried the label and
+this repository simply has no durable ledger: post the segment's own numbers
+to the rolling log, and leave the cross-version reading in the record that
+would have cited it. The label has a history and nothing is open, and
+somebody closed the durable ledger — name that, in the same handover and on
+the same grounds, and open nothing. Folding the second into the first is
+what sends a cross-version reading nowhere while everything looks fine.
 
 What a label answers that a milestone cannot, and why tidying one of these
 issues by hand breaks the next release, are the tracker's own conventions

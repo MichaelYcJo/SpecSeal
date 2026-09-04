@@ -186,6 +186,43 @@ def test_a_session_names_the_stopped_log_rather_than_opening_one():
     )
 
 
+def test_the_sections_opening_sentence_names_no_single_destination():
+    """#136's own body quotes this sentence as the defect, and adding a
+    paragraph below it does not repair it. The opening is imperative and
+    complete, so a session that skims the heading and the first sentence does
+    the pre-#136 thing with the rest of the section unread."""
+    body = section_body()
+    opening = body.split("**")[0]
+    assert "flow-measurement" not in opening, (
+        "the section still opens by telling a session to post to the "
+        "`flow-measurement` log. Whichever label the first sentence names is "
+        "the destination a skimming reader uses, and naming one of two is "
+        "the instruction #136 exists to correct"
+    )
+    assert "two" in opening, (
+        "the opening must say there is more than one log. A reader who goes "
+        "no further has to at least know a choice is being made for them"
+    )
+
+
+def test_the_durable_log_gets_the_same_two_zeroes():
+    """The section gives both labels the same exactly-one-open invariant and
+    then hands only one of them the `--state all` split. A durable ledger
+    somebody closed by hand then reads exactly like a repository that never
+    measured, which is #136's own failure recurring one label over."""
+    body = section_body()
+    assert "somebody closed the durable ledger" in body, (
+        "the section never says what a `flow-baseline` label with a history "
+        "and nothing open means, so the one reading that survives it -- the "
+        "cross-version one -- is silently dropped"
+    )
+    assert "is the first of those and nothing more" not in body, (
+        "the sentence folding `flow-baseline`'s zero into the harmless case "
+        "is back. It is the fold that makes a closed durable ledger "
+        "indistinguishable from a repository that never had one"
+    )
+
+
 def test_the_shipped_skill_names_no_repository_specific_tracker_state():
     """This skill ships. `flow-measurement` and `flow-baseline` are the
     plugin's vocabulary and belong here; the `measurement` index label, the
