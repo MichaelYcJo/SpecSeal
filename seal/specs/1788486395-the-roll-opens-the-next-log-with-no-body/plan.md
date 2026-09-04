@@ -72,7 +72,7 @@ where the trade is recorded.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | The skill says which reading goes where and how a repository declares its durable log with `flow-baseline`; the zero-open case separates *never measured* from *stopped measuring*, and states that a session names it rather than repairing it | new cases in `tests/test_a_segment_feeds_the_flow_log.py` for both labels, the separation, and the refusal; the seven existing cases still green, including the no-HTML-comments one | |
+| 1 | The skill says which reading goes where and how a repository declares its durable log with `flow-baseline`; the zero-open case separates *never measured* from *stopped measuring*, and states that a session names it rather than repairing it | new cases in `tests/test_a_segment_feeds_the_flow_log.py` for both labels, the separation, and the refusal; the seven existing cases still green, including the no-HTML-comments one | 97f1519 |
 | 2 | `open_issue` writes a body linking the closed issue and the durable ledger | `test_one_open_issue_closes_it_and_opens_the_next` extended, seen red before the code | |
 | 3 | The same call adds `measurement` and `log: measurement`, best-effort, and a failure to set either is written into the created issue's body | a case with the milestone call failing: the issue is still created, the body says so, the run does not fail | |
 | 4 | This repository's `#51` gets `flow-baseline`; the fragments | `evidence-check` on the new rows, `fold_ledger.py --version 0.8.0 --dry-run` | |

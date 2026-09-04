@@ -97,8 +97,9 @@ def test_one_open_issue_after_the_retry_succeeds():
     m.time.sleep = lambda s: slept.append(s)
     m.read_version = lambda: "0.7.0"
     m.close_issue = lambda repo, number: closed.append((repo, number))
-    m.open_issue = lambda repo, version: (
-        created.append((repo, version)) or (f"chore: flow measurement — {version}")
+    m.open_issue = lambda repo, version, closed_number: (
+        created.append((repo, version, closed_number))
+        or (f"chore: flow measurement — {version}")
     )
     os.environ["REPO"] = "example/repo"
     try:
@@ -108,7 +109,11 @@ def test_one_open_issue_after_the_retry_succeeds():
 
     assert len(calls) == 2, "a one-open reading on retry must not retry again"
     assert closed == [("example/repo", 89)]
-    assert created == [("example/repo", "0.8.0")]
+    assert created == [("example/repo", "0.8.0", 89)], (
+        "the issue just closed is what the new one's body rolls from, so its "
+        "number has to reach `open_issue` -- `main` is the only caller that "
+        "knows it"
+    )
 
 
 def test_two_open_issues_fails_loudly_without_retrying(monkeypatch):
@@ -149,7 +154,18 @@ def test_one_open_issue_closes_it_and_opens_the_next(monkeypatch):
     rather than a higher-level function."""
     m = _roller()
     calls = []
+
+    def fake_try_run(*args):
+        """The durable ledger's lookup answers with an issue; every other
+        best-effort call succeeds and returns nothing readable, which is what
+        `gh issue create` returns anyway."""
+        calls.append(args)
+        if args[:3] == ("gh", "issue", "list"):
+            return json.dumps([{"number": 51}])
+        return ""
+
     monkeypatch.setattr(m, "run", lambda *a: calls.append(a) or "")
+    monkeypatch.setattr(m, "try_run", fake_try_run)
     monkeypatch.setattr(
         m,
         "list_open_issues",
@@ -175,9 +191,51 @@ def test_one_open_issue_closes_it_and_opens_the_next(monkeypatch):
     assert "--label" in create_args
     assert create_args[create_args.index("--label") + 1] == "flow-measurement"
     assert "--body" in create_args
-    assert create_args[create_args.index("--body") + 1] == "", (
-        "the new issue's body must be empty"
+    body = create_args[create_args.index("--body") + 1]
+    assert "#89" in body, (
+        f"the new issue's body must name the issue it rolls from, so a "
+        f"reader of the 0.9.0 log has a path back to the 0.8.0 one: {body!r}"
     )
+    assert "#51" in body, (
+        f"the new issue's body must name the durable ledger, found by the "
+        f"`flow-baseline` label rather than hardcoded: {body!r}"
+    )
+    assert "0.8.0 ships" in body, (
+        f"the new issue's body must say when it closes -- it is a rolling "
+        f"log, and nothing on the issue itself says so: {body!r}"
+    )
+
+
+def test_the_body_drops_the_ledger_clause_where_no_durable_log_exists():
+    """A durable ledger is a thing a repository may not have. The clause goes
+    rather than the roll failing, and rather than the body carrying the word
+    an unguarded f-string would put there."""
+    m = _roller()
+    body = m.issue_body("0.8.0", 89, None)
+    assert "#89" in body, f"the body still rolls from the closed issue: {body!r}"
+    assert "0.8.0 ships" in body, f"the body still says when it closes: {body!r}"
+    assert "live in #" not in body, (
+        f"the body points at a durable ledger that does not exist: {body!r}"
+    )
+    assert "None" not in body, (
+        f"the body carries the absent ledger as a word -- `#None` is what an "
+        f"unguarded f-string writes, and it reads as an issue link: {body!r}"
+    )
+
+
+def test_the_durable_logs_lookup_answers_none_rather_than_failing(monkeypatch):
+    """Three ways for the lookup to come back with nothing, and none of them
+    may reach a release: the `gh` call failed, the label exists with nothing
+    open, and the output is not JSON at all."""
+    m = _roller()
+    for answer in (None, "[]", "not json"):
+        monkeypatch.setattr(m, "try_run", lambda *a, _r=answer: _r)
+        assert m.find_baseline_issue("example/repo") is None, (
+            f"a lookup answering {answer!r} must be `None`, not an exception "
+            f"and not a truthy value the body would interpolate"
+        )
+    monkeypatch.setattr(m, "try_run", lambda *a: json.dumps([{"number": 51}]))
+    assert m.find_baseline_issue("example/repo") == 51
 
 
 def test_close_succeeds_but_open_fails_names_both_in_the_message(monkeypatch):
@@ -199,7 +257,7 @@ def test_close_succeeds_but_open_fails_names_both_in_the_message(monkeypatch):
         m, "close_issue", lambda repo, number: closed.append((repo, number))
     )
 
-    def fake_open_issue(repo, version):
+    def fake_open_issue(repo, version, closed_number):
         raise SystemExit("gh issue create failed: some network error")
 
     monkeypatch.setattr(m, "open_issue", fake_open_issue)

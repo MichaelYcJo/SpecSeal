@@ -52,6 +52,16 @@ artifact and is never retried.
                                       one open flow-measurement issue and
                                       open the next
 
+**The issue this opens carries a body, and finds the durable log by label.**
+A rolling log opened with `--body ""` is born with no path back to the one it
+replaced and no statement of what it is for, which is the state every log
+before this change was in (#136). The body names the issue just closed, says
+the log closes when this version ships, and points at the durable ledger --
+the issue carrying `flow-baseline`, looked up the same way the rolling one is
+and never by number. Where a repository has no such issue that clause is left
+out rather than the roll failing: a durable ledger is a thing a repository may
+not have, and a release is not the place to insist on one.
+
 **The close and the open are not one transaction.** `main` closes the old
 issue first and only then opens the next one, so a `gh issue create` failure
 after a successful close leaves the flow-measurement log with zero open
@@ -80,6 +90,7 @@ import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LABEL = "flow-measurement"
+BASELINE_LABEL = "flow-baseline"
 RETRY_DELAY_SECONDS = 5
 
 
@@ -88,6 +99,18 @@ def run(*args):
     if out.returncode:
         sys.exit(f"{' '.join(args)} failed: {out.stderr.strip()}")
     return out.stdout
+
+
+def try_run(*args):
+    """`run` without the exit -- `None` where the call failed.
+
+    For the parts of this script whose failure must not stop a release: the
+    durable ledger's lookup, and the best-effort arguments to the create. None
+    of them touches the exactly-one-open invariant, which is the thing worth
+    failing a release over.
+    """
+    out = subprocess.run(args, capture_output=True, text=True)
+    return None if out.returncode else out.stdout
 
 
 def next_version(current):
@@ -152,8 +175,55 @@ def close_issue(repo, number):
     )
 
 
-def open_issue(repo, version):
+def find_baseline_issue(repo):
+    """The durable measurement ledger's number, by label, or `None`.
+
+    Best-effort in every direction: a repository that never created
+    `flow-baseline` has no durable ledger, a `gh` failure here is not worth a
+    release, and either way the body simply leaves the clause out. The lookup
+    is the rolling log's own shape -- a label, never a number -- because a
+    number goes stale the moment its issue closes, which is what `#109`
+    removed from the rolling log's lookup for the same reason.
+    """
+    out = try_run(
+        "gh",
+        "issue",
+        "list",
+        "--repo",
+        repo,
+        "--label",
+        BASELINE_LABEL,
+        "--state",
+        "open",
+        "--json",
+        "number",
+    )
+    if not out:
+        return None
+    try:
+        issues = json.loads(out)
+    except ValueError:
+        return None
+    return issues[0]["number"] if issues else None
+
+
+def issue_body(version, closed_number, baseline_number):
+    """What the rolling log says about itself on the day it is opened."""
+    ledger = (
+        f"Baselines and the observations that span versions live in "
+        f"#{baseline_number}; this"
+        if baseline_number is not None
+        else "This"
+    )
+    return (
+        f"Rolls from #{closed_number}. {ledger} issue takes one comment per "
+        f"segment and is closed when {version} ships."
+    )
+
+
+def open_issue(repo, version, closed_number):
     title = f"chore: flow measurement — {version}"
+    body = issue_body(version, closed_number, find_baseline_issue(repo))
     run(
         "gh",
         "issue",
@@ -165,7 +235,7 @@ def open_issue(repo, version):
         "--label",
         LABEL,
         "--body",
-        "",
+        body,
     )
     return title
 
@@ -186,7 +256,7 @@ def main():
     number = issues[0]["number"]
     close_issue(repo, number)
     try:
-        title = open_issue(repo, next_v)
+        title = open_issue(repo, next_v, number)
     except SystemExit as exc:
         sys.exit(
             f"closed #{number}, but opening the next issue failed: {exc}. "
