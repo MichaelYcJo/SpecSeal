@@ -49,17 +49,34 @@ so, and that `questions.md` Q2 is open with the repository owner.
 | 🟢 4 | The mutation that survived the implementer's first loop | `tests/test_a_record_precedes_the_fixes_it_commissions.py` | answered | Run again by the reviewer: dropping `--diff-filter=A` turns exactly one case red, and it is the one whose docstring says it cannot be red at HEAD. **The case is evidence rather than a description.** Three further mutations each turned exactly one case red |
 | 🟢 5 | How the rebase question was settled | `docs/review-chain-spec.md` | answered | Both halves correct and neither breakable. A rebase replays in order so a passing record stays passing; the rewritten fix's new hash makes a stale cell resolve to nothing, which is the permissive direction, stated as knowingly open with the cost of closing it named |
 | 🟡 6 | Three rows in `seal/ledger.md` carry `Checked` dates of 2026-09-02 over hashes covering content this branch wrote on 2026-09-04 | `seal/ledger.md:102`, `:381`, `:434` | open | `CLAUDE.md`: *"The `Checked` column holds the date somebody read the code. Re-verifying is re-reading and then running `--reverify`."* Eight rows were re-stamped and `phases/phase-4.md` names two as re-read on their merits, which says what happened to the other six. **This is the work item's own shape one level in**: the fix surfaced the drift, and what the drift bought was a re-stamp with no re-read — a check reporting `517 ok` while the trace that would show it, the date, is missing. Row `:102` also still says `Draft 0.6` where this branch moved the protocol to 1.2 |
-| 🟡 7 | The refusal's reach is the SHA a verdict cell happens to carry | `chain_check.py:1997` | open | Executed and counted: **231 fix-word verdict cells in this repository, 212 carrying a SHA, 19 carrying none** — ordinary house style, not malformed. So the reach is not a decision about which column to read; it is contingent on whether the orchestrator pasted a SHA, and a record written entirely the third way is invisible however late it was committed. `templates/sdd-round.md` asks for no such thing and the new spec table enumerates six pass states without naming the commonest |
+| 🟡 7 | The refusal's reach is the SHA a verdict cell happens to carry | `chain_check.py:1997` | open | Executed and counted: **235 fix-word verdict cells in this repository, 215 carrying a SHA, 20 carrying none** — the round reported 231/212/19 and the fix pass re-took the count through the checker's own `verdict_table`, `verdict_of`, `FIX_WORDS` and `SHA_RE` at both this target and HEAD, getting the same answer twice. The direction is untouched; the number moved — ordinary house style, not malformed. So the reach is not a decision about which column to read; it is contingent on whether the orchestrator pasted a SHA, and a record written entirely the third way is invisible however late it was committed. `templates/sdd-round.md` asks for no such thing and the new spec table enumerates six pass states without naming the commonest |
 | 🟡 8 | `added_on_branch` takes `found[-1]`, its docstring says so, and nothing pins it | `chain_check.py:1975` | open | Mutating to `found[0]` left **all twenty cases green** — `--diff-filter=A` normally returns one commit, so the spellings differ only on a delete-and-re-add, which no case builds. It is the permissive direction, and a delete-and-re-add is exactly the shape that makes a late record look early |
 | 🟡 9 | The skipped-ledger comparison folds case on Windows alone, so the notice can name a file it just read | `evidence_check.py:911` | open | Executed on a case-insensitive filesystem: `--ledger 'SEAL/ledger.md'` names `seal/ledger.md` among the ledgers it did not read. `normcase` is the identity outside Windows and `realpath` canonicalises no case anywhere. `agent-contract` §13's shape — a defence resting on the platform where nobody removed the guarantee. Over-reporting, so nothing goes unread; what it costs is the notice's credibility on the run it was added to make trustworthy |
 | ⬜ 10 | A verdict cell naming two commits prints the 90-word failure twice | `chain_check.py` | noted | The grouping key is the resolved commit, so seven-cells-one-commit is solved and one-cell-many-commits is not. Rare and stricter, so a note |
+
+<!-- Two things this record got wrong, corrected here rather than left for a
+reader to find. The count above was 231/212/19 and is 235/215/20 — the round
+counted by hand and the fix pass re-took it through the checker's own readers.
+
+And the message that commissioned the fix pass claimed THIS FILE carried the
+reviewer's paste-ready replacements. It does not: `grep -c` for a fenced block
+returns 0. The record is not in breach of what phase 4 added — its probe rows
+name commands and mutations, not proposed replacements, so nothing in it owed a
+block — but the implementer went looking on the orchestrator's word and wrote
+all four fixes again.
+
+That is #150's own shape from a third side. The first instance was a record
+that did not exist; the second was a record that said it verified something it
+did not carry; this one is a record that was correct while the prose
+commissioning work from it was not. Only the first two are things a check could
+see. -->
 
 ## Executed probes
 
 | What was run | Result |
 |---|---|
 | `evidence_check.py .` unscoped, clone at target | exit 1, `517 ok · 1 drifted · 0 broken` — S8 only |
-| the 231 fix-word verdict cells counted across `seal/specs/*/rounds/round-*.md` | 212 with a SHA, **19 without** — 🟡 7 |
+| the fix-word verdict cells counted across `seal/specs/*/rounds/round-*.md` | the round said 212 of 231 with a SHA; re-taken through the checker's own readers it is **215 of 235, 20 without** — 🟡 7 |
 | a fully late record with its fix in the Grounds column | **exit 0** — 🟡 7 |
 | `found[-1]` → `found[0]`, twenty cases | **all green** — 🟡 8 |
 | `--diff-filter=A` dropped | 1 red, and it is the case that says it cannot be red at HEAD |
