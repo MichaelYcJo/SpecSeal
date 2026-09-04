@@ -6,8 +6,8 @@
 | PR | not yet opened |
 | Broad gate | not yet |
 | Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | `says_none` now answers False for any cell carrying a parenthesised depth marker, so a cell that used to mean *no units* can reach the entry walk → `fix_surface`, both its `Contract changes` arm and its `New units` arm |
+| New units | `SPLIT_LIMIT` (depth 1); `_module` (depth 1); `_real_records` (depth 1) |
 | Needs a fix | yes — 🔴 1 `round-1.md`'s own `Contract changes` cell fails the checker this branch strengthened, and CI runs that command on every pull request; 🟡 2 a constant named `NONE` reads as *no units*; 🟡 3 an empty `Needs a fix` cell prints empty backticks |
 | Loses a record or crashes | no |
 
