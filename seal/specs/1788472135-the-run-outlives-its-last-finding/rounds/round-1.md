@@ -5,8 +5,8 @@
 | Target SHA | c0325b5ad90689548070bad7030d8bb6b79abb74 |
 | PR | not yet opened |
 | Broad gate | not yet |
-| Fixes checked by | nobody — this round's fixes are not yet written; the round that reads them sets this cell |
-| Contract changes | `floor_answer` renamed to `yes_or_no` and widened to read both the floor row and `Needs a fix` → `stopping_floor`, `run_reopened`; `stopping_floor` took a count of later records and now takes the records themselves, in round order → `main`; `depth_problems` returns four lists where it returned three → `fix_surface`; `says_none` accepts a trailing `;` → `fix_surface` (both row arms) |
+| Fixes checked by | round-2 |
+| Contract changes | `floor_answer` renamed to `yes_or_no` and widened to read both the floor row and `Needs a fix` → `stopping_floor`, `run_reopened`; `stopping_floor` took a count of later records and now takes the records themselves, in round order → `main`; `depth_problems` returns four lists where it returned three → `fix_surface`; `says_none` accepts a trailing semicolon → `fix_surface` (both row arms) |
 | New units | `run_reopened` (depth 1); `NEEDS` (depth 1); `NEEDS_FROM` (depth 1); `SUBSECTIONS` (depth 1); `NO_CHECK_READS` (depth 1); `COMMA_LIMIT` (depth 1) |
 | Needs a fix | yes — 🔴 1 the floor refuses the sequence its own documents require; 🔴 2 `docs/review-handoff-protocol.md` carries neither new rule; 🔴 3 `evidence-check --strict` exits 2, and that is the release-preparation step |
 | Loses a record or crashes | no |
