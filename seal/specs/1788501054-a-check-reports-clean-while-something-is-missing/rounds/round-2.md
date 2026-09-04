@@ -7,8 +7,8 @@
 | PR | not yet opened |
 | Broad gate | not yet — no broad run has happened on this branch at all |
 | Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | `fix_surface` gained an arm and a second cutoff, its return shape unchanged → `main`, its only call site; `skipped_by_narrowing` now falls back on a zero `st_ino` as well as on `OSError` → `main` |
+| New units | `says_not_yet` (depth 1); `NOT_YET` (depth 1); `surface_run` (depth 1); `PENDING` (depth 1); `checker_module` (depth 1); `test_the_pending_spelling_is_the_one_the_template_prints` (depth 1); `test_a_surface_still_pending_after_a_round_read_the_fixes_fails` (depth 1); `test_the_same_arm_reaches_contract_changes` (depth 1); `test_the_honest_mid_run_state_is_not_refused` (depth 1); `test_a_bare_none_after_the_fixes_landed_passes` (depth 1); `test_a_reason_the_checker_does_not_recognise_passes` (depth 1); `test_the_pending_surface_only_prints_before_the_cutoff` (depth 1); `test_a_work_item_between_the_two_cutoffs_owes_the_rows_and_not_this_arm` (depth 1); `test_the_pending_surface_cutoff_is_this_work_items_own_second` (depth 1); `test_every_description_of_which_add_is_read_says_the_latest` (depth 1); `test_the_docstring_says_what_the_flag_now_protects` (depth 1); `test_the_spec_points_at_the_row_it_means` (depth 1); `test_the_spec_carries_the_delete_and_re_add_state` (depth 1); `test_an_inode_of_zero_does_not_fold_two_files_into_one` (depth 1); `test_a_ledger_that_cannot_be_stat_ed_is_named_rather_than_crashing` (depth 1) |
 | Needs a fix | yes — seven 🟡. The heaviest is that this branch's own rule made `round-1.md`'s fix surface start as `none` and left nothing requiring the second step, so a verifying round reading the record alone sees no finding surface at all |
 | Loses a record or crashes | no |
 
