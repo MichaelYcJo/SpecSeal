@@ -284,7 +284,10 @@ rather than re-deriving it from the verdict table: a 🟡 the smith answers with
 grounds is `no`, so a round can report findings and still end the run. The row
 is read by `chain_check.py`, and what reads it is the floor's bound below: a
 `yes` is what says the run reopened, which is what keeps that bound from
-refusing the verifying round's own reader.
+refusing the verifying round's own reader. A `fixed` verdict does the same
+whatever the row says — the reviewer may answer `no` and the orchestrator may
+fix the 🟡 anyway because it ships, and those fixes owe a reader too. The bound
+reads the verdict column for that, so the row stays the reviewer's.
 
 **A round that opens nothing needing a fix does not consume the cap.** The cap
 counts rounds that found something, because it exists to stop a loop that is

@@ -162,6 +162,14 @@ the record that reads them is a third record the count does not hold against
 the round that met the floor. The count stops at the first later record whose
 `Needs a fix` says `yes`, that record included.
 
+**Or whose verdicts say `fixed`, whatever `Needs a fix` says.** The reviewer
+may answer `no` — a 🟡 answerable with grounds — and the orchestrator may fix
+it anyway, because it ships. The row then reads `no` over fixes that exist,
+and those fixes owe a reader exactly as a reopening's do. The verdict column
+already says so, and the count reads it there. Without that the run had no
+terminal record any exit accepted, measured on the seventh round of the work
+item that added this paragraph.
+
 Check `Pass` only when no finding in the verdict table below is still
 open. It is the last round's checkbox that speaks for the whole review: every
 earlier verdict needs an answer in the round that follows, so nothing can be

@@ -454,6 +454,93 @@ def test_a_reopening_further_down_does_not_excuse_the_two_before_it(repo):
     assert "at most one more" in out
 
 
+def fixed_record(sha, verdict, checker):
+    """`record()` with the one thing it cannot say: a verdict cell that
+    closed on a fix, and the `Fixes checked by` that goes with it.
+
+    `record()` hard-codes `answered` and `no fixes to check`, which is the
+    shape every other case in this file needs. The floor's second stop
+    condition is about the other shape — a record whose reviewer answered
+    `no` and whose table nonetheless says `**fixed**`, because the
+    orchestrator fixed what the reviewer said could be answered with grounds.
+    """
+    return (
+        "# a round\n\n"
+        f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n"
+        f"| Fixes checked by | {checker} |\n"
+        "| Contract changes | none |\n"
+        "| Ran by | specseal:warden on a model |\n"
+        "| New units | none |\n"
+        "| Needs a fix | no |\n"
+        "| Loses a record or crashes | no |\n\n"
+        "- [ ] Pass\n\n"
+        "## Verdicts\n\n"
+        "| # | Finding | Location | Verdict | Grounds |\n"
+        "|---|---|---|---|---|\n"
+        f"| 🟡 1 | a count that ships | `seal/ledger/x.md:4` | {verdict} | grounds |\n"
+    )
+
+
+def test_a_round_that_fixed_over_a_no_is_where_the_count_stops(repo):
+    """Round 7's 🔴 1 of this work item, and the sequence that had no legal
+    spelling.
+
+    Round 1 meets the floor. Round 2 is its verifying round; the reviewer
+    answers `Needs a fix: no`, judging its one 🟡 answerable with grounds. The
+    orchestrator fixes it anyway — the finding was a false count that
+    `fold_ledger.py` ships into the shared ledger — commits the fix, and sets
+    the verdict to `**fixed**`. Those fixes owe a reader, so round 3 reads
+    them and opens nothing.
+
+    Before this case the walk read only `Needs a fix`, which is the REVIEWER's
+    answer to what it opened; round 2 says `no`, so round 3 counted as a
+    second uncounted record after the floor and `round-1.md` was refused.
+    Ending at round 2 was refused both ways too — `no fixes to check` beside a
+    `fixed` verdict, `nobody` beside a ticked `Pass`. The record already
+    carries the missing fact in its verdict column, and the walk now reads it.
+    """
+    write(repo, f"{NEW_ITEM}/routing.md", declaration(NEW_ITEM))
+    base = commit(repo, "declare")
+    write(repo, f"{NEW_ITEM}/rounds/round-1.md", record(base, floor="no", needs="no"))
+    one = commit(repo, "round 1")
+    # The record is ADDED before its fix exists, with the verdict open --
+    # the ordering rule refuses the other sequence.
+    write(
+        repo,
+        f"{NEW_ITEM}/rounds/round-2.md",
+        fixed_record(one, "open", "nobody — the fixes are not yet written"),
+    )
+    commit(repo, "round 2, its verdict open")
+    write(repo, "note.md", "the count, corrected\n")
+    fix = commit(
+        repo, "the orchestrator fixes what the reviewer said could be answered"
+    )
+    write(
+        repo,
+        f"{NEW_ITEM}/rounds/round-2.md",
+        fixed_record(one, f"**fixed** `{fix}`", "round-3"),
+    )
+    two = commit(repo, "round 2, its verdict filled")
+    write(repo, f"{NEW_ITEM}/rounds/round-3.md", record(two, floor="no", needs="no"))
+    commit(repo, "round 3, the reader")
+    code, out = run(repo)
+    assert code == 0, out
+
+
+def test_wrote_fixes_reads_the_verdicts_and_not_the_needs_a_fix_row():
+    """The predicate the walk's second stop rests on, pinned directly: a
+    table of `answered` is not a fix, a table with one `fixed` is, and the
+    `Needs a fix` row is not consulted either way. The first half is what
+    keeps `test_three_quiet_rounds_after_the_floor_are_still_refused` red —
+    three quiet rounds write nothing, so nothing stops the count."""
+    check = check_module()
+    reader = check.load(check.READER, "specseal_unverified_reader")
+    answered = fixed_record("abc1234", "answered", "no fixes to check")
+    fixed = fixed_record("abc1234", "**fixed** `abc1234`", "round-3")
+    assert not check.closed_with_a_fix(reader, reader.readable(answered), "r.md")
+    assert check.closed_with_a_fix(reader, reader.readable(fixed), "r.md")
+
+
 def test_an_unreadable_needs_a_fix_does_not_stop_the_count(repo):
     """A row the checker cannot read must never be the thing that quiets a
     refusal — the declared failure direction is *blocks more*.

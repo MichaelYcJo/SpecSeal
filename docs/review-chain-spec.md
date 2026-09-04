@@ -761,6 +761,23 @@ record whose `Needs a fix` says the run reopened, that record included. Every
 record after a reopening answers to THAT round rather than to the one that met
 the floor.
 
+**And it stops at the first later record whose own verdicts closed on a fix —
+a `fixed` cell — whatever its `Needs a fix` says.** The two rows answer
+different questions: `Needs a fix` is the reviewer's, *what did I open*; the
+bound needs *were fixes written that owe a reader*. They come apart in one
+sequence, and it happened: the reviewer answers `no`, judging a 🟡 answerable
+with grounds, and the orchestrator fixes it anyway because it ships — a false
+count in a ledger fragment that `fold_ledger.py` copies into the shared file.
+The row still reads `no`, the fixes exist, and a walk reading only that row
+has no terminal record it accepts: the verifying round that reads the fixes
+is a second uncounted record after the floor, and ending without it is
+refused both ways, `no fixes to check` beside `fixed` and `nobody` beside a
+ticked `Pass`. Measured on this repository's own seventh round. The record
+already carries the fact in its verdict column, and the walk reads it there.
+The direction is ALLOW, one record wider in that one sequence, and it is the
+cheaper mistake: the other way to satisfy the old walk was rewriting `fixed`
+to `answered` over fixes that exist.
+
 ##### `Needs a fix` — the row the bound above rests on
 
 It has been in the record since draft 0.5 of `docs/review-handoff-protocol.md`

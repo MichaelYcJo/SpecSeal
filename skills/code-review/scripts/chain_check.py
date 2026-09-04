@@ -2310,6 +2310,37 @@ def run_reopened(reader, root, rel):
     return word == FLOOR_YES if word is not None else None
 
 
+def wrote_fixes(reader, root, rel):
+    """True when this record's own verdicts closed on a fix somebody wrote.
+
+    `run_reopened` reads `Needs a fix`, which is the REVIEWER's answer to
+    what it opened. The bound needs a different answer -- were fixes written
+    that owe a reader -- and the two come apart in exactly one sequence: the
+    orchestrator fixes a 🟡 the reviewer said could be answered with grounds.
+    The row then reads `no` over fixes that exist, and the record that follows
+    answers to THIS round rather than to the one that met the floor, exactly
+    as it does after a reopening. So the count stops here too.
+
+    The fact is already in the record. `closed_with_a_fix` is what refuses
+    `no fixes to check` beside a `fixed` verdict, and until round 7 of the
+    work item that added it nothing else read it: that run had no terminal
+    record any of its three exits would accept -- a verifying round after the
+    `no` was a second uncounted record, and ending at the `no` was refused
+    both ways. The direction is ALLOW, one record wider in one sequence, and
+    it is the cheaper mistake because the alternative is a checker that can
+    only be satisfied by rewriting `fixed` to `answered` over fixes that
+    exist, which is a false record and the subject of that work item.
+
+    A record this cannot read returns False, the way `closed_with_a_fix`
+    does: the unreadable state is already an error from `open_blocking`, and
+    a second cause named here would not be the cause.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return False
+    return closed_with_a_fix(reader, reader.readable(text), rel)
+
+
 def stopping_floor(reader, root, rel, later):
     """(errors, notices) for one record's floor row and its `Needs a fix`.
 
@@ -2468,13 +2499,15 @@ def stopping_floor(reader, root, rel, later):
         return errors, notices
 
     if word == FLOOR_NO:
-        # Every later record counts until one of them says the run reopened,
-        # that one included. After a reopening the records answer to THAT
-        # round rather than to this one, and the run is a finding run again.
+        # Every later record counts until one of them says the run reopened
+        # OR wrote fixes, that one included. After either the records answer
+        # to THAT round rather than to this one -- a reopening because the
+        # reviewer opened something, a fix because the orchestrator wrote
+        # something over a `no` -- and the run is a finding run again.
         counted = 0
         for other in later:
             counted += 1
-            if run_reopened(reader, root, other):
+            if run_reopened(reader, root, other) or wrote_fixes(reader, root, other):
                 break
         if counted > 1:
             message = (
