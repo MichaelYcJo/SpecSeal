@@ -864,6 +864,7 @@ def test_a_cell_corrected_after_the_record_landed_says_so_in_the_record():
     assert records, "no round records found — the glob or the layout moved"
 
     untraced = []
+    changes = 0
     for path in records:
         rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
         shas = git(
@@ -879,6 +880,7 @@ def test_a_cell_corrected_after_the_record_landed_says_so_in_the_record():
                 was = previous.get(label)
                 if was is None or was == value:
                     continue
+                changes += 1
                 # A pending row being filled is the reach-back, not a
                 # correction. Both spellings of pending are excluded.
                 if check.says_none(was) or check.nobody_reason(was) is not None:
@@ -886,6 +888,16 @@ def test_a_cell_corrected_after_the_record_landed_says_so_in_the_record():
                 if label not in comment:
                     untraced.append(f"{rel}: `{label}` corrected at {sha[:7]}")
             previous = current
+
+    # A walk that reads no cell finds no correction and passes, which is the
+    # counterfeit-seal shape: this repository's own records are edited after
+    # they land — every one of them fills its two fix-surface rows — so a run
+    # that sees zero changes is a broken reader, not a clean history.
+    assert changes, (
+        "the walk compared no field cells at all. `_field_cells` or the "
+        "record layout moved, and with it every correction this case exists "
+        "to catch"
+    )
 
     assert not untraced, (
         "a field cell was corrected in place and the record does not say so. "
