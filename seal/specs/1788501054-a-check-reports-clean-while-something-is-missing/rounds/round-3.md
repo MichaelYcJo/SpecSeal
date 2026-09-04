@@ -8,7 +8,7 @@
 | Broad gate | not yet — no broad run has happened on this branch at all |
 | Fixes checked by | round-4 |
 | Contract changes | none — measured, not asserted. An AST comparison of `8af3494` against `ae271ba` with docstrings stripped shows **zero** top-level units added, removed or changed in either checker: `fix_surface`, `says_not_yet` and `skipped_by_narrowing` are executable-identical, and every fix to them is a docstring, a document, a record or a ledger row |
-| New units | `test_a_forgotten_checker_cell_leaves_the_arm_nothing_to_key_on` (depth 1) → pytest only; `test_the_terminal_value_is_in_the_specs_table_with_what_it_costs` (depth 1) → pytest only; `test_the_declared_limit_names_what_escapes_with_the_words_unchanged` (depth 1) → pytest only; `test_two_devices_that_share_an_inode_number_are_two_ledgers` (depth 1) → pytest only; `test_the_skipped_set_is_subtracted_from_the_list_the_defaults_come_from` (depth 1) → pytest only; `test_one_file_matched_by_two_patterns_is_read_once` (depth 1) → pytest only. Two more cases were WIDENED rather than added — `test_a_reason_the_checker_does_not_recognise_passes` and `test_an_inode_of_zero_does_not_fold_two_files_into_one` — because a new unit answering a finding inside `says_not_yet`, which is round 2's own `New units` entry, would be depth 2 |
+| New units | `test_a_forgotten_checker_cell_leaves_the_arm_nothing_to_key_on` (depth 1) → pytest only; `test_the_terminal_value_is_in_the_specs_table_with_what_it_costs` (depth 1) → pytest only; `test_the_declared_limit_names_what_escapes_with_the_words_unchanged` (depth 1) → pytest only; `test_two_devices_that_share_an_inode_number_are_two_ledgers` (depth 1) → pytest only; `test_the_skipped_set_is_subtracted_from_the_list_the_defaults_come_from` (depth 1) → pytest only; `test_one_file_matched_by_two_patterns_is_read_once` (depth 1) → pytest only |
 | Needs a fix | yes — eight 🟡, and the two heaviest are this branch breaking the rule it adds. 🟡 1: the pending arm's key is `Fixes checked by`, which the same lapse leaves unwritten, so it reaches the half-forgetful session and not the forgetful one — and `round-1.md`, the record whose state the arm was built to refuse, passes it. 🟡 2: `c528161` re-stamped ten `seal/ledger.md` rows and left two without a re-read clause, which R6 — written in that same commit — forbids |
 | Loses a record or crashes | no |
 
@@ -19,7 +19,38 @@ allows exactly this: a verifying round that opens something is a finding
 round, so its own fixes need a reader in turn, and the count stops at this
 record. Written and committed before the fix pass it commissions, so both
 fix-surface rows start pending and owe the reach-back this work item's own
-arm was built to require. -->
+arm was built to require.
+
+TWO CASES WERE WIDENED rather than added, and the two were widened for
+different reasons. This sentence used to sit inside the `New units` cell,
+where `depth_problems` read it as part of the sixth entry and refused the
+whole cell for carrying several units and a comma under one `(depth 1)` —
+round 4's 🔴 1. It belongs here because the cell is parsed and this comment
+is not.
+
+  `test_a_reason_the_checker_does_not_recognise_passes` — the finding is
+  inside `says_not_yet`, which round 2's fix pass created and `round-2.md`'s
+  own `New units` names. A unit added to answer a finding there is depth 2,
+  which the rule refuses. Widened because it HAD to be.
+
+  `test_an_inode_of_zero_does_not_fold_two_files_into_one` — the finding is
+  inside `skipped_by_narrowing`, which this branch's PHASE 2 created at
+  `93c8b89` (`phases/phase-2.md`'s `Commit` cell), before the review run
+  began. Depth is measured per run, so a unit there is depth 1 and the rule
+  allows one. Widened BY CHOICE, to keep the identity rule under one case
+  rather than two.
+
+  The cell gave the first reason for both, which is round 4's 🟡 2: it is
+  true of the first and false of the second. Round 3's fix pass had written
+  the correction down and this cell wrote it back out.
+
+CORRECTED IN PLACE, and this is the trace the record itself owes (round 4's
+🟡 7, applied as one rule to every such correction on this branch):
+
+  `New units` — round 4's fix pass, at this commit. It carried the widening
+  paragraph above inside its sixth entry; the six entries now stand alone.
+  Marking it inside the cell is what the checker refuses, so the trace is
+  here. -->
 
 ## What this round was asked
 
