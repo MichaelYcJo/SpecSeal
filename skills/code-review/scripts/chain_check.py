@@ -210,6 +210,29 @@ included -- a verifying round that opens something is a finding round, its own
 fixes need a reader, and refusing that third record refuses the only legal end
 to such a run.
 
+WHAT RAN THE ROUND, which no record said. Issue #137: every segment of two
+work items was metered and posted to a measurement log, and not one of the
+readings can be attributed to a runner afterwards -- they all ran on the same
+model, and that fact exists only in a session transcript.
+
+  Ran by   the agent and the model, as `agent on model`. Both, because an
+           agent without a model cannot be compared against another run of
+           the same agent and a model without an agent cannot be told from
+           the orchestrating session's own turns. `unknown — <why>` is the
+           answer where neither is knowable and a bare `unknown` is not.
+           Absent after `RUNNER_FROM` fails; present and malformed fails at
+           any age
+
+The joining `on` is a WORD rather than a punctuation mark, which is what
+keeps this row out of the class of defect the two rows above record: a
+separator inside a code span splits the cell carrying it, and that has
+happened twice here.
+
+It is the SPAWNING session's row and never the agent's own -- the reach-back
+`Fixes checked by` and the fix-surface rows already make. An agent is told
+what it is, so a value it writes about itself is the value it was told, and
+the orchestrator is the one that chose the model.
+
 WHAT IT CANNOT SEE, stated here rather than discovered later:
 
   whether the review was any good   the same limit the commit gate carries.
@@ -457,6 +480,33 @@ DEPTH_FROM = 1788472135
 # they were written. Absent, empty and unreadable alike print for an item
 # begun before the cutoff.
 NEEDS_FROM = 1788472135
+# What ran this segment (issue #137): the agent and the model, as
+# `agent on model`. A record says what its round was ASKED and which commit
+# it looked at, and said nothing about what executed it -- a fact that lives
+# in a transcript and nowhere else once the session ends.
+RAN_BY = "Ran by"
+# The honest answer where the session cannot name a model. Agent definitions
+# pin none -- it is a spawn-time argument -- so a session spawning through
+# another harness may have no name for one, and a vocabulary offering only
+# the confident answer is one that gets the confident answer written whether
+# or not it is true. The reason is required, exactly as it is after `nobody`.
+UNKNOWN_WORD = "unknown"
+# What joins the two halves. A WORD and not a punctuation mark, and that is
+# the decision rather than a spelling: `;` inside a code span split a
+# `Contract changes` entry (round 2, 🔴 1) and `|` inside one split a memo
+# table row, both on the two work items before this one. A separator that is
+# a word cannot split a cell, so the whole class is absent by construction
+# instead of avoided by care.
+ON_WORD = "on"
+# Whitespace on BOTH sides, so the `on` inside `python` or `carbon` is not a
+# separator. Case-folded because the cell is prose a person types.
+ON_RE = re.compile(r"\s+" + ON_WORD + r"\s+", re.IGNORECASE)
+# Where the row becomes required, as the unix second in a work item's
+# directory name -- the id of the work item that added it, so the first
+# records held to the rule are the ones written under it. The same shape and
+# the same reasoning as `STRICT_FROM`, `SURFACE_FROM` and `FLOOR_FROM` above,
+# which is where the reasoning lives rather than being written a fourth time.
+RUNNER_FROM = 1788491830
 # `templates/sdd-round.md:12` and `docs/review-handoff-protocol.md:84` both say
 # the Target SHA cell may name BOTH commits when HEAD moved mid-review. The
 # whole cell used to be handed to `merge-base` as one ref, so the documented
@@ -1756,6 +1806,127 @@ def fix_surface(reader, root, rel):
     return errors, notices
 
 
+def runner_problem(value):
+    """What is wrong with a `Ran by` cell, or None when it answers.
+
+    Two answers and no others. `agent on model` names both halves, and
+    `unknown — <why>` is the honest cell where the session cannot name one.
+    Everything else is refused, including a cell naming a single thing: an
+    agent without a model cannot be compared against another run of the same
+    agent, and a model without an agent cannot be told apart from the
+    orchestrating session's own turns, which is the whole of what the row
+    was added to answer.
+
+    The `unknown` branch is tried FIRST, and that ordering changes the REASON
+    an answer comes out, never the answer. Round 1 measured both: the two
+    orders were compared over 1,536 constructed cells with zero verdict
+    mismatches, and reversing the arms in this file left 272 cases green
+    across the five suites that read it.
+
+    It is true by construction, which is the part worth keeping. The
+    `unknown` arm refuses when nothing follows the separator, and nothing
+    following means there is no ` on ` inside the tail either — so a cell
+    that would split is a cell the `unknown` arm accepts, and one the
+    `unknown` arm rejects cannot split. The two arms cannot disagree about
+    accepting; they can only disagree about what the cell was read AS.
+
+    Read this order as an editorial choice with a reason, not as a
+    correctness constraint. `unknown — the model was not recorded on this
+    run` is an unknown carrying a reason here, and a pair whose agent is
+    `unknown — the model was not recorded` and whose model is `this run`
+    under the other order. Both accept. The first is what the writer meant,
+    and a message quoting the cell back is the only place the difference
+    surfaces.
+
+    Its consequence, recorded rather than parsed away: `unknown on Opus` is
+    an unknown WITH A REASON rather than a half-named pair. Nothing is lost —
+    the model is still written down where a reader can see it — and telling
+    the two apart would mean deciding whether a reason may start with `on`,
+    which is a rule about English rather than about the row.
+    """
+    s = EMPHASIS.sub("", value).strip()
+    if not s:
+        return "is empty — a row that says nothing answers nothing"
+    low = s.lower()
+    if low == UNKNOWN_WORD or (
+        low.startswith(UNKNOWN_WORD) and low[len(UNKNOWN_WORD)] in SEPARATORS
+    ):
+        if not s[len(UNKNOWN_WORD) :].strip(SEPARATORS).strip():
+            return (
+                f"is `{s}` with no reason after it. A bare `{UNKNOWN_WORD}` "
+                "records that something is missing and not what — write "
+                f"`{UNKNOWN_WORD} — <why>`, the shape `{NOBODY} — <why>` "
+                "already has"
+            )
+        return None
+    halves = ON_RE.split(s, maxsplit=1)
+    if len(halves) != 2 or not halves[0].strip() or not halves[1].strip():
+        return (
+            f"is `{s}`, which names one thing. Write the agent and the model "
+            f"as `agent {ON_WORD} model` — an agent without a model cannot "
+            "be compared against another run of the same agent, and a model "
+            "without an agent cannot be told from the orchestrating "
+            f"session's own turns. Where neither is knowable, "
+            f"`{UNKNOWN_WORD} — <why>` is the answer"
+        )
+    return None
+
+
+def ran_by(reader, root, rel):
+    """(errors, notices) for one record's `Ran by` row.
+
+    Read on EVERY record, like `checked_by` and `fix_surface` and for the
+    same reason: every round was run by something, and a work item whose
+    rounds ran under different runners is exactly the comparison the row
+    exists to make possible.
+
+    The grandfathering is `item_began` against `RUNNER_FROM`, and it reaches
+    only the ABSENT row. A record written before the rule has no honest
+    repair -- nobody can recover what ran a segment whose session is over,
+    and a value invented now is worse than the blank, since a reading nobody
+    can trust is indistinguishable from one nobody took. A cell that is
+    PRESENT and malformed is refused at any age, the split `fix_surface`
+    already makes: formatting is always the author's.
+
+    An unreadable record returns nothing: `checked_by` already reports that
+    state, and a second error naming a different cause would name a cause
+    that is not the cause.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return [], []
+    rows = table_rows(reader, reader.readable(text))
+    began = item_began(rel)
+    cell = field(rows, RAN_BY)
+    if cell is None:
+        message = (
+            f"no `| {RAN_BY} | … |` row: this record says what the round was "
+            "asked and which commit it read, and nothing about what executed "
+            "it — a fact that lives in a session transcript and nowhere else "
+            "once the session ends. Write the agent and the model as "
+            f"`agent {ON_WORD} model`, or `{UNKNOWN_WORD} — <why>`. It is "
+            "the SPAWNING session's row, never the agent's own: an agent is "
+            "told what it is, so a value it writes about itself is the value "
+            "it was told"
+        )
+        if began is None or began < RUNNER_FROM:
+            return [], [
+                (
+                    rel,
+                    0,
+                    message + ". This work item began before the rule "
+                    "landed, so this prints instead of failing — the "
+                    "grandfathering `Fixes checked by` already uses",
+                )
+            ]
+        return [(rel, 0, message)], []
+
+    problem = runner_problem(reader.visible(cell))
+    if problem is None:
+        return [], []
+    return [(rel, 0, f"`{RAN_BY}` {problem}")], []
+
+
 def run_reopened(reader, root, rel):
     """True when this record's `Needs a fix` says the run reopened.
 
@@ -2294,6 +2465,12 @@ def main(argv=None):
             )
             errors.extend(floor_errors)
             notices.extend(floor_notices)
+            # EVERY record too, and for the reason the other three are: every
+            # round was run by something, and a work item whose rounds ran
+            # under different runners is the comparison the row exists for.
+            ran_errors, ran_notices = ran_by(reader, root, record)
+            errors.extend(ran_errors)
+            notices.extend(ran_notices)
 
     for rel, line, message in notices:
         print(reader.annotate("notice", rel, line, message))

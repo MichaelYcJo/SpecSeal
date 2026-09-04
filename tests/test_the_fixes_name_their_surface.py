@@ -140,6 +140,11 @@ def record(sha, contract="none", new_units="none"):
     # `tests/test_the_record_is_held_to_the_floor_and_the_depth.py` is where
     # that one is pinned.
     rows += "| Loses a record or crashes | no |\n| Needs a fix | no |\n"
+    # `Ran by` is here for the reason the floor row above is: `NEW_ITEM`
+    # began after `chain_check.RUNNER_FROM`, so leaving it out would fail
+    # every record in this file for a rule it does not pin.
+    # `tests/test_a_record_says_what_ran_it.py` is where that one is pinned.
+    rows += "| Ran by | specseal:warden on a model |\n"
     return (
         "# a round\n\n"
         f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n"
@@ -508,7 +513,17 @@ def test_the_protocol_carries_the_rows_and_moved_its_draft():
     # names this document as the file that carries the format, and round 1 of
     # `1788472135-…` found it carrying neither of the branch's rules —
     # `grep -c` for the floor row returned 0.
-    for label in ("| Contract changes", "| New units", "| Loses a record or crashes"):
+    # `Ran by` joins them on the same footing and for the same reason (#137):
+    # a session writing a record from THIS document rather than from the
+    # template reads the field table and nothing else, so a row missing here
+    # is a row that session does not know exists — and `chain_check.py`
+    # refuses the record it then writes.
+    for label in (
+        "| Contract changes",
+        "| New units",
+        "| Loses a record or crashes",
+        "| Ran by",
+    ):
         rows = [line for line in lines if line.strip().startswith(label)]
         assert len(rows) == 1, f"{label}: {len(rows)} rows outside comments"
         required = rows[0].split("|")[2].strip()
@@ -531,7 +546,7 @@ def test_the_protocol_carries_the_rows_and_moved_its_draft():
     title = read("docs", "review-handoff-protocol.md").splitlines()[0]
     match = re.search(r"draft (\d+\.\d+)", title)
     assert match, f"the title names no draft: `{title}`"
-    assert float(match.group(1)) >= 1.0, "a changed field moves the draft"
+    assert float(match.group(1)) >= 1.1, "a changed field moves the draft"
 
 
 def test_the_protocol_no_longer_grandfathers_both_rows_by_one_key():
@@ -551,13 +566,32 @@ def test_the_protocol_no_longer_grandfathers_both_rows_by_one_key():
 
 def test_the_documents_say_why_older_records_are_excused():
     """`SURFACE_FROM` with no reason beside it reads as a leftover constant,
-    and removing it turns a release pull request red on merged history."""
-    for parts in (
-        ("docs", "review-chain-spec.md"),
-        ("skills", "code-review", "scripts", "chain_check.py"),
+    and removing it turns a release pull request red on merged history.
+
+    The constant's NAME alone is a tautology for `chain_check.py` — it is
+    defined and read there, so the file cannot stop containing the string
+    while the code runs. That was round 2's ❓ 10 on the sibling case for
+    `RUNNER_FROM`, and §12 reaches here because the shape is the same rather
+    than because this row was reported. Each file is pinned on a phrase from
+    the reason as well, which a deletion actually removes.
+    """
+    for parts, reason in (
+        (("docs", "review-chain-spec.md"), "deriving a depth now for"),
+        (
+            ("skills", "code-review", "scripts", "chain_check.py"),
+            "nobody re-read fabricates a review",
+        ),
     ):
         text = flat(*parts)
         assert "SURFACE_FROM" in text, "/".join(parts)
+        # Counted, not merely present. `fixes nobody re-read` and
+        # `a merged record has no honest repair` each appear twice in
+        # `chain_check.py`, so a needle spelled either way is satisfied by
+        # the copy belonging to a different cutoff.
+        assert text.count(reason) == 1, (
+            f"{'/'.join(parts)} does not carry the reason exactly once "
+            "beside `SURFACE_FROM`"
+        )
     spec = flat("docs", "review-chain-spec.md")
     assert "print" in spec and "grandfather" in spec
 

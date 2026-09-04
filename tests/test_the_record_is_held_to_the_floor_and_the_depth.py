@@ -148,7 +148,14 @@ def record(sha, floor="no", new_units="none", needs="no"):
     left the row out would be testing the grandfathering rather than the
     bound.
     """
-    rows = "| Fixes checked by | no fixes to check |\n| Contract changes | none |\n"
+    rows = (
+        "| Fixes checked by | no fixes to check |\n"
+        "| Contract changes | none |\n"
+        # `Ran by` for the reason `Contract changes` is here: `NEW_ITEM`
+        # began after `chain_check.RUNNER_FROM`, so leaving it out would fail
+        # every record in this file for a rule it does not pin.
+        "| Ran by | specseal:warden on a model |\n"
+    )
     if new_units is not None:
         rows += f"| New units | {new_units} |\n"
     if needs is not None:
