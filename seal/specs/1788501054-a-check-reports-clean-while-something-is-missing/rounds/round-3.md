@@ -7,8 +7,8 @@
 | PR | not yet opened |
 | Broad gate | not yet — no broad run has happened on this branch at all |
 | Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none — measured, not asserted. An AST comparison of `8af3494` against `ae271ba` with docstrings stripped shows **zero** top-level units added, removed or changed in either checker: `fix_surface`, `says_not_yet` and `skipped_by_narrowing` are executable-identical, and every fix to them is a docstring, a document, a record or a ledger row |
+| New units | `test_a_forgotten_checker_cell_leaves_the_arm_nothing_to_key_on` (depth 1) → pytest only; `test_the_terminal_value_is_in_the_specs_table_with_what_it_costs` (depth 1) → pytest only; `test_the_declared_limit_names_what_escapes_with_the_words_unchanged` (depth 1) → pytest only; `test_two_devices_that_share_an_inode_number_are_two_ledgers` (depth 1) → pytest only; `test_the_skipped_set_is_subtracted_from_the_list_the_defaults_come_from` (depth 1) → pytest only; `test_one_file_matched_by_two_patterns_is_read_once` (depth 1) → pytest only. Two more cases were WIDENED rather than added — `test_a_reason_the_checker_does_not_recognise_passes` and `test_an_inode_of_zero_does_not_fold_two_files_into_one` — because a new unit answering a finding inside `says_not_yet`, which is round 2's own `New units` entry, would be depth 2 |
 | Needs a fix | yes — eight 🟡, and the two heaviest are this branch breaking the rule it adds. 🟡 1: the pending arm's key is `Fixes checked by`, which the same lapse leaves unwritten, so it reaches the half-forgetful session and not the forgetful one — and `round-1.md`, the record whose state the arm was built to refuse, passes it. 🟡 2: `c528161` re-stamped ten `seal/ledger.md` rows and left two without a re-read clause, which R6 — written in that same commit — forbids |
 | Loses a record or crashes | no |
 

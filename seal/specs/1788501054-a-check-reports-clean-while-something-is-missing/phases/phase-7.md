@@ -9,7 +9,7 @@ not contain, and the phase row was added beside them, the way phase 6's was. -->
 |---|---|
 | Phase | 7 |
 | Commit | e94c3de |
-| Ran by | unknown — the spawn prompt named neither the agent nor the model, and `templates/sdd-phase.md` forbids a segment sourcing that from its own idea of what it is. The orchestrator fills it, the reach-back `Fixes checked by` already makes |
+| Ran by | specseal:smith on opus — filled by the orchestrator that spawned it. The prompt named neither, and `templates/sdd-phase.md` forbids a segment sourcing this from its own idea of what it is, so the cell read `unknown` until the caller answered it. The spawn prompt is where it belonged; #137 gave the row to the record and not to the prompt that fills it |
 
 ## What this phase was asked
 
