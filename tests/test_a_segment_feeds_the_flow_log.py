@@ -21,6 +21,22 @@ module does not need a comment-stripping reader; a plain substring check
 already means "outside any comment", matching
 `tests/test_review_axes.py`'s style for the same reason (the source here is
 skill prose, not a template with placeholders).
+
+Issue #136 adds a second destination and a second zero. Two issues collect
+measurements in the same shape and one of them is deleted at every release, so
+the section now says which reading goes to which — a segment's own numbers to
+the rolling `flow-measurement` log, a reading that only means something across
+versions to the durable `flow-baseline` one — and separates a repository that
+never measured from one whose log stopped. The cases below pin both labels,
+the rule that separates them, the `--state all` lookup that tells the two
+zeroes apart, and the refusal that keeps a session from repairing the second.
+
+They also pin what the section may NOT say. This file ships to repositories
+that have neither this repository's `measurement` index label nor its
+`log: measurement` milestone nor its durable issue number, so those three are
+`.github/scripts/`'s to name and not the skill's —
+`tests/test_the_release_check_watches_what_ships.py` is what classifies that
+directory as staying home.
 """
 
 import os
@@ -114,4 +130,81 @@ def test_the_section_says_it_happens_without_asking():
         "the section must say the post happens without asking — otherwise a "
         "session reading it may treat the destination issue as something "
         "requiring approval, reintroducing the prompt #109 exists to remove"
+    )
+
+
+def test_the_section_names_the_durable_logs_label():
+    body = section_body()
+    assert "flow-baseline" in body, (
+        "the section never names `flow-baseline`, so a reading that only "
+        "means something across versions has nowhere to go but the rolling "
+        "log — which is deleted when the version ships. That happened on "
+        "2026-09-04 and is what #136 opened for"
+    )
+
+
+def test_the_section_says_what_separates_the_two_logs():
+    """Naming both labels is not the same as saying which gets what. A session
+    with two destinations and no rule picks by feel, which is the state before
+    this section named either of them."""
+    body = section_body()
+    assert "span versions" in body, (
+        "the section names the two logs but never says what separates them — "
+        "a reading that spans versions is the one that must not go to the "
+        "log that is discarded"
+    )
+    assert "discarded" in body, (
+        "the section must say the rolling log is discarded at the release; "
+        "that is the whole reason the durable one exists, and without it the "
+        "split reads as an arbitrary filing convention"
+    )
+
+
+def test_the_section_separates_the_two_zeroes():
+    body = section_body()
+    assert "gh issue list --label flow-measurement --state all" in body, (
+        "the section must name the `--state all` lookup. A repository that "
+        "never measured and one whose log stopped both read zero open, and "
+        "the first is a no-op while the second is a broken invariant — one "
+        "call tells them apart"
+    )
+
+
+def test_a_session_names_the_stopped_log_rather_than_opening_one():
+    """The obvious next step — if none is open, open one — is what breaks the
+    invariant the release-time roll depends on."""
+    body = section_body()
+    assert "not a session's act" in body, (
+        "the section must refuse outright: a session that finds the label "
+        "with a history and nothing open names it and opens nothing"
+    )
+    assert "two or more" in body, (
+        "the refusal must carry its reason — two sessions finishing segments "
+        "at the same moment both read zero and both create, and the next "
+        "release then fails on two or more. Without the reason the refusal "
+        "reads as caution and the next reader talks themselves out of it"
+    )
+
+
+def test_the_shipped_skill_names_no_repository_specific_tracker_state():
+    """This skill ships. `flow-measurement` and `flow-baseline` are the
+    plugin's vocabulary and belong here; the `measurement` index label, the
+    `log: measurement` milestone and the durable issue's number are this
+    repository's own and belong in `.github/scripts/`, which
+    `tests/test_the_release_check_watches_what_ships.py` classifies as staying
+    home."""
+    text = read()
+    assert "log: measurement" not in text, (
+        "the shipped skill names this repository's own milestone — an "
+        "installed repository has no such milestone and cannot act on it"
+    )
+    assert "#51" not in text, (
+        "the shipped skill hardcodes this repository's durable issue number. "
+        "A number is what #109 removed from the rolling log's lookup for the "
+        "same reason: it goes stale, and it means nothing anywhere else"
+    )
+    assert "`measurement`" not in section_body(), (
+        "the section names the bare `measurement` index label, which exists "
+        "in this repository only. The two labels a shipped skill may name are "
+        "`flow-measurement` and `flow-baseline`"
     )
