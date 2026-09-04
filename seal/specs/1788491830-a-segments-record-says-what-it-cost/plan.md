@@ -60,7 +60,7 @@ available rather than only the confident one.
 |---|---|---|---|
 | 1 | The row in both templates and in `docs/review-handoff-protocol.md`'s field table, with the drafts log moved; `ROUND_RECORD_FIELDS` grown | the protocol case extended and seen red; the `ROUND_RECORD_FIELDS` case run before the list grows, per the direction that pins it | `e9e463b` |
 | 2 | `chain_check.py` reads the row: absent is refused after a fourth cutoff and printed before it; present and unreadable is refused at any age; `unknown — <why>` is an answer and a bare `unknown` is not | each refusal seen red at a named SHA, mirroring the three cutoffs already in the file | `2a36737` |
-| 3 | `skills/verify/SKILL.md` says the spawning session fills it, because it is the one that knows | a case pinning the sentence | |
+| 3 | `skills/verify/SKILL.md` says the spawning session fills it, because it is the one that knows | a case pinning the sentence | `bf2eddc` |
 | 4 | The fragments, and `docs/flow.md` — this ticket's box, and a row for the outcome-column ticket this work opens | `evidence-check --ledger`, `fold_ledger --dry-run`, `unverified-check` | |
 
 Phase 1 before 2 for the reason this repository has now learned three times:
