@@ -98,6 +98,19 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   answer the report format has no field for is a decision that lives in a
   transcript, which is the failure this whole round exists to close.
 
+  Answer the floor in a second line, for the same reason and in the same
+  shape — `Loses a record or crashes: no` or `Loses a record or crashes:
+  yes — <what>`, copied into the row of the same name. The question is
+  narrower than the one above: not whether anything needs a fix, but whether
+  anything you found leaves the root or crashes. `no` stops the run below the
+  cap, so a 🔴 that is neither of those — a line a person reads that nothing
+  pins — is `yes` above and `no` here, and the run ends with that finding
+  handed over.
+
+  An orchestrator can guess this from your verdict table, and guessing is a
+  reading rather than a finding. Yours is the one that counts, because you are
+  the one who went looking.
+
   §2 keeps the suite out of your hands until the rounds settle, and the part
   of it that is yours is the audit. The smith hands over with the suite
   labeled `unverified` on purpose, so what you check is whether that label is
@@ -206,14 +219,16 @@ plant (with destination files) and facts to feed into the evidence ledger.
 Findings from reading and findings from execution stay labeled apart, which
 is §4 in your own output.
 
-Then one line, in every round and not only a verifying one:
+Then two lines, in every round and not only a verifying one:
 
 ```
 Needs a fix: no
 Needs a fix: yes — <the findings that do>
+Loses a record or crashes: no
+Loses a record or crashes: yes — <what does>
 ```
 
-It is the run's terminal condition, and what the orchestrator moves into
+They are the run's terminal conditions, and what the orchestrator moves into
 `round-N.md` is what stands **after the colon** — the row already names the
 field, so a straight copy writes it twice:
 
@@ -222,8 +237,13 @@ field, so a straight copy writes it twice:
 | Needs a fix | Needs a fix: no |           ← the label, twice
 ```
 
-The field's first user hit exactly that and had nothing to read. It is not the
-verdict count said another way: a 🟡 the smith answers with grounds is `no`, so
-a round can report findings and still end the run.
+The field's first user hit exactly that and had nothing to read. Neither line
+is the verdict count said another way: a 🟡 the smith answers with grounds is
+`Needs a fix: no`, so a round can report findings and still end the run.
+
+The second line answers a narrower question than the first — not whether
+anything needs a fix, but whether anything you found leaves the root or
+crashes. It is what stops the run below the cap, so a 🔴 that is neither is
+`yes` on the first line and `no` on the second.
 
 End with the proof block — only files you actually opened.

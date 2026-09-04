@@ -157,9 +157,14 @@ findings*) would otherwise skip:
                        names the signature, and the reach is the half it does
                        not show
   New units            the top-level definitions and constants the fixes
-                       added. The verifying round treats what this row names
-                       as a finding surface -- *is this correct* -- rather
-                       than a verification surface
+                       added, each with the DEPTH it was added at --
+                       `unit (depth N)`, one entry per unit, entries
+                       separated by `;`. The verifying round treats what this
+                       row names as a finding surface -- *is this correct* --
+                       rather than a verification surface. A fix pass may add
+                       a unit; that unit's fix may not, so depth 2 or above
+                       is refused and the unit is deferred with a named
+                       answerer or becomes an issue
 
 Both accept `none`, with or without a reason after it, because the honest
 mid-run value is `none — the fixes are not yet written` and the honest
@@ -182,6 +187,28 @@ What it costs is a repository that updates the plugin: every record in a work
 item whose declaration the pull request touches needs the row, not just the
 newest. The failure names the row and the three values, which is the same
 trade `docs/review-handoff-protocol.md` records for the `rounds/` move.
+
+THE FLOOR UNDER THE CAP, and the row that keeps it from being a wall. Three
+rounds, and five while a 🔴 is open, is a ceiling; #81 spent it, and its last
+three rounds found nothing that leaves the root and nothing that crashes.
+
+  Loses a record or crashes   `no`, and the run stops here whatever is left
+                              of the cap; `yes — <what>` names what was found
+                              and leaves the cap to decide. Absent after
+                              `FLOOR_FROM` fails, empty or unreadable fails
+                              at any age
+  Needs a fix                 whether this round opened anything needing one.
+                              The floor's bound below rests on it, and until
+                              `NEEDS_FROM` nothing read the row at all --
+                              which is why it is grandfathered WHOLE rather
+                              than only when absent
+
+A record that met the floor is followed by AT MOST ONE more round record: the
+verifying round at the diff of the fixes that closed it. The count stops at
+the first later record whose `Needs a fix` says the run reopened, that record
+included -- a verifying round that opens something is a finding round, its own
+fixes need a reader, and refusing that third record refuses the only legal end
+to such a run.
 
 WHAT IT CANNOT SEE, stated here rather than discovered later:
 
@@ -371,6 +398,65 @@ ARROWS = (chr(0x2192), "->")
 # an old work item reopened later still writes records under its original id
 # and stays excused.
 SURFACE_FROM = 1788272986
+# The floor under the cap (issue #110): did this round find anything that
+# leaves the root or crashes. `docs/review-chain-spec.md` owns the rule and
+# the measurement -- #81 spent three of seven rounds below it.
+FLOOR = "Loses a record or crashes"
+# Its two answers, as constants rather than literals in the parser. What a
+# checker matches literally is what `templates/config.md`'s *What no row
+# governs* list is derived from, and the derivation
+# (`tests/test_the_pull_request_language_is_the_repositorys.py`) reads these
+# names -- a literal spelled inline is a word a repository translating its
+# records is never warned about.
+FLOOR_NO = "no"
+FLOOR_YES = "yes"
+# A `New units` entry carries the depth it was added at (issue #117):
+# `unit (depth N)`. The regex is built from the word so there is one spelling
+# of it, and case-folded because the cell is prose a person types.
+DEPTH_WORD = "depth"
+DEPTH_RE = re.compile(r"\(\s*" + DEPTH_WORD + r"\s+(\d+)\s*\)", re.IGNORECASE)
+# The only depth a fix pass may add a unit at. A fix answering a finding in
+# code that predates the run may add the helper that pins it; a fix answering
+# a finding INSIDE that helper may not add another, because the fix is read by
+# the round that follows and the unit it added is read by nobody.
+DEPTH_MAX = 1
+# Whether the round opened anything needing a fix -- the reviewer's own
+# answer, in the same `no` / `yes — <what>` vocabulary as the floor. It is
+# read because the floor's run-length bound cannot be right without it: a
+# verifying round that opens something IS a finding round, so the run
+# legitimately continues past a record that met the floor, and this row is
+# the only thing that says a run reopened. Until round 1 of `1788472135-…`
+# nothing read it, and `templates/sdd-round.md` said so of itself.
+NEEDS = "Needs a fix"
+# Where the floor row and the depth become required, as the unix second in a
+# work item's directory name. Both are the id of THIS work item -- the one
+# that added the two rules -- so the first records held to either are the ones
+# written under it. Same shape and same reasoning as `STRICT_FROM` and
+# `SURFACE_FROM` above, which is where the reasoning lives rather than being
+# written a third time: a merged record has no honest repair, and a check
+# whose first production act is red on history nobody can fix is a check
+# people learn to skip.
+#
+# Two names for one number on purpose. They are two rules, they can move
+# apart, and a single constant read by both would make the next release that
+# moves one of them move the other in silence.
+FLOOR_FROM = 1788472135
+DEPTH_FROM = 1788472135
+# `Needs a fix` takes the same second, and it may never take a LATER one.
+# Between a later `NEEDS_FROM` and `FLOOR_FROM` the run-length bound above
+# would rest on a row no record was required to carry, which is the bound
+# failing a run for a cell nobody asked the author for.
+#
+# What it grandfathers is wider than the other three, and the difference is
+# the row's history rather than an inconsistency. The floor and the fix
+# surface arrived WITH their checks, so a row present on a later record was
+# written by an author who knew one would read it and a malformed value is
+# carelessness. This row has existed since draft 0.5 with nothing reading it,
+# so a value written before this landed was never held to a vocabulary at
+# all -- refusing those would fail records for a rule that did not exist when
+# they were written. Absent, empty and unreadable alike print for an item
+# begun before the cutoff.
+NEEDS_FROM = 1788472135
 # `templates/sdd-round.md:12` and `docs/review-handoff-protocol.md:84` both say
 # the Target SHA cell may name BOTH commits when HEAD moved mid-review. The
 # whole cell used to be handed to `merge-base` as one ref, so the documented
@@ -1362,14 +1448,111 @@ def says_none(value):
     mid-run value, and refusing it would refuse the truth. The boundary is a
     separator, so `nonempty` is not a `none` — the tolerant read this file
     refuses everywhere else.
+
+    The trailing `;` is stripped with the trailing `.` because the refusal
+    one function down produces it: a cell reading `none;` is refused as
+    separators-with-nothing-between, and its message says to write the units
+    or `none`, which a session spells `none;` again or `none (depth 1)` --
+    and that second one this reads as NO units. A refusal whose own
+    instruction produces a cell meaning something else is worse than the
+    thing it refused (round 1, 🟡 6).
+
+    A cell carrying a DEPTH MARKER is never a `none`, and that is the other
+    half of the same finding (round 2, 🟡 2). `EMPHASIS` strips the backticks
+    and `.lower()` strips the case, so a unit really named `NONE` became the
+    word; the space before its marker is a separator, so `` `NONE` (depth 2)
+    `` parsed as *none, with a reason* and the depth walk never ran on a unit
+    the rule refuses. The guard keys on the parenthesised marker rather than
+    on the word `depth`, so an ordinary reason — `none — the depth was not
+    recorded` — is still an answer.
+
+    What the guard does NOT close, stated rather than left to be found: a
+    unit literally named `none` with no marker beside it still reads as the
+    word. There is nothing in the cell to tell the two apart, and inventing
+    a rule about backticks would be the code-span parsing the limits below
+    already decline.
     """
-    s = EMPHASIS.sub("", value).lower().strip().rstrip(".").strip()
+    s = EMPHASIS.sub("", value).lower().strip().rstrip(".;").strip()
+    if DEPTH_RE.search(s):
+        return False
     if s == NONE_WORD:
         return True
     if not s.startswith(NONE_WORD):
         return False
     rest = s[len(NONE_WORD) :]
     return bool(rest) and rest[0] in SEPARATORS
+
+
+def yes_or_no(value):
+    """(`no`, reason), (`yes`, reason), or (None, "") for a `no`/`yes` cell.
+
+    Two rows are written in this vocabulary and both are the reviewer's own
+    line copied into a cell: `Loses a record or crashes` and `Needs a fix`.
+    One reader for both, because two would be two hand-kept spellings of one
+    vocabulary -- the drift this file closes everywhere else.
+
+    The tail after `yes` is required by the caller that wants it and never
+    here, which is the shape the template and `agents/warden.md` both show:
+    `yes — <what>` names what does, and `no` has nothing to name.
+    `nobody_reason` splits the same way for the same reason.
+
+    The boundary is a separator, so `nothing anybody can see` is not a `no` --
+    the tolerant read this file refuses everywhere else, and the one that
+    would stop a run on a sentence.
+    """
+    s = EMPHASIS.sub("", value).lower().strip().rstrip(".").strip()
+    for word in (FLOOR_NO, FLOOR_YES):
+        if s == word:
+            return word, ""
+        if s.startswith(word) and s[len(word)] in SEPARATORS:
+            return word, s[len(word) :].strip(SEPARATORS)
+    return None, ""
+
+
+def depth_problems(value):
+    """(no depth, crowded, too deep, below the first level) among the entries.
+
+    Four lists rather than one, because the four take four different answers.
+    An entry with no depth is a row half-written -- the row grew a second
+    thing it carries, and a row that carries two is a row somebody writes
+    half of. A CROWDED entry carries more than one unit or more than one
+    depth, so its declaration covers something other than exactly one unit.
+    An entry at depth 2 or above is a unit that may not exist and has two
+    places to go instead. An entry below depth 1 names no level the rule
+    defines at all, and reading it permissively puts it under the bound.
+
+    The crowded arm is round 1's 🟡 5. The walk used to split on `;` and take
+    the FIRST marker, so `` `a`, `b` (depth 1) `` passed with one declaration
+    covering two units and `helper (depth 1) (depth 2)` passed at the depth
+    it was not. The comma spelling is not hypothetical -- it is what this row
+    used before the depth existed, and a fixture in
+    `tests/test_the_fixes_name_their_surface.py` was written that way.
+
+    Grouped per record rather than reported per entry, so five bare entries
+    are one message rather than five.
+    """
+    missing, crowded, deep, shallow = [], [], [], []
+    for entry in value.split(";"):
+        entry = entry.strip()
+        if not entry:
+            continue
+        found = DEPTH_RE.findall(entry)
+        if not found:
+            missing.append(entry)
+        elif len(found) > 1 or "," in DEPTH_RE.sub("", entry):
+            crowded.append(entry)
+        elif int(found[0]) > DEPTH_MAX:
+            deep.append(entry)
+        elif int(found[0]) < 1:
+            shallow.append(entry)
+    return missing, crowded, deep, shallow
+
+
+def listed(entries):
+    """`a`, `b` -- the entries a depth message names, in the author's own
+    spelling, so the row can be found by searching for what the failure
+    printed."""
+    return ", ".join(f"`{entry}`" for entry in entries)
 
 
 def fix_surface(reader, root, rel):
@@ -1386,12 +1569,38 @@ def fix_surface(reader, root, rel):
     state, and a second error naming a different cause would name a cause
     that is not the cause.
 
+    `New units` carries a second thing beyond the names — the DEPTH each unit
+    was added at — and that half has a cutoff of its own, `DEPTH_FROM`, which
+    is later than `SURFACE_FROM`. A work item between the two owes the row and
+    not the depth in it.
+
     Known limit, recorded rather than parsed away: the arrow is found by
     substring, so an ASCII `->` inside a backticked unit name reads as the
     reach separator and a unit named `operator->` passes without its reach.
     `→` is the spelling that avoids it. Parsing code spans to close the gap
     would be an enumeration over an unbounded domain — the closing the
     review skill's own rules refuse.
+
+    The depth walk has the mirror of that limit and it is recorded the same
+    way: the comma is found by substring, so a comma anywhere in the entry
+    outside the depth marker reads as the separator of a crowded entry.
+    `` `get(a, b)` (depth 1) `` is refused as two units, and so is
+    `` `helper` (depth 1) — adds a, b ``, where the comma is in the reason
+    rather than the name (round 2, 🟡 9 — the code refused both and this
+    sentence named only the first). The workaround is to write the entry
+    without a comma.
+
+    **The separator itself has the same limit, and it applies BEFORE both of
+    them.** `;` splits both rows before anything looks at code spans, so a
+    literal semicolon inside a code span splits the entry carrying it: an
+    entry describing this very behaviour is cut in half and its tail refused
+    for having no reach. That is not hypothetical — it is round 2's 🔴 1, and
+    the entry it happened to was the one recording the change that put the
+    character in a cell. `.github/workflows/hygiene.yml` runs this check on
+    every pull request, so such a record opens the pull request red. Spell
+    the character as a word. Closing any of the three would mean parsing code
+    spans, which is the enumeration over an unbounded domain the review
+    skill's own rules refuse.
     """
     text = read_record(root, rel)
     if text is None:
@@ -1463,6 +1672,66 @@ def fix_surface(reader, root, rel):
                 )
             )
             continue
+        if label == NEW_UNITS:
+            # The depth has a cutoff of its own, and it is LATER than
+            # `SURFACE_FROM`. A work item between the two owes the row and not
+            # the depth in it: its records were written when the row named
+            # units alone, and deriving a depth now for fixes nobody re-read
+            # fabricates the answer the same way a reach row would.
+            deep_excused = began is None or began < DEPTH_FROM
+            missing, crowded, deep, shallow = depth_problems(value)
+            for entries, message in (
+                (
+                    crowded,
+                    f"`{NEW_UNITS}` lists {listed(crowded)} with more than "
+                    "one unit or more than one depth in a single entry. One "
+                    "entry per unit and one depth per unit, entries "
+                    "separated by `;` — a comma list under a single "
+                    "`(depth N)` declares that depth for one name and says "
+                    "nothing about the rest, and the comma is the spelling "
+                    "this row used before the depth existed",
+                ),
+                (
+                    missing,
+                    f"`{NEW_UNITS}` lists {listed(missing)} without the depth "
+                    "it was added at. A fix pass may add a unit; that unit's "
+                    "fix may not, and the row cannot show which of the two "
+                    "this is without the depth. Write `unit (depth 1)`, "
+                    "entries separated by `;`",
+                ),
+                (
+                    deep,
+                    f"`{NEW_UNITS}` lists {listed(deep)} at depth 2 or above "
+                    "— a unit added by a fix answering a finding INSIDE a "
+                    "unit an earlier round's fixes created. A fix pass may "
+                    "add a unit; that unit's fix may not, because the fix is "
+                    "read by the round that follows and the unit it added is "
+                    "read by nobody, and the two ship in one commit. It does "
+                    "not go in this row: it is deferred with a named "
+                    "answerer, or becomes an issue",
+                ),
+                (
+                    shallow,
+                    f"`{NEW_UNITS}` lists {listed(shallow)} below the first "
+                    "level, which names no depth the rule defines. A unit a "
+                    "fix pass added is depth 1; a unit that unit's own fix "
+                    "would add is depth 2 and does not go in this row at all",
+                ),
+            ):
+                if not entries:
+                    continue
+                if deep_excused:
+                    notices.append(
+                        (
+                            rel,
+                            0,
+                            message + ". This work item began before the "
+                            "depth landed, so this prints instead of failing",
+                        )
+                    )
+                else:
+                    errors.append((rel, 0, message))
+            continue
         if label != CONTRACT:
             continue
         for entry in value.split(";"):
@@ -1484,6 +1753,220 @@ def fix_surface(reader, root, rel):
                         "`unit → call site, call site`",
                     )
                 )
+    return errors, notices
+
+
+def run_reopened(reader, root, rel):
+    """True when this record's `Needs a fix` says the run reopened.
+
+    None when the row is absent or its value is outside the vocabulary, and
+    None counts as NOT reopening wherever it is read: `plan.md` declares the
+    failure direction *blocks more*, and a row this cannot read must never be
+    the thing that quiets a refusal. The record itself is told about the
+    unreadable row by `stopping_floor`, so the state is never silent.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return None
+    cell = field(table_rows(reader, reader.readable(text)), NEEDS)
+    if cell is None:
+        return None
+    word, _ = yes_or_no(reader.visible(cell).strip())
+    return word == FLOOR_YES if word is not None else None
+
+
+def stopping_floor(reader, root, rel, later):
+    """(errors, notices) for one record's floor row and its `Needs a fix`.
+
+    `later` is the round records this work item carries AFTER this one, in
+    round order — the paths, not a count, because how many of them the bound
+    counts depends on what each one says. The floor value answers *did this
+    round find anything that leaves the root or crashes*; the walk over
+    `later` answers *and did the run stop when it said no*.
+
+    **The count stops at the first later record whose `Needs a fix` says the
+    run reopened, that record included.** A verifying round that opens
+    something IS a finding round (`skills/code-review/SKILL.md`), so its own
+    fixes need a reader in turn, and a third record is then the run behaving
+    correctly rather than running on. Counting blindly made that sequence
+    unwritable — round 1's 🔴 1, found on this work item's own first record,
+    which answers the floor `no` and `Needs a fix: yes`.
+
+    Both rows are read here rather than in two functions, because the bound
+    is one question spread over two cells and a second reader of `Needs a
+    fix` would be a second answer to it.
+
+    Read on EVERY record, like `checked_by` and `fix_surface` and for the same
+    reason: every round has its own answer, and the run's stopping point is a
+    fact about the round that met the floor rather than about the last one.
+
+    The grandfathering is `item_began` against `FLOOR_FROM`, and for the
+    floor it reaches the ABSENT row and the run that ran on past it. Neither
+    has an honest repair on a merged record -- the round is over, and the
+    repair for the second is a round that was never spawned. A floor row that
+    is present and malformed is refused on any record, because formatting is
+    always the author's, which is the split `fix_surface` already makes.
+
+    `Needs a fix` is grandfathered WHOLE, against `NEEDS_FROM`, and that
+    constant carries why: the row predates every check on it, so a value
+    written earlier was never held to a vocabulary and malformed does not
+    mean careless there.
+
+    An unreadable record returns nothing: `checked_by` already reports that
+    state, and a second error naming a different cause would name a cause
+    that is not the cause.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return [], []
+    rows = table_rows(reader, reader.readable(text))
+    began = item_began(rel)
+    excused = began is None or began < FLOOR_FROM
+    errors, notices = [], []
+
+    needs_excused = began is None or began < NEEDS_FROM
+    needs = field(rows, NEEDS)
+    # `is not None`, not truthiness: an empty cell is a state of its own and
+    # gets its own sentence below, where `if needs` sent it to the branch
+    # that quotes a value and printed empty backticks (round 2, 🟡 3).
+    word_needs = (
+        yes_or_no(reader.visible(needs).strip())[0] if needs is not None else None
+    )
+    if word_needs is None:
+        if needs is None:
+            message = f"no readable `| {NEEDS} | … |` row"
+        elif not needs.strip():
+            # The sentence the floor row two functions up has always given an
+            # empty cell. Two rows read the same vocabulary, so one state
+            # cannot have two answers at two qualities.
+            message = f"`{NEEDS}` is empty — a row that says nothing answers nothing"
+        else:
+            message = f"`{NEEDS}` is `{needs.strip()}`, which is neither answer"
+        message += (
+            f". Write `{FLOOR_NO}`, or `{FLOOR_YES} — <what>`, copied from "
+            "the reviewer's line of the same name. The floor's bound below "
+            "rests on this row: it is what tells a verifying round that "
+            "reopened the run — whose own fixes then need a reader — from a "
+            "run that simply carried on"
+        )
+        if needs_excused:
+            notices.append(
+                (
+                    rel,
+                    0,
+                    message + ". This work item began before anything read "
+                    "the row, so this prints instead of failing — it has "
+                    "carried free text since draft 0.5 and was held to no "
+                    "vocabulary",
+                )
+            )
+        else:
+            errors.append((rel, 0, message))
+
+    cell = field(rows, FLOOR)
+    if cell is None:
+        message = (
+            f"no `| {FLOOR} | … |` row: three rounds, and five while a 🔴 is "
+            "open, is a CEILING, and the cap was spent like a budget for "
+            "want of anything under it — #81 ran seven rounds and the last "
+            "three found none of either kind. This row is the floor. "
+            f"`{FLOOR_NO}` says nothing this round found leaves the root or "
+            "crashes and the run stops here, whatever is left of the cap; "
+            f"`{FLOOR_YES} — <what>` names what was found and leaves the cap "
+            "to decide. It is the reviewer's own answer, copied from the "
+            "line of the same name in its report"
+        )
+        if excused:
+            notices.append(
+                (
+                    rel,
+                    0,
+                    message + ". This work item began before the rule "
+                    "landed, so this prints instead of failing — the "
+                    "grandfathering `Fixes checked by` already uses",
+                )
+            )
+        else:
+            errors.append((rel, 0, message))
+        return errors, notices
+
+    value = reader.visible(cell).strip()
+    if not value:
+        errors.append(
+            (
+                rel,
+                0,
+                f"`{FLOOR}` is empty — a row that says nothing answers "
+                "nothing, and whether the run stops here is not something a "
+                f"reader can infer from a verdict table. Write `{FLOOR_NO}`, "
+                f"or `{FLOOR_YES} — <what>`",
+            )
+        )
+        return errors, notices
+
+    word, reason = yes_or_no(value)
+    if word is None:
+        errors.append(
+            (
+                rel,
+                0,
+                f"`{FLOOR}` is `{cell.strip()}`, which is neither answer. "
+                f"Write `{FLOOR_NO}` — and the run stops here — or "
+                f"`{FLOOR_YES} — <what does>`, copied from the reviewer's "
+                "line of the same name. The direction `CLOSED_WORDS` takes "
+                "for a verdict cell: a word this cannot read is never the "
+                "reassuring reading",
+            )
+        )
+        return errors, notices
+    if word == FLOOR_YES and not reason:
+        errors.append(
+            (
+                rel,
+                0,
+                f"`{FLOOR}` says `{FLOOR_YES}` and does not say what. The "
+                "whole of what makes the row readable is what was found — "
+                "without it the cell records that something was, and not "
+                "what, and the next round inherits nothing",
+            )
+        )
+        return errors, notices
+
+    if word == FLOOR_NO:
+        # Every later record counts until one of them says the run reopened,
+        # that one included. After a reopening the records answer to THAT
+        # round rather than to this one, and the run is a finding run again.
+        counted = 0
+        for other in later:
+            counted += 1
+            if run_reopened(reader, root, other):
+                break
+        if counted > 1:
+            message = (
+                f"`{FLOOR}` is `{FLOOR_NO}` and {counted} round records "
+                "follow this one with none of them saying the run reopened. "
+                "A record that met the floor is followed by at most one "
+                "more — the verifying round, at the diff of the fixes that "
+                "closed it. A second is the run carrying on past its own "
+                "stopping rule, which is the hour #81 spent on the flat "
+                f"part of the curve. A verifying round that opens something "
+                f"says so in its own `{NEEDS}`, and the count stops there. "
+                "What a stopped round found that still needs doing is "
+                "deferred with a named answerer, or becomes an issue"
+            )
+            if excused:
+                notices.append(
+                    (
+                        rel,
+                        0,
+                        message + ". This work item began before the rule "
+                        "landed, so this prints instead of failing — the "
+                        "rounds it names are over, and no record anybody "
+                        "writes now un-spawns them",
+                    )
+                )
+            else:
+                errors.append((rel, 0, message))
     return errors, notices
 
 
@@ -1791,7 +2274,7 @@ def main(argv=None):
         # already fixed by `round_records`. The path is the value, so the
         # named record can be opened and its `Target SHA` compared.
         siblings = {os.path.basename(p): p for p in records}
-        for record in records:
+        for index, record in enumerate(records):
             who_errors, who_notices = checked_by(
                 reader, routing, root, record, siblings, last=record == last
             )
@@ -1800,6 +2283,17 @@ def main(argv=None):
             surface_errors, surface_notices = fix_surface(reader, root, record)
             errors.extend(surface_errors)
             notices.extend(surface_notices)
+            # The records that come AFTER this one, which is the half of the
+            # floor a single record cannot answer. `records` is ordered by
+            # round number, so this is the later ROUNDS in order and not the
+            # files that happen to sort after it — and the order is what the
+            # bound reads, since it stops at the first one that reopened the
+            # run.
+            floor_errors, floor_notices = stopping_floor(
+                reader, root, record, records[index + 1 :]
+            )
+            errors.extend(floor_errors)
+            notices.extend(floor_notices)
 
     for rel, line, message in notices:
         print(reader.annotate("notice", rel, line, message))

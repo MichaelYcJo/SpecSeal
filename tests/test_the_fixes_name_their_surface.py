@@ -134,6 +134,12 @@ def record(sha, contract="none", new_units="none"):
         rows += f"| Contract changes | {contract} |\n"
     if new_units is not None:
         rows += f"| New units | {new_units} |\n"
+    # The floor row is `no` for the same reason the verdict closes without a
+    # fix: `NEW_ITEM` began after `chain_check.FLOOR_FROM`, so leaving it out
+    # would fail every record here for a rule this file does not pin.
+    # `tests/test_the_record_is_held_to_the_floor_and_the_depth.py` is where
+    # that one is pinned.
+    rows += "| Loses a record or crashes | no |\n| Needs a fix | no |\n"
     return (
         "# a round\n\n"
         f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n"
@@ -299,7 +305,9 @@ def test_a_unit_with_its_reach_passes(repo):
             sha,
             contract="`read()` gained a `None` return → `check_ledger`, "
             "`reverify`; `place()` grew a guard → its own three branches",
-            new_units="`SURFACE_FROM`, `fix_surface`",
+            # Each entry carries the depth it was added at, which
+            # `chain_check.DEPTH_FROM` requires of an item begun this late.
+            new_units="`SURFACE_FROM` (depth 1); `fix_surface` (depth 1)",
         ),
     )
     code, out = run(repo)
@@ -339,6 +347,36 @@ def test_an_ascii_arrow_is_the_arrow(repo):
     )
     code, out = run(repo)
     assert code == 0, out
+
+
+def test_an_entry_carrying_a_literal_separator_is_refused(repo):
+    """Round 2's 🔴 1, as a fixture, pinning the choice whichever way a later
+    change goes.
+
+    `;` splits the cell before anything looks at code spans, so an entry that
+    describes the character in a code span is cut in half and the tail is
+    refused for having no reach. That is what happened to the record naming
+    this branch's own fix surface, and CI runs the same command on every pull
+    request, so the branch would have opened red. The workaround is to spell
+    the character as a word; closing it would mean parsing code spans, which
+    is the enumeration the arrow's limit already declines.
+
+    It lives here rather than in `test_chain_check_at_the_pull_request.py`,
+    which the round named: every other `Contract changes` refusal is in this
+    file, and that file's work item predates `SURFACE_FROM`, so the same cell
+    would print there instead of failing.
+    """
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, contract="`says_none` accepts a trailing `;`"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "call site" in out, (
+        "the tail after the separator is what is refused, and the failure "
+        "has to name the reach it is missing"
+    )
 
 
 def test_an_empty_cell_is_not_an_answer(repo):
@@ -466,13 +504,24 @@ def test_the_protocol_carries_the_rows_and_moved_its_draft():
     lines = reader_module().strip_comments(
         read("docs", "review-handoff-protocol.md").splitlines()
     )
-    for label in ("| Contract changes", "| New units"):
+    # `Loses a record or crashes` joins the two: `templates/sdd-round.md:7`
+    # names this document as the file that carries the format, and round 1 of
+    # `1788472135-…` found it carrying neither of the branch's rules —
+    # `grep -c` for the floor row returned 0.
+    for label in ("| Contract changes", "| New units", "| Loses a record or crashes"):
         rows = [line for line in lines if line.strip().startswith(label)]
         assert len(rows) == 1, f"{label}: {len(rows)} rows outside comments"
         required = rows[0].split("|")[2].strip()
         assert required.startswith("yes"), (
             f"the Required column reads `{required}` — a field the protocol "
             "does not require is a field a record can leave out"
+        )
+    units = next(line for line in lines if line.strip().startswith("| New units"))
+    for needle in ("depth", "`;`"):
+        assert needle in units, (
+            f"the protocol's `New units` row offers no `{needle}`, so a "
+            "record written from THIS document is refused by the checker — "
+            "and the comma spelling it still teaches is the one refused"
         )
     # The claim is that the rows arrived WITH a bump, not that the draft
     # stays at the number they arrived in — the literal `Draft 0.7` spelling
@@ -482,7 +531,22 @@ def test_the_protocol_carries_the_rows_and_moved_its_draft():
     title = read("docs", "review-handoff-protocol.md").splitlines()[0]
     match = re.search(r"draft (\d+\.\d+)", title)
     assert match, f"the title names no draft: `{title}`"
-    assert float(match.group(1)) >= 0.7, "a changed field moves the draft"
+    assert float(match.group(1)) >= 1.0, "a changed field moves the draft"
+
+
+def test_the_protocol_no_longer_grandfathers_both_rows_by_one_key():
+    """`DEPTH_FROM` made that sentence false for half of `New units`: the row
+    is owed from one second and the depth in it from a later one, so a
+    project can be past the first cutoff and before the second."""
+    text = " ".join(read("docs", "review-handoff-protocol.md").split())
+    assert "keyed the same way as `Fixes checked by`'s grandfathering" in text, (
+        "the sentence that carries the grandfathering moved, and this case "
+        "cannot say what it now claims"
+    )
+    assert "the depth has a cutoff of its own" in text, (
+        "the protocol still says one key grandfathers both fix-surface rows, "
+        "which stopped being true when the depth got a cutoff of its own"
+    )
 
 
 def test_the_documents_say_why_older_records_are_excused():

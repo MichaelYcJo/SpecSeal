@@ -1,4 +1,4 @@
-# Review Handoff Protocol — draft 0.9
+# Review Handoff Protocol — draft 1.0
 
 A file convention for handing review work between agent sessions — across
 time, machines, and tools. Tool-agnostic on purpose: nothing here requires
@@ -112,9 +112,10 @@ the inheritance range and round 2 raised it again.
 | Target SHA | yes | commit(s) the round actually reviewed — branches move between rounds; record both if HEAD moved mid-review. **Never rewritten after a squash** — see below |
 | Pass | yes | a checkbox — `- [ ] Pass` or `- [x] Pass`. Checked means no finding in this round's verdict table is still open. See below |
 | Fixes checked by | yes | who opened the fixes that closed this round's findings: a later round, `no fixes to check`, or `nobody` with the reason. `Pass` answers whether the findings were closed; this answers whether the closing was read by anyone. See below |
-| Needs a fix | yes, from the round that wrote it | whether this round opened anything that needs one — the reviewer's own answer, copied rather than re-derived from the verdict table. It is the run's terminal condition where a run ends at a verifying round, and a finding the implementer answers with grounds does not make it `yes`. See below |
+| Needs a fix | yes, from the round that wrote it | whether this round opened anything that needs one — the reviewer's own answer, copied rather than re-derived from the verdict table. It is one of two conditions a run ends on, and a finding the implementer answers with grounds does not make it `yes`. See below |
+| Loses a record or crashes | yes, for work items begun after a project adopts it | whether anything this round found leaves the root or crashes — the reviewer's own answer again, in the same `no` / `yes — <what>` shape. It is the FLOOR under a round cap: `no` stops the run whatever is left of the cap. See below |
 | Contract changes | yes, for work items begun after a project adopts it | every unit whose signature, return arity, return type, or set of returnable values this round's fixes changed — each with the call sites its contract reaches. `none` is an answer, with or without a reason. See below |
-| New units | yes, for work items begun after a project adopts it | the top-level definitions and constants this round's fixes added — the verifying round's finding surface. `none` is an answer. See below |
+| New units | yes, for work items begun after a project adopts it | the top-level definitions and constants this round's fixes added, each with the depth it was added at — `unit (depth N)`, one entry per unit, entries separated by `;`. The verifying round's finding surface. `none` is an answer. See below |
 | PR | when one exists | the change request this work went to. A field, not the key: it does not exist while the rounds that fill this file are running |
 | Verdict table | yes | per finding: location, verdict, grounds |
 | Executed probes | yes (may be "none") | what was RUN, with results — distinguished from what was read |
@@ -288,6 +289,39 @@ and for the same reason: a merged record has no honest repair, and writing
 reach rows for fixes nobody re-read fabricates a review. A row that is
 present and malformed fails on any record, because formatting is always the
 author's to fix.
+
+**The depth inside `New units` is adopted separately, and the depth has a
+cutoff of its own.** A project can be past the cutoff for the rows and before
+the one for the depth, and then its records owe the row and not the depth in
+it — they were written when the row named units alone, and deriving a depth
+now for fixes nobody re-read fabricates the answer the same way a reach row
+would. A conforming tool that refuses a second-level unit says in the failure
+where the unit goes instead; a refusal with no exit stops the chain rather
+than the unit.
+
+#### Loses a record or crashes — the floor under a round cap
+
+A run bounded only by a cap spends the cap. The reviewer answers, in a line
+of its own, whether anything it found leaves the root or crashes; `no` stops
+the run whatever is left of the cap, and what the stopped round found that
+still needs doing is deferred with a named answerer or becomes an issue.
+
+It is not `Needs a fix` in other words. A round can open a 🔴 in a line a
+person reads — which needs a fix and is neither a lost record nor a crash —
+and that round ends the run with the finding handed over.
+
+**A record that met the floor is followed by at most one more round record**,
+the verifying round at the diff of the fixes that closed it. The one exception
+is the reason `Needs a fix` is machine-read at all: a verifying round that
+opens something is a finding round, its own fixes need a reader in turn, and
+that reader is a third record. A conforming tool counts later records only up
+to the first whose `Needs a fix` says the run reopened, that record included.
+Counting blindly makes the sequence this protocol requires unwritable.
+
+Records predating a project's adoption print rather than fail, the same
+grandfathering as above. `Needs a fix` is grandfathered WHOLE — absent, empty
+or unreadable alike — because it carried free text from draft 0.5 until a tool
+first read it, so a value written earlier was held to no vocabulary.
 
 ### tests-todo.md — regression tests prescribed, not written
 
@@ -464,7 +498,7 @@ A tool claiming to support this protocol:
 
 ## Status
 
-Draft 0.9, extracted from the convention this plugin's `code-review` and
+Draft 1.0, extracted from the convention this plugin's `code-review` and
 `implement` skills already operate (they are its reference implementation).
 Field names and layout may change; the three conformance rules are stable in
 shape. 0.2 changed the third from *delete after draining* to *close and keep*.
@@ -515,6 +549,21 @@ fix. What is stated here instead is the rule about the prompt itself: it
 carries what is specific to the round and nothing else. No conformance rule
 changes, for the reason 0.6 gave when it added none — a spawn prompt is not a
 file this protocol can check.
+
+1.0 adds `Loses a record or crashes` — a floor under the round cap, because a
+run bounded only by a ceiling spends the ceiling: one measured run went seven
+rounds and its last three found nothing that leaves the root and nothing that
+crashes. It also gives `New units` the depth each entry was added at, because
+a fix pass adds the unit that pins it and that unit ships unreviewed in the
+same commit — three consecutive rounds of one measured run found their finding
+inside the previous round's fixes. `Needs a fix` stops being write-only in the
+same draft: the floor's bound on what may follow a stopped round is wrong
+without it, since a verifying round that reopens the run needs a reader for
+its own fixes. Records predating a project's adoption print rather than fail,
+the grandfathering `Fixes checked by` carries — and `Needs a fix` is
+grandfathered whole rather than only when absent, because it carried free text
+from draft 0.5 until this draft first read it. The reference implementation
+fails on all three, for work items begun after it adopted them.
 
 0.3 also states the path as this implementation's choice rather than as the
 protocol. Draft 0.2 claimed to be tool-agnostic while naming a directory
