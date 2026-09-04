@@ -8,7 +8,7 @@ plan did not contain, and the phase row was added beside them. -->
 | Field | Value |
 |---|---|
 | Phase | 5 |
-| Commit | <the commit that closed this phase> |
+| Commit | b87ba49 |
 | Ran by | specseal:smith on opus |
 
 ## What this phase was asked
