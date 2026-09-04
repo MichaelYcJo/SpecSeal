@@ -1817,15 +1817,29 @@ def runner_problem(value):
     orchestrating session's own turns, which is the whole of what the row
     was added to answer.
 
-    The `unknown` branch is tried FIRST, and that ordering is load-bearing.
-    Splitting first would read `unknown — the model was not recorded on this
-    run` as a pair whose agent is the reason and whose model is `this run`,
-    which is a tolerant read of the exact cell the vocabulary exists to
-    accept.
+    The `unknown` branch is tried FIRST, and that ordering changes the REASON
+    an answer comes out, never the answer. Round 1 measured both: the two
+    orders were compared over 1,536 constructed cells with zero verdict
+    mismatches, and reversing the arms in this file left 272 cases green
+    across the five suites that read it.
 
-    What the ordering does NOT close, recorded rather than parsed away: a
-    cell reading `unknown on Opus` is an unknown WITH A REASON rather than a
-    half-named pair, because it begins with the word. Nothing is lost by it —
+    It is true by construction, which is the part worth keeping. The
+    `unknown` arm refuses when nothing follows the separator, and nothing
+    following means there is no ` on ` inside the tail either — so a cell
+    that would split is a cell the `unknown` arm accepts, and one the
+    `unknown` arm rejects cannot split. The two arms cannot disagree about
+    accepting; they can only disagree about what the cell was read AS.
+
+    Read this order as an editorial choice with a reason, not as a
+    correctness constraint. `unknown — the model was not recorded on this
+    run` is an unknown carrying a reason here, and a pair whose agent is
+    `unknown — the model was not recorded` and whose model is `this run`
+    under the other order. Both accept. The first is what the writer meant,
+    and a message quoting the cell back is the only place the difference
+    surfaces.
+
+    Its consequence, recorded rather than parsed away: `unknown on Opus` is
+    an unknown WITH A REASON rather than a half-named pair. Nothing is lost —
     the model is still written down where a reader can see it — and telling
     the two apart would mean deciding whether a reason may start with `on`,
     which is a rule about English rather than about the row.

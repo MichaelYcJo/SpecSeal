@@ -18,14 +18,15 @@ acceptance band and #84's *time per agent* both stop being unanswerable.
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | Which skill states whose row it is | `plan.md` phase 3 names `skills/verify/SKILL.md` alone | Both that and `skills/code-review/SKILL.md` | `skills/code-review/SKILL.md:167` enumerates every mandatory row of `round-N.md` in one cell, and an orchestrator writing a round record reads that list and nothing else. Leaving the row out of it ships a skill whose own output phase 2's checker refuses — the failure `plan.md`'s own phase ordering exists to prevent, arriving from the other direction |
-| Opening the outcome-column ticket | `plan.md` phase 4: "a row for the outcome-column ticket this work opens" | The row is written; the issue is **not** opened | `skills/agent-contract/SKILL.md` §6 — an implementing agent posts nothing and opens no pull request, and an issue is a durable record outside the repository. The row names the gap and says the number goes in when it is opened; the drafted body is in the handback |
+| Opening the outcome-column ticket | `plan.md` phase 4: "a row for the outcome-column ticket this work opens" | The row is written; the issue is **not** opened | `skills/agent-contract/SKILL.md` §6 — an implementing agent posts nothing and opens no pull request, and an issue is a durable record outside the repository. The row names the gap and says the number goes in when it is opened; the drafted body is in the handback. The orchestrator opened #149 and filled the row in at `77eb59d` |
+| Whether the behaviour spec owed a subsection | I judged it did not: "it owns the cap and the floor, and `Ran by` is neither" | It does — round 1's 🟡 1, fixed | Reading the file settles it against me. `Contract changes` and `New units` make no claim about when a run stops either, and both have a subsection with their cutoff named. What that file owns is every refusal the checker makes at the pull request, and `grep -c "Ran by"` over it returned 0 |
 
 ## Not verified
 
 | Item | Who must answer |
 |---|---|
 | the full suite, the repository-wide lint and the typecheck | the orchestrator — §2's single broad run, after the rounds settle |
-| the outcome-column issue is opened and its number replaces the placeholder in `docs/flow.md`'s 0.9.0 section | the orchestrator |
+| ✅ the outcome-column issue is opened and its number replaces the placeholder in `docs/flow.md`'s 0.9.0 section | #149, opened by the orchestrator at `77eb59d`; read at `docs/flow.md:51` after round 1, and the placeholder sentence its edit left behind removed |
 | `chain_check.py` running under CI against a real pull request that carries this branch's own round records | the hygiene workflow at the pull request |
 
 ## Not done
@@ -39,9 +40,14 @@ format early. Its row is in `docs/flow.md` under 0.9.0, without a number.
 and deciding a budget before the evidence exists is what #110's *Not this*
 refuses.
 
-**`docs/review-chain-spec.md` was not touched.** It owns the cap and the
-floor, and `Ran by` is neither — it makes no claim about when a run stops. The
-row is stated in the two documents a record author actually reads.
+**One arm of `ran_by` still has no case: the unreadable record.** `read_record`
+answering `None` returns `([], [])`, on the grounds that `checked_by` already
+reports that state and a second error would name a cause that is not the
+cause. `fix_surface` and `stopping_floor` carry the same early return and
+neither has a case either, so the gap is three functions wide rather than
+this branch's alone. Fabricating a record that `round_records` lists and
+`read_record` cannot open is what it would take, and I did not find a way to
+do it that was not a story about git. Named for round 2 rather than closed.
 
 **A half-known runner has no spelling of its own.** `unknown on Opus` is
 accepted, as an unknown with a reason rather than as a half-named pair, and

@@ -44,14 +44,29 @@ forward: a refusal with two clauses in sequence needs a case that reaches the
 second one without tripping the first, and a plausible-looking input often
 trips the first.
 
-**The `unknown` branch is tried before the split, and the ordering is
-load-bearing.** Splitting first reads `unknown — the model was not recorded on
-this run` as a pair whose agent is the reason and whose model is `this run` —
-a tolerant read of the exact cell the vocabulary exists to accept. The cost of
-the chosen order is recorded rather than parsed away: `unknown on Opus` is an
-unknown with a reason rather than a half-named pair. Nothing is lost by it,
-since the model is still written where a reader sees it, and telling the two
-apart would mean a rule about whether an English reason may begin with `on`.
+**The `unknown` branch is tried before the split, and this phase recorded
+that as load-bearing. It is not — round 1's 🟡 4.** The claim is left standing
+here with its correction beside it, because what this phase concluded is part
+of what the record is for.
+
+The reviewer compared the two orders over constructed cells and found zero
+verdict mismatches, and reversing the arms in the file left the suites green.
+It is true by construction: the `unknown` arm refuses when nothing follows the
+separator, and nothing following means there is no ` on ` in the tail either,
+so every cell that would split is one the `unknown` arm accepts anyway. What
+the order settles is the READING, not the verdict — `unknown — the model was
+not recorded on this run` is an unknown with a reason under this order and a
+pair under the other, and both accept.
+
+The mistake underneath it is worth more than the correction: **this phase
+reasoned about a tolerant read and never ran the comparison that would have
+told it whether one existed.** A parser argument that is not differentially
+executed is a story about the code.
+
+The consequence of the chosen order stands as recorded: `unknown on Opus` is
+an unknown with a reason rather than a half-named pair, nothing is lost since
+the model is still written where a reader sees it, and telling the two apart
+would mean a rule about whether an English reason may begin with `on`.
 
 **A no-op control ran beside the mutations.** One entry in the loop changes
 nothing observable and must stay green; without it a loop where every case is

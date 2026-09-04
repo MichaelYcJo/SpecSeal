@@ -179,12 +179,21 @@ def run(repo, draft=None):
     return r.returncode, r.stdout + r.stderr
 
 
-def declared(repo, item, body):
-    """The declaration, then one record, each in its own commit."""
+def declared(repo, item, *bodies):
+    """The declaration, then one record per body, each in its own commit.
+
+    Each record is handed the HEAD that existed before it, so round 2's
+    `Target SHA` is a descendant of round 1's — what a real run looks like,
+    since the fixes are what moved HEAD between the rounds. The same shape
+    `tests/test_the_record_is_held_to_the_floor_and_the_depth.py` uses, and
+    for the same reason: the every-record claim cannot be tested with one
+    record.
+    """
     write(repo, f"{item}/routing.md", declaration(item))
     sha = commit(repo, "declare")
-    write(repo, f"{item}/rounds/round-1.md", body(sha))
-    commit(repo, "round 1")
+    for number, body in enumerate(bodies, start=1):
+        write(repo, f"{item}/rounds/round-{number}.md", body(sha))
+        sha = commit(repo, f"round {number}")
     return sha
 
 
@@ -212,6 +221,54 @@ def test_an_absent_row_only_prints_before_the_cutoff(repo):
         "passing in silence would hide the state the row exists to surface"
     )
     assert "prints instead of failing" in out
+
+
+def test_a_work_item_with_no_timestamp_prefix_is_grandfathered(repo):
+    """Round 1's 🟡 3. `item_began` answers None for a work item named some
+    other way, and None is below every cutoff — failing would fail a naming
+    convention rather than a state anybody chose.
+
+    The arm had no case anywhere. All three sibling suites carry one, and
+    this branch is what took their coverage away: making each `record()`
+    helper always emit `Ran by` left every one of them running with the row
+    PRESENT, so none of them reaches this arm any more. Remove `began is
+    None` from the guard and `None < int` raises, with nothing red.
+    """
+    declared(
+        repo,
+        "seal/specs/a-work-item-with-no-date",
+        lambda sha: record(sha, ran_by=None),
+    )
+    code, out = run(repo)
+    assert code == 0, out
+    assert "Ran by" in out, (
+        "passing in silence would hide the state the row exists to surface"
+    )
+
+
+def test_the_row_is_read_on_every_record_not_only_the_last(repo):
+    """Round 1's 🟡 2. The every-record choice was written down twice as a
+    decision and held by nothing.
+
+    **This case cannot be red at HEAD**, because the behaviour it pins is
+    already correct there — it is red only under the mutation that narrows
+    `ran_by` to the last record, which is how §15 was satisfied for it.
+    Measured before the case existed: that narrowing left 272 cases green
+    across the five suites reading `chain_check.py`. Do not delete this as a
+    case that never fails.
+
+    What it protects is the comparison the row exists to make. A work item
+    whose rounds ran under different runners — a cheaper model on round 2,
+    say — is exactly what anyone reading the measurement log wants to see,
+    and a check reading the last record alone answers it for one round.
+    """
+    declared(repo, NEW_ITEM, lambda sha: record(sha, ran_by=None), record)
+    code, out = run(repo)
+    assert code == 1, out
+    assert "round-1.md" in out, (
+        "the earlier record is missing the row and the failure does not name "
+        "it, so the check is reading the last record alone"
+    )
 
 
 def test_the_cutoff_is_the_work_items_own_second(repo):
@@ -332,18 +389,76 @@ def test_the_on_must_stand_alone(repo, value):
 
 def test_a_row_inside_a_comment_is_not_the_row(repo):
     """One reader, not two: the template explains the row in a comment
-    beside it, and an explanation must not read as an answer."""
-    body = record("0" * 40, ran_by=None).replace(
+    beside it, and an explanation must not read as an answer.
+
+    Round 1's 🟡 5 is why this goes through `declared()` like every other
+    case here. It used to hand-build the fixture with a `Target SHA` of forty
+    zeroes, and that SHA is unreachable — so the exit code was 1 whatever the
+    comment held. Moving the row out of the comment, making it a legitimate
+    answer, still exited 1. The needle below did catch that, so it was never
+    a hole; it is the class named in this work item's own phase 4 arriving a
+    third time, and this time in the exit code rather than in a needle.
+
+    With a real SHA the exit code means what the case says it means, and the
+    two assertions now fail together rather than one propping up the other.
+    """
+    body = record("PLACEHOLDER", ran_by=None).replace(
         "- [x] Pass",
         f"<!--\n| Ran by | {RUNNER} |\n-->\n\n- [x] Pass",
     )
-    write(repo, f"{NEW_ITEM}/routing.md", declaration(NEW_ITEM))
-    commit(repo, "declare")
-    write(repo, f"{NEW_ITEM}/rounds/round-1.md", body)
-    commit(repo, "round 1")
+    declared(repo, NEW_ITEM, lambda sha: body.replace("PLACEHOLDER", sha))
     code, out = run(repo)
     assert code == 1, out
     assert "Ran by" in out
+
+
+# --- the behaviour spec states the refusal and names its cutoff ------------
+
+
+def test_the_behaviour_spec_carries_a_subsection_for_this_refusal():
+    """Round 1's 🟡 1. `docs/review-chain-spec.md` owns every refusal the
+    checker makes at the pull request, and this one arrived without a
+    subsection while `Pass`, `Fixes checked by`, the fix-surface rows, the
+    floor, `Needs a fix` and the depth each have one.
+
+    The grounds first offered for leaving it out — *that file owns the cap
+    and the floor, and `Ran by` is neither* — do not survive reading it:
+    `Contract changes` and `New units` make no claim about when a run stops
+    either, and they have a subsection with their cutoff named beside them.
+    """
+    text = read("docs", "review-chain-spec.md")
+    assert "##### What ran the round" in text, (
+        "the behaviour spec has a subsection for every other refusal the "
+        "checker makes and none for this one, so the only statement of what "
+        "it refuses is the code that does the refusing"
+    )
+    assert "RUNNER_FROM" in text, (
+        "the subsection does not name the cutoff, where every neighbour "
+        "names its own — a reader cannot tell which records are excused"
+    )
+
+
+def test_the_documents_say_why_older_records_are_excused():
+    """The sibling arrangement `SURFACE_FROM` already has: a constant with no
+    reason beside it reads as a leftover, and removing it turns a release
+    pull request red on merged history."""
+    for parts in (
+        ("docs", "review-chain-spec.md"),
+        ("skills", "code-review", "scripts", "chain_check.py"),
+    ):
+        text = flat(*parts)
+        assert "RUNNER_FROM" in text, "/".join(parts)
+
+
+def test_the_spec_states_the_two_halves_and_the_unknown_answer():
+    """A table a session reads instead of the template has to teach the same
+    vocabulary, or a record written from THIS document is refused."""
+    text = flat("docs", "review-chain-spec.md")
+    for needle in ("agent on model", "unknown — <why>", "bare `unknown`"):
+        assert needle in text, (
+            f"the spec's `Ran by` subsection does not state `{needle}`, so a "
+            "record written from it meets a refusal the document never named"
+        )
 
 
 # --- the skills that tell a session to fill it -----------------------------
@@ -480,12 +595,36 @@ def test_the_recorded_limit_an_unknown_that_leads_with_on():
     """`unknown on Opus` is an unknown WITH A REASON, not a half-named pair.
 
     Recorded rather than parsed away, the way `fix_surface` records its own
-    three. The `unknown` branch is tried first on purpose: splitting first
-    would read `unknown — the model was not recorded on this run` as a pair
-    whose agent is the reason and whose model is `this run`, which is a
-    tolerant read of the very cell the vocabulary exists to accept. Nothing
-    is lost by the limit — the model is still written where a reader sees it.
+    three. Nothing is lost by the limit — the model is still written where a
+    reader sees it.
     """
     check = check_module()
     assert check.runner_problem("unknown on Opus") is None
     assert check.runner_problem("unknown — not recorded on this run") is None
+
+
+def test_the_arm_order_changes_the_reading_and_never_the_verdict():
+    """Round 1's 🟡 4. The docstring claimed the order was load-bearing and
+    three durable records disagreed about it; this is the claim that stands.
+
+    Whether a cell is accepted does not depend on the order, and it cannot:
+    the `unknown` arm refuses when nothing follows the separator, and nothing
+    following means there is no ` on ` in the tail either. So every cell that
+    would split is one the `unknown` arm accepts anyway.
+
+    What the order settles is what the cell was read AS, which reaches a
+    person only through the message. The pair below is the whole difference:
+    under the other order the first would be a pair whose agent is the reason
+    and whose model is `this run`, and it would still be accepted.
+    """
+    check = check_module()
+    for value in ("unknown — not recorded on this run", "unknown on Opus"):
+        assert check.runner_problem(value) is None, value
+    # The by-construction half, asserted rather than described: a cell the
+    # `unknown` arm REFUSES has no ` on ` left in it to split on either.
+    bare = "unknown"
+    assert check.runner_problem(bare) is not None
+    assert check.ON_RE.search(bare) is None, (
+        "a bare `unknown` with something splittable in it would be the one "
+        "cell where the two orders could disagree about the verdict"
+    )
