@@ -5,7 +5,7 @@
 | Target SHA | 7386c07 |
 | Ran by | specseal:warden on Opus — handed over in the spawn prompt |
 | PR | not yet opened |
-| Broad gate | not yet |
+| Broad gate | `0056cda`, against `release/v0.8.0`. Full suite 2029 passed · 1 skipped; `ruff check .` and `ruff format --check .` clean; `chain_check --baseline main` and `unverified-check` exit 0. It ran twice: the first run reported `493 ok · 15 drifted · 1 broken` in `evidence-check`, which three rounds and two fix passes had all missed because every one of them was told to scope the check to this work item's own fragment — the narrowing that keeps `--reverify` off S8 is the same narrowing that cannot read `seal/ledger.md`. That is #153. After the repair the second run reports `508 ok · 1 drifted · 0 broken`, and the drifted row is S8 at `45edf260`, which predates both of this release's earlier work items |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
