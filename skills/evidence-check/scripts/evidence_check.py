@@ -817,6 +817,16 @@ def cross_repo_intent(root, default_repo):
     )
 
 
+# RIDER: the `os.path.isfile(skill)` half of the test below is what tells the
+# plugin's own copy from a vendored one, and no case holds it — dropping the
+# conjunct leaves the evidence suites green, because every fixture that builds
+# a vendored copy puts it somewhere with no `hooks/optin.py` three levels up,
+# so the first half already decides. The state that separates them is a
+# vendored copy inside a tree that HAS a plugin above it, which nothing
+# constructs today. Found by mutation in work item 1788501054's round 3 fix
+# pass and left rather than closed: it is outside that round's agenda, and a
+# case for it is a fixture rather than a line. If you open this resolver,
+# build that fixture. Verified 2026-09-04 at e94c3de.
 @functools.cache
 def seal_home(root):
     """The `seal/` of the repository at `root`: what `hooks/optin.py` resolves

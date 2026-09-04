@@ -1560,6 +1560,17 @@ def says_none(value):
     return bool(rest) and rest[0] in SEPARATORS
 
 
+# RIDER: two claims in the docstring below have no case of their own — that
+# the constant is a PREFIX of the reason (round 3's 🟡 4, which found this
+# paragraph stating it backwards), and that the two guards duplicate
+# `says_none`'s. Neither can get one while this unit is where it is: it was
+# created by a fix pass, so a unit added to answer a finding INSIDE it is
+# depth 2, which `docs/review-chain-spec.md` refuses and this file reports.
+# Depth is measured per RUN, so once the run that added this function has
+# merged, a later work item's fix pass answering a finding here is depth 1 —
+# plant the pin then, beside
+# `test_the_pending_spelling_is_the_one_the_template_prints`.
+# Verified 2026-09-04 at e94c3de.
 def says_not_yet(value):
     """True when a fix-surface cell answers `none` because the fixes do not
     exist YET, in the spelling `templates/sdd-round.md` prints.
