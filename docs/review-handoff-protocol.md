@@ -316,8 +316,13 @@ the verifying round at the diff of the fixes that closed it. The one exception
 is the reason `Needs a fix` is machine-read at all: a verifying round that
 opens something is a finding round, its own fixes need a reader in turn, and
 that reader is a third record. A conforming tool counts later records only up
-to the first whose `Needs a fix` says the run reopened, that record included.
-Counting blindly makes the sequence this protocol requires unwritable.
+to the first whose `Needs a fix` says the run reopened OR whose own verdicts
+closed on a fix, that record included. The two rows answer different
+questions — `Needs a fix` is what the reviewer opened, the verdict column is
+whether fixes were written — and they come apart when the orchestrator fixes
+a finding the reviewer said could be answered with grounds. Reading only the
+first leaves such a run with no terminal record any exit accepts. Counting
+blindly makes the sequence this protocol requires unwritable.
 
 Records predating a project's adoption print rather than fail, the same
 grandfathering as above. `Needs a fix` is grandfathered WHOLE — absent, empty

@@ -48,6 +48,23 @@ TEMPLATE = ("templates", "sdd-round.md")
 # itself rather than answer it.
 STATES_THE_RULE = (SPEC, SKILL)
 
+PROTOCOL = ("docs", "review-handoff-protocol.md")
+CHAIN_CHECK = ("skills", "code-review", "scripts", "chain_check.py")
+
+# Every carrier of the floor's COUNT rule -- where the count of records after
+# the floor stops. The commit that wrote the rule wrote it in six places, and
+# round 7 of work item 1788501054 changed it in three; round 8 found the other
+# three still stating the old rule as the whole rule, one of them the protocol
+# that says what a conforming tool does. `chain_check.py` is here because it
+# carries the sentence twice, in the module docstring and in
+# `stopping_floor`'s, and a docstring above a walk is a carrier a reader opens.
+COUNT_RULE_CARRIERS = (SPEC, TEMPLATE, SKILL, PROTOCOL, CHAIN_CHECK)
+
+# The second stop, in the spellings the five carriers use. An enumeration,
+# and a bounded one: these are this repository's own sentences, pinned here so
+# the next correction that reaches some copies and not the rest goes red.
+SECOND_STOP = ("closed on a fix", "verdicts say `fixed`", "`fixed` verdict")
+
 FLOOR = "Stop when a round finds nothing that leaves the root and nothing that crashes."
 EXIT = "deferred with a named answerer, or becomes an issue"
 ROW = "Loses a record or crashes"
@@ -84,6 +101,33 @@ def test_the_exit_is_named_where_the_rule_is():
         assert EXIT in flat(*parts), (
             f"{'/'.join(parts)} states the floor without naming where what "
             "the stopped round found goes instead"
+        )
+
+
+def test_every_carrier_of_the_count_rule_states_both_stops():
+    """Round 8's 🔴 1 of work item 1788501054, as the class.
+
+    The count of records after the floor stops at a record whose `Needs a fix`
+    says the run reopened AND at one whose own verdicts closed on a fix. The
+    second stop was added in three of the rule's six carriers and the other
+    three kept stating the first as the whole rule -- one of them the
+    protocol, which says what a CONFORMING tool does, so a tool built to it
+    refused the sequence the change exists to make writable. Nothing pinned
+    the protocol or the two docstrings, so nothing went red.
+
+    Each carrier has to name `Needs a fix` and one spelling of the second
+    stop. Seen red against the three copies left behind, then green.
+    """
+    for parts in COUNT_RULE_CARRIERS:
+        text = flat(*parts)
+        assert "Needs a fix" in text, (
+            f"{'/'.join(parts)} no longer states the count rule at all"
+        )
+        assert any(spelling in text for spelling in SECOND_STOP), (
+            f"{'/'.join(parts)} states the count rule's first stop and not its "
+            "second -- a `fixed` verdict stops the count whatever `Needs a fix` "
+            "says, and a copy that omits it describes a tool that refuses the "
+            "run's own honest end"
         )
 
 

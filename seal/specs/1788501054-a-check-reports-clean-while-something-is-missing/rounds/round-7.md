@@ -6,8 +6,8 @@
 | Ran by | specseal:warden on opus |
 | PR | not yet opened |
 | Broad gate | `ff22b34`, against `origin/release/v0.8.0` — carried from `round-6.md`, whose row holds the numbers. Every commit since is markdown or the fix this record commissions, and the certifying run is re-taken after that fix lands |
-| Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
-| Contract changes | `stopping_floor` — its walk gained a second stop condition, signature and return shape unchanged → `check_round`, and `tests/test_chain_check_at_the_pull_request.py::test_this_repositorys_own_round_records_pass_the_per_record_checks`, which calls it directly over every real round record |
+| Fixes checked by | round-8 |
+| Contract changes | `stopping_floor` — its walk gained a second stop condition, signature and return shape unchanged → `main`, and `tests/test_chain_check_at_the_pull_request.py::test_this_repositorys_own_round_records_pass_the_per_record_checks`, which calls it directly over every real round record |
 | New units | `wrote_fixes` (depth 1) → `stopping_floor`; `fixed_record` (depth 1) → pytest only; `test_a_round_that_fixed_over_a_no_is_where_the_count_stops` (depth 1) → pytest only; `test_wrote_fixes_reads_the_verdicts_and_not_the_needs_a_fix_row` (depth 1) → pytest only |
 | Needs a fix | yes — 🔴 1, the run has no terminal record any of the three exits will accept, because the floor's bound reads `Needs a fix` and that row answers what the REVIEWER opened, not whether fixes were written; 🟡 2 and 🟡 3, the same stale *not yet written* clause left on three cells of `round-5.md` and one of `round-6.md`; 🟡 4, the fragment header's second paragraph names R6 among the six it says were not found by reading |
 | Loses a record or crashes | no |
@@ -51,8 +51,11 @@ units in the floor suite answer the same finding, in a file whose `record()`
 predates the run. No unit any fix pass of this run created is answered by a
 new unit. `Contract changes` names `stopping_floor` because its walk gained a
 stop — the signature, arity and return shape did not move, and the two call
-sites named are the only two `grep` finds: `check_round` in the same file,
-and the case that runs every real record through it. -->
+sites named are the only two `grep` finds: `main` in the same file, and the
+case that runs every real record through it. This cell said `check_round`
+until round 8's 🟡 2 — the orchestrator's grep found the call at line 2860
+and misread which definition it sat in; `check_round` ends at 2641 and its
+own docstring records that per-record questions are not asked there. -->
 
 ## What this round was asked
 
