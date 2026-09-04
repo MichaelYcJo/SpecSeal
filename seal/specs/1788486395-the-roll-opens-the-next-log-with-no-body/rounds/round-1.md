@@ -5,13 +5,13 @@
 | Target SHA | b1f7340 |
 | PR | not yet opened |
 | Broad gate | not yet |
-| Fixes checked by | nobody — this round's fixes are not yet read; the round that opens them sets this cell |
+| Fixes checked by | round-2 |
 | Contract changes | `find_baseline_issue` returned a number or `None` and now returns a number-and-note pair → `open_issue`; `_ladder_harness` returned the create list alone and now returns it paired with the sleeps → `test_a_milestone_that_cannot_be_set_does_not_fail_the_release`, `test_both_best_effort_arguments_failing_still_opens_the_issue`, `test_a_create_that_landed_despite_a_failed_call_is_not_retried`, `test_the_issue_main_just_closed_does_not_count_as_the_create_landing`, `test_the_landed_create_guard_retries_an_empty_reading`, `test_every_attempt_failing_still_exits_loudly`, `test_the_ambiguous_ledger_note_reaches_the_issue_it_is_about` |
 | New units | `landed_create` (depth 1); `BASELINE_AMBIGUOUS_NOTE` (depth 1) |
 | Needs a fix | yes — 🔴 1 the ladder's landing guard reads the issue `main` has just closed as proof the create landed, so a version's log is never created and the workflow goes green; five 🟡 beside it |
 | Loses a record or crashes | yes — 🔴 1: on the fallback path the ladder exists for, a stale reading ends the release with no rolling log open, `main` printing `opened …`, and nothing red until the release after that |
 
-- [ ] Pass
+- [x] Pass
 
 <!-- The six test functions this round's fixes planted are deliberately not in
 `New units`, following the convention `1788472135/rounds/round-1.md` set and
