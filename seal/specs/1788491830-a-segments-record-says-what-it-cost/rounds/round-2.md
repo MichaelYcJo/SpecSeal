@@ -6,13 +6,13 @@
 | Ran by | specseal:warden on Opus — handed over in the spawn prompt this time, which is what round 1's reviewer could not be given |
 | PR | not yet opened |
 | Broad gate | not yet |
-| Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
+| Fixes checked by | round-3 |
 | Contract changes | none — the fixes are not yet written |
 | New units | none — the fixes are not yet written |
 | Needs a fix | yes — 🟡 1 the arm-order case pins neither the order nor the docstring and the ledger cites it as executed grounds; 🟡 2 the every-record case passes with a one-record fixture; 🟡 3 the spec's no-prefix row contradicts the code and its own next paragraph; 🟡 4 the subsection states an unenforceable rule as enforced |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 <!-- Written before the fix pass this round commissions, which is what
 `templates/sdd-round.md` has always asked for and what the orchestrator failed

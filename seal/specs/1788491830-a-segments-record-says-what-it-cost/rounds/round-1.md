@@ -6,13 +6,13 @@
 | Ran by | specseal:warden on Opus — the orchestrator spawned it with `model: opus` and filled this row, because the spawn prompt handed the reviewer no model name and the rule forbids a segment sourcing that value from its own idea of what it is |
 | PR | not yet opened |
 | Broad gate | not yet |
-| Fixes checked by | nobody — this round's fixes are not yet read; the round that opens them sets this cell |
+| Fixes checked by | round-2 |
 | Contract changes | `declared` went from `(repo, item, body)` to `(repo, item, *bodies)` → `test_an_absent_row_fails_after_the_cutoff`, `test_an_absent_row_only_prints_before_the_cutoff`, `test_a_work_item_with_no_timestamp_prefix_is_grandfathered`, `test_the_row_is_read_on_every_record_not_only_the_last`, `test_the_cutoff_is_the_work_items_own_second`, `test_the_form_the_templates_show_passes`, `test_a_model_name_may_carry_spaces_and_brackets`, `test_backticks_do_not_change_the_answer`, `test_unknown_with_a_reason_is_an_answer`, `test_a_bare_unknown_is_not_an_answer`, `test_an_empty_cell_is_not_an_answer`, `test_one_thing_named_is_not_two`, `test_the_on_must_stand_alone`, `test_a_row_inside_a_comment_is_not_the_row` |
 | New units | `test_the_behaviour_spec_carries_a_subsection_for_this_refusal` (depth 1); `test_the_documents_say_why_older_records_are_excused` (depth 1); `test_the_spec_states_the_two_halves_and_the_unknown_answer` (depth 1); `test_a_work_item_with_no_timestamp_prefix_is_grandfathered` (depth 1); `test_the_row_is_read_on_every_record_not_only_the_last` (depth 1); `test_the_arm_order_changes_the_reading_and_never_the_verdict` (depth 1) |
 | Needs a fix | yes — five 🟡: the behaviour spec has no subsection for the refusal this branch adds, two of its choices are pinned by nothing, and two sentences say something the branch's own measurements disprove |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 <!-- This record was written AFTER the fix pass rather than before it, which is
 the orchestrator's process error and cost something measurable: the reviewer's
