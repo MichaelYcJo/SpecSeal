@@ -508,7 +508,17 @@ def test_the_protocol_carries_the_rows_and_moved_its_draft():
     # names this document as the file that carries the format, and round 1 of
     # `1788472135-…` found it carrying neither of the branch's rules —
     # `grep -c` for the floor row returned 0.
-    for label in ("| Contract changes", "| New units", "| Loses a record or crashes"):
+    # `Ran by` joins them on the same footing and for the same reason (#137):
+    # a session writing a record from THIS document rather than from the
+    # template reads the field table and nothing else, so a row missing here
+    # is a row that session does not know exists — and `chain_check.py`
+    # refuses the record it then writes.
+    for label in (
+        "| Contract changes",
+        "| New units",
+        "| Loses a record or crashes",
+        "| Ran by",
+    ):
         rows = [line for line in lines if line.strip().startswith(label)]
         assert len(rows) == 1, f"{label}: {len(rows)} rows outside comments"
         required = rows[0].split("|")[2].strip()
@@ -531,7 +541,7 @@ def test_the_protocol_carries_the_rows_and_moved_its_draft():
     title = read("docs", "review-handoff-protocol.md").splitlines()[0]
     match = re.search(r"draft (\d+\.\d+)", title)
     assert match, f"the title names no draft: `{title}`"
-    assert float(match.group(1)) >= 1.0, "a changed field moves the draft"
+    assert float(match.group(1)) >= 1.1, "a changed field moves the draft"
 
 
 def test_the_protocol_no_longer_grandfathers_both_rows_by_one_key():

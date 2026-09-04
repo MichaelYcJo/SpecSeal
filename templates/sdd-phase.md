@@ -15,6 +15,30 @@ column already has: a plugin convention, not a cross-tool protocol. -->
 |---|---|
 | Phase | <the phase number, matching `plan.md`'s Phases table> |
 | Commit | <the commit that closed this phase — the same hash `plan.md`'s Status cell for this phase carries> |
+| Ran by | <what ran this phase — the agent and the model, as `agent on model` · `unknown — <why>` when the session that spawned it cannot name one> |
+
+<!-- #137: every segment of two work items was measured and posted to the
+flow log, and not one of the readings says what produced it. All of them ran
+on the same model, and that fact exists only in a session transcript — so the
+log can answer what a segment COST and cannot answer what ran it.
+
+`## What this phase was asked` (#119) made the scope a segment was given
+durable. This row is the same class of fact about the same segment, and it
+sits beside the commit for the same reason: both say what this record is a
+record OF.
+
+**The session that spawned the segment fills it, never the segment itself.**
+An agent is told what it is, so a value the agent writes is the value it was
+told; and the model is a spawn-time argument the orchestrator chose, which
+`agents/*.md` pins nowhere. It is the reach-back `Fixes checked by` and the
+fix-surface rows already make — written by the session that has the fact,
+into a record somebody else wrote.
+
+`unknown — <why>` is an answer and a bare `unknown` is not, in the shape
+`nobody — <why>` already has: a session spawning through another harness may
+genuinely have no name for the model, and the honest answer has to be
+available or the confident one is the only one on offer. -->
+
 
 ## What this phase was asked
 

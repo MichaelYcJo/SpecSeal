@@ -961,6 +961,7 @@ ROUND_RECORD_FIELDS = [
     "New units",
     "Needs a fix",
     "Loses a record or crashes",
+    "Ran by",
     "## Verdicts",
     "## Executed probes",
     "## Inherited coordinates",

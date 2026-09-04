@@ -1,4 +1,4 @@
-# Review Handoff Protocol — draft 1.0
+# Review Handoff Protocol — draft 1.1
 
 A file convention for handing review work between agent sessions — across
 time, machines, and tools. Tool-agnostic on purpose: nothing here requires
@@ -110,6 +110,7 @@ the inheritance range and round 2 raised it again.
 | Field | Required | Content |
 |---|---|---|
 | Target SHA | yes | commit(s) the round actually reviewed — branches move between rounds; record both if HEAD moved mid-review. **Never rewritten after a squash** — see below |
+| Ran by | yes, for work items begun after a project adopts it | what ran this round: the agent and the model, written as `agent on model`. `unknown — <why>` where the session cannot name one, and a bare `unknown` is not an answer. Filled by the session that SPAWNED the round, never by the round's own agent. See below |
 | Pass | yes | a checkbox — `- [ ] Pass` or `- [x] Pass`. Checked means no finding in this round's verdict table is still open. See below |
 | Fixes checked by | yes | who opened the fixes that closed this round's findings: a later round, `no fixes to check`, or `nobody` with the reason. `Pass` answers whether the findings were closed; this answers whether the closing was read by anyone. See below |
 | Needs a fix | yes, from the round that wrote it | whether this round opened anything that needs one — the reviewer's own answer, copied rather than re-derived from the verdict table. It is one of two conditions a run ends on, and a finding the implementer answers with grounds does not make it `yes`. See below |
@@ -323,6 +324,39 @@ grandfathering as above. `Needs a fix` is grandfathered WHOLE — absent, empty
 or unreadable alike — because it carried free text from draft 0.5 until a tool
 first read it, so a value written earlier was held to no vocabulary.
 
+#### Ran by — what executed this segment
+
+A record says what its segment was asked, what it found, and which commit it
+looked at. It does not say what ran it, and that fact survives nowhere else:
+the model is a spawn-time argument, and once the session ends it exists only
+in a transcript. Measured in the reference implementation — every segment of
+two consecutive work items was metered and posted to a measurement log, and
+not one of the readings can be attributed to a runner afterwards.
+
+**The cell names two things, not one.** An agent without a model cannot be
+compared against another run of the same agent; a model without an agent
+cannot be told apart from the orchestrating session's own turns. The two are
+joined by the word `on` — `agent on model` — a word rather than a punctuation
+mark, because a separator inside a code span splits the cell carrying it and
+this protocol has already been bitten by that twice.
+
+**The session that spawned the segment fills it, never the segment itself.**
+An agent is told what it is, so a value it writes about itself is the value it
+was told, and the orchestrator is the one that chose the model. This is the
+same reach-back `Fixes checked by` and the fix-surface rows already make: a
+session with a fact writes it into a record somebody else authored.
+
+**`unknown — <why>` is an answer and a bare `unknown` is not.** A project may
+genuinely not know: agent definitions pin no model, and a session spawning
+through another harness may have no name for one. The reason is required for
+the same cause it is required after `nobody` — without it the cell records
+that something is missing and not what.
+
+Records predating a project's adoption print rather than fail when the row is
+ABSENT, the same grandfathering `Fixes checked by` carries. A row that is
+present and unreadable is refused at any age: formatting is always the
+author's, which is the split `Contract changes` already makes.
+
 ### tests-todo.md — regression tests prescribed, not written
 
 One row per test: what it asserts · **destination file** · grounds · status.
@@ -498,7 +532,7 @@ A tool claiming to support this protocol:
 
 ## Status
 
-Draft 1.0, extracted from the convention this plugin's `code-review` and
+Draft 1.1, extracted from the convention this plugin's `code-review` and
 `implement` skills already operate (they are its reference implementation).
 Field names and layout may change; the three conformance rules are stable in
 shape. 0.2 changed the third from *delete after draining* to *close and keep*.
@@ -564,6 +598,18 @@ the grandfathering `Fixes checked by` carries — and `Needs a fix` is
 grandfathered whole rather than only when absent, because it carried free text
 from draft 0.5 until this draft first read it. The reference implementation
 fails on all three, for work items begun after it adopted them.
+
+1.1 adds `Ran by`, because a record said what its segment was asked and what
+it cost and never what executed it — and the meter draft 0.8 pointed at
+produces readings that cannot be attributed once the session ends. Two things
+the row settles rather than leaves to the author: it names the agent AND the
+model, since either alone answers neither question anyone has of the numbers;
+and it is filled by the spawning session, since an agent asked what it is
+answers with what it was told. `unknown — <why>` is an answer for projects
+that cannot name a model, in the shape `nobody — <why>` already has. An absent
+row on a record predating adoption prints rather than fails, the
+grandfathering `Fixes checked by` carries; a present and malformed one is
+refused at any age, the split `Contract changes` already makes.
 
 0.3 also states the path as this implementation's choice rather than as the
 protocol. Draft 0.2 claimed to be tool-agnostic while naming a directory
