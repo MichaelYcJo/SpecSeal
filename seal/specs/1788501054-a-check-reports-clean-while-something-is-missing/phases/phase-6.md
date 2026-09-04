@@ -8,7 +8,7 @@ not contain, and the phase row was added beside them. -->
 | Field | Value |
 |---|---|
 | Phase | 6 |
-| Commit | <the commit that closed this phase> |
+| Commit | c528161 |
 | Ran by | specseal:smith on opus |
 
 ## What this phase was asked
