@@ -6,12 +6,20 @@
 | PR | not yet opened |
 | Broad gate | not yet |
 | Fixes checked by | nobody — this round's fixes are not yet written; the round that reads them sets this cell |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | `floor_answer` renamed to `yes_or_no` and widened to read both the floor row and `Needs a fix` → `stopping_floor`, `run_reopened`; `stopping_floor` took a count of later records and now takes the records themselves, in round order → `main`; `depth_problems` returns four lists where it returned three → `fix_surface`; `says_none` accepts a trailing `;` → `fix_surface` (both row arms) |
+| New units | `run_reopened` (depth 1); `NEEDS` (depth 1); `NEEDS_FROM` (depth 1); `SUBSECTIONS` (depth 1); `NO_CHECK_READS` (depth 1); `COMMA_LIMIT` (depth 1) |
 | Needs a fix | yes — 🔴 1 the floor refuses the sequence its own documents require; 🔴 2 `docs/review-handoff-protocol.md` carries neither new rule; 🔴 3 `evidence-check --strict` exits 2, and that is the release-preparation step |
 | Loses a record or crashes | no |
 
 - [ ] Pass
+
+<!-- The eighteen test functions this round's fixes planted are deliberately
+not in `New units`. The three constants above are data a later change can
+silently put out of step; a per-case function is shown whole by the diff, and
+listing eighteen of them would bury the six units the verifying round has to
+actually open. The implementer proposed this and the orchestrator accepted it.
+Every entry is depth 1: round 1's findings were all inside what phases 1-3
+wrote, and none inside a unit the fix pass itself created. -->
 
 ## What this round was asked
 
