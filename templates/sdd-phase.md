@@ -15,6 +15,39 @@ column already has: a plugin convention, not a cross-tool protocol. -->
 |---|---|
 | Phase | <the phase number, matching `plan.md`'s Phases table> |
 | Commit | <the commit that closed this phase — the same hash `plan.md`'s Status cell for this phase carries> |
+| Ran by | <what ran this phase — the agent and the model, as `agent on model` · `unknown — <why>` when the session that spawned it cannot name one> |
+
+<!-- #137: every segment of two work items was measured and posted to the
+flow log, and not one of the readings says what produced it. All of them ran
+on the same model, and that fact exists only in a session transcript — so the
+log can answer what a segment COST and cannot answer what ran it.
+
+`## What this phase was asked` (#119) made the scope a segment was given
+durable. This row is the same class of fact about the same segment, and it
+sits beside the commit for the same reason: both say what this record is a
+record OF.
+
+**The value is the spawning session's, never the segment's own.** An agent is
+told what it is, so a value it writes about itself is the value it was told;
+and the model is a spawn-time argument the orchestrator chose, which
+`agents/*.md` pins nowhere. The spawning session is the only party that knows.
+
+Whose row it is and whose keystrokes fill it are different questions, and
+they come apart here in a way they do not for `rounds/round-N.md`. The
+orchestrator both knows the answer and writes that file, so it does both. A
+phase record is written by the segment that just ran, so the orchestrator
+either hands the value over in the spawn prompt — and the segment transcribes
+what it was GIVEN, never a value it decides for itself — or fills the row
+afterwards, the reach-back `Fixes checked by` and the fix-surface rows already
+make. What must not happen is the segment sourcing the value from its own idea
+of what it is: that is the one filler whose answer nothing can check against
+anything.
+
+`unknown — <why>` is an answer and a bare `unknown` is not, in the shape
+`nobody — <why>` already has: a session spawning through another harness may
+genuinely have no name for the model, and the honest answer has to be
+available or the confident one is the only one on offer. -->
+
 
 ## What this phase was asked
 
