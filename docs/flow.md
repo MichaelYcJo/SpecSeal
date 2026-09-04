@@ -1,10 +1,19 @@
 # Release flow
 
-A checklist for the tickets in flight. Tick a box when the ticket's pull
-request has merged into its release branch. **A shipped version's section is
-deleted, not kept** — the design record, the CHANGELOG and the tickets are the
-durable copies, and a list long enough to scroll costs the reading it exists
-to save. Delete the file only when nothing is scheduled.
+A checklist for the tickets in flight.
+
+**A branch writes this file for the rows its own work created or closed**, in
+the pull request that earns them — its own box ticked, and a row for any
+ticket that work opened. So the change lands in the same merge that makes it
+true, and a file every ticket touches stops collecting a pull request of its
+own each time. What still gets its own branch is housekeeping no branch
+earned: deleting a shipped version's section, or moving items between
+releases.
+
+**A shipped version's section is deleted, not kept** — the design record, the
+CHANGELOG and the tickets are the durable copies, and a list long enough to
+scroll costs the reading it exists to save. Delete the file only when nothing
+is scheduled.
 
 Each release branch is cut from `main`; each ticket is a branch cut from the
 release branch and squashed back; the release branch merges into `main` as a
@@ -22,7 +31,8 @@ first release to be planned against it rather than to discover it.
 
 - [x] **#110 + #117 — when a review run stops, and how deep a fix may pin.** One branch, because apart they undo each other: #110 removes the late rounds, and the late rounds are where the previous round's pins get read.
 - [x] **#136 — the roll opens the next measurement log with no body and no index, and this release is what fires it.** Two issues collect the same shape of comment, one of them is deleted every release, and nothing says which gets what. It has to land before 0.8.0 reaches `main`: that push runs the roll, and after it the 0.9.0 log is already open, empty and unlabelled, with the next chance a release away.
-- [ ] **#137 — a segment's record says what it cost, and not what ran it or what its output cost the next reader.** Every segment measured before this lands is one nothing can attribute afterwards, which is a deadline with no date on it. It is also what #84 needs before its own last line can be answered.
+- [x] **#137 — a segment's record says what it cost, and not what ran it or what its output cost the next reader.** Every segment measured before this lands is one nothing can attribute afterwards, which is a deadline with no date on it. It is also what #84 needs before its own last line can be answered. **Narrowed to its first half**: the `Ran by` row shipped, and the outcome column beside it moved to 0.9.0 below — #137's own body refuses to pick a format for it before knowing which of five candidate signals survive contact.
+- [ ] **#153 + #150, one branch — a check reports clean while something is missing, and the missing thing leaves no trace.** #153: scoping `evidence-check` to a work item's fragment hides every row the branch broke in the shared ledger — #137's three rounds all reported a clean ledger and its broad gate found fifteen drifted rows and one broken claim. #150: a round record written after the fixes it commissioned looks exactly like one written before them, measured twice in this release. They are not paired the way #110 + #117 were — apart they do not undo each other — but they are the same shape, they land in the same two files, and a review chain is the expensive unit. **The risk this release has demonstrated three times is that a branch adding a rule breaks the rule it adds; two rules on one branch doubles it, and that is the first thing its rounds should attack.**
 - [ ] #145 — the orchestrator is the most expensive segment in a chain and the only one measured by the whole session, so #51's observation 1 has bands for three segment kinds and none for it. Last of this release, because it is what the other two make answerable.
 
 Its measurement log is the first one taken without anybody being told to
@@ -39,6 +49,8 @@ rides whichever branch is open.
 - [ ] #111 — `git()` reads every failure as `""`, and in `seal import` that empty string switches off the refusal that keeps another project's records out.
 - [ ] #134 — the update notice names a restart and never the reload this repository measured and wrote down. One notice and one skill.
 - [ ] #98 — three sentences say `-z` is what turns git's path quoting off, and the instruction they give is right while the reason they give for it is false. One line, and it rides whichever branch of this release is open.
+- [ ] **#149 — a record says what a segment COST and not what its output cost the next reader.** #137's second half, split off when its first half shipped. Five candidate signals and no evidence which of them survive contact: surviving mutations, defects the next round found inside this segment's output, `New units` depth, fix passes needed, and divergences from the plan. It waits for the accumulation the `Ran by` row now makes possible — an outcome column chosen before there are attributed readings to choose it against is the mistake #110's *Not this* refuses on the review side.
+- [ ] #151 — the preset tells a session to create the root, and the question that was supposed to come first lives in a skill it never loads. Reported from a repository's first work item: `seal/` appeared and nobody was asked about shared or local mode. Not this release's own work — it rode in on the flow update that closed #137.
 
 ## 0.10.0 — the agent set
 

@@ -76,7 +76,9 @@ every repository, whatever either row says:
   coordinates` and `## Deferred` headings, and the `Verdict` column of the
   first; the verdict words `fixed`, `answered`, `withdrawn`, `not a defect`
   and `agreed, fixed`; `round-N`, `none`, `no fixes to check` and `nobody` in
-  `nobody — <why>`; an `overview.md`'s `## Not verified` heading with its
+  `nobody — <why>`; `Ran by` with the `on` that joins its two halves and the
+  `unknown` in `unknown — <why>`; an `overview.md`'s `## Not verified`
+  heading with its
   `Item` and `Who must answer` columns. A translated field name is not a
   translation, it is a broken gate.
 - **The markers and anchors.** `<!-- specs/<work-item-id> -->`, a release

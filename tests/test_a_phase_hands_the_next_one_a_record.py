@@ -98,7 +98,7 @@ def section_body(lines, heading):
 # --- the field table ---------------------------------------------------------
 
 
-def test_the_field_table_is_phase_and_commit_only():
+def test_the_field_table_is_phase_commit_and_what_ran_it():
     lines = stripped_lines()
     header_idx = next(
         (i for i, line in enumerate(lines) if line.strip().startswith("| Field")), None
@@ -120,15 +120,90 @@ def test_the_field_table_is_phase_and_commit_only():
         line for line in rows if not set(line.replace("|", "").strip()) <= {"-"}
     ]
     names = [line.split("|")[1].strip() for line in field_rows]
-    assert names == ["Phase", "Commit"], (
-        f"the field table carries {names}, not just Phase/Commit — a phase "
-        "has no Target SHA to squash away and no Pass checkbox to answer"
+    assert names == ["Phase", "Commit", "Ran by"], (
+        f"the field table carries {names}, not Phase/Commit/Ran by — a phase "
+        "has no Target SHA to squash away and no Pass checkbox to answer, and "
+        "#137 is why the third row is there: every segment measured before it "
+        "landed is one nothing can attribute afterwards"
     )
     for name, row in zip(names, field_rows, strict=True):
         value = row.split("|")[2].strip()
         assert value.startswith("<") and value.endswith(">"), (
             f"a template must not ship a claim, and `{value}` is one ({name})"
         )
+
+
+def test_the_ran_by_row_offers_both_halves_and_the_unknown_answer():
+    """#137. A row naming one of the two is a row that answers neither
+    question the flow log has.
+
+    An agent without a model cannot be compared against another run of the
+    same agent, and a model without an agent cannot be told from the
+    orchestrator's own turns — which is the whole of what #145 is about. So
+    the placeholder has to teach BOTH halves, and it has to teach the
+    `unknown` answer too: `agents/*.md` pins no model, so a session spawning
+    through another harness may genuinely have no name for one, and a
+    placeholder offering only the confident answer is what makes the honest
+    one look like a failure to fill the row in.
+    """
+    lines = stripped_lines()
+    rows = [line for line in lines if line.strip().startswith("| Ran by")]
+    assert len(rows) == 1, f"{len(rows)} `Ran by` rows outside comments"
+    value = rows[0].split("|")[2].strip()
+    for needle in ("agent on model", "unknown — <why>"):
+        assert needle in value, (
+            f"the `Ran by` placeholder offers no `{needle}` — it reads "
+            f"`{value}`, and a record written from THIS row is refused by "
+            "`chain_check.py`"
+        )
+
+
+def test_the_ran_by_row_says_who_fills_it():
+    """The row is the SPAWNING session's, and the template is the only place
+    a phase record's author reads that.
+
+    An agent is told what it is, so a value the agent writes about itself is
+    the value it was told; and the model is a spawn-time argument the
+    orchestrator chose. A template that shows the row without saying whose it
+    is gets it filled by the subject — which is the one filler whose answer
+    cannot be checked against anything.
+    """
+    raw = read(PHASE_TEMPLATE)
+    assert "#137" in raw, (
+        "no `#137` anywhere in the template — the row answers that issue's "
+        "finding that a measured segment cannot be attributed afterwards"
+    )
+    flat = " ".join(raw.split())
+    assert "never the segment's own" in flat, (
+        "the template does not say the value is the spawning session's, so "
+        "the one filler whose answer nothing can check is the one it invites"
+    )
+
+
+def test_the_template_resolves_who_types_a_phase_records_row():
+    """The round template's rule cannot be copied here unchanged, and saying
+    it unchanged is a self-contradiction inside one file.
+
+    `rounds/round-N.md` is written by the orchestrator, which is also the
+    party that knows what ran the round — so *the spawning session fills it*
+    is one act there. A phase record is written by the segment that just ran.
+    A template telling that writer the row is *never the segment's* and
+    nothing more has told it not to write the row it is holding the pen for.
+
+    What the template has to separate is authority from keystrokes: the value
+    is the orchestrator's to SOURCE, and the segment transcribes what it was
+    given. The failure this refuses is the segment sourcing it from its own
+    idea of what it is.
+    """
+    flat = " ".join(read(PHASE_TEMPLATE).split())
+    assert "hands the value over in the spawn prompt" in flat, (
+        "the template says whose the row is and never how a phase record — "
+        "written by the segment, not by the orchestrator — comes to carry it"
+    )
+    assert "transcribes what it was GIVEN" in flat, (
+        "nothing distinguishes transcribing a value the orchestrator supplied "
+        "from the segment deciding what it is, which is the whole point"
+    )
 
 
 # --- the three sections exist and ship placeholders, not claims -------------

@@ -683,7 +683,7 @@ fact about the round that met the floor rather than about the last one.
 | an empty cell, or a word that is neither | **fails** on any record — a word the check cannot read is never the reassuring reading, and `nothing anybody can see` is a sentence rather than an answer |
 | `yes` with nothing after it | **fails** on any record — the cell then records that something was found and not what |
 | `no`, with two or more later round records and none of them saying the run reopened | **fails**, naming the exit. One later record is the verifying round; a second is the run carrying on past its own stopping rule |
-| any of those, work item with no timestamp prefix | prints — `item_began` has no second to compare, so every cutoff here is below it and the record is excused permanently |
+| the ABSENT row, or the run that went past it, work item with no timestamp prefix | prints — `item_began` has no second to compare, so the cutoff is below it and those two are excused permanently. **The three malformed states above are not**: `stopping_floor` appends their errors without consulting the work item's age at all |
 
 Only the ABSENT row and the run that went past it are grandfathered, and they
 are grandfathered for different reasons. The first is the reason the rows
@@ -775,6 +775,77 @@ other way opens the pull request red.
 
 Parsing code spans to tell any of the three apart is the same enumeration over
 an unbounded domain the arrow's limit declines.
+
+##### What ran the round — `Ran by`
+
+A record says what the round was asked, what it found, and which commit it
+read. It said nothing about what executed it, and that fact survives nowhere
+else: the model is a spawn-time argument, and once the session ends it exists
+only in a transcript. Measured — every segment of two consecutive work items
+was metered and posted to a measurement log, and not one of those readings can
+be attributed to a runner afterwards.
+
+The cell names **two** things joined by the word `on` — `agent on model`.
+Either half alone answers neither question the numbers raise: an agent without
+a model cannot be compared against another run of the same agent, and a model
+without an agent cannot be told apart from the orchestrating session's own
+turns. The joining word is a word rather than a punctuation mark, which is
+what keeps this row out of the separator limit above.
+
+Read on every record, like the three above and for the same reason: every
+round was run by something, and a work item whose rounds ran under different
+runners is the comparison the row exists to make. A check reading the last
+record alone answers it for one round.
+
+| The row | The check |
+|---|---|
+| `agent on model`, both halves non-empty | passes |
+| `unknown — <why>` | passes at any age — a project may genuinely not know, since agent definitions pin no model and a session spawning through another harness has no name for one |
+| absent, work item begun on or after the cutoff | **fails**, naming the row and what it buys |
+| absent, work item begun before the cutoff | prints — the grandfathering above, keyed to `chain_check.py`'s `RUNNER_FROM`, whose value is the id of the work item that added the row |
+| an empty cell | **fails** on any record — a row that says nothing answers nothing |
+| a bare `unknown`, with nothing after it | **fails** on any record — the cell then records that something is missing and not what, which is the refusal `nobody` takes for the same reason |
+| a cell naming one thing — no `on` with whitespace on both sides, or a half that is empty | **fails** on any record, naming what the two halves are for |
+| the ABSENT row, work item with no timestamp prefix | prints — `item_began` has no second to compare, so the cutoff is below it and that row is excused permanently. **The three malformed states above are not**: they fail for a work item named any way at all |
+
+Only the ABSENT row is grandfathered, and the reason is sharper here than for
+the rows above: nobody can recover what ran a segment whose session is over,
+and a value invented now is worse than the blank, because a reading nobody can
+trust reads exactly like one nobody took. A malformed row is refused at any
+age, because formatting is always the author's.
+
+**The row is the spawning session's, and that is a rule about where the value
+comes FROM rather than about whose keystrokes fill the cell.** An agent is
+told what it is, so a value it writes about itself is the value it was told;
+the orchestrator is the party that chose the model. For a round record the two
+coincide, because the orchestrator writes that file. For a build phase's
+record they do not — the segment writes it — so the value is handed over in
+the spawn prompt and transcribed, or filled in afterwards. What is refused is
+a segment sourcing the value from its own idea of what it is.
+
+**What no check can see is which of those two happened.** `ran_by` reads the
+shape of the cell and nothing about where the value came from, so a
+transcribed `specseal:smith on Opus` and an invented one are the same eight
+words. The rule is a declaration, like the depth's, and the reader who looks
+at it is whoever holds the spawn prompt beside the record — the orchestrator
+at the round that follows, or the person reading the pull request.
+
+This branch's own four phase records are the worked case, and they are the
+mixed one rather than the clean one: the agent half and the model came from
+the spawn prompt, and the version detail after it did not. That is what the
+declaration looks like when it is only partly sourced, and no check reports
+it. A round record has the easier job — the orchestrator writes that file and
+chose the model — which is why the rule's difficulty is entirely on the phase
+side.
+
+One limit is recorded rather than parsed away, the same shape the three above
+take and outside their sequence — those three are `Contract changes` and
+`New units` parsing, and this row is parsed by neither:
+a cell beginning with the word `unknown` is read as the unknown answer whole,
+so `unknown on Opus` is an unknown carrying a reason rather than a pair whose
+agent is not known. Nothing is lost by it — the model is still written where a
+reader sees it — and telling the two apart would mean a rule about whether an
+English reason may begin with `on`.
 
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a

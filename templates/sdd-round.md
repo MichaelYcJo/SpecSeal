@@ -10,6 +10,7 @@ carries the format; this is the shape it takes in this repository. -->
 | Field | Value |
 |---|---|
 | Target SHA | <the commit this round actually reviewed — both, if HEAD moved mid-review> |
+| Ran by | <what ran this round — the agent and the model, as `agent on model` · `unknown — <why>` when the session that spawned it cannot name one> |
 | PR | <the pull request, once one exists. A field, not the key> |
 | Broad gate | <`not yet`, or the SHA the one full-suite run happened at and the base it was compared against> |
 | Fixes checked by | <`round-<N>`, a LATER round · `no fixes to check` · `nobody — <why>`> |

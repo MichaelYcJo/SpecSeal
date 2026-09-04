@@ -164,7 +164,7 @@ company because the layout is one rule rather than two:
 
 | File | Contents |
 |---|---|
-| `rounds/round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table — and **whether anything it found leaves the root or crashes**, the reviewer's `Loses a record or crashes` line, which is the floor under the cap |
+| `rounds/round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table — and **whether anything it found leaves the root or crashes**, the reviewer's `Loses a record or crashes` line, which is the floor under the cap, and **what ran the round** — the `Ran by` row, the agent and the model, filled by the session that spawned it (below) |
 | `tests-todo.md` | regression tests to plant, with the destination file per row |
 | `evidence-todo.md` | verified facts to merge into `seal/ledger.md` |
 
@@ -406,6 +406,38 @@ items print instead — the grandfathering `Fixes checked by` already uses.
 The depth inside `New units` has a cutoff of its own, `DEPTH_FROM`, later
 than that one: a work item between the two owes the row and not the depth in
 it, because its records were written when the row named units alone.
+
+### And say what ran the round
+
+One more row, `| Ran by |`, and it is the spawning session's rather than the
+reviewer's — the same reach-back the two above make, and for a sharper reason.
+An agent is told what it is, so a value it writes about itself is the value it
+was told; and the model is a spawn-time argument the orchestrator chose, which
+`agents/*.md` pins nowhere.
+
+Write the agent and the model, joined by the word `on`:
+
+```
+| Ran by | specseal:warden on <the model it was spawned with> |
+```
+
+**Both, never one.** An agent without a model cannot be compared against
+another run of the same agent, and a model without an agent cannot be told
+apart from the orchestrating session's own turns. `unknown — <why>` is the
+answer where neither is knowable — a session spawning through another harness
+may have no name for a model — and a bare `unknown` is refused the way a bare
+`nobody` is, because without the reason the cell records that something is
+missing and not what.
+
+`chain_check.py` refuses a record without the row for work items begun on or
+after its `RUNNER_FROM`, and records of earlier work items print instead. A
+row that is present and unreadable is refused at any age: formatting is always
+the author's, which is the split the fix-surface rows already make.
+
+What it buys is the question the measurement log could not answer. Every
+segment of two work items was metered and posted, and not one of the readings
+says what produced it — so the log knows what a segment cost and cannot say
+whether the cost was the model's, the agent's, or the scope's.
 
 ## Orchestrator: verify before posting
 
