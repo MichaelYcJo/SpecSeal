@@ -14,7 +14,8 @@ than reconstructed at the end. -->
             §*What a change to a gate must carry*; issues #153 and #150 with
             its comment
 · evidence: `seal/ledger/1788501054-a-check-reports-clean-while-something-is-missing.md`,
-            five rows (R1–R5), stamped by `--reverify`
+            ten rows (R1–R8, R10, R11; R9 REMOVED with the rule it cited),
+            each stamped by a scoped `--reverify` and never an unscoped one
 · verified: **executed** — the two new suites and every suite reading the two
             checkers or the four documents; nineteen mutations, none
             surviving; the refusal seen red against #150's two real records.
@@ -37,6 +38,7 @@ them.
 | One work item, one test file | The repository's habit is prose cases and execution cases in sibling files | Two files for #153, one for #150 | #153's prose landed in phase 1 and its output in phase 2, and a phase-1 commit carrying phase 2's red cases does not stand on its own. #150's prose and execution landed in the same phase, so they share a file |
 | Which add `added_on_branch` reads | Phase 3's docstring: *"the LAST line is the first add. A file added, removed and re-added is judged on the first of those, which is when its author committed it"* | The **latest** add, `found[0]`, and the docstring rewritten | Round 1's 🟡 8 mutated the index and all twenty cases stayed green, so the file documented a decision nothing held. The reasoning in it was also wrong: the version anybody reads was authored at the LAST add, so a stub committed on time, deleted, and rewritten after the fixes passed on the strength of a commit holding none of its content. The declared failure direction is *blocks more*, and the cost — a record accidentally deleted and restored is refused — is named in the docstring and visible in the failure |
 | The direction a checker takes for a value it cannot read | `CONTRIBUTING.md` §*What a change to a gate must carry* and this branch's own `plan.md`: **failure direction: blocks more** | **Allow**, for the pending fix-surface arm alone | The alternative refuses an honest custom reason (`none — the fixes deleted a line`) for its wording, and a rule about which English sentences mean *not yet* is the enumeration over an unbounded domain `docs/review-chain-spec.md` declines twice already. What is caught is the measured failure — the template's own words left standing — and the phrase is a checker constant the template prints, tied by a case, so the two cannot drift. The cost is what escapes, which is written into the spec and the ledger row rather than left to be found — and round 3's 🟡 5 measured it wider than a rewording: three spellings carry the template's words unchanged (a dash outside the separator set, a doubled space inside the phrase, any clause in front of it), and only the first of the three is punctuation, so widening the separator set would close one and leave the sentence false about the other two. The arm's key is a second cost of the same shape: it reads `Fixes checked by`, so it reaches the session that filled that cell and stopped, and neither `nobody` nor `no fixes to check` beside a pending row is refused |
+| Which cell the floor's count stops at | `docs/review-chain-spec.md`, `templates/sdd-round.md` and `skills/code-review/SKILL.md`, all three: *the count stops at the first later record whose `Needs a fix` says the run reopened* — and `plan.md`: **failure direction: blocks more** | The count also stops at a record whose **verdicts** closed on a fix, whatever `Needs a fix` says — **allow**, one record wider in one sequence | `Needs a fix` is the reviewer's answer to *what did I open*; the bound needs *were fixes written that owe a reader*, and the two came apart on this branch's own seventh round when round 6's two 🟡 were fixed over its `no` because one of them shipped. With the old walk that run had no terminal record any exit accepted: a reader after the `no` was a second uncounted record, and stopping at the `no` was refused both ways. The verdict column already carried the fact — `closed_with_a_fix` is what refuses `no fixes to check` beside `fixed` — so `wrote_fixes` wraps that predicate and the walk reads it; no second source of truth. It is the cheaper mistake because the only other way to satisfy the old walk was rewriting `fixed` to `answered` over fixes that exist, and a false record is this work item's subject. What the wider walk cannot let through is a run of quiet rounds, since `answered` writes nothing — the three-quiet-rounds case is red under both walks, executed. Phase 10, written by the orchestrator on the owner's instruction, and R11 |
 | Round 1's count of the bare fix cells | `round-1.md`'s 🟡 7 and its probe table: *"231 fix-word verdict cells, 212 carrying a SHA, 19 carrying none"* | **235 · 215 · 20**, re-measured | An aggregate is not a coordinate (`docs/review-handoff-protocol.md`), so the number was re-taken through the checker's own `verdict_table`, `verdict_of`, `FIX_WORDS` and `SHA_RE` over every record git carries — identical at the round's target `15278db` and at HEAD. The finding's direction is untouched and only its number moved, so the fix stands and the measured figure is what went into the template and the spec |
 
 ## Not verified
@@ -50,6 +52,20 @@ them.
 | **What `normcase` in the skipped-set fallback does on Windows.** Round 4's fix pass corrected the reason this guard was recorded unreachable: it is unkillable off Windows because `normcase` is the identity there, and on Windows it is both reachable and load-bearing. The corrected reason is measured off Windows only — one inode, two identities on a case-insensitive macOS volume — so what stays unverified is the pairing the guard exists for, on the one platform that has it | The windows CI leg, at this pull request. It is `agent-contract` §13 stated rather than closed: no run here removes the platform guarantee, so the guard is recorded rather than deleted. The direction is safe either way — the fallback over-reports, and a named ledger is the state this notice exists to produce |
 
 ## Not done
+
+**The run went past its bound, and the last fix pass was the orchestrator's.**
+Three rounds is the rule and five the ceiling while a 🔴 is open; this branch
+ran seven, and three of its verifying rounds reopened it — each time inside a
+unit the previous fix pass had just created. Round 7's 🔴 was the checker's:
+the floor's walk read a cell that answers the reviewer's question and not the
+bound's, so once round 6's 🟡 were fixed over its `no` there was no terminal
+record any exit accepted. The repository owner's instruction for that round
+was that the orchestrator writes the fixes rather than a smith, and phase 10 is
+that pass — `Ran by` names it. What the bound reads now is written in the
+three documents that state it, and the case that pins it was seen red twice,
+once on a fixture and once on this repository's own records. Round 8 reads
+that diff, and by the same documents costs nothing against the cap if it opens
+nothing.
 
 **Round 4's 🟡 7 ships as issue #159, not as a rule.** Round 4's fix pass
 answered that finding by inventing a rule — a field cell corrected after its

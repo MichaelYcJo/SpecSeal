@@ -102,6 +102,21 @@
   the pair is not merely unrefused but wrong — a round that commissioned no
   fixes will never have any. That is the terminal record of every run, and
   whether it should be refused is a question for the repository owner.
+  **The floor's count now stops at a record that wrote fixes, not only at
+  one that reopened.** The walk read `Needs a fix`, which is the reviewer's
+  answer to *what did I open*; the bound needs *were fixes written that owe a
+  reader*, and the two come apart when the orchestrator fixes a 🟡 the
+  reviewer said could be answered with grounds — because it ships, as a
+  false count in a ledger fragment does. The row then reads `no` over fixes
+  that exist, and the run had no terminal record any exit accepted: the
+  reader after the `no` was a second uncounted record, and stopping at the
+  `no` was refused both ways. Measured on this work item's own seventh
+  round. The verdict column already carried the fact — it is what refuses
+  `no fixes to check` beside `fixed` — and the walk reads it there now.
+  ALLOW, one record wider in one sequence, and the cheaper mistake: the
+  other way to satisfy the old walk was rewriting `fixed` to `answered`
+  over fixes that exist. Three quiet rounds are still refused, because
+  `answered` writes nothing.
   **What a rebase does to it is stated rather than left to be found.** The
   adding commit is read on the branch, and a rebase replays a branch's commits
   in order, so a passing record cannot be turned failing. What a rebase
