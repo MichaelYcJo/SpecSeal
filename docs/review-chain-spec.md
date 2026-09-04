@@ -847,6 +847,65 @@ agent is not known. Nothing is lost by it — the model is still written where a
 reader sees it — and telling the two apart would mean a rule about whether an
 English reason may begin with `on`.
 
+##### When the record was written — before the fixes it commissioned
+
+`templates/sdd-round.md` says a record is written *right after it posts*, and
+until this check nothing observed it. Measured twice in one release, four
+minutes and two minutes after the fix commits those records commissioned, and
+both times the reviewer's drafted replacement text lived only in a report and
+the next segment rebuilt it from scratch. That is the failure a build phase's
+own record was built to close, arriving on the review side of the chain.
+
+**A record written late leaves no trace.** By the time the orchestrator writes
+it the fixes have landed, so its verdict cells read `fixed at <sha>` — which
+is exactly what a correctly written record looks like after its own update
+pass. The two are indistinguishable in the file, and distinguishable in git.
+
+**So the check reads the ADDING commit, never the last one.** A correct record
+is committed with `open` cells when the round posts and updated when the fixes
+land, so its LAST commit legitimately descends from the fix; refusing on that
+would fail every well-written record. The commit that ADDED the file is the
+distinguishing one.
+
+Read on every record, like the four above and for the same reason: when a
+record was written is a fact about that round, and every round has one. The
+last record is the one **least** likely to be late, because nothing follows it
+to commission anything — so a check reading the last record alone would read
+the one record the defect cannot reach.
+
+| The state | The check |
+|---|---|
+| the adding commit descends from a commit this record's own verdict names as the fix, work item begun on or after the cutoff | **fails**, naming the adding commit, the fix, and the row — keyed to `chain_check.py`'s `ORDER_FROM`, whose value is the id of the work item that added the rule |
+| the same, work item begun before the cutoff (or with no timestamp prefix) | prints — the grandfathering `Fixes checked by` already uses. A merged record has no honest repair: nobody can commit it earlier now |
+| the record added with `open` cells and updated to `fixed at <sha>` afterwards | passes. This is the correct shape, and the whole reason the ADDING commit is what is read |
+| a verdict closing with `answered`, `withdrawn` or `not a defect` | passes, whatever commit sits in the cell — those close a finding and produce no code, so there is no fix the record could have been written after |
+| a fix commit that is an ancestor of this record's own `Target SHA` | passes — the round already reviewed that commit, so it is a fix this round did not commission. Round N+1's record is committed after round N's fixes by construction, and reading those as commissioned would fail the second round of every run |
+| a fix commit this repository cannot resolve | passes — after a squash that is the ordinary state of a reviewed commit, the reading `resolves_to` gives every other consumer |
+| a record with no adding commit in `<baseline>..HEAD` | passes — it arrived before the base, and nothing is claimed about it. The same *no claim* the reachability requirement already makes for a record the pull request does not touch. This is also what a base moving under a long branch produces: the record's own adding commit leaves the range and the commit that UPDATED its verdicts stays inside it, so *the oldest commit that touched the file* would refuse a record for doing exactly what a correct record does |
+
+**What a rebase does to this, stated rather than left to be found.** The
+refusal reads a commit relationship and a rebase rewrites commits, so the
+question is which direction it can move a verdict. The adding commit is read
+in `<baseline>..HEAD` rather than in the repository's whole history, and a
+rebase replays a branch's commits in order — so a record added before its fix
+on the branch is still added before it afterwards, and a passing record cannot
+be turned failing. What a rebase does change is the SHA the verdict cell
+names: the rewritten fix has a new hash while the cell still holds the old
+one, which resolves to nothing in a fresh clone and to an unreachable object
+in a local one. Either way no claim is made, so a rebase can turn a **failing**
+record passing.
+
+That is the safe direction of the two, and it is taken knowingly. Closing it
+would mean matching rewritten commits by patch id, which is a second mechanism
+for a case nobody has met — where the cost of the other direction is an honest
+record refused for a rebase its author did not connect to the failure.
+
+What no check can see is a record committed on time that carries nothing: the
+file exists before the fixes and says only what the round found. This refusal
+is about ORDER alone, and issue #150's own comment asks the narrower question
+beside it — whether a record can be made to carry the artifact it says it
+verified.
+
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a
 detached HEAD, two declarations naming one branch, a file that will not parse

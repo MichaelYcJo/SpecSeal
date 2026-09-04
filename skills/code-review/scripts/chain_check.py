@@ -507,6 +507,20 @@ ON_RE = re.compile(r"\s+" + ON_WORD + r"\s+", re.IGNORECASE)
 # the same reasoning as `STRICT_FROM`, `SURFACE_FROM` and `FLOOR_FROM` above,
 # which is where the reasoning lives rather than being written a fourth time.
 RUNNER_FROM = 1788491830
+# Where a record has to PRECEDE the fixes it commissioned (issue #150), as the
+# unix second in a work item's directory name -- the id of the work item that
+# added the rule, so the first records held to it are the ones written under
+# it. The fifth cutoff of the shape `STRICT_FROM`, `SURFACE_FROM`,
+# `FLOOR_FROM`, `NEEDS_FROM` and `RUNNER_FROM` carry, and the reasoning lives
+# at `STRICT_FROM` rather than being written a fifth time: a merged record has
+# no honest repair -- nobody can commit it earlier now -- and a check whose
+# first production act is red on history nobody can fix is a check people
+# learn to skip.
+#
+# A second grandfathering rides along without needing a constant, and it is
+# `added_on_branch`'s: a record that arrived before the base has no adding
+# commit on this branch, so nothing is claimed about it at all.
+ORDER_FROM = 1788501054
 # `templates/sdd-round.md:12` and `docs/review-handoff-protocol.md:84` both say
 # the Target SHA cell may name BOTH commits when HEAD moved mid-review. The
 # whole cell used to be handed to `merge-base` as one ref, so the documented
@@ -1927,6 +1941,170 @@ def ran_by(reader, root, rel):
     return [(rel, 0, f"`{RAN_BY}` {problem}")], []
 
 
+def added_on_branch(root, base, rel):
+    """The commit on THIS BRANCH that first added `rel`, or None.
+
+    `<base>..HEAD` rather than the whole history, and that is the answer to
+    the rebase question rather than an optimisation. Two things fall out of
+    it:
+
+      a record that arrived before the base has no adding commit here, so
+      nothing is claimed about it -- the same "no claim" `check_round` makes
+      for a record the pull request does not touch, and a grandfathering that
+      needs no constant
+
+      a rebase replays a branch's commits IN ORDER, so a record added before
+      its fix on the branch is still added before it afterwards. What a
+      rebase does change is the SHA a verdict cell names: the rewritten fix
+      has a new hash while the cell still holds the old one, which
+      `resolves_to` answers None for. So a rebase can turn a FAILING record
+      passing and never a passing one failing -- the safe direction, stated
+      in `docs/review-chain-spec.md` rather than left to be found.
+
+    `git log` prints newest first, so the LAST line is the first add. A file
+    added, removed and re-added is judged on the first of those, which is
+    when its author committed it.
+    """
+    out = git(root, "log", "--diff-filter=A", "--format=%H", f"{base}..HEAD", "--", rel)
+    if not out:
+        return None
+    found = [line.strip() for line in out.splitlines() if line.strip()]
+    return found[-1] if found else None
+
+
+def commissioned_fixes(reader, root, rel):
+    """[(line, what, sha, full sha)] -- commits this record's verdicts name as
+    fixes, resolved in this repository.
+
+    Only cells whose verdict is a FIX word. `answered`, `withdrawn` and `not a
+    defect` close a finding and produce no code, so there is no fix for the
+    record to have been written after, whatever commit the grounds beside it
+    happen to cite. And only the VERDICT cell is scanned, for the reason
+    `verdict_of` reads only the head of one: a grounds column is prose, and a
+    commit named in prose is a citation rather than a claim.
+
+    A SHA this repository cannot see is dropped rather than reported. After a
+    squash that is the ordinary state of a reviewed commit, and it is what
+    makes a rebase unable to fail an honest record.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return []
+    rows, col, _errors = verdict_table(reader, reader.readable(text), rel)
+    if col < 0:
+        return []
+    found = []
+    for line_no, seen in rows:
+        if verdict_of(seen, col) not in FIX_WORDS:
+            continue
+        for sha in SHA_RE.findall(seen[col]):
+            full = resolves_to(root, sha)
+            if full:
+                found.append((line_no, seen[0] or f"row at line {line_no}", sha, full))
+    return found
+
+
+def written_late(reader, root, base, rel):
+    """(errors, notices) -- was this record committed after its own fixes.
+
+    `templates/sdd-round.md` says a record is written right after the round
+    posts, and until this check nothing observed it. Issue #150 measured the
+    orchestrator stopping twice in a row, four minutes and two minutes after
+    the fix commits those records commissioned, and both times the reviewer's
+    drafted replacement text lived only in a report and the next segment
+    rebuilt it from scratch.
+
+    **A record written late looks finished.** By the time it is committed the
+    fixes have landed, so its verdict cells read `fixed at <sha>` -- which is
+    exactly what a correct record looks like after its own update pass. The
+    two are indistinguishable in the file and distinguishable in git, so what
+    is read is the commit that ADDED the record and never the one that last
+    touched it. Refusing on the last commit would fail every well-written
+    record, because a correct record IS updated after its fixes land.
+
+    Read on EVERY record, like `checked_by`, `fix_surface` and `ran_by`, and
+    for the same reason: when a record was written is a fact about that round,
+    and every round has one. The last record is the one LEAST likely to be
+    late, since nothing follows it to commission anything.
+
+    A fix the round did not commission is dropped: a verdict answering an
+    earlier round's finding names a commit this round already reviewed, so it
+    is an ancestor of this record's own `Target SHA`. Reading that as a
+    commissioned fix would fail the second round of every run, since round
+    N+1's record is committed after round N's fixes by construction.
+
+    An unreadable record and an unreadable verdict table both return nothing:
+    `checked_by` and `verdict_table`'s own caller already report those states,
+    and a second error naming a different cause would name a cause that is not
+    the cause.
+    """
+    named = commissioned_fixes(reader, root, rel)
+    if not named:
+        return [], []
+    adding = added_on_branch(root, base, rel)
+    if adding is None:
+        return [], []
+
+    reviewed = [
+        full
+        for full in (resolves_to(root, sha) for sha in target_shas(reader, root, rel))
+        if full
+    ]
+    # Grouped by the commit, not reported per row. One real record named the
+    # same fix in seven verdict cells, and seven copies of a paragraph is a
+    # failure people scroll past -- the rows are the detail, and the commit is
+    # the finding. Keyed by the RESOLVED sha so an abbreviation and a full
+    # hash in two cells are one commit, and the ancestry is asked once per
+    # commit rather than once per row.
+    late, spelling = {}, {}
+    for line_no, what, sha, full in named:
+        if full not in spelling:
+            spelling[full] = sha
+            commissioned = not any(
+                is_ancestor(root, full, target) for target in reviewed
+            )
+            if commissioned and is_ancestor(root, full, adding):
+                late[full] = []
+        if full in late:
+            late[full].append((line_no, what))
+
+    began = item_began(rel)
+    errors, notices = [], []
+    for full, rows in late.items():
+        line_no = rows[0][0]
+        which = ", ".join(what for _, what in rows)
+        message = (
+            f"this record was ADDED by {adding[:7]}, which descends from "
+            f"{spelling[full]} — the commit its own verdicts for {which} "
+            "name as the "
+            "fix. So it was written after the work it commissioned, and the "
+            "fix pass that should have read it read nothing: measured twice "
+            "in one release, and both times the reviewer's drafted "
+            "replacement text lived only in a report and the next segment "
+            "rebuilt it. A record written late leaves no trace afterwards, "
+            "because by then its verdict cells read `fixed at <sha>` — which "
+            "is what a record written on time looks like after its own "
+            "update pass. Commit the record when the round posts, with its "
+            "verdicts `open`, and update them when the fixes land: the "
+            "UPDATE commit may descend from the fix, the adding commit may "
+            "not"
+        )
+        if began is None or began < ORDER_FROM:
+            notices.append(
+                (
+                    rel,
+                    line_no,
+                    message + ". This work item began before the rule landed, "
+                    "so this prints instead of failing — the grandfathering "
+                    "`Fixes checked by` already uses, and there is no honest "
+                    "repair for a record nobody can commit earlier now",
+                )
+            )
+        else:
+            errors.append((rel, line_no, message))
+    return errors, notices
+
+
 def run_reopened(reader, root, rel):
     """True when this record's `Needs a fix` says the run reopened.
 
@@ -2471,6 +2649,16 @@ def main(argv=None):
             ran_errors, ran_notices = ran_by(reader, root, record)
             errors.extend(ran_errors)
             notices.extend(ran_notices)
+            # EVERY record too, and for the reason the other four are: WHEN a
+            # record was written is a fact about that round. The last one is
+            # the least likely to be late, since nothing follows it to
+            # commission anything, so a check reading it alone would read the
+            # one record the defect cannot reach.
+            late_errors, late_notices = written_late(
+                reader, root, args.baseline, record
+            )
+            errors.extend(late_errors)
+            notices.extend(late_notices)
 
     for rel, line, message in notices:
         print(reader.annotate("notice", rel, line, message))

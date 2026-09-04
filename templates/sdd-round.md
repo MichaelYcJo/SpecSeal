@@ -5,7 +5,20 @@ review chain did, written by the review orchestrator right after it posts.
 
 It lives here rather than under a pull request number because the number does
 not exist while the rounds that fill this file are running. `docs/review-handoff-protocol.md`
-carries the format; this is the shape it takes in this repository. -->
+carries the format; this is the shape it takes in this repository.
+
+**Right after it posts is read by `chain_check.py`, not only meant.** It
+refuses a record whose ADDING commit descends from a commit its own verdicts
+name as the fix: such a record was written after the work it commissioned, and
+the fix pass that should have read it read nothing. Measured twice in one
+release, and both times the reviewer's drafted replacement text lived only in
+a report and the next segment rebuilt it.
+
+So commit this file when the round posts, with its verdict cells reading
+`open`, and update them when the fixes land. The UPDATE commit may descend
+from the fix — that is what a correct record looks like — and the commit that
+ADDS the file may not. Records of work items begun before the rule landed
+print instead of failing. -->
 
 | Field | Value |
 |---|---|

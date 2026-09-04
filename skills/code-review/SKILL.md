@@ -439,6 +439,32 @@ segment of two work items was metered and posted, and not one of the readings
 says what produced it — so the log knows what a segment cost and cannot say
 whether the cost was the model's, the agent's, or the scope's.
 
+### And commit the record before commissioning the fixes
+
+The record is the fix pass's agenda, so it has to exist before the fix pass
+does. Commit `round-N.md` when the round posts, with its verdict cells reading
+`open`; the fixes land next, and the cells are updated to `fixed at <sha>`
+afterwards — the same reach-back that fills `Fixes checked by` and the fix
+surface.
+
+**A record written late leaves no trace**, which is why this is a gate rather
+than a reminder. By the time a late record is committed the fixes have landed,
+so its cells read `fixed at <sha>` — indistinguishable from a correct record
+after its own update pass. Measured twice in one release, four minutes and two
+minutes after the fix commits those records commissioned, and both times the
+reviewer's drafted replacement text lived only in a report and the next
+segment rebuilt it from scratch.
+
+`chain_check.py` refuses a record whose **adding** commit descends from a
+commit its own verdicts name as the fix, for work items begun on or after its
+`ORDER_FROM`; earlier ones print. It is the adding commit and never the last
+one, because a correct record IS updated after its fixes land.
+
+The cheapest way to satisfy it is also the one that pays: commission the fix
+pass **from the committed record** rather than from the reviewer's report. The
+report is a message in a session that ends; the record is a file the next
+segment opens.
+
 ### The check a round runs reads everything, and only a write is narrowed
 
 `evidence-check` takes `--ledger`, and the flag is right for one of its two
