@@ -683,7 +683,7 @@ fact about the round that met the floor rather than about the last one.
 | an empty cell, or a word that is neither | **fails** on any record — a word the check cannot read is never the reassuring reading, and `nothing anybody can see` is a sentence rather than an answer |
 | `yes` with nothing after it | **fails** on any record — the cell then records that something was found and not what |
 | `no`, with two or more later round records and none of them saying the run reopened | **fails**, naming the exit. One later record is the verifying round; a second is the run carrying on past its own stopping rule |
-| any of those, work item with no timestamp prefix | prints — `item_began` has no second to compare, so every cutoff here is below it and the record is excused permanently |
+| the ABSENT row, or the run that went past it, work item with no timestamp prefix | prints — `item_began` has no second to compare, so the cutoff is below it and those two are excused permanently. **The three malformed states above are not**: `stopping_floor` appends their errors without consulting the work item's age at all |
 
 Only the ABSENT row and the run that went past it are grandfathered, and they
 are grandfathered for different reasons. The first is the reason the rows
@@ -806,7 +806,7 @@ record alone answers it for one round.
 | an empty cell | **fails** on any record — a row that says nothing answers nothing |
 | a bare `unknown`, with nothing after it | **fails** on any record — the cell then records that something is missing and not what, which is the refusal `nobody` takes for the same reason |
 | a cell naming one thing — no `on` with whitespace on both sides, or a half that is empty | **fails** on any record, naming what the two halves are for |
-| any of those, work item with no timestamp prefix | prints — `item_began` has no second to compare, so every cutoff here is below it and the record is excused permanently |
+| the ABSENT row, work item with no timestamp prefix | prints — `item_began` has no second to compare, so the cutoff is below it and that row is excused permanently. **The three malformed states above are not**: they fail for a work item named any way at all |
 
 Only the ABSENT row is grandfathered, and the reason is sharper here than for
 the rows above: nobody can recover what ran a segment whose session is over,
@@ -822,6 +822,21 @@ coincide, because the orchestrator writes that file. For a build phase's
 record they do not — the segment writes it — so the value is handed over in
 the spawn prompt and transcribed, or filled in afterwards. What is refused is
 a segment sourcing the value from its own idea of what it is.
+
+**What no check can see is which of those two happened.** `ran_by` reads the
+shape of the cell and nothing about where the value came from, so a
+transcribed `specseal:smith on Opus` and an invented one are the same eight
+words. The rule is a declaration, like the depth's, and the reader who looks
+at it is whoever holds the spawn prompt beside the record — the orchestrator
+at the round that follows, or the person reading the pull request.
+
+This branch's own four phase records are the worked case, and they are the
+mixed one rather than the clean one: the agent half and the model came from
+the spawn prompt, and the version detail after it did not. That is what the
+declaration looks like when it is only partly sourced, and no check reports
+it. A round record has the easier job — the orchestrator writes that file and
+chose the model — which is why the rule's difficulty is entirely on the phase
+side.
 
 One limit is recorded rather than parsed away, the third of the shape above:
 a cell beginning with the word `unknown` is read as the unknown answer whole,

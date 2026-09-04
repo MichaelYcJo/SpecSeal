@@ -264,6 +264,16 @@ def test_the_row_is_read_on_every_record_not_only_the_last(repo):
     """
     declared(repo, NEW_ITEM, lambda sha: record(sha, ran_by=None), record)
     code, out = run(repo)
+    # Round 2's 🟡 7. The fixture has to HAVE an earlier record for "not only
+    # the last" to mean anything, and nothing here said so: reverting
+    # `declared()` to one record left this case green, with the narrowing it
+    # exists to catch unseen too, because one record is also the last one.
+    # `chain_check.py` prints the count it found, so the fixture's own shape
+    # is assertable rather than assumed.
+    assert "2 round record(s)" in out, (
+        "the fixture wrote one record, so this case is not testing "
+        "`every record` at all — one record is also the last one"
+    )
     assert code == 1, out
     assert "round-1.md" in out, (
         "the earlier record is missing the row and the failure does not name "
@@ -439,15 +449,36 @@ def test_the_behaviour_spec_carries_a_subsection_for_this_refusal():
 
 
 def test_the_documents_say_why_older_records_are_excused():
-    """The sibling arrangement `SURFACE_FROM` already has: a constant with no
-    reason beside it reads as a leftover, and removing it turns a release
-    pull request red on merged history."""
+    """A constant with no reason beside it reads as a leftover, and removing
+    it turns a release pull request red on merged history.
+
+    Round 2's ❓ 10, fixed rather than justified. Asserting the constant's
+    NAME is a tautology for `chain_check.py`: the constant is defined and
+    read there, so that file cannot stop containing the string while the code
+    runs at all. What the case is named for is the REASON standing beside it,
+    so that is what it pins — a phrase from the reason in each file, which a
+    deletion actually removes. `test_the_fixes_name_their_surface.py`'s
+    `SURFACE_FROM` case is the same shape and gets the same edit, because the
+    tautology is a property of the arrangement rather than of this row.
+    """
+    reason = "nobody can recover what ran a segment whose session is over"
     for parts in (
         ("docs", "review-chain-spec.md"),
         ("skills", "code-review", "scripts", "chain_check.py"),
     ):
         text = flat(*parts)
         assert "RUNNER_FROM" in text, "/".join(parts)
+        # One phrase, and it must be UNIQUE in each file. The first version
+        # of this pinned `excused permanently`, which the floor's subsection
+        # also carries — so deleting this subsection's reason left the case
+        # green on the neighbour's copy. That is the same class the ❓ this
+        # fixes was about, arriving inside the fix for it.
+        assert text.count(reason) == 1, (
+            f"{'/'.join(parts)} does not carry the reason exactly once "
+            "beside `RUNNER_FROM`. Absent, a reader gets a constant with no "
+            "grounds; twice, this case can be satisfied by the copy that is "
+            "not the one it stands for"
+        )
 
 
 def test_the_spec_states_the_two_halves_and_the_unknown_answer():
@@ -459,6 +490,30 @@ def test_the_spec_states_the_two_halves_and_the_unknown_answer():
             f"the spec's `Ran by` subsection does not state `{needle}`, so a "
             "record written from it meets a refusal the document never named"
         )
+    # Round 2's 🟡 9. Every neighbouring subsection names what its check
+    # cannot see and who looks instead; this one stated its central rule as
+    # though `ran_by` enforced it. Nothing in that function can tell a
+    # transcribed value from an invented one, and round 1's own record leans
+    # on the spec RECORDING that limit.
+    assert "What no check can see is which of those two happened" in text, (
+        "the subsection states the spawning-session rule as enforced, and no "
+        "check enforces it — a reader is told a declaration is a guarantee"
+    )
+    # Round 2's 🟡 8, both places §12 reaches. The row copied from the floor
+    # said the malformed states print for a work item with no timestamp
+    # prefix; all three fail without `began` ever being consulted.
+    assert text.count("The three malformed states above are not") == 2, (
+        "the no-prefix row claims to excuse states the code refuses "
+        "unconditionally, here or in the floor's subsection it was copied from"
+    )
+    # The absence half, and it is the one that catches the row coming back.
+    # The sentence above can sit beside the false phrasing and say nothing —
+    # a mutation restoring `any of those` left the corrective sentence in
+    # place and this case green until the line below was added.
+    assert "any of those, work item with no timestamp prefix" not in text, (
+        "the false row is back: `any of those` reaches over three states "
+        "that fail without `began` ever being consulted"
+    )
 
 
 # --- the skills that tell a session to fill it -----------------------------
@@ -604,27 +659,96 @@ def test_the_recorded_limit_an_unknown_that_leads_with_on():
 
 
 def test_the_arm_order_changes_the_reading_and_never_the_verdict():
-    """Round 1's 🟡 4. The docstring claimed the order was load-bearing and
-    three durable records disagreed about it; this is the claim that stands.
+    """Round 1's 🟡 4, rebuilt after round 2's 🟡 6.
 
-    Whether a cell is accepted does not depend on the order, and it cannot:
-    the `unknown` arm refuses when nothing follows the separator, and nothing
-    following means there is no ` on ` in the tail either. So every cell that
-    would split is one the `unknown` arm accepts anyway.
+    The claim is that reversing the two arms of `runner_problem` moves no
+    verdict. The first version of this case asserted three values that are
+    each asserted verbatim elsewhere, plus `ON_RE.search("unknown") is None`,
+    which cannot fail — `unknown` holds no `on` substring at all, so it is
+    None for the real pattern, for a bare `on`, and for anything spelling the
+    word. It was satisfied by its input rather than by the whitespace
+    requirement it stood for. Reversing the real arms left it green, and so
+    did deleting the reasoning it claimed to pin. **And the ledger cited it as
+    the executed grounds for R1** — a row pointing at a case that did not run
+    its claim, which is the mistake R1's own Notes name one sentence later.
 
-    What the order settles is what the cell was read AS, which reaches a
-    person only through the message. The pair below is the whole difference:
-    under the other order the first would be a pair whose agent is the reason
-    and whose model is `this run`, and it would still be accepted.
+    So the claim is executed rather than described. The other order is built
+    here, over the module's own constants, and the two are compared on the
+    VERDICT across a constructed corpus. Zero disagreements is the claim.
+
+    Three ways this was verified, and the middle one is the point:
+
+      unmutated                      green
+      the real arms reversed         green — reversed against reversed still
+                                     agrees, which IS the claim rather than a
+                                     hole in it
+      an arm's semantics changed so  red, naming the cell they disagree on
+      the two orders disagree
+
+    The reference below is deliberately NOT re-derived from the real
+    function's arms, and that is a cost worth naming: a legitimate change to
+    the `unknown` arm's separator set turns this red until the reference
+    follows. That red is correct — it says the two orders have stopped being
+    interchangeable, or that the copy has drifted, and both are worth a
+    person's attention.
+
+    It is nested rather than module-level on purpose. Round 2's finding sits
+    inside a case round 1's fix pass created, so a new top-level unit here
+    would be depth 2, which `New units` forbids.
     """
     check = check_module()
-    for value in ("unknown — not recorded on this run", "unknown on Opus"):
-        assert check.runner_problem(value) is None, value
-    # The by-construction half, asserted rather than described: a cell the
-    # `unknown` arm REFUSES has no ` on ` left in it to split on either.
-    bare = "unknown"
-    assert check.runner_problem(bare) is not None
-    assert check.ON_RE.search(bare) is None, (
-        "a bare `unknown` with something splittable in it would be the one "
-        "cell where the two orders could disagree about the verdict"
+
+    def split_first(value):
+        """The same two arms, in the other order."""
+        s = check.EMPHASIS.sub("", value).strip()
+        if not s:
+            return "empty"
+        halves = check.ON_RE.split(s, maxsplit=1)
+        if len(halves) == 2 and halves[0].strip() and halves[1].strip():
+            return None
+        low = s.lower()
+        if low == check.UNKNOWN_WORD or (
+            low.startswith(check.UNKNOWN_WORD)
+            and low[len(check.UNKNOWN_WORD)] in check.SEPARATORS
+        ):
+            if not s[len(check.UNKNOWN_WORD) :].strip(check.SEPARATORS).strip():
+                return "a bare unknown"
+            return None
+        return "names one thing"
+
+    # Built rather than listed, so the corpus covers the cells that reach BOTH
+    # arms — an `unknown` whose reason itself contains the word `on` is the
+    # only shape where the orders could ever come apart.
+    heads = ["", "unknown", "UNKNOWN", "Unknown", "unknownish", "smith", "monitor"]
+    separators = ["", " ", " — ", " - ", ", ", ": "]
+    tails = [
+        "",
+        "on",
+        "on Opus",
+        "the model was not recorded on this run",
+        "Opus 5 (1M context)",
+        "not recorded",
+    ]
+    wraps = ["{}", "`{}`", "**{}**"]
+    disagreed, compared, reached_both = [], 0, 0
+    for head in heads:
+        for separator in separators:
+            for tail in tails:
+                for wrap in wraps:
+                    value = wrap.format(f"{head}{separator}{tail}")
+                    compared += 1
+                    if head.lower().startswith(check.UNKNOWN_WORD) and " on " in tail:
+                        reached_both += 1
+                    real = check.runner_problem(value)
+                    other = split_first(value)
+                    if (real is None) != (other is None):
+                        disagreed.append((value, real, other))
+    assert compared > 500, compared
+    assert reached_both, (
+        "the corpus holds no cell that reaches both arms, so it cannot tell "
+        "the two orders apart whatever it finds"
+    )
+    assert not disagreed, (
+        "the two arm orders disagree on a verdict, so the order IS "
+        f"load-bearing and three records now say otherwise: {disagreed[:5]}"
     )

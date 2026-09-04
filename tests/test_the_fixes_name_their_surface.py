@@ -566,13 +566,32 @@ def test_the_protocol_no_longer_grandfathers_both_rows_by_one_key():
 
 def test_the_documents_say_why_older_records_are_excused():
     """`SURFACE_FROM` with no reason beside it reads as a leftover constant,
-    and removing it turns a release pull request red on merged history."""
-    for parts in (
-        ("docs", "review-chain-spec.md"),
-        ("skills", "code-review", "scripts", "chain_check.py"),
+    and removing it turns a release pull request red on merged history.
+
+    The constant's NAME alone is a tautology for `chain_check.py` — it is
+    defined and read there, so the file cannot stop containing the string
+    while the code runs. That was round 2's ❓ 10 on the sibling case for
+    `RUNNER_FROM`, and §12 reaches here because the shape is the same rather
+    than because this row was reported. Each file is pinned on a phrase from
+    the reason as well, which a deletion actually removes.
+    """
+    for parts, reason in (
+        (("docs", "review-chain-spec.md"), "deriving a depth now for"),
+        (
+            ("skills", "code-review", "scripts", "chain_check.py"),
+            "nobody re-read fabricates a review",
+        ),
     ):
         text = flat(*parts)
         assert "SURFACE_FROM" in text, "/".join(parts)
+        # Counted, not merely present. `fixes nobody re-read` and
+        # `a merged record has no honest repair` each appear twice in
+        # `chain_check.py`, so a needle spelled either way is satisfied by
+        # the copy belonging to a different cutoff.
+        assert text.count(reason) == 1, (
+            f"{'/'.join(parts)} does not carry the reason exactly once "
+            "beside `SURFACE_FROM`"
+        )
     spec = flat("docs", "review-chain-spec.md")
     assert "print" in spec and "grandfather" in spec
 
