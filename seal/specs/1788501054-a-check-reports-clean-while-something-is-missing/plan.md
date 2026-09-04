@@ -36,7 +36,7 @@ Both alter what a skill instructs and what a gate refuses — the top rung — s
 |---|---|---|---|
 | 1 | `docs/review-handoff-protocol.md` and `skills/code-review/SKILL.md` name the two forms and what each is for — the unscoped read that says what a branch broke, the scoped write that keeps `--reverify` off somebody else's row | cases pinning both sentences, seen red with the prose stashed | `a942058` |
 | 2 | `evidence_check.py` says which ledgers it did not read when `--ledger` narrowed it | a case on the output, seen red before the line exists | `93c8b89` |
-| 3 | `chain_check.py` refuses a round record whose **adding** commit descends from a commit its own verdicts name as the fix, behind a fifth cutoff; `docs/review-chain-spec.md` gains the subsection | each refusal seen red at a named SHA; a case for the well-written record that must keep passing; the rebase caveat settled and written into the message or the spec | |
+| 3 | `chain_check.py` refuses a round record whose **adding** commit descends from a commit its own verdicts name as the fix, behind a fifth cutoff; `docs/review-chain-spec.md` gains the subsection | each refusal seen red at a named SHA; a case for the well-written record that must keep passing; the rebase caveat settled and written into the message or the spec | `55ae839` |
 | 4 | Whether *the record carries what it says it verified* is checkable — **answered either way**, in the spec if it is not; the fragments | `evidence-check .` **unscoped**, `fold_ledger --check`, `unverified-check` | |
 
 Phase 1 before 2 and 3, and phase 3's spec subsection in the same phase as its
