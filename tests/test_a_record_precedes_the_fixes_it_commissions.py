@@ -564,6 +564,39 @@ def test_the_review_skill_tells_the_orchestrator_when_to_commit_it():
     )
 
 
+def test_the_spec_answers_whether_carrying_is_checkable():
+    """#150's own comment asks the narrower question beside the ordering one
+    — whether a record can be made to carry the artifact it says it verified
+    — and asks for it to be *stated whether it is checkable before assuming
+    it is*. Answered either way is the requirement; this is the answer being
+    in the file rather than in a session."""
+    spec = flat("docs", "review-chain-spec.md")
+    assert "What the record carries" in spec, (
+        "the narrower question is left assumed, which is what its own "
+        "comment asks not to happen"
+    )
+    assert "unbounded domain" in spec, (
+        "the answer names no reason, so a later reader reads it as an "
+        "omission rather than as a decision"
+    )
+    assert "a declaration" in spec, (
+        "what is not checkable has to be named as a declaration, the shape "
+        "`New units`' depth and `Ran by`'s provenance already take"
+    )
+
+
+def test_the_template_says_what_a_probe_row_owes():
+    """The rule the answer above leaves behind: a probe row whose subject was
+    a proposed replacement carries the replacement, not a sentence about
+    it."""
+    template = flat("templates", "sdd-round.md")
+    assert "never a sentence about it" in template
+    assert "reproducible from its own text" in template, (
+        "the rule arrives with no reason, and a rule about writing more is "
+        "the first one a tired session drops"
+    )
+
+
 def test_the_template_says_what_the_check_does():
     """The row's own comment is where a session copying the template meets
     the rule. `templates/sdd-round.md` said the record is written right after

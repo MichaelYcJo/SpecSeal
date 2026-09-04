@@ -903,8 +903,45 @@ record refused for a rebase its author did not connect to the failure.
 What no check can see is a record committed on time that carries nothing: the
 file exists before the fixes and says only what the round found. This refusal
 is about ORDER alone, and issue #150's own comment asks the narrower question
-beside it — whether a record can be made to carry the artifact it says it
-verified.
+beside it. The next subsection answers it.
+
+##### What the record carries — a declaration, and why no check reads it
+
+Writing the record first is necessary and not sufficient, and the measurement
+that says so was taken on the round after the one above. `1788491830`'s round
+2 was written **before** the fix pass it commissioned — the thing the refusal
+asks for — and its executed-probes table reads:
+
+> the round's proposed fixes for 🟡 6 and 🟡 7, unmutated then under three
+> mutations each · green, then red in every case
+
+**The record contains none of that code.** So it asserts a verification and
+does not carry its artifact, and the implementer wrote its own replacement for
+the second time running. It is the ticket's own opening observation arriving
+one level in: a record that says it verified something it does not carry looks
+complete.
+
+**The rule.** An `Executed probes` row whose subject was a **proposed
+replacement** rather than a command carries the replacement itself, in the
+record, in a fenced block. A command is reproducible from its own text; a
+patch is not. `templates/sdd-round.md` carries it beside the column.
+
+**Whether it is checkable was asked before it was assumed, and the answer is
+no.** Three readings were tried and each fails in a way this document already
+refuses elsewhere:
+
+| The check somebody would write | Why it is not written |
+|---|---|
+| a probe row naming a fix, with no fenced block anywhere in the file | *naming a fix* is a keyword match over free prose — an enumeration over an unbounded domain, the closing the arrow's and the comma's limits above already decline. The column is a sentence a reviewer writes, and a rule about which sentences mean *patch* is a rule about English |
+| every record carries at least one fenced block | fails every record whose probes were all commands, which is most of them. A check that refuses the ordinary case teaches people to write a block that says nothing |
+| the block's content appears in the diff | the record is written BEFORE the fixes by the rule above, so at that moment the replacement is in no diff at all. Requiring it later would require re-editing the record after the fixes land, for a claim that is already true |
+
+So it stays a declaration, the shape `New units`' depth and `Ran by`'s
+provenance already take: written by the party that knows, read by the party
+that holds the artifact beside the record — here the fix pass, which is the
+one that would otherwise retype it. That is the third declaration in this
+document, and the count is worth stating: what a check cannot reach, a reader
+does, and saying which is which is what keeps the checks honest.
 
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a

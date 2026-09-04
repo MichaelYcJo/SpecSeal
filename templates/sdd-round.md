@@ -181,6 +181,23 @@ durable, committed home instead. -->
 |---|---|
 | <the command> | <what came back — this column is for what RAN, never for what was read> |
 
+<!-- Where the thing run was a **proposed replacement** rather than a command,
+the row owes the replacement itself, in a fenced block under this table —
+never a sentence about it. A command is reproducible from its own text; a
+patch is not.
+
+Measured: one round's table read *"the round's proposed fixes for 🟡 6 and
+🟡 7, unmutated then under three mutations each — green, then red in every
+case"*, and the record contained none of that code. The implementer wrote its
+own replacement, for the second time in one release. A record that says it
+verified something it does not carry looks complete, which is the same failure
+a late record has, one level in.
+
+No check reads this. `docs/review-chain-spec.md` §*What the record carries*
+says which three checks were tried and why each is a rule about English rather
+than about a file. It is a declaration, like the depth in `New units`, and the
+reader who looks at it is the fix pass this record is the agenda for. -->
+
 ## Inherited coordinates
 
 <!-- For N>1: where earlier rounds looked, so this round opens those places
