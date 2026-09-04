@@ -140,6 +140,11 @@ def record(sha, contract="none", new_units="none"):
     # `tests/test_the_record_is_held_to_the_floor_and_the_depth.py` is where
     # that one is pinned.
     rows += "| Loses a record or crashes | no |\n| Needs a fix | no |\n"
+    # `Ran by` is here for the reason the floor row above is: `NEW_ITEM`
+    # began after `chain_check.RUNNER_FROM`, so leaving it out would fail
+    # every record in this file for a rule it does not pin.
+    # `tests/test_a_record_says_what_ran_it.py` is where that one is pinned.
+    rows += "| Ran by | specseal:warden on a model |\n"
     return (
         "# a round\n\n"
         f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n"
