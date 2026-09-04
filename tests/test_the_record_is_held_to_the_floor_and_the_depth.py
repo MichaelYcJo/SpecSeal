@@ -473,6 +473,27 @@ def test_an_unreadable_needs_a_fix_does_not_stop_the_count(repo):
     )
 
 
+def test_a_later_record_with_no_needs_a_fix_row_does_not_stop_the_count(repo):
+    """The sibling of the unreadable-cell case, one state further out. An
+    ABSENT row answers None the same way an unreadable one does, and None
+    counts as NOT reopening — otherwise leaving the row out would be the way
+    to buy extra rounds, which is the direction `plan.md` forbids."""
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, floor="no", needs="no"),
+        lambda sha: record(sha, floor="no", needs=None),
+        lambda sha: record(sha, floor="no", needs="no"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "no readable" in out, "the absent row is refused on its own"
+    assert "at most one more" in out, (
+        "the count treated a row that is not there as a reopening, so the "
+        "run that went past its floor was reported by nothing"
+    )
+
+
 def test_a_record_that_found_something_may_be_followed_by_more(repo):
     """`yes` leaves the cap to decide, so three rounds after it are the cap
     working rather than the floor being ignored."""
@@ -541,6 +562,26 @@ def test_an_unreadable_needs_a_fix_fails_after_the_cutoff(repo):
     code, out = run(repo)
     assert code == 1, out
     assert "neither answer" in out
+
+
+def test_an_empty_needs_a_fix_cell_gets_the_sentence_an_empty_cell_gets(repo):
+    """Round 2's 🟡 3. It printed ``is ``, which is neither answer`` — empty
+    backticks, and a value quoted where there is none.
+
+    The floor row two functions away has said *a row that says nothing
+    answers nothing* since it shipped, and these two rows read the same
+    vocabulary. Two answers to one state at two qualities is the drift this
+    file closes everywhere else, and this is a line a person reads and acts
+    on."""
+    declared(repo, NEW_ITEM, lambda sha: record(sha, needs=""))
+    code, out = run(repo)
+    assert code == 1, out
+    assert "`Needs a fix` is empty" in out
+    assert "answers nothing" in out
+    assert "is ``," not in out, (
+        "the empty cell is still quoted as though it held a value, which is "
+        "the message the finding is about"
+    )
 
 
 @pytest.mark.parametrize("value", (None, "probably", ""))
@@ -734,6 +775,42 @@ def test_a_comma_inside_a_reason_after_none_is_not_a_list(repo):
     assert code == 0, out
 
 
+@pytest.mark.parametrize("cell", ("`NONE` (depth 2)", "none (depth 2)"))
+def test_a_unit_named_none_carrying_a_depth_is_a_unit(repo, cell):
+    """Round 2's 🟡 2, and the other half of round 1's 🟡 6.
+
+    `EMPHASIS` strips the backticks and `.lower()` strips the case, so
+    `` `NONE` `` is the word `none`; the space before the marker is a
+    separator, so the whole cell parsed as *none, with a reason* and the
+    depth walk was never reached. A unit really named `NONE`, declared at a
+    depth the rule refuses, passed.
+
+    The guard is narrow on purpose: only a parenthesised `(depth N)` takes a
+    cell out of `none`. A reason that merely says the word — `none — the
+    depth was not recorded` — is still an answer, and the case below holds
+    that.
+    """
+    declared(repo, NEW_ITEM, lambda sha: record(sha, new_units=cell))
+    code, out = run(repo)
+    assert code == 1, out
+    assert "deferred with a named answerer" in out, (
+        "the cell names a unit at depth 2 and was read as naming no units, "
+        "so the refusal that should have fired did not"
+    )
+
+
+def test_a_reason_that_merely_says_the_word_depth_is_still_none(repo):
+    """The absence half of the guard above: it keys on the parenthesised
+    marker, not on the word, so an ordinary reason is untouched."""
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, new_units="none — the depth was not recorded"),
+    )
+    code, out = run(repo)
+    assert code == 0, out
+
+
 def test_none_with_a_trailing_semicolon_is_still_none(repo):
     """🟡 6 of round 1, and the refusal's own instruction produced it: `none;`
     was refused as separators-with-nothing-between, and the message says to
@@ -745,32 +822,44 @@ def test_none_with_a_trailing_semicolon_is_still_none(repo):
 
 
 # The mirror of the arrow limit `fix_surface` records for `Contract changes`.
-# The comma is found by substring, so a unit name holding one is read as two
-# units. `;` between units is the spelling; a name that genuinely holds a
-# comma is written without one.
-COMMA_LIMIT = "a unit name holding a comma"
+# The comma is found by substring ANYWHERE in the entry outside the depth
+# marker — round 2's 🟡 9 found the sentence naming only a unit name, while a
+# comma in a reason is refused too.
+COMMA_LIMIT = "a comma anywhere in the entry outside the depth marker"
+# The separator's own limit, which round 2's 🔴 1 hit before either of the
+# other two could apply. `;` splits both rows before anything looks at code
+# spans, so an entry describing the character splits itself.
+SPLIT_LIMIT = "a literal semicolon inside a code span splits the entry"
 
 
-def test_the_recorded_limit_a_comma_inside_a_unit_name(repo):
-    """The limit, executed: `` `get(a, b)` (depth 1) `` is one unit and is
-    refused as a crowded entry. If this case ever fails, the limit was
-    closed — delete the sentence the case below pins."""
-    declared(
-        repo,
-        NEW_ITEM,
-        lambda sha: record(sha, new_units="`get(a, b)` (depth 1)"),
-    )
+@pytest.mark.parametrize(
+    "cell", ("`get(a, b)` (depth 1)", "`helper` (depth 1) — adds a, b")
+)
+def test_the_recorded_limit_a_comma_outside_the_depth_marker(repo, cell):
+    """The limit, executed, in both places a comma can sit: inside the unit
+    name and inside the reason after it. Round 2's 🟡 9 is the second — the
+    code refused it and the recorded sentence named only the first.
+
+    If this case ever fails, the limit was closed — delete the sentence the
+    case below pins."""
+    declared(repo, NEW_ITEM, lambda sha: record(sha, new_units=cell))
     code, out = run(repo)
     assert code == 1, out
     assert "one depth per unit" in out
 
 
-def test_the_comma_limit_is_recorded_where_the_rule_lives():
+@pytest.mark.parametrize("limit", (COMMA_LIMIT, SPLIT_LIMIT))
+def test_the_recorded_limits_are_recorded_where_the_rule_lives(limit):
     """A recorded limit that is recorded nowhere is a closed finding. The
     arrow's is stated in the checker and in the document that carries its
-    refusals, and this one goes in the same two places."""
+    refusals, and these two go in the same two places.
+
+    `SPLIT_LIMIT` is the class round 2's 🔴 1 belongs to and the reason it is
+    here: the branch recorded the arrow's limit and the comma's and said
+    nothing about the separator that runs before both, so the record naming
+    the fix surface was cut in half by the row it was describing."""
     for parts in (SPEC, CHECKER):
-        assert COMMA_LIMIT in flat(*parts), "/".join(parts)
+        assert limit in flat(*parts), "/".join(parts)
 
 
 def test_one_entry_without_a_depth_fails_among_good_ones(repo):

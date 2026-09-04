@@ -758,11 +758,23 @@ is really second-level. The rule is a declaration, and the verifying round
 reading the `New units` surface is what looks at it.
 
 One limit is recorded rather than parsed away, the mirror of the arrow's above:
-the comma that marks a crowded entry is found by substring, so a unit name
-holding a comma — `` `get(a, b)` (depth 1) `` — is refused as two units. `;`
-between units is the spelling, and a name that genuinely holds a comma is
-written without one. Parsing code spans to tell the two apart is the same
-enumeration over an unbounded domain the arrow's limit declines.
+the comma that marks a crowded entry is found by substring, so a comma anywhere
+in the entry outside the depth marker is read as separating two units.
+`` `get(a, b)` (depth 1) `` is refused, and so is
+`` `helper` (depth 1) — adds a, b ``, where the comma sits in the reason rather
+than in the name. An entry that needs a comma is written without one.
+
+**The separator has the same limit, and it runs before both of the others.**
+`;` splits `Contract changes` and `New units` before anything looks at code
+spans, so a literal semicolon inside a code span splits the entry carrying it,
+and the tail is refused for having no reach. The record that first hit this was
+the one describing a change to how the separator is read — the entry recording
+the limit is the entry that met it. Spell the character as a word. Because the
+hygiene workflow runs this check on every pull request, a record written the
+other way opens the pull request red.
+
+Parsing code spans to tell any of the three apart is the same enumeration over
+an unbounded domain the arrow's limit declines.
 
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a

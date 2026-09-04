@@ -57,7 +57,8 @@ lands in the same branch rather than after it.
 | That a repository setting `Record language` leaves the floor's `no` and `yes` in English | The repository owner, on the first repository that sets the row. The exclusion list says so and CI derives it from the module's constants, but no repository has been run in another language |
 | ✅ That both fragments this branch writes are the shapes the release gathers | `fold_ledger.py --version 0.8.0 --dry-run` moves all seven ledger rows and writes nothing, exit 0; `evidence-check` reports 18 ok on the fragment, exit 0. `gather_changelog.py --check` and `fold_ledger.py --check` both report the fragments as ungathered, which is the state a feature branch is meant to be in — the hygiene workflow runs neither unless the base is `main` |
 | ✅ Whether row *r3 3 / r4 2* of `seal/ledger.md`, which said *the eleven fields* while this branch made the list twelve, should be rewritten | Round 1's 🔴 3 decided it: the claim no longer carries a count, the census sentence beside it is dated to the day it was taken and to the eleven entries it counted, and the row is re-verified. F7 of this work item's fragment carries what the count is now |
-| Row *S8* of `seal/ledger.md` says the config template's first row is `Pull request language`, which its own work item renamed before this branch existed. This branch drifted its anchor and left the hash where it was rather than re-stamping a claim that is false — so `evidence-check --strict` still exits 2 on this tree, and that is the release-preparation step | The repository owner. Round 1 deferred it there by name, and correcting *r3 3 / r4 2* alone does not clear the check — which round 1 asked to be reported rather than worked around |
+| Row *S8* of `seal/ledger.md` says the config template's first row is `Pull request language`, which its own work item renamed before this branch existed. This branch drifted its anchor and left the hash where it was rather than re-stamping a claim that is false — so `evidence-check --strict` still exits 2 on this tree, and that is the release-preparation step | The repository owner. Round 1 deferred it there by name, and correcting *r3 3 / r4 2* alone does not clear the check — which round 1 asked to be reported rather than worked around. **`evidence-check --reverify` takes no row selector**: one run on this tree re-stamps this false claim along with everything else, so anyone who needs it for their own rows has to restore this hash by hand afterwards, as both fix passes did |
+| Three rows in `seal/ledger.md` carry hashes re-stamped on 2026-09-04 beside `Checked` dates of 2026-09-03. Each claim was re-read against this branch's diff and none went false, so the hash is honest; whether the date should move with it is a convention this repository has not settled | The repository owner. Round 2 deferred it here. Moving the dates would mean writing eight rows of a shared file that this branch was scoped out of, and leaving them says the claim was verified against content that has since changed |
 
 ## Not done
 
@@ -71,6 +72,17 @@ subjects rather than substrings is left open, and nothing here depends on it.
 #97's three remaining levers are untouched by design — each changes pins that
 already exist and each needs its own question batch, which is why #117 was
 split out of it.
+
+**A `Needs a fix` reading `yes` with nothing after it is accepted, and it
+lengthens the floor's count by one round.** Round 2 opened it as ❓ 10 and put
+it out of scope, and this fix pass left it there rather than closing it
+quietly. The floor row refuses a bare `yes` because its reason is what the
+next round inherits; this row does not, because the verdict table directly
+below the cell is the reason. What that argument does not reach is the
+consequence — a bare `yes` on a later record stops the count at that record,
+so a run buys a round by writing one word. Deciding it means deciding whether
+the two rows keep one vocabulary or two, which is a question for the
+repository owner and an issue of its own once this branch merges.
 
 ## Fed back into the spec
 

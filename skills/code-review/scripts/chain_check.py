@@ -1456,8 +1456,25 @@ def says_none(value):
     and that second one this reads as NO units. A refusal whose own
     instruction produces a cell meaning something else is worse than the
     thing it refused (round 1, 🟡 6).
+
+    A cell carrying a DEPTH MARKER is never a `none`, and that is the other
+    half of the same finding (round 2, 🟡 2). `EMPHASIS` strips the backticks
+    and `.lower()` strips the case, so a unit really named `NONE` became the
+    word; the space before its marker is a separator, so `` `NONE` (depth 2)
+    `` parsed as *none, with a reason* and the depth walk never ran on a unit
+    the rule refuses. The guard keys on the parenthesised marker rather than
+    on the word `depth`, so an ordinary reason — `none — the depth was not
+    recorded` — is still an answer.
+
+    What the guard does NOT close, stated rather than left to be found: a
+    unit literally named `none` with no marker beside it still reads as the
+    word. There is nothing in the cell to tell the two apart, and inventing
+    a rule about backticks would be the code-span parsing the limits below
+    already decline.
     """
     s = EMPHASIS.sub("", value).lower().strip().rstrip(".;").strip()
+    if DEPTH_RE.search(s):
+        return False
     if s == NONE_WORD:
         return True
     if not s.startswith(NONE_WORD):
@@ -1565,11 +1582,25 @@ def fix_surface(reader, root, rel):
     review skill's own rules refuse.
 
     The depth walk has the mirror of that limit and it is recorded the same
-    way: the comma is found by substring, so a unit name holding a comma
-    reads as the separator of a crowded entry and `` `get(a, b)` (depth 1) ``
-    is refused as two units.
-    `;` between units is the spelling, and the workaround for a name that
-    genuinely holds a comma is to write it without one.
+    way: the comma is found by substring, so a comma anywhere in the entry
+    outside the depth marker reads as the separator of a crowded entry.
+    `` `get(a, b)` (depth 1) `` is refused as two units, and so is
+    `` `helper` (depth 1) — adds a, b ``, where the comma is in the reason
+    rather than the name (round 2, 🟡 9 — the code refused both and this
+    sentence named only the first). The workaround is to write the entry
+    without a comma.
+
+    **The separator itself has the same limit, and it applies BEFORE both of
+    them.** `;` splits both rows before anything looks at code spans, so a
+    literal semicolon inside a code span splits the entry carrying it: an
+    entry describing this very behaviour is cut in half and its tail refused
+    for having no reach. That is not hypothetical — it is round 2's 🔴 1, and
+    the entry it happened to was the one recording the change that put the
+    character in a cell. `.github/workflows/hygiene.yml` runs this check on
+    every pull request, so such a record opens the pull request red. Spell
+    the character as a word. Closing any of the three would mean parsing code
+    spans, which is the enumeration over an unbounded domain the review
+    skill's own rules refuse.
     """
     text = read_record(root, rel)
     if text is None:
@@ -1795,13 +1826,23 @@ def stopping_floor(reader, root, rel, later):
 
     needs_excused = began is None or began < NEEDS_FROM
     needs = field(rows, NEEDS)
-    word_needs = yes_or_no(reader.visible(needs).strip())[0] if needs else None
+    # `is not None`, not truthiness: an empty cell is a state of its own and
+    # gets its own sentence below, where `if needs` sent it to the branch
+    # that quotes a value and printed empty backticks (round 2, 🟡 3).
+    word_needs = (
+        yes_or_no(reader.visible(needs).strip())[0] if needs is not None else None
+    )
     if word_needs is None:
-        message = (
-            f"no readable `| {NEEDS} | … |` row"
-            if needs is None
-            else f"`{NEEDS}` is `{needs.strip()}`, which is neither answer"
-        ) + (
+        if needs is None:
+            message = f"no readable `| {NEEDS} | … |` row"
+        elif not needs.strip():
+            # The sentence the floor row two functions up has always given an
+            # empty cell. Two rows read the same vocabulary, so one state
+            # cannot have two answers at two qualities.
+            message = f"`{NEEDS}` is empty — a row that says nothing answers nothing"
+        else:
+            message = f"`{NEEDS}` is `{needs.strip()}`, which is neither answer"
+        message += (
             f". Write `{FLOOR_NO}`, or `{FLOOR_YES} — <what>`, copied from "
             "the reviewer's line of the same name. The floor's bound below "
             "rests on this row: it is what tells a verifying round that "

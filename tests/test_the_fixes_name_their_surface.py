@@ -349,6 +349,36 @@ def test_an_ascii_arrow_is_the_arrow(repo):
     assert code == 0, out
 
 
+def test_an_entry_carrying_a_literal_separator_is_refused(repo):
+    """Round 2's 🔴 1, as a fixture, pinning the choice whichever way a later
+    change goes.
+
+    `;` splits the cell before anything looks at code spans, so an entry that
+    describes the character in a code span is cut in half and the tail is
+    refused for having no reach. That is what happened to the record naming
+    this branch's own fix surface, and CI runs the same command on every pull
+    request, so the branch would have opened red. The workaround is to spell
+    the character as a word; closing it would mean parsing code spans, which
+    is the enumeration the arrow's limit already declines.
+
+    It lives here rather than in `test_chain_check_at_the_pull_request.py`,
+    which the round named: every other `Contract changes` refusal is in this
+    file, and that file's work item predates `SURFACE_FROM`, so the same cell
+    would print there instead of failing.
+    """
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, contract="`says_none` accepts a trailing `;`"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "call site" in out, (
+        "the tail after the separator is what is refused, and the failure "
+        "has to name the reach it is missing"
+    )
+
+
 def test_an_empty_cell_is_not_an_answer(repo):
     """A row that says nothing answers nothing, on any record — unlike the
     absent row, an empty one is always the author's to fill."""
