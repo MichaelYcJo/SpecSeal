@@ -79,10 +79,10 @@ committed before its fixes exist, so neither row can be filled when it is
 written — and until `chain_check.py` read for it, nothing required the second
 step. A record that never got it reads exactly like one whose fixes added
 nothing, and a verifying round opening such a record sees no finding surface
-at all. Measured: `round-1.md` of the work item that ADDED the ordering rule
-sat with both rows saying *not yet written* for two rounds, and the units its
-fix pass created reached the next round only because a reviewer went and
-looked.
+at all. Measured: `rounds/round-1.md` of the work item that ADDED the ordering
+rule sat with both rows saying *not yet written* for two rounds, and the
+units its fix pass created reached the next round only because a reviewer
+went and looked.
 
 So the refusal: `Fixes checked by` naming a `round-N` says a later round
 opened these fixes, so the fixes EXIST — and a row still saying they are not
