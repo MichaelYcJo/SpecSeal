@@ -52,6 +52,42 @@ artifact and is never retried.
                                       one open flow-measurement issue and
                                       open the next
 
+**The issue this opens carries a body, and finds the durable log by label.**
+A rolling log opened with `--body ""` is born with no path back to the one it
+replaced and no statement of what it is for, which is the state every log
+before this change was in (#136). The body names the issue just closed, says
+the log closes when this version ships, and points at the durable ledger --
+the issue carrying `flow-baseline`, looked up the same way the rolling one is
+and never by number. Where a repository has no such issue that clause is left
+out rather than the roll failing: a durable ledger is a thing a repository may
+not have, and a release is not the place to insist on one.
+
+**The index label and the milestone are best-effort, and a failure to set
+either is written into the body of the issue this just created.** `gh issue
+create` resolves labels and milestones before it creates anything, so a
+milestone somebody renamed or deleted fails the whole call -- and a milestone
+is repository state, not code. The invariant this script protects is the
+one-open rule, which neither argument touches, so a release does not stop for
+them. The create is attempted with both, then with the index label alone, then
+with neither, and each fallback carries into the body what the attempt above
+it could not set. The body is where that goes because it is the one artifact
+a person opens; a line in a workflow log is not read (#136).
+
+**A failed attempt re-reads the open-issue list before it retries.** A `gh
+issue create` that fails after the mutation lands would, on retry, open a
+second issue -- the exactly-one-open invariant broken from the other side, by
+the script that exists to keep it. So a failure is followed by the lookup, and
+a reading that is no longer empty ends the ladder with the issue that landed.
+The last rung uses `run` rather than `try_run`, so a create that fails all the
+way down still exits loudly into the recovery message below.
+
+**The index label and the milestone are this repository's own names, and they
+belong here rather than in the skill.** `skills/verify/SKILL.md` ships to
+repositories that have neither, so it names `flow-measurement` and
+`flow-baseline` and stops there. `.github/` stays home
+(`tests/test_the_release_check_watches_what_ships.py`), which is what lets
+this file name `measurement` and `log: measurement`.
+
 **The close and the open are not one transaction.** `main` closes the old
 issue first and only then opens the next one, so a `gh issue create` failure
 after a successful close leaves the flow-measurement log with zero open
@@ -80,7 +116,31 @@ import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LABEL = "flow-measurement"
+BASELINE_LABEL = "flow-baseline"
+INDEX_LABEL = "measurement"
+INDEX_MILESTONE = "log: measurement"
 RETRY_DELAY_SECONDS = 5
+
+MILESTONE_NOTE = (
+    f"The `{INDEX_MILESTONE}` milestone could not be set on this issue -- it "
+    f"has been renamed, deleted, or is not resolvable from the release "
+    f"workflow. Set it by hand if it still exists. Nothing automated reads a "
+    f"milestone (`docs/issues-and-milestones.md`), so this costs a person a "
+    f'wrong answer to "what is in this version" and costs no check anything.'
+)
+
+BASELINE_AMBIGUOUS_NOTE = (
+    f"More than one open `{BASELINE_LABEL}` issue, so this one points at no "
+    f"durable ledger. That label carries the same exactly-one-open invariant "
+    f"the rolling log does, and naming a broken invariant is what this does "
+    f"instead of picking whichever the search listed first."
+)
+
+INDEX_NOTE = (
+    f"The `{INDEX_LABEL}` index label could not be applied either. Add it by "
+    f"hand so this issue turns up beside the durable ledger when the whole "
+    f"concern is queried by label."
+)
 
 
 def run(*args):
@@ -88,6 +148,18 @@ def run(*args):
     if out.returncode:
         sys.exit(f"{' '.join(args)} failed: {out.stderr.strip()}")
     return out.stdout
+
+
+def try_run(*args):
+    """`run` without the exit -- `None` where the call failed.
+
+    For the parts of this script whose failure must not stop a release: the
+    durable ledger's lookup, and the best-effort arguments to the create. None
+    of them touches the exactly-one-open invariant, which is the thing worth
+    failing a release over.
+    """
+    out = subprocess.run(args, capture_output=True, text=True)
+    return None if out.returncode else out.stdout
 
 
 def next_version(current):
@@ -152,9 +224,71 @@ def close_issue(repo, number):
     )
 
 
-def open_issue(repo, version):
-    title = f"chore: flow measurement — {version}"
-    run(
+def find_baseline_issue(repo):
+    """The durable measurement ledger, by label: `(number, note)`.
+
+    Best-effort in every direction: a repository that never created
+    `flow-baseline` has no durable ledger, a `gh` failure here is not worth a
+    release, and either way the body simply leaves the clause out. The lookup
+    is the rolling log's own shape -- a label, never a number -- because a
+    number goes stale the moment its issue closes, which is what `#109`
+    removed from the rolling log's lookup for the same reason.
+
+    **The note separates two silences.** No durable ledger is the ordinary
+    case and says nothing, because a note about it would appear on every
+    rolling log every repository ever opens. Two or more open is that label's
+    invariant broken, and it answers `None` with a note rather than taking
+    the first: `skills/verify/SKILL.md` gives both labels the same
+    exactly-one-open rule and says a broken invariant is named rather than
+    guessed at, and a body carrying one of two numbers looks exactly like a
+    body carrying the only one.
+    """
+    out = try_run(
+        "gh",
+        "issue",
+        "list",
+        "--repo",
+        repo,
+        "--label",
+        BASELINE_LABEL,
+        "--state",
+        "open",
+        "--json",
+        "number",
+    )
+    if not out:
+        return None, None
+    try:
+        issues = json.loads(out)
+    except ValueError:
+        return None, None
+    if len(issues) > 1:
+        return None, BASELINE_AMBIGUOUS_NOTE
+    return (issues[0]["number"], None) if issues else (None, None)
+
+
+def issue_body(version, closed_number, baseline_number, notes=()):
+    """What the rolling log says about itself on the day it is opened.
+
+    `notes` are what the create could not set -- see the module docstring.
+    They go in the body rather than in the workflow log because the issue is
+    the artifact a person opens.
+    """
+    ledger = (
+        f"Baselines and the observations that span versions live in "
+        f"#{baseline_number}; this"
+        if baseline_number is not None
+        else "This"
+    )
+    opening = (
+        f"Rolls from #{closed_number}. {ledger} issue takes one comment per "
+        f"segment and is closed when {version} ships."
+    )
+    return "\n\n".join([opening, *notes])
+
+
+def create_args(repo, title, body, extras):
+    return (
         "gh",
         "issue",
         "create",
@@ -164,9 +298,56 @@ def open_issue(repo, version):
         title,
         "--label",
         LABEL,
+        *extras,
         "--body",
-        "",
+        body,
     )
+
+
+def landed_create(repo, closed_number):
+    """An open `flow-measurement` issue that is not the one `main` just closed.
+
+    The ladder's guard. `closed_number` is excluded because the reading can
+    still carry it: `gh issue list` lagging a write is what this module's
+    docstring records, and a lag behind a *close* is a reading with an extra
+    issue in it rather than one short a result. The empty reading gets the
+    same one retry `open_flow_measurement_issues` gives it, and for the same
+    reason -- a lag behind the create sends the ladder on to open a second.
+    """
+    for attempt in (0, 1):
+        if attempt:
+            time.sleep(RETRY_DELAY_SECONDS)
+        landed = [i for i in list_open_issues(repo) if i["number"] != closed_number]
+        if landed:
+            return True
+    return False
+
+
+def open_issue(repo, version, closed_number):
+    title = f"chore: flow measurement — {version}"
+    baseline, baseline_note = find_baseline_issue(repo)
+    ledger_notes = (baseline_note,) if baseline_note else ()
+
+    # Most to least. Each rung drops the argument the rung above it could not
+    # set and says so in the body; only `LABEL` is on every rung, because that
+    # is the one the exactly-one-open invariant is read through.
+    for extras, notes in (
+        (("--label", INDEX_LABEL, "--milestone", INDEX_MILESTONE), ()),
+        (("--label", INDEX_LABEL), (MILESTONE_NOTE,)),
+    ):
+        body = issue_body(version, closed_number, baseline, (*notes, *ledger_notes))
+        if try_run(*create_args(repo, title, body, extras)) is not None:
+            return title
+        if landed_create(repo, closed_number):
+            # The call reported failure and an issue that is not the one just
+            # closed is open, so the create landed and the failure arrived
+            # after it. Retrying here opens a second one.
+            return title
+
+    body = issue_body(
+        version, closed_number, baseline, (MILESTONE_NOTE, INDEX_NOTE, *ledger_notes)
+    )
+    run(*create_args(repo, title, body, ()))
     return title
 
 
@@ -186,12 +367,13 @@ def main():
     number = issues[0]["number"]
     close_issue(repo, number)
     try:
-        title = open_issue(repo, next_v)
+        title = open_issue(repo, next_v, number)
     except SystemExit as exc:
         sys.exit(
             f"closed #{number}, but opening the next issue failed: {exc}. "
-            f"The flow-measurement log now has zero open issues -- open one "
-            f"by hand (label `{LABEL}`, title `chore: flow measurement — "
+            f"Check the `{LABEL}` label before opening anything: a create "
+            f"that failed may still have landed. Where none is open, open "
+            f"one by hand (label `{LABEL}`, title `chore: flow measurement — "
             f"{next_v}`) before the next release runs."
         )
     print(f"closed #{number}, opened {title!r}")
