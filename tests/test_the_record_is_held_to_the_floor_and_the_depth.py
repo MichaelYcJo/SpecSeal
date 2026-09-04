@@ -447,6 +447,32 @@ def test_a_reopening_further_down_does_not_excuse_the_two_before_it(repo):
     assert "at most one more" in out
 
 
+def test_an_unreadable_needs_a_fix_does_not_stop_the_count(repo):
+    """A row the checker cannot read must never be the thing that quiets a
+    refusal — the declared failure direction is *blocks more*.
+
+    Found by mutation: making `run_reopened` answer True for an unreadable
+    row killed no case. It is only reachable where the unreadable row is
+    itself refused, so the exit code alone cannot see it; what disappears is
+    the run-past-the-floor message, and a reader who fixed the one error
+    printed would never learn the run had gone past its floor.
+    """
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, floor="no", needs="no"),
+        lambda sha: record(sha, floor="no", needs="probably"),
+        lambda sha: record(sha, floor="no", needs="no"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "neither answer" in out, "the unreadable row is refused on its own"
+    assert "at most one more" in out, (
+        "the count treated a row it cannot read as a reopening, so the run "
+        "that went past its floor was reported by nothing"
+    )
+
+
 def test_a_record_that_found_something_may_be_followed_by_more(repo):
     """`yes` leaves the cap to decide, so three rounds after it are the cap
     working rather than the floor being ignored."""

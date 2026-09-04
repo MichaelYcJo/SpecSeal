@@ -38,10 +38,24 @@
   them for whoever is awake.** A missing floor row fails; an empty cell, a
   word that is neither answer, and `yes` with nothing after it fail on any
   record; and a `no` followed by two or more later round records fails,
-  naming the exit. A `New units` entry with no depth fails, and one at depth
-  2 or above fails with the two places the unit goes instead named in the
-  message. `none`, with or without a reason, stays an answer to `New units`
-  as it was.
+  naming the exit. A `New units` entry with no depth fails, one at depth 2 or
+  above fails with the two places the unit goes instead named in the message,
+  and one carrying two units under a single `(depth N)` — the comma spelling
+  the row used before the depth existed — fails as well. `none`, with or
+  without a reason, stays an answer to `New units` as it was, and a trailing
+  `;` on it no longer turns it into something else.
+  **`Needs a fix` stops being a row nothing reads**, which is what keeps the
+  bound above from refusing the one sequence the documents require. A
+  verifying round that opens something is a finding round, so its own fixes
+  need a reader, and that reader is a third record; the count therefore stops
+  at the first later record whose `Needs a fix` says the run reopened. The
+  row takes the floor's `no` / `yes — <what>` vocabulary and the same cutoff,
+  and it is grandfathered whole rather than only when absent — it carried
+  free text for three releases with nothing reading it, so a value written
+  earlier was held to no vocabulary.
+  **`docs/review-handoff-protocol.md` moves to draft 1.0**, with the floor
+  row, the depth and the separator in `New units`, the depth's own adoption
+  cutoff, and a section for the floor and what may follow a stopped round.
   **Older work items are not made red.** Both rules are keyed to the id of
   the work item that wrote them, the way `STRICT_FROM` and `SURFACE_FROM`
   already are: a record whose work item began before the cutoff prints
