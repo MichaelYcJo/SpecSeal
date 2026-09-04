@@ -174,9 +174,35 @@ def test_the_ran_by_row_says_who_fills_it():
         "finding that a measured segment cannot be attributed afterwards"
     )
     flat = " ".join(raw.split())
-    assert "never the segment itself" in flat, (
-        "the template does not say the row is the spawning session's, so the "
-        "one filler whose answer nothing can check is the one it invites"
+    assert "never the segment's own" in flat, (
+        "the template does not say the value is the spawning session's, so "
+        "the one filler whose answer nothing can check is the one it invites"
+    )
+
+
+def test_the_template_resolves_who_types_a_phase_records_row():
+    """The round template's rule cannot be copied here unchanged, and saying
+    it unchanged is a self-contradiction inside one file.
+
+    `rounds/round-N.md` is written by the orchestrator, which is also the
+    party that knows what ran the round — so *the spawning session fills it*
+    is one act there. A phase record is written by the segment that just ran.
+    A template telling that writer the row is *never the segment's* and
+    nothing more has told it not to write the row it is holding the pen for.
+
+    What the template has to separate is authority from keystrokes: the value
+    is the orchestrator's to SOURCE, and the segment transcribes what it was
+    given. The failure this refuses is the segment sourcing it from its own
+    idea of what it is.
+    """
+    flat = " ".join(read(PHASE_TEMPLATE).split())
+    assert "hands the value over in the spawn prompt" in flat, (
+        "the template says whose the row is and never how a phase record — "
+        "written by the segment, not by the orchestrator — comes to carry it"
+    )
+    assert "transcribes what it was GIVEN" in flat, (
+        "nothing distinguishes transcribing a value the orchestrator supplied "
+        "from the segment deciding what it is, which is the whole point"
     )
 
 

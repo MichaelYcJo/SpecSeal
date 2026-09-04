@@ -397,6 +397,14 @@ agent is told what it is, so a value it writes about itself is the value it
 was told, and the model is a spawn-time argument you chose — `agents/*.md`
 pins none. You are the only party that knows.
 
+Whose row it is and whose keystrokes fill it are different questions, and for
+`phases/phase-N.md` they come apart: that record is written by the segment
+that just ran, not by you. So either hand the value over in the spawn prompt —
+and the segment transcribes what it was given rather than a value it decided
+for itself — or fill the row afterwards, the way `Fixes checked by` is filled.
+For `rounds/round-N.md` the question does not arise, because you write that
+file yourself.
+
 Where you genuinely cannot name a model — a segment spawned through another
 harness, say — `unknown — <why>` is the answer and a bare `unknown` is not, in
 the shape `nobody — <why>` already has. An honest blank with a reason beside

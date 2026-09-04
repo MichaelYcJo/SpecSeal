@@ -401,6 +401,26 @@ def test_the_skills_say_the_spawning_session_fills_it(parts):
     )
 
 
+def test_verify_says_how_a_phase_record_comes_to_carry_the_row():
+    """`skills/verify/SKILL.md` covers BOTH records, and only one of them is
+    written by the session that knows the answer.
+
+    `rounds/round-N.md` is the orchestrator's file, so *you fill it* is one
+    act. `phases/phase-N.md` is written by the segment that just ran, so a
+    skill saying *it is yours and not the segment's* and stopping there has
+    told the orchestrator to fill a row in a file it does not write. The two
+    ways out — hand the value over in the spawn prompt, or fill the row
+    afterwards — are what make the rule performable rather than merely true.
+    """
+    text = flat("skills", "verify", "SKILL.md")
+    assert "that record is written by the segment" in text, (
+        "the skill does not say a phase record is written by somebody other "
+        "than the session holding the answer, so the rule above it reads as "
+        "an instruction nobody can carry out"
+    )
+    assert "hand the value over in the spawn prompt" in text
+
+
 @pytest.mark.parametrize(
     "parts", [("skills", "code-review", "SKILL.md"), ("skills", "verify", "SKILL.md")]
 )
