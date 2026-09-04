@@ -4,7 +4,7 @@
 |---|---|
 | Target SHA | 6f6908f323d3344d4f79b8d2f8c428df2c33cff2 |
 | PR | not yet opened |
-| Broad gate | not yet |
+| Broad gate | `7b71727`, against `release/v0.8.0`. Full suite 1950 passed · 1 skipped; `ruff check .` and `ruff format --check .` clean over 96 files; `chain_check --baseline main` and `unverified-check` exit 0. `evidence-check` exits 1 on S8 alone, which the pull-request job warns at and fails only at two, and `gather_changelog --check` exits 1 because a feature branch's fragment is meant to be ungathered |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
