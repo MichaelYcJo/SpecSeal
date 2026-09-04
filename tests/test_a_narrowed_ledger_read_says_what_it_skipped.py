@@ -234,6 +234,15 @@ def test_an_inode_of_zero_does_not_fold_two_files_into_one(proj, monkeypatch):
     produced from outside. `os.stat` is zeroed for the two ledgers alone, so
     everything else that stats on the way — `glob`, and `seal_home` looking
     for its own `SKILL.md` — keeps working.
+
+    **Two zeroings, and the second is what makes this about `st_ino`**
+    (round 3's 🟡 6). Zeroing BOTH fields is the state Windows produces, and
+    it cannot separate the two: swapping the test to `info.st_dev` left the
+    whole suite green, because a zero device falls back exactly as a zero
+    inode does. A real device with a zero inode is the state that tells them
+    apart — under `st_dev` the pair then reads as one identity again and the
+    unread fragment goes unnamed, which is the silence this exists to end.
+    Python's contract is about `st_ino` alone, so `st_ino` is the test.
     """
     ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
     ledger(
@@ -250,17 +259,123 @@ def test_an_inode_of_zero_does_not_fold_two_files_into_one(proj, monkeypatch):
     module = checker_module()
     real = module.os.stat
 
-    def zeroed(path, *args, **kwargs):
+    def faking(fields):
+        def stat(path, *args, **kwargs):
+            info = real(path, *args, **kwargs)
+            if os.path.realpath(path) in zeroable:
+                return types.SimpleNamespace(**fields(info))
+            return info
+
+        return stat
+
+    both = faking(lambda info: {"st_dev": 0, "st_ino": 0})
+    inode_only = faking(lambda info: {"st_dev": info.st_dev, "st_ino": 0})
+
+    for what, stat in (("both fields", both), ("the inode alone", inode_only)):
+        monkeypatch.setattr(module.os, "stat", stat)
+        missed = module.skipped_by_narrowing(str(proj), read)
+        assert [os.path.basename(p) for p in missed] == ["1788501054-unread.md"], (
+            f"with {what} zeroed, the fragment nobody read was named by "
+            f"nothing — every zeroed ledger had one identity. Got {missed}"
+        )
+
+
+def test_two_devices_that_share_an_inode_number_are_two_ledgers(proj, monkeypatch):
+    """The device is half the identity, and dropping it left every case
+    green.
+
+    Inode numbers are handed out per filesystem, so a ledger on one device
+    and a fragment on another can legitimately carry the same number. Under
+    `(st_ino,)` alone the two fold together and the fragment nobody read is
+    swallowed by the one that was — the same silence a zeroed inode
+    produced, arriving from the other half of the pair.
+
+    Nothing in a one-filesystem fixture can build this, so the two devices
+    are produced from inside. What is pinned is what the code does with the
+    pair, not that a repository spans two mounts.
+    """
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    ledger(
+        proj,
+        f"| POL-2 | `src/service.py#handler@{GOOD}` |\n",
+        at="seal/ledger/1788501054-unread.md",
+    )
+    read = [str(proj / "seal" / "ledger.md")]
+    other = os.path.realpath(proj / "seal" / "ledger" / "1788501054-unread.md")
+
+    module = checker_module()
+    real = module.os.stat
+
+    def two_mounts(path, *args, **kwargs):
         info = real(path, *args, **kwargs)
-        if os.path.realpath(path) in zeroable:
-            return types.SimpleNamespace(st_dev=0, st_ino=0)
+        if os.path.realpath(path) == os.path.realpath(read[0]):
+            return types.SimpleNamespace(st_dev=101, st_ino=7)
+        if os.path.realpath(path) == other:
+            return types.SimpleNamespace(st_dev=202, st_ino=7)
         return info
 
-    monkeypatch.setattr(module.os, "stat", zeroed)
+    monkeypatch.setattr(module.os, "stat", two_mounts)
     missed = module.skipped_by_narrowing(str(proj), read)
     assert [os.path.basename(p) for p in missed] == ["1788501054-unread.md"], (
-        "a zeroed inode gave every ledger one identity, so the fragment "
-        f"nobody read was named by nothing — got {missed}"
+        "two files on different devices sharing an inode number folded into "
+        f"one, so the fragment nobody read went unnamed — got {missed}"
+    )
+
+
+def test_the_skipped_set_is_subtracted_from_the_list_the_defaults_come_from(
+    proj, monkeypatch
+):
+    """Ledger row R4's claim, which nothing held: `default_patterns` exists so
+    that the list deciding what gets NAMED as skipped is the same list the
+    run reads from, rather than a second copy of it.
+
+    The cost of two copies is invisible until the defaults change, which is
+    why no ordinary case reaches it — the two would be identical on the day
+    they were written. So the defaults are moved instead: a fourth location
+    appears, and the skipped set has to follow it. A copy inlined here would
+    keep naming the three it was written with.
+    """
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    fourth = proj / "docs" / "elsewhere" / "claims.md"
+    fourth.parent.mkdir(parents=True, exist_ok=True)
+    fourth.write_text(f"| POL-9 | `src/service.py#handler@{GOOD}` |\n", "utf-8")
+
+    module = checker_module()
+    real = module.default_patterns
+    monkeypatch.setattr(
+        module, "default_patterns", lambda root: [*real(root), str(fourth)]
+    )
+    missed = module.skipped_by_narrowing(str(proj), [str(proj / "seal" / "ledger.md")])
+    assert str(fourth) in [os.path.realpath(p) for p in missed] or fourth.name in [
+        os.path.basename(p) for p in missed
+    ], (
+        "a location the defaults now read was not reported as skipped, so "
+        f"the skipped set is a second copy of the list — got {missed}"
+    )
+
+
+def test_one_file_matched_by_two_patterns_is_read_once(proj):
+    """`resolve_patterns` deduplicates, and nothing showed it. The defaults
+    are disjoint, so no run through them can produce the same file twice —
+    but `--ledger` takes any number of globs, and two overlapping ones are
+    the ordinary way somebody widens a narrowed run.
+
+    Without the deduplication the ledger is opened twice and every row in it
+    is counted twice, which reads as a repository with twice the evidence it
+    has.
+
+    The assertion is on the TOTAL and not on a per-ledger line, which is what
+    makes it able to fail: each pass over the file prints its own `1 ok`, so
+    a duplicate is invisible there and shows up only where the passes are
+    added together. Written against the per-ledger line first, and it stayed
+    green under the mutation.
+    """
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    r = run(["--ledger", "seal/ledger.md", "--ledger", "seal/*.md", "."], proj)
+    assert r.returncode == 0, r.stdout
+    assert "total: 1 ok" in r.stdout, (
+        "one file matched by two patterns was read twice, so its rows were "
+        f"counted twice:\n{r.stdout}"
     )
 
 

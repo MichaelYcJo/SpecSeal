@@ -924,12 +924,31 @@ def skipped_by_narrowing(root, read):
     so a zero there falls back with the failures; `st_dev` is not tested,
     because a valid inode on device 0 is still unique for that device.
 
+    **The device is half the identity and the inode is not enough on its
+    own.** Two filesystems hand out inode numbers independently, so a ledger
+    on one device and a fragment on another can carry the same number; the
+    pair is what makes them two. Nothing in a one-filesystem fixture can
+    show that, so it is produced from inside — see
+    `test_two_devices_that_share_an_inode_number_are_two_ledgers`.
+
     `os.stat` raising is the other way out — a file that vanishes between the
     glob and this call, or a path that cannot be traversed — and both take
-    the same fallback: the normalized absolute path. That direction
-    over-reports, because two spellings of an unstattable file read as two,
-    so a ledger is named as skipped rather than passed over in silence.
-    Nothing goes unread either way.
+    the same fallback: the normalized absolute path. It is a WEAKER identity
+    than the inode rather than a stricter one, and the sentence here used to
+    claim the opposite. `abspath` already folds `./seal/ledger.md` into
+    `seal/ledger.md`, and `normcase` folds case where the platform folds it,
+    so two spellings of one unstattable file read as one wherever the
+    platform says they are one. What the fallback cannot do is unify two
+    spellings the platform keeps apart — a symlink, a hard link — so those
+    read as two, and the direction is to NAME a ledger as skipped rather
+    than pass over it in silence. Nothing goes unread either way.
+
+    `normcase` here is unheld by any case and reachable in no state this
+    repository can build: CPython zeroes the inode on Windows alone, which
+    is also the only platform where `normcase` is not the identity, so
+    removing it changes nothing anywhere a case can run. Recorded rather
+    than deleted — what it guards is the Windows pairing, and a mutation
+    battery cannot tell an unreachable guard from an unheld decision.
 
     One loop over both sides, because the identity rule has to have one
     spelling. Two would be one rule today and two after the first edit to

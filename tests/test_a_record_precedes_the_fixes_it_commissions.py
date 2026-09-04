@@ -622,13 +622,131 @@ def test_a_reason_the_checker_does_not_recognise_passes(repo):
     A rule about which English sentences mean *not yet* is the enumeration
     over an unbounded domain the arrow's and the comma's limits decline, so
     an unrecognised reason is an answer. What is caught is the measured
-    failure — the template's own words left standing — and someone who
-    reworded the cell is not the session that forgot it.
+    failure — the template's own words left standing.
+
+    **The three cells after the first are the limit MEASURED rather than
+    described** (round 3's 🟡 5). Each carries the template's words
+    unchanged and each still escapes, because `says_none` tests the first
+    character after `none` while `says_not_yet` strips `SEPARATORS` from
+    both ends and then requires the constant to START what is left. The
+    record said the escape was a rewording, and it is wider than that.
+
+    The last of the three is also what holds the prefix rule (🟡 7).
+    Substituting `NOT_YET in rest` for `startswith` turns it red; round 3
+    found that mutation surviving all 164 cases with nothing here to kill
+    it, which is round 1's 🟡 8 shape a third time.
+
+    A distinct work item per spelling, because `surface_run` commits and a
+    second call writing byte-identical files has nothing to commit. Each id
+    is later than `ORDER_FROM`, which is the only thing about it that
+    matters.
+    """
+    not_yet = check_module().NOT_YET
+    spellings = (
+        # An honest custom reason: what the `allow` direction exists for.
+        "none — the fixes deleted a line",
+        # A dash outside `SEPARATORS`. The leading space is what `says_none`
+        # reads, and U+2015 survives the strip.
+        f"none ― {not_yet}",
+        # A doubled space INSIDE the phrase, which no widening of
+        # `SEPARATORS` reaches.
+        "none — " + not_yet.replace("the fixes", "the  fixes", 1),
+        # Any clause in front of it.
+        f"none — nothing yet, and {not_yet}",
+    )
+    for n, units in enumerate(spellings):
+        code, out = surface_run(
+            repo, f"seal/specs/179900000{n}-a-later-work-item", "round-2", units=units
+        )
+        assert code == 0, f"refused a cell it does not recognise, {units!r}:\n{out}"
+
+
+def test_a_forgotten_checker_cell_leaves_the_arm_nothing_to_key_on(repo):
+    """Round 3's 🟡 1. The arm reads `Fixes checked by`, so the session that
+    forgets the reach-back ENTIRELY — all three cells left where the template
+    put them — is reached by nothing in `fix_surface` at all.
+
+    That direction is forced rather than chosen: `nobody — <why>` beside a
+    pending row is the state `ORDER_FROM` requires at the moment a record
+    lands, and refusing it would refuse every correctly written record. What
+    covers the state instead is `Fixes checked by`'s own notice, printed on
+    every record, which is what this asserts is still there. The limit is
+    written where a reader meets the refusal rather than closed, because
+    closing it means keying the arm on a second source of truth.
     """
     code, out = surface_run(
-        repo, NEW_ITEM, "round-2", units="none — the fixes deleted a line"
+        repo,
+        NEW_ITEM,
+        "nobody — this round's fixes are not yet written",
+        contract=PENDING,
+        units=PENDING,
     )
     assert code == 0, out
+    assert "still says the fixes are not yet written" not in out, (
+        "the arm fired on the state the ordering rule requires"
+    )
+    assert "opened by nobody" in out, (
+        "nothing at all reports a record that forgot all three cells:\n" + out
+    )
+    for where in (
+        ("docs", "review-chain-spec.md"),
+        ("templates", "sdd-round.md"),
+        ("skills", "code-review", "SKILL.md"),
+    ):
+        assert "the session that filled" in flat(*where), (
+            f"{'/'.join(where)} describes the refusal without its limit, so a "
+            "reader meets the rule and not what it does not reach"
+        )
+
+
+def test_the_terminal_value_is_in_the_specs_table_with_what_it_costs(repo):
+    """Round 3's 🟡 3. `Fixes checked by` has three legal values and the
+    spec's table for the pending arm enumerated two of them, omitting the one
+    the TERMINAL record of every run carries.
+
+    Not a hole in the checker — the run's legal ending is not refused, which
+    this runs. What was missing is that the pair is WRONG rather than merely
+    unrefused: a round commissioning no fixes will never have any, so *not
+    yet written* beside it is false the moment it is written, and nothing
+    said so anywhere. Whether to refuse it is `questions.md` Q4's sibling and
+    is the repository owner's.
+    """
+    code, out = surface_run(repo, NEW_ITEM, "no fixes to check", units=PENDING)
+    assert code == 0, out
+    assert "still says the fixes are not yet written" not in out, out
+    spec = flat("docs", "review-chain-spec.md")
+    assert "`Fixes checked by` reads `no fixes to check`" in spec, (
+        "the spec's table still enumerates two of the three legal values"
+    )
+    assert "will never have any" in spec, (
+        "the table says the value passes and not why that is a limit"
+    )
+
+
+def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
+    """Round 3's 🟡 5, on the document side. `docs/review-chain-spec.md`, the
+    ledger row and the changelog fragment all declared the escape as **a
+    rewording**, and three spellings escape with the template's words
+    untouched. The case above runs them; this is the claim about them.
+
+    Pinned in all three copies on purpose. The measurement is one fact and
+    it was written into three places, so a correction that reaches one of
+    them leaves the other two saying what was measured false — which is the
+    class round 2 fixed three instances of and round 3 found a fourth of.
+    """
+    item = "1788501054-a-check-reports-clean-while-something-is-missing"
+    for where in (
+        ("docs", "review-chain-spec.md"),
+        ("seal", "ledger", f"{item}.md"),
+        ("seal", "specs", item, "changelog.md"),
+    ):
+        text = flat(*where)
+        assert "wider than a rewording" in text, (
+            f"{'/'.join(where)} still declares the escape as a rewording"
+        )
+        assert "doubled space" in text and "clause" in text, (
+            f"{'/'.join(where)} names fewer than the three spellings measured"
+        )
 
 
 def test_the_pending_surface_only_prints_before_the_cutoff(repo):

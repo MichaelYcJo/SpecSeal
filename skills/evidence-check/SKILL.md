@@ -202,9 +202,18 @@ would have opened are matched by inode (`st_dev`/`st_ino`), so a case variant
 on a case-insensitive filesystem, a hard link and a symlink all count as read.
 Comparing spellings of the path instead put a platform inside the answer:
 `--ledger SEAL/ledger.md` read the ledger and then listed it as unread, which
-is a notice naming a file it had just opened. Where `os.stat` cannot answer —
-a file that vanishes between the glob and the check — the normalized absolute
-path decides, which over-reports rather than under-reports.
+is a notice naming a file it had just opened.
+
+**Two ways out of the fold, not one**, and the second was missing here until
+a review round asked. `os.stat` raising is the obvious one — a file that
+vanishes between the glob and the check, or a path that cannot be traversed.
+The other is an inode of **zero**, which raises nothing: Python's contract is
+*"if non-zero, uniquely identifies the file"*, and CPython's Windows `stat`
+leaves both fields 0 when it cannot open a file. Taken at face value every
+such file has one identity, so a ledger that WAS read swallows every ledger
+that was not and the run says nothing. Both ways out fall back to the
+normalized absolute path, which over-reports rather than under-reports:
+a ledger is named as skipped rather than passed over in silence.
 
 Measured (#153): one work item's three review rounds and two fix passes all
 ran the scoped form and all reported ok. The unscoped read at the pull request

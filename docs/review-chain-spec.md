@@ -652,6 +652,7 @@ question.
 | `none`, with or without a reason after it | passes — `none — the fixes are not yet written` is the honest value while a round runs |
 | `none — the fixes are not yet written`, on a record whose `Fixes checked by` names a `round-N`, work item begun on or after `chain_check.py`'s `ORDER_FROM` | **fails**, naming the row and the checker two rows above it. A later round opened these fixes, so they exist, and the cell contradicts its own file — the shape `no fixes to check` beside a `fixed` verdict already takes. Before that cutoff it prints |
 | the same cell while `Fixes checked by` still reads `nobody — <why>` | passes. That is the state the ordering rule REQUIRES, and refusing it would refuse every correctly written record at the moment it lands |
+| the same cell while `Fixes checked by` reads `no fixes to check` | passes — the arm reads a `round-N` and nothing else. This is the value the TERMINAL record of every run carries, and it is the one place the pair is not merely unrefused but wrong: a round that commissioned no fixes will never have any, so *not yet written* is false the moment it is written and nothing here says so. Whether the arm should refuse it too is open — the refusal would land on merged records whose repair is honest, unlike the `nobody` case |
 | `none` with a reason the checker does not recognise | passes — see the limit below |
 | an empty cell | **fails** on any record — a row that says nothing answers nothing, and an empty cell is always the author's to fill |
 | a `Contract changes` entry (`;`-separated) carrying `unit → call sites` (`→` or `->`) | passes |
@@ -672,10 +673,46 @@ about which English sentences mean *not yet* is the enumeration over an
 unbounded domain the arrow's and the comma's limits already decline. What is
 caught instead is the measured failure: the template's own words, copied into
 a record and left standing. The phrase lives in `chain_check.py` as `NOT_YET`
-and `templates/sdd-round.md` prints that constant, so the two cannot drift —
-and a session that reworded the cell is not the session that forgot it.
+and `templates/sdd-round.md` prints that constant, so the two cannot drift.
 
-Only the ABSENT row is grandfathered. A merged record has no honest repair
+**What escapes is wider than a rewording, and three spellings carry the
+template's words UNCHANGED.** This paragraph declared the escape as a
+rewording for a round, and it was measured over 23 cells and found narrower
+than the behaviour (round 3's 🟡 5). `says_none` tests the first character
+after `none` while `says_not_yet` strips `SEPARATORS` from both ends, so each
+of these passes the cell as `none` and silences the arm:
+
+| The cell | Why it escapes |
+|---|---|
+| `none ― the fixes are not yet written`, with U+2015 rather than the em dash | the leading space is what satisfies `says_none`, and the bar is outside `SEPARATORS`, so it survives the strip and stands in front of the constant |
+| `none — the  fixes are not yet written`, with a doubled space | the extra space is INSIDE the constant rather than before it, so no widening of `SEPARATORS` reaches it |
+| `none — nothing yet; the fixes are not yet written` | only a substring match reaches a clause before the phrase, and the substring match is exactly the mutation the prefix rule exists to refuse |
+
+Only the first of the three is punctuation, so widening `SEPARATORS` would
+close one and leave this section false about the other two — and it would
+widen a constant four other readers in the same file share. The limit is
+written down instead. What *this record passed* means is *its cell does not
+carry the template's own pending words*, never *its fix surface is complete*,
+and a session that spelled the cell any of these ways is not the session that
+forgot it.
+
+**The arm keys on `Fixes checked by`, so a session that leaves THAT cell
+behind too is reached by nothing here** (round 3's 🟡 1). The value a
+forgetful session leaves is `nobody — <why>`, which is the honest mid-run
+state and the row above says why it cannot be refused — so the arm reaches
+the session that filled the checker cell and stopped, and not the one that
+filled nothing. What covers the second is `Fixes checked by`'s own check: it
+prints a notice for `nobody` on every record, and refuses it on the LAST
+record beside a checked `Pass`. A non-terminal record carrying `nobody` is
+false by construction — a later record exists, and round N+1 reviews round
+N's fixes — and nothing refuses that today. Keying the arm on the sibling
+records instead would give it a second source of truth, which is the property
+that makes the narrow key defensible in the first place.
+
+Only the ABSENT row is grandfathered by `SURFACE_FROM`, and the pending arm
+above has a grandfathering of its own that reaches a row which is PRESENT:
+before `ORDER_FROM` the same cell prints instead of failing. A merged record
+has no honest repair
 for a missing row — writing reach rows for fixes nobody re-read fabricates a
 review — where a malformed row's repair is formatting, which is always the
 author's. One limit is recorded rather than parsed away: the arrow is found

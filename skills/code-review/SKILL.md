@@ -417,6 +417,18 @@ So `chain_check.py` refuses that value on a record whose `Fixes checked by`
 names a `round-N` — a later round opened those fixes, so they exist — for
 work items begun on or after `ORDER_FROM`. While the cell still reads
 `nobody — <why>`, *not yet written* is true and nothing refuses it.
+
+**Which means the refusal reaches the session that filled `Fixes checked by`
+and stopped, and not the one that filled nothing.** All three cells left at
+their starting values escape it, and so does `no fixes to check` beside a
+pending row — for a round that commissioned no fixes, *not yet written* is
+false the moment it is written. Both states print instead, and a reworded
+cell is not the only thing that escapes: three spellings carry the template's
+words unchanged. `docs/review-chain-spec.md` names them and says why the
+answer was to write the limit down rather than widen the match. The habit
+that makes all of it moot is one pass over the three cells with the fix diff
+open.
+
 The depth inside `New units` has a cutoff of its own, `DEPTH_FROM`, later
 than that one: a work item between the two owes the row and not the depth in
 it, because its records were written when the row named units alone.

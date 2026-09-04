@@ -1565,9 +1565,12 @@ def says_not_yet(value):
     exist YET, in the spelling `templates/sdd-round.md` prints.
 
     Normalized the way `says_none` normalizes, then the reason after the
-    separator is matched as a PREFIX of `NOT_YET` -- so
+    separator has to START with `NOT_YET` -- the constant is the prefix and
+    the reason is what carries it, so
     `none — the fixes are not yet written (round 2)` is the same answer and
-    `none — nothing was added` is not.
+    `none — nothing was added` is not. This paragraph stated the two the
+    other way round for a round (round 3's 🟡 4); read as it stood,
+    `none — the` would have matched and the first example would not.
 
     **A reason this does not recognise PASSES, and that is the deliberate
     exception to this file's `blocks more` direction.** Every other refusal
@@ -1576,9 +1579,41 @@ def says_not_yet(value):
     wording, and a rule about which English sentences mean *not yet* is the
     enumeration over an unbounded domain the arrow's and the comma's limits
     already decline. What is caught instead is the measured failure: the
-    template's own words, copied into a record and left standing. Reworded,
-    the cell escapes -- and somebody who reworded it was not the session
-    that forgot.
+    template's own words, copied into a record and left standing.
+
+    **What escapes is wider than a rewording, and three spellings carry the
+    template's words UNCHANGED** -- round 3's 🟡 5, measured over 23 cells.
+    `says_none` tests the first character after `none` where this strips
+    `SEPARATORS` from both ends, so each of these passes the cell as `none`
+    and silences the arm:
+
+      a dash outside `SEPARATORS` -- `none ― the fixes are not yet written`
+      with U+2015 rather than the em dash, where the leading space is what
+      satisfies `says_none` and the bar survives the strip
+
+      whitespace inside the phrase -- `none — the  fixes are not yet
+      written`, which no widening of `SEPARATORS` reaches, because the
+      doubled space is inside the constant rather than in front of it
+
+      any clause before it -- `none — nothing yet, and the fixes are not yet
+      written`, which only a substring match reaches, and a substring match
+      is the mutation the prefix rule above exists to refuse
+
+    Only the first of the three is punctuation, so widening `SEPARATORS`
+    would close one, leave this paragraph false about the other two, and
+    move a constant four other readers in this file share. The limit is
+    written down instead, here and in `docs/review-chain-spec.md`, and
+    `test_a_reason_the_checker_does_not_recognise_passes` runs all three.
+    What *this record passed* means is *its cell does not carry the
+    template's own pending words*, never *its fix surface is complete*.
+
+    **The two guards below duplicate `says_none`'s and cannot change the
+    answer**, which is worth saying because a mutation battery cannot tell
+    that from a decision nothing holds: `fix_surface` is the only call site
+    and it calls this behind `says_none`, so a value arriving here has
+    already been shown to start with `none` and to carry a separator after
+    it. Both survive mutation for that reason and no case through the CLI
+    can kill either. They stay because this reads as a predicate on its own.
     """
     s = EMPHASIS.sub("", value).lower().strip().rstrip(".;").strip()
     if not s.startswith(NONE_WORD):
@@ -1679,6 +1714,28 @@ def fix_surface(reader, root, rel):
     was added at — and that half has a cutoff of its own, `DEPTH_FROM`, which
     is later than `SURFACE_FROM`. A work item between the two owes the row and
     not the depth in it.
+
+    **The pending arm below keys on `Fixes checked by`, so it reaches the
+    session that filled THAT cell and stopped, and not the one that filled
+    nothing** (round 3's 🟡 1). Two states leave it silent and both are worth
+    knowing:
+
+      `nobody — <why>` beside a pending row, which is the state `ORDER_FROM`
+      REQUIRES at the moment a record lands, so it cannot be refused here.
+      `checked_by` prints a notice for it on every record and refuses it on
+      the LAST record beside a checked `Pass`. A non-terminal record carrying
+      it is false by construction — a later record exists, and round N+1
+      reviews round N's fixes — and nothing refuses that today
+
+      `no fixes to check` beside a pending row, which the TERMINAL record of
+      every run carries. There the pair is not merely unrefused but wrong: a
+      round that commissioned no fixes will never have any, so *not yet
+      written* is false the moment it is written
+
+    Keying on the sibling records instead would answer both and would give
+    this a second source of truth, which is the property that makes the
+    narrow key defensible at all. It is a change to a gate, and it is
+    `questions.md` Q4 of the work item that added the arm.
 
     Known limit, recorded rather than parsed away: the arrow is found by
     substring, so an ASCII `->` inside a backticked unit name reads as the

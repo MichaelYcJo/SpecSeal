@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on opus |
 | PR | not yet opened |
 | Broad gate | not yet — and no broad run has happened on this branch at all |
-| Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | `case_insensitive` (depth 1); `test_a_hard_link_to_the_ledger_is_not_reported_as_skipped` (depth 1); `test_a_case_spelling_of_the_ledger_is_not_reported_as_skipped` (depth 1); `test_a_record_deleted_and_re_added_after_the_fix_is_judged_on_the_later_add` (depth 1); `test_a_fixed_verdict_naming_no_commit_passes` (depth 1); `test_the_spec_and_the_template_state_the_reach_and_ask_for_the_commit` (depth 1) |
 | Needs a fix | yes — 🟡 1 three `seal/ledger.md` rows assert a read on a date the content did not exist; 🟡 2 the refusal's reach is the SHA a verdict cell happens to carry, and 20 of this repository's 235 fix-word cells carry none; 🟡 3 `found[-1]` is undefended and is the permissive direction; 🟡 4 the skipped-ledger comparison folds case on Windows alone |

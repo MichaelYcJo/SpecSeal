@@ -92,6 +92,15 @@ or a bare `none` if they changed and added nothing. While `Fixes checked by`
 still reads `nobody — <why>`, *not yet written* is the truth and nothing
 refuses it.
 
+**So the refusal reaches the session that filled the checker cell and
+stopped, and not the one that filled nothing.** Leaving all three cells at
+their starting values escapes it, and `no fixes to check` beside a pending
+row escapes it too — for a round that commissioned no fixes, *not yet
+written* is false the moment it is written. Both are printed rather than
+refused, and `docs/review-chain-spec.md` says why. Filling these rows is the
+same reach-back that sets `Fixes checked by`: do all three in one pass, with
+the fix diff open.
+
 `New units` carries the DEPTH of each entry as well as its name. A fix pass may
 add a unit. That unit's fix may not. Depth 1 is a unit added by a fix answering
 a finding in code that predates the run; depth 2 would be one added by a fix

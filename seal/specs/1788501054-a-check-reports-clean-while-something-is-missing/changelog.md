@@ -88,8 +88,20 @@
   This is the one place in the checker whose direction for a value it cannot
   read is **allow** rather than refuse. A rule about which English sentences
   mean *not yet* would be a rule about English, so the phrase is a constant
-  the template prints and the checker matches; a reworded cell escapes, and
-  somebody who reworded it is not the session that forgot it.
+  the template prints and the checker matches at the START of the reason.
+  **What escapes is wider than a rewording**, and three spellings carry the
+  template's words unchanged: a dash outside the separator set, a doubled
+  space inside the phrase, and any clause in front of it. Only the first is
+  punctuation, so widening the separator set would close one of the three and
+  leave the claim false about the other two — the limit is written down
+  instead, with all three spelled out and a case running them.
+  **And the arm keys on `Fixes checked by`**, so it reaches the session that
+  filled that cell and stopped, never the one that filled nothing. `nobody`
+  beside a pending row prints rather than fails, because that is the state the
+  ordering rule requires; `no fixes to check` beside one prints too, and there
+  the pair is not merely unrefused but wrong — a round that commissioned no
+  fixes will never have any. That is the terminal record of every run, and
+  whether it should be refused is a question for the repository owner.
   **What a rebase does to it is stated rather than left to be found.** The
   adding commit is read on the branch, and a rebase replays a branch's commits
   in order, so a passing record cannot be turned failing. What a rebase
