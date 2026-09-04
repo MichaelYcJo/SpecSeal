@@ -17,7 +17,24 @@
 <!-- Written and committed before the fix pass it commissions. And its own
 `New units` row above will need the reach-back this round's 🟡 3 is about —
 which is the point: the row is honest now and becomes false by omission if
-nobody returns to it. -->
+nobody returns to it.
+
+CORRECTED IN PLACE — one cell, and this is the trace `templates/sdd-round.md`
+now requires of every such correction.
+
+  `Contract changes` — at `e94c3de`, round 3's fix pass, answering its 🟡 8.
+  It named `main` as the ONLY call site of `fix_surface` and of
+  `skipped_by_narrowing`; both second call sites are named now
+  (`tests/test_chain_check_at_the_pull_request.py` line 1301 and
+  `tests/test_a_narrowed_ledger_read_says_what_it_skipped.py` line 260). A
+  reach not revisited is issue #57's largest regression class, which is the
+  class that row exists to close.
+
+  This cell also carries the correction INSIDE it, and it is the only one on
+  this branch that can: nothing parses `Contract changes` for a vocabulary,
+  where the three rows that are parsed would read a marker as content. The
+  in-cell note stays because a reader of the cell should see it; the line here
+  is what makes the rule one rule (round 4's 🟡 7). -->
 
 ## What this round was asked
 

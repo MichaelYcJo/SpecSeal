@@ -19,7 +19,29 @@ rule `ORDER_FROM` adds in this very branch. The reviewer named that as the one
 thing that could still make this the release's fourth self-break, and the act
 is the orchestrator's rather than the branch's. Its verdict cells therefore
 read `open`: the fixes do not exist yet, and a cell reading `fixed at <sha>`
-here would be the shape #150 was opened about. -->
+here would be the shape #150 was opened about.
+
+CORRECTED IN PLACE — two cells, and neither said so until round 4's 🟡 7. The
+rule is `templates/sdd-round.md`'s: the trace goes here, because appending it
+to `Fixes checked by` would silence the arm that reads that cell (`CHECKER_RE`
+is `^round-\d+(?:\.md)?$`), and a sentence inside `New units` is read as
+another entry. Filling a row that started `none — the fixes are not yet
+written` is the reach-back rather than a correction and is not listed.
+
+  `Fixes checked by` — at `e94c3de`, round 3's fix pass. It read
+  `nobody — this round's fixes are not yet written; the round that opens them
+  sets this cell` and now reads `round-2`.
+  `git merge-base --is-ancestor b87ba49 4b72d7e` exits 0, so round 2 did open
+  those fixes and the cell was true two rounds before anybody wrote it. The
+  arm then prints nothing at all for this record, which is round 3's 🟡 1.
+
+  `Needs a fix` — at `47e6ebf`, round 2's fix pass. 🟡 2's count read
+  *19 of this repository's 231 fix-word cells*; re-measured through the
+  checker's own `verdict_table`, `verdict_of`, `FIX_WORDS` and `SHA_RE` it is
+  **20 of 235**, identical at this round's target `15278db` and at HEAD. An
+  aggregate is not a coordinate. Round 4 did not name this one; it was found
+  by enumerating the class rather than the coordinate (§12), and the finding's
+  direction is untouched — only its number moved. -->
 
 ## What this round was asked
 

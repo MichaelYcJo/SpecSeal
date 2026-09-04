@@ -42,9 +42,11 @@ history nobody can fix is a check people learn to skip.
 Every case here was seen red at `fb52335`, before the check existed.
 """
 
+import glob
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -791,6 +793,130 @@ def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
         assert "doubled space" in text and "clause" in text, (
             f"{'/'.join(where)} names fewer than the three spellings measured"
         )
+
+
+FIELD_ROW = re.compile(r"^\| ([A-Z][^|]*?) \| (.*) \|$")
+
+
+def _field_cells(sha, rel):
+    """The record's field table as it stood at `sha`, `{label: value}`."""
+    text = git(ROOT, "--no-pager", "show", f"{sha}:{rel}").stdout
+    cells = {}
+    for line in text.splitlines():
+        if line.startswith("## "):
+            break
+        m = FIELD_ROW.match(line)
+        if m and m.group(1).strip() != "Field":
+            cells[m.group(1).strip()] = m.group(2).strip()
+    return cells
+
+
+CORRECTION_MARKER = "CORRECTED IN PLACE"
+
+
+def _correction_traces(rel):
+    """What the record's trailing comment records as corrected in place.
+
+    Only the text AFTER `CORRECTED IN PLACE` counts. A cell name mentioned
+    loosely elsewhere in the comment is not a trace, and every one of these
+    records names its own cells in its ordinary reasoning — keying on the
+    bare name would let a deleted trace pass.
+    """
+    text = read(*rel.split("/"))
+    body = text.split("- [ ] Pass", 1)[-1].split("-->", 1)[0]
+    if CORRECTION_MARKER not in body:
+        return ""
+    return " ".join(body.split(CORRECTION_MARKER, 1)[1].split())
+
+
+def test_a_cell_corrected_after_the_record_landed_says_so_in_the_record():
+    """Round 4's 🟡 7, as the class rather than the coordinate.
+
+    `round-1.md`'s `Fixes checked by` was changed from `nobody — …` to
+    `round-2` two rounds late, with no trace in the record — so a reader of
+    that file cannot tell the reach-back was ever missing. Enumerating the
+    class over git found two more in-place corrections and the round had
+    named one of them.
+
+    What this refuses is narrow on purpose: a cell that went from one
+    ASSERTED value to a DIFFERENT asserted value. Filling a row that started
+    `none — the fixes are not yet written`, or a `Fixes checked by` that
+    started `nobody — <why>`, is the reach-back the ordering rule requires and
+    the record announces of itself — not a correction, and not listed.
+
+    The trace lives in the trailing HTML comment because three of these rows
+    are parsed and a marker inside them changes what the checker reads. That
+    is not a style preference: prose appended to `Fixes checked by` silences
+    its arm, and a sentence added to `New units` is read as another entry,
+    which made this repository's own suite red for a commit.
+
+    Depth 1. The finding is in a record's cell and the fix is a template
+    paragraph plus three record comments; no unit any fix pass on this run
+    created is involved, so this is not a unit answering a finding inside
+    one.
+    """
+    check = check_module()
+    records = sorted(
+        glob.glob(
+            os.path.join(ROOT, "seal", "specs", "*", "rounds", "round-*.md"),
+        )
+    )
+    assert records, "no round records found — the glob or the layout moved"
+
+    untraced = []
+    for path in records:
+        rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
+        shas = git(
+            ROOT, "--no-pager", "log", "--format=%H", "--reverse", "--", rel
+        ).stdout.split()
+        if len(shas) < 2:
+            continue
+        comment = _correction_traces(rel)
+        previous = _field_cells(shas[0], rel)
+        for sha in shas[1:]:
+            current = _field_cells(sha, rel)
+            for label, value in current.items():
+                was = previous.get(label)
+                if was is None or was == value:
+                    continue
+                # A pending row being filled is the reach-back, not a
+                # correction. Both spellings of pending are excluded.
+                if check.says_none(was) or check.nobody_reason(was) is not None:
+                    continue
+                if label not in comment:
+                    untraced.append(f"{rel}: `{label}` corrected at {sha[:7]}")
+            previous = current
+
+    assert not untraced, (
+        "a field cell was corrected in place and the record does not say so. "
+        "`templates/sdd-round.md` puts the trace in the trailing HTML comment "
+        f"under `{CORRECTION_MARKER}` — naming the cell, what it said, what "
+        "it says now and which round found it — because the cells themselves "
+        "are parsed:\n  " + "\n  ".join(untraced)
+    )
+
+
+def test_the_template_puts_the_correction_trace_where_no_checker_reads_it():
+    """The rule above, in the file that produces a record.
+
+    A rule applied to four records and written nowhere is the shape
+    `agent-contract`'s own preamble names: it goes missing without a trace.
+    """
+    template = flat("templates", "sdd-round.md")
+    assert (
+        "CORRECTED after this file is committed leaves its trace in the" in template
+    ), "the template no longer says where a correction's trace goes"
+    assert "never inside the cell" in template, (
+        "the template no longer says the cell is the wrong place"
+    )
+    assert CORRECTION_MARKER in template, (
+        "the template no longer names the one spelling a trace opens with, "
+        "so a cell name mentioned loosely would read as a trace"
+    )
+    assert "made this repository's own suite red" in template, (
+        "the template states the rule without the measurement behind it, "
+        "which is what a reader needs to not treat it as a style preference"
+    )
 
 
 def test_the_pending_surface_only_prints_before_the_cutoff(repo):
