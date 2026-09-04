@@ -50,6 +50,31 @@ them.
 
 ## Not done
 
+**The pending arm was not widened to key on the sibling records**, which is
+what would answer both of round 3's heaviest findings at once. A non-terminal
+record carrying `nobody` is false by construction — a later record exists, and
+round N+1 reviews round N's fixes — so the sibling map `Fixes checked by`
+already receives would reach the session that filled nothing, and the same
+signal answers the terminal `no fixes to check` pair. It was declined for two
+reasons and both are written where a reader meets the refusal: it is a change
+to a gate, with its own cutoff, cases and spec subsection, which a fix pass is
+not the place for; and it gives the arm a second source of truth, which ledger
+row R7 records as the property that makes the narrow key defensible at all.
+It is `questions.md` Q4, with three options and the repository owner as the
+answerer, and Q3 is its sibling for the terminal value.
+
+**Four mutation survivors are recorded rather than closed, because no state a
+case can build reaches any of them.** `says_not_yet`'s `none` prefix and its
+separator boundary duplicate `says_none`'s and sit behind it at the only call
+site; `normcase` in the skipped set's path fallback is reachable only where
+CPython zeroes an inode, which is the one platform where `normcase` is not the
+identity; and `seal_home`'s `SKILL.md` conjunct needs a vendored copy inside a
+tree that has a plugin above it, which no fixture builds. The first three are
+stated in the docstrings that carry them, and the first and last also carry a
+`# RIDER:` — a mutation battery cannot tell an unreachable guard from an
+unheld decision, so the next one will find them again and read them as
+findings unless the code says otherwise.
+
 **No issue was opened for the row selector `--reverify` does not have.** Phase
 1 tells every round to run the unscoped read, so from now on every branch will
 SEE the rows it drifted in `seal/ledger.md` — and the only way to re-stamp
