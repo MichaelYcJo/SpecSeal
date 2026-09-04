@@ -1,10 +1,19 @@
 # Release flow
 
-A checklist for the tickets in flight. Tick a box when the ticket's pull
-request has merged into its release branch. **A shipped version's section is
-deleted, not kept** — the design record, the CHANGELOG and the tickets are the
-durable copies, and a list long enough to scroll costs the reading it exists
-to save. Delete the file only when nothing is scheduled.
+A checklist for the tickets in flight.
+
+**A branch writes this file for the rows its own work created or closed**, in
+the pull request that earns them — its own box ticked, and a row for any
+ticket that work opened. So the change lands in the same merge that makes it
+true, and a file every ticket touches stops collecting a pull request of its
+own each time. What still gets its own branch is housekeeping no branch
+earned: deleting a shipped version's section, or moving items between
+releases.
+
+**A shipped version's section is deleted, not kept** — the design record, the
+CHANGELOG and the tickets are the durable copies, and a list long enough to
+scroll costs the reading it exists to save. Delete the file only when nothing
+is scheduled.
 
 Each release branch is cut from `main`; each ticket is a branch cut from the
 release branch and squashed back; the release branch merges into `main` as a
