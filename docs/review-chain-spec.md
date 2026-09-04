@@ -682,7 +682,8 @@ fact about the round that met the floor rather than about the last one.
 | `no`, or `yes — <what>` | passes |
 | an empty cell, or a word that is neither | **fails** on any record — a word the check cannot read is never the reassuring reading, and `nothing anybody can see` is a sentence rather than an answer |
 | `yes` with nothing after it | **fails** on any record — the cell then records that something was found and not what |
-| `no`, with two or more later round records | **fails**, naming the exit. One later record is the verifying round; a second is the run carrying on past its own stopping rule |
+| `no`, with two or more later round records and none of them saying the run reopened | **fails**, naming the exit. One later record is the verifying round; a second is the run carrying on past its own stopping rule |
+| any of those, work item with no timestamp prefix | prints — `item_began` has no second to compare, so every cutoff here is below it and the record is excused permanently |
 
 Only the ABSENT row and the run that went past it are grandfathered, and they
 are grandfathered for different reasons. The first is the reason the rows
@@ -691,6 +692,43 @@ honest repair. The second is one this document has not needed before — the
 repair for a run that ran three rounds too long is a round that was never
 spawned, which nobody can write now. A malformed row is refused at any age,
 because formatting is always the author's.
+
+**What the count counts, and why it is not simply *the records after this
+one*.** A verifying round that opens something is a finding round, so its own
+fixes need a reader, and that reader is a third record — which a blind count
+refuses, making the only legal end to such a run unwritable. It did: the first
+record ever held to this rule was this repository's own, and the sequence its
+documents required could not be written. So the count stops at the first later
+record whose `Needs a fix` says the run reopened, that record included. Every
+record after a reopening answers to THAT round rather than to the one that met
+the floor.
+
+##### `Needs a fix` — the row the bound above rests on
+
+It has been in the record since draft 0.5 of `docs/review-handoff-protocol.md`
+and nothing read it until the bound above needed it. It is the reviewer's own
+line, copied into the cell after the colon, and it takes the floor's
+vocabulary.
+
+| The row | The check |
+|---|---|
+| `no`, or `yes — <what>` | passes. A reason after `no` is an answer too, and 30 of this repository's own records are written that way |
+| absent, empty, or a value that is neither, work item begun on or after `NEEDS_FROM` | **fails**, naming the row and the bound that rests on it |
+| any of those, work item begun before `NEEDS_FROM` (or with no timestamp prefix) | prints |
+
+**This row is grandfathered WHOLE, where the three above grandfather only an
+absent row, and the difference is the row's history rather than an
+inconsistency.** The floor and the fix surface arrived with their checks, so a
+row present on a later record was written by an author who knew one would read
+it and a malformed value is carelessness. This row carried free text for three
+releases with nothing reading it, so a value written before the check was
+never held to a vocabulary at all — refusing those would fail records for a
+rule that did not exist when they were written, which is what every
+grandfathering here exists to prevent.
+
+`NEEDS_FROM` may never be later than `FLOOR_FROM`. Between the two, the bound
+above would rest on a row no record was required to carry, which is a run
+failed for a cell nobody asked its author for.
 
 ##### The depth in `New units`
 
@@ -707,7 +745,8 @@ fixes nobody re-read fabricates the answer.
 | an entry with no depth, work item begun on or after `DEPTH_FROM` | **fails**, naming the entry and showing the shape |
 | an entry at depth 2 or above | **fails**, naming the entry and where the unit goes instead: deferred with a named answerer, or an issue |
 | an entry below depth 1 | **fails** — it names no level the rule defines, and read permissively it sits under the bound |
-| any of those, work item begun before `DEPTH_FROM` | prints |
+| an entry carrying more than one unit or more than one depth — a comma list under a single `(depth N)`, or two markers | **fails**, naming the entry. One declaration covering two names says nothing about the second, and the comma is the spelling this row used before the depth existed |
+| any of those, work item begun before `DEPTH_FROM` (or with no timestamp prefix) | prints |
 
 **The refusal names the exit because a refusal that does not is a wall.** The
 rule and its exit shipped one phase before this check, in that order and on
@@ -717,6 +756,13 @@ stops the chain, which costs more than the unreviewed unit did.
 What no check can see is a depth declared wrong — `(depth 1)` on a unit that
 is really second-level. The rule is a declaration, and the verifying round
 reading the `New units` surface is what looks at it.
+
+One limit is recorded rather than parsed away, the mirror of the arrow's above:
+the comma that marks a crowded entry is found by substring, so a unit name
+holding a comma — `` `get(a, b)` (depth 1) `` — is refused as two units. `;`
+between units is the spelling, and a name that genuinely holds a comma is
+written without one. Parsing code spans to tell the two apart is the same
+enumeration over an unbounded domain the arrow's limit declines.
 
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a

@@ -1119,6 +1119,7 @@ def _literal_strings():
         chain.NEW_UNITS,
         chain.DEPTH_WORD,
         chain.FLOOR,
+        chain.NEEDS,
         chain.FLOOR_NO,
         chain.FLOOR_YES,
         chain.NONE_WORD,

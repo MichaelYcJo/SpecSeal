@@ -121,6 +121,24 @@ def test_the_floor_leaves_the_verifying_round_standing():
         )
 
 
+def test_the_skill_enumerates_the_floor_where_it_lists_the_records_contents():
+    """🟡 4 of round 1. `skills/code-review/SKILL.md`'s `rounds/round-N.md`
+    row lists what a record carries — the target, the verdicts, the probes,
+    the deferrals, the broad gate, who checked the fixes, the fix surface,
+    and `Needs a fix`. It stopped there, so a session reading the list to
+    find out what a record owes is not told about the second answer the run
+    ends on."""
+    row = next(
+        line
+        for line in read(*SKILL).splitlines()
+        if line.startswith("| `rounds/round-N.md` |")
+    )
+    assert ROW in row, (
+        "the skill's enumeration of a record's contents omits the floor row, "
+        f"beside a `Needs a fix` it does name: {row}"
+    )
+
+
 # --- the reviewer's line, and the row it is copied into ---------------------
 
 

@@ -135,17 +135,24 @@ def declaration(item):
     )
 
 
-def record(sha, floor="no", new_units="none"):
+def record(sha, floor="no", new_units="none", needs="no"):
     """A record that passes every check but the row each case is about.
 
     The verdict closes without a fix and `Fixes checked by` says so, so `Pass`
     beside `nobody` never fires; `Contract changes` is `none` for the same
-    reason. `floor=None` and `new_units=None` leave the row out entirely,
-    which is the state the grandfathering decides.
+    reason. `floor=None`, `new_units=None` and `needs=None` leave the row out
+    entirely, which is the state the grandfathering decides.
+
+    `needs` defaults to `no` because the floor's run-length bound reads it:
+    a round that reopened the run is where the count stops, so a fixture that
+    left the row out would be testing the grandfathering rather than the
+    bound.
     """
     rows = "| Fixes checked by | no fixes to check |\n| Contract changes | none |\n"
     if new_units is not None:
         rows += f"| New units | {new_units} |\n"
+    if needs is not None:
+        rows += f"| Needs a fix | {needs} |\n"
     if floor is not None:
         rows += f"| Loses a record or crashes | {floor} |\n"
     return (
@@ -245,6 +252,29 @@ def test_a_work_item_with_no_timestamp_prefix_is_grandfathered(repo):
     )
     code, out = run(repo)
     assert code == 0, out
+
+
+def test_a_no_prefix_item_is_excused_all_four_refusals_not_only_the_absent_row(repo):
+    """🟡 7 of round 1. `item_began` answers None for a work item named some
+    other way, and None is below every cutoff — so the depth, the run-length
+    bound and the missing rows are all excused, permanently and for every
+    record. That follows from the recorded reasoning and is not disputed; a
+    reader of the two tables in `docs/review-chain-spec.md` had no way to
+    learn it, which the prose case below now pins.
+    """
+    declared(
+        repo,
+        "seal/specs/a-work-item-with-no-date",
+        lambda sha: record(sha, floor="no", new_units="`helper`, `another`"),
+        lambda sha: record(sha, floor="no"),
+        lambda sha: record(sha, floor="no"),
+    )
+    code, out = run(repo)
+    assert code == 0, out
+    assert "at most one more" in out and "depth" in out, (
+        "both states have to print — a no-prefix item that passes in silence "
+        "is a work item nothing will ever say anything about"
+    )
 
 
 def test_a_draft_pull_request_is_not_excused_the_floor(repo):
@@ -347,16 +377,24 @@ def test_one_record_may_follow_a_record_that_met_the_floor(repo):
     assert code == 0, out
 
 
-def test_a_second_record_after_the_floor_fails(repo):
+def test_three_quiet_rounds_after_the_floor_are_still_refused(repo):
     """The run carrying on past its own stopping rule, which is the whole of
     what #110 measured: rounds 5, 6 and 7 of #81 came after a round that had
-    already met the floor."""
+    already met the floor. None of the three reopened the run.
+
+    **This pin changed at round 1 of this work item, deliberately.** It used
+    to be `test_a_second_record_after_the_floor_fails` and it refused ANY two
+    later records, which refused the only legal end to a run whose verifying
+    round produces fixes. What it pins now is narrower and is the #81 shape
+    itself: two later records, neither of which says the run reopened. The
+    case below is the sequence the old pin forbade.
+    """
     declared(
         repo,
         NEW_ITEM,
-        lambda sha: record(sha, floor="no"),
-        lambda sha: record(sha, floor="no"),
-        lambda sha: record(sha, floor="no"),
+        lambda sha: record(sha, floor="no", needs="no"),
+        lambda sha: record(sha, floor="no", needs="no"),
+        lambda sha: record(sha, floor="no", needs="no"),
     )
     code, out = run(repo)
     assert code == 1, out
@@ -365,6 +403,48 @@ def test_a_second_record_after_the_floor_fails(repo):
         "the refusal has to name where the stopped round's other findings go, "
         "or the run is stopped at a wall"
     )
+
+
+def test_the_verifying_round_may_reopen_the_run_and_its_fixes_get_a_reader(repo):
+    """🔴 1 of round 1, and the sequence the documents require.
+
+    Round 1 meets the floor. The verifying round reads its fixes and opens
+    something — `skills/code-review/SKILL.md` says a verifying round that
+    opens something IS a finding round — so ITS fixes need a reader in turn,
+    and that reader is a third record. Counting later records blindly made
+    that sequence unwritable, which is the wall this branch exists not to
+    build.
+
+    The count stops at the first later record whose `Needs a fix` says the
+    run reopened, because everything after that record answers to it rather
+    than to the round that met the floor.
+    """
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, floor="no", needs="yes — three 🔴"),
+        lambda sha: record(sha, floor="no", needs="yes — one, inside the fixes"),
+        lambda sha: record(sha, floor="no", needs="no"),
+    )
+    code, out = run(repo)
+    assert code == 0, out
+
+
+def test_a_reopening_further_down_does_not_excuse_the_two_before_it(repo):
+    """The count stops at the FIRST reopening, not at any reopening. Two
+    quiet rounds followed by a third that reopens is still the run going on
+    past its floor — the reopening cannot reach back and license the rounds
+    that preceded it."""
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, floor="no", needs="no"),
+        lambda sha: record(sha, floor="no", needs="no"),
+        lambda sha: record(sha, floor="no", needs="yes — something late"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "at most one more" in out
 
 
 def test_a_record_that_found_something_may_be_followed_by_more(repo):
@@ -410,6 +490,77 @@ def test_a_run_past_the_floor_prints_for_an_item_begun_before_it(repo):
     code, out = run(repo)
     assert code == 0, out
     assert "at most one more" in out
+
+
+# --- `Needs a fix` is now a row a check reads -------------------------------
+
+
+def test_a_record_without_the_needs_a_fix_row_fails(repo):
+    """The bound above rests on this row, so a record that leaves it out
+    leaves the bound resting on nothing. Before round 1 the row was read by
+    no check at all — `grep -rn "Needs a fix"` over the checkers returned
+    nothing — and `templates/sdd-round.md` said so of itself."""
+    declared(repo, NEW_ITEM, lambda sha: record(sha, needs=None))
+    code, out = run(repo)
+    assert code == 1, out
+    assert "Needs a fix" in out
+    assert "reopened" in out, (
+        "the failure has to say what the row is FOR — it is what lets the "
+        "floor's bound tell a verifying round from a run that ran on"
+    )
+
+
+def test_an_unreadable_needs_a_fix_fails_after_the_cutoff(repo):
+    declared(repo, NEW_ITEM, lambda sha: record(sha, needs="probably"))
+    code, out = run(repo)
+    assert code == 1, out
+    assert "neither answer" in out
+
+
+@pytest.mark.parametrize("value", (None, "probably", ""))
+def test_the_whole_needs_a_fix_row_is_grandfathered_not_only_its_absence(repo, value):
+    """This row is grandfathered differently from the floor and the fix
+    surface, and the difference is the point.
+
+    Those two arrived with their checks, so a row present on a later record
+    was written by an author who knew one would read it, and malformed meant
+    careless. `Needs a fix` has existed since draft 0.5 with no check on it,
+    so a value written before round 1 of this work item was never held to a
+    vocabulary. Refusing those would fail records for a rule that did not
+    exist when they were written, which is the grandfathering's whole reason.
+    """
+    declared(repo, OLD_ITEM, lambda sha: record(sha, needs=value))
+    code, out = run(repo)
+    assert code == 0, out
+    assert "Needs a fix" in out, (
+        "passing in silence would hide the state the row is read for"
+    )
+
+
+def test_a_work_item_begun_at_the_needs_cutoff_is_held_to_the_rule(repo):
+    began = check_module().NEEDS_FROM
+    declared(
+        repo,
+        f"seal/specs/{began}-the-item-that-wrote-the-rule",
+        lambda sha: record(sha, needs=None),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "Needs a fix" in out
+
+
+def test_needs_a_fix_takes_a_reason_after_either_answer(repo):
+    """Every one of the 77 records in this repository spells it one of these
+    two ways, and a check that refused a reason after `no` would refuse
+    `no — the two this round opened are a comment and a docstring`, which is
+    a real record."""
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, needs="`no` — both were answered with grounds"),
+    )
+    code, out = run(repo)
+    assert code == 0, out
 
 
 # --- every `New units` entry carries its depth ------------------------------
@@ -510,6 +661,92 @@ def test_a_digit_in_the_unit_name_is_not_a_depth(repo):
     )
 
 
+def test_a_comma_separated_list_under_one_depth_is_refused(repo):
+    """🟡 5 of round 1. `;` is the separator, so a comma list is ONE entry to
+    the walk and one `(depth 1)` at its end covers every name in it.
+
+    The comma form is not hypothetical: it is the spelling `New units` used
+    before this branch, and `tests/test_the_fixes_name_their_surface.py` had
+    a fixture written that way that this branch had to migrate.
+    """
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, new_units="`a`, `b` (depth 1)"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "one depth per unit" in out, (
+        "the failure has to say the separator is `;`, or the author writes "
+        "the same cell again"
+    )
+
+
+def test_two_depth_markers_in_one_entry_are_refused(repo):
+    """The walk took the first marker and stopped, so a doubled marker
+    declared whichever depth came first."""
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, new_units="helper (depth 1) (depth 2)"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "one depth per unit" in out
+
+
+def test_a_comma_inside_a_reason_after_none_is_not_a_list(repo):
+    """`none, nothing added` is a `none` with a reason and never reaches the
+    walk — `says_none` short-circuits first. The comma refusal must not take
+    the value the sibling file already pins as an answer."""
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, new_units="none, nothing added"),
+    )
+    code, out = run(repo)
+    assert code == 0, out
+
+
+def test_none_with_a_trailing_semicolon_is_still_none(repo):
+    """🟡 6 of round 1, and the refusal's own instruction produced it: `none;`
+    was refused as separators-with-nothing-between, and the message says to
+    write the units or `none` with the entry shape — which a session read as
+    `none (depth 1)`, a cell the check then reads as NO units at all."""
+    declared(repo, NEW_ITEM, lambda sha: record(sha, new_units="none;"))
+    code, out = run(repo)
+    assert code == 0, out
+
+
+# The mirror of the arrow limit `fix_surface` records for `Contract changes`.
+# The comma is found by substring, so a unit name holding one is read as two
+# units. `;` between units is the spelling; a name that genuinely holds a
+# comma is written without one.
+COMMA_LIMIT = "a unit name holding a comma"
+
+
+def test_the_recorded_limit_a_comma_inside_a_unit_name(repo):
+    """The limit, executed: `` `get(a, b)` (depth 1) `` is one unit and is
+    refused as a crowded entry. If this case ever fails, the limit was
+    closed — delete the sentence the case below pins."""
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, new_units="`get(a, b)` (depth 1)"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "one depth per unit" in out
+
+
+def test_the_comma_limit_is_recorded_where_the_rule_lives():
+    """A recorded limit that is recorded nowhere is a closed finding. The
+    arrow's is stated in the checker and in the document that carries its
+    refusals, and this one goes in the same two places."""
+    for parts in (SPEC, CHECKER):
+        assert COMMA_LIMIT in flat(*parts), "/".join(parts)
+
+
 def test_one_entry_without_a_depth_fails_among_good_ones(repo):
     declared(
         repo,
@@ -588,6 +825,43 @@ def test_the_document_says_why_older_records_are_excused(cutoff):
     assert "print" in spec and "grandfather" in spec
 
 
+# Each new subsection of `docs/review-chain-spec.md`, bounded by the heading
+# that follows it, so a claim about one table cannot be answered by the other.
+SUBSECTIONS = {
+    "the floor": (
+        "##### The floor — `Loses a record or crashes`",
+        "##### `Needs a fix` — the row the bound",
+    ),
+    "needs a fix": (
+        "##### `Needs a fix` — the row the bound",
+        "##### The depth in `New units`",
+    ),
+    "the depth": ("##### The depth in `New units`", "Which declaration applies"),
+}
+
+
+@pytest.mark.parametrize("which", sorted(SUBSECTIONS))
+def test_each_table_says_a_no_prefix_work_item_is_excused(which):
+    """🟡 7 of round 1. `item_began` answers None for a work item named some
+    other way, and None is below every cutoff — so all four refusals are
+    excused for it, permanently. The fix-surface table has said so since it
+    shipped; these two said it of nothing.
+
+    Sliced rather than searched whole, for the reason
+    `test_the_exit_is_stated_before_the_rule` slices: one table carrying the
+    sentence would answer a whole-file search for both.
+    """
+    text = flat(*SPEC)
+    opening, closing = SUBSECTIONS[which]
+    assert opening in text, f"the subsection opening moved: {opening!r}"
+    assert closing in text, f"the subsection closing moved: {closing!r}"
+    table = text[text.index(opening) : text.index(closing, text.index(opening))]
+    assert "no timestamp prefix" in table, (
+        f"{which}'s table never says a work item named some other way is "
+        "excused, so a reader learns it only by running the checker"
+    )
+
+
 def test_the_document_states_what_each_refusal_does():
     """The gate's verdict is what a person reads and acts on, so the two
     tables that say which shapes fail and which print are part of the change
@@ -605,6 +879,56 @@ def test_the_document_states_what_each_refusal_does():
         )
 
 
+def test_the_module_docstring_names_what_the_checker_refuses():
+    """🟡 8 of round 1. The docstring is the checker's own inventory of what
+    a record owes, and a reader who opened it to find out learned neither
+    rule — `Loses a record or crashes` first appeared 130 lines below it, as
+    a constant."""
+    text = flat(*CHECKER)
+    opening = text.index('"""')
+    head = text[opening : text.index('"""', opening + 3)]
+    for phrase in ("Loses a record or crashes", "depth", "Needs a fix"):
+        assert phrase in head, (
+            f"the module docstring does not name {phrase!r}, so the file's "
+            "own summary of what it refuses is missing a refusal it makes"
+        )
+
+
+# The claim each file used to make about `Needs a fix`, beside the sentence
+# that replaced it. The pair is phase 2's lesson: an absence is trivially
+# satisfied by a file that was never opened, so the present half is what
+# makes the absent half evidence.
+NO_CHECK_READS = {
+    ("templates", "sdd-round.md"): (
+        "No check reads this row.",
+        "read by `chain_check.py`",
+    ),
+    ("skills", "code-review", "SKILL.md"): (
+        "No check reads the row;",
+        "read by `chain_check.py`",
+    ),
+}
+
+
+@pytest.mark.parametrize("parts", sorted(NO_CHECK_READS))
+def test_no_document_still_says_the_row_is_read_by_nothing(parts):
+    """It was true when it was written and round 1's repair made it false.
+    A file that keeps the old sentence beside the new one ships two answers,
+    and this row's own history is why that matters: the sentence is what a
+    reader consults before deciding the cell can hold anything."""
+    gone, stands = NO_CHECK_READS[parts]
+    text = flat(*parts)
+    assert stands in text, (
+        f"{'/'.join(parts)} does not say the row is read, so the absence "
+        "below is a search that found nothing rather than a file that says "
+        "nothing"
+    )
+    assert gone not in text, (
+        f"{'/'.join(parts)} still tells a reader no check reads `Needs a "
+        "fix`, beside a bound that now rests on it"
+    )
+
+
 # --- the two cutoffs are this work item's own id ----------------------------
 
 
@@ -618,9 +942,12 @@ def test_the_two_cutoffs_are_the_id_of_the_item_that_wrote_them():
     cutoff excuses the very records that were written to be held.
     """
     module = check_module()
-    assert module.FLOOR_FROM == module.DEPTH_FROM, (
-        "the floor and the depth shipped in one work item, so two different "
-        "cutoffs mean one of them names an item that did not write its rule"
+    assert module.FLOOR_FROM == module.DEPTH_FROM == module.NEEDS_FROM, (
+        "the floor, the depth and `Needs a fix` shipped in one work item, so "
+        "two different cutoffs mean one of them names an item that did not "
+        "write its rule. `NEEDS_FROM` may never be LATER than `FLOOR_FROM` "
+        "for a second reason: between the two, the floor's run-length bound "
+        "would rest on a row no record was required to carry"
     )
     items = os.listdir(os.path.join(ROOT, "seal", "specs"))
     assert [d for d in items if d.startswith(f"{module.FLOOR_FROM}-")], (

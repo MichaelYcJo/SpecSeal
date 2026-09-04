@@ -85,9 +85,13 @@ It is copied from the reviewer's report and not inferred from the verdict
 table. A verdict table says what was found and this says what the finder
 concluded about it, and the two come apart at exactly the case above.
 
-No check reads this row. It is here because the reviewer is told to answer the
-question and had nowhere to write the answer, which is how a decision ends up
-living in a transcript.
+This row is read by `chain_check.py`, and the floor's bound below is what
+reads it: a verifying round that opens something is a finding round, so its
+own fixes need a reader, and `yes` here is what says the run reopened. Write
+`no`, or `yes — <what>`. A record whose work item began before anything read
+the row prints instead of failing, whatever the cell says — the row has
+carried free text since draft 0.5 of the handoff protocol and was held to no
+vocabulary.
 
 `Loses a record or crashes` is the FLOOR under the cap, and it is the
 reviewer's answer as well — what stands after the colon in its `Loses a record
@@ -109,6 +113,12 @@ floor is followed by at most one more round record: the verifying round at the
 diff of the fixes that closed it. A second one is the run carrying on past its
 own stopping rule. Records of work items begun before the rule landed print
 instead of failing.
+
+**Unless that verifying round reopens the run.** If it opens something needing
+a fix, its `Needs a fix` says `yes`, its own fixes need a reader in turn, and
+the record that reads them is a third record the count does not hold against
+the round that met the floor. The count stops at the first later record whose
+`Needs a fix` says `yes`, that record included.
 
 Check `Pass` only when no finding in the verdict table below is still
 open. It is the last round's checkbox that speaks for the whole review: every

@@ -170,6 +170,22 @@ def test_the_new_units_row_carries_the_depth():
     )
 
 
+def test_the_skills_fix_surface_table_names_the_depth():
+    """🟡 4 of round 1. `skills/code-review/SKILL.md` says the depth once, in
+    the section that argues for the rule, and again — differently — in the
+    table a session actually opens to fill the cell in. The table said the
+    row holds the units and nothing more, so a session following it writes a
+    cell the checker refuses."""
+    row = next(
+        line for line in read(*SKILL).splitlines() if line.startswith("| `New units` |")
+    )
+    for needle in ("depth", "`;`"):
+        assert needle in row, (
+            f"the fix-surface table's `New units` row offers no `{needle}`, "
+            f"so the file gives two answers about one cell: {row}"
+        )
+
+
 def test_the_template_shows_a_form_a_session_can_copy():
     """A shape described in a sentence and never shown is a shape every
     session spells differently."""

@@ -164,7 +164,7 @@ company because the layout is one rule rather than two:
 
 | File | Contents |
 |---|---|
-| `rounds/round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — and **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table |
+| `rounds/round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table — and **whether anything it found leaves the root or crashes**, the reviewer's `Loses a record or crashes` line, which is the floor under the cap |
 | `tests-todo.md` | regression tests to plant, with the destination file per row |
 | `evidence-todo.md` | verified facts to merge into `seal/ledger.md` |
 
@@ -281,9 +281,10 @@ The reviewer answers the third one in a line of its own — `Needs a fix: no`,
 or `yes` and what does — and that line is one of the two the run ends on, the
 floor below being the other. Copy it into `round-N.md`'s `| Needs a fix |` row
 rather than re-deriving it from the verdict table: a 🟡 the smith answers with
-grounds is `no`, so a round can report findings and still end the run. No check
-reads the row; without it the answer the run ends on lives only in a
-transcript.
+grounds is `no`, so a round can report findings and still end the run. The row
+is read by `chain_check.py`, and what reads it is the floor's bound below: a
+`yes` is what says the run reopened, which is what keeps that bound from
+refusing the verifying round's own reader.
 
 **A round that opens nothing needing a fix does not consume the cap.** The cap
 counts rounds that found something, because it exists to stop a loop that is
@@ -324,6 +325,12 @@ with the finding handed over rather than chased.
 last set of fixes still needs a reader, and the round above is it. A record
 that met the floor is followed by at most one more round record, and a second
 is the run carrying on past its own stopping rule.
+
+**Unless the verifying round reopens the run.** One that opens something is a
+finding round by the rule above, so its own fixes need a reader, and that
+reader is a third record. `chain_check.py` counts later records only up to the
+first whose `Needs a fix` says `yes`, that record included — which is why that
+row is now read rather than only written.
 
 ### A fix pass adds the unit that pins it, and that unit ships unreviewed
 
@@ -390,12 +397,15 @@ open, which is why they cost no question to anyone.
 | The row | What goes in it |
 |---|---|
 | `Contract changes` | every unit whose signature, return arity, return type, or set of returnable values this round's fixes changed — each with the call sites it reaches, `unit → site, site`, units separated by `;`. The diff names the changed signature and `grep` names the reach; the largest regression class issue #57 measured — four findings of ten — was a contract change whose reach was never revisited |
-| `New units` | the top-level definitions and constants the fixes added — the verifying round's finding surface above |
+| `New units` | the top-level definitions and constants the fixes added, each with the depth it was added at — `unit (depth N)`, one entry per unit, entries separated by `;`. The verifying round's finding surface above. A fix pass may add a unit; that unit's fix may not, so depth 2 or above is refused and the unit is deferred with a named answerer or becomes an issue |
 
 Both accept `none`, with or without a reason after it. `chain_check.py`
 refuses a record without the rows and a unit listed without its reach, for
 work items begun on or after its `SURFACE_FROM`; records of earlier work
 items print instead — the grandfathering `Fixes checked by` already uses.
+The depth inside `New units` has a cutoff of its own, `DEPTH_FROM`, later
+than that one: a work item between the two owes the row and not the depth in
+it, because its records were written when the row named units alone.
 
 ## Orchestrator: verify before posting
 
