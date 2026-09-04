@@ -18,8 +18,11 @@ nine rows, and over ten before R9 left with the code it cited.
 
 **Not one of the six was found by reading.** R1, R3 and R8 came out of the
 mutation loop, R2 out of asking what the second round of every run looks like,
-R6 out of a review round reading dates, and R7 out of a round asking what the
-rule this branch added had made of the row beside it. R4 was Read-only for two
+R7 out of a round asking what the rule this branch added had made of the row
+beside it, and R4 out of the same pass asking what a moved default would leave
+behind. R6, which is not one of the six, came out of a review round reading
+dates — a sentence this paragraph used to list beside the other five as if it
+were, until round 7 counted the names. R4 was Read-only for two
 rounds and is executed now, because the mutation that separates it is not a
 change to the code but a change to the DEFAULTS the code reads. R1 has now been a
 survivor twice: eleven mutations before a twelfth case caught

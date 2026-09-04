@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on opus |
 | PR | not yet opened |
 | Broad gate | `ff22b34`, against `origin/release/v0.8.0` — the full suite **2088 passed · 4 failed · 1 skipped**, `ruff check .` and `ruff format --check .` both clean. All four failures are `tests/test_the_records_can_be_carried_out_and_in.py`'s zip-export cases, and all four reproduce identically on `origin/main` and on `origin/release/v0.8.0` in clean clones while `main`'s CI is green at that same commit — macOS-only, opened as issue #160 |
-| Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
+| Fixes checked by | round-7 |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | no |

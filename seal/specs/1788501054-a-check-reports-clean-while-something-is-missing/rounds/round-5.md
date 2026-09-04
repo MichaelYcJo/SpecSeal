@@ -6,9 +6,9 @@
 | Ran by | specseal:warden on opus |
 | PR | not yet opened |
 | Broad gate | not yet — no broad run has happened on this branch at all, and it stays held: 🔴 1 is red on the release branch, so a broad run taken now is spent rather than banked |
-| Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | round-6 |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🔴 1, the correction walk fails on `release/v0.8.0` and at the release→`main` pull request once this branch is squashed; and 🟡 2, both of `_correction_traces`' bounds are load-bearing and held by no case, one of them stopping enforcement the moment `Pass` is ticked |
 | Loses a record or crashes | no |
 
