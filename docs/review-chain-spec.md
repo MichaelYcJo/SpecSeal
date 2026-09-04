@@ -838,7 +838,9 @@ it. A round record has the easier job — the orchestrator writes that file and
 chose the model — which is why the rule's difficulty is entirely on the phase
 side.
 
-One limit is recorded rather than parsed away, the third of the shape above:
+One limit is recorded rather than parsed away, the same shape the three above
+take and outside their sequence — those three are `Contract changes` and
+`New units` parsing, and this row is parsed by neither:
 a cell beginning with the word `unknown` is read as the unknown answer whole,
 so `unknown on Opus` is an unknown carrying a reason rather than a pair whose
 agent is not known. Nothing is lost by it — the model is still written where a
