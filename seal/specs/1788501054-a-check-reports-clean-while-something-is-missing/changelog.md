@@ -126,17 +126,3 @@
   probe row whose subject was a **proposed replacement** carries the
   replacement itself, in a fenced block, never a sentence about it. A command
   is reproducible from its own text; a patch is not. (#150)
-- **A round record's field cell corrected after the record is committed now
-  leaves a trace, and `templates/sdd-round.md` says where.** The cells are
-  read by a checker, so the obvious place is the wrong one: prose appended to
-  `Fixes checked by` silences the arm that reads it, and a sentence added to
-  `New units` is read as another entry — which made this repository's own
-  suite red for a commit. The trace goes in the record's trailing HTML
-  comment, opening with `CORRECTED IN PLACE` so there is one spelling to look
-  for, and it names the cell, what it said, what it says now and which round
-  found it. Filling a row that started `none — the fixes are not yet written`
-  is the reach-back the ordering rule already requires, not a correction, and
-  owes nothing.
-  Without it a record whose cell was quietly corrected reads exactly like a
-  record that was right the first time, and the only other trace is a
-  `git log` nobody thinks to run on a record. (#150)

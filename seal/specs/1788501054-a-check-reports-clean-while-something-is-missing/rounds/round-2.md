@@ -19,8 +19,9 @@
 which is the point: the row is honest now and becomes false by omission if
 nobody returns to it.
 
-CORRECTED IN PLACE — one cell, and this is the trace `templates/sdd-round.md`
-now requires of every such correction.
+CORRECTED IN PLACE — one cell. `templates/sdd-round.md` required this trace
+when it was written; phase 9 reverted that rule and issue #159 carries it. The
+trace stays because it is true.
 
   `Contract changes` — at `e94c3de`, round 3's fix pass, answering its 🟡 8.
   It named `main` as the ONLY call site of `fix_surface` and of

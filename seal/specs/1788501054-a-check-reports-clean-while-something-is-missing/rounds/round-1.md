@@ -22,11 +22,15 @@ read `open`: the fixes do not exist yet, and a cell reading `fixed at <sha>`
 here would be the shape #150 was opened about.
 
 CORRECTED IN PLACE — two cells, and neither said so until round 4's 🟡 7. The
-rule is `templates/sdd-round.md`'s: the trace goes here, because appending it
-to `Fixes checked by` would silence the arm that reads that cell (`CHECKER_RE`
-is `^round-\d+(?:\.md)?$`), and a sentence inside `New units` is read as
-another entry. Filling a row that started `none — the fixes are not yet
-written` is the reach-back rather than a correction and is not listed.
+rule was `templates/sdd-round.md`'s when this trace was written, and phase 9
+reverted it: round 5 found the checker behind it goes red the moment this
+branch is squashed, and issue #159 now carries the rule with the measurement.
+The trace stays because it is true. It sits here rather than in the cell
+because appending it to `Fixes checked by` would silence the arm that reads
+that cell (`CHECKER_RE` is `^round-\d+(?:\.md)?$`), and a sentence inside
+`New units` is read as another entry — both still true of `chain_check.py`.
+Filling a row that started `none — the fixes are not yet written` is the
+reach-back rather than a correction and is not listed.
 
   `Fixes checked by` — at `e94c3de`, round 3's fix pass. It read
   `nobody — this round's fixes are not yet written; the round that opens them

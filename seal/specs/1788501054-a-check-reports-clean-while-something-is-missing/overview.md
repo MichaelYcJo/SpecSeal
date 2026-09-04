@@ -51,6 +51,21 @@ them.
 
 ## Not done
 
+**Round 4's 🟡 7 ships as issue #159, not as a rule.** Round 4's fix pass
+answered that finding by inventing a rule — a field cell corrected after its
+record is committed leaves a trace in the trailing HTML comment — and a
+checker that walked each record's git history to enforce it. No spec asked for
+either. It was the only thing on this branch keying on git history, a feature
+branch squashes into its release branch, and round 5 executed the squash: all
+four records collapse to one commit each, the walk compares nothing, and its
+own guard fires. This repository has already paid a patch release for that
+class, in `tests/test_a_rider_reaches_its_file.py`. The repository owner chose
+to revert rather than build a second reader — the third on one finding — so
+the rule, its two cases and its four helpers are gone, and issue #159 carries
+the finding with the measurement a design has to answer. The traces already in
+`round-1.md` … `round-4.md` stay: they are true, they cost nothing, and the
+two that cited the template as the rule's home now say it was reverted.
+
 **The pending arm was not widened to key on the sibling records**, which is
 what would answer both of round 3's heaviest findings at once. A non-terminal
 record carrying `nobody` is false by construction — a later record exists, and

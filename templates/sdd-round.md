@@ -162,32 +162,6 @@ the record that reads them is a third record the count does not hold against
 the round that met the floor. The count stops at the first later record whose
 `Needs a fix` says `yes`, that record included.
 
-**A field cell CORRECTED after this file is committed leaves its trace in the
-trailing HTML comment, never inside the cell.** Filling a row that started
-`none — the fixes are not yet written` is not a correction and owes nothing —
-that is the reach-back above, and this file announces it of itself. Changing
-what a cell ASSERTED is different, and the trace names the cell, what it said,
-what it says now, and which round found it.
-
-It opens with the words `CORRECTED IN PLACE` so there is one spelling to look
-for. A cell name mentioned loosely somewhere in this comment is not a trace —
-the same name usually appears in the round's own reasoning — so what counts is
-the name appearing AFTER that marker.
-
-It goes in the comment because the cells are PARSED: `Fixes checked by`
-against `^round-\d+$`, `New units` per `;`-separated entry, and the two floor
-rows against a `no`/`yes` vocabulary. A marker written inside one of them
-changes what the checker reads — prose appended to `Fixes checked by`
-silences that arm outright, and a sentence added to `New units` is read as
-another entry, with the units and the comma inside it. That second one made
-this repository's own suite red for a commit. The comment is the one place
-safe for every cell, which is what makes this one rule rather than a choice
-per row.
-
-A record whose cell was quietly corrected reads exactly like one that was
-right the first time, and the only other trace is a `git log` nobody thinks
-to run on a record.
-
 Check `Pass` only when no finding in the verdict table below is still
 open. It is the last round's checkbox that speaks for the whole review: every
 earlier verdict needs an answer in the round that follows, so nothing can be
