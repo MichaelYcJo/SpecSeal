@@ -346,6 +346,76 @@ def test_a_row_inside_a_comment_is_not_the_row(repo):
     assert "Ran by" in out
 
 
+# --- the skills that tell a session to fill it -----------------------------
+
+
+def flat(*parts):
+    """The file as one line, so a pinned phrase survives re-wrapping."""
+    return " ".join(read(*parts).split())
+
+
+# Every shipped file that instructs a session to write one of these records,
+# with what each has to carry. A file that shows the record's rows and omits
+# this one sends its reader to write a record `chain_check.py` refuses — the
+# failure this repository has now paid for three times, and the reason phase 1
+# landed before phase 2.
+#
+# The needle differs by KIND, and it has to. The three files that carry the
+# row AS A ROW are pinned on the row: checking the bare name there passed
+# against a mutation renaming `| Ran by |` to `| Run by |`, because those
+# files also say `Ran by` in prose around it. The two skills carry no table,
+# so the name is all there is to pin.
+INSTRUCTORS = [
+    (("skills", "code-review", "SKILL.md"), "Ran by"),
+    (("skills", "verify", "SKILL.md"), "Ran by"),
+    (("docs", "review-handoff-protocol.md"), "| Ran by |"),
+    (("templates", "sdd-round.md"), "| Ran by |"),
+    (("templates", "sdd-phase.md"), "| Ran by |"),
+]
+
+
+@pytest.mark.parametrize("parts,needle", INSTRUCTORS)
+def test_every_instructing_file_names_the_row(parts, needle):
+    assert needle in read(*parts), "/".join(parts)
+
+
+@pytest.mark.parametrize(
+    "parts", [("skills", "code-review", "SKILL.md"), ("skills", "verify", "SKILL.md")]
+)
+def test_the_skills_say_the_spawning_session_fills_it(parts):
+    """The one thing a reader cannot infer from the row itself.
+
+    Shown without it, the row reads as something the segment reports about
+    itself — and the subject is the one filler whose answer nothing can check
+    against anything. Both skills have to carry it because they are read by
+    different sessions at different moments: `code-review` by the
+    orchestrator writing the round record, `verify` by whoever watches a
+    segment end and posts its numbers.
+    """
+    text = flat(*parts)
+    assert "spawn" in text and "Ran by" in text, "/".join(parts)
+    assert "value it writes about itself is the value it was told" in text, (
+        f"{'/'.join(parts)} shows the row without saying whose it is, so the "
+        "filler it invites is the subject — the one whose answer cannot be "
+        "checked against anything"
+    )
+
+
+@pytest.mark.parametrize(
+    "parts", [("skills", "code-review", "SKILL.md"), ("skills", "verify", "SKILL.md")]
+)
+def test_the_skills_offer_the_unknown_answer(parts):
+    """A skill teaching only the confident answer gets the confident answer
+    written, true or not. `agents/*.md` pins no model."""
+    text = flat(*parts)
+    assert "unknown — <why>" in text, "/".join(parts)
+    assert "bare `unknown`" in text, (
+        f"{'/'.join(parts)} offers `unknown` without saying the reason is "
+        "required, and a cell with no reason records that something is "
+        "missing and not what"
+    )
+
+
 # --- the parser, without a repository around it ----------------------------
 
 

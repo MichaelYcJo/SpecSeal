@@ -383,6 +383,26 @@ finished, not as a follow-up someone might do later:
    rolling log's for the segment's own numbers, the durable one's for a
    reading that spans versions.
 
+**And write down what ran the segment, in that segment's own record.**
+`rounds/round-N.md` and `phases/phase-N.md` both carry a `| Ran by |` row: the
+agent and the model, joined by the word `on` — `specseal:smith on <the model
+it was spawned with>`. It goes in beside the numbers because it is the half of
+the reading the numbers cannot carry. A measurement saying a segment took
+nineteen minutes and ninety-nine calls answers nothing on its own; the same
+reading beside what produced it is the first comparison anybody can make.
+
+**It is yours to fill and not the segment's**, and that is the reason the row
+exists on this side of the handover rather than in the agent's own report. An
+agent is told what it is, so a value it writes about itself is the value it
+was told, and the model is a spawn-time argument you chose — `agents/*.md`
+pins none. You are the only party that knows.
+
+Where you genuinely cannot name a model — a segment spawned through another
+harness, say — `unknown — <why>` is the answer and a bare `unknown` is not, in
+the shape `nobody — <why>` already has. An honest blank with a reason beside
+it is worth more than a confident guess, because a reading nobody can trust
+reads exactly like one nobody took.
+
 Do this before the next segment spawns, or at the latest together with the
 round or phase record that closes this one — never later, and never as a
 question. The destination issue is a log, not a decision: whoever is
