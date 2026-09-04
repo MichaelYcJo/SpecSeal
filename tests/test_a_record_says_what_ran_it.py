@@ -312,10 +312,19 @@ def test_one_thing_named_is_not_two(repo, value):
     assert "names one thing" in out
 
 
-def test_the_on_must_stand_alone(repo):
-    """A word boundary on both sides, so the `on` inside a name is not the
-    separator. `carbon` is one thing however it is spelled."""
-    declared(repo, NEW_ITEM, lambda sha: record(sha, "carbon"))
+@pytest.mark.parametrize("value", ["monitor", "carbon"])
+def test_the_on_must_stand_alone(repo, value):
+    """Whitespace on BOTH sides, so the `on` inside a name is not the
+    separator. Each of these is one thing however it is spelled.
+
+    `monitor` is the case that pins the rule and `carbon` is the one that
+    looks like it does. Dropping the whitespace from `ON_RE` leaves `carbon`
+    refused anyway — it splits into `carb` and an empty tail, and an empty
+    half is refused by the very next clause — so a case carrying only that
+    word stays green against the mutation it exists to catch. `monitor`
+    splits into two non-empty halves and is the one that goes red.
+    """
+    declared(repo, NEW_ITEM, lambda sha: record(sha, value))
     code, out = run(repo)
     assert code == 1, out
     assert "names one thing" in out
@@ -357,7 +366,21 @@ def test_the_parser_accepts(value):
 
 @pytest.mark.parametrize(
     "value",
-    ["", "   ", "unknown", "UNKNOWN", "unknown —", "smith", "on", "on model", "x on"],
+    [
+        "",
+        "   ",
+        "unknown",
+        "UNKNOWN",
+        "unknown —",
+        "smith",
+        "on",
+        "on model",
+        "x on",
+        # The mutation `carbon` alone does not catch: with the whitespace
+        # gone from `ON_RE` this splits into two non-empty halves and passes.
+        "monitor",
+        "carbon",
+    ],
 )
 def test_the_parser_refuses(value):
     assert check_module().runner_problem(value) is not None, value
