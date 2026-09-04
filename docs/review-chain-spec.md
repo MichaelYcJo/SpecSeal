@@ -60,6 +60,51 @@ by what a finding requires rather than by rank, and 🔴 means *blocks merge* �
 so "a 🔴 is open" is a state the review already reports, readable from the
 last round record's verdict table and its `Pass` checkbox.
 
+### The bound has a floor, and a quiet round is where it stops
+
+**Stop when a round finds nothing that leaves the root and nothing that
+crashes.** Whatever else it found is deferred with a named answerer, or becomes
+an issue — the same homes the table at the end of this section gives any other
+leftover.
+
+The numbers above are a ceiling and say nothing about when to stop under one,
+so the cap was spent like a budget. #81 ran seven rounds: rounds 1 through 4
+each found something that loses a record, and rounds 5, 6 and 7 found none of
+either kind. That is roughly an hour of agent time on the flat part of the
+curve, and the curve is not one chain's luck — the most expensive round in the
+flow log (63 tool calls) was also the most productive (four 🔴), and cost per
+finding rose in the late rounds, where the reviewer was searching a diff it had
+already read three times.
+
+Nothing new has to be measured for it. The evidence is the round's own verdict
+table, which already separates what needs a fix from what does not, and the
+answer goes into `round-N.md`'s `| Loses a record or crashes |` row — the
+reviewer's own, given in a line of its own, exactly as `Needs a fix` is.
+
+**A first round is never optional, and the floor does not make it one.** #104
+looked small and cost four 🔴 in round 1, three of them losing a record or
+sending a person down a path that does not work. What the floor makes optional
+is the round after a quiet one.
+
+**This is not the cap's arithmetic.** The next subsection carries a rule that
+reads like this one said twice, and the two decide different things.
+
+| Rule | What it decides |
+|---|---|
+| A round that opens nothing needing a fix does not consume the cap | whether a round that has already run counts toward three or five |
+| Stop when a round finds nothing that leaves the root and nothing that crashes | whether the next round is spawned at all, with the cap nowhere near spent |
+
+They also reach different rounds. A round that opened nothing needing a fix has
+opened nothing that loses a record either, so it meets the floor as well. A
+round that meets the floor may still have opened a 🔴 in a line a person reads,
+and that round consumes the cap and ends the run in the same breath.
+
+**The verifying round still runs.** The floor ends the finding rounds, not the
+run's obligation to have somebody read its last set of fixes. A record that met
+the floor is followed by at most one more round record: the verifying round
+defined next, at the diff of the fixes that closed it. A second one is the run
+carrying on past its own stopping rule.
+
 ### The last round verifies, and what it verifies is a diff
 
 A run ends with a **verifying round**. It is spawned after the previous
@@ -622,6 +667,114 @@ the fix diff open, so their prompt budget is zero. What `New units` buys sits
 with the verifying round: what it names is a finding surface — *is this
 correct* — rather than a verification surface, because a unit the fixes
 created has been reviewed by nobody.
+
+##### The floor — `Loses a record or crashes`, and what may follow it
+
+The floor is stated at the top of this document, and this is what the check
+makes of it. The row is read on every record, like the two above and for the
+same reason: every round has its own answer, and the run's stopping point is a
+fact about the round that met the floor rather than about the last one.
+
+| The row | The check |
+|---|---|
+| absent, work item begun on or after the cutoff | **fails**, naming the row and what it buys |
+| absent, work item begun before the cutoff (or with no timestamp prefix) | prints — the grandfathering above, keyed to `chain_check.py`'s `FLOOR_FROM`, whose value is the id of the work item that added the row |
+| `no`, or `yes — <what>` | passes |
+| an empty cell, or a word that is neither | **fails** on any record — a word the check cannot read is never the reassuring reading, and `nothing anybody can see` is a sentence rather than an answer |
+| `yes` with nothing after it | **fails** on any record — the cell then records that something was found and not what |
+| `no`, with two or more later round records and none of them saying the run reopened | **fails**, naming the exit. One later record is the verifying round; a second is the run carrying on past its own stopping rule |
+| any of those, work item with no timestamp prefix | prints — `item_began` has no second to compare, so every cutoff here is below it and the record is excused permanently |
+
+Only the ABSENT row and the run that went past it are grandfathered, and they
+are grandfathered for different reasons. The first is the reason the rows
+above are: the round is over, and a record written before the rule has no
+honest repair. The second is one this document has not needed before — the
+repair for a run that ran three rounds too long is a round that was never
+spawned, which nobody can write now. A malformed row is refused at any age,
+because formatting is always the author's.
+
+**What the count counts, and why it is not simply *the records after this
+one*.** A verifying round that opens something is a finding round, so its own
+fixes need a reader, and that reader is a third record — which a blind count
+refuses, making the only legal end to such a run unwritable. It did: the first
+record ever held to this rule was this repository's own, and the sequence its
+documents required could not be written. So the count stops at the first later
+record whose `Needs a fix` says the run reopened, that record included. Every
+record after a reopening answers to THAT round rather than to the one that met
+the floor.
+
+##### `Needs a fix` — the row the bound above rests on
+
+It has been in the record since draft 0.5 of `docs/review-handoff-protocol.md`
+and nothing read it until the bound above needed it. It is the reviewer's own
+line, copied into the cell after the colon, and it takes the floor's
+vocabulary.
+
+| The row | The check |
+|---|---|
+| `no`, or `yes — <what>` | passes. A reason after `no` is an answer too, and 30 of this repository's own records are written that way |
+| absent, empty, or a value that is neither, work item begun on or after `NEEDS_FROM` | **fails**, naming the row and the bound that rests on it |
+| any of those, work item begun before `NEEDS_FROM` (or with no timestamp prefix) | prints |
+
+**This row is grandfathered WHOLE, where the three above grandfather only an
+absent row, and the difference is the row's history rather than an
+inconsistency.** The floor and the fix surface arrived with their checks, so a
+row present on a later record was written by an author who knew one would read
+it and a malformed value is carelessness. This row carried free text for three
+releases with nothing reading it, so a value written before the check was
+never held to a vocabulary at all — refusing those would fail records for a
+rule that did not exist when they were written, which is what every
+grandfathering here exists to prevent.
+
+`NEEDS_FROM` may never be later than `FLOOR_FROM`. Between the two, the bound
+above would rest on a row no record was required to carry, which is a run
+failed for a cell nobody asked its author for.
+
+##### The depth in `New units`
+
+`New units` carries a second thing beyond the names, and it has a cutoff of
+its own — `chain_check.py`'s `DEPTH_FROM`, later than `SURFACE_FROM`. A work
+item begun between the two owes the row and not the depth in it: its records
+were written when the row named units alone, and deriving a depth now for
+fixes nobody re-read fabricates the answer.
+
+| The entry | The check |
+|---|---|
+| `unit (depth 1)`, entries separated by `;` | passes |
+| `none`, with or without a reason | passes, unchanged — the depth did not take the value a round with no fixes yet has to be able to write |
+| an entry with no depth, work item begun on or after `DEPTH_FROM` | **fails**, naming the entry and showing the shape |
+| an entry at depth 2 or above | **fails**, naming the entry and where the unit goes instead: deferred with a named answerer, or an issue |
+| an entry below depth 1 | **fails** — it names no level the rule defines, and read permissively it sits under the bound |
+| an entry carrying more than one unit or more than one depth — a comma list under a single `(depth N)`, or two markers | **fails**, naming the entry. One declaration covering two names says nothing about the second, and the comma is the spelling this row used before the depth existed |
+| any of those, work item begun before `DEPTH_FROM` (or with no timestamp prefix) | prints |
+
+**The refusal names the exit because a refusal that does not is a wall.** The
+rule and its exit shipped one phase before this check, in that order and on
+purpose: a session meeting *this unit may not exist* with nowhere to put it
+stops the chain, which costs more than the unreviewed unit did.
+
+What no check can see is a depth declared wrong — `(depth 1)` on a unit that
+is really second-level. The rule is a declaration, and the verifying round
+reading the `New units` surface is what looks at it.
+
+One limit is recorded rather than parsed away, the mirror of the arrow's above:
+the comma that marks a crowded entry is found by substring, so a comma anywhere
+in the entry outside the depth marker is read as separating two units.
+`` `get(a, b)` (depth 1) `` is refused, and so is
+`` `helper` (depth 1) — adds a, b ``, where the comma sits in the reason rather
+than in the name. An entry that needs a comma is written without one.
+
+**The separator has the same limit, and it runs before both of the others.**
+`;` splits `Contract changes` and `New units` before anything looks at code
+spans, so a literal semicolon inside a code span splits the entry carrying it,
+and the tail is refused for having no reach. The record that first hit this was
+the one describing a change to how the separator is read — the entry recording
+the limit is the entry that met it. Spell the character as a word. Because the
+hygiene workflow runs this check on every pull request, a record written the
+other way opens the pull request red.
+
+Parsing code spans to tell any of the three apart is the same enumeration over
+an unbounded domain the arrow's limit declines.
 
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a

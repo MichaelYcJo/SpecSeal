@@ -949,9 +949,9 @@ def test_the_templates_check_reads_prose_only_and_descends(repo):
 
 # Hand-copied from `templates/sdd-round.md` and checked against it, so this
 # list is the EXPECTATION and the template is what is checked. It is not a
-# reading of `skills/code-review/SKILL.md`: round 4's census found four of
-# these eleven absent from that file, and two more matching only as
-# substrings. Naming it after the skill was the overclaim; the list is fine.
+# reading of `skills/code-review/SKILL.md`: round 4's census found four of the
+# eleven then in this list absent from that file, and two more matching only
+# as substrings. Naming it after the skill was the overclaim; the list is fine.
 ROUND_RECORD_FIELDS = [
     "Target SHA",
     "PR",
@@ -960,6 +960,7 @@ ROUND_RECORD_FIELDS = [
     "Contract changes",
     "New units",
     "Needs a fix",
+    "Loses a record or crashes",
     "## Verdicts",
     "## Executed probes",
     "## Inherited coordinates",
@@ -1116,6 +1117,11 @@ def _literal_strings():
         chain.CHECKED_BY,
         chain.CONTRACT,
         chain.NEW_UNITS,
+        chain.DEPTH_WORD,
+        chain.FLOOR,
+        chain.NEEDS,
+        chain.FLOOR_NO,
+        chain.FLOOR_YES,
         chain.NONE_WORD,
         chain.NO_FIXES,
         chain.NOBODY,
