@@ -11,7 +11,7 @@
 | Needs a fix | yes — 🔴 1 the floor refuses the sequence its own documents require; 🔴 2 `docs/review-handoff-protocol.md` carries neither new rule; 🔴 3 `evidence-check --strict` exits 2, and that is the release-preparation step |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 <!-- The eighteen test functions this round's fixes planted are deliberately
 not in `New units`. The three constants above are data a later change can
