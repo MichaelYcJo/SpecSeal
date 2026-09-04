@@ -439,6 +439,33 @@ segment of two work items was metered and posted, and not one of the readings
 says what produced it — so the log knows what a segment cost and cannot say
 whether the cost was the model's, the agent's, or the scope's.
 
+### The check a round runs reads everything, and only a write is narrowed
+
+`evidence-check` takes `--ledger`, and the flag is right for one of its two
+jobs and blinding for the other. Hand the round the unscoped read, and keep
+the narrowing for the write:
+
+| The form | What it is for |
+|---|---|
+| `evidence_check.py .`, no `--ledger` | **reading.** It opens `seal/ledger.md` and every fragment, which is the only way a branch learns it falsified a row it does not own — and those are the rows with the longest reach, cited by work that shipped releases ago |
+| `evidence_check.py --ledger '<this work item's fragment>' --reverify .` | **writing.** `--reverify` re-stamps every drifted row it reads, so the narrowing is what keeps it off a row whose claim somebody else has to judge |
+
+Measured (#153): one work item's three review rounds and two fix passes all
+ran the scoped form and all reported a clean ledger. The unscoped read at the
+pull request found **fifteen drifted rows and one broken claim** — a row this
+repository's own rule says must be removed rather than re-pointed, which
+nobody had been told they had falsified.
+
+Neither instruction was wrong about its own subject. Scoping was the
+correction that shipped, for the write; it was then carried into the read,
+where it blinds. So do not answer this by deleting the narrowing — that puts
+`--reverify` back onto somebody else's false claim, which is the defect the
+scoping was adopted to fix.
+
+A session that narrows on its own initiative reads none of the above, which
+is why the tool announces it too: a `--ledger` run names the ledgers it did
+not read, and says how to read them.
+
 ## Orchestrator: verify before posting
 
 Never post reviewer output as-is. Check, by opening the coordinates yourself:
