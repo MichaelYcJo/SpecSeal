@@ -7,8 +7,8 @@
 | PR | not yet opened |
 | Broad gate | `293a761`, against `origin/release/v0.8.0` — **2090 passed · 4 failed · 1 skipped**, `ruff check .` and `ruff format --check .` both clean; the four are issue #160's macOS-only export cases, failing identically on `origin/main` where CI is green. Spent by 🔴 1's fix and re-taken after it |
 | Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | `PROTOCOL` (depth 1) → pytest only; `CHAIN_CHECK` (depth 1) → pytest only; `COUNT_RULE_CARRIERS` (depth 1) → pytest only; `SECOND_STOP` (depth 1) → pytest only; `test_every_carrier_of_the_count_rule_states_both_stops` (depth 1) → pytest only |
 | Needs a fix | yes — 🔴 1, three copies of the floor's count rule still state the old rule as the whole rule, two of them in the file this diff changed and one in the normative protocol, so a tool built to the protocol refuses the sequence this branch exists to make writable; 🟡 2, `round-7.md`'s `Contract changes` names `check_round` where `main` is the only caller; 🟡 3, `round-7.md`'s `Fixes checked by` reason is false at HEAD |
 | Loses a record or crashes | no |
 
@@ -31,7 +31,22 @@ verifying round at a prose diff, which by the same documents consumes nothing
 if it opens nothing.
 
 Written and committed before the fixes it commissions, so both fix-surface
-rows start pending. -->
+rows start pending.
+
+THE FIX SURFACE ABOVE is the reach-back, filled at `cd4fec2`, and the depth
+reason sits here rather than in the cell. All five units are in
+`tests/test_the_run_stops_at_the_last_finding.py`, a file work item
+`1788472135` created before this run began; four are module constants and one
+is the case over them. Each answers a finding in documents and a docstring
+that predate the run, so each is depth 1 — no unit any fix pass of this run
+created is answered by a new unit. `Contract changes` is `none` because the
+commit touched one docstring, one protocol paragraph, a test module and a
+record: `git diff --stat` shows no executable line in `chain_check.py`, and
+an AST comparison with docstrings stripped would find the module identical.
+The case was seen red against the protocol before the three copies were
+corrected, and the enumeration it holds — three spellings of the second stop
+— is this repository's own sentences, bounded and named in the constant's
+comment. -->
 
 ## What this round was asked
 
@@ -58,9 +73,9 @@ The fifth found 🔴 1. The seventh passed.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | Three copies of the floor's count rule still state the old rule as the whole rule. `phase-10.md`'s removal table names three documents as the complete set; the commit that created the rule wrote six copies, and this diff updated three | `chain_check.py:2353` (`stopping_floor`'s docstring, in bold four lines above a walk with two stops), `chain_check.py:208` (module docstring), `docs/review-handoff-protocol.md:318-319` | open | **Executed** by the round: `git log -L 319,319:docs/review-handoff-protocol.md` → `f187b39`, the same commit that wrote the sentence into the spec, the template, the skill and both docstrings. **Orchestrator re-verified**: grep finds the old wording standing alone at `chain_check.py:208` and `:2353`, and the protocol at `:318-319` reads *a conforming tool counts later records only up to the first whose `Needs a fix` says the run reopened* — the normative document specifies one stop where the shipped checker implements two. Nothing went red because `tests/test_the_run_stops_at_the_last_finding.py`'s `STATES_THE_RULE` is `(SPEC, SKILL)` and the protocol is in no carrier tuple |
-| 🟡 2 | `round-7.md`'s `Contract changes` names the wrong reach — `stopping_floor … → check_round`. `check_round` never calls it | `rounds/round-7.md:10`, and the trailing comment's grep claim | open | **Executed** by the round and **re-verified by the orchestrator** with the enclosing definition located: the module's only call is at line 2860, inside `main`; `check_round` is 2541–2641 and its docstring records that per-record questions are not asked there. The previous work item's `round-1.md` names the same reach correctly as `main`. The orchestrator's grep found the call and misread which function it sat in — the eighth instance on this branch of prose about a record being wrong, and this one about the record's own reach |
-| 🟡 3 | `round-7.md`'s `Fixes checked by` gives a reason that is false at HEAD — *this round's fixes are not yet written* — beside its own verdict column reading `**fixed**` four times. Verbatim the shape of round 7's own 🟡 3 | `rounds/round-7.md:9` | open | **Executed**: `chain_check` prints the cell verbatim on every run. Unlike round 6's case the reader genuinely does not exist yet, so `round-8` was not writable at `293a761`; the reason is false either way, and the cell becomes `round-8` the moment this record is committed |
+| 🔴 1 | Three copies of the floor's count rule still state the old rule as the whole rule. `phase-10.md`'s removal table names three documents as the complete set; the commit that created the rule wrote six copies, and this diff updated three | `chain_check.py:2353` (`stopping_floor`'s docstring, in bold four lines above a walk with two stops), `chain_check.py:208` (module docstring), `docs/review-handoff-protocol.md:318-319` | **fixed** `cd4fec2` | **Executed** by the round: `git log -L 319,319:docs/review-handoff-protocol.md` → `f187b39`, the same commit that wrote the sentence into the spec, the template, the skill and both docstrings. **Orchestrator re-verified**: grep finds the old wording standing alone at `chain_check.py:208` and `:2353`, and the protocol at `:318-319` reads *a conforming tool counts later records only up to the first whose `Needs a fix` says the run reopened* — the normative document specifies one stop where the shipped checker implements two. Nothing went red because `tests/test_the_run_stops_at_the_last_finding.py`'s `STATES_THE_RULE` is `(SPEC, SKILL)` and the protocol is in no carrier tuple |
+| 🟡 2 | `round-7.md`'s `Contract changes` names the wrong reach — `stopping_floor … → check_round`. `check_round` never calls it | `rounds/round-7.md:10`, and the trailing comment's grep claim | **fixed** `cd4fec2` | **Executed** by the round and **re-verified by the orchestrator** with the enclosing definition located: the module's only call is at line 2860, inside `main`; `check_round` is 2541–2641 and its docstring records that per-record questions are not asked there. The previous work item's `round-1.md` names the same reach correctly as `main`. The orchestrator's grep found the call and misread which function it sat in — the eighth instance on this branch of prose about a record being wrong, and this one about the record's own reach |
+| 🟡 3 | `round-7.md`'s `Fixes checked by` gives a reason that is false at HEAD — *this round's fixes are not yet written* — beside its own verdict column reading `**fixed**` four times. Verbatim the shape of round 7's own 🟡 3 | `rounds/round-7.md:9` | **fixed** `cd4fec2` | **Executed**: `chain_check` prints the cell verbatim on every run. Unlike round 6's case the reader genuinely does not exist yet, so `round-8` was not writable at `293a761`; the reason is false either way, and the cell becomes `round-8` the moment this record is committed |
 | 🟢 4 | The gate change against `CONTRIBUTING.md` — all four requirements | `phase-10.md`, the diff | answered | **Executed**: reverting only the `or wrote_fixes(...)` clause turns `test_a_round_that_fixed_over_a_no_is_where_the_count_stops` red with the floor's own sentence and it is the **only** case that goes red (1 failed, 65 passed); separately, at `9bf9584` the repository-records case fails naming `round-5.md`. Direction ALLOW stated in five places; prompt budget zero, because `chain_check.py` is a CI step at `hygiene.yml:147` and prompts nobody; no OS boundary |
 | 🟢 5 | The three-commit fixture — required or decorative | `tests/…floor_and_the_depth.py:475` | answered | **Executed by probe**: the two-commit shape (fix first, record added already filled) is refused by `written_late` — *this record was ADDED by a commit which descends from the one its own verdicts name as the fix*. The three commits are required, and the case dies to the walk clause alone |
 | 🟢 6 | `wrote_fixes` on what it cannot read | `chain_check.py#wrote_fixes` | answered | **Executed by probe**, three states: record absent → False; no verdict table with `**fixed**` in prose → False; verdict column header renamed with `**fixed**` in a cell → False. Every unreadable state fails toward *blocks more*, consistent with `run_reopened`'s None; the widening is confined to a readable table holding a `FIX_WORD`, and the walk stops at the **first** such record |
