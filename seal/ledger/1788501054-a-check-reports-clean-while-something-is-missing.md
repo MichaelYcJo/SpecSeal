@@ -1,7 +1,7 @@
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
 
-Eight rows. Six are narrow readings a later tidy-up would widen in good faith:
+Nine rows. Six are narrow readings a later tidy-up would widen in good faith:
 a pair of git decisions that each look redundant beside the other (R1), a
 filter that looks like belt-and-braces (R2), an inode fold that looks like
 ceremony beside a path comparison (R3), a helper extracted from four lines
@@ -10,7 +10,11 @@ oversight (R7), and a set comprehension that reads as tidiness (R8). R5 and R6
 are the opposite shape — claims about what a check
 cannot reach, recorded so the next reader meets the rejected mechanisms
 instead of writing one, and R6 is itself a correction: its first version
-claimed a limit that the same commit had already disproved four times.
+claimed a limit that the same commit had already disproved four times. R10 is
+a third shape again — a rule about how a recorded limit is READ, written after
+two of the four limits recorded on this branch turned out to be false. It has
+been unaccounted for since it was written: this paragraph said *Eight* over
+nine rows, and over ten before R9 left with the code it cited.
 
 **Not one of the six was found by reading.** R1, R3 and R8 came out of the
 mutation loop, R2 out of asking what the second round of every run looks like,

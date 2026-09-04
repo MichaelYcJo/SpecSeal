@@ -44,8 +44,9 @@ is not.
   true of the first and false of the second. Round 3's fix pass had written
   the correction down and this cell wrote it back out.
 
-CORRECTED IN PLACE, and this is the trace the record itself owes (round 4's
-🟡 7, applied as one rule to every such correction on this branch):
+CORRECTED IN PLACE, and this WAS the trace round 4's 🟡 7 required of every
+such correction on this branch; phase 9 reverted that rule and issue #159
+carries it. The trace stays because it is true:
 
   `New units` — round 4's fix pass, at this commit. It carried the widening
   paragraph above inside its sixth entry; the six entries now stand alone.
