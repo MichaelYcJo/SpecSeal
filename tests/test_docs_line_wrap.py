@@ -71,6 +71,9 @@ COVERED = [
     # Wrapped from its first line, so it goes in at birth rather than waiting
     # for the sweep that would otherwise be needed to bring it under.
     "skills/agent-contract/SKILL.md",
+    # The same, and the tracker's own authority: it was written wrapped, so it
+    # never had a maximum to bring down.
+    "docs/issues-and-milestones.md",
 ]
 
 
