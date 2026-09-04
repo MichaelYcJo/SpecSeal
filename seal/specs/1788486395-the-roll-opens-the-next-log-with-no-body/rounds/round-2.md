@@ -4,7 +4,7 @@
 |---|---|
 | Target SHA | c79988a |
 | PR | not yet opened |
-| Broad gate | not yet |
+| Broad gate | `9ee9827`, against `release/v0.8.0`. Full suite 1969 passed · 1 skipped; `ruff check .` and `ruff format --check .` clean; `chain_check --baseline main` exit 0 after `git fetch origin '+refs/pull/*/head:refs/remotes/pull/*/head'`, which is what the previous work item's round-3 target needed once its branch was squashed; `unverified-check` and `fold_ledger --dry-run` exit 0. `evidence-check` reports 499 ok and one drifted row, S8, which predates both work items |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
