@@ -7,8 +7,8 @@
 | PR | not yet opened |
 | Broad gate | not yet — no broad run has happened on this branch at all, and it is now deliberately held until 🔴 1 is fixed: the suite is not green at HEAD, so a broad run taken first is spent rather than banked |
 | Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | `FIELD_ROW` (depth 1) → pytest only; `_field_cells` (depth 1) → pytest only; `CORRECTION_MARKER` (depth 1) → pytest only; `_correction_traces` (depth 1) → pytest only; `test_a_cell_corrected_after_the_record_landed_says_so_in_the_record` (depth 1) → pytest only; `test_the_template_puts_the_correction_trace_where_no_checker_reads_it` (depth 1) → pytest only; `test_a_copy_under_a_plugin_tree_without_a_skill_beside_it_is_still_vendored` (depth 1) → pytest only |
 | Needs a fix | yes — one 🔴 and six 🟡. The 🔴 is the orchestrator's own record cell, and it makes this repository's own suite red at HEAD: `round-3.md`'s `New units` carries prose inside its sixth entry, `depth_problems` refuses it, and the hygiene workflow runs that check on every pull request. The heaviest 🟡 is that one of the four limits round 3's fix pass recorded as unreachable is false — `says_not_yet`'s separator guard is load-bearing for a bare `none`, and removing the conjunct the paragraph calls redundant turns 19 cases red |
 | Loses a record or crashes | no |
 
@@ -23,7 +23,26 @@ Written and committed before the fix pass it commissions, so both fix-surface
 rows start pending. That is also why 🔴 1 cannot be fixed by this file: the
 malformed cell is in `round-3.md`, and the fix belongs to the pass this record
 opens. `read_record` reads `git show HEAD:<rel>`, so the branch stays red until
-that fix is COMMITTED — a working-tree edit does not clear it. -->
+that fix is COMMITTED — a working-tree edit does not clear it.
+
+THE FIX SURFACE ABOVE is the reach-back, filled at `1b73068..97a030f`, and
+both rows are measurements rather than claims. `Contract changes` is `none`
+because an AST comparison of `4a28283` against `97a030f` with docstrings
+stripped finds **zero** top-level units added, removed or changed in either
+checker — every code edit this pass made is a docstring. `New units` names
+seven, all in test files, and the AST diff finds exactly those seven added:
+six in `tests/test_a_record_precedes_the_fixes_it_commissions.py` and one in
+`tests/test_evidence_check.py`. Three further cases were WIDENED rather than
+added — `test_a_reason_the_checker_does_not_recognise_passes`,
+`test_the_declared_limit_names_what_escapes_with_the_words_unchanged` and
+`test_an_inode_of_zero_does_not_fold_two_files_into_one` — and the AST diff
+shows all three as changed rather than added, which is what widening looks
+like when it is measured instead of asserted.
+
+Every depth is 1, and the reason is one sentence for all seven: each finding
+these units answer sits in a record, in a template, or in a unit that predates
+the review run — none of them in a unit an earlier round's fix pass created.
+That sentence is here rather than in the cell, which is 🔴 1's whole lesson. -->
 
 ## What this round was asked
 
