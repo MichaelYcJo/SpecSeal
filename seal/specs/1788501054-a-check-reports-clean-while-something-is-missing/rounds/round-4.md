@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on opus |
 | PR | not yet opened |
 | Broad gate | not yet — no broad run has happened on this branch at all, and it is now deliberately held until 🔴 1 is fixed: the suite is not green at HEAD, so a broad run taken first is spent rather than banked |
-| Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
+| Fixes checked by | round-5 |
 | Contract changes | none |
 | New units | `FIELD_ROW` (depth 1) → pytest only; `_field_cells` (depth 1) → pytest only; `CORRECTION_MARKER` (depth 1) → pytest only; `_correction_traces` (depth 1) → pytest only; `test_a_cell_corrected_after_the_record_landed_says_so_in_the_record` (depth 1) → pytest only; `test_the_template_puts_the_correction_trace_where_no_checker_reads_it` (depth 1) → pytest only; `test_a_copy_under_a_plugin_tree_without_a_skill_beside_it_is_still_vendored` (depth 1) → pytest only |
 | Needs a fix | yes — one 🔴 and six 🟡. The 🔴 is the orchestrator's own record cell, and it makes this repository's own suite red at HEAD: `round-3.md`'s `New units` carries prose inside its sixth entry, `depth_problems` refuses it, and the hygiene workflow runs that check on every pull request. The heaviest 🟡 is that one of the four limits round 3's fix pass recorded as unreachable is false — `says_not_yet`'s separator guard is load-bearing for a bare `none`, and removing the conjunct the paragraph calls redundant turns 19 cases red |
