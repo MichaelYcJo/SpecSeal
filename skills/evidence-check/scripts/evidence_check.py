@@ -893,8 +893,25 @@ def default_patterns(root):
 
 
 def resolve_patterns(patterns):
-    """Every file the patterns match, deduplicated and in a stable order."""
-    return sorted({p for pat in patterns for p in glob.glob(pat, recursive=True)})
+    """Every file the patterns match, deduplicated and in a stable order.
+
+    Deduplicated by `os.path.normpath`, not by the string `glob.glob` returns:
+    `glob` keeps a literal pattern's spelling and joins a wildcard's matches
+    with `os.sep`, so on Windows `seal/ledger.md` and `seal/*.md` name one
+    file as `seal/ledger.md` and `seal\\ledger.md`, and a set of raw strings
+    kept both -- every row in that ledger counted twice, found by the
+    windows CI leg at the pull request after twelve rounds green elsewhere.
+    `normpath` collapses separators and `.` segments and folds no case, so
+    it is not the `normcase` mistake `skipped_by_narrowing` documents; two
+    genuinely different files stay two.
+    """
+    return sorted(
+        {
+            os.path.normpath(p)
+            for pat in patterns
+            for p in glob.glob(pat, recursive=True)
+        }
+    )
 
 
 def skipped_by_narrowing(root, read):

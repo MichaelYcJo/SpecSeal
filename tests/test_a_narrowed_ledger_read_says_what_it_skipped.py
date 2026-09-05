@@ -416,6 +416,34 @@ def test_one_file_matched_by_two_patterns_is_read_once(proj):
     )
 
 
+def test_one_file_matched_under_two_spellings_is_read_once(proj):
+    """Round 13 of work item 1788501054 — the Windows CI leg's finding, as
+    the class rather than the platform.
+
+    `resolve_patterns` deduplicated on the string `glob.glob` returns, and
+    `glob.glob` keeps a literal pattern's spelling while joining a wildcard's
+    matches with `os.sep`. On Windows `seal/ledger.md` and `seal/*.md`
+    therefore name one file two ways -- `seal/ledger.md` and
+    `seal\\ledger.md` -- the set kept both, and the case above went red there
+    after twelve green rounds everywhere else. That is the platform-inside-
+    the-fold shape round 1 removed from `skipped_by_narrowing` with the inode,
+    one function over.
+
+    The class is *one file, two spellings*, and `./seal/ledger.md` against
+    `seal/ledger.md` is that class on every platform, so this case is red on
+    the machine that fixes it and not only on the leg that found it. The fold
+    is now `os.path.normpath`, which collapses separators and `.` segments
+    and folds no case -- so it is not the `normcase` mistake either.
+    """
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    r = run(["--ledger", "./seal/ledger.md", "--ledger", "seal/ledger.md", "."], proj)
+    assert r.returncode == 0, r.stdout
+    assert "total: 1 ok" in r.stdout, (
+        "one file named under two spellings was read twice, so its rows were "
+        f"counted twice:\n{r.stdout}"
+    )
+
+
 def test_a_ledger_that_cannot_be_stat_ed_is_named_rather_than_crashing(proj):
     """The `OSError` half of the fallback, and nothing reached it until the
     mutation loop asked: dropping the fallback and letting `os.stat` raise
