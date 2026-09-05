@@ -171,7 +171,8 @@ unchanged.
 
 Then the record says so. `round-N.md` carries `| Fixes checked by |` beside
 `Pass`, naming a later round, `no fixes to check`, or `nobody — <why>`. It is
-not yours to write — the orchestrator owns the records — but it is what your
+not yours to write — `round_record.py new` sets it on the previous record
+when the next round posts — but it is what your
 fixes are answering to, and a run whose last cell reads `nobody` is one whose
 last fixes nobody opened. That pair, `nobody` beside a checked `Pass` on the
 last record, **fails the pull request** for any work item begun after the rule
@@ -193,7 +194,11 @@ depth is measured rather than declared: `round_record.py close` reads what
 your fix range added from its diff, writes each unit into `round-N.md`'s
 `New units` row at the depth it finds, and refuses a unit at depth 2 before
 any cell is written — so a unit you may not add is not one to describe in the
-hand-back; it takes the exit above.
+hand-back; it takes the exit above. One level above the depth, a fix pass may
+not add mechanism at all — a rule, a checker, a template section, a walk —
+and a finding closable only by one is an issue, its row `deferred #N`;
+`skills/code-review/SKILL.md` §*A fix pass adds the unit that pins it, and
+that unit ships unreviewed* owns that rule and the measurement behind it.
 
 What is unresolved at that point is handed over, not carried: a finding you
 neither fixed nor answered goes to `seal/follow-up.md`, a decision only a

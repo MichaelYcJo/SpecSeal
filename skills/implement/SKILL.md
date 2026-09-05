@@ -710,7 +710,7 @@ A session fixing review feedback starts at `seal/specs/<work-item-id>/`,
 
 | File | Written by | Acted on by |
 |---|---|---|
-| `round-N.md` | review orchestrator | next review round |
+| `round-N.md` | `round_record.py new`, run by the review orchestrator; `close` applies the fix table | next review round |
 | `tests-todo.md` | review orchestrator | **implementer** — plant each test in the file the row names |
 | `evidence-todo.md` | review orchestrator | **implementer** — merge each fact into `seal/ledger/<work-item-id>.md` |
 
@@ -734,7 +734,10 @@ grounds, `deferred <home>` with the issue or file it went to. The pass
 writes no `phases/phase-N.md` and no `plan.md` row — `round_record.py close`
 applies the table to `rounds/round-N.md` and measures the fix surface from
 the range of fix commits, so the round record is the pass's record. The
-build's phases keep theirs.
+build's phases keep theirs. Nor does a fix pass add mechanism — a rule, a
+checker, a template section, a walk — and a finding closable only by one is
+`deferred #N` to an issue; `skills/code-review/SKILL.md` §*A fix pass adds
+the unit that pins it, and that unit ships unreviewed* owns that rule.
 
 ### 6. Close before merge — drain the rows, keep the records
 
