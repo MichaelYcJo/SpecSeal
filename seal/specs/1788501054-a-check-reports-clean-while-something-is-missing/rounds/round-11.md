@@ -6,9 +6,9 @@
 | Ran by | specseal:warden on opus |
 | PR | not yet opened |
 | Broad gate | `72774d5`, against `origin/release/v0.8.0` — **2097 passed · 1 skipped · 0 failed**, `ruff check .` and `ruff format --check .` clean. Spent by whatever fix closes 🔴 1 |
-| Fixes checked by | nobody — this round's fixes are not written, and by the line `round-10.md` drew they are not the orchestrator's to write; the repository owner decides who writes them and whether a round 12 reads them |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — round 12 is the round that opens these fixes and it is not written yet; this cell becomes `round-12` the moment that record is committed |
+| Contract changes | `stopping_floor` — the message inside the error tuple it returns changed a third time, so its set of returnable values moved while signature, arity and return shape did not → `main`, and `tests/test_chain_check_at_the_pull_request.py::test_this_repositorys_own_round_records_pass_the_per_record_checks` |
+| New units | none |
 | Needs a fix | yes — 🔴 1, the refusal's new clause blames the verifying round the rule allows — *the record before it was a round too many* — and contradicts its own sentence three clauses later, where a second record is the one too many; 🟡 2, the spec's exits row carries the same blame in *the quiet round in first*; 🟡 3, `round-9.md`'s `Fixes checked by` is stale at HEAD, so `chain_check` prints three lines where `plan.md`'s phase-13 row claims two |
 | Loses a record or crashes | no |
 
@@ -29,7 +29,18 @@ check missed it by counting only the newest record's lines.
 The fixes are small and prose, as every fix since round 6 has been, and
 that is exactly why the orchestrator does not write them: issue #161's loop
 is not closed by one more small fix, and the record that commissioned this
-round said so. What the owner decides is below, in Deferred. -->
+round said so. What the owner decides is below, in Deferred.
+
+THE OWNER ANSWERED: the orchestrator writes these three and takes one more
+verifying round. THE FIX SURFACE ABOVE is that reach-back, filled at
+`1623c3e`, and the reason sits here rather than in the cell. `Contract
+changes` names `stopping_floor` a third time for the same reason as rounds
+9 and 10 — the refusal is a string inside the tuple it returns — and an AST
+comparison of `72774d5` against `1623c3e` with docstrings stripped finds it
+the one changed unit, nothing added or removed. `New units` is `none`:
+round 10's case was rebuilt in place on the fixture that can tell the
+difference, and round 9's case re-anchored in place; neither adds a
+definition. -->
 
 ## What this round was asked
 
@@ -53,9 +64,9 @@ round was warranted.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | The refusal blames the verifying round and contradicts its own next sentence. *The record before it was a round too many* names the first later record — which the same message, three clauses later, calls *the verifying round* the floor allows. The record one too many is the second, the one the walk stopped at | `chain_check.py:2521-2526`, inside `stopping_floor`; pinned as correct by `tests/…floor_and_the_depth.py:583` | open | **Executed** by the round on five fixtures: with round 1 `Needs a fix: yes` and rounds 2–3 quiet — this branch's own shape — the message names r2, the verifying round at r1's fix diff. In two of the five shapes the walk ended because `later` ran out, so *before it* has no referent at all. **Orchestrator re-read the twelve lines**: the clause and the contradiction are both there. Every other carrier states it the right way round — *one later record is the verifying round; a second is the run carrying on*. The fix's own case gave round 1 `Needs a fix: no`, the one shape where r2 is excess anyway, which is how a false clause came to be pinned as true |
-| 🟡 2 | The spec's exits row carries the same blame — *a reopening in second place does not excuse the quiet round in first* — in a cell that calls the round in first the verifying round | `docs/review-chain-spec.md:743`, the clause round 10's fix appended | open | **Read**. Nothing about the first record needs excusing; the second is still a second |
-| 🟡 3 | `round-9.md`'s `Fixes checked by` still reads `nobody — round 10 … not written yet` at HEAD, beside `round-10.md` committed at `257a7f2` with `**fixed**` four times. The fourth consecutive stale reach-back — round 7's 🟡 2, round 8's 🟡 3, round 9's 🟡 5, and now this | `rounds/round-9.md:9` | open | **Executed**: `chain_check --baseline origin/release/v0.8.0` at HEAD prints **three** lines, and `plan.md:49` claims *down to `round-10.md`'s honest pair*. **Orchestrator re-ran it**: `round-9.md` 1, `round-10.md` 2. The orchestrator's own verification counted only `round-10.md`'s lines, which is how the third line went unseen |
+| 🔴 1 | The refusal blames the verifying round and contradicts its own next sentence. *The record before it was a round too many* names the first later record — which the same message, three clauses later, calls *the verifying round* the floor allows. The record one too many is the second, the one the walk stopped at | `chain_check.py:2521-2526`, inside `stopping_floor`; pinned as correct by `tests/…floor_and_the_depth.py:583` | **fixed** `1623c3e` | **Executed** by the round on five fixtures: with round 1 `Needs a fix: yes` and rounds 2–3 quiet — this branch's own shape — the message names r2, the verifying round at r1's fix diff. In two of the five shapes the walk ended because `later` ran out, so *before it* has no referent at all. **Orchestrator re-read the twelve lines**: the clause and the contradiction are both there. Every other carrier states it the right way round — *one later record is the verifying round; a second is the run carrying on*. The fix's own case gave round 1 `Needs a fix: no`, the one shape where r2 is excess anyway, which is how a false clause came to be pinned as true |
+| 🟡 2 | The spec's exits row carries the same blame — *a reopening in second place does not excuse the quiet round in first* — in a cell that calls the round in first the verifying round | `docs/review-chain-spec.md:743`, the clause round 10's fix appended | **fixed** `1623c3e` | **Read**. Nothing about the first record needs excusing; the second is still a second |
+| 🟡 3 | `round-9.md`'s `Fixes checked by` still reads `nobody — round 10 … not written yet` at HEAD, beside `round-10.md` committed at `257a7f2` with `**fixed**` four times. The fourth consecutive stale reach-back — round 7's 🟡 2, round 8's 🟡 3, round 9's 🟡 5, and now this | `rounds/round-9.md:9` | **fixed** `1623c3e` | **Executed**: `chain_check --baseline origin/release/v0.8.0` at HEAD prints **three** lines, and `plan.md:49` claims *down to `round-10.md`'s honest pair*. **Orchestrator re-ran it**: `round-9.md` 1, `round-10.md` 2. The orchestrator's own verification counted only `round-10.md`'s lines, which is how the third line went unseen |
 | 🟢 4 | The three pins on the message, each clause reverted separately | `tests/…floor_and_the_depth.py` | answered | **Executed**, five mutations in a clone, baseline 79 passed: each clause dropped or re-added turns exactly one assertion red and nothing else. One pin per clause — the pins are right; the clause one of them pins is wrong |
 | 🟢 5 | The narrowed pin's new anchor | `tests/test_the_run_stops_at_the_last_finding.py` | answered | **Executed / read**: the anchored sentence occurs exactly once in the flattened protocol, verbatim; `Needs a fix` eleven times, which is the dead assertion it replaced. The wrap `test_docs_line_wrap` enforces is safe under `flat()` |
 | 🟢 6 | The spec row against all five fixtures | `docs/review-chain-spec.md:743` | answered | **Executed**: the row's condition is true of all five and correctly lets `r1 quiet · r2 reopens` pass. It reads as one rule with the counting method as an appositive. Only the trailing clause is wrong — 🟡 2 |
@@ -93,7 +104,7 @@ round was warranted.
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| **Who writes these three fixes, and whether round 12 reads them.** 🔴 1 blocks merge and cannot be answered with grounds — it names the wrong record. The fixes are prose, a fixture cell and a reach-back; the reader they owe is a verifying round, because `nobody` beside a ticked `Pass` fails the pull request by design. The orchestrator stops here as `round-10.md` said, because this is the sixth cycle of the loop #161 records and a seventh small fix is the loop, not the work | this row, `overview.md` §Not done, issue #161 | **the repository owner** |
+| **Who writes these three fixes, and whether round 12 reads them.** 🔴 1 blocks merge and cannot be answered with grounds — it names the wrong record. The fixes are prose, a fixture cell and a reach-back; the reader they owe is a verifying round, because `nobody` beside a ticked `Pass` fails the pull request by design. The orchestrator stops here as `round-10.md` said, because this is the sixth cycle of the loop #161 records and a seventh small fix is the loop, not the work | this row, `overview.md` §Not done, issue #161 | **the repository owner** — who answered: the orchestrator writes them, copying the direction the other carriers agree on rather than inventing a fourth sentence, and round 12 reads that diff. Phase 14 is that pass |
 | The pending arm keys on `Fixes checked by`, so a stale reach-back prints and is never refused — four times on this branch | `questions.md` Q4 | the repository owner |
 | The four carriers that keep a corrected sentence and lose their pin | `phases/phase-12.md`, R12 | nobody yet — #161 |
 | ❓ from round 6 — a ledger coordinate with no `@hash` is counted in no bucket | `rounds/round-6.md` Deferred | the repository owner |
