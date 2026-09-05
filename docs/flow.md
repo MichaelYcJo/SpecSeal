@@ -33,10 +33,28 @@ first release to be planned against it rather than to discover it.
 - [x] **#136 — the roll opens the next measurement log with no body and no index, and this release is what fires it.** Two issues collect the same shape of comment, one of them is deleted every release, and nothing says which gets what. It has to land before 0.8.0 reaches `main`: that push runs the roll, and after it the 0.9.0 log is already open, empty and unlabelled, with the next chance a release away.
 - [x] **#137 — a segment's record says what it cost, and not what ran it or what its output cost the next reader.** Every segment measured before this lands is one nothing can attribute afterwards, which is a deadline with no date on it. It is also what #84 needs before its own last line can be answered. **Narrowed to its first half**: the `Ran by` row shipped, and the outcome column beside it moved to 0.9.0 below — #137's own body refuses to pick a format for it before knowing which of five candidate signals survive contact.
 - [x] **#153 + #150, one branch — a check reports clean while something is missing, and the missing thing leaves no trace.** #153: scoping `evidence-check` to a work item's fragment hides every row the branch broke in the shared ledger — #137's three rounds all reported a clean ledger and its broad gate found fifteen drifted rows and one broken claim. #150: a round record written after the fixes it commissioned looks exactly like one written before them, measured twice in this release. They are not paired the way #110 + #117 were — apart they do not undo each other — but they are the same shape, they land in the same two files, and a review chain is the expensive unit. **The risk this release has demonstrated three times is that a branch adding a rule breaks the rule it adds; two rules on one branch doubles it, and that is the first thing its rounds should attack.**
-- [ ] #145 — the orchestrator is the most expensive segment in a chain and the only one measured by the whole session, so #51's observation 1 has bands for three segment kinds and none for it. Last of this release, because it is what the other two make answerable.
 
 Its measurement log is the first one taken without anybody being told to
 take it — #109's own test.
+
+**#145 left this release on 2026-09-05** for 0.8.2, with everything else that
+was 0.8.1's: the last item's chain ran fifteen rounds, and what it measured
+about the chain is the whole of 0.8.1.
+
+## 0.8.1 — one item, because it is what every later item runs under
+
+- [ ] **#161 — a run's rounds come mostly from the tool's own fixes and records.** The last 0.8.0 branch ran fifteen rounds for two features' worth of review: 50 of its 61 later findings sat in a file the preceding fix pass wrote, a fix touched one or two code files and five to twelve records, and half of all findings were located in the records. The issue carries the count, the five terms that put the loop's gain above one, and the staged plan — a fix owes code and a test with the rest derived, a verifying round re-runs a recorded probe list rather than hunting, one round per session, 🟡 means a defect the release would ship, and a branch that changes the checker validates its own records in CI. Alone in this release so that 0.8.2's items are the first measured under it: build plus two rounds inside three hours for a change under three hundred code lines.
+
+## 0.8.2 — what 0.8.1 held before #161 took the number
+
+Not ordered. Each is small; together they are the first readings of #161's
+target.
+
+- [ ] #145 — the orchestrator is the most expensive segment in a chain and the only one measured by the whole session, so #51's observation 1 has bands for three segment kinds and none for it. It is what the two records of 0.8.0 make answerable.
+- [ ] #155 — the roll names the next version by guessing a minor, and a patch release is the day that stops working.
+- [ ] #156 — the repository ships no way to run its own suite, and every session pays a round trip discovering how.
+- [ ] #160 — four export cases fail on macOS and pass in CI, so a broad run cannot be read as a verdict.
+- [ ] #163 — the printed ledger name collapses `lnk/..` through `relpath`, so a BROKEN row is reported under a different existing file. The named-file half of a class the last 0.8.0 branch closed for the file that is opened; five print sites and one helper.
 
 ## 0.9.0 — the five that were 0.8.0's, built under 0.8.0's machines
 
