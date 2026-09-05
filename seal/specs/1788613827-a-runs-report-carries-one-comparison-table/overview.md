@@ -25,10 +25,10 @@ are fixed and the tokens come out of one command.
 
 | Item | Who must answer |
 |---|---|
-| The full suite, the repository-wide lint and the typecheck. This phase ran the nine modules that read what it wrote; phases 1–3 ran theirs (§2) | the orchestrator, at the broad gate after the rounds settle |
-| `subagent_transcripts` on the Windows leg. It builds the directory from `os.path.basename` and `os.path.join` and walks it with `os.walk`, which is what the rest of the script does, and no case in this work item ran on that platform | the Windows leg of the pull request's checks |
-| The table as a thing a person actually fills — every row of it, taken for one real run, read beside another run's. This work states the rows and prints one of them; nothing here has produced a filled table | the orchestrator, in this branch's own pull request body, and the next three 0.8.2 items after it |
-| Whether this run meets the target 0.8.2 measures against — build plus two rounds inside three hours for a change under three hundred code lines | the orchestrator, at the chain's end |
+| ✅ The full suite, the repository-wide lint and the typecheck | run once at `15ab83d` after the rounds settled: 2287 passed, 2 skipped, 4 failed — exactly #160's four macOS export cases, reproduced identically at the base `a9a827b` in a clean clone. `uvx ruff check .` and `ruff format --check .` clean |
+| ✅ `subagent_transcripts` and `newest` on the Windows leg | the leg passed on PR #173 in 5 m 03 s, run 33980610140, with every case this work item planted in it |
+| ✅ The table as a thing a person actually fills — every row of it, for one real run, beside another run's | filled for this run in PR #173's chain section and posted to the rolling flow log, #172's comment of 2026-09-06. Findings 3 and 4 of round 1 are what the first filling hit, exactly as round 1 predicted. Whether the rows hold for a run this branch did not build is still open, and the next three 0.8.2 items are the readings |
+| ✅ Whether this run meets the target 0.8.2 measures against | it does not, and it was never the run to measure it: 4 h 07 min over 2,477 changed lines, where the target is three hours for a change under three hundred code lines. This branch is the ruler, so #156, #155 and #169 are the first readings — recorded in #172's comment |
 
 ## Not done
 
