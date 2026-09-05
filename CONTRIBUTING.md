@@ -22,8 +22,9 @@ and warden. A cheap runner does not widen that rule. What it makes cheap is
 
 **Python 3.12 is the supported floor**, held as `FLOOR` in
 `.github/scripts/run_tests.py` so this sentence and the code state one number.
-`bin/test` builds its virtualenv with a 3.12-or-newer interpreter, and where
-it finds neither `uv` nor such an interpreter it says which to install.
+`bin/test` builds its virtualenv with an interpreter at that floor or newer,
+refuses a `.venv` it finds below it, and where it finds neither `uv` nor such
+an interpreter it says which to install.
 
 The fallback runs the suite without writing a `.venv` into the tree. It is the
 form this section used to name first, and it resolves and installs its
@@ -37,7 +38,7 @@ uvx --with pytest python3 -m pytest tests/ -q   # or: pip install pytest && pyth
 ```
 
 CI runs four jobs: lint (`ruff check` + `ruff format --check`), the suite on
-ubuntu, macOS and Windows at the stated floor of 3.12, the evidence ledger
+ubuntu, macOS and Windows at the floor stated above, the evidence ledger
 against this repository, and the hygiene workflow that guards releases. A change to any
 hook needs a test that fails without it — see the counterfeit rule below.
 

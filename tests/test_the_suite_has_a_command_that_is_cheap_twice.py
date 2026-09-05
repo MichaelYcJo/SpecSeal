@@ -27,6 +27,7 @@ is the only reason they exist.
 import importlib.util
 import os
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -35,6 +36,12 @@ import pytest
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BIN = os.path.join(ROOT, "bin")
 SCRIPT = os.path.join(ROOT, ".github", "scripts", "run_tests.py")
+WORKFLOW = os.path.join(ROOT, ".github", "workflows", "test.yml")
+
+# Held before any test can replace `subprocess.run` on the module the runner
+# imports: `rt.subprocess` IS this module, so a case that fakes the builder's
+# calls fakes the git calls that check what the builder left behind.
+REAL_RUN = subprocess.run
 
 
 def _load_runner():
@@ -165,6 +172,24 @@ def test_a_copy_without_the_runner_beside_it_says_so(tmp_path):
     assert "Traceback" not in result.stderr
 
 
+def test_both_wrappers_say_the_same_thing_when_the_runner_is_missing():
+    """The case above EXECUTES the POSIX wrapper and is skipped on `nt`, so on
+    the one platform the `.cmd` twin runs, nothing reads its sentence. It
+    shipped with half of one: the reader was told the copy has no runner and
+    never told where to get it. This case reads both files, so it runs
+    everywhere."""
+    posix = read(os.path.join(BIN, "test"))
+    windows = read(os.path.join(BIN, "test.cmd"))
+    for fragment in (
+        "has no runner beside it",
+        "Run it from a clone of the SpecSeal repository",
+    ):
+        assert fragment in posix, f"bin/test no longer says: {fragment}"
+        assert fragment in windows, (
+            f"bin/test.cmd drops what its POSIX twin tells the reader: {fragment}"
+        )
+
+
 # --- the second call is the whole work item --------------------------------
 
 
@@ -201,6 +226,40 @@ def test_a_build_that_leaves_no_pytest_is_a_sentence(tmp_path, monkeypatch, caps
     assert "still not in it" in capsys.readouterr().err
 
 
+def test_an_environment_below_the_floor_is_refused(tmp_path, capsys):
+    """`FLOOR` was enforced where the runner BUILDS and nowhere else. A `.venv`
+    the runner ADOPTS was accepted on the strength of an interpreter file and a
+    `pytest*` script, so a directory left by an older Python -- a contributor's,
+    or this repository's own from before the floor moved -- ran the suite on a
+    version nothing here supports, and said nothing."""
+    venv = fake_venv(tmp_path)
+    (venv / "pyvenv.cfg").write_text("version = 3.9.6\n")
+    assert rt.ensure(venv) is None
+    err = capsys.readouterr().err
+    assert "3.9.6" in err, (
+        "the sentence does not name the version found, so the reader cannot "
+        "check the floor against anything"
+    )
+    assert f"below the {rt.FLOOR_TEXT} floor" in err
+    assert "Remove that directory" in err, (
+        "the reader is told the environment is wrong and not what to do about it"
+    )
+    assert "Traceback" not in err
+
+
+def test_an_environment_that_says_nothing_about_its_version_is_kept(tmp_path):
+    """`pyvenv.cfg` is where both builders record the version, and a directory
+    without a readable one is not evidence of an old interpreter -- a venv
+    built by something else, or one whose file has been edited. Refusing on
+    silence turns one unknown into a suite nobody can run, so only a version
+    that is BOTH readable and below the floor is refused."""
+    venv = fake_venv(tmp_path)
+    assert not (venv / "pyvenv.cfg").exists()
+    assert rt.ensure(venv) == rt.venv_python(venv)
+    (venv / "pyvenv.cfg").write_text("home = /usr/bin\nprompt = '.venv'\n")
+    assert rt.ensure(venv) == rt.venv_python(venv)
+
+
 # --- invisible to git ------------------------------------------------------
 
 
@@ -231,6 +290,59 @@ def test_an_existing_ignore_is_left_alone(tmp_path):
     (venv / ".gitignore").write_text("*\n# written by uv\n")
     rt.hide_from_git(venv)
     assert "written by uv" in (venv / ".gitignore").read_text()
+
+
+def git_status(tmp_path):
+    """`git status --porcelain`, run through the real `subprocess.run`.
+
+    Saved at import: a test that fakes `rt.subprocess.run` is faking the
+    module, so the git call below would be answered by the fake too.
+    """
+    return REAL_RUN(
+        ["git", "-C", str(tmp_path), "status", "--porcelain"],
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+    ).stdout
+
+
+def test_a_failed_build_still_leaves_no_trace_in_git(tmp_path, monkeypatch):
+    """The ignore was written after the LAST step succeeded, so the one run
+    that ends in a sentence was the run that left a virtualenv behind. The
+    install step is what fails on a machine with no network, and it fails
+    after `uv venv` has already made the directory."""
+    REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
+    venv = tmp_path / ".venv"
+
+    def run(command, **kwargs):
+        venv.mkdir(exist_ok=True)  # `uv venv` made the directory
+        return subprocess.CompletedProcess(command, 1)  # the install step failed
+
+    monkeypatch.setattr(rt.shutil, "which", lambda _: "/usr/bin/uv")
+    monkeypatch.setattr(rt.subprocess, "run", run)
+    assert rt.build(venv), "a failing build step still has to return a sentence"
+    monkeypatch.undo()
+    assert (venv / ".gitignore").read_text().strip() == "*"
+    status = git_status(tmp_path)
+    assert ".venv" not in status, (
+        f"the half-built virtualenv is visible to git: {status!r}"
+    )
+
+
+def test_an_adopted_environment_is_hidden_too(tmp_path):
+    """`hide_from_git` ran only at the end of a build, so a `.venv` the runner
+    ADOPTS never reached it. That directory is exactly the one with no ignore
+    of its own -- `python -m venv` writes none -- and the runner that finds it
+    is the one call in its life that could have written one."""
+    REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
+    venv = fake_venv(tmp_path)
+    (venv / "pyvenv.cfg").write_text(f"version = {rt.FLOOR_TEXT}.0\n")
+    assert rt.ensure(venv) == rt.venv_python(venv)
+    assert (venv / ".gitignore").read_text().strip() == "*"
+    status = git_status(tmp_path)
+    assert ".venv" not in status, (
+        f"the adopted virtualenv is visible to git: {status!r}"
+    )
 
 
 # --- a sentence, not a traceback -------------------------------------------
@@ -428,6 +540,34 @@ def test_the_section_and_the_runner_state_the_same_floor():
     )
 
 
+def test_the_section_states_the_floor_once():
+    """The sentence above is worth nothing while a second copy of the number
+    sits in the same section untraced. Whichever one a reader finds first is
+    the one they edit when the floor moves, and the other stays behind saying
+    the old number with nothing pointing at it."""
+    section = running_the_checks()
+    found = section.count(rt.FLOOR_TEXT)
+    assert found == 1, (
+        f"the section states {rt.FLOOR_TEXT} {found} times; only the sentence "
+        "naming FLOOR carries the number, and the rest refer back to it"
+    )
+
+
+def test_ci_runs_the_suite_at_the_floor_the_runner_holds():
+    """`FLOOR`'s comment says the number is also the version CI runs the suite
+    at. Nothing read the workflow, so that half was a claim about another file
+    which could go stale in silence -- and a floor CI does not run at is a
+    floor nothing measures."""
+    workflow = read(WORKFLOW)
+    matrix = workflow[workflow.index("  pytest:") : workflow.index("  ledger:")]
+    versions = re.findall(r'python:\s*"([^"]+)"', matrix)
+    assert versions, "the pytest job names no python version to compare"
+    assert set(versions) == {rt.FLOOR_TEXT}, (
+        f"CI runs the suite at {sorted(set(versions))} and the runner's FLOOR "
+        f"comment claims {rt.FLOOR_TEXT}"
+    )
+
+
 def test_the_section_keeps_the_broad_once_rule():
     """It predates this work item and a cheap runner is exactly what would
     tempt a session to drop it."""
@@ -500,6 +640,44 @@ def test_smith_finds_the_runner_before_inventing_a_command():
     )
     assert "`docs/review-handoff-protocol.md` §*The handoff before round 1*" in smith, (
         "the rule is restated rather than linked, so the two carriers can drift apart"
+    )
+
+
+def test_warden_finds_the_runner_before_building_its_own():
+    """The class is every segment that runs a test, and the fix reached one of
+    them. `agents/warden.md` told a reviewer to build a `uv` venv in its clone
+    and named no runner, so a review round paid for an environment the
+    repository already had built -- the same cost, on the segment that runs
+    more cases than the smith does. Both definitions ship to user
+    repositories, so neither may name a command that exists only here."""
+    warden = flat("agents", "warden.md")
+    assert "Find the runner before you build your own" in warden, (
+        "the reviewing segment is still told to assemble its own environment "
+        "with nothing telling it a shipped runner may exist"
+    )
+    assert "Type the narrow form, one module" in warden, (
+        "warden is pointed at a command that runs the full suite and not at "
+        "the form §2 leaves it"
+    )
+    assert (
+        "`docs/review-handoff-protocol.md` §*The handoff before round 1*" in warden
+    ), "the rule is restated rather than linked, so the two carriers can drift apart"
+    assert "make a `uv` venv inside the clone" in warden, (
+        "the fallback went with the addition — a repository that ships no "
+        "runner leaves the reviewer with nothing at all"
+    )
+
+
+@pytest.mark.parametrize("definition", ["smith.md", "warden.md"])
+def test_no_agent_definition_names_this_repositorys_own_command(definition):
+    """`agents/` is copied into every install, so a definition naming
+    `bin/test` sends a user's segment after a file their repository does not
+    have. The shape both carry instead is the generic one: a wrapper in
+    `bin/`, or whatever the contribution guide names first."""
+    text = flat("agents", definition)
+    assert "bin/test" not in text, (
+        f"agents/{definition} names this repository's own runner, and it "
+        "ships to repositories that have no such file"
     )
 
 

@@ -7,7 +7,7 @@ set "here=%~dp0"
 set "script=%here%..\.github\scripts\run_tests.py"
 
 if not exist "%script%" (
-  echo bin/test runs SpecSeal's own test suite, and this copy of bin/ has no runner beside it. 1>&2
+  echo bin/test runs SpecSeal's own test suite, and this copy of bin/ has no runner beside it. Run it from a clone of the SpecSeal repository. 1>&2
   exit /b 2
 )
 

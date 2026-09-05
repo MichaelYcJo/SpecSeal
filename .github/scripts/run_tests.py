@@ -62,13 +62,47 @@ def venv_python(venv):
 
 
 def has_pytest(venv):
-    """True when `venv` is already an environment the suite can run in.
+    """True when `venv` holds an interpreter and a pytest to run it with.
 
     Filesystem only, no subprocess: this runs on every warm call, and the
     whole point of the work item is that a warm call costs nothing.
+
+    Whether that interpreter is new enough is a separate question and
+    `ensure` asks it, by reading `pyvenv.cfg` rather than by starting
+    anything. Both stay off the subprocess path.
     """
     scripts = venv / ("Scripts" if os.name == "nt" else "bin")
     return venv_python(venv).exists() and any(scripts.glob("pytest*"))
+
+
+def venv_version(venv):
+    """The Python version `venv` was built with, from `pyvenv.cfg`, or None.
+
+    Both builders record it -- `uv venv` writes `version_info`, `python -m
+    venv` writes `version` -- so the floor can be checked by reading a file
+    rather than by starting an interpreter, which a warm call must not pay
+    for.
+
+    None means the file says nothing this can read, and None is NOT a
+    refusal. A directory with no readable version is not evidence of an old
+    interpreter, and refusing on silence turns one unknown into a suite
+    nobody can run.
+    """
+    try:
+        text = (venv / "pyvenv.cfg").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    for line in text.splitlines():
+        name, sep, value = line.partition("=")
+        if not sep or name.strip() not in ("version", "version_info"):
+            continue
+        parts = []
+        for chunk in value.strip().split("."):
+            if not chunk.isdigit():
+                break
+            parts.append(int(chunk))
+        return tuple(parts) if len(parts) >= 2 else None
+    return None
 
 
 def hide_from_git(venv):
@@ -81,7 +115,17 @@ def hide_from_git(venv):
     Inside the directory rather than in the repository's own `.gitignore`:
     the thing being ignored carries its own ignore, so removing the
     virtualenv removes the rule with it.
+
+    Called on three paths, because a virtualenv with no ignore is reachable
+    on all three: after a build that succeeded, after one that FAILED partway
+    -- `uv venv` makes the directory and the install step is what has no
+    network -- and on the warm path, where the runner adopts a directory
+    somebody else made and this is the only call in its life that could have
+    written one. Doing nothing when the directory is absent is what makes the
+    failed-build call safe.
     """
+    if not venv.is_dir():
+        return
     ignore = venv / ".gitignore"
     if not ignore.exists():
         ignore.write_text("*\n", encoding="utf-8")
@@ -123,21 +167,47 @@ def build(venv):
         "every run after it reuses it.",
         file=sys.stderr,
     )
-    for step in steps:
-        if subprocess.run(step).returncode != 0:
-            return (
-                "bin/test could not build the virtualenv at "
-                f"{venv}: the command above exited non-zero. Remove that "
-                "directory and run bin/test again, or build it by hand with "
-                "pytest in it."
-            )
-    hide_from_git(venv)
+    # `finally`, and it opens here rather than at the top of the function: the
+    # branch above returns a string for a path that never makes a directory,
+    # and the ignore is owed by every path that does. The install step is the
+    # one that fails on a machine with no network, and by then `uv venv` has
+    # already made the directory -- so the run that ends in a sentence was the
+    # run leaving a virtualenv in `git status`.
+    try:
+        for step in steps:
+            if subprocess.run(step).returncode != 0:
+                return (
+                    "bin/test could not build the virtualenv at "
+                    f"{venv}: the command above exited non-zero. Remove that "
+                    "directory and run bin/test again, or build it by hand with "
+                    "pytest in it."
+                )
+    finally:
+        hide_from_git(venv)
     return None
 
 
 def ensure(venv):
-    """The interpreter to run pytest with, or None after saying why not."""
+    """The interpreter to run pytest with, or None after saying why not.
+
+    The floor is asked of an ADOPTED environment as well as of a built one.
+    `build` holds it two ways -- `uv venv --python ">=3.12"`, and the refusal
+    below it -- and neither runs on the warm path, so a `.venv` left by an
+    older interpreter ran the suite on a version nothing here supports and
+    said nothing about it.
+    """
     if has_pytest(venv):
+        found = venv_version(venv)
+        if found is not None and found[:2] < FLOOR:
+            print(
+                f"bin/test: the virtualenv at {venv} was built with Python "
+                f"{'.'.join(str(part) for part in found)}, below the "
+                f"{FLOOR_TEXT} floor this repository supports. Remove that "
+                "directory and run bin/test again to build it afresh.",
+                file=sys.stderr,
+            )
+            return None
+        hide_from_git(venv)
         return venv_python(venv)
     problem = build(venv)
     if problem:
