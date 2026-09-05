@@ -1,7 +1,11 @@
 # <work-item-id> — review round <N>
 
 <!-- seal/specs/<unix-epoch-seconds>-<slug>/rounds/round-<N>.md — what this round of the
-review chain did, written by the review orchestrator right after it posts.
+review chain did. It is GENERATED: `round_record.py new` writes it from the
+reviewer's report and the round paragraph of the spawn prompt right after the
+round posts, and `round_record.py close` applies the implementer's fix table
+and the fix range's measured surface when the fixes land. The comments in this
+file document the fields; a generated record does not carry them.
 
 It lives here rather than under a pull request number because the number does
 not exist while the rounds that fill this file are running. `docs/review-handoff-protocol.md`
@@ -14,11 +18,12 @@ the fix pass that should have read it read nothing. Measured twice in one
 release, and both times the reviewer's drafted replacement text lived only in
 a report and the next segment rebuilt it.
 
-So commit this file when the round posts, with its verdict cells reading
-`open`, and update them when the fixes land. The UPDATE commit may descend
-from the fix — that is what a correct record looks like — and the commit that
-ADDS the file may not. Records of work items begun before the rule landed
-print instead of failing. -->
+So commit this file when `new` writes it, with its verdict cells reading
+`open`, and let `close` update them when the fixes land — that ordering is
+what the two subcommands produce, and the generator commits nothing. The
+UPDATE commit may descend from the fix — that is what a correct record looks
+like — and the commit that ADDS the file may not. Records of work items begun
+before the rule landed print instead of failing. -->
 
 | Field | Value |
 |---|---|
@@ -152,17 +157,14 @@ brings `no` with it.
 
 The verifying round is what the floor leaves standing. A record that met the
 floor is followed by at most one more round record: the verifying round at the
-diff of the fixes that closed it. A second one is the run carrying on past its
-own stopping rule. Records of work items begun before the rule landed print
-instead of failing.
+diff of the fixes that closed it. The one exception — that verifying round
+opening something, so that its own fixes need a reader — is bounded to ONE
+reopening, after which the run ends `capped`; `docs/review-chain-spec.md`
+§*The reopening — one, and then the run is capped* owns the count, the bound
+and the exit, and `chain_check.py` walks both. Records of work items begun
+before either rule landed print instead of failing.
 
-**Unless that verifying round reopens the run.** If it opens something needing
-a fix, its `Needs a fix` says `yes`, its own fixes need a reader in turn, and
-the record that reads them is a third record the count does not hold against
-the round that met the floor. The count stops at the first later record whose
-`Needs a fix` says `yes`, that record included.
-
-**Or whose verdicts say `fixed`, whatever `Needs a fix` says.** The reviewer
+**The walk reads the verdict column as well as `Needs a fix`.** The reviewer
 may answer `no` — a 🟡 answerable with grounds — and the orchestrator may fix
 it anyway, because it ships. The row then reads `no` over fixes that exist,
 and those fixes owe a reader exactly as a reopening's do. The verdict column
@@ -220,7 +222,13 @@ durable, committed home instead. -->
      repository's own records: 235 verdict cells close with a fix word, 215
      name a commit, and 20 do not — `| fixed |` and `| fixed — round-2 read
      it |` are ordinary house style rather than malformed, which is why this
-     is asked for here instead of being refused at the pull request. -->
+     is asked for here instead of being refused at the pull request.
+
+     **`deferred <home>` closes a finding handed to the tracker.** `deferred
+     #170` and `deferred seal/follow-up.md` close it on the issue or the file
+     it went to — a capped run's exit, and the verdict of a finding closable
+     only by mechanism a fix pass may not add. A bare `deferred`, nothing
+     after it, stays OPEN: it says something was left and not where. -->
 
 ## Executed probes
 

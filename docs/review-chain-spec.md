@@ -131,10 +131,16 @@ That is the distinction the numbers above could not make: a round that found
 nothing and a round whose fixes nobody read looked identical to them, and the
 run ended at both.
 
-Nothing here can loop, and it is worth saying why rather than adding a second
-bound. A verifying round that opens something IS a finding round and consumes
-the cap like any other. A verifying round that opens nothing is by definition
-the last one, because the run ends at it. There is no third case to run away.
+Nothing here can loop more than once, and the bound is written rather than
+argued. A verifying round that opens something IS a finding round and consumes
+the cap like any other, and its fixes need a reader — which is a verifying
+round again, and may open something again. The first draft of this paragraph
+said there was no third case to run away; that was the third case, and #161
+measured fifteen rounds through it. So the reopening is one: after a record
+that met the floor, one later record may close on a fix, a second is refused,
+and the run ends `capped` — §*The reopening — one, and then the run is capped*
+below owns the rule, the refusal and the exit. A verifying round that opens
+nothing is by definition the last one, because the run ends at it.
 
 What it costs is one extra spawn per work item, on a surface that is a diff
 rather than a branch — the cheapest round of the run. What it does not cost is
@@ -145,6 +151,17 @@ that raises a 🟡 the smith answers with grounds has opened nothing needing a
 fix, and the run ends there. The condition is *this round wrote no code
 nobody read*, which is narrower than *this round was silent* and is what keeps
 the bound a bound.
+
+**A finding located in a record is a correction, not a round.** A finding
+whose `Location` is under `seal/specs/`, `seal/ledger/` or `seal/ledger.md`
+is about the run's own paperwork rather than about the tool, and it owes no
+fix pass and no reader. What `chain_check` or `evidence_check` refuses is
+corrected in the closing commit; what neither reads is prose, corrected in
+passing or not at all. `Needs a fix` does not count it, so a verifying round
+that finds only such things has opened nothing needing a fix. Measured on the
+last branch (#161's second comment): 33 of its 65 findings were located in
+records, and the records were 55 % of the diff — a loop reviewing the tool's
+own paperwork, with a reader spawned for every correction.
 
 At the bound, or earlier when a round returns nothing blocking, the change
 ends the same way whether or not everything was resolved. Nothing is dropped;
@@ -948,7 +965,8 @@ age, because formatting is always the author's.
 comes FROM rather than about whose keystrokes fill the cell.** An agent is
 told what it is, so a value it writes about itself is the value it was told;
 the orchestrator is the party that chose the model. For a round record the two
-coincide, because the orchestrator writes that file. For a build phase's
+coincide, because the orchestrator runs `round_record.py new` for that file
+and hands it the value as `--ran-by`. For a build phase's
 record they do not — the segment writes it — so the value is handed over in
 the spawn prompt and transcribed, or filled in afterwards. What is refused is
 a segment sourcing the value from its own idea of what it is.
@@ -964,9 +982,9 @@ This branch's own four phase records are the worked case, and they are the
 mixed one rather than the clean one: the agent half and the model came from
 the spawn prompt, and the version detail after it did not. That is what the
 declaration looks like when it is only partly sourced, and no check reports
-it. A round record has the easier job — the orchestrator writes that file and
-chose the model — which is why the rule's difficulty is entirely on the phase
-side.
+it. A round record has the easier job — the orchestrator runs the generator
+for that file and chose the model — which is why the rule's difficulty is
+entirely on the phase side.
 
 One limit is recorded rather than parsed away, the same shape the three above
 take and outside their sequence — those three are `Contract changes` and
@@ -986,8 +1004,8 @@ both times the reviewer's drafted replacement text lived only in a report and
 the next segment rebuilt it from scratch. That is the failure a build phase's
 own record was built to close, arriving on the review side of the chain.
 
-**A record written late leaves no trace.** By the time the orchestrator writes
-it the fixes have landed, so its verdict cells read `fixed at <sha>` — which
+**A record written late leaves no trace.** By the time a late record is
+written the fixes have landed, so its verdict cells read `fixed at <sha>` — which
 is exactly what a correctly written record looks like after its own update
 pass. The two are indistinguishable in the file, and distinguishable in git.
 
@@ -1094,6 +1112,23 @@ that holds the artifact beside the record — here the fix pass, which is the
 one that would otherwise retype it. That is the third declaration in this
 document, and the count is worth stating: what a check cannot reach, a reader
 does, and saying which is which is what keeps the checks honest.
+
+**The record is written by `round_record.py` now, from the two agents'
+reports, and that changes who makes the declaration and not whether it is
+one.** `new` copies the reviewer's `Executed probes` table row for row from
+its report, so the declaration above is the reviewer's, made in the report,
+and the generator carries it into the record unread; a fenced block under the
+report's table stays in the report unless the reviewer puts it in a row
+(`questions.md` A5 of the work item that added the generator). `close` applies
+the implementer's fix table. No orchestrator prose sits in a parsed cell.
+
+**A moratorium for 0.8.x: no new parsed field in `round-N.md` and no new row
+the ledger must carry.** Every field this document describes arrived with a
+checker arm, a template row, a protocol row and a cutoff, and each arm cost
+rounds of the branch that added it. The work item that added the generator
+added a subcommand and a verdict word — `deferred <home>` — and no field. What
+a 0.8.x work item finds it needs goes to the tracker for the release after,
+with the measurement that says a field is what it needs.
 
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a
