@@ -675,8 +675,8 @@ def new(args):
 
 # --- close: the fix table applied, the fix surface measured ------------------
 
-# The smith's fix-pass handover: one row per finding of the round it answers,
-# under this heading, in these columns. `agents/smith.md` and
+# The smith's fix-pass handover: one row per OPEN finding of the round it
+# answers, under this heading, in these columns. `agents/smith.md` and
 # `skills/implement/SKILL.md` §5 tell the smith to write it, and
 # `tests/test_the_fixes_close_the_record.py` reads both from here — one
 # constant, three carriers.
@@ -1183,6 +1183,21 @@ def close(args):
             f"of round {args.round} left with no row in the fix table. Every open "
             f"finding takes a row — `{FIXED}`, `{ANSWERED}`, or "
             f"`{DEFERRED_WORD} <home>` — or the record stays open"
+        )
+    # A row for a finding the reviewer closed in the report (`withdrawn`,
+    # `not a defect`) would overwrite the reviewer's verdict with the smith's
+    # (round 1 of #161's own chain, 🟡 3). One row per OPEN finding.
+    already = sorted(n for n in fixes if n not in open_now)
+    if already:
+        named = ", ".join(
+            f"finding {n} (`{chain.verdict_of([reader.visible(c) for c in rows[n][1]], VERDICT_COL)}`)"
+            for n in already
+        )
+        raise Refused(
+            f"the fix table has a row for {named}, which the reviewer already "
+            f"closed in round {args.round}'s verdict table. A fix pass answers "
+            "the OPEN findings and no other — a row here would overwrite the "
+            "reviewer's verdict with the smith's; no cell was written"
         )
     for number, (word, value, _note) in fixes.items():
         if word != FIXED:

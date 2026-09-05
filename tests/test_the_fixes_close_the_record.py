@@ -413,6 +413,30 @@ def test_a_finding_the_report_already_closed_needs_no_row(repo):
     assert verdict_cells(record)[1][3] == "withdrawn"
 
 
+def test_a_row_for_a_finding_the_reviewer_closed_is_refused(repo):
+    """Round 1's 🟡 3 of #161's own chain: a row for a finding the reviewer
+    closed in the report would overwrite the reviewer's verdict with the
+    smith's, so it is refused naming the finding, and nothing is written --
+    the `withdrawn` cell stays, and the open one stays open."""
+    closed = "| 🟢 4 | seen and withdrawn | `mod.py:9` | withdrawn | read |\n"
+    a = round_one(repo, verdicts=OPEN_1 + closed)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    out = refused(
+        repo,
+        fix_table(f"| 1 | fixed | {b[:7]} |\n", f"| 4 | fixed | {b[:7]} |\n"),
+        f"{a}..{b}",
+    )
+    assert "finding 4" in out, out
+    assert "withdrawn" in out, out
+    cells = verdict_cells(read_record(repo, 1))
+    assert cells[0][3] == "open" and cells[1][3] == "withdrawn", cells
+
+
+def read_record(repo, n):
+    return (repo / ROUNDS / f"round-{n}.md").read_text(encoding="utf-8")
+
+
 # --- the fix surface, measured -----------------------------------------------
 
 
@@ -595,6 +619,11 @@ def test_the_smith_hands_over_the_fix_table_and_writes_no_phase_record():
     assert "depth is measured rather than declared" in smith, (
         "agents/smith.md still has the smith declare the depth in the hand-back"
     )
+    flat = " ".join(smith.split())
+    assert "one row per OPEN finding of the round it answers" in flat
+    assert "refuses a row for a finding the reviewer already closed" in flat, (
+        "agents/smith.md does not say a row for a closed finding is refused"
+    )
 
 
 def test_the_review_skill_says_close_writes_the_capped_ends_checker_cell():
@@ -624,4 +653,10 @@ def test_the_implement_skill_says_the_same_in_section_five():
     assert generator.row(generator.FIXES_HEADER) in five
     assert "writes no `phases/phase-N.md`" in five, (
         "skills/implement/SKILL.md §5 does not say a fix pass writes no phase record"
+    )
+    flat = " ".join(five.split())
+    assert "one row per OPEN finding of the round it answers" in flat
+    assert (
+        "the reviewer closed in the report takes no row, and `close` refuses one"
+        in flat
     )

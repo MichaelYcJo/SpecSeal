@@ -121,11 +121,13 @@ incorporation. This file only adds what the skill does not carry.
 
    **A fix pass is not a phase, and its record is the round record.** It
    hands over a fix table under `## Fixes` — `| # | Verdict | Commit or grounds |`,
-   one row per finding of the round it answers, the verdict `fixed` with the
+   one row per OPEN finding of the round it answers, the verdict `fixed` with the
    commit, `answered` with the grounds, or `deferred <home>` with the issue
    or the file it went to — and writes no `phases/phase-N.md` and no
    `plan.md` row: `round_record.py close` applies that table to
-   `rounds/round-N.md`. The build's phases keep theirs.
+   `rounds/round-N.md`, and refuses a row for a finding the reviewer already
+   closed, because that row would overwrite the reviewer's verdict with
+   yours. The build's phases keep theirs.
 4. **Verify** — run the actual checks and read their output before any
    completion claim. Fresh output only; a previous run proves nothing. §2
    bounds what you run and §3 answers a prompt that orders more.

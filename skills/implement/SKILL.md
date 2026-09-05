@@ -729,8 +729,9 @@ rebuilt — only re-checked for whether the finding is now fixed.
 
 **A fix pass hands over a fix table and writes no phase record.** The table
 sits under `## Fixes` as `| # | Verdict | Commit or grounds |`, one row per
-finding of the round it answers: `fixed` with the commit, `answered` with the
-grounds, `deferred <home>` with the issue or file it went to. The pass
+OPEN finding of the round it answers: `fixed` with the commit, `answered` with
+the grounds, `deferred <home>` with the issue or file it went to — a finding
+the reviewer closed in the report takes no row, and `close` refuses one. The pass
 writes no `phases/phase-N.md` and no `plan.md` row — `round_record.py close`
 applies the table to `rounds/round-N.md` and measures the fix surface from
 the range of fix commits, so the round record is the pass's record. The
