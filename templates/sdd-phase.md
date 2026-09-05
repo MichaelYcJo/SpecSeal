@@ -34,7 +34,8 @@ and the model is a spawn-time argument the orchestrator chose, which
 
 Whose row it is and whose keystrokes fill it are different questions, and
 they come apart here in a way they do not for `rounds/round-N.md`. The
-orchestrator both knows the answer and writes that file, so it does both. A
+orchestrator knows the answer and runs `round_record.py new`, which writes
+that file from the `--ran-by` value it is given, so it does both. A
 phase record is written by the segment that just ran, so the orchestrator
 either hands the value over in the spawn prompt — and the segment transcribes
 what it was GIVEN, never a value it decides for itself — or fills the row
