@@ -24,3 +24,19 @@ would not stop on any of them.
 | # | Question | Why it does not stop the work |
 |---|---|---|
 | 7 | The plugin ships from the repository root, so 0.8.2 will put `.github/scripts/run_tests.py` and `tests/` into every user's plugin cache beside `bin/test`. Both of the runner's guards — *no runner beside it* and *no tests directory* — are therefore unreachable there. Does a deliberate invocation out of a cache need a guard of its own, or is it accepted? | Neither answer changes phase 2. A plugin user cannot reach the command by typing it, because `test` is a shell builtin and PATH never offers it; reaching the runner means typing a path into a versioned cache directory on purpose. Adding a guard is mechanism on phase 1's surface, so phase 2 corrected the false reason and left the decision here |
+
+**Question 7 is confirmed, not hypothetical.** Review round 1 measured it
+rather than reasoning about it. **[executed, round 1]** `ls -a` on the 0.8.1
+plugin cache lists `.github`, `bin` and `tests`, so a 0.8.2 cache will hold
+the runner and a `tests/` directory beside each other; a deliberate path into
+such a cache therefore passes **both** of the runner's guards, builds a
+`.venv` inside the cache directory, and runs for five minutes. **[executed,
+round 1]** `command -v test` returns `test is a shell builtin` in `sh`, `bash`
+and `zsh` with a clone's `bin/` first on `PATH`, so the builtin is the whole
+of what keeps a user out.
+
+That is the state, and it is still the owner's decision rather than a defect
+to close: round 1 raised it as ⬜ and the fix pass left it, because a third
+guard is mechanism on phase 1's surface and a fix pass adds none. What
+changed here is only that the question no longer reads as a possibility
+nobody checked.
