@@ -831,10 +831,21 @@ def seal_home(root):
     `<root>/seal/` as it always did. One resolver and no second `home_at`
     here, for the reason `optin.py`'s docstring gives about divergent copies.
 
+    **`SKILL.md` is the half of the test that does the telling**, and it was
+    recorded as an unreachable guard for a round because every vendored
+    fixture also lacked `hooks/optin.py` three levels up, so the first
+    conjunct decided every time. That state is constructible — a copy three
+    directories under a tree that HAS a plugin, with no skill beside it —
+    and against a local-mode repository the two answers differ, so dropping
+    the conjunct makes a vendored copy read `<git-common-dir>/seal/` when it
+    must read `<root>/seal/`. It is held now, by
+    `test_a_copy_under_a_plugin_tree_without_a_skill_beside_it_is_still_vendored`.
+
     `<root>/seal/` is also the answer when the resolver says "" — a scratch
     marker, or no root at either place — because this is a CLI a person is
     watching rather than a gate: the defaults then find nothing and the run
-    says "no evidence ledgers found". `--ledger` bypasses this entirely.
+    says "no evidence ledgers found". `--ledger` bypasses this entirely, and
+    the run then names the ledgers it did not read — see `skipped_by_narrowing`.
     """
     here = os.path.dirname(os.path.abspath(__file__))
     plugin = os.path.normpath(os.path.join(here, "..", "..", ".."))
@@ -851,6 +862,187 @@ def seal_home(root):
         if home:
             return home
     return os.path.join(root, "seal")
+
+
+def default_patterns(root):
+    """Where a run with NO `--ledger` looks for ledgers.
+
+    Three locations. `seal/ledger.md` is the gathered ledger; `ledger/*.md` is
+    one fragment per work item; `docs/**/_evidence.md` is the pre-0.10 address,
+    still read because a repository that never moved it keeps working.
+    `.specseal/map.md` is NOT read: the root moved to `seal/` and
+    `hooks/root-migrate.py` moves it, so a ledger left there is a file in the
+    wrong place, not a second address.
+
+    The first two are joined under the `seal/` that `seal_home` resolves —
+    under the git directory in local mode (#80) — and the third under the root,
+    a committed file at an old address.
+
+    A function rather than a list inside `main`, because `--ledger` now has to
+    say what it SKIPPED and the skipped set is this list minus what was given.
+    Two spellings of the default would be one rule today and two after the
+    first edit to either, and the quiet half would be the one deciding whether
+    a skipped ledger gets named.
+    """
+    home = seal_home(root)
+    return [
+        os.path.join(home, "ledger.md"),
+        os.path.join(home, "ledger", "*.md"),
+        os.path.join(root, "docs", "**", "_evidence.md"),
+    ]
+
+
+def file_identity(path):
+    """One name's identity, for folding two names that reach one file.
+
+    **Two names are one file when they reach one inode.** `st_dev`/`st_ino`
+    answers separators, case, hard links and symlinks with one rule and no
+    platform in it. A zero `st_ino` is not an identity, and it does not
+    raise; `skipped_by_narrowing` holds why, what the `normcase` fallback
+    costs off Windows, and why the device is half the pair.
+
+    ONE spelling, because both folds read it. `skipped_by_narrowing`'s own
+    docstring says the identity rule has to have one -- two would be one
+    rule today and two after the first edit to either, and the quiet copy
+    would be the one deciding what gets NAMED (ledger row R4). Round 13's
+    🔴 1 was that sentence measured: `resolve_patterns` composed a weaker
+    identity thirty lines from a copy, and round 14 found the repair had
+    then copied the rule instead of extracting it.
+    """
+    try:
+        info = os.stat(path)
+    except OSError:
+        info = None
+    if info is not None and info.st_ino:
+        return (info.st_dev, info.st_ino)
+    return os.path.normcase(os.path.abspath(path))
+
+
+def resolve_patterns(patterns):
+    """Every file the patterns match, deduplicated and in a stable order.
+
+    **Two names are one file when they reach one inode** -- the rule
+    `skipped_by_narrowing` states below, for the same reason. A fold on the
+    SPELLING has a platform inside it: `glob` keeps a literal pattern's
+    spelling and joins a wildcard's matches with `os.sep`, so on Windows
+    `seal/ledger.md` and `seal/*.md` name one file two ways, a set of raw
+    strings kept both, and every row in that ledger counted twice -- found
+    by the windows CI leg at pull request #162 after twelve rounds green
+    elsewhere. The first repair, `os.path.normpath`, closed that half and no
+    more: it folds no case, so `seal/Ledger.md` beside `seal/ledger.md` was
+    still two on a case-insensitive volume, and it folds no link, so a
+    symlink or a hard link was a third ledger. `st_dev`/`st_ino` closes
+    separators, case, symlinks and hard links with one rule and no platform
+    in it.
+
+    **The path returned is the spelling the pattern gave**, never a
+    normalized one. The caller OPENS it, and `normpath` collapses `lnk/..`
+    lexically -- so a normalized return names a different file than the
+    pattern matched wherever `lnk` is a symlink, and a broken row in the
+    ledger the operator named went unread with the run exiting 0. That was
+    round 13's 🔴 1 on the work item that added this paragraph.
+
+    A path `os.stat` cannot answer for falls back to its normalized absolute
+    spelling -- the weaker identity `skipped_by_narrowing` uses, and for the
+    same reason: it over-reports rather than swallowing a file.
+    """
+    seen, out = set(), []
+    for pat in patterns:
+        for p in glob.glob(pat, recursive=True):
+            key = file_identity(p)
+            if key not in seen:
+                seen.add(key)
+                out.append(p)
+    return sorted(out)
+
+
+def skipped_by_narrowing(root, read):
+    """Ledgers the default discovery would have opened and `--ledger` did not.
+
+    Issue #153: the narrowing was adopted for a correct reason — it is what
+    keeps `--reverify` off a row whose claim is false and belongs to somebody
+    else — and carried into READING, where it blinds. One work item's three
+    review rounds and two fix passes all ran the scoped form and all reported
+    ok; the unscoped read at the pull request found fifteen drifted rows and
+    one broken claim, every one in a file the branch had touched.
+
+    Guidance closes that for a session that reads the guidance. This closes it
+    for the session that narrows on its own initiative, which is the one the
+    trap was sprung on: the orchestrator that handed three rounds the scoped
+    form is the party that wrote the guidance.
+
+    **Two names are one file when they reach one inode**, so the fold is
+    `st_dev`/`st_ino` rather than a spelling of the path. That answers case
+    folding, hard links and symlinks with one rule and no platform in it.
+
+    The path comparison it replaces had a platform inside it, and round 1
+    executed the consequence: `os.path.normcase` folds case on Windows and is
+    the identity everywhere else, and `os.path.realpath` canonicalises case
+    nowhere — so on a case-insensitive filesystem `--ledger SEAL/ledger.md`
+    read the ledger and then listed it as unread. A notice that names a file
+    it just read is worse than the silence this was added to end, and it fails
+    exactly where nobody removed the guarantee (`agent-contract` §13).
+
+    **A zero `st_ino` is not an identity, and it does not raise.** Python's
+    own contract is *"if non-zero, uniquely identifies the file"*, and
+    CPython's Windows `stat` leaves both fields 0 when it cannot open a file.
+    Taken at face value every such file has ONE identity, so a ledger that
+    WAS read swallows every ledger that was not and the run says nothing —
+    silence, which is the direction this notice exists to end and the reverse
+    of the one declared below. `st_ino` is what the contract makes the test,
+    so a zero there falls back with the failures; `st_dev` is not tested,
+    because a valid inode on device 0 is still unique for that device.
+
+    **The device is half the identity and the inode is not enough on its
+    own.** Two filesystems hand out inode numbers independently, so a ledger
+    on one device and a fragment on another can carry the same number; the
+    pair is what makes them two. Nothing in a one-filesystem fixture can
+    show that, so it is produced from inside — see
+    `test_two_devices_that_share_an_inode_number_are_two_ledgers`.
+
+    `os.stat` raising is the other way out — a file that vanishes between the
+    glob and this call, or a path that cannot be traversed — and both take
+    the same fallback: the normalized absolute path. It is a WEAKER identity
+    than the inode rather than a stricter one, and the sentence here used to
+    claim the opposite. `abspath` already folds `./seal/ledger.md` into
+    `seal/ledger.md`. **`normcase` folds case on WINDOWS alone, not
+    wherever the platform folds it** — that second wording stood here for a
+    round (round 4's 🟡 5) and it is round 1's 🟡 9 restated one function
+    over, which is the finding this whole fallback was written to answer.
+    `ntpath.normcase` lowercases and `posixpath.normcase` is the identity,
+    and neither asks the filesystem: on a case-insensitive macOS volume
+    `seal/ledger.md` and `SEAL/Ledger.md` are ONE file with one inode and
+    TWO fallback identities. Measured on such a volume, one inode and two
+    identities. So the fallback over-reports off Windows, which is the
+    declared direction — NAME a ledger as skipped rather than pass over it
+    in silence — and the same is true of the two spellings the platform
+    keeps apart anywhere, a symlink and a hard link. Nothing goes unread
+    either way.
+
+    `normcase` here is unheld by any case, and the reason is the PLATFORM
+    rather than the fallback's reachability. The paragraph here used to
+    explain it through *CPython zeroes the inode on Windows alone*, and
+    that is false: the fallback is reached by `OSError` on every platform,
+    and only the zero-inode route is Windows-only. What is Windows-only is
+    `normcase` itself DIFFERING from the identity, so off Windows removing
+    it changes nothing and no case this repository can run kills it — while
+    on Windows it is both reachable and load-bearing. Recorded rather than
+    deleted, per `agent-contract` §13: what it guards is the Windows
+    pairing, no run here removes that guarantee, and a mutation battery
+    cannot tell an unreachable guard from an unheld decision.
+
+    One loop over both sides, and one function -- `file_identity` -- for
+    both this fold and `resolve_patterns`', because the identity rule has to
+    have one spelling. Two would be one rule today and two after the first
+    edit to either, and the quiet copy would be the one deciding what gets
+    NAMED — which is this work item's own failure shape (ledger row R4).
+    Round 14 found the rule spelled twice, verbatim, thirty lines apart,
+    against this very sentence; the extraction is what answered it.
+    """
+    candidates = resolve_patterns(default_patterns(root))
+    identity = {path: file_identity(path) for path in list(read) + candidates}
+    seen = {identity[p] for p in read}
+    return [p for p in candidates if identity[p] not in seen]
 
 
 def check_ledger(ledger, root, maps, default_repo=None):
@@ -1409,27 +1601,35 @@ def main():
         name, _, path = spec.partition("=")
         maps[name] = os.path.abspath(os.path.expanduser(path))
 
-    # Three locations. `seal/ledger.md` is the gathered ledger; `ledger/*.md`
-    # is one fragment per work item; `docs/**/_evidence.md` is the pre-0.10
-    # address, still read because a repository that never moved it keeps
-    # working. `.specseal/map.md` is NOT read: the root moved to `seal/` and
-    # `hooks/root-migrate.py` moves it, so a ledger left there is a file in
-    # the wrong place, not a second address.
-    #
-    # The first two are joined under the `seal/` that `seal_home` resolves —
-    # under the git directory in local mode (#80) — and the third under the
-    # root, a committed file at an old address. A `--ledger` pattern is
-    # joined under the root as given.
+    # `default_patterns` holds the three locations and why each is read. A
+    # `--ledger` pattern is joined under the root as given, and overrides
+    # them.
     if args.ledger:
-        patterns = [os.path.join(root, pat) for pat in args.ledger]
+        ledgers = resolve_patterns([os.path.join(root, pat) for pat in args.ledger])
+        # BEFORE the empty check below, and before anything is read. A
+        # narrowing that matched nothing is the worst silence of the set:
+        # `no evidence ledgers found` is the same sentence a repository with
+        # no ledger at all gets, and here the ledgers are sitting right
+        # there. Printing this first also puts it above the per-ledger
+        # output, where a reader meets it before the totals rather than
+        # after them.
+        missed = skipped_by_narrowing(root, ledgers)
+        if missed:
+            one = len(missed) == 1
+            print(
+                f"--ledger narrowed this run — {len(missed)} "
+                f"ledger{'' if one else 's'} this repository carries "
+                f"{'was' if one else 'were'} not read:"
+            )
+            for path in missed:
+                print(f"  {os.path.relpath(path, root)}")
+            print(
+                "run without --ledger to read them; a branch falsifies rows "
+                "in ledgers it does not own, and those are the rows with the "
+                "longest reach"
+            )
     else:
-        home = seal_home(root)
-        patterns = [
-            os.path.join(home, "ledger.md"),
-            os.path.join(home, "ledger", "*.md"),
-            os.path.join(root, "docs", "**", "_evidence.md"),
-        ]
-    ledgers = sorted({p for pat in patterns for p in glob.glob(pat, recursive=True)})
+        ledgers = resolve_patterns(default_patterns(root))
     if not ledgers:
         print("no evidence ledgers found — nothing to check")
         return 0
