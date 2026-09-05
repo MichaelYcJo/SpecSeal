@@ -405,8 +405,8 @@ def test_the_refused_rows_are_the_owners_own():
     than by this list.
 
     Neither reaches a gloss somebody writes fresh, and no string can: the
-    words are lowercase and generic, and `rounds` occurs twice in that
-    section legitimately. That half is a reader's, and saying so is the
+    words are lowercase and generic, and `rounds` occurs four times in
+    that section legitimately. That half is a reader's, and saying so is the
     point of writing it down -- a list that reads as though it closed the
     class is worse than one nobody expected to."""
     owner = read("skills", "verify", "SKILL.md")
