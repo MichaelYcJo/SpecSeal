@@ -57,7 +57,7 @@ rather than half-creating something. That is the failure to design against:
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | `bin/test` and `bin/test.cmd`: reuse a virtualenv, create it on first use, pass arguments through, resolve from the script's own path, fail with a sentence when the tool is missing. Self-ignoring from git | executed: both calls timed and the pair recorded; a run from a subdirectory; an argument-passing run; the missing-tool path forced. Plus a case over `bin/` for the sibling shape | 8ca5734 |
-| 2 | `CONTRIBUTING.md` §*Running the checks* names it first, keeps the floor sentence and the broad-once rule, and whatever names the runner to a spawned segment says `bin/test` rather than an absolute path — without widening §2 | the module that reads `CONTRIBUTING.md`, plus a new case per sentence | |
+| 2 | `CONTRIBUTING.md` §*Running the checks* names it first, keeps the floor sentence and the broad-once rule, and whatever names the runner to a spawned segment says `bin/test` rather than an absolute path — without widening §2 | the module that reads `CONTRIBUTING.md`, plus a new case per sentence | 76cce46 |
 | 3 | The closing set: ledger fragment, changelog fragment, `overview.md`, and `docs/flow.md`'s #156 box | the modules that read those, `evidence-check`, and the orchestrator's broad gate after the rounds | |
 
 ## Operational impact
