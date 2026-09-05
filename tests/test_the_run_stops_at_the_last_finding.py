@@ -48,6 +48,24 @@ TEMPLATE = ("templates", "sdd-round.md")
 # itself rather than answer it.
 STATES_THE_RULE = (SPEC, SKILL)
 
+PROTOCOL = ("docs", "review-handoff-protocol.md")
+
+# The one carrier of the floor's COUNT rule this case can hold. The commit
+# that wrote the rule wrote it in EIGHT places; rounds 7, 8 and 9 of work item
+# 1788501054 corrected them three at a time. Round 8's fix pinned five with a
+# whole-file substring search, and round 9 found that live for the protocol
+# alone: the spec, the template, the skill and `chain_check.py` all say
+# "`fixed` verdict" or "closed on a fix" elsewhere for other reasons, so the
+# case stayed green with the rule itself reverted in four of five. The
+# repository owner chose to narrow the pin to where it works rather than build
+# an anchored window search -- one more mechanism from a fix pass, which is
+# what issue #161 is about. The other four keep their corrected sentences and
+# no pin, and `phases/phase-12.md` says so.
+COUNT_RULE_CARRIERS = (PROTOCOL,)
+
+# The second stop, in the spelling the protocol uses.
+SECOND_STOP = ("closed on a fix",)
+
 FLOOR = "Stop when a round finds nothing that leaves the root and nothing that crashes."
 EXIT = "deferred with a named answerer, or becomes an issue"
 ROW = "Loses a record or crashes"
@@ -84,6 +102,49 @@ def test_the_exit_is_named_where_the_rule_is():
         assert EXIT in flat(*parts), (
             f"{'/'.join(parts)} states the floor without naming where what "
             "the stopped round found goes instead"
+        )
+
+
+def test_every_carrier_of_the_count_rule_states_both_stops():
+    """Round 8's 🔴 1 of work item 1788501054, as the class.
+
+    The count of records after the floor stops at a record whose `Needs a fix`
+    says the run reopened AND at one whose own verdicts closed on a fix. The
+    second stop was added in three of the rule's EIGHT carriers; round 8
+    found three of the five left behind -- one of them the protocol, which
+    says what a CONFORMING tool does, so a tool built to it refused the
+    sequence the change exists to make writable -- and round 9 found the last
+    two. Nothing had pinned the protocol or the docstrings, so nothing went
+    red. (This paragraph said six until round 10's 🟡 4; the constant's
+    comment above said eight, fifty lines away.)
+
+    Each carrier has to name `Needs a fix` and one spelling of the second
+    stop. Seen red against the three copies left behind, then green.
+
+    Round 9 found this pin live for the protocol alone and vacuous on an
+    empty tuple, so the tuple now holds the one carrier it can hold and the
+    guard below refuses an emptied one. What it pins is narrower than its
+    name says, and the name is kept so the record that commissioned it still
+    resolves.
+    """
+    assert COUNT_RULE_CARRIERS, (
+        "the carrier tuple is empty -- a loop over nothing asserts nothing, "
+        "which is the shape this case exists to refuse"
+    )
+    for parts in COUNT_RULE_CARRIERS:
+        text = flat(*parts)
+        # The rule's own sentence, not the file: `Needs a fix` occurs eleven
+        # times in the protocol, so a whole-file test for it could never fail
+        # -- round 9's 🔴 1 in the half of this case that narrowing did not
+        # reach (round 10's 🟡 3).
+        assert (
+            "counts later records only up to the first whose `Needs a fix`" in text
+        ), f"{'/'.join(parts)} no longer states the count rule at all"
+        assert any(spelling in text for spelling in SECOND_STOP), (
+            f"{'/'.join(parts)} states the count rule's first stop and not its "
+            "second -- a `fixed` verdict stops the count whatever `Needs a fix` "
+            "says, and a copy that omits it describes a tool that refuses the "
+            "run's own honest end"
         )
 
 
