@@ -290,6 +290,72 @@ def test_the_protocol_names_a_bar_per_segment_kind():
     )
 
 
+def bars_section(text):
+    """The body of `### After the run — the per-segment bars`, heading to the
+    next heading of any level.
+
+    Scoped rather than whole-file, for the reason `pointer_section` above is:
+    the document names `session_cost.py` two sections up, so a document-wide
+    search would stay green with this section saying nothing about the
+    run-level table -- which is the one edit this case exists to catch."""
+    match = re.search(
+        r"^### After the run — the per-segment bars$(.*?)(?=^#{2,3} )",
+        text,
+        re.M | re.S,
+    )
+    assert match, (
+        "the per-segment bars section is gone or renamed. It is where the "
+        "orchestrator meets the meter's numbers, and a rename has to bring "
+        "this case with it"
+    )
+    return " ".join(match.group(1).split())
+
+
+def test_the_bars_and_the_run_level_table_judge_different_things():
+    """Two instruments over the same run, and a reader who meets only the
+    bars has no way to know the second one exists.
+
+    A bar reads one transcript against its own kind. The run-level table
+    reads a whole run against the last run measured, which is a question no
+    bar asks -- rounds, wall clock, commits and tokens together. The section
+    that owns the bars is where that distinction has to be drawn, because it
+    is the section an orchestrator opens holding a segment's numbers.
+
+    The absence half is asserted as hard as the presence half. The table's
+    rows are defined in `skills/verify/SKILL.md`, and a copy of them here
+    would be a second thing to keep in step; and the table goes to the
+    rolling log the measurement section already names, so a sentence that
+    reads as a new home for a reading is the other way this paragraph can go
+    wrong."""
+    section = bars_section(read("docs", "review-handoff-protocol.md"))
+    assert (
+        "The bars judge a segment against its kind; the run-level table "
+        "judges a run against the last run measured." in section
+    ), (
+        "the section does not say which instrument judges what, so a reader "
+        "holding a segment's numbers meets one bar and no run"
+    )
+    assert "skills/verify/SKILL.md" in section, (
+        "the section names no owner for the table, so a reader arriving for "
+        "its rows leaves with neither them nor the path to them"
+    )
+    assert "Measure the segment, and feed the flow log" in section, (
+        "the pointer names the file and not the section, which is a whole "
+        "skill to search for one table"
+    )
+    assert "not a destination of its own" in section, (
+        "the sentence reads as a third place a reading can go. The table "
+        "joins the segment readings in the rolling log; naming it beside the "
+        "bars must not invent a home for it"
+    )
+    for row in ("Findings by severity", "Model turns", "Broad gate"):
+        assert row not in section, (
+            f"the section restates the table's rows ({row!r}). They are "
+            "defined in `skills/verify/SKILL.md`, and a second copy is a "
+            "second thing to keep in step"
+        )
+
+
 def test_the_title_and_the_status_section_agree_on_the_draft():
     """🔴 1 of the work item's round 1: the title moved to draft 0.8 while
     the Status section still opened with 0.7 — one document naming two
