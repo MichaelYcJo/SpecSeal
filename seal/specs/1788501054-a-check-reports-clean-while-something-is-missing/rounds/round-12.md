@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on opus |
 | PR | not yet opened — opened from this record's commit |
 | Broad gate | `e48d682`, against `origin/release/v0.8.0` — **2097 passed · 1 skipped · 0 failed**, `ruff check .` and `ruff format --check .` clean. Nothing after it changes code: this record and one reach-back cell |
-| Fixes checked by | nobody — 🔴 8 below was found by the windows CI leg at pull request #162 after this record was written, and fixed at `3026a33`; round 13 reads that fix and sets this cell |
+| Fixes checked by | round-13 |
 | Contract changes | none |
 | New units | `test_one_file_matched_under_two_spellings_is_read_once` (depth 1) → pytest only |
 | Needs a fix | no |
