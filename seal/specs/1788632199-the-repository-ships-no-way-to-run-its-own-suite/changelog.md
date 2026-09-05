@@ -14,13 +14,22 @@
   tree owes: no `uv` and no 3.12-or-newer interpreter names both and says which
   to install, a build step that exits non-zero names the directory to remove, a
   build that leaves no pytest behind stops instead of rebuilding forever, and a
-  copy of `bin/` with no runner beside it says so. The file has to parse and run
-  under Python 3.9 to print the first of those, so nothing in it is newer than
-  the floor it refuses. **The virtualenv hides itself from git whichever tool
-  built it**: `uv venv` writes `.venv/.gitignore` and `python -m venv` writes
-  none, so the runner writes it after either, inside the directory it ignores.
-  No `-n auto`, because `pytest-xdist` is CI's install and a freshly built
-  environment has pytest and nothing else. (#156)
+  copy of `bin/` with no runner beside it says so — on both platforms, in the
+  same words. The file has to parse and run under Python 3.9 to print the first
+  of those, so nothing in it is newer than the floor it refuses. **The
+  virtualenv is invisible to git on every path that can produce one**, which is
+  three rather than one: `uv venv` writes `.venv/.gitignore` and `python -m
+  venv` writes none, so the runner writes it after a build that succeeded,
+  after one that failed partway — `uv venv` has made the directory by the time
+  the install step finds no network — and over a `.venv` it merely adopts,
+  which is the one somebody else made and the one call in its life that could
+  write an ignore at all. **The floor is asked of an adopted environment too**:
+  the version both builders record in `pyvenv.cfg` is read rather than run, and
+  a `.venv` below the floor is refused with a sentence naming what to remove. A
+  directory that says nothing about its version is kept — refusing on silence
+  turns one unknown into a suite nobody can run. No `-n auto`, because
+  `pytest-xdist` is CI's install and a freshly built environment has pytest and
+  nothing else. (#156)
 - **A session finds the runner instead of being handed it, or guessing.**
   `CONTRIBUTING.md` §*Running the checks* names `bin/test` first and shows the
   narrow `bin/test tests/<file> -q` a segment types, with the sentence saying
