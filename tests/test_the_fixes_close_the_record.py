@@ -341,6 +341,64 @@ def test_a_table_of_only_deferrals_ticks_pass(repo):
     assert all(chain.verdict_of(c, 3) == chain.DEFERRED for c in (one, two, three))
 
 
+def test_a_capped_runs_last_record_reads_no_fixes_to_check_and_the_check_exits_zero(
+    repo,
+):
+    """`questions.md` A6 of #161. A table of only `deferred <home>` rows closes
+    nothing on a fix word, so nobody will ever open fixes this record
+    commissioned and no next round exists to set the cell -- `nobody -- the
+    fixes are not yet written` is false the moment it is written, and the
+    check refuses `Pass` beside it on the last record (phase 3 measured exit 1
+    here). `close` derives `no fixes to check` the way `new` derives it for a
+    report whose every verdict closed without a fix word, and the run has the
+    legal end the spec gives a capped run."""
+    a = round_one(repo)
+    write(repo, "README.md", "# a fixture, untouched by any fix\n")
+    b = commit(repo, "nothing that answers a finding")
+    code, out, record = close(
+        repo,
+        1,
+        fix_table(
+            "| 1 | deferred #170 | #170 |\n",
+            "| 2 | deferred #171 | #171 |\n",
+            "| 3 | deferred seal/follow-up.md | seal/follow-up.md |\n",
+        ),
+        f"{a}..{b}",
+    )
+    cells = fields(record)
+    chain = check_module()
+    assert cells["Fixes checked by"] == chain.NO_FIXES, (cells, out)
+    assert cells["Contract changes"] == chain.NONE_WORD, cells
+    assert cells["New units"] == chain.NONE_WORD, cells
+    assert "- [x] Pass" in record, out
+    assert "`Pass` is checked beside" not in out, out
+    assert code == 0, out
+    assert chain.NO_FIXES in out, out
+
+
+def test_a_table_with_a_fix_leaves_the_checker_cell_for_the_next_round(repo):
+    """The other side of the derivation: one `fixed` row among deferrals means
+    fixes exist that a later round owes a reading, so the cell stays at the
+    landing value and `new` for round N+1 is what sets it."""
+    a = round_one(repo)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    _, out, record = close(
+        repo,
+        1,
+        fix_table(
+            f"| 1 | fixed | {b[:7]} |\n",
+            "| 2 | deferred #171 | #171 |\n",
+            "| 3 | deferred seal/follow-up.md | seal/follow-up.md |\n",
+        ),
+        f"{a}..{b}",
+    )
+    cells = fields(record)
+    chain = check_module()
+    assert cells["Fixes checked by"].startswith(chain.NOBODY), (cells, out)
+    assert "- [x] Pass" in record, out
+
+
 def test_a_finding_the_report_already_closed_needs_no_row(repo):
     """The reviewer may close a finding in the report (`withdrawn`, `not a
     defect`); the fix table owes a row for every OPEN finding and no other."""
@@ -537,6 +595,25 @@ def test_the_smith_hands_over_the_fix_table_and_writes_no_phase_record():
     assert "depth is measured rather than declared" in smith, (
         "agents/smith.md still has the smith declare the depth in the hand-back"
     )
+
+
+def test_the_review_skill_says_close_writes_the_capped_ends_checker_cell():
+    """§14: the cell `close` now writes is a value a person reads, so the
+    skill's `Fixes checked by` section says which subcommand writes it and
+    when, beside the sentence that gives `new` the reach-back."""
+    chain = check_module()
+    skill = read("skills", "code-review", "SKILL.md")
+    section = skill[
+        skill.index("### Then say who checked them") : skill.index(
+            "### And name the fix surface"
+        )
+    ]
+    flat = " ".join(section.split())
+    assert f"`round_record.py close` writes `{chain.NO_FIXES}`" in flat, (
+        "skills/code-review/SKILL.md does not say `close` writes the capped "
+        "end's checker cell"
+    )
+    assert "has no next round to set the cell" in flat
 
 
 def test_the_implement_skill_says_the_same_in_section_five():

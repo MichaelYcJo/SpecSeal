@@ -62,14 +62,19 @@ verdict `fixed` with the commit, `answered` with the grounds, or `deferred
                        `function`, `fn`, `func`, and a comment after the table
                        says which files were read that way
   Pass                 ticked when no verdict is open once the table applies
+  Fixes checked by     `no fixes to check` when no verdict closed on a fix
+                       word once the table applies — every row `deferred
+                       <home>` or `answered`, the capped run's last record,
+                       which has no next round to set it; otherwise left as
+                       it stands for `new` of the next round to set. The
+                       derivation is `new`'s, in one spelling
   Broad gate           `--broad-gate`, when given
 
 A unit at depth 2 is refused before any of that is written: a `fixed`
 finding whose `Location` sits inside a unit an earlier record's `New units`
 names, in a file the range adds a unit to. The refusal names the unit, the
-finding, the record, and the exit the rule gives. `Fixes checked by` is left
-as it stands — `new` for the next round sets it — and the check runs the way
-it runs for `new`.
+finding, the record, and the exit the rule gives. The check runs the way it
+runs for `new`.
 
 **Every cell writer takes a structured value and refuses one it cannot
 write.** A `|` or a newline in any cell, or a comma in `New units` or
@@ -391,6 +396,32 @@ def verdict_words(reader, rows):
     return words
 
 
+def landing_values(words):
+    """(`Fixes checked by`, surface) a record lands on, from its verdict words.
+
+    A verdict still open, or closed on a fix word, means fixes exist or will,
+    and nobody has opened them yet: `nobody — the fixes are not yet written`
+    and the pending surface. Every verdict closed without one means nothing
+    here commissioned a fix, so *not yet written* would be false the moment
+    it is written: `no fixes to check` and a bare `none`. The two are the
+    landing states `templates/sdd-round.md` and `chain_check.fix_surface`
+    describe.
+
+    `new` derives both cells from the report's verdicts. `close` re-derives
+    the first after the fix table applies, for the record whose every verdict
+    closed on `deferred <home>` or `answered` — a capped run's last record has
+    no next round to set the cell, and the check refuses `Pass` beside
+    `nobody` there (`questions.md` A6 of the work item that added this). One
+    spelling, called from both, so the two subcommands cannot disagree about
+    which words commission a fix.
+    """
+    open_rows = [w for w in words if w not in chain.CLOSED_WORDS]
+    fixed_rows = [w for w in words if w in chain.FIX_WORDS]
+    if open_rows or fixed_rows:
+        return PENDING_CHECKER, PENDING_SURFACE
+    return chain.NO_FIXES, chain.NONE_WORD
+
+
 def earlier_records(routing, rounds, n):
     """[(K, path)] for every `round-K.md` on disk with K < n, lowest first."""
     try:
@@ -516,11 +547,7 @@ def build(reader, routing, args, root, item, rounds):
 
     words = verdict_words(reader, verdicts)
     open_rows = [w for w in words if w not in chain.CLOSED_WORDS]
-    fixed_rows = [w for w in words if w in chain.FIX_WORDS]
-    if open_rows or fixed_rows:
-        checker, surface = PENDING_CHECKER, PENDING_SURFACE
-    else:
-        checker, surface = chain.NO_FIXES, chain.NONE_WORD
+    checker, surface = landing_values(words)
 
     earlier = earlier_records(routing, rounds, args.round)
     if args.round > 1 and not any(k == args.round - 1 for k, _ in earlier):
@@ -1211,10 +1238,20 @@ def close(args):
         for i, _ in rows.values()
     ]
     still_open = [w for w in words if w not in chain.CLOSED_WORDS]
+    # The same derivation `new` makes from the report's verdicts, over the
+    # verdicts as the table left them. `no fixes to check` is written only
+    # when it is the answer; otherwise the cell stays at the landing value
+    # for `new` of the next round to set, because a fix was written and a
+    # later round owes it a reading.
+    checker, _surface = landing_values(words)
     boxes = [i for i, ln in enumerate(lines) if chain.PASS_RE.match(ln)]
     if len(boxes) != 1:
         raise Refused(f"the record has {len(boxes)} `Pass` boxes and needs one")
     raw[boxes[0]] = f"- [{' ' if still_open else 'x'}] Pass"
+    if checker == chain.NO_FIXES:
+        raw[field_index(reader, lines, chain.CHECKED_BY)] = cell(
+            chain.CHECKED_BY, checker
+        )
     raw[field_index(reader, lines, chain.CONTRACT)] = contract
     last = field_index(reader, lines, chain.NEW_UNITS)
     raw[last] = units
@@ -1239,6 +1276,7 @@ def close(args):
         f"round-record: closed {os.path.relpath(target, root)} {DASH} "
         + ", ".join(f"{n} {w}" for w, n in counts.items())
         + f"; {contract.strip('| ')}; {units.strip('| ')}"
+        + (f"; {chain.CHECKED_BY} | {checker}" if checker == chain.NO_FIXES else "")
     )
     return run_check(root, args.baseline or default_baseline(root))
 

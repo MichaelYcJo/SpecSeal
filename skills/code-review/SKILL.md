@@ -429,7 +429,10 @@ open. This says who opened the work that closed them. Three values, and
 N's record it sets round N-1's cell to `round-N`, touches nothing else, and
 commits nothing — the commit is yours, made from a record you have read. That
 used to be the last act of a round, done by hand, and it was forgotten five
-times on the last branch. Every record carries the row, not only the newest —
+times on the last branch. `round_record.py close` writes `no fixes to check`
+into a record whose fix table closed nothing on a fix — a capped run's last
+record, whose every verdict reads `deferred <home>` and which has no next
+round to set the cell. Every record carries the row, not only the newest —
 `Pass` is a verdict on the whole review and the last round's speaks for it,
 while this is a fact about one round's own fixes. `docs/review-chain-spec.md`
 holds the rule and what each refusal costs.
