@@ -3,7 +3,7 @@
 📋 implement applied
 · spec:     CLAUDE.md §The goal a design is chosen against; docs/review-chain-spec.md §The review run has a bound … §The last round verifies; docs/review-handoff-protocol.md §round-N.md; templates/sdd-round.md; skills/code-review/SKILL.md §Orchestrator sections and §Findings format; agents/warden.md §Role, §Report; agents/smith.md :100-200; skills/implement/SKILL.md §2, §5; issue #161 body and three comments; the last item's rounds/round-4.md and round-12.md
 · evidence: none yet — rows land at phase 5 in seal/ledger/1788597030-….md
-· verified: executed — the inter-commit measurement over 3ef565d^..pull/162/head (70 commits, 12.8 h before docs commits, 3.6 h before fix commits, gaps capped at 2 h); phase 2's 20 cases and the 801 across every module reading the generator or the two agent files; 48 mutations over `close`'s units (phases/phase-2.md); phase 3's 37 cases and the 387 across every module reading the checker, the generator or the spec's review arm; 9 mutations over the walk and the vocabulary, 9 killed (phases/phase-3.md); read — everything above
+· verified: executed — the inter-commit measurement over 3ef565d^..pull/162/head (70 commits, 12.8 h before docs commits, 3.6 h before fix commits, gaps capped at 2 h); phase 2's 20 cases and the 801 across every module reading the generator or the two agent files; 48 mutations over `close`'s units (phases/phase-2.md); phase 3's 37 cases and the 387 across every module reading the checker, the generator or the spec's review arm; 9 mutations over the walk and the vocabulary, 9 killed (phases/phase-3.md); phase 4a's 40 sentence mutations over the three owner files, 0 alive, and the 957 across the 24 modules reading those files (phases/phase-4a.md); read — everything above
 
 ## Why this work exists
 
@@ -23,7 +23,8 @@ The last branch spent 12.8 of its 18.8 active hours in front of record commits a
 |---|---|
 | `gh pr view` answering for a real pull request — the `#N — url` cell and the draft/ready read. Pinned by injection only; a scratch repository has no remote | the orchestrator, at this branch's round 1, which is the generator's first real run |
 | `worktree_files` and `read_record --worktree` on the Windows leg: the path is rebuilt from `/`-split parts with `os.path.join`, which is what the rest of the checker does, and no case ran there | the windows CI leg at the pull request |
-| The full suite, the repository-wide lint and the typecheck after phases 1, 2 and 3 (§2) | the orchestrator, at the broad gate |
+| The full suite, the repository-wide lint and the typecheck after phases 1, 2, 3 and 4a (§2) | the orchestrator, at the broad gate |
+| The count-rule ceilings phase 4a's walk asserts (4 and 0) after phase 4b's sweep of the five linking carriers, and rule 5's owner phrase in `agents/smith.md` under 4b's edit | the orchestrator, at phase 4b's hand-back |
 | The reopening walk on a real capped run — the first is whichever 0.8.x chain caps first; every fixture here is built, and this repository's own records reopen at most once | the orchestrator, at the first `chain: capped` |
 | `close` on the Windows leg: `git grep` output is split on `:` and paths in git's output are `/`-separated, which is what `call_sites` and `under_tests` assume; no case ran there | the windows CI leg at the pull request |
 | `close` on a real fix pass of this branch — the first is this branch's own round 1 | the orchestrator, at this branch's round 1 |
