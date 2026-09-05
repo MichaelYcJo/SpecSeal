@@ -527,6 +527,31 @@ def test_a_round_that_fixed_over_a_no_is_where_the_count_stops(repo):
     assert code == 0, out
 
 
+def test_the_floors_refusal_names_both_stops_and_refuses_the_false_way_out(repo):
+    """Round 9's 🔴 2 of work item 1788501054. The walk has two stops; the
+    message a person reads at the moment of failure named one, and the one
+    way out it offered was to make a record's `Needs a fix` say `yes` — which,
+    for a run whose fixes were written over a `no`, is a false record. The
+    eighth copy of the count rule, and the only one nobody opens until it
+    fires. Seen red against the old message, then green."""
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, floor="no", needs="no"),
+        lambda sha: record(sha, floor="no", needs="no"),
+        lambda sha: record(sha, floor="no", needs="no"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "none closing on a fix" in out, (
+        "the refusal states the first stop and not the second, so a reader "
+        "whose fixes were written over a `no` is told the rule refuses them"
+    )
+    assert "do not rewrite the row" in out, (
+        "the refusal names a false `Needs a fix: yes` as the way out"
+    )
+
+
 def test_wrote_fixes_reads_the_verdicts_and_not_the_needs_a_fix_row():
     """The predicate the walk's second stop rests on, pinned directly: a
     table of `answered` is not a fix, a table with one `fixed` is, and the

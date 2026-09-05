@@ -740,7 +740,7 @@ fact about the round that met the floor rather than about the last one.
 | `no`, or `yes — <what>` | passes |
 | an empty cell, or a word that is neither | **fails** on any record — a word the check cannot read is never the reassuring reading, and `nothing anybody can see` is a sentence rather than an answer |
 | `yes` with nothing after it | **fails** on any record — the cell then records that something was found and not what |
-| `no`, with two or more later round records and none of them saying the run reopened | **fails**, naming the exit. One later record is the verifying round; a second is the run carrying on past its own stopping rule |
+| `no`, with two or more later round records, none of them saying the run reopened and none whose verdicts closed on a fix | **fails**, naming the exit. One later record is the verifying round; a second is the run carrying on past its own stopping rule. A record whose own verdicts say `fixed` stops the count exactly as a reopening does |
 | the ABSENT row, or the run that went past it, work item with no timestamp prefix | prints — `item_began` has no second to compare, so the cutoff is below it and those two are excused permanently. **The three malformed states above are not**: `stopping_floor` appends their errors without consulting the work item's age at all |
 
 Only the ABSENT row and the run that went past it are grandfathered, and they

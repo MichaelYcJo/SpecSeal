@@ -49,21 +49,22 @@ TEMPLATE = ("templates", "sdd-round.md")
 STATES_THE_RULE = (SPEC, SKILL)
 
 PROTOCOL = ("docs", "review-handoff-protocol.md")
-CHAIN_CHECK = ("skills", "code-review", "scripts", "chain_check.py")
 
-# Every carrier of the floor's COUNT rule -- where the count of records after
-# the floor stops. The commit that wrote the rule wrote it in six places, and
-# round 7 of work item 1788501054 changed it in three; round 8 found the other
-# three still stating the old rule as the whole rule, one of them the protocol
-# that says what a conforming tool does. `chain_check.py` is here because it
-# carries the sentence twice, in the module docstring and in
-# `stopping_floor`'s, and a docstring above a walk is a carrier a reader opens.
-COUNT_RULE_CARRIERS = (SPEC, TEMPLATE, SKILL, PROTOCOL, CHAIN_CHECK)
+# The one carrier of the floor's COUNT rule this case can hold. The commit
+# that wrote the rule wrote it in EIGHT places; rounds 7, 8 and 9 of work item
+# 1788501054 corrected them three at a time. Round 8's fix pinned five with a
+# whole-file substring search, and round 9 found that live for the protocol
+# alone: the spec, the template, the skill and `chain_check.py` all say
+# "`fixed` verdict" or "closed on a fix" elsewhere for other reasons, so the
+# case stayed green with the rule itself reverted in four of five. The
+# repository owner chose to narrow the pin to where it works rather than build
+# an anchored window search -- one more mechanism from a fix pass, which is
+# what issue #161 is about. The other four keep their corrected sentences and
+# no pin, and `phases/phase-12.md` says so.
+COUNT_RULE_CARRIERS = (PROTOCOL,)
 
-# The second stop, in the spellings the five carriers use. An enumeration,
-# and a bounded one: these are this repository's own sentences, pinned here so
-# the next correction that reaches some copies and not the rest goes red.
-SECOND_STOP = ("closed on a fix", "verdicts say `fixed`", "`fixed` verdict")
+# The second stop, in the spelling the protocol uses.
+SECOND_STOP = ("closed on a fix",)
 
 FLOOR = "Stop when a round finds nothing that leaves the root and nothing that crashes."
 EXIT = "deferred with a named answerer, or becomes an issue"
@@ -117,7 +118,17 @@ def test_every_carrier_of_the_count_rule_states_both_stops():
 
     Each carrier has to name `Needs a fix` and one spelling of the second
     stop. Seen red against the three copies left behind, then green.
+
+    Round 9 found this pin live for the protocol alone and vacuous on an
+    empty tuple, so the tuple now holds the one carrier it can hold and the
+    guard below refuses an emptied one. What it pins is narrower than its
+    name says, and the name is kept so the record that commissioned it still
+    resolves.
     """
+    assert COUNT_RULE_CARRIERS, (
+        "the carrier tuple is empty -- a loop over nothing asserts nothing, "
+        "which is the shape this case exists to refuse"
+    )
     for parts in COUNT_RULE_CARRIERS:
         text = flat(*parts)
         assert "Needs a fix" in text, (

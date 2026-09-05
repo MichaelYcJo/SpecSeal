@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on opus |
 | PR | not yet opened |
 | Broad gate | `293a761`, against `origin/release/v0.8.0` — **2090 passed · 4 failed · 1 skipped**, `ruff check .` and `ruff format --check .` both clean; the four are issue #160's macOS-only export cases, failing identically on `origin/main` where CI is green. Spent by 🔴 1's fix and re-taken after it |
-| Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
+| Fixes checked by | round-9 |
 | Contract changes | none |
 | New units | `PROTOCOL` (depth 1) → pytest only; `CHAIN_CHECK` (depth 1) → pytest only; `COUNT_RULE_CARRIERS` (depth 1) → pytest only; `SECOND_STOP` (depth 1) → pytest only; `test_every_carrier_of_the_count_rule_states_both_stops` (depth 1) → pytest only |
 | Needs a fix | yes — 🔴 1, three copies of the floor's count rule still state the old rule as the whole rule, two of them in the file this diff changed and one in the normative protocol, so a tool built to the protocol refuses the sequence this branch exists to make writable; 🟡 2, `round-7.md`'s `Contract changes` names `check_round` where `main` is the only caller; 🟡 3, `round-7.md`'s `Fixes checked by` reason is false at HEAD |
@@ -117,7 +117,7 @@ The fifth found 🔴 1. The seventh passed.
 | Finding | Where it went | Who answers it |
 |---|---|---|
 | **The run is past its bound and this round opened a 🔴.** The prompt said a finding here goes to the repository owner. The owner's standing instruction for this run is that the orchestrator writes the fixes; all three are prose and cells, adding no unit, and the reader they owe is one verifying round at a prose diff | this row, `overview.md` §Not done | the repository owner, who has answered the first half; round 9 reads the diff |
-| A pin for every carrier of the count rule — `STATES_THE_RULE` extended to the protocol, so the existing case catches the next copy left behind | the fix this record commissions, as a tuple extension and not a new unit | the orchestrator |
+| A pin for the count rule's carriers. The fix wrote one over five carriers as a whole-file substring search; round 9 found it live for the protocol alone and vacuous on an empty tuple, and the repository owner narrowed it to the protocol rather than rebuild it. What this row claimed — *catches the next copy left behind* — is true of one carrier of eight | `tests/test_the_run_stops_at_the_last_finding.py`, narrowed at round 9's fix; `phases/phase-12.md` | the orchestrator, and the design of a pin that works for the other seven is nobody's yet — #161 |
 | ❓ from round 6 — a ledger coordinate with no `@hash` is counted in no bucket | `rounds/round-6.md` Deferred | the repository owner |
 | Whether `st_ino == 0` arrives on `windows-latest`, and the `normcase` pairing | `overview.md` §Not verified | the windows CI leg at this pull request |
 | `questions.md` Q2, Q3, Q4 | `questions.md` | the repository owner |

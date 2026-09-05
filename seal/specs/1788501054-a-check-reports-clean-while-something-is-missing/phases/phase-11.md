@@ -45,16 +45,25 @@ docstring above a walk is what a reader of the walk opens.
 
 **Seen red on the protocol first, and the loop stops there.** The case
 iterates the carriers in order and the protocol is fourth, so the first red
-names it; the two docstrings would have been named in turn. All three were
-corrected in one commit and the case is green.
+names it. All three copies were corrected in one commit and the case is
+green. *This paragraph used to say the two docstrings would have been named
+in turn.* They would not: round 9 reverted each and the case stayed green,
+because `chain_check.py` says *closed on a fix* in four other places. The pin
+was live for the protocol alone — `phases/phase-12.md` — and this sentence is
+corrected rather than removed, because the record of the belief is what
+explains the next phase.
 
 **The second stop has three spellings, and pinning them is an enumeration.**
 `SECOND_STOP` holds *closed on a fix*, *verdicts say `fixed`* and *`fixed`
 verdict* — the spec's, the template's and the skill's own words. `docs/review-chain-spec.md`
 declines an enumeration over an unbounded domain twice; this one is over this
-repository's own five sentences, bounded and named in the constant's comment,
-and a sixth copy written in a fourth spelling would go red for the right
-reason — it would fail the `Needs a fix` half or be added to the tuple.
+repository's own five sentences, bounded and named in the constant's comment.
+*This paragraph used to claim a sixth copy in a fourth spelling would go red
+for the right reason.* It would not have: a whole-file substring search is
+blind to spelling wherever the spelling already occurs for another reason,
+and blind entirely to a file outside the tuple — round 9's 🔴 1, and the
+reason phase 12 narrowed the tuple to the one carrier where the search was
+live. The count was also wrong here: the rule has **eight** copies, not six.
 
 **The reach was misread, and the cell says so.** `grep` found the one call to
 `stopping_floor` at line 2860 and the orchestrator read it as inside

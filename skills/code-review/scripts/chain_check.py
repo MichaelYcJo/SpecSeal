@@ -2520,13 +2520,17 @@ def stopping_floor(reader, root, rel, later):
         if counted > 1:
             message = (
                 f"`{FLOOR}` is `{FLOOR_NO}` and {counted} round records "
-                "follow this one with none of them saying the run reopened. "
+                "follow this one, none of them saying the run reopened and "
+                "none closing on a fix. "
                 "A record that met the floor is followed by at most one "
                 "more — the verifying round, at the diff of the fixes that "
                 "closed it. A second is the run carrying on past its own "
                 "stopping rule, which is the hour #81 spent on the flat "
                 f"part of the curve. A verifying round that opens something "
                 f"says so in its own `{NEEDS}`, and the count stops there. "
+                "So does a record whose own verdicts closed on a fix, "
+                "whatever its row says — fixes written over a `no` owe a "
+                "reader too, so do not rewrite the row to make this pass. "
                 "What a stopped round found that still needs doing is "
                 "deferred with a named answerer, or becomes an issue"
             )

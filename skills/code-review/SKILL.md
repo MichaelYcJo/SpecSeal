@@ -332,8 +332,9 @@ is the run carrying on past its own stopping rule.
 **Unless the verifying round reopens the run.** One that opens something is a
 finding round by the rule above, so its own fixes need a reader, and that
 reader is a third record. `chain_check.py` counts later records only up to the
-first whose `Needs a fix` says `yes`, that record included — which is why that
-row is now read rather than only written.
+first whose `Needs a fix` says `yes` — or whose verdicts say `fixed`, whatever
+the row says — that record included, which is why that row is now read rather
+than only written.
 
 ### A fix pass adds the unit that pins it, and that unit ships unreviewed
 
