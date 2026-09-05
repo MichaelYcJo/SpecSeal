@@ -345,6 +345,50 @@ def test_an_adopted_environment_is_hidden_too(tmp_path):
     )
 
 
+def test_a_refused_environment_is_hidden_too(tmp_path):
+    """The floor refusal returned one line ABOVE the ignore the fix for the
+    case above had just added, so the one adopted `.venv` the runner refuses
+    was the one it left in `git status` -- and it is the directory least
+    likely to carry an ignore of its own, because every version that refusal
+    rejects is older than the 3.13 where `python -m venv` began writing one.
+    The reader is told to remove the directory; until they do, it is dirt in
+    every `git status` they run."""
+    REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
+    venv = fake_venv(tmp_path)
+    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n")
+    assert rt.ensure(venv) is None, "a below-floor environment is still refused"
+    assert (venv / ".gitignore").read_text().strip() == "*"
+    status = git_status(tmp_path)
+    assert ".venv" not in status, (
+        f"the refused virtualenv is visible to git: {status!r}"
+    )
+
+
+def test_a_directory_no_builder_can_finish_is_hidden_too(tmp_path, monkeypatch):
+    """`build` returns its no-tool sentence from the branch ABOVE its own
+    `try`, so `build`'s `finally` never runs and a directory that was already
+    there is never reached. Held by `ensure`'s `finally` instead, which is
+    why the guarantee is stated over exits rather than over a list of paths:
+    this one is not a path anybody would have thought to add.
+
+    Reachable, and on the machines least able to notice: a half-built `.venv`
+    from an earlier run, then `uv` gone from PATH and macOS's 3.9 answering
+    to `python3`."""
+    REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
+    venv = tmp_path / ".venv"
+    venv.mkdir()
+    (venv / "pyvenv.cfg").write_text("home = /usr/bin\n")
+    monkeypatch.setattr(rt.shutil, "which", lambda _: None)
+    monkeypatch.setattr(rt, "sys", FakeSys())
+    assert rt.ensure(venv) is None, "a machine with neither tool still refuses"
+    monkeypatch.undo()
+    assert (venv / ".gitignore").read_text().strip() == "*"
+    status = git_status(tmp_path)
+    assert ".venv" not in status, (
+        f"the unfinishable virtualenv is visible to git: {status!r}"
+    )
+
+
 # --- a sentence, not a traceback -------------------------------------------
 
 

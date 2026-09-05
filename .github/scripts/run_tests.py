@@ -116,13 +116,23 @@ def hide_from_git(venv):
     the thing being ignored carries its own ignore, so removing the
     virtualenv removes the rule with it.
 
-    Called on three paths, because a virtualenv with no ignore is reachable
-    on all three: after a build that succeeded, after one that FAILED partway
-    -- `uv venv` makes the directory and the install step is what has no
-    network -- and on the warm path, where the runner adopts a directory
-    somebody else made and this is the only call in its life that could have
-    written one. Doing nothing when the directory is absent is what makes the
-    failed-build call safe.
+    Called from `ensure`'s `finally`, and from `build`'s so that `build`
+    keeps its own house in order for the directory it makes.
+
+    NAMING the paths is what this used to do, and the enumeration came up
+    short twice. Review round 1 added a build that failed partway and a
+    `.venv` the runner merely adopts; round 2 found a third the list had
+    missed -- the one adopted `.venv` the FLOOR refuses, which is also the
+    one least likely to carry an ignore of its own, since every version that
+    refusal rejects is older than the 3.13 where `python -m venv` began
+    writing one -- and a probe for that one found a fourth beside it, a
+    directory an earlier run left on a machine where neither builder can now
+    finish. A list of paths goes short again the next time one is added.
+
+    A guarantee stated over EXITS cannot, because `main` reaches a virtualenv
+    through `ensure` and through nothing else: nothing returns from `ensure`
+    leaving a `.venv` git can see. Doing nothing when the directory is absent
+    is what makes that safe on the exits that never made one.
     """
     if not venv.is_dir():
         return
@@ -195,32 +205,43 @@ def ensure(venv):
     below it -- and neither runs on the warm path, so a `.venv` left by an
     older interpreter ran the suite on a version nothing here supports and
     said nothing about it.
+
+    The `finally` is where the ignore is written, and it is the whole of the
+    guarantee: this function is the only way `main` reaches a virtualenv, so
+    every path that can leave one behind is an exit of this function. It
+    covers the directory this call built and the one it merely found, on the
+    exit that succeeds and on every exit that refuses -- including the refusal
+    directly below, which returned one line above the ignore it owed. No
+    count, deliberately: a number here is a list again, and the next `return`
+    falsifies it. `hide_from_git` does nothing when there is no directory.
     """
-    if has_pytest(venv):
-        found = venv_version(venv)
-        if found is not None and found[:2] < FLOOR:
+    try:
+        if has_pytest(venv):
+            found = venv_version(venv)
+            if found is not None and found[:2] < FLOOR:
+                print(
+                    f"bin/test: the virtualenv at {venv} was built with Python "
+                    f"{'.'.join(str(part) for part in found)}, below the "
+                    f"{FLOOR_TEXT} floor this repository supports. Remove that "
+                    "directory and run bin/test again to build it afresh.",
+                    file=sys.stderr,
+                )
+                return None
+            return venv_python(venv)
+        problem = build(venv)
+        if problem:
+            print(problem, file=sys.stderr)
+            return None
+        if not has_pytest(venv):
             print(
-                f"bin/test: the virtualenv at {venv} was built with Python "
-                f"{'.'.join(str(part) for part in found)}, below the "
-                f"{FLOOR_TEXT} floor this repository supports. Remove that "
-                "directory and run bin/test again to build it afresh.",
+                f"bin/test: built {venv} and pytest is still not in it. "
+                "Remove that directory and run bin/test again.",
                 file=sys.stderr,
             )
             return None
-        hide_from_git(venv)
         return venv_python(venv)
-    problem = build(venv)
-    if problem:
-        print(problem, file=sys.stderr)
-        return None
-    if not has_pytest(venv):
-        print(
-            f"bin/test: built {venv} and pytest is still not in it. "
-            "Remove that directory and run bin/test again.",
-            file=sys.stderr,
-        )
-        return None
-    return venv_python(venv)
+    finally:
+        hide_from_git(venv)
 
 
 def main(argv=None):
