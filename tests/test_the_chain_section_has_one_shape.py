@@ -37,7 +37,7 @@ SKILL = ("skills", "commit-pr-convention", "SKILL.md")
 ROWS = [
     "Findings by severity",
     "Records' share of the diff",
-    "Broad gate: how many times",
+    "Broad gate: whether it has run",
 ]
 
 

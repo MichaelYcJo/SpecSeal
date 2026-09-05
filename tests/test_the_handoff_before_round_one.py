@@ -348,11 +348,48 @@ def test_the_bars_and_the_run_level_table_judge_different_things():
         "joins the segment readings in the rolling log; naming it beside the "
         "bars must not invent a home for it"
     )
-    for row in ("Findings by severity", "Model turns", "Broad gate"):
+    assert "what the whole run cost" in section, (
+        "the paragraph says the table asks another question and never says "
+        "what it is, so a reader has the distinction and not the point of it"
+    )
+    for row in TABLE_ROWS:
         assert row not in section, (
             f"the section restates the table's rows ({row!r}). They are "
             "defined in `skills/verify/SKILL.md`, and a second copy is a "
             "second thing to keep in step"
+        )
+
+
+# One fragment per row of the table in `skills/verify/SKILL.md` §*Measure the
+# segment, and feed the flow log*, taken verbatim. Refused in the bars section
+# above and held to the owner below.
+TABLE_ROWS = (
+    "Rounds — finding and verifying",
+    "Wall clock, routing commit to last record",
+    "Commits, by kind",
+    "Findings by severity",
+    "Findings by `Location`",
+    "Records' share of the diff",
+    "Model turns",
+    "Segments: count, minutes and tokens per kind",
+    "Broad gate",
+)
+
+
+def test_the_refused_rows_are_the_owners_own():
+    """Round 1's finding 8. The refusal above covered three of the nine rows,
+    and the paragraph it guards restated five of them in lowercase prose --
+    which no case saw. Widening the list is only worth having while the
+    strings it refuses are the owner's, so this is the same coupling
+    `tests/test_the_chain_section_has_one_shape.py` keeps over its own list:
+    a row reworded in `skills/verify/SKILL.md` and not here leaves the
+    refusal guarding a string nobody would paste."""
+    owner = read("skills", "verify", "SKILL.md")
+    for row in TABLE_ROWS:
+        assert row in owner, (
+            f"{row!r} is no longer a row of the table in "
+            "`skills/verify/SKILL.md`, so the refusal above guards a string "
+            "nobody would paste. Re-take these from the owner's table"
         )
 
 

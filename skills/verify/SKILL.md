@@ -435,11 +435,11 @@ gathers up.
 | Wall clock, routing commit to last record, build and chain apart | `git log` of the branch |
 | Commits, by kind | `git log --format=%s` |
 | Findings by severity | the records' verdict tables |
-| Findings by `Location`: record · code or tests · docs · ledger | the records' `Location` column |
-| Records' share of the diff | `git diff --numstat` against the base, `seal/specs/**` counted apart |
+| Findings by `Location`: record · code or tests · docs | the records' `Location` column. A record is anything under `seal/` — the work item's own documents, the ledger and its fragments alike — because a finding in any of them is about the run's own paperwork rather than about the tool |
+| Records' share of the diff | `git diff --numstat` against the base, the record paths above counted apart |
 | Model turns · output tokens · cache write · cache read | `session_cost.py`'s token line over the run's main transcript |
 | Segments: count, minutes and tokens per kind | the agent completion notices, or the subagent transcripts |
-| Broad gate: how many times, at what SHA | the last round record's `Broad gate` cell |
+| Broad gate: whether it has run, and at what SHA | the last round record's `Broad gate` cell, which holds `not yet` or one SHA with the base it was compared against |
 
 **The tokens are counted, not estimated, and counted the same way every
 time.** `session_cost.py <the run's main transcript>` prints the token line,
@@ -449,6 +449,14 @@ every file under its `<session-id>/subagents/` directory. One command, so the
 row cannot be summed one way this run and another way the next. The line also
 says how many transcripts it covered, and that count is what a reader checks
 the number against.
+
+**The run's main transcript is the `*.jsonl` sitting directly under the
+project directory**, never one under a `<session-id>/subagents/`. `--latest`
+takes the newest file anywhere beneath the project directory, so on a run that
+spawned segments it usually lands on a segment rather than on the run — the
+path it prints as its first line is what says which, and a token line reading
+`1 transcript` for a run that spawned six is the same thing said twice. Give
+the main transcript by path when that happens.
 
 **A comparison against a run whose transcript covered only part of its branch
 says so beside the number**, in the prose under the table rather than as a

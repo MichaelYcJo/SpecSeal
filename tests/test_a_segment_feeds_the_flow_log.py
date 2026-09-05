@@ -412,3 +412,77 @@ def test_the_table_is_not_a_third_destination():
         "where it goes. It goes to the rolling log the section already "
         "names — a reader left to guess invents a third place"
     )
+
+
+def labelled(fragment):
+    """The one run-level row whose label carries `fragment`, as [label, source]."""
+    rows = [row for row in run_table_rows() if fragment in row[0]]
+    assert len(rows) == 1, (
+        f"expected exactly one run-level row labelled {fragment!r}, found "
+        f"{len(rows)}. A row renamed has to bring its case with it"
+    )
+    return rows[0]
+
+
+def test_the_location_buckets_are_the_repositorys_own_definition_of_a_record():
+    """Round 1's finding 3. The row split `ledger` from `record` and the share
+    row counted only `seal/specs/**`, where the review chain's own definition
+    puts a work item's documents, the ledger and its fragments in ONE bucket:
+    a finding in any of them is about the run's paperwork rather than about
+    the tool. Two definitions of one word made the same run's share row read
+    45 % as the row was written and 48 % under the policy — and a table exists
+    to be comparable, which two fillings of one row destroy.
+
+    A ticket is a request and a ratified document outranks it, so the buckets
+    follow the policy. `overview.md` §*Where spec and implementation diverged*
+    quotes both sides."""
+    label, source = labelled("Findings by `Location`")
+    assert "ledger" not in label, (
+        "the `Location` row still lists `ledger` as a bucket of its own. The "
+        "ledger and its fragments are records, so a finding in one lands in "
+        "two buckets and the column no longer adds up"
+    )
+    assert "`seal/`" in source, (
+        "the `Location` row names four buckets and nowhere says what a record "
+        "is, which is the whole of what the two fillings disagreed about"
+    )
+    share_source = labelled("Records' share")[1]
+    assert "seal/specs" not in share_source, (
+        "the share row counts `seal/specs/**` alone, so a branch that wrote "
+        "ledger rows reads as having written less paperwork than it did"
+    )
+
+
+def test_the_broad_gate_row_asks_for_what_the_cell_actually_carries():
+    """Round 1's finding 4. The row asked for `how many times, at what SHA`
+    from a cell that holds one entry — `round_record.py` replaces it rather
+    than appending — so a run that ran the gate twice had nowhere in the
+    record to say so and the row was filled from memory or left blank."""
+    label, source = labelled("Broad gate")
+    assert "how many times" not in label, (
+        "the `Broad gate` row asks for a count. The cell it names carries at "
+        "most one SHA, so the count comes from somewhere the next run cannot "
+        "check"
+    )
+    assert "not yet" in source, (
+        "the row names the cell without saying what it holds, which is the "
+        "reason the count went unnoticed in the first place"
+    )
+
+
+def test_the_section_says_which_transcript_is_the_runs_own():
+    """Round 1's finding 7. The token row is taken over *the run's main
+    transcript* and nothing said which file that is. `--latest` walks the
+    whole project directory and takes the newest file, which on a run that
+    spawned segments is a segment — measured, on this very work item: it
+    landed on a subagent transcript and the token line read `1 transcript`
+    for a run with several."""
+    body = section_body()
+    assert "sitting directly under the project directory" in body, (
+        "the section asks for the run's main transcript and never says where "
+        "one is, so the reader takes whatever `--latest` hands them"
+    )
+    assert "lands on a segment" in body, (
+        "the section never says `--latest` can land on a segment, which is "
+        "the ordinary case on a run that spawned any"
+    )

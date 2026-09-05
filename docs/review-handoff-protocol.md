@@ -499,8 +499,8 @@ The bars above are the orchestrator's, applied knowing the segment kind.
 run against the last run measured.** A bar reads one transcript — a review
 against reviews, an edit-test loop against edit-test loops — and says
 nothing about the run those segments belong to. The table asks the other
-question: rounds, wall clock, commits, findings and tokens, this run beside
-the last one, in the same rows every time.
+question — what the whole run cost — this run beside the last one, in the
+same rows in the same order every time.
 
 Its rows and where each one is taken from are `skills/verify/SKILL.md`
 §*Measure the segment, and feed the flow log*, which is also where it goes.
