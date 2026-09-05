@@ -5,10 +5,10 @@
 | Target SHA | 54819ca |
 | Ran by | specseal:warden on opus |
 | PR | #162, draft |
-| Broad gate | `37dcaea` locally — 2100 passed · 1 failed, the repository-records case on a record cell fixed at `54819ca`; on the pull request at `54819ca`, ubuntu, macOS, ledger, lint and hygiene green and **`pytest (windows-latest, 3.12)` red** on 🔴 1. Not clear at the reviewed head; re-taken after this round's fixes |
-| Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Broad gate | `37dcaea` locally — 2100 passed · 1 failed, the repository-records case on a record cell fixed at `54819ca`; on the pull request at `54819ca`, ubuntu, macOS, ledger, lint and hygiene green and **`pytest (windows-latest, 3.12)` red** on 🔴 1. Not clear at the reviewed head; at `35fbf67` not re-taken — spent by these fixes, re-taken once the chain ends |
+| Fixes checked by | nobody — written at `35fbf67`; the verifying round that opens them sets this cell |
+| Contract changes | none — `resolve_patterns` and `skipped_by_narrowing` are the two changed units by AST, each body replaced by a call to `file_identity` computing the value the inline lines did; signature, arity, return type and the set of returnable values unchanged for both |
+| New units | `file_identity` (depth 1) → `resolve_patterns`, `skipped_by_narrowing` |
 | Needs a fix | yes — 🔴 1, the Windows leg is red at the reviewed head on one of round 13's own three cases, which asserts the POSIX answer on both platforms where Win32 collapses `..` lexically before the filesystem is consulted; 🟡 2, the printed ledger name still collapses `lnk/..` through `os.path.relpath` in four sites, so a BROKEN row is reported under a different existing file; 🟡 3, round 12's Deferred row closes a Windows question its grounds do not reach; 🟡 4, the identity rule now has two verbatim spellings against the sentence `skipped_by_narrowing` closes with |
 | Loses a record or crashes | no |
 
@@ -32,7 +32,16 @@ One finding goes to the tracker rather than to a fix: 🟡 2 needs a new
 printing helper to close, the run's exit code and row are already right, and
 issue #161's first rule is that a fix pass does not add mechanism. Written
 and committed before the fixes it commissions, so both fix-surface rows
-start pending. -->
+start pending.
+
+THE FIX SURFACE ABOVE is the reach-back, filled at `35fbf67`. `Contract
+changes` is `none` by AST with docstrings stripped: `file_identity` is the
+one unit added, `resolve_patterns` and `skipped_by_narrowing` the two
+changed, and each changed body is a call computing what its inline lines
+did. `file_identity` is depth 1 — extracted from `resolve_patterns`, which
+predates the run, to answer a finding in it. 🟡 2 is `answered` rather
+than `fixed` because nothing in this tree closes it; #163 carries the class
+and the Deferred table names it. -->
 
 ## What this round was asked
 
@@ -54,10 +63,10 @@ leg had already run at the reviewed head.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | The Windows leg is red at the reviewed head on `test_the_path_returned_is_the_one_the_pattern_named`. Win32 collapses `..` lexically before the filesystem is consulted, so `x/lnk/../ledger.md` names `x/ledger.md` there — the clean ledger — and the case asserts the POSIX answer unconditionally | `tests/test_a_narrowed_ledger_read_says_what_it_skipped.py:523` | open | **Executed** — CI run 33942403876 at `54819ca`: `assert 0 == 2`, `1 failed · 2076 passed · 25 skipped`; the five other jobs green. **Orchestrator read the log**: the run printed `x\ledger.md · 1 ok` — the checker opened exactly the file Win32 says the pattern names. §13: the case rests on POSIX following the symlink before it meets the `..`, and no run on the machine that wrote it could remove that. The orchestrator's uncommitted repair derived the answer from `realpath`; declined — branch on the platform and state each answer |
-| 🟡 2 | The class round 13 named is closed for the file that is **opened** and open for the file that is **named**: `main` and three other sites print `os.path.relpath(ledger, root)`, and `relpath` normalises lexically as `normpath` does | `evidence_check.py:1645`, `:1043`, `:1301`, `:1426` | open | **Executed** on the fix's own fixture at HEAD: header `x/ledger.md` over rows read from `<root>/ledger.md`. Exit 2 and the row are right; the name a person reads is wrong. POSIX-only. Closing it needs a printing helper — a new unit from a fix pass — so it goes to the tracker, below |
-| 🟡 3 | Round 12's corrected Deferred row closes *whether `st_ino == 0` arrives on windows-latest* on grounds that do not reach it: cases that **build** a zero cannot show that one **arrives**. `overview.md:51` and the case's own docstring keep it open | `rounds/round-12.md:104` | open | **Read**, three carriers compared. Round 13's 🟡 5 asked for the closure to land, not whether it was true |
-| 🟡 4 | The identity rule has two verbatim spellings, nine lines each, thirty lines apart — against `skipped_by_narrowing`'s own closing sentence: *the identity rule has to have one spelling; two would be one rule today and two after the first edit to either* | `evidence_check.py:924-932`, `:1022-1030` | open | **Read**; the extraction **executed** by the round, 46 passed, ruff clean. Round 13's 🔴 1 was a fix composed where a copy existed; the repair copied the rule instead of extracting it |
+| 🔴 1 | The Windows leg is red at the reviewed head on `test_the_path_returned_is_the_one_the_pattern_named`. Win32 collapses `..` lexically before the filesystem is consulted, so `x/lnk/../ledger.md` names `x/ledger.md` there — the clean ledger — and the case asserts the POSIX answer unconditionally | `tests/test_a_narrowed_ledger_read_says_what_it_skipped.py:523` | **fixed** `35fbf67` | **Executed** — CI run 33942403876 at `54819ca`: `assert 0 == 2`, `1 failed · 2076 passed · 25 skipped`; the five other jobs green. **Orchestrator read the log**: the run printed `x\ledger.md · 1 ok` — the checker opened exactly the file Win32 says the pattern names. §13: the case rests on POSIX following the symlink before it meets the `..`, and no run on the machine that wrote it could remove that. The orchestrator's uncommitted repair derived the answer from `realpath`; declined — branch on the platform and state each answer |
+| 🟡 2 | The class round 13 named is closed for the file that is **opened** and open for the file that is **named**: `main` and three other sites print `os.path.relpath(ledger, root)`, and `relpath` normalises lexically as `normpath` does | `evidence_check.py:1645`, `:1043`, `:1301`, `:1426` | answered — the run's exit and row are right, and the name a person reads is the class issue #163 carries, opened at this round's fix | **Executed** on the fix's own fixture at HEAD: header `x/ledger.md` over rows read from `<root>/ledger.md`. Exit 2 and the row are right; the name a person reads is wrong. POSIX-only. Closing it needs a printing helper — a new unit from a fix pass — so it goes to the tracker, below |
+| 🟡 3 | Round 12's corrected Deferred row closes *whether `st_ino == 0` arrives on windows-latest* on grounds that do not reach it: cases that **build** a zero cannot show that one **arrives**. `overview.md:51` and the case's own docstring keep it open | `rounds/round-12.md:104` | **fixed** `35fbf67` | **Read**, three carriers compared. Round 13's 🟡 5 asked for the closure to land, not whether it was true |
+| 🟡 4 | The identity rule has two verbatim spellings, nine lines each, thirty lines apart — against `skipped_by_narrowing`'s own closing sentence: *the identity rule has to have one spelling; two would be one rule today and two after the first edit to either* | `evidence_check.py:924-932`, `:1022-1030` | **fixed** `35fbf67` | **Read**; the extraction **executed** by the round, 46 passed, ruff clean. Round 13's 🔴 1 was a fix composed where a copy existed; the repair copied the rule instead of extracting it |
 | 🟢 5 | §15 — the three new cases seen red | the `normpath` revert, in a clone | answered | **Executed**: `3 failed · 18 passed`, each for its stated reason |
 | 🟢 6 | The returned spelling, against every lexical normalisation | mutations of `out.append(p)` | answered | **Executed**: `normpath(p)` and `abspath(p)` each kill the `..` case, `realpath(p)` kills the unstattable-ledger case. No mutation of the returned value survives |
 | 🟢 7 | The inode fold folds what it must and nothing more | eight pattern shapes | answered | **Executed**: two different files stay two; a dangling symlink is returned, not swallowed, and reaches BROKEN `ledger unreadable`; hard link + target under two patterns → one, keeping the first pattern's spelling; `./seal/a.md`+`seal/a.md` → one |
@@ -96,6 +105,6 @@ leg had already run at the reviewed head.
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| 🟡 2 — the printed ledger name collapses `lnk/..` through `relpath`; the run's exit and row are right, the name a person reads is not. Closing it needs a printing helper, and issue #161's first rule says a fix pass does not add mechanism | a new issue in the tracker, opened at this round's fix | the repository owner |
-| Whether `st_ino == 0` **arrives** on `windows-latest` — reopened; the leg's run showed what the checker does with a zero, not that one arrives | `rounds/round-12.md:104` corrected; `overview.md:51` as it stands | the windows CI leg, as before |
+| 🟡 2 — the printed ledger name collapses `lnk/..` through `relpath`; the run's exit and row are right, the name a person reads is not. Closing it needs a printing helper, and issue #161's first rule says a fix pass does not add mechanism | issue #163, milestone 0.8.1 | the repository owner |
+| Whether `st_ino == 0` **arrives** on `windows-latest` — reopened; the leg's run showed what the checker does with a zero, not that one arrives | `rounds/round-12.md:104` corrected at `35fbf67`; `overview.md:51` as it stands | the windows CI leg, as before |
 | `questions.md` Q2, Q3, Q4 · issues #158–#161 · S8 | as before | the repository owner |
