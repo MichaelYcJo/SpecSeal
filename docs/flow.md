@@ -51,7 +51,7 @@ In this order. The first item is what measures the other three, and the
 three are the first readings of #161's target: build plus two rounds inside
 three hours for a change under three hundred code lines.
 
-- [ ] **#170 — a run's report carries one comparison table, tokens counted the same way every time, and `session_cost` prints the token line.** The owner's call after #161's run: the table that run posted to the flow log is the shape every run's report takes from here, so two runs read side by side without re-deriving either.
+- [x] **#170 — a run's report carries one comparison table, tokens counted the same way every time, and `session_cost` prints the token line.** The owner's call after #161's run: the table that run posted to the flow log is the shape every run's report takes from here, so two runs read side by side without re-deriving either.
 - [ ] #156 — the repository ships no way to run its own suite, and every session pays a round trip discovering how.
 - [ ] #155 — the roll names the next version by guessing a minor, and a patch release is the day that stops working. #166's title is the measured case.
 - [ ] #169 — `round_record.py new` accepts a fence under the probes table that closes after `## Deferred`, and writes `nothing to drain`. Round 3 of #161's own chain left it, answerable with grounds, with its fix and cases written out.
