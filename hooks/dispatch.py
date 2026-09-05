@@ -91,7 +91,7 @@ def run_gate(filename, payload):
         # likeliest trigger, not the silence. Whatever replaces this has to
         # keep the isolation property `tests/test_dispatch.py` and
         # `tests/test_the_implementer_is_recorded.py` assert.
-        # Verified 2026-09-02 at 9edc59f.
+        # Verified 2026-09-02 at 5a831e8.
         return ""
     finally:
         sys.argv, sys.stdin = argv, stdin
