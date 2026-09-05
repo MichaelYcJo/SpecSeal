@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on opus |
 | PR | #162, draft |
 | Broad gate | `37dcaea` locally — 2100 passed · 1 failed, the repository-records case on a record cell fixed at `54819ca`; on the pull request at `54819ca`, ubuntu, macOS, ledger, lint and hygiene green and **`pytest (windows-latest, 3.12)` red** on 🔴 1. Not clear at the reviewed head; at `35fbf67` not re-taken — spent by these fixes, re-taken once the chain ends |
-| Fixes checked by | nobody — written at `35fbf67`; the verifying round that opens them sets this cell |
+| Fixes checked by | round-15 |
 | Contract changes | none — `resolve_patterns` and `skipped_by_narrowing` are the two changed units by AST, each body replaced by a call to `file_identity` computing the value the inline lines did; signature, arity, return type and the set of returnable values unchanged for both |
 | New units | `file_identity` (depth 1) → `resolve_patterns` and `skipped_by_narrowing` |
 | Needs a fix | yes — 🔴 1, the Windows leg is red at the reviewed head on one of round 13's own three cases, which asserts the POSIX answer on both platforms where Win32 collapses `..` lexically before the filesystem is consulted; 🟡 2, the printed ledger name still collapses `lnk/..` through `os.path.relpath` in four sites, so a BROKEN row is reported under a different existing file; 🟡 3, round 12's Deferred row closes a Windows question its grounds do not reach; 🟡 4, the identity rule now has two verbatim spellings against the sentence `skipped_by_narrowing` closes with |
