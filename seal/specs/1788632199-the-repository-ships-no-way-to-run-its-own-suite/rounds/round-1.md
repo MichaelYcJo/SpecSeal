@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 176 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | hide_from_git → build, ensure, pytest |
 | New units | venv_version (depth 1); WORKFLOW (depth 1); REAL_RUN (depth 1); test_both_wrappers_say_the_same_thing_when_the_runner_is_missing (depth 1); test_an_environment_below_the_floor_is_refused (depth 1); test_an_environment_that_says_nothing_about_its_version_is_kept (depth 1); git_status (depth 1); test_a_failed_build_still_leaves_no_trace_in_git (depth 1); test_an_adopted_environment_is_hidden_too (depth 1); test_the_section_states_the_floor_once (depth 1); test_ci_runs_the_suite_at_the_floor_the_runner_holds (depth 1); test_warden_finds_the_runner_before_building_its_own (depth 1); test_no_agent_definition_names_this_repositorys_own_command (depth 1) |
 | Needs a fix | yes |
