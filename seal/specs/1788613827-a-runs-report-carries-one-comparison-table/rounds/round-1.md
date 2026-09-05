@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 173 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | count (depth 1); message_key (depth 1); report_tokens (depth 1); labelled (depth 1); test_the_location_buckets_are_the_repositorys_own_definition_of_a_record (depth 1); test_the_broad_gate_row_asks_for_what_the_cell_actually_carries (depth 1); test_the_section_says_which_transcript_is_the_runs_own (depth 1); odd (depth 1); test_a_transcript_with_usage_and_no_tool_call_still_reports_its_tokens (depth 1); test_a_usage_value_that_is_not_a_number_contributes_zero (depth 1); test_a_message_id_that_is_not_a_key_does_not_end_the_report (depth 1); test_a_tool_call_whose_id_is_not_a_key_loses_its_pairing_only (depth 1); test_a_row_that_is_not_the_shape_the_readers_assume_is_dropped (depth 1); test_the_report_tells_its_two_turn_counts_apart (depth 1); TABLE_ROWS (depth 1); test_the_refused_rows_are_the_owners_own (depth 1) |
 | Needs a fix | yes |
