@@ -6,6 +6,7 @@ the parser that quietly stops finding repeats or tool calls fails here.
 """
 
 import datetime as dt
+import importlib.util
 import json
 import os
 import re
@@ -504,13 +505,36 @@ def test_the_token_turns_and_tools_per_turn_count_different_things(tmp_path):
     assert data["tools_per_turn"] == 1.0
 
 
-def test_an_unreadable_segment_shrinks_the_count_rather_than_raising(tmp_path):
+def load_script():
+    """The script as a module, so a case can call one function directly.
+
+    Every other case here drives the CLI, because that is what a person runs.
+    One path cannot be reached that way: `subagent_transcripts` walks for
+    FILES, so a name that is not a readable file never becomes a path the CLI
+    hands on. Mutation-testing found that — the `except OSError` guard could
+    be removed with the whole slice still green."""
+    spec = importlib.util.spec_from_file_location("session_cost", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_a_transcript_that_cannot_be_opened_is_skipped_rather_than_raised(tmp_path):
+    """A segment deleted between the walk and the open, or one whose
+    permissions the walk could not see. Both totals shrink — one fewer
+    transcript, and that segment's spend missing — and nothing raises."""
+    good = tmp_path / "good.jsonl"
+    good.write_text(spend(0, output=9, message_id="s1") + "\n")
+    totals = load_script().token_totals([str(tmp_path / "gone.jsonl"), str(good)])
+    assert (totals["transcripts"], totals["turns"], totals["output"]) == (1, 1, 9)
+
+
+def test_a_junk_segment_shrinks_the_numbers_rather_than_stopping_the_report(tmp_path):
     """Three things sit under `subagents/` here: a readable transcript, one
     whose lines are not JSON, and a name that is a directory rather than a
-    file, which `open` refuses the way a permission error would. The report
-    degrades to a smaller number the way a malformed line does, and the
-    transcript count is what makes the gap visible to the person who spawned
-    the segments."""
+    file. The report degrades to a smaller number the way a malformed line
+    does, and the transcript count is what makes the gap visible to the
+    person who spawned the segments."""
     path = write_run(
         tmp_path,
         worked(0, "a", output=5),
