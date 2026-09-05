@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | #168 — https://github.com/MichaelYcJo/SpecSeal/pull/168 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | reach_back → new; location_units → depth_two |
 | New units | PROSE_SUFFIXES (depth 1); BARE_IDENTIFIER_RE (depth 1); tracked_at (depth 1); resolve_path (depth 1); test_a_correction_closed_answered_lands_on_no_fixes_to_check (depth 1); test_a_row_for_a_finding_the_reviewer_closed_is_refused (depth 1); read_record (depth 1); test_prose_is_neither_ast_nor_heuristic (depth 1); test_the_same_name_added_in_two_files_is_one_entry (depth 1); GUARD (depth 1); two_rounds (depth 1); test_a_basename_resolves_to_the_one_tracked_file_that_ends_in_it (depth 1); test_a_same_named_unit_in_another_file_is_not_refused (depth 1); test_a_previous_record_that_commissioned_no_fixes_keeps_its_cell (depth 1); test_a_correction_row_closes_answered_and_never_fixed (depth 1); test_the_release_leg_is_red_until_round_ones_record_commits (depth 1); test_the_occurrence_keys_are_slash_joined_whatever_the_separator (depth 1) |
 | Needs a fix | yes — 🔴 1, 🟡 2, 🟡 3, 🟡 4, 🟡 5, 🟡 6 |
