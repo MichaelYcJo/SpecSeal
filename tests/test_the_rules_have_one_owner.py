@@ -218,6 +218,16 @@ def test_the_release_leg_is_red_until_round_ones_record_commits():
     assert "that is the window's expected state" in flat(*SKILL)
 
 
+def test_the_release_leg_is_red_again_until_the_verifying_rounds_record_commits():
+    """Round 2's ⬜ 12: the leg has a second red window, from `close`
+    ticking `Pass` until the verifying round's record commits, and the
+    ⬜ 8 sentence named one. The owner names both."""
+    assert (
+        "It is red once more from `close` ticking `Pass` until the verifying "
+        "round's record commits"
+    ) in flat(*SKILL)
+
+
 def test_the_generator_carries_the_fenced_blocks_under_the_probes_table():
     """Round 2's 🟡 10: the spec's generator paragraph said a fenced block
     under the report's probes table stays in the report, and the rule

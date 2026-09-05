@@ -586,7 +586,9 @@ draft when the build's last phase closes, and the legs run beside the chain
 from round 1. The `release` leg is red from the draft's opening until round
 1's record commits — the declaration names the chain and `rounds/` holds no
 record yet — and that is the window's expected state, not a failure to
-chase.
+chase. It is red once more from `close` ticking `Pass` until the verifying
+round's record commits, for the reason the check prints — `Pass` beside
+`nobody` on the last record — and that window is expected too.
 
 **A session that has compacted hands the next round to a fresh one, and the
 generated record is the handoff.** A compacted context holds a summary of what
