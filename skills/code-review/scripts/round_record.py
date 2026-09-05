@@ -362,6 +362,45 @@ def table_of(reader, raw, lines, heading, header, required):
     return [row(header), separator(len(header))] + [raw[i].strip() for i, _ in body]
 
 
+def fenced_after(reader, raw, lines, heading):
+    """The raw lines of every fenced block under `heading`, in order.
+
+    `templates/sdd-round.md` says a probes row whose subject was a proposed
+    replacement owes the replacement itself, in a fenced block under the
+    table, and `new` copied the table alone — so round 1 of #161's own chain
+    read *Fix below (A)* in seven Grounds cells and carried none of them,
+    and the fix pass rebuilt every one from a description. A fence is copied
+    whole and nothing else of the section is, so no prose enters the record
+    (`questions.md` A5 of that work item). `lines` are `readable`, which
+    blanks fences, so the fence is read from `raw` at the section's indices.
+    """
+    found = section_body(reader, lines, heading)
+    if found is None:
+        return []
+    out, marker = [], None
+    for i, _ in found[1]:
+        line = raw[i].rstrip()
+        opener = re.match(r"^\s*(`{3,}|~{3,})", line)
+        if marker is None:
+            if opener:
+                marker = opener.group(1)
+                out.append(line)
+            continue
+        out.append(line)
+        if (
+            opener
+            and opener.group(1)[0] == marker[0]
+            and len(opener.group(1)) >= len(marker)
+        ):
+            marker = None
+    if marker is not None:
+        raise Refused(
+            f"a fenced block under `{heading}` is never closed — copied as it "
+            "stands it would swallow every heading after it"
+        )
+    return out
+
+
 def terminal_value(reader, lines, label):
     """What stands after the colon in the report's `<label>: …` line."""
     pattern = re.compile(r"^\s*" + re.escape(label) + r"\s*:\s*(.*?)\s*$")
@@ -550,6 +589,9 @@ def build(reader, routing, args, root, item, rounds):
         row(PROBE_HEADER),
         separator(len(PROBE_HEADER)),
     ]
+    fenced = fenced_after(reader, raw, lines, PROBES)
+    if fenced:
+        probes = [*probes, "", *fenced]
     deferred = table_of(reader, raw, lines, DEFERRED, DEFERRED_HEADER, False)
     if deferred is None:
         deferred = [row(DEFERRED_HEADER), separator(len(DEFERRED_HEADER)), ""]
@@ -735,6 +777,10 @@ PROSE_SUFFIXES = (".md", ".markdown", ".txt", ".rst")
 # of #161's own chain, 🟡 4: the five forms after the first escaped).
 LOCATION_UNIT_RE = re.compile(r"([\w./-]+\.py)(?:#|::)([A-Za-z_]\w*)")
 LOCATION_LINE_RE = re.compile(r"([\w./-]+\.py):(\d+)")
+# A second unit named by its fragment alone after a path — `path#a` and
+# `#b` — the form round 1 of #161's own chain located its 🟡 4 in. The
+# fragment names a unit in the last path the cell resolved, or no file.
+FRAGMENT_RE = re.compile(r'(?<![\w./\-"#])#([A-Za-z_]\w*)')
 IDENTIFIER_RE = re.compile(r"`([A-Za-z_]\w*)(?:\(\))?`")
 BARE_IDENTIFIER_RE = re.compile(r"^([A-Za-z_]\w*)(?:\(\))?$")
 NUMBER_RE = re.compile(r"\d+")
@@ -1129,11 +1175,13 @@ def location_units(reader, root, a, text, tracked):
     the file among the ones the range touched.
     """
     visible = reader.visible(text)
-    out = []
+    out, last = [], None
     for m in LOCATION_UNIT_RE.finditer(visible):
-        rel = resolve_path(m.group(1), tracked)
-        if rel is not None:
-            out.append((rel, m.group(2)))
+        last = resolve_path(m.group(1), tracked)
+        if last is not None:
+            out.append((last, m.group(2)))
+    for m in FRAGMENT_RE.finditer(visible):
+        out.append((last, m.group(1)))
     for m in LOCATION_LINE_RE.finditer(visible):
         rel = resolve_path(m.group(1), tracked)
         module = parse_module(reader.show(root, a, rel)) if rel is not None else None

@@ -1120,10 +1120,11 @@ does, and saying which is which is what keeps the checks honest.
 reports, and that changes who makes the declaration and not whether it is
 one.** `new` copies the reviewer's `Executed probes` table row for row from
 its report, so the declaration above is the reviewer's, made in the report,
-and the generator carries it into the record unread; a fenced block under the
-report's table stays in the report unless the reviewer puts it in a row
-(`questions.md` A5 of the work item that added the generator). `close` applies
-the implementer's fix table. No orchestrator prose sits in a parsed cell.
+and the generator carries it into the record unread, together with every
+fenced block under that table — the replacement a probes row owes — and
+nothing else of the section (`questions.md` A5 of the work item that added
+the generator, narrowed by its round 2). `close` applies the implementer's fix
+table. No orchestrator prose sits in a parsed cell.
 
 **A moratorium for 0.8.x: no new parsed field in `round-N.md` and no new row
 the ledger must carry.** Every field this document describes arrived with a

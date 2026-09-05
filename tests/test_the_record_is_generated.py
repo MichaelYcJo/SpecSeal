@@ -474,6 +474,40 @@ def test_the_three_tables_are_copied_row_for_row(repo):
     ]
 
 
+FENCE = "```python\ndef helper(a):\n    return a  # the replacement\n```\n"
+
+
+def test_a_fenced_block_under_the_probes_table_reaches_the_record(repo):
+    """Round 2 of #161's own chain (🟡 10): round-1.md read *Fix below (A)*
+    seven times and carried no block, because `new` copied the table alone.
+    The block lands under the table, nothing else of the section does, and
+    the check exits 0 over a record carrying a fence."""
+    declared(repo)
+    code, out, text = generate(
+        repo, report_text=report(probes=PROBE_ROW + "\n" + FENCE)
+    )
+    assert code == 0, out
+    probes, rest = text.split("## Executed probes", 1)[1].split(
+        "## Inherited coordinates", 1
+    )
+    assert FENCE.strip() in probes, text
+    assert "the replacement" not in rest
+
+
+def test_an_unclosed_fence_under_the_probes_table_is_refused(repo):
+    """An unclosed fence copied as it stands swallows every heading after
+    it in the record, so the generator refuses it by name and writes
+    nothing."""
+    declared(repo)
+    unclosed = "```python\ndef helper(a):\n    return a\n"
+    code, out, text = generate(
+        repo, report_text=report(probes=PROBE_ROW + "\n" + unclosed)
+    )
+    assert code == 2, out
+    assert "never closed" in out
+    assert text is None
+
+
 def test_a_report_without_a_verdict_table_is_refused(repo):
     declared(repo)
     code, out, text = generate(repo, report_text=report(verdicts=None))

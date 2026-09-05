@@ -218,6 +218,15 @@ def test_the_release_leg_is_red_until_round_ones_record_commits():
     assert "that is the window's expected state" in flat(*SKILL)
 
 
+def test_the_generator_carries_the_fenced_blocks_under_the_probes_table():
+    """Round 2's 🟡 10: the spec's generator paragraph said a fenced block
+    under the report's probes table stays in the report, and the rule
+    beside it says the row owes the block in the record. The paragraph
+    now says the generator carries the blocks, and nothing else of the
+    section."""
+    assert "together with every fenced block under that table" in flat(*SPEC)
+
+
 # --- rule 1 says what the count was --------------------------------------------
 
 

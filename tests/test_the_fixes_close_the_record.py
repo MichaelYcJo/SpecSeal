@@ -649,6 +649,7 @@ def two_rounds(repo, location, path="mod.py", others=()):
         "helper",
         "`mod.py::helper`",
         "`mod.py:2`, and the guard at `README.md`",
+        "`mod.py#other` and `#helper`",
     ],
     ids=[
         "path-unit",
@@ -660,6 +661,7 @@ def two_rounds(repo, location, path="mod.py", others=()):
         "bare",
         "double-colon",
         "prose-around-path-line",
+        "fragment-after-path",
     ],
 )
 def test_a_unit_added_beside_a_finding_inside_an_earlier_units_is_refused(
