@@ -1051,11 +1051,16 @@ def test_the_cap_counts_rounds_that_found_something(parts):
 
 
 def test_the_spec_says_the_verifying_round_cannot_loop():
-    """A rule that lifts a bound has to say why nothing runs away, or the
-    next reader adds a second bound to be safe."""
+    """A rule that lifts a bound has to say what bounds it, or the next
+    reader adds a second bound to be safe. The first spelling said nothing
+    runs away, and #161 measured fifteen rounds through the third case it
+    denied; the paragraph now states the one reopening and the `capped` end,
+    and links to the subsection that owns them."""
     spec = flat("docs", "review-chain-spec.md")
-    assert "Nothing here can loop" in spec
+    assert "Nothing here can loop more than once" in spec
     assert "by definition the last one" in spec
+    assert "the run ends `capped`" in spec
+    assert "There is no third case to run away" not in spec
 
 
 def test_the_condition_is_not_that_the_round_found_nothing():
