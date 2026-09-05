@@ -1,4 +1,4 @@
-# Review Handoff Protocol — draft 0.9
+# Review Handoff Protocol — draft 1.2
 
 A file convention for handing review work between agent sessions — across
 time, machines, and tools. Tool-agnostic on purpose: nothing here requires
@@ -110,11 +110,13 @@ the inheritance range and round 2 raised it again.
 | Field | Required | Content |
 |---|---|---|
 | Target SHA | yes | commit(s) the round actually reviewed — branches move between rounds; record both if HEAD moved mid-review. **Never rewritten after a squash** — see below |
+| Ran by | yes, for work items begun after a project adopts it | what ran this round: the agent and the model, written as `agent on model`. `unknown — <why>` where the session cannot name one, and a bare `unknown` is not an answer. Filled by the session that SPAWNED the round, never by the round's own agent. See below |
 | Pass | yes | a checkbox — `- [ ] Pass` or `- [x] Pass`. Checked means no finding in this round's verdict table is still open. See below |
 | Fixes checked by | yes | who opened the fixes that closed this round's findings: a later round, `no fixes to check`, or `nobody` with the reason. `Pass` answers whether the findings were closed; this answers whether the closing was read by anyone. See below |
-| Needs a fix | yes, from the round that wrote it | whether this round opened anything that needs one — the reviewer's own answer, copied rather than re-derived from the verdict table. It is the run's terminal condition where a run ends at a verifying round, and a finding the implementer answers with grounds does not make it `yes`. See below |
+| Needs a fix | yes, from the round that wrote it | whether this round opened anything that needs one — the reviewer's own answer, copied rather than re-derived from the verdict table. It is one of two conditions a run ends on, and a finding the implementer answers with grounds does not make it `yes`. See below |
+| Loses a record or crashes | yes, for work items begun after a project adopts it | whether anything this round found leaves the root or crashes — the reviewer's own answer again, in the same `no` / `yes — <what>` shape. It is the FLOOR under a round cap: `no` stops the run whatever is left of the cap. See below |
 | Contract changes | yes, for work items begun after a project adopts it | every unit whose signature, return arity, return type, or set of returnable values this round's fixes changed — each with the call sites its contract reaches. `none` is an answer, with or without a reason. See below |
-| New units | yes, for work items begun after a project adopts it | the top-level definitions and constants this round's fixes added — the verifying round's finding surface. `none` is an answer. See below |
+| New units | yes, for work items begun after a project adopts it | the top-level definitions and constants this round's fixes added, each with the depth it was added at — `unit (depth N)`, one entry per unit, entries separated by `;`. The verifying round's finding surface. `none` is an answer. See below |
 | PR | when one exists | the change request this work went to. A field, not the key: it does not exist while the rounds that fill this file are running |
 | Verdict table | yes | per finding: location, verdict, grounds |
 | Executed probes | yes (may be "none") | what was RUN, with results — distinguished from what was read |
@@ -289,6 +291,77 @@ reach rows for fixes nobody re-read fabricates a review. A row that is
 present and malformed fails on any record, because formatting is always the
 author's to fix.
 
+**The depth inside `New units` is adopted separately, and the depth has a
+cutoff of its own.** A project can be past the cutoff for the rows and before
+the one for the depth, and then its records owe the row and not the depth in
+it — they were written when the row named units alone, and deriving a depth
+now for fixes nobody re-read fabricates the answer the same way a reach row
+would. A conforming tool that refuses a second-level unit says in the failure
+where the unit goes instead; a refusal with no exit stops the chain rather
+than the unit.
+
+#### Loses a record or crashes — the floor under a round cap
+
+A run bounded only by a cap spends the cap. The reviewer answers, in a line
+of its own, whether anything it found leaves the root or crashes; `no` stops
+the run whatever is left of the cap, and what the stopped round found that
+still needs doing is deferred with a named answerer or becomes an issue.
+
+It is not `Needs a fix` in other words. A round can open a 🔴 in a line a
+person reads — which needs a fix and is neither a lost record nor a crash —
+and that round ends the run with the finding handed over.
+
+**A record that met the floor is followed by at most one more round record**,
+the verifying round at the diff of the fixes that closed it. The one exception
+is the reason `Needs a fix` is machine-read at all: a verifying round that
+opens something is a finding round, its own fixes need a reader in turn, and
+that reader is a third record. A conforming tool counts later records only up
+to the first whose `Needs a fix` says the run reopened OR whose own verdicts
+closed on a fix, that record included. The two rows answer different
+questions — `Needs a fix` is what the reviewer opened, the verdict column is
+whether fixes were written — and they come apart when the orchestrator fixes
+a finding the reviewer said could be answered with grounds. Reading only the
+first leaves such a run with no terminal record any exit accepts. Counting
+blindly makes the sequence this protocol requires unwritable.
+
+Records predating a project's adoption print rather than fail, the same
+grandfathering as above. `Needs a fix` is grandfathered WHOLE — absent, empty
+or unreadable alike — because it carried free text from draft 0.5 until a tool
+first read it, so a value written earlier was held to no vocabulary.
+
+#### Ran by — what executed this segment
+
+A record says what its segment was asked, what it found, and which commit it
+looked at. It does not say what ran it, and that fact survives nowhere else:
+the model is a spawn-time argument, and once the session ends it exists only
+in a transcript. Measured in the reference implementation — every segment of
+two consecutive work items was metered and posted to a measurement log, and
+not one of the readings can be attributed to a runner afterwards.
+
+**The cell names two things, not one.** An agent without a model cannot be
+compared against another run of the same agent; a model without an agent
+cannot be told apart from the orchestrating session's own turns. The two are
+joined by the word `on` — `agent on model` — a word rather than a punctuation
+mark, because a separator inside a code span splits the cell carrying it and
+this protocol has already been bitten by that twice.
+
+**The session that spawned the segment fills it, never the segment itself.**
+An agent is told what it is, so a value it writes about itself is the value it
+was told, and the orchestrator is the one that chose the model. This is the
+same reach-back `Fixes checked by` and the fix-surface rows already make: a
+session with a fact writes it into a record somebody else authored.
+
+**`unknown — <why>` is an answer and a bare `unknown` is not.** A project may
+genuinely not know: agent definitions pin no model, and a session spawning
+through another harness may have no name for one. The reason is required for
+the same cause it is required after `nobody` — without it the cell records
+that something is missing and not what.
+
+Records predating a project's adoption print rather than fail when the row is
+ABSENT, the same grandfathering `Fixes checked by` carries. A row that is
+present and unreadable is refused at any age: formatting is always the
+author's, which is the split `Contract changes` already makes.
+
 ### tests-todo.md — regression tests prescribed, not written
 
 One row per test: what it asserts · **destination file** · grounds · status.
@@ -314,11 +387,11 @@ a full review round.
 So the orchestrator→implementer handoff follows the rule `Inherited axes`
 already states for rounds: **coordinates rather than prose.** The exact line
 the prose to extend sits on, the grep that returned nothing, the test files
-whose assertions constrain the wording, the runner incantation. What round
-N+1 inherits from round N, round 1 — and the implementer before it —
-inherits from the orchestrator.
+whose assertions constrain the wording, the runner incantation in the form
+the round is to run it. What round N+1 inherits from round N, round 1 — and
+the implementer before it — inherits from the orchestrator.
 
-Three requirements, each bought by a measured failure:
+Four requirements, each bought by a measured failure:
 
 - **A fact carries the coordinate that makes it falsifiable, or it is
   marked as an assertion nobody has opened.** The labels are the three
@@ -335,6 +408,18 @@ Three requirements, each bought by a measured failure:
   measurement point alone — whole file against partial patch, above against
   below a particular line — and a passing measurement taken at the wrong
   point proves nothing about the claim.
+- **A command with more than one form names the form, and says what the
+  other one is for.** A flag that narrows what a check reads is right for
+  one of its jobs and blinding for the other, and a handoff carrying the
+  command carries neither job. The failure that bought this: a ledger check
+  scoped to the work item's own fragment was handed to every segment of one
+  work item, because that narrowing is what keeps a re-stamp off a row whose
+  claim somebody else has to judge. Three review rounds and two fix passes
+  all ran it and all reported a clean ledger; the unscoped read at the pull
+  request found **fifteen drifted rows and one broken claim**, every one in
+  a file the branch had touched. Naming the form alone is not enough — the
+  reader who does not know what the other form buys deletes the narrowing,
+  and the write then re-stamps the false claim.
 
 ### While the implementer runs
 
@@ -464,7 +549,7 @@ A tool claiming to support this protocol:
 
 ## Status
 
-Draft 0.9, extracted from the convention this plugin's `code-review` and
+Draft 1.2, extracted from the convention this plugin's `code-review` and
 `implement` skills already operate (they are its reference implementation).
 Field names and layout may change; the three conformance rules are stable in
 shape. 0.2 changed the third from *delete after draining* to *close and keep*.
@@ -515,6 +600,41 @@ fix. What is stated here instead is the rule about the prompt itself: it
 carries what is specific to the round and nothing else. No conformance rule
 changes, for the reason 0.6 gave when it added none — a spawn prompt is not a
 file this protocol can check.
+
+1.0 adds `Loses a record or crashes` — a floor under the round cap, because a
+run bounded only by a ceiling spends the ceiling: one measured run went seven
+rounds and its last three found nothing that leaves the root and nothing that
+crashes. It also gives `New units` the depth each entry was added at, because
+a fix pass adds the unit that pins it and that unit ships unreviewed in the
+same commit — three consecutive rounds of one measured run found their finding
+inside the previous round's fixes. `Needs a fix` stops being write-only in the
+same draft: the floor's bound on what may follow a stopped round is wrong
+without it, since a verifying round that reopens the run needs a reader for
+its own fixes. Records predating a project's adoption print rather than fail,
+the grandfathering `Fixes checked by` carries — and `Needs a fix` is
+grandfathered whole rather than only when absent, because it carried free text
+from draft 0.5 until this draft first read it. The reference implementation
+fails on all three, for work items begun after it adopted them.
+
+1.1 adds `Ran by`, because a record said what its segment was asked and what
+it cost and never what executed it — and the meter draft 0.8 pointed at
+produces readings that cannot be attributed once the session ends. Two things
+the row settles rather than leaves to the author: it names the agent AND the
+model, since either alone answers neither question anyone has of the numbers;
+and it is filled by the spawning session, since an agent asked what it is
+answers with what it was told. `unknown — <why>` is an answer for projects
+that cannot name a model, in the shape `nobody — <why>` already has. An absent
+row on a record predating adoption prints rather than fails, the
+grandfathering `Fixes checked by` carries; a present and malformed one is
+refused at any age, the split `Contract changes` already makes.
+
+1.2 adds the fourth handoff requirement, because *the runner incantation*
+turned out to name a thing that can have two forms and the handoff kept
+carrying whichever one somebody last found useful. A narrowing adopted for a
+write was handed to three rounds as a read, and each of them reported clean
+on a ledger it had not opened. No conformance rule is added, for the reason
+0.6 gave when it added none: a spawn prompt is not a file this protocol can
+check. What a conforming handoff carries is what changes.
 
 0.3 also states the path as this implementation's choice rather than as the
 protocol. Draft 0.2 claimed to be tool-agnostic while naming a directory

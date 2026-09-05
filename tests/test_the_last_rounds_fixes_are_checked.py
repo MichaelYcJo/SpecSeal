@@ -139,6 +139,13 @@ def record(sha, checked_by, verdict="fixed", finding="🟢 1", passed=True):
     # each case is about; `STRICT_ITEM` began after `SURFACE_FROM`, so leaving
     # them out would fail every record for a rule this file is not pinning.
     who += "| Contract changes | none |\n| New units | none |\n"
+    # The floor row goes in for the same reason and against the same cutoff:
+    # `STRICT_ITEM` began after `chain_check.FLOOR_FROM`, so a record without
+    # it would fail every case here for a rule this file does not pin.
+    who += "| Loses a record or crashes | no |\n| Needs a fix | no |\n"
+    # And `Ran by` against `chain_check.RUNNER_FROM`, the fourth cutoff of
+    # the same shape. `tests/test_a_record_says_what_ran_it.py` pins it.
+    who += "| Ran by | specseal:warden on a model |\n"
     return (
         "# a round\n\n"
         f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n{who}\n"

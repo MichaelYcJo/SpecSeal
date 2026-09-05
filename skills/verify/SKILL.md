@@ -313,20 +313,64 @@ seal.
 
 After every smith or warden segment ends, measure its transcript with
 `skills/verify/scripts/session_cost.py` (the `session-cost` command above is
-the same script) and post the numbers, and what they say, as a comment on
-this repository's open `flow-measurement`-labelled issue.
+the same script) and post the numbers, and what they say, as a comment on one
+of this repository's two measurement logs. Which of the two is not a filing
+detail — one of them is deleted at every release, so a reading put in the
+wrong one is a reading thrown away, and the paragraph below is what decides
+it.
 
-Find that issue first — `gh issue list --label flow-measurement --state open`
-— rather than assuming a number. Exactly one such issue is the invariant a
-repository following this convention keeps; if the search returns none, this
-whole section is a no-op: nothing is measured, nothing is posted, nothing
-fails, and nothing asks. Most installed repositories never create the label,
-so most segments end without any of the steps below running — that is the
-expected case, not a missed one. Where more than one such issue is open,
-treat it the way any broken invariant is treated: name it rather than
-guessing which one is current.
+**There are two logs, and the difference is kind rather than scope.** A
+reading about the segment that just ended — its span, its calls, its tools
+per turn, and what those say — belongs to the rolling `flow-measurement`
+log, which accumulates for one version and is discarded when that version
+ships. Readings that span versions — a rate held against an earlier
+version's baseline, or an observation that a later measurement answers —
+belong to the durable `flow-baseline` log, which is maintained rather than
+accumulated. Posting one of those to the rolling log schedules it for
+deletion at the next release.
 
-Where the label is open, do the two steps as part of the segment that just
+A repository declares each of them the same way, with a label on an issue,
+and each keeps the same invariant: exactly one open. Neither is named by
+number, because a number goes stale the moment its issue closes.
+
+Find the rolling log first — `gh issue list --label flow-measurement --state
+open` — rather than assuming a number, and the durable one the same way with
+`--label flow-baseline`. Where more than one is open, treat it the way any
+broken invariant is treated: name it rather than guessing which one is
+current.
+
+**A reading of zero open is two different facts, and one call tells them
+apart.** `gh issue list --label flow-measurement --state all` says whether
+the label has any history at all:
+
+- **No issue has ever carried it.** This whole section is a no-op: nothing
+  is measured, nothing is posted, nothing fails, and nothing asks. Most
+  installed repositories never create the label, so most segments end here —
+  that is the expected case, not a missed one.
+- **The label has a history and nothing is open.** The log stopped and
+  nobody reopened it. Name that in the segment's own handover and stop
+  there: **opening one is not a session's act.** Two sessions finishing
+  segments at the same moment both read zero and both create, and the next
+  release then fails on two or more — the same invariant broken from the
+  other side. The release-time script that rolls the log
+  (`.github/scripts/roll_flow_measurement_issue.py`, where a repository has
+  one) is where that invariant and its reasoning are written.
+
+**`flow-baseline` splits the same way, and for the same reason.** Run the
+`--state all` lookup against it too. No issue has ever carried the label and
+this repository simply has no durable ledger: post the segment's own numbers
+to the rolling log, and leave the cross-version reading in the record that
+would have cited it. The label has a history and nothing is open, and
+somebody closed the durable ledger — name that, in the same handover and on
+the same grounds, and open nothing. Folding the second into the first is
+what sends a cross-version reading nowhere while everything looks fine.
+
+What a label answers that a milestone cannot, and why tidying one of these
+issues by hand breaks the next release, are the tracker's own conventions
+rather than this skill's. `docs/issues-and-milestones.md` holds them where a
+repository keeps one.
+
+Where a log is open, do the two steps as part of the segment that just
 finished, not as a follow-up someone might do later:
 
 1. Run `session_cost.py` against the segment's transcript. A subagent's
@@ -335,7 +379,37 @@ finished, not as a follow-up someone might do later:
    it at the user lines where the coordinator sent it a new message, and
    measure only the slice that belongs to the segment just watched.
 2. Post what the numbers say with `gh issue comment <n> --body-file
-   <file>`, where `<n>` is the issue number the lookup above returned.
+   <file>`, where `<n>` is the issue number the lookup above returned — the
+   rolling log's for the segment's own numbers, the durable one's for a
+   reading that spans versions.
+
+**And write down what ran the segment, in that segment's own record.**
+`rounds/round-N.md` and `phases/phase-N.md` both carry a `| Ran by |` row: the
+agent and the model, joined by the word `on` — `specseal:smith on <the model
+it was spawned with>`. It goes in beside the numbers because it is the half of
+the reading the numbers cannot carry. A measurement saying a segment took
+nineteen minutes and ninety-nine calls answers nothing on its own; the same
+reading beside what produced it is the first comparison anybody can make.
+
+**It is yours to fill and not the segment's**, and that is the reason the row
+exists on this side of the handover rather than in the agent's own report. An
+agent is told what it is, so a value it writes about itself is the value it
+was told, and the model is a spawn-time argument you chose — `agents/*.md`
+pins none. You are the only party that knows.
+
+Whose row it is and whose keystrokes fill it are different questions, and for
+`phases/phase-N.md` they come apart: that record is written by the segment
+that just ran, not by you. So either hand the value over in the spawn prompt —
+and the segment transcribes what it was given rather than a value it decided
+for itself — or fill the row afterwards, the way `Fixes checked by` is filled.
+For `rounds/round-N.md` the question does not arise, because you write that
+file yourself.
+
+Where you genuinely cannot name a model — a segment spawned through another
+harness, say — `unknown — <why>` is the answer and a bare `unknown` is not, in
+the shape `nobody — <why>` already has. An honest blank with a reason beside
+it is worth more than a confident guess, because a reading nobody can trust
+reads exactly like one nobody took.
 
 Do this before the next segment spawns, or at the latest together with the
 round or phase record that closes this one — never later, and never as a

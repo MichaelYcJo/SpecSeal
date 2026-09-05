@@ -1230,3 +1230,79 @@ def test_the_failure_says_which_fetch_is_missing(repo):
     code, out = run(repo)
     assert code == 1, out
     assert "refs/pull/*/head" in out, out
+
+
+# --- the real records, which no test and no local run ever read -------------
+
+
+def _module(name, path):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _real_records():
+    """Every `seal/specs/*/rounds/round-*.md` git carries at HEAD.
+
+    From `git ls-files` rather than a glob of the working tree, because the
+    per-record readers below take their content from `git show HEAD:<rel>` —
+    a record edited on disk and not committed is invisible to them, exactly
+    as it is to CI.
+    """
+    out = subprocess.run(
+        ["git", "-C", ROOT, "ls-files", "-z", "--", "seal/specs/*/rounds/round-*.md"],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        check=True,
+    ).stdout
+    return sorted(p for p in out.split("\0") if p)
+
+
+def test_this_repositorys_own_round_records_pass_the_per_record_checks():
+    """Round 2's 🔴 1: `round-1.md`'s own `Contract changes` cell was refused
+    by the checker the record was describing, and it was committed.
+
+    Nothing looked. The suite builds fixture repositories and never reads the
+    real records; a local `chain_check` run reaches them only through a
+    routing declaration the branch happens to touch; CI reaches them at the
+    pull request, which is after the commit that broke it. So the first
+    reader of a record this repository writes was the pull request it was
+    written for.
+
+    This is that reader, one step earlier. It calls the per-record functions
+    themselves rather than the whole script, because the script's other
+    verdicts — an unchecked `Pass` while a run is still going, a `Target SHA`
+    that has to be reachable — are true of a branch mid-review and would make
+    this red for a state that is correct.
+
+    Notices are not asserted on: an older work item printing what it is
+    grandfathered out of is the design, and the assertion is that nothing
+    here FAILS.
+    """
+    chain = _module("chain_check_for_real_records", CHECK)
+    reader = _module("reader_for_real_records", chain.READER)
+    routing = _module("routing_for_real_records", chain.ROUTING)
+
+    records = _real_records()
+    assert records, "no round records found — the glob or the layout moved"
+
+    by_item = {}
+    for rel in records:
+        by_item.setdefault(rel.rsplit("/rounds/", 1)[0], []).append(rel)
+
+    failures = []
+    for rels in by_item.values():
+        ordered = sorted(rels, key=lambda r: routing.round_number(os.path.basename(r)))
+        for index, rel in enumerate(ordered):
+            errors, _ = chain.fix_surface(reader, ROOT, rel)
+            failures.extend(errors)
+            errors, _ = chain.stopping_floor(reader, ROOT, rel, ordered[index + 1 :])
+            failures.extend(errors)
+
+    assert not failures, "this repository's own records are refused:\n" + "\n".join(
+        f"  {rel}: {message}" for rel, _, message in failures
+    )
