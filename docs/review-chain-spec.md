@@ -684,6 +684,24 @@ question.
 | a `Contract changes` entry (`;`-separated) carrying `unit → call sites` (`→` or `->`) | passes |
 | an entry with no arrow, or an empty half | **fails** on any record, naming the entry — a unit without its reach restates the diff and leaves the measured failure's unchecked half unchecked |
 
+**Five values can stand in the reach half, and only the first is a unit
+name.** `round_record.py`'s `call_sites` writes the enclosing top-level unit
+of every call it finds; the file's basename where the call sits at module
+level or outside Python; `pytest`, appended after the named sites when any
+caller is under `tests/`; `pytest only` when those callers are the whole
+reach; and `no call site found` when there is nothing, because the row above
+refuses a unit listed without a reach and an empty half would be the tolerant
+read that row refuses. The last three live in `round_record.py` as `PYTEST`,
+`PYTEST_ONLY` and `NO_SITE`.
+
+**Leaving that vocabulary out is what made a correct cell read as a
+mistake.** A review round of the work item that added this paragraph opened a
+finding against `hide_from_git → build, ensure, pytest`, on the grounds that
+this section defines the reach as call sites a `grep` can name and nothing is
+called `pytest`. The cell was the generator's own output, re-derived at the
+record's own SHA. Test callers collapse because they are a fix's pins rather
+than its reach: naming twelve of them buries the one caller that matters.
+
 **The pending arm is this branch's own damage repaired**, and it is worth
 saying which way round that went. Before `ORDER_FROM` a record could be
 written after its fixes and both rows filled from the start; the ordering rule
