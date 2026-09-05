@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on opus |
 | PR | not yet opened |
 | Broad gate | `ff151db`, against `origin/release/v0.8.0` — **2096 passed · 1 skipped · 0 failed**, `ruff check .` and `ruff format --check .` clean. Issue #160's four export cases passed here where they failed at `293a761` and `3937727`; recorded on #160 as intermittent. Spent by this round's fix and re-taken after it |
-| Fixes checked by | nobody — round 11 is the round that opens these fixes and it is not written yet; this cell becomes `round-11` the moment that record is committed |
+| Fixes checked by | round-11 |
 | Contract changes | `stopping_floor` — the message inside the error tuple it returns changed again, so its set of returnable values moved while signature, arity and return shape did not → `main`, and `tests/test_chain_check_at_the_pull_request.py::test_this_repositorys_own_round_records_pass_the_per_record_checks` |
 | New units | `test_the_floors_refusal_does_not_deny_the_stop_that_fired` (depth 1) → pytest only |
 | Needs a fix | yes — 🔴 1, `stopping_floor`'s refusal asserts that none of the counted records reopened or closed on a fix when the record it stopped at is precisely one of those; 🟡 2, the spec's exits row states the same false quantifier; 🟡 3, the narrowed pin's `Needs a fix` assertion is a whole-file substring search that cannot fail; 🟡 4, the case's docstring says six carriers fifty lines below its own comment saying eight |
