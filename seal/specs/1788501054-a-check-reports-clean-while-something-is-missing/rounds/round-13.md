@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on opus |
 | PR | #162, draft since 🔴 8 arrived; returned to ready when the last record's `Pass` is ticked |
 | Broad gate | `e48d682` locally (2097 passed · 0 failed); on the pull request at `c590961`, **all six jobs green including `pytest (windows-latest, 3.12)`** — the platform half of round 12's 🔴 8, answered. Spent by 🔴 1's fix and re-taken after it |
-| Fixes checked by | nobody — this round's fixes are not yet written; the round that opens them sets this cell |
+| Fixes checked by | round-14 |
 | Contract changes | `resolve_patterns` — the spelling it returns changed, from a normalized one to the pattern's own → `main`, `skipped_by_narrowing` |
 | New units | `test_one_file_matched_under_two_cases_is_read_once` (depth 1) → pytest only; `test_a_symlink_and_a_hard_link_to_a_ledger_are_that_ledger` (depth 1) → pytest only; `test_the_path_returned_is_the_one_the_pattern_named` (depth 1) → pytest only |
 | Needs a fix | yes — 🔴 1, `os.path.normpath` in `resolve_patterns` collapses `lnk/..` lexically and so returns a path naming a different file than the pattern matched, and the checker opens that path — a ledger with a broken row goes unread and the run exits 0; 🟡 2, the class is half closed — case, symlink and hard link still count one file twice; 🟡 3 through 🟡 6 share its fix or are record corrections |
