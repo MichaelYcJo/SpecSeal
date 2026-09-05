@@ -170,19 +170,22 @@ company because the layout is one rule rather than two:
 | `tests-todo.md` | regression tests to plant, with the destination file per row |
 | `evidence-todo.md` | verified facts to merge into `seal/ledger.md` |
 
-**A round record starts from `templates/sdd-round.md`**, which carries every
-field named above, already spelled, and says beside each one what its values
-may be. A round that opens a blank file instead writes the fields it happens
-to remember, and the one it forgets is the one nobody notices is missing.
+**A round record starts from `templates/sdd-round.md`** in shape, and
+`round_record.py new` writes it: every field named above, already spelled,
+from a source that is not prose, and the template says beside each one what
+its values may be. A round that opens a blank file instead writes the fields
+it happens to remember, and the one it forgets is the one nobody notices is
+missing.
 
 **What goes into `round-N.md`'s `## What this round was asked` section is
 the round-specific content of the spawn prompt that started it** — never the
 boilerplate `agent-contract` and `agents/warden.md` already carry, which
 every round gets told by definition and none of them need repeated in its
-own record. `round_record.py new` copies it in from `--asked <file>`, the one
-thing you write by hand for the record: what the spawn prompt told this
-round, specifically, to attack, in what order, and which facts arrived as
-coordinates rather than as something still to verify. #81's round 1 is the
+own record. `round_record.py new` copies it in from `--asked <file>`
+right after posting the report, and it is the one thing you write by hand for
+the record: what the spawn prompt told this round, specifically, to attack,
+in what order, and which facts arrived as coordinates rather than as
+something still to verify. #81's round 1 is the
 measured reason — the cheapest round on record, because its prompt named
 eight specific things to try to break, and that fact today survives only in
 a transcript.
