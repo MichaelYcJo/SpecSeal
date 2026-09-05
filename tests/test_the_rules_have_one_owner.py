@@ -294,7 +294,10 @@ def occurrences(phrase):
                 with open(path, encoding="utf-8") as handle:
                     count = " ".join(handle.read().split()).count(phrase)
                 if count:
-                    found[os.path.relpath(path, ROOT)] = count
+                    # `/`-joined on every platform: the callers look a key
+                    # up as `"/".join(SPEC)`, and `relpath` joins with `\`
+                    # on Windows (PR #168's red leg).
+                    found[os.path.relpath(path, ROOT).replace(os.sep, "/")] = count
     return found
 
 
@@ -337,6 +340,21 @@ def test_the_occurrence_count_can_fail():
     nothing, so the walker is shown finding a phrase the owner is known to
     carry."""
     assert occurrences("Rounds are capped at **three**") == {"/".join(SPEC): 1}
+
+
+def test_the_occurrence_keys_are_slash_joined_whatever_the_separator(monkeypatch):
+    """PR #168's Windows leg, run 33962446559: `os.path.relpath` joins with
+    the platform separator and the two cases above look a key up as a
+    `/`-joined tuple, so both failed there and nowhere else. The separator
+    is monkeypatched here so the case is red on every platform against a
+    key built from `relpath` alone."""
+    real = os.path.relpath
+    monkeypatch.setattr(os, "sep", "\\")
+    monkeypatch.setattr(
+        os.path, "relpath", lambda path, start: real(path, start).replace("/", "\\")
+    )
+    found = occurrences("Rounds are capped at **three**")
+    assert found == {"/".join(SPEC): 1}, found
 
 
 # --- phase 4b: the linking carriers ------------------------------------------
