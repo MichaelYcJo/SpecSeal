@@ -655,12 +655,14 @@ def new(args):
 # constant, three carriers.
 FIXES = "## Fixes"
 FIXES_HEADER = ("#", "Verdict", "Commit or grounds")
-# The three verdicts a fix pass may hand over. The first two are the checker's
-# own closing words; `deferred <home>` joins `CLOSED_WORDS` in the phase that
-# adds the reopening bound (`questions.md` A4), and until then a cell reading
-# it counts OPEN — the direction every word the checker does not know takes.
-FIXED, ANSWERED, DEFERRED_WORD = "fixed", "answered", "deferred"
-assert {FIXED, ANSWERED} <= chain.CLOSED_WORDS, "a fix verdict the checker cannot close"
+# The three verdicts a fix pass may hand over, all the checker's own closing
+# words. `deferred <home>` closes on the home after it and a bare `deferred`
+# stays OPEN (`questions.md` A4) -- `close` writes the word with the home, so
+# a `Pass` ticked over a table of deferrals is the capped run's legal end.
+FIXED, ANSWERED, DEFERRED_WORD = "fixed", "answered", chain.DEFERRED
+assert {FIXED, ANSWERED, DEFERRED_WORD} <= chain.CLOSED_WORDS, (
+    "a fix verdict the checker cannot close"
+)
 FIXED_AT = "fixed at"
 # The reach grammar `fix_surface` reads, `unit → site, site`, in the checker's
 # first spelling of the arrow. The comma between sites is the writer's own and

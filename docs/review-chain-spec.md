@@ -542,6 +542,12 @@ edit and asking for `[no-review]` as well is asking for the same answer twice.
 | straight to the PR | silent | nothing required; the declaration is printed |
 | nothing readable, or no file | today's behavior — deny once, then ask | pass, with a notice saying nothing was checked |
 
+Every record is read as git carries it at `HEAD`, never as the working tree
+holds it: a tree that differs from `HEAD` is what CI never sees, and a local
+run reading it would be the more permissive of the two. `--worktree` reads the
+working tree instead, for the check `round_record.py` runs on a record before
+its commit. The flag is local only, and CI keeps the default.
+
 ##### `Pass` has to be checked, and a draft is the way to open one that is not
 
 The chain runs **before** the pull request in this design — smith, then
@@ -805,6 +811,55 @@ grandfathering here exists to prevent.
 above would rest on a row no record was required to carry, which is a run
 failed for a cell nobody asked its author for.
 
+##### The reopening — one, and then the run is capped
+
+The floor's count leaves one door open, and the last branch went through it
+every time. A verifying round that opens something is a finding round, its
+fixes need a reader, and that reader is a verifying round again, which may
+open something again. Every record the count stops at is itself a record that
+met the floor, so the count restarts there and nothing bounds the chain. #161
+measured fifteen rounds on one branch, with the exception used by every
+verifying round of it.
+
+**After a record that met the floor, at most one later record may close on a
+fix.** That one is the verifying round that reopened the run; the record that
+reads its fixes ends the run whatever it finds. There the run is `capped`:
+every finding still open becomes an issue, its verdict reads `deferred #N`,
+the record's `Fixes checked by` reads `no fixes to check`, and the pull
+request says `chain: capped`.
+
+| The records after a record whose floor row is `no` | The check |
+|---|---|
+| none, or one, whose verdicts closed on a fix | passes |
+| two fix-closing records, work item begun on or after the cutoff | **fails**, naming the second by file and the floor record it follows, and the exit above — keyed to `chain_check.py`'s `REOPEN_FROM`, whose value is the id of the work item that added the rule |
+| the same, work item begun before the cutoff (or with no timestamp prefix) | prints — the grandfathering above. The rounds it names are over, and no record anybody writes now un-spawns them |
+
+This is a second walk over the same later records as the floor's count, and
+the two decide different things. The count stops at the first later record
+that reopened the run or closed on a fix and refuses a second record before
+that point — a quiet round after the verifying round, #81's shape. This walk
+never stops: it counts every later record whose verdicts closed on a fix,
+wherever it sits, and refuses the second — a run reopened twice, however the
+records between are shaped. `stopping_floor`'s docstring carries the same
+table.
+
+**Failure direction: blocks more.** A run that reopens twice is refused where
+it used to pass. What it lets through, stated rather than left to be found: a
+defect the second reopening would have found ships as an issue rather than as
+a round. That is the trade `questions.md` Q2 of the work item that added this
+chose, with the alternative on the table — removing the exception entirely
+would have shipped round 7's floor bug and three Windows defects of the last
+branch as issues too, and bounded nothing the count did not.
+
+**The vocabulary the exit needs.** `deferred <home>` is a closing word and not
+a fix word: `deferred #170` and `deferred seal/follow-up.md` close a finding
+on the issue or the file it went to, and produced no code — so `no fixes to
+check` beside them is the truth, and a last record whose every verdict reads
+that way may tick `Pass`. A bare `deferred`, the word with nothing after it,
+stays OPEN — the direction every verdict the checker cannot read takes. It
+says something was left and not where, which is the state a `nobody` with no
+reason is refused for.
+
 ##### The depth in `New units`
 
 `New units` carries a second thing beyond the names, and it has a cutoff of
@@ -953,7 +1008,7 @@ the one record the defect cannot reach.
 | the adding commit descends from a commit this record's own verdict names as the fix, work item begun on or after the cutoff | **fails**, naming the adding commit, the fix, and the row — keyed to `chain_check.py`'s `ORDER_FROM`, whose value is the id of the work item that added the rule |
 | the same, work item begun before the cutoff (or with no timestamp prefix) | prints — the grandfathering `Fixes checked by` already uses. A merged record has no honest repair: nobody can commit it earlier now |
 | the record added with `open` cells and updated to `fixed at <sha>` afterwards | passes. This is the correct shape, and the whole reason the ADDING commit is what is read |
-| a verdict closing with `answered`, `withdrawn` or `not a defect` | passes, whatever commit sits in the cell — those close a finding and produce no code, so there is no fix the record could have been written after |
+| a verdict closing with `answered`, `withdrawn`, `not a defect` or `deferred <home>` | passes, whatever commit sits in the cell — those close a finding and produce no code, so there is no fix the record could have been written after |
 | a fix commit that is an ancestor of this record's own `Target SHA` | passes — the round already reviewed that commit, so it is a fix this round did not commission. Round N+1's record is committed after round N's fixes by construction, and reading those as commissioned would fail the second round of every run |
 | a fix commit this repository cannot resolve | passes — after a squash that is the ordinary state of a reviewed commit, the reading `resolves_to` gives every other consumer |
 | **a `fixed` verdict that names no commit at all** | passes, and this is the commonest of the pass states rather than an edge — measured across this repository's own records, 235 cells close with a fix word, 215 name a commit and **20 do not**. `\| fixed \|` and `\| fixed — round-2 read it \|` are house style, not malformed |

@@ -312,6 +312,35 @@ def test_a_finding_left_with_no_row_is_refused(repo):
     assert "2" in out and "3" in out and "no row" in out, out
 
 
+def test_a_table_of_only_deferrals_ticks_pass(repo):
+    """A capped run's fix table: every row `deferred <home>`. Phase 2's
+    hand-back said the box stayed unticked beside the word, for want of it
+    in `CLOSED_WORDS`; phase 3 put it there, and `close` reads the tick
+    through `chain_check` rather than through a list of its own."""
+    a = round_one(repo)
+    write(repo, "README.md", "# a fixture, untouched by any fix\n")
+    b = commit(repo, "nothing that answers a finding")
+    _, out, record = close(
+        repo,
+        1,
+        fix_table(
+            "| 1 | deferred #170 | #170 |\n",
+            "| 2 | deferred #171 | #171 |\n",
+            "| 3 | deferred seal/follow-up.md | seal/follow-up.md |\n",
+        ),
+        f"{a}..{b}",
+    )
+    assert "- [x] Pass" in record, out
+    one, two, three = verdict_cells(record)
+    assert [one[3], two[3], three[3]] == [
+        "deferred #170",
+        "deferred #171",
+        "deferred seal/follow-up.md",
+    ]
+    chain = check_module()
+    assert all(chain.verdict_of(c, 3) == chain.DEFERRED for c in (one, two, three))
+
+
 def test_a_finding_the_report_already_closed_needs_no_row(repo):
     """The reviewer may close a finding in the report (`withdrawn`, `not a
     defect`); the fix table owes a row for every OPEN finding and no other."""
