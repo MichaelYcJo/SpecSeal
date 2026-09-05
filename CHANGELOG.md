@@ -1,5 +1,307 @@
 # Changelog
 
+## 0.8.0 — 2026-09-05
+
+<!-- specs/1788472135-the-run-outlives-its-last-finding -->
+- **A review run now has a floor as well as a ceiling, and a fix pass now
+  has a bound on what it may create.** Three rounds, and five while a 🔴 is
+  open, was a ceiling with nothing under it, so it got spent like a budget:
+  #81 ran seven rounds and the last three found nothing that leaves the root
+  and nothing that crashes. `docs/review-chain-spec.md` and
+  `skills/code-review/SKILL.md` now state the floor — **stop when a round
+  finds nothing that leaves the root and nothing that crashes** — and say
+  where the rest of what that round found goes, which is deferred with a
+  named answerer or an issue. The reviewer answers it in a line of its own
+  the way it already answers `Needs a fix`, `agents/warden.md` carries that
+  line in both the passage that explains it and the report format a reviewer
+  copies from, and `round-N.md` gains a row of the same name:
+  `| Loses a record or crashes | no |`, or `yes — <what>`. It is a second
+  terminal condition rather than the first one reworded, and the two come
+  apart — a round can need a fix and still stop the run — so the three files
+  that called `Needs a fix` *the* answer the run ends on now call it one of
+  two. **The verifying round is what the floor leaves standing**: a record
+  that met the floor may be followed by one more, the round that reads the
+  diff of the fixes that closed it, and a second one is the run carrying on
+  past its own stopping rule.
+  **The rounds the floor removes are the rounds that were reading what each
+  fix pass created, which is why the second half ships in the same release.**
+  Measured across four rounds of #82, three consecutive rounds found their
+  finding inside the previous round's fixes, every time in the unit the fix
+  added rather than in the fix itself — by construction the fix ships
+  reviewed and the unit it added ships unreviewed, in one commit. The bound
+  is **a fix pass may add a unit; that unit's fix may not**, stated in
+  `skills/code-review/SKILL.md` and `agents/smith.md`, and `round-N.md`'s
+  existing `New units` row now carries the depth of each entry —
+  `unit (depth 1)`, entries separated by `;`. The depth goes per entry rather
+  than in a row of its own because one fix pass can answer a finding in old
+  code and a finding inside an earlier unit in the same breath, and one
+  number for the round would be false of one of them. **Where a refused unit
+  goes is written in the same sections as the rule**, one phase ahead of the
+  check that refuses it, so no session meets *this unit may not exist* with
+  nowhere to put it.
+  **`chain_check.py` reads both rows at the pull request rather than leaving
+  them for whoever is awake.** A missing floor row fails; an empty cell, a
+  word that is neither answer, and `yes` with nothing after it fail on any
+  record; and a `no` followed by two or more later round records fails,
+  naming the exit. A `New units` entry with no depth fails, one at depth 2 or
+  above fails with the two places the unit goes instead named in the message,
+  and one carrying two units under a single `(depth N)` — the comma spelling
+  the row used before the depth existed — fails as well. `none`, with or
+  without a reason, stays an answer to `New units` as it was, and a trailing
+  `;` on it no longer turns it into something else.
+  **`Needs a fix` stops being a row nothing reads**, which is what keeps the
+  bound above from refusing the one sequence the documents require. A
+  verifying round that opens something is a finding round, so its own fixes
+  need a reader, and that reader is a third record; the count therefore stops
+  at the first later record whose `Needs a fix` says the run reopened. The
+  row takes the floor's `no` / `yes — <what>` vocabulary and the same cutoff,
+  and it is grandfathered whole rather than only when absent — it carried
+  free text for three releases with nothing reading it, so a value written
+  earlier was held to no vocabulary.
+  **`docs/review-handoff-protocol.md` moves to draft 1.0**, with the floor
+  row, the depth and the separator in `New units`, the depth's own adoption
+  cutoff, and a section for the floor and what may follow a stopped round.
+  **Older work items are not made red.** Both rules are keyed to the id of
+  the work item that wrote them, the way `STRICT_FROM` and `SURFACE_FROM`
+  already are: a record whose work item began before the cutoff prints
+  instead of failing, because a merged record has no honest repair and a run
+  that went past its floor can only be repaired by a round nobody can spawn
+  now. A row that is present and malformed is refused at any age, since
+  formatting is always the author's.
+  **What no check can see, recorded rather than parsed away:** a depth
+  declared wrong — `(depth 1)` on a unit that is really second-level. The
+  rule is a declaration, and the verifying round reading the `New units`
+  surface is what looks at it. `templates/config.md`'s list of what a
+  `Record language` row does not govern grows by the new field name, the
+  `depth` marker and the floor's `no` and `yes`, so a repository writing its
+  records in another language is told which words stay English. (#110, #117)
+
+<!-- specs/1788486395-the-roll-opens-the-next-log-with-no-body -->
+- **A measurement that only meant something across versions was being written
+  to the issue the next release deletes.** Two issues collect the same shape
+  of comment — the rolling `flow-measurement` log, which
+  `.github/scripts/roll_flow_measurement_issue.py` closes and replaces every
+  time a release reaches `main`, and a durable ledger that is kept across
+  versions — and `skills/verify/SKILL.md`'s "Measure the segment, and feed the
+  flow log" named only the first. So a rate held against a previous version's
+  baseline went where it would be discarded, which happened on 2026-09-04 and
+  is what #136 opened for. The section now says which reading goes to which: a
+  segment's own numbers to the rolling log, readings that span versions to the
+  durable one. **A repository declares its durable log with a `flow-baseline`
+  label** — the same lookup shape as the rolling one, a label rather than a
+  number, and the same exactly-one-open invariant. A repository that never
+  creates it is unaffected, because an absent label is the no-op it already
+  was.
+  **Zero open used to be one fact and is now two.** A repository that never
+  measured and one whose log stopped both read zero, and only the second is a
+  broken invariant. `gh issue list --label flow-measurement --state all` tells
+  them apart for one call. A session that finds the second **names it and
+  opens nothing**: two sessions finishing segments at the same moment would
+  both read zero and both create, and the next release then fails on two or
+  more, which is the same invariant broken from the other side.
+  **Every rolling log used to be born empty.** The roll passed `--body ""`, so
+  a new log said nothing about what it was for and carried no path back to the
+  one it replaced. It now opens carrying the issue it rolls from, the version
+  it closes on, and the durable ledger — found by the `flow-baseline` label
+  rather than hardcoded, and left out of the sentence entirely where a
+  repository has none.
+  **The same create asks for this repository's index label and its `log:`
+  milestone, and neither can fail a release.** A milestone is repository state
+  that gets renamed and deleted, and `gh issue create` fails the whole call on
+  a name it cannot resolve, while the invariant this script protects is the
+  one-open rule that no milestone touches. The create is attempted with both,
+  then with the label alone, then with neither, and each fallback writes into
+  the body of the issue it opens what the attempt above it could not set — the
+  body, because that is the artifact a person opens and a workflow log is not.
+  A failed attempt re-reads the open-issue list before retrying, so a create
+  that reported failure after it had actually landed ends the ladder instead
+  of opening a second issue.
+  **This repository's own durable log (`#51`) carries the new label**, so the
+  0.9.0 log opens pointing at it without anything further being done by hand.
+  (#136)
+
+<!-- specs/1788491830-a-segments-record-says-what-it-cost -->
+- **A segment's record said what it was asked, what it found and which commit
+  it read, and never what ran it.** Every segment of two work items was
+  metered this week and posted to the flow log, and not one of those readings
+  can be attributed afterwards — they all ran on the same model, and that fact
+  lived only in a session transcript. `templates/sdd-phase.md` and
+  `templates/sdd-round.md` now carry a `| Ran by |` row, and
+  `docs/review-handoff-protocol.md` (draft 1.1) carries it in the field table
+  with its `Required` column answered.
+  **The row names the agent AND the model**, joined by the word `on` —
+  `specseal:smith on <model>`. Either half alone answers neither question the
+  numbers raise: an agent without a model cannot be compared against another
+  run of the same agent, and a model without an agent cannot be told apart
+  from the orchestrating session's own turns. The joining `on` is a word
+  rather than a punctuation mark on purpose, because a separator inside a code
+  span splits the cell carrying it and that has bitten these records twice.
+  **It is the spawning session's row, never the segment's own.** An agent is
+  told what it is, so a value it writes about itself is the value it was told,
+  and the model is a spawn-time argument the orchestrator chose —
+  `agents/*.md` pins none. It is the reach-back `Fixes checked by` and the
+  fix-surface rows already make. `skills/code-review/SKILL.md` and
+  `skills/verify/SKILL.md` both say so, because they are read by different
+  sessions at different moments.
+  **`unknown — <why>` is an answer and a bare `unknown` is not**, in the shape
+  `nobody — <why>` already has. A session spawning through another harness may
+  genuinely have no name for a model, and a vocabulary offering only the
+  confident answer gets the confident answer written whether or not it is
+  true.
+  **`chain_check.py` reads the row**, so it is enforceable rather than true
+  only while somebody is awake. An absent row fails for work items begun on or
+  after `RUNNER_FROM` and prints for older ones — the fourth cutoff of the
+  shape `STRICT_FROM`, `SURFACE_FROM` and `FLOOR_FROM` already carry, because
+  a merged record has no honest repair: nobody can recover what ran a segment
+  whose session is over. A row that is present and unreadable is refused at
+  any age, the split the fix-surface rows already make.
+  (#137)
+
+<!-- specs/1788501054-a-check-reports-clean-while-something-is-missing -->
+- **A ledger check scoped to one work item's fragment reported clean while the
+  shared ledger went stale underneath it.** `evidence-check --ledger
+  '<fragment>'` reads that fragment and nothing else, and the narrowing was
+  adopted for a correct reason: it is what keeps `--reverify` off a row whose
+  claim is false and belongs to somebody else. Carried into READING, it
+  blinds. One work item's three review rounds and two fix passes all ran the
+  scoped form and all reported ok; the unscoped read at the pull request found
+  **fifteen drifted rows and one broken claim**, every one in a file the
+  branch had touched, and one of them a claim the branch itself had made
+  false.
+  **`docs/review-handoff-protocol.md` (draft 1.2) gains a fourth handoff
+  requirement**: a command with more than one form names the form, and says
+  what the other one is for. Naming the form alone is not enough — a reader
+  who does not know what the write's narrowing buys deletes it, and
+  `--reverify` then re-stamps the false claim.
+  `skills/code-review/SKILL.md` carries the two forms as a table, with the
+  repair that looks obvious refused by name.
+  **And the tool announces its own narrowing**, because guidance binds only a
+  session that reads it and the session this trap was sprung on narrowed the
+  command on its own initiative. A `--ledger` run now opens with the ledgers
+  it did not read, named one per line, and how to read them. It prints before
+  anything is opened — so a glob with a typo in it no longer reports `no
+  evidence ledgers found`, which is the sentence a repository with no ledger
+  at all gets — and a run that narrowed to exactly what the defaults would
+  have opened says nothing. Nothing in a skipped ledger is read: the line is a
+  report on what was skipped, not a second pass over it.
+  **Two names for one file are one ledger**, matched by inode rather than by a
+  spelling of the path, so a case variant on a case-insensitive filesystem, a
+  hard link and a symlink all count as read. Comparing paths put a platform
+  inside the answer — `os.path.normcase` folds case on Windows alone — and
+  `--ledger SEAL/ledger.md` then read the ledger and listed it as unread.
+  A file the run cannot identify falls back to its path rather than to a
+  shared blank: an inode of 0 is not an identity (Python's own contract says
+  so, and CPython's Windows `stat` leaves both fields 0 when it cannot open a
+  file), and taken at face value it gave every such file ONE identity — so a
+  ledger that was read swallowed every ledger that was not, and the run said
+  nothing. Over-reporting is the declared direction here, and silence was its
+  reverse. (#153)
+- **A round record written after the fixes it commissioned looked exactly like
+  one written before them.** `templates/sdd-round.md` says a record is written
+  right after the round posts and nothing observed it; measured twice in one
+  release, four minutes and two minutes late, and both times the reviewer's
+  drafted replacement text lived only in a report and the next segment rebuilt
+  it from scratch. A late record leaves no trace, because by then its verdict
+  cells read `fixed at <sha>` — which is what a correct record looks like
+  after its own update pass.
+  **`chain_check.py` refuses a record whose ADDING commit descends from a
+  commit its own verdicts name as the fix**, for work items begun on or after
+  its `ORDER_FROM` — the fifth cutoff of the shape `STRICT_FROM`,
+  `SURFACE_FROM`, `FLOOR_FROM`, `NEEDS_FROM` and `RUNNER_FROM` carry. It is
+  the adding commit and never the last one: a correct record IS updated after
+  its fixes land, so refusing on the last commit would fail every well-written
+  record. Read on every record, like the four rows before it, because the last
+  record is the one least likely to be late.
+  **Three things it does not refuse**, each of which would otherwise fail an
+  honest record: a verdict closing with `answered`, `withdrawn` or `not a
+  defect`, which produces no code; a fix commit that is an ancestor of the
+  record's own `Target SHA`, which the round already reviewed and therefore
+  did not commission — that one is red on the second record of every well-run
+  chain without it; and a record with no adding commit in `<baseline>..HEAD`,
+  which arrived before the base and about which nothing is claimed.
+  **Where a record was deleted and re-added, the LATER add is what counts.**
+  That is the only shape producing more than one add, and it is the one that
+  makes a late record look early: a stub committed on time, removed, and the
+  real record written after the fixes. The version anybody reads was authored
+  at the last add.
+  **The reach is the commit a verdict cell carries, and that is a bound rather
+  than a choice.** Measured across this repository's own records: 235 cells
+  close with a fix word, 215 name a commit and 20 do not, and `| fixed |` is
+  house style rather than malformed. So a record written entirely that way is
+  invisible to the refusal however late it was committed.
+  `templates/sdd-round.md` now asks for the commit beside the word, with the
+  reason, rather than a sixth refusal being added for a spelling twenty
+  existing cells already use — the reach grows as records land and nothing red
+  is inherited.
+  **The ordering rule made a record's fix surface start out empty, and
+  `chain_check.py` now requires the second step.** Because the record is
+  committed before its fixes exist, `Contract changes` and `New units` both
+  begin at `none — the fixes are not yet written`, and until this landed
+  nothing required anyone to come back and fill them — a record that never
+  did read exactly like one whose fixes added nothing, and a verifying round
+  opening it saw no finding surface at all. A row still saying *not yet
+  written* on a record whose `Fixes checked by` names a later round is now
+  refused: that round opened the fixes, so they exist, and the cell
+  contradicts its own file two rows down. While `Fixes checked by` still says
+  `nobody`, the value is the truth and nothing refuses it. Behind the same
+  cutoff, so records of earlier work items print.
+  This is the one place in the checker whose direction for a value it cannot
+  read is **allow** rather than refuse. A rule about which English sentences
+  mean *not yet* would be a rule about English, so the phrase is a constant
+  the template prints and the checker matches at the START of the reason.
+  **What escapes is wider than a rewording**, and three spellings carry the
+  template's words unchanged: a dash outside the separator set, a doubled
+  space inside the phrase, and any clause in front of it. Only the first is
+  punctuation, so widening the separator set would close one of the three and
+  leave the claim false about the other two — the limit is written down
+  instead, with all three spelled out and a case running them.
+  **And the arm keys on `Fixes checked by`**, so it reaches the session that
+  filled that cell and stopped, never the one that filled nothing. `nobody`
+  beside a pending row prints rather than fails, because that is the state the
+  ordering rule requires; `no fixes to check` beside one prints too, and there
+  the pair is not merely unrefused but wrong — a round that commissioned no
+  fixes will never have any. That is the terminal record of every run, and
+  whether it should be refused is a question for the repository owner.
+  **The floor's count now stops at a record that wrote fixes, not only at
+  one that reopened.** The walk read `Needs a fix`, which is the reviewer's
+  answer to *what did I open*; the bound needs *were fixes written that owe a
+  reader*, and the two come apart when the orchestrator fixes a 🟡 the
+  reviewer said could be answered with grounds — because it ships, as a
+  false count in a ledger fragment does. The row then reads `no` over fixes
+  that exist, and the run had no terminal record any exit accepted: the
+  reader after the `no` was a second uncounted record, and stopping at the
+  `no` was refused both ways. Measured on this work item's own seventh
+  round. The verdict column already carried the fact — it is what refuses
+  `no fixes to check` beside `fixed` — and the walk reads it there now.
+  ALLOW, one record wider in one sequence, and the cheaper mistake: the
+  other way to satisfy the old walk was rewriting `fixed` to `answered`
+  over fixes that exist. Three quiet rounds are still refused, because
+  `answered` writes nothing.
+  **What a rebase does to it is stated rather than left to be found.** The
+  adding commit is read on the branch, and a rebase replays a branch's commits
+  in order, so a passing record cannot be turned failing. What a rebase
+  changes is the SHA a verdict cell names, which then resolves to nothing and
+  makes no claim — so a rebase can turn a **failing** record passing, and that
+  is the safe direction of the two.
+  `docs/review-chain-spec.md` carries the subsection, and
+  `skills/code-review/SKILL.md` carries the habit that clears it: commission
+  the fix pass from the committed record rather than from the reviewer's
+  report, which is a message in a session that ends. (#150)
+- **Whether a record can be made to carry the artifact it says it verified is
+  answered rather than assumed, and the answer is no.** A round record's
+  executed-probes row read *"the round's proposed fixes … green, then red in
+  every case"* and the record contained none of that code, so the implementer
+  wrote its own replacement for the second time in one release. Writing the
+  record first is necessary and not sufficient.
+  `docs/review-chain-spec.md` names the three checks somebody would write and
+  why each fails — a keyword match over free prose is an enumeration over an
+  unbounded domain, requiring a fenced block on every record refuses the
+  ordinary case, and the content cannot be in a diff at the moment the record
+  is written. What remains is a declaration in `templates/sdd-round.md`: a
+  probe row whose subject was a **proposed replacement** carries the
+  replacement itself, in a fenced block, never a sentence about it. A command
+  is reproducible from its own text; a patch is not. (#150)
+
 ## 0.7.0 — 2026-09-03
 
 <!-- specs/1788445862-a-phase-hands-the-next-one-a-record -->
