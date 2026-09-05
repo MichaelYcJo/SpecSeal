@@ -52,6 +52,10 @@ MOD = (
     "\n"
     "def caller():\n"
     "    return helper(1)\n"
+    "\n"
+    "\n"
+    "def my_only_tested():\n"
+    "    return 0\n"
 )
 TEST_MOD = (
     "from mod import helper, only_tested\n"
@@ -274,7 +278,8 @@ def test_a_row_whose_number_is_not_in_the_table_is_refused(repo):
         fix_table(f"| 1 | fixed | {b[:7]} |\n", "| 9 | answered | no such finding |\n"),
         f"{a}..{b}",
     )
-    assert "9" in out and "not in" in out, out
+    assert "finding 9, not in" in out, out
+    assert "(which has 1)" in out, out
 
 
 def test_a_verdict_outside_the_three_is_refused(repo):
@@ -326,8 +331,9 @@ def test_a_finding_the_report_already_closed_needs_no_row(repo):
 
 def test_contract_changes_name_the_unit_and_its_reach(repo):
     """One signature with an in-tree caller and a test caller, one with test
-    callers alone. The def line is not a site; a caller under `tests/`
-    collapses to `pytest`, and to `pytest only` when it is the whole reach."""
+    callers alone. The def line is not a site, `my_only_tested(` is not a
+    call of `only_tested`; a caller under `tests/` collapses to `pytest`,
+    and to `pytest only` when it is the whole reach."""
     a = round_one(repo, verdicts=OPEN_1)
     write(repo, "mod.py", MOD_CHANGED)
     b = commit(repo, "fix")
@@ -339,6 +345,20 @@ def test_contract_changes_name_the_unit_and_its_reach(repo):
         "helper → caller, pytest; only_tested → pytest only"
     ), out
     assert cells["New units"] == "none"
+    # The rows were replaced in place: the field table still has the
+    # template's labels, once each, in the template's order.
+    template = read("templates", "sdd-round.md")
+    template = re.findall(
+        r"^\| ([^|]+?) \| <",
+        template[: template.index("- [ ] Pass")],
+        flags=re.MULTILINE,
+    )
+    labels = [
+        line.split("|")[1].strip()
+        for line in record[: record.index("] Pass")].splitlines()
+        if line.startswith("| ") and not line.startswith("| Field |")
+    ]
+    assert labels == template, (labels, template)
 
 
 def test_a_changed_return_arity_is_a_contract_change(repo):
@@ -410,7 +430,11 @@ def test_a_surface_writer_refuses_a_separator_inside_a_name():
 # --- depth 2 is refused before any cell is written ----------------------------
 
 
-@pytest.mark.parametrize("location", ["`mod.py#helper`", "`mod.py:2`", "`helper`"])
+@pytest.mark.parametrize(
+    "location",
+    ["`mod.py#helper`", "`mod.py:2`", "`helper`"],
+    ids=["path-unit", "path-line", "identifier"],
+)
 def test_a_unit_added_beside_a_finding_inside_an_earlier_units_is_refused(
     repo, location
 ):
@@ -480,6 +504,9 @@ def test_the_smith_hands_over_the_fix_table_and_writes_no_phase_record():
     )
     assert "round_record.py close" in smith, (
         "agents/smith.md does not say the depth is measured by `close`"
+    )
+    assert "depth is measured rather than declared" in smith, (
+        "agents/smith.md still has the smith declare the depth in the hand-back"
     )
 
 
