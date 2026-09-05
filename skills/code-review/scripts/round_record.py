@@ -623,7 +623,9 @@ def run_check(root, baseline):
     writes, and outside a workflow it has none and judges as READY — where an
     unchecked `Pass` fails. A record being generated is a review still
     running, so the check is told `draft` unless `gh` says the pull request
-    is already ready, in which case it is judged as CI will judge it.
+    is already ready, in which case it is judged as CI will judge it. On a
+    machine without `gh` the check is told `draft` for every local run, and
+    CI re-judges from the real payload at the pull request.
     """
     env_was = os.environ.get("GITHUB_EVENT_PATH")
     payload = None
