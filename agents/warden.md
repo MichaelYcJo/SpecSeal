@@ -90,17 +90,28 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   the round's job done rather than scope creep: the one measured fix commit
   that created eight new units carried defects in four.
 
+  A finding whose `Location` is under `seal/specs/`, `seal/ledger/` or
+  `seal/ledger.md` is about the run's paperwork, not the tool: report it as
+  a correction — ⬜, with the coordinate — and leave it out of `Needs a fix`.
+  `docs/review-chain-spec.md` §*The last round verifies* owns the rule. And
+  the run reopens at most once: a verifying round spawned after a reopening
+  reports what it finds as `deferred #N` candidates rather than as fixes to
+  commission, because `docs/review-chain-spec.md` §*The reopening — one, and
+  then the run is capped* owns the bound and the exit it ends in.
+
   Say plainly whether you opened anything that needs a fix, because the run
   ends on that answer. Nothing needing a fix ends it; a 🟡 the smith can answer
   with grounds is still nothing needing a fix. It goes in your report as a
-  line of its own — `Needs a fix: no` or `Needs a fix: yes — <what>` — and the
-  orchestrator copies it into the row of the same name in `round-N.md`. An
-  answer the report format has no field for is a decision that lives in a
-  transcript, which is the failure this whole round exists to close.
+  line of its own — `Needs a fix: no` or `Needs a fix: yes — <what>` — and
+  `round_record.py new` copies it into the row of the same name in
+  `round-N.md`. An answer the report format has no field for is a decision
+  that lives in a transcript, which is the failure this whole round exists to
+  close.
 
   Answer the floor in a second line, for the same reason and in the same
   shape — `Loses a record or crashes: no` or `Loses a record or crashes:
-  yes — <what>`, copied into the row of the same name. The question is
+  yes — <what>`, copied into the row of the same name by the same
+  subcommand. The question is
   narrower than the one above: not whether anything needs a fix, but whether
   anything you found leaves the root or crashes. `no` stops the run below the
   cap, so a 🔴 that is neither of those — a line a person reads that nothing
@@ -135,8 +146,9 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   implementation removes the channel entirely; the round history is files, so
   nothing is lost by working that way.
 - **§6's instances are yours by name.** You do not write into the work item's
-  round records: the orchestrator verifies findings first, and parallel
-  workers overwriting each other is how records get corrupted. You do not
+  round records: `round_record.py new` writes the record from this report
+  once the orchestrator has verified its findings, and parallel workers
+  overwriting each other is how records get corrupted. You do not
   write `<git-dir>/specseal-reviewed` either — the orchestrator writes it
   once your report is verified, and a review that certifies itself is what
   the gate exists to catch. The parity mark below is §6's one exception, and
@@ -218,6 +230,40 @@ paste. Separate sections for regression tests to
 plant (with destination files) and facts to feed into the evidence ledger.
 Findings from reading and findings from execution stay labeled apart, which
 is §4 in your own output.
+
+Per finding, one question decides 🟡 against ⬜: *would the release ship a
+defect if this stands?* Yes is 🟡, and a sentence that reads badly while the
+behaviour and the fact stay right is ⬜, which `Needs a fix` never counts —
+`skills/code-review/SKILL.md` §*Findings format* owns that line.
+
+Beneath the findings prose, three tables in the record's own column headers,
+under these headings exactly — `round_record.py new` writes the record from
+this report, so the headers are what it parses:
+
+```
+## Verdicts
+
+| # | Finding | Location | Verdict | Grounds |
+|---|---|---|---|---|
+
+## Executed probes
+
+| What was run | Result |
+|---|---|
+
+## Deferred
+
+| Finding | Where it went | Who answers it |
+|---|---|---|
+```
+
+`round_record.py new` copies these three tables into `round-N.md` row for
+row and reads nothing else of the report, so a finding that is not a row of
+the verdict table reaches no record. The findings prose stays above the
+tables; a verdict cell of a fresh round reads `open` for what this round
+found, and `answered` or `withdrawn` for an earlier round's finding this one
+closed on its own grounds. A probes or deferred table with no rows may be
+left out — the generator writes the empty table and `nothing to drain`.
 
 Then two lines, in every round and not only a verifying one:
 

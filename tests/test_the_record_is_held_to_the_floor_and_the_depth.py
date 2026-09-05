@@ -1115,6 +1115,10 @@ SUBSECTIONS = {
     ),
     "needs a fix": (
         "##### `Needs a fix` — the row the bound",
+        "##### The reopening — one, and then the run is capped",
+    ),
+    "the reopening": (
+        "##### The reopening — one, and then the run is capped",
         "##### The depth in `New units`",
     ),
     "the depth": ("##### The depth in `New units`", "Which declaration applies"),
