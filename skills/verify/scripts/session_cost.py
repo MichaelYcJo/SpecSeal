@@ -65,6 +65,36 @@ def family(command):
     return "other"
 
 
+def count(value):
+    """A `usage` field as a number, or 0 when it is not one.
+
+    `parse_time` above states this file's rule — one odd row must not end the
+    report — and the two readers below broke it the same way, by using a value
+    taken out of a transcript as an arithmetic operand or as a dict key with
+    nothing checking what it was. A harness writing a token count as the
+    string `"12"`, or as `null`, raised `TypeError` out of a report that had
+    already read the rest of the file.
+
+    `bool` is excluded on purpose: `True + 1` is 2, so a flag landing in a
+    token column would be a wrong number rather than a missing one."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0
+    return value
+
+
+def message_key(message, row, number):
+    """A key for one assistant message that is always hashable.
+
+    A harness writing `message.id` as a list makes it unusable as a key, and
+    both readers put it straight into a `set`. The row's own uuid is the next
+    answer and the row's position is the floor — the same three-step fallback
+    `load` already documented, with the type check the code assumed."""
+    for candidate in (message.get("id"), row.get("uuid")):
+        if isinstance(candidate, str) and candidate:
+            return candidate
+    return f"row-{number}"
+
+
 def load(path):
     """Tool calls paired with their results, plus per-turn token counts.
 
@@ -88,30 +118,49 @@ def load(path):
                 row = json.loads(line)
             except ValueError:
                 continue
+            if not isinstance(row, dict):
+                continue
             stamp = row.get("timestamp")
-            message = row.get("message") or {}
+            message = row.get("message")
+            if not isinstance(message, dict):
+                continue
             content = message.get("content")
             if not stamp or not isinstance(content, list):
                 continue
-            usage = message.get("usage") or {}
-            turn_key = message.get("id") or row.get("uuid") or f"row-{number}"
+            usage = message.get("usage")
+            if not isinstance(usage, dict):
+                usage = {}
+            turn_key = message_key(message, row, number)
             carries_call = False
             for block in content:
                 if not isinstance(block, dict):
                     continue
                 if block.get("type") == "tool_use":
-                    text = (block.get("input") or {}).get("command", "")
-                    if not text:
-                        text = json.dumps(block.get("input") or {}, ensure_ascii=False)
-                    pending[block.get("id")] = (
+                    carries_call = True
+                    call_id = block.get("id")
+                    if not isinstance(call_id, str):
+                        # Unpairable: `pending` is keyed by it, and a call
+                        # with no result has no duration to charge anywhere.
+                        continue
+                    payload = block.get("input")
+                    if not isinstance(payload, dict):
+                        payload = {}
+                    text = payload.get("command", "")
+                    if not isinstance(text, str) or not text:
+                        text = json.dumps(payload, ensure_ascii=False)
+                    pending[call_id] = (
                         stamp,
                         block.get("name", "?"),
                         " ".join(text.split()),
                         turn_key,
                     )
-                    carries_call = True
                 elif block.get("type") == "tool_result":
-                    started = pending.pop(block.get("tool_use_id"), None)
+                    result_id = block.get("tool_use_id")
+                    started = (
+                        pending.pop(result_id, None)
+                        if isinstance(result_id, str)
+                        else None
+                    )
                     if started:
                         began, tool, text, turn = started
                         start, end = parse_time(began), parse_time(stamp)
@@ -133,9 +182,9 @@ def load(path):
                 turns.append(
                     (
                         stamp,
-                        usage.get("input_tokens", 0)
-                        + usage.get("cache_read_input_tokens", 0),
-                        usage.get("output_tokens", 0),
+                        count(usage.get("input_tokens"))
+                        + count(usage.get("cache_read_input_tokens")),
+                        count(usage.get("output_tokens")),
                     )
                 )
     calls.sort(key=lambda c: c["start"])
@@ -196,6 +245,13 @@ def analyse(calls, turns):
         "command_s": command_time,
         "model_s": model_time,
         "calls": len(calls),
+        # `call_turns` is `tools_per_turn`'s own denominator, returned so the
+        # printed report can name it. It is NOT the token line's turn count:
+        # that one is every assistant message carrying `usage`, over the whole
+        # run, where this one is the messages of THIS transcript that sent a
+        # call. Printing the two without saying so let a reader divide one
+        # into the other — 1.08 tools per turn beside 659 turns and 211 calls.
+        "call_turns": len(turns),
         "tools_per_turn": len(calls) / max(len(turns), 1),
         "gap_mean_s": (sum(gaps) / len(gaps)) if gaps else 0.0,
         "by_family": {
@@ -268,12 +324,21 @@ def token_totals(paths):
     usage on each, which is the same trap `load` dedups against for
     `context_growth`. Per-row summing would double a run's headline number.
 
-    Every way this degrades makes the totals SMALLER rather than raising — a
-    transcript that cannot be opened is skipped, a line that will not parse is
-    dropped, a harness that stops writing one of the fields contributes zero.
-    That is why `transcripts` is returned and printed: a line covering one
-    file for a run that spawned six is visibly wrong to the person who spawned
-    them, and they are the only reader who can tell."""
+    No way this degrades ENDS the report, and almost every one of them makes
+    the totals smaller: a transcript that cannot be opened is skipped, a line
+    that will not parse is dropped, a harness that stops writing one of the
+    fields contributes zero, and a value that is not a number counts as none.
+    One shape goes the other way — a split message whose rows carry neither a
+    usable `message.id` nor a usable `uuid` is keyed by row position, so its
+    usage counts once per row instead of once. Nothing in this file can tell
+    that shape from a run that really sent that many messages.
+
+    Which is why both counts are returned and printed. `transcripts` covers
+    the files the walk OPENED, not the files that contributed — a segment that
+    opened and yielded nothing is counted here and is invisible in the totals —
+    so a line covering one file for a run that spawned six is visibly wrong to
+    the person who spawned them, and `turns` is where a run's messages being
+    counted twice would show. They are the only reader who can tell either."""
     totals = {
         "transcripts": 0,
         "turns": 0,
@@ -301,16 +366,16 @@ def token_totals(paths):
                     usage = message.get("usage")
                     if not isinstance(usage, dict):
                         continue
-                    key = message.get("id") or row.get("uuid") or f"row-{number}"
+                    key = message_key(message, row, number)
                     if key in counted:
                         continue
                     counted.add(key)
                     totals["turns"] += 1
-                    totals["output"] += usage.get("output_tokens", 0) or 0
-                    totals["cache_write"] += (
-                        usage.get("cache_creation_input_tokens", 0) or 0
+                    totals["output"] += count(usage.get("output_tokens"))
+                    totals["cache_write"] += count(
+                        usage.get("cache_creation_input_tokens")
                     )
-                    totals["cache_read"] += usage.get("cache_read_input_tokens", 0) or 0
+                    totals["cache_read"] += count(usage.get("cache_read_input_tokens"))
         except OSError:
             # A segment this run cannot open is a segment the line does not
             # cover; the transcript count is what makes the gap visible.
@@ -332,6 +397,23 @@ def plural(number, word):
     return f"{number:,} {word}" + ("" if number == 1 else "s")
 
 
+def report_tokens(tokens):
+    """The token block, printed either under the time lines or on its own.
+
+    On its own when a transcript carries `usage` and no paired tool call: a
+    segment that read and thought has no span to report and still spent what
+    the run's token row is summed over. The block was inside `report`, which
+    `main` reached only after `analyse` had returned something."""
+    print(
+        f"tokens        {plural(tokens['transcripts'], 'transcript')}, "
+        f"{plural(tokens['turns'], 'turn')}"
+    )
+    print("              a turn is any assistant message, in every transcript counted")
+    print(f"  output      {tokens['output']:>15,}")
+    print(f"  cache write {tokens['cache_write']:>15,}")
+    print(f"  cache read  {tokens['cache_read']:>15,}")
+
+
 def report(data):
     print(f"span          {minutes(data['span_s'])}   ({data['calls']} tool calls)")
     print(
@@ -351,14 +433,8 @@ def report(data):
             f"   waiting on a person, or on a gap this file cannot see"
         )
 
-    tokens = data["tokens"]
-    print(
-        f"\ntokens        {plural(tokens['transcripts'], 'transcript')}, "
-        f"{plural(tokens['turns'], 'turn')}"
-    )
-    print(f"  output      {tokens['output']:>15,}")
-    print(f"  cache write {tokens['cache_write']:>15,}")
-    print(f"  cache read  {tokens['cache_read']:>15,}")
+    print()
+    report_tokens(data["tokens"])
 
     print("\nby family")
     for name, row in sorted(
@@ -389,7 +465,9 @@ def report(data):
         )
         print(
             f"  batching           {data['tools_per_turn']:.2f} tools per turn — "
-            f"{shape}, and each turn costs "
+            f"{data['calls']:,} calls over "
+            f"{plural(data['call_turns'], 'turn')} that sent one, in this "
+            f"transcript alone; {shape}, and each turn costs "
             f"{data['gap_mean_s']:.0f}s of model time on top of the command"
         )
     growth = data["context_growth"]
@@ -439,17 +517,30 @@ def main():
         parser.error("give a transcript path or --latest")
 
     calls, turns = load(path)
-    data = analyse(calls, turns)
-    if not data:
-        sys.exit("no tool calls in this transcript")
+    timings = analyse(calls, turns)
     # The whole run, not the transcript that was named: a token count covering
     # one segment is not comparable with one that covered a run, and #170 asks
     # for the row to be one command rather than one command per transcript.
-    data["tokens"] = token_totals([path, *subagent_transcripts(path)])
+    #
+    # Summed BEFORE the no-tool-calls guard, not after it. A transcript with
+    # `usage` and no paired tool call has no span to report and did spend
+    # tokens, and exiting there printed neither — while a segment that read
+    # and thought is exactly what the run-level table's per-kind token row is
+    # summed over.
+    tokens = token_totals([path, *subagent_transcripts(path)])
+    if timings is None and not tokens["turns"]:
+        sys.exit("no tool calls in this transcript")
+    data = {**(timings or {}), "tokens": tokens}
     if args.json:
         print(json.dumps(data, indent=2))
-    else:
+    elif timings:
         report(data)
+    else:
+        print(
+            "no paired tool call in this transcript, so there is no time to "
+            "report — what it spent is below\n"
+        )
+        report_tokens(tokens)
     return 0
 
 

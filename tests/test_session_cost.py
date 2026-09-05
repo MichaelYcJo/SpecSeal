@@ -576,3 +576,171 @@ def test_the_token_line_says_one_transcript_rather_than_1_transcripts(tmp_path):
     path = write_run(tmp_path, worked(0, "a", output=5))
     out = run([str(path)]).stdout
     assert re.search(r"^tokens\s+1 transcript, 1 turn$", out, re.M), out
+
+
+# --- one odd row must not end the report ------------------------------------
+#
+# Round 1's findings 1 and 2. `parse_time`'s docstring states the file's rule
+# for the whole file — "one odd row must not end the report" — and two readers
+# broke it in the same way: a value taken out of a transcript was used as a
+# dict key or an arithmetic operand without anything checking what it was.
+# Both readers are pinned here, because a raise in either kills the same
+# report.
+
+
+def odd(second, usage=None, message_id=None, blocks=None, message=None):
+    """One row built field by field, so a case can write a shape the helpers
+    above cannot: a `usage` value that is not a number, an id that is not a
+    key, a `message` that is not an object at all."""
+    if message is None:
+        message = {
+            "content": blocks
+            if blocks is not None
+            else [{"type": "text", "text": "."}],
+            "usage": {} if usage is None else usage,
+        }
+        if message_id is not None:
+            message["id"] = message_id
+    return json.dumps({"timestamp": stamp_at(second), "message": message})
+
+
+def test_a_transcript_with_usage_and_no_tool_call_still_reports_its_tokens(tmp_path):
+    """Finding 1. The token line was computed after `analyse`'s guard, so a
+    transcript carrying `usage` and no PAIRED tool call exited with `no tool
+    calls in this transcript` and printed nothing — not the time lines it
+    cannot produce, and not the tokens it can. That transcript is a segment
+    that read and thought, which is exactly what the run-level table's
+    per-kind token row is summed over."""
+    path = tmp_path / "quiet.jsonl"
+    path.write_text(odd(0, {"output_tokens": 7, "cache_read_input_tokens": 70}) + "\n")
+    proc = run([str(path)])
+    assert proc.returncode == 0, proc.stderr
+    assert "no paired tool call in this transcript" in proc.stdout, proc.stdout
+    assert re.search(r"^tokens\s+1 transcript, 1 turn$", proc.stdout, re.M), proc.stdout
+    assert re.search(r"^  output\s+7$", proc.stdout, re.M), proc.stdout
+    assert re.search(r"^  cache read\s+70$", proc.stdout, re.M), proc.stdout
+    assert json.loads(run(["--json", str(path)]).stdout)["tokens"]["output"] == 7
+
+
+def test_a_usage_value_that_is_not_a_number_contributes_zero(tmp_path):
+    """Finding 2, first half. A harness writing `output_tokens` as the string
+    `"12"` raised `TypeError: unsupported operand type(s) for +=` out of
+    `token_totals`, and a `null` where an int was expected is the same shape.
+    A value this file cannot add is a value it does not have — which is the
+    direction `token_totals`' docstring promises."""
+    path = write_run(
+        tmp_path,
+        [
+            *worked(0, "a", output=5),
+            odd(
+                2,
+                {
+                    "output_tokens": "12",
+                    "cache_write_input_tokens": None,
+                    "cache_read_input_tokens": True,
+                },
+                message_id="m2",
+            ),
+        ],
+    )
+    totals = tokens_of(path)
+    assert (totals["turns"], totals["output"], totals["cache_read"]) == (2, 5, 0)
+
+
+def test_a_message_id_that_is_not_a_key_does_not_end_the_report(tmp_path):
+    """Finding 2, second half, and the same defect in `load`. An id written as
+    a list is not hashable, and both readers put it straight into a `set`:
+    `load` raised before `token_totals` was ever reached, so one odd row lost
+    the whole report rather than its own numbers. The row keys by its own
+    position instead, which is the floor `load`'s docstring already names.
+
+    The odd row carries a tool call, because that is what reaches `load`'s
+    own set lookup — a row that only spoke short-circuits on `carries_call`
+    and would have exercised one reader of the two."""
+    path = write_run(
+        tmp_path,
+        [
+            *worked(0, "a", output=5),
+            odd(
+                2,
+                {"output_tokens": 3},
+                message_id=["m2"],
+                blocks=[use("b", "ruff check .")],
+            ),
+            plain_result(3, "b"),
+        ],
+    )
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["calls"] == 2
+    assert (data["tokens"]["turns"], data["tokens"]["output"]) == (2, 8)
+
+
+def test_a_tool_call_whose_id_is_not_a_key_loses_its_pairing_only(tmp_path):
+    """The same class one level down: `load` indexes `pending` by the
+    `tool_use` block's own id, and by the `tool_result`'s `tool_use_id`. A
+    list in either raised. The unpairable call cannot be timed, so it is not
+    a call — and the rest of the transcript still reports."""
+    path = write_run(
+        tmp_path,
+        [
+            *worked(0, "a", output=5),
+            odd(
+                10,
+                {"output_tokens": 1},
+                message_id="m3",
+                blocks=[{"type": "tool_use", "id": ["b"], "name": "Bash", "input": {}}],
+            ),
+            odd(
+                11,
+                message_id="m4",
+                blocks=[{"type": "tool_result", "tool_use_id": ["b"]}],
+            ),
+        ],
+    )
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["calls"] == 1
+    assert data["tokens"]["output"] == 6
+
+
+def test_a_row_that_is_not_the_shape_the_readers_assume_is_dropped(tmp_path):
+    """`message` as a string and a top-level row that is not an object at
+    all. `token_totals` checked both with `isinstance`; `load` checked
+    neither and raised `AttributeError` on `.get`. One reader's guard is not
+    the other's."""
+    path = write_run(
+        tmp_path,
+        [
+            *worked(0, "a", output=5),
+            json.dumps({"timestamp": stamp_at(2), "message": "hello"}),
+            json.dumps(["not", "a", "row"]),
+            json.dumps({"timestamp": stamp_at(3), "message": {"content": "text"}}),
+        ],
+    )
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["calls"] == 1
+    assert (data["tokens"]["turns"], data["tokens"]["output"]) == (1, 5)
+
+
+def test_the_report_tells_its_two_turn_counts_apart(tmp_path):
+    """Finding 5. The printed report carried the word `turns` in two meanings
+    over two scopes with nothing between them: the token line's count is every
+    assistant message across the whole run, and `tools_per_turn`'s denominator
+    is the messages of THIS transcript that sent a call. A reader divided one
+    into the other — 1.08 tools per turn printed beside 659 turns and 211
+    calls, which divides to 0.32.
+
+    So each count now says what it counts and over what. The numbers are
+    unchanged; what changes is that they can no longer be read as one."""
+    path = write_run(
+        tmp_path,
+        [
+            *worked(0, "a", output=1),
+            *worked(10, "b", command="ruff check .", output=1),
+            odd(20, {"output_tokens": 1}, message_id="m3"),
+        ],
+        {"one.jsonl": [odd(0, {"output_tokens": 1}, message_id="s1")]},
+    )
+    out = run([str(path)]).stdout
+    assert re.search(r"^tokens\s+2 transcripts, 4 turns$", out, re.M), out
+    assert "a turn is any assistant message, in every transcript counted" in out, out
+    assert "2 calls over 2 turns that sent one, in this transcript alone" in out, out
