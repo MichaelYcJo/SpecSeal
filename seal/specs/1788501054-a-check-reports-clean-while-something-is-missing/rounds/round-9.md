@@ -7,8 +7,8 @@
 | PR | not yet opened |
 | Broad gate | `3937727`, against `origin/release/v0.8.0` — **2091 passed · 4 failed · 1 skipped**, `ruff check .` and `ruff format --check .` clean; the four are issue #160's macOS-only export cases. Spent by this round's fixes and re-taken after them |
 | Fixes checked by | nobody — round 10 is the round that opens these fixes and it is not written yet; this cell becomes `round-10` the moment that record is committed |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | `stopping_floor` — the message inside the error tuple it returns changed, so its set of returnable values moved while signature, arity and return shape did not → `main`, and `tests/test_chain_check_at_the_pull_request.py::test_this_repositorys_own_round_records_pass_the_per_record_checks` |
+| New units | `test_the_floors_refusal_names_both_stops_and_refuses_the_false_way_out` (depth 1) → pytest only |
 | Needs a fix | yes — 🔴 1, the pin round 8 commissioned is live for one of its five carriers and vacuous on an empty tuple; 🔴 2, `stopping_floor`'s failure message states one stop and instructs the reader to write a false `Needs a fix: yes`; 🟡 3, the spec's exits table states a failure condition the checker no longer has; 🟡 4, the skill's own count-rule paragraph still states the first stop as the whole rule; 🟡 5, `round-8.md`'s `Fixes checked by` reason false at HEAD; 🟡 6, three records claim the pin catches copies it cannot see |
 | Loses a record or crashes | no |
 
@@ -31,7 +31,20 @@ is the one copy of the rule a person reads at the moment of failure, and it
 told them the way out was to write a false record.
 
 Written and committed before the fixes it commissions, so both fix-surface
-rows start pending. -->
+rows start pending.
+
+THE FIX SURFACE ABOVE is the reach-back, filled at `35def0f`, and the reason
+sits here rather than in the cell. `Contract changes` names `stopping_floor`
+this time and not `none`: the message is a string inside the error tuple the
+function returns, so its set of returnable values moved — one of the four
+things the row exists to name — while signature, arity and return shape did
+not. An AST comparison of `3937727` against `35def0f` with docstrings
+stripped finds `stopping_floor` the one changed unit, nothing added or
+removed. The one new unit is the case pinning that message, in a file work
+item `1788472135` created before this run, answering a finding in a unit
+that predates it — depth 1. The carrier pin was narrowed in place and adds
+nothing: `PROTOCOL` stays, `CHAIN_CHECK` goes, `COUNT_RULE_CARRIERS` and
+`SECOND_STOP` shrink, and none of that is a definition the fixes ADDED. -->
 
 ## What this round was asked
 
@@ -52,12 +65,12 @@ The first and second found the two 🔴. Six was wrong: **eight**.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | The pin is live for one carrier of five and vacuous on an empty tuple. `flat()` returns the whole file, and `SECOND_STOP`'s spellings occur in four of the five carriers for reasons unrelated to the count rule | `tests/test_the_run_stops_at_the_last_finding.py:104`, `:59`, `:66` | open | **Executed** by the round, one carrier at a time in a clone with only that carrier's second-stop sentence removed: spec GREEN, template GREEN, skill GREEN, **protocol RED**, `chain_check.py` GREEN with both docstrings reverted. `COUNT_RULE_CARRIERS = ()` leaves the case green. **Orchestrator re-verified**: the spellings occur 3·3·1·1·6 times across the five files. Two of round 8's own three 🔴 coordinates are invisible to the case written to close that finding |
-| 🔴 2 | The failure message `chain_check` prints states one stop and steers the reader into a false record — *with none of them saying the run reopened … says so in its own `Needs a fix`, and the count stops there.* For a run whose fixes were written over a `no`, the only way out it names is to rewrite the row | `chain_check.py:2521-2530`, inside `stopping_floor` | open | **Executed** by the round on a three-record fixture — printed verbatim. **Orchestrator re-read the lines.** It is the eighth copy of the rule, the one a person reads at the moment of failure, and §14 asks that a changed line a person reads be pinned; round 7 changed the walk two lines above it and left it |
-| 🟡 3 | The spec's exits table states a failure condition the checker no longer has — *two or more later round records and none of them saying the run reopened → fails* | `docs/review-chain-spec.md:743` | open | **Executed counterexample** by the round: floor `no`, two later records, none reopening, the first closing on a fix → `stopping_floor` returns 0 errors; the same with `answered` → 1 error. Written by `f187b39`, the commit that wrote all eight copies |
-| 🟡 4 | The skill's count-rule paragraph still states the first stop as the whole rule — verbatim the shape round 8 called 🔴 on the protocol, one file over. Round 7's fix added the second stop 47 lines above in a different subsection and `phase-10.md` records all three documents as corrected | `skills/code-review/SKILL.md:334-336` | open | **Read**, and orchestrator re-read the three lines. The two-answers-in-one-document shape `tests/test_one_word_one_meaning.py` exists for |
-| 🟡 5 | `round-8.md`'s `Fixes checked by` reason is false at HEAD beside a verdict column reading `**fixed**` three times — round 8's own 🟡 3 one record on. `3937727` reopened the record to fill two of the three reach-back rows and left the third | `rounds/round-8.md:9` | open | **Executed**: `chain_check` prints it verbatim. The template says the three rows are one reach-back |
-| 🟡 6 | Three records claim the pin catches copies it cannot see: *the two docstrings would have been named in turn*, *a sixth copy in a fourth spelling would go red*, *pins all five carriers so the next copy left behind goes red* | `phases/phase-11.md:48`, `:56-57`; `rounds/round-8.md` Deferred; `plan.md:47` | open | **Executed** by the round: reverting either or both docstrings never turns the case red. True for the protocol only |
+| 🔴 1 | The pin is live for one carrier of five and vacuous on an empty tuple. `flat()` returns the whole file, and `SECOND_STOP`'s spellings occur in four of the five carriers for reasons unrelated to the count rule | `tests/test_the_run_stops_at_the_last_finding.py:104`, `:59`, `:66` | **fixed** `35def0f` | **Executed** by the round, one carrier at a time in a clone with only that carrier's second-stop sentence removed: spec GREEN, template GREEN, skill GREEN, **protocol RED**, `chain_check.py` GREEN with both docstrings reverted. `COUNT_RULE_CARRIERS = ()` leaves the case green. **Orchestrator re-verified**: the spellings occur 3·3·1·1·6 times across the five files. Two of round 8's own three 🔴 coordinates are invisible to the case written to close that finding |
+| 🔴 2 | The failure message `chain_check` prints states one stop and steers the reader into a false record — *with none of them saying the run reopened … says so in its own `Needs a fix`, and the count stops there.* For a run whose fixes were written over a `no`, the only way out it names is to rewrite the row | `chain_check.py:2521-2530`, inside `stopping_floor` | **fixed** `35def0f` | **Executed** by the round on a three-record fixture — printed verbatim. **Orchestrator re-read the lines.** It is the eighth copy of the rule, the one a person reads at the moment of failure, and §14 asks that a changed line a person reads be pinned; round 7 changed the walk two lines above it and left it |
+| 🟡 3 | The spec's exits table states a failure condition the checker no longer has — *two or more later round records and none of them saying the run reopened → fails* | `docs/review-chain-spec.md:743` | **fixed** `35def0f` | **Executed counterexample** by the round: floor `no`, two later records, none reopening, the first closing on a fix → `stopping_floor` returns 0 errors; the same with `answered` → 1 error. Written by `f187b39`, the commit that wrote all eight copies |
+| 🟡 4 | The skill's count-rule paragraph still states the first stop as the whole rule — verbatim the shape round 8 called 🔴 on the protocol, one file over. Round 7's fix added the second stop 47 lines above in a different subsection and `phase-10.md` records all three documents as corrected | `skills/code-review/SKILL.md:334-336` | **fixed** `35def0f` | **Read**, and orchestrator re-read the three lines. The two-answers-in-one-document shape `tests/test_one_word_one_meaning.py` exists for |
+| 🟡 5 | `round-8.md`'s `Fixes checked by` reason is false at HEAD beside a verdict column reading `**fixed**` three times — round 8's own 🟡 3 one record on. `3937727` reopened the record to fill two of the three reach-back rows and left the third | `rounds/round-8.md:9` | **fixed** `35def0f` | **Executed**: `chain_check` prints it verbatim. The template says the three rows are one reach-back |
+| 🟡 6 | Three records claim the pin catches copies it cannot see: *the two docstrings would have been named in turn*, *a sixth copy in a fourth spelling would go red*, *pins all five carriers so the next copy left behind goes red* | `phases/phase-11.md:48`, `:56-57`; `rounds/round-8.md` Deferred; `plan.md:47` | **fixed** `35def0f` | **Executed** by the round: reverting either or both docstrings never turns the case red. True for the protocol only |
 | 🟢 7 | `wrote_fixes` above the walk; the two docstrings agree | `chain_check.py` | answered | **Read**: 2317 vs 2348; same claim in different words |
 | 🟢 8 | `Contract changes | none` | `chain_check.py` | answered | **Executed** AST comparison, `293a761` vs `3937727` and vs `cd4fec2`, docstrings stripped: identical |
 | 🟢 9 | The three re-stamped anchors | R11, F1, F9 | answered | **Executed**: `evidence_check.py .` unscoped → `537 ok · 1 drifted · 0 broken`, S8 alone |
