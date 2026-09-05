@@ -1,4 +1,4 @@
-# Review Handoff Protocol — draft 1.1
+# Review Handoff Protocol — draft 1.2
 
 A file convention for handing review work between agent sessions — across
 time, machines, and tools. Tool-agnostic on purpose: nothing here requires
@@ -316,8 +316,13 @@ the verifying round at the diff of the fixes that closed it. The one exception
 is the reason `Needs a fix` is machine-read at all: a verifying round that
 opens something is a finding round, its own fixes need a reader in turn, and
 that reader is a third record. A conforming tool counts later records only up
-to the first whose `Needs a fix` says the run reopened, that record included.
-Counting blindly makes the sequence this protocol requires unwritable.
+to the first whose `Needs a fix` says the run reopened OR whose own verdicts
+closed on a fix, that record included. The two rows answer different
+questions — `Needs a fix` is what the reviewer opened, the verdict column is
+whether fixes were written — and they come apart when the orchestrator fixes
+a finding the reviewer said could be answered with grounds. Reading only the
+first leaves such a run with no terminal record any exit accepts. Counting
+blindly makes the sequence this protocol requires unwritable.
 
 Records predating a project's adoption print rather than fail, the same
 grandfathering as above. `Needs a fix` is grandfathered WHOLE — absent, empty
@@ -382,11 +387,11 @@ a full review round.
 So the orchestrator→implementer handoff follows the rule `Inherited axes`
 already states for rounds: **coordinates rather than prose.** The exact line
 the prose to extend sits on, the grep that returned nothing, the test files
-whose assertions constrain the wording, the runner incantation. What round
-N+1 inherits from round N, round 1 — and the implementer before it —
-inherits from the orchestrator.
+whose assertions constrain the wording, the runner incantation in the form
+the round is to run it. What round N+1 inherits from round N, round 1 — and
+the implementer before it — inherits from the orchestrator.
 
-Three requirements, each bought by a measured failure:
+Four requirements, each bought by a measured failure:
 
 - **A fact carries the coordinate that makes it falsifiable, or it is
   marked as an assertion nobody has opened.** The labels are the three
@@ -403,6 +408,18 @@ Three requirements, each bought by a measured failure:
   measurement point alone — whole file against partial patch, above against
   below a particular line — and a passing measurement taken at the wrong
   point proves nothing about the claim.
+- **A command with more than one form names the form, and says what the
+  other one is for.** A flag that narrows what a check reads is right for
+  one of its jobs and blinding for the other, and a handoff carrying the
+  command carries neither job. The failure that bought this: a ledger check
+  scoped to the work item's own fragment was handed to every segment of one
+  work item, because that narrowing is what keeps a re-stamp off a row whose
+  claim somebody else has to judge. Three review rounds and two fix passes
+  all ran it and all reported a clean ledger; the unscoped read at the pull
+  request found **fifteen drifted rows and one broken claim**, every one in
+  a file the branch had touched. Naming the form alone is not enough — the
+  reader who does not know what the other form buys deletes the narrowing,
+  and the write then re-stamps the false claim.
 
 ### While the implementer runs
 
@@ -532,7 +549,7 @@ A tool claiming to support this protocol:
 
 ## Status
 
-Draft 1.1, extracted from the convention this plugin's `code-review` and
+Draft 1.2, extracted from the convention this plugin's `code-review` and
 `implement` skills already operate (they are its reference implementation).
 Field names and layout may change; the three conformance rules are stable in
 shape. 0.2 changed the third from *delete after draining* to *close and keep*.
@@ -610,6 +627,14 @@ that cannot name a model, in the shape `nobody — <why>` already has. An absent
 row on a record predating adoption prints rather than fails, the
 grandfathering `Fixes checked by` carries; a present and malformed one is
 refused at any age, the split `Contract changes` already makes.
+
+1.2 adds the fourth handoff requirement, because *the runner incantation*
+turned out to name a thing that can have two forms and the handoff kept
+carrying whichever one somebody last found useful. A narrowing adopted for a
+write was handed to three rounds as a read, and each of them reported clean
+on a ledger it had not opened. No conformance rule is added, for the reason
+0.6 gave when it added none: a spawn prompt is not a file this protocol can
+check. What a conforming handoff carries is what changes.
 
 0.3 also states the path as this implementation's choice rather than as the
 protocol. Draft 0.2 claimed to be tool-agnostic while naming a directory
