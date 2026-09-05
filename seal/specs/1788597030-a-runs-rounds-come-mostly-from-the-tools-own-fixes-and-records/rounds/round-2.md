@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | #168 — https://github.com/MichaelYcJo/SpecSeal/pull/168 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | fenced_after (depth 1); FRAGMENT_RE (depth 1); FENCE (depth 1); test_a_fenced_block_under_the_probes_table_reaches_the_record (depth 1); test_an_unclosed_fence_under_the_probes_table_is_refused (depth 1); test_the_release_leg_is_red_again_until_the_verifying_rounds_record_commits (depth 1); test_the_generator_carries_the_fenced_blocks_under_the_probes_table (depth 1) |
 | Needs a fix | yes — 🟡 10, 🟡 11 |

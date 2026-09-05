@@ -28,13 +28,13 @@ The last branch spent 12.8 of its 18.8 active hours in front of record commits a
 
 | Item | Who must answer |
 |---|---|
-| `gh pr view` answering for a real pull request — the `#N — url` cell and the draft/ready read. Pinned by injection only; a scratch repository has no remote | the orchestrator, at this branch's round 1, which is the generator's first real run |
-| `worktree_files` and `read_record --worktree` on the Windows leg: the path is rebuilt from `/`-split parts with `os.path.join`, which is what the rest of the checker does, and no case ran there | the windows CI leg at the pull request |
-| The full suite, the repository-wide lint and the typecheck after phases 1, 2, 3, 4a, 4b and 5 (§2). Phase 5 ran the generator's two suites, the three modules reading the review skill, and `ruff` on the two Python files it touched | the orchestrator, at the broad gate, once after the rounds settle |
+| ✅ `gh pr view` answering for a real pull request — the `#N — url` cell and the draft/ready read. Pinned by injection only; a scratch repository has no remote | round 1's record read `#168 — https://github.com/MichaelYcJo/SpecSeal/pull/168` and the draft state from `gh`, 2026-09-05 |
+| ✅ `worktree_files` and `read_record --worktree` on the Windows leg: the path is rebuilt from `/`-split parts with `os.path.join`, which is what the rest of the checker does, and no case ran there | the Windows leg green at `a2d0494` and `da047ab` (runs 33964679997, 33965965021), the `--worktree` cases in the suite it ran |
+| ✅ The full suite, the repository-wide lint and the typecheck after phases 1, 2, 3, 4a, 4b and 5 (§2). Phase 5 ran the generator's two suites, the three modules reading the review skill, and `ruff` on the two Python files it touched | the broad gate at `da047ab`: 2258 passed · 1 skipped with `-n auto`, `ruff check .` and `ruff format --check .` clean, 2026-09-05, in `rounds/round-3.md` |
 | ✅ The count-rule ceilings phase 4a's walk asserts (4 and 0) after phase 4b's sweep of the five linking carriers, and rule 5's owner phrase in `agents/smith.md` under 4b's edit | measured at 4b's close: `grep -rn` over `docs skills agents templates` reads 4 and 0, and the rule-5 pin is green at `12c6db6` (phases/phase-4b.md) |
 | The reopening walk on a real capped run, and `close` writing `no fixes to check` into its last record — the first is whichever 0.8.x chain caps first; every fixture here is built, and this repository's own records reopen at most once | the orchestrator, at the first `chain: capped` |
-| `close` on the Windows leg: `git grep` output is split on `:` and paths in git's output are `/`-separated, which is what `call_sites` and `under_tests` assume; no case ran there | the windows CI leg at the pull request |
-| `close` on a real fix pass of this branch — the first is this branch's own round 1 | the orchestrator, at this branch's round 1 |
+| ✅ `close` on the Windows leg: `git grep` output is split on `:` and paths in git's output are `/`-separated, which is what `call_sites` and `under_tests` assume; no case ran there | the same two green Windows runs, `test_the_fixes_close_the_record.py` among what they ran |
+| ✅ `close` on a real fix pass of this branch — the first is this branch's own round 1 | round 1's fix pass: `close` over `c24344f..319309f` measured two contract changes and nineteen units, all depth 1, 2026-09-05 |
 | The three-hour target — build plus two rounds for a change under three hundred code lines. This branch is not under three hundred lines and is the item that builds the machine, so it cannot be its own reading | the next three 0.8.2 items, under the `flow-measurement` label |
 | Whether one round per session holds without enforcement | the same three items |
 
