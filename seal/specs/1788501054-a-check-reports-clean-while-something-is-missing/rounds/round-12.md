@@ -6,15 +6,22 @@
 | Ran by | specseal:warden on opus |
 | PR | not yet opened — opened from this record's commit |
 | Broad gate | `e48d682`, against `origin/release/v0.8.0` — **2097 passed · 1 skipped · 0 failed**, `ruff check .` and `ruff format --check .` clean. Nothing after it changes code: this record and one reach-back cell |
-| Fixes checked by | no fixes to check |
+| Fixes checked by | nobody — 🔴 8 below was found by the windows CI leg at pull request #162 after this record was written, and fixed at `3026a33`; round 13 reads that fix and sets this cell |
 | Contract changes | none |
-| New units | none |
+| New units | `test_one_file_matched_under_two_spellings_is_read_once` (depth 1) → pytest only |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [x] Pass
+- [ ] Pass
 
-<!-- THE RUN ENDS HERE. Twelve rounds where three is the rule and five the
+<!-- THE RUN ENDED HERE, AND THE WINDOWS LEG REOPENED IT ONCE. The box was
+ticked at `3bf0fd6`; it is unticked at `3026a33` because 🔴 8 arrived after
+this record was written and its fix owes a reader — round 13. The reviewer's
+`no` stands: 🔴 8 was found by the CI leg the records named, not by this
+round, and it is written in this table because the floor's count gives a
+finding that arrives after the terminal record no other legal home — a
+`round-13.md` carrying it was a second record after a floor met with `no`,
+and the checker refused `round-11.md` for it. Twelve rounds where three is the rule and five the
 ceiling; the floor fired at round 2, and every verifying round from 3 to 11
 reopened the run — each inside the previous fix. This one did not. Its one
 🟡 is answered with grounds the reviewer supplied and the orchestrator does
@@ -59,6 +66,7 @@ the squash.
 | 🟢 5 | The spec row and the eight copies | eight coordinates | answered | **Read**: the row is true of all five shapes and its trailing clause matches the six carriers; none of the eight blames the first counted record and no *none of them* quantifier survives in any of them. The dropped clause's content — a later reopening cannot license the rounds before it — is still stated below the table and pinned by `test_a_reopening_further_down_does_not_excuse_the_two_before_it` |
 | ❓ 6 | `plan.md:50`'s *156 passed* names *four* suites and the round could not reproduce the figure from any four | `plan.md:49-50` | answered | **The orchestrator answers**: the set was **six** — `tests/test_the_record_is_held_to_the_floor_and_the_depth.py`, `tests/test_the_run_stops_at_the_last_finding.py`, `tests/test_docs_line_wrap.py`, `tests/test_one_word_one_meaning.py`, `tests/test_a_phase_hands_the_next_one_a_record.py`, `tests/test_handoff_outlives_the_merge.py` — run together at round 10's fix and again at round 11's, 156 each time. The number is right and the word *four* is wrong, in both rows. **Left standing, named**, for the reason in the comment above |
 | ❓ 7 | `questions.md` Q2, Q3, Q4 | `questions.md` | out of verified scope | **Read**, unchanged. The repository owner. Q4 is the live one: the pending arm keys on `Fixes checked by`, so a stale reach-back prints and is never refused — five instances on this branch |
+| 🔴 8 | One file matched by two patterns is read twice on Windows, and every row in it counted twice. `resolve_patterns` deduplicated on the string `glob.glob` returns; `glob` keeps a literal pattern's spelling (`seal/ledger.md`) and joins a wildcard's matches with `os.sep` (`seal\ledger.md`), so the set kept both | `skills/evidence-check/scripts/evidence_check.py#resolve_patterns`; R8's case `test_one_file_matched_by_two_patterns_is_read_once` | **fixed** `3026a33` | **Executed by the windows CI leg** at `3bf0fd6`, run 33939786295: `1 failed · 2072 passed · 25 skipped`, the assertion showing `seal\ledger.md` listed twice with `1 ok` each and `total: 2 ok`; ubuntu and macOS green on the same run. **Found after this record was written** — by the reader rounds 2 through 12 named for this class, answering in the unit beside the one it was asked about (the `st_ino == 0` cases passed). The fold is `os.path.normpath` now — separators and `.` segments collapse, case does not, so it is not the `normcase` mistake round 1 removed from `skipped_by_narrowing`. **Seen red off Windows**: `./seal/ledger.md` against `seal/ledger.md` is the same class on every platform, and the new case failed here with `total: 2 ok` before the one-line change |
 
 ## Executed probes
 
