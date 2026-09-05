@@ -2519,9 +2519,11 @@ def stopping_floor(reader, root, rel, later):
                 break
         if counted > 1:
             message = (
-                f"`{FLOOR}` is `{FLOOR_NO}` and {counted} round records "
-                "follow this one, none of them saying the run reopened and "
-                "none closing on a fix. "
+                f"`{FLOOR}` is `{FLOOR_NO}` and the count of round records "
+                f"after this one reaches {counted}. The walk stops at the "
+                "first later record that reopened the run or closed on a "
+                "fix, that record included, so a count above one means the "
+                "record before it was a round too many. "
                 "A record that met the floor is followed by at most one "
                 "more — the verifying round, at the diff of the fixes that "
                 "closed it. A second is the run carrying on past its own "

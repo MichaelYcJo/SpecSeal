@@ -110,11 +110,13 @@ def test_every_carrier_of_the_count_rule_states_both_stops():
 
     The count of records after the floor stops at a record whose `Needs a fix`
     says the run reopened AND at one whose own verdicts closed on a fix. The
-    second stop was added in three of the rule's six carriers and the other
-    three kept stating the first as the whole rule -- one of them the
-    protocol, which says what a CONFORMING tool does, so a tool built to it
-    refused the sequence the change exists to make writable. Nothing pinned
-    the protocol or the two docstrings, so nothing went red.
+    second stop was added in three of the rule's EIGHT carriers; round 8
+    found three of the five left behind -- one of them the protocol, which
+    says what a CONFORMING tool does, so a tool built to it refused the
+    sequence the change exists to make writable -- and round 9 found the last
+    two. Nothing had pinned the protocol or the docstrings, so nothing went
+    red. (This paragraph said six until round 10's 🟡 4; the constant's
+    comment above said eight, fifty lines away.)
 
     Each carrier has to name `Needs a fix` and one spelling of the second
     stop. Seen red against the three copies left behind, then green.
@@ -131,9 +133,13 @@ def test_every_carrier_of_the_count_rule_states_both_stops():
     )
     for parts in COUNT_RULE_CARRIERS:
         text = flat(*parts)
-        assert "Needs a fix" in text, (
-            f"{'/'.join(parts)} no longer states the count rule at all"
-        )
+        # The rule's own sentence, not the file: `Needs a fix` occurs eleven
+        # times in the protocol, so a whole-file test for it could never fail
+        # -- round 9's 🔴 1 in the half of this case that narrowing did not
+        # reach (round 10's 🟡 3).
+        assert (
+            "counts later records only up to the first whose `Needs a fix`" in text
+        ), f"{'/'.join(parts)} no longer states the count rule at all"
         assert any(spelling in text for spelling in SECOND_STOP), (
             f"{'/'.join(parts)} states the count rule's first stop and not its "
             "second -- a `fixed` verdict stops the count whatever `Needs a fix` "

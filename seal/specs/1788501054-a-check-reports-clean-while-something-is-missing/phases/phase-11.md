@@ -17,7 +17,8 @@ phases 6 through 10 were. -->
 Round 8's 🔴 and two 🟡, with the standing instruction that the orchestrator
 carries them out:
 
-- **🔴 1** — the floor's count rule was written in six places by `f187b39`;
+- **🔴 1** — the floor's count rule was written in eight places by `f187b39`
+  (this line said six until round 10's 🟡 4 — the count the phase believed);
   round 7 updated three and `phase-10.md`'s removal table named those three
   as the whole set. `docs/review-handoff-protocol.md:318-319`, the normative
   document, still said a conforming tool stops at one condition where the

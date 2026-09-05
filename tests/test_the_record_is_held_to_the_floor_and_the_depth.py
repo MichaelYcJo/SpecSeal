@@ -543,12 +543,45 @@ def test_the_floors_refusal_names_both_stops_and_refuses_the_false_way_out(repo)
     )
     code, out = run(repo)
     assert code == 1, out
-    assert "none closing on a fix" in out, (
+    # Round 10 rewrote the sentence this used to anchor on: "none closing on
+    # a fix" denied the very stop that fired, so the pin follows the rule's
+    # exact statement instead.
+    assert "or closed on a fix, that record included" in out, (
         "the refusal states the first stop and not the second, so a reader "
         "whose fixes were written over a `no` is told the rule refuses them"
     )
     assert "do not rewrite the row" in out, (
         "the refusal names a false `Needs a fix: yes` as the way out"
+    )
+
+
+def test_the_floors_refusal_does_not_deny_the_stop_that_fired(repo):
+    """Round 10's 🔴 1 of work item 1788501054. The walk breaks AT the record
+    that reopened or closed on a fix, that record included, so a count of 2
+    means the SECOND counted record is one of those two things. The message
+    said none of them was, and a reader who checks their own
+    `Needs a fix: yes` is told the tool cannot see it — while their actual
+    fault, the quiet round before it, goes unnamed. The reopen clause dated
+    from the commit that wrote the rule; the fix clause was added by round
+    9's fix while repairing the first. Seen red against that message."""
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, floor="no", needs="no"),
+        lambda sha: record(sha, floor="no", needs="no"),
+        lambda sha: record(sha, floor="no", needs="yes — something"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert "none of them saying the run reopened" not in out, (
+        "the last counted record is the one that reopened the run, and the "
+        "refusal denies the stop that fired"
+    )
+    assert "none closing on a fix" not in out, (
+        "the same denial, one clause over, for a record that closed on a fix"
+    )
+    assert "the record before it was a round too many" in out, (
+        "the refusal names neither what stopped the count nor which record is the fault"
     )
 
 
