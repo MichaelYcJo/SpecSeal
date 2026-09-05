@@ -581,6 +581,19 @@ def git(root, *args):
     return r.stdout if r.returncode == 0 else None
 
 
+# `--worktree` (issue #161): read the records as the working tree holds them
+# rather than as `HEAD` carries them. Set once by `main` and read by the three
+# functions that answer "where do the bytes come from" -- `read_record`,
+# `changed` and `round_records` -- so the answer is one rule in three places
+# rather than a fourth reader. It is LOCAL ONLY: CI keeps the default, because
+# a working tree that differs from HEAD is what CI never sees and the more
+# permissive direction is the wrong one there (`read_record`'s docstring). It
+# exists for `round_record.py`, which writes a record and runs this check on
+# it BEFORE the commit; with the default the check read the previous commit
+# and three 🔴 of the last branch reached CI that way.
+WORKTREE = False
+
+
 def changed(root, base):
     """Every path this pull request adds or changes, or None.
 
@@ -588,6 +601,11 @@ def changed(root, base):
     records. Two `git diff` calls against the same base would be two values
     built by the same rule today and by two rules after the first edit to
     either, which is the split this file keeps closing in other places.
+
+    Under `WORKTREE` the diff is against the working tree rather than `HEAD`,
+    from the same merge base `...` would pick, and untracked files count as
+    added: a record just written and not yet staged is exactly the file the
+    flag exists to see.
 
     `-z` for the same reason `tracked_files` uses it two functions down. Without
     it `core.quotePath` (on by default) wraps and octal-escapes any path holding
@@ -606,7 +624,17 @@ def changed(root, base):
     The root move to `seal/` renames every declaration in a repository at once,
     and `changed_routing` needs to know which of the paths it sees are those.
     """
-    out = git(root, "diff", "--name-status", "-z", "-M", f"{base}...HEAD")
+    if WORKTREE:
+        merge_base = git(root, "merge-base", base, "HEAD")
+        if merge_base is None:
+            return None
+        out = git(root, "diff", "--name-status", "-z", "-M", merge_base.strip())
+        untracked = git(root, "ls-files", "--others", "--exclude-standard", "-z")
+        if out is None or untracked is None:
+            return None
+        out += "".join(f"A\0{p}\0" for p in untracked.split("\0") if p)
+    else:
+        out = git(root, "diff", "--name-status", "-z", "-M", f"{base}...HEAD")
     if out is None:
         return None
     fields = out.split("\0")
@@ -700,6 +728,26 @@ def tracked_files(root, item):
     return names
 
 
+def worktree_files(root, item):
+    """Filenames the working tree holds directly in `item` as regular files.
+
+    `tracked_files`'s twin for `WORKTREE`, with the same allow-list drawn the
+    filesystem's way: a symbolic link is refused there by mode and here by
+    `islink`, so a link at the end of the sort cannot decide which record is
+    read under either flag.
+    """
+    try:
+        names = os.listdir(os.path.join(root, *item.split("/")))
+    except OSError:
+        return []
+    return [
+        n
+        for n in names
+        for p in [os.path.join(root, *item.split("/"), n)]
+        if os.path.isfile(p) and not os.path.islink(p)
+    ]
+
+
 def read_record(root, rel):
     """The file as git carries it at HEAD, or None.
 
@@ -717,7 +765,16 @@ def read_record(root, rel):
     A working tree that differs from HEAD is exactly what CI never sees and a
     local run always can, which makes the local run the more permissive of
     the two -- the wrong direction for the only enforcement left.
+
+    `--worktree` reads the file on disk instead, for a check run on a record
+    BEFORE its commit; CI never passes it (see `WORKTREE`).
     """
+    if WORKTREE:
+        try:
+            with open(os.path.join(root, *rel.split("/")), encoding="utf-8") as f:
+                return f.read()
+        except OSError:
+            return None
     return git(root, "show", f"HEAD:{rel}")
 
 
@@ -745,7 +802,7 @@ def round_records(routing, root, item):
     """
     found = []
     where = f"{item}/{routing.ROUNDS_DIR}"
-    for n in tracked_files(root, where):
+    for n in worktree_files(root, where) if WORKTREE else tracked_files(root, where):
         number = routing.round_number(n)
         if number is not None:
             # `/`, not `os.path.join`. Every consumer of this path is git or
@@ -2672,7 +2729,21 @@ def main(argv=None):
         help="the branch this pull request merges into",
     )
     ap.add_argument("--root", default=".", help="the repository to read")
+    ap.add_argument(
+        "--worktree",
+        action="store_true",
+        help="read the records as the working tree holds them, not as HEAD "
+        "carries them — for a check before the record's commit; CI never "
+        "passes this",
+    )
     args = ap.parse_args(argv)
+    global WORKTREE
+    WORKTREE = args.worktree
+    if WORKTREE:
+        print(
+            "chain-check: reading the working tree (--worktree) — an "
+            "uncommitted record counts here and not in CI, which reads HEAD"
+        )
 
     try:
         reader = load(READER, "specseal_unverified_reader")

@@ -219,6 +219,34 @@ plant (with destination files) and facts to feed into the evidence ledger.
 Findings from reading and findings from execution stay labeled apart, which
 is §4 in your own output.
 
+Beneath the findings prose, three tables in the record's own column headers,
+under these headings exactly:
+
+```
+## Verdicts
+
+| # | Finding | Location | Verdict | Grounds |
+|---|---|---|---|---|
+
+## Executed probes
+
+| What was run | Result |
+|---|---|
+
+## Deferred
+
+| Finding | Where it went | Who answers it |
+|---|---|---|
+```
+
+`round_record.py new` copies these three tables into `round-N.md` row for
+row and reads nothing else of the report, so a finding that is not a row of
+the verdict table reaches no record. The findings prose stays above the
+tables; a verdict cell of a fresh round reads `open` for what this round
+found, and `answered` or `withdrawn` for an earlier round's finding this one
+closed on its own grounds. A probes or deferred table with no rows may be
+left out — the generator writes the empty table and `nothing to drain`.
+
 Then two lines, in every round and not only a verifying one:
 
 ```
