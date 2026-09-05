@@ -724,11 +724,17 @@ HEURISTIC_NOTE = "read by the diff-line heuristic and not by the AST"
 # definition, and every record and document a range touches would otherwise
 # be named as read for them (round 1 of #161's own chain, 🟡 5).
 PROSE_SUFFIXES = (".md", ".markdown", ".txt", ".rst")
-# The shapes a `Location` cell names a unit in: `path#unit`, `path#unit@hash`,
-# `path:line`, and a backticked identifier on its own.
-LOCATION_UNIT_RE = re.compile(r"([\w./-]+\.py)#([A-Za-z_]\w*)")
+# The shapes a `Location` cell names a unit in: `path#unit` or `path::unit`,
+# either with `@hash` after, `path:line`, a backticked identifier with or
+# without `()`, and a cell that is a bare identifier. A path is resolved
+# against the tree at the range's start — exact, `./`-stripped, or the one
+# tracked path ending in `/<path>`, because records name
+# `chain_check.py#fix_surface` for a file three directories down (round 1
+# of #161's own chain, 🟡 4: the five forms after the first escaped).
+LOCATION_UNIT_RE = re.compile(r"([\w./-]+\.py)(?:#|::)([A-Za-z_]\w*)")
 LOCATION_LINE_RE = re.compile(r"([\w./-]+\.py):(\d+)")
-IDENTIFIER_RE = re.compile(r"`([A-Za-z_]\w*)`")
+IDENTIFIER_RE = re.compile(r"`([A-Za-z_]\w*)(?:\(\))?`")
+BARE_IDENTIFIER_RE = re.compile(r"^([A-Za-z_]\w*)(?:\(\))?$")
 NUMBER_RE = re.compile(r"\d+")
 DEPTH_EXIT = "deferred with a named answerer, or becomes an issue"
 
@@ -1090,23 +1096,52 @@ def units_named_earlier(reader, earlier):
     return named
 
 
-def location_units(reader, root, a, text):
+def tracked_at(root, a):
+    """The paths the tree at `a` carries, for resolving a Location's path."""
+    return set((git(root, "ls-tree", "-r", "--name-only", a) or "").splitlines())
+
+
+def resolve_path(rel, tracked):
+    """The tracked path a Location's path names, or None.
+
+    Exact first, then `./`-stripped, then the one tracked path ending in
+    `/<rel>` — a basename or a nested tail. Two candidates resolve to
+    neither, because guessing a file is how a unit in the wrong file gets
+    refused.
+    """
+    rel = rel[2:] if rel.startswith("./") else rel
+    if rel in tracked:
+        return rel
+    ends = [t for t in tracked if t.endswith("/" + rel)]
+    return ends[0] if len(ends) == 1 else None
+
+
+def location_units(reader, root, a, text, tracked):
     """[(path or None, unit)] the `Location` cell of a finding names.
 
-    A `path:line` is resolved to the top-level unit holding that line at
-    `a`, the tree the fix started from. A bare identifier names a unit and
-    no file, and the caller finds the file.
+    Every path is resolved against `tracked`, the tree at `a` where the fix
+    started (`resolve_path`); one that resolves to nothing names no unit
+    here. A `path:line` is resolved to the top-level unit holding that line
+    at `a`. A backticked identifier, with or without `()`, or a cell that
+    is one bare identifier, names a unit and no file, and the caller finds
+    the file among the ones the range touched.
     """
     visible = reader.visible(text)
     out = []
     for m in LOCATION_UNIT_RE.finditer(visible):
-        out.append((m.group(1), m.group(2)))
+        rel = resolve_path(m.group(1), tracked)
+        if rel is not None:
+            out.append((rel, m.group(2)))
     for m in LOCATION_LINE_RE.finditer(visible):
-        module = parse_module(reader.show(root, a, m.group(1)))
+        rel = resolve_path(m.group(1), tracked)
+        module = parse_module(reader.show(root, a, rel)) if rel is not None else None
         unit = enclosing_unit(top_units(module), int(m.group(2))) if module else None
         if unit:
-            out.append((m.group(1), unit))
+            out.append((rel, unit))
     for m in IDENTIFIER_RE.finditer(visible):
+        out.append((None, m.group(1)))
+    m = BARE_IDENTIFIER_RE.match(visible)
+    if m:
         out.append((None, m.group(1)))
     return out
 
@@ -1119,19 +1154,30 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier):
     earlier fix pass created — and the rule refuses it at the keyboard,
     naming the unit, the finding, the record whose row names the parent,
     and the exit. Nothing has been written when this raises.
+
+    A Location that names a file is inside the unit only if that file
+    holds a top-level unit of that name at `a` — `at_a` is the range's
+    files parsed there, and a file the range did not touch has nothing
+    added to refuse. A Location that names no file is resolved against
+    every file the range touched that holds the unit at `a`, which is the
+    widest honest reading of a name with no path beside it.
     """
     named = units_named_earlier(reader, earlier)
     if not named or not added:
         return
+    tracked = tracked_at(root, a)
     for number, (word, _, _) in fixes.items():
         if word != FIXED:
             continue
         _i, cells = rows[number]
         location = cells[LOCATION_COL] if len(cells) > LOCATION_COL else ""
-        for rel, unit in location_units(reader, root, a, location):
+        for rel, unit in location_units(reader, root, a, location, tracked):
             if unit not in named:
                 continue
-            files = [rel] if rel else [f for f, units in at_a.items() if unit in units]
+            if rel is not None:
+                files = [rel] if unit in at_a.get(rel, {}) else []
+            else:
+                files = [f for f, units in at_a.items() if unit in units]
             for f in files:
                 inside = [n for r, n in added if r == f]
                 if not inside:

@@ -580,23 +580,22 @@ def test_a_surface_writer_refuses_a_separator_inside_a_name():
 # --- depth 2 is refused before any cell is written ----------------------------
 
 
-@pytest.mark.parametrize(
-    "location",
-    ["`mod.py#helper`", "`mod.py:2`", "`helper`"],
-    ids=["path-unit", "path-line", "identifier"],
-)
-def test_a_unit_added_beside_a_finding_inside_an_earlier_units_is_refused(
-    repo, location
-):
-    """Round 1's `New units` names `helper`; round 2's finding sits inside
-    `helper`; the fix adds `helper_guard` in the same file. That is depth 2,
-    and it is refused naming the unit, the finding, and the record whose
-    row names the parent -- with the exit the rule gives."""
+GUARD = "\n\ndef helper_guard(b):\n    return b is not None\n"
+
+
+def two_rounds(repo, location, path="mod.py", others=()):
+    """Round 1 whose `New units` names `helper`, its fix in `path`, and
+    round 2 locating a finding at `location`; returns round 2's commit, the
+    start of the fix range. `others` are files committed before round 1."""
     declared(repo)
+    for rel, text in others:
+        write(repo, rel, text)
+    if path != "mod.py":
+        write(repo, path, MOD)
     code, out, _ = generate(repo, report_text=report(verdicts=OPEN_1))
     assert code == 0, out
     commit(repo, "round 1")
-    write(repo, "mod.py", MOD_CHANGED)
+    write(repo, path, MOD_CHANGED)
     commit(repo, "round 1's fix")
     finding = f"| 🔴 1 | helper guards nothing | {location} | open | executed |\n"
     code, out, _ = generate(repo, n=2, report_text=report(verdicts=finding))
@@ -610,12 +609,49 @@ def test_a_unit_added_beside_a_finding_inside_an_earlier_units_is_refused(
         flags=re.MULTILINE,
     )
     first.write_text(text, encoding="utf-8")
-    a = commit(repo, "round 2")
-    write(
-        repo,
-        "mod.py",
-        MOD_CHANGED + "\n\ndef helper_guard(b):\n    return b is not None\n",
-    )
+    return commit(repo, "round 2")
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "`mod.py#helper`",
+        "`mod.py:2`",
+        "`helper`",
+        "`mod.py#helper@deadbee`",
+        "`./mod.py#helper`",
+        "`helper()`",
+        "helper",
+        "`mod.py::helper`",
+        "`mod.py:2`, and the guard at `README.md`",
+    ],
+    ids=[
+        "path-unit",
+        "path-line",
+        "identifier",
+        "path-unit-hash",
+        "dot-slash",
+        "identifier-call",
+        "bare",
+        "double-colon",
+        "prose-around-path-line",
+    ],
+)
+def test_a_unit_added_beside_a_finding_inside_an_earlier_units_is_refused(
+    repo, location
+):
+    """Round 1's `New units` names `helper`; round 2's finding sits inside
+    `helper`; the fix adds `helper_guard` in the same file. That is depth 2,
+    and it is refused naming the unit, the finding, and the record whose
+    row names the parent -- with the exit the rule gives.
+
+    The last five forms are the ones round 1 of #161's own chain found
+    escaping (🟡 4): each closed with `helper_guard (depth 1)` until the
+    Location's path was resolved against the tree and `()` and `::`
+    were read. A bare name is resolved against every file the range
+    touched, at the range's start, that holds a unit of that name."""
+    a = two_rounds(repo, location)
+    write(repo, "mod.py", MOD_CHANGED + GUARD)
     b = commit(repo, "round 2's fix")
     out = refused(repo, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}", n=2)
     assert "helper_guard" in out, out
@@ -623,6 +659,36 @@ def test_a_unit_added_beside_a_finding_inside_an_earlier_units_is_refused(
     assert "round-1.md" in out
     assert "depth 2" in out
     assert "deferred with a named answerer, or becomes an issue" in out
+
+
+def test_a_basename_resolves_to_the_one_tracked_file_that_ends_in_it(repo):
+    """Records name `chain_check.py#fix_surface` for a file three directories
+    down, and the walk compared that basename with the diff's full path and
+    never matched. The one tracked path ending in `/inner.py` is the file."""
+    a = two_rounds(repo, "`inner.py#helper`", path="pkg/inner.py")
+    write(repo, "pkg/inner.py", MOD_CHANGED + GUARD)
+    b = commit(repo, "round 2's fix")
+    out = refused(repo, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}", n=2)
+    assert "helper_guard" in out and "pkg/inner.py" in out, out
+    assert "depth 2" in out
+
+
+def test_a_same_named_unit_in_another_file_is_not_refused(repo):
+    """The other direction: round 1's `helper` is `mod.py`'s. A finding
+    located at `other.py#helper`, where `other.py` holds no `helper` at the
+    range's start, is not inside that unit, so a unit the fix adds in
+    `other.py` is depth 1 -- the walk used to refuse it on the name alone."""
+    a = two_rounds(
+        repo,
+        "`other.py#helper`",
+        others=[("other.py", "def unrelated():\n    return 0\n")],
+    )
+    write(repo, "other.py", "def unrelated():\n    return 0\n" + GUARD)
+    b = commit(repo, "round 2's fix")
+    _, out, record = close(
+        repo, 2, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert fields(record)["New units"] == "helper_guard (depth 1)", out
 
 
 def test_the_same_range_is_depth_one_when_no_earlier_row_names_the_parent(repo):
