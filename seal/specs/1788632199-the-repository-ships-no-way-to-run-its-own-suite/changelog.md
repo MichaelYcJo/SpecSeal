@@ -17,13 +17,18 @@
   copy of `bin/` with no runner beside it says so — on both platforms, in the
   same words. The file has to parse and run under Python 3.9 to print the first
   of those, so nothing in it is newer than the floor it refuses. **The
-  virtualenv is invisible to git on every path that can produce one**, which is
-  three rather than one: `uv venv` writes `.venv/.gitignore` and `python -m
-  venv` writes none, so the runner writes it after a build that succeeded,
-  after one that failed partway — `uv venv` has made the directory by the time
-  the install step finds no network — and over a `.venv` it merely adopts,
-  which is the one somebody else made and the one call in its life that could
-  write an ignore at all. **The floor is asked of an adopted environment too**:
+  virtualenv is invisible to git on every path that can produce one**, and that
+  is a guarantee about exits rather than a list of paths: `uv venv` writes
+  `.venv/.gitignore` and `python -m venv` writes none, so the runner writes it
+  itself, from the one function that reaches a virtualenv at all, on every way
+  out of it. A list was tried first and went short twice — it named a build
+  that succeeded, then a build that failed partway and a `.venv` merely
+  adopted, and review still found two more: the one adopted `.venv` the floor
+  **refuses**, which is also the one least likely to carry an ignore of its own
+  because every version that refusal rejects predates the 3.13 where `python -m
+  venv` began writing one, and a directory an earlier run left on a machine
+  where neither builder can now finish. **The floor is asked of an adopted
+  environment too**:
   the version both builders record in `pyvenv.cfg` is read rather than run, and
   a `.venv` below the floor is refused with a sentence naming what to remove. A
   directory that says nothing about its version is kept — refusing on silence
@@ -50,3 +55,13 @@
   the carrier that closes that, because it reaches a segment at startup with
   nobody typing anything, and it names the protocol's section rather than
   restating the rule. (#156)
+- **A round record's `Contract changes` row now has its vocabulary written
+  down.** `docs/review-chain-spec.md` §*The fix surface* defined the reach half
+  as the call sites of a changed unit and named none of the five values the
+  generator actually writes there — the enclosing unit, the file's basename,
+  and the three words `round_record.py` substitutes: `pytest` when any caller
+  sits under `tests/`, `pytest only` when those are the whole reach, and `no
+  call site found` when there is none. Reading a correct cell as a mistake cost
+  a review round of this very work item. The three words are read out of the
+  generator's own constants by the case that pins them, so the document cannot
+  drift from the code. (#156)
