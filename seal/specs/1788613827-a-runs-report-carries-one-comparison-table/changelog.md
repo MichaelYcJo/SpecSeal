@@ -16,7 +16,16 @@
   meant on one branch goes in the comment beside it. The rows name no issue
   number and no milestone, so the section still ships to repositories that
   have neither. It is **not a third destination**: the table joins the
-  segment readings in the rolling log the section already names. (#170)
+  segment readings in the rolling log the section already names. Two rows
+  say what they mean rather than leaving it to each run: a **record** is
+  anything under `seal/` — the work item's documents, the ledger and its
+  fragments alike — which is the review chain's own definition and what both
+  the `Location` buckets and the share row count by, and the **broad gate**
+  row asks whether the gate ran and at what SHA, which is what the cell it
+  reads actually carries. And the section says which file of a project
+  directory is a run's main transcript, because `--latest` takes the newest
+  file anywhere beneath it and on a run with segments that is usually a
+  segment. (#170)
 - **`session_cost.py` prints the token line, over the whole run rather than
   the transcript it was handed.** The script already opened exactly those
   files and already read `usage` — it threw away everything but
@@ -32,16 +41,27 @@
   is a message carrying a tool call — the per-segment bars in
   `docs/review-handoff-protocol.md` are calibrated against that ratio, and
   widening it would move a published threshold with nothing saying it had
-  moved. The script's own docstrings carry both halves. **Every way this
-  degrades prints a smaller number rather than raising** — an unopenable
-  transcript skipped, an unparseable line dropped, a field a harness stops
-  writing contributing zero — so the line also says how many transcripts it
-  covered, and that count is what a reader holds it against; the same
-  report's `Agent` call count is the cross-check, measured at 18 against 17
-  on a real run. Seen red first: each of the four new behaviours against the
-  old script, and the guard for a transcript that cannot be opened pinned by
-  a case calling `token_totals` directly, after mutation testing showed a
-  directory fixture never reaching it. Prompt budget: zero. (#170)
+  moved, and the printed report names each count's own scope so the two
+  cannot be divided into each other. **No way this degrades ends the report**
+  — an unopenable transcript is skipped, an unparseable line dropped, a field
+  a harness stops writing contributes zero, and a value that is not a number
+  counts as none. Almost every one of those makes the totals smaller; the one
+  that goes the other way is a split message whose rows carry no usable key,
+  counted once per row instead of once. So the line prints both counts: the
+  transcripts it opened, which the same report's `Agent` call count is the
+  cross-check for at 18 against 17 on a real run, and the turns, which is
+  where a doubled run would show. Seen red first: each of the four new
+  behaviours against the old script, and the guard for a transcript that
+  cannot be opened pinned by a case calling `token_totals` directly, after
+  mutation testing showed a directory fixture never reaching it. Prompt
+  budget: zero. (#170)
+- **A transcript that only read and thought reports what it spent.** The
+  token line was summed after the no-tool-calls guard, so a transcript
+  carrying `usage` and no paired tool call exited 1 with an empty stdout —
+  and that transcript is a segment, which is exactly what the table's
+  per-kind token row is summed over. It now prints the token block and says
+  why there are no time lines. A transcript with neither still exits as it
+  did. (#170)
 - **The two documents that carry the table point at its owner instead of
   copying its rows.** `docs/review-handoff-protocol.md` §*After the run — the
   per-segment bars* says the bars judge a segment against its kind and the

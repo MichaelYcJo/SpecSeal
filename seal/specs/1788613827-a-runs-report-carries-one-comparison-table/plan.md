@@ -50,6 +50,17 @@ transcript count printed beside the numbers: a run whose line says
 `1 transcript` when six segments were spawned is visibly wrong to the person
 who spawned them, which is the only reader who can tell.
 
+**Round 1's finding 2 narrowed the prediction above, and it is corrected here
+rather than left standing.** The two harness changes it names do still print
+a smaller number rather than failing. What was not true is the general form
+the sentence reads as, and which `token_totals`' docstring stated outright: a
+`usage` field written as a string and a `message.id` written as a list both
+RAISED. Both are guarded now, so nothing ends the report — and one shape
+still goes the other way, a split message with no usable key counted once per
+row rather than once, which is why the turn count is printed beside the
+transcript count. `seal/ledger/1788613827-….md` R1 carries the corrected
+claim.
+
 ## Alternatives considered
 
 | Approach | Failure scenario | Verdict |

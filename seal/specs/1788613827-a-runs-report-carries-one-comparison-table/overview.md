@@ -18,6 +18,7 @@ are fixed and the tokens come out of one command.
 |---|---|---|---|
 | What verifies phase 4 | `plan.md` row 4, Verified by: *`uv run pytest tests/ -q` once, plus `uvx ruff check .` and `evidence-check`*. This phase ran `evidence-check` and the nine modules that read what it wrote, and declined the other two | code | `skills/agent-contract/SKILL.md` §2: *the broad gate — the full suite, the repository-wide lint, the typecheck — is the orchestrator's, run once, after the review rounds settle*, and §3 says a spawn prompt cannot widen that. A round is edits already scheduled, so a broad run taken here is spent by the first fix. The three declined checks are rows of §Not verified with the orchestrator named |
 | Which modules verify phase 3 | `plan.md` row 3, Verified by: *`uv run pytest tests/test_the_handoff_before_round_one.py tests/test_docs_line_wrap.py -q` plus the new pins for both sentences*. Phase 3 added a third module, `tests/test_the_chain_section_has_one_shape.py` | code | `phases/phase-3.md`: the pull request pin fits neither module the plan's own §Technical context named — `tests/test_the_pull_request_language_is_the_repositorys.py` is about the language row in every one of its cases, and `tests/test_a_segment_feeds_the_flow_log.py` pins the table's owner rather than its carriers. `spec.md`'s acceptance row for that scenario allows *or a new module*, so the plan's verification cell is the half that was narrower than the spec |
+| The table's `Location` buckets and its share row | #170 §*The rule* states both cells verbatim: `\| Findings by `Location`: record · code or tests · docs · ledger \| the `Location` column \|` and `\| Records' share of the diff \| `git diff --numstat` against the base, `seal/specs/**` apart \|`. `docs/review-chain-spec.md` §*A finding located in a record is a correction, not a round* says the opposite of both: *"A finding whose `Location` is under `seal/specs/`, `seal/ledger/` or `seal/ledger.md` is about the run's own paperwork rather than about the tool"* | the policy | `skills/implement/SKILL.md` §1: **a ticket is a request, not an authority** — it ranks above the code as it happens to be and below the documents that were ratified. The two readings are not academic: measured on this branch at `4d277f1`, `seal/specs` 729 lines · `seal/ledger*` 39 · everything else 831, so the share row reads **45 %** as the issue wrote it and **48 %** under the policy. A table exists to make two runs comparable, and one that can be filled two ways is not one. Round 1's finding 3 |
 | Where the run-level reading goes | `spec.md` §Scope, in-item 2, asks the measurement section to state the table. It does not say the table shares the segment readings' destination; `skills/verify/SKILL.md` now says *it is **not a third destination**: the table goes to the rolling log named above* | code | a second home for a reading is a second place to look for one, and the section already names where a segment's reading goes. `docs/review-handoff-protocol.md`'s pointer was then written not to contradict it (`phases/phase-2.md`'s note to phase 3, honoured at `8887abc`) |
 
 ## Not verified
@@ -61,6 +62,14 @@ was already drifted there, and re-stamping it here would put another branch's
 change into this diff under this branch's name. `.github/workflows/test.yml`
 turns drift into a `::warning::` and fails only at exit 2 or above, so nothing
 is blocked by leaving it. The repository owner decides whether it rides along.
+
+**A `Broad gate` cell that can hold more than one entry — #174.** Round 1's
+finding 4 was two halves. The narrow one is fixed: the table's row asked for
+`how many times, at what SHA` from a cell `round_record.py` replaces rather
+than appends, and it now asks for what the cell carries. The wide one would
+change `templates/sdd-round.md` and the checker that writes it, which is
+mechanism a fix pass may not add (`skills/code-review/SKILL.md`), so it is an
+issue for the repository owner.
 
 **#156, #155 and #169** — 0.8.2's other three items, and the first three
 readings taken under the table this work item builds (`questions.md` Q1).
