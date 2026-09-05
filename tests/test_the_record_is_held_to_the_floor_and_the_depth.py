@@ -544,9 +544,10 @@ def test_the_floors_refusal_names_both_stops_and_refuses_the_false_way_out(repo)
     code, out = run(repo)
     assert code == 1, out
     # Round 10 rewrote the sentence this used to anchor on: "none closing on
-    # a fix" denied the very stop that fired, so the pin follows the rule's
-    # exact statement instead.
-    assert "or closed on a fix, that record included" in out, (
+    # a fix" denied the very stop that fired. Round 11 rewrote it again to
+    # stop blaming the allowed verifying round, so the pin follows the one
+    # phrase every rewrite has kept -- the rule's two stops, named together.
+    assert "reopened the run or closed on a fix" in out, (
         "the refusal states the first stop and not the second, so a reader "
         "whose fixes were written over a `no` is told the rule refuses them"
     )
@@ -560,14 +561,22 @@ def test_the_floors_refusal_does_not_deny_the_stop_that_fired(repo):
     that reopened or closed on a fix, that record included, so a count of 2
     means the SECOND counted record is one of those two things. The message
     said none of them was, and a reader who checks their own
-    `Needs a fix: yes` is told the tool cannot see it — while their actual
-    fault, the quiet round before it, goes unnamed. The reopen clause dated
+    `Needs a fix: yes` is told the tool cannot see it. The reopen clause dated
     from the commit that wrote the rule; the fix clause was added by round
-    9's fix while repairing the first. Seen red against that message."""
+    9's fix while repairing the first. Seen red against that message.
+
+    Round 11's 🔴 1: the rewrite then blamed *the record before it* — which
+    is the verifying round the floor ALLOWS, as the same message says three
+    clauses later and every other carrier of the rule agrees. This case hid
+    that by giving round 1 `Needs a fix: no`, the one shape where no
+    verifying round is warranted and round 2 is excess anyway. Round 1 now
+    answers `yes`, so round 2 is the verifying round it is owed and round 3
+    is the one too many, and the refusal has to name round 3 and not round
+    2. Seen red against the message that blamed the wrong record."""
     declared(
         repo,
         NEW_ITEM,
-        lambda sha: record(sha, floor="no", needs="no"),
+        lambda sha: record(sha, floor="no", needs="yes — one, so a reader is owed"),
         lambda sha: record(sha, floor="no", needs="no"),
         lambda sha: record(sha, floor="no", needs="yes — something"),
     )
@@ -580,8 +589,13 @@ def test_the_floors_refusal_does_not_deny_the_stop_that_fired(repo):
     assert "none closing on a fix" not in out, (
         "the same denial, one clause over, for a record that closed on a fix"
     )
-    assert "the record before it was a round too many" in out, (
-        "the refusal names neither what stopped the count nor which record is the fault"
+    assert "one too many — here round-3.md" in out, (
+        "the refusal has to name the record that is one too many, and that is "
+        "the one the count stopped at — the record before it is the verifying "
+        "round this row allows"
+    )
+    assert "round-2.md" not in out, (
+        "the refusal names the verifying round the floor allows as the fault"
     )
 
 

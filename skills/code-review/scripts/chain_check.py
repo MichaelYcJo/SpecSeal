@@ -2518,12 +2518,18 @@ def stopping_floor(reader, root, rel, later):
             if run_reopened(reader, root, other) or wrote_fixes(reader, root, other):
                 break
         if counted > 1:
+            # The FIRST counted record is the verifying round this row
+            # allows; every counted record after it is one too many. Round
+            # 11 of the work item that wrote the second stop found the
+            # message blaming "the record before it" -- the allowed one.
+            extra = ", ".join(os.path.basename(p) for p in later[1:counted])
             message = (
                 f"`{FLOOR}` is `{FLOOR_NO}` and the count of round records "
-                f"after this one reaches {counted}. The walk stops at the "
-                "first later record that reopened the run or closed on a "
-                "fix, that record included, so a count above one means the "
-                "record before it was a round too many. "
+                f"after this one reaches {counted}. The walk counts every "
+                "later record up to and including the first that reopened "
+                "the run or closed on a fix, so the FIRST counted record is "
+                "the verifying round this row allows and every counted "
+                f"record after it is one too many — here {extra}. "
                 "A record that met the floor is followed by at most one "
                 "more — the verifying round, at the diff of the fixes that "
                 "closed it. A second is the run carrying on past its own "

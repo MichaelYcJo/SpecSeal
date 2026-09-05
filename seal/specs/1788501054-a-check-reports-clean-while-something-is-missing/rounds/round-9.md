@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on opus |
 | PR | not yet opened |
 | Broad gate | `3937727`, against `origin/release/v0.8.0` — **2091 passed · 4 failed · 1 skipped**, `ruff check .` and `ruff format --check .` clean; the four are issue #160's macOS-only export cases. Spent by this round's fixes and re-taken after them |
-| Fixes checked by | nobody — round 10 is the round that opens these fixes and it is not written yet; this cell becomes `round-10` the moment that record is committed |
+| Fixes checked by | round-10 |
 | Contract changes | `stopping_floor` — the message inside the error tuple it returns changed, so its set of returnable values moved while signature, arity and return shape did not → `main`, and `tests/test_chain_check_at_the_pull_request.py::test_this_repositorys_own_round_records_pass_the_per_record_checks` |
 | New units | `test_the_floors_refusal_names_both_stops_and_refuses_the_false_way_out` (depth 1) → pytest only |
 | Needs a fix | yes — 🔴 1, the pin round 8 commissioned is live for one of its five carriers and vacuous on an empty tuple; 🔴 2, `stopping_floor`'s failure message states one stop and instructs the reader to write a false `Needs a fix: yes`; 🟡 3, the spec's exits table states a failure condition the checker no longer has; 🟡 4, the skill's own count-rule paragraph still states the first stop as the whole rule; 🟡 5, `round-8.md`'s `Fixes checked by` reason false at HEAD; 🟡 6, three records claim the pin catches copies it cannot see |
