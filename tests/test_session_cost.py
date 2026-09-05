@@ -580,12 +580,20 @@ def test_the_token_line_says_one_transcript_rather_than_1_transcripts(tmp_path):
 
 # --- one odd row must not end the report ------------------------------------
 #
-# Round 1's findings 1 and 2. `parse_time`'s docstring states the file's rule
-# for the whole file — "one odd row must not end the report" — and two readers
-# broke it in the same way: a value taken out of a transcript was used as a
-# dict key or an arithmetic operand without anything checking what it was.
-# Both readers are pinned here, because a raise in either kills the same
-# report.
+# Round 1's findings 1 and 2, and round 2's finding 1. `parse_time`'s
+# docstring states the file's rule for the whole file — "one odd row must not
+# end the report" — and every reader below broke it the same way: a value
+# taken out of a transcript was used as a dict key, an arithmetic operand or
+# a format target without anything checking what it was. All of them are
+# pinned here, because a raise in any one kills the same report.
+#
+# The class was closed twice, and the second time it was enumerated rather
+# than eyeballed. Round 1 fixed six members and left a seventh one line away;
+# round 2's fix pass took every field the readers read — the list from
+# `grep '\.get(' session_cost.py`, not from memory — crossed it with every
+# type JSON can carry and with the field being absent, and ran all 288
+# variants. The seventh was the only survivor, and it had two crash sites
+# rather than the one the finding named.
 
 
 def odd(second, usage=None, message_id=None, blocks=None, message=None):
@@ -719,6 +727,66 @@ def test_a_row_that_is_not_the_shape_the_readers_assume_is_dropped(tmp_path):
     data = json.loads(run(["--json", str(path)]).stdout)
     assert data["calls"] == 1
     assert (data["tokens"]["turns"], data["tokens"]["output"]) == (1, 5)
+
+
+def test_a_tool_name_that_is_not_a_name_does_not_end_the_report(tmp_path):
+    """Round 2's finding 1 — the seventh member of the class, three lines
+    below the `call_id` the same pass guarded. `load` stored
+    `block.get("name", "?")` with no type check, and TWO readers consume it.
+
+    Which reader dies depends on the shape, which is why a guard at the
+    reported crash site would have left the other standing. A list or an
+    object is unhashable and ends `analyse`, where the name is a `by_family`
+    key — before `main` has printed anything, the token block included,
+    which is the outcome round 1's finding 1 was raised to end. A `null`
+    name hashes fine, passes `analyse`, and raises `unsupported format
+    string passed to NoneType.__format__` in `report`'s `by family` block
+    instead: the span and token lines are already on screen, so it reads as
+    a report that worked and then stopped.
+
+    Both are fixed at the source, so the name is a string before either
+    reader sees it. The call is charged to `?` rather than to its family —
+    smaller, in the direction `count` and `message_key` already take — and
+    `?` is the floor `load` had already written for a block carrying no
+    `name` at all, so a name this file cannot use reads as a name that was
+    never there."""
+    for uid, name in (("b", ["Bash"]), ("c", {"n": 1}), ("d", None)):
+        directory = tmp_path / f"name-{uid}"
+        directory.mkdir()
+        path = write_run(
+            directory,
+            [
+                *worked(0, "a", output=5),
+                spend(
+                    10,
+                    output=3,
+                    message_id=f"m-{uid}",
+                    blocks=[
+                        {
+                            "type": "tool_use",
+                            "id": uid,
+                            "name": name,
+                            "input": {"command": "ruff check ."},
+                        }
+                    ],
+                ),
+                plain_result(11, uid),
+            ],
+        )
+        proc = run([str(path)])
+        assert proc.returncode == 0, f"{name!r}: {proc.stderr}"
+        # `analyse`'s `by_family` key — where a list and an object ended it.
+        assert re.search(r"^  \?\s+1 calls", proc.stdout, re.M), (
+            f"{name!r}: {proc.stdout}"
+        )
+        # `report`'s `:<12` format — where a `null` ended it, with these two
+        # lines already printed above the `by family` block it died in.
+        assert re.search(r"^span\s", proc.stdout, re.M), f"{name!r}: {proc.stdout}"
+        assert re.search(r"^tokens\s+1 transcript, 2 turns$", proc.stdout, re.M), (
+            f"{name!r}: {proc.stdout}"
+        )
+        data = json.loads(run(["--json", str(path)]).stdout)
+        assert (data["calls"], data["by_family"]["?"]["calls"]) == (2, 1)
 
 
 def test_the_report_tells_its_two_turn_counts_apart(tmp_path):

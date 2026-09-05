@@ -442,9 +442,25 @@ def test_the_location_buckets_are_the_repositorys_own_definition_of_a_record():
         "ledger and its fragments are records, so a finding in one lands in "
         "two buckets and the column no longer adds up"
     )
-    assert "`seal/`" in source, (
-        "the `Location` row names four buckets and nowhere says what a record "
-        "is, which is the whole of what the two fillings disagreed about"
+    # Round 2's finding 3. The row said `anything under seal/`, which is
+    # broader than the policy it cites: `ls seal/` also lists `config.md`,
+    # `follow-up.md` and `README.md`, none of them this run's paperwork. The
+    # three paths are asserted one at a time rather than as a sentence, so a
+    # reworded row naming the same set stays green — and a bare `` `seal/` ``
+    # is no longer the assertion, because the sentence that names the three
+    # contains that substring and held the old check up on its own.
+    for path in ("`seal/specs/`", "`seal/ledger/`", "`seal/ledger.md`"):
+        assert path in source, (
+            f"the `Location` row no longer names {path} as a record path. It "
+            "and `docs/review-chain-spec.md` have to enumerate the same set, "
+            "or a finding lands in one bucket under the policy and another "
+            "under the table — which is what the two fillings disagreed about"
+        )
+    assert "anything under `seal/` " not in source, (
+        "the row defines a record as the whole `seal/` directory again. That "
+        "is the earlier wording verbatim, so this is a paste-back rather than "
+        "a rewording, and it puts the repository's own files in the run's "
+        "paperwork bucket"
     )
     share_source = labelled("Records' share")[1]
     assert "seal/specs" not in share_source, (

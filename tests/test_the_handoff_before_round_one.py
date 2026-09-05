@@ -358,6 +358,20 @@ def test_the_bars_and_the_run_level_table_judge_different_things():
             "defined in `skills/verify/SKILL.md`, and a second copy is a "
             "second thing to keep in step"
         )
+    # Round 2's finding 2. The labels above catch a paste-back OF THE TABLE;
+    # what round 1's finding 8 actually removed was a lowercase gloss that
+    # matches none of them. Replacing the sentence with it is already caught,
+    # because `what the whole run cost` goes with it -- but ADDING it back
+    # beside the sentence passed every case in this module. So the gloss is
+    # refused by its own removed wording, the way
+    # `test_the_protocol_no_longer_states_the_rules_it_points_at` refuses
+    # what phase 5 removed.
+    assert "rounds, wall clock, commits, findings and tokens" not in section, (
+        "the lowercase gloss of the table's rows is back in the bars "
+        "section. It is a second copy of the rows to keep in step, and being "
+        "lowercase prose rather than the labels is what let it sit here "
+        "through round 1 with nothing red"
+    )
 
 
 # One fragment per row of the table in `skills/verify/SKILL.md` §*Measure the
@@ -377,13 +391,24 @@ TABLE_ROWS = (
 
 
 def test_the_refused_rows_are_the_owners_own():
-    """Round 1's finding 8. The refusal above covered three of the nine rows,
-    and the paragraph it guards restated five of them in lowercase prose --
-    which no case saw. Widening the list is only worth having while the
-    strings it refuses are the owner's, so this is the same coupling
-    `tests/test_the_chain_section_has_one_shape.py` keeps over its own list:
-    a row reworded in `skills/verify/SKILL.md` and not here leaves the
-    refusal guarding a string nobody would paste."""
+    """The coupling that keeps the refusal above worth having: a row reworded
+    in `skills/verify/SKILL.md` and not here leaves it guarding a string
+    nobody would paste. The same one
+    `tests/test_the_chain_section_has_one_shape.py` keeps over its own list.
+
+    Round 1's finding 8 widened that refusal from three labels to nine, and
+    round 2's finding 2 is that the widening does not reach what the finding
+    was raised against. That prose glossed five rows in lowercase -- `rounds,
+    wall clock, commits, findings and tokens` -- which shares no substring
+    with any label. So the two halves need two different checks, and the
+    gloss is refused by its own removed wording in the case above rather
+    than by this list.
+
+    Neither reaches a gloss somebody writes fresh, and no string can: the
+    words are lowercase and generic, and `rounds` occurs twice in that
+    section legitimately. That half is a reader's, and saying so is the
+    point of writing it down -- a list that reads as though it closed the
+    class is worse than one nobody expected to."""
     owner = read("skills", "verify", "SKILL.md")
     for row in TABLE_ROWS:
         assert row in owner, (

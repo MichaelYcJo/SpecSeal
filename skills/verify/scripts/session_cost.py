@@ -95,6 +95,26 @@ def message_key(message, row, number):
     return f"row-{number}"
 
 
+def tool_name(value):
+    """A `tool_use` block's `name` as a string, or `?` when it is not one.
+
+    Two readers consume this one field and each dies on a different shape,
+    which is why the check is here rather than at either of them. `analyse`
+    keys `by_family` by it, so a list or an object raises `TypeError:
+    unhashable type` before anything has printed — the token block included,
+    which is the outcome `main`'s own note below says was fixed. `report`
+    prints it under a `:<12` format spec, so a `null` hashes fine, passes
+    `analyse`, and raises in the `by family` block instead, with the span and
+    token lines already on screen.
+
+    `?` is the floor `load` had already written for a block carrying no
+    `name`, so a name this file cannot use reads as a name that was never
+    there. The call is charged to `?` rather than to its family, which is the
+    same direction `count` and `message_key` take: a smaller answer rather
+    than none at all."""
+    return value if isinstance(value, str) and value else "?"
+
+
 def load(path):
     """Tool calls paired with their results, plus per-turn token counts.
 
@@ -150,7 +170,7 @@ def load(path):
                         text = json.dumps(payload, ensure_ascii=False)
                     pending[call_id] = (
                         stamp,
-                        block.get("name", "?"),
+                        tool_name(block.get("name")),
                         " ".join(text.split()),
                         turn_key,
                     )
