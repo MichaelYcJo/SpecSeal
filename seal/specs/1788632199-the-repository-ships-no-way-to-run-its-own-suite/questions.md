@@ -18,3 +18,9 @@ would not stop on any of them.
 |---|---|---|
 | 5 | The issue's premise that no file names a command is wrong for `CONTRIBUTING.md`, and the work is therefore about the command's COST rather than its absence | verified by reading the file: §*Running the checks* names `uvx --with pytest python3 -m pytest tests/ -q`. Correcting a ticket's premise is the implementer's job, and the ticket ranks below what the repository actually contains |
 | 6 | `bin/test` runs the full suite and is therefore the orchestrator's command, not a segment's | `skills/agent-contract/SKILL.md` §2 already forbids the full suite to smith and warden; this work item may not make that easier to ignore, and `spec.md` §Scope's last *Out* says so |
+
+## Raised in phase 2, for the owner
+
+| # | Question | Why it does not stop the work |
+|---|---|---|
+| 7 | The plugin ships from the repository root, so 0.8.2 will put `.github/scripts/run_tests.py` and `tests/` into every user's plugin cache beside `bin/test`. Both of the runner's guards — *no runner beside it* and *no tests directory* — are therefore unreachable there. Does a deliberate invocation out of a cache need a guard of its own, or is it accepted? | Neither answer changes phase 2. A plugin user cannot reach the command by typing it, because `test` is a shell builtin and PATH never offers it; reaching the runner means typing a path into a versioned cache directory on purpose. Adding a guard is mechanism on phase 1's surface, so phase 2 corrected the false reason and left the decision here |

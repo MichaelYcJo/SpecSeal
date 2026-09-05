@@ -12,11 +12,15 @@ reused afterwards. The first call pays for it; every call after it pays for
 Python's startup and nothing else.
 
 **This lives under `.github/` rather than under `skills/` because it runs
-THIS repository's suite.** `bin/` is on the Bash tool's PATH while the plugin
-is enabled, so everything under `bin/`, `skills/` and `tests/` reaches a
-user's machine -- and `.github/` does not. A user's copy of `bin/test`
-therefore finds no runner beside it and says so, instead of spending five
-minutes running a stranger's test suite.
+THIS repository's suite**, and `.github/scripts/` is where this repository's
+own automation already lives. That location hides nothing: the plugin ships
+from the repository root, so a user's cache holds `.github/scripts/` and
+`tests/` beside `bin/` -- read at 0.5.0, 0.7.0, 0.8.0 and 0.8.1.
+
+What keeps a plugin user out of this suite is that `test` is a shell builtin,
+so PATH never offers `bin/test` however many copies are on it; reaching this
+file means typing a path into a versioned cache directory on purpose. The
+check below is for the other case, a copy of `bin/` taken on its own.
 
 Every failure here is a sentence rather than a traceback. This command writes
 to the working tree the first time it runs, and half-building a virtualenv on

@@ -150,10 +150,9 @@ def test_the_wrapper_points_at_the_contract_rather_than_inviting_a_full_run():
 
 @pytest.mark.skipif(os.name == "nt", reason="the POSIX wrapper needs a POSIX shell")
 def test_a_copy_without_the_runner_beside_it_says_so(tmp_path):
-    """`bin/` reaches a user's machine and `.github/` does not, so a plugin
-    user's copy of this wrapper finds no runner. That has to be a sentence:
-    `python3 <missing path>` is a traceback about a file the reader never
-    named."""
+    """A copy of `bin/` taken on its own — vendored wrappers, a partial
+    copy — has no runner beside it. That has to be a sentence: `python3
+    <missing path>` is a traceback about a file the reader never named."""
     copy = tmp_path / "bin"
     copy.mkdir()
     (copy / "test").write_text(read(os.path.join(BIN, "test")), encoding="utf-8")
@@ -363,3 +362,171 @@ def test_the_root_is_the_repository_not_the_scripts_directory():
     """`.github/scripts/` up two. One level off and the virtualenv lands in
     `.github/`, where nothing looks for it."""
     assert rt.repo_root() == pathlib.Path(ROOT).resolve()
+
+
+# --- what the documents name -----------------------------------------------
+#
+# A command nobody is pointed at costs what the old one cost. Three documents
+# carry the pointing, and each is a sentence somebody reads and acts on:
+# `CONTRIBUTING.md` for a person in a clone, the handoff protocol for the
+# orchestrator writing a spawn prompt, and `agents/smith.md` for the segment
+# that was not told.
+
+
+def flat(*parts):
+    """The file as one line, so a pinned phrase survives re-wrapping."""
+    return " ".join(read(os.path.join(ROOT, *parts)).split())
+
+
+def running_the_checks():
+    """`CONTRIBUTING.md` §*Running the checks*, to the next heading."""
+    text = read(os.path.join(ROOT, "CONTRIBUTING.md"))
+    start = text.index("## Running the checks")
+    return text[start : text.index("\n## ", start + 1)]
+
+
+def test_the_section_names_the_cheap_command_before_the_slow_one():
+    """A reader copies the first command in the block. That is the whole of
+    #156: the first one paid 55-58 seconds for its environment on every
+    call, and a section that names the cheap one second still costs that."""
+    section = running_the_checks()
+    assert "bin/test" in section, (
+        "CONTRIBUTING.md §Running the checks does not name the runner at all"
+    )
+    assert section.index("bin/test") < section.index("uvx --with pytest"), (
+        "the slow form is still the first command in the section, so it is "
+        "still what a reader copies"
+    )
+
+
+def test_the_slow_form_says_what_it_is_for_and_what_it_costs():
+    """Kept rather than deleted, because `bin/test` writes a `.venv` into the
+    tree and a reader who does not want that needs the other form named. Kept
+    without its cost, it reads as an equal alternative."""
+    section = running_the_checks()
+    assert "fallback" in section, (
+        "the uvx form sits in the section as an unlabelled second option"
+    )
+    assert "seconds each" in section and "every call" in section, (
+        "the fallback is named without the cost that demoted it, so the next "
+        "reader promotes it back"
+    )
+
+
+def test_the_section_and_the_runner_state_the_same_floor():
+    """The document names a version and the code enforces one. Two places
+    saying a number is two places to disagree, and the disagreement is
+    invisible until somebody's 3.11 builds an environment the suite needs
+    3.12 for."""
+    section = running_the_checks()
+    assert f"Python {rt.FLOOR_TEXT} is the supported floor" in section, (
+        "the floor sentence no longer states the floor the runner enforces "
+        f"({rt.FLOOR_TEXT} in .github/scripts/run_tests.py's FLOOR)"
+    )
+    assert "FLOOR" in section, (
+        "the sentence names a number the reader cannot trace to the code that holds it"
+    )
+
+
+def test_the_section_keeps_the_broad_once_rule():
+    """It predates this work item and a cheap runner is exactly what would
+    tempt a session to drop it."""
+    section = running_the_checks()
+    assert "Run the broad ones once" in section
+
+
+def test_the_section_says_the_full_run_is_the_orchestrators():
+    """`bin/test` with no arguments runs a five-minute suite that
+    §2 forbids to smith and warden. The section that makes it cheap is the
+    section that has to say who it is for, and name the form a segment
+    types."""
+    section = running_the_checks()
+    assert "agent-contract" in section and "orchestrator" in section, (
+        "the section makes the full suite cheap and says nothing about the "
+        "rule that forbids it to a segment"
+    )
+    assert "bin/test tests/" in section, (
+        "no narrow form is shown, so the only command a segment can copy is "
+        "the one it must not run"
+    )
+
+
+def test_the_protocol_says_a_shipped_runner_is_found_not_typed():
+    """#156's cause: the orchestrator typed the runner into every spawn
+    prompt, and the segments it forgot rediscovered one."""
+    protocol = flat("docs", "review-handoff-protocol.md")
+    assert "A runner the repository ships is found, not typed into every prompt" in (
+        protocol
+    ), "the handoff still requires the incantation in the prompt, always"
+    assert "where the repository ships none, the prompt carries the incantation" in (
+        protocol
+    ), (
+        "the requirement drops the case it replaced — a repository with no "
+        "runner still needs the prompt to carry one"
+    )
+
+
+def test_the_protocol_hands_over_the_narrow_form():
+    """The requirement points a segment at a command that runs a five-minute
+    suite. Naming it without naming which form is how §2 gets widened by a
+    document that never mentions it."""
+    protocol = flat("docs", "review-handoff-protocol.md")
+    assert "The form a segment is handed is the narrow one" in protocol
+    assert "the full suite is the orchestrator's, run once after the rounds" in protocol
+
+
+def test_the_protocol_carries_the_measurement_that_bought_it():
+    """Every requirement beside it names the failure it was bought by. One
+    without is a rule a reader can talk themselves out of."""
+    protocol = flat("docs", "review-handoff-protocol.md")
+    assert "17 s, 2 s, 0 s and 0 s" in protocol, (
+        "the requirement arrives with no measurement, where the four beside "
+        "it each name theirs"
+    )
+
+
+def test_smith_finds_the_runner_before_inventing_a_command():
+    """The prompt is what went missing, so the fix cannot live in the prompt.
+    `agents/smith.md` reaches every segment at startup with nobody typing
+    anything."""
+    smith = flat("agents", "smith.md")
+    assert "Find the runner before you invent a command" in smith, (
+        "a segment whose prompt omits the runner has nothing telling it one "
+        "exists, which is what the repeats measured"
+    )
+    assert "Type the narrow form, one module" in smith, (
+        "smith is pointed at a command that runs the full suite and not at "
+        "the form §2 leaves it"
+    )
+    assert "`docs/review-handoff-protocol.md` §*The handoff before round 1*" in smith, (
+        "the rule is restated rather than linked, so the two carriers can drift apart"
+    )
+
+
+def test_the_cheat_sheet_does_not_offer_the_runner():
+    """`bin/` is on a plugin user's PATH, but `test` is a shell builtin, so
+    PATH never gets a say. A row in the table that names commands a reader
+    types would name the one command there that cannot be typed."""
+    readme = read(os.path.join(ROOT, "README.md"))
+    sheet = readme[readme.index("## Cheat sheet") :]
+    rows = [line for line in sheet.splitlines() if line.startswith("| `")]
+    assert not [row for row in rows if "bin/test" in row or "`test" in row], (
+        "the cheat sheet offers a command a plugin user cannot type, and "
+        "whose runner is this repository's own five-minute suite"
+    )
+
+
+def test_the_placement_stands_on_what_it_actually_buys():
+    """Phase 1 recorded `.github/` as absent from a plugin cache. It is not:
+    the plugin ships from the repository root, and 0.5.0, 0.7.0, 0.8.0 and
+    0.8.1 each hold `.github/scripts/`. The location is still right and the
+    reason is not, so the file has to carry the true one — otherwise the next
+    reader moves the runner to fix a problem that was never there."""
+    doc = " ".join(read(SCRIPT).split())
+    assert "`.github/` does not" not in doc, (
+        "the runner still claims a location hides it from a plugin cache"
+    )
+    assert "shell builtin" in doc, (
+        "the runner does not say what actually keeps a plugin user from "
+        "running this suite, so its placement reads as the guard"
+    )

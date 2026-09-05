@@ -15,9 +15,10 @@
 # of this repository, not for a plugin user's PATH.
 #
 # The runner lives under .github/ because it runs THIS repository's suite, and
-# .github/ is the one root here that does not reach a user's machine. A user's
-# copy of bin/ has no runner beside it, which is what the sentence below is
-# for.
+# .github/scripts/ is where this repository's own automation already lives.
+# The plugin ships from the repository root, so a user's cache holds .github/
+# too -- what keeps a plugin user out is the shell builtin above, not the
+# path. The sentence below is for a copy of bin/ taken on its own.
 #
 # The full suite takes about five minutes and is the orchestrator's, run once
 # after the review rounds settle -- skills/agent-contract/SKILL.md forbids it

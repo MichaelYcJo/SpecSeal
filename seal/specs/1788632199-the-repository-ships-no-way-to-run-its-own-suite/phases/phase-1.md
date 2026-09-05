@@ -100,3 +100,29 @@ here and are not this phase's.** They are #160's four macOS-only export cases,
 | Removed item | Where it must land |
 |---|---|
 | none — the phase adds three files and takes nothing out of the tree | none |
+
+## Correction, phase 2, 2026-09-06
+
+**The `.github/` claim above is false.** This record says **[executed]** that
+the plugin cache ships `tests/` and `skills/` "while `.github/` is absent from
+it", and the placement decision rests on it. **[executed]** `ls -a` on the
+cached releases: `0.5.0`, `0.7.0`, `0.8.0` and `0.8.1` each hold
+`.github/scripts/` and `docs/`. `.claude-plugin/marketplace.json` declares
+`"source": "./"` and `.gitattributes` carries no `export-ignore`, so the
+plugin ships from the repository root and nothing under it is withheld. A
+plain `ls` — no `-a` — is what a dotfile disappears from, and that is the
+most likely way the claim was taken.
+
+**The decision stands; its reason does not.** `.github/scripts/` is where
+this repository's own automation already lives, which is a placement argument
+that does not depend on concealment. What actually keeps a plugin user out of
+this suite is the other fact this record establishes: `test` is a shell
+builtin, so PATH never offers `bin/test`, and reaching the runner means typing
+a path into a versioned cache directory on purpose.
+
+Corrected in `.github/scripts/run_tests.py`, `bin/test`, and the docstring of
+`test_a_copy_without_the_runner_beside_it_says_so`;
+`test_the_placement_stands_on_what_it_actually_buys` pins the replacement.
+Whether a deliberate invocation out of a cache needs a guard of its own is
+question 7 in `questions.md` — phase 2 did not add one, because that is
+mechanism and phase 1 owns this surface.
