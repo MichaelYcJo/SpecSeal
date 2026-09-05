@@ -2,7 +2,7 @@
 
 📋 implement applied
 · spec:     CLAUDE.md §The goal a design is chosen against, §a change writes fragments never the shared file, §no real identifiers; seal/specs/1788613827-…/spec.md, plan.md, questions.md, routing.md and phases/phase-1.md, phase-2.md, phase-3.md; skills/agent-contract/SKILL.md §2, §3, §4, §9, §12, §14, §15; skills/implement/SKILL.md §2, §3, §4; skills/writing-style/SKILL.md; templates/sdd-overview.md, templates/ledger.md, templates/sdd-phase.md; docs/flow.md §0.8.2; seal/config.md (no `Record language` row, so English)
-· evidence: `seal/ledger/1788613827-a-runs-report-carries-one-comparison-table.md`, five rows (R1–R5), every hash stamped by `evidence-check --reverify` scoped to the fragment
+· evidence: `seal/ledger/1788613827-a-runs-report-carries-one-comparison-table.md`, five rows (R1–R5), every hash stamped by `evidence-check --reverify` scoped to the fragment; plus seven rows in `seal/ledger.md` whose anchors phases 2 and 3 moved, re-read and re-stamped with a note each (`## The handoff before round 1`, `### After the run — the per-segment bars`, `## Pull request bodies` ×4, `## Measure the segment, and feed the flow log`)
 · verified: executed — phase 4's own modules (`test_chain_hooks_hardening`, `test_the_set_a_work_item_always_has`, `test_unverified_rows_close`, `test_a_row_points_by_content`, `test_evidence_check`, `test_the_ledger_fragments_fold_at_release`, `test_the_changelog_is_gathered_at_release`, `test_no_real_identifiers`, `test_docs_line_wrap`) and `evidence-check` over the whole ledger, output in `phases/phase-4.md`; phases 1–3 as their own records label them, each re-run by the orchestrator at its close. read — the three phase records' findings, the four documents this phase's rows cite. **unverified** — the full suite, the repository-wide lint and the typecheck; see below
 
 ## Why this work exists
@@ -51,6 +51,16 @@ says which is which and why.
 **The table as a file under `templates/`.** A template is copied into a work
 item's directory; this table is written into a pull request body and an issue
 comment, neither of which the work item holds (`questions.md` assumption 7).
+
+**Re-stamping `templates/config.md#"# Repository config"` in `seal/ledger.md`.**
+The unscoped `evidence-check` reported five drifted rows; four are anchors
+phases 2 and 3 moved, and those seven ledger rows were re-read and re-stamped
+with a note each. The fifth is not this branch's: `templates/config.md` and
+`seal/ledger.md` are both byte-identical to `main` at `a9a827b`, so that row
+was already drifted there, and re-stamping it here would put another branch's
+change into this diff under this branch's name. `.github/workflows/test.yml`
+turns drift into a `::warning::` and fails only at exit 2 or above, so nothing
+is blocked by leaving it. The repository owner decides whether it rides along.
 
 **#156, #155 and #169** — 0.8.2's other three items, and the first three
 readings taken under the table this work item builds (`questions.md` Q1).
