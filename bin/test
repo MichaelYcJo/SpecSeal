@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+# Runs this repository's own suite from a virtualenv that is built once and
+# reused, instead of a command that resolves its environment on every call.
+# Issue #156: the form CONTRIBUTING.md named paid 55-58 seconds of setup per
+# call, on all seventeen test calls of one measured segment.
+#
+# Resolves the script relative to this file, not the caller's cwd, so it works
+# from any directory in the repository or a worktree of it, and pytest runs
+# from the repository root. Arguments pass straight through:
+#   bin/test                                bin/test -q
+#   bin/test tests/test_session_cost.py -q  bin/test -k anchor
+#
+# Typed as `bin/test`, never as a bare `test`: `test` is a shell builtin, so
+# PATH never gets a say. That is the right outcome -- this one is for a clone
+# of this repository, not for a plugin user's PATH.
+#
+# The runner lives under .github/ because it runs THIS repository's suite, and
+# .github/ is the one root here that does not reach a user's machine. A user's
+# copy of bin/ has no runner beside it, which is what the sentence below is
+# for.
+#
+# The full suite takes about five minutes and is the orchestrator's, run once
+# after the review rounds settle -- skills/agent-contract/SKILL.md forbids it
+# to smith and warden. Name a module to run one.
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+script="$here/../.github/scripts/run_tests.py"
+if [ ! -f "$script" ]; then
+    printf '%s\n' "bin/test runs SpecSeal's own test suite, and this copy of bin/ has no runner beside it. Run it from a clone of the SpecSeal repository." >&2
+    exit 2
+fi
+exec python3 "$script" "$@"
