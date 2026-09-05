@@ -284,7 +284,10 @@ rather than re-deriving it from the verdict table: a 🟡 the smith answers with
 grounds is `no`, so a round can report findings and still end the run. The row
 is read by `chain_check.py`, and what reads it is the floor's bound below: a
 `yes` is what says the run reopened, which is what keeps that bound from
-refusing the verifying round's own reader.
+refusing the verifying round's own reader. A `fixed` verdict does the same
+whatever the row says — the reviewer may answer `no` and the orchestrator may
+fix the 🟡 anyway because it ships, and those fixes owe a reader too. The bound
+reads the verdict column for that, so the row stays the reviewer's.
 
 **A round that opens nothing needing a fix does not consume the cap.** The cap
 counts rounds that found something, because it exists to stop a loop that is
@@ -329,8 +332,9 @@ is the run carrying on past its own stopping rule.
 **Unless the verifying round reopens the run.** One that opens something is a
 finding round by the rule above, so its own fixes need a reader, and that
 reader is a third record. `chain_check.py` counts later records only up to the
-first whose `Needs a fix` says `yes`, that record included — which is why that
-row is now read rather than only written.
+first whose `Needs a fix` says `yes` — or whose verdicts say `fixed`, whatever
+the row says — that record included, which is why that row is now read rather
+than only written.
 
 ### A fix pass adds the unit that pins it, and that unit ships unreviewed
 
@@ -403,6 +407,32 @@ Both accept `none`, with or without a reason after it. `chain_check.py`
 refuses a record without the rows and a unit listed without its reach, for
 work items begun on or after its `SURFACE_FROM`; records of earlier work
 items print instead — the grandfathering `Fixes checked by` already uses.
+
+**The reach-back is the whole of these two rows now, and forgetting it is
+silent.** The ordering rule above requires the record to be committed before
+its fixes exist, so both rows begin at `none — the fixes are not yet written`
+— and a record that never gets the second step reads exactly like one whose
+fixes added nothing. A verifying round opening it sees no finding surface at
+all. Measured on the work item that added the ordering rule: its own round 1
+record sat that way for two rounds, and the six units its fix pass created
+reached the next round only because a reviewer went and looked.
+
+So `chain_check.py` refuses that value on a record whose `Fixes checked by`
+names a `round-N` — a later round opened those fixes, so they exist — for
+work items begun on or after `ORDER_FROM`. While the cell still reads
+`nobody — <why>`, *not yet written* is true and nothing refuses it.
+
+**Which means the refusal reaches the session that filled `Fixes checked by`
+and stopped, and not the one that filled nothing.** All three cells left at
+their starting values escape it, and so does `no fixes to check` beside a
+pending row — for a round that commissioned no fixes, *not yet written* is
+false the moment it is written. Both states print instead, and a reworded
+cell is not the only thing that escapes: three spellings carry the template's
+words unchanged. `docs/review-chain-spec.md` names them and says why the
+answer was to write the limit down rather than widen the match. The habit
+that makes all of it moot is one pass over the three cells with the fix diff
+open.
+
 The depth inside `New units` has a cutoff of its own, `DEPTH_FROM`, later
 than that one: a work item between the two owes the row and not the depth in
 it, because its records were written when the row named units alone.
@@ -438,6 +468,59 @@ What it buys is the question the measurement log could not answer. Every
 segment of two work items was metered and posted, and not one of the readings
 says what produced it — so the log knows what a segment cost and cannot say
 whether the cost was the model's, the agent's, or the scope's.
+
+### And commit the record before commissioning the fixes
+
+The record is the fix pass's agenda, so it has to exist before the fix pass
+does. Commit `round-N.md` when the round posts, with its verdict cells reading
+`open`; the fixes land next, and the cells are updated to `fixed at <sha>`
+afterwards — the same reach-back that fills `Fixes checked by` and the fix
+surface.
+
+**A record written late leaves no trace**, which is why this is a gate rather
+than a reminder. By the time a late record is committed the fixes have landed,
+so its cells read `fixed at <sha>` — indistinguishable from a correct record
+after its own update pass. Measured twice in one release, four minutes and two
+minutes after the fix commits those records commissioned, and both times the
+reviewer's drafted replacement text lived only in a report and the next
+segment rebuilt it from scratch.
+
+`chain_check.py` refuses a record whose **adding** commit descends from a
+commit its own verdicts name as the fix, for work items begun on or after its
+`ORDER_FROM`; earlier ones print. It is the adding commit and never the last
+one, because a correct record IS updated after its fixes land.
+
+The cheapest way to satisfy it is also the one that pays: commission the fix
+pass **from the committed record** rather than from the reviewer's report. The
+report is a message in a session that ends; the record is a file the next
+segment opens.
+
+### The check a round runs reads everything, and only a write is narrowed
+
+`evidence-check` takes `--ledger`, and the flag is right for one of its two
+jobs and blinding for the other. Hand the round the unscoped read, and keep
+the narrowing for the write:
+
+| The form | What it is for |
+|---|---|
+| `evidence_check.py .`, no `--ledger` | **reading.** It opens `seal/ledger.md` and every fragment, which is the only way a branch learns it falsified a row it does not own — and those are the rows with the longest reach, cited by work that shipped releases ago |
+| `evidence_check.py --ledger '<this work item's fragment>' --reverify .` | **writing.** `--reverify` re-stamps every drifted row it reads, so the narrowing is what keeps it off a row whose claim somebody else has to judge |
+
+Measured (#153): one work item's three review rounds and two fix passes all
+ran the scoped form and all reported a clean ledger. The unscoped read at the
+pull request found **fifteen drifted rows and one broken claim** — a row this
+repository's own rule says must be removed rather than re-pointed, which
+nobody had been told they had falsified.
+
+Neither instruction was wrong about its own subject. Scoping was the
+correction that shipped, for the write; it was then carried into the read,
+where it blinds. So do not answer this by deleting the narrowing — that puts
+`--reverify` back onto somebody else's false claim, which is the defect the
+scoping was adopted to fix.
+
+A session that narrows on its own initiative reads none of the above, which
+is why the tool announces it too: a `--ledger` run names the ledgers it did
+not read, and says how to read them.
 
 ## Orchestrator: verify before posting
 

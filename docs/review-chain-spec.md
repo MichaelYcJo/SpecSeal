@@ -650,11 +650,69 @@ question.
 | `Contract changes` or `New units` absent, work item begun on or after the cutoff | **fails**, naming the row and what it buys |
 | either row absent, work item begun before the cutoff (or with no timestamp prefix) | prints — the same grandfathering as above, keyed to `chain_check.py`'s `SURFACE_FROM`, whose value is the id of the work item that added the rows |
 | `none`, with or without a reason after it | passes — `none — the fixes are not yet written` is the honest value while a round runs |
+| `none — the fixes are not yet written`, on a record whose `Fixes checked by` names a `round-N`, work item begun on or after `chain_check.py`'s `ORDER_FROM` | **fails**, naming the row and the checker two rows above it. A later round opened these fixes, so they exist, and the cell contradicts its own file — the shape `no fixes to check` beside a `fixed` verdict already takes. Before that cutoff it prints |
+| the same cell while `Fixes checked by` still reads `nobody — <why>` | passes. That is the state the ordering rule REQUIRES, and refusing it would refuse every correctly written record at the moment it lands |
+| the same cell while `Fixes checked by` reads `no fixes to check` | passes — the arm reads a `round-N` and nothing else. This is the value the TERMINAL record of every run carries, and it is the one place the pair is not merely unrefused but wrong: a round that commissioned no fixes will never have any, so *not yet written* is false the moment it is written and nothing here says so. Whether the arm should refuse it too is open — the refusal would land on merged records whose repair is honest, unlike the `nobody` case |
+| `none` with a reason the checker does not recognise | passes — see the limit below |
 | an empty cell | **fails** on any record — a row that says nothing answers nothing, and an empty cell is always the author's to fill |
 | a `Contract changes` entry (`;`-separated) carrying `unit → call sites` (`→` or `->`) | passes |
 | an entry with no arrow, or an empty half | **fails** on any record, naming the entry — a unit without its reach restates the diff and leaves the measured failure's unchecked half unchecked |
 
-Only the ABSENT row is grandfathered. A merged record has no honest repair
+**The pending arm is this branch's own damage repaired**, and it is worth
+saying which way round that went. Before `ORDER_FROM` a record could be
+written after its fixes and both rows filled from the start; the ordering rule
+made *not yet written* the value every record now begins with, and nothing
+required the second step. `says_none` accepts a reason, so an abandoned cell
+read exactly like a finished one — a check reporting clean while something is
+missing, which is the title of the work item that produced it.
+
+**Its direction is `allow` for a reason the checker does not recognise, and
+that is a deliberate exception to this document's `blocks more` default.** The
+alternative is refusing an honest custom reason for its wording, and a rule
+about which English sentences mean *not yet* is the enumeration over an
+unbounded domain the arrow's and the comma's limits already decline. What is
+caught instead is the measured failure: the template's own words, copied into
+a record and left standing. The phrase lives in `chain_check.py` as `NOT_YET`
+and `templates/sdd-round.md` prints that constant, so the two cannot drift.
+
+**What escapes is wider than a rewording, and three spellings carry the
+template's words UNCHANGED.** This paragraph declared the escape as a
+rewording for a round, and it was measured over 23 cells and found narrower
+than the behaviour (round 3's 🟡 5). `says_none` tests the first character
+after `none` while `says_not_yet` strips `SEPARATORS` from both ends, so each
+of these passes the cell as `none` and silences the arm:
+
+| The cell | Why it escapes |
+|---|---|
+| `none ― the fixes are not yet written`, with U+2015 rather than the em dash | the leading space is what satisfies `says_none`, and the bar is outside `SEPARATORS`, so it survives the strip and stands in front of the constant |
+| `none — the  fixes are not yet written`, with a doubled space | the extra space is INSIDE the constant rather than before it, so no widening of `SEPARATORS` reaches it |
+| `none — nothing yet; the fixes are not yet written` | only a substring match reaches a clause before the phrase, and the substring match is exactly the mutation the prefix rule exists to refuse |
+
+Only the first of the three is punctuation, so widening `SEPARATORS` would
+close one and leave this section false about the other two — and it would
+widen a constant four other readers in the same file share. The limit is
+written down instead. What *this record passed* means is *its cell does not
+carry the template's own pending words*, never *its fix surface is complete*,
+and a session that spelled the cell any of these ways is not the session that
+forgot it.
+
+**The arm keys on `Fixes checked by`, so a session that leaves THAT cell
+behind too is reached by nothing here** (round 3's 🟡 1). The value a
+forgetful session leaves is `nobody — <why>`, which is the honest mid-run
+state and the row above says why it cannot be refused — so the arm reaches
+the session that filled the checker cell and stopped, and not the one that
+filled nothing. What covers the second is `Fixes checked by`'s own check: it
+prints a notice for `nobody` on every record, and refuses it on the LAST
+record beside a checked `Pass`. A non-terminal record carrying `nobody` is
+false by construction — a later record exists, and round N+1 reviews round
+N's fixes — and nothing refuses that today. Keying the arm on the sibling
+records instead would give it a second source of truth, which is the property
+that makes the narrow key defensible in the first place.
+
+Only the ABSENT row is grandfathered by `SURFACE_FROM`, and the pending arm
+above has a grandfathering of its own that reaches a row which is PRESENT:
+before `ORDER_FROM` the same cell prints instead of failing. A merged record
+has no honest repair
 for a missing row — writing reach rows for fixes nobody re-read fabricates a
 review — where a malformed row's repair is formatting, which is always the
 author's. One limit is recorded rather than parsed away: the arrow is found
@@ -682,7 +740,7 @@ fact about the round that met the floor rather than about the last one.
 | `no`, or `yes — <what>` | passes |
 | an empty cell, or a word that is neither | **fails** on any record — a word the check cannot read is never the reassuring reading, and `nothing anybody can see` is a sentence rather than an answer |
 | `yes` with nothing after it | **fails** on any record — the cell then records that something was found and not what |
-| `no`, with two or more later round records and none of them saying the run reopened | **fails**, naming the exit. One later record is the verifying round; a second is the run carrying on past its own stopping rule |
+| `no`, with two or more later round records counted — the count stopping at the first that reopened the run or closed on a fix, that record included | **fails**, naming the exit. One later record is the verifying round; a second is the run carrying on past its own stopping rule. A record whose own verdicts say `fixed` stops the count exactly as a reopening does — and a reopening in second place is still a second record: the first is the verifying round, the second is the one too many |
 | the ABSENT row, or the run that went past it, work item with no timestamp prefix | prints — `item_began` has no second to compare, so the cutoff is below it and those two are excused permanently. **The three malformed states above are not**: `stopping_floor` appends their errors without consulting the work item's age at all |
 
 Only the ABSENT row and the run that went past it are grandfathered, and they
@@ -702,6 +760,23 @@ documents required could not be written. So the count stops at the first later
 record whose `Needs a fix` says the run reopened, that record included. Every
 record after a reopening answers to THAT round rather than to the one that met
 the floor.
+
+**And it stops at the first later record whose own verdicts closed on a fix —
+a `fixed` cell — whatever its `Needs a fix` says.** The two rows answer
+different questions: `Needs a fix` is the reviewer's, *what did I open*; the
+bound needs *were fixes written that owe a reader*. They come apart in one
+sequence, and it happened: the reviewer answers `no`, judging a 🟡 answerable
+with grounds, and the orchestrator fixes it anyway because it ships — a false
+count in a ledger fragment that `fold_ledger.py` copies into the shared file.
+The row still reads `no`, the fixes exist, and a walk reading only that row
+has no terminal record it accepts: the verifying round that reads the fixes
+is a second uncounted record after the floor, and ending without it is
+refused both ways, `no fixes to check` beside `fixed` and `nobody` beside a
+ticked `Pass`. Measured on this repository's own seventh round. The record
+already carries the fact in its verdict column, and the walk reads it there.
+The direction is ALLOW, one record wider in that one sequence, and it is the
+cheaper mistake: the other way to satisfy the old walk was rewriting `fixed`
+to `answered` over fixes that exist.
 
 ##### `Needs a fix` — the row the bound above rests on
 
@@ -846,6 +921,124 @@ so `unknown on Opus` is an unknown carrying a reason rather than a pair whose
 agent is not known. Nothing is lost by it — the model is still written where a
 reader sees it — and telling the two apart would mean a rule about whether an
 English reason may begin with `on`.
+
+##### When the record was written — before the fixes it commissioned
+
+`templates/sdd-round.md` says a record is written *right after it posts*, and
+until this check nothing observed it. Measured twice in one release, four
+minutes and two minutes after the fix commits those records commissioned, and
+both times the reviewer's drafted replacement text lived only in a report and
+the next segment rebuilt it from scratch. That is the failure a build phase's
+own record was built to close, arriving on the review side of the chain.
+
+**A record written late leaves no trace.** By the time the orchestrator writes
+it the fixes have landed, so its verdict cells read `fixed at <sha>` — which
+is exactly what a correctly written record looks like after its own update
+pass. The two are indistinguishable in the file, and distinguishable in git.
+
+**So the check reads the ADDING commit, never the last one.** A correct record
+is committed with `open` cells when the round posts and updated when the fixes
+land, so its LAST commit legitimately descends from the fix; refusing on that
+would fail every well-written record. The commit that ADDED the file is the
+distinguishing one.
+
+Read on every record, like the four above and for the same reason: when a
+record was written is a fact about that round, and every round has one. The
+last record is the one **least** likely to be late, because nothing follows it
+to commission anything — so a check reading the last record alone would read
+the one record the defect cannot reach.
+
+| The state | The check |
+|---|---|
+| the adding commit descends from a commit this record's own verdict names as the fix, work item begun on or after the cutoff | **fails**, naming the adding commit, the fix, and the row — keyed to `chain_check.py`'s `ORDER_FROM`, whose value is the id of the work item that added the rule |
+| the same, work item begun before the cutoff (or with no timestamp prefix) | prints — the grandfathering `Fixes checked by` already uses. A merged record has no honest repair: nobody can commit it earlier now |
+| the record added with `open` cells and updated to `fixed at <sha>` afterwards | passes. This is the correct shape, and the whole reason the ADDING commit is what is read |
+| a verdict closing with `answered`, `withdrawn` or `not a defect` | passes, whatever commit sits in the cell — those close a finding and produce no code, so there is no fix the record could have been written after |
+| a fix commit that is an ancestor of this record's own `Target SHA` | passes — the round already reviewed that commit, so it is a fix this round did not commission. Round N+1's record is committed after round N's fixes by construction, and reading those as commissioned would fail the second round of every run |
+| a fix commit this repository cannot resolve | passes — after a squash that is the ordinary state of a reviewed commit, the reading `resolves_to` gives every other consumer |
+| **a `fixed` verdict that names no commit at all** | passes, and this is the commonest of the pass states rather than an edge — measured across this repository's own records, 235 cells close with a fix word, 215 name a commit and **20 do not**. `\| fixed \|` and `\| fixed — round-2 read it \|` are house style, not malformed |
+| a record DELETED and re-added on the branch | judged on the **latest** add, which is the only shape producing more than one. A stub committed on time, removed, and the real record written after the fixes is what makes a late record look early, and the version anybody reads was authored at the last add. What it costs: a record accidentally deleted and restored after the fixes is refused, and the failure names the restoring commit |
+| a record with no adding commit in `<baseline>..HEAD` | passes — it arrived before the base, and nothing is claimed about it. The same *no claim* the reachability requirement already makes for a record the pull request does not touch. This is also what a base moving under a long branch produces: the record's own adding commit leaves the range and the commit that UPDATED its verdicts stays inside it, so reading *any commit that touched the file* would refuse a record for doing exactly what a correct record does |
+
+**So the refusal's reach is the commit a cell happens to carry, and that is a
+limit rather than a choice about which column to read.** A record whose
+`fixed` cells name no commit at all — the bolded row above — is invisible to
+it however late it was committed. Two answers were weighed and the cheaper one is not a check:
+
+- **Refuse a `fixed` cell that names no commit.** It would be a sixth refusal,
+  owed its own cutoff and its own subsection, refusing a spelling 20 of this
+  repository's own cells already use — and the value it would add is reach
+  over records whose authors were never asked for the commit.
+- **Ask for the commit where a person writes the cell.**
+  `templates/sdd-round.md` does, beside the vocabulary, with the reason: a
+  reader six months on has no other route to the change, and this refusal
+  cannot see a cell without one. Records written afterwards carry it; the
+  reach grows as they land, and nothing red is inherited.
+
+The second is what shipped. What it costs, stated rather than buried: the
+reach is a convention rather than a guarantee, so *this record passed* means
+*no cell in it named a commit the record descends from* and never *this record
+was written on time*.
+
+**What a rebase does to this, stated rather than left to be found.** The
+refusal reads a commit relationship and a rebase rewrites commits, so the
+question is which direction it can move a verdict. The adding commit is read
+in `<baseline>..HEAD` rather than in the repository's whole history, and a
+rebase replays a branch's commits in order — so a record added before its fix
+on the branch is still added before it afterwards, and a passing record cannot
+be turned failing. What a rebase does change is the SHA the verdict cell
+names: the rewritten fix has a new hash while the cell still holds the old
+one, which resolves to nothing in a fresh clone and to an unreachable object
+in a local one. Either way no claim is made, so a rebase can turn a **failing**
+record passing.
+
+That is the safe direction of the two, and it is taken knowingly. Closing it
+would mean matching rewritten commits by patch id, which is a second mechanism
+for a case nobody has met — where the cost of the other direction is an honest
+record refused for a rebase its author did not connect to the failure.
+
+What no check can see is a record committed on time that carries nothing: the
+file exists before the fixes and says only what the round found. This refusal
+is about ORDER alone, and issue #150's own comment asks the narrower question
+beside it. The next subsection answers it.
+
+##### What the record carries — a declaration, and why no check reads it
+
+Writing the record first is necessary and not sufficient, and the measurement
+that says so was taken on the round after the one above. `1788491830`'s round
+2 was written **before** the fix pass it commissioned — the thing the refusal
+asks for — and its executed-probes table reads:
+
+> the round's proposed fixes for 🟡 6 and 🟡 7, unmutated then under three
+> mutations each · green, then red in every case
+
+**The record contains none of that code.** So it asserts a verification and
+does not carry its artifact, and the implementer wrote its own replacement for
+the second time running. It is the ticket's own opening observation arriving
+one level in: a record that says it verified something it does not carry looks
+complete.
+
+**The rule.** An `Executed probes` row whose subject was a **proposed
+replacement** rather than a command carries the replacement itself, in the
+record, in a fenced block. A command is reproducible from its own text; a
+patch is not. `templates/sdd-round.md` carries it beside the column.
+
+**Whether it is checkable was asked before it was assumed, and the answer is
+no.** Three readings were tried and each fails in a way this document already
+refuses elsewhere:
+
+| The check somebody would write | Why it is not written |
+|---|---|
+| a probe row naming a fix, with no fenced block anywhere in the file | *naming a fix* is a keyword match over free prose — an enumeration over an unbounded domain, the closing the arrow's and the comma's limits above already decline. The column is a sentence a reviewer writes, and a rule about which sentences mean *patch* is a rule about English |
+| every record carries at least one fenced block | fails every record whose probes were all commands, which is most of them. A check that refuses the ordinary case teaches people to write a block that says nothing |
+| the block's content appears in the diff | the record is written BEFORE the fixes by the rule above, so at that moment the replacement is in no diff at all. Requiring it later would require re-editing the record after the fixes land, for a claim that is already true |
+
+So it stays a declaration, the shape `New units`' depth and `Ran by`'s
+provenance already take: written by the party that knows, read by the party
+that holds the artifact beside the record — here the fix pass, which is the
+one that would otherwise retype it. That is the third declaration in this
+document, and the count is worth stating: what a check cannot reach, a reader
+does, and saying which is which is what keeps the checks honest.
 
 Which declaration applies is settled by the branch it names, looked up from
 the checked-out branch. Every way that lookup can fail — a renamed branch, a
