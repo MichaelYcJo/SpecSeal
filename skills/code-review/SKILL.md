@@ -583,7 +583,10 @@ only at the pull request, so a chain that opens it at the end reviews for a
 dozen rounds on one platform and meets the others afterwards. Measured on the
 last branch: three Windows-only defects arrived after round 12. Open it as a
 draft when the build's last phase closes, and the legs run beside the chain
-from round 1.
+from round 1. The `release` leg is red from the draft's opening until round
+1's record commits — the declaration names the chain and `rounds/` holds no
+record yet — and that is the window's expected state, not a failure to
+chase.
 
 **A session that has compacted hands the next round to a fresh one, and the
 generated record is the handoff.** A compacted context holds a summary of what

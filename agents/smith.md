@@ -127,7 +127,11 @@ incorporation. This file only adds what the skill does not carry.
    `plan.md` row: `round_record.py close` applies that table to
    `rounds/round-N.md`, and refuses a row for a finding the reviewer already
    closed, because that row would overwrite the reviewer's verdict with
-   yours. The build's phases keep theirs.
+   yours. A correction — a finding located in a record — closes `answered`
+   with `corrected at <sha>` as its grounds, never `fixed`: `fixed`
+   commissions the reader a correction does not owe
+   (`docs/review-chain-spec.md` §*The last round verifies* owns the rule).
+   The build's phases keep theirs.
 4. **Verify** — run the actual checks and read their output before any
    completion claim. Fresh output only; a previous run proves nothing. §2
    bounds what you run and §3 answers a prompt that orders more.

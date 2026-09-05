@@ -187,6 +187,37 @@ def test_the_skill_links_the_reopening_from_both_places_it_used_to_state_it():
     assert "`deferred #N`" in skill
 
 
+# --- rule 1's fix word, and rule 6's red leg ---------------------------------
+
+
+def test_a_correction_row_closes_answered_and_never_fixed():
+    """Round 1's 🟡 2 of #161's own chain: `fixed <sha>` on a correction
+    row leaves `nobody — the fixes are not yet written` beside a checked
+    `Pass`, and the check refuses that pair on the last record — a reader
+    commissioned for a row rule 1 says owes none. The owner states the
+    word, and the smith's fix-table paragraph names the owner."""
+    assert ("such a row closes `answered — corrected at <sha>`, never `fixed`") in flat(
+        *SPEC
+    )
+    smith = flat(*SMITH)
+    assert (
+        "closes `answered` with `corrected at <sha>` as its grounds, never `fixed`"
+        in smith
+    )
+    assert "§*The last round verifies* owns the rule" in smith
+
+
+def test_the_release_leg_is_red_until_round_ones_record_commits():
+    """Round 1's ⬜ 8: PR #168's `release` leg failed from the draft's
+    opening until the first record committed, and no carrier said that
+    window is the expected state. Rule 6's owner says so beside the rule."""
+    assert (
+        "The `release` leg is red from the draft's opening until round 1's "
+        "record commits"
+    ) in flat(*SKILL)
+    assert "that is the window's expected state" in flat(*SKILL)
+
+
 # --- rule 1 says what the count was --------------------------------------------
 
 

@@ -158,7 +158,10 @@ is about the run's own paperwork rather than about the tool, and it owes no
 fix pass and no reader. What `chain_check` or `evidence_check` refuses is
 corrected in the closing commit; what neither reads is prose, corrected in
 passing or not at all. `Needs a fix` does not count it, so a verifying round
-that finds only such things has opened nothing needing a fix. Measured on the
+that finds only such things has opened nothing needing a fix. In the fix
+table such a row closes `answered — corrected at <sha>`, never `fixed`:
+`fixed` is a fix word, and a fix word commissions the reader a correction
+does not owe. Measured on the
 last branch (#161's second comment): 33 of its 65 findings were located in
 records, and the records were 55 % of the diff — a loop reviewing the tool's
 own paperwork, with a reader spawned for every correction.

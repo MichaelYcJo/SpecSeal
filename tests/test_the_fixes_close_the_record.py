@@ -40,6 +40,7 @@ from test_the_record_is_generated import (
     rows_of,
     write,
 )
+from test_the_record_is_generated import run_check as check_tree
 
 MOD = (
     "def helper(a):\n"
@@ -374,6 +375,30 @@ def test_a_capped_runs_last_record_reads_no_fixes_to_check_and_the_check_exits_z
     assert "`Pass` is checked beside" not in out, out
     assert code == 0, out
     assert chain.NO_FIXES in out, out
+
+
+def test_a_correction_closed_answered_lands_on_no_fixes_to_check(repo):
+    """Rule 1's fix word, generator side (round 1's 🟡 2 of #161's own
+    chain): a ⬜ row located in a record closes `answered` with `corrected
+    at <sha>`, which is no fix word, so the cell reads `no fixes to check`
+    and the check judged as READY exits 0 -- where `fixed <sha>` on the same
+    row leaves `nobody` beside a checked `Pass` and exits 1."""
+    note = "| ⬜ 1 | F1 counts three where four are excused | `seal/ledger.md` | open | read |\n"
+    a = round_one(repo, verdicts=note)
+    write(repo, "README.md", "# the ledger row corrected\n")
+    b = commit(repo, "the correction")
+    _, out, record = close(
+        repo, 1, fix_table(f"| 1 | answered | corrected at {b[:7]} |\n"), f"{a}..{b}"
+    )
+    chain = check_module()
+    assert fields(record)["Fixes checked by"] == chain.NO_FIXES, out
+    assert "- [x] Pass" in record
+    cells = verdict_cells(record)[0]
+    assert cells[3] == "answered" and cells[4] == f"corrected at {b[:7]}", cells
+    commit(repo, "round 1 closed")
+    code, out = check_tree(repo)
+    assert "judged as a ready pull request" in out, out
+    assert code == 0, out
 
 
 def test_a_table_with_a_fix_leaves_the_checker_cell_for_the_next_round(repo):
