@@ -895,23 +895,46 @@ def default_patterns(root):
 def resolve_patterns(patterns):
     """Every file the patterns match, deduplicated and in a stable order.
 
-    Deduplicated by `os.path.normpath`, not by the string `glob.glob` returns:
-    `glob` keeps a literal pattern's spelling and joins a wildcard's matches
-    with `os.sep`, so on Windows `seal/ledger.md` and `seal/*.md` name one
-    file as `seal/ledger.md` and `seal\\ledger.md`, and a set of raw strings
-    kept both -- every row in that ledger counted twice, found by the
-    windows CI leg at the pull request after twelve rounds green elsewhere.
-    `normpath` collapses separators and `.` segments and folds no case, so
-    it is not the `normcase` mistake `skipped_by_narrowing` documents; two
-    genuinely different files stay two.
+    **Two names are one file when they reach one inode** -- the rule
+    `skipped_by_narrowing` states below, for the same reason. A fold on the
+    SPELLING has a platform inside it: `glob` keeps a literal pattern's
+    spelling and joins a wildcard's matches with `os.sep`, so on Windows
+    `seal/ledger.md` and `seal/*.md` name one file two ways, a set of raw
+    strings kept both, and every row in that ledger counted twice -- found
+    by the windows CI leg at pull request #162 after twelve rounds green
+    elsewhere. The first repair, `os.path.normpath`, closed that half and no
+    more: it folds no case, so `seal/Ledger.md` beside `seal/ledger.md` was
+    still two on a case-insensitive volume, and it folds no link, so a
+    symlink or a hard link was a third ledger. `st_dev`/`st_ino` closes
+    separators, case, symlinks and hard links with one rule and no platform
+    in it.
+
+    **The path returned is the spelling the pattern gave**, never a
+    normalized one. The caller OPENS it, and `normpath` collapses `lnk/..`
+    lexically -- so a normalized return names a different file than the
+    pattern matched wherever `lnk` is a symlink, and a broken row in the
+    ledger the operator named went unread with the run exiting 0. That was
+    round 13's 🔴 1 on the work item that added this paragraph.
+
+    A path `os.stat` cannot answer for falls back to its normalized absolute
+    spelling -- the weaker identity `skipped_by_narrowing` uses, and for the
+    same reason: it over-reports rather than swallowing a file.
     """
-    return sorted(
-        {
-            os.path.normpath(p)
-            for pat in patterns
-            for p in glob.glob(pat, recursive=True)
-        }
-    )
+    seen, out = set(), []
+    for pat in patterns:
+        for p in glob.glob(pat, recursive=True):
+            try:
+                info = os.stat(p)
+            except OSError:
+                info = None
+            if info is not None and info.st_ino:
+                key = (info.st_dev, info.st_ino)
+            else:
+                key = os.path.normcase(os.path.abspath(p))
+            if key not in seen:
+                seen.add(key)
+                out.append(p)
+    return sorted(out)
 
 
 def skipped_by_narrowing(root, read):

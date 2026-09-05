@@ -431,9 +431,15 @@ def test_one_file_matched_under_two_spellings_is_read_once(proj):
 
     The class is *one file, two spellings*, and `./seal/ledger.md` against
     `seal/ledger.md` is that class on every platform, so this case is red on
-    the machine that fixes it and not only on the leg that found it. The fold
-    is now `os.path.normpath`, which collapses separators and `.` segments
-    and folds no case -- so it is not the `normcase` mistake either.
+    the machine that fixes it and not only on the leg that found it.
+
+    The first fold was `os.path.normpath`, and this docstring called its not
+    folding case a virtue. Round 13 measured that as the hole: case, symlink
+    and hard link still counted one file twice, and `normpath` collapses
+    `lnk/..` lexically so the path returned could name a different file than
+    the pattern matched. The fold is the inode now -- the rule
+    `skipped_by_narrowing` already states -- and the three cases below pin
+    the halves this one does not reach.
     """
     ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
     r = run(["--ledger", "./seal/ledger.md", "--ledger", "seal/ledger.md", "."], proj)
@@ -441,6 +447,85 @@ def test_one_file_matched_under_two_spellings_is_read_once(proj):
     assert "total: 1 ok" in r.stdout, (
         "one file named under two spellings was read twice, so its rows were "
         f"counted twice:\n{r.stdout}"
+    )
+
+
+def test_one_file_matched_under_two_cases_is_read_once(proj, tmp_path):
+    """Round 13's 🟡 2 of work item 1788501054 — the half of the class
+    `normpath` did not close. `--ledger SEAL/ledger.md` is the motivating
+    example `skipped_by_narrowing`'s own docstring uses, and on a
+    case-insensitive volume it names the same file as `seal/ledger.md`;
+    `normpath` folds no case, so the set kept both and the rows counted
+    twice. The fold is the inode now, the rule that function already states.
+    Seen red against the `normpath` fold on a case-insensitive volume."""
+    if not case_insensitive(tmp_path):
+        pytest.skip(
+            "this volume keeps `Ledger.md` and `ledger.md` apart, so they are two files"
+        )
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    r = run(["--ledger", "seal/Ledger.md", "--ledger", "seal/ledger.md", "."], proj)
+    assert r.returncode == 0, r.stdout
+    assert "total: 1 ok" in r.stdout, (
+        "one file named under two case spellings was read twice:\n" + r.stdout
+    )
+
+
+def test_a_symlink_and_a_hard_link_to_a_ledger_are_that_ledger(proj):
+    """The other two names a file can be reached under. A symlink and a hard
+    link each reach the same inode as `seal/ledger.md`; a fold on the spelling
+    sees three files and counts the rows three times. Seen red against the
+    `normpath` fold."""
+    target = ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    soft = proj / "seal" / "soft.md"
+    hard = proj / "seal" / "hard.md"
+    try:
+        os.symlink(target, soft)
+        os.link(target, hard)
+    except (OSError, NotImplementedError, AttributeError):
+        pytest.skip("this platform or volume refuses a symlink or a hard link here")
+    r = run(
+        [
+            "--ledger",
+            "seal/ledger.md",
+            "--ledger",
+            "seal/soft.md",
+            "--ledger",
+            "seal/hard.md",
+            ".",
+        ],
+        proj,
+    )
+    assert r.returncode == 0, r.stdout
+    assert "total: 1 ok" in r.stdout, (
+        "a symlink or a hard link to the ledger was read as a second ledger:\n"
+        + r.stdout
+    )
+
+
+def test_the_path_returned_is_the_one_the_pattern_named(proj):
+    """Round 13's 🔴 1. `normpath` collapses `lnk/..` LEXICALLY, so where a
+    pattern crosses a symlink before a `..` the returned path names a
+    different file than `glob` matched -- and `main` opens the returned
+    path. Here `x/lnk -> y`, so `x/lnk/../ledger.md` names `<root>/ledger.md`,
+    which holds a BROKEN row; `normpath` said `x/ledger.md`, which holds a
+    clean one, and the run exited 0 having read a file the operator did not
+    name. The dedup keys by inode and returns the pattern's own spelling now.
+    Seen red against the `normpath` fold: exit 0 and no BROKEN where exit 2
+    and one BROKEN row is the truth."""
+    ledger(proj, f"| POL-1 | `src/service.py#gone@{GOOD}` |\n", at="ledger.md")
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n", at="x/ledger.md")
+    (proj / "y").mkdir()
+    try:
+        os.symlink(proj / "y", proj / "x" / "lnk")
+    except (OSError, NotImplementedError, AttributeError):
+        pytest.skip("this platform or volume refuses a symlink here")
+    r = run(["--ledger", "x/lnk/../ledger.md", "."], proj)
+    assert r.returncode == 2, (
+        "the pattern names a ledger with a broken row and the run did not "
+        f"fail:\n{r.stdout}"
+    )
+    assert "BROKEN" in r.stdout and "src/service.py#gone" in r.stdout, (
+        "the broken row in the ledger the pattern named went unread:\n" + r.stdout
     )
 
 
