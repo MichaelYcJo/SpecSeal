@@ -511,7 +511,20 @@ def test_the_path_returned_is_the_one_the_pattern_named(proj):
     clean one, and the run exited 0 having read a file the operator did not
     name. The dedup keys by inode and returns the pattern's own spelling now.
     Seen red against the `normpath` fold: exit 0 and no BROKEN where exit 2
-    and one BROKEN row is the truth."""
+    and one BROKEN row is the truth.
+
+    WHICH file the pattern names is the platform's to say, not this case's.
+    POSIX follows the symlink before it sees the `..`, so the pattern names
+    `<root>/ledger.md`; Win32 collapses `..` lexically before the filesystem
+    is consulted, so there the same pattern names `x/ledger.md` -- and the
+    windows CI leg went red on the first version of this case, which had
+    asserted the POSIX answer everywhere. The case states each platform's
+    answer and holds the checker to it, which is the whole claim: the checker
+    opens the file the pattern names, never a lexical guess at it. On the
+    platform where the guess and the answer agree, `normpath` was never
+    wrong; where they differ, it was. (A first repair asked `realpath` for
+    the expected answer instead -- round 14 declined it, because a fixture
+    that asks for its own expected value agrees with a broken checker.)"""
     ledger(proj, f"| POL-1 | `src/service.py#gone@{GOOD}` |\n", at="ledger.md")
     ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n", at="x/ledger.md")
     (proj / "y").mkdir()
@@ -520,13 +533,31 @@ def test_the_path_returned_is_the_one_the_pattern_named(proj):
     except (OSError, NotImplementedError, AttributeError):
         pytest.skip("this platform or volume refuses a symlink here")
     r = run(["--ledger", "x/lnk/../ledger.md", "."], proj)
-    assert r.returncode == 2, (
-        "the pattern names a ledger with a broken row and the run did not "
-        f"fail:\n{r.stdout}"
-    )
-    assert "BROKEN" in r.stdout and "src/service.py#gone" in r.stdout, (
-        "the broken row in the ledger the pattern named went unread:\n" + r.stdout
-    )
+    # Pinned per platform, not computed: a fixture that asks `realpath` for
+    # its own expected value agrees with a broken checker, which is the
+    # first case in this file. Each branch states what its platform says
+    # the pattern names, and holds the checker to that.
+    if os.name == "nt":
+        # Win32 normalises `..` without consulting the filesystem, so the
+        # pattern names x/ledger.md -- the clean ledger -- and `normpath`
+        # was never wrong here. Seen red on the windows CI leg when this
+        # case asserted the POSIX answer everywhere.
+        assert r.returncode == 0, r.stdout
+        assert "total: 1 ok" in r.stdout and "BROKEN" not in r.stdout, (
+            "the platform names the clean ledger and the checker read "
+            f"something else:\n{r.stdout}"
+        )
+    else:
+        # POSIX follows the symlink before it meets the `..`, so the pattern
+        # names the root ledger, which holds the broken row. Seen red
+        # against the `normpath` fold, which read x/ledger.md instead.
+        assert r.returncode == 2, (
+            "the pattern names a ledger with a broken row and the run did not "
+            f"fail:\n{r.stdout}"
+        )
+        assert "BROKEN" in r.stdout and "src/service.py#gone" in r.stdout, (
+            "the broken row in the ledger the pattern named went unread:\n" + r.stdout
+        )
 
 
 def test_a_ledger_that_cannot_be_stat_ed_is_named_rather_than_crashing(proj):

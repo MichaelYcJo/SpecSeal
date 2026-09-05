@@ -892,6 +892,32 @@ def default_patterns(root):
     ]
 
 
+def file_identity(path):
+    """One name's identity, for folding two names that reach one file.
+
+    **Two names are one file when they reach one inode.** `st_dev`/`st_ino`
+    answers separators, case, hard links and symlinks with one rule and no
+    platform in it. A zero `st_ino` is not an identity, and it does not
+    raise; `skipped_by_narrowing` holds why, what the `normcase` fallback
+    costs off Windows, and why the device is half the pair.
+
+    ONE spelling, because both folds read it. `skipped_by_narrowing`'s own
+    docstring says the identity rule has to have one -- two would be one
+    rule today and two after the first edit to either, and the quiet copy
+    would be the one deciding what gets NAMED (ledger row R4). Round 13's
+    🔴 1 was that sentence measured: `resolve_patterns` composed a weaker
+    identity thirty lines from a copy, and round 14 found the repair had
+    then copied the rule instead of extracting it.
+    """
+    try:
+        info = os.stat(path)
+    except OSError:
+        info = None
+    if info is not None and info.st_ino:
+        return (info.st_dev, info.st_ino)
+    return os.path.normcase(os.path.abspath(path))
+
+
 def resolve_patterns(patterns):
     """Every file the patterns match, deduplicated and in a stable order.
 
@@ -923,14 +949,7 @@ def resolve_patterns(patterns):
     seen, out = set(), []
     for pat in patterns:
         for p in glob.glob(pat, recursive=True):
-            try:
-                info = os.stat(p)
-            except OSError:
-                info = None
-            if info is not None and info.st_ino:
-                key = (info.st_dev, info.st_ino)
-            else:
-                key = os.path.normcase(os.path.abspath(p))
+            key = file_identity(p)
             if key not in seen:
                 seen.add(key)
                 out.append(p)
@@ -1012,22 +1031,16 @@ def skipped_by_narrowing(root, read):
     pairing, no run here removes that guarantee, and a mutation battery
     cannot tell an unreachable guard from an unheld decision.
 
-    One loop over both sides, because the identity rule has to have one
-    spelling. Two would be one rule today and two after the first edit to
-    either, and the quiet copy would be the one deciding what gets NAMED —
-    which is this work item's own failure shape (ledger row R4).
+    One loop over both sides, and one function -- `file_identity` -- for
+    both this fold and `resolve_patterns`', because the identity rule has to
+    have one spelling. Two would be one rule today and two after the first
+    edit to either, and the quiet copy would be the one deciding what gets
+    NAMED — which is this work item's own failure shape (ledger row R4).
+    Round 14 found the rule spelled twice, verbatim, thirty lines apart,
+    against this very sentence; the extraction is what answered it.
     """
     candidates = resolve_patterns(default_patterns(root))
-    identity = {}
-    for path in list(read) + candidates:
-        try:
-            info = os.stat(path)
-        except OSError:
-            info = None
-        if info is not None and info.st_ino:
-            identity[path] = (info.st_dev, info.st_ino)
-        else:
-            identity[path] = os.path.normcase(os.path.abspath(path))
+    identity = {path: file_identity(path) for path in list(read) + candidates}
     seen = {identity[p] for p in read}
     return [p for p in candidates if identity[p] not in seen]
 
