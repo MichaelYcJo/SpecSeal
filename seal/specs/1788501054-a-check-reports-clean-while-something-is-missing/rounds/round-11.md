@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on opus |
 | PR | not yet opened |
 | Broad gate | `72774d5`, against `origin/release/v0.8.0` — **2097 passed · 1 skipped · 0 failed**, `ruff check .` and `ruff format --check .` clean. Spent by whatever fix closes 🔴 1 |
-| Fixes checked by | nobody — round 12 is the round that opens these fixes and it is not written yet; this cell becomes `round-12` the moment that record is committed |
+| Fixes checked by | round-12 |
 | Contract changes | `stopping_floor` — the message inside the error tuple it returns changed a third time, so its set of returnable values moved while signature, arity and return shape did not → `main`, and `tests/test_chain_check_at_the_pull_request.py::test_this_repositorys_own_round_records_pass_the_per_record_checks` |
 | New units | none |
 | Needs a fix | yes — 🔴 1, the refusal's new clause blames the verifying round the rule allows — *the record before it was a round too many* — and contradicts its own sentence three clauses later, where a second record is the one too many; 🟡 2, the spec's exits row carries the same blame in *the quiet round in first*; 🟡 3, `round-9.md`'s `Fixes checked by` is stale at HEAD, so `chain_check` prints three lines where `plan.md`'s phase-13 row claims two |
