@@ -65,11 +65,16 @@ carry it.
 record says who found it and when, in the row and in its trailing comment.
 `Needs a fix` stays `no`.
 
-**`Contract changes` is `none`.** `resolve_patterns` returns the same shape
-— a sorted list of paths — with the same arity; what changed is which
-spelling of a path it returns, which every caller already normalises or
-opens. **`New units`** is the one case, depth 1: `resolve_patterns` predates
-the run.
+**`Contract changes` is `none`, and here is what that does and does not
+cover.** `resolve_patterns` returns the same shape — a sorted list of paths —
+with the same arity. What changed is which SPELLING of a path it returns,
+and that is not nothing: `skipped_by_narrowing` stats the value and `main`
+opens it. `normpath` is safe for a caller that stats and unsafe for one that
+opens, because it collapses `lnk/..` lexically — round 13 measured that case
+and round 13's fix returns the pattern's own spelling. *This paragraph used
+to say every caller already normalises or opens, as if opening tolerated a
+changed spelling; that sentence was round 13's 🟡 4.* **`New units`** is
+the one case, depth 1: `resolve_patterns` predates the run.
 
 **The prompt budget is zero. Platform honesty**: the fix was seen red on
 macOS through the class and is expected green on Windows through the
