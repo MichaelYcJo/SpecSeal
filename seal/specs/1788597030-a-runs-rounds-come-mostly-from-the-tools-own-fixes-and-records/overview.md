@@ -3,7 +3,7 @@
 📋 implement applied
 · spec:     CLAUDE.md §The goal a design is chosen against; docs/review-chain-spec.md §The review run has a bound … §The last round verifies; docs/review-handoff-protocol.md §round-N.md; templates/sdd-round.md; skills/code-review/SKILL.md §Orchestrator sections and §Findings format; agents/warden.md §Role, §Report; agents/smith.md :100-200; skills/implement/SKILL.md §2, §5; issue #161 body and three comments; the last item's rounds/round-4.md and round-12.md
 · evidence: none yet — rows land at phase 5 in seal/ledger/1788597030-….md
-· verified: executed — the inter-commit measurement over 3ef565d^..pull/162/head (70 commits, 12.8 h before docs commits, 3.6 h before fix commits, gaps capped at 2 h); phase 2's 20 cases and the 801 across every module reading the generator or the two agent files; 48 mutations over `close`'s units (phases/phase-2.md); read — everything above
+· verified: executed — the inter-commit measurement over 3ef565d^..pull/162/head (70 commits, 12.8 h before docs commits, 3.6 h before fix commits, gaps capped at 2 h); phase 2's 20 cases and the 801 across every module reading the generator or the two agent files; 48 mutations over `close`'s units (phases/phase-2.md); phase 3's 37 cases and the 387 across every module reading the checker, the generator or the spec's review arm; 9 mutations over the walk and the vocabulary, 9 killed (phases/phase-3.md); read — everything above
 
 ## Why this work exists
 
@@ -23,7 +23,8 @@ The last branch spent 12.8 of its 18.8 active hours in front of record commits a
 |---|---|
 | `gh pr view` answering for a real pull request — the `#N — url` cell and the draft/ready read. Pinned by injection only; a scratch repository has no remote | the orchestrator, at this branch's round 1, which is the generator's first real run |
 | `worktree_files` and `read_record --worktree` on the Windows leg: the path is rebuilt from `/`-split parts with `os.path.join`, which is what the rest of the checker does, and no case ran there | the windows CI leg at the pull request |
-| The full suite, the repository-wide lint and the typecheck after phases 1 and 2 (§2) | the orchestrator, at the broad gate |
+| The full suite, the repository-wide lint and the typecheck after phases 1, 2 and 3 (§2) | the orchestrator, at the broad gate |
+| The reopening walk on a real capped run — the first is whichever 0.8.x chain caps first; every fixture here is built, and this repository's own records reopen at most once | the orchestrator, at the first `chain: capped` |
 | `close` on the Windows leg: `git grep` output is split on `:` and paths in git's output are `/`-separated, which is what `call_sites` and `under_tests` assume; no case ran there | the windows CI leg at the pull request |
 | `close` on a real fix pass of this branch — the first is this branch's own round 1 | the orchestrator, at this branch's round 1 |
 | The three-hour target — build plus two rounds for a change under three hundred code lines. This branch is not under three hundred lines and is the item that builds the machine, so it cannot be its own reading | the next three 0.8.2 items, under the `flow-measurement` label |
@@ -32,6 +33,8 @@ The last branch spent 12.8 of its 18.8 active hours in front of record commits a
 ## Not done
 
 The verifying round as a probe re-execution script (a new field, against the moratorium); redesigning what a record carries; #145, #155, #156, #160, #163.
+
+`close` writing `no fixes to check` into a capped run's last record — `questions.md` A6, built in phase 5 or the first fix pass that meets a capped end. Until then the capped end the spec describes is reachable only by hand-editing that one cell after `close`.
 
 ## Fed back into the spec
 
