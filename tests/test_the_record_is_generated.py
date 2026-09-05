@@ -650,7 +650,7 @@ def test_the_two_record_run_reads_back_through_chain_check(repo):
 
 def test_a_cell_writer_refuses_a_pipe_and_a_newline():
     generator = generator_module()
-    for bad in ("a | b", "a\nb", "a\rb"):
+    for bad in ("a | b", "a\nb", "a\rb", "", "   "):
         with pytest.raises(generator.Refused):
             generator.cell("Ran by", bad)
     assert generator.cell("Ran by", "a on b") == "| Ran by | a on b |"
