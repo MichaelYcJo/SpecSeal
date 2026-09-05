@@ -42,6 +42,7 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 6. The draft pull request opens at the end of the build, before round 1, so the platform legs run beside the chain. Three Windows-only defects arrived after round 12 on the last branch.
 7. A session that has compacted hands the next round to a fresh one; the generated record is the handoff.
 8. **A moratorium for 0.8.x on new parsed fields in `round-N.md` and new rows the ledger must carry.** This work adds a subcommand and a verdict word, and no field.
+9. **A hand-back's verification claim is a claim.** Before the orchestrator spawns the next phase it runs the closed phase's suite and the lint of its changed files itself and reads the output; the broad gate still runs once, after the rounds settle. `code-review` §*verify before posting* already says this of the reviewer's report and nothing said it of the implementer's — added 2026-09-05 at the owner's request, after phase 1 was checked that way.
 
 **Out.**
 
