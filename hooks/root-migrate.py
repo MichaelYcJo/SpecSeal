@@ -64,7 +64,7 @@ Boundaries, each pinned in `tests/test_the_root_migrates_itself.py`:
 # goes; `hooks/dispatch.py`'s session-start group is the one place that names
 # it. A comment rather than a docstring line on purpose: a docstring survives
 # into the `.pyc`, and the rider test greps `hooks/` where a stale
-# `__pycache__` then answers for a file. Verified 2026-09-02 at 2f51b8c.
+# `__pycache__` then answers for a file. Verified 2026-09-02 at 4f78074.
 
 import glob
 import importlib.util
