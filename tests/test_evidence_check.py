@@ -373,6 +373,58 @@ def test_a_copy_with_no_hooks_beside_it_reads_the_tree_root_only(proj, tmp_path)
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
 
 
+def test_a_copy_under_a_plugin_tree_without_a_skill_beside_it_is_still_vendored(
+    proj, tmp_path
+):
+    """`seal_home`'s `os.path.isfile(skill)` conjunct, which stood recorded as
+    unreachable and is not.
+
+    The rider here said the state that separates the two conjuncts is a
+    vendored copy inside a tree that HAS a plugin above it, and that nothing
+    constructs it. This constructs it. The copy sits three directories under a
+    tree carrying `hooks/optin.py`, so the FIRST conjunct passes; there is no
+    `SKILL.md` one level up, so the second is the only thing left to say this
+    is not the plugin's own copy.
+
+    Against a local-mode repository the two answers differ — `<root>/seal/`
+    with the conjunct, `<git-common-dir>/seal/` without it — so dropping it
+    makes a vendored copy read a root it must not read. That is a wrong
+    ANSWER rather than merely an unheld line, and the mutation that survived
+    every evidence suite dies here.
+    """
+    tree = tmp_path / "tree"
+    (tree / "hooks").mkdir(parents=True)
+    (tree / "hooks" / "optin.py").write_bytes(
+        open(os.path.join(ROOT, "hooks", "optin.py"), "rb").read()
+    )
+    scripts = tree / "a" / "b" / "scripts"
+    scripts.mkdir(parents=True)
+    copy = scripts / "evidence_check.py"
+    copy.write_bytes(open(SCRIPT, "rb").read())
+    assert (tree / "hooks" / "optin.py").is_file(), "the first conjunct must pass"
+    assert not (tree / "a" / "b" / "SKILL.md").exists(), (
+        "a SKILL.md here would let the first conjunct decide and the case "
+        "would prove nothing"
+    )
+
+    local_root(proj)
+    ledger(
+        proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n", at=".git/seal/ledger.md"
+    )
+    r = subprocess.run(
+        [sys.executable, str(copy), "."],
+        cwd=str(proj),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert "no evidence ledgers found" in r.stdout, (
+        "a vendored copy read the local-mode root: the `SKILL.md` conjunct is "
+        f"what keeps it on `<root>/seal/`\n{r.stdout}"
+    )
+    assert r.returncode == 0, r.stdout
+
+
 def test_the_ledger_flag_overrides_the_resolver_either_way(proj):
     """`--ledger` is unchanged: a pattern given by hand is joined under ROOT,
     whatever the resolver would have said."""

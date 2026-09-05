@@ -5,17 +5,32 @@ review chain did, written by the review orchestrator right after it posts.
 
 It lives here rather than under a pull request number because the number does
 not exist while the rounds that fill this file are running. `docs/review-handoff-protocol.md`
-carries the format; this is the shape it takes in this repository. -->
+carries the format; this is the shape it takes in this repository.
+
+**Right after it posts is read by `chain_check.py`, not only meant.** It
+refuses a record whose ADDING commit descends from a commit its own verdicts
+name as the fix: such a record was written after the work it commissioned, and
+the fix pass that should have read it read nothing. Measured twice in one
+release, and both times the reviewer's drafted replacement text lived only in
+a report and the next segment rebuilt it.
+
+So commit this file when the round posts, with its verdict cells reading
+`open`, and update them when the fixes land. The UPDATE commit may descend
+from the fix — that is what a correct record looks like — and the commit that
+ADDS the file may not. Records of work items begun before the rule landed
+print instead of failing. -->
 
 | Field | Value |
 |---|---|
 | Target SHA | <the commit this round actually reviewed — both, if HEAD moved mid-review> |
+| Ran by | <what ran this round — the agent and the model, as `agent on model` · `unknown — <why>` when the session that spawned it cannot name one> |
 | PR | <the pull request, once one exists. A field, not the key> |
 | Broad gate | <`not yet`, or the SHA the one full-suite run happened at and the base it was compared against> |
 | Fixes checked by | <`round-<N>`, a LATER round · `no fixes to check` · `nobody — <why>`> |
 | Contract changes | <`none`, or every unit whose signature, return arity, return type, or set of returnable values this round's fixes changed, each with the call sites it reaches — `unit → site, site`, units separated by `;`> |
-| New units | <`none`, or the top-level definitions and constants this round's fixes added — the verifying round's finding surface> |
+| New units | <`none`, or the top-level definitions and constants this round's fixes added, each with the depth it was added at — `unit (depth N)`, entries separated by `;`. The verifying round's finding surface> |
 | Needs a fix | <`yes — <what>` · `no`. The reviewer's own answer — what stands after the colon in its `Needs a fix:` line, never the whole line> |
+| Loses a record or crashes | <`no` — and the run stops here · `yes — <what>`> |
 
 - [ ] Pass
 
@@ -58,8 +73,52 @@ a reason after it (`none — the fixes are not yet written` is the honest value
 while a round runs). Records of work items begun before the rule landed print
 instead of failing.
 
-`Needs a fix` is the answer the run ends on, and it is the reviewer's rather
-than the orchestrator's. A round that opened nothing needing a fix ends the
+**That value is now where every record STARTS, so the reach-back is the whole
+of these two rows.** The ordering rule above requires this file to be
+committed before its fixes exist, so neither row can be filled when it is
+written — and until `chain_check.py` read for it, nothing required the second
+step. A record that never got it reads exactly like one whose fixes added
+nothing, and a verifying round opening such a record sees no finding surface
+at all. Measured: `rounds/round-1.md` of the work item that ADDED the ordering
+rule sat with both rows saying *not yet written* for two rounds, and the
+units its fix pass created reached the next round only because a reviewer
+went and looked.
+
+So the refusal: `Fixes checked by` naming a `round-N` says a later round
+opened these fixes, so the fixes EXIST — and a row still saying they are not
+yet written contradicts its own file two rows down, the way `no fixes to
+check` beside a `fixed` verdict does. Write what the fixes changed and added,
+or a bare `none` if they changed and added nothing. While `Fixes checked by`
+still reads `nobody — <why>`, *not yet written* is the truth and nothing
+refuses it.
+
+**So the refusal reaches the session that filled the checker cell and
+stopped, and not the one that filled nothing.** Leaving all three cells at
+their starting values escapes it, and `no fixes to check` beside a pending
+row escapes it too — for a round that commissioned no fixes, *not yet
+written* is false the moment it is written. Both are printed rather than
+refused, and `docs/review-chain-spec.md` says why. Filling these rows is the
+same reach-back that sets `Fixes checked by`: do all three in one pass, with
+the fix diff open.
+
+`New units` carries the DEPTH of each entry as well as its name. A fix pass may
+add a unit. That unit's fix may not. Depth 1 is a unit added by a fix answering
+a finding in code that predates the run; depth 2 would be one added by a fix
+answering a finding INSIDE a depth-1 unit, and no entry reads that way — such a
+unit is deferred with a named answerer, or becomes an issue. One entry per
+unit, `;`-separated, and these are copyable as they stand:
+
+  | New units | configured_language (depth 1); mirror_to_refuse (depth 1) |
+  | New units | none |
+  | New units | none — the fixes are not yet written |
+
+The depth goes per entry rather than in a row of its own, because a single fix
+pass can answer a finding in code that predates the run and a finding inside an
+earlier unit in the same breath, so one number for the whole round would be
+false of one of them.
+
+`Needs a fix` is one of the two answers the run ends on, and it is the
+reviewer's rather than the orchestrator's. A round that opened nothing needing a fix ends the
 run and does not consume the cap; `no` is what says so. A 🟡 the smith answers
 with grounds is still `no` — the condition is *this round wrote no code nobody
 read*, not *this round found nothing*.
@@ -68,9 +127,48 @@ It is copied from the reviewer's report and not inferred from the verdict
 table. A verdict table says what was found and this says what the finder
 concluded about it, and the two come apart at exactly the case above.
 
-No check reads this row. It is here because the reviewer is told to answer the
-question and had nowhere to write the answer, which is how a decision ends up
-living in a transcript.
+This row is read by `chain_check.py`, and the floor's bound below is what
+reads it: a verifying round that opens something is a finding round, so its
+own fixes need a reader, and `yes` here is what says the run reopened. Write
+`no`, or `yes — <what>`. A record whose work item began before anything read
+the row prints instead of failing, whatever the cell says — the row has
+carried free text since draft 0.5 of the handoff protocol and was held to no
+vocabulary.
+
+`Loses a record or crashes` is the FLOOR under the cap, and it is the
+reviewer's answer as well — what stands after the colon in its `Loses a record
+or crashes:` line. `no` says this round found nothing that leaves the root and
+nothing that crashes, and the run stops here however much of the cap was left;
+whatever else the round found is deferred with a named answerer or becomes an
+issue, the way any leftover is. `yes — <what>` names what was found and leaves
+the cap to decide whether another round runs.
+
+It is not `Needs a fix` in other words, and the two come apart. A round can
+need a fix and still read `no` here — a 🔴 in a line a person reads is neither
+a lost record nor a crash — and that round ends the run while consuming the
+cap like any other. The reverse does not happen: a round that opened nothing
+needing a fix cannot have opened one of these, so `Needs a fix: no` always
+brings `no` with it.
+
+The verifying round is what the floor leaves standing. A record that met the
+floor is followed by at most one more round record: the verifying round at the
+diff of the fixes that closed it. A second one is the run carrying on past its
+own stopping rule. Records of work items begun before the rule landed print
+instead of failing.
+
+**Unless that verifying round reopens the run.** If it opens something needing
+a fix, its `Needs a fix` says `yes`, its own fixes need a reader in turn, and
+the record that reads them is a third record the count does not hold against
+the round that met the floor. The count stops at the first later record whose
+`Needs a fix` says `yes`, that record included.
+
+**Or whose verdicts say `fixed`, whatever `Needs a fix` says.** The reviewer
+may answer `no` — a 🟡 answerable with grounds — and the orchestrator may fix
+it anyway, because it ships. The row then reads `no` over fixes that exist,
+and those fixes owe a reader exactly as a reopening's do. The verdict column
+already says so, and the count reads it there. Without that the run had no
+terminal record any exit accepted, measured on the seventh round of the work
+item that added this paragraph.
 
 Check `Pass` only when no finding in the verdict table below is still
 open. It is the last round's checkbox that speaks for the whole review: every
@@ -111,13 +209,41 @@ durable, committed home instead. -->
      🔴 blocks merge · 🟡 needs grounds · 🟢 matches · ❓ could not be judged.
      Earlier rounds' verdicts set this round's agenda. Every one needs an
      answer here, on this round's grounds — a verdict on current code carries
-     nothing, because no check would tell you it went stale. -->
+     nothing, because no check would tell you it went stale.
+
+     **A `fixed` verdict names the commit that fixed it**, beside the word:
+     `**fixed** `d3fe44d``. Two readers depend on it and neither can ask.
+     A person reading this record six months from now has no other way to
+     reach the change; and `chain_check.py`'s ordering refusal compares that
+     commit against the one that ADDED this record, so a cell with no commit
+     in it is a cell the refusal cannot see. Measured across this
+     repository's own records: 235 verdict cells close with a fix word, 215
+     name a commit, and 20 do not — `| fixed |` and `| fixed — round-2 read
+     it |` are ordinary house style rather than malformed, which is why this
+     is asked for here instead of being refused at the pull request. -->
 
 ## Executed probes
 
 | What was run | Result |
 |---|---|
 | <the command> | <what came back — this column is for what RAN, never for what was read> |
+
+<!-- Where the thing run was a **proposed replacement** rather than a command,
+the row owes the replacement itself, in a fenced block under this table —
+never a sentence about it. A command is reproducible from its own text; a
+patch is not.
+
+Measured: one round's table read *"the round's proposed fixes for 🟡 6 and
+🟡 7, unmutated then under three mutations each — green, then red in every
+case"*, and the record contained none of that code. The implementer wrote its
+own replacement, for the second time in one release. A record that says it
+verified something it does not carry looks complete, which is the same failure
+a late record has, one level in.
+
+No check reads this. `docs/review-chain-spec.md` §*What the record carries*
+says which three checks were tried and why each is a rule about English rather
+than about a file. It is a declaration, like the depth in `New units`, and the
+reader who looks at it is the fix pass this record is the agenda for. -->
 
 ## Inherited coordinates
 
