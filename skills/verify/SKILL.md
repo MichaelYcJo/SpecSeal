@@ -418,6 +418,58 @@ watching a segment finish posts to it without asking whether to, the same
 way the rest of this skill's completion claims are not asked about before
 they are made.
 
+**When the run ends, one more reading is taken, and it is the run's.**
+Everything above measures one segment — its span, its calls, its tools per
+turn. A run is every segment plus the rounds and the commits between them, and
+no segment's numbers say what the run cost. So the report a finished run hands
+over — the pull request body's chain section, and the comment that carries the
+numbers — holds one table, this run beside the last run measured, with the
+same rows in the same order every time. That is what lets two runs be read
+side by side without re-deriving either. It is **not a third destination**:
+the table goes to the rolling log named above, beside the segment readings it
+gathers up.
+
+| Row | Taken from |
+|---|---|
+| Rounds — finding and verifying, and reopenings | the round records |
+| Wall clock, routing commit to last record, build and chain apart | `git log` of the branch |
+| Commits, by kind | `git log --format=%s` |
+| Findings by severity | the records' verdict tables |
+| Findings by `Location`: record · code or tests · docs | the records' `Location` column. A record is anything under `seal/specs/`, `seal/ledger/` or `seal/ledger.md` — the work item's own documents, the ledger and its fragments alike — because a finding in any of them is about the run's own paperwork rather than about the tool. Those three paths, not the whole of `seal/`: the root also holds `config.md`, `follow-up.md` and `README.md`, which are the repository's own and belong under `docs` |
+| Records' share of the diff | `git diff --numstat` against the base, the record paths above counted apart |
+| Model turns · output tokens · cache write · cache read | `session_cost.py`'s token line over the run's main transcript |
+| Segments: count, minutes and tokens per kind | the agent completion notices, or the subagent transcripts |
+| Broad gate: whether it has run, and at what SHA | the last round record's `Broad gate` cell, which holds `not yet` or one SHA with the base it was compared against |
+
+**The tokens are counted, not estimated, and counted the same way every
+time.** `session_cost.py <the run's main transcript>` prints the token line,
+which sums `output_tokens`, `cache_creation_input_tokens` and
+`cache_read_input_tokens` over every `usage` block in that transcript and in
+every file under its `<session-id>/subagents/` directory. One command, so the
+row cannot be summed one way this run and another way the next. The line also
+says how many transcripts it covered, and that count is what a reader checks
+the number against.
+
+**The run's main transcript is the `*.jsonl` sitting directly under the
+project directory**, never one under a `<session-id>/subagents/`. `--latest`
+takes the newest file anywhere beneath the project directory, so on a run that
+spawned segments it usually lands on a segment rather than on the run — the
+path it prints as its first line is what says which, and a token line reading
+`1 transcript` for a run that spawned six is the same thing said twice. Give
+the main transcript by path when that happens.
+
+**A comparison against a run whose transcript covered only part of its branch
+says so beside the number**, in the prose under the table rather than as a
+column. A resumed session, a transcript split at the user lines, a segment
+spawned through another harness — each of those leaves the token row covering
+less than the branch, and a smaller number with nothing said about it reads as
+a run that cost less.
+
+**The table carries no verdict.** It makes two runs comparable and does
+nothing else. What a row meant on this branch — why the rounds ran long, why
+one kind of segment cost what it did — goes in the comment beside the table,
+never in a column of it.
+
 ## Counterfeits (stop on sight)
 
 - Output quoted from an earlier run — freshness is per tree state, not per
