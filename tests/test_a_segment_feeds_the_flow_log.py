@@ -37,6 +37,18 @@ that have neither this repository's `measurement` index label nor its
 `.github/scripts/`'s to name and not the skill's —
 `tests/test_the_release_check_watches_what_ships.py` is what classifies that
 directory as staying home.
+
+Issue #170 adds a second reading to the same section, one level up. Everything
+above it measures one segment; a run is every segment plus the rounds and the
+commits between them, and no segment's numbers say what the run cost. So the
+section now states the run-level comparison table — its rows, what each row is
+taken from, and the three sentences that keep it comparable: the tokens are
+counted rather than estimated and counted the same way every time, a run whose
+transcript covered only part of its branch says so in the prose rather than in
+a column, and the table itself carries no verdict. The cases below pin each of
+those, and one of them is structural rather than textual — every row of the
+table must name a source, because a row nobody can reproduce is a row the next
+run fills in by feel.
 """
 
 import os
@@ -61,6 +73,45 @@ def section_body():
     rest = text[start + len(SECTION_HEADING) :]
     next_heading = rest.index("\n## ")
     return " ".join(rest[:next_heading].split())
+
+
+def section_text():
+    """The section with its lines intact. `section_body` collapses whitespace,
+    which is right for prose and wrong for a table whose rows are lines."""
+    text = read()
+    start = text.index(SECTION_HEADING)
+    rest = text[start + len(SECTION_HEADING) :]
+    return rest[: rest.index("\n## ")]
+
+
+RUN_TABLE_HEADER = "| Row | Taken from |"
+
+RUN_TABLE_ROWS = (
+    "Rounds",
+    "Wall clock",
+    "Commits, by kind",
+    "Findings by severity",
+    "Findings by `Location`",
+    "Records' share of the diff",
+    "Model turns",
+    "Segments",
+    "Broad gate",
+)
+
+
+def run_table_rows():
+    """The run-level table's data rows, as `[row label, source]` pairs."""
+    lines = section_text().splitlines()
+    assert RUN_TABLE_HEADER in lines, (
+        "the section carries no run-level table — `" + RUN_TABLE_HEADER + "` "
+        "is the header row every case below reads"
+    )
+    rows = []
+    for line in lines[lines.index(RUN_TABLE_HEADER) + 2 :]:
+        if not line.startswith("|"):
+            break
+        rows.append([cell.strip() for cell in line.strip().strip("|").split("|")])
+    return rows
 
 
 def test_skill_has_no_html_comments_at_all():
@@ -244,4 +295,120 @@ def test_the_shipped_skill_names_no_repository_specific_tracker_state():
         "the section names the bare `measurement` index label, which exists "
         "in this repository only. The two labels a shipped skill may name are "
         "`flow-measurement` and `flow-baseline`"
+    )
+
+
+def test_the_section_states_the_run_level_table():
+    assert RUN_TABLE_HEADER in section_text(), (
+        "the section says what one segment's reading is and where it goes, "
+        "and never says what a whole run's report carries. Without the table "
+        "each run invents its own shape and two runs cannot be read side by "
+        "side"
+    )
+
+
+def test_the_run_level_table_carries_every_row():
+    labels = [row[0] for row in run_table_rows()]
+    for expected in RUN_TABLE_ROWS:
+        assert any(expected in label for label in labels), (
+            f"the run-level table has no `{expected}` row. The rows are the "
+            "whole point of stating the table: a run that drops one is a run "
+            "the next comparison cannot line up against"
+        )
+
+
+def test_every_row_of_the_run_level_table_names_its_source():
+    """Structural rather than textual. A row with no source is a number the
+    next run produces by feel, which is exactly what one stated shape is for."""
+    for row in run_table_rows():
+        assert len(row) == 2 and row[1], (
+            f"the run-level table's `{row[0]}` row names no source. Every row "
+            "must say where its number is taken from, or the next run guesses"
+        )
+
+
+def test_the_token_row_names_the_command_that_prints_it():
+    token_rows = [row for row in run_table_rows() if "Model turns" in row[0]]
+    assert token_rows, "the run-level table lost its token row"
+    assert "session_cost.py" in token_rows[0][1], (
+        "the token row does not name `session_cost.py`. It is the one row "
+        "nobody can produce by hand, and a run that sums `usage` with a "
+        "script written for the occasion produces a number the next run "
+        "cannot be compared against"
+    )
+
+
+def test_the_tokens_are_counted_rather_than_estimated():
+    body = section_body()
+    assert "counted, not estimated" in body, (
+        "the section must say the tokens are counted, not estimated — an "
+        "estimate in the token row makes every comparison against it wrong "
+        "by an unknown amount"
+    )
+    for field in (
+        "output_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+    ):
+        assert field in body, (
+            f"the counting rule never names `{field}`, so 'the same way every "
+            "time' is not something a reader can check"
+        )
+
+
+def test_partial_coverage_is_stated_in_the_prose_and_not_as_a_column():
+    """`questions.md` assumption 6: a column would make it a parsed field, and
+    the number still has to be qualified where a person reads it."""
+    body = section_body()
+    assert "only part of its branch" in body, (
+        "the section never says what to do when a run's transcript covered "
+        "only part of its branch. The number is then smaller than the run, "
+        "and a comparison against a whole one reads as an improvement"
+    )
+    assert "rather than as a column" in body, (
+        "the partial-coverage note must be stated as prose beside the table "
+        "rather than as a column of it"
+    )
+    labels = [row[0].lower() for row in run_table_rows()]
+    assert not any("coverage" in label for label in labels), (
+        "coverage became a column of the run-level table. Assumption 6 keeps "
+        "it in the prose: a column is a field, and this one is a caveat"
+    )
+
+
+def test_the_table_carries_no_verdict():
+    body = section_body()
+    assert "carries no verdict" in body, (
+        "the section must say the table carries no verdict — #170's own "
+        "*Not this*. A table that judges is one the next run argues with "
+        "before it can compare anything"
+    )
+    assert "never in a column" in body, (
+        "the section must send what a row meant on one branch to the comment "
+        "beside the table rather than into a column of it"
+    )
+
+
+def test_the_table_is_the_runs_reading_where_the_rest_is_one_segments():
+    """The two readings live in one section, so the section has to say which
+    level each is taken at — otherwise the table reads as a fourth thing to
+    measure per segment."""
+    body = section_body()
+    assert "measures one segment" in body, (
+        "the section never says that everything above the table is one "
+        "segment's reading, so a reader cannot tell what level the table is "
+        "taken at"
+    )
+    assert "this run beside the last run measured" in body, (
+        "the section never says the table holds two runs side by side. One "
+        "run's numbers alone are a record, not a comparison"
+    )
+
+
+def test_the_table_is_not_a_third_destination():
+    body = section_body()
+    assert "not a third destination" in body, (
+        "the section names two logs and then adds a table without saying "
+        "where it goes. It goes to the rolling log the section already "
+        "names — a reader left to guess invents a third place"
     )
