@@ -36,7 +36,8 @@ with routing answered and the question batch closed — ask nobody anything.
    direction (blocks more, and what it lets through), the exit and the
    vocabulary; `deferred <home>` where the spec lists the closing words; a
    one-line `--worktree` mention where CI's `HEAD` read is described. The
-   other carriers of the count rule are phase 4's.
+   other carriers of the count rule are phase 4's (split into 4a, the
+   owners, and 4b, the links, on 2026-09-05 — `plan.md`).
 4. `tests/test_the_reopening_is_one.py`, mirroring the floor test and the
    stops-at-the-last-finding test: each refusal seen red at a named fixture
    before the code exists; the two-record run kept green; the three-record
