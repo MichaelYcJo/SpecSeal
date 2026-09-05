@@ -477,6 +477,9 @@ def reach_back(reader, path, n):
     cell nobody can read is not one to overwrite silently — and when it
     already names a different later round, because that is a true fact about
     which round read those fixes and this would be replacing it with a guess.
+    A cell reading `no fixes to check` is kept and said so: that round
+    commissioned no fixes, and `round-N` would claim this one read some
+    (round 1 of #161's own chain, 🟡 6). Returns the line to print.
     """
     text = read_text(path, f"earlier record round-{n - 1}.md")
     raw = text.splitlines()
@@ -503,7 +506,13 @@ def reach_back(reader, path, n):
                 f"this is {mine}. A record that says which round read its "
                 "fixes is not overwritten with a different one"
             )
-    elif value.lower() != chain.NO_FIXES and chain.nobody_reason(value.lower()) is None:
+    elif value.lower() == chain.NO_FIXES:
+        return (
+            f"round-record: left `{chain.CHECKED_BY}` of {os.path.basename(path)} "
+            f"at `{chain.NO_FIXES}` {DASH} that round commissioned no fixes, so "
+            f"{mine} has none of its to read"
+        )
+    elif chain.nobody_reason(value.lower()) is None:
         raise Refused(
             f"{path}'s `{chain.CHECKED_BY}` reads `{value}`, which is outside "
             f"the vocabulary — `round-N`, `{chain.NO_FIXES}`, or "
@@ -514,6 +523,9 @@ def reach_back(reader, path, n):
     ending = "\n" if text.endswith("\n") else ""
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(raw) + ending)
+    return (
+        f"round-record: set `{chain.CHECKED_BY}` of {os.path.basename(path)} to {mine}"
+    )
 
 
 def build(reader, routing, args, root, item, rounds):
@@ -659,17 +671,15 @@ def new(args):
         )
 
     text, previous = build(reader, routing, args, root, item, rounds)
+    reached = None
     if previous is not None:
-        reach_back(reader, previous, args.round)
+        reached = reach_back(reader, previous, args.round)
     os.makedirs(rounds, exist_ok=True)
     with open(target, "w", encoding="utf-8") as f:
         f.write(text)
     print(f"round-record: wrote {os.path.relpath(target, root)}")
-    if previous is not None:
-        print(
-            f"round-record: set `{chain.CHECKED_BY}` of "
-            f"{os.path.relpath(previous, root)} to round-{args.round}"
-        )
+    if reached is not None:
+        print(reached)
     return run_check(root, args.baseline or default_baseline(root))
 
 
@@ -710,6 +720,10 @@ GROUNDS_COL = VERDICT_HEADER.index("Grounds")
 # says which files were read that way, in a comment the checkers blank.
 HEURISTIC_RE = re.compile(r"^\+\s*(?:def|class|function|fn|func)\s+([A-Za-z_]\w*)")
 HEURISTIC_NOTE = "read by the diff-line heuristic and not by the AST"
+# Prose is neither: a sentence beginning `class of` or `def` is not a
+# definition, and every record and document a range touches would otherwise
+# be named as read for them (round 1 of #161's own chain, 🟡 5).
+PROSE_SUFFIXES = (".md", ".markdown", ".txt", ".rst")
 # The shapes a `Location` cell names a unit in: `path#unit`, `path#unit@hash`,
 # `path:line`, and a backticked identifier on its own.
 LOCATION_UNIT_RE = re.compile(r"([\w./-]+\.py)#([A-Za-z_]\w*)")
@@ -901,11 +915,14 @@ def measure(reader, root, a, b, paths):
     `changed` and `added` are `[(path, unit)]` — a contract that differs
     between the two ends, and a unit present at `b` and absent at `a`, in
     file order. `heuristic` names the files whose units came from the diff
-    lines rather than the AST. `at_a` and `at_b` are the parsed units per
-    path, for the depth walk and the call-site walk.
+    lines rather than the AST; a prose file (`PROSE_SUFFIXES`) is neither
+    and is skipped whole. `at_a` and `at_b` are the parsed units per path,
+    for the depth walk and the call-site walk.
     """
     changed, added, heuristic, at_a, at_b = [], [], [], {}, {}
     for rel in paths:
+        if rel.endswith(PROSE_SUFFIXES):
+            continue
         before_text = reader.show(root, a, rel)
         after_text = reader.show(root, b, rel)
         before = parse_module(before_text) if rel.endswith(".py") else None
@@ -1226,7 +1243,12 @@ def close(args):
             for r, n in changed
         ],
     )
-    units = surface_cell(chain.NEW_UNITS, [units_entry(n, 1) for _r, n in added])
+    # One entry per name, first seen first: two files adding the same name
+    # read as one unit here, because the row carries no path (⬜ 7).
+    units = surface_cell(
+        chain.NEW_UNITS,
+        [units_entry(n, 1) for n in dict.fromkeys(n for _r, n in added)],
+    )
     gate = cell(BROAD_GATE, args.broad_gate) if args.broad_gate else None
 
     # Nothing above touched `raw`; everything below does, indices first and

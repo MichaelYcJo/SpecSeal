@@ -583,6 +583,28 @@ def test_the_previous_record_gets_its_checker_cell_and_nothing_else(repo):
     assert changed[0][0].startswith("| Fixes checked by |")
 
 
+def test_a_previous_record_that_commissioned_no_fixes_keeps_its_cell(repo):
+    """Round 1's 🟡 6 of #161's own chain: a round whose every verdict closed
+    without a fix word reads `no fixes to check`, and the reach-back wrote
+    `round-2` over it -- a claim that round 2 read fixes that never existed.
+    The cell is kept, the record is untouched, and `new` says so."""
+    chain = check_module()
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(verdicts=CLOSED_ROW, needs="no"))
+    assert code == 0, out
+    commit(repo, "round 1")
+    path = repo / ROUNDS / "round-1.md"
+    before = path.read_text(encoding="utf-8")
+    assert fields(before)["Fixes checked by"] == chain.NO_FIXES
+    write(repo, "f.py", "x = 2\n")
+    commit(repo, "an unrelated edit")
+    code, out, text = generate(repo, n=2, report_text=report(verdicts=CLOSED_ROW))
+    assert text is not None, out
+    assert path.read_text(encoding="utf-8") == before, "the record is untouched"
+    assert f"`{chain.NO_FIXES}`" in out, out
+    assert "round-2" not in out.split("round-record: wrote")[0], out
+
+
 def test_a_missing_previous_record_is_refused(repo):
     declared(repo)
     code, out, text = generate(repo, n=2)

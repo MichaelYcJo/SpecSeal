@@ -526,6 +526,45 @@ def test_a_file_the_ast_cannot_read_is_read_by_heuristic_and_says_so(repo):
     assert "heuristic" in lines[note[0]]
 
 
+def test_prose_is_neither_ast_nor_heuristic(repo):
+    """Round 1's 🟡 5 of #161's own chain: a Markdown line beginning `class
+    of` or `def` is prose, and the heuristic read it as a definition and
+    named every document the range touched as read that way. A prose suffix
+    -- `.md`, `.markdown`, `.txt`, `.rst` -- is skipped whole: no entry, and
+    no comment naming the file."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    write(
+        repo,
+        "NOTES.md",
+        "# notes\n\nclass of defect the release would ship\ndef the word here\n",
+    )
+    write(repo, "notes.txt", "function words\n")
+    write(repo, "notes.rst", "fn words\n")
+    write(repo, "notes.markdown", "func words\n")
+    b = commit(repo, "fix")
+    _, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert fields(record)["New units"] == check_module().NONE_WORD, out
+    for name in ("NOTES.md", "notes.txt", "notes.rst", "notes.markdown"):
+        assert name not in record, (name, record)
+    assert not [ln for ln in record.splitlines() if ln.startswith("<!--")], record
+
+
+def test_the_same_name_added_in_two_files_is_one_entry(repo):
+    """Round 1's ⬜ 7: `New units` listed a name twice when two files added
+    it. One entry, in first-seen order."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_GROWN)
+    write(repo, "other.py", "def added_unit():\n    return 2\n")
+    b = commit(repo, "fix")
+    _, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert fields(record)["New units"] == "added_unit (depth 1); ADDED (depth 1)", out
+
+
 def test_a_surface_writer_refuses_a_separator_inside_a_name():
     generator = generator_module()
     with pytest.raises(generator.Refused):
