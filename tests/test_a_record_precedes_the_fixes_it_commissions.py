@@ -773,6 +773,12 @@ def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
     The measurement is one fact written into five places, so counting the
     copies is part of the claim: if a sixth copy is added, it is added here
     too.
+
+    The ledger copy moves once: the release folds the fragment into
+    `seal/ledger.md` under a heading named for the work item and removes the
+    file (`fold_ledger.py`), so the copy is the fragment while it exists and
+    that section after. Pinned to the fragment's path alone, this case went
+    red at the first release preparation that folded it.
     """
     item = "1788501054-a-check-reports-clean-while-something-is-missing"
     copies = (
@@ -784,7 +790,16 @@ def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
     )
     assert len(copies) == 5, "the removal table in phase-7.md names five copies"
     for where in copies:
-        text = flat(*where)
+        if where[:2] == ("seal", "ledger") and not os.path.exists(
+            os.path.join(ROOT, *where)
+        ):
+            folded = read("seal", "ledger.md")
+            start = folded.index(f"### {item}")
+            rest = folded[start + 4 :]
+            end = rest.find("\n### ")
+            text = " ".join((rest if end < 0 else rest[:end]).split())
+        else:
+            text = flat(*where)
         assert "wider than a rewording" in text, (
             f"{'/'.join(where)} still declares the escape as a rewording"
         )
