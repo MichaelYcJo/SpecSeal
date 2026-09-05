@@ -43,18 +43,28 @@ about the chain is the whole of 0.8.1.
 
 ## 0.8.1 — one item, because it is what every later item runs under
 
-- [ ] **#161 — a run's rounds come mostly from the tool's own fixes and records.** The last 0.8.0 branch ran fifteen rounds for two features' worth of review: 50 of its 61 later findings sat in a file the preceding fix pass wrote, a fix touched one or two code files and five to twelve records, and half of all findings were located in the records. The issue carries the count, the five terms that put the loop's gain above one, and the staged plan — a fix owes code and a test with the rest derived, a verifying round re-runs a recorded probe list rather than hunting, one round per session, 🟡 means a defect the release would ship, and a branch that changes the checker validates its own records in CI. Alone in this release so that 0.8.2's items are the first measured under it: build plus two rounds inside three hours for a change under three hundred code lines.
+- [x] **#161 — a run's rounds come mostly from the tool's own fixes and records.** The last 0.8.0 branch ran fifteen rounds for two features' worth of review: 50 of its 61 later findings sat in a file the preceding fix pass wrote, a fix touched one or two code files and five to twelve records, and half of all findings were located in the records. The issue carries the count, the five terms that put the loop's gain above one, and the staged plan — a fix owes code and a test with the rest derived, a verifying round re-runs a recorded probe list rather than hunting, one round per session, 🟡 means a defect the release would ship, and a branch that changes the checker validates its own records in CI. Alone in this release so that 0.8.2's items are the first measured under it: build plus two rounds inside three hours for a change under three hundred code lines.
 
-## 0.8.2 — what 0.8.1 held before #161 took the number
+## 0.8.2 — the ruler first, then the first three readings
 
-Not ordered. Each is small; together they are the first readings of #161's
-target.
+In this order. The first item is what measures the other three, and the
+three are the first readings of #161's target: build plus two rounds inside
+three hours for a change under three hundred code lines.
 
-- [ ] #145 — the orchestrator is the most expensive segment in a chain and the only one measured by the whole session, so #51's observation 1 has bands for three segment kinds and none for it. It is what the two records of 0.8.0 make answerable.
-- [ ] #155 — the roll names the next version by guessing a minor, and a patch release is the day that stops working.
+- [ ] **#170 — a run's report carries one comparison table, tokens counted the same way every time, and `session_cost` prints the token line.** The owner's call after #161's run: the table that run posted to the flow log is the shape every run's report takes from here, so two runs read side by side without re-deriving either.
 - [ ] #156 — the repository ships no way to run its own suite, and every session pays a round trip discovering how.
+- [ ] #155 — the roll names the next version by guessing a minor, and a patch release is the day that stops working. #166's title is the measured case.
+- [ ] #169 — `round_record.py new` accepts a fence under the probes table that closes after `## Deferred`, and writes `nothing to drain`. Round 3 of #161's own chain left it, answerable with grounds, with its fix and cases written out.
+
+## 0.8.3 — what 0.8.2 held before it was split
+
+Split off 2026-09-05 so that 0.8.2 stays small enough to be measured rather
+than to be the thing measured. Not ordered; #145 waits on #170's token line.
+
+- [ ] #145 — the orchestrator is the most expensive segment in a chain and the only one measured by the whole session, so #51's observation 1 has bands for three segment kinds and none for it. #170's token line is what makes it answerable.
 - [ ] #160 — four export cases fail on macOS and pass in CI, so a broad run cannot be read as a verdict.
 - [ ] #163 — the printed ledger name collapses `lnk/..` through `relpath`, so a BROKEN row is reported under a different existing file. The named-file half of a class the last 0.8.0 branch closed for the file that is opened; five print sites and one helper.
+- [ ] #167 — a closing keyword claims one issue, and a body naming two in one sentence loses the second silently.
 
 ## 0.9.0 — the five that were 0.8.0's, built under 0.8.0's machines
 
@@ -97,6 +107,6 @@ paragraph should be read at.
 ## Order inside a ticket
 
 1. Branch from the release branch; write `routing.md` before the first edit.
-2. spec · plan (framer, once #84 exists; the session until then) → smith → warden rounds → sealer → pull request.
+2. spec · plan (framer, once #84 exists; the session until then) → smith → the draft pull request opens (`skills/code-review/SKILL.md` §*Orchestrator: the pull request opens before round 1, and a phase is re-run* owns when) → warden rounds → sealer → the pull request is marked ready.
 3. The pull request body carries `Closes #N`; the release workflow closes the ticket when the release reaches `main`.
 

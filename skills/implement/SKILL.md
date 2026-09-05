@@ -710,7 +710,7 @@ A session fixing review feedback starts at `seal/specs/<work-item-id>/`,
 
 | File | Written by | Acted on by |
 |---|---|---|
-| `round-N.md` | review orchestrator | next review round |
+| `round-N.md` | `round_record.py new`, run by the review orchestrator; `close` applies the fix table | next review round |
 | `tests-todo.md` | review orchestrator | **implementer** — plant each test in the file the row names |
 | `evidence-todo.md` | review orchestrator | **implementer** — merge each fact into `seal/ledger/<work-item-id>.md` |
 
@@ -726,6 +726,19 @@ believe. A review the implementer cannot argue with is not a review, it is a
 handoff of judgment.
 Probes already run by a previous round (listed in `round-N.md`) are not
 rebuilt — only re-checked for whether the finding is now fixed.
+
+**A fix pass hands over a fix table and writes no phase record.** The table
+sits under `## Fixes` as `| # | Verdict | Commit or grounds |`, one row per
+OPEN finding of the round it answers: `fixed` with the commit, `answered` with
+the grounds, `deferred <home>` with the issue or file it went to — a finding
+the reviewer closed in the report takes no row, and `close` refuses one. The pass
+writes no `phases/phase-N.md` and no `plan.md` row — `round_record.py close`
+applies the table to `rounds/round-N.md` and measures the fix surface from
+the range of fix commits, so the round record is the pass's record. The
+build's phases keep theirs. Nor does a fix pass add mechanism — a rule, a
+checker, a template section, a walk — and a finding closable only by one is
+`deferred #N` to an issue; `skills/code-review/SKILL.md` §*A fix pass adds
+the unit that pins it, and that unit ships unreviewed* owns that rule.
 
 ### 6. Close before merge — drain the rows, keep the records
 

@@ -107,6 +107,12 @@ the inheritance range and round 2 raised it again.
 
 ### round-N.md — what this round did
 
+The record is written by `round_record.py new` from the reviewer's report and
+closed by `round_record.py close` from the implementer's fix table; the
+orchestrator writes the round paragraph of the spawn prompt, which `new`
+copies in, and nothing else in it. This file owns the format the two
+subcommands produce.
+
 | Field | Required | Content |
 |---|---|---|
 | Target SHA | yes | commit(s) the round actually reviewed — branches move between rounds; record both if HEAD moved mid-review. **Never rewritten after a squash** — see below |
@@ -322,7 +328,10 @@ questions — `Needs a fix` is what the reviewer opened, the verdict column is
 whether fixes were written — and they come apart when the orchestrator fixes
 a finding the reviewer said could be answered with grounds. Reading only the
 first leaves such a run with no terminal record any exit accepts. Counting
-blindly makes the sequence this protocol requires unwritable.
+blindly makes the sequence this protocol requires unwritable. That exception
+is one: a second record closing on a fix after the floor is refused and the
+run ends `capped` — `docs/review-chain-spec.md` §*The reopening — one, and
+then the run is capped* owns the rule, the refusal and the exit.
 
 Records predating a project's adoption print rather than fail, the same
 grandfathering as above. `Needs a fix` is grandfathered WHOLE — absent, empty
@@ -421,6 +430,12 @@ Four requirements, each bought by a measured failure:
   reader who does not know what the other form buys deletes the narrowing,
   and the write then re-stamps the false claim.
 
+One thing precedes the handoff rather than travelling in it: the draft pull
+request is already open when round 1 is spawned, opened when the build's
+last phase closes, because `skills/code-review/SKILL.md` §*Orchestrator: the
+pull request opens before round 1, and a phase is re-run* owns that rule and
+the platform legs it exists for.
+
 ### While the implementer runs
 
 The orchestrator cannot see a running session. Twice, on two consecutive
@@ -438,6 +453,19 @@ After a run, `skills/verify/scripts/session_cost.py` reads the transcript
 command time, model time, batching and repeats, because each has a
 different fix. It sat unreferenced through a full day of measurements
 nobody took; this paragraph is what points at it.
+
+### After a phase — the hand-back's claim is re-run
+
+A phase's hand-back says what it ran and what the output was, and by §5 of
+the contract that is prose until somebody opens it. Before spawning the next
+phase the orchestrator runs the closed phase's suite and the lint of its
+changed files itself and reads the output; the broad gate still runs once,
+after the rounds settle. `skills/code-review/SKILL.md` §*Orchestrator: the
+pull request opens before round 1, and a phase is re-run* owns the rule. Its
+grounds are one step from this document: §*verify before posting* said the
+reviewer's report is a claim and nothing said it of the implementer's, and
+the work item that added the rule was checked that way from its first phase
+(its `spec.md`, rule 9).
 
 ### After the run — the per-segment bars
 
