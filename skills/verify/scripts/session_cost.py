@@ -14,6 +14,10 @@ What it separates, because each has a different fix:
                  out. Fix: fewer calls — batch independent reads and runs.
   repeats        the same command, or the same command with a different pipe.
                  A second run to see the output differently returns nothing.
+  tokens         what the run spent — output, cache write, cache read — summed
+                 over this transcript AND every segment under its
+                 `<session-id>/subagents/`. The row of a run's comparison
+                 table nobody can produce by hand.
 
 Usage:
   session_cost.py <transcript.jsonl>     one transcript
@@ -225,8 +229,107 @@ def token_thirds(turns):
     ]
 
 
+def subagent_transcripts(path):
+    """Every `*.jsonl` under the `<session-id>/subagents/` directory beside
+    this transcript.
+
+    A run's segments are written to a directory named after the main
+    transcript's own basename, which is the layout `newest` already walks.
+    The directory is WALKED rather than listed, so a harness that nests one
+    segment's transcripts under another still has that spend counted.
+
+    A missing directory is the ordinary case — a segment measured on its own
+    has no subagents beside it — and it returns nothing rather than raising."""
+    base = os.path.basename(path)
+    session = base[: -len(".jsonl")] if base.endswith(".jsonl") else base
+    root = os.path.join(os.path.dirname(os.path.abspath(path)), session, "subagents")
+    if not os.path.isdir(root):
+        return []
+    found = []
+    for directory, _dirs, files in os.walk(root):
+        found += [os.path.join(directory, f) for f in files if f.endswith(".jsonl")]
+    return sorted(found)
+
+
+def token_totals(paths):
+    """Summed `usage` over every transcript given, and how many were read.
+
+    A TURN here is an assistant message carrying a `usage` block, whether or
+    not it carries a tool call. That is NOT `tools_per_turn`'s denominator,
+    which counts only messages carrying a tool_use: the per-segment bars in
+    `docs/review-handoff-protocol.md` are calibrated against that ratio, and
+    widening it would move a published threshold without saying so. Two
+    counters, on purpose — a turn that only thought spent tokens the run paid
+    for, and a turn that sent no call is not a turn the batching advisory can
+    read anything into.
+
+    A message's usage counts ONCE however many rows it is split across: a
+    harness writes one message as one row per content block and repeats the
+    usage on each, which is the same trap `load` dedups against for
+    `context_growth`. Per-row summing would double a run's headline number.
+
+    Every way this degrades makes the totals SMALLER rather than raising — a
+    transcript that cannot be opened is skipped, a line that will not parse is
+    dropped, a harness that stops writing one of the fields contributes zero.
+    That is why `transcripts` is returned and printed: a line covering one
+    file for a run that spawned six is visibly wrong to the person who spawned
+    them, and they are the only reader who can tell."""
+    totals = {
+        "transcripts": 0,
+        "turns": 0,
+        "output": 0,
+        "cache_write": 0,
+        "cache_read": 0,
+    }
+    for path in paths:
+        counted = set()
+        try:
+            with open(path, encoding="utf-8", errors="replace") as handle:
+                for number, line in enumerate(handle):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(row, dict):
+                        continue
+                    message = row.get("message")
+                    if not isinstance(message, dict):
+                        continue
+                    usage = message.get("usage")
+                    if not isinstance(usage, dict):
+                        continue
+                    key = message.get("id") or row.get("uuid") or f"row-{number}"
+                    if key in counted:
+                        continue
+                    counted.add(key)
+                    totals["turns"] += 1
+                    totals["output"] += usage.get("output_tokens", 0) or 0
+                    totals["cache_write"] += (
+                        usage.get("cache_creation_input_tokens", 0) or 0
+                    )
+                    totals["cache_read"] += usage.get("cache_read_input_tokens", 0) or 0
+        except OSError:
+            # A segment this run cannot open is a segment the line does not
+            # cover; the transcript count is what makes the gap visible.
+            continue
+        totals["transcripts"] += 1
+    return totals
+
+
 def minutes(seconds):
     return f"{seconds / 60:.1f}m"
+
+
+def plural(number, word):
+    """`1 transcript`, `3 transcripts` — the line is read by a person.
+
+    Named `plural` rather than `counted` because both `load` and
+    `token_totals` hold a local set called `counted`, and a module function
+    those two shadow is a name that reads wrong wherever it is used."""
+    return f"{number:,} {word}" + ("" if number == 1 else "s")
 
 
 def report(data):
@@ -247,6 +350,15 @@ def report(data):
             f"   {idle / data['span_s'] * 100:.0f}%"
             f"   waiting on a person, or on a gap this file cannot see"
         )
+
+    tokens = data["tokens"]
+    print(
+        f"\ntokens        {plural(tokens['transcripts'], 'transcript')}, "
+        f"{plural(tokens['turns'], 'turn')}"
+    )
+    print(f"  output      {tokens['output']:>15,}")
+    print(f"  cache write {tokens['cache_write']:>15,}")
+    print(f"  cache read  {tokens['cache_read']:>15,}")
 
     print("\nby family")
     for name, row in sorted(
@@ -330,6 +442,10 @@ def main():
     data = analyse(calls, turns)
     if not data:
         sys.exit("no tool calls in this transcript")
+    # The whole run, not the transcript that was named: a token count covering
+    # one segment is not comparable with one that covered a run, and #170 asks
+    # for the row to be one command rather than one command per transcript.
+    data["tokens"] = token_totals([path, *subagent_transcripts(path)])
     if args.json:
         print(json.dumps(data, indent=2))
     else:

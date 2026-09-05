@@ -8,6 +8,7 @@ the parser that quietly stops finding repeats or tool calls fails here.
 import datetime as dt
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -18,17 +19,22 @@ SCRIPT = os.path.join(
 )
 
 
+def stamp_at(second):
+    """`second` is an offset from a fixed clock; the clock does the carrying."""
+    stamp = dt.datetime(2026, 8, 24, 10, 0, 0, tzinfo=dt.UTC) + dt.timedelta(
+        seconds=second
+    )
+    return stamp.isoformat().replace("+00:00", "Z")
+
+
 def message(second, blocks, message_id=None, uuid=None, tokens=1000):
-    """One transcript row. `second` is an offset; the clock does the carrying.
+    """One transcript row.
 
     A row without `message_id` and `uuid` is its own turn — the shape of a
     transcript from a harness that stamps neither, and the degradation the
     parser must take toward the 1.00 floor rather than an inflated ratio."""
-    stamp = dt.datetime(2026, 8, 24, 10, 0, 0, tzinfo=dt.UTC) + dt.timedelta(
-        seconds=second
-    )
     row = {
-        "timestamp": stamp.isoformat().replace("+00:00", "Z"),
+        "timestamp": stamp_at(second),
         "message": {"content": blocks, "usage": {"input_tokens": tokens}},
     }
     if message_id:
@@ -298,3 +304,251 @@ def test_a_transcript_with_no_tool_calls_says_so(tmp_path):
     path.write_text("{}\n")
     r = run([str(path)])
     assert r.returncode != 0 and "no tool calls" in r.stderr
+
+
+# --- the token line ---------------------------------------------------------
+#
+# `message()` above writes `usage` with `input_tokens` alone, so every fixture
+# built from it sums to zero output and zero cache. That is deliberate: the
+# cases above cannot move when the token line lands. The helpers below write a
+# full `usage` block, which is the shape a real assistant row carries.
+
+
+def spend(
+    second,
+    output=0,
+    cache_write=0,
+    cache_read=0,
+    message_id=None,
+    uuid=None,
+    blocks=None,
+):
+    """One assistant row carrying a full `usage` block.
+
+    `blocks` defaults to a text block, so the row is a turn the token line
+    counts and a turn `tools_per_turn` does not — the two counters this module
+    holds apart."""
+    row = {
+        "timestamp": stamp_at(second),
+        "message": {
+            "content": blocks
+            if blocks is not None
+            else [{"type": "text", "text": "."}],
+            "usage": {
+                "input_tokens": 0,
+                "output_tokens": output,
+                "cache_creation_input_tokens": cache_write,
+                "cache_read_input_tokens": cache_read,
+            },
+        },
+    }
+    if message_id:
+        row["message"]["id"] = message_id
+    if uuid:
+        row["uuid"] = uuid
+    return json.dumps(row)
+
+
+def plain_result(second, uid):
+    """A tool_result row as a harness writes one: no `usage` block, because it
+    is not an assistant message. `result()` above carries one, which is a
+    fixture artifact — the token line must not count such a row as a turn."""
+    return json.dumps(
+        {
+            "timestamp": stamp_at(second),
+            "message": {"content": [{"type": "tool_result", "tool_use_id": uid}]},
+        }
+    )
+
+
+def write_run(tmp_path, main_lines, subagents=None):
+    """A run on disk: `main.jsonl` with its segments under `main/subagents/`.
+
+    That is the layout `newest` already walks — a run's subagent transcripts
+    live in the directory named after the main transcript's own basename."""
+    path = tmp_path / "main.jsonl"
+    path.write_text("\n".join(main_lines) + "\n")
+    for name, lines in (subagents or {}).items():
+        target = tmp_path / "main" / "subagents" / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def tokens_of(path):
+    proc = run(["--json", str(path)])
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout)["tokens"]
+
+
+def worked(second, uid, command="pytest -q", **usage):
+    """A call and its result: the one tool call every fixture here needs, so
+    the report does not exit with `no tool calls`."""
+    return [
+        spend(second, message_id=f"call-{uid}", blocks=[use(uid, command)], **usage),
+        plain_result(second + 1, uid),
+    ]
+
+
+def test_the_token_line_sums_the_run_not_just_the_transcript_it_was_given(tmp_path):
+    """#161's run summed `usage` over its transcript AND its subagents with a
+    script written for that one occasion. A number covering only the main
+    transcript is not comparable with one that covered a whole run, so the sum
+    is over both and no flag turns it off."""
+    path = write_run(
+        tmp_path,
+        worked(0, "a", output=10, cache_write=100, cache_read=1000),
+        {
+            "one.jsonl": [
+                spend(0, output=3, cache_write=30, cache_read=300, message_id="s1")
+            ]
+        },
+    )
+    assert tokens_of(path) == {
+        "transcripts": 2,
+        "turns": 2,
+        "output": 13,
+        "cache_write": 130,
+        "cache_read": 1300,
+    }
+
+
+def test_each_column_is_its_own_usage_field(tmp_path):
+    """Three rows, each spending in one field only. A read that puts
+    `cache_read_input_tokens` where the cache-write column goes — the two
+    names differ by one word in the transcript — passes any fixture whose
+    fields move together."""
+    path = write_run(
+        tmp_path,
+        [
+            *worked(0, "a", output=7),
+            spend(2, cache_write=50, message_id="m2"),
+            spend(3, cache_read=900, message_id="m3"),
+        ],
+    )
+    totals = tokens_of(path)
+    assert (totals["output"], totals["cache_write"], totals["cache_read"]) == (
+        7,
+        50,
+        900,
+    )
+
+
+def test_a_split_messages_usage_counts_once(tmp_path):
+    """A harness writes one assistant message as one row per content block and
+    repeats the usage on every row. `load` dedups against that trap for
+    `context_growth`; the token line meets the same one, and a per-row sum
+    would double a run's headline number."""
+    path = write_run(
+        tmp_path,
+        [
+            spend(
+                0,
+                output=10,
+                cache_read=100,
+                message_id="m1",
+                blocks=[use("a", "pytest -q")],
+            ),
+            spend(
+                1,
+                output=10,
+                cache_read=100,
+                message_id="m1",
+                blocks=[use("b", "ruff check .")],
+            ),
+            plain_result(5, "a"),
+            plain_result(6, "b"),
+        ],
+    )
+    totals = tokens_of(path)
+    assert (totals["turns"], totals["output"], totals["cache_read"]) == (1, 10, 100)
+
+
+def test_a_segment_measured_alone_reports_one_transcript(tmp_path):
+    """A subagent's own transcript has no `subagents/` directory beside it.
+    That is the ordinary case rather than a failure, and the count says so."""
+    path = write_run(tmp_path, worked(0, "a", output=5))
+    assert tokens_of(path)["transcripts"] == 1
+
+
+def test_a_segment_of_a_segment_is_still_part_of_the_run(tmp_path):
+    """The subagents directory is walked rather than listed, so a harness that
+    nests one segment's transcripts under another still has its spend counted
+    in the run's total."""
+    path = write_run(
+        tmp_path,
+        worked(0, "a", output=1),
+        {"inner/deep.jsonl": [spend(0, output=40, message_id="s1")]},
+    )
+    totals = tokens_of(path)
+    assert (totals["transcripts"], totals["output"]) == (2, 41)
+
+
+def test_the_token_turns_and_tools_per_turn_count_different_things(tmp_path):
+    """`tools_per_turn`'s denominator counts messages carrying a tool call,
+    and the per-segment bars in `docs/review-handoff-protocol.md` are
+    calibrated against that ratio. The token line's turn count is assistant
+    messages carrying `usage` — a turn that only thought is still a turn the
+    run paid for. This fixture separates them: two turns sent a call, a third
+    only spoke."""
+    path = write_run(
+        tmp_path,
+        [
+            *worked(0, "a", output=1),
+            *worked(10, "b", command="ruff check .", output=1),
+            spend(20, output=1, message_id="m3"),
+        ],
+    )
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["tokens"]["turns"] == 3
+    assert data["tools_per_turn"] == 1.0
+
+
+def test_an_unreadable_segment_shrinks_the_count_rather_than_raising(tmp_path):
+    """Three things sit under `subagents/` here: a readable transcript, one
+    whose lines are not JSON, and a name that is a directory rather than a
+    file, which `open` refuses the way a permission error would. The report
+    degrades to a smaller number the way a malformed line does, and the
+    transcript count is what makes the gap visible to the person who spawned
+    the segments."""
+    path = write_run(
+        tmp_path,
+        worked(0, "a", output=5),
+        {
+            "good.jsonl": [spend(0, output=2, message_id="s1")],
+            "junk.jsonl": ["not json"],
+        },
+    )
+    (tmp_path / "main" / "subagents" / "gone.jsonl").mkdir()
+    proc = run(["--json", str(path)])
+    assert proc.returncode == 0, proc.stderr
+    totals = json.loads(proc.stdout)["tokens"]
+    assert (totals["transcripts"], totals["output"]) == (3, 7)
+
+
+def test_the_printed_token_line_names_the_transcripts_it_covered(tmp_path):
+    """Contract §14: the line is text a person reads and acts on, so a case
+    pins its wording. The transcript count is the load-bearing half — every
+    way this can go wrong prints a SMALLER number rather than failing, and
+    only the person who spawned the segments can tell that `1 transcript` is
+    wrong for a run that spawned six."""
+    path = write_run(
+        tmp_path,
+        worked(0, "a", output=1000, cache_write=5000, cache_read=9000),
+        {
+            "one.jsonl": [spend(0, output=234, cache_write=678, message_id="s1")],
+            "two.jsonl": [spend(0, cache_read=12, message_id="s2")],
+        },
+    )
+    out = run([str(path)]).stdout
+    assert re.search(r"^tokens\s+3 transcripts, 3 turns$", out, re.M), out
+    assert re.search(r"^  output\s+1,234$", out, re.M), out
+    assert re.search(r"^  cache write\s+5,678$", out, re.M), out
+    assert re.search(r"^  cache read\s+9,012$", out, re.M), out
+
+
+def test_the_token_line_says_one_transcript_rather_than_1_transcripts(tmp_path):
+    """A count a person reads: `1 transcript`, not `1 transcripts`."""
+    path = write_run(tmp_path, worked(0, "a", output=5))
+    out = run([str(path)]).stdout
+    assert re.search(r"^tokens\s+1 transcript, 1 turn$", out, re.M), out
