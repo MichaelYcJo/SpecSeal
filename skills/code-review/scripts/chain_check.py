@@ -214,6 +214,18 @@ the verdict column is whether fixes were written, and the two come apart when
 the orchestrator fixes a finding the reviewer said could be answered with
 grounds.
 
+THE REOPENING IS ONE (issue #161). Every record the count stops at is itself
+a record that met the floor, so the count restarted there and nothing bounded
+the chain: fifteen rounds on one branch, the exception used by every
+verifying round. So a second walk over the same later records counts the
+ones whose verdicts closed on a fix, wherever they sit, and refuses the
+SECOND -- naming it and the floor record it follows -- for work items begun
+on or after `REOPEN_FROM`; earlier items print. The exit is `capped`: every
+finding still open becomes an issue, its verdict reads `deferred #N`, the
+record's `Fixes checked by` reads `no fixes to check`, and the pull request
+says `chain: capped`. `deferred <home>` is a closing word for that and not a
+fix word; the bare word stays open.
+
 WHAT RAN THE ROUND, which no record said. Issue #137: every segment of two
 work items was metered and posted to a measurement log, and not one of the
 readings can be attributed to a runner afterwards -- they all ran on the same
@@ -321,7 +333,28 @@ BLOCKING = "🔴"
 # else counts OPEN — including a word this does not recognise. The direction is
 # deliberate: an unreadable verdict that counted as closed would be the
 # tolerant read this whole file exists to refuse.
-CLOSED_WORDS = {"fixed", "answered", "withdrawn", "not a defect", "agreed, fixed"}
+#
+# `deferred` is one of them and closes ONLY with the home the finding went to
+# after it -- `deferred #170`, `deferred seal/follow-up.md`. It is the word a
+# capped run closes its open findings with (issue #161): the finding becomes
+# an issue and the cell names it. The bare word says something was left and
+# not where, which is the state a `nobody` with no reason is refused for, so
+# `verdict_of` hands it back OPEN with `NO_HOME` beside it.
+DEFERRED = "deferred"
+CLOSED_WORDS = {
+    "fixed",
+    "answered",
+    "withdrawn",
+    "not a defect",
+    "agreed, fixed",
+    DEFERRED,
+}
+# The closing words that close nothing without a home after them.
+HOME_WORDS = {DEFERRED}
+assert HOME_WORDS <= CLOSED_WORDS, "a home word that is not a closing word"
+# What `verdict_of` puts beside a home word written bare, so the value is in
+# neither set and still says what the cell said.
+NO_HOME = "(no home)"
 # The subset of `CLOSED_WORDS` that closed a finding by WRITING something. Those
 # are the fixes `Fixes checked by` is about; `answered`, `withdrawn` and
 # `not a defect` produced no code for a later round to open. Spelled as a
@@ -330,6 +363,11 @@ CLOSED_WORDS = {"fixed", "answered", "withdrawn", "not a defect", "agreed, fixed
 # fails the module at import if the two ever come apart.
 FIX_WORDS = {"fixed", "agreed, fixed"}
 assert FIX_WORDS <= CLOSED_WORDS, "a fix word that is not a closing word"
+# A deferral produced no code, so `no fixes to check` beside it is the truth
+# and the reopening walk below does not count it. The assertion is the same
+# bet as the one above: a word added to `HOME_WORDS` cannot become a fix
+# word by accident.
+assert not HOME_WORDS & FIX_WORDS, "a deferral is not a fix"
 # Markdown emphasis around the verdict word, and the code fence a cell puts
 # round the commit after it. Both sets above are spelled bare, and a
 # normalizer that read only the bare word matched NOTHING this repository ever
@@ -538,6 +576,30 @@ ORDER_FROM = 1788501054
 # `tests/test_a_record_precedes_the_fixes_it_commissions.py` reads this
 # constant and asserts the template shows it.
 NOT_YET = "the fixes are not yet written"
+# Where the floor's reopening becomes ONE (issue #161), as the unix second in
+# a work item's directory name -- the id of the work item that added the
+# rule, so the first records held to it are the ones written under it. The
+# seventh cutoff of the shape `STRICT_FROM` through `ORDER_FROM` carry, and
+# the reasoning lives at `STRICT_FROM` rather than being written a seventh
+# time: a merged record has no honest repair -- the repair for a run that
+# reopened twice is a round that was never spawned, which nobody can write
+# now -- and a check whose first production act is red on history nobody can
+# fix is a check people learn to skip.
+#
+# What it bounds: after a record that met the floor, at most one later
+# record may close on a fix. The floor's count stops at the first such
+# record and restarts there, because every reopening record is itself a
+# record that met the floor, so the chain was unbounded by construction --
+# fifteen rounds on the branch before this one, with the exception used by
+# every verifying round of it.
+REOPEN_FROM = 1788597030
+# The exit the refusal names, in one spelling. A refusal that names no exit
+# is a wall, and this one's exit is four cells and a pull-request line.
+CAPPED_EXIT = (
+    f"the run is `capped` — every finding still open becomes an issue, its "
+    f"verdict reads `{DEFERRED} #N`, the record's `{CHECKED_BY}` reads "
+    f"`{NO_FIXES}`, and the pull request says `chain: capped`"
+)
 # `templates/sdd-round.md:12` and `docs/review-handoff-protocol.md:84` both say
 # the Target SHA cell may name BOTH commits when HEAD moved mid-review. The
 # whole cell used to be handed to `merge-base` as one ref, so the documented
@@ -581,6 +643,19 @@ def git(root, *args):
     return r.stdout if r.returncode == 0 else None
 
 
+# `--worktree` (issue #161): read the records as the working tree holds them
+# rather than as `HEAD` carries them. Set once by `main` and read by the three
+# functions that answer "where do the bytes come from" -- `read_record`,
+# `changed` and `round_records` -- so the answer is one rule in three places
+# rather than a fourth reader. It is LOCAL ONLY: CI keeps the default, because
+# a working tree that differs from HEAD is what CI never sees and the more
+# permissive direction is the wrong one there (`read_record`'s docstring). It
+# exists for `round_record.py`, which writes a record and runs this check on
+# it BEFORE the commit; with the default the check read the previous commit
+# and three 🔴 of the last branch reached CI that way.
+WORKTREE = False
+
+
 def changed(root, base):
     """Every path this pull request adds or changes, or None.
 
@@ -588,6 +663,11 @@ def changed(root, base):
     records. Two `git diff` calls against the same base would be two values
     built by the same rule today and by two rules after the first edit to
     either, which is the split this file keeps closing in other places.
+
+    Under `WORKTREE` the diff is against the working tree rather than `HEAD`,
+    from the same merge base `...` would pick, and untracked files count as
+    added: a record just written and not yet staged is exactly the file the
+    flag exists to see.
 
     `-z` for the same reason `tracked_files` uses it two functions down. Without
     it `core.quotePath` (on by default) wraps and octal-escapes any path holding
@@ -606,7 +686,17 @@ def changed(root, base):
     The root move to `seal/` renames every declaration in a repository at once,
     and `changed_routing` needs to know which of the paths it sees are those.
     """
-    out = git(root, "diff", "--name-status", "-z", "-M", f"{base}...HEAD")
+    if WORKTREE:
+        merge_base = git(root, "merge-base", base, "HEAD")
+        if merge_base is None:
+            return None
+        out = git(root, "diff", "--name-status", "-z", "-M", merge_base.strip())
+        untracked = git(root, "ls-files", "--others", "--exclude-standard", "-z")
+        if out is None or untracked is None:
+            return None
+        out += "".join(f"A\0{p}\0" for p in untracked.split("\0") if p)
+    else:
+        out = git(root, "diff", "--name-status", "-z", "-M", f"{base}...HEAD")
     if out is None:
         return None
     fields = out.split("\0")
@@ -700,6 +790,26 @@ def tracked_files(root, item):
     return names
 
 
+def worktree_files(root, item):
+    """Filenames the working tree holds directly in `item` as regular files.
+
+    `tracked_files`'s twin for `WORKTREE`, with the same allow-list drawn the
+    filesystem's way: a symbolic link is refused there by mode and here by
+    `islink`, so a link at the end of the sort cannot decide which record is
+    read under either flag.
+    """
+    try:
+        names = os.listdir(os.path.join(root, *item.split("/")))
+    except OSError:
+        return []
+    return [
+        n
+        for n in names
+        for p in [os.path.join(root, *item.split("/"), n)]
+        if os.path.isfile(p) and not os.path.islink(p)
+    ]
+
+
 def read_record(root, rel):
     """The file as git carries it at HEAD, or None.
 
@@ -717,7 +827,16 @@ def read_record(root, rel):
     A working tree that differs from HEAD is exactly what CI never sees and a
     local run always can, which makes the local run the more permissive of
     the two -- the wrong direction for the only enforcement left.
+
+    `--worktree` reads the file on disk instead, for a check run on a record
+    BEFORE its commit; CI never passes it (see `WORKTREE`).
     """
+    if WORKTREE:
+        try:
+            with open(os.path.join(root, *rel.split("/")), encoding="utf-8") as f:
+                return f.read()
+        except OSError:
+            return None
     return git(root, "show", f"HEAD:{rel}")
 
 
@@ -745,7 +864,7 @@ def round_records(routing, root, item):
     """
     found = []
     where = f"{item}/{routing.ROUNDS_DIR}"
-    for n in tracked_files(root, where):
+    for n in worktree_files(root, where) if WORKTREE else tracked_files(root, where):
         number = routing.round_number(n)
         if number is not None:
             # `/`, not `os.path.join`. Every consumer of this path is git or
@@ -1195,10 +1314,20 @@ def verdict_of(seen, col):
     comes back as the normalized cell itself, which is in neither set and
     therefore counts OPEN — `not fixed` included, which is the direction this
     whole file takes for a cell it cannot read.
+
+    A word in `HOME_WORDS` is matched the same way and then asked one more
+    thing: is there anything after it. `deferred #170` and `deferred
+    seal/follow-up.md` are `deferred`; a bare `deferred` — nothing after the
+    word, or only a separator — comes back as `deferred (no home)`, which is
+    in neither set and counts OPEN. The cell says something was left and not
+    where, and that is the same state a `nobody` with no reason is refused
+    for.
     """
     s = EMPHASIS.sub("", seen[col]).lower().strip().rstrip(".").strip()
     for word in VOCAB:
         if s == word or s.startswith(word + " ") or s.startswith(word + ","):
+            if word in HOME_WORDS and not s[len(word) :].strip(SEPARATORS):
+                return f"{word} {NO_HOME}"
             return word
     return s
 
@@ -2370,6 +2499,23 @@ def stopping_floor(reader, root, rel, later):
     is one question spread over two cells and a second reader of `Needs a
     fix` would be a second answer to it.
 
+    **Two walks over the same `later`, and they decide different things** --
+    the way `docs/review-chain-spec.md` tells the floor from the cap:
+
+      | Walk          | Counts                        | Stops    | Refuses                      |
+      | the count     | every later record up to and  | at that  | a SECOND counted record: a   |
+      |               | including the first that      | record   | quiet round after the        |
+      |               | reopened or closed on a fix   |          | verifying round, #81's shape |
+      | the reopening | later records whose verdicts  | never    | a SECOND fix-closing record: |
+      |               | closed on a fix, wherever     |          | the run reopened twice,      |
+      |               | they sit                      |          | however the records between  |
+      |               |                               |          | are shaped (issue #161)      |
+
+    The count alone was unbounded by construction: every record it stops at
+    is itself a record that met the floor, so the count restarted there. The
+    reopening walk is keyed to `REOPEN_FROM` and names the exit -- the run
+    is `capped`, and the message says what that writes.
+
     Read on EVERY record, like `checked_by` and `fix_surface` and for the same
     reason: every round has its own answer, and the run's stopping point is a
     fact about the round that met the floor rather than about the last one.
@@ -2555,6 +2701,36 @@ def stopping_floor(reader, root, rel, later):
                 )
             else:
                 errors.append((rel, 0, message))
+
+        # The second walk, over the whole of `later` and never stopping: the
+        # records whose verdicts closed on a fix, wherever they sit. The
+        # first is the reopening this row allows; the second is the run
+        # reopened twice. `wrote_fixes` and not `run_reopened`, because what
+        # a reader is owed is fixes -- a `deferred` verdict wrote none.
+        reopened = [other for other in later if wrote_fixes(reader, root, other)]
+        if len(reopened) > 1:
+            first, second = (os.path.basename(p) for p in reopened[:2])
+            message = (
+                f"`{FLOOR}` is `{FLOOR_NO}` and {second} is the second later "
+                f"record whose verdicts closed on a fix, after {first}. "
+                f"After {os.path.basename(rel)} met the floor, at most one "
+                "later record may close on a fix — the verifying round that "
+                "reopened the run — and the record that reads its fixes "
+                f"ends the run whatever it finds. There {CAPPED_EXIT}"
+            )
+            if began is None or began < REOPEN_FROM:
+                notices.append(
+                    (
+                        rel,
+                        0,
+                        message + ". This work item began before the rule "
+                        "landed, so this prints instead of failing — the "
+                        "rounds it names are over, and no record anybody "
+                        "writes now un-spawns them",
+                    )
+                )
+            else:
+                errors.append((rel, 0, message))
     return errors, notices
 
 
@@ -2672,7 +2848,21 @@ def main(argv=None):
         help="the branch this pull request merges into",
     )
     ap.add_argument("--root", default=".", help="the repository to read")
+    ap.add_argument(
+        "--worktree",
+        action="store_true",
+        help="read the records as the working tree holds them, not as HEAD "
+        "carries them — for a check before the record's commit; CI never "
+        "passes this",
+    )
     args = ap.parse_args(argv)
+    global WORKTREE
+    WORKTREE = args.worktree
+    if WORKTREE:
+        print(
+            "chain-check: reading the working tree (--worktree) — an "
+            "uncommitted record counts here and not in CI, which reads HEAD"
+        )
 
     try:
         reader = load(READER, "specseal_unverified_reader")
