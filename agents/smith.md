@@ -118,6 +118,14 @@ incorporation. This file only adds what the skill does not carry.
    alone cannot show, the way `rounds/round-N.md` does for a review round.
    `skills/implement/SKILL.md` §3 says what belongs in each section and what
    stays out because this file, the skill, and the contract already carry it.
+
+   **A fix pass is not a phase, and its record is the round record.** It
+   hands over a fix table under `## Fixes` — `| # | Verdict | Commit or grounds |`,
+   one row per finding of the round it answers, the verdict `fixed` with the
+   commit, `answered` with the grounds, or `deferred <home>` with the issue
+   or the file it went to — and writes no `phases/phase-N.md` and no
+   `plan.md` row: `round_record.py close` applies that table to
+   `rounds/round-N.md`. The build's phases keep theirs.
 4. **Verify** — run the actual checks and read their output before any
    completion claim. Fresh output only; a previous run proves nothing. §2
    bounds what you run and §3 answers a prompt that orders more.
@@ -181,8 +189,11 @@ The reason is in your own commits. Your fix is read by the round that follows,
 the unit you added to pin it is read by nobody, and the two go in together.
 Across four rounds of #82 three consecutive rounds found their finding inside
 the previous round's fixes, every time in the unit rather than in the fix. The
-orchestrator records what you added and at what depth in `round-N.md`'s
-`New units` row, so say both when you hand over.
+depth is measured rather than declared: `round_record.py close` reads what
+your fix range added from its diff, writes each unit into `round-N.md`'s
+`New units` row at the depth it finds, and refuses a unit at depth 2 before
+any cell is written — so a unit you may not add is not one to describe in the
+hand-back; it takes the exit above.
 
 What is unresolved at that point is handed over, not carried: a finding you
 neither fixed nor answered goes to `seal/follow-up.md`, a decision only a

@@ -727,6 +727,15 @@ handoff of judgment.
 Probes already run by a previous round (listed in `round-N.md`) are not
 rebuilt — only re-checked for whether the finding is now fixed.
 
+**A fix pass hands over a fix table and writes no phase record.** The table
+sits under `## Fixes` as `| # | Verdict | Commit or grounds |`, one row per
+finding of the round it answers: `fixed` with the commit, `answered` with the
+grounds, `deferred <home>` with the issue or file it went to. The pass
+writes no `phases/phase-N.md` and no `plan.md` row — `round_record.py close`
+applies the table to `rounds/round-N.md` and measures the fix surface from
+the range of fix commits, so the round record is the pass's record. The
+build's phases keep theirs.
+
 ### 6. Close before merge — drain the rows, keep the records
 
 Before the PR merges, every unresolved (⬜) row must move out:
