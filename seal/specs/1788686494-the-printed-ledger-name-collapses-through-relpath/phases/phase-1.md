@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Phase | 1 |
-| Commit | fa53e67 |
+| Commit | fa53e67 — the unit and its cases. `762f1b2` carries this record, the ledger fragment, and the one assertion the mutation battery added after the first commit |
 | Ran by | <left for the orchestrator — the spawn prompt named no model, and the template's own rule is that a segment transcribes this value or leaves it, never sources it from its own idea of what it is> |
 
 ## What this phase was asked
