@@ -31,6 +31,7 @@ with subagent runs in <session-id>/subagents/. `--latest` searches both.
 import argparse
 import datetime as dt
 import json
+import math
 import os
 import re
 import sys
@@ -51,11 +52,41 @@ FAMILIES = [
 
 def parse_time(value):
     """None for a stamp that will not parse — one odd row must not end the
-    report, the same way one unparseable line does not."""
+    report, the same way one unparseable line does not.
+
+    **A stamp carrying no zone is read as UTC.** That is the assumption the
+    line below already makes when it rewrites a trailing `Z`, stated here
+    because it is now load-bearing. Every `datetime` in this file comes
+    through here, and the readers do two things with one that a naive value
+    beside an aware one forbids: they subtract it from another, in six
+    places, and they order it against another, in `load`'s sort and
+    `analyse`'s `max`. Either raises `TypeError` — the sort before anything
+    has printed, on the report and on `--json` alike, which is `count`'s
+    failure one axis over.
+
+    Dropping the naive row instead, the way an unparseable one is dropped,
+    would leave a transcript whose stamps are ALL naive reporting nothing,
+    where today it reports numbers that are internally consistent. What the
+    assumption costs is an absolute time read out of a harness writing local
+    naive stamps. Nothing here prints one: every number this file produces
+    is a difference between two stamps, and a difference is right whenever
+    the two share a zone.
+
+    **Where the two do NOT share a zone, the difference is wrong by that
+    harness's offset — and it is now wrong at exit 0, where it used to
+    raise.** That is the mixed transcript this normalisation was written
+    for, so the cost is not a corner of the assumption but its main case: a
+    naive local stamp read as UTC and subtracted from an aware one is off by
+    the writer's offset from UTC, which at UTC+9 turns a ten-second span
+    into minus nine hours. The trade is `plan.md`'s accepted alternative —
+    a number that is wrong under a stated assumption beats a report that
+    ends — and it is stated here because a silent wrong number is the one
+    outcome nobody can see."""
     try:
-        return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        stamp = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         return None
+    return stamp if stamp.tzinfo is not None else stamp.replace(tzinfo=dt.UTC)
 
 
 def family(command):
@@ -76,10 +107,38 @@ def count(value):
     already read the rest of the file.
 
     `bool` is excluded on purpose: `True + 1` is 2, so a flag landing in a
-    token column would be a wrong number rather than a missing one."""
+    token column would be a wrong number rather than a missing one.
+
+    **A non-finite value is excluded for the stronger reason: it ends the
+    report.** `json.loads` accepts the bare tokens `NaN`, `Infinity` and
+    `-Infinity` by default and all three are `float`, so the type check
+    below passes them. What happens next depends on which field carried
+    one, and only one of the two outcomes is the wrong-number failure
+    `bool` is excluded for. `token_totals`' sums print `nan` and exit 0.
+    But `token_thirds` rounds a mean, and `round()` raises on a non-finite
+    float — `ValueError` for a `NaN`, `OverflowError` for an infinity —
+    which ends the report with stdout EMPTY, on the report and on `--json`
+    alike.
+
+    Every usage field except `output_tokens` reaches that `round`, through
+    the `input_tokens + cache_read_input_tokens` pair `load` builds. That
+    exception is why this was first recorded as harmless: `output_tokens`
+    was the field it was measured on, and it is the one field where the
+    crash does not happen."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return 0
-    return value
+    try:
+        finite = math.isfinite(value)
+    except OverflowError:
+        # An `int` too large to have a float of its own. `json.loads` builds
+        # an arbitrary-precision `int` from any integer literal, and
+        # `math.isfinite` converts to float before it answers — so ASKING the
+        # question raises, inside the funnel that exists to keep such a value
+        # out. Returning 0 answers it the way every other arm here does, and
+        # it also keeps the value away from `token_thirds`' division, which
+        # raises on the same int for the same reason one frame later.
+        return 0
+    return value if finite else 0
 
 
 def message_key(message, row, number):
@@ -294,15 +353,36 @@ def analyse(calls, turns):
 
 
 def token_thirds(turns):
+    """The mean input count over each third of the run, as whole numbers.
+
+    **`count` answers for each value that enters; this answers for the sum.**
+    Two counts it accepted as finite can add to one that is not, and this is
+    the one site in the file that converts a derived number to an `int`. Both
+    routes were measured ending the report with stdout empty, on the report
+    and on `--json` alike: two floats near the top of the range summing to an
+    infinity, which `round` refuses; and two integers that each have a float
+    where their sum does not, which the division refuses. A single third can
+    also sum past the range on its own, so no per-turn guard reaches it.
+
+    A mean the file cannot compute is charged 0, the direction every funnel
+    here takes — never carried out as an infinity, which a reader would take
+    for a measurement."""
     inputs = [t[1] for t in turns if t[1]]
     if len(inputs) < 3:
         return []
     third = len(inputs) // 3
-    return [
-        round(sum(part) / len(part))
-        for part in (inputs[:third], inputs[third : 2 * third], inputs[2 * third :])
-        if part
-    ]
+    means = []
+    for part in (inputs[:third], inputs[third : 2 * third], inputs[2 * third :]):
+        if not part:
+            continue
+        try:
+            mean = sum(part) / len(part)
+        except OverflowError:
+            # An integer sum with no float of its own. The question cannot be
+            # asked, which is the same answer the funnels above give.
+            mean = math.inf
+        means.append(round(mean) if math.isfinite(mean) else 0)
+    return means
 
 
 def subagent_transcripts(path):
@@ -434,22 +514,60 @@ def report_tokens(tokens):
     print(f"  cache read  {tokens['cache_read']:>15,}")
 
 
+def share(part, whole):
+    """`part` as a percentage of `whole`, or `—` when there is no share to take.
+
+    A transcript whose only paired call begins and ends on one timestamp has
+    a span of zero, and the three lines below divide by it. Printing the span
+    line and then raising `ZeroDivisionError` is the shape `tool_name` was
+    written to end: a report that worked and then stopped, with the token
+    block and the family table lost behind the crash.
+
+    The guard is on the whole span being POSITIVE, not on it being non-zero.
+    Zero is the shape that was measured; a negative span — a harness writing
+    a result before the call it answers — is the same undefined division with
+    a sign on it, and a percentage of it would be a number nobody can read.
+    Neither gets one invented. What the reader sees is the times themselves,
+    which are what was actually measured."""
+    return f"{part / whole * 100:.0f}%" if whole > 0 else "—"
+
+
 def report(data):
     print(f"span          {minutes(data['span_s'])}   ({data['calls']} tool calls)")
+    if data["span_s"] == 0:
+        print(
+            "              every call shares one timestamp, so there is no "
+            "span to take a share of"
+        )
+    elif data["span_s"] < 0:
+        # Two shapes, two sentences. `share` decides what a non-positive span
+        # MEANS for a percentage, and one dash covers both; what it cannot do
+        # is say which shape the reader is looking at, because it is handed
+        # the numbers and not the transcript.
+        print(
+            "              the last call to begin ended before the first "
+            "call began, so the span is negative and there is no share to "
+            "take of it"
+        )
     print(
         f"  command     {minutes(data['command_s'])}"
-        f"   {data['command_s'] / data['span_s'] * 100:.0f}%"
+        f"   {share(data['command_s'], data['span_s'])}"
     )
     print(
         f"  model       {minutes(data['model_s'])}"
-        f"   {data['model_s'] / data['span_s'] * 100:.0f}%"
+        f"   {share(data['model_s'], data['span_s'])}"
         f"   mean gap {data['gap_mean_s']:.1f}s"
     )
     idle = data["span_s"] - data["command_s"] - data["model_s"]
-    if idle > data["span_s"] * 0.1:
+    # The span has to be positive before a tenth of it is a threshold. At a
+    # negative span the threshold is negative too, so the comparison is true
+    # and the line printed sixty-five minutes of idle beside a span of minus
+    # thirty. At a span of zero `0 > 0` is false on its own, which is why
+    # this conjunct was dropped once and why dropping it was wrong.
+    if data["span_s"] > 0 and idle > data["span_s"] * 0.1:
         print(
             f"  idle        {minutes(idle)}"
-            f"   {idle / data['span_s'] * 100:.0f}%"
+            f"   {share(idle, data['span_s'])}"
             f"   waiting on a person, or on a gap this file cannot see"
         )
 
@@ -468,11 +586,16 @@ def report(data):
 
     print("\nwhere the time could go instead")
     exact, same = data["repeat_exact_s"], data["repeat_same_work_s"]
-    if same:
+    # Compared against zero rather than tested for truth. These are durations,
+    # so a negative span makes them negative, and a negative number is truthy
+    # — the report claimed an hour of work re-run for a result already in
+    # hand on a transcript where nothing was re-run. The same value read as
+    # falsey would have suppressed the `nothing obvious` line below.
+    if same > 0:
         print(
             f"  repeats            {minutes(same)}  a check re-run for a result "
             f"already produced"
-            + (f" ({minutes(exact)} of it identical)" if exact else "")
+            + (f" ({minutes(exact)} of it identical)" if exact > 0 else "")
         )
     if data["tools_per_turn"] < 1.2:
         # Above 1 the one-at-a-time claim is one the number no longer
@@ -496,7 +619,7 @@ def report(data):
             f"  context            {growth[0]:,} → {growth[2]:,} input tokens; "
             f"later calls cost more than the same call would have earlier"
         )
-    if not same and data["tools_per_turn"] >= 1.2:
+    if same <= 0 and data["tools_per_turn"] >= 1.2:
         print("  nothing obvious — the command time is the command's own cost")
 
 
