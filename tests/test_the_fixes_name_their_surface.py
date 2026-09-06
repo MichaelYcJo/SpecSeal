@@ -29,6 +29,7 @@ substrings are chosen to be; each picks the sentence a rewrite would have to
 destroy.
 """
 
+import ast
 import importlib.util
 import json
 import os
@@ -41,8 +42,10 @@ import pytest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
-# The generator, for the three words it can put in a reach half. Read out of
-# the module rather than typed, so the document cannot drift from them.
+# The generator, for the words it can put in a reach half. Two cases read
+# them out of the module rather than typing them: one by constant NAME, which
+# catches a rename or a reword, and one by DERIVING the set from `call_sites`
+# itself, which catches a value added beside them (#177).
 RECORD = os.path.join(ROOT, "skills", "code-review", "scripts", "round_record.py")
 
 # A work item begun before `chain_check.SURFACE_FROM`: missing rows print.
@@ -464,6 +467,80 @@ def test_the_section_names_the_words_the_writer_can_put_in_a_reach():
     assert "only the first is a unit name" in spec, (
         "the section names the words without saying which of them is a unit"
     )
+
+
+def reach_values():
+    """Every reach value fixed in `call_sites`' own source, derived from it.
+
+    Two shapes are read out of the function's `return` statements: a
+    module-level string constant named in one, and a string literal written
+    into one. So a value added to the function joins this set without
+    anybody editing this file, which is the whole difference between this
+    and listing the words beside the case.
+
+    **What the derivation does not reach, recorded rather than closed.** A
+    value another function hands back, and one formatted at run time, are
+    both outside a `return`'s own literals — a `return` of a bare local is
+    the shape to watch for. And the two values the section names as
+    CATEGORIES rather than as words, the enclosing top-level unit and the
+    file's basename, are deliberately outside it: those are the reviewed
+    repository's names and not the generator's, so there is no finite set to
+    derive and the document names the category instead. Closing the first
+    two means resolving a call across functions, which is the enumeration
+    over an unbounded domain `RECORDED_LIMIT` above declines for the same
+    reason.
+    """
+    tree = ast.parse(read("skills", "code-review", "scripts", "round_record.py"))
+    constants = {}
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not isinstance(node.value, ast.Constant):
+            continue
+        if not isinstance(node.value.value, str):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                constants[target.id] = node.value.value
+    found = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "call_sites"
+    ]
+    assert len(found) == 1, f"call_sites: {len(found)} definitions, expected 1"
+    values = set()
+    for node in ast.walk(found[0]):
+        if not isinstance(node, ast.Return):
+            continue
+        for part in ast.walk(node):
+            if isinstance(part, ast.Name) and part.id in constants:
+                values.add(constants[part.id])
+            elif isinstance(part, ast.Constant) and isinstance(part.value, str):
+                values.add(part.value)
+    return values
+
+
+def test_the_section_names_every_reach_value_the_generator_fixes():
+    """#177. The case above reads three constants BY NAME, so it goes red on
+    a rename and on a reword and stays green when a SIXTH value is added
+    beside them — and an addition is the drift the paragraph exists against:
+    the document would go stale and the suite would say nothing. This one
+    derives the set from `call_sites` instead, so a value the function gains
+    has to reach the document before the suite is green again.
+
+    Both are kept, because neither covers the other. A constant renamed with
+    its value untouched is still the same word in the document, so the
+    derivation cannot see that edit and the named form is what fails on it;
+    a constant ADDED is invisible to the named form and is what this one is
+    for. `reach_values`' docstring carries what neither reaches."""
+    spec = flat("docs", "review-chain-spec.md")
+    values = reach_values()
+    assert len(values) >= 3, (
+        f"the derivation found {len(values)} values, so it has stopped "
+        "reading the function and the loop below proves nothing"
+    )
+    for word in sorted(values):
+        assert f"`{word}`" in spec, f"the section does not name `{word}`"
 
 
 def test_a_row_inside_a_comment_is_not_the_row(repo):
