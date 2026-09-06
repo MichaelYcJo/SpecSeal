@@ -305,8 +305,29 @@ def test_a_path_on_another_drive_keeps_its_own_spelling():
 def test_a_backslash_is_an_ordinary_character_on_posix():
     """D — the converse of the Windows arms, and what pins the separator set
     to the FLAVOUR rather than to a literal. A POSIX file may be named
-    `a\\b.md`, so a renderer that treats `\\` as a separator everywhere would
-    cut this name in half. Red against verbatim-always, and red against a
-    renderer with `\\` hardcoded into its separator set.
+    `a\\b.md`.
+
+    **Two assertions, because the separator set is consulted in two places
+    and only the second one can catch a literal.** In the surviving TAIL a
+    hardcoded `\\` is invisible: the unit slices the original substring rather
+    than rejoining segments, so splitting `a\\b.md` in two and then slicing
+    from the first of them returns the same characters either way. The
+    mutation that hardcodes the set survived this case alone, which is how the
+    second assertion was found rather than recalled.
+
+    Where it is not invisible is at the boundary the root ends on.
+    `/tmp/proj\\seal` is one segment on POSIX — a file named `proj\\seal`
+    under `/tmp` — so `/tmp/proj\\seal/ledger.md` is NOT under `/tmp/proj` and
+    prints verbatim. A renderer with `\\` in its set reads three segments
+    there, matches the root, and answers `seal/ledger.md`: a name under a root
+    the file is not under, which is issue #163's own failure shape one
+    character over.
+
+    Red against verbatim-always on the first assertion, and red against both
+    `relpath` and the hardcoded set on the second.
     """
     assert shown("/tmp/proj/a\\b.md", "/tmp/proj", flavour=posixpath) == "a\\b.md"
+    assert (
+        shown("/tmp/proj\\seal/ledger.md", "/tmp/proj", flavour=posixpath)
+        == "/tmp/proj\\seal/ledger.md"
+    )
