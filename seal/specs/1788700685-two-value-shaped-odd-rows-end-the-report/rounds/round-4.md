@@ -5,7 +5,7 @@
 | Target SHA | 745b8a0 |
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 191 |
-| Broad gate | not yet |
+| Broad gate | a911779 — `./bin/test` **4 failed · 2416 passed · 2 skipped** in 320.59 s. The four are #160's export cases and are the BASE's: this branch touches neither `tests/test_the_records_can_be_carried_out_and_in.py` nor `skills/implement/scripts/seal.py` (the diff against the base over both is empty), and the run fell inside the window where the local date and the UTC date differ — 00:21 KST on 2026-09-07 against 15:21 UTC on 2026-09-06 — which is #127's confirmed cause. Two earlier broad gates this session, both inside the window where the two clocks agree, gave 2392 and 2415 passed with none of the four red; the reproduction is posted to #160. `uvx ruff check .` and `uvx ruff format --check .` over 109 files, exit 0; `./bin/evidence-check .` unscoped 710 ok · 2 drifted · 0 broken, exit 0, the two being the base's own; `./bin/unverified-check --baseline origin/release/v0.8.3` exit 0; `./bin/deferral-check` exit 0 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
