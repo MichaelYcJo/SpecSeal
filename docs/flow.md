@@ -19,68 +19,83 @@ Each release branch is cut from `main`; each ticket is a branch cut from the
 release branch and squashed back; the release branch merges into `main` as a
 merge commit (`docs/branch-and-release.md`).
 
-## 0.8.3 — three of eight, and every one of them measured its own chain
+## 0.9.x — four releases, and what decides which one a ticket sits in
 
-Shipped 2026-09-07. Five items were carried to 0.9.0 rather than rushed; the
-list below is what the release actually holds, and the paragraph after it is
-what the run learned, because that is the only part a later reader cannot
-re-derive from the CHANGELOG.
+Nineteen tickets, split on 2026-09-07 by the surface a branch has to open and
+by what one release makes possible for the next. It is the list the single
+0.9.0 section held, plus #198 which the split itself opened, minus #97 which
+moved to the unscheduled section for the reason given there.
 
-- [x] #163 — the printed ledger name collapsed `lnk/..` through `relpath`, so a BROKEN row was reported under a different existing file. Two rounds. The issue named four print sites; the class was closed by following where a ledger path can reach, and there were five.
-- [x] #177 — an unwritable `.venv` turned `bin/test`'s refusal into a traceback, because #156's round 2 moved the ignore onto every exit of `ensure` including the two whose whole product is a sentence. Three rounds, one reopening. What the branch was actually about is two ledger rows found under-specified rather than falsified.
-- [x] #175 — a zero span and a naive timestamp still ended `session_cost`'s report, and #170's row claimed a class its enumeration had not covered. Four rounds, capped.
+Two of the positions are forced rather than chosen. #179 has to be in 0.9.0,
+because it goes red on the commit that raises the version to 0.9.0 and nowhere
+earlier. #149 has to be last, because its own body says it waits for
+attributed readings that do not exist yet.
 
-**Every 🔴 in this release came from the fix before it, and #175 is where that
-is measured rather than asserted.** Its round 1 found a deferral resting on one
-reading of one field — the single usage field that never reaches the site that
-raises. Round 2 found round 1's guard had broken a shape that worked, through a
-residual the fix pass had written into its own record *in the same commit that
-created it*, without re-running the walk. Round 3 found that the funnel answers
-for a value and nothing answers for what two values make. Round 4 was told to
-walk round 3's downstream rather than guess it, did, and found one more.
+The rest is ordered so that each release is cheaper for the one after it.
+0.9.0 makes the round record trustworthy, and every release after it writes
+round records. 0.9.2 replaces enumeration by reading with enumeration by
+construction, which is the method 0.9.3's rounds then use on the meter.
 
-The rule that came out of it, and that the next release's prompts carry: **when
-you widen a guard, re-run the enumeration over what the widening itself added;
-and when a record states a limit, the pass that writes it owes the check that
-the limit is not already reachable.**
+The split is also a size decision. 0.8.3 shipped three of eight and carrying
+five forward was the call rather than the failure, so these are sized at four
+or five rather than at nineteen.
 
-## 0.9.0 — what 0.8.0 deferred, what 0.8.3 could not reach, and what its rounds earned
+## 0.9.0 — a record is written by a machine and trusted like one
 
-Three sources now, and the middle one is the reason the list is long rather
-than a sign it should be cut. Five items were carried here from 0.8.3 on
-2026-09-07: the release shipped three of eight, and stopping was the call
-rather than the failure — #175 alone ran four rounds and three of its findings
-were 🔴. Not ordered; #98 rides whichever branch is open.
+Five tickets on one surface, `round_record.py` and `chain_check.py`, and four
+of them are what 0.8.3's own rounds earned. They are the same sentence in
+different clothes: nothing reads what the record says. #179 is that sentence
+about a document rather than a record, which is why it sits with them and not
+only because the version forces the date.
 
-**Carried from 0.8.3, untouched.**
+- [ ] #179 — a loaded file naming a real version is a timer. `docs/issues-and-milestones.md` names `0.9.0` in a sentence about milestones, and `test_no_loaded_file_hardcodes_the_running_version` refuses the running version. Green today, red on this release's own preparation commit — after the broad gate has already run.
+- [ ] #187 — the round record carries the reviewer's tables and drops the paste-ready fix the findings format requires. Measured: a fix pass re-derived a verified artefact from scratch, and its first re-derivation was wrong.
+- [ ] #189 — a bare pipe inside a Verdicts cell truncates the row, and nothing sees it. Two paste-ready fixtures were invisible in a rendered record; a later fix pass then hit it again after being warned. Compounds with #187, which makes that cell the only durable home a paste-ready fix has.
+- [ ] #190 — a record states a figure or a stamp the next commit moves, and no check reads it. Closed three times on one work item by enumerating carriers, and back each time.
+- [ ] #194 — `Contract changes` compares arities, so a unit returning a new *meaning* reads as `none`. That row exists for #57's largest regression class and read `none` on a live instance of it.
+- [ ] #98 — three sentences say `-z` is what turns git's path quoting off, and the instruction they give is right while the reason they give for it is false. One line, and it rides whichever branch of this release is open.
+
+## 0.9.1 — what a repository using SpecSeal actually hits
+
+Four of these are met by someone who installed the plugin and never reads this
+tracker, and #111 is the sharpest thing on the whole list: a git call that
+fails reads as a repository with no remote, and that reading switches off a
+refusal. The fifth is this repository meeting the same class about itself.
+
+- [ ] #111 — `git()` reads every failure as `""`, and in `seal import` that empty string switches off the refusal that keeps another project's records out. Four callers were left after #104 taught two of them to check the return code.
+- [ ] #151 — the preset tells a session to create the root, and the question that was supposed to come first lives in a skill it never loads. Reported from a repository's first work item: `seal/` appeared and nobody was asked about shared or local mode.
+- [ ] #134 — the update notice names a restart and never the reload this repository measured and wrote down. One notice and one skill.
+- [ ] #167 — a closing keyword claims one issue, and a body naming two in one sentence loses the second silently.
+- [ ] #198 — a release closes its flow-measurement log with nothing written in it, and nothing notices. 0.8.3 ran three work items and twelve rounds and left its cycle log empty, which is the same shape as #150: a mechanism built, used once, then not, with nothing in the way to say so. It lands here rather than in 0.9.3 because #145 and #149 are the two tickets that eat the data it protects.
+
+## 0.9.2 — the enumeration was done by reading
+
+Three tickets on one method rather than one file, and the method is what
+observation 6 on #51 found eight times without a single instance caught by
+reading. #170's round 2 is the positive case: a fix pass re-enumerated its
+class by construction and found a second crash site where the finding named
+one.
+
+Standing before 0.9.3 is deliberate. The rounds that answer the meter are the
+rounds most likely to enumerate a class and miss a member of it.
+
+- [ ] #182 — the hider guard's enumeration names three copies where the property is every copy out of `raw`. `spec.md` and `plan.md` for it were drafted during 0.8.3 and are in that run's scratch, not in the tree.
+- [ ] #192 — a funnel answers for the values that enter, and nothing answers for what two of them make. #175's round 3, measured at the base as well as on the branch.
+- [ ] #180 — three written rules were each re-broken in one run; written down and arriving at the act are different states.
+
+## 0.9.3 — a run finished, and what it says cannot be taken for a verdict
+
+Two halves of one question. The meter measures a segment and charges 0 for
+what it could not compute, and the gates finish green where green does not
+mean the code is right. #149 is here because this is the release by which the
+`Ran by` rows have accumulated enough for it to choose an outcome column
+against readings rather than against a guess.
 
 - [ ] #145 — the orchestrator is the most expensive segment in a chain and the only one measured by the whole session, so #51's observation 1 has bands for three segment kinds and none for it. #170's token line is what makes it answerable.
-- [ ] #160 — four export cases fail on macOS and pass in CI, so a broad run cannot be read as a verdict. **The cause is settled**: 0.8.3's own broad gate reproduced it live at 00:21 KST against 15:21 UTC, and the branch it ran on touches neither file involved. It is #127 — the four cases build their expected name from the local date and `export()` writes it in UTC — and the two are one ticket. What is left is the owner's call on which side moves; 0.8.3 recorded its recommendation on #160.
-- [ ] #167 — a closing keyword claims one issue, and a body naming two in one sentence loses the second silently.
-- [ ] #180 — three written rules were each re-broken in one run; written down and arriving at the act are different states.
-- [ ] #182 — the hider guard's enumeration names three copies where the property is every copy out of `raw`. `spec.md` and `plan.md` for it were drafted during 0.8.3 and are in this run's scratch, not in the tree.
-
-**Earned by 0.8.3's own rounds.** Five of the six are the same sentence in
-different clothes: *a record is written by a machine and then trusted like
-one, while nothing checks what it says.*
-
-- [ ] #187 — the round record carries the reviewer's tables and drops the paste-ready fix the findings format requires. Measured: a fix pass re-derived a verified artefact from scratch, and its first re-derivation was wrong.
-- [ ] #189 — a bare pipe inside a Verdicts cell truncates the row, and nothing sees it. Two paste-ready fixtures were invisible in a rendered record; a later fix pass then hit it again after being warned.
-- [ ] #190 — a record states a figure or a stamp the next commit moves, and no check reads it. Closed three times on one work item by enumerating carriers, and back each time.
-- [ ] #192 — a funnel answers for the values that enter, and nothing answers for what two of them make. #175's round 3, measured at the base as well as on the branch.
 - [ ] #193 — a third the file could not compute is charged 0, and the context line takes that 0 for a baseline. Carries a verified patch and a case seen red, plus two smaller ones as a comment.
-- [ ] #194 — `Contract changes` compares arities, so a unit returning a new *meaning* reads as `none`. That row exists for #57's largest regression class and read `none` on a live instance of it.
-
-**The five that were 0.8.0's**, sitting here since 2026-09-04 for the reason
-the section above states rather than because the list was long.
-
-- [ ] #97 — the three pin levers left after #117 took the fourth. Each changes pins that already exist, so each needs a question batch.
+- [ ] #149 — a record says what a segment cost and not what its output cost the next reader. #137's second half, split off when its first half shipped. Five candidate signals and no evidence which of them survive contact: surviving mutations, defects the next round found inside this segment's output, `New units` depth, fix passes needed, and divergences from the plan.
+- [ ] #160 — four export cases fail on macOS and pass in CI, so a broad run cannot be read as a verdict. The cause is settled and #127 is folded in here: the cases build their expected zip name from the local date and `export()` writes it in UTC. What is left is the owner's call on which side moves.
 - [ ] #103 — the two defect shapes only Windows has caught are made visible without Windows.
-- [ ] #111 — `git()` reads every failure as `""`, and in `seal import` that empty string switches off the refusal that keeps another project's records out.
-- [ ] #134 — the update notice names a restart and never the reload this repository measured and wrote down. One notice and one skill.
-- [ ] #98 — three sentences say `-z` is what turns git's path quoting off, and the instruction they give is right while the reason they give for it is false. One line, and it rides whichever branch of this release is open.
-- [ ] **#149 — a record says what a segment COST and not what its output cost the next reader.** #137's second half, split off when its first half shipped. Five candidate signals and no evidence which of them survive contact: surviving mutations, defects the next round found inside this segment's output, `New units` depth, fix passes needed, and divergences from the plan. It waits for the accumulation the `Ran by` row now makes possible — an outcome column chosen before there are attributed readings to choose it against is the mistake #110's *Not this* refuses on the review side.
-- [ ] #151 — the preset tells a session to create the root, and the question that was supposed to come first lives in a skill it never loads. Reported from a repository's first work item: `seal/` appeared and nobody was asked about shared or local mode. Not this release's own work — it rode in on the flow update that closed #137.
 
 ## 0.10.0 — the agent set
 
@@ -92,8 +107,9 @@ In this order, and the third is not optional.
 
 **Why last, and why the number moved.** #84 needs the channel 0.7.0 builds and
 the attribution #137 builds. These three were 0.9.0 until 2026-09-04, when the
-two releases above took their numbers; nothing about the set changed. They are
-designed and #120's table is already counted, which is why they have a release
+work above took that number and the three after it; nothing about the set
+changed. They are designed and #120's table is already counted, which is why
+they have a release
 at all while the rest of what the measurements ask for does not yet: what is
 not written down cannot be scheduled, and arrives as its own ticket sized when
 it exists. Three arrived that way in one afternoon — #136, #137 and #134, out
@@ -105,6 +121,7 @@ paragraph should be read at.
 - [ ] #83 `settle` · #85 the orphan branch as the ledger's home · #101 the export's size — the root's later steps.
 - [ ] #88 — the routing question asks three boxes and has no way to say "all three".
 - [ ] #135 — `user-invocable: false` sits in the copy that loads and the skill is listed as a command anyway. One measurement decides whether it has a fix or only a correction to the record.
+- [ ] #97 — the three pin levers left after #117 took the fourth. Each changes pins that already exist, so each needs a question batch, which is why it carries no release rather than a late one.
 
 ## Order inside a ticket
 
