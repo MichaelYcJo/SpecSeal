@@ -84,6 +84,14 @@ take its own reproduction instructions with it.
 
 ### The residual survives the wording, on purpose
 
+> **Corrected in round 1's fix pass.** The residual is not a residual: every
+> usage field but `output_tokens` ends the report on a non-finite value, from
+> a `round()` in `token_thirds`. It is closed at `count` and the rider is
+> gone. What this section got right is the shape of the reasoning — a row
+> re-asserted over the class would have swallowed the member silently — and
+> that argument holds better now than when it was written, because the member
+> it was protecting turned out to be a 🔴 rather than a print of `nan`.
+
 `count`'s rider stands at `skills/verify/scripts/session_cost.py`, stamped
 `Verified 2026-09-06 at b0e4859`, and `tests/test_a_rider_reaches_its_file.py`
 passes at 8. `NaN` and `Infinity` are `float` values of a field whose JSON type

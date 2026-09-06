@@ -840,7 +840,7 @@ def paired(uid, start, end, command="pytest -q"):
 
 def test_a_span_of_zero_prints_what_it_can_rather_than_dividing_by_it(tmp_path):
     """A transcript whose only paired call begins and ends on one timestamp
-    has `span_s == 0.0`, and four lines of `report` divide by it.
+    has `span_s == 0.0`, and three lines of `report` divide by it.
 
     The span line printed and then `ZeroDivisionError` took the rest — the
     token block and the family table included. That is the same shape a
@@ -943,3 +943,120 @@ def test_a_naive_stamp_does_not_end_the_report(tmp_path):
         assert (data["span_s"], data["command_s"]) == (span, command_s), (
             f"{name}: {data}"
         )
+
+
+def turn_at(second, usage, uid):
+    """One tool-call turn with its `usage` written out.
+
+    `token_thirds` needs three turns carrying a non-zero input count before
+    it computes anything, so a case about a non-finite input has to build
+    three rather than reuse the one-call fixtures above."""
+    return [
+        at(f"2026-08-24T10:0{second}:00Z", [use(uid, "pytest -q")], f"m{uid}", usage),
+        at(
+            f"2026-08-24T10:0{second}:30Z",
+            [{"type": "tool_result", "tool_use_id": uid}],
+        ),
+    ]
+
+
+def test_a_nan_token_count_does_not_end_the_report(tmp_path):
+    """`json.loads` accepts the bare tokens `NaN`, `Infinity` and
+    `-Infinity`, and all three are `float`, so a type check alone passes
+    them through.
+
+    `token_thirds` rounds a mean, and `round()` raises on a non-finite
+    float — `ValueError` for a `NaN`, `OverflowError` for an infinity. The
+    report ended with exit 1 and stdout EMPTY, on the report and on `--json`
+    alike, which is worse than either shape #175 was opened for.
+
+    Every usage field except `output_tokens` reaches that `round`, through
+    `load`'s `input_tokens + cache_read_input_tokens` pair. `output_tokens`
+    is the one field that does not, and it is the field the residual was
+    first measured on — which is how a crash was recorded as printing `nan`
+    at exit 0. So the fields are asserted apart rather than together."""
+    shapes = (
+        ("input-nan", 0, {"input_tokens": float("nan"), "output_tokens": 1}),
+        ("input-inf", 0, {"input_tokens": float("inf"), "output_tokens": 1}),
+        (
+            "cache-read-nan",
+            1,
+            {
+                "input_tokens": 10,
+                "output_tokens": 1,
+                "cache_read_input_tokens": float("nan"),
+            },
+        ),
+        ("output-nan", 2, {"input_tokens": 10, "output_tokens": float("nan")}),
+    )
+    for name, odd, usage in shapes:
+        lines = []
+        for n in range(3):
+            plain = {"input_tokens": 10, "output_tokens": 1}
+            lines += turn_at(n, usage if n == odd else plain, f"c{n}")
+        path = tmp_path / f"{name}.jsonl"
+        # `json.dumps` writes bare `NaN` and `Infinity`, which is exactly the
+        # shape a harness produces and `json.loads` accepts back.
+        path.write_text("\n".join(lines) + "\n")
+
+        proc = run([str(path)])
+        assert proc.returncode == 0, f"{name}: {proc.stderr}"
+        assert re.search(r"^tokens\s", proc.stdout, re.M), f"{name}: {proc.stdout}"
+
+        machine = run(["--json", str(path)])
+        assert machine.returncode == 0, f"{name}: {machine.stderr}"
+        data = json.loads(machine.stdout)
+        # Charged 0, the direction every funnel in the file already takes —
+        # never carried through as `nan`, which prints and compares wrongly.
+        assert all(isinstance(v, int) for v in data["context_growth"]), (
+            f"{name}: {data['context_growth']}"
+        )
+        for field in ("output", "cache_read", "cache_write"):
+            assert data["tokens"][field] == int(data["tokens"][field]), (
+                f"{name}: {data['tokens']}"
+            )
+
+
+def test_a_negative_span_says_what_it_actually_saw(tmp_path):
+    """A span of zero and a negative span are not the same reading, and one
+    sentence claimed the first for both.
+
+    `report` printed *every call shares one timestamp* under any span that is
+    not positive. For a transcript whose last result predates the first call
+    — a harness writing a result before the call it answers — that sentence
+    is false about a file the reader cannot see, which is the failure mode a
+    sentence under a dash exists to prevent.
+
+    The share itself is unchanged: neither shape gets a percentage, because
+    a share of a non-positive span is not a number anybody can read."""
+    lines = [
+        at("2026-08-24T10:00:00Z", [use("a", "pytest -q")], "ma", {"output_tokens": 1}),
+        at("2026-08-24T09:00:00Z", [{"type": "tool_result", "tool_use_id": "a"}]),
+        at(
+            "2026-08-24T10:05:00Z",
+            [use("b", "ruff check .")],
+            "mb",
+            {"output_tokens": 1},
+        ),
+        at("2026-08-24T09:30:00Z", [{"type": "tool_result", "tool_use_id": "b"}]),
+    ]
+    path = tmp_path / "negative.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+
+    proc = run([str(path)])
+    assert proc.returncode == 0, proc.stderr
+    assert re.search(r"^span\s+-\d", proc.stdout, re.M), proc.stdout
+    assert "the last result predates the first call" in proc.stdout, proc.stdout
+    # The zero-span sentence must NOT be the one a negative span gets.
+    assert "every call shares one timestamp" not in proc.stdout, proc.stdout
+    assert re.search(r"^  command\s+\S+\s+—$", proc.stdout, re.M), proc.stdout
+
+    # And a span of exactly zero keeps the sentence written for it.
+    zero = tmp_path / "zero.jsonl"
+    zero.write_text(
+        "\n".join(paired("a", "2026-08-24T10:00:00Z", "2026-08-24T10:00:00Z")) + "\n"
+    )
+    other = run([str(zero)])
+    assert other.returncode == 0, other.stderr
+    assert "every call shares one timestamp" in other.stdout, other.stdout
+    assert "the last result predates the first call" not in other.stdout, other.stdout

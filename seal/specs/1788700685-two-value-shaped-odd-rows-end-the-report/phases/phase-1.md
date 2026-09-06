@@ -111,6 +111,17 @@ place that decides what a non-positive span means, and a second guard adds a
 branch no case exercises. At a span of zero the idle condition (`0 > 0`) is
 already false on its own.
 
+> **Corrected in round 1's fix pass: `share` is the single place deciding
+> what a non-positive span means *for a percentage*, and it never was the
+> only site testing the predicate.** `report` tests the span independently
+> to decide whether to print the explanation line, which is a different
+> question — `share` is handed two numbers and cannot say which shape the
+> reader is looking at. Round 1 found the consequence: one sentence, *every
+> call shares one timestamp*, printed under any non-positive span, so a
+> negative one was described as a shared timestamp. `report` now tells the
+> two shapes apart and `share` still decides the dash for both, which is
+> the division of labour this paragraph should have stated.
+
 ### The enumeration, and why it is complete rather than merely larger
 
 The class is *every arithmetic operand taken out of a transcript*. It was
@@ -124,6 +135,31 @@ operator, every `Compare` carrying an ordering operator, and every
 (The first walk returned 42 and missed `AugAssign` and `UnaryOp` entirely —
 which is the argument for the method: the gap was found by re-deriving the
 list, and would not have been found by reading harder.)
+
+> **Corrected in round 1's fix pass, and this is the correction the 🔴
+> came out of.** That node set is complete over **operators**, and this
+> section called it complete over **operations**. A value can be consumed
+> by a builtin or stdlib numeric call that carries no operator at all —
+> `round`, `int`, `abs`, `divmod`, `pow`, `statistics.mean` — and none of
+> those is a `BinOp`, a `Compare`, or one of the five walked names.
+> Re-derived at `ae3fe18` and again after the fix: **60 sites inside the
+> node set** (22 `BinOp`, 10 `AugAssign`, 5 `UnaryOp`, 10 `Compare`, 13
+> walked calls) and **exactly one outside it** — the `round` in
+> `token_thirds`, which is where the 🔴 lives. The lesson is in the shape
+> of the error rather than in the count: a walk is complete over the node
+> kinds it names, and saying so is a claim a later session can re-run,
+> where *complete over the operations* is one nobody can check.
+>
+> **What the widened set still cannot reach, measured over this module
+> rather than asserted.** A call whose function is computed rather than
+> named is invisible to a by-name classification — there are **0** of those
+> here today. A consumer name rebound locally would be read as the builtin
+> — **none** is rebound here. The 16 f-string targets carrying a format
+> spec do not raise on a non-finite value, checked directly (`f"{nan:.0f}"`
+> is `'nan'`). And the walk sees only this module: a consumer reached
+> through an imported name is invisible, which mattered less when the
+> imports were `argparse`, `datetime`, `json`, `os`, `re` and `sys`, and
+> matters now that the fix adds `math`.
 
 | Class | Sites | State |
 |---|---|---|
@@ -159,6 +195,20 @@ shapes of this work item come from and where the third came from:
 | a `datetime` | naive beside aware → `parse_time` (**this phase**) | two stamps equal → span of zero → `share` (**this phase**) |
 
 ### The third operand shape, found by the method and left open
+
+> **Corrected in round 1's fix pass. The measurement below is right and the
+> conclusion drawn from it is wrong, and this section is kept as written
+> because how the wrong conclusion was reached is the finding.** `NaN` or
+> `Infinity` in any usage field but `output_tokens` ends the report with
+> exit 1 and stdout empty, on the report and on `--json` alike — worse than
+> either shape this phase fixed. `token_thirds` rounds a mean and `round()`
+> raises on a non-finite float. **`output_tokens` is the one usage field
+> that never reaches that `round`**, and it is the only field this phase
+> measured, so the single measurement below is the one that could not see
+> the crash. By `spec.md`'s own In criterion the shape was always inside
+> this work item. It is closed at `count` with `math.isfinite`, the rider's
+> own prescribed one-liner, and the rider is gone with it: a rider that has
+> been acted on is spent.
 
 `json.loads` accepts the bare tokens `NaN`, `Infinity` and `-Infinity` by
 default, and all three are `float` — so they pass `count`'s `isinstance` check

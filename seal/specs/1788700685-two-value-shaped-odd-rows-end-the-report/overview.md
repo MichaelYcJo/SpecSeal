@@ -30,16 +30,19 @@ member survived* would have taken a closed class for granted.
 
 ## Not done
 
-**`NaN` and `Infinity` in a `usage` field are left open, deliberately.**
-`json.loads` accepts all three bare tokens, all three are `float`, so all three
-pass `count`'s `isinstance` check and print `nan` in a token column at exit 0.
-That is a wrong number rather than a missing one — the failure `count`'s own
-docstring says `bool` is excluded to prevent, one level down — and `spec.md`
-§Scope scopes this work item to operands that END the report. Closing it here
-would put an unreviewed behaviour change into a work item whose contract
-excludes it. It rides instead as a stamped `# RIDER:` at `count` naming the
-one-line close, and the corrected #170 row names it as open so that no
-document a reader reaches first contradicts the rider.
+**`NaN` and `Infinity` in a `usage` field were deferred, and round 1 showed
+the deferral rested on a false measurement.** The reasoning was that they
+print `nan` and exit 0, so `spec.md` §Scope — operands that END the report —
+put them outside this work item. The reading behind it was taken on
+`output_tokens`, which is the one usage field that never reaches
+`token_thirds`, where `round()` raises on a non-finite float. Every other
+usage field ends the report with exit 1 and stdout empty, on both arms, which
+is worse than either shape the work item was opened for and inside its own In
+criterion. Closed at `count` with `math.isfinite`, the rider's own prescribed
+one-liner; the rider is gone with it, because a rider that has been acted on
+is spent. The deferral is kept in `phases/phase-1.md` as written, with the
+correction above it: how a single measurement was read as a class is the
+finding, and deleting the reasoning would delete it.
 
 **`plan.md`'s Technical context is left as approved.** Its two counts are wrong
 and the divergence table says so with both sides quoted. It is the contract

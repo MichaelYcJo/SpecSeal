@@ -45,14 +45,26 @@
   fragment. Removing it would have taken the method with it, and the method is
   what found these two.
 
-  **One member of the second axis is left open and recorded rather than
-  fixed.** `json.loads` accepts the bare tokens `NaN`, `Infinity` and
-  `-Infinity`, all three are `float`, so all three pass `count`'s type check
-  and print `nan` in a token column at exit 0 — the wrong number `bool` is
-  excluded to prevent, one level down. It does not end the report, which is
-  what this work item is scoped to, so it rides as a stamped `# RIDER:` at
-  `count` naming its one-line close, and the corrected #170 row names it as
-  open rather than closing it by wording. Both shapes were measured absent
+  **A third shape ends the report too, and it was nearly deferred on a
+  measurement of the one field where it does not.** `json.loads` accepts the
+  bare tokens `NaN`, `Infinity` and `-Infinity`, and all three are `float`,
+  so a type check passes them. `token_thirds` rounds a mean and `round()`
+  raises on a non-finite float, which ends the report with exit 1 and stdout
+  empty on both arms — worse than either shape above, since the zero span at
+  least printed its first line. Every usage field except `output_tokens`
+  reaches that `round`, and `output_tokens` was the field the shape was first
+  measured on, so it read as harmless. `count` now charges a non-finite value
+  0, the direction every funnel in the file already takes. What stays open is
+  the wrong-number direction rather than the ended-report one: a finite but
+  nonsensical count passes every funnel there is.
+
+  **The enumeration that found the first two shapes is also what missed the
+  third, and its record now says which node kinds it covers.** The walk
+  listed arithmetic and ordering operators and five call names — 60 sites —
+  and a builtin numeric consumer carries no operator at all, so the single
+  `round` in the module sat outside it. A walk is complete over the node
+  kinds it names; recorded as complete over *the operations*, it was a claim
+  nobody could re-run. Both shapes were measured absent
   from 299 real transcripts — 0 calls with `start == end`, 94,514 of 94,514
   timestamps zone-aware — so this is a claim repaired, not a live crash, and
   the cases build both transcripts by hand. (#175)

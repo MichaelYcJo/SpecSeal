@@ -31,6 +31,7 @@ with subagent runs in <session-id>/subagents/. `--latest` searches both.
 import argparse
 import datetime as dt
 import json
+import math
 import os
 import re
 import sys
@@ -69,7 +70,18 @@ def parse_time(value):
     assumption costs is an absolute time read out of a harness writing local
     naive stamps. Nothing here prints one: every number this file produces
     is a difference between two stamps, and a difference is right whenever
-    the two share a zone."""
+    the two share a zone.
+
+    **Where the two do NOT share a zone, the difference is wrong by that
+    harness's offset — and it is now wrong at exit 0, where it used to
+    raise.** That is the mixed transcript this normalisation was written
+    for, so the cost is not a corner of the assumption but its main case: a
+    naive local stamp read as UTC and subtracted from an aware one is off by
+    the writer's offset from UTC, which at UTC+9 turns a ten-second span
+    into minus nine hours. The trade is `plan.md`'s accepted alternative —
+    a number that is wrong under a stated assumption beats a report that
+    ends — and it is stated here because a silent wrong number is the one
+    outcome nobody can see."""
     try:
         stamp = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
@@ -95,24 +107,27 @@ def count(value):
     already read the rest of the file.
 
     `bool` is excluded on purpose: `True + 1` is 2, so a flag landing in a
-    token column would be a wrong number rather than a missing one."""
-    # RIDER: the same sentence has a second answer this check does not give.
-    # `json.loads` accepts the bare tokens `NaN`, `Infinity` and `-Infinity`
-    # by default, and all three are `float`, so they pass the test below and
-    # reach the three `totals[...] +=` sites in `token_totals`. Measured at
-    # the stamp: a transcript whose `output_tokens` is `NaN` prints
-    # `output  nan` and exits 0. That is not a report that ends — it is the
-    # wrong number `bool` is excluded to prevent, one level down, on the
-    # value of a type that IS a number rather than on the type. Found by
-    # enumerating #175's class over both axes rather than by a crash.
-    # If you are editing this function, close it: `math.isfinite(value)`
-    # beside the `isinstance` check charges such a row 0, the direction
-    # every funnel in this file already takes. Left out of #175 because that
-    # work item's spec scopes it to operands that END the report.
-    # Verified 2026-09-06 at b0e4859.
+    token column would be a wrong number rather than a missing one.
+
+    **A non-finite value is excluded for the stronger reason: it ends the
+    report.** `json.loads` accepts the bare tokens `NaN`, `Infinity` and
+    `-Infinity` by default and all three are `float`, so the type check
+    below passes them. What happens next depends on which field carried
+    one, and only one of the two outcomes is the wrong-number failure
+    `bool` is excluded for. `token_totals`' sums print `nan` and exit 0.
+    But `token_thirds` rounds a mean, and `round()` raises on a non-finite
+    float — `ValueError` for a `NaN`, `OverflowError` for an infinity —
+    which ends the report with stdout EMPTY, on the report and on `--json`
+    alike.
+
+    Every usage field except `output_tokens` reaches that `round`, through
+    the `input_tokens + cache_read_input_tokens` pair `load` builds. That
+    exception is why this was first recorded as harmless: `output_tokens`
+    was the field it was measured on, and it is the one field where the
+    crash does not happen."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return 0
-    return value
+    return value if math.isfinite(value) else 0
 
 
 def message_key(message, row, number):
@@ -471,7 +486,7 @@ def share(part, whole):
     """`part` as a percentage of `whole`, or `—` when there is no share to take.
 
     A transcript whose only paired call begins and ends on one timestamp has
-    a span of zero, and the four lines below divide by it. Printing the span
+    a span of zero, and the three lines below divide by it. Printing the span
     line and then raising `ZeroDivisionError` is the shape `tool_name` was
     written to end: a report that worked and then stopped, with the token
     block and the family table lost behind the crash.
@@ -487,10 +502,19 @@ def share(part, whole):
 
 def report(data):
     print(f"span          {minutes(data['span_s'])}   ({data['calls']} tool calls)")
-    if data["span_s"] <= 0:
+    if data["span_s"] == 0:
         print(
             "              every call shares one timestamp, so there is no "
             "span to take a share of"
+        )
+    elif data["span_s"] < 0:
+        # Two shapes, two sentences. `share` decides what a non-positive span
+        # MEANS for a percentage, and one dash covers both; what it cannot do
+        # is say which shape the reader is looking at, because it is handed
+        # the numbers and not the transcript.
+        print(
+            "              the last result predates the first call, so the "
+            "span is negative and there is no share to take of it"
         )
     print(
         f"  command     {minutes(data['command_s'])}"
