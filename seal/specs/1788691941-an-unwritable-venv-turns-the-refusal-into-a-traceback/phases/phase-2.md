@@ -128,12 +128,19 @@ string literals written into one, so a fourth constant joins the derived set
 with nobody editing the test file.
 
 **Both cases are kept, and that is a decision rather than an oversight.**
-Neither covers the other. A constant renamed with its value untouched is still
-the same word in the document, so the derivation cannot see that edit and only
-the named form fails on it; a constant added is invisible to the named form.
-The mutation run shows exactly this — `1 failed, 1 passed` — which is the gap
-measured rather than argued. Their docstrings say which is which, where a
-reader would type the deletion.
+Neither covers the other. A constant added to `call_sites` is invisible to the
+named form, and the mutation run shows it — `1 failed, 1 passed`.
+
+<!-- CORRECTED in round 1's fix pass (finding 1). This paragraph also claimed
+a constant renamed with its value untouched is caught by the named form
+alone. It is not: the derived case builds its floor from the same three
+constants by attribute name, so a rename and a reword redden BOTH. The named
+case's real unique catch is `only the first is a unit name`, which the derived
+case never reads. The **Executed** label below covers the addition mutation,
+which is the half this phase's run measured; the other three were measured in
+the fix pass and are in `rounds/round-1.md`. -->
+
+Their docstrings say which is which, where a reader would type the deletion.
 
 **The derivation's own vacuous pass is guarded before the loop.** A derivation
 that stops finding anything leaves the assertion loop with nothing to iterate
@@ -162,10 +169,20 @@ reads a literal cannot execute: deleting it left the whole module green. That
 is an arm no case can kill, planted by the very phase that was closing #177's
 *the list would be the thing going stale* — the same defect one level down.
 `reach_values` takes the generator's text as a parameter now, defaulting to
-the real module, and six fixtures exercise both arms, both type checks, and
+the real module, and seven fixtures exercise both arms, both type checks, and
 the two halves of the recorded limit. Six mutations, one at a time, each dead
 and each named. The parameter is the first thing that will read as test-only
 machinery, so the row says what it buys where the deletion would be typed.
+
+<!-- CORRECTED in round 1's fix pass (finding 4): this said six fixtures where
+`DERIVATIONS` had seven. The count moved again in that pass — the derivation
+became `handed_back`, one arm per way an expression carries a value outward,
+and the fixtures were re-enumerated over those arms and over the
+over-collection shapes round 1 measured. `rounds/round-1.md` carries the
+current figures; the numbers in this record are phase 2's, at `3bf5c6d`. -->
+
+**The "six mutations" figure above is a mutation count and stays correct.**
+Only the fixture count was wrong.
 
 **The vacuous-pass guard was a bare count and is now a floor with content.**
 `len(values) >= 3` is a number anybody can lower without noticing; the derived

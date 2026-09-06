@@ -7,8 +7,12 @@
   `.venv` this process cannot write to, the floor refusal reached stderr and a
   `PermissionError` followed it. The write is guarded now and says what it
   could not do: it names the ignore, the reason, and that the virtualenv stays
-  visible to `git status` until the reader removes that directory or makes it
-  writable. The refusals above it keep their wording and their exit codes, and
+  visible to `git status` until that write can succeed or the reader removes
+  the directory. **The remedy names no cause on purpose**, because the guard
+  catches four of them — no permission, a read-only filesystem, a full disk,
+  and the path already being a directory — and an earlier wording said *make
+  it writable*, which is wrong advice on two. Which one it was is carried by
+  the reason. The refusals above it keep their wording and their exit codes, and
   the runner does not try to win the argument — a read-only `.venv` is the
   operator's. **The class is closed by construction rather than by a list**:
   `hide_from_git` holds the only write this module makes to the working tree
@@ -50,14 +54,28 @@
   reach the document before the suite is green again. Measured rather than
   argued: with a sixth value added to the function, the derived case exits 1
   naming it and the named case passes. **Both are kept**, because neither
-  covers the other — a constant renamed with its value untouched is still the
-  same word in the document, so only the named form fails on that edit. What
-  the derivation does not reach is recorded beside it rather than closed: a
-  value another function hands back, one formatted at run time, and the two
-  the section names as categories rather than as words, which are the
-  reviewed repository's own names and have no finite set to derive — and that
-  limit is executed rather than only stated, by two fixtures that are its two
-  sides. **The derivation reads the generator's text as an argument, and that
+  covers the other, and **which half each one holds was measured, after a
+  first attempt asserted it and got it wrong.** The sentence saying which of
+  the five values is a unit name is read by the older case alone, so removing
+  it from the document reddens that one and leaves the derived one green; a
+  value added to the function is seen by the derived one alone. A rename and a
+  reword redden both, because the derived case checks the same three constants
+  by name before it starts. The wrong version claimed the rename for the older
+  case alone, and it stood in the comment a maintainer would read while
+  deciding to delete one of the two — which would have deleted the case
+  holding the half nothing else holds.
+
+  **What a `return` hands back is not the same as what appears inside it**,
+  and the first derivation confused the two. It collected every string
+  anywhere in a `return`, so a comparison operand, a keyword argument, half of
+  an f-string and a dictionary key all arrived as reach values; the case then
+  went red naming a word the function cannot produce, and told the reader to
+  add it to a shipped document. It now asks what each kind of expression can
+  hand to the caller, and the refusal names both directions — add the word, or
+  fix the derivation — because one step of the walk still deliberately
+  over-reaches. What the derivation cannot see is recorded beside it and split
+  into under-reach and over-reach: five shapes hand a value back and read as
+  nothing, and one shape reads a value the function may never hand back. **The derivation reads the generator's text as an argument, and that
   is what makes it testable at all**: today's `call_sites` names a constant in
   every return and writes no literal into one, so against the real module the
   arm that reads a literal is unreachable and a mutation deleting it survives
