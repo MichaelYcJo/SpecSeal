@@ -690,6 +690,88 @@ def test_prose_under_the_probes_table_stays_in_the_report(repo):
     assert "must not travel" not in text
 
 
+# --- the same boolean, applied to the two texts and the third input ----------
+#
+# Round 1 of this work item's own chain measured what the seven-member table
+# above did NOT cover, and none of it is a new member of that partition. The
+# partition is one boolean over one span, and it is complete for that boolean;
+# what was under-counted is what the boolean was applied TO.
+#
+#   the text          `swallowed` reads `strip_comments(report)`, and
+#                     `fenced_after` reads `raw`. A fence opener inside an
+#                     HTML comment is absent from the first and present in
+#                     the second, so the report-wide check reads a text that
+#                     does not have it while the copy reads one that does
+#   the line          the partition's read lines were `REPORT_TABLES`'
+#                     headings and `TERMINAL_LINES`. The generator also reads
+#                     the table ROWS under a standing heading, and a fence
+#                     that takes those alone leaves the heading in place
+#   the input         the round paragraph is spliced into the record above
+#                     every section a reader looks up, and it never passed
+#                     through the guard at all
+
+
+COMMENTED_OPENER = "<!-- a note about the row\n```\nstill the note\n-->\n"
+
+
+def test_a_fence_opened_inside_an_html_comment_is_refused(repo):
+    """🔴 1 of round 1. `swallowed` reads `strip_comments(report)` and
+    `fenced_after` reads `raw`, so an opener inside an HTML comment is
+    invisible to the report-wide check and an opener to the copy. Executed at
+    `861ad16` before this: exit 0 with the record written, and read back
+    through the shared reader its `## Inherited coordinates` and `## Deferred`
+    each resolved to 0 occurrences -- the defect this work item exists to fix,
+    arriving through the door phase 1 opened by calling `fenced_after`'s
+    never-closed raise unreachable."""
+    declared(repo)
+    code, out, text = generate(
+        repo, report_text=report(probes=PROBE_ROW + "\n" + COMMENTED_OPENER)
+    )
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "never closed" in out
+    assert "HTML comment" in out
+
+
+FENCED_DEFERRED = f"## Deferred\n\n```\n{DEFERRED_HEADER}{DEFERRED_ROW}```\n"
+
+
+def test_a_fence_hiding_a_whole_table_under_a_standing_heading_is_refused(repo):
+    """🟡 2 of round 1. The heading stands, so the heading loop sees nothing,
+    and the table is what the fence took: the record then reads `nothing to
+    drain` beside a row the reviewer wrote. Executed at `861ad16` before this:
+    exit 0, the record's Deferred section reading `nothing to drain`.
+
+    The condition is F3's shape one level down -- the loss, never the mention.
+    A fence quoting rows beside a table that still stands is copied as it
+    always was, which is what keeps a reviewer of THIS generator able to paste
+    record-shaped blocks."""
+    declared(repo)
+    body = HEAD_AND_VERDICTS + PROBES_TABLE + FENCED_DEFERRED + "\n"
+    code, out, text = generate(repo, report_text=body + TERMINAL)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "every table row of `## Deferred`" in out
+
+
+UNCLOSED_ASKED = "Attack the parser first.\n\n```python\ndef helper(a):\n    return a\n"
+
+
+def test_an_unclosed_fence_in_the_round_paragraph_is_refused(repo):
+    """🟡 3 of round 1. The round paragraph is the orchestrator's copy of a
+    spawn prompt, and spawn prompts carry fenced blocks routinely -- the one
+    that produced this work item does. It is spliced above every section a
+    reader looks up and never passed through the guard. Executed at `861ad16`
+    before this: the record was WRITTEN, all four sections resolved to 0
+    occurrences, and the run then failed blaming a missing `## Verdicts`."""
+    declared(repo)
+    code, out, text = generate(repo, asked=UNCLOSED_ASKED)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "never closed" in out
+    assert "round paragraph" in out
+
+
 def test_a_report_without_a_verdict_table_is_refused(repo):
     declared(repo)
     code, out, text = generate(repo, report_text=report(verdicts=None))
