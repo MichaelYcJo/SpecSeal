@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 181 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | COMMENT_NEVER_CLOSED (depth 1); ASKED_COMMENT_NEVER_CLOSED (depth 1); UNCLOSED_COMMENT_ASKED (depth 1); COMMENT_INSIDE_A_FENCE (depth 1); test_an_unclosed_html_comment_in_the_round_paragraph_is_refused (depth 1); UNCLOSED_COMMENT_REPORT (depth 1); test_an_unclosed_html_comment_in_the_report_names_the_comment (depth 1) |
 | Needs a fix | yes |
