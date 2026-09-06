@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 191 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | turn_at (depth 1); test_a_nan_token_count_does_not_end_the_report (depth 1); test_a_negative_span_says_what_it_actually_saw (depth 1) |
 | Needs a fix | yes — findings 1, 2, 3, 4 and 5 |
