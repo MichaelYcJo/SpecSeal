@@ -1,16 +1,27 @@
 """Issue #109 part 3: `.github/scripts/roll_flow_measurement_issue.py` closes
 the currently-open `flow-measurement` issue and opens the next one, titled
-with the version this release just shipped bumped to the next minor. It runs
-as a second step in `close-issues-on-release.yml`, on the same trigger and
-checkout `close_issues_on_release.py` already uses.
+after the version this release just shipped. It runs as a second step in
+`close-issues-on-release.yml`, on the same trigger and checkout
+`close_issues_on_release.py` already uses.
+
+Issue #155 gave it a condition. The roll fires when a new version has shipped
+since the open log opened, not on every push to `main`, and the title states
+the version it rolled FROM rather than a guess at the version it is for --
+`log_title` and `rolled_from` are pure and read the same constant. The cases
+for that half are at the bottom of this file, under their own heading.
 
 Following `tests/test_release_hygiene.py:225-355`'s `monkeypatch`-on-
-`subprocess.run` pattern for that neighbouring script: `next_version` is a
-pure function, tested directly with no `gh`/`git` calls; the exactly-one-open
-invariant and the retry-once hardening (phase 1's own finding, in the new
+`subprocess.run` pattern for that neighbouring script: the exactly-one-open
+invariant and the retry-once hardening (phase 1's own finding, in the
 module's docstring) are tested by monkeypatching the module's own `run`,
 `list_open_issues`, `read_version`, and `time.sleep` -- never the real
 network.
+
+Every fixture below carries `chore: flow measurement — 0.7.0` as the open
+log's title, which is the OLD convention: it names no version the roll can
+read, so it is always due and every case here reaches the roll it is about.
+That is deliberate rather than left over -- it is also the migration path,
+exercised by every case in the file.
 """
 
 import json
@@ -33,19 +44,6 @@ def _roller():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
-
-
-def test_next_version_bumps_the_minor_and_resets_the_patch():
-    m = _roller()
-    assert m.next_version("0.7.0") == "0.8.0"
-    assert m.next_version("0.7.3") == "0.8.0", (
-        "a patch release still bumps the minor -- plan.md's stated default, "
-        "not a discovered rule"
-    )
-    assert m.next_version("1.9.4") == "1.10.0", (
-        "the minor is an integer, not a single digit -- string-slicing "
-        "instead of parsing would break here"
-    )
 
 
 def test_zero_open_issues_after_the_retry_fails_loudly(monkeypatch):
@@ -99,9 +97,9 @@ def test_one_open_issue_after_the_retry_succeeds():
     m.time.sleep = lambda s: slept.append(s)
     m.read_version = lambda: "0.7.0"
     m.close_issue = lambda repo, number: closed.append((repo, number))
-    m.open_issue = lambda repo, version, closed_number: (
-        created.append((repo, version, closed_number))
-        or (f"chore: flow measurement — {version}")
+    m.open_issue = lambda repo, shipped, closed_number: (
+        created.append((repo, shipped, closed_number))
+        or (f"chore: flow measurement — after {shipped}")
     )
     os.environ["REPO"] = "example/repo"
     try:
@@ -111,10 +109,11 @@ def test_one_open_issue_after_the_retry_succeeds():
 
     assert len(calls) == 2, "a one-open reading on retry must not retry again"
     assert closed == [("example/repo", 89)]
-    assert created == [("example/repo", "0.8.0", 89)], (
-        "the issue just closed is what the new one's body rolls from, so its "
-        "number has to reach `open_issue` -- `main` is the only caller that "
-        "knows it"
+    assert created == [("example/repo", "0.7.0", 89)], (
+        "two things reach `open_issue` and `main` is the only caller that "
+        "knows either: the version this tree ships, which is what the new "
+        "title states, and the number just closed, which is what the new "
+        "body rolls from"
     )
 
 
@@ -187,8 +186,9 @@ def test_one_open_issue_closes_it_and_opens_the_next(monkeypatch):
     create_args = create_calls[0]
     assert "--title" in create_args
     title = create_args[create_args.index("--title") + 1]
-    assert title == "chore: flow measurement — 0.8.0", (
-        f"the new issue's title is {title!r}, not the next minor version"
+    assert title == "chore: flow measurement — after 0.7.0", (
+        f"the new issue's title must name the version this tree ships, which "
+        f"is the version the log it opens rolls from: {title!r}"
     )
     assert "--label" in create_args
     assert create_args[create_args.index("--label") + 1] == "flow-measurement"
@@ -213,9 +213,14 @@ def test_one_open_issue_closes_it_and_opens_the_next(monkeypatch):
         f"the new issue's body must name the durable ledger, found by the "
         f"`flow-baseline` label rather than hardcoded: {body!r}"
     )
-    assert "0.8.0 ships" in body, (
+    assert "since 0.7.0 shipped" in body, (
+        f"the body must say what stretch of work this log covers, in the "
+        f"same terms as its title: {body!r}"
+    )
+    assert "closed by the release that ships the next version" in body, (
         f"the new issue's body must say when it closes -- it is a rolling "
-        f"log, and nothing on the issue itself says so: {body!r}"
+        f"log, and nothing on the issue itself says so. It cannot name that "
+        f"version, which is the whole of #155: {body!r}"
     )
 
 
@@ -420,9 +425,14 @@ def test_every_attempt_failing_still_exits_loudly(monkeypatch):
     with pytest.raises(SystemExit) as exc:
         m.main()
     message = str(exc.value)
-    assert "89" in message and "0.8.0" in message and m.LABEL in message, (
+    assert "89" in message and m.log_title("0.7.0") in message, (
         f"the recovery message must survive the ladder -- it names the "
-        f"already-closed issue and the title to open by hand: {message!r}"
+        f"already-closed issue and the title to open by hand, and that title "
+        f"comes from the same constant the roll writes: {message!r}"
+    )
+    assert m.LABEL in message, (
+        f"the recovery message must name the label the recovery issue "
+        f"needs: {message!r}"
     )
 
 
@@ -433,7 +443,9 @@ def test_the_body_drops_the_ledger_clause_where_no_durable_log_exists():
     m = _roller()
     body = m.issue_body("0.8.0", 89, None)
     assert "#89" in body, f"the body still rolls from the closed issue: {body!r}"
-    assert "0.8.0 ships" in body, f"the body still says when it closes: {body!r}"
+    assert "since 0.8.0 shipped" in body, (
+        f"the body still says what stretch of work it covers: {body!r}"
+    )
     assert "live in #" not in body, (
         f"the body points at a durable ledger that does not exist: {body!r}"
     )
@@ -549,10 +561,11 @@ def test_close_succeeds_but_open_fails_names_both_in_the_message(monkeypatch):
             f"number, so an operator does not have to separately check "
             f"whether it is still open: {message!r}"
         )
-        assert "0.8.0" in message, (
-            f"the failure message must carry the recovery title (the next "
-            f"version) so an operator can open the replacement issue by "
-            f"hand: {message!r}"
+        assert m.log_title("0.7.0") in message, (
+            f"the failure message must carry the recovery title so an "
+            f"operator can open the replacement issue by hand, and it must "
+            f"be the title the roll itself writes rather than a second "
+            f"spelling of it: {message!r}"
         )
         assert m.LABEL in message, (
             f"the failure message must name the label the recovery issue "
@@ -580,4 +593,211 @@ def test_read_version_reads_plugin_json(tmp_path):
         "read_version must read the given root, not the real repository's "
         "own plugin.json — a version distinct from this repo's own is used "
         "on purpose so an ignored `root` parameter cannot pass by coincidence"
+    )
+
+
+# --- The condition, and the title the condition reads back (#155) -----------
+#
+# Until #155 the roll had no condition at all: every push to `main` closed the
+# open log and opened one named `next_version(read_version())`. At the 0.8.1
+# release that closed #166, opened for `0.9.0` and holding 0.8.1's own
+# measurements, and opened #172 with the identical title. The cases below pin
+# the two halves the work item settled -- the log is named after the version
+# it rolled FROM, and a run that shipped no new version closes nothing.
+
+
+def _roll_harness(m, monkeypatch, title, shipped, number=89):
+    """Drive `main` with one open log titled `title`, against a tree that
+    ships `shipped`, and record what was closed and what was created.
+
+    The condition is the only thing under test here, so every `gh` call below
+    it succeeds on the first rung -- the create ladder has its own cases
+    above, and `run` is wired to fail the case if anything falls through to
+    it. Returns `(closed, creates)`.
+    """
+    closed = []
+    creates = []
+
+    def fake_try_run(*args):
+        if args[:3] == ("gh", "issue", "create"):
+            creates.append(args)
+            return ""
+        return "[]"
+
+    monkeypatch.setattr(m, "try_run", fake_try_run)
+    monkeypatch.setattr(
+        m, "list_open_issues", lambda repo: [{"number": number, "title": title}]
+    )
+    monkeypatch.setattr(m, "close_issue", lambda repo, n: closed.append((repo, n)))
+    monkeypatch.setattr(m, "read_version", lambda: shipped)
+    monkeypatch.setattr(m, "run", lambda *a: pytest.fail(f"fell through to run: {a}"))
+    monkeypatch.setenv("REPO", "example/repo")
+    return closed, creates
+
+
+def _created_title(creates):
+    args = creates[0]
+    return args[args.index("--title") + 1]
+
+
+def test_a_push_that_shipped_no_new_version_rolls_nothing(monkeypatch):
+    """The half that bites. This workflow fires on every push to `main`, not
+    on every release, and even between releases the same push can be replayed
+    by a re-run. Where the open log already names the version in the tree,
+    nothing has shipped since it opened and there is nothing to roll: the run
+    exits 0 having closed nothing and opened nothing."""
+    m = _roller()
+    closed, creates = _roll_harness(
+        m, monkeypatch, "chore: flow measurement — after 0.7.0", "0.7.0"
+    )
+
+    m.main()
+
+    assert closed == [], (
+        f"the open log is the log for the work since 0.7.0 shipped and 0.7.0 "
+        f"is still what this tree ships, so closing it throws away a log "
+        f"nothing has replaced: {closed}"
+    )
+    assert creates == [], (
+        f"a second log opened here is the 0.8.1 incident exactly -- two open "
+        f"issues where the invariant allows one: {creates}"
+    )
+
+
+def test_a_new_version_since_the_log_opened_rolls_it(monkeypatch):
+    """The other half. The new title names the version this tree ships, which
+    is the one thing the release moment makes certain -- not the next one,
+    which `docs/branch-and-release.md` says is not known until the end."""
+    m = _roller()
+    closed, creates = _roll_harness(
+        m, monkeypatch, "chore: flow measurement — after 0.7.0", "0.8.0"
+    )
+
+    m.main()
+
+    assert closed == [("example/repo", 89)], (
+        f"0.8.0 shipped after the open log opened, so that log is complete "
+        f"and the release closes it: {closed}"
+    )
+    assert len(creates) == 1, f"expected exactly one create: {creates}"
+    assert _created_title(creates) == "chore: flow measurement — after 0.8.0", (
+        f"the title must name the version in the tree. Naming a computed "
+        f"successor is the guess #155 removed: {_created_title(creates)!r}"
+    )
+
+
+def test_the_title_the_roll_writes_is_the_title_the_next_roll_reads(monkeypatch):
+    """Writer and reader are one constant, and this is what holds them
+    together. A wording change on the title alone -- a colon for the em dash,
+    `since` for `after` -- leaves every other case here green and stops the
+    condition reading its own output, after which every later release rolls a
+    log that was not due and the invariant breaks from the other side."""
+    m = _roller()
+    _, creates = _roll_harness(
+        m, monkeypatch, "chore: flow measurement — after 0.7.0", "0.8.0"
+    )
+    m.main()
+    written = _created_title(creates)
+
+    closed, again = _roll_harness(m, monkeypatch, written, "0.8.0", number=90)
+    m.main()
+
+    assert closed == [] and again == [], (
+        f"the roll wrote {written!r} and then did not recognise it as the log "
+        f"for the version it had just written it for: closed {closed}, "
+        f"created {again}"
+    )
+
+
+def test_a_title_written_before_this_change_is_always_due(monkeypatch):
+    """What the old titles mean, made executable. `chore: flow measurement —
+    0.9.0` names a version that had not shipped, so it cannot answer "has
+    anything shipped since this log opened" -- and the marker this change
+    writes, ` — after `, appears in no title written before it. Such a log is
+    due whatever the tree ships, which is what retires the old convention at
+    the first release after this change rather than by hand.
+
+    The second half is the one that matters. A condition that only asked
+    whether the two versions differ would read `0.9.0` against a tree
+    shipping `0.9.0` as *nothing due* and leave that log open forever, with
+    the workflow green -- the prediction coming true is exactly when the old
+    convention would trap the new one."""
+    m = _roller()
+    old = "chore: flow measurement — 0.9.0"
+
+    _, creates = _roll_harness(m, monkeypatch, old, "0.8.2")
+    m.main()
+    assert _created_title(creates) == "chore: flow measurement — after 0.8.2", (
+        f"a patch release must roll a log named by the old convention: "
+        f"{_created_title(creates)!r}"
+    )
+
+    closed, met = _roll_harness(m, monkeypatch, old, "0.9.0", number=90)
+    m.main()
+    assert closed == [("example/repo", 90)], (
+        f"the predicted version shipping is not the same fact as the log "
+        f"naming the version it rolled from, and reading it as one stalls "
+        f"that log for good: {closed}"
+    )
+    assert _created_title(met) == "chore: flow measurement — after 0.9.0", (
+        f"the replacement is named the new way whatever the old one said: "
+        f"{_created_title(met)!r}"
+    )
+
+
+def test_a_title_the_roll_cannot_read_is_due_rather_than_silent(monkeypatch):
+    """The direction the design is chosen in. Reading the title is what makes
+    a title editable-by-accident, and the two ways to answer an unreadable one
+    are not symmetric: *not due* stops the log forever with the workflow
+    green, and *due* costs one roll that was not owed. This is the only case
+    that pins which way it falls."""
+    m = _roller()
+    closed, creates = _roll_harness(m, monkeypatch, "chore: measurement log", "0.8.0")
+
+    m.main()
+
+    assert closed == [("example/repo", 89)] and len(creates) == 1, (
+        f"a title this script cannot read as its own must roll rather than "
+        f"go quiet -- silence here is the failure class #155 is about: "
+        f"closed {closed}, created {creates}"
+    )
+
+
+def test_the_nothing_due_line_names_the_log_and_the_version(monkeypatch, capsys):
+    """A reader of the workflow log must be able to tell *rolled* from
+    *nothing due* without opening GitHub. The job is green either way, so the
+    printed line is the only thing that separates a roll that was not owed
+    from a mechanism that has quietly stopped."""
+    m = _roller()
+    _roll_harness(m, monkeypatch, "chore: flow measurement — after 0.7.0", "0.7.0")
+
+    m.main()
+
+    out = capsys.readouterr().out
+    assert "nothing due" in out, (
+        f"the line must say nothing was due, in those words -- a silent exit "
+        f"0 and a stalled mechanism read identically in a workflow log: {out!r}"
+    )
+    assert "#89" in out and "0.7.0" in out, (
+        f"the line must name the log it left alone and the version this tree "
+        f"ships, which is the pair a reader checks: {out!r}"
+    )
+
+
+def test_the_rolled_line_names_the_issue_closed_and_the_title_opened(
+    monkeypatch, capsys
+):
+    """The other half of the same requirement."""
+    m = _roller()
+    _roll_harness(m, monkeypatch, "chore: flow measurement — after 0.7.0", "0.8.0")
+
+    m.main()
+
+    out = capsys.readouterr().out
+    assert "rolled" in out, (
+        f"the two outcomes must be distinguishable by the first word of the "
+        f"line rather than by reading it to the end: {out!r}"
+    )
+    assert "#89" in out and "after 0.8.0" in out, (
+        f"the line must name the issue closed and the title opened: {out!r}"
     )
