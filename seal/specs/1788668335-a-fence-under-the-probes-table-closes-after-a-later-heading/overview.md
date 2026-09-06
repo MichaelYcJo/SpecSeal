@@ -155,14 +155,31 @@ on two crafted reports:
 | above `## Deferred` | `swallowed` does not raise; `## Deferred` resolves to no section AND both terminal lines are gone, so `terminal_value` refuses with *the report has 0 `Needs a fix:` lines* |
 | below the terminal lines | `swallowed` does not raise; nothing the generator reads is hidden, and the record is correct |
 
-So it is **not** a silent loss, and the enumeration this branch corrected
-does not grow by one. An unterminated comment runs to the end of the file, so
-it always takes the terminal lines with it unless it opens below them — and
-the terminal lines are last in the shape `agents/warden.md` §Report asks for.
-What is left is the message: the writer is sent to add a line they did in
-fact write, which is the exact defect §14 and this branch's own
+So at the report level it is **not** a silent loss. An unterminated comment
+runs to the end of the file, so it always takes the terminal lines with it
+unless it opens below them — and the terminal lines are last in the shape
+`agents/warden.md` §Report asks for. What is left there is the message: the
+writer is sent to add a line they did in fact write, which is the exact
+defect §14 and this branch's own
 `test_a_fence_that_swallows_a_terminal_line_names_the_fence` fixed for
-fences. It is one refusal in the same place and shape as `NEVER_CLOSED`, and
+fences.
+
+**The second shape of it is a silent loss, and it is the one to weigh
+first.** A comment can be whole in the report and half in the record, because
+both copies take a SLICE of `raw` — `table_of` copies a row, `fenced_after`
+copies a block. **Executed 2026-09-06 at `993acd1`**: a Deferred row reading
+`| the leg | <!-- a note | CI |` whose `-->` stands on the next line is
+balanced in the report, `swallowed` does not raise, `table_of` copies the row
+as it stands, and in the record every section after that row resolves to
+nothing. The fence version of that same straddle is precisely what the
+restored raise in `fenced_after` now catches; the comment version has no
+guard at all. It is the same asymmetry as 🔴 1 seen from the copy's side
+rather than the check's, and it needs a limit argument of its own before it
+gets a refusal — a copied block may legitimately carry a whole comment, so
+the question is balance across the slice and not presence in it. That is a
+design call and not a fix, which is the other reason it is not taken here.
+
+It is one refusal in the same place and shape as `NEVER_CLOSED`, and
 it is not this fix pass's — round 1 did not find it, a fix pass answers the
 findings it was given, and an unfound guard puts surface in front of the
 verifying round that nobody asked for. It went to a `# RIDER:` at the line it

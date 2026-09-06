@@ -473,10 +473,23 @@ def swallowed(reader, report, lines):
     # in fact write, which is the message defect
     # `test_a_fence_that_swallows_a_terminal_line_names_the_fence` fixed for
     # fences. One opened below the terminal lines hides nothing the generator
-    # reads. So it is a message defect and not a silent loss, and its refusal
-    # belongs here in `NEVER_CLOSED`'s shape, asking the sentinel of the
-    # comment pass the way the line below asks it of the fence pass.
-    # Verified 2026-09-06 at c7663e1.
+    # reads. So at the report level it is a message defect and not a silent
+    # loss, and its refusal belongs here in `NEVER_CLOSED`'s shape, asking the
+    # sentinel of the comment pass the way the line below asks it of the fence
+    # pass.
+    #
+    # The SECOND shape is a silent loss and it is the one to weigh first. A
+    # comment can be whole in the report and half in the record, because both
+    # copies take a SLICE of `raw`: `table_of` copies a row and `fenced_after`
+    # copies a block. Executed 2026-09-06 at 993acd1 -- a Deferred row reading
+    # `| the leg | <!-- a note | CI |` with its `-->` on the next line is
+    # balanced in the report, this function does not raise, `table_of` copies
+    # the row, and in the record every section after it resolves to nothing.
+    # The fence version of exactly that straddle is what `fenced_after`'s
+    # restored raise catches; the comment version has no guard, and it needs a
+    # limit argument of its own before it gets one -- a copied block may
+    # legitimately carry a whole comment, so the question is balance across
+    # the slice and not presence in it. Verified 2026-09-06 at 993acd1.
     stripped = reader.strip_comments(report.splitlines())
     if not reader.blank_fences([*stripped, SENTINEL])[-1]:
         raise Refused(NEVER_CLOSED)
