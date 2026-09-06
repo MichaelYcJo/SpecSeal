@@ -12,7 +12,7 @@
 cell carry the second, which is the one that closed the phase's argument. The
 records and the mutation loop's repair follow it. -->
 
-| Ran by | <left for the orchestrator — the spawn prompt named no model, and the template's own rule is that a segment transcribes this value or leaves it, never sources it from its own idea of what it is> |
+| Ran by | specseal:smith on claude-opus-5[1m] |
 
 ## What this phase was asked
 
