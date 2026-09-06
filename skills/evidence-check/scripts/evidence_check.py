@@ -956,6 +956,81 @@ def resolve_patterns(patterns):
     return sorted(out)
 
 
+def display_name(path, root, flavour=os.path):
+    """`path` as a name a person reads: the root's own segments dropped, and
+    nothing else about the spelling touched.
+
+    **`os.path.relpath` cannot be used for a name a person reads.** It
+    normalises `..` the way `normpath` does -- lexically, without consulting
+    the filesystem -- so `x/lnk/../ledger.md` is printed as `x/ledger.md`,
+    and wherever `lnk` is a symlink that names a DIFFERENT file, one that
+    usually exists. `resolve_patterns` states the same rule for the file that
+    is OPENED, and round 13 of work item `1788501054` closed that half: the
+    path it returns is the spelling the pattern gave. Round 14 found the
+    printing half still open -- the run read one file and named another, with
+    the exit code and the row both right -- and issue #163 is that class.
+    This is the display side of `resolve_patterns`' rule, and the two
+    docstrings are meant to be read together.
+
+    The rule is literal and it has one branch. Where `path` begins with
+    `root`'s own segments, those are sliced off and what remains is the
+    ORIGINAL substring: every separator, every `.` and every `..` as the
+    caller spelled them. Where it does not, `path` comes back verbatim. A
+    segment is compared whole, so `/a/project` is not under `/a/proj`, and
+    nothing on either side is case-folded, resolved or normalised -- an
+    answer derived from `realpath` renames a file the operator did not name,
+    which round 14 declined on the reading side for the same reason.
+
+    **What a miss costs is length, never correctness** (`plan.md`'s accepted
+    alternative). A path that is under the root but reached by a different
+    spelling of it -- local mode's `<git-common-dir>/seal/ledger.md` seen
+    from a linked worktree, or a root spelled through a symlink -- prints
+    absolute and long, and names the file that was read. `relpath` prints
+    something shorter that may name another one. `path` equal to `root`, and
+    a `path` on another Windows drive, take the same way out; `relpath`
+    raises `ValueError` on the second.
+
+    `flavour` is the path module whose separators and drive rule to apply,
+    `os.path` for the running platform. `ntpath` is what a case passes to
+    exercise the Windows separators from a POSIX machine, because a case that
+    skips off Windows is a defence resting on a platform guarantee nobody
+    removed (`agent-contract` §13). Callers pass two arguments.
+    """
+    seps = tuple(s for s in (flavour.sep, flavour.altsep) if s)
+    root_drive, root_rest = flavour.splitdrive(root)
+    path_drive, path_rest = flavour.splitdrive(path)
+    if root_drive != path_drive:
+        return path
+    # An absolute root and a relative path share segment names without
+    # sharing a location, so the anchor is compared before the segments are.
+    if (root_rest[:1] in seps) != (path_rest[:1] in seps):
+        return path
+
+    def segments(text):
+        """Every non-empty segment of `text`, each with where it starts."""
+        out, start = [], None
+        for i, ch in enumerate(text):
+            if ch in seps:
+                if start is not None:
+                    out.append((text[start:i], start))
+                    start = None
+            elif start is None:
+                start = i
+        if start is not None:
+            out.append((text[start:], start))
+        return out
+
+    root_parts = [seg for seg, _ in segments(root_rest)]
+    path_parts = segments(path_rest)
+    if len(path_parts) <= len(root_parts):
+        return path
+    if [seg for seg, _ in path_parts[: len(root_parts)]] != root_parts:
+        return path
+    # Sliced, never rejoined: rejoining would respell the separators and fold
+    # the `..` back out, which is the whole of what this unit refuses.
+    return path_rest[path_parts[len(root_parts)][1] :]
+
+
 def skipped_by_narrowing(root, read):
     """Ledgers the default discovery would have opened and `--ledger` did not.
 
