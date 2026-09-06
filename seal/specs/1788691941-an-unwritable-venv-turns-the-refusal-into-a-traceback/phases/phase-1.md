@@ -6,7 +6,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | 8be39a9 |
-| Ran by | <left for the orchestrator — the spawn prompt named no model, and the template's own rule is that a segment transcribes this value or leaves it, never sources it from its own idea of what it is> |
+| Ran by | specseal:smith on claude-opus-5[1m] |
 
 ## What this phase was asked
 
