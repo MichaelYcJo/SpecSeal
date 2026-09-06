@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 186 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | yes — findings 1 and 2. Finding 1 needs either the two-rule detector widening above or the claim narrowed in four places; finding 2 needs the one boundary assertion. |
