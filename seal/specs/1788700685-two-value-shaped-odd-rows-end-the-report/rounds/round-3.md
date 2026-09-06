@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 191 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-4 |
 | Contract changes | none |
 | New units | TOP_FLOAT (depth 1); test_a_sum_of_entered_values_does_not_end_the_report (depth 1) |
 | Needs a fix | yes — findings 1 and 2 |

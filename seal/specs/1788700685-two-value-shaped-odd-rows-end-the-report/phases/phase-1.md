@@ -238,7 +238,7 @@ shapes of this work item come from and where the third came from:
 
 | Axis | Type sub-axis | Value sub-axis |
 |---|---|---|
-| a number | not a number at all → `count` (#170) | a number that is not a quantity → `NaN`, `Infinity`, and an `int` with no float of its own → **closed at `count`** in round 1's and round 2's fix passes. **A third sub-axis this table did not have**: not the value that enters but what the arithmetic MAKES of two that did — two finite counts summing past the range, closed at `token_thirds` in round 3's fix pass, with the class itself recorded as a limit and handed to an issue |
+| a number | not a number at all → `count` (#170) | a number that is not a quantity → `NaN`, `Infinity`, and an `int` with no float of its own → **closed at `count`** in round 1's and round 2's fix passes. **A third sub-axis this table did not have**: not the value that enters but what the arithmetic MAKES of two that did — two finite counts summing past the range, closed at `token_thirds` in round 3's fix pass, with the class itself recorded as a limit and handed to issue #192 |
 | a `datetime` | naive beside aware → `parse_time` (**this phase**) | two stamps equal → span of zero → `share` (**this phase**) |
 
 ### The third operand shape, found by the method and left open
