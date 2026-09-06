@@ -4,19 +4,28 @@ Round 13 of work item `1788501054` closed the half that decides which file is
 OPENED: `resolve_patterns` folds by inode and returns the spelling the pattern
 gave, because `normpath` collapses `lnk/..` lexically and a normalised return
 names a different file wherever `lnk` is a symlink. Round 14 found the printing
-half still open — four sites calling `os.path.relpath(ledger, root)`, and
-`relpath` normalises exactly the way `normpath` does. The run read
-`<root>/ledger.md`, exited 2 on its broken row, and printed the header
-`x/ledger.md` over it. The exit code and the row were right; the name a person
-reads and then goes to edit was a different file that exists. That is issue
-#163, and `display_name` is the display side of `resolve_patterns`' rule.
+half still open — the issue listed four sites calling
+`os.path.relpath(ledger, root)`, and `relpath` normalises exactly the way
+`normpath` does. The run read `<root>/ledger.md`, exited 2 on its broken row,
+and printed the header `x/ledger.md` over it. The exit code and the row were
+right; the name a person reads and then goes to edit was a different file that
+exists. That is issue #163, and `display_name` is the display side of
+`resolve_patterns`' rule.
 
-**What is here is the unit alone** (phase 1). The call sites, the integration
-case over a real `--ledger` run, and the source-reading case that refuses a
-future `relpath` on a ledger path are phase 2's.
+**The issue's four were not the class; there are five.** The fifth is `main`'s
+`--ledger narrowed this run` loop, whose variable is `path` rather than
+`ledger`, so a grep for `relpath(ledger` does not find it. Phase 2 enumerated
+the class by data flow instead, and `test_no_ledger_path_reaches_relpath`
+below is that enumeration kept as a case.
 
-**How these cases were enumerated.** Not by listing what came to mind — by
-decomposing the unit's input, which is two path strings and a path flavour:
+**Two kinds of case live here.** The unit's own, decomposed below (phase 1),
+and the three at the end that read the checker's SOURCE to hold the class
+(phase 2). The integration case over a real `--ledger` run is in
+`tests/test_a_narrowed_ledger_read_says_what_it_skipped.py`, beside the
+symlink fixture it reuses.
+
+**How the unit's cases were enumerated.** Not by listing what came to mind —
+by decomposing the unit's input, which is two path strings and a path flavour:
 
   A  the lexical relation between `path` and `root`, which is what the rule
      branches on: all of root's segments match with something left · all match
@@ -42,6 +51,7 @@ ordinary run already prints. Both stand-ins live in
 `test_tmp_*` form and are named in `phases/phase-1.md`.
 """
 
+import ast
 import importlib.util
 import ntpath
 import os
@@ -61,6 +71,14 @@ def checker_module():
 
 
 ec = checker_module()
+
+
+def read_script():
+    """The checker's own source, for the cases that hold the CLASS rather
+    than the unit. Read as text on every call, so a case cannot be measuring
+    a copy taken before its own edit."""
+    with open(SCRIPT, encoding="utf-8") as handle:
+        return handle.read()
 
 
 def shown(path, root, **kw):
@@ -330,4 +348,196 @@ def test_a_backslash_is_an_ordinary_character_on_posix():
     assert (
         shown("/tmp/proj\\seal/ledger.md", "/tmp/proj", flavour=posixpath)
         == "/tmp/proj\\seal/ledger.md"
+    )
+
+
+# ------------------------------------------- the class, not the five sites
+
+
+def carriers(text):
+    """Every local name in `evidence_check.py` that can hold a ledger path.
+
+    A ledger path enters that program at `resolve_patterns` and nowhere else,
+    so the set is a fixed point over four rules: a name assigned from a
+    `resolve_patterns` call carries one; a loop or comprehension variable over
+    a carrier carries one; a function called with a carrier in argument
+    position `i` gives its `i`th parameter one; and a function that returns an
+    expression mentioning a carrier gives its callers' assignment targets one.
+
+    **It over-reaches, and that is the safe direction.** The return rule marks
+    `main`'s `findings` -- tuples whose first element is a coordinate -- and
+    `resolve_patterns`' `key`, an inode pair. Neither is a path, so the check
+    below can raise a false alarm about them and can never let a real site
+    through. A false alarm costs a reader one minute; a false pass is issue
+    #163 again.
+    """
+    tree = ast.parse(text)
+    funcs = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+    carried = {name: set() for name in funcs}
+    hands_back = set()
+
+    def names(node):
+        return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+
+    for fn in funcs.values():
+        for n in ast.walk(fn):
+            if not (isinstance(n, ast.Assign) and isinstance(n.value, ast.Call)):
+                continue
+            called = n.value.func
+            if getattr(called, "id", None) == "resolve_patterns":
+                carried[fn.name] |= {t.id for t in n.targets if isinstance(t, ast.Name)}
+
+    changed = True
+    while changed:
+        changed = False
+        for fn in funcs.values():
+            have = carried[fn.name]
+            before = (len(have), len(hands_back))
+            for n in ast.walk(fn):
+                gens = []
+                if isinstance(n, ast.For):
+                    gens = [(n.target, n.iter)]
+                elif isinstance(
+                    n, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+                ):
+                    gens = [(g.target, g.iter) for g in n.generators]
+                for target, over in gens:
+                    if names(over) & have and isinstance(target, ast.Name):
+                        have.add(target.id)
+                if isinstance(n, ast.Assign) and isinstance(n.value, ast.Call):
+                    if getattr(n.value.func, "id", None) in hands_back:
+                        have |= {t.id for t in n.targets if isinstance(t, ast.Name)}
+                if isinstance(n, ast.Return) and n.value is not None:
+                    if names(n.value) & have:
+                        hands_back.add(fn.name)
+                if isinstance(n, ast.Call):
+                    callee = funcs.get(getattr(n.func, "id", None))
+                    if callee is None:
+                        continue
+                    params = [a.arg for a in callee.args.args]
+                    for i, arg in enumerate(n.args):
+                        if i < len(params) and names(arg) & have:
+                            if params[i] not in carried[callee.name]:
+                                carried[callee.name].add(params[i])
+                                changed = True
+            if (len(have), len(hands_back)) != before:
+                changed = True
+    return carried
+
+
+def relpath_on_a_ledger(text):
+    """`(function, line, source)` for every `relpath` given a ledger path."""
+    carried = carriers(text)
+    tree = ast.parse(text)
+    found = []
+    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+        have = carried.get(fn.name, set())
+        for n in ast.walk(fn):
+            if not isinstance(n, ast.Call) or not n.args:
+                continue
+            if getattr(n.func, "attr", None) != "relpath":
+                continue
+            first = n.args[0]
+            if isinstance(first, ast.Name) and first.id in have:
+                found.append((fn.name, n.lineno, ast.get_source_segment(text, n)))
+    return found
+
+
+def test_no_ledger_path_reaches_relpath():
+    """The class, held by a property rather than by the five line numbers the
+    issue happened to list.
+
+    Without this the helper is a convention, and a convention is what this
+    defect already was: `resolve_patterns` had carried the same rule for the
+    file that is OPENED since round 13 of work item `1788501054`, said so in
+    its docstring, and the printing half went on calling `relpath` for
+    another two releases. What breaks in six months is a sixth site added by
+    someone reaching for what the standard library offers.
+
+    The check does not read line numbers or a list of names. It recomputes
+    which locals can hold a ledger path -- the same data-flow enumeration
+    phase 2 used to find the fifth site -- and refuses `relpath` on any of
+    them. A site added tomorrow under a name nobody has thought of is in the
+    set the moment a ledger path reaches it.
+
+    Seen red first: `relpath_on_a_ledger` is run below over a copy of the
+    source with one site put back, and that arm is what shows the detector
+    can fail at all.
+    """
+    text = read_script()
+    offenders = relpath_on_a_ledger(text)
+    assert offenders == [], (
+        "a ledger path is rendered by `os.path.relpath`, which folds `..` "
+        "lexically and names a file that was not read (issue #163) — call "
+        "`display_name(path, root)` instead:\n"
+        + "\n".join(f"  {fn} L{ln}: {src}" for fn, ln, src in offenders)
+    )
+
+
+def test_the_refusal_above_can_actually_fail():
+    """`verify`'s second condition — a check that cannot fail is a counterfeit
+    seal — applied to the case above, which passes on an empty set and would
+    pass just as quietly if the analysis had degraded to finding nothing.
+
+    Two arms. The carrier set is asserted to hold the names the five real
+    sites use, so an analysis that quietly returns nothing fails here; and one
+    site is put back to `relpath` in a copy of the source, where the detector
+    must name it.
+    """
+    text = read_script()
+    carried = carriers(text)
+    for fn, name in (
+        ("check_ledger", "ledger"),
+        ("migrate", "ledger"),
+        ("reverify", "ledger"),
+        ("main", "ledger"),
+        ("main", "missed"),
+        ("main", "path"),
+    ):
+        assert name in carried.get(fn, set()), (
+            f"the analysis lost `{name}` in `{fn}`, so it would not see a "
+            "`relpath` put there"
+        )
+
+    put_back = text.replace(
+        'print(f"\\n{display_name(ledger, root)}")',
+        'print(f"\\n{os.path.relpath(ledger, root)}")',
+        1,
+    )
+    assert put_back != text, (
+        "the header site was not found by its source text, so the arm below "
+        "proves nothing — re-anchor it on the current spelling"
+    )
+    assert [fn for fn, _, _ in relpath_on_a_ledger(put_back)] == ["main"], (
+        "the defect was put back into `main`'s per-ledger header and the "
+        "check did not name it"
+    )
+
+
+def test_the_scanned_source_path_is_not_a_ledger_and_keeps_its_relpath():
+    """The judgement `spec.md` put out of scope, pinned so that a later
+    session does not route it through `display_name` on the assumption that
+    the two are interchangeable.
+
+    `scan_candidates` renders a SCANNED SOURCE FILE, built by `os.walk` under
+    `repo`, for the `(moved?)` hint on a broken row. Three things separate it
+    from a ledger name. It carries no `..` to collapse, because `os.walk`
+    composes it downward from the root it was given. It is compared against
+    `rel`, a path spelled the way a ledger row spells one, so it must be
+    normalised rather than preserved. And it appends
+    `.replace(os.sep, "/")`, which `display_name` deliberately does not do --
+    routing it through the helper would change what Windows prints for every
+    such hint.
+
+    So the detector must NOT reach it, and this pins that both ways: the site
+    still calls `relpath`, and it is not in the class.
+    """
+    text = read_script()
+    assert 'os.path.relpath(full, repo).replace(os.sep, "/")' in text, (
+        "the scan-suggestion site changed shape; re-judge it against "
+        "`spec.md`'s Out section rather than re-anchoring this case"
+    )
+    assert "scan_candidates" not in [fn for fn, _, _ in relpath_on_a_ledger(text)], (
+        "the scanned-source path was classified as a ledger path — the "
+        "class is *a ledger rendered for a person*, and this is not one"
     )
