@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 191 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | turn_at → pytest only |
 | New units | HUGE_INT (depth 1) |
 | Needs a fix | yes — findings 1, 2, 3, 4 and 5 |
