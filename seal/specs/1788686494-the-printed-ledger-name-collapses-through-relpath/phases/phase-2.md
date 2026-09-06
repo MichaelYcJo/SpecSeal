@@ -95,9 +95,27 @@ naming each with its function and line.
 **The detector over-reaches, and that is the safe direction.** The return rule
 marks `main`'s `findings` (tuples whose first element is a coordinate) and
 `resolve_patterns`' `key` (an inode pair). Neither is a path, so the check can
-raise a false alarm and can never let a real site through. A false alarm costs
-a reader a minute; a false pass is #163 again. This is the thing a reviewer
-should attack first.
+raise a false alarm. A false alarm costs a reader a minute. This is the thing a
+reviewer should attack first.
+
+<!-- CORRECTED after round 1, at the fix pass that answers it. The paragraph
+     above ended with "and can never let a real site through", and round 1
+     measured that false: six spellings went unreported — an alias, a
+     subscript, an inline wrapper, a tuple unpack, a bare `from os.path import
+     relpath`, and `os.path.normpath`. The reasoning error is worth keeping
+     visible rather than editing away, because it is the same one twice: over-
+     reach on the RETURN rule was treated as evidence about coverage on every
+     OTHER rule, and the two are independent. Marking a name that is not a path
+     says nothing about whether a path can travel by a route the rules do not
+     model. The six are closed by widening two rules inside `carriers` and
+     `relpath_on_a_ledger`; the claim that replaces the deleted clause is in
+     `overview.md` and in the `carriers` docstring, and it is narrower on
+     purpose — a guarantee was never measured and is not on offer. -->
+
+**What the reviewer should attack next, stated because round 1's finding came
+from here.** The guard's coverage is a claim about the propagation rules, not
+about the language. Ask which route a ledger path could take that the five
+rules do not model, rather than whether the marked names are all paths.
 
 **A green empty list is a counterfeit seal, so it has its own case.**
 `test_no_ledger_path_reaches_relpath` passes on an empty offender list and

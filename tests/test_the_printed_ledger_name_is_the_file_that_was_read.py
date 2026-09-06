@@ -291,8 +291,23 @@ def test_a_windows_pattern_typed_with_forward_slashes_keeps_them():
     on Windows, which is how a `--ledger` argument arrives. Both characters
     are separators there, and the surviving substring keeps the spelling the
     caller used. Red against verbatim-always.
+
+    **The second assertion is what holds `altsep`, and nothing did until round
+    1.** Dropping `flavour.altsep` from the separator set survived all 43
+    cases, because the first assertion's `/` sits in the TAIL, which the unit
+    slices rather than splits — the characters come back either way. Where it
+    bites is a `/` inside the ROOT's own segments. An ABSOLUTE `--ledger`
+    pattern is that input and it is reachable from the command line:
+    `os.path.join` returns the second path unchanged when it is absolute, so
+    `--ledger C:/proj/seal/ledger.md` under `root = os.path.abspath(".")` of
+    `C:\\proj` arrives here exactly as spelled below. Without `altsep` the
+    whole path is one segment, `1 <= 1` sends it back verbatim, and the header
+    prints an absolute path where it should print `seal/ledger.md`.
     """
     assert shown(r"C:\proj\seal/ledger.md", r"C:\proj", flavour=ntpath) == (
+        "seal/ledger.md"
+    )
+    assert shown("C:/proj/seal/ledger.md", r"C:\proj", flavour=ntpath) == (
         "seal/ledger.md"
     )
 
@@ -317,6 +332,16 @@ def test_a_path_on_another_drive_keeps_its_own_spelling():
     """
     assert shown(r"D:\proj\seal\ledger.md", r"C:\proj", flavour=ntpath) == (
         r"D:\proj\seal\ledger.md"
+    )
+    # The other direction, unpinned until round 1: case-folding the drive
+    # survived all 43 cases. Windows treats `c:` and `C:` as one drive, so
+    # folding them here is a defensible answer -- but it is not the answer
+    # this unit gives, and the docstring says why: nothing on either side is
+    # case-folded, resolved or normalised, because an answer derived that way
+    # renames a file the operator did not name. Verbatim is longer and never
+    # wrong, which is `plan.md`'s accepted alternative applied one more time.
+    assert shown(r"C:\proj\seal\ledger.md", r"c:\proj", flavour=ntpath) == (
+        r"C:\proj\seal\ledger.md"
     )
 
 
@@ -358,18 +383,30 @@ def carriers(text):
     """Every local name in `evidence_check.py` that can hold a ledger path.
 
     A ledger path enters that program at `resolve_patterns` and nowhere else,
-    so the set is a fixed point over four rules: a name assigned from a
+    so the set is a fixed point over five rules: a name assigned from a
     `resolve_patterns` call carries one; a loop or comprehension variable over
     a carrier carries one; a function called with a carrier in argument
-    position `i` gives its `i`th parameter one; and a function that returns an
-    expression mentioning a carrier gives its callers' assignment targets one.
+    position `i` gives its `i`th parameter one; a function that returns an
+    expression mentioning a carrier gives its callers' assignment targets one;
+    and a bare alias of a carrier, or a tuple of them, carries one.
 
-    **It over-reaches, and that is the safe direction.** The return rule marks
-    `main`'s `findings` -- tuples whose first element is a coordinate -- and
-    `resolve_patterns`' `key`, an inode pair. Neither is a path, so the check
-    below can raise a false alarm about them and can never let a real site
-    through. A false alarm costs a reader one minute; a false pass is issue
-    #163 again.
+    **It over-reaches in places, and that direction is the safe one.** The
+    return rule marks `main`'s `findings` -- tuples whose first element is a
+    coordinate -- and `resolve_patterns`' `key`, an inode pair; the alias rule
+    marks every target of `a, b = ledger, root` rather than pairing them by
+    position. None of those is a path, so each can raise a false alarm, and a
+    false alarm costs a reader one minute.
+
+    **What it does NOT claim is that a site cannot slip past it.** This
+    docstring used to say the check could never let a real site through, and
+    round 1 constructed six spellings that it did: an alias, a subscript, an
+    inline wrapper, a tuple unpack, a bare `from os.path import relpath`, and
+    `os.path.normpath`. All six are closed now and the seven arms of
+    `test_the_refusal_above_can_actually_fail` hold them. A seventh spelling
+    is always constructible -- a carrier reaching a rendering through a dict
+    value, or through `getattr` -- so what these rules cover is the class of
+    spelling somebody reaches for while editing, which is the class that
+    produced issue #163. A guarantee is not on offer and was never measured.
     """
     tree = ast.parse(text)
     funcs = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
@@ -379,13 +416,27 @@ def carriers(text):
     def names(node):
         return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
 
+    def bound(node):
+        """Every name an assignment binds, tuple targets included.
+
+        `main`'s own `migrated, left, unproven = migrate(...)` is that shape,
+        and reading only top-level `ast.Name` targets skipped it -- so a
+        carrier arriving through a tuple unpack was invisible (round 1).
+        """
+        return {
+            sub.id
+            for t in node.targets
+            for sub in ast.walk(t)
+            if isinstance(sub, ast.Name)
+        }
+
     for fn in funcs.values():
         for n in ast.walk(fn):
             if not (isinstance(n, ast.Assign) and isinstance(n.value, ast.Call)):
                 continue
             called = n.value.func
             if getattr(called, "id", None) == "resolve_patterns":
-                carried[fn.name] |= {t.id for t in n.targets if isinstance(t, ast.Name)}
+                carried[fn.name] |= bound(n)
 
     changed = True
     while changed:
@@ -404,9 +455,21 @@ def carriers(text):
                 for target, over in gens:
                     if names(over) & have and isinstance(target, ast.Name):
                         have.add(target.id)
-                if isinstance(n, ast.Assign) and isinstance(n.value, ast.Call):
-                    if getattr(n.value.func, "id", None) in hands_back:
-                        have |= {t.id for t in n.targets if isinstance(t, ast.Name)}
+                if isinstance(n, ast.Assign):
+                    if isinstance(n.value, ast.Call):
+                        if getattr(n.value.func, "id", None) in hands_back:
+                            have |= bound(n)
+                    # A bare alias, or a tuple of them: `p = ledger`,
+                    # `a, b = ledger, root`. Deliberately NOT every assignment
+                    # mentioning a carrier -- round 1 measured that widening at
+                    # fifteen extra names in `main` and six false alarms on the
+                    # current source, where this one leaves the carrier sets
+                    # byte-identical and closes the alias and tuple shapes.
+                    values = (
+                        n.value.elts if isinstance(n.value, ast.Tuple) else [n.value]
+                    )
+                    if any(isinstance(v, ast.Name) and v.id in have for v in values):
+                        have |= bound(n)
                 if isinstance(n, ast.Return) and n.value is not None:
                     if names(n.value) & have:
                         hands_back.add(fn.name)
@@ -426,7 +489,25 @@ def carriers(text):
 
 
 def relpath_on_a_ledger(text):
-    """`(function, line, source)` for every `relpath` given a ledger path."""
+    """`(function, line, source)` for every parent-folding call on a ledger path.
+
+    Three gates, each widened in round 1 after a measurement:
+
+    - **Which call.** `relpath` AND `normpath`, matched on `os.path.relpath`
+      and on a bare `relpath` alike -- reading only the attribute missed a
+      `from os.path import relpath`, and reading only `relpath` missed the
+      function that folds `..` by the same lexical rule and that round 13 of
+      work item `1788501054` fought first.
+    - **Which first argument.** Any carrier name ANYWHERE in it, rather than
+      the whole argument being a carrier name. `relpath(ledgers[0], root)` and
+      `relpath(os.path.join(ledger), root)` are the same defect wearing a
+      subscript and a wrapper.
+
+    `abspath` is deliberately absent though it folds `..` too, because
+    `file_identity` calls it to build an inode fallback KEY that no person
+    ever reads. Adding it would flag that line, and a check that cries wolf on
+    the one correct use of a function is a check people learn to ignore.
+    """
     carried = carriers(text)
     tree = ast.parse(text)
     found = []
@@ -435,10 +516,11 @@ def relpath_on_a_ledger(text):
         for n in ast.walk(fn):
             if not isinstance(n, ast.Call) or not n.args:
                 continue
-            if getattr(n.func, "attr", None) != "relpath":
+            called = getattr(n.func, "attr", None) or getattr(n.func, "id", None)
+            if called not in ("relpath", "normpath"):
                 continue
-            first = n.args[0]
-            if isinstance(first, ast.Name) and first.id in have:
+            inside = {x.id for x in ast.walk(n.args[0]) if isinstance(x, ast.Name)}
+            if inside & have:
                 found.append((fn.name, n.lineno, ast.get_source_segment(text, n)))
     return found
 
@@ -456,9 +538,17 @@ def test_no_ledger_path_reaches_relpath():
 
     The check does not read line numbers or a list of names. It recomputes
     which locals can hold a ledger path -- the same data-flow enumeration
-    phase 2 used to find the fifth site -- and refuses `relpath` on any of
-    them. A site added tomorrow under a name nobody has thought of is in the
-    set the moment a ledger path reaches it.
+    phase 2 used to find the fifth site -- and refuses `relpath` and
+    `normpath` on any of them. A site added tomorrow under a name nobody has
+    thought of is in the set the moment a ledger path reaches it by one of the
+    five propagation rules `carriers` lists.
+
+    **That last clause is load-bearing and it used to be missing.** The
+    sentence read *whatever it is called*, and round 1 constructed six
+    spellings it did not catch. They are closed and pinned in
+    `test_the_refusal_above_can_actually_fail`, and the honest statement of
+    what this holds is there rather than here: the spellings somebody reaches
+    for while editing, not every spelling that exists.
 
     Seen red first: `relpath_on_a_ledger` is run below over a copy of the
     source with one site put back, and that arm is what shows the detector
@@ -480,9 +570,24 @@ def test_the_refusal_above_can_actually_fail():
     pass just as quietly if the analysis had degraded to finding nothing.
 
     Two arms. The carrier set is asserted to hold the names the five real
-    sites use, so an analysis that quietly returns nothing fails here; and one
-    site is put back to `relpath` in a copy of the source, where the detector
-    must name it.
+    sites use, so an analysis that quietly returns nothing fails here; and the
+    defect is put back into `main`'s per-ledger header in **seven spellings**,
+    each of which the detector must name.
+
+    **Seven rather than one, because round 1 measured that one proved almost
+    nothing.** The first version of this arm put back the direct spelling
+    alone, and six other ways of writing the same defect all went unreported:
+    an alias (`name = ledger`), a subscript (`ledgers[0]`), an inline wrapper
+    (`os.path.join(ledger)`), a tuple unpack — which `main`'s own
+    `migrated, left, unproven = migrate(...)` makes reachable by an ordinary
+    refactor — a bare `from os.path import relpath`, and `os.path.normpath`,
+    which folds `..` by exactly the same lexical rule and is the function
+    round 13 of work item `1788501054` fought in the first place.
+
+    The shapes are the pin, not the count. A detector this one cannot evade is
+    not on offer — a name reaching a rendering through a dict value or a
+    `getattr` still passes — so what these seven hold is the class of spelling
+    somebody reaches for while editing, which is the class that produced #163.
     """
     text = read_script()
     carried = carriers(text)
@@ -499,19 +604,29 @@ def test_the_refusal_above_can_actually_fail():
             "`relpath` put there"
         )
 
-    put_back = text.replace(
-        'print(f"\\n{display_name(ledger, root)}")',
-        'print(f"\\n{os.path.relpath(ledger, root)}")',
-        1,
+    header = 'print(f"\\n{display_name(ledger, root)}")'
+    assert header in text, (
+        "the header site was not found by its source text, so the arms below "
+        "prove nothing — re-anchor them on the current spelling"
     )
-    assert put_back != text, (
-        "the header site was not found by its source text, so the arm below "
-        "proves nothing — re-anchor it on the current spelling"
-    )
-    assert [fn for fn, _, _ in relpath_on_a_ledger(put_back)] == ["main"], (
-        "the defect was put back into `main`'s per-ledger header and the "
-        "check did not name it"
-    )
+    shapes = {
+        "direct": 'print(f"\\n{os.path.relpath(ledger, root)}")',
+        "alias": header
+        + '\n        name = ledger\n        print(f"\\n{os.path.relpath(name, root)}")',
+        "subscript": 'print(f"\\n{os.path.relpath(ledgers[0], root)}")',
+        "inline wrapper": 'print(f"\\n{os.path.relpath(os.path.join(ledger), root)}")',
+        "tuple unpack": header
+        + '\n        a, b = ledger, root\n        print(f"\\n{os.path.relpath(a, b)}")',
+        "bare import": 'print(f"\\n{relpath(ledger, root)}")',
+        "normpath": 'print(f"\\n{os.path.normpath(ledger)}")',
+    }
+    for label, body in shapes.items():
+        put_back = text.replace(header, body, 1)
+        assert put_back != text, f"the {label} shape did not substitute"
+        assert [fn for fn, _, _ in relpath_on_a_ledger(put_back)] == ["main"], (
+            f"the defect was put back into `main`'s per-ledger header as a "
+            f"{label} and the check did not name it"
+        )
 
 
 def test_the_scanned_source_path_is_not_a_ledger_and_keeps_its_relpath():

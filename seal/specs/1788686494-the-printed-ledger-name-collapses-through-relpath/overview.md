@@ -52,11 +52,23 @@ deliberately does not do, so routing it through the helper would change what
 Windows prints for every `(moved?)` hint. A case pins it out of the class in
 both directions.
 
-**The detector behind `test_no_ledger_path_reaches_relpath` over-reaches.** Its
-return rule marks two names that are not paths — `main`'s `findings` and
-`resolve_patterns`' `key`. Narrowing it was not attempted: the over-reach can
-only produce a false alarm, never a false pass, and a false pass is this defect
-again.
+**The detector behind `test_no_ledger_path_reaches_relpath` over-reaches, and
+it also under-reached.** The over-reach is real and harmless: the return rule
+marks `main`'s `findings` and `resolve_patterns`' `key`, neither a path, and
+the alias rule marks both targets of `a, b = ledger, root` rather than pairing
+them by position. Narrowing that was not attempted, because a false alarm costs
+a reader a minute.
+
+**What this memo claimed before round 1 was that the over-reach meant it could
+never let a real site through, and that was false.** Round 1 constructed six
+spellings it missed — an alias, a subscript, an inline wrapper, a tuple unpack,
+a bare `from os.path import relpath`, and `os.path.normpath` — and `main`'s own
+`migrated, left, unproven = migrate(...)` makes the tuple shape reachable by an
+ordinary refactor. All six are closed and each is pinned by its own arm. The
+claim that replaces it is narrower and was measured rather than reasoned: the
+guard covers the spellings somebody reaches for while editing. A carrier
+reaching a rendering through a dict value or a `getattr` still passes it, and
+no version of this check makes that untrue.
 
 ## Fed back into the spec
 

@@ -20,8 +20,11 @@
   from the other four. So the class was closed by following where a ledger
   path can reach rather than by searching for a name, and a test now
   recomputes that reach against the source on every run and refuses the old
-  call anywhere in it. A sixth place added later is caught the moment a
-  ledger path reaches it, whatever it is called.
+  call anywhere in it. A sixth place added later is caught by that test as
+  long as the ledger path gets there by one of the ordinary ways a value
+  moves — assigned, aliased, unpacked, looped over, or passed to something.
+  It is a guard against the edit somebody actually makes, not a proof that
+  no such place can exist.
 
   What deliberately did not change: the suggestion list a broken row prints
   when its code looks to have moved. Those are scanned source files rather
