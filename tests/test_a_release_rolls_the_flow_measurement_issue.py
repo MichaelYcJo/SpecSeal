@@ -640,6 +640,37 @@ def _created_title(creates):
     return args[args.index("--title") + 1]
 
 
+def test_rolled_from_reads_only_the_title_the_roll_itself_writes():
+    """`rolled_from` answers `None` for anything that is not a title this
+    script wrote in its current form, and `None` is a different fact from a
+    version: it says the title cannot answer "has anything shipped since this
+    log opened", which `roll_is_due` reads as due.
+
+    Both halves are here because both survived a mutation. Returning the whole
+    title where the marker is absent, and returning `""` where the marker is
+    there with nothing after it, are invisible through `main` -- its one
+    caller only compares -- right up to a title that happens to BE a version
+    string, which is then read as the log for that version and stalls it."""
+    m = _roller()
+    assert m.rolled_from("chore: flow measurement — after 0.8.1") == "0.8.1"
+    assert m.rolled_from(m.log_title("1.10.0")) == "1.10.0", (
+        "the reader must read the writer's own output, whatever the version"
+    )
+    assert m.rolled_from("chore: flow measurement — 0.9.0") is None, (
+        "a title written before this change states a prediction, not the "
+        "version its log rolled from"
+    )
+    assert m.rolled_from("0.8.1") is None, (
+        "a title that is bare version text states nothing about a log, and "
+        "answering it as a version makes that log not due -- stalled, with "
+        "the workflow green"
+    )
+    assert m.rolled_from("chore: flow measurement — after ") is None, (
+        "the marker with nothing after it names no version, and the empty "
+        "string is not one"
+    )
+
+
 def test_a_push_that_shipped_no_new_version_rolls_nothing(monkeypatch):
     """The half that bites. This workflow fires on every push to `main`, not
     on every release, and even between releases the same push can be replayed
