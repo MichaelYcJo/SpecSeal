@@ -7,12 +7,12 @@
 | PR | 181 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | NEVER_CLOSED_VERBATIM (depth 1); SWALLOWED_TABLE (depth 1); ASKED_NEVER_CLOSED (depth 1); COMMENTED_OPENER (depth 1); test_a_fence_opened_inside_an_html_comment_is_refused (depth 1); FENCED_DEFERRED (depth 1); test_a_fence_hiding_a_whole_table_under_a_standing_heading_is_refused (depth 1); QUOTED_ROWS (depth 1); EMPTY_DEFERRED (depth 1); test_a_fence_quoting_table_rows_is_kept_while_the_table_stands (depth 1); UNCLOSED_ASKED (depth 1); test_an_unclosed_fence_in_the_round_paragraph_is_refused (depth 1) |
 | Needs a fix | yes |
 | Loses a record or crashes | yes — finding 1 writes a round record whose `## Inherited coordinates` and `## Deferred` are unreadable to every downstream reader, and finding 3 writes a record with all four sections unreadable |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -41,12 +41,12 @@ after a later heading, since that is the defect under review.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | `fenced_after`'s never-closed raise was removed as unreachable; a fence opener inside an HTML comment reaches it, and `new` now writes a record whose `## Inherited coordinates` and `## Deferred` are unreadable | `skills/code-review/scripts/round_record.py#fenced_after` | open | executed in a clone at `6b160c8`: the record is written and both sections resolve to 0 occurrences through the shared reader; the same input at `774e76b` is refused and writes nothing |
-| 🟡 2 | `swallowed` reads the headings and the terminal lines and not the table bodies, so a fence wholly inside `## Deferred` hides the table while the heading stands — the record reads `nothing to drain` beside a written row | `skills/code-review/scripts/round_record.py#swallowed` | open | executed at `6b160c8`; a verdict row inside a fence under `## Verdicts` is dropped the same way |
-| 🟡 3 | the `--asked` text is spliced into the record above every section a reader looks up and never passes through `swallowed`; an unclosed fence there blanks the record from `## Verdicts` down | `skills/code-review/scripts/round_record.py#main` | open | executed at `6b160c8`: the record is written first, all four sections resolve to 0 occurrences, and the message blames a missing `## Verdicts` |
-| ⬜ 4 | *"Its raise is now unreachable and was removed rather than left as dead code"* is false | `seal/specs/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading/phases/phase-1.md` | open | falsified by finding 1 |
-| ⬜ 5 | F2's Notes name putting the raise back as the tidy-up to resist; it is the repair finding 1 needs | `seal/ledger/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading.md` | open | read at `6b160c8` against finding 1's executed evidence |
-| ⬜ 6 | *two* silent-loss members and the completeness claim are narrower than the class; finding 2 is a third silent shape | `seal/specs/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading/changelog.md` | open | executed — finding 2's measurement; the same sentence stands in `overview.md` and `phases/phase-1.md` |
+| 🔴 1 | `fenced_after`'s never-closed raise was removed as unreachable; a fence opener inside an HTML comment reaches it, and `new` now writes a record whose `## Inherited coordinates` and `## Deferred` are unreadable | `skills/code-review/scripts/round_record.py#fenced_after` | **fixed** `e7d3447` | fixed at e7d3447 — `` — the never-closed question is asked in **both** texts, and the refusal says why: the report-wide check reads the report with its comments stripped and the copy reads it as written. **The two texts differ only in HTML comment content**, and each of the four things riding on them agreeing was measured rather than reasoned about — which turned up a fourth shape the pass did not fix and named instead (below); executed in a clone at `6b160c8`: the record is written and both sections resolve to 0 occurrences through the shared reader; the same input at `774e76b` is refused and writes nothing |
+| 🟡 2 | `swallowed` reads the headings and the terminal lines and not the table bodies, so a fence wholly inside `## Deferred` hides the table while the heading stands — the record reads `nothing to drain` beside a written row | `skills/code-review/scripts/round_record.py#swallowed` | **fixed** `e7d3447` | fixed at e7d3447 — `` — extended rather than argued out, because the whole-table shape is the symptom `spec.md` and `changelog.md` both name, so novelty was never the question. The condition refuses a section whose rows stand **only** inside a fence. Both narrowing clauses are load-bearing and had no case; `c7663e1` is the case that says so, planted after a mutation battery showed both staying green while broken; executed at `6b160c8`; a verdict row inside a fence under `## Verdicts` is dropped the same way |
+| 🟡 3 | the `--asked` text is spliced into the record above every section a reader looks up and never passes through `swallowed`; an unclosed fence there blanks the record from `## Verdicts` down | `skills/code-review/scripts/round_record.py#main` | **fixed** `e7d3447` | fixed at e7d3447 — `` — the round paragraph meets the same never-closed question the report meets, asked in the text a reader sees it in, between the empty check and the splice; executed at `6b160c8`: the record is written first, all four sections resolve to 0 occurrences, and the message blames a missing `## Verdicts` |
+| ⬜ 4 | *"Its raise is now unreachable and was removed rather than left as dead code"* is false | `seal/specs/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading/phases/phase-1.md` | answered | corrected at `993acd1` — `phases/phase-1.md`'s unreachability sentence is replaced by what the two texts actually differ in |
+| ⬜ 5 | F2's Notes name putting the raise back as the tidy-up to resist; it is the repair finding 1 needs | `seal/ledger/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading.md` | answered | corrected at `993acd1` — F2's Notes named putting the raise back as the tidy-up to resist; the row now says the raise was neither sufficient nor redundant, and what it is for |
+| ⬜ 6 | *two* silent-loss members and the completeness claim are narrower than the class; finding 2 is a third silent shape | `seal/specs/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading/changelog.md` | answered | corrected at `993acd1` — the three files say what the enumeration was a count **of**: complete over its own boolean, and narrower than the class the boolean was drawn for |
 
 ## Executed probes
 
