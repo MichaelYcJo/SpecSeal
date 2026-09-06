@@ -127,7 +127,18 @@ def count(value):
     crash does not happen."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return 0
-    return value if math.isfinite(value) else 0
+    try:
+        finite = math.isfinite(value)
+    except OverflowError:
+        # An `int` too large to have a float of its own. `json.loads` builds
+        # an arbitrary-precision `int` from any integer literal, and
+        # `math.isfinite` converts to float before it answers — so ASKING the
+        # question raises, inside the funnel that exists to keep such a value
+        # out. Returning 0 answers it the way every other arm here does, and
+        # it also keeps the value away from `token_thirds`' division, which
+        # raises on the same int for the same reason one frame later.
+        return 0
+    return value if finite else 0
 
 
 def message_key(message, row, number):
@@ -513,8 +524,9 @@ def report(data):
         # is say which shape the reader is looking at, because it is handed
         # the numbers and not the transcript.
         print(
-            "              the last result predates the first call, so the "
-            "span is negative and there is no share to take of it"
+            "              the last call to begin ended before the first "
+            "call began, so the span is negative and there is no share to "
+            "take of it"
         )
     print(
         f"  command     {minutes(data['command_s'])}"
@@ -526,7 +538,12 @@ def report(data):
         f"   mean gap {data['gap_mean_s']:.1f}s"
     )
     idle = data["span_s"] - data["command_s"] - data["model_s"]
-    if idle > data["span_s"] * 0.1:
+    # The span has to be positive before a tenth of it is a threshold. At a
+    # negative span the threshold is negative too, so the comparison is true
+    # and the line printed sixty-five minutes of idle beside a span of minus
+    # thirty. At a span of zero `0 > 0` is false on its own, which is why
+    # this conjunct was dropped once and why dropping it was wrong.
+    if data["span_s"] > 0 and idle > data["span_s"] * 0.1:
         print(
             f"  idle        {minutes(idle)}"
             f"   {share(idle, data['span_s'])}"

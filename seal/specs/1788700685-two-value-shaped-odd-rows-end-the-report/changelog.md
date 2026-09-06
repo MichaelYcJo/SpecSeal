@@ -58,6 +58,30 @@
   the wrong-number direction rather than the ended-report one: a finite but
   nonsensical count passes every funnel there is.
 
+  **Asking whether a number is finite can itself end the report, so the
+  question is asked inside a guard.** `json.loads` builds an
+  arbitrary-precision integer from any integer literal, and the finiteness
+  test converts to a float before it answers — so a usage field carrying a
+  401-digit integer raised `OverflowError` from inside the funnel written to
+  keep such values out. That broke a shape which had worked: the same integer
+  in `output_tokens` reported normally before the guard existed. It now
+  scores 0 like every other value the funnel refuses, which also keeps it
+  away from the division one frame later that raises on it for the same
+  reason.
+
+  **A negative span no longer prints an idle figure, and says what the
+  arithmetic actually measured.** The idle line is shown when idle exceeds a
+  tenth of the span, and a tenth of a negative span is negative, so the line
+  printed sixty-five minutes of idle beside a span of minus thirty. The
+  sentence under such a span said the last result predates the first call,
+  which is false whenever the last call to begin is not the last to end —
+  the span is taken from the last call to BEGIN, because the list is sorted
+  by start. It now says that: the last call to begin ended before the first
+  call began, which is what the subtraction computes and is true of every
+  negative span. Both shapes are reachable through this work item's own
+  normalisation, from a transcript mixing a naive local stamp with an aware
+  one.
+
   **The enumeration that found the first two shapes is also what missed the
   third, and its record now says which node kinds it covers.** The walk
   listed arithmetic and ordering operators and five call names — 60 sites —

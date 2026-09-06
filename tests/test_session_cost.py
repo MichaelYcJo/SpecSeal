@@ -8,6 +8,7 @@ the parser that quietly stops finding repeats or tool calls fails here.
 import datetime as dt
 import importlib.util
 import json
+import math
 import os
 import re
 import subprocess
@@ -18,6 +19,12 @@ import pytest
 SCRIPT = os.path.join(
     os.path.dirname(__file__), "..", "skills", "verify", "scripts", "session_cost.py"
 )
+
+
+# An integer literal with no float of its own. `json.loads` builds an
+# arbitrary-precision `int` from any integer literal in a transcript, and
+# `float(HUGE_INT)` raises `OverflowError` rather than returning an infinity.
+HUGE_INT = int("9" * 401)
 
 
 def stamp_at(second):
@@ -945,16 +952,22 @@ def test_a_naive_stamp_does_not_end_the_report(tmp_path):
         )
 
 
-def turn_at(second, usage, uid):
+def turn_at(index, usage, uid):
     """One tool-call turn with its `usage` written out.
 
     `token_thirds` needs three turns carrying a non-zero input count before
     it computes anything, so a case about a non-finite input has to build
-    three rather than reuse the one-call fixtures above."""
+    three rather than reuse the one-call fixtures above.
+
+    The stamps come off `stamp_at`, the module's own clock, rather than from
+    interpolating `index` into a fixed prefix. The prefix version built
+    `10:010:00` at index 10, which `datetime.fromisoformat` refuses — so
+    `parse_time` returned None, `load` dropped the row, and the case went on
+    asserting exit 0 while measuring one turn fewer than it said."""
     return [
-        at(f"2026-08-24T10:0{second}:00Z", [use(uid, "pytest -q")], f"m{uid}", usage),
+        at(stamp_at(index * 60), [use(uid, "pytest -q")], f"m{uid}", usage),
         at(
-            f"2026-08-24T10:0{second}:30Z",
+            stamp_at(index * 60 + 30),
             [{"type": "tool_result", "tool_use_id": uid}],
         ),
     ]
@@ -988,6 +1001,12 @@ def test_a_nan_token_count_does_not_end_the_report(tmp_path):
             },
         ),
         ("output-nan", 2, {"input_tokens": 10, "output_tokens": float("nan")}),
+        # An integer with no float of its own. `json.loads` builds one from
+        # any integer literal, and the finiteness question converts before it
+        # answers — so asking it raises `OverflowError` instead of answering,
+        # inside the very funnel that exists to keep such a value out.
+        ("output-huge-int", 0, {"input_tokens": 10, "output_tokens": HUGE_INT}),
+        ("input-huge-int", 0, {"input_tokens": HUGE_INT, "output_tokens": 1}),
     )
     for name, odd, usage in shapes:
         lines = []
@@ -1012,9 +1031,10 @@ def test_a_nan_token_count_does_not_end_the_report(tmp_path):
             f"{name}: {data['context_growth']}"
         )
         for field in ("output", "cache_read", "cache_write"):
-            assert data["tokens"][field] == int(data["tokens"][field]), (
-                f"{name}: {data['tokens']}"
-            )
+            # `math.isfinite` rather than `int(...)`, which RAISES on a value
+            # that got through: the case would then read as a test error
+            # instead of as the defect it pins.
+            assert math.isfinite(data["tokens"][field]), f"{name}: {data['tokens']}"
 
 
 def test_a_negative_span_says_what_it_actually_saw(tmp_path):
@@ -1046,10 +1066,44 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     proc = run([str(path)])
     assert proc.returncode == 0, proc.stderr
     assert re.search(r"^span\s+-\d", proc.stdout, re.M), proc.stdout
-    assert "the last result predates the first call" in proc.stdout, proc.stdout
+    assert "the last call to begin ended before the first call began" in proc.stdout, (
+        proc.stdout
+    )
     # The zero-span sentence must NOT be the one a negative span gets.
     assert "every call shares one timestamp" not in proc.stdout, proc.stdout
     assert re.search(r"^  command\s+\S+\s+—$", proc.stdout, re.M), proc.stdout
+    # And no idle figure, which is what a negative denominator makes of the
+    # `idle > span * 0.1` threshold: the comparison is against a negative
+    # number, so it is true, and the line printed sixty-five minutes of idle
+    # beside a span of minus thirty.
+    assert "idle" not in proc.stdout, proc.stdout
+
+    # The sentence has to hold for EVERY negative span, not for the one shape
+    # it was written against. The span is taken from the last call to BEGIN,
+    # because `load` sorts by start — so the last RESULT can arrive hours
+    # after the first call and the span still be negative.
+    later = [
+        at("2026-08-24T10:00:00Z", [use("a", "pytest -q")], "ma", {"output_tokens": 1}),
+        at("2026-08-24T12:00:00Z", [{"type": "tool_result", "tool_use_id": "a"}]),
+        at(
+            "2026-08-24T10:05:00Z",
+            [use("b", "ruff check .")],
+            "mb",
+            {"output_tokens": 1},
+        ),
+        at("2026-08-24T09:00:00Z", [{"type": "tool_result", "tool_use_id": "b"}]),
+    ]
+    out_of_order = tmp_path / "out-of-order.jsonl"
+    out_of_order.write_text("\n".join(later) + "\n")
+    third = run([str(out_of_order)])
+    assert third.returncode == 0, third.stderr
+    assert re.search(r"^span\s+-\d", third.stdout, re.M), third.stdout
+    # The last result here arrived at 12:00, two hours AFTER the first call
+    # began, so a sentence about the last result would be false.
+    assert "the last call to begin ended before the first call began" in third.stdout, (
+        third.stdout
+    )
+    assert "idle" not in third.stdout, third.stdout
 
     # And a span of exactly zero keeps the sentence written for it.
     zero = tmp_path / "zero.jsonl"
@@ -1059,4 +1113,4 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     other = run([str(zero)])
     assert other.returncode == 0, other.stderr
     assert "every call shares one timestamp" in other.stdout, other.stdout
-    assert "the last result predates the first call" not in other.stdout, other.stdout
+    assert "the last call to begin" not in other.stdout, other.stdout

@@ -121,6 +121,17 @@ already false on its own.
 > negative one was described as a shared timestamp. `report` now tells the
 > two shapes apart and `share` still decides the dash for both, which is
 > the division of labour this paragraph should have stated.
+>
+> **And the removal itself was wrong, which round 2 measured.** The idle
+> guard is a THIRD independent test of the span, and the conjunct dropped
+> above is what kept it right. *A branch no case exercises* was true at a
+> span of zero and false at a negative one: `idle > span * 0.1` compares
+> against a negative threshold, so it is true, and the report printed
+> sixty-five minutes of idle beside a span of minus thirty. The conjunct is
+> restored. **The shape is not synthetic** — a mixed transcript with the
+> call row naive-local and the result row aware, which is exactly what the
+> normalisation two sections up was written for, produces a span of minus
+> nine hours and printed an idle line at zero.
 
 ### The enumeration, and why it is complete rather than merely larger
 
@@ -156,17 +167,31 @@ list, and would not have been found by reading harder.)
 > here today. A consumer name rebound locally would be read as the builtin
 > — **none** is rebound here. The 16 f-string targets carrying a format
 > spec do not raise on a non-finite value, checked directly (`f"{nan:.0f}"`
-> is `'nan'`). And the walk sees only this module: a consumer reached
-> through an imported name is invisible, which mattered less when the
-> imports were `argparse`, `datetime`, `json`, `os`, `re` and `sys`, and
-> matters now that the fix adds `math`.
+> is `'nan'`).
+>
+> **And the third residual was stated wrongly, which round 2's 🔴 then
+> walked through.** It read *the walk sees only this module*, which sends a
+> next editor looking for a fix outside the file. The call site is INSIDE
+> this module and inside its AST; what the walk misses is its SHAPE. Calls
+> are classified by a bare `ast.Name`, so `math.isfinite(value)` — a `Call`
+> whose `func` is an `ast.Attribute` — is invisible although it sits in
+> `count`. **The widening is one line in the classifier**: accept a `Call`
+> whose `func` is an `Attribute` whose value is an imported module name.
+> Re-derived in round 2's fix pass with exactly that line: **17 dotted
+> calls on imported modules**, against 13 bare-name ones the old set saw.
+> Sixteen of the seventeen are either not transcript-derived (`os.walk`,
+> `sys.exit`, `re.compile`, `re.sub` on a path, `argparse`) or already
+> inside a guard (`json.loads` twice, in a `try`; `json.dumps` on a payload
+> that round-tripped through `json.loads`; `re.split` behind an
+> `isinstance(text, str)`). The seventeenth was `math.isfinite`, unguarded,
+> and that is where round 2's 🔴 was.
 
 | Class | Sites | State |
 |---|---|---|
 | Neither operand comes from a transcript — lengths, literals, `os` facts | 30 | not in the class |
 | A `usage` number | 4 | closed by `count` (#170's **type** axis) |
 | A `datetime` — 6 subtractions, 2 orderings | 8 | **closed by this phase** at `parse_time` |
-| Derived from `span_s` — 3 divisions and the idle guard | 4 | **closed by this phase** at `share` |
+| Derived from `span_s` — 3 divisions and the idle guard | 4 | 3 divisions **closed by this phase** at `share`; the idle guard is NOT closed by `share` and was miscounted here — `share` decides the percentage, never whether the line prints. Closed in round 2's fix pass by restoring its own positive-span conjunct |
 | A derived denominator other than `span_s` — `max(len(turns), 1)`, `len(gaps)`, `len(part)` | 3 | already guarded at each site, verified by reading |
 | Comparisons of derived floats against literal thresholds | 7 | cannot raise on shape |
 
@@ -191,7 +216,7 @@ shapes of this work item come from and where the third came from:
 
 | Axis | Type sub-axis | Value sub-axis |
 |---|---|---|
-| a number | not a number at all → `count` (#170) | a `float` that is not a quantity → **`NaN`/`Infinity`, open** |
+| a number | not a number at all → `count` (#170) | a number that is not a quantity → `NaN`, `Infinity`, and an `int` with no float of its own → **closed at `count`** in round 1's and round 2's fix passes |
 | a `datetime` | naive beside aware → `parse_time` (**this phase**) | two stamps equal → span of zero → `share` (**this phase**) |
 
 ### The third operand shape, found by the method and left open
