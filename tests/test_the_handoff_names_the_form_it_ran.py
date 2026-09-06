@@ -62,10 +62,12 @@ def test_the_handoff_names_the_measurement_that_bought_the_requirement():
 def test_the_requirement_count_moved_with_the_requirement():
     """A fourth bullet under a sentence that says three is the list counting
     one thing and the reader counting another — and the sentence is what a
-    conformance reader skims."""
+    conformance reader skims. The list took a fifth bullet in #156, and this
+    case is where the count has to follow it."""
     protocol = flat("docs", "review-handoff-protocol.md")
-    assert "Four requirements" in protocol
+    assert "Five requirements" in protocol
     assert "Three requirements, each bought" not in protocol
+    assert "Four requirements, each bought" not in protocol
 
 
 def test_the_review_skill_names_both_forms_and_what_each_is_for():
