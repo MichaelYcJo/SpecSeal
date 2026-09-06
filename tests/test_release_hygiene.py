@@ -101,12 +101,28 @@ def as_release(token):
     return tuple(int(n) for n in token.lstrip("v").split("."))
 
 
+# A `/` entry covers only files whose OWN NAME carries the date its argument
+# rests on. `docs/experiments/README.md` is the conventions for writing a
+# record — a standing document edited whenever they change — and rewriting a
+# version in it falsifies no measurement. Without this, the prefix is the one
+# entry a document can join by choosing its own path (review round 1).
+#
+# Read from the basename rather than from anywhere in the path, because a
+# dated DIRECTORY would otherwise exempt every undated file inside it —
+# `docs/experiments/2026-09-03-run/README.md` is the same standing document
+# one level down, joining by where it sits.
+DATED_RECORD = re.compile(r"^\d{4}-\d{2}-\d{2}-")
+
+
 def is_a_record_of_a_moment(rel):
-    """Exact paths and, where an entry ends in `/`, everything beneath it."""
-    return any(
-        rel == entry or (entry.endswith("/") and rel.startswith(entry))
-        for entry in RECORDS_OF_A_MOMENT
-    )
+    """Exact paths and, where an entry ends in `/`, every DATED file beneath
+    it."""
+    for entry in RECORDS_OF_A_MOMENT:
+        if rel == entry:
+            return True
+        if entry.endswith("/") and rel.startswith(entry):
+            return bool(DATED_RECORD.match(rel.rsplit("/", 1)[-1]))
+    return False
 
 
 def shipped_versions():
@@ -317,6 +333,49 @@ def test_a_record_of_a_moment_keeps_every_version_it_names():
     assert timers_in(
         "docs/about-docs-experiments-2.1.259.md", text, RUNNING_IN_THE_FIXTURES
     ) == [(1, "2.1.259")]
+
+
+def test_the_experiments_prefix_covers_only_a_dated_record():
+    """The prefix's argument is the file name's date, so the entry is too.
+
+    `docs/experiments/README.md` is the directory's conventions, edited
+    whenever they change — the same standing-document shape #179 refused a
+    prefix for in `docs/issues-and-milestones.md`. Left uncovered by this
+    case, the prefix is the one exemption a document joins by choosing its
+    own path.
+    """
+    text = "ships in 0.9.0"
+    assert (
+        timers_in(
+            "docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.md",
+            text,
+            RUNNING_IN_THE_FIXTURES,
+        )
+        == []
+    )
+    assert timers_in("docs/experiments/README.md", text, RUNNING_IN_THE_FIXTURES) == [
+        (1, "0.9.0")
+    ]
+    # The date has to be in the FILE's own name, never merely somewhere in
+    # the path. A dated DIRECTORY holding undated files is the same door one
+    # level down — the file joins the exemption by where it sits, which is
+    # the half of finding 2 that survived the first fix for it.
+    assert timers_in(
+        "docs/experiments/2026-09-03-run/README.md", text, RUNNING_IN_THE_FIXTURES
+    ) == [(1, "0.9.0")]
+    # And the name has to BEGIN with the date, which the README prescribes as
+    # `<date>-<what-was-asked>.md`. A date appended to a standing document's
+    # name is the cheapest way back through the same door.
+    #
+    # Two things anchor that independently — the pattern's `^` and `.match()`
+    # — so a mutation dropping either ALONE changes nothing and this
+    # assertion cannot see it. Dropping both together is what it catches, and
+    # that is the mutation worth running against this line.
+    assert timers_in(
+        "docs/experiments/README-2026-09-03-conventions.md",
+        text,
+        RUNNING_IN_THE_FIXTURES,
+    ) == [(1, "0.9.0")]
 
 
 def test_another_products_version_is_allowed_only_in_the_file_that_declares_it():
