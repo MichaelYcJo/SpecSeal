@@ -156,6 +156,71 @@ def timers_in(rel, text, running):
     return found
 
 
+def what_to_write_instead():
+    """The routes out of a refusal, as the failure message states them.
+
+    #179's *Done when* makes this text a deliverable: the reason a real
+    version may not be written has to reach the next author writing one, and
+    the check's own message is where they will be standing. It is a function
+    so a case can read the very words a person sees, rather than a copy of
+    them that can drift.
+    """
+    return (
+        f"Write the illustrative {ILLUSTRATIVE_VERSION} instead, and say "
+        "beside it why the number is not real — the paragraph at "
+        '`docs/issues-and-milestones.md` §"A rolling log is titled after the '
+        'version it rolled from" already does exactly that, and is the model '
+        "to follow. If the number belongs to another product, declare it in "
+        "`VERSIONS_OF_ANOTHER_PRODUCT` with the product it names. If the "
+        "file's whole job is to name a moment, it belongs in "
+        '`RECORDS_OF_A_MOMENT` with the argument CONTRIBUTING.md §"What a '
+        'change to a gate must carry" asks for. A version BELOW the running '
+        "one is history and is already allowed — nothing needs doing to it. "
+        "And if the number is not a release at all — a date written with "
+        "dots, say — there is no exemption for it and none is wanted: write "
+        "it in a form that is not version-shaped. This repository writes a "
+        "date as 2026-09-03, with dashes, which this check does not read."
+    )
+
+
+def test_the_message_has_a_route_for_every_token_the_check_refuses():
+    """The message is a deliverable, and a refusal with no route is a wall.
+
+    `timers_in` reads any `\\d+.\\d+.\\d+`, which is wider than "a release of
+    this plugin" — and deliberately so, because narrowing the regex to
+    exclude a shape is how round 1's finding 1 happened. So the message
+    carries the routes instead, and every kind of token it can refuse needs
+    one it can actually take.
+
+    Three of the four shapes had a route already. A DATE written with dots
+    did not: it is not a release of anything, so no exemption fits it and
+    none should be added — this repository writes dates with dashes, which
+    the check does not read at all.
+
+    **What this case does NOT pin**, stated rather than left to be found: it
+    reads `what_to_write_instead`, so it catches an edit to the routes and
+    would NOT catch the refusal above being changed to emit some other text
+    instead of calling it. Measured — that mutation leaves every case here
+    green. No assertion can pin which expression an `assert` uses as its
+    message without reading this file's own source, so the floor is one
+    obvious line at the refusal rather than another check.
+    """
+    routes = what_to_write_instead()
+    assert ILLUSTRATIVE_VERSION in routes, "no route for this repository's own version"
+    assert "VERSIONS_OF_ANOTHER_PRODUCT" in routes, (
+        "no route for a version belonging to another product — the shape "
+        f"`3.13.9` has, and the one {sorted(VERSIONS_OF_ANOTHER_PRODUCT)} is"
+    )
+    assert "RECORDS_OF_A_MOMENT" in routes, "no route for a record of a moment"
+    assert "BELOW" in routes, "the message does not say history is already allowed"
+    # The date. Refused as `(2026, 9, 3)`, and no exemption fits it.
+    assert "date" in routes, (
+        "the message offers no route for a token that is not a release at "
+        "all — `2026.09.03` reads as a version and none of the exemptions "
+        "above is a truthful home for it"
+    )
+
+
 def test_the_illustrative_version_is_not_one_this_repository_could_ship():
     """The exemption above asserts its own precondition, or it hides the
     defect it was added beside.
@@ -223,16 +288,8 @@ def test_no_loaded_file_names_a_version_at_or_above_the_running_one():
         "it goes red on the day that version ships, on the release's own "
         "preparation commit, after the broad gate has already run.\n  "
         + "\n  ".join(offenders)
-        + f"\n\nWrite the illustrative {ILLUSTRATIVE_VERSION} instead, and "
-        "say beside it why the number is not real — the paragraph at "
-        '`docs/issues-and-milestones.md` §"A rolling log is titled after the '
-        'version it rolled from" already does exactly that, and is the model '
-        "to follow. If the number belongs to another product, declare it in "
-        "`VERSIONS_OF_ANOTHER_PRODUCT` with the product it names. If the "
-        "file's whole job is to name a moment, it belongs in "
-        '`RECORDS_OF_A_MOMENT` with the argument CONTRIBUTING.md §"What a '
-        'change to a gate must carry" asks for. A version BELOW the running '
-        "one is history and is already allowed — nothing needs doing to it."
+        + "\n\n"
+        + what_to_write_instead()
     )
 
 
