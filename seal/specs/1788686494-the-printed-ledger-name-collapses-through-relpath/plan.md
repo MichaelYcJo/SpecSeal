@@ -45,7 +45,7 @@ already was.
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | The display helper, its docstring naming why `relpath` cannot be used, and unit cases seen red against `relpath` | The new unit cases; `./bin/test` over the touched test modules | `fa53e67` |
-| 2 | Every site in the class through the helper — the class enumerated by the property, with the scan-suggestion site judged in writing — plus the integration case pinning the printed header against the file read, and the source-reading case that refuses a future `relpath` on a ledger path | The integration case seen red first on the POSIX branch; `./bin/test` over the evidence-check modules | |
+| 2 | Every site in the class through the helper — the class enumerated by the property, with the scan-suggestion site judged in writing — plus the integration case pinning the printed header against the file read, and the source-reading case that refuses a future `relpath` on a ledger path | The integration case seen red first on the POSIX branch; `./bin/test` over the evidence-check modules | `afcece0` |
 
 ## Operational impact
 
