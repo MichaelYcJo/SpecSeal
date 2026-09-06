@@ -136,6 +136,15 @@ incorporation. This file only adds what the skill does not carry.
    completion claim. Fresh output only; a previous run proves nothing. §2
    bounds what you run and §3 answers a prompt that orders more.
 
+   **Find the runner before you invent a command.** A repository that ships
+   one — a wrapper in `bin/`, or whatever its contribution guide names first —
+   has a command that is cheap on the second call, and a segment that
+   assembles its own instead pays for an environment on every run. Type the
+   narrow form, one module: the full suite is the orchestrator's, once, after
+   the rounds. `docs/review-handoff-protocol.md` §*The handoff before round 1*
+   owns that rule, and it is why a prompt that carries no incantation is not
+   a prompt that is missing one.
+
    **Both land in your hand-back rather than in a report.** The suite goes
    over labeled `unverified` with the orchestrator named as its answerer, and
    an instruction you declined gets a line of its own — what was asked, and
