@@ -185,6 +185,28 @@ list, and would not have been found by reading harder.)
 > that round-tripped through `json.loads`; `re.split` behind an
 > `isinstance(text, str)`). The seventeenth was `math.isfinite`, unguarded,
 > and that is where round 2's 🔴 was.
+>
+> **The classifier knows a fixed LIST OF NAMES, not a node shape, and
+> saying otherwise sends a next editor to widen the wrong dimension.** The
+> attribute widening just above is a node-shape change, which is what makes
+> shape read as the axis. It is not. Three further forms sit inside the node
+> shapes the walk already accepts and outside its name list: a consumer
+> imported by name (`from math import isfinite`), which is a `Call` on a
+> bare `Name` the list does not carry; a module bound to an alias (`import
+> math as m`), whose root name the walk does not recognise unless it
+> collects import aliases; and a module held in a local variable, where the
+> root is a `Name` bound at runtime. **Widening the walk therefore means
+> widening the name list and building an alias table**, not accepting
+> another node kind.
+>
+> **And the limit that outlasts all of those**: a walk over call sites
+> answers which operations exist, never what values reach them. Round 3's 🔴
+> came through a call this walk DOES see — the `round` in `token_thirds`,
+> listed since the first widening — because the site was never the question.
+> Two values that each pass every funnel can be combined into one that
+> passes none, and no enumeration of call sites reaches that. It is recorded
+> rather than closed; the fragment's R3 carries it and the run hands it over
+> as an issue.
 
 | Class | Sites | State |
 |---|---|---|
@@ -216,7 +238,7 @@ shapes of this work item come from and where the third came from:
 
 | Axis | Type sub-axis | Value sub-axis |
 |---|---|---|
-| a number | not a number at all → `count` (#170) | a number that is not a quantity → `NaN`, `Infinity`, and an `int` with no float of its own → **closed at `count`** in round 1's and round 2's fix passes |
+| a number | not a number at all → `count` (#170) | a number that is not a quantity → `NaN`, `Infinity`, and an `int` with no float of its own → **closed at `count`** in round 1's and round 2's fix passes. **A third sub-axis this table did not have**: not the value that enters but what the arithmetic MAKES of two that did — two finite counts summing past the range, closed at `token_thirds` in round 3's fix pass, with the class itself recorded as a limit and handed to an issue |
 | a `datetime` | naive beside aware → `parse_time` (**this phase**) | two stamps equal → span of zero → `share` (**this phase**) |
 
 ### The third operand shape, found by the method and left open

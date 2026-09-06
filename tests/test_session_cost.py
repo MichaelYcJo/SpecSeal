@@ -26,6 +26,11 @@ SCRIPT = os.path.join(
 # `float(HUGE_INT)` raises `OverflowError` rather than returning an infinity.
 HUGE_INT = int("9" * 401)
 
+# A float near the top of the double range. Each one is finite and passes
+# `count`; two of them add to an infinity, and two integers of this size each
+# have a float where their sum does not.
+TOP_FLOAT = 1.5e308
+
 
 def stamp_at(second):
     """`second` is an offset from a fixed clock; the clock does the carrying."""
@@ -1031,10 +1036,83 @@ def test_a_nan_token_count_does_not_end_the_report(tmp_path):
             f"{name}: {data['context_growth']}"
         )
         for field in ("output", "cache_read", "cache_write"):
-            # `math.isfinite` rather than `int(...)`, which RAISES on a value
-            # that got through: the case would then read as a test error
-            # instead of as the defect it pins.
-            assert math.isfinite(data["tokens"][field]), f"{name}: {data['tokens']}"
+            # An integer of any size is accepted without converting it, and a
+            # float has to be finite. Neither arm converts, because both
+            # `int(...)` and `math.isfinite(...)` RAISE on a value that got
+            # through — the huge-int arms above would then read as a test
+            # error rather than as the defect this case pins.
+            value = data["tokens"][field]
+            assert not isinstance(value, float) or math.isfinite(value), (
+                f"{name}: {data['tokens']}"
+            )
+
+
+def test_a_sum_of_entered_values_does_not_end_the_report(tmp_path):
+    """`count` answers for each value that ENTERS. Nothing answered for what
+    the arithmetic then MADE of two of them.
+
+    `load` adds `input_tokens` to `cache_read_input_tokens` per turn, and
+    `token_thirds` sums a slice of those and divides. Two counts that each
+    pass the finiteness question can add to one that does not — and the
+    rounding at the end then raised `OverflowError` with stdout empty, on
+    the report and on `--json` alike.
+
+    Three arms, because the sum overflows by three different routes:
+    two floats whose sum is an infinity; two integers that each have a float
+    where the sum does not; and one such field on enough turns that a single
+    third of the list sums past the range on its own, which no per-turn
+    guard could see.
+
+    This is a separate case from the one above on purpose. That one is about
+    the values a transcript carries, and this one is about what the file
+    computes from two of them — the distinction three review rounds spent
+    themselves on."""
+    shapes = (
+        # Each field finite, their per-turn sum an infinity.
+        (
+            "two-floats",
+            3,
+            {
+                "input_tokens": TOP_FLOAT,
+                "cache_read_input_tokens": TOP_FLOAT,
+                "output_tokens": 1,
+            },
+            (0,),
+        ),
+        # Each int HAS a float; their sum does not. `count` passes both.
+        (
+            "two-ints",
+            3,
+            {
+                "input_tokens": int(TOP_FLOAT),
+                "cache_read_input_tokens": int(TOP_FLOAT),
+                "output_tokens": 1,
+            },
+            (0,),
+        ),
+        # One field, on two of six turns, so one third of the list holds two
+        # of them and the SLICE sum overflows with every turn finite.
+        ("summed-third", 6, {"input_tokens": TOP_FLOAT, "output_tokens": 1}, (0, 1)),
+    )
+    for name, count_of_turns, odd_usage, odd_indices in shapes:
+        lines = []
+        for n in range(count_of_turns):
+            plain = {"input_tokens": 10, "output_tokens": 1}
+            lines += turn_at(n, odd_usage if n in odd_indices else plain, f"c{n}")
+        path = tmp_path / f"{name}.jsonl"
+        path.write_text("\n".join(lines) + "\n")
+
+        proc = run([str(path)])
+        assert proc.returncode == 0, f"{name}: {proc.stderr}"
+        assert re.search(r"^tokens\s", proc.stdout, re.M), f"{name}: {proc.stdout}"
+
+        machine = run(["--json", str(path)])
+        assert machine.returncode == 0, f"{name}: {machine.stderr}"
+        data = json.loads(machine.stdout)
+        # A mean the file could not compute is charged 0, never carried out
+        # as an infinity for a reader to mistake for a measurement.
+        for value in data["context_growth"]:
+            assert isinstance(value, int), f"{name}: {data['context_growth']}"
 
 
 def test_a_negative_span_says_what_it_actually_saw(tmp_path):
@@ -1104,6 +1182,25 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
         third.stdout
     )
     assert "idle" not in third.stdout, third.stdout
+
+    # A negative span makes every duration derived from it negative, and the
+    # lines that INTERPRET a duration must not fire on one. `repeats` is
+    # printed on a truthiness test, which minus sixty minutes satisfies — so
+    # the report claimed an hour of work re-run for a result already in hand,
+    # on a transcript where nothing was re-run at all. The `nothing obvious`
+    # line below is suppressed by the same value, for the same reason.
+    repeated = [
+        at("2026-08-24T10:00:00Z", [use("a", "pytest -q")], "ma", {"output_tokens": 1}),
+        at("2026-08-24T09:00:00Z", [{"type": "tool_result", "tool_use_id": "a"}]),
+        at("2026-08-24T10:05:00Z", [use("b", "pytest -q")], "mb", {"output_tokens": 1}),
+        at("2026-08-24T09:30:00Z", [{"type": "tool_result", "tool_use_id": "b"}]),
+    ]
+    repeats = tmp_path / "repeats.jsonl"
+    repeats.write_text("\n".join(repeated) + "\n")
+    fourth = run([str(repeats)])
+    assert fourth.returncode == 0, fourth.stderr
+    assert re.search(r"^span\s+-\d", fourth.stdout, re.M), fourth.stdout
+    assert "repeats" not in fourth.stdout, fourth.stdout
 
     # And a span of exactly zero keeps the sentence written for it.
     zero = tmp_path / "zero.jsonl"

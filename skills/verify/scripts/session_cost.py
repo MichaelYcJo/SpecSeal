@@ -353,15 +353,36 @@ def analyse(calls, turns):
 
 
 def token_thirds(turns):
+    """The mean input count over each third of the run, as whole numbers.
+
+    **`count` answers for each value that enters; this answers for the sum.**
+    Two counts it accepted as finite can add to one that is not, and this is
+    the one site in the file that converts a derived number to an `int`. Both
+    routes were measured ending the report with stdout empty, on the report
+    and on `--json` alike: two floats near the top of the range summing to an
+    infinity, which `round` refuses; and two integers that each have a float
+    where their sum does not, which the division refuses. A single third can
+    also sum past the range on its own, so no per-turn guard reaches it.
+
+    A mean the file cannot compute is charged 0, the direction every funnel
+    here takes — never carried out as an infinity, which a reader would take
+    for a measurement."""
     inputs = [t[1] for t in turns if t[1]]
     if len(inputs) < 3:
         return []
     third = len(inputs) // 3
-    return [
-        round(sum(part) / len(part))
-        for part in (inputs[:third], inputs[third : 2 * third], inputs[2 * third :])
-        if part
-    ]
+    means = []
+    for part in (inputs[:third], inputs[third : 2 * third], inputs[2 * third :]):
+        if not part:
+            continue
+        try:
+            mean = sum(part) / len(part)
+        except OverflowError:
+            # An integer sum with no float of its own. The question cannot be
+            # asked, which is the same answer the funnels above give.
+            mean = math.inf
+        means.append(round(mean) if math.isfinite(mean) else 0)
+    return means
 
 
 def subagent_transcripts(path):
@@ -565,11 +586,16 @@ def report(data):
 
     print("\nwhere the time could go instead")
     exact, same = data["repeat_exact_s"], data["repeat_same_work_s"]
-    if same:
+    # Compared against zero rather than tested for truth. These are durations,
+    # so a negative span makes them negative, and a negative number is truthy
+    # — the report claimed an hour of work re-run for a result already in
+    # hand on a transcript where nothing was re-run. The same value read as
+    # falsey would have suppressed the `nothing obvious` line below.
+    if same > 0:
         print(
             f"  repeats            {minutes(same)}  a check re-run for a result "
             f"already produced"
-            + (f" ({minutes(exact)} of it identical)" if exact else "")
+            + (f" ({minutes(exact)} of it identical)" if exact > 0 else "")
         )
     if data["tools_per_turn"] < 1.2:
         # Above 1 the one-at-a-time claim is one the number no longer
@@ -593,7 +619,7 @@ def report(data):
             f"  context            {growth[0]:,} → {growth[2]:,} input tokens; "
             f"later calls cost more than the same call would have earlier"
         )
-    if not same and data["tools_per_turn"] >= 1.2:
+    if same <= 0 and data["tools_per_turn"] >= 1.2:
         print("  nothing obvious — the command time is the command's own cost")
 
 

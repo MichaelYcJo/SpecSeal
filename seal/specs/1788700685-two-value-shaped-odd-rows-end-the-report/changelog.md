@@ -54,8 +54,17 @@
   least printed its first line. Every usage field except `output_tokens`
   reaches that `round`, and `output_tokens` was the field the shape was first
   measured on, so it read as harmless. `count` now charges a non-finite value
-  0, the direction every funnel in the file already takes. What stays open is
-  the wrong-number direction rather than the ended-report one: a finite but
+  0, the direction every funnel in the file already takes.
+
+  **A funnel answers for the values that enter it, and that turned out not to
+  be the whole question.** Two counts accepted as finite add to one that is
+  not, and the rounding of a mean then ended the report with nothing printed,
+  on both arms — a shape that predates this work and was reached through a
+  call the enumeration had listed all along, because the question was never
+  which operations exist but which values reach them. The mean is now
+  computed inside a guard and charged 0 when the file cannot compute it. The
+  class behind it is recorded as a limit rather than claimed closed: what
+  stays open is that direction, and the wrong-number one where a finite but
   nonsensical count passes every funnel there is.
 
   **Asking whether a number is finite can itself end the report, so the
