@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 188 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | SCOPE_BOUNDARIES (depth 1); own_returns (depth 1) |
 | Needs a fix | yes — finding 6 (`reach_values` walks nested scopes, and three records, two of which ship, assert the call arm is the only over-reach) |
