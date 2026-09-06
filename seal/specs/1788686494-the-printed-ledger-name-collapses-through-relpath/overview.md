@@ -25,23 +25,29 @@ person acting on its output went and edited a file the run had never read.
 
 | Item | Who must answer |
 |---|---|
-| The full suite, the repository-wide lint and the typecheck | the orchestrator, once, after the review rounds settle (`agent-contract` §2) |
-| Four rows in `seal/ledger.md` now read DRIFTED because this change edited `check_ledger`, `migrate`, `reverify` and `main`. Their claims were re-read and hold; only the anchors moved | the orchestrator or the release step, by `evidence-check --reverify` over the whole ledger with every branch in flight in view |
+| ✅ The full suite, the repository-wide lint and the typecheck | run at the broad gate, `3e4b79a`: `./bin/test` 2392 passed · 2 skipped in 315.53 s; `uvx ruff check .` and `uvx ruff format --check .` over 109 files, exit 0. There is no typecheck in this repository — `CONTRIBUTING.md` §*Running the checks* names the suite, ruff and the ledger, and nothing else |
+| ✅ Four rows in `seal/ledger.md` now read DRIFTED because this change edited `check_ledger`, `migrate`, `reverify` and `main`. Their claims were re-read and hold; only the anchors moved | closed at the broad gate, `3e4b79a` — re-stamped by hand from a copy after `--reverify`, with the base's two rows reverted to the hashes they carried, because those claims belong to work items this change never opened. Read twice before the stamp: round 1 against all thirteen rows citing the four anchors, round 2 against the same | 
 | Two rows in `seal/ledger.md` — `templates/config.md#"# Repository config"` and `round_record.py#swallowed` — drift at `885acf8`, before this work item. Measured on the base tree: 680 ok · 2 drifted · 0 broken, exit 1 | whoever owns the work items those rows belong to; outside this change's scope and not touched by it |
 | The integration case skips on Win32, so nothing pins the printed header end-to-end there. The premise is what is absent rather than the platform — Win32 folds `..` before the filesystem is consulted, so the guess and the answer name one file — and every other Windows behaviour of the helper runs from a POSIX machine by passing `ntpath` | the Windows CI leg, which runs the unit cases; a reviewer who disputes the premise should say so rather than asking for a skipped case to be unskipped |
 
 ## Not done
 
-**`seal/ledger.md` was not re-stamped.** Editing four units moved four anchors,
-so the shared ledger reads six drifted where the base reads two. Re-verifying
-was attempted and reverted: `--reverify` operates per ledger file rather than
-per row, so the run also re-stamped two rows that had drifted before this work
-item began and that nobody here opened — certifying a claim nobody read is what
-the ledger design exists to refuse — and re-stamping honestly means bumping the
-`Checked` date on thirteen rows owned by other work items, in the one file the
-fragment rule keeps branches out of. The four rows' claims were re-read and
-hold. The alternative, re-stamping the four and hand-reverting the two, is one
-edit away if a reviewer prefers it.
+**`seal/ledger.md` was re-stamped at the broad gate, by the alternative this
+section used to leave open.** The build left the four rows DRIFTED because
+`--reverify` operates per ledger file rather than per row, and running it also
+re-stamps two rows that had drifted before this work item began and that nobody
+here opened — certifying a claim nobody read is what the ledger design exists to
+refuse. What closed it is the shape the last release used: run `--reverify` over
+`seal/ledger.md`, then hand-revert the anchors this branch never opened, from a
+copy taken before the run. Nineteen rows were re-stamped and six reverted, so
+the shared ledger now reads exactly the base's own two drifted rows. The
+`Checked` column was not touched, because `--reverify` does not touch it — the
+worry that it would was measured false rather than argued.
+
+Both reviews had read the claims first, which is what makes the stamp a
+re-verification rather than a rewrite: round 1 read all thirteen rows citing the
+four anchors against the edited units, and round 2 read the same. Every edit is
+a one-line rendering swap; none touches what any row asserts.
 
 **The scan-suggestion site keeps its `os.path.relpath`.** `spec.md` puts it out
 of scope and `phases/phase-2.md` carries the judgement. It renders a scanned
