@@ -462,6 +462,21 @@ def swallowed(reader, report, lines):
     a Markdown heading and a Python comment both, and only the fence tells
     them apart -- which is why nothing here reads the `#` character.
     """
+    # RIDER: `strip_comments` is the OTHER hider and it has no refusal of its
+    # own. An HTML comment opened and never closed blanks the rest of the
+    # report exactly as an open fence does, and this line cannot see it -- it
+    # reads the text the comments have already been stripped from. Executed
+    # 2026-09-06 at c7663e1, calling this function and `terminal_value` on two
+    # crafted reports: an unterminated comment above `## Deferred` loses that
+    # section AND both terminal lines, so the run is refused with *the report
+    # has 0 Needs a fix: lines* -- sending the writer to add a line they did
+    # in fact write, which is the message defect
+    # `test_a_fence_that_swallows_a_terminal_line_names_the_fence` fixed for
+    # fences. One opened below the terminal lines hides nothing the generator
+    # reads. So it is a message defect and not a silent loss, and its refusal
+    # belongs here in `NEVER_CLOSED`'s shape, asking the sentinel of the
+    # comment pass the way the line below asks it of the fence pass.
+    # Verified 2026-09-06 at c7663e1.
     stripped = reader.strip_comments(report.splitlines())
     if not reader.blank_fences([*stripped, SENTINEL])[-1]:
         raise Refused(NEVER_CLOSED)
