@@ -22,7 +22,8 @@
   recomputes that reach against the source on every run and refuses the old
   call anywhere in it. A sixth place added later is caught by that test as
   long as the ledger path gets there by one of the ordinary ways a value
-  moves — assigned, aliased, unpacked, looped over, or passed to something.
+  moves — assigned straight across, aliased, unpacked from a tuple, looped
+  over, or handed to another function in this file.
   It is a guard against the edit somebody actually makes, not a proof that
   no such place can exist.
 

@@ -491,7 +491,7 @@ def carriers(text):
 def relpath_on_a_ledger(text):
     """`(function, line, source)` for every parent-folding call on a ledger path.
 
-    Three gates, each widened in round 1 after a measurement:
+    Two gates, each widened in round 1 after a measurement:
 
     - **Which call.** `relpath` AND `normpath`, matched on `os.path.relpath`
       and on a bare `relpath` alike -- reading only the attribute missed a
@@ -505,8 +505,14 @@ def relpath_on_a_ledger(text):
 
     `abspath` is deliberately absent though it folds `..` too, because
     `file_identity` calls it to build an inode fallback KEY that no person
-    ever reads. Adding it would flag that line, and a check that cries wolf on
-    the one correct use of a function is a check people learn to ignore.
+    ever reads. Adding it flags that line and one more -- `main`'s `--map`
+    loop, reached because `path` is one of `main`'s over-reach carriers -- and
+    a check that cries wolf on the correct uses of a function is a check
+    people learn to ignore. The same holds for `realpath`, which folds `..`
+    and resolves links besides, and which `display_name`'s own docstring names
+    as the derivation that renames a file the operator did not name:
+    `write_atomic` calls it to find the real file behind a symlinked ledger
+    before replacing it atomically, and that is the one place it belongs.
     """
     carried = carriers(text)
     tree = ast.parse(text)
@@ -609,6 +615,18 @@ def test_the_refusal_above_can_actually_fail():
         "the header site was not found by its source text, so the arms below "
         "prove nothing — re-anchor them on the current spelling"
     )
+    # RIDER: the `alias` and `tuple unpack` shapes below splice their extra
+    # lines at a hardcoded eight spaces, which is where `main`'s header sits
+    # today. Re-indent that header one level deeper and the spliced line
+    # dedents mid-block, so `ast.parse` inside `relpath_on_a_ledger` raises
+    # IndentationError and this case reports a traceback instead of the
+    # guidance the assertion above exists to give -- which that assertion
+    # cannot catch, because the header text is still present. If you move or
+    # re-indent the header, derive the pad from the source instead:
+    # `pad = " " * len(text[: text.index(header)].rsplit("\n", 1)[-1])`.
+    # Round 2's ⬜ 10, deferred rather than fixed because closing it on a fix
+    # word would commission a reader for a change nothing needs today.
+    # Verified 2026-09-06 at 4581fe1.
     shapes = {
         "direct": 'print(f"\\n{os.path.relpath(ledger, root)}")',
         "alias": header

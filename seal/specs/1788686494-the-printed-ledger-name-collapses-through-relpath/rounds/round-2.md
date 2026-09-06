@@ -90,6 +90,6 @@ Run the ledger check unscoped.
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| Finding 10 — the alias and tuple-unpack shapes hardcode `main`'s eight-space header indentation | `seal/follow-up.md` | whoever next re-indents or moves `main`'s per-ledger header, which is when it bites |
+| Finding 10 — the alias and tuple-unpack shapes hardcode `main`'s eight-space header indentation | a `# RIDER:` at the coordinate, in `tests/test_the_printed_ledger_name_is_the_file_that_was_read.py` — `seal/follow-up.md`'s own rule sends anything tied to a coordinate there, so that its whole value arrives at whoever opens the file | whoever next re-indents or moves `main`'s per-ledger header, which is when it bites |
 | Four rows in `seal/ledger.md` left DRIFTED, plus the two from the base (`templates/config.md#"# Repository config"`, `round_record.py#swallowed`) | round 1's Deferred rows, unchanged by this range | the orchestrator or the release step, by `--reverify` with every branch in flight in view |
 | The full suite, repository-wide lint and typecheck | `agent-contract` §2 | the orchestrator, once — and this report leaves nothing open, so the broad gate is the next step |

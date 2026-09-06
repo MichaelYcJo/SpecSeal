@@ -58,11 +58,14 @@ than a search.** Three steps, each mechanical:
    `--ledger` arm, `main`'s default arm, and `skipped_by_narrowing`'s own
    `resolve_patterns(default_patterns(root))`. Everything downstream is one of
    those lists, an element of one, or something derived from an element.
-2. **The closure of names.** From those seeds, four propagation rules taken to
+2. **The closure of names.** From those seeds, five propagation rules taken to
    a fixed point: a name assigned from a seed call; a loop or comprehension
    variable over a carrier; the *i*th parameter of a function called with a
-   carrier in position *i*; and the assignment target of a call to a function
-   that returns an expression mentioning a carrier. That yields `ledger` in
+   carrier in position *i*; the assignment target of a call to a function
+   that returns an expression mentioning a carrier; and a bare alias of a
+   carrier, or a tuple of them, which round 1 added after measuring that
+   `alias = ledger` ended the reach. The fourth rule was the last one at the
+   time this argument was first written, and round 2 found the count stale. That yields `ledger` in
    `check_ledger`, `migrate` and `reverify`; `ledgers`, `ledger`, `missed` and
    `path` in `main`; `candidates`, `read`, `p` and `path` in
    `skipped_by_narrowing`; and the parameters of `read`, `write_atomic`,
