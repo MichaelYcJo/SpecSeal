@@ -187,8 +187,10 @@ machinery, so the row says what it buys where the deletion would be typed.
 `DERIVATIONS` had seven. The count moved again in that pass — the derivation
 became `handed_back`, one arm per way an expression carries a value outward,
 and the fixtures were re-enumerated over those arms and over the
-over-collection shapes round 1 measured. `rounds/round-1.md` carries the
-current figures; the numbers in this record are phase 2's, at `3bf5c6d`. -->
+over-collection shapes round 1 measured. The round records carry the current SHAPE, and
+no number here or there should be read as current: round 2's fix pass added four
+more fixtures without touching this marker, which is round 3's finding 8. The
+numbers in this record are phase 2's, at `3bf5c6d`. -->
 
 **The "six mutations" figure above is a mutation count and stays correct.**
 Only the fixture count was wrong.
