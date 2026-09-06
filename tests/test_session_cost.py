@@ -1202,6 +1202,30 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     assert re.search(r"^span\s+-\d", fourth.stdout, re.M), fourth.stdout
     assert "repeats" not in fourth.stdout, fourth.stdout
 
+    # The same negative duration must not SUPPRESS a line either. The
+    # `nothing obvious` line is gated on there being no repeat time, and a
+    # negative repeat time reads as falsey — so the report went silent on a
+    # transcript it had nothing to say about, which is the same defect as
+    # the repeats line one gate over. Two calls in ONE message put tools per
+    # turn above the threshold that line also needs.
+    batched = [
+        at(
+            "2026-08-24T10:00:00Z",
+            [use("x", "pytest -q"), use("y", "pytest -q")],
+            "mx",
+            {"output_tokens": 1},
+        ),
+        at("2026-08-24T09:00:00Z", [{"type": "tool_result", "tool_use_id": "x"}]),
+        at("2026-08-24T09:30:00Z", [{"type": "tool_result", "tool_use_id": "y"}]),
+    ]
+    suppressed = tmp_path / "suppressed.jsonl"
+    suppressed.write_text("\n".join(batched) + "\n")
+    fifth = run([str(suppressed)])
+    assert fifth.returncode == 0, fifth.stderr
+    assert re.search(r"^span\s+-\d", fifth.stdout, re.M), fifth.stdout
+    assert "repeats" not in fifth.stdout, fifth.stdout
+    assert "nothing obvious" in fifth.stdout, fifth.stdout
+
     # And a span of exactly zero keeps the sentence written for it.
     zero = tmp_path / "zero.jsonl"
     zero.write_text(
