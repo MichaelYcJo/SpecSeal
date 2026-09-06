@@ -55,4 +55,12 @@
   the derivation does not reach is recorded beside it rather than closed: a
   value another function hands back, one formatted at run time, and the two
   the section names as categories rather than as words, which are the
-  reviewed repository's own names and have no finite set to derive. (#177)
+  reviewed repository's own names and have no finite set to derive — and that
+  limit is executed rather than only stated, by two fixtures that are its two
+  sides. **The derivation reads the generator's text as an argument, and that
+  is what makes it testable at all**: today's `call_sites` names a constant in
+  every return and writes no literal into one, so against the real module the
+  arm that reads a literal is unreachable and a mutation deleting it survives
+  — which is what the mutation loop found, in the very case written to close a
+  list that would go stale. Six mutations over the derivation, one at a time,
+  each now killed by a named case. (#177)

@@ -469,7 +469,52 @@ def test_the_section_names_the_words_the_writer_can_put_in_a_reach():
     )
 
 
-def reach_values():
+DERIVATIONS = (
+    ('WORD = "a word"\n\ndef call_sites():\n    return [WORD]\n', {"a word"}),
+    ('def call_sites():\n    return ["a literal"]\n', {"a literal"}),
+    (
+        'WORD = "a word"\n\ndef call_sites():\n'
+        '    if here:\n        return ["a literal"]\n'
+        '    return [WORD, "and another"]\n',
+        {"a word", "a literal", "and another"},
+    ),
+    ("COUNT = 3\n\ndef call_sites():\n    return [COUNT]\n", set()),
+    ("def call_sites():\n    return [3, None]\n", set()),
+    ('WORD = "a word"\n\ndef call_sites():\n    return elsewhere(WORD)\n', {"a word"}),
+    ('WORD = "a word"\n\ndef call_sites():\n    return elsewhere()\n', set()),
+)
+
+
+@pytest.mark.parametrize("source, want", DERIVATIONS)
+def test_the_derivation_reads_both_shapes_a_return_can_fix(source, want):
+    """`reach_values` against fixtures rather than against the generator,
+    because the generator exercises one of its two arms. Today every return
+    in `call_sites` names a constant and none writes a literal, so the
+    literal arm is unreachable from the real module and a mutation deleting
+    it survives — the case above stays green either way.
+
+    The two non-string fixtures are a value that must NOT arrive: a reach
+    half is a word somebody reads in a record, and dropping either type
+    check turns a count or a `None` into one. The name arm and the literal
+    arm each need their own, because a name never reaches the literal arm.
+
+    The last two are the recorded limit, executed: a constant handed to
+    another function is still fixed in this return and is read, and a value
+    that other function alone knows is not. Whoever closes that limit will
+    find the second of them red."""
+    assert reach_values(source) == want
+
+
+def test_a_second_call_sites_is_refused_rather_than_picked_from():
+    """The derivation reads one function, so two of that name is an ambiguity
+    it must not resolve silently — picking the first would derive a set from
+    a definition nobody meant and report it as the generator's."""
+    two = "def call_sites():\n    return []\n\n\ndef call_sites():\n    return []\n"
+    with pytest.raises(AssertionError, match="2 definitions"):
+        reach_values(two)
+
+
+def reach_values(source=None):
     """Every reach value fixed in `call_sites`' own source, derived from it.
 
     Two shapes are read out of the function's `return` statements: a
@@ -477,6 +522,12 @@ def reach_values():
     into one. So a value added to the function joins this set without
     anybody editing this file, which is the whole difference between this
     and listing the words beside the case.
+
+    `source` is the generator's text, and the default reads the real module.
+    The cases hand it fixtures for one reason: today's generator names a
+    constant in every return and writes no literal into one, so the literal
+    arm cannot be reached — and an arm no case can kill is an arm that
+    proves nothing, whatever the suite total says.
 
     **What the derivation does not reach, recorded rather than closed.** A
     value another function hands back, and one formatted at run time, are
@@ -490,7 +541,9 @@ def reach_values():
     over an unbounded domain `RECORDED_LIMIT` above declines for the same
     reason.
     """
-    tree = ast.parse(read("skills", "code-review", "scripts", "round_record.py"))
+    if source is None:
+        source = read("skills", "code-review", "scripts", "round_record.py")
+    tree = ast.parse(source)
     constants = {}
     for node in tree.body:
         if not isinstance(node, ast.Assign):
@@ -534,9 +587,11 @@ def test_the_section_names_every_reach_value_the_generator_fixes():
     a constant ADDED is invisible to the named form and is what this one is
     for. `reach_values`' docstring carries what neither reaches."""
     spec = flat("docs", "review-chain-spec.md")
+    generator = _load("specseal_round_record_for_derived_reach", RECORD)
     values = reach_values()
-    assert len(values) >= 3, (
-        f"the derivation found {len(values)} values, so it has stopped "
+    floor = {generator.PYTEST, generator.PYTEST_ONLY, generator.NO_SITE}
+    assert floor <= values, (
+        f"the derivation missed {sorted(floor - values)}, so it has stopped "
         "reading the function and the loop below proves nothing"
     )
     for word in sorted(values):

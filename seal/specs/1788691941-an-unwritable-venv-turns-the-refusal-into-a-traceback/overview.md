@@ -3,7 +3,7 @@
 📋 implement applied
 · spec:     `seal/specs/1788691941-…/spec.md` (Grounding, Scope, all four scenarios), `plan.md` (phases, alternatives), `phases/phase-1.md`, `routing.md`; `CLAUDE.md` §*A ledger coordinate names content* and §*a change writes fragments, never the shared file*; `docs/review-chain-spec.md` §*The fix surface*; `templates/sdd-phase.md`, `templates/sdd-overview.md`; `seal/config.md` (no `Record language` row — English)
 · evidence: `seal/ledger/1788691941-an-unwritable-venv-turns-the-refusal-into-a-traceback.md` R1 (the guard and its sentence) and R2 (the derived reach vocabulary), both stamped by the scoped `--reverify`; `seal/ledger.md` R2 and R8 of the `1788632199` section, each given the precondition it had left unstated, with R2's `hide_from_git` anchor re-stamped `63e2d9b9` → `08f18fc6`
-· verified: **executed** — both reach cases seen red against a sixth value in `call_sites`' returnable set (`1 failed, 1 passed`) and green after the restore; `./bin/test tests/test_the_fixes_name_their_surface.py -q` → 35 passed, exit 0; `./bin/evidence-check .` unscoped before and after, 3 drifted → 2; `uvx ruff check` and `uvx ruff format --check` on the changed test module, exit 0. **Read** — R2's and R8's claims and every coordinate they cite; `call_sites`; the fix-surface section. **Unverified** — the table below
+· verified: **executed** — both reach cases seen red against a sixth value in `call_sites`' returnable set (`1 failed, 1 passed`) and green after the restore; six mutations over `reach_values` one at a time, one survivor found and closed, all six dead on the re-run with the killing case named; `./bin/test tests/test_the_fixes_name_their_surface.py -q` → 43 passed, exit 0; `./bin/evidence-check .` unscoped before and after, 3 drifted → 2; `uvx ruff check` and `uvx ruff format --check` on the changed test module, exit 0. **Read** — R2's and R8's claims and every coordinate they cite; `call_sites`; the fix-surface section. **Unverified** — the table below
 
 ## Why this work exists
 
@@ -40,8 +40,10 @@ remove the rule with it.
 **The derivation is not extended across function boundaries.** A reach value
 another function hands back, or one formatted at run time, is outside what
 `reach_values` reads. Closing that means resolving calls, which is the
-unbounded enumeration `RECORDED_LIMIT` declines in the same module; the limit
-is recorded in `reach_values`' docstring instead.
+unbounded enumeration `RECORDED_LIMIT` declines in the same module. The limit
+is recorded in `reach_values`' docstring and **executed** rather than only
+stated: two of the derivation fixtures are its two sides, and whoever closes
+it will find the second of them red.
 
 **`docs/review-chain-spec.md` was not edited.** The section is correct today —
 that is why nothing shipped broken — and leaving it alone is also what keeps

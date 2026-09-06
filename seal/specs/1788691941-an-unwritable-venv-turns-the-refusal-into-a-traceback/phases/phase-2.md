@@ -6,6 +6,12 @@
 |---|---|
 | Phase | 2 |
 | Commit | 3bf5c6d |
+
+<!-- The phase's substantive work is `d210bac` (the derived case) and
+`3bf5c6d` (the two ledger judgments); the Commit row and `plan.md`'s Status
+cell carry the second, which is the one that closed the phase's argument. The
+records and the mutation loop's repair follow it. -->
+
 | Ran by | <left for the orchestrator — the spawn prompt named no model, and the template's own rule is that a segment transcribes this value or leaves it, never sources it from its own idea of what it is> |
 
 ## What this phase was asked
@@ -149,6 +155,24 @@ measurement, and the wider claim is a second row in the fragment. Its anchors
 did not move, because the existing case was not edited — the derived case is a
 new function beside it.
 
+**The derivation's literal arm was unreachable, and only the mutation loop
+found it.** `call_sites` names a constant in every one of its returns and
+writes no string literal into one, so against the real module the arm that
+reads a literal cannot execute: deleting it left the whole module green. That
+is an arm no case can kill, planted by the very phase that was closing #177's
+*the list would be the thing going stale* — the same defect one level down.
+`reach_values` takes the generator's text as a parameter now, defaulting to
+the real module, and six fixtures exercise both arms, both type checks, and
+the two halves of the recorded limit. Six mutations, one at a time, each dead
+and each named. The parameter is the first thing that will read as test-only
+machinery, so the row says what it buys where the deletion would be typed.
+
+**The vacuous-pass guard was a bare count and is now a floor with content.**
+`len(values) >= 3` is a number anybody can lower without noticing; the derived
+set is required to contain the three constants the named case reads, so the
+guard fails by naming what went missing and dies under the mutation that
+empties the derivation.
+
 **The format hook removes an import added in a call of its own.** `import ast`
 was added before its caller existed, the `PostToolUse` formatter stripped it
 as unused, and the next run failed with `NameError`. Nothing was lost, but the
@@ -213,9 +237,31 @@ tree with it — and the restore was verified byte for byte:
 restore verified byte for byte
 ```
 
-**Green, at `d210bac`, executed.** `./bin/test
-tests/test_the_fixes_name_their_surface.py -q` → `35 passed in 7.98s`, exit
-`0` read directly rather than through a pipe.
+**Six mutations over `reach_values`, one at a time, executed.** Each was
+applied to a kept copy, run, and restored before the next; `tests/__pycache__`
+was cleared between them. The first run left one alive:
+
+```
+DEAD      the named-constant arm deleted                    exit 1
+DEAD      the literal arm deleted                           exit 1
+SURVIVED  the string check on a literal dropped             exit 0
+DEAD      the return-only filter dropped                    exit 1
+DEAD      the one-definition guard weakened to any          exit 1
+DEAD      the derivation emptied                            exit 1
+```
+
+The survivor is the finding: no fixture put a non-string literal inside a
+`return`, so dropping the type check on that arm changed nothing any case
+could see. One fixture closes it, and the loop re-run reads six DEAD with the
+killing case named for each — `test_the_derivation_reads_both_shapes_a_return_can_fix`
+for the arms and the type checks, `test_a_second_call_sites_is_refused_rather_than_picked_from`
+for the guard, and `test_the_section_names_every_reach_value_the_generator_fixes`
+for the return-only filter and the emptied derivation. Restored byte for byte
+and green.
+
+**Green, executed.** `./bin/test tests/test_the_fixes_name_their_surface.py -q`
+→ `43 passed in 7.90s`, exit `0` read directly rather than through a pipe.
+(`35 passed` at `d210bac`, before the derivation fixtures.)
 
 `uvx ruff check` and `uvx ruff format --check` on
 `tests/test_the_fixes_name_their_surface.py`: exit `0` and `1 file already
