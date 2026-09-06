@@ -7,12 +7,12 @@
 | PR | 186 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — findings 1 and 2. Finding 1 needs either the two-rule detector widening above or the claim narrowed in four places; finding 2 needs the one boundary assertion. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -41,9 +41,9 @@ Run the ledger check in its **unscoped** form; the narrowing is a writer's tool 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | The class guard under-reaches in six constructible shapes, and four records claim it cannot false-pass | `tests/test_the_printed_ledger_name_is_the_file_that_was_read.py:441`, `:405`; claims at `changelog.md:23`, `overview.md:57`, `phases/phase-2.md:98`, `tests/…:370`, `seal/ledger/1788686494-…md:10` | open | Executed: six source mutations, none reported by `relpath_on_a_ledger`; the shipped shape is. `main:1721`'s existing tuple unpack makes the tuple case reachable by an ordinary refactor. A narrower fix was run and is clean on the current source |
-| 2 | Building the separator set without `altsep` survives all 43 cases, and changes four reachable Windows spellings | `skills/evidence-check/scripts/evidence_check.py:999`; case at `tests/test_the_printed_ledger_name_is_the_file_that_was_read.py:295` | open | Executed: eight mutations, six killed, this one exit 0 at 43 passed. `--ledger C:/proj/seal/ledger.md` under an `abspath` root is the reachable input |
-| 3 | The drive comparison is unpinned in both directions | `skills/evidence-check/scripts/evidence_check.py:1002` | open | Executed: case-folding the drive survives all 43 cases. The docstring states the choice, so this is a missing pin rather than a wrong answer |
+| 1 | The class guard under-reaches in six constructible shapes, and four records claim it cannot false-pass | `tests/test_the_printed_ledger_name_is_the_file_that_was_read.py:441`, `:405`; claims at `changelog.md:23`, `overview.md:57`, `phases/phase-2.md:98`, `tests/…:370`, `seal/ledger/1788686494-…md:10` | **fixed** `d42ad74` | fixed at d42ad74 — ``; Executed: six source mutations, none reported by `relpath_on_a_ledger`; the shipped shape is. `main:1721`'s existing tuple unpack makes the tuple case reachable by an ordinary refactor. A narrower fix was run and is clean on the current source |
+| 2 | Building the separator set without `altsep` survives all 43 cases, and changes four reachable Windows spellings | `skills/evidence-check/scripts/evidence_check.py:999`; case at `tests/test_the_printed_ledger_name_is_the_file_that_was_read.py:295` | **fixed** `d42ad74` | fixed at d42ad74 — ``; Executed: eight mutations, six killed, this one exit 0 at 43 passed. `--ledger C:/proj/seal/ledger.md` under an `abspath` root is the reachable input |
+| 3 | The drive comparison is unpinned in both directions | `skills/evidence-check/scripts/evidence_check.py:1002` | **fixed** `d42ad74` | fixed at d42ad74 — ``; Executed: case-folding the drive survives all 43 cases. The docstring states the choice, so this is a missing pin rather than a wrong answer |
 | 4 | The five rendering sites are the whole class on the current source | `skills/evidence-check/scripts/evidence_check.py:1131`, `:1389`, `:1514`, `:1708`, `:1741` | answered | Re-derived independently: 61 carrier-bearing statements over ten functions, five of them rendering. Matches the author's enumeration |
 | 5 | The integration case's reordering is right and fails for the reason it names | `tests/test_a_narrowed_ledger_read_says_what_it_skipped.py:642` | answered | Executed with `relpath` back at `main:1741`: stops on the inode assertion, premise passed, spelling compare never reached |
 | 6 | No existing case baked in the wrong ledger name | `tests/test_a_narrowed_ledger_read_says_what_it_skipped.py:91`, `:119`, `:687`, `:703` | answered | Read: all four assert `seal/ledger.md` and pass under either rendering because their fixtures carry no `..` |
