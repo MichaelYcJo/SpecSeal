@@ -37,9 +37,28 @@ name, one closed. It cost two things rather than the one the issue predicted:
    `0.8.1`, there is nothing to roll: **exit 0, say so, leave it.** That is the
    condition the script never had, and it is why a patch release closed a log
    that had not been used yet.
-2. **The title comes from what is known rather than from a guess.** The
-   just-shipped version is read from `.claude-plugin/plugin.json` in the
-   checked-out tree, which `read_version` already does.
+2. Verbatim: *"The title comes from the version rather than from a guess: read
+   `.claude-plugin/plugin.json` in the checked-out tree, **and name the NEXT
+   version by the same arithmetic the release actually used**."*
+
+   **The build went against the bolded clause, deliberately.** The tree is
+   read for the just-shipped version, which `read_version` already does; the
+   next version is not named at all, because the title states the version the
+   log rolled FROM. The grounds are #155's own body, which delegates the
+   choice — *"What could tell it instead of guessing. **Named, not chosen —
+   the trade is what the work item settles**"* — and lists this shape as one
+   of the four candidates: *"Do not name a version at all. Title the log by
+   the version it rolls from — `chore: flow measurement — after 0.8.0` —
+   which is a fact rather than a prediction."* The comment's arithmetic
+   clause and the body's delegation are the same person a day apart, and the
+   body is the one that hands the fork over.
+
+   <!-- This bullet quoted the comment with the arithmetic clause removed,
+        which made half 2 read as a half the build satisfied rather than one
+        it settled against. Corrected in round 1's fix pass (finding 9). -->
+
+   The scenario table below carries the second half of the same divergence,
+   and `overview.md` §Divergence is where both are judged.
 
 **The fork this work item settles**, which #155 names but does not choose.
 Half 1 needs the version the open issue names, and the script's own docstring

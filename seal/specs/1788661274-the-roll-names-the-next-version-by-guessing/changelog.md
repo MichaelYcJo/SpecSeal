@@ -21,7 +21,14 @@
   silent**, and that direction is chosen rather than incidental: read as
   *not due*, an unreadable title stops the log forever with the workflow
   green, which is the failure being fixed one step over; read as *due*, it
-  costs at most one roll that was not owed. (#155)
+  costs at most one roll that was not owed. **Its own means the whole title
+  from the first character** — the `chore: ` prefix and the marker, then a
+  version — so a title carrying those words somewhere inside it, like
+  `docs: explain flow measurement — after 0.8.2`, names no version this roll
+  will act on. The comment posted on the log being closed now says what
+  replaces it and quotes the successor's title, where it used to promise a
+  log for the version the release ships next — the prediction this change
+  removes. (#155)
 - **What a log's title means now, and what the older ones mean.** A rolling
   log is titled `chore: flow measurement — after 0.8.2`, and the version in
   it is the one the log rolled from: that log opened at the 0.8.2 release,
