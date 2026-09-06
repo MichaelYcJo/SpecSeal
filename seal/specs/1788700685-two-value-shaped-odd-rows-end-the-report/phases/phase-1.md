@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | b0e4859 |
-| Ran by | <the orchestrator fills this — the spawning session is the only party that knows> |
+| Ran by | specseal:smith on claude-opus-5[1m] |
 
 ## What this phase was asked
 
