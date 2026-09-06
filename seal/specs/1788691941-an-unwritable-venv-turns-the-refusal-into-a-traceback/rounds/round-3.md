@@ -5,7 +5,7 @@
 | Target SHA | 8232a07 |
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 188 |
-| Broad gate | not yet |
+| Broad gate | 9a05405 — `./bin/test` 2415 passed · 2 skipped in 306.29 s; `uvx ruff check .` and `uvx ruff format --check .` over 109 files, exit 0; `./bin/evidence-check .` unscoped 701 ok · 2 drifted · 0 broken, exit 0, the two being the base's own; `./bin/unverified-check --baseline origin/release/v0.8.3` exit 0. No commit follows this SHA on the branch |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
