@@ -709,6 +709,128 @@ def test_prose_under_the_probes_table_stays_in_the_report(repo):
 #   the input         the round paragraph is spliced into the record above
 #                     every section a reader looks up, and it never passed
 #                     through the guard at all
+#
+# Round 2 then found that list one member short, and the missing one was
+# created by round 1's own fix (contract §12: the enumeration is re-run with
+# the new pair in it). The three axes above are one axis -- the text a hider
+# is asked about -- and there is a second: WHICH hider. `readable` blanks with
+# two passes and `strip_comments` runs first, so an HTML comment opened and
+# never closed blanks every line below it exactly as an open fence does, and
+# the fence pass cannot see it because by then those lines are already gone.
+#
+# The grid is the three copies the generator makes -- `build` splices the
+# round paragraph whole, `table_of` copies a row out of `raw`, `fenced_after`
+# copies a block out of `raw` -- crossed with the two hiders. Measured at
+# `aed3ca0`, before the second column existed:
+#
+#                       an open fence            an open HTML comment
+#   the report          `NEVER_CLOSED`           exit 2 on `0 Needs a fix:
+#                                                lines` -- the writer sent to
+#                                                add a line they did write
+#   the round paragraph `ASKED_NEVER_CLOSED`     EXIT 1, RECORD WRITTEN, and
+#                                                four of its five sections
+#                                                unreadable                🔴 7
+#   a copied block      `NEVER_CLOSED_VERBATIM`  unreachable: an opener inside
+#                                                the block whose closer is
+#                                                outside it puts the block's
+#                                                own closing fence inside the
+#                                                comment, so the fence pass
+#                                                sees an unclosed fence first
+#   a copied row        `SWALLOWED_TABLE`        the straddle: balanced in the
+#                                                report, half in the record.
+#                                                Open, `overview.md` §Not done
+#
+# Two cells are closed below. The row straddle stays open because it needs a
+# limit argument the others do not -- a copied block may legitimately carry a
+# whole comment, so its question is balance across the slice, not presence.
+
+
+UNCLOSED_COMMENT_ASKED = "Attack the parser first.\n\n<!-- the coordinate to open\n"
+# A fence that closes, holding a comment that does not. `strip_comments` runs
+# first, so the block's own closing fence is inside the comment and blank by
+# the time the fence pass looks -- which is why the comment is asked first.
+COMMENT_INSIDE_A_FENCE = "Attack it.\n\n```python\n<!-- a note\nx = 1\n```\n"
+
+
+def test_an_unclosed_html_comment_in_the_round_paragraph_is_refused(repo):
+    """🔴 7 of round 2, and it is 🟡 3's own fix one hider over. The guard
+    round 1 added asks `strip_comments(asked)` whether a fence is still open;
+    `build` splices `asked` VERBATIM. So an unterminated comment is invisible
+    to the check and present in the copy -- the same check/copy asymmetry as
+    🔴 1, inside the guard written to close 🟡 3.
+
+    Executed at `aed3ca0` before this: exit 1 with the record WRITTEN, and
+    read back through the shared reader only `## What this round was asked`
+    resolved -- `## Verdicts`, `## Executed probes`, `## Inherited
+    coordinates` and `## Deferred` each 0 occurrences.
+
+    The second half is the limit. A spawn prompt carries HTML comments as
+    routinely as it carries fences -- the one that produced this work item
+    does -- and a balanced one is copied whole, comment and all."""
+    declared(repo)
+    code, out, text = generate(repo, asked=UNCLOSED_COMMENT_ASKED)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "never closed" in out
+    assert "round paragraph" in out
+    assert "HTML comment" in out
+    # And the shape that makes the ORDER load-bearing: the comment opens
+    # inside a fenced block whose closer it therefore blanks. Asked the
+    # fence question first, this is refused for a fence that is closed in
+    # the text as written -- the wrong hider, named to the wrong writer.
+    code, out, text = generate(repo, asked=COMMENT_INSIDE_A_FENCE)
+    assert code == 2, out
+    assert text is None
+    assert "HTML comment" in out, "the fence closes; the comment does not"
+    code, out, text = generate(repo, asked=UNCLOSED_COMMENT_ASKED + "-->\n")
+    assert code == 0, out
+    assert "the coordinate to open" in text
+
+
+UNCLOSED_COMMENT_REPORT = "<!-- a note about the row\nstill the note\n"
+
+
+def test_an_unclosed_html_comment_in_the_report_names_the_comment(repo):
+    """§14, and the same hider on the other input. Here nothing is lost
+    silently -- an unterminated comment runs to the end of the file, so it
+    always takes the terminal lines with it -- and what was wrong is the
+    message. Executed at `aed3ca0`: exit 2 reading `the report has no ##
+    Verdicts section` for a comment above the table, and `the report has 0
+    Needs a fix: lines` for one below it. Both send the writer to look for
+    something they did in fact write, which is the defect §14 and
+    `test_a_fence_that_swallows_a_terminal_line_names_the_fence` already
+    fixed for fences.
+
+    The comment question is asked BEFORE the fence question, because an open
+    comment blanks the closing fence of every block below it: asked the other
+    way round, a report with one unterminated comment is refused for a fence
+    that is closed in the text as written."""
+    declared(repo)
+    head = "# what the round found\n\n" + UNCLOSED_COMMENT_REPORT
+    tail = f"\nProse about 🔴 1.\n\n## Verdicts\n\n{VERDICT_HEADER}{OPEN_ROW}\n"
+    tail += PROBES_TABLE + DEFERRED_TABLE + TERMINAL
+    code, out, text = generate(repo, report_text=head + tail)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "never closed" in out
+    assert "HTML comment" in out
+    # The order, on the report side: the comment opens inside a fenced block
+    # under the probes table, so the block's own closer is blanked before the
+    # fence pass runs. Asked the fence question first, this is refused as
+    # `a fenced block in the report is never closed` -- and the fence closes.
+    inside = "```python\n<!-- a note\nx = 1\n```\n"
+    body = HEAD_AND_VERDICTS + f"## Executed probes\n\n{PROBE_HEADER}{PROBE_ROW}\n"
+    code, out, text = generate(
+        repo, report_text=body + inside + "\n" + DEFERRED_TABLE + TERMINAL
+    )
+    assert code == 2, out
+    assert text is None
+    assert "HTML comment" in out, "the fence closes; the comment does not"
+    code, out, text = generate(repo, report_text=head + "-->\n" + tail)
+    assert code == 0, out
+    assert rows_of(text, "## Deferred") == [
+        ln.strip() for ln in (DEFERRED_HEADER + DEFERRED_ROW).splitlines()
+    ]
 
 
 COMMENTED_OPENER = "<!-- a note about the row\n```\nstill the note\n-->\n"
