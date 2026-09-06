@@ -37,39 +37,326 @@ def tracked(*prefixes):
     return [rel for rel in out if not rel.endswith((".gif", ".png", ".jpg"))]
 
 
-def test_no_loaded_file_hardcodes_the_running_version():
+LOADED = (
+    "skills",
+    "agents",
+    "docs",
+    "templates",
+    "README.md",
+    "README.ko.md",
+    "CONTRIBUTING.md",
+    "install.sh",
+    "uninstall.sh",
+)
+
+# A version-shaped token, with the optional `v` prefix the substring test this
+# replaced caught for free. The lookaround on both sides is what keeps
+# `1.2.3.4` and `v1.2.30` from reading as `1.2.3`: a four-part number is not a
+# release of this plugin, and a number that continues is a different one.
+VERSION_TOKEN = re.compile(r"(?<![\w.])v?(\d+\.\d+\.\d+)(?![\w.])")
+
+# The value the repository already tells an author to write where a real
+# version would be wrong. `docs/issues-and-milestones.md` §"A rolling log is
+# titled after the version it rolled from" is where that decision was made and
+# where the reason for it sits; the check's own message points a reader there
+# rather than restating it.
+#
+# It is exempt in EVERY loaded file rather than at one coordinate, because the
+# whole point of an illustrative value is that the next author may write it
+# anywhere. `VERSIONS_OF_ANOTHER_PRODUCT` below is pinned to its file for the
+# opposite reason: that one is a fact about one comment.
+ILLUSTRATIVE_VERSION = "1.2.3"
+
+RECORDS_OF_A_MOMENT = (
+    "docs/one-root-by-lifetime.md",
+    "docs/one-root-by-lifetime.ko.md",
+    "docs/flow.md",
+    # A trailing slash is a PREFIX, not a path. `docs/experiments/` holds
+    # dated records of what was measured on a particular day, on a particular
+    # build of a particular tool — the file name carries the date. Rewriting
+    # the version an experiment ran against would falsify the record, which is
+    # the same argument the three exact paths above already carry, applied to
+    # a directory whose every future file has it too. That is what makes a
+    # prefix defensible here where `docs/issues-and-milestones.md` — a
+    # standing document edited every release — is not (#179).
+    "docs/experiments/",
+)
+
+# A version that belongs to somebody else's product is above this plugin's
+# running version by accident of arithmetic, and it is not a timer: no release
+# of SpecSeal makes it wrong. Pinned to the file it is written in, so the
+# exemption stays a fact about one comment rather than a hole the token can
+# walk through anywhere.
+VERSIONS_OF_ANOTHER_PRODUCT = {
+    ("skills/implement/scripts/seal.py", "4.4.17"): (
+        "bash's, named in a comment about the glob behaviour of that release"
+    ),
+}
+
+
+def as_release(token):
+    """`v0.9.0` and `0.9.0` alike -> `(0, 9, 0)`, which compares."""
+    return tuple(int(n) for n in token.lstrip("v").split("."))
+
+
+def is_a_record_of_a_moment(rel):
+    """Exact paths and, where an entry ends in `/`, everything beneath it."""
+    return any(
+        rel == entry or (entry.endswith("/") and rel.startswith(entry))
+        for entry in RECORDS_OF_A_MOMENT
+    )
+
+
+def shipped_versions():
+    """Every version `CHANGELOG.md` records as released."""
+    return set(re.findall(r"^## (\d+\.\d+\.\d+)\b", read_text("CHANGELOG.md"), re.M))
+
+
+def timers_in(rel, text, running):
+    """Every version-shaped token in `text` at or above `running`.
+
+    Answers `(line number, token)` pairs. Below `running` is history and is
+    kept: `docs/issues-and-milestones.md` says in so many words that *the
+    branch `release/v0.3.0` shipped as 0.2.0*, and a rule that cannot state
+    that fact is refusing history rather than catching a timer. That case is
+    what decides against widening to every version this repository has ever
+    shipped (#179's second candidate).
+    """
+    if is_a_record_of_a_moment(rel):
+        return []
+    ceiling = as_release(running)
+    found = []
+    for number, line in enumerate(text.splitlines(), 1):
+        for match in VERSION_TOKEN.finditer(line):
+            bare = match.group(1)
+            if bare == ILLUSTRATIVE_VERSION:
+                continue
+            if (rel, bare) in VERSIONS_OF_ANOTHER_PRODUCT:
+                continue
+            if as_release(bare) >= ceiling:
+                found.append((number, match.group(0)))
+    return found
+
+
+def test_the_illustrative_version_is_not_one_this_repository_could_ship():
+    """The exemption above asserts its own precondition, or it hides the
+    defect it was added beside.
+
+    `ILLUSTRATIVE_VERSION` is exempt in every loaded file. On the day this
+    repository ships that number, the exemption would wave through exactly the
+    line the check exists to catch — and it would do so silently, because a
+    bare string in an allow-list has no way to notice that it stopped being
+    illustrative. So the value has to be one this repository has neither
+    shipped nor is shipping, and this is where that stops being an assumption.
+    """
+    running = version()
+    assert running != ILLUSTRATIVE_VERSION, (
+        f"the illustrative version {ILLUSTRATIVE_VERSION} is now the running "
+        "version, so the exemption in `timers_in` hides the defect it was "
+        "written beside. Choose a value this repository will not reach and "
+        'rewrite the paragraph at `docs/issues-and-milestones.md` §"A '
+        'rolling log is titled after the version it rolled from" with it'
+    )
+    shipped = shipped_versions()
+    assert shipped, "CHANGELOG.md records no releases — this case is blind"
+    assert ILLUSTRATIVE_VERSION not in shipped, (
+        f"the illustrative version {ILLUSTRATIVE_VERSION} has shipped "
+        f"({sorted(shipped)}), so a loaded file naming it names a real "
+        "release. Choose a value this repository has not reached"
+    )
+
+
+def test_no_loaded_file_names_a_version_at_or_above_the_running_one():
     """A version number written into prose is right for exactly one release.
 
-    `seal/specs/` and `CHANGELOG.md` are records of a moment and keep theirs.
-    So are a release's design record and the flow checklist that names the
-    release it plans: `docs/one-root-by-lifetime.md` is the 0.4.0 design and
-    says so in every other paragraph, and `docs/flow.md` is a list headed by
-    the version it tracks. Both are dated by their subject, not by prose that
-    happened to name the running version, and the 0.4.0 release is where this
-    test first met them."""
-    RECORDS_OF_A_MOMENT = (
-        "docs/one-root-by-lifetime.md",
-        "docs/one-root-by-lifetime.ko.md",
-        "docs/flow.md",
-    )
+    The check this replaced read one number — the version in `plugin.json` —
+    so a document naming a version that has NOT shipped yet was green every
+    day until the day it shipped, and red on that release's own preparation
+    commit, hours in, after the broad gate had already run. `0.9.0` sat in
+    `docs/issues-and-milestones.md` for three releases that way (#179).
+
+    So the comparison is read rather than the equality: **at or above the
+    running version is a timer and is refused; below it is history and is
+    kept.**
+
+    Three exemptions, each argued where it is declared rather than here:
+
+    - `RECORDS_OF_A_MOMENT` — files whose whole job is to name a moment.
+      `seal/specs/` and `CHANGELOG.md` are outside the scanned set entirely.
+      `docs/one-root-by-lifetime.md` is the 0.4.0 design and says so in every
+      other paragraph, `docs/flow.md` is a list headed by the version it
+      tracks, and `docs/experiments/` holds dated measurements whose numbers
+      are the reading.
+    - `ILLUSTRATIVE_VERSION` — the value the repository already tells authors
+      to write, with its own case above asserting it is not a real one.
+    - `VERSIONS_OF_ANOTHER_PRODUCT` — a number that belongs to somebody
+      else's release train, pinned to the file that names it.
+    """
+    running = version()
     offenders = []
-    for rel in tracked(
-        "skills",
-        "agents",
-        "docs",
-        "templates",
-        "README.md",
-        "README.ko.md",
-        "CONTRIBUTING.md",
-        "install.sh",
-        "uninstall.sh",
-    ):
-        if rel in RECORDS_OF_A_MOMENT:
-            continue
+    for rel in tracked(*LOADED):
         with open(os.path.join(ROOT, rel), encoding="utf-8", errors="replace") as f:
-            if version() in f.read():
-                offenders.append(rel)
-    assert not offenders, f"{version()} written into files that outlive it: {offenders}"
+            text = f.read()
+        for number, token in timers_in(rel, text, running):
+            offenders.append(f"{rel}:{number} names {token}")
+    assert not offenders, (
+        f"a loaded file names a version at or above the running {running}. "
+        "Such a line is right for exactly one release and a timer before it: "
+        "it goes red on the day that version ships, on the release's own "
+        "preparation commit, after the broad gate has already run.\n  "
+        + "\n  ".join(offenders)
+        + f"\n\nWrite the illustrative {ILLUSTRATIVE_VERSION} instead, and "
+        "say beside it why the number is not real — the paragraph at "
+        '`docs/issues-and-milestones.md` §"A rolling log is titled after the '
+        'version it rolled from" already does exactly that, and is the model '
+        "to follow. If the number belongs to another product, declare it in "
+        "`VERSIONS_OF_ANOTHER_PRODUCT` with the product it names. If the "
+        "file's whole job is to name a moment, it belongs in "
+        '`RECORDS_OF_A_MOMENT` with the argument CONTRIBUTING.md §"What a '
+        'change to a gate must carry" asks for. A version BELOW the running '
+        "one is history and is already allowed — nothing needs doing to it."
+    )
+
+
+# The fixtures below run `timers_in` against text this repository does not
+# have to contain, so the rule is pinned at its boundary rather than only at
+# whatever the tree happens to hold today. `0.8.3` is a stand-in for "the
+# running version" in each of them and is not read from `plugin.json`: a
+# fixture that moves with the release proves nothing about the release after.
+RUNNING_IN_THE_FIXTURES = "0.8.3"
+
+
+def test_a_version_below_the_running_one_is_history_and_is_kept():
+    """The case that decides against refusing every version ever shipped.
+
+    `docs/issues-and-milestones.md` explains how to tell which release an
+    issue shipped in by saying that *the branch `release/v0.3.0` shipped as
+    0.2.0*. Both numbers are real, both are below the running version, and a
+    rule that refuses them is refusing the repository's own history — which
+    is #179's second candidate and why it was not taken.
+    """
+    history = "the branch `release/v0.3.0` shipped as 0.2.0"
+    assert (
+        timers_in("docs/issues-and-milestones.md", history, RUNNING_IN_THE_FIXTURES)
+        == []
+    )
+
+
+def test_a_version_at_or_above_the_running_one_is_refused():
+    """At the boundary, with the `v` prefix, and by line.
+
+    `0.8.3` is refused because it is the running version — the behaviour the
+    substring check this replaced already had. `0.9.0` is refused because it
+    is above it, which is the whole of what #179 added, and `v0.9.0` is
+    refused because the substring check caught the prefixed spelling for free
+    and a regex must not quietly drop it.
+    """
+    text = "line one\nships as 0.9.0 next\ncut v0.9.0 today\nthe running 0.8.3\n"
+    assert timers_in("docs/whatever.md", text, RUNNING_IN_THE_FIXTURES) == [
+        (2, "0.9.0"),
+        (3, "v0.9.0"),
+        (4, "0.8.3"),
+    ]
+
+
+def test_a_two_digit_component_compares_as_a_number():
+    """`0.10.0` is above `0.8.3`, and every string comparison says otherwise.
+
+    This is the version #179's own body names as the one the next author
+    writes, and it is the first release where the two orderings disagree. A
+    check that compared the tokens as text would allow it — silently, and
+    only until the day 0.10.0 shipped, which is the whole failure again.
+    """
+    assert timers_in("docs/x.md", "lands in 0.10.0", RUNNING_IN_THE_FIXTURES) == [
+        (1, "0.10.0")
+    ]
+    assert timers_in("docs/x.md", "shipped in 0.10.0", "0.11.0") == []
+
+
+def test_the_illustrative_version_is_allowed_in_any_loaded_file():
+    """`1.2.3` is above the running version and is not a timer.
+
+    It is exempt everywhere rather than at one coordinate, because the reason
+    it exists is that the NEXT author writes it — in a file this exemption
+    cannot know the name of.
+    """
+    text = f"titled `chore: flow measurement — after {ILLUSTRATIVE_VERSION}`"
+    assert (
+        timers_in("docs/issues-and-milestones.md", text, RUNNING_IN_THE_FIXTURES) == []
+    )
+    assert timers_in("agents/warden.md", text, RUNNING_IN_THE_FIXTURES) == []
+
+
+def test_a_record_of_a_moment_keeps_every_version_it_names():
+    """Both shapes of entry: an exact path, and `docs/experiments/` as a
+    prefix covering every dated record written under it, now and later."""
+    text = "measured on 2.1.259, which is above anything this plugin ships"
+    assert timers_in("docs/flow.md", text, RUNNING_IN_THE_FIXTURES) == []
+    assert (
+        timers_in(
+            "docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.md",
+            text,
+            RUNNING_IN_THE_FIXTURES,
+        )
+        == []
+    )
+    # The prefix covers a file that does not exist yet, which is the point of
+    # spelling it as a directory rather than listing today's two records.
+    assert (
+        timers_in(
+            "docs/experiments/2099-01-01-not-written-yet.md",
+            text,
+            RUNNING_IN_THE_FIXTURES,
+        )
+        == []
+    )
+    # And it is a prefix of the path, not a substring of it: a document that
+    # merely talks ABOUT the experiments directory is still scanned.
+    assert timers_in(
+        "docs/about-docs-experiments-2.1.259.md", text, RUNNING_IN_THE_FIXTURES
+    ) == [(1, "2.1.259")]
+
+
+def test_another_products_version_is_allowed_only_in_the_file_that_declares_it():
+    """The exemption is a fact about one comment, so it is pinned to it.
+
+    Unpinned, `4.4.17` would be waved through in any loaded file — including
+    one where it really was this plugin's number, written by somebody who had
+    no idea the token was spoken for.
+    """
+    text = "bash 4.4.17 changed how the glob answers"
+    assert (
+        timers_in("skills/implement/scripts/seal.py", text, RUNNING_IN_THE_FIXTURES)
+        == []
+    )
+    assert timers_in("docs/somewhere-else.md", text, RUNNING_IN_THE_FIXTURES) == [
+        (1, "4.4.17")
+    ]
+
+
+def test_a_number_that_is_not_a_version_is_not_read_as_one():
+    """The lookaround, which is what a substring test did not need.
+
+    A four-part number is not a release of this plugin, and a number that
+    continues past the third component is a different one. Reading either as
+    a version would refuse a line nobody can rewrite into an illustrative
+    value, because it never named a version to begin with.
+    """
+    # Deliberately NOT `1.2.3.4`. Its first three components are the
+    # illustrative version, so the exemption answers `[]` for it whether the
+    # lookaround is here or not, and the assertion would pin nothing — which
+    # is what the mutation run that dropped the lookaround showed.
+    assert (
+        timers_in("docs/x.md", "build 2.0.1.5 of something", RUNNING_IN_THE_FIXTURES)
+        == []
+    )
+    assert timers_in(
+        "docs/x.md", "the token v1.2.30 is its own", RUNNING_IN_THE_FIXTURES
+    ) == [(1, "v1.2.30")]
+    assert (
+        timers_in("docs/x.md", "the python floor is 3.12", RUNNING_IN_THE_FIXTURES)
+        == []
+    )
 
 
 def python_floor():

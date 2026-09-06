@@ -48,7 +48,7 @@ different clothes: nothing reads what the record says. #179 is that sentence
 about a document rather than a record, which is why it sits with them and not
 only because the version forces the date.
 
-- [ ] #179 — a loaded file naming a real version is a timer. `docs/issues-and-milestones.md` names `0.9.0` in a sentence about milestones, and `test_no_loaded_file_hardcodes_the_running_version` refuses the running version. Green today, red on this release's own preparation commit — after the broad gate has already run.
+- [ ] #179 — a loaded file naming a real version is a timer. `docs/issues-and-milestones.md` names `0.9.0` in a sentence about milestones, and the check refused the running version only. Green today, red on this release's own preparation commit — after the broad gate has already run. Closed by widening it to every version at or above the running one, as `test_no_loaded_file_names_a_version_at_or_above_the_running_one`.
 - [ ] #187 — the round record carries the reviewer's tables and drops the paste-ready fix the findings format requires. Measured: a fix pass re-derived a verified artefact from scratch, and its first re-derivation was wrong.
 - [ ] #189 — a bare pipe inside a Verdicts cell truncates the row, and nothing sees it. Two paste-ready fixtures were invisible in a rendered record; a later fix pass then hit it again after being warned. Compounds with #187, which makes that cell the only durable home a paste-ready fix has.
 - [ ] #190 — a record states a figure or a stamp the next commit moves, and no check reads it. Closed three times on one work item by enumerating carriers, and back each time.
