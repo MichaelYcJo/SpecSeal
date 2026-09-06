@@ -154,6 +154,15 @@ formatted at run time. Closing those means resolving a call across functions,
 which is the enumeration `RECORDED_LIMIT` declines two screens up for the same
 reason.
 
+<!-- CORRECTED in round 2's fix pass (finding 10): this describes the recorded
+limit as phase 2 wrote it, and the derivation was rebuilt twice afterwards.
+The docstring now records five under-reach shapes, six more that are one
+branch away, and TWO over-reaches rather than none; `formatted at run time`
+is in neither list, because an f-string is a fixture expecting an empty set.
+`rounds/round-1.md` and `rounds/round-2.md` carry the current shape. The
+paragraph stays because it is phase 2's record of what phase 2 built. -->
+
+
 **R8 is R2's shape one document over, so it is repaired the same way.** Its
 claim ended *so the document cannot drift from the generator*, and reading
 three constants by name is three ways of catching a rename and no way of

@@ -524,6 +524,37 @@ DERIVATIONS = (
     ('def call_sites():\n    return [f"{n} only"]\n', set()),
     ('def call_sites():\n    return build(sep=", ")\n', set()),
     ('def call_sites():\n    return {"a key": 1}\n', set()),
+    # a nested scope is not a way OUT of `call_sites`: one per member of
+    # SCOPE_BOUNDARIES, then the class reached THROUGH one, then the
+    # recursion the boundary must not cost -- a `return` nested in ordinary
+    # statements still belongs to this scope and still has to be read.
+    (
+        'W = "a word"\n\ndef call_sites():\n'
+        '    def inner():\n        return ["never handed out"]\n'
+        "    return [W]\n",
+        {"a word"},
+    ),
+    (
+        'W = "a word"\n\ndef call_sites():\n'
+        '    async def inner():\n        return ["from an async def"]\n'
+        "    return [W]\n",
+        {"a word"},
+    ),
+    (
+        "def call_sites():\n"
+        "    class Helper:\n"
+        '        def method(self):\n            return ["from a method"]\n'
+        "    return None\n",
+        set(),
+    ),
+    (
+        'W = "a word"\n\ndef call_sites():\n'
+        "    if here:\n        for x in y:\n            with open(p):\n"
+        "                try:\n                    return [W]\n"
+        '                except E:\n                    return ["from an except"]\n'
+        "    return None\n",
+        {"a word", "from an except"},
+    ),
 )
 
 
@@ -545,11 +576,19 @@ def test_the_derivation_reads_both_shapes_a_return_can_fix(source, want):
     executed: a constant handed to a call is read, and a value only that call
     knows is not. Whoever closes either limit will find one of them red.
 
-    The last four are round 1's finding 2, each measured over-collecting
+    The next four are round 1's finding 2, each measured over-collecting
     before the repair — `test` out of a comparison, ` only` out of an
     f-string, `, ` out of a keyword argument, `a key` out of a dict. None can
     reach a record, and each one used to make the case above red while
-    telling the reader to add it to a shipped document."""
+    telling the reader to add it to a shipped document.
+
+    The last four are round 2's finding 6, which is that same defect one
+    function up: the walk around `handed_back` descended into nested scopes,
+    so a `def` written inside `call_sites` handed over a word it never
+    returns. One fixture per member of `SCOPE_BOUNDARIES`, then a class whose
+    method is reached THROUGH a member rather than past one, then the
+    recursion the boundary must not cost — a `return` inside `if`, `for`,
+    `with` and `try` belongs to this scope and still has to be read."""
     assert reach_values(source) == want
 
 
@@ -587,6 +626,50 @@ def test_a_second_call_sites_is_refused_rather_than_picked_from():
     two = "def call_sites():\n    return []\n\n\ndef call_sites():\n    return []\n"
     with pytest.raises(AssertionError, match="2 definitions"):
         reach_values(two)
+
+
+# Where reading one scope's returns has to stop. A `return` belongs to the
+# nearest enclosing function, so the boundary set is the answer to one
+# question asked of each node type -- can this hold a `return` that belongs to
+# a different function? Only a function body may hold a `Return` statement and
+# Python spells a function body two ways, so the answer is yes twice and no
+# everywhere else.
+#
+# `ClassDef` and `Lambda` were measured and deliberately left out. A lambda
+# body is an expression and cannot contain a `Return` node at all; a method
+# inside a class is a `FunctionDef` this already stops at, so the class is
+# reached through a boundary rather than past one. Dropping either from a
+# four-member version changed nothing on any shape -- a member no mutation can
+# kill, which is the defect this module has now closed twice.
+SCOPE_BOUNDARIES = (ast.FunctionDef, ast.AsyncFunctionDef)
+
+
+def own_returns(scope):
+    """Every value THIS scope's `return` statements hand back.
+
+    `ast.walk` descends into nested scopes, so a `def` or a class method
+    written inside `call_sites` handed the derived set a word `call_sites`
+    never returns — round 2's finding 6, and the same door `handed_back`
+    closed one level down: reading what is PRESENT rather than what is handed
+    back. It could not be fixed inside `handed_back`, because the node never
+    reached it, and the refusal then sent the reader to that function.
+
+    Recursion is the safe direction on a node this does not know. An unknown
+    statement type is descended into, so a `return` inside it is read and a
+    mistake is a loud one; skipping by default would drop returns silently.
+
+    `child.value is not None` is a TYPE guard and not a behaviour guard, so
+    no fixture kills it: a bare `return` yields `None`, and `handed_back`'s
+    fallthrough would absorb that and derive nothing either way. It stays so
+    that `handed_back` is only ever handed a node, and that is said here
+    rather than left for a mutation run to report as a survivor.
+    """
+    for child in ast.iter_child_nodes(scope):
+        if isinstance(child, SCOPE_BOUNDARIES):
+            continue
+        if isinstance(child, ast.Return) and child.value is not None:
+            yield child.value
+        yield from own_returns(child)
 
 
 def handed_back(node, constants):
@@ -661,13 +744,28 @@ def reach_values(source=None):
     across a statement or across a call, which is the enumeration over an
     unbounded domain `RECORDED_LIMIT` above declines for the same reason.
 
-    **What it OVER-reaches, in one place and on purpose.** A `Call`'s
+    **A second class of under-reach came in with the rebuild, and the reason
+    above does not carry to it.** These need no value followed anywhere; each
+    is one `isinstance` arm away, and each is left out because no `call_sites`
+    has ever written one — measured, all returning nothing: a value reached
+    only through a `*` unpacking, a dict VALUE (the arm reads neither key nor
+    value, and the key is the one round 1 measured), a comprehension, a
+    `BoolOp`, a walrus, and a subscript. **The `BinOp`/`BoolOp` asymmetry is
+    the trap**: `return named + [W]` reads `W` and `return named or [W]` does
+    not. Adding an arm is what closes any of these, so they are a smaller
+    decision than the five above rather than the same one.
+
+    **What it OVER-reaches, in two ways and on purpose.** A `Call`'s
     positional arguments count as handed back, so `return elsewhere(WORD)`
     yields `WORD`'s value even though `elsewhere` may return something else
-    entirely. That is the conservative direction for this row — a word that
-    might reach a record is worth a red case — and it is the one remaining
-    way the refusal below can name a value the function cannot actually hand
-    back, which is why the refusal says so rather than only naming the word.
+    entirely. And a local that SHADOWS a module constant is read as the
+    module's value: `W = "local"` inside `call_sites` beside a module-level
+    `W = "module"` derives `module`, a word the function does not hand back
+    rather than one it misses. Both are the conservative direction for this
+    row — a word that might reach a record is worth a red case — and both are
+    why the refusal below names two directions rather than only the word.
+    Neither is a way to be silently wrong: they make the case red, never
+    green.
 
     **The two values the section names as CATEGORIES** rather than as words,
     the enclosing top-level unit and the file's basename, are deliberately
@@ -695,9 +793,8 @@ def reach_values(source=None):
     ]
     assert len(found) == 1, f"call_sites: {len(found)} definitions, expected 1"
     values = set()
-    for node in ast.walk(found[0]):
-        if isinstance(node, ast.Return) and node.value is not None:
-            values |= handed_back(node.value, constants)
+    for value in own_returns(found[0]):
+        values |= handed_back(value, constants)
     return values
 
 

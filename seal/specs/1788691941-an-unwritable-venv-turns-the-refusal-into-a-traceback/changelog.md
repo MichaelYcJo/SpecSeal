@@ -12,9 +12,9 @@
   catches four of them — no permission, a read-only filesystem, a full disk,
   and the path already being a directory — and an earlier wording said *make
   it writable*, which is wrong advice on two. Which one it was is carried by
-  the reason. The refusals above it keep their wording and their exit codes, and
-  the runner does not try to win the argument — a read-only `.venv` is the
-  operator's. **The class is closed by construction rather than by a list**:
+  the reason. The refusals above it keep their wording and their exit codes,
+  and the runner does not try to win the argument — a read-only `.venv` is
+  the operator's. **The class is closed by construction rather than by a list**:
   `hide_from_git` holds the only write this module makes to the working tree
   itself, and everything else that lands there is a builder subprocess's,
   whose failure is already a return code the caller reads. The module
@@ -72,13 +72,27 @@
   went red naming a word the function cannot produce, and told the reader to
   add it to a shipped document. It now asks what each kind of expression can
   hand to the caller, and the refusal names both directions — add the word, or
-  fix the derivation — because one step of the walk still deliberately
-  over-reaches. What the derivation cannot see is recorded beside it and split
-  into under-reach and over-reach: five shapes hand a value back and read as
-  nothing, and one shape reads a value the function may never hand back. **The derivation reads the generator's text as an argument, and that
-  is what makes it testable at all**: today's `call_sites` names a constant in
-  every return and writes no literal into one, so against the real module the
-  arm that reads a literal is unreachable and a mutation deleting it survives
-  — which is what the mutation loop found, in the very case written to close a
-  list that would go stale. Six mutations over the derivation, one at a time,
+  fix the derivation — because two steps still deliberately over-reach. What
+  the derivation cannot see is recorded beside it and split into under-reach
+  and over-reach: five shapes hand a value back across a statement or a call
+  and read as nothing, six more are one branch away, and two are read though
+  the function may never hand them back.
+
+  **Reading what a function returns means stopping where that function
+  stops.** The same confusion survived one level up: the walk that collected
+  the returns descended into nested scopes, so a helper written inside the
+  function under review handed over a word that function never returns — and
+  the refusal then sent the reader to the part that had never seen the node.
+  The walk now stops at anything that opens another function scope. Two node
+  types do, because only a function body may hold a `return`; a class or a
+  lambda is reached through one of those two rather than past it, so listing
+  either would add a member no test could ever justify.
+
+  **The derivation reads the generator's text as an argument, and that is
+  what makes it testable at all**: today the function under review names a
+  constant in every return and writes no literal into one, so against the
+  real module the branch that reads a literal is unreachable and a mutation
+  deleting it survives — which is what the mutation loop found, in the very
+  case written to close a list that would go stale. Ten mutations over the
+  derivation's branches and eight over the walk around it, one at a time,
   each now killed by a named case. (#177)

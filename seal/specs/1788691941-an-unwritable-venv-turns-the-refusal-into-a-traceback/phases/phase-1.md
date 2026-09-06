@@ -145,6 +145,17 @@ tests/test_the_suite_has_a_command_that_is_cheap_twice.py -q` → `51 passed in
 was deleted after it ran (contract §7) — two sentences, exit code `2`, no
 traceback, and `git status` showing the directory the second sentence names:
 
+<!-- SUPERSEDED WORDING BELOW, and the transcript keeps it on purpose. The
+second sentence's remedy clause ended `remove that directory or make it
+writable`, which round 1's finding 3 corrected: `except OSError` is four cases
+and that advice is wrong on a full disk and on a read-only filesystem. This
+block is a transcript of what phase 1 actually ran at `8be39a9`, so the text
+stays as it was printed; what must not happen is a reader taking it for the
+shipped sentence. The current wording is `until that write can succeed`, and
+`test_the_unwritable_sentence_is_the_same_on_every_platform` asserts both that
+it appears and that `make it writable` does not. Round 2's finding 8. -->
+
+
 ```
 bin/test: the virtualenv at <tmp>/.venv was built with Python 3.11.9, below
 the 3.12 floor this repository supports. Remove that directory and run
