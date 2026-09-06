@@ -25,8 +25,10 @@ and nobody closed its milestone.
 and scheduling is two acts rather than one: the milestone changes, and the
 issue gains a line in `docs/flow.md` under the release that will carry it.
 Neither act alone is a schedule — `flow.md` is what a person reads at the
-start of a ticket, and the milestone is what answers "what is in 0.9.0"
-without opening a file.
+start of a ticket, and the milestone is what answers "what is in 1.2.3"
+without opening a file. The number is illustrative, for the reason
+**A rolling log is titled after the version it rolled from** gives below.
+It named a real unshipped release here for three of them (#179).
 
 `log:` is the shape that surprises people, and there is one of it:
 `log: measurement`. What it holds are not tasks. `#51` is the durable
