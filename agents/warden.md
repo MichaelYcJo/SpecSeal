@@ -33,10 +33,18 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   probe, a scratch fixture or a reverted file from landing in the tree the
   smith is still working in. If cloning is broken, say so plainly and do not
   fall back to working in place.
-- **`pytest` is not installed for the system interpreter**, so make a `uv`
-  venv inside the clone before you run anything. This line arrived at round 3
-  of one work item, after two rounds had each rediscovered it and neither had
-  written it down.
+- **Find the runner before you build your own.** A repository that ships one
+  — a wrapper in `bin/`, or whatever its contribution guide names first — has
+  a command that is cheap on the second call, and your clone is a place it
+  works. Type the narrow form, one module: the full suite is the
+  orchestrator's, once, after the rounds.
+  `docs/review-handoff-protocol.md` §*The handoff before round 1* owns that
+  rule, and it is why a prompt that carries no incantation is not a prompt
+  that is missing one.
+- **Where the repository ships none, `pytest` is not installed for the system
+  interpreter**, so make a `uv` venv inside the clone before you run anything.
+  This line arrived at round 3 of one work item, after two rounds had each
+  rediscovered it and neither had written it down.
 
 ## Role
 

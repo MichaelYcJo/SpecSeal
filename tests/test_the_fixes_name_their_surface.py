@@ -41,6 +41,9 @@ import pytest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
+# The generator, for the three words it can put in a reach half. Read out of
+# the module rather than typed, so the document cannot drift from them.
+RECORD = os.path.join(ROOT, "skills", "code-review", "scripts", "round_record.py")
 
 # A work item begun before `chain_check.SURFACE_FROM`: missing rows print.
 OLD_ITEM = "seal/specs/1787700000-a-work-item"
@@ -445,6 +448,22 @@ def test_the_arrow_limit_is_recorded_where_the_rule_lives():
     ):
         text = flat(*parts)
         assert RECORDED_LIMIT in text, "/".join(parts)
+
+
+def test_the_section_names_the_words_the_writer_can_put_in_a_reach():
+    """Round 2's ⬜ 11 of #156. The section defined the reach as `unit → call
+    sites` and named none of the values `call_sites` actually writes, so a
+    round opened a finding against `hide_from_git → build, ensure, pytest` on
+    the grounds that nothing is called `pytest`. It was the generator's own
+    output, re-derived at the record's SHA. A reach word the document does not
+    carry is a correct cell somebody will spend a round on."""
+    spec = flat("docs", "review-chain-spec.md")
+    generator = _load("specseal_round_record_for_reach_words", RECORD)
+    for word in (generator.PYTEST, generator.PYTEST_ONLY, generator.NO_SITE):
+        assert f"`{word}`" in spec, f"the section does not name `{word}`"
+    assert "only the first is a unit name" in spec, (
+        "the section names the words without saying which of them is a unit"
+    )
 
 
 def test_a_row_inside_a_comment_is_not_the_row(repo):
