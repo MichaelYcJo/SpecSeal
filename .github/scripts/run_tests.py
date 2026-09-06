@@ -27,6 +27,14 @@ to the working tree the first time it runs, and half-building a virtualenv on
 a machine with neither `uv` nor a new enough Python is the failure to design
 against.
 
+`hide_from_git` holds the only write this module makes to the working tree
+itself -- everything else that lands there is made by a builder subprocess,
+whose failure is already a return code -- so that one write carries the guard
+that keeps a read-only `.venv` from ending the run in a traceback (#177). The
+guard belongs to the module and not to that function: a second write added
+beside it owes its own, and the class is one write only for as long as nobody
+adds a second.
+
 pytest runs with the repository root as its working directory, so a path
 argument is read relative to the root from whichever directory the command
 was typed in.
@@ -133,12 +141,27 @@ def hide_from_git(venv):
     through `ensure` and through nothing else: nothing returns from `ensure`
     leaving a `.venv` git can see. Doing nothing when the directory is absent
     is what makes that safe on the exits that never made one.
+
+    Stating it over exits is also what puts this write on the two exits whose
+    entire product is a sentence, so the write is guarded (#177). A `.venv`
+    the operator has made read-only is theirs, and the runner does not try to
+    win the argument: it says which file it could not write and what that
+    costs the reader, and leaves the refusal above it standing.
     """
     if not venv.is_dir():
         return
     ignore = venv / ".gitignore"
     if not ignore.exists():
-        ignore.write_text("*\n", encoding="utf-8")
+        try:
+            ignore.write_text("*\n", encoding="utf-8")
+        except OSError as problem:
+            print(
+                f"bin/test: could not write the ignore at {ignore} "
+                f"({problem.strerror or problem}). The virtualenv at {venv} "
+                "stays visible to git status until you remove that directory "
+                "or make it writable.",
+                file=sys.stderr,
+            )
 
 
 def build(venv):

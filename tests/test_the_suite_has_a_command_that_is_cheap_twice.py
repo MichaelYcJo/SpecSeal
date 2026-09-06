@@ -441,6 +441,100 @@ def test_a_tree_without_a_suite_is_a_sentence(tmp_path, monkeypatch, capsys):
     assert "no tests directory" in capsys.readouterr().err
 
 
+# A `chmod 555` directory stops a write only where the operating system says
+# it does. Root is not stopped by a permission bit, and on Windows `os.chmod`
+# sets the read-only flag and nothing else -- the flag is ignored when a file
+# is created inside a directory. On either, the write below would SUCCEED, the
+# sentence would never print, and a case asserting it would fail for a reason
+# that has nothing to do with the guard. So the fixture case is skipped there
+# and `test_the_unwritable_sentence_is_the_same_on_every_platform` carries the
+# wording on all three, by making the write itself refuse.
+CHMOD_STOPS_A_WRITE = os.name != "nt" and hasattr(os, "geteuid") and os.geteuid() != 0
+
+
+@pytest.mark.skipif(
+    not CHMOD_STOPS_A_WRITE,
+    reason="chmod 555 does not stop a write as root, and on Windows chmod "
+    "sets only the read-only flag, which does not stop a file being created "
+    "inside the directory",
+)
+def test_an_unwritable_venv_leaves_the_refusal_a_sentence(
+    tmp_path, monkeypatch, capsys
+):
+    """Round 2 of #156's chain moved `hide_from_git` into `ensure`'s
+    `finally`, which is what makes the guarantee exit-level rather than a list
+    of remembered paths. It also put an unguarded write on the two exits whose
+    entire product is a sentence, so a `.venv` the operator has made read-only
+    turned the floor refusal into a `PermissionError` traceback printed after
+    it -- the module's opening docstring says every failure here is a sentence
+    rather than a traceback, and that was the one that was not.
+
+    The runner does not try to make the write succeed. A read-only `.venv` is
+    the operator's, and what they are owed is being told what it costs them."""
+    REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "tests").mkdir()
+    venv = fake_venv(tmp_path)
+    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n")
+    monkeypatch.setattr(rt, "repo_root", lambda: tmp_path)
+    venv.chmod(0o555)
+    try:
+        assert rt.main([]) == 2, "the refusal keeps its own exit code"
+        err = capsys.readouterr().err
+    finally:
+        venv.chmod(0o755)  # or tmp_path cleanup cannot unlink what is inside
+
+    assert "Traceback" not in err, err
+    assert "below the" in err and "3.11.9" in err, (
+        "the refusal the reader actually needs no longer prints"
+    )
+    assert "could not write the ignore" in err, (
+        "the ignore failed and nothing said so, which is the silent half of "
+        "the defect the ignore exists against"
+    )
+    assert str(venv / ".gitignore") in err, (
+        "the sentence does not name the file it could not write, so the "
+        "reader cannot go and look at it"
+    )
+    assert "git status" in err, (
+        "the reader is told a write failed and not what it costs them"
+    )
+    assert not (venv / ".gitignore").exists()
+    assert ".venv" in git_status(tmp_path), (
+        "the sentence promises the directory shows up in git status; it has "
+        "to be true when it prints"
+    )
+
+
+def test_the_unwritable_sentence_is_the_same_on_every_platform(
+    tmp_path, monkeypatch, capsys
+):
+    """The case above is skipped as root and on Windows, and the suite runs on
+    `ubuntu-latest`, `macos-latest` and `windows-latest`. A sentence a person
+    reads is pinned by contract §14 wherever it can print, so the write is
+    made to refuse here instead of the directory being made to refuse it --
+    the guard catches `OSError` and every platform can raise one."""
+    real_write_text = pathlib.Path.write_text
+
+    def refuse(self, *args, **kwargs):
+        if self.name == ".gitignore":
+            raise PermissionError(13, "Permission denied", str(self))
+        return real_write_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(pathlib.Path, "write_text", refuse)
+    venv = fake_venv(tmp_path)
+    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n")
+    assert rt.ensure(venv) is None, "the refusal is unchanged"
+    err = capsys.readouterr().err
+    assert "Traceback" not in err, err
+    assert "could not write the ignore" in err
+    assert str(venv / ".gitignore") in err
+    assert "git status" in err
+    assert "Permission denied" in err, (
+        "the sentence does not say why the write failed, so a full disk and a "
+        "read-only directory read identically"
+    )
+
+
 # --- what it actually runs -------------------------------------------------
 
 
