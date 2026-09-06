@@ -34,7 +34,7 @@ of the funnel leaves the next site to find on its own.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `parse_time` normalises a naive stamp, with the assumption stated in its docstring; the report survives a zero span without inventing a percentage. Cases for both, over synthetic transcripts, each seen red first, each asserting the report and `--json` | The new cases plus the existing `session_cost` module; `uvx ruff` | |
+| 1 | `parse_time` normalises a naive stamp, with the assumption stated in its docstring; the report survives a zero span without inventing a percentage. Cases for both, over synthetic transcripts, each seen red first, each asserting the report and `--json` | The new cases plus the existing `session_cost` module; `uvx ruff` | b0e4859 |
 | 2 | #170's ledger row names the axis its enumeration ran on, and this work item's fragment carries the row for the second axis | `./bin/evidence-check .` unscoped; the records | |
 
 ## Operational impact

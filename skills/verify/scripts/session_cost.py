@@ -96,6 +96,20 @@ def count(value):
 
     `bool` is excluded on purpose: `True + 1` is 2, so a flag landing in a
     token column would be a wrong number rather than a missing one."""
+    # RIDER: the same sentence has a second answer this check does not give.
+    # `json.loads` accepts the bare tokens `NaN`, `Infinity` and `-Infinity`
+    # by default, and all three are `float`, so they pass the test below and
+    # reach the three `totals[...] +=` sites in `token_totals`. Measured at
+    # the stamp: a transcript whose `output_tokens` is `NaN` prints
+    # `output  nan` and exits 0. That is not a report that ends — it is the
+    # wrong number `bool` is excluded to prevent, one level down, on the
+    # value of a type that IS a number rather than on the type. Found by
+    # enumerating #175's class over both axes rather than by a crash.
+    # If you are editing this function, close it: `math.isfinite(value)`
+    # beside the `isinstance` check charges such a row 0, the direction
+    # every funnel in this file already takes. Left out of #175 because that
+    # work item's spec scopes it to operands that END the report.
+    # Verified 2026-09-06 at b0e4859.
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return 0
     return value
