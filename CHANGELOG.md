@@ -1,5 +1,248 @@
 # Changelog
 
+## 0.8.3 — 2026-09-06
+
+<!-- specs/1788686494-the-printed-ledger-name-collapses-through-relpath -->
+- **The evidence check printed the name of a file it had not read.** Where a
+  `--ledger` pattern crosses a symlink before a `..` — `--ledger
+  'x/lnk/../ledger.md'`, with `x/lnk` pointing at `y` — the checker opened the
+  file the pattern actually names and printed a header naming a different one.
+  `os.path.relpath` folds `..` the way `normpath` does, by rewriting the
+  string rather than by asking the filesystem, so it answered `x/ledger.md`:
+  a real file, usually holding different rows. The exit code and the rows
+  were right; the name a person reads and then goes and opens was wrong.
+
+  A ledger path rendered for a person now goes through one helper that drops
+  the root's own leading segments and touches nothing else about the
+  spelling. Where a path is not under the root, it prints in full — longer
+  than before, and naming the file that was read. That covers a local-mode
+  root seen from a linked worktree, where the ledger genuinely sits outside
+  the tree.
+
+  **The issue named four places and there were five.** The fifth is the
+  `--ledger narrowed this run` notice, which lists the ledgers a narrowed run
+  did not read; it was missed because its variable is spelled differently
+  from the other four. So the class was closed by following where a ledger
+  path can reach rather than by searching for a name, and a test now
+  recomputes that reach against the source on every run and refuses the old
+  call anywhere in it. A sixth place added later is caught by that test as
+  long as the ledger path gets there by one of the ordinary ways a value
+  moves — assigned straight across, aliased, unpacked from a tuple, looped
+  over, or handed to another function in this file.
+  It is a guard against the edit somebody actually makes, not a proof that
+  no such place can exist.
+
+  What deliberately did not change: the suggestion list a broken row prints
+  when its code looks to have moved. Those are scanned source files rather
+  than ledgers, they are built downward from the repository root so they
+  carry no `..` to fold, and they are normalised on purpose so they can be
+  compared against the path a row spells. (#163)
+
+<!-- specs/1788691941-an-unwritable-venv-turns-the-refusal-into-a-traceback -->
+- **A virtualenv the operator has made read-only ended `bin/test` in a
+  traceback printed underneath a refusal it had already given.** The ignore
+  that keeps `.venv` out of `git status` is written from a `finally` in
+  `ensure`, which is what makes it an exit-level guarantee rather than a list
+  of remembered paths — and it is also what puts the write on the two exits
+  whose entire product is a sentence. `write_text` was unguarded, so on a
+  `.venv` this process cannot write to, the floor refusal reached stderr and a
+  `PermissionError` followed it. The write is guarded now and says what it
+  could not do: it names the ignore, the reason, and that the virtualenv stays
+  visible to `git status` until that write can succeed or the reader removes
+  the directory. **The remedy names no cause on purpose**, because the guard
+  catches four of them — no permission, a read-only filesystem, a full disk,
+  and the path already being a directory — and an earlier wording said *make
+  it writable*, which is wrong advice on two. Which one it was is carried by
+  the reason. The refusals above it keep their wording and their exit codes,
+  and the runner does not try to win the argument — a read-only `.venv` is
+  the operator's. **The class is closed by construction rather than by a list**:
+  `hide_from_git` holds the only write this module makes to the working tree
+  itself, and everything else that lands there is a builder subprocess's,
+  whose failure is already a return code the caller reads. The module
+  docstring says so, and says the guard belongs to the module rather than to
+  the function, because the class is one write only for as long as nobody adds
+  a second. **A `chmod 555` fixture is not a guarantee, and asserting only *no
+  traceback* would have hidden that**: root bypasses the permission bits and
+  Windows ignores every bit but read-only, so on two of the three platforms CI
+  runs the write succeeds and a case asserting absence would pass for the
+  wrong reason. One case builds the real fixture and is skipped where `chmod`
+  does not stop a write, with the reason written into the skip so it travels
+  into pytest's own report; a second makes the write itself refuse, so the
+  wording is pinned everywhere. Neither can pass on a write that succeeded.
+  (#177)
+
+- **A ledger row whose guarantee a change makes conditional gains the
+  condition; it is not removed.** Two rows were in that position and both are
+  repaired in place, because a row is removed when a change takes away the
+  code it cites and this one took nothing away. The virtualenv row's claim —
+  invisible to git on every exit of `ensure` — was never about the write
+  landing, and on the one path where it does not land the row had been false
+  before this change as well, in the worse way: the write raised through the
+  `finally` and replaced the refusal with a traceback. So what was wrong was
+  an unstated precondition rather than the mechanism, and the mechanism is
+  exactly what the guard was written to keep. The new claims went into the
+  work item's own fragment, which is where the fragment rule puts them.
+
+- **A case that reads three named constants catches a rename and cannot see a
+  fourth constant added beside them.** `docs/review-chain-spec.md` names the
+  five values that can stand in the reach half of a `Contract changes` entry,
+  and the case holding the document to them read `PYTEST`, `PYTEST_ONLY` and
+  `NO_SITE` out of `round_record.py` by name. That is three ways of catching
+  an edit to a value that exists and no way at all of catching one being
+  added — the drift the paragraph exists against, where the document goes
+  stale and the suite stays green. The set is now **derived** from
+  `call_sites`' own `return` statements, so a value the function gains has to
+  reach the document before the suite is green again. Measured rather than
+  argued: with a sixth value added to the function, the derived case exits 1
+  naming it and the named case passes. **Both are kept**, because neither
+  covers the other, and **which half each one holds was measured, after a
+  first attempt asserted it and got it wrong.** The sentence saying which of
+  the five values is a unit name is read by the older case alone, so removing
+  it from the document reddens that one and leaves the derived one green; a
+  value added to the function is seen by the derived one alone. A rename and a
+  reword redden both, because the derived case checks the same three constants
+  by name before it starts. The wrong version claimed the rename for the older
+  case alone, and it stood in the comment a maintainer would read while
+  deciding to delete one of the two — which would have deleted the case
+  holding the half nothing else holds.
+
+  **What a `return` hands back is not the same as what appears inside it**,
+  and the first derivation confused the two. It collected every string
+  anywhere in a `return`, so a comparison operand, a keyword argument, half of
+  an f-string and a dictionary key all arrived as reach values; the case then
+  went red naming a word the function cannot produce, and told the reader to
+  add it to a shipped document. It now asks what each kind of expression can
+  hand to the caller, and the refusal names both directions — add the word, or
+  fix the derivation — because two steps still deliberately over-reach. What
+  the derivation cannot see is recorded beside it and split into under-reach
+  and over-reach: five shapes hand a value back across a statement or a call
+  and read as nothing, six more are one branch away, and two are read though
+  the function may never hand them back.
+
+  **Reading what a function returns means stopping where that function
+  stops.** The same confusion survived one level up: the walk that collected
+  the returns descended into nested scopes, so a helper written inside the
+  function under review handed over a word that function never returns — and
+  the refusal then sent the reader to the part that had never seen the node.
+  The walk now stops at anything that opens another function scope. Two node
+  types do, because only a function body may hold a `return`; a class or a
+  lambda is reached through one of those two rather than past it, so listing
+  either would add a member no test could ever justify.
+
+  **The derivation reads the generator's text as an argument, and that is
+  what makes it testable at all**: today the function under review names a
+  constant in every return and writes no literal into one, so against the
+  real module the branch that reads a literal is unreachable and a mutation
+  deleting it survives — which is what the mutation loop found, in the very
+  case written to close a list that would go stale. Ten mutations over the
+  derivation's branches and eight over the walk around it, one at a time,
+  each now killed by a named case. (#177)
+
+<!-- specs/1788700685-two-value-shaped-odd-rows-end-the-report -->
+- **Two odd rows a transcript can carry still ended `session_cost`'s report,
+  and both are values rather than types (issue #175).** `parse_time` states
+  this file's rule — one odd row must not end the report — and `count` applied
+  it to whether a value is a number at all. Neither reached a value of the
+  type a field already carries. A transcript mixing a zone-aware stamp with a
+  naive one exited 1 with stdout empty, on the report and on `--json` alike;
+  a transcript whose only paired call begins and ends on one timestamp printed
+  the span line and then lost the token block and the family table behind a
+  `ZeroDivisionError`. Both are closed at a funnel rather than at the sites
+  that consumed them: a stamp carrying no zone is read as UTC at `parse_time`,
+  the assumption the same line already made when it rewrote a trailing `Z`,
+  and a share of a span is taken through a new `share`, which prints a dash
+  and one line saying why when the span is not positive. Neither number is
+  invented — a share of a span of zero is not 0% and not 100%, and the times
+  beside the dash are what was actually measured.
+
+  **The issue named the wrong crash site, and three documents repeated it.**
+  #175, `spec.md` and `plan.md` all put the naive-stamp failure in `analyse`'s
+  subtractions. Measured: a two-call transcript dies in `load`'s `calls.sort`
+  before `analyse` is entered at all — mixing a naive stamp with an aware one
+  raises on an **ordering** as readily as on a subtraction — so a guard
+  written where the issue pointed would have left the commoner shape standing.
+  Normalising at `parse_time` closes eight sites rather than the four the plan
+  counted: six subtractions and two orderings. The report's divisions were
+  three and not four; the fourth site the plan listed is a multiplication and
+  safe at zero.
+
+  **The guard for the span stays in `report` on purpose.** The two shapes do
+  not take the same path — a zero span dies inside `report`, which `--json`
+  never calls, so `--json` exits 0 on that file already and exit 1 on the
+  naive one. Moving the guard upstream into `analyse` would change a number
+  `--json` emits correctly today, which is why both cases assert both arms.
+
+  **What the branch is actually about is the ledger row this repairs.** #170
+  closed the same rule one axis over and its row states the guarantee over the
+  whole class: *no shape a harness can write ends the report*. That row's own
+  grounds are a cross product of every field the readers read with the seven
+  JSON types and with the field absent — so a value of the type a field
+  already carries is outside it by construction. Measured on the module the
+  row was stamped against: all eight variants of the `timestamp` field exit 0,
+  while a naive stamp and an equal pair of stamps exit 1. The row is
+  **under-specified rather than falsified** — every anchor still resolves and
+  the four funnels still type-check — so it is corrected in place to name the
+  axis its enumeration ran, and the second axis is this work item's own ledger
+  fragment. Removing it would have taken the method with it, and the method is
+  what found these two.
+
+  **A third shape ends the report too, and it was nearly deferred on a
+  measurement of the one field where it does not.** `json.loads` accepts the
+  bare tokens `NaN`, `Infinity` and `-Infinity`, and all three are `float`,
+  so a type check passes them. `token_thirds` rounds a mean and `round()`
+  raises on a non-finite float, which ends the report with exit 1 and stdout
+  empty on both arms — worse than either shape above, since the zero span at
+  least printed its first line. Every usage field except `output_tokens`
+  reaches that `round`, and `output_tokens` was the field the shape was first
+  measured on, so it read as harmless. `count` now charges a non-finite value
+  0, the direction every funnel in the file already takes.
+
+  **A funnel answers for the values that enter it, and that turned out not to
+  be the whole question.** Two counts accepted as finite add to one that is
+  not, and the rounding of a mean then ended the report with nothing printed,
+  on both arms — a shape that predates this work and was reached through a
+  call the enumeration had listed all along, because the question was never
+  which operations exist but which values reach them. The mean is now
+  computed inside a guard and charged 0 when the file cannot compute it. The
+  class behind it is recorded as a limit rather than claimed closed: what
+  stays open is that direction, and the wrong-number one where a finite but
+  nonsensical count passes every funnel there is.
+
+  **Asking whether a number is finite can itself end the report, so the
+  question is asked inside a guard.** `json.loads` builds an
+  arbitrary-precision integer from any integer literal, and the finiteness
+  test converts to a float before it answers — so a usage field carrying a
+  401-digit integer raised `OverflowError` from inside the funnel written to
+  keep such values out. That broke a shape which had worked: the same integer
+  in `output_tokens` reported normally before the guard existed. It now
+  scores 0 like every other value the funnel refuses, which also keeps it
+  away from the division one frame later that raises on it for the same
+  reason.
+
+  **A negative span no longer prints an idle figure, and says what the
+  arithmetic actually measured.** The idle line is shown when idle exceeds a
+  tenth of the span, and a tenth of a negative span is negative, so the line
+  printed sixty-five minutes of idle beside a span of minus thirty. The
+  sentence under such a span said the last result predates the first call,
+  which is false whenever the last call to begin is not the last to end —
+  the span is taken from the last call to BEGIN, because the list is sorted
+  by start. It now says that: the last call to begin ended before the first
+  call began, which is what the subtraction computes and is true of every
+  negative span. Both shapes are reachable through this work item's own
+  normalisation, from a transcript mixing a naive local stamp with an aware
+  one.
+
+  **The enumeration that found the first two shapes is also what missed the
+  third, and its record now says which node kinds it covers.** The walk
+  listed arithmetic and ordering operators and five call names — 60 sites —
+  and a builtin numeric consumer carries no operator at all, so the single
+  `round` in the module sat outside it. A walk is complete over the node
+  kinds it names; recorded as complete over *the operations*, it was a claim
+  nobody could re-run. Both shapes were measured absent
+  from 299 real transcripts — 0 calls with `start == end`, 94,514 of 94,514
+  timestamps zone-aware — so this is a claim repaired, not a live crash, and
+  the cases build both transcripts by hand. (#175)
+
 ## 0.8.2 — 2026-09-06
 
 <!-- specs/1788613827-a-runs-report-carries-one-comparison-table -->
