@@ -1128,7 +1128,7 @@ def check_ledger(ledger, root, maps, default_repo=None):
         # green build OLD-FORMAT exists to prevent. Round 4's guard traded a
         # traceback for that silence, and a traceback is at least a broken
         # build (round 5, 🔴 B).
-        return [("BROKEN", os.path.relpath(ledger, root), "ledger unreadable")]
+        return [("BROKEN", display_name(ledger, root), "ledger unreadable")]
     findings = []
     seen = set()
     scan_cache = {}
@@ -1386,7 +1386,7 @@ def migrate(ledgers, root, maps=None, default_repo=None):
         if text is None:
             # Skipped, but never silently: a ledger nothing could read is not
             # a ledger with nothing to migrate (round 5, 🔴 B).
-            left.append((os.path.relpath(ledger, root), "ledger unreadable"))
+            left.append((display_name(ledger, root), "ledger unreadable"))
             continue
         out_lines = []
         for line in text.splitlines(keepends=True):
@@ -1511,7 +1511,7 @@ def reverify(ledgers, root, maps, default_repo=None):
     for ledger in ledgers:
         text = read(ledger)
         if text is None:
-            unreadable.append(os.path.relpath(ledger, root))
+            unreadable.append(display_name(ledger, root))
             continue
         out, at = [], 0
         for m in ANCHOR_RE.finditer(text):
@@ -1696,8 +1696,16 @@ def main():
                 f"ledger{'' if one else 's'} this repository carries "
                 f"{'was' if one else 'were'} not read:"
             )
+            # `display_name`, not `relpath`, like every other ledger name this
+            # program prints. These come from `skipped_by_narrowing`'s OWN
+            # `resolve_patterns(default_patterns(root))` rather than from the
+            # `--ledger` arm above, so their spelling is `seal_home(root)`'s —
+            # which in local mode from a linked worktree sits outside the
+            # tree and prints absolute. The loop variable is `path` rather
+            # than `ledger`, which is what hid this site from the grep that
+            # found the other four (issue #163).
             for path in missed:
-                print(f"  {os.path.relpath(path, root)}")
+                print(f"  {display_name(path, root)}")
             print(
                 "run without --ledger to read them; a branch falsifies rows "
                 "in ledgers it does not own, and those are the rows with the "
@@ -1730,7 +1738,7 @@ def main():
     totals = {"OK": 0, "DRIFTED": 0, "BROKEN": 0, "EXTERNAL": 0, "OLD-FORMAT": 0}
     for ledger in ledgers:
         findings = check_ledger(ledger, root, maps, default_repo)
-        print(f"\n{os.path.relpath(ledger, root)}")
+        print(f"\n{display_name(ledger, root)}")
         for status, coord, detail in findings:
             totals[status] += 1
             if status != "OK":
