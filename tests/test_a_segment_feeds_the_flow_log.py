@@ -211,6 +211,36 @@ def test_the_section_says_what_separates_the_two_logs():
     )
 
 
+def test_the_rolling_logs_life_is_bounded_by_two_releases():
+    """A rolling log opens at one release and the next one closes it, so a
+    reading posted to it survives until a new version ships.
+
+    The section used to say the log accumulated *for one version* and was
+    discarded *when that version ships*, which held only while the log was
+    named after a version that had not shipped yet — a prediction. #155 took
+    the prediction out: the version a log names is the one it rolled FROM,
+    already shipped by the time the log opens. A session following the old
+    sentence looks for a boundary that has already passed, and reads a log
+    that is about to close as one with a version's worth of life left."""
+    body = section_body()
+    assert "accumulates for one version" not in body, (
+        "the section describes the rolling log as one version's, ending when "
+        "that version ships. The version a log is named after has already "
+        "shipped when the log opens, so this points a reader at the wrong "
+        "end of the log's life"
+    )
+    assert "opens at a release" in body, (
+        "the section never says where a rolling log starts. A session that "
+        "cannot tell when the open log opened cannot tell how much of the "
+        "work its comments cover"
+    )
+    assert "until the next version ships" in body, (
+        "the section never says where a rolling log ends. That boundary is "
+        "what decides whether a reading posted now is still there to be read "
+        "— it is the whole reason the durable log exists"
+    )
+
+
 def test_the_section_separates_the_two_zeroes():
     body = section_body()
     assert "gh issue list --label flow-measurement --state all" in body, (

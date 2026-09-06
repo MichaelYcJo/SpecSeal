@@ -322,12 +322,12 @@ it.
 **There are two logs, and the difference is kind rather than scope.** A
 reading about the segment that just ended — its span, its calls, its tools
 per turn, and what those say — belongs to the rolling `flow-measurement`
-log, which accumulates for one version and is discarded when that version
-ships. Readings that span versions — a rate held against an earlier
-version's baseline, or an observation that a later measurement answers —
-belong to the durable `flow-baseline` log, which is maintained rather than
-accumulated. Posting one of those to the rolling log schedules it for
-deletion at the next release.
+log, which opens at a release, accumulates until the next version ships,
+and is discarded by the release that ships it. Readings that span versions —
+a rate held against an earlier version's baseline, or an observation that a
+later measurement answers — belong to the durable `flow-baseline` log,
+which is maintained rather than accumulated. Posting one of those to the
+rolling log schedules it for deletion at the next release.
 
 A repository declares each of them the same way, with a label on an issue,
 and each keeps the same invariant: exactly one open. Neither is named by
