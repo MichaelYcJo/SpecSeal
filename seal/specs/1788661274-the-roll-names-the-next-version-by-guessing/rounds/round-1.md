@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 178 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | close_issue → main, ledger.md, pytest; test_one_open_issue_after_the_retry_succeeds → no call site found |
 | New units | TITLE_PREFIX (depth 1); test_a_title_the_roll_did_not_write_names_no_version (depth 1); test_the_close_comment_names_the_version_this_release_shipped (depth 1); test_the_tracker_doc_states_the_whole_prefix_the_roll_requires (depth 1) |
 | Needs a fix | yes |
