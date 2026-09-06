@@ -6,7 +6,7 @@
 |---|---|
 | Phase | 2 |
 | Commit | `afcece0` — the five sites routed. `79e00b8` carries the three cases and the module docstring correction they forced; the records ride the commit that closes the phase |
-| Ran by | |
+| Ran by | specseal:smith on claude-opus-5[1m] |
 
 ## What this phase was asked
 
