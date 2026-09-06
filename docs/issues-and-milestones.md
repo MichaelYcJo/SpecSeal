@@ -63,10 +63,16 @@ next. The version in it is a fact rather than a prediction:
 patch is known at the end and not at the cut, so at the moment the roll runs
 the next version is the one thing nobody can name.
 
-**A title with no `after` in it was written before that convention, and the
-roll reads it as due.** Those logs were named for the version they were
-predicted to be *for*, which is how the 0.8.1 release came to close a log
-titled for 0.9.0 while 0.9.0 had not shipped. They are **not rewritten** —
+**A title that does not begin with `chore: flow measurement — after ` was
+written before that convention, or by hand, and the roll reads it as due.**
+The whole of that prefix is what the roll writes, and the whole of it is what
+the roll requires, from the first character of the title. A title carrying
+those words somewhere inside it — `docs: explain flow measurement — after
+0.8.2` — is not one of these logs, and reading a version out of it would
+leave that log never due. Titles written before this convention were named
+for the version they were predicted to be *for*, which is how the 0.8.1
+release came to close a log titled for 0.9.0 while 0.9.0 had not shipped.
+They are **not rewritten** —
 a retitle would falsify every comment that cites them. A title the roll
 cannot read as its own is due rather than silent, so the first release after
 each one rolls it and the older convention retires itself.

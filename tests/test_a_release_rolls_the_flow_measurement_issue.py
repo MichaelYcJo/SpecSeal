@@ -79,7 +79,7 @@ def test_zero_open_issues_after_the_retry_fails_loudly(monkeypatch):
     )
 
 
-def test_one_open_issue_after_the_retry_succeeds():
+def test_one_open_issue_after_the_retry_succeeds(monkeypatch):
     """The retry's whole point: a first reading of zero is not necessarily
     the real state, and a second reading of one must be trusted rather than
     treated as a second violation."""
@@ -94,19 +94,28 @@ def test_one_open_issue_after_the_retry_succeeds():
     closed = []
     created = []
     slept = []
-    m.list_open_issues = fake_list
-    m.time.sleep = lambda s: slept.append(s)
-    m.read_version = lambda: "0.7.0"
-    m.close_issue = lambda repo, number: closed.append((repo, number))
-    m.open_issue = lambda repo, shipped, closed_number: (
-        created.append((repo, shipped, closed_number))
-        or (f"chore: flow measurement — after {shipped}")
+    # Every replacement here goes through `monkeypatch`, the sleep included.
+    # `m.time` is the real stdlib module rather than a copy of it, so a bare
+    # `m.time.sleep = ...` leaves the process without a working `time.sleep`
+    # for everything that runs after this case -- and the next
+    # `monkeypatch.setattr` on it records the leaked lambda as the original
+    # and "restores" to that at teardown.
+    monkeypatch.setattr(m, "list_open_issues", fake_list)
+    monkeypatch.setattr(m.time, "sleep", lambda s: slept.append(s))
+    monkeypatch.setattr(m, "read_version", lambda: "0.7.0")
+    monkeypatch.setattr(
+        m, "close_issue", lambda repo, number, shipped: closed.append((repo, number))
     )
-    os.environ["REPO"] = "example/repo"
-    try:
-        m.main()
-    finally:
-        del os.environ["REPO"]
+    monkeypatch.setattr(
+        m,
+        "open_issue",
+        lambda repo, shipped, closed_number: (
+            created.append((repo, shipped, closed_number))
+            or (f"chore: flow measurement — after {shipped}")
+        ),
+    )
+    monkeypatch.setenv("REPO", "example/repo")
+    m.main()
 
     assert len(calls) == 2, "a one-open reading on retry must not retry again"
     assert closed == [("example/repo", 89)]
@@ -254,7 +263,7 @@ def _ladder_harness(m, monkeypatch, create_results, readings, baseline="[]"):
     monkeypatch.setattr(
         m, "list_open_issues", lambda repo: readings.pop(0) if readings else []
     )
-    monkeypatch.setattr(m, "close_issue", lambda repo, number: None)
+    monkeypatch.setattr(m, "close_issue", lambda repo, number, shipped: None)
     monkeypatch.setattr(m, "read_version", lambda: "0.7.0")
     monkeypatch.setattr(m.time, "sleep", lambda s: slept.append(s))
     monkeypatch.setenv("REPO", "example/repo")
@@ -388,7 +397,7 @@ def test_the_recovery_message_does_not_promise_the_log_is_empty(monkeypatch):
         m, "list_open_issues", lambda repo: [{"number": 89, "title": "x"}]
     )
     monkeypatch.setattr(m, "read_version", lambda: "0.7.0")
-    monkeypatch.setattr(m, "close_issue", lambda repo, number: None)
+    monkeypatch.setattr(m, "close_issue", lambda repo, number, shipped: None)
 
     def fake_open_issue(repo, version, closed_number):
         raise SystemExit("gh issue list failed: some network error")
@@ -542,7 +551,9 @@ def test_close_succeeds_but_open_fails_names_both_in_the_message(monkeypatch):
     monkeypatch.setattr(m, "read_version", lambda: "0.7.0")
     closed = []
     monkeypatch.setattr(
-        m, "close_issue", lambda repo, number: closed.append((repo, number))
+        m,
+        "close_issue",
+        lambda repo, number, shipped: closed.append((repo, number)),
     )
 
     def fake_open_issue(repo, version, closed_number):
@@ -629,7 +640,9 @@ def _roll_harness(m, monkeypatch, title, shipped, number=89):
     monkeypatch.setattr(
         m, "list_open_issues", lambda repo: [{"number": number, "title": title}]
     )
-    monkeypatch.setattr(m, "close_issue", lambda repo, n: closed.append((repo, n)))
+    monkeypatch.setattr(
+        m, "close_issue", lambda repo, n, shipped: closed.append((repo, n))
+    )
     monkeypatch.setattr(m, "read_version", lambda: shipped)
     monkeypatch.setattr(m, "run", lambda *a: pytest.fail(f"fell through to run: {a}"))
     monkeypatch.setenv("REPO", "example/repo")
@@ -669,6 +682,94 @@ def test_rolled_from_reads_only_the_title_the_roll_itself_writes():
     assert m.rolled_from("chore: flow measurement — after ") is None, (
         "the marker with nothing after it names no version, and the empty "
         "string is not one"
+    )
+    assert m.rolled_from("chore: flow measurement — after 0.8.1 ") == "0.8.1", (
+        "trailing whitespace is not part of a version. Reading it as one "
+        "makes the title unequal to every version the tree can ship, so the "
+        "log is due at every release forever -- a roll owed once per release "
+        "and never finished, which no case caught until this one"
+    )
+
+
+def test_a_title_the_roll_did_not_write_names_no_version(monkeypatch):
+    """The reader must be exactly as wide as the writer, no wider.
+
+    A title is three segments -- what comes before the marker, the marker, and
+    what comes after it -- and `log_title` writes all three. Requiring only
+    the marker, anywhere in the title, left the first segment unchecked: a
+    title nobody's roll wrote answered with a version, which reads as *not
+    due* and stalls the log with the workflow green. That is the one direction
+    the module docstring says must be unreachable, and it is the same failure
+    class as the bug #155 is about, one step over."""
+    m = _roller()
+
+    assert m.rolled_from("docs: explain flow measurement — after 0.8.2") is None, (
+        "a prose title that happens to contain the marker is not a log this "
+        "roll opened. Answering it with `0.8.2` makes the log not due while "
+        "0.8.2 is what the tree ships, and nothing goes red"
+    )
+    assert m.rolled_from("flow measurement — after 0.8.2") is None, (
+        "the `chore: ` prefix is part of what the roll writes, so a title "
+        "missing it is not one of ours"
+    )
+    assert (
+        m.rolled_from(
+            "chore: flow measurement — after chore: flow measurement — after 0.8.2"
+        )
+        != "0.8.2"
+    ), (
+        "the marker appearing twice must not resolve to the version after "
+        "the last one. Whatever this answers, it may not be a version the "
+        "tree can ship, because that is the answer that stalls the log"
+    )
+
+    # The whole point of the three above, seen through `main`: a title this
+    # script did not write rolls, rather than quietly ending the log.
+    closed, creates = _roll_harness(
+        m, monkeypatch, "docs: explain flow measurement — after 0.8.2", "0.8.2"
+    )
+
+    m.main()
+
+    assert closed == [("example/repo", 89)], (
+        f"a title the roll did not write cannot answer whether anything has "
+        f"shipped since the log opened, so it is due: {closed}"
+    )
+    assert _created_title(creates) == m.log_title("0.8.2"), (
+        f"and the log that replaces it carries a title the roll can read "
+        f"back: {creates}"
+    )
+
+
+def test_the_close_comment_names_the_version_this_release_shipped(monkeypatch):
+    """The comment on the closed log is the last thing written on an issue
+    people go on reading, and it stated the convention this change removed --
+    a next log "for the version this release ships next", which is the
+    prediction #155 exists to end. `issue_body` was rewritten for exactly this
+    reason and pinned; this one was its class-mate and no case read it."""
+    m = _roller()
+    calls = []
+    monkeypatch.setattr(m, "run", lambda *a: calls.append(a) or "")
+
+    m.close_issue("example/repo", 89, "0.8.2")
+
+    args = calls[0]
+    assert args[:3] == ("gh", "issue", "close"), f"unexpected call: {args}"
+    comment = args[args.index("--comment") + 1]
+    assert "ships next" not in comment and "ship next" not in comment, (
+        f"the comment promises a log for the version this release ships "
+        f"next. Nothing here knows that version -- the whole of #155 -- and "
+        f"the log that opens is named after the version just shipped: "
+        f"{comment!r}"
+    )
+    assert m.log_title("0.8.2") in comment, (
+        f"the comment must name the successor by the title the roll actually "
+        f"writes, read out of `log_title` rather than spelled out here, so a "
+        f"reader of the closed log can find the open one: {comment!r}"
+    )
+    assert "0.8.2" in comment, (
+        f"the comment must name the version this release shipped, which is "
+        f"the one version knowable at this moment: {comment!r}"
     )
 
 
@@ -814,6 +915,12 @@ def test_the_nothing_due_line_names_the_log_and_the_version(monkeypatch, capsys)
         f"the line must name the log it left alone and the version this tree "
         f"ships, which is the pair a reader checks: {out!r}"
     )
+    assert "chore: flow measurement — after 0.7.0" in out, (
+        f"the line must quote the title it read, which is the whole input to "
+        f"the decision. Without it a log left alone on a title nobody meant "
+        f"to write reads exactly like a log left alone correctly, and the "
+        f"reader has to open GitHub to tell them apart: {out!r}"
+    )
 
 
 def test_the_rolled_line_names_the_issue_closed_and_the_title_opened(
@@ -909,6 +1016,35 @@ def test_the_tracker_doc_states_the_title_the_roll_writes():
         "example that `rolled_from` answers `None` for is an old-convention "
         "title being held up as the new one, which is the confusion this "
         "section exists to end"
+    )
+
+
+def test_the_tracker_doc_states_the_whole_prefix_the_roll_requires():
+    """The document is where a person retitling a log by hand copies the
+    format from, so the rule in it has to be the rule the code enforces. It
+    said *a title with no `after` in it* was the old convention, which reads
+    as: put `after` in it and the roll will find your version. The code
+    requires the whole prefix from the first character, and the gap between
+    those two readings is a title that stalls its log with the workflow
+    green."""
+    m = _roller()
+    section = _tracker_section()
+    assert "A title with no `after` in it" not in section, (
+        "the document states a looser rule than the code enforces. A title "
+        "with `after` somewhere in it is not a log this roll wrote, and a "
+        "reader following this sentence writes one that answers a version "
+        "the roll then reads as not due"
+    )
+    assert "does not begin with" in section, (
+        "the document must say the prefix is required from the start of the "
+        "title, not merely present in it -- that is the difference between "
+        "`chore: flow measurement — after 0.8.2` and `docs: explain flow "
+        "measurement — after 0.8.2`, and the second stalls its log"
+    )
+    assert m.TITLE_PREFIX in section, (
+        f"the document must spell the whole prefix the roll writes and "
+        f"requires ({m.TITLE_PREFIX!r}), read out of the script's own "
+        f"constant rather than against a literal here"
     )
 
 

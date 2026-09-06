@@ -38,13 +38,18 @@ shipped nothing new -- a workflow re-run, or a push to `main` that is not a
 release, since this workflow fires on every push to the default branch -- and
 the roll says nothing was due, closes nothing, opens nothing, and exits 0.
 
-**A title this script cannot read as its own is due, never silent.** That
-covers the logs opened before this change, whose `chore: flow measurement —
-0.9.0` names a version that had not shipped and so cannot answer "has
-anything shipped since this log opened"; the ` — after ` marker appears in no
-title written before this change, so the first release after it rolls them
-and the old convention retires itself. It covers a title somebody tidied by
-hand just as well. The direction is chosen rather than incidental: an
+**A title this script cannot read as its own is due, never silent.** Its own
+means the whole of what `log_title` writes, from the first character: the
+`chore: ` prefix and the marker, and only then a version. Anything else --
+a different prefix, the marker buried mid-sentence, an older title -- names
+no version this script can act on. That covers the logs opened before this
+change, whose `chore: flow measurement — 0.9.0` names a version that had not
+shipped and so cannot answer "has anything shipped since this log opened";
+the ` — after ` marker appears in no title written before this change, so the
+first release after it rolls them and the old convention retires itself. It
+covers a title somebody tidied by hand just as well, and one written for
+something else entirely that happens to carry the marker inside it. The
+direction is chosen rather than incidental: an
 unreadable title read as *not due* stops the log forever with the workflow
 green, which is the same class of failure as the bug above one step over,
 while read as *due* it costs at most one roll that was not owed.
@@ -153,11 +158,22 @@ INDEX_LABEL = "measurement"
 INDEX_MILESTONE = "log: measurement"
 RETRY_DELAY_SECONDS = 5
 
-# The one string the title is written and read through. `after` is the whole
-# point: what follows it is the version this log rolled FROM, which has
-# shipped, rather than the version it is for, which at this moment is not
-# knowable (see the module docstring).
+# `after` is the whole point: what follows it is the version this log rolled
+# FROM, which has shipped, rather than the version it is for, which at this
+# moment is not knowable (see the module docstring).
 TITLE_MARKER = "flow measurement — after "
+
+# The whole of what `log_title` writes, and the whole of what `rolled_from`
+# requires. A reader wider than the writer is a gap in itself: a title
+# carrying the marker somewhere inside it -- `docs: explain flow measurement —
+# after 0.8.2` -- is not a title this script wrote, and answering it with a
+# version makes that log not due and stalls it with the workflow green, which
+# is the one direction the docstring above says must be unreachable.
+#
+# `TITLE_MARKER` is built into this rather than spelled out again, because
+# `docs/issues-and-milestones.md` is read against the marker by name and two
+# constants drifting apart is the same fault one level up.
+TITLE_PREFIX = f"chore: {TITLE_MARKER}"
 
 MILESTONE_NOTE = (
     f"The `{INDEX_MILESTONE}` milestone could not be set on this issue -- it "
@@ -203,12 +219,14 @@ def try_run(*args):
 def log_title(version):
     """The title of the log opened by the release that shipped `version`.
 
-    Pure. Written through `TITLE_MARKER` rather than spelled out, because
-    `rolled_from` reads the same constant back: the writer and the reader
-    drifting apart is a wording change that leaves the roll firing on every
-    release forever, which is the invariant broken from the other side.
+    Pure. Written through `TITLE_PREFIX` rather than spelled out, because
+    `rolled_from` requires the same constant back, in full and from the start:
+    the writer and the reader drifting apart is a wording change that leaves
+    the roll firing on every release forever, which is the invariant broken
+    from the other side, and a reader that asks for less than the writer
+    writes is the same fault pointed at silence instead.
     """
-    return f"chore: {TITLE_MARKER}{version}"
+    return f"{TITLE_PREFIX}{version}"
 
 
 def rolled_from(title):
@@ -219,11 +237,18 @@ def rolled_from(title):
     "has anything shipped since this log opened". Every caller treats that as
     due -- see the module docstring for why the unreadable case falls that
     way rather than toward silence. Pure.
+
+    The whole prefix is required, from the start of the title. A title is
+    three segments -- what comes before the marker, the marker, and what comes
+    after it -- and a version may be read out of only the third, and only when
+    the first two are exactly what `log_title` wrote. Matching the marker
+    anywhere instead accepted a title this script never wrote (`docs: explain
+    flow measurement — after 0.8.2`) as the log for 0.8.2, which is *not due*
+    and a log stalled with the workflow green.
     """
-    _, marker, version = title.partition(TITLE_MARKER)
-    if not marker:
+    if not title.startswith(TITLE_PREFIX):
         return None
-    return version.strip() or None
+    return title[len(TITLE_PREFIX) :].strip() or None
 
 
 def roll_is_due(title, shipped):
@@ -277,7 +302,15 @@ def open_flow_measurement_issues(repo):
     return issues
 
 
-def close_issue(repo, number):
+def close_issue(repo, number, shipped):
+    """Close the old log, saying on it what replaces it and how it is named.
+
+    The comment is the last thing written on an issue people go on reading,
+    so it states the convention in force rather than the one it replaced. It
+    used to promise a log "for the version this release ships next", which is
+    the prediction #155 removed: the new log is named after the version this
+    release just shipped, and that version is the one thing knowable here.
+    """
     run(
         "gh",
         "issue",
@@ -286,10 +319,11 @@ def close_issue(repo, number):
         "--repo",
         repo,
         "--comment",
-        "Closed by the release that just reached `main` -- a new "
-        "flow-measurement issue opens for the version this release ships "
-        "next. `skills/verify/SKILL.md`'s \"Measure the segment, and feed "
-        'the flow log" section has the reasoning.',
+        f"Closed by the release that just shipped {shipped}. The next "
+        f"flow-measurement issue opens as `{log_title(shipped)}` -- named "
+        f"after the version this release shipped, and closed by whatever "
+        f"ships after it. `skills/verify/SKILL.md`'s \"Measure the segment, "
+        f'and feed the flow log" section has the reasoning.',
     )
 
 
@@ -442,15 +476,20 @@ def main():
     # They are printed rather than logged for the same reason the issue body
     # carries the best-effort notes: a workflow log is what a person reads
     # when they are already looking, and this is the state they came for.
+    #
+    # The not-due line quotes the title because the title is the whole input
+    # to the decision. A conclusion without it cannot be checked: a log left
+    # alone on a title nobody meant to write reads exactly like a log left
+    # alone correctly.
     if not roll_is_due(title, shipped):
         print(
-            f"nothing due: #{number} is the log for the work since {shipped} "
-            f"shipped, and {shipped} is still what this tree ships. Nothing "
-            f"closed, nothing opened."
+            f"nothing due: #{number} is titled {title!r}, which reads as the "
+            f"log for the work since {shipped} shipped, and {shipped} is "
+            f"still what this tree ships. Nothing closed, nothing opened."
         )
         return
 
-    close_issue(repo, number)
+    close_issue(repo, number, shipped)
     try:
         opened = open_issue(repo, shipped, number)
     except SystemExit as exc:
