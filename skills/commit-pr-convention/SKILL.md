@@ -157,6 +157,19 @@ carries this at length; this file carries the prefix in front of it.
 `writing-style`'s, and it is read **before** writing, not after — structure
 that came out wrong is not recovered by fixing sentences.
 
+**A work item routed through the review chain carries a chain section, and it
+has one shape: the comparison table first, then what the rounds found.** The
+table is what makes this run readable beside the last one, so it goes above
+the prose rather than under it — a reader who stops after the first screen
+still has the numbers. What the rounds found comes after it: which findings
+changed something, and what they changed.
+
+**The rows have one owner: `skills/verify/SKILL.md` §*Measure the segment,
+and feed the flow log*.** That section states each row and where it is taken
+from. Link it rather than copying the rows into this file or into the body —
+two copies are two things to keep in step, and the one that drifts is the
+copy nobody owns.
+
 Where a translated body is wanted, **put it in the repository as a file and
 link it from the body.**
 

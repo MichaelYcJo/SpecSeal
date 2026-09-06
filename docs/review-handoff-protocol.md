@@ -400,7 +400,7 @@ whose assertions constrain the wording, the runner incantation in the form
 the round is to run it. What round N+1 inherits from round N, round 1 — and
 the implementer before it — inherits from the orchestrator.
 
-Four requirements, each bought by a measured failure:
+Five requirements, each bought by a measured failure:
 
 - **A fact carries the coordinate that makes it falsifiable, or it is
   marked as an assertion nobody has opened.** The labels are the three
@@ -429,6 +429,19 @@ Four requirements, each bought by a measured failure:
   a file the branch had touched. Naming the form alone is not enough — the
   reader who does not know what the other form buys deletes the narrowing,
   and the write then re-stamps the false claim.
+- **A runner the repository ships is found, not typed into every prompt.**
+  Where the repository has its own command for its suite, the handoff names
+  it once and the segment finds it where the contribution guide names it
+  first; where the repository ships none, the prompt carries the incantation
+  as above. The form a segment is handed is the narrow one — one module —
+  because the full suite is the orchestrator's, run once after the rounds
+  settle (`skills/agent-contract/SKILL.md` §2), and a runner that is cheap to
+  call does not move that line. The failure that bought this: four build
+  segments of one work item read repeats of **17 s, 2 s, 0 s and 0 s**, and
+  the only thing that differed between them was whether the orchestrator had
+  typed the runner into the spawn prompt. A requirement met by hand, once per
+  prompt, is met until somebody forgets — which is what those first two
+  numbers are.
 
 One thing precedes the handoff rather than travelling in it: the draft pull
 request is already open when round 1 is spawned, opened when the build's
@@ -494,6 +507,18 @@ its threshold sits where it does not nag the serial case — the repository
 owner's answer to Q1 of
 `seal/specs/1788224363-a-subagent-rediscovers-what-the-session-established/questions.md`.
 The bars above are the orchestrator's, applied knowing the segment kind.
+
+**The bars judge a segment against its kind; the run-level table judges a
+run against the last run measured.** A bar reads one transcript — a review
+against reviews, an edit-test loop against edit-test loops — and says
+nothing about the run those segments belong to. The table asks the other
+question — what the whole run cost — this run beside the last one, in the
+same rows in the same order every time.
+
+Its rows and where each one is taken from are `skills/verify/SKILL.md`
+§*Measure the segment, and feed the flow log*, which is also where it goes.
+That is **not a destination of its own** — the table joins the segment
+readings in the rolling log that section already names.
 
 ## What every spawn prompt used to carry
 

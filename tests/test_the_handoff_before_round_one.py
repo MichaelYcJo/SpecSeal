@@ -290,6 +290,134 @@ def test_the_protocol_names_a_bar_per_segment_kind():
     )
 
 
+def bars_section(text):
+    """The body of `### After the run — the per-segment bars`, heading to the
+    next heading of any level.
+
+    Scoped rather than whole-file, for the reason `pointer_section` above is:
+    the document names `session_cost.py` two sections up, so a document-wide
+    search would stay green with this section saying nothing about the
+    run-level table -- which is the one edit this case exists to catch."""
+    match = re.search(
+        r"^### After the run — the per-segment bars$(.*?)(?=^#{2,3} )",
+        text,
+        re.M | re.S,
+    )
+    assert match, (
+        "the per-segment bars section is gone or renamed. It is where the "
+        "orchestrator meets the meter's numbers, and a rename has to bring "
+        "this case with it"
+    )
+    return " ".join(match.group(1).split())
+
+
+def test_the_bars_and_the_run_level_table_judge_different_things():
+    """Two instruments over the same run, and a reader who meets only the
+    bars has no way to know the second one exists.
+
+    A bar reads one transcript against its own kind. The run-level table
+    reads a whole run against the last run measured, which is a question no
+    bar asks -- rounds, wall clock, commits and tokens together. The section
+    that owns the bars is where that distinction has to be drawn, because it
+    is the section an orchestrator opens holding a segment's numbers.
+
+    The absence half is asserted as hard as the presence half. The table's
+    rows are defined in `skills/verify/SKILL.md`, and a copy of them here
+    would be a second thing to keep in step; and the table goes to the
+    rolling log the measurement section already names, so a sentence that
+    reads as a new home for a reading is the other way this paragraph can go
+    wrong."""
+    section = bars_section(read("docs", "review-handoff-protocol.md"))
+    assert (
+        "The bars judge a segment against its kind; the run-level table "
+        "judges a run against the last run measured." in section
+    ), (
+        "the section does not say which instrument judges what, so a reader "
+        "holding a segment's numbers meets one bar and no run"
+    )
+    assert "skills/verify/SKILL.md" in section, (
+        "the section names no owner for the table, so a reader arriving for "
+        "its rows leaves with neither them nor the path to them"
+    )
+    assert "Measure the segment, and feed the flow log" in section, (
+        "the pointer names the file and not the section, which is a whole "
+        "skill to search for one table"
+    )
+    assert "not a destination of its own" in section, (
+        "the sentence reads as a third place a reading can go. The table "
+        "joins the segment readings in the rolling log; naming it beside the "
+        "bars must not invent a home for it"
+    )
+    assert "what the whole run cost" in section, (
+        "the paragraph says the table asks another question and never says "
+        "what it is, so a reader has the distinction and not the point of it"
+    )
+    for row in TABLE_ROWS:
+        assert row not in section, (
+            f"the section restates the table's rows ({row!r}). They are "
+            "defined in `skills/verify/SKILL.md`, and a second copy is a "
+            "second thing to keep in step"
+        )
+    # Round 2's finding 2. The labels above catch a paste-back OF THE TABLE;
+    # what round 1's finding 8 actually removed was a lowercase gloss that
+    # matches none of them. Replacing the sentence with it is already caught,
+    # because `what the whole run cost` goes with it -- but ADDING it back
+    # beside the sentence passed every case in this module. So the gloss is
+    # refused by its own removed wording, the way
+    # `test_the_protocol_no_longer_states_the_rules_it_points_at` refuses
+    # what phase 5 removed.
+    assert "rounds, wall clock, commits, findings and tokens" not in section, (
+        "the lowercase gloss of the table's rows is back in the bars "
+        "section. It is a second copy of the rows to keep in step, and being "
+        "lowercase prose rather than the labels is what let it sit here "
+        "through round 1 with nothing red"
+    )
+
+
+# One fragment per row of the table in `skills/verify/SKILL.md` §*Measure the
+# segment, and feed the flow log*, taken verbatim. Refused in the bars section
+# above and held to the owner below.
+TABLE_ROWS = (
+    "Rounds — finding and verifying",
+    "Wall clock, routing commit to last record",
+    "Commits, by kind",
+    "Findings by severity",
+    "Findings by `Location`",
+    "Records' share of the diff",
+    "Model turns",
+    "Segments: count, minutes and tokens per kind",
+    "Broad gate",
+)
+
+
+def test_the_refused_rows_are_the_owners_own():
+    """The coupling that keeps the refusal above worth having: a row reworded
+    in `skills/verify/SKILL.md` and not here leaves it guarding a string
+    nobody would paste. The same one
+    `tests/test_the_chain_section_has_one_shape.py` keeps over its own list.
+
+    Round 1's finding 8 widened that refusal from three labels to nine, and
+    round 2's finding 2 is that the widening does not reach what the finding
+    was raised against. That prose glossed five rows in lowercase -- `rounds,
+    wall clock, commits, findings and tokens` -- which shares no substring
+    with any label. So the two halves need two different checks, and the
+    gloss is refused by its own removed wording in the case above rather
+    than by this list.
+
+    Neither reaches a gloss somebody writes fresh, and no string can: the
+    words are lowercase and generic, and `rounds` occurs four times in
+    that section legitimately. That half is a reader's, and saying so is the
+    point of writing it down -- a list that reads as though it closed the
+    class is worse than one nobody expected to."""
+    owner = read("skills", "verify", "SKILL.md")
+    for row in TABLE_ROWS:
+        assert row in owner, (
+            f"{row!r} is no longer a row of the table in "
+            "`skills/verify/SKILL.md`, so the refusal above guards a string "
+            "nobody would paste. Re-take these from the owner's table"
+        )
+
+
 def test_the_title_and_the_status_section_agree_on_the_draft():
     """🔴 1 of the work item's round 1: the title moved to draft 0.8 while
     the Status section still opened with 0.7 — one document naming two

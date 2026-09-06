@@ -45,12 +45,41 @@ the release by milestone; neither substitutes for the other.
 **`flow-measurement` is a label that is not an index.** It is a lookup key,
 and it carries an invariant: *exactly one open at a time*.
 `.github/scripts/roll_flow_measurement_issue.py` closes the current one and
-opens the next when a release reaches `main`, and it fails loudly on zero or
-on two rather than guessing which is current.
+opens the next on a push to `main`, and **only where a new version has
+shipped** since the open log opened; it fails loudly on zero or on two
+rather than guessing which is current. The workflow fires on every push to
+the default branch, so a push that moved no version — a re-run of the job,
+or a merge that shipped nothing — rolls nothing and says so in the job log.
 `skills/verify/SKILL.md` finds the log to post a segment's measurement to by
 that key. Reading `--label flow-measurement --state all` finds the rolling
 logs and misses `#51`; reading `--label measurement` finds everything and
 answers no lookup.
+
+**A rolling log is titled after the version it rolled from**, in the form
+`chore: flow measurement — after 1.2.3`. That log opened at the 1.2.3
+release, holds the measurements taken since, and is closed by whatever ships
+next. The number here is illustrative on purpose: a released version written
+into a loaded file is what `test_no_loaded_file_hardcodes_the_running_version`
+refuses, and this paragraph would go red at its own next release.
+The version in it is a fact rather than a prediction:
+`docs/branch-and-release.md` says whether the next number is a minor or a
+patch is known at the end and not at the cut, so at the moment the roll runs
+the next version is the one thing nobody can name.
+
+**A title that does not begin with `chore: flow measurement — after ` was
+written before that convention, or by hand, and the roll reads it as due.**
+The whole of that prefix is what the roll writes, and the whole of it is what
+the roll requires, from the first character of the title. A title carrying
+those words somewhere inside it — `docs: explain flow measurement — after
+1.2.3` — is not one of these logs, and reading a version out of it would
+leave that log never due. Titles written before this convention were named
+for the version they were predicted to be *for*, which is how a patch
+release came to close a log titled for a minor that had not shipped — #155
+carries the measurement, and no real version is named here for the reason
+above. They are **not rewritten**: a retitle would falsify every comment
+that cites them. A title the roll
+cannot read as its own is due rather than silent, so the first release after
+each one rolls it and the older convention retires itself.
 
 ## Closing one of these by hand breaks the next release
 

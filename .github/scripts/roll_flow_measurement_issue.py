@@ -13,18 +13,51 @@ This runs from the same workflow, the same trigger, and the same checkout as
 default branch). At that point the release-preparation commit that moved
 `.claude-plugin/plugin.json`'s version has already merged as part of the same
 push, so the checked-out tree already carries the just-shipped version --
-the fact this script's version arithmetic depends on
-(`docs/branch-and-release.md` "Cutting a release").
+the fact everything below depends on (`docs/branch-and-release.md` "Cutting
+a release").
 
-  next_version("0.7.0") -> "0.8.0"     bump the minor, reset the patch
-  next_version("0.7.3") -> "0.8.0"     a patch release still bumps the minor
+**The log is named after the version it rolls FROM, and it rolls only when a
+new version has shipped since.** That same document says whether the next
+number is a minor or a patch is known at the end rather than at the cut, so
+at the moment this runs the next version is the one thing nobody knows and
+the just-shipped one is the one thing that is certain.
 
-That is a stated default, not a discovered rule: a day this repository ships
-a patch release instead of a minor, the title this script writes will name
-the wrong version. Nothing depends on the title being correct -- the
-mechanism finds its issue by label and open state, never by parsing the
-title -- so the cost of a wrong guess is a title a human can retitle by hand,
-not a broken lookup (`plan.md` "Judgment recorded").
+  chore: flow measurement — after 0.8.1     opened by the 0.8.1 release,
+                                            closed by whatever ships next
+
+Naming the log by a guess instead cost two things at the 0.8.1 release
+(#155). The arithmetic here was `"0.8.1" -> "0.9.0"`, so the roll closed
+#166 -- opened at the 0.8.0 release, titled for 0.9.0, and holding the
+measurements 0.8.1 had just been written with -- and opened #172 under the
+identical title. A patch release ended a log the next release still needed,
+and the 0.9.0 log became two issues told apart only by creation date.
+
+So the title states a fact and the condition reads it back: `rolled_from` of
+the open log's title, against the version in the tree. Equal means this push
+shipped nothing new -- a workflow re-run, or a push to `main` that is not a
+release, since this workflow fires on every push to the default branch -- and
+the roll says nothing was due, closes nothing, opens nothing, and exits 0.
+
+**A title this script cannot read as its own is due, never silent.** Its own
+means the whole of what `log_title` writes, from the first character: the
+`chore: ` prefix and the marker, and only then a version. Anything else --
+a different prefix, the marker buried mid-sentence, an older title -- names
+no version this script can act on. That covers the logs opened before this
+change, whose `chore: flow measurement — 0.9.0` names a version that had not
+shipped and so cannot answer "has anything shipped since this log opened";
+the ` — after ` marker appears in no title written before this change, so the
+first release after it rolls them and the old convention retires itself. It
+covers a title somebody tidied by hand just as well, and one written for
+something else entirely that happens to carry the marker inside it. The
+direction is chosen rather than incidental: an
+unreadable title read as *not due* stops the log forever with the workflow
+green, which is the same class of failure as the bug above one step over,
+while read as *due* it costs at most one roll that was not owed.
+
+**The lookup is still by label and open state, never by the title.** What
+changed is that the title, once the lookup has found the issue, is read for
+the version it names. An edited title can neither hide the issue nor stop the
+roll; the most it can do is cause one roll that was not due.
 
 **The invariant is exactly one open `flow-measurement` issue at a time.**
 Zero means the log already stopped and nobody reopened it; two or more means
@@ -48,15 +81,17 @@ artifact and is never retried.
 
   roll_flow_measurement_issue.py     read REPO, GH_TOKEN from the
                                       environment (same as
-                                      close_issues_on_release.py); close the
-                                      one open flow-measurement issue and
-                                      open the next
+                                      close_issues_on_release.py); where a
+                                      new version has shipped since the one
+                                      open flow-measurement issue opened,
+                                      close it and open the next
 
 **The issue this opens carries a body, and finds the durable log by label.**
 A rolling log opened with `--body ""` is born with no path back to the one it
 replaced and no statement of what it is for, which is the state every log
 before this change was in (#136). The body names the issue just closed, says
-the log closes when this version ships, and points at the durable ledger --
+which version it covers the work since and that the next release closes it,
+and points at the durable ledger --
 the issue carrying `flow-baseline`, looked up the same way the rolling one is
 and never by number. Where a repository has no such issue that clause is left
 out rather than the roll failing: a durable ledger is a thing a repository may
@@ -103,9 +138,11 @@ retry-once hardening above treats as never a lag artifact and always the
 invariant broken -- closing first turns every failure mode into a state the
 existing zero-issue recovery already tells the operator how to fix by hand.
 
-Exit codes: 0 done. Non-zero: the open-issue count was not exactly 1 (after
-the retry), a `gh` call failed, or the close succeeded and the open then
-failed (message names the closed issue and the recovery title).
+Exit codes: 0 rolled, and 0 for a run where nothing was due -- the printed
+line is what tells those apart, because both leave the job green. Non-zero:
+the open-issue count was not exactly 1 (after the retry), a `gh` call failed,
+or the close succeeded and the open then failed (message names the closed
+issue and the recovery title).
 """
 
 import json
@@ -120,6 +157,23 @@ BASELINE_LABEL = "flow-baseline"
 INDEX_LABEL = "measurement"
 INDEX_MILESTONE = "log: measurement"
 RETRY_DELAY_SECONDS = 5
+
+# `after` is the whole point: what follows it is the version this log rolled
+# FROM, which has shipped, rather than the version it is for, which at this
+# moment is not knowable (see the module docstring).
+TITLE_MARKER = "flow measurement — after "
+
+# The whole of what `log_title` writes, and the whole of what `rolled_from`
+# requires. A reader wider than the writer is a gap in itself: a title
+# carrying the marker somewhere inside it -- `docs: explain flow measurement —
+# after 0.8.2` -- is not a title this script wrote, and answering it with a
+# version makes that log not due and stalls it with the workflow green, which
+# is the one direction the docstring above says must be unreachable.
+#
+# `TITLE_MARKER` is built into this rather than spelled out again, because
+# `docs/issues-and-milestones.md` is read against the marker by name and two
+# constants drifting apart is the same fault one level up.
+TITLE_PREFIX = f"chore: {TITLE_MARKER}"
 
 MILESTONE_NOTE = (
     f"The `{INDEX_MILESTONE}` milestone could not be set on this issue -- it "
@@ -162,10 +216,50 @@ def try_run(*args):
     return None if out.returncode else out.stdout
 
 
-def next_version(current):
-    """`X.Y.Z` -> `X.(Y+1).0`. Pure -- no `gh`, no `git`, no filesystem."""
-    major, minor, _patch = (int(part) for part in current.split("."))
-    return f"{major}.{minor + 1}.0"
+def log_title(version):
+    """The title of the log opened by the release that shipped `version`.
+
+    Pure. Written through `TITLE_PREFIX` rather than spelled out, because
+    `rolled_from` requires the same constant back, in full and from the start:
+    the writer and the reader drifting apart is a wording change that leaves
+    the roll firing on every release forever, which is the invariant broken
+    from the other side, and a reader that asks for less than the writer
+    writes is the same fault pointed at silence instead.
+    """
+    return f"{TITLE_PREFIX}{version}"
+
+
+def rolled_from(title):
+    """The version the open log rolled from, or `None` where it does not say.
+
+    `None` is not an error and is not the same fact as a version: it is a
+    title this script did not write in its current form, which cannot answer
+    "has anything shipped since this log opened". Every caller treats that as
+    due -- see the module docstring for why the unreadable case falls that
+    way rather than toward silence. Pure.
+
+    The whole prefix is required, from the start of the title. A title is
+    three segments -- what comes before the marker, the marker, and what comes
+    after it -- and a version may be read out of only the third, and only when
+    the first two are exactly what `log_title` wrote. Matching the marker
+    anywhere instead accepted a title this script never wrote (`docs: explain
+    flow measurement — after 0.8.2`) as the log for 0.8.2, which is *not due*
+    and a log stalled with the workflow green.
+    """
+    if not title.startswith(TITLE_PREFIX):
+        return None
+    return title[len(TITLE_PREFIX) :].strip() or None
+
+
+def roll_is_due(title, shipped):
+    """Whether `shipped` is a version that arrived after the open log opened.
+
+    One comparison, two facts. A title naming the version in the tree is the
+    log this push has not finished -- a re-run, or a push to `main` that
+    shipped nothing -- and nothing rolls. Anything else, `None` included, is
+    due. Pure.
+    """
+    return rolled_from(title) != shipped
 
 
 def read_version(root=ROOT):
@@ -208,7 +302,15 @@ def open_flow_measurement_issues(repo):
     return issues
 
 
-def close_issue(repo, number):
+def close_issue(repo, number, shipped):
+    """Close the old log, saying on it what replaces it and how it is named.
+
+    The comment is the last thing written on an issue people go on reading,
+    so it states the convention in force rather than the one it replaced. It
+    used to promise a log "for the version this release ships next", which is
+    the prediction #155 removed: the new log is named after the version this
+    release just shipped, and that version is the one thing knowable here.
+    """
     run(
         "gh",
         "issue",
@@ -217,10 +319,11 @@ def close_issue(repo, number):
         "--repo",
         repo,
         "--comment",
-        "Closed by the release that just reached `main` -- a new "
-        "flow-measurement issue opens for the version this release ships "
-        "next. `skills/verify/SKILL.md`'s \"Measure the segment, and feed "
-        'the flow log" section has the reasoning.',
+        f"Closed by the release that just shipped {shipped}. The next "
+        f"flow-measurement issue opens as `{log_title(shipped)}` -- named "
+        f"after the version this release shipped, and closed by whatever "
+        f"ships after it. `skills/verify/SKILL.md`'s \"Measure the segment, "
+        f'and feed the flow log" section has the reasoning.',
     )
 
 
@@ -267,7 +370,7 @@ def find_baseline_issue(repo):
     return (issues[0]["number"], None) if issues else (None, None)
 
 
-def issue_body(version, closed_number, baseline_number, notes=()):
+def issue_body(shipped, closed_number, baseline_number, notes=()):
     """What the rolling log says about itself on the day it is opened.
 
     `notes` are what the create could not set -- see the module docstring.
@@ -282,7 +385,8 @@ def issue_body(version, closed_number, baseline_number, notes=()):
     )
     opening = (
         f"Rolls from #{closed_number}. {ledger} issue takes one comment per "
-        f"segment and is closed when {version} ships."
+        f"segment, covers the work done since {shipped} shipped, and is "
+        f"closed by the release that ships the next version."
     )
     return "\n\n".join([opening, *notes])
 
@@ -323,8 +427,8 @@ def landed_create(repo, closed_number):
     return False
 
 
-def open_issue(repo, version, closed_number):
-    title = f"chore: flow measurement — {version}"
+def open_issue(repo, shipped, closed_number):
+    title = log_title(shipped)
     baseline, baseline_note = find_baseline_issue(repo)
     ledger_notes = (baseline_note,) if baseline_note else ()
 
@@ -335,7 +439,7 @@ def open_issue(repo, version, closed_number):
         (("--label", INDEX_LABEL, "--milestone", INDEX_MILESTONE), ()),
         (("--label", INDEX_LABEL), (MILESTONE_NOTE,)),
     ):
-        body = issue_body(version, closed_number, baseline, (*notes, *ledger_notes))
+        body = issue_body(shipped, closed_number, baseline, (*notes, *ledger_notes))
         if try_run(*create_args(repo, title, body, extras)) is not None:
             return title
         if landed_create(repo, closed_number):
@@ -345,7 +449,7 @@ def open_issue(repo, version, closed_number):
             return title
 
     body = issue_body(
-        version, closed_number, baseline, (MILESTONE_NOTE, INDEX_NOTE, *ledger_notes)
+        shipped, closed_number, baseline, (MILESTONE_NOTE, INDEX_NOTE, *ledger_notes)
     )
     run(*create_args(repo, title, body, ()))
     return title
@@ -353,7 +457,7 @@ def open_issue(repo, version, closed_number):
 
 def main():
     repo = os.environ["REPO"]
-    next_v = next_version(read_version())
+    shipped = read_version()
 
     issues = open_flow_measurement_issues(repo)
     if len(issues) != 1:
@@ -365,18 +469,38 @@ def main():
         )
 
     number = issues[0]["number"]
-    close_issue(repo, number)
+    title = issues[0]["title"]
+
+    # Both outcomes leave the job green, so the two lines below are the only
+    # thing separating a release that rolled from a mechanism that stopped.
+    # They are printed rather than logged for the same reason the issue body
+    # carries the best-effort notes: a workflow log is what a person reads
+    # when they are already looking, and this is the state they came for.
+    #
+    # The not-due line quotes the title because the title is the whole input
+    # to the decision. A conclusion without it cannot be checked: a log left
+    # alone on a title nobody meant to write reads exactly like a log left
+    # alone correctly.
+    if not roll_is_due(title, shipped):
+        print(
+            f"nothing due: #{number} is titled {title!r}, which reads as the "
+            f"log for the work since {shipped} shipped, and {shipped} is "
+            f"still what this tree ships. Nothing closed, nothing opened."
+        )
+        return
+
+    close_issue(repo, number, shipped)
     try:
-        title = open_issue(repo, next_v, number)
+        opened = open_issue(repo, shipped, number)
     except SystemExit as exc:
         sys.exit(
             f"closed #{number}, but opening the next issue failed: {exc}. "
             f"Check the `{LABEL}` label before opening anything: a create "
             f"that failed may still have landed. Where none is open, open "
-            f"one by hand (label `{LABEL}`, title `chore: flow measurement — "
-            f"{next_v}`) before the next release runs."
+            f"one by hand (label `{LABEL}`, title `{log_title(shipped)}`) "
+            f"before the next release runs."
         )
-    print(f"closed #{number}, opened {title!r}")
+    print(f"rolled: closed #{number}, opened {opened!r}")
 
 
 if __name__ == "__main__":
