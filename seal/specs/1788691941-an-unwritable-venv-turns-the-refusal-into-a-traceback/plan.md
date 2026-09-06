@@ -42,7 +42,7 @@ class being one function is why a sentence can carry it.
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | The guard, its sentence, and the case that pins the wording — seen red first against the unguarded write, on a real `chmod 555` fixture | The new case plus the six existing `hide_from_git` cases; `uvx ruff` | `8be39a9` |
-| 2 | R2's caveat in `seal/ledger.md`, and the reach-vocabulary case reaching `call_sites`' own returnable set — or the limit written down beside it with grounds | `./bin/evidence-check .` unscoped; the fixes-surface module; the records | |
+| 2 | R2's caveat in `seal/ledger.md`, and the reach-vocabulary case reaching `call_sites`' own returnable set — or the limit written down beside it with grounds | `./bin/evidence-check .` unscoped; the fixes-surface module; the records | `3bf5c6d` |
 
 ## Operational impact
 
