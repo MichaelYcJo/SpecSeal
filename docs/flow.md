@@ -48,12 +48,12 @@ different clothes: nothing reads what the record says. #179 is that sentence
 about a document rather than a record, which is why it sits with them and not
 only because the version forces the date.
 
-- [ ] #179 — a loaded file naming a real version is a timer. `docs/issues-and-milestones.md` named `0.9.0` in a sentence about milestones, and the check refused the running version only. Green today, red on this release's own preparation commit — after the broad gate has already run. Closed by widening it to every version at or above the running one, as `test_no_loaded_file_names_a_version_at_or_above_the_running_one`.
+- [x] #179 — a loaded file naming a real version is a timer. `docs/issues-and-milestones.md` named `0.9.0` in a sentence about milestones, and the check refused the running version only. Green today, red on this release's own preparation commit — after the broad gate has already run. Closed by widening it to every version at or above the running one, as `test_no_loaded_file_names_a_version_at_or_above_the_running_one`.
 - [ ] #187 — the round record carries the reviewer's tables and drops the paste-ready fix the findings format requires. Measured: a fix pass re-derived a verified artefact from scratch, and its first re-derivation was wrong.
 - [ ] #189 — a bare pipe inside a Verdicts cell truncates the row, and nothing sees it. Two paste-ready fixtures were invisible in a rendered record; a later fix pass then hit it again after being warned. Compounds with #187, which makes that cell the only durable home a paste-ready fix has.
 - [ ] #190 — a record states a figure or a stamp the next commit moves, and no check reads it. Closed three times on one work item by enumerating carriers, and back each time.
 - [ ] #194 — `Contract changes` compares arities, so a unit returning a new *meaning* reads as `none`. That row exists for #57's largest regression class and read `none` on a live instance of it.
-- [ ] #98 — three sentences say `-z` is what turns git's path quoting off, and the instruction they give is right while the reason they give for it is false. One line, and it rides whichever branch of this release is open.
+- [x] #98 — three sentences say `-z` is what turns git's path quoting off, and the instruction they give is right while the reason they give for it is false. One line, and it rides whichever branch of this release is open.
 
 ## 0.9.1 — what a repository using SpecSeal actually hits
 
@@ -91,6 +91,7 @@ mean the code is right. #149 is here because this is the release by which the
 `Ran by` rows have accumulated enough for it to choose an outcome column
 against readings rather than against a guess.
 
+- [ ] #200 — the meter's `test` family names five runners and not this repository's, so fourteen `./bin/test` runs read as `other` and the one call it charged to `test` was a file write containing the word. Opened by 0.9.0's own first segment reading. It stands before the two below it because both are answered off that table.
 - [ ] #145 — the orchestrator is the most expensive segment in a chain and the only one measured by the whole session, so #51's observation 1 has bands for three segment kinds and none for it. #170's token line is what makes it answerable.
 - [ ] #193 — a third the file could not compute is charged 0, and the context line takes that 0 for a baseline. Carries a verified patch and a case seen red, plus two smaller ones as a comment.
 - [ ] #149 — a record says what a segment cost and not what its output cost the next reader. #137's second half, split off when its first half shipped. Five candidate signals and no evidence which of them survive contact: surviving mutations, defects the next round found inside this segment's output, `New units` depth, fix passes needed, and divergences from the plan.
