@@ -754,6 +754,46 @@ def test_a_fence_hiding_a_whole_table_under_a_standing_heading_is_refused(repo):
     assert "every table row of `## Deferred`" in out
 
 
+QUOTED_ROWS = f"```markdown\n{DEFERRED_HEADER}{DEFERRED_ROW}```\n"
+EMPTY_DEFERRED = "## Deferred\n\nnothing to drain\n\n"
+
+
+def test_a_fence_quoting_table_rows_is_kept_while_the_table_stands(repo):
+    """The limit of the row half, and the case both of its narrowing clauses
+    needed. The report is the one a reviewer of THIS generator writes: a
+    record-shaped block pasted under the probes table, rows and all, beside a
+    Deferred section that is honestly empty.
+
+    Two mutations turn this red and turn nothing else red, which is why the
+    case exists rather than an argument in a comment:
+
+      dropping *the table still stands*   the probes section has hidden rows
+                                          and a table, so the block a probes
+                                          row owes is refused -- the guard
+                                          stopping the tool on its own rounds
+      dropping the positional scoping     the hidden rows are under the probes
+                                          table and `## Deferred` is empty for
+                                          its own reasons, so an empty section
+                                          is blamed for a fence in another one
+    """
+    declared(repo)
+    body = (
+        HEAD_AND_VERDICTS
+        + f"## Executed probes\n\n{PROBE_HEADER}{PROBE_ROW}\n"
+        + QUOTED_ROWS
+        + "\n"
+        + EMPTY_DEFERRED
+    )
+    code, out, text = generate(repo, report_text=body + TERMINAL)
+    assert code == 0, out
+    assert QUOTED_ROWS.strip() in text, text
+    assert [ln.strip() for ln in section(text, "## Deferred") if ln.strip()] == [
+        "| Finding | Where it went | Who answers it |",
+        "|---|---|---|",
+        "nothing to drain",
+    ]
+
+
 UNCLOSED_ASKED = "Attack the parser first.\n\n```python\ndef helper(a):\n    return a\n"
 
 
