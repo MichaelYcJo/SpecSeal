@@ -60,29 +60,57 @@ at `c4d7077`:
 | closer, crosses a terminal line | exit 2, `0 Needs a fix: lines` |
 | closer, crosses a prose heading | exit 0, and left that way (`spec.md` §Out) |
 
-So **two** members lost a whole table with nothing said, not one; and three
-more were caught only by a message that blames the reviewer for a section
-they did in fact write. The issue's `SECTIONS` membership test inside
-`fenced_after` reaches neither group: a fence that takes `## Executed probes`
-means `build` never calls `fenced_after` at all, so no guard living in that
-function can see the shape.
+So **two of this table's rows** lost a whole table with nothing said, not the
+one #169 named; and three more were caught only by a message that blames the
+reviewer for a section they did in fact write. The issue's `SECTIONS`
+membership test inside `fenced_after` reaches neither group: a fence that
+takes `## Executed probes` means `build` never calls `fenced_after` at all, so
+no guard living in that function can see the shape.
 
-**How the enumeration is known to be complete.** It is a partition on a
-single boolean over a single span, computed on the report the generator
-actually reads — not a catalogue of shapes. Every fence has exactly one
-closer state, and where the closer exists the span either contains a read
-line or it does not; a boolean has no third value. The seven rows are that
-partition crossed with *which* read line, and the fix keys on the span rather
-than on the row, so the fix is complete even where the row list is not. That
-is the difference from #169's method, which asked *where else have I seen
-this* and returned what somebody remembered.
+**The enumeration is complete for the boolean it was drawn over, and that
+boolean is narrower than *how a report loses a section silently*.** It is a
+partition on one closer state and one span, taken against
+`REPORT_TABLES`' headings and `TERMINAL_LINES`, in the one text `swallowed`
+reads, for the one input that text comes from. Every fence has exactly one
+closer state and the span either contains one of those lines or it does not,
+so the seven rows are exhaustive — of that. What the partition never asked is
+what it was being applied TO, and round 1 of this work item's own chain found
+three answers it had not:
+
+| What the boolean was not applied to | What it cost |
+|---|---|
+| the second text — `swallowed` reads `strip_comments(report)` and `fenced_after` reads `raw` | 🔴 1: an opener inside an HTML comment, exit 0, the record written with two sections unreadable |
+| the table rows under a standing heading — a heading is only half of what a section is to the generator | 🟡 2: `nothing to drain` in the record beside a row the reviewer wrote |
+| the round paragraph, which is spliced into the record and never passed through the guard | 🟡 3: the record blanked from `## Verdicts` down, written before the failure |
+
+So *complete* was true of the partition and was read as true of the class.
+The correction is the qualifier, not a fourth boolean: the fix still keys on
+the span rather than on the row, and it now keys on it in both texts, over
+the rows as well as the headings, for both inputs. Corrected 2026-09-06 at
+`e7d3447`, on round 1's 🔴 1 and 🟡 2 and 🟡 3.
 
 **Where the guard lives, and why the never-closed refusal moved.** One
 sentence read over the whole report: *a fence must close, and its span must
 not cross a line the generator reads the report by.* Both halves are
 report-wide because a fence can open in one section and destroy another —
-the unclosed refusal in `fenced_after` had exactly that blind spot. Its
-raise is now unreachable and was removed rather than left as dead code.
+the unclosed refusal in `fenced_after` had exactly that blind spot.
+
+<!-- CORRECTED 2026-09-06 at `e7d3447`, round 1's 🔴 1. This paragraph ended
+     "Its raise is now unreachable and was removed rather than left as dead
+     code," and that sentence was false. -->
+
+**The raise was removed and is now back, because the two walks read two
+texts.** `swallowed` reads `strip_comments(report)`; `fenced_after` reads
+`raw`. A fence opener inside an HTML comment is absent from the first and an
+opener to the second, so the report-wide check passes and the copy carries an
+open fence into the record. Executed at `861ad16`: exit 0, the record written,
+and its `## Inherited coordinates` and `## Deferred` each resolving to 0
+occurrences through the shared reader. The blind spot this paragraph names is
+real and `swallowed` is still necessary; what did not follow is that the
+second check was therefore dead. Necessary is not sufficient, and contract §13
+is the rule the removal broke — a defence resting on an assumption nobody
+removed and tested is not verified, and *the two texts agree about where a
+fence is* was exactly such an assumption.
 
 **The list is not typed a second time.** The guard reads `REPORT_TABLES`'
 headings and `TERMINAL_LINES`, which were the module's own statement of what
@@ -115,3 +143,16 @@ fence cases green, exactly as the issue recorded, and turns only
 | Removed item | Where it must land |
 |---|---|
 | `fenced_after`'s `never closed` refusal — it read one section, and a fence can open in one and destroy another | `swallowed`, which reads the whole report and raises `NEVER_CLOSED`. The message keeps the words `never closed`, so `test_an_unclosed_fence_under_the_probes_table_is_refused` still pins it; the comment left at the old site says why the raise cannot stand there |
+
+<!-- CORRECTED 2026-09-06 at `e7d3447`, round 1's 🔴 1: the row above is the
+     removal this phase made, and the destination it names was only half of
+     where the refusal had to land. -->
+
+The row above stands as the record of what this phase did. It was wrong about
+the removal being total: `swallowed` is where the report-wide half belongs,
+and `fenced_after` still owes the verbatim half, because it reads a text
+`swallowed` cannot see. The raise is back there as
+`NEVER_CLOSED_VERBATIM`, pinned by
+`test_a_fence_opened_inside_an_html_comment_is_refused`, and the comment at
+that site now says why it is not a duplicate instead of why it could not
+stand.

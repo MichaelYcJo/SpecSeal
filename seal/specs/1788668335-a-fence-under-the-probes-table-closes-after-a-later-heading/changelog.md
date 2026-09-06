@@ -11,9 +11,9 @@
   **#169 called the late-closed fence *the one member of the class left
   open*, and it was not.** Decomposing on one boolean over one span — a fence
   has a closer or it has not, and where it has one the span either crosses a
-  line the generator reads by or it does not — gives seven members, two of
-  which silently lost a whole table rather than one, and three more of which
-  were caught only by the message that blames the reviewer. The issue's
+  line the generator reads by or it does not — gives seven members, of which
+  two silently lost a whole table rather than the one #169 named, and three
+  more were caught only by the message that blames the reviewer. The issue's
   proposed fix, a membership test against a tuple of section constants inside
   `fenced_after`, reaches neither of the two: a fence that takes
   `## Executed probes` leaves the report with no probes section, so `build`
@@ -31,4 +31,23 @@
   asks whether the heading still stands outside the fence. A `#` at column 0
   is a Markdown heading and a Python comment both, and only the fence tells
   them apart, which is why nothing in the guard reads the `#` character.
+  **That seven-member count is a count of one partition and not of the ways a
+  report loses a section silently, and reading it as the second cost three
+  more refusals.** The partition was taken against the headings and the
+  terminal lines, in the one text the report-wide check reads, for the one
+  input it reads. Applied to what it had not been: the generator reads the
+  report a second time, verbatim, when it copies a fenced block — so an
+  opener inside an HTML comment is invisible to the check and an opener to
+  the copy, and the record went out with two sections unreadable at exit 0.
+  It reads the table ROWS under a standing heading, not the heading alone —
+  so a fence taking the rows left `## Deferred` in place and the record read
+  `nothing to drain` beside a row the reviewer wrote. And it reads a second
+  input, the round paragraph, which is spliced above every section a reader
+  looks up and had never passed through the guard at all — an open fence
+  there blanked the record from `## Verdicts` down, and the record was
+  written before the failure. All three are refused now, each with a message
+  naming what the fence took and what to do about it. The row rule keeps the
+  same limit as the heading rule: a fence quoting rows beside a table that
+  still stands is copied as it always was, which is what lets a reviewer of
+  this generator paste record-shaped blocks into a report it will accept.
   (#169)
