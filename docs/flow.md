@@ -63,7 +63,7 @@ than to be the thing measured. Not ordered; #145 waits on #170's token line.
 
 - [ ] #145 — the orchestrator is the most expensive segment in a chain and the only one measured by the whole session, so #51's observation 1 has bands for three segment kinds and none for it. #170's token line is what makes it answerable.
 - [ ] #160 — four export cases fail on macOS and pass in CI, so a broad run cannot be read as a verdict.
-- [ ] #163 — the printed ledger name collapses `lnk/..` through `relpath`, so a BROKEN row is reported under a different existing file. The named-file half of a class the last 0.8.0 branch closed for the file that is opened; five print sites and one helper.
+- [x] #163 — the printed ledger name collapses `lnk/..` through `relpath`, so a BROKEN row is reported under a different existing file. The named-file half of a class the last 0.8.0 branch closed for the file that is opened; five print sites and one helper.
 - [ ] #167 — a closing keyword claims one issue, and a body naming two in one sentence loses the second silently.
 
 ## 0.9.0 — the five that were 0.8.0's, built under 0.8.0's machines
