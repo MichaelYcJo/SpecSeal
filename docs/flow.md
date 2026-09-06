@@ -54,7 +54,7 @@ three hours for a change under three hundred code lines.
 - [x] **#170 — a run's report carries one comparison table, tokens counted the same way every time, and `session_cost` prints the token line.** The owner's call after #161's run: the table that run posted to the flow log is the shape every run's report takes from here, so two runs read side by side without re-deriving either.
 - [x] #156 — the repository ships no way to run its own suite, and every session pays a round trip discovering how.
 - [x] #155 — the roll names the next version by guessing a minor, and a patch release is the day that stops working. #166's title is the measured case.
-- [ ] #169 — `round_record.py new` accepts a fence under the probes table that closes after `## Deferred`, and writes `nothing to drain`. Round 3 of #161's own chain left it, answerable with grounds, with its fix and cases written out.
+- [x] #169 — `round_record.py new` accepts a fence under the probes table that closes after `## Deferred`, and writes `nothing to drain`. Round 3 of #161's own chain left it, answerable with grounds, with its fix and cases written out.
 
 ## 0.8.3 — what 0.8.2 held before it was split
 
