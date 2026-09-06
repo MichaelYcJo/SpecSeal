@@ -147,6 +147,13 @@ def hide_from_git(venv):
     the operator has made read-only is theirs, and the runner does not try to
     win the argument: it says which file it could not write and what that
     costs the reader, and leaves the refusal above it standing.
+
+    **The remedy clause names no cause**, because `OSError` is four cases and
+    not one: permissions, a read-only filesystem, a full disk, and the path
+    being a directory. `strerror` carries which one it was, so the sentence
+    says what has to become true rather than what to change — an earlier
+    wording said *make it writable*, which is wrong advice on a full disk
+    (round 1's finding 3).
     """
     if not venv.is_dir():
         return
@@ -158,8 +165,9 @@ def hide_from_git(venv):
             print(
                 f"bin/test: could not write the ignore at {ignore} "
                 f"({problem.strerror or problem}). The virtualenv at {venv} "
-                "stays visible to git status until you remove that directory "
-                "or make it writable.",
+                "stays visible to git status until that write can succeed "
+                "(the directory or the filesystem is read-only, or it is "
+                "full) or until you remove that directory.",
                 file=sys.stderr,
             )
 

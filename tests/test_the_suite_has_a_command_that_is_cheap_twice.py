@@ -533,6 +533,17 @@ def test_the_unwritable_sentence_is_the_same_on_every_platform(
         "the sentence does not say why the write failed, so a full disk and a "
         "read-only directory read identically"
     )
+    assert "until that write can succeed" in err, (
+        "the remedy clause names a cause. `except OSError` is four cases -- "
+        "permissions, a read-only filesystem, a full disk, a path that is a "
+        "directory -- and `make it writable` is wrong advice on two of them "
+        "(round 1's finding 3). The reason is carried by strerror above; the "
+        "remedy has to say what must become true, not what to change"
+    )
+    assert "make it writable" not in err, (
+        "the superseded remedy is back beside the new one -- a reader acts on "
+        "the first thing that names an action"
+    )
 
 
 # --- what it actually runs -------------------------------------------------

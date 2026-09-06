@@ -43,9 +43,10 @@ import pytest
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
 # The generator, for the words it can put in a reach half. Two cases read
-# them out of the module rather than typing them: one by constant NAME, which
-# catches a rename or a reword, and one by DERIVING the set from `call_sites`
-# itself, which catches a value added beside them (#177).
+# them out of the module rather than typing them, and each catches one thing
+# the other cannot: the named form alone reads `only the first is a unit
+# name`, and the derived form alone sees a value ADDED to `call_sites`. A
+# rename and a reword redden both (#177, round 1's finding 1).
 RECORD = os.path.join(ROOT, "skills", "code-review", "scripts", "round_record.py")
 
 # A work item begun before `chain_check.SURFACE_FROM`: missing rows print.
@@ -469,40 +470,114 @@ def test_the_section_names_the_words_the_writer_can_put_in_a_reach():
     )
 
 
+# The derived case's refusal, named so its wording can be pinned (contract
+# §14). It used to read `the section does not name X` and nothing else, so the
+# only act it suggested was editing a shipped document -- even where X was a
+# comparison operand `call_sites` can never hand back. It names both
+# directions now, because `handed_back`'s call arm still over-reaches by one
+# documented step and the reader is the one who can tell which case they are
+# in.
+REACH_REFUSAL = (
+    "the derived reach set carries it and the section does not name it. "
+    "Add it to the section if `call_sites` really can hand it back; if it "
+    "cannot, `handed_back` over-reached and the fix is here, not in the "
+    "document"
+)
+
+
+# Enumerated twice over, never listed. One entry per ARM of `handed_back` --
+# the arms are its own branch set, so the enumeration is by construction and
+# an arm added without a fixture here is visible as an arm a mutation
+# survives. Then one entry per over-collection shape round 1's finding 2
+# actually measured, which is the second closed set: a comparison operand, an
+# f-string, a keyword argument and a dict key each used to arrive as a reach
+# value. Choosing fixtures by listing is the very failure this row closes one
+# level up, so neither half is a list somebody thought of.
 DERIVATIONS = (
+    # the arms
     ('WORD = "a word"\n\ndef call_sites():\n    return [WORD]\n', {"a word"}),
     ('def call_sites():\n    return ["a literal"]\n', {"a literal"}),
+    (
+        'WORD = "a word"\n\ndef call_sites():\n    return (WORD, "in a tuple")\n',
+        {"a word", "in a tuple"},
+    ),
+    ('def call_sites():\n    return {"in a set"}\n', {"in a set"}),
     (
         'WORD = "a word"\n\ndef call_sites():\n'
         '    if here:\n        return ["a literal"]\n'
         '    return [WORD, "and another"]\n',
         {"a word", "a literal", "and another"},
     ),
-    ("COUNT = 3\n\ndef call_sites():\n    return [COUNT]\n", set()),
-    ("def call_sites():\n    return [3, None]\n", set()),
+    (
+        'WORD = "a word"\n\ndef call_sites():\n    return [WORD] + ["concatenated"]\n',
+        {"a word", "concatenated"},
+    ),
     ('WORD = "a word"\n\ndef call_sites():\n    return elsewhere(WORD)\n', {"a word"}),
     ('WORD = "a word"\n\ndef call_sites():\n    return elsewhere()\n', set()),
+    ("COUNT = 3\n\ndef call_sites():\n    return [COUNT]\n", set()),
+    ("def call_sites():\n    return [3, None]\n", set()),
+    # the over-collection shapes finding 2 measured
+    (
+        'P = "pytest"\n\ndef call_sites():\n    return [P] if kind == "test" else named\n',
+        {"pytest"},
+    ),
+    ('def call_sites():\n    return [f"{n} only"]\n', set()),
+    ('def call_sites():\n    return build(sep=", ")\n', set()),
+    ('def call_sites():\n    return {"a key": 1}\n', set()),
 )
 
 
 @pytest.mark.parametrize("source, want", DERIVATIONS)
 def test_the_derivation_reads_both_shapes_a_return_can_fix(source, want):
     """`reach_values` against fixtures rather than against the generator,
-    because the generator exercises one of its two arms. Today every return
-    in `call_sites` names a constant and none writes a literal, so the
-    literal arm is unreachable from the real module and a mutation deleting
-    it survives — the case above stays green either way.
+    because the generator reaches four of `handed_back`'s arms and no more.
+    Today every return in `call_sites` names a constant and none writes a
+    literal, returns a tuple, or concatenates — so those arms are unreachable
+    from the real module and a mutation deleting one survives. The case above
+    stays green either way, and that is what these are for.
 
     The two non-string fixtures are a value that must NOT arrive: a reach
-    half is a word somebody reads in a record, and dropping either type
-    check turns a count or a `None` into one. The name arm and the literal
-    arm each need their own, because a name never reaches the literal arm.
+    half is a word somebody reads in a record, and dropping either type check
+    turns a count or a `None` into one. The name arm and the literal arm each
+    need their own, because a name never reaches the literal arm.
 
-    The last two are the recorded limit, executed: a constant handed to
-    another function is still fixed in this return and is read, and a value
-    that other function alone knows is not. Whoever closes that limit will
-    find the second of them red."""
+    `elsewhere(WORD)` and `elsewhere()` are the recorded OVER- and UNDER-reach
+    executed: a constant handed to a call is read, and a value only that call
+    knows is not. Whoever closes either limit will find one of them red.
+
+    The last four are round 1's finding 2, each measured over-collecting
+    before the repair — `test` out of a comparison, ` only` out of an
+    f-string, `, ` out of a keyword argument, `a key` out of a dict. None can
+    reach a record, and each one used to make the case above red while
+    telling the reader to add it to a shipped document."""
     assert reach_values(source) == want
+
+
+def test_the_refusal_names_the_other_direction_too():
+    """Contract §14, on a message a maintainer acts on. Round 1's finding 2:
+    the refusal read `the section does not name X` and nothing else, so the
+    only act it suggested was editing a shipped document — even where X was a
+    comparison operand `call_sites` can never hand back. It names both
+    directions now, and this holds that it does.
+
+    The pin has a limit worth stating where it is: it holds the wording and
+    the fact that the derived case cites the constant, not that the string a
+    reader sees is this one. A different message inlined beside the constant
+    leaves this green, and only a reader catches that."""
+    for half in ("Add it to the section", "over-reached and the fix is here"):
+        assert half in REACH_REFUSAL, half
+    body = read("tests", "test_the_fixes_name_their_surface.py")
+    wanted = "test_the_section_names_every_reach_value_the_generator_fixes"
+    found = [
+        node
+        for node in ast.walk(ast.parse(body))
+        if isinstance(node, ast.FunctionDef) and node.name == wanted
+    ]
+    assert len(found) == 1, f"{wanted}: {len(found)} definitions, expected 1"
+    assert "REACH_REFUSAL" in ast.get_source_segment(body, found[0]), (
+        "the derived case does not use the refusal this pins, so the wording "
+        "a maintainer reads is somewhere else"
+    )
 
 
 def test_a_second_call_sites_is_refused_rather_than_picked_from():
@@ -514,14 +589,55 @@ def test_a_second_call_sites_is_refused_rather_than_picked_from():
         reach_values(two)
 
 
+def handed_back(node, constants):
+    """The strings this expression can hand to `call_sites`' caller.
+
+    One arm per way an expression carries a value outward, and nothing else
+    reaches anything: a `Constant` is its own string, a `Name` is the
+    module-level constant it names, a sequence is the union of its elements,
+    a conditional is both branches, a concatenation is both sides, and a call
+    is its positional arguments. An f-string, a keyword argument, a dict, a
+    comparison operand and an attribute are none of those, so they arrive as
+    nothing — which is the whole repair, because each of them used to arrive
+    as a reach value.
+
+    The arms are the enumeration this function is derived from, and
+    `DERIVATIONS` carries one fixture per arm for that reason. An arm with no
+    fixture is an arm a mutation survives, which is the defect this whole row
+    exists against, one level down.
+    """
+    if isinstance(node, ast.Constant):
+        return {node.value} if isinstance(node.value, str) else set()
+    if isinstance(node, ast.Name):
+        return {constants[node.id]} if node.id in constants else set()
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        return set().union(*(handed_back(part, constants) for part in node.elts))
+    if isinstance(node, ast.IfExp):
+        return handed_back(node.body, constants) | handed_back(node.orelse, constants)
+    if isinstance(node, ast.BinOp):
+        return handed_back(node.left, constants) | handed_back(node.right, constants)
+    if isinstance(node, ast.Call):
+        return set().union(*(handed_back(arg, constants) for arg in node.args))
+    return set()
+
+
 def reach_values(source=None):
     """Every reach value fixed in `call_sites`' own source, derived from it.
 
     Two shapes are read out of the function's `return` statements: a
-    module-level string constant named in one, and a string literal written
-    into one. So a value added to the function joins this set without
-    anybody editing this file, which is the whole difference between this
-    and listing the words beside the case.
+    module-level string constant HANDED BACK by one, and a string literal
+    handed back by one. So a value added to the function joins this set
+    without anybody editing this file, which is the whole difference between
+    this and listing the words beside the case.
+
+    **Handed back, never merely present.** This walked the whole `Return`
+    subtree for one round, and every string anywhere inside it became a reach
+    value — a comparison operand in `return [P] if kind == "test" else named`
+    arrived as `test`, a keyword argument in `return build(sep=", ")` as
+    `, `, an f-string's literal half as ` only`, a dict key as itself. None of
+    those can reach a record, and the refusal below then told a maintainer to
+    put one into a shipped document. `handed_back` asks the question the row
+    is about instead of the question the parser makes easy.
 
     `source` is the generator's text, and the default reads the real module.
     The cases hand it fixtures for one reason: today's generator names a
@@ -529,17 +645,34 @@ def reach_values(source=None):
     arm cannot be reached — and an arm no case can kill is an arm that
     proves nothing, whatever the suite total says.
 
-    **What the derivation does not reach, recorded rather than closed.** A
-    value another function hands back, and one formatted at run time, are
-    both outside a `return`'s own literals — a `return` of a bare local is
-    the shape to watch for. And the two values the section names as
-    CATEGORIES rather than as words, the enclosing top-level unit and the
-    file's basename, are deliberately outside it: those are the reviewed
-    repository's names and not the generator's, so there is no finite set to
-    derive and the document names the category instead. Closing the first
-    two means resolving a call across functions, which is the enumeration
-    over an unbounded domain `RECORDED_LIMIT` above declines for the same
-    reason.
+    **What the derivation UNDER-reaches, recorded rather than closed.** Five
+    shapes hand a value back and are read as nothing, each measured:
+
+    - a bare local — `w = "a word"` then `return [w]`;
+    - a constant reached through an attribute — `return [chain.PYTEST]`,
+      which is what a constant moved to another module looks like;
+    - a constant declared with an annotation — `W: str = "a word"`, an
+      `ast.AnnAssign` that the module-level scan below does not read;
+    - a value handed back by `yield` rather than by `return`;
+    - a value another function alone knows — `return elsewhere()`.
+
+    The floor in the case below catches all five only when the whole
+    vocabulary moves at once. Closing any of them means following a value
+    across a statement or across a call, which is the enumeration over an
+    unbounded domain `RECORDED_LIMIT` above declines for the same reason.
+
+    **What it OVER-reaches, in one place and on purpose.** A `Call`'s
+    positional arguments count as handed back, so `return elsewhere(WORD)`
+    yields `WORD`'s value even though `elsewhere` may return something else
+    entirely. That is the conservative direction for this row — a word that
+    might reach a record is worth a red case — and it is the one remaining
+    way the refusal below can name a value the function cannot actually hand
+    back, which is why the refusal says so rather than only naming the word.
+
+    **The two values the section names as CATEGORIES** rather than as words,
+    the enclosing top-level unit and the file's basename, are deliberately
+    outside all of this: those are the reviewed repository's names and not
+    the generator's, so there is no finite set to derive.
     """
     if source is None:
         source = read("skills", "code-review", "scripts", "round_record.py")
@@ -563,13 +696,8 @@ def reach_values(source=None):
     assert len(found) == 1, f"call_sites: {len(found)} definitions, expected 1"
     values = set()
     for node in ast.walk(found[0]):
-        if not isinstance(node, ast.Return):
-            continue
-        for part in ast.walk(node):
-            if isinstance(part, ast.Name) and part.id in constants:
-                values.add(constants[part.id])
-            elif isinstance(part, ast.Constant) and isinstance(part.value, str):
-                values.add(part.value)
+        if isinstance(node, ast.Return) and node.value is not None:
+            values |= handed_back(node.value, constants)
     return values
 
 
@@ -581,11 +709,15 @@ def test_the_section_names_every_reach_value_the_generator_fixes():
     derives the set from `call_sites` instead, so a value the function gains
     has to reach the document before the suite is green again.
 
-    Both are kept, because neither covers the other. A constant renamed with
-    its value untouched is still the same word in the document, so the
-    derivation cannot see that edit and the named form is what fails on it;
-    a constant ADDED is invisible to the named form and is what this one is
-    for. `reach_values`' docstring carries what neither reaches."""
+    Both are kept because neither covers the other, and the split is measured
+    rather than argued. A value ADDED to `call_sites` is invisible to the
+    named case and reddens this one; the sentence `only the first is a unit
+    name` is read by the named case alone, so dropping it from the section
+    reddens that one and leaves this one green. A rename and a reword kill
+    BOTH, because the floor below reads the same three constants by attribute
+    name — round 1's finding 1, which is what this paragraph used to get
+    wrong, and getting it wrong here is what would have licensed deleting the
+    named case. `reach_values`' docstring carries what neither reaches."""
     spec = flat("docs", "review-chain-spec.md")
     generator = _load("specseal_round_record_for_derived_reach", RECORD)
     values = reach_values()
@@ -595,7 +727,7 @@ def test_the_section_names_every_reach_value_the_generator_fixes():
         "reading the function and the loop below proves nothing"
     )
     for word in sorted(values):
-        assert f"`{word}`" in spec, f"the section does not name `{word}`"
+        assert f"`{word}`" in spec, f"`{word}`: {REACH_REFUSAL}"
 
 
 def test_a_row_inside_a_comment_is_not_the_row(repo):
