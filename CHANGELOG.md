@@ -1,5 +1,285 @@
 # Changelog
 
+## 0.8.2 — 2026-09-06
+
+<!-- specs/1788613827-a-runs-report-carries-one-comparison-table -->
+- **A run's report carries one comparison table, and the row nobody can
+  produce by hand comes out of one command.** #161's run summed `usage` over
+  its transcript and its subagents with a script written for that occasion,
+  and a number summed one way this run and another way the next is worthless
+  to compare against. `skills/verify/SKILL.md` §*Measure the segment, and
+  feed the flow log* now states the run-level table: nine rows — rounds, wall
+  clock, commits by kind, findings by severity, findings by `Location`, the
+  records' share of the diff, model turns with the three token columns,
+  segments per kind, and the broad gate — each with the cell saying where its
+  number is taken from. Three sentences ship with it, each pinned by a case:
+  the tokens are counted rather than estimated and counted the same way every
+  time, naming the command and all three `usage` fields; a comparison against
+  a run whose transcript covered only part of its branch says so in the prose
+  rather than as a column, because a column would make it a field and there
+  is no reader for one; and the table carries **no verdict** — what a row
+  meant on one branch goes in the comment beside it. The rows name no issue
+  number and no milestone, so the section still ships to repositories that
+  have neither. It is **not a third destination**: the table joins the
+  segment readings in the rolling log the section already names. Two rows
+  say what they mean rather than leaving it to each run: a **record** is
+  anything under `seal/` — the work item's documents, the ledger and its
+  fragments alike — which is the review chain's own definition and what both
+  the `Location` buckets and the share row count by, and the **broad gate**
+  row asks whether the gate ran and at what SHA, which is what the cell it
+  reads actually carries. And the section says which file of a project
+  directory is a run's main transcript, because `--latest` takes the newest
+  file anywhere beneath it and on a run with segments that is usually a
+  segment. (#170)
+- **`session_cost.py` prints the token line, over the whole run rather than
+  the transcript it was handed.** The script already opened exactly those
+  files and already read `usage` — it threw away everything but
+  `input_tokens` and `cache_read_input_tokens`, and it read one file where a
+  run has several. It now sums `output_tokens`,
+  `cache_creation_input_tokens` and `cache_read_input_tokens` over the given
+  transcript **and** every `*.jsonl` under the `<session-id>/subagents/`
+  directory beside it, always and behind no flag, and reports the same under
+  `--json` as a `tokens` object. A message's usage counts once however many
+  rows it is split across, which is the trap the existing `context_growth`
+  dedup already exists for. **Two turn counters, on purpose**: a turn here is
+  an assistant message carrying `usage`, where `tools_per_turn`'s denominator
+  is a message carrying a tool call — the per-segment bars in
+  `docs/review-handoff-protocol.md` are calibrated against that ratio, and
+  widening it would move a published threshold with nothing saying it had
+  moved, and the printed report names each count's own scope so the two
+  cannot be divided into each other. **No way this degrades ends the report**
+  — an unopenable transcript is skipped, an unparseable line dropped, a field
+  a harness stops writing contributes zero, and a value that is not a number
+  counts as none. Almost every one of those makes the totals smaller; the one
+  that goes the other way is a split message whose rows carry no usable key,
+  counted once per row instead of once. So the line prints both counts: the
+  transcripts it opened, which the same report's `Agent` call count is the
+  cross-check for at 18 against 17 on a real run, and the turns, which is
+  where a doubled run would show. Seen red first: each of the four new
+  behaviours against the old script, and the guard for a transcript that
+  cannot be opened pinned by a case calling `token_totals` directly, after
+  mutation testing showed a directory fixture never reaching it. Prompt
+  budget: zero. (#170)
+- **A transcript that only read and thought reports what it spent.** The
+  token line was summed after the no-tool-calls guard, so a transcript
+  carrying `usage` and no paired tool call exited 1 with an empty stdout —
+  and that transcript is a segment, which is exactly what the table's
+  per-kind token row is summed over. It now prints the token block and says
+  why there are no time lines. A transcript with neither still exits as it
+  did. (#170)
+- **The two documents that carry the table point at its owner instead of
+  copying its rows.** `docs/review-handoff-protocol.md` §*After the run — the
+  per-segment bars* says the bars judge a segment against its kind and the
+  table judges a run against the last run measured — a reader who met only
+  the bars had no way to know the second instrument existed — and names the
+  owning section by file and heading. `skills/commit-pr-convention/SKILL.md`
+  §*Pull request bodies* states the chain section's shape for a work item
+  routed through the review chain: the comparison table first, then what the
+  rounds found, so a reader who stops after the first screen still has the
+  numbers. PR #162 wrote that section as prose and PR #168 as a table, which
+  is the whole of what a fixed set of rows buys. Both refuse the rows
+  themselves, and the refusal in
+  `tests/test_the_chain_section_has_one_shape.py` is itself held to the
+  owner's current wording — a row renamed in `skills/verify/SKILL.md` turns
+  `test_the_pinned_rows_are_the_owners_own` red rather than leaving a green
+  case guarding a string nobody would paste. Eleven mutations over the two
+  paragraphs, nine of them because the first red proved only that the
+  paragraph was absent: a case red because its subject does not exist has not
+  been seen red for its own reason. (#170)
+
+<!-- specs/1788632199-the-repository-ships-no-way-to-run-its-own-suite -->
+- **`bin/test` runs this repository's suite from an environment it builds
+  once.** The command `CONTRIBUTING.md` named resolved and installed its
+  dependency on every call — 55–58 seconds each, paid on all seventeen test
+  calls of one measured segment (#133) — so the gap was never a missing
+  command, it was a command that is cheap only the first time you forgive it.
+  `bin/test` and `bin/test.cmd` join the five `bin/` pairs already there over
+  `.github/scripts/run_tests.py`: a virtualenv at `.venv` built on the first
+  call and reused after, arguments passed straight through, the repository root
+  resolved from the script's own path so it works from any directory or
+  worktree, and the interpreter it used printed every time. Measured on one
+  machine: **5.24 s cold, then 0.60 s** — and the claim is not that the first
+  call is cheap but that it is the only one. **Every failure is a sentence
+  rather than a traceback**, which is what a command that writes to the working
+  tree owes: no `uv` and no 3.12-or-newer interpreter names both and says which
+  to install, a build step that exits non-zero names the directory to remove, a
+  build that leaves no pytest behind stops instead of rebuilding forever, and a
+  copy of `bin/` with no runner beside it says so — on both platforms, in the
+  same words. The file has to parse and run under Python 3.9 to print the first
+  of those, so nothing in it is newer than the floor it refuses. **The
+  virtualenv is invisible to git on every path that can produce one**, and that
+  is a guarantee about exits rather than a list of paths: `uv venv` writes
+  `.venv/.gitignore` and `python -m venv` writes none, so the runner writes it
+  itself, from the one function that reaches a virtualenv at all, on every way
+  out of it. A list was tried first and went short twice — it named a build
+  that succeeded, then a build that failed partway and a `.venv` merely
+  adopted, and review still found two more: the one adopted `.venv` the floor
+  **refuses**, which is also the one least likely to carry an ignore of its own
+  because every version that refusal rejects predates the 3.13 where `python -m
+  venv` began writing one, and a directory an earlier run left on a machine
+  where neither builder can now finish. **The floor is asked of an adopted
+  environment too**:
+  the version both builders record in `pyvenv.cfg` is read rather than run, and
+  a `.venv` below the floor is refused with a sentence naming what to remove. A
+  directory that says nothing about its version is kept — refusing on silence
+  turns one unknown into a suite nobody can run. No `-n auto`, because
+  `pytest-xdist` is CI's install and a freshly built environment has pytest and
+  nothing else. (#156)
+- **A session finds the runner instead of being handed it, or guessing.**
+  `CONTRIBUTING.md` §*Running the checks* names `bin/test` first and shows the
+  narrow `bin/test tests/<file> -q` a segment types, with the sentence saying
+  the full five-minute run is the orchestrator's, once, after the review rounds
+  settle. The `uvx` form stays as a labelled **no-write** fallback — for a
+  reader who does not want a `.venv` in their tree — carrying the 55–58 seconds
+  that demoted it, because a fallback named without its cost gets promoted back
+  by the next reader. The floor sentence now names `FLOOR` in the runner, so
+  the document's 3.12 and the code's are traceable to each other rather than
+  two numbers that happen to agree today. `docs/review-handoff-protocol.md`
+  §*The handoff before round 1* takes a fifth requirement: **a runner the
+  repository ships is found, not typed into every prompt**, with the old
+  requirement kept intact for a repository that ships none. What bought it:
+  four build segments of one work item read repeats of **17 s, 2 s, 0 s and
+  0 s**, and the only difference between them was whether the orchestrator had
+  remembered to type the runner into the spawn prompt — a requirement met by
+  hand, once per prompt, is met until somebody forgets. `agents/smith.md` is
+  the carrier that closes that, because it reaches a segment at startup with
+  nobody typing anything, and it names the protocol's section rather than
+  restating the rule. (#156)
+- **A round record's `Contract changes` row now has its vocabulary written
+  down.** `docs/review-chain-spec.md` §*The fix surface* defined the reach half
+  as the call sites of a changed unit and named none of the five values the
+  generator actually writes there — the enclosing unit, the file's basename,
+  and the three words `round_record.py` substitutes: `pytest` when any caller
+  sits under `tests/`, `pytest only` when those are the whole reach, and `no
+  call site found` when there is none. Reading a correct cell as a mistake cost
+  a review round of this very work item. The three words are read out of the
+  generator's own constants by the case that pins them, so the document cannot
+  drift from the code. (#156)
+
+<!-- specs/1788661274-the-roll-names-the-next-version-by-guessing -->
+- **A release rolls the measurement log only where a new version has actually
+  shipped, and the log is named after the version it rolled from.** The old
+  arithmetic guessed the next number — `0.8.1` became `0.9.0` — and at the
+  0.8.1 release that guess closed #166, which had been opened at the 0.8.0
+  release and held the measurements 0.8.1 had just been written with, then
+  opened #172 under the identical title. Two issues with one name, one of
+  them closed, and the readings carried across by hand. The roll now reads
+  the open log's title for the version it says it rolled from and compares
+  that with the version in the checked-out tree: equal means this push
+  shipped nothing new — a re-run of the job, or a merge that moved no
+  version — and the run closes nothing, opens nothing, and exits 0 saying so.
+  `docs/branch-and-release.md` is why the title states a fact instead of a
+  prediction: whether the next number is a minor or a patch is known at the
+  end and not at the cut, so at the moment the roll runs the just-shipped
+  version is the one thing certain and the next one is the one thing nobody
+  can name. `next_version` is deleted with the guess it made. **Both
+  outcomes leave the job green**, so each prints a line — `rolled:` names the
+  issue closed and the title opened, `nothing due:` names the log and the
+  version — and a reader of the release log tells them apart without opening
+  the tracker. **A title the script cannot read as its own is due rather than
+  silent**, and that direction is chosen rather than incidental: read as
+  *not due*, an unreadable title stops the log forever with the workflow
+  green, which is the failure being fixed one step over; read as *due*, it
+  costs at most one roll that was not owed. **Its own means the whole title
+  from the first character** — the `chore: ` prefix and the marker, then a
+  version — so a title carrying those words somewhere inside it, like
+  `docs: explain flow measurement — after 0.8.2`, names no version this roll
+  will act on. The comment posted on the log being closed now says what
+  replaces it and quotes the successor's title, where it used to promise a
+  log for the version the release ships next — the prediction this change
+  removes. (#155)
+- **What a log's title means now, and what the older ones mean.** A rolling
+  log is titled `chore: flow measurement — after 0.8.2`, and the version in
+  it is the one the log rolled from: that log opened at the 0.8.2 release,
+  holds what was measured since, and is closed by whatever ships next. A
+  title written before this change names the version the log was **predicted
+  to be for**, which is how a 0.8.1 release came to close a log titled for
+  0.9.0. Those are **not rewritten** — a retitle falsifies every comment that
+  cites them — and the marker the roll now writes appears in none of them, so
+  each of them reads as a title stating no version at all, which is always
+  due. The first release after this change rolls the last old-convention log
+  and the convention retires itself. `docs/issues-and-milestones.md` carries
+  the format, the condition and both meanings; `skills/verify/SKILL.md` gains
+  the boundary it was missing, since a rolling log now opens at a release,
+  accumulates until the next version ships, and is discarded by the release
+  that ships it — where the skill used to describe it as one version's,
+  ending when that version shipped, which points a reader at an end that has
+  already passed. (#155)
+
+<!-- specs/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading -->
+- **A fenced block in a reviewer's report must close, and its span must not
+  cross a line `round_record.py new` reads the report by.** A fence that
+  crosses one hid a whole section from every later reading, and each reading
+  had its own wrong answer for the absence: the record got the empty template
+  for `## Executed probes` and `## Deferred`, `nothing to drain` for a
+  Deferred section the reviewer had in fact written, and exit 0 both times.
+  Where the section was required the message blamed the reviewer for a
+  section they had written — `the report has no ## Verdicts section`. The
+  refusal now names the heading the fence swallowed and says what to do about
+  it, so the writer is told what to fix rather than that something is wrong.
+  **#169 called the late-closed fence *the one member of the class left
+  open*, and it was not.** Decomposing on one boolean over one span — a fence
+  has a closer or it has not, and where it has one the span either crosses a
+  line the generator reads by or it does not — gives seven members, of which
+  two silently lost a whole table rather than the one #169 named, and three
+  more were caught only by the message that blames the reviewer. The issue's
+  proposed fix, a membership test against a tuple of section constants inside
+  `fenced_after`, reaches neither of the two: a fence that takes
+  `## Executed probes` leaves the report with no probes section, so `build`
+  never calls `fenced_after` at all and no guard living in that function
+  could see the shape. **The guard therefore lives over the whole report and
+  keys on the span rather than on the name**, and it derives the lines a
+  fence may not cross from `REPORT_TABLES`' headings and `TERMINAL_LINES` —
+  the module's own statement of what it reads, which nothing in the module
+  read before this. A section added later is guarded, and gets a case, by
+  being added there; no second list exists to go stale, which is what the
+  membership test would have been by the next section. **What is refused is a
+  report losing a section, never a fence mentioning one.** A reviewer of this
+  generator pastes record-shaped blocks, headings and all, and a rule reading
+  the mention would stop the tool on its own review rounds — so the guard
+  asks whether the heading still stands outside the fence. A `#` at column 0
+  is a Markdown heading and a Python comment both, and only the fence tells
+  them apart, which is why nothing in the guard reads the `#` character.
+  **That seven-member count is a count of one partition and not of the ways a
+  report loses a section silently, and reading it as the second cost three
+  more refusals.** The partition was taken against the headings and the
+  terminal lines, in the one text the report-wide check reads, for the one
+  input it reads. Applied to what it had not been: the generator reads the
+  report a second time, verbatim, when it copies a fenced block — so an
+  opener inside an HTML comment is invisible to the check and an opener to
+  the copy, and the record went out with two sections unreadable at exit 0.
+  It reads the table ROWS under a standing heading, not the heading alone —
+  so a fence taking the rows left `## Deferred` in place and the record read
+  `nothing to drain` beside a row the reviewer wrote. And it reads a second
+  input, the round paragraph, which is spliced above every section a reader
+  looks up and had never passed through the guard at all — an open fence
+  there blanked the record from `## Verdicts` down, and the record was
+  written before the failure. All three are refused now, each with a message
+  naming what the fence took and what to do about it. The row rule keeps the
+  same limit as the heading rule: a fence quoting rows beside a table that
+  still stands is copied as it always was, which is what lets a reviewer of
+  this generator paste record-shaped blocks into a report it will accept.
+  **A fence is not the only hider, and that list of three was one short.**
+  Every text reaches the generator through `readable`, which blanks in two
+  passes and runs `strip_comments` first — so an HTML comment opened and
+  never closed blanks every line below it exactly as an open fence does, one
+  pass earlier, where no fence question can see it. The missing member was
+  created by the fix for the round paragraph above: that guard asked the
+  fence question of the comment-stripped text while the paragraph is spliced
+  into the record verbatim, so an unterminated comment wrote the record and
+  left four of its five sections unreadable to every downstream reader. Both
+  the report and the round paragraph now ask both questions, the comment's
+  first — an open comment blanks the closing fence of every block below it,
+  so the other order names a fence that is closed in the text as written. On
+  the report the same question replaces a message that sent the writer to add
+  a `Needs a fix:` line they had in fact written. **What is left is one cell,
+  named rather than assumed**: a comment that is balanced in the report and
+  half in the record, because a copied row and a copied block are both slices
+  of it. Refusing that takes a question about balance across a slice rather
+  than about a hider that never closes, since a copied block may legitimately
+  carry a whole comment — so it is recorded at the coordinate with what it
+  costs, a straddle in a verdict row losing three whole sections. (#169)
+
 ## 0.8.1 — 2026-09-05
 
 <!-- specs/1788597030-a-runs-rounds-come-mostly-from-the-tools-own-fixes-and-records -->
