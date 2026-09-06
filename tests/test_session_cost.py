@@ -8,6 +8,7 @@ the parser that quietly stops finding repeats or tool calls fails here.
 import datetime as dt
 import importlib.util
 import json
+import math
 import os
 import re
 import subprocess
@@ -18,6 +19,17 @@ import pytest
 SCRIPT = os.path.join(
     os.path.dirname(__file__), "..", "skills", "verify", "scripts", "session_cost.py"
 )
+
+
+# An integer literal with no float of its own. `json.loads` builds an
+# arbitrary-precision `int` from any integer literal in a transcript, and
+# `float(HUGE_INT)` raises `OverflowError` rather than returning an infinity.
+HUGE_INT = int("9" * 401)
+
+# A float near the top of the double range. Each one is finite and passes
+# `count`; two of them add to an infinity, and two integers of this size each
+# have a float where their sum does not.
+TOP_FLOAT = 1.5e308
 
 
 def stamp_at(second):
@@ -812,3 +824,414 @@ def test_the_report_tells_its_two_turn_counts_apart(tmp_path):
     assert re.search(r"^tokens\s+2 transcripts, 4 turns$", out, re.M), out
     assert "a turn is any assistant message, in every transcript counted" in out, out
     assert "2 calls over 2 turns that sent one, in this transcript alone" in out, out
+
+
+def at(stamp, blocks, message_id=None, usage=None):
+    """One row with its timestamp written out rather than taken off the clock.
+
+    `stamp_at` carries a fixed zone-aware clock, so a case built from it can
+    never write the two shapes below: two rows sharing one instant, and a
+    stamp carrying no zone at all. This harness produces neither — 299 real
+    transcripts held 0 calls with `start == end` and 94,514 of 94,514
+    timestamps zone-aware — so the cases build them by hand."""
+    message = {"content": blocks}
+    if usage is not None:
+        message["usage"] = usage
+    if message_id:
+        message["id"] = message_id
+    return json.dumps({"timestamp": stamp, "message": message})
+
+
+def paired(uid, start, end, command="pytest -q"):
+    """A call and its result at two stamps given verbatim."""
+    return [
+        at(start, [use(uid, command)], f"call-{uid}", {"output_tokens": 1}),
+        at(end, [{"type": "tool_result", "tool_use_id": uid}]),
+    ]
+
+
+def test_a_span_of_zero_prints_what_it_can_rather_than_dividing_by_it(tmp_path):
+    """A transcript whose only paired call begins and ends on one timestamp
+    has `span_s == 0.0`, and three lines of `report` divide by it.
+
+    The span line printed and then `ZeroDivisionError` took the rest — the
+    token block and the family table included. That is the same shape a
+    `null` tool name produced one axis over: a report that worked and then
+    stopped, which reads as a report rather than as a crash.
+
+    What replaces the percentage is a dash and one line saying why, not a
+    number. A share of a span of zero is not 0% and not 100%; it does not
+    exist, and the times themselves are what was measured."""
+    path = tmp_path / "zero.jsonl"
+    path.write_text(
+        "\n".join(paired("a", "2026-08-24T10:00:00Z", "2026-08-24T10:00:00Z")) + "\n"
+    )
+
+    proc = run([str(path)])
+    assert proc.returncode == 0, proc.stderr
+    assert re.search(r"^span\s+0\.0m\s+\(1 tool calls\)$", proc.stdout, re.M), (
+        proc.stdout
+    )
+    assert (
+        "every call shares one timestamp, so there is no span to take a share of"
+        in proc.stdout
+    ), proc.stdout
+    # No percentage invented for a denominator of zero.
+    assert re.search(r"^  command\s+0\.0m\s+—$", proc.stdout, re.M), proc.stdout
+    assert re.search(r"^  model\s+0\.0m\s+—\s+mean gap 0\.0s$", proc.stdout, re.M), (
+        proc.stdout
+    )
+    # The two blocks the crash used to take with it, both below the span line.
+    assert re.search(r"^tokens\s+1 transcript, 1 turn$", proc.stdout, re.M), proc.stdout
+    assert re.search(r"^  test\s+1 calls", proc.stdout, re.M), proc.stdout
+
+    # `--json` never reached `report`, so it survived a zero span already;
+    # this arm is what keeps the guard from being moved into `analyse`.
+    machine = run(["--json", str(path)])
+    assert machine.returncode == 0, machine.stderr
+    assert json.loads(machine.stdout)["span_s"] == 0.0
+
+
+def test_a_naive_stamp_does_not_end_the_report(tmp_path):
+    """`parse_time` is the one place a string becomes a `datetime`, so it is
+    where a stamp carrying no zone is given one: UTC, the assumption the same
+    line already makes when it rewrites a trailing `Z`.
+
+    Mixing a naive stamp with an aware one raised `TypeError` with stdout
+    empty on the report and on `--json` alike, and it raised from two
+    different sites depending on how many calls the transcript held. One
+    call dies on a SUBTRACTION in `analyse`, where the span is taken. Two
+    die earlier, on a COMPARISON in `load`'s sort, before `analyse` is
+    called at all — so a guard written at the reported crash site would have
+    left the other standing.
+
+    The third shape is why the naive row is normalised rather than dropped
+    the way an unparseable one is: a transcript whose stamps are ALL naive
+    keeps reporting numbers that are internally consistent, where dropping
+    would have left it reporting nothing."""
+    shapes = (
+        # One call, aware start and naive end — the subtraction in `analyse`.
+        (
+            "mixed-pair",
+            paired("a", "2026-08-24T10:00:00Z", "2026-08-24T10:00:10"),
+            10.0,
+            10.0,
+        ),
+        # Two calls, one pair of each — the comparison in `load`'s sort.
+        (
+            "mixed-calls",
+            [
+                *paired("a", "2026-08-24T10:00:00Z", "2026-08-24T10:00:10Z"),
+                *paired(
+                    "b", "2026-08-24T10:00:20", "2026-08-24T10:00:25", "ruff check ."
+                ),
+            ],
+            25.0,
+            15.0,
+        ),
+        # Every stamp naive — the shape that would report nothing if the row
+        # were dropped instead of normalised.
+        (
+            "all-naive",
+            paired("a", "2026-08-24T10:00:00", "2026-08-24T10:00:10"),
+            10.0,
+            10.0,
+        ),
+    )
+    for name, lines, span, command_s in shapes:
+        path = tmp_path / f"{name}.jsonl"
+        path.write_text("\n".join(lines) + "\n")
+
+        proc = run([str(path)])
+        assert proc.returncode == 0, f"{name}: {proc.stderr}"
+        assert re.search(r"^span\s", proc.stdout, re.M), f"{name}: {proc.stdout}"
+        assert re.search(r"^tokens\s", proc.stdout, re.M), f"{name}: {proc.stdout}"
+
+        # #175 records the naive case as exiting 1 with stdout EMPTY on both,
+        # so both arms are asserted rather than the printed one alone.
+        machine = run(["--json", str(path)])
+        assert machine.returncode == 0, f"{name}: {machine.stderr}"
+        data = json.loads(machine.stdout)
+        assert (data["span_s"], data["command_s"]) == (span, command_s), (
+            f"{name}: {data}"
+        )
+
+
+def turn_at(index, usage, uid):
+    """One tool-call turn with its `usage` written out.
+
+    `token_thirds` needs three turns carrying a non-zero input count before
+    it computes anything, so a case about a non-finite input has to build
+    three rather than reuse the one-call fixtures above.
+
+    The stamps come off `stamp_at`, the module's own clock, rather than from
+    interpolating `index` into a fixed prefix. The prefix version built
+    `10:010:00` at index 10, which `datetime.fromisoformat` refuses — so
+    `parse_time` returned None, `load` dropped the row, and the case went on
+    asserting exit 0 while measuring one turn fewer than it said."""
+    return [
+        at(stamp_at(index * 60), [use(uid, "pytest -q")], f"m{uid}", usage),
+        at(
+            stamp_at(index * 60 + 30),
+            [{"type": "tool_result", "tool_use_id": uid}],
+        ),
+    ]
+
+
+def test_a_nan_token_count_does_not_end_the_report(tmp_path):
+    """`json.loads` accepts the bare tokens `NaN`, `Infinity` and
+    `-Infinity`, and all three are `float`, so a type check alone passes
+    them through.
+
+    `token_thirds` rounds a mean, and `round()` raises on a non-finite
+    float — `ValueError` for a `NaN`, `OverflowError` for an infinity. The
+    report ended with exit 1 and stdout EMPTY, on the report and on `--json`
+    alike, which is worse than either shape #175 was opened for.
+
+    Every usage field except `output_tokens` reaches that `round`, through
+    `load`'s `input_tokens + cache_read_input_tokens` pair. `output_tokens`
+    is the one field that does not, and it is the field the residual was
+    first measured on — which is how a crash was recorded as printing `nan`
+    at exit 0. So the fields are asserted apart rather than together."""
+    shapes = (
+        ("input-nan", 0, {"input_tokens": float("nan"), "output_tokens": 1}),
+        ("input-inf", 0, {"input_tokens": float("inf"), "output_tokens": 1}),
+        (
+            "cache-read-nan",
+            1,
+            {
+                "input_tokens": 10,
+                "output_tokens": 1,
+                "cache_read_input_tokens": float("nan"),
+            },
+        ),
+        ("output-nan", 2, {"input_tokens": 10, "output_tokens": float("nan")}),
+        # An integer with no float of its own. `json.loads` builds one from
+        # any integer literal, and the finiteness question converts before it
+        # answers — so asking it raises `OverflowError` instead of answering,
+        # inside the very funnel that exists to keep such a value out.
+        ("output-huge-int", 0, {"input_tokens": 10, "output_tokens": HUGE_INT}),
+        ("input-huge-int", 0, {"input_tokens": HUGE_INT, "output_tokens": 1}),
+    )
+    for name, odd, usage in shapes:
+        lines = []
+        for n in range(3):
+            plain = {"input_tokens": 10, "output_tokens": 1}
+            lines += turn_at(n, usage if n == odd else plain, f"c{n}")
+        path = tmp_path / f"{name}.jsonl"
+        # `json.dumps` writes bare `NaN` and `Infinity`, which is exactly the
+        # shape a harness produces and `json.loads` accepts back.
+        path.write_text("\n".join(lines) + "\n")
+
+        proc = run([str(path)])
+        assert proc.returncode == 0, f"{name}: {proc.stderr}"
+        assert re.search(r"^tokens\s", proc.stdout, re.M), f"{name}: {proc.stdout}"
+
+        machine = run(["--json", str(path)])
+        assert machine.returncode == 0, f"{name}: {machine.stderr}"
+        data = json.loads(machine.stdout)
+        # Charged 0, the direction every funnel in the file already takes —
+        # never carried through as `nan`, which prints and compares wrongly.
+        assert all(isinstance(v, int) for v in data["context_growth"]), (
+            f"{name}: {data['context_growth']}"
+        )
+        for field in ("output", "cache_read", "cache_write"):
+            # An integer of any size is accepted without converting it, and a
+            # float has to be finite. Neither arm converts, because both
+            # `int(...)` and `math.isfinite(...)` RAISE on a value that got
+            # through — the huge-int arms above would then read as a test
+            # error rather than as the defect this case pins.
+            value = data["tokens"][field]
+            assert not isinstance(value, float) or math.isfinite(value), (
+                f"{name}: {data['tokens']}"
+            )
+
+
+def test_a_sum_of_entered_values_does_not_end_the_report(tmp_path):
+    """`count` answers for each value that ENTERS. Nothing answered for what
+    the arithmetic then MADE of two of them.
+
+    `load` adds `input_tokens` to `cache_read_input_tokens` per turn, and
+    `token_thirds` sums a slice of those and divides. Two counts that each
+    pass the finiteness question can add to one that does not — and the
+    rounding at the end then raised `OverflowError` with stdout empty, on
+    the report and on `--json` alike.
+
+    Three arms, because the sum overflows by three different routes:
+    two floats whose sum is an infinity; two integers that each have a float
+    where the sum does not; and one such field on enough turns that a single
+    third of the list sums past the range on its own, which no per-turn
+    guard could see.
+
+    This is a separate case from the one above on purpose. That one is about
+    the values a transcript carries, and this one is about what the file
+    computes from two of them — the distinction three review rounds spent
+    themselves on."""
+    shapes = (
+        # Each field finite, their per-turn sum an infinity.
+        (
+            "two-floats",
+            3,
+            {
+                "input_tokens": TOP_FLOAT,
+                "cache_read_input_tokens": TOP_FLOAT,
+                "output_tokens": 1,
+            },
+            (0,),
+        ),
+        # Each int HAS a float; their sum does not. `count` passes both.
+        (
+            "two-ints",
+            3,
+            {
+                "input_tokens": int(TOP_FLOAT),
+                "cache_read_input_tokens": int(TOP_FLOAT),
+                "output_tokens": 1,
+            },
+            (0,),
+        ),
+        # One field, on two of six turns, so one third of the list holds two
+        # of them and the SLICE sum overflows with every turn finite.
+        ("summed-third", 6, {"input_tokens": TOP_FLOAT, "output_tokens": 1}, (0, 1)),
+    )
+    for name, count_of_turns, odd_usage, odd_indices in shapes:
+        lines = []
+        for n in range(count_of_turns):
+            plain = {"input_tokens": 10, "output_tokens": 1}
+            lines += turn_at(n, odd_usage if n in odd_indices else plain, f"c{n}")
+        path = tmp_path / f"{name}.jsonl"
+        path.write_text("\n".join(lines) + "\n")
+
+        proc = run([str(path)])
+        assert proc.returncode == 0, f"{name}: {proc.stderr}"
+        assert re.search(r"^tokens\s", proc.stdout, re.M), f"{name}: {proc.stdout}"
+
+        machine = run(["--json", str(path)])
+        assert machine.returncode == 0, f"{name}: {machine.stderr}"
+        data = json.loads(machine.stdout)
+        # A mean the file could not compute is charged 0, never carried out
+        # as an infinity for a reader to mistake for a measurement.
+        for value in data["context_growth"]:
+            assert isinstance(value, int), f"{name}: {data['context_growth']}"
+
+
+def test_a_negative_span_says_what_it_actually_saw(tmp_path):
+    """A span of zero and a negative span are not the same reading, and one
+    sentence claimed the first for both.
+
+    `report` printed *every call shares one timestamp* under any span that is
+    not positive. For a transcript whose last result predates the first call
+    — a harness writing a result before the call it answers — that sentence
+    is false about a file the reader cannot see, which is the failure mode a
+    sentence under a dash exists to prevent.
+
+    The share itself is unchanged: neither shape gets a percentage, because
+    a share of a non-positive span is not a number anybody can read."""
+    lines = [
+        at("2026-08-24T10:00:00Z", [use("a", "pytest -q")], "ma", {"output_tokens": 1}),
+        at("2026-08-24T09:00:00Z", [{"type": "tool_result", "tool_use_id": "a"}]),
+        at(
+            "2026-08-24T10:05:00Z",
+            [use("b", "ruff check .")],
+            "mb",
+            {"output_tokens": 1},
+        ),
+        at("2026-08-24T09:30:00Z", [{"type": "tool_result", "tool_use_id": "b"}]),
+    ]
+    path = tmp_path / "negative.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+
+    proc = run([str(path)])
+    assert proc.returncode == 0, proc.stderr
+    assert re.search(r"^span\s+-\d", proc.stdout, re.M), proc.stdout
+    assert "the last call to begin ended before the first call began" in proc.stdout, (
+        proc.stdout
+    )
+    # The zero-span sentence must NOT be the one a negative span gets.
+    assert "every call shares one timestamp" not in proc.stdout, proc.stdout
+    assert re.search(r"^  command\s+\S+\s+—$", proc.stdout, re.M), proc.stdout
+    # And no idle figure, which is what a negative denominator makes of the
+    # `idle > span * 0.1` threshold: the comparison is against a negative
+    # number, so it is true, and the line printed sixty-five minutes of idle
+    # beside a span of minus thirty.
+    assert "idle" not in proc.stdout, proc.stdout
+
+    # The sentence has to hold for EVERY negative span, not for the one shape
+    # it was written against. The span is taken from the last call to BEGIN,
+    # because `load` sorts by start — so the last RESULT can arrive hours
+    # after the first call and the span still be negative.
+    later = [
+        at("2026-08-24T10:00:00Z", [use("a", "pytest -q")], "ma", {"output_tokens": 1}),
+        at("2026-08-24T12:00:00Z", [{"type": "tool_result", "tool_use_id": "a"}]),
+        at(
+            "2026-08-24T10:05:00Z",
+            [use("b", "ruff check .")],
+            "mb",
+            {"output_tokens": 1},
+        ),
+        at("2026-08-24T09:00:00Z", [{"type": "tool_result", "tool_use_id": "b"}]),
+    ]
+    out_of_order = tmp_path / "out-of-order.jsonl"
+    out_of_order.write_text("\n".join(later) + "\n")
+    third = run([str(out_of_order)])
+    assert third.returncode == 0, third.stderr
+    assert re.search(r"^span\s+-\d", third.stdout, re.M), third.stdout
+    # The last result here arrived at 12:00, two hours AFTER the first call
+    # began, so a sentence about the last result would be false.
+    assert "the last call to begin ended before the first call began" in third.stdout, (
+        third.stdout
+    )
+    assert "idle" not in third.stdout, third.stdout
+
+    # A negative span makes every duration derived from it negative, and the
+    # lines that INTERPRET a duration must not fire on one. `repeats` is
+    # printed on a truthiness test, which minus sixty minutes satisfies — so
+    # the report claimed an hour of work re-run for a result already in hand,
+    # on a transcript where nothing was re-run at all. The `nothing obvious`
+    # line below is suppressed by the same value, for the same reason.
+    repeated = [
+        at("2026-08-24T10:00:00Z", [use("a", "pytest -q")], "ma", {"output_tokens": 1}),
+        at("2026-08-24T09:00:00Z", [{"type": "tool_result", "tool_use_id": "a"}]),
+        at("2026-08-24T10:05:00Z", [use("b", "pytest -q")], "mb", {"output_tokens": 1}),
+        at("2026-08-24T09:30:00Z", [{"type": "tool_result", "tool_use_id": "b"}]),
+    ]
+    repeats = tmp_path / "repeats.jsonl"
+    repeats.write_text("\n".join(repeated) + "\n")
+    fourth = run([str(repeats)])
+    assert fourth.returncode == 0, fourth.stderr
+    assert re.search(r"^span\s+-\d", fourth.stdout, re.M), fourth.stdout
+    assert "repeats" not in fourth.stdout, fourth.stdout
+
+    # The same negative duration must not SUPPRESS a line either. The
+    # `nothing obvious` line is gated on there being no repeat time, and a
+    # negative repeat time reads as falsey — so the report went silent on a
+    # transcript it had nothing to say about, which is the same defect as
+    # the repeats line one gate over. Two calls in ONE message put tools per
+    # turn above the threshold that line also needs.
+    batched = [
+        at(
+            "2026-08-24T10:00:00Z",
+            [use("x", "pytest -q"), use("y", "pytest -q")],
+            "mx",
+            {"output_tokens": 1},
+        ),
+        at("2026-08-24T09:00:00Z", [{"type": "tool_result", "tool_use_id": "x"}]),
+        at("2026-08-24T09:30:00Z", [{"type": "tool_result", "tool_use_id": "y"}]),
+    ]
+    suppressed = tmp_path / "suppressed.jsonl"
+    suppressed.write_text("\n".join(batched) + "\n")
+    fifth = run([str(suppressed)])
+    assert fifth.returncode == 0, fifth.stderr
+    assert re.search(r"^span\s+-\d", fifth.stdout, re.M), fifth.stdout
+    assert "repeats" not in fifth.stdout, fifth.stdout
+    assert "nothing obvious" in fifth.stdout, fifth.stdout
+
+    # And a span of exactly zero keeps the sentence written for it.
+    zero = tmp_path / "zero.jsonl"
+    zero.write_text(
+        "\n".join(paired("a", "2026-08-24T10:00:00Z", "2026-08-24T10:00:00Z")) + "\n"
+    )
+    other = run([str(zero)])
+    assert other.returncode == 0, other.stderr
+    assert "every call shares one timestamp" in other.stdout, other.stdout
+    assert "the last call to begin" not in other.stdout, other.stdout

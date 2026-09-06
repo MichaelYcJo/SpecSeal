@@ -560,6 +560,95 @@ def test_the_path_returned_is_the_one_the_pattern_named(proj):
         )
 
 
+def test_the_printed_header_names_the_ledger_that_was_read(proj):
+    """Issue #163, on the fixture above and against a real run. The case above
+    pins which file is OPENED; this one pins the name PRINTED over it, and
+    until phase 2 of work item `1788686494` the two were different files.
+
+    `os.path.relpath` normalises `..` the way `normpath` does -- lexically,
+    without consulting the filesystem -- so the header over the run below read
+    `x/ledger.md` while the rows under it came from `<root>/ledger.md`. The
+    exit code was right and the row was right; the name a person reads and
+    then opens was a different file that exists, holding a clean row. The five
+    sites that render a ledger path go through `display_name` now.
+
+    **The assertion is by inode, not only by spelling.** A string compare
+    pins today's rendering; joining the printed name back under the root and
+    stat-ing it is the claim itself -- *the header names the file that was
+    read* -- and it is what fails if a future renderer finds some third
+    spelling that also collapses. The spelling is pinned as well, because a
+    name that resolves correctly and reads as gibberish is still a bad name.
+
+    **POSIX only, and the premise is what is missing on Win32 rather than the
+    platform.** Win32 collapses `..` before the filesystem is consulted, so
+    there the pattern names `x/ledger.md`, the lexical guess and the answer
+    agree, and there is no second file for a header to name by mistake. That
+    is the one skip this work item allows itself; every other Windows
+    behaviour is exercised by passing `ntpath` to the unit rather than by
+    skipping (`agent-contract` §13, and
+    `tests/test_the_printed_ledger_name_is_the_file_that_was_read.py`).
+
+    Seen red first, with `os.path.relpath(ledger, root)` put back in the
+    header's position: the header read `x/ledger.md`, which stats to the
+    CLEAN ledger while the broken row printed under it came from the root
+    one.
+    """
+    if os.name == "nt":
+        pytest.skip(
+            "Win32 folds `..` before the filesystem is consulted, so the "
+            "pattern names x/ledger.md and there is no second file for the "
+            "header to name by mistake -- the premise, not the platform"
+        )
+    ledger(proj, f"| POL-1 | `src/service.py#gone@{GOOD}` |\n", at="ledger.md")
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n", at="x/ledger.md")
+    (proj / "y").mkdir()
+    try:
+        os.symlink(proj / "y", proj / "x" / "lnk")
+    except (OSError, NotImplementedError, AttributeError):
+        pytest.skip("this platform or volume refuses a symlink here")
+    r = run(["--ledger", "x/lnk/../ledger.md", "."], proj)
+    assert r.returncode == 2, (
+        "the fixture is the one above and it must still fail on its broken "
+        f"row, or this case is measuring nothing:\n{r.stdout}"
+    )
+
+    # The per-ledger header is the only unindented line that is neither blank
+    # nor the run total.
+    headers = [
+        line
+        for line in r.stdout.splitlines()
+        if line and not line.startswith(" ") and not line.startswith("total:")
+    ]
+    assert len(headers) == 1, (
+        f"one ledger was read and the run printed {len(headers)} headers "
+        f"for it:\n{r.stdout}"
+    )
+
+    # The claim itself, asserted BEFORE the spelling below: the name that was
+    # printed opens the file that was read. `relpath` prints `x/ledger.md`,
+    # which opens the clean ledger -- a real file, so this stats rather than
+    # raising, and the assertion is what reports it. Ordered first because a
+    # spelling compare that fires first hides whether the claim itself holds.
+    printed = os.stat(os.path.join(str(proj), headers[0]))
+    was_read = os.stat(str(proj / "ledger.md"))
+    other = os.stat(str(proj / "x" / "ledger.md"))
+    # The fixture's premise, checked rather than assumed: the file the run
+    # read and the file the lexical guess names are two files. Were they one,
+    # every assertion below would pass against `relpath` too.
+    assert (was_read.st_dev, was_read.st_ino) != (other.st_dev, other.st_ino), (
+        "`ledger.md` and `x/ledger.md` reached one inode, so this case "
+        "cannot tell the printed name from the lexical guess"
+    )
+    assert (printed.st_dev, printed.st_ino) == (was_read.st_dev, was_read.st_ino), (
+        "the printed header opens a different file from the one the run "
+        f"read:\n{r.stdout}"
+    )
+    assert headers == ["x/lnk/../ledger.md"], (
+        "the header resolves to the right file but is not the spelling the "
+        f"pattern gave:\n{r.stdout}"
+    )
+
+
 def test_a_ledger_that_cannot_be_stat_ed_is_named_rather_than_crashing(proj):
     """The `OSError` half of the fallback, and nothing reached it until the
     mutation loop asked: dropping the fallback and letting `os.stat` raise

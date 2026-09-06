@@ -1,0 +1,277 @@
+# 1788700685-two-value-shaped-odd-rows-end-the-report — phase 1
+
+| Field | Value |
+|---|---|
+| Phase | 1 |
+| Commit | b0e4859 |
+| Ran by | specseal:smith on claude-opus-5[1m] |
+
+## What this phase was asked
+
+Close the two crashes and pin them, and nothing of phase 2 — the ledger rows
+and the changelog fragment belong to a different segment.
+
+1. A naive stamp must not end the report. `parse_time` is the one place a
+   string becomes a `datetime`, which is what makes it a funnel rather than a
+   patch. `plan.md`'s accepted alternative is to **normalise** there — attach
+   UTC, the assumption the file already makes when it rewrites a trailing `Z`
+   — rather than to drop the row the way an unparseable one is dropped,
+   because a transcript whose stamps are all naive would then report nothing
+   where today it reports numbers that are internally consistent. State the
+   assumption in the docstring.
+2. A zero span must not end the report. `report`'s percentages divide by
+   `data['span_s']`, which is `0.0` when a transcript's only paired call
+   shares one timestamp. Print the block it can rather than dividing by it,
+   and do not invent a percentage for a denominator of zero. Decide what a
+   reader sees instead and say why here.
+3. Cases for both, over synthetic transcripts, each seen red first, each
+   asserting **both** the report and `--json` — the second arm because #175
+   records the naive case as exiting 1 with stdout empty on both.
+
+And: enumerate the class by decomposition rather than by listing the two
+shapes the issue reported, and say what method was used and how it is known
+to be complete rather than merely larger.
+
+## What this phase found
+
+### The handoff's two facts, opened
+
+**`--json` does not take the same path for the two shapes, and the difference
+decided the cases.** Measured at `6863669` over hand-built transcripts:
+
+| Shape | Report | `--json` |
+|---|---|---|
+| naive stamp mixed with an aware one | exit 1, stdout empty | exit 1, stdout empty |
+| span of zero | exit 1, **36 bytes** of stdout — the span line, then the crash | **exit 0** |
+
+The naive shape dies in `load`/`analyse`, upstream of the `--json` branch, so
+both arms lose everything. The zero span dies inside `report`, which `--json`
+never calls — so `--json` survived it already. Its second arm therefore pins
+that the guard stays in `report` and is not moved into `analyse`, where it
+would change a number `--json` already emits correctly.
+
+**Normalising at `parse_time` closes every site, and there are more of them
+than `plan.md` counted.** Every `datetime` in the module is produced at that
+one call, so nothing downstream can meet a naive value from another source —
+verified by construction below, not assumed. The count in `plan.md`'s
+Technical context ("four subtractions") is low on both halves:
+
+- **six** subtractions, not four — `analyse`'s span, per-call sum, turn gap
+  and family sum, plus two the list missed: the `exact`/`stripped` duration
+  and `slowest`'s;
+- **two orderings**, which the plan does not mention at all — `load`'s
+  `calls.sort` and `analyse`'s `max(turn_end, ...)`. Mixing a naive stamp
+  with an aware one raises on a comparison as readily as on a subtraction.
+
+That second half is the finding, not a tally correction. **A transcript with
+two calls dies in `load`'s sort, before `analyse` is entered at all**, so the
+issue's framing — "`analyse`'s subtractions" — names the wrong function for
+the commoner case, and a guard written at the reported crash site would have
+left it standing. It is the same shape as #170's own round 2 finding, where a
+list-valued tool name died in `analyse` and a `null` one died in `report`.
+Measured: a one-call transcript raises at `analyse:224`, a two-call transcript
+at `load:210`.
+
+Also corrected: `report` had **three** divisions by `span_s`, not four. The
+fourth site the plan counted is `idle > span_s * 0.1`, a multiplication, which
+is safe at zero.
+
+### What a reader sees instead of a percentage
+
+A dash, and one line under the span saying why:
+
+```
+span          0.0m   (1 tool calls)
+              every call shares one timestamp, so there is no span to take a share of
+  command     0.0m   —
+  model       0.0m   —   mean gap 0.0s
+```
+
+The reasoning behind each half.
+
+**A dash rather than `0%` or an omitted column.** A share of a span of zero is
+not zero and not a hundred; it does not exist, and both numbers would be read
+as measurements. Dropping the column instead would leave the line looking like
+an ordinary report with the percentage forgotten. The dash is unmistakably a
+value this file declined to compute, and the times beside it are what was
+actually measured.
+
+**One line, because a dash alone poses a question it does not answer.** The
+line is text a person reads and acts on, so it is pinned by name.
+
+**The guard is on the span being POSITIVE, not on it being non-zero.** Zero is
+the shape #175 measured; a negative span — a harness writing a result before
+the call it answers — is the same undefined division with a sign on it, and a
+percentage of a negative denominator is a number nobody can read. One
+condition covers both, which is the class rather than the coordinate.
+
+**One funnel, not two.** An early draft also guarded the idle block with
+`span_s > 0 and …`. That was removed before the commit: `share` is the single
+place that decides what a non-positive span means, and a second guard adds a
+branch no case exercises. At a span of zero the idle condition (`0 > 0`) is
+already false on its own.
+
+> **Corrected in round 1's fix pass: `share` is the single place deciding
+> what a non-positive span means *for a percentage*, and it never was the
+> only site testing the predicate.** `report` tests the span independently
+> to decide whether to print the explanation line, which is a different
+> question — `share` is handed two numbers and cannot say which shape the
+> reader is looking at. Round 1 found the consequence: one sentence, *every
+> call shares one timestamp*, printed under any non-positive span, so a
+> negative one was described as a shared timestamp. `report` now tells the
+> two shapes apart and `share` still decides the dash for both, which is
+> the division of labour this paragraph should have stated.
+>
+> **And the removal itself was wrong, which round 2 measured.** The idle
+> guard is a THIRD independent test of the span, and the conjunct dropped
+> above is what kept it right. *A branch no case exercises* was true at a
+> span of zero and false at a negative one: `idle > span * 0.1` compares
+> against a negative threshold, so it is true, and the report printed
+> sixty-five minutes of idle beside a span of minus thirty. The conjunct is
+> restored. **The shape is not synthetic** — a mixed transcript with the
+> call row naive-local and the result row aware, which is exactly what the
+> normalisation two sections up was written for, produces a span of minus
+> nine hours and printed an idle line at zero.
+
+### The enumeration, and why it is complete rather than merely larger
+
+The class is *every arithmetic operand taken out of a transcript*. It was
+enumerated **by construction on two independent axes**, each closed
+mechanically, not by reading the file for suspicious lines.
+
+**Axis 1 — the operations, closed by an AST walk over the module.** A script
+listed every `BinOp`, `AugAssign` and `UnaryOp` carrying an arithmetic
+operator, every `Compare` carrying an ordering operator, and every
+`sort`/`sorted`/`max`/`min`/`sum` call: **56 sites**. Each was classified.
+(The first walk returned 42 and missed `AugAssign` and `UnaryOp` entirely —
+which is the argument for the method: the gap was found by re-deriving the
+list, and would not have been found by reading harder.)
+
+> **Corrected in round 1's fix pass, and this is the correction the 🔴
+> came out of.** That node set is complete over **operators**, and this
+> section called it complete over **operations**. A value can be consumed
+> by a builtin or stdlib numeric call that carries no operator at all —
+> `round`, `int`, `abs`, `divmod`, `pow`, `statistics.mean` — and none of
+> those is a `BinOp`, a `Compare`, or one of the five walked names.
+> Re-derived at `ae3fe18` and again after the fix: **60 sites inside the
+> node set** (22 `BinOp`, 10 `AugAssign`, 5 `UnaryOp`, 10 `Compare`, 13
+> walked calls) and **exactly one outside it** — the `round` in
+> `token_thirds`, which is where the 🔴 lives. The lesson is in the shape
+> of the error rather than in the count: a walk is complete over the node
+> kinds it names, and saying so is a claim a later session can re-run,
+> where *complete over the operations* is one nobody can check.
+>
+> **What the widened set still cannot reach, measured over this module
+> rather than asserted.** A call whose function is computed rather than
+> named is invisible to a by-name classification — there are **0** of those
+> here today. A consumer name rebound locally would be read as the builtin
+> — **none** is rebound here. The 16 f-string targets carrying a format
+> spec do not raise on a non-finite value, checked directly (`f"{nan:.0f}"`
+> is `'nan'`).
+>
+> **And the third residual was stated wrongly, which round 2's 🔴 then
+> walked through.** It read *the walk sees only this module*, which sends a
+> next editor looking for a fix outside the file. The call site is INSIDE
+> this module and inside its AST; what the walk misses is its SHAPE. Calls
+> are classified by a bare `ast.Name`, so `math.isfinite(value)` — a `Call`
+> whose `func` is an `ast.Attribute` — is invisible although it sits in
+> `count`. **The widening is one line in the classifier**: accept a `Call`
+> whose `func` is an `Attribute` whose value is an imported module name.
+> Re-derived in round 2's fix pass with exactly that line: **17 dotted
+> calls on imported modules**, against 13 bare-name ones the old set saw.
+> Sixteen of the seventeen are either not transcript-derived (`os.walk`,
+> `sys.exit`, `re.compile`, `re.sub` on a path, `argparse`) or already
+> inside a guard (`json.loads` twice, in a `try`; `json.dumps` on a payload
+> that round-tripped through `json.loads`; `re.split` behind an
+> `isinstance(text, str)`). The seventeenth was `math.isfinite`, unguarded,
+> and that is where round 2's 🔴 was.
+>
+> **The classifier knows a fixed LIST OF NAMES, not a node shape, and
+> saying otherwise sends a next editor to widen the wrong dimension.** The
+> attribute widening just above is a node-shape change, which is what makes
+> shape read as the axis. It is not. Three further forms sit inside the node
+> shapes the walk already accepts and outside its name list: a consumer
+> imported by name (`from math import isfinite`), which is a `Call` on a
+> bare `Name` the list does not carry; a module bound to an alias (`import
+> math as m`), whose root name the walk does not recognise unless it
+> collects import aliases; and a module held in a local variable, where the
+> root is a `Name` bound at runtime. **Widening the walk therefore means
+> widening the name list and building an alias table**, not accepting
+> another node kind.
+>
+> **And the limit that outlasts all of those**: a walk over call sites
+> answers which operations exist, never what values reach them. Round 3's 🔴
+> came through a call this walk DOES see — the `round` in `token_thirds`,
+> listed since the first widening — because the site was never the question.
+> Two values that each pass every funnel can be combined into one that
+> passes none, and no enumeration of call sites reaches that. It is recorded
+> rather than closed; the fragment's R3 carries it and the run hands it over
+> as an issue.
+
+| Class | Sites | State |
+|---|---|---|
+| Neither operand comes from a transcript — lengths, literals, `os` facts | 30 | not in the class |
+| A `usage` number | 4 | closed by `count` (#170's **type** axis) |
+| A `datetime` — 6 subtractions, 2 orderings | 8 | **closed by this phase** at `parse_time` |
+| Derived from `span_s` — 3 divisions and the idle guard | 4 | 3 divisions **closed by this phase** at `share`; the idle guard is NOT closed by `share` and was miscounted here — `share` decides the percentage, never whether the line prints. Closed in round 2's fix pass by restoring its own positive-span conjunct |
+| A derived denominator other than `span_s` — `max(len(turns), 1)`, `len(gaps)`, `len(part)` | 3 | already guarded at each site, verified by reading |
+| Comparisons of derived floats against literal thresholds | 7 | cannot raise on shape |
+
+**Axis 2 — the values that can enter, closed by the reader's own surface.**
+A value reaches any of those sites only through `load` or `token_totals`
+reading a JSON row, and those two read exactly five fields: `timestamp`,
+`message.usage.*`, `message.id`/`uuid`, `tool_use.id`/`tool_use_id`/`name`,
+and `tool_use.input.command`. Every one has a funnel — `parse_time`, `count`,
+`message_key`, the `isinstance(call_id, str)` guard, `tool_name`, and the
+`isinstance(text, str)` fallback. So the class is enumerable as *fields that
+enter* × *operations that consume them*, and neither factor is a judgment
+call.
+
+That is what makes the answer complete rather than merely larger than the
+issue's two: both factors were derived from the file, and either one alone
+would have missed something. The operator walk alone does not say which
+operands are transcript-derived; the field list alone does not say the
+`datetime` axis has an ordering half.
+
+**Each axis then decomposes into type and value**, which is where the two
+shapes of this work item come from and where the third came from:
+
+| Axis | Type sub-axis | Value sub-axis |
+|---|---|---|
+| a number | not a number at all → `count` (#170) | a number that is not a quantity → `NaN`, `Infinity`, and an `int` with no float of its own → **closed at `count`** in round 1's and round 2's fix passes. **A third sub-axis this table did not have**: not the value that enters but what the arithmetic MAKES of two that did — two finite counts summing past the range, closed at `token_thirds` in round 3's fix pass, with the class itself recorded as a limit and handed to issue #192 |
+| a `datetime` | naive beside aware → `parse_time` (**this phase**) | two stamps equal → span of zero → `share` (**this phase**) |
+
+### The third operand shape, found by the method and left open
+
+> **Corrected in round 1's fix pass. The measurement below is right and the
+> conclusion drawn from it is wrong, and this section is kept as written
+> because how the wrong conclusion was reached is the finding.** `NaN` or
+> `Infinity` in any usage field but `output_tokens` ends the report with
+> exit 1 and stdout empty, on the report and on `--json` alike — worse than
+> either shape this phase fixed. `token_thirds` rounds a mean and `round()`
+> raises on a non-finite float. **`output_tokens` is the one usage field
+> that never reaches that `round`**, and it is the only field this phase
+> measured, so the single measurement below is the one that could not see
+> the crash. By `spec.md`'s own In criterion the shape was always inside
+> this work item. It is closed at `count` with `math.isfinite`, the rider's
+> own prescribed one-liner, and the rider is gone with it: a rider that has
+> been acted on is spent.
+
+`json.loads` accepts the bare tokens `NaN`, `Infinity` and `-Infinity` by
+default, and all three are `float` — so they pass `count`'s `isinstance` check
+and reach the three `totals[...] +=` sites in `token_totals`. **Measured**: a
+transcript whose `output_tokens` is `NaN` prints `output  nan` and exits 0.
+
+It does not end the report, so `spec.md` scopes it out — that document's In
+section is operands that end the report, and its Out section rules out making
+the numbers *right*. But it is the exact failure `count`'s own docstring says
+`bool` is excluded to prevent: a wrong number rather than a missing one. It is
+filed where `seal/follow-up.md` says a coordinate-tied item belongs — a
+`# RIDER:` at `count`, stamped, naming the one-line close (`math.isfinite`
+beside the `isinstance`) so it reaches whoever next opens that function.
+
+## What this phase removes
+
+| Removed item | Where it must land |
+|---|---|
+| none — the phase adds `share` and the normalising return, and takes nothing out of the tree | none |
