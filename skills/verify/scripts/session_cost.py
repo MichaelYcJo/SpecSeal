@@ -51,11 +51,30 @@ FAMILIES = [
 
 def parse_time(value):
     """None for a stamp that will not parse — one odd row must not end the
-    report, the same way one unparseable line does not."""
+    report, the same way one unparseable line does not.
+
+    **A stamp carrying no zone is read as UTC.** That is the assumption the
+    line below already makes when it rewrites a trailing `Z`, stated here
+    because it is now load-bearing. Every `datetime` in this file comes
+    through here, and the readers do two things with one that a naive value
+    beside an aware one forbids: they subtract it from another, in six
+    places, and they order it against another, in `load`'s sort and
+    `analyse`'s `max`. Either raises `TypeError` — the sort before anything
+    has printed, on the report and on `--json` alike, which is `count`'s
+    failure one axis over.
+
+    Dropping the naive row instead, the way an unparseable one is dropped,
+    would leave a transcript whose stamps are ALL naive reporting nothing,
+    where today it reports numbers that are internally consistent. What the
+    assumption costs is an absolute time read out of a harness writing local
+    naive stamps. Nothing here prints one: every number this file produces
+    is a difference between two stamps, and a difference is right whenever
+    the two share a zone."""
     try:
-        return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        stamp = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         return None
+    return stamp if stamp.tzinfo is not None else stamp.replace(tzinfo=dt.UTC)
 
 
 def family(command):
@@ -434,22 +453,45 @@ def report_tokens(tokens):
     print(f"  cache read  {tokens['cache_read']:>15,}")
 
 
+def share(part, whole):
+    """`part` as a percentage of `whole`, or `—` when there is no share to take.
+
+    A transcript whose only paired call begins and ends on one timestamp has
+    a span of zero, and the four lines below divide by it. Printing the span
+    line and then raising `ZeroDivisionError` is the shape `tool_name` was
+    written to end: a report that worked and then stopped, with the token
+    block and the family table lost behind the crash.
+
+    The guard is on the whole span being POSITIVE, not on it being non-zero.
+    Zero is the shape that was measured; a negative span — a harness writing
+    a result before the call it answers — is the same undefined division with
+    a sign on it, and a percentage of it would be a number nobody can read.
+    Neither gets one invented. What the reader sees is the times themselves,
+    which are what was actually measured."""
+    return f"{part / whole * 100:.0f}%" if whole > 0 else "—"
+
+
 def report(data):
     print(f"span          {minutes(data['span_s'])}   ({data['calls']} tool calls)")
+    if data["span_s"] <= 0:
+        print(
+            "              every call shares one timestamp, so there is no "
+            "span to take a share of"
+        )
     print(
         f"  command     {minutes(data['command_s'])}"
-        f"   {data['command_s'] / data['span_s'] * 100:.0f}%"
+        f"   {share(data['command_s'], data['span_s'])}"
     )
     print(
         f"  model       {minutes(data['model_s'])}"
-        f"   {data['model_s'] / data['span_s'] * 100:.0f}%"
+        f"   {share(data['model_s'], data['span_s'])}"
         f"   mean gap {data['gap_mean_s']:.1f}s"
     )
     idle = data["span_s"] - data["command_s"] - data["model_s"]
     if idle > data["span_s"] * 0.1:
         print(
             f"  idle        {minutes(idle)}"
-            f"   {idle / data['span_s'] * 100:.0f}%"
+            f"   {share(idle, data['span_s'])}"
             f"   waiting on a person, or on a gap this file cannot see"
         )
 

@@ -812,3 +812,134 @@ def test_the_report_tells_its_two_turn_counts_apart(tmp_path):
     assert re.search(r"^tokens\s+2 transcripts, 4 turns$", out, re.M), out
     assert "a turn is any assistant message, in every transcript counted" in out, out
     assert "2 calls over 2 turns that sent one, in this transcript alone" in out, out
+
+
+def at(stamp, blocks, message_id=None, usage=None):
+    """One row with its timestamp written out rather than taken off the clock.
+
+    `stamp_at` carries a fixed zone-aware clock, so a case built from it can
+    never write the two shapes below: two rows sharing one instant, and a
+    stamp carrying no zone at all. This harness produces neither — 299 real
+    transcripts held 0 calls with `start == end` and 94,514 of 94,514
+    timestamps zone-aware — so the cases build them by hand."""
+    message = {"content": blocks}
+    if usage is not None:
+        message["usage"] = usage
+    if message_id:
+        message["id"] = message_id
+    return json.dumps({"timestamp": stamp, "message": message})
+
+
+def paired(uid, start, end, command="pytest -q"):
+    """A call and its result at two stamps given verbatim."""
+    return [
+        at(start, [use(uid, command)], f"call-{uid}", {"output_tokens": 1}),
+        at(end, [{"type": "tool_result", "tool_use_id": uid}]),
+    ]
+
+
+def test_a_span_of_zero_prints_what_it_can_rather_than_dividing_by_it(tmp_path):
+    """A transcript whose only paired call begins and ends on one timestamp
+    has `span_s == 0.0`, and four lines of `report` divide by it.
+
+    The span line printed and then `ZeroDivisionError` took the rest — the
+    token block and the family table included. That is the same shape a
+    `null` tool name produced one axis over: a report that worked and then
+    stopped, which reads as a report rather than as a crash.
+
+    What replaces the percentage is a dash and one line saying why, not a
+    number. A share of a span of zero is not 0% and not 100%; it does not
+    exist, and the times themselves are what was measured."""
+    path = tmp_path / "zero.jsonl"
+    path.write_text(
+        "\n".join(paired("a", "2026-08-24T10:00:00Z", "2026-08-24T10:00:00Z")) + "\n"
+    )
+
+    proc = run([str(path)])
+    assert proc.returncode == 0, proc.stderr
+    assert re.search(r"^span\s+0\.0m\s+\(1 tool calls\)$", proc.stdout, re.M), (
+        proc.stdout
+    )
+    assert (
+        "every call shares one timestamp, so there is no span to take a share of"
+        in proc.stdout
+    ), proc.stdout
+    # No percentage invented for a denominator of zero.
+    assert re.search(r"^  command\s+0\.0m\s+—$", proc.stdout, re.M), proc.stdout
+    assert re.search(r"^  model\s+0\.0m\s+—\s+mean gap 0\.0s$", proc.stdout, re.M), (
+        proc.stdout
+    )
+    # The two blocks the crash used to take with it, both below the span line.
+    assert re.search(r"^tokens\s+1 transcript, 1 turn$", proc.stdout, re.M), proc.stdout
+    assert re.search(r"^  test\s+1 calls", proc.stdout, re.M), proc.stdout
+
+    # `--json` never reached `report`, so it survived a zero span already;
+    # this arm is what keeps the guard from being moved into `analyse`.
+    machine = run(["--json", str(path)])
+    assert machine.returncode == 0, machine.stderr
+    assert json.loads(machine.stdout)["span_s"] == 0.0
+
+
+def test_a_naive_stamp_does_not_end_the_report(tmp_path):
+    """`parse_time` is the one place a string becomes a `datetime`, so it is
+    where a stamp carrying no zone is given one: UTC, the assumption the same
+    line already makes when it rewrites a trailing `Z`.
+
+    Mixing a naive stamp with an aware one raised `TypeError` with stdout
+    empty on the report and on `--json` alike, and it raised from two
+    different sites depending on how many calls the transcript held. One
+    call dies on a SUBTRACTION in `analyse`, where the span is taken. Two
+    die earlier, on a COMPARISON in `load`'s sort, before `analyse` is
+    called at all — so a guard written at the reported crash site would have
+    left the other standing.
+
+    The third shape is why the naive row is normalised rather than dropped
+    the way an unparseable one is: a transcript whose stamps are ALL naive
+    keeps reporting numbers that are internally consistent, where dropping
+    would have left it reporting nothing."""
+    shapes = (
+        # One call, aware start and naive end — the subtraction in `analyse`.
+        (
+            "mixed-pair",
+            paired("a", "2026-08-24T10:00:00Z", "2026-08-24T10:00:10"),
+            10.0,
+            10.0,
+        ),
+        # Two calls, one pair of each — the comparison in `load`'s sort.
+        (
+            "mixed-calls",
+            [
+                *paired("a", "2026-08-24T10:00:00Z", "2026-08-24T10:00:10Z"),
+                *paired(
+                    "b", "2026-08-24T10:00:20", "2026-08-24T10:00:25", "ruff check ."
+                ),
+            ],
+            25.0,
+            15.0,
+        ),
+        # Every stamp naive — the shape that would report nothing if the row
+        # were dropped instead of normalised.
+        (
+            "all-naive",
+            paired("a", "2026-08-24T10:00:00", "2026-08-24T10:00:10"),
+            10.0,
+            10.0,
+        ),
+    )
+    for name, lines, span, command_s in shapes:
+        path = tmp_path / f"{name}.jsonl"
+        path.write_text("\n".join(lines) + "\n")
+
+        proc = run([str(path)])
+        assert proc.returncode == 0, f"{name}: {proc.stderr}"
+        assert re.search(r"^span\s", proc.stdout, re.M), f"{name}: {proc.stdout}"
+        assert re.search(r"^tokens\s", proc.stdout, re.M), f"{name}: {proc.stdout}"
+
+        # #175 records the naive case as exiting 1 with stdout EMPTY on both,
+        # so both arms are asserted rather than the printed one alone.
+        machine = run(["--json", str(path)])
+        assert machine.returncode == 0, f"{name}: {machine.stderr}"
+        data = json.loads(machine.stdout)
+        assert (data["span_s"], data["command_s"]) == (span, command_s), (
+            f"{name}: {data}"
+        )
