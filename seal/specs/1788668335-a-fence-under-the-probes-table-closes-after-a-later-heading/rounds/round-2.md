@@ -7,12 +7,12 @@
 | PR | 181 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | COMMENT_NEVER_CLOSED (depth 1); ASKED_COMMENT_NEVER_CLOSED (depth 1); UNCLOSED_COMMENT_ASKED (depth 1); COMMENT_INSIDE_A_FENCE (depth 1); test_an_unclosed_html_comment_in_the_round_paragraph_is_refused (depth 1); UNCLOSED_COMMENT_REPORT (depth 1); test_an_unclosed_html_comment_in_the_report_names_the_comment (depth 1) |
 | Needs a fix | yes |
 | Loses a record or crashes | yes — finding 7 writes a round record whose four sections below the round paragraph are unreadable to every downstream reader |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -43,9 +43,9 @@ inside an HTML comment, both of which are now refusals in the code under review.
 | 4 | Round 1's ⬜ 4 — the unreachability sentence | `seal/specs/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading/phases/phase-1.md` | answered | read at `3d5ba51`: the replacement names contract §13 and the assumption that was never removed |
 | 5 | Round 1's ⬜ 5 — F2's Notes named the repair as the tidy-up to resist | `seal/ledger/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading.md` | answered | the row now separates *necessary* from *sufficient*; all eighteen anchors of the fragment resolve |
 | 6 | Round 1's ⬜ 6 — the completeness claim | `seal/specs/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading/changelog.md` | answered | corrected in all three files; the enumeration is now qualified to its partition and the axes it had not been applied to are named |
-| 🔴 7 | the round-paragraph guard reads the comment-stripped text while the record splices the text verbatim; an unterminated opener writes a record whose four sections are unreadable and blames the writer for a section they wrote | `skills/code-review/scripts/round_record.py#build` | open | executed at `3d5ba51`: record written, only the round paragraph resolves, and the failure names the wrong cause. The fix is validated in a clone and restored |
-| ⬜ 8 | the straddling comment's deferral is measured on a Deferred row, where no section follows; the instance that loses sections is a verdict row and was not measured | `skills/code-review/scripts/round_record.py#swallowed` | open | executed: a Deferred-row straddle exits 0 and drops the rows below it; a verdict-row straddle fails and drops three whole sections. The deferral stands; its recorded cost does not |
-| ⬜ 9 | `fix_table` removes the sha from inside its own code span and leaves both backticks | `skills/code-review/scripts/round_record.py#fix_table` | open | read at `3d5ba51` and visible in this work item's own round-1 record; the separator set carries no backtick. Pre-existing, so a deferral candidate |
+| 🔴 7 | the round-paragraph guard reads the comment-stripped text while the record splices the text verbatim; an unterminated opener writes a record whose four sections are unreadable and blames the writer for a section they wrote | `skills/code-review/scripts/round_record.py#build` | **fixed** `c7ebb29` | fixed at c7ebb29 — the comment question is asked of both texts, and **before** the fence question in each. The order has executed grounds rather than taste: an open comment blanks the closing fence of every block under it, so asking the fence first names a fence that is closed as written. The report side was a message defect rather than a loss, and its wording moved with it; executed at `3d5ba51`: record written, only the round paragraph resolves, and the failure names the wrong cause. The fix is validated in a clone and restored |
+| ⬜ 8 | the straddling comment's deferral is measured on a Deferred row, where no section follows; the instance that loses sections is a verdict row and was not measured | `skills/code-review/scripts/round_record.py#swallowed` | answered | corrected at `01c9075` — the deferral stands on the reason it always had; only its recorded cost was wrong. A **verdict**-row straddle loses three whole sections, where the Deferred-row measurement was vacuous because nothing follows that section. The rider, `overview.md` §Not done and the fragment's row now carry the verdict-row number |
+| ⬜ 9 | `fix_table` removes the sha from inside its own code span and leaves both backticks | `skills/code-review/scripts/round_record.py#fix_table` | deferred `skills/code-review/scripts/round_record.py#fix_table` — a `# RIDER:` at the coordinate, not `seal/follow-up.md`. That file's own header says a coordinate-tied item is a rider and that this repository has a tracker, so it should hold neither. The rider names the repair site too: the `note` line, **not** `chain.SEPARATORS`, which is shared with the `deferred` home reader and would strip backticks from a home written as a code span | `skills/code-review/scripts/round_record.py#fix_table` — a `# RIDER:` at the coordinate, not `seal/follow-up.md`. That file's own header says a coordinate-tied item is a rider and that this repository has a tracker, so it should hold neither. The rider names the repair site too: the `note` line, **not** `chain.SEPARATORS`, which is shared with the `deferred` home reader and would strip backticks from a home written as a code span |
 
 ## Executed probes
 
