@@ -169,6 +169,22 @@ PENDING_SURFACE = f"{chain.NONE_WORD} {DASH} {chain.NOT_YET}"
 COMMA_SPLIT_ROWS = (chain.NEW_UNITS, chain.CONTRACT)
 # The two terminal lines of a reviewer's report, by the field they land in.
 TERMINAL_LINES = (chain.NEEDS, chain.FLOOR)
+# Together with `REPORT_TABLES`' headings, everything the generator looks up
+# in the report -- which is what `swallowed` guards, so a section added later
+# is guarded by being added there and no second list goes stale.
+SWALLOWED = (
+    "a fenced block swallows `{name}` -- the report has no `{name}` outside "
+    "a fence, so the record would lose it and say nothing. Close the fence "
+    "above that line, or move the block below the section"
+)
+NEVER_CLOSED = (
+    "a fenced block in the report is never closed -- copied as it stands it "
+    "would swallow every heading after it, and every section below it would "
+    "be gone from the record with nothing said"
+)
+# A line no fence regex can match, appended to ask the reader whether a fence
+# is still open at the end of the file: blanked means open, kept means closed.
+SENTINEL = "x"
 
 
 class Refused(Exception):
@@ -362,6 +378,67 @@ def table_of(reader, raw, lines, heading, header, required):
     return [row(header), separator(len(header))] + [raw[i].strip() for i, _ in body]
 
 
+def swallowed(reader, report, lines):
+    """Refuse a fence that has taken something the generator reads with it.
+
+    Two halves of one rule, both read over the whole report: **a fence must
+    close, and its span must not cross a line the generator reads the report
+    by.** The first half used to live in `fenced_after`, where it saw one
+    section; both belong here, because a fence can open in one section and
+    close in another and the section it destroys is not the one it opened in.
+
+    `readable` blanks a fence, so a heading inside one is not a heading to
+    any walk downstream: `section_body` runs straight past it, the fence
+    reads as closed, and the section is simply gone from the record. #169
+    reported one shape of that -- a fence under the probes table closing
+    below `## Deferred`, exit 0, the Deferred table inside the fence and the
+    record's own Deferred section reading `nothing to drain`.
+
+    The rule is about the SPAN and not about the name it crossed, which is
+    what makes it cover the shapes #169 did not name -- a fence opened under
+    the verdict table that closes below `## Executed probes` takes the whole
+    probes section with it, and `fenced_after` is never even called for that
+    section, so no guard living inside it could see the shape.
+
+    What may not be lost is `REPORT_TABLES`' headings and `TERMINAL_LINES`,
+    which together are everything the generator looks up in the report. A
+    list of section constants typed out here would go stale the day a
+    section is added; these two are the constants the generator reads BY, so
+    a section it cannot read is a section it does not have.
+
+    A fence quoting one of those names is left alone while the real one
+    still stands outside it. That matters more than it looks: a reviewer of
+    this generator pastes record-shaped blocks, headings and all, and a rule
+    that refused the mention rather than the loss would stop the tool on its
+    own review rounds.
+
+    The lines a fence hid are read off the reader's own two passes rather
+    than by tracking fences a third time here: `lines` is
+    `blank_fences(strip_comments(...))`, so what a fence hid is exactly what
+    survives comment stripping and is blank afterwards. A `#` at column 0 is
+    a Markdown heading and a Python comment both, and only the fence tells
+    them apart -- which is why nothing here reads the `#` character.
+    """
+    stripped = reader.strip_comments(report.splitlines())
+    if not reader.blank_fences([*stripped, SENTINEL])[-1]:
+        raise Refused(NEVER_CLOSED)
+    # `strict=True` states the invariant the pair rests on: both of the
+    # reader's passes keep indices intact, so the two reads are the same file
+    # line for line. A length that differed would truncate the hidden set,
+    # which is this guard reporting clean because it read less.
+    pairs = zip(stripped, lines, strict=True)
+    hidden = [s.strip() for s, ln in pairs if s.strip() and not ln]
+    for heading, _header in REPORT_TABLES:
+        if heading in hidden and not reader.sections(lines, heading):
+            raise Refused(SWALLOWED.format(name=heading))
+    for label in TERMINAL_LINES:
+        pattern = re.compile(r"^\s*" + re.escape(label) + r"\s*:")
+        if any(pattern.match(h) for h in hidden) and not any(
+            pattern.match(ln) for ln in lines
+        ):
+            raise Refused(SWALLOWED.format(name=f"{label}:"))
+
+
 def fenced_after(reader, raw, lines, heading):
     """The raw lines of every fenced block under `heading`, in order.
 
@@ -393,11 +470,12 @@ def fenced_after(reader, raw, lines, heading):
             and len(opener.group(1)) >= len(marker)
         ):
             marker = None
-    if marker is not None:
-        raise Refused(
-            f"a fenced block under `{heading}` is never closed — copied as it "
-            "stands it would swallow every heading after it"
-        )
+    # `marker is not None` cannot stand here: `build` runs `swallowed` over
+    # the whole report first, and a fence left open at the end of the file is
+    # refused there. It used to be refused here instead, which read only this
+    # one section -- an unclosed fence opened under the verdict table took
+    # `## Executed probes` with it, this function was then never called for a
+    # section the report no longer had, and the record got the empty template.
     return out
 
 
@@ -577,6 +655,10 @@ def build(reader, routing, args, root, item, rounds):
     report = read_text(args.report, "report")
     raw = report.splitlines()
     lines = reader.readable(report)
+    # Before anything is looked up: a section a fence has taken is absent by
+    # every later reading, and each of those readings has its own, wrong
+    # answer for absence -- an empty template, or a count of terminal lines.
+    swallowed(reader, report, lines)
     asked = read_text(args.asked, "round paragraph").strip()
     if not asked:
         raise Refused(

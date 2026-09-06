@@ -508,6 +508,188 @@ def test_an_unclosed_fence_under_the_probes_table_is_refused(repo):
     assert text is None
 
 
+# --- where a fence closes, relative to the section it opened in --------------
+#
+# #169 called the late-closed shape "the one member of the class left open".
+# Decomposed rather than listed (contract §12), the class is one boolean over
+# one span: a fence has a closer or it has not, and where it has one the span
+# from opener to closer either crosses a line the generator reads the report
+# by, or it does not. `readable` blanks a fence, so anything inside that span
+# is invisible to every walk downstream -- which is why the span, and not the
+# crossed line's name, is what decides.
+#
+# Every member, and what each did at `c4d7077` before the guard:
+#
+#   no closer                     exit 2 -- but as `never closed` only for a
+#                                 fence under the probes table, and otherwise
+#                                 as `0 Needs a fix: lines`, because an
+#                                 unclosed fence runs to the end of the file
+#                                 and takes the terminal lines with it
+#   closer, nothing crossed       copied whole, correctly     (case above)
+#   closer, `## Verdicts`         exit 2, `the report has no ## Verdicts`
+#   closer, `## Executed probes`  EXIT 0 -- the table silently gone
+#   closer, `## Deferred`         EXIT 0 -- the section silently gone (#169)
+#   closer, a terminal line       exit 2, `0 Needs a fix: lines`
+#   closer, a prose heading       exit 0, and left that way (`spec.md` §Out)
+#
+# So two members lost a whole table with nothing said, not the one #169
+# named; and three more were caught by a message that blames the reviewer
+# for a section they did write. #169's proposed `SECTIONS` membership test
+# inside `fenced_after` reaches neither group: `## Executed probes` taken
+# means `fenced_after` is never called at all.
+#
+# The last row is the deliberate limit, and it is also what keeps this work
+# item generating its own records: a reviewer of THIS branch pastes
+# record-shaped blocks, headings and all. What is refused is a report LOSING
+# a section, never a fence mentioning one.
+
+TERMINAL = "Needs a fix: yes — 🔴 1\nLoses a record or crashes: no\n"
+HEAD_AND_VERDICTS = (
+    "# what the round found\n\nProse about 🔴 1.\n\n"
+    f"## Verdicts\n\n{VERDICT_HEADER}{OPEN_ROW}\n"
+)
+PROBES_TABLE = f"## Executed probes\n\n{PROBE_HEADER}{PROBE_ROW}\n"
+DEFERRED_TABLE = f"## Deferred\n\n{DEFERRED_HEADER}{DEFERRED_ROW}\n"
+OPENER = "```python\ndef helper(a):\n    return a\n\n"
+CLOSER = "```\n\n"
+
+
+def test_a_fence_closed_after_the_deferred_table_is_refused(repo):
+    """#169, found by round 3 of #161's own chain. The fence opens under the
+    probes table and closes below the Deferred table, so `## Deferred` sits
+    inside it -- and `readable` blanks a fence, which means `section_body`
+    never stops there and the fence reads as closed. Executed at `c4d7077`
+    before the guard: exit 0, the record carrying `## Deferred` and its row
+    inside the fence while its own Deferred section read `nothing to drain`.
+    """
+    declared(repo)
+    late = HEAD_AND_VERDICTS + PROBES_TABLE + OPENER + DEFERRED_TABLE + CLOSER
+    code, out, text = generate(repo, report_text=late + TERMINAL)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "swallows `## Deferred`" in out
+
+
+SECTION_TEXT = {
+    "## Verdicts": f"## Verdicts\n\n{VERDICT_HEADER}{OPEN_ROW}\n",
+    "## Executed probes": PROBES_TABLE,
+    "## Deferred": DEFERRED_TABLE,
+}
+
+
+@pytest.mark.parametrize("taken", list(SECTION_TEXT))
+def test_a_fence_that_takes_a_section_the_generator_reads_is_refused(repo, taken):
+    """The class itself, over the generator's own list of what it reads
+    (contract §12). The fence opens above one section and closes below it,
+    so that section is gone by every later reading -- and each reading has
+    its own wrong answer for absence: an empty template for the two optional
+    tables, `the report has no ## Verdicts section` for the required one.
+    Each blames the reviewer for a section they did in fact write.
+
+    Parametrized over `REPORT_TABLES` rather than over three names typed
+    here, which is the whole argument against #169's `SECTIONS` tuple: a
+    section added later is guarded, and gets a case, by being added there.
+
+    `## Executed probes` is the member #169 did not name, and it is the one
+    that settles where the guard lives -- a fence that takes that heading
+    means `build` never calls `fenced_after` for it, so no guard inside that
+    function could ever see the shape. Executed at `c4d7077`: exit 0 for
+    `## Deferred` and `## Executed probes`."""
+    assert [h for h, _ in generator_module().REPORT_TABLES] == list(SECTION_TEXT)
+    declared(repo)
+    body = "# what the round found\n\nProse about 🔴 1.\n\n"
+    for heading, text in SECTION_TEXT.items():
+        body += (OPENER + text + CLOSER) if heading == taken else text
+    code, out, text = generate(repo, report_text=body + TERMINAL)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert f"swallows `{taken}`" in out
+
+
+def test_an_unclosed_fence_above_the_probes_table_names_the_fence(repo):
+    """§14, and the unclosed half of the class opened one section earlier.
+    That refusal used to live in `fenced_after`, which `build` calls for the
+    probes section alone -- and a fence opened under the verdict table takes
+    `## Executed probes` with it, so the call never happened for a section
+    the report no longer had. Nothing was lost silently, because an unclosed
+    fence runs to the end of the file and takes the terminal lines too:
+    executed at `c4d7077`, exit 2 reading `the report has 0 Needs a fix:
+    lines`, which sends the writer to look for a line they wrote. The rule
+    is report-wide or it reads one section, and the message names the fence
+    or it names a symptom."""
+    declared(repo)
+    early = HEAD_AND_VERDICTS + OPENER + PROBES_TABLE + DEFERRED_TABLE
+    code, out, text = generate(repo, report_text=early + TERMINAL)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "never closed" in out
+
+
+def test_a_fence_that_swallows_a_terminal_line_names_the_fence(repo):
+    """§14. This shape was already refused at `c4d7077`, for having `0
+    Needs a fix: lines` -- which tells the writer to add a line they did in
+    fact write. The fence is what is wrong, so the fence is what is named.
+
+    The fence opens below the Deferred table and closes at the end of the
+    file, so the terminal lines are the only thing it takes: a report that
+    also loses a section is named by the section, which is the more useful
+    half of the same message."""
+    declared(repo)
+    end = HEAD_AND_VERDICTS + PROBES_TABLE + DEFERRED_TABLE + OPENER + TERMINAL
+    code, out, text = generate(repo, report_text=end + "```\n")
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "swallows `Needs a fix:`" in out
+
+
+def test_a_fence_quoting_a_heading_is_kept_while_the_real_one_stands(repo):
+    """The limit of the rule. A report may quote a heading inside a fence --
+    a reviewer of this very work item does -- and what decides is whether
+    the real section still stands outside the fence. This report's does, so
+    the block is copied and the Deferred table is read as written."""
+    declared(repo)
+    quoted = "```markdown\n## Deferred\n\nnothing to drain\n```\n"
+    code, out, text = generate(
+        repo, report_text=report(probes=PROBE_ROW + "\n" + quoted)
+    )
+    assert code == 0, out
+    assert quoted.strip() in text
+    assert rows_of(text, "## Deferred") == [
+        ln.strip() for ln in (DEFERRED_HEADER + DEFERRED_ROW).splitlines()
+    ]
+
+
+def test_a_comment_at_column_zero_inside_a_fence_is_not_a_heading(repo):
+    """A `#` at column 0 is a heading in Markdown and a comment in Python,
+    and only the fence tells them apart. So the guard reads the lines a
+    fence hid against what the generator actually looks up in the report,
+    never against the `#` character."""
+    declared(repo)
+    commented = "```python\n# rebuild the row, then:\n"
+    commented += "def helper(a):\n    return a\n```\n"
+    code, out, text = generate(
+        repo, report_text=report(probes=PROBE_ROW + "\n" + commented)
+    )
+    assert code == 0, out
+    assert "# rebuild the row, then:" in text
+
+
+def test_prose_under_the_probes_table_stays_in_the_report(repo):
+    """A fence is copied whole and nothing else of the section is
+    (`fenced_after`'s docstring, and `questions.md` A5 of #161's item).
+    Round 3 of that chain (⬜ 16) found the clause had no case at all: a
+    mutation widening the copy to the whole section body passes both fence
+    cases above, because both look only at what the fence itself carries."""
+    declared(repo)
+    prose = "The block replaces the helper; this sentence must not travel.\n"
+    code, out, text = generate(
+        repo, report_text=report(probes=PROBE_ROW + "\n" + prose + "\n" + FENCE)
+    )
+    assert code == 0, out
+    assert FENCE.strip() in text
+    assert "must not travel" not in text
+
+
 def test_a_report_without_a_verdict_table_is_refused(repo):
     declared(repo)
     code, out, text = generate(repo, report_text=report(verdicts=None))
