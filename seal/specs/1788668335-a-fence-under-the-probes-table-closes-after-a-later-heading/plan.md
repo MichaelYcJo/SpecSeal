@@ -54,7 +54,7 @@ and how the enumeration is known to be complete.
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | The reproduction at HEAD, the alternatives table settled on it, and the refusal or the answer that none is owed — with the two cases #169 names either way | `bin/test tests/test_the_record_is_generated.py -q`, the new cases seen red first, and the module's own mutation battery | `2b6e8f1` |
-| 2 | The closing set: ledger fragment, changelog fragment, `overview.md`, `docs/flow.md`'s #169 box | the modules that read them, `evidence-check`, and the orchestrator's broad gate after the rounds | |
+| 2 | The closing set: ledger fragment, changelog fragment, `overview.md`, `docs/flow.md`'s #169 box | the modules that read them, `evidence-check`, and the orchestrator's broad gate after the rounds | `5083595` |
 
 Two phases rather than four: this item touches one function and its cases, and
 a phase boundary that carries nothing is a record nobody reads.
