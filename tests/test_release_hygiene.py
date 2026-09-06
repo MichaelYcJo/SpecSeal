@@ -50,10 +50,12 @@ LOADED = (
 )
 
 # A version-shaped token, with the optional `v` prefix the substring test this
-# replaced caught for free. The lookaround on both sides is what keeps
-# `1.2.3.4` and `v1.2.30` from reading as `1.2.3`: a four-part number is not a
-# release of this plugin, and a number that continues is a different one.
-VERSION_TOKEN = re.compile(r"(?<![\w.])v?(\d+\.\d+\.\d+)(?![\w.])")
+# replaced caught for free. `(?!\w)` keeps `v1.2.30` from reading as `1.2.3`,
+# and `(?!\.\d)` keeps `2.0.1.5` from reading as a release of this plugin. The
+# two are spelled apart because a single `(?![\w.])` also swallowed a version
+# at the END OF A SENTENCE — `right for 0.8.3.` answered no offender, where the
+# substring check this replaced caught it (review round 1).
+VERSION_TOKEN = re.compile(r"(?<![\w.])v?(\d+\.\d+\.\d+)(?!\w)(?!\.\d)")
 
 # The value the repository already tells an author to write where a real
 # version would be wrong. `docs/issues-and-milestones.md` §"A rolling log is
@@ -353,10 +355,39 @@ def test_a_number_that_is_not_a_version_is_not_read_as_one():
     assert timers_in(
         "docs/x.md", "the token v1.2.30 is its own", RUNNING_IN_THE_FIXTURES
     ) == [(1, "v1.2.30")]
+    # `(?!\w)`'s own case. The line above does NOT pin it: `\d+` is greedy, so
+    # `v1.2.30` is matched whole with or without that lookahead, and a run
+    # that dropped it left every case in this module green. What only it
+    # refuses is a third component followed by a LETTER — the same shape as
+    # round 1's finding, where a lookaround's guard could not see its loss.
+    assert (
+        timers_in("docs/x.md", "tagged 0.9.0rc1 last week", RUNNING_IN_THE_FIXTURES)
+        == []
+    )
     assert (
         timers_in("docs/x.md", "the python floor is 3.12", RUNNING_IN_THE_FIXTURES)
         == []
     )
+
+
+def test_a_version_that_ends_a_sentence_is_still_a_version():
+    """The shape the check this replaced caught and a lookaround can lose.
+
+    `version() in f.read()` was punctuation-blind, so `right for 0.8.3.` was
+    an offender. A single `(?![\\w.])` refuses any following dot, which reads
+    a sentence-final version as no version at all — and that one never fires
+    later either, because the period is still there on the day the number
+    becomes the running one.
+    """
+    assert timers_in(
+        "docs/x.md", "Everything here is right for 0.8.3.", RUNNING_IN_THE_FIXTURES
+    ) == [(1, "0.8.3")]
+    assert timers_in(
+        "docs/x.md", "- #179 goes into 0.9.0.", RUNNING_IN_THE_FIXTURES
+    ) == [(1, "0.9.0")]
+    assert timers_in("docs/x.md", "ships in 0.9.0...", RUNNING_IN_THE_FIXTURES) == [
+        (1, "0.9.0")
+    ]
 
 
 def python_floor():
