@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 4 |
-| Commit | `dfe178a` |
+| Commit | `fae986a` — the commit carrying the fragments and these records. It could not carry its own hash, so this cell and `plan.md`'s phase-4 Status were filled in by the stamp commit that follows it |
 | Ran by | unknown — the spawn prompt carried no value for this row, and only the orchestrating session can name one |
 
 ## What this phase was asked
