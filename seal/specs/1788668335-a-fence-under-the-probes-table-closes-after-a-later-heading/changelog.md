@@ -50,4 +50,23 @@
   same limit as the heading rule: a fence quoting rows beside a table that
   still stands is copied as it always was, which is what lets a reviewer of
   this generator paste record-shaped blocks into a report it will accept.
-  (#169)
+  **A fence is not the only hider, and that list of three was one short.**
+  Every text reaches the generator through `readable`, which blanks in two
+  passes and runs `strip_comments` first — so an HTML comment opened and
+  never closed blanks every line below it exactly as an open fence does, one
+  pass earlier, where no fence question can see it. The missing member was
+  created by the fix for the round paragraph above: that guard asked the
+  fence question of the comment-stripped text while the paragraph is spliced
+  into the record verbatim, so an unterminated comment wrote the record and
+  left four of its five sections unreadable to every downstream reader. Both
+  the report and the round paragraph now ask both questions, the comment's
+  first — an open comment blanks the closing fence of every block below it,
+  so the other order names a fence that is closed in the text as written. On
+  the report the same question replaces a message that sent the writer to add
+  a `Needs a fix:` line they had in fact written. **What is left is one cell,
+  named rather than assumed**: a comment that is balanced in the report and
+  half in the record, because a copied row and a copied block are both slices
+  of it. Refusing that takes a question about balance across a slice rather
+  than about a hider that never closes, since a copied block may legitimately
+  carry a whole comment — so it is recorded at the coordinate with what it
+  costs, a straddle in a verdict row losing three whole sections. (#169)

@@ -11,14 +11,19 @@
             `templates/sdd-round.md` §Executed probes; `agents/warden.md`
             §Report; `CLAUDE.md` §*a change writes fragments*
 · evidence: `seal/ledger/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading.md`
-            F1–F4, sixteen coordinates; and `seal/ledger.md` R1 and R9
+            F1–F5, eighteen coordinates; and `seal/ledger.md` R1 and R9
             re-read and re-stamped, because phase 1 moved `build`
-· verified: **executed** — `tests/test_the_record_is_generated.py` (49
-            passed) and the nine modules named in `phases/phase-2.md`, both
-            `evidence-check` forms. **read** — `swallowed`, `build`,
-            `fenced_after`, the five constants and the six cases, at
-            `5721a31`. **unverified** — the full suite, the repository-wide
-            lint and the typecheck, which are the orchestrator's (§2)
+· verified: **executed** — `tests/test_the_record_is_generated.py` (55
+            passed), the eight modules that touch `round_record.py` plus
+            `tests/test_a_rider_reaches_its_file.py` (302 passed), the
+            (copy × hider) grid cell by cell before and after the fix, four
+            mutations each turning exactly one case red, `ruff check` and
+            `ruff format --check` on the two files this pass touched, and
+            both `evidence-check` forms. **read** — `swallowed`, `build`,
+            `fix_table`, `chain_check.py#SEPARATORS` and the seven constants,
+            at `aed3ca0`. **unverified** — the full suite, the
+            repository-wide lint and the typecheck, which are the
+            orchestrator's (§2)
 
 ## Why this work exists
 
@@ -141,51 +146,88 @@ that finding from the record with nothing said. Nothing has produced that
 shape yet — the two measured instances, #169's and round 1's, were both whole
 sections or whole tables.
 
-**The second hider is enumerated, measured, and left as a message defect.**
-Everything above is about fences, and `readable` blanks with two passes:
-`strip_comments` runs first. An HTML comment opened and never closed blanks
-the rest of the report the same way an open fence does, and `swallowed`
-cannot see it for the same reason it could not see a comment-hidden fence —
-it reads the text the comments have already been stripped from. **Executed
-2026-09-06 at `c7663e1`**, calling `swallowed` and `terminal_value` directly
-on two crafted reports:
+<!-- CORRECTED 2026-09-06 in round 2's fix pass, findings 7 and 8. Everything
+     from here down said the second hider was enumerated and left open on
+     purpose. Two things in that were wrong: the enumeration was one member
+     short, and the member it missed was created by round 1's own fix; and the
+     cost of what stays open was measured on a row where nothing follows it. -->
 
-| The `<!--` opens | What happens |
+**The second hider is closed on both texts, and the enumeration that said it
+could be left open was one member short.** Everything above this line is about
+fences, and `readable` blanks with two passes: `strip_comments` runs first. An
+HTML comment opened and never closed blanks every line below it exactly as an
+open fence does — one pass earlier, where no fence question can see it.
+
+Round 1 enumerated **what the boolean was applied to** and found four members:
+the report as `swallowed` reads it, the second text `fenced_after` reads, the
+table rows under a standing heading, and the round paragraph. Round 2 found
+that list one short. The axis is two-dimensional — the text a hider is asked
+about, and **which hider** — and the missing cell was created by round 1's own
+fix: the round-paragraph guard asks `strip_comments(asked)` whether a fence is
+still open, while `build` splices `asked` verbatim. That is 🔴 1's check/copy
+asymmetry, inside the guard written to close 🟡 3.
+
+**Re-run with both axes, and executed cell by cell at `aed3ca0`:**
+
+| The copy | An open fence | An open HTML comment |
+|---|---|---|
+| the report as a whole | `NEVER_CLOSED` | **was** exit 2 on *the report has 0 `Needs a fix:` lines* — the writer sent to add a line they did write |
+| the round paragraph, spliced whole | `ASKED_NEVER_CLOSED` | **was** exit 1 with the record WRITTEN and four of its five sections resolving to 0 occurrences — 🔴 7 |
+| a fenced block, copied out of `raw` | `NEVER_CLOSED_VERBATIM` | unreachable: an opener inside the block whose closer stands outside it puts the block's own closing fence inside the comment, so the fence question answers first |
+| a table row, copied out of `raw` | `SWALLOWED_TABLE` | the straddle — still open, below |
+
+Both **was** cells are closed at `c7ebb29`: each text now asks both questions,
+the comment's first. The order is load-bearing and has its own assertion in
+each case — an open comment blanks the closing fence of every block below it,
+so asked the other way round the refusal names a fence that is closed in the
+text as written. Four mutations, each alone, turn exactly one case red:
+deleting either comment question, and swapping either order.
+
+**How the enumeration is known to be closed this time.** It is not a list of
+shapes any more. The columns are the two passes `readable` is built from, and
+the rows are the three copies the generator makes — `build` splices the round
+paragraph whole, `table_of` copies a row out of `raw`, `fenced_after` copies a
+block out of `raw` — which is every place a text the generator has read
+reaches the record. A fourth copy would add a row, and a third hiding pass
+would add a column; neither exists. Every cell above was executed rather than
+argued, and the third row's *unreachable* is forced rather than sampled: for
+the comment to be unbalanced across the block the closer has to stand outside
+it, which puts the block's closing fence inside the comment.
+
+**What stays open is the straddle, and its cost was understated.** A comment
+can be whole in the report and half in the record, because both copies take a
+SLICE of `raw`. Round 1's fix pass measured that on a **Deferred** row and
+wrote *every section after it resolves to nothing* — and nothing follows the
+Deferred section in a record, so the sentence was true of nothing. **Executed
+2026-09-06 at `aed3ca0`, both rows:**
+
+| Where the straddle is | What happens |
 |---|---|
-| above `## Deferred` | `swallowed` does not raise; `## Deferred` resolves to no section AND both terminal lines are gone, so `terminal_value` refuses with *the report has 0 `Needs a fix:` lines* |
-| below the terminal lines | `swallowed` does not raise; nothing the generator reads is hidden, and the record is correct |
+| a **Deferred** row | exit 0, the record written, every heading still resolving; the rows below the straddle silently absent |
+| a **verdict** row | the record written, the run then fails, and `## Executed probes`, `## Inherited coordinates` and `## Deferred` each resolve to 0 occurrences — **three whole sections** |
 
-So at the report level it is **not** a silent loss. An unterminated comment
-runs to the end of the file, so it always takes the terminal lines with it
-unless it opens below them — and the terminal lines are last in the shape
-`agents/warden.md` §Report asks for. What is left there is the message: the
-writer is sent to add a line they did in fact write, which is the exact
-defect §14 and this branch's own
-`test_a_fence_that_swallows_a_terminal_line_names_the_fence` fixed for
-fences.
+The verdict row is the instance to weigh, and it is three sections rather than
+a tail. It still has no guard, and the reason is unchanged: it needs a limit
+argument the never-closed question does not, because a copied block may
+legitimately carry a whole comment — so its question is balance across the
+slice, not presence in it. That is a design call rather than a fix, and rule 2
+of this pass refuses a fix pass the mechanism it would take. It stays at the
+`# RIDER:` in `swallowed`, now carrying the verdict-row measurement, and not
+in `seal/follow-up.md`: it is tied to a coordinate, and that file's own header
+says a coordinate-tied row is a deferral filed where its reader is not.
 
-**The second shape of it is a silent loss, and it is the one to weigh
-first.** A comment can be whole in the report and half in the record, because
-both copies take a SLICE of `raw` — `table_of` copies a row, `fenced_after`
-copies a block. **Executed 2026-09-06 at `993acd1`**: a Deferred row reading
-`| the leg | <!-- a note | CI |` whose `-->` stands on the next line is
-balanced in the report, `swallowed` does not raise, `table_of` copies the row
-as it stands, and in the record every section after that row resolves to
-nothing. The fence version of that same straddle is precisely what the
-restored raise in `fenced_after` now catches; the comment version has no
-guard at all. It is the same asymmetry as 🔴 1 seen from the copy's side
-rather than the check's, and it needs a limit argument of its own before it
-gets a refusal — a copied block may legitimately carry a whole comment, so
-the question is balance across the slice and not presence in it. That is a
-design call and not a fix, which is the other reason it is not taken here.
-
-It is one refusal in the same place and shape as `NEVER_CLOSED`, and
-it is not this fix pass's — round 1 did not find it, a fix pass answers the
-findings it was given, and an unfound guard puts surface in front of the
-verifying round that nobody asked for. It went to a `# RIDER:` at the line it
-is about, in `swallowed`, and not to `seal/follow-up.md`: it is tied to a
-coordinate, and that file's own header says a coordinate-tied row is a
-deferral filed where its reader is not.
+**A pre-existing defect in `fix_table` was found by round 2 and deferred to a
+rider.** `fix_table` cuts the sha out of the middle of its own code span and
+leaves both backticks, because `chain.SEPARATORS` carries a space, two dashes,
+a hyphen, a colon and a comma and no backtick — so a `fixed` cell lands in the
+record as `fixed at e7d3447 — `` —`. Read 2026-09-06 at `aed3ca0`, and visible
+in this work item's own `rounds/round-1.md`, rows 1 to 3. It predates this
+branch. The repair belongs at the `note` line rather than in `chain.SEPARATORS`,
+which is shared with the `deferred` home and with `chain_check`'s own readers.
+The home is a `# RIDER:` at `fix_table` for the reason `seal/follow-up.md`'s
+own header gives — it is tied to a coordinate, and this repository has a
+tracker, so that file should hold none of it. An issue is the orchestrator's
+to open if a schedule is wanted; contract §6 forbids this pass posting one.
 
 ## Fed back into the spec
 

@@ -1280,6 +1280,19 @@ def fix_table(reader, path):
     outside the three, a `fixed` whose third cell names no commit, an
     `answered` with no grounds, a `deferred` with no home.
     """
+    # RIDER: `note` below cuts the sha out of the middle of its own code span
+    # and leaves both backticks standing, because `chain.SEPARATORS` carries a
+    # space, two dashes, a hyphen, a colon and a comma -- and no backtick. A
+    # `fixed` cell reading ``fixed at `e7d3447` `` therefore lands in the
+    # record as `fixed at e7d3447 -- `` --`, an empty code span beside the
+    # commit. Read 2026-09-06 at aed3ca0 against `chain_check.py#SEPARATORS`
+    # and visible in this work item's own `rounds/round-1.md`, rows 1 to 3.
+    # It predates this branch. The repair is at the `note` line and NOT in
+    # `chain.SEPARATORS`, which is shared with the `deferred` home and with
+    # `chain_check`'s own readers: widening it there would strip a backtick
+    # off a home that is deliberately a code span. Round 2's finding 9;
+    # `seal/follow-up.md`'s header sends a coordinate-tied item here rather
+    # than to that file. Verified 2026-09-06 at aed3ca0.
     text = read_text(path, "fix table")
     raw, lines = text.splitlines(), reader.readable(text)
     out = {}
