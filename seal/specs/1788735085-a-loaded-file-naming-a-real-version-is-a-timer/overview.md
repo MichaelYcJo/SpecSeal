@@ -26,7 +26,6 @@ the running one, and keeps every version below it because that is history.
 |---|---|
 | the full test suite, the repository-wide `uvx ruff check .` / `format --check .`, and the typecheck — none of the three was run | the orchestrating session, which runs the broad gate once after the review rounds settle |
 | whether the widened check behaves the same on Linux and Windows CI — every run here was on macOS (darwin 25.5.0), and the check calls `git ls-files` and splits paths | the orchestrating session, at CI on the pull request |
-| the `Ran by` row of all four phase records reads `unknown` | the orchestrating session — `templates/sdd-phase.md` forbids a segment sourcing that value from its own idea of what it is, and no `--ran-by` value reached this segment |
 
 ## Not done
 
