@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 188 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | REACH_REFUSAL (depth 1); test_the_refusal_names_the_other_direction_too (depth 1); handed_back (depth 1) |
 | Needs a fix | yes — finding 1 (a false rename argument in six places, two of which ship: `seal/ledger.md`'s R8 Notes and the changelog fragment) and finding 2 (`reach_values` over-collects, or the over-reach is recorded and the message reworded). |
