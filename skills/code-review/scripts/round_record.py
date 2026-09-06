@@ -169,6 +169,72 @@ PENDING_SURFACE = f"{chain.NONE_WORD} {DASH} {chain.NOT_YET}"
 COMMA_SPLIT_ROWS = (chain.NEW_UNITS, chain.CONTRACT)
 # The two terminal lines of a reviewer's report, by the field they land in.
 TERMINAL_LINES = (chain.NEEDS, chain.FLOOR)
+# Together with `REPORT_TABLES`' headings, everything the generator looks up
+# in the report -- which is what `swallowed` guards, so a section added later
+# is guarded by being added there and no second list goes stale.
+SWALLOWED = (
+    "a fenced block swallows `{name}` -- the report has no `{name}` outside "
+    "a fence, so the record would lose it and say nothing. Close the fence "
+    "above that line, or move the block below the section"
+)
+NEVER_CLOSED = (
+    "a fenced block in the report is never closed -- copied as it stands it "
+    "would swallow every heading after it, and every section below it would "
+    "be gone from the record with nothing said"
+)
+# The same sentence for the OTHER text. `swallowed` reads the report with its
+# comments stripped and `fenced_after` reads it verbatim, so a fence a comment
+# hides is absent from the first check and present in the copy.
+NEVER_CLOSED_VERBATIM = (
+    "a fenced block under `{heading}` is never closed in the report as it "
+    "stands, and the block is copied into the record verbatim -- the record "
+    "would carry an open fence and every section below it would be gone with "
+    "nothing said. An opener inside an HTML comment counts: the report-wide "
+    "check reads the report with its comments stripped and this copy reads it "
+    "as written. Close the fence, or take the opener out of the comment"
+)
+# The heading is only half of what a section is to the generator; the rows are
+# the other half, and a fence can take those alone.
+SWALLOWED_TABLE = (
+    "a fenced block hides every table row of `{name}` -- the heading still "
+    "stands, so nothing notices it went, and the generator copies only rows "
+    "outside a fence. The section would arrive in the record empty and say "
+    "nothing. Close the fence above the table, or move the block below the "
+    "section"
+)
+# The round paragraph is spliced above every section a reader looks up, and
+# the record is written before anything reads it.
+ASKED_NEVER_CLOSED = (
+    "a fenced block in the round paragraph is never closed -- the paragraph "
+    f"is copied into the record above `{VERDICTS}`, so an open fence would "
+    "blank the record from there down and the record is written before any "
+    "reader gets to say so. Close the fence in the --asked file"
+)
+# The same never-closed question, asked of the OTHER hider. `readable` blanks
+# with two passes and `strip_comments` runs first, so an HTML comment opened
+# and never closed blanks every line below it exactly as an open fence does --
+# and no fence question can see it, because by the time the fence pass runs
+# those lines are already gone. Both are asked BEFORE their fence twin for
+# that reason: an open comment blanks the closing fence of every block below
+# it, so the fence question would answer first and name a fence that is closed
+# in the text as written.
+COMMENT_NEVER_CLOSED = (
+    "an HTML comment in the report is never closed -- it blanks every line "
+    "below it before anything is looked up, so the sections and the terminal "
+    "lines under it are gone and the refusal you would otherwise get names a "
+    "line you did in fact write. Close the comment with `-->`"
+)
+ASKED_COMMENT_NEVER_CLOSED = (
+    "an HTML comment in the round paragraph is never closed -- the paragraph "
+    f"is copied into the record above `{VERDICTS}` as it stands, so the "
+    "record would carry the opener and every section below it would be blank "
+    "to every reader, and the record is written before any reader gets to say "
+    "so. Close the comment in the --asked file with `-->`"
+)
+# A line no fence regex can match and no comment marker, appended to ask a
+# reader pass whether its hider is still open at the end of the file: blanked
+# means open, kept means closed. Both passes ask it, of their own hider.
+SENTINEL = "x"
 
 
 class Refused(Exception):
@@ -362,6 +428,131 @@ def table_of(reader, raw, lines, heading, header, required):
     return [row(header), separator(len(header))] + [raw[i].strip() for i, _ in body]
 
 
+def swallowed(reader, report, lines):
+    """Refuse a fence that has taken something the generator reads with it.
+
+    Two halves of one rule, both read over the whole report: **a hider must
+    close, and its span must not cross a line the generator reads the report
+    by.** The first half used to live in `fenced_after`, where it saw one
+    section; both belong here, because a fence can open in one section and
+    close in another and the section it destroys is not the one it opened in.
+
+    **A hider, not a fence.** `readable` blanks with two passes and
+    `strip_comments` runs first, so an unterminated HTML comment blanks every
+    line below it exactly as an open fence does -- and it does it one pass
+    earlier, where no fence question can see it. Both are asked here, the
+    comment's first, because an open comment blanks the closing fence of
+    every block below it and the fence question would otherwise answer first
+    and name a fence that is closed in the text as written.
+
+    `readable` blanks a fence, so a heading inside one is not a heading to
+    any walk downstream: `section_body` runs straight past it, the fence
+    reads as closed, and the section is simply gone from the record. #169
+    reported one shape of that -- a fence under the probes table closing
+    below `## Deferred`, exit 0, the Deferred table inside the fence and the
+    record's own Deferred section reading `nothing to drain`.
+
+    The rule is about the SPAN and not about the name it crossed, which is
+    what makes it cover the shapes #169 did not name -- a fence opened under
+    the verdict table that closes below `## Executed probes` takes the whole
+    probes section with it, and `fenced_after` is never even called for that
+    section, so no guard living inside it could see the shape.
+
+    What may not be lost is `REPORT_TABLES`' headings, the table rows that
+    stand under them, and `TERMINAL_LINES`. A list of section constants typed
+    out here would go stale the day a section is added; these two are the
+    constants the generator reads BY, so a section it cannot read is a
+    section it does not have.
+
+    The rows are the third loop and they are the half round 1 of this work
+    item's own chain found missing (🟡 2): a heading is only half of what a
+    section is to the generator, and a fence can take the rows and leave the
+    heading standing -- `## Deferred` then reads `nothing to drain` in the
+    record beside a row the reviewer wrote. The condition is F3's, one level
+    down: the section has rows only inside a fence. A fence quoting rows
+    beside a table that still stands is left alone, for the same reason a
+    fence quoting a heading is.
+
+    What this does NOT read is the report as written. `fenced_after` does,
+    and the difference is exactly the HTML comments: `strip_comments` runs
+    here first, so a fence opener a comment hides is not a fence to anything
+    below. That is why the never-closed raise in `fenced_after` is a second
+    check and not a duplicate of the first (🔴 1 of the same round).
+
+    A fence quoting one of those names is left alone while the real one
+    still stands outside it. That matters more than it looks: a reviewer of
+    this generator pastes record-shaped blocks, headings and all, and a rule
+    that refused the mention rather than the loss would stop the tool on its
+    own review rounds.
+
+    The lines a fence hid are read off the reader's own two passes rather
+    than by tracking fences a third time here: `lines` is
+    `blank_fences(strip_comments(...))`, so what a fence hid is exactly what
+    survives comment stripping and is blank afterwards. A `#` at column 0 is
+    a Markdown heading and a Python comment both, and only the fence tells
+    them apart -- which is why nothing here reads the `#` character.
+    """
+    # RIDER: the comment STRADDLE is the one shape of this rule still open,
+    # and unlike the never-closed half above it is a silent loss. A comment
+    # can be whole in the report and half in the record, because both copies
+    # take a SLICE of `raw`: `table_of` copies a row and `fenced_after` copies
+    # a block. A verdict row whose third cell opens an HTML comment, with the
+    # closing marker on the line below the row, is balanced here -- this
+    # function does not raise -- and the record carries half of it.
+    #
+    # Executed 2026-09-06 at aed3ca0, on a VERDICT row: the record is written,
+    # the run then fails, and read back through the shared reader `## Executed
+    # probes`, `## Inherited coordinates` and `## Deferred` each resolve to 0
+    # occurrences. Three whole sections. Round 1's fix pass measured the same
+    # straddle on a DEFERRED row, where nothing follows the row in the record
+    # at all -- so *every section after it resolves to nothing* was true of
+    # nothing, and that shape in fact exits 0 with every heading still
+    # resolving, dropping only the rows below the straddle. The verdict row is
+    # the instance to weigh, and it is three sections rather than a tail.
+    #
+    # It has no guard because it needs a limit argument the never-closed
+    # question does not: a copied block may legitimately carry a whole
+    # comment, so its question is balance ACROSS THE SLICE and not presence in
+    # it. Verified 2026-09-06 at aed3ca0.
+    stripped = reader.strip_comments([*report.splitlines(), SENTINEL])
+    if not stripped[-1]:
+        raise Refused(COMMENT_NEVER_CLOSED)
+    stripped = stripped[:-1]
+    if not reader.blank_fences([*stripped, SENTINEL])[-1]:
+        raise Refused(NEVER_CLOSED)
+    # `strict=True` states the invariant the pair rests on: both of the
+    # reader's passes keep indices intact, so the two reads are the same file
+    # line for line. A length that differed would truncate the hidden set,
+    # which is this guard reporting clean because it read less. The index is
+    # kept because the table half of the rule below is positional: a row is
+    # lost from the section it stood in, and from no other.
+    pairs = enumerate(zip(stripped, lines, strict=True))
+    hidden = [(i, s.strip()) for i, (s, ln) in pairs if s.strip() and not ln]
+    text = [t for _i, t in hidden]
+    for heading, _header in REPORT_TABLES:
+        if heading in text and not reader.sections(lines, heading):
+            raise Refused(SWALLOWED.format(name=heading))
+    for label in TERMINAL_LINES:
+        pattern = re.compile(r"^\s*" + re.escape(label) + r"\s*:")
+        if any(pattern.match(h) for h in text) and not any(
+            pattern.match(ln) for ln in lines
+        ):
+            raise Refused(SWALLOWED.format(name=f"{label}:"))
+    for heading, _header in REPORT_TABLES:
+        starts = reader.sections(lines, heading)
+        if len(starts) != 1:
+            continue  # absent is the loop above; twice is `section_body`'s
+        start = starts[0]
+        end = next(
+            (i for i in range(start + 1, len(lines)) if lines[i].startswith("#")),
+            len(lines),
+        )
+        if any(reader.split_row(ln) for ln in lines[start + 1 : end]):
+            continue
+        if any(start < i < end and reader.split_row(t) for i, t in hidden):
+            raise Refused(SWALLOWED_TABLE.format(name=heading))
+
+
 def fenced_after(reader, raw, lines, heading):
     """The raw lines of every fenced block under `heading`, in order.
 
@@ -393,11 +584,23 @@ def fenced_after(reader, raw, lines, heading):
             and len(opener.group(1)) >= len(marker)
         ):
             marker = None
+    # This is NOT the refusal `swallowed` already made, and it is not dead.
+    # The two walks read two different texts: `swallowed` reads
+    # `strip_comments(report)` and this one reads `raw`, so a fence opener
+    # inside an HTML comment is absent from the first and an opener to this.
+    # Phase 1 removed this raise as unreachable on the assumption that the
+    # two texts agree about where a fence is; round 1 of this work item's own
+    # chain executed the disagreement -- an opener inside a comment under the
+    # probes table, the record written at exit 0, and its `## Inherited
+    # coordinates` and `## Deferred` unreadable to every downstream reader.
+    #
+    # `swallowed` is still the report-wide half and still necessary: a fence
+    # opened under the verdict table takes `## Executed probes` with it, this
+    # function is then never called for a section the report no longer has,
+    # and the record gets the empty template. Necessary is not sufficient,
+    # which is what the removal read as.
     if marker is not None:
-        raise Refused(
-            f"a fenced block under `{heading}` is never closed — copied as it "
-            "stands it would swallow every heading after it"
-        )
+        raise Refused(NEVER_CLOSED_VERBATIM.format(heading=heading))
     return out
 
 
@@ -577,12 +780,35 @@ def build(reader, routing, args, root, item, rounds):
     report = read_text(args.report, "report")
     raw = report.splitlines()
     lines = reader.readable(report)
+    # Before anything is looked up: a section a fence has taken is absent by
+    # every later reading, and each of those readings has its own, wrong
+    # answer for absence -- an empty template, or a count of terminal lines.
+    swallowed(reader, report, lines)
     asked = read_text(args.asked, "round paragraph").strip()
     if not asked:
         raise Refused(
             f"the round paragraph at {args.asked} is empty — `{ASKED}` is the "
             "durable home of what this round was told to attack (#119)"
         )
+    # The report is not the only text spliced into the record. The round
+    # paragraph is a copy of a spawn prompt, spawn prompts carry fenced blocks
+    # and HTML comments routinely, and this one lands ABOVE every section a
+    # reader looks up -- so it is asked BOTH questions `swallowed` asks the
+    # report, in the text a reader sees it in. Both, because the check reads
+    # `strip_comments(asked)` and the splice below copies `asked` verbatim:
+    # asking only the fence question leaves the comment hider free to ride the
+    # gap between the two texts, which is 🔴 1's asymmetry inside the guard
+    # written to close 🟡 3 (round 2's 🔴 7, executed at `aed3ca0`: the record
+    # written and four of its five sections unreadable).
+    #
+    # The comment question comes first for the reason `COMMENT_NEVER_CLOSED`
+    # gives: an open comment blanks the closing fence of every block below it,
+    # so the fence question would answer first and name the wrong hider.
+    asked_lines = reader.strip_comments([*asked.splitlines(), SENTINEL])
+    if not asked_lines[-1]:
+        raise Refused(ASKED_COMMENT_NEVER_CLOSED)
+    if not reader.blank_fences([*asked_lines[:-1], SENTINEL])[-1]:
+        raise Refused(ASKED_NEVER_CLOSED)
 
     verdicts = table_of(reader, raw, lines, VERDICTS, VERDICT_HEADER, True)
     probes = table_of(reader, raw, lines, PROBES, PROBE_HEADER, False) or [
@@ -1054,6 +1280,19 @@ def fix_table(reader, path):
     outside the three, a `fixed` whose third cell names no commit, an
     `answered` with no grounds, a `deferred` with no home.
     """
+    # RIDER: `note` below cuts the sha out of the middle of its own code span
+    # and leaves both backticks standing, because `chain.SEPARATORS` carries a
+    # space, two dashes, a hyphen, a colon and a comma -- and no backtick. A
+    # `fixed` cell reading ``fixed at `e7d3447` `` therefore lands in the
+    # record as `fixed at e7d3447 -- `` --`, an empty code span beside the
+    # commit. Read 2026-09-06 at aed3ca0 against `chain_check.py#SEPARATORS`
+    # and visible in this work item's own `rounds/round-1.md`, rows 1 to 3.
+    # It predates this branch. The repair is at the `note` line and NOT in
+    # `chain.SEPARATORS`, which is shared with the `deferred` home and with
+    # `chain_check`'s own readers: widening it there would strip a backtick
+    # off a home that is deliberately a code span. Round 2's finding 9;
+    # `seal/follow-up.md`'s header sends a coordinate-tied item here rather
+    # than to that file. Verified 2026-09-06 at aed3ca0.
     text = read_text(path, "fix table")
     raw, lines = text.splitlines(), reader.readable(text)
     out = {}

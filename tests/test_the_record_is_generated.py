@@ -508,6 +508,432 @@ def test_an_unclosed_fence_under_the_probes_table_is_refused(repo):
     assert text is None
 
 
+# --- where a fence closes, relative to the section it opened in --------------
+#
+# #169 called the late-closed shape "the one member of the class left open".
+# Decomposed rather than listed (contract §12), the class is one boolean over
+# one span: a fence has a closer or it has not, and where it has one the span
+# from opener to closer either crosses a line the generator reads the report
+# by, or it does not. `readable` blanks a fence, so anything inside that span
+# is invisible to every walk downstream -- which is why the span, and not the
+# crossed line's name, is what decides.
+#
+# Every member, and what each did at `c4d7077` before the guard:
+#
+#   no closer                     exit 2 -- but as `never closed` only for a
+#                                 fence under the probes table, and otherwise
+#                                 as `0 Needs a fix: lines`, because an
+#                                 unclosed fence runs to the end of the file
+#                                 and takes the terminal lines with it
+#   closer, nothing crossed       copied whole, correctly     (case above)
+#   closer, `## Verdicts`         exit 2, `the report has no ## Verdicts`
+#   closer, `## Executed probes`  EXIT 0 -- the table silently gone
+#   closer, `## Deferred`         EXIT 0 -- the section silently gone (#169)
+#   closer, a terminal line       exit 2, `0 Needs a fix: lines`
+#   closer, a prose heading       exit 0, and left that way (`spec.md` §Out)
+#
+# So two members lost a whole table with nothing said, not the one #169
+# named; and three more were caught by a message that blames the reviewer
+# for a section they did write. #169's proposed `SECTIONS` membership test
+# inside `fenced_after` reaches neither group: `## Executed probes` taken
+# means `fenced_after` is never called at all.
+#
+# The last row is the deliberate limit, and it is also what keeps this work
+# item generating its own records: a reviewer of THIS branch pastes
+# record-shaped blocks, headings and all. What is refused is a report LOSING
+# a section, never a fence mentioning one.
+
+TERMINAL = "Needs a fix: yes — 🔴 1\nLoses a record or crashes: no\n"
+HEAD_AND_VERDICTS = (
+    "# what the round found\n\nProse about 🔴 1.\n\n"
+    f"## Verdicts\n\n{VERDICT_HEADER}{OPEN_ROW}\n"
+)
+PROBES_TABLE = f"## Executed probes\n\n{PROBE_HEADER}{PROBE_ROW}\n"
+DEFERRED_TABLE = f"## Deferred\n\n{DEFERRED_HEADER}{DEFERRED_ROW}\n"
+OPENER = "```python\ndef helper(a):\n    return a\n\n"
+CLOSER = "```\n\n"
+
+
+def test_a_fence_closed_after_the_deferred_table_is_refused(repo):
+    """#169, found by round 3 of #161's own chain. The fence opens under the
+    probes table and closes below the Deferred table, so `## Deferred` sits
+    inside it -- and `readable` blanks a fence, which means `section_body`
+    never stops there and the fence reads as closed. Executed at `c4d7077`
+    before the guard: exit 0, the record carrying `## Deferred` and its row
+    inside the fence while its own Deferred section read `nothing to drain`.
+    """
+    declared(repo)
+    late = HEAD_AND_VERDICTS + PROBES_TABLE + OPENER + DEFERRED_TABLE + CLOSER
+    code, out, text = generate(repo, report_text=late + TERMINAL)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "swallows `## Deferred`" in out
+
+
+SECTION_TEXT = {
+    "## Verdicts": f"## Verdicts\n\n{VERDICT_HEADER}{OPEN_ROW}\n",
+    "## Executed probes": PROBES_TABLE,
+    "## Deferred": DEFERRED_TABLE,
+}
+
+
+@pytest.mark.parametrize("taken", list(SECTION_TEXT))
+def test_a_fence_that_takes_a_section_the_generator_reads_is_refused(repo, taken):
+    """The class itself, over the generator's own list of what it reads
+    (contract §12). The fence opens above one section and closes below it,
+    so that section is gone by every later reading -- and each reading has
+    its own wrong answer for absence: an empty template for the two optional
+    tables, `the report has no ## Verdicts section` for the required one.
+    Each blames the reviewer for a section they did in fact write.
+
+    Parametrized over `REPORT_TABLES` rather than over three names typed
+    here, which is the whole argument against #169's `SECTIONS` tuple: a
+    section added later is guarded, and gets a case, by being added there.
+
+    `## Executed probes` is the member #169 did not name, and it is the one
+    that settles where the guard lives -- a fence that takes that heading
+    means `build` never calls `fenced_after` for it, so no guard inside that
+    function could ever see the shape. Executed at `c4d7077`: exit 0 for
+    `## Deferred` and `## Executed probes`."""
+    assert [h for h, _ in generator_module().REPORT_TABLES] == list(SECTION_TEXT)
+    declared(repo)
+    body = "# what the round found\n\nProse about 🔴 1.\n\n"
+    for heading, text in SECTION_TEXT.items():
+        body += (OPENER + text + CLOSER) if heading == taken else text
+    code, out, text = generate(repo, report_text=body + TERMINAL)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert f"swallows `{taken}`" in out
+
+
+def test_an_unclosed_fence_above_the_probes_table_names_the_fence(repo):
+    """§14, and the unclosed half of the class opened one section earlier.
+    That refusal used to live in `fenced_after`, which `build` calls for the
+    probes section alone -- and a fence opened under the verdict table takes
+    `## Executed probes` with it, so the call never happened for a section
+    the report no longer had. Nothing was lost silently, because an unclosed
+    fence runs to the end of the file and takes the terminal lines too:
+    executed at `c4d7077`, exit 2 reading `the report has 0 Needs a fix:
+    lines`, which sends the writer to look for a line they wrote. The rule
+    is report-wide or it reads one section, and the message names the fence
+    or it names a symptom."""
+    declared(repo)
+    early = HEAD_AND_VERDICTS + OPENER + PROBES_TABLE + DEFERRED_TABLE
+    code, out, text = generate(repo, report_text=early + TERMINAL)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "never closed" in out
+
+
+def test_a_fence_that_swallows_a_terminal_line_names_the_fence(repo):
+    """§14. This shape was already refused at `c4d7077`, for having `0
+    Needs a fix: lines` -- which tells the writer to add a line they did in
+    fact write. The fence is what is wrong, so the fence is what is named.
+
+    The fence opens below the Deferred table and closes at the end of the
+    file, so the terminal lines are the only thing it takes: a report that
+    also loses a section is named by the section, which is the more useful
+    half of the same message."""
+    declared(repo)
+    end = HEAD_AND_VERDICTS + PROBES_TABLE + DEFERRED_TABLE + OPENER + TERMINAL
+    code, out, text = generate(repo, report_text=end + "```\n")
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "swallows `Needs a fix:`" in out
+
+
+def test_a_fence_quoting_a_heading_is_kept_while_the_real_one_stands(repo):
+    """The limit of the rule. A report may quote a heading inside a fence --
+    a reviewer of this very work item does -- and what decides is whether
+    the real section still stands outside the fence. This report's does, so
+    the block is copied and the Deferred table is read as written."""
+    declared(repo)
+    quoted = "```markdown\n## Deferred\n\nnothing to drain\n```\n"
+    code, out, text = generate(
+        repo, report_text=report(probes=PROBE_ROW + "\n" + quoted)
+    )
+    assert code == 0, out
+    assert quoted.strip() in text
+    assert rows_of(text, "## Deferred") == [
+        ln.strip() for ln in (DEFERRED_HEADER + DEFERRED_ROW).splitlines()
+    ]
+
+
+def test_a_comment_at_column_zero_inside_a_fence_is_not_a_heading(repo):
+    """A `#` at column 0 is a heading in Markdown and a comment in Python,
+    and only the fence tells them apart. So the guard reads the lines a
+    fence hid against what the generator actually looks up in the report,
+    never against the `#` character."""
+    declared(repo)
+    commented = "```python\n# rebuild the row, then:\n"
+    commented += "def helper(a):\n    return a\n```\n"
+    code, out, text = generate(
+        repo, report_text=report(probes=PROBE_ROW + "\n" + commented)
+    )
+    assert code == 0, out
+    assert "# rebuild the row, then:" in text
+
+
+def test_prose_under_the_probes_table_stays_in_the_report(repo):
+    """A fence is copied whole and nothing else of the section is
+    (`fenced_after`'s docstring, and `questions.md` A5 of #161's item).
+    Round 3 of that chain (⬜ 16) found the clause had no case at all: a
+    mutation widening the copy to the whole section body passes both fence
+    cases above, because both look only at what the fence itself carries."""
+    declared(repo)
+    prose = "The block replaces the helper; this sentence must not travel.\n"
+    code, out, text = generate(
+        repo, report_text=report(probes=PROBE_ROW + "\n" + prose + "\n" + FENCE)
+    )
+    assert code == 0, out
+    assert FENCE.strip() in text
+    assert "must not travel" not in text
+
+
+# --- the same boolean, applied to the two texts and the third input ----------
+#
+# Round 1 of this work item's own chain measured what the seven-member table
+# above did NOT cover, and none of it is a new member of that partition. The
+# partition is one boolean over one span, and it is complete for that boolean;
+# what was under-counted is what the boolean was applied TO.
+#
+#   the text          `swallowed` reads `strip_comments(report)`, and
+#                     `fenced_after` reads `raw`. A fence opener inside an
+#                     HTML comment is absent from the first and present in
+#                     the second, so the report-wide check reads a text that
+#                     does not have it while the copy reads one that does
+#   the line          the partition's read lines were `REPORT_TABLES`'
+#                     headings and `TERMINAL_LINES`. The generator also reads
+#                     the table ROWS under a standing heading, and a fence
+#                     that takes those alone leaves the heading in place
+#   the input         the round paragraph is spliced into the record above
+#                     every section a reader looks up, and it never passed
+#                     through the guard at all
+#
+# Round 2 then found that list one member short, and the missing one was
+# created by round 1's own fix (contract §12: the enumeration is re-run with
+# the new pair in it). The three axes above are one axis -- the text a hider
+# is asked about -- and there is a second: WHICH hider. `readable` blanks with
+# two passes and `strip_comments` runs first, so an HTML comment opened and
+# never closed blanks every line below it exactly as an open fence does, and
+# the fence pass cannot see it because by then those lines are already gone.
+#
+# The grid is the three copies the generator makes -- `build` splices the
+# round paragraph whole, `table_of` copies a row out of `raw`, `fenced_after`
+# copies a block out of `raw` -- crossed with the two hiders. Measured at
+# `aed3ca0`, before the second column existed:
+#
+#                       an open fence            an open HTML comment
+#   the report          `NEVER_CLOSED`           exit 2 on `0 Needs a fix:
+#                                                lines` -- the writer sent to
+#                                                add a line they did write
+#   the round paragraph `ASKED_NEVER_CLOSED`     EXIT 1, RECORD WRITTEN, and
+#                                                four of its five sections
+#                                                unreadable                🔴 7
+#   a copied block      `NEVER_CLOSED_VERBATIM`  unreachable: an opener inside
+#                                                the block whose closer is
+#                                                outside it puts the block's
+#                                                own closing fence inside the
+#                                                comment, so the fence pass
+#                                                sees an unclosed fence first
+#   a copied row        `SWALLOWED_TABLE`        the straddle: balanced in the
+#                                                report, half in the record.
+#                                                Open, `overview.md` §Not done
+#
+# Two cells are closed below. The row straddle stays open because it needs a
+# limit argument the others do not -- a copied block may legitimately carry a
+# whole comment, so its question is balance across the slice, not presence.
+
+
+UNCLOSED_COMMENT_ASKED = "Attack the parser first.\n\n<!-- the coordinate to open\n"
+# A fence that closes, holding a comment that does not. `strip_comments` runs
+# first, so the block's own closing fence is inside the comment and blank by
+# the time the fence pass looks -- which is why the comment is asked first.
+COMMENT_INSIDE_A_FENCE = "Attack it.\n\n```python\n<!-- a note\nx = 1\n```\n"
+
+
+def test_an_unclosed_html_comment_in_the_round_paragraph_is_refused(repo):
+    """🔴 7 of round 2, and it is 🟡 3's own fix one hider over. The guard
+    round 1 added asks `strip_comments(asked)` whether a fence is still open;
+    `build` splices `asked` VERBATIM. So an unterminated comment is invisible
+    to the check and present in the copy -- the same check/copy asymmetry as
+    🔴 1, inside the guard written to close 🟡 3.
+
+    Executed at `aed3ca0` before this: exit 1 with the record WRITTEN, and
+    read back through the shared reader only `## What this round was asked`
+    resolved -- `## Verdicts`, `## Executed probes`, `## Inherited
+    coordinates` and `## Deferred` each 0 occurrences.
+
+    The second half is the limit. A spawn prompt carries HTML comments as
+    routinely as it carries fences -- the one that produced this work item
+    does -- and a balanced one is copied whole, comment and all."""
+    declared(repo)
+    code, out, text = generate(repo, asked=UNCLOSED_COMMENT_ASKED)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "never closed" in out
+    assert "round paragraph" in out
+    assert "HTML comment" in out
+    # And the shape that makes the ORDER load-bearing: the comment opens
+    # inside a fenced block whose closer it therefore blanks. Asked the
+    # fence question first, this is refused for a fence that is closed in
+    # the text as written -- the wrong hider, named to the wrong writer.
+    code, out, text = generate(repo, asked=COMMENT_INSIDE_A_FENCE)
+    assert code == 2, out
+    assert text is None
+    assert "HTML comment" in out, "the fence closes; the comment does not"
+    code, out, text = generate(repo, asked=UNCLOSED_COMMENT_ASKED + "-->\n")
+    assert code == 0, out
+    assert "the coordinate to open" in text
+
+
+UNCLOSED_COMMENT_REPORT = "<!-- a note about the row\nstill the note\n"
+
+
+def test_an_unclosed_html_comment_in_the_report_names_the_comment(repo):
+    """§14, and the same hider on the other input. Here nothing is lost
+    silently -- an unterminated comment runs to the end of the file, so it
+    always takes the terminal lines with it -- and what was wrong is the
+    message. Executed at `aed3ca0`: exit 2 reading `the report has no ##
+    Verdicts section` for a comment above the table, and `the report has 0
+    Needs a fix: lines` for one below it. Both send the writer to look for
+    something they did in fact write, which is the defect §14 and
+    `test_a_fence_that_swallows_a_terminal_line_names_the_fence` already
+    fixed for fences.
+
+    The comment question is asked BEFORE the fence question, because an open
+    comment blanks the closing fence of every block below it: asked the other
+    way round, a report with one unterminated comment is refused for a fence
+    that is closed in the text as written."""
+    declared(repo)
+    head = "# what the round found\n\n" + UNCLOSED_COMMENT_REPORT
+    tail = f"\nProse about 🔴 1.\n\n## Verdicts\n\n{VERDICT_HEADER}{OPEN_ROW}\n"
+    tail += PROBES_TABLE + DEFERRED_TABLE + TERMINAL
+    code, out, text = generate(repo, report_text=head + tail)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "never closed" in out
+    assert "HTML comment" in out
+    # The order, on the report side: the comment opens inside a fenced block
+    # under the probes table, so the block's own closer is blanked before the
+    # fence pass runs. Asked the fence question first, this is refused as
+    # `a fenced block in the report is never closed` -- and the fence closes.
+    inside = "```python\n<!-- a note\nx = 1\n```\n"
+    body = HEAD_AND_VERDICTS + f"## Executed probes\n\n{PROBE_HEADER}{PROBE_ROW}\n"
+    code, out, text = generate(
+        repo, report_text=body + inside + "\n" + DEFERRED_TABLE + TERMINAL
+    )
+    assert code == 2, out
+    assert text is None
+    assert "HTML comment" in out, "the fence closes; the comment does not"
+    code, out, text = generate(repo, report_text=head + "-->\n" + tail)
+    assert code == 0, out
+    assert rows_of(text, "## Deferred") == [
+        ln.strip() for ln in (DEFERRED_HEADER + DEFERRED_ROW).splitlines()
+    ]
+
+
+COMMENTED_OPENER = "<!-- a note about the row\n```\nstill the note\n-->\n"
+
+
+def test_a_fence_opened_inside_an_html_comment_is_refused(repo):
+    """🔴 1 of round 1. `swallowed` reads `strip_comments(report)` and
+    `fenced_after` reads `raw`, so an opener inside an HTML comment is
+    invisible to the report-wide check and an opener to the copy. Executed at
+    `861ad16` before this: exit 0 with the record written, and read back
+    through the shared reader its `## Inherited coordinates` and `## Deferred`
+    each resolved to 0 occurrences -- the defect this work item exists to fix,
+    arriving through the door phase 1 opened by calling `fenced_after`'s
+    never-closed raise unreachable."""
+    declared(repo)
+    code, out, text = generate(
+        repo, report_text=report(probes=PROBE_ROW + "\n" + COMMENTED_OPENER)
+    )
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "never closed" in out
+    assert "HTML comment" in out
+
+
+FENCED_DEFERRED = f"## Deferred\n\n```\n{DEFERRED_HEADER}{DEFERRED_ROW}```\n"
+
+
+def test_a_fence_hiding_a_whole_table_under_a_standing_heading_is_refused(repo):
+    """🟡 2 of round 1. The heading stands, so the heading loop sees nothing,
+    and the table is what the fence took: the record then reads `nothing to
+    drain` beside a row the reviewer wrote. Executed at `861ad16` before this:
+    exit 0, the record's Deferred section reading `nothing to drain`.
+
+    The condition is F3's shape one level down -- the loss, never the mention.
+    A fence quoting rows beside a table that still stands is copied as it
+    always was, which is what keeps a reviewer of THIS generator able to paste
+    record-shaped blocks."""
+    declared(repo)
+    body = HEAD_AND_VERDICTS + PROBES_TABLE + FENCED_DEFERRED + "\n"
+    code, out, text = generate(repo, report_text=body + TERMINAL)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "every table row of `## Deferred`" in out
+
+
+QUOTED_ROWS = f"```markdown\n{DEFERRED_HEADER}{DEFERRED_ROW}```\n"
+EMPTY_DEFERRED = "## Deferred\n\nnothing to drain\n\n"
+
+
+def test_a_fence_quoting_table_rows_is_kept_while_the_table_stands(repo):
+    """The limit of the row half, and the case both of its narrowing clauses
+    needed. The report is the one a reviewer of THIS generator writes: a
+    record-shaped block pasted under the probes table, rows and all, beside a
+    Deferred section that is honestly empty.
+
+    Two mutations turn this red and turn nothing else red, which is why the
+    case exists rather than an argument in a comment:
+
+      dropping *the table still stands*   the probes section has hidden rows
+                                          and a table, so the block a probes
+                                          row owes is refused -- the guard
+                                          stopping the tool on its own rounds
+      dropping the positional scoping     the hidden rows are under the probes
+                                          table and `## Deferred` is empty for
+                                          its own reasons, so an empty section
+                                          is blamed for a fence in another one
+    """
+    declared(repo)
+    body = (
+        HEAD_AND_VERDICTS
+        + f"## Executed probes\n\n{PROBE_HEADER}{PROBE_ROW}\n"
+        + QUOTED_ROWS
+        + "\n"
+        + EMPTY_DEFERRED
+    )
+    code, out, text = generate(repo, report_text=body + TERMINAL)
+    assert code == 0, out
+    assert QUOTED_ROWS.strip() in text, text
+    assert [ln.strip() for ln in section(text, "## Deferred") if ln.strip()] == [
+        "| Finding | Where it went | Who answers it |",
+        "|---|---|---|",
+        "nothing to drain",
+    ]
+
+
+UNCLOSED_ASKED = "Attack the parser first.\n\n```python\ndef helper(a):\n    return a\n"
+
+
+def test_an_unclosed_fence_in_the_round_paragraph_is_refused(repo):
+    """🟡 3 of round 1. The round paragraph is the orchestrator's copy of a
+    spawn prompt, and spawn prompts carry fenced blocks routinely -- the one
+    that produced this work item does. It is spliced above every section a
+    reader looks up and never passed through the guard. Executed at `861ad16`
+    before this: the record was WRITTEN, all four sections resolved to 0
+    occurrences, and the run then failed blaming a missing `## Verdicts`."""
+    declared(repo)
+    code, out, text = generate(repo, asked=UNCLOSED_ASKED)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "never closed" in out
+    assert "round paragraph" in out
+
+
 def test_a_report_without_a_verdict_table_is_refused(repo):
     declared(repo)
     code, out, text = generate(repo, report_text=report(verdicts=None))
