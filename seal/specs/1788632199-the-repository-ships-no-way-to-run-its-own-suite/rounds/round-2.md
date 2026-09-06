@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 176 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | RECORD (depth 1); test_the_section_names_the_words_the_writer_can_put_in_a_reach (depth 1); test_a_refused_environment_is_hidden_too (depth 1); test_a_directory_no_builder_can_finish_is_hidden_too (depth 1) |
 | Needs a fix | yes |
