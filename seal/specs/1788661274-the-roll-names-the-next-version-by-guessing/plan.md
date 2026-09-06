@@ -41,21 +41,51 @@ step over. The exit line is what makes it visible, so it is not decoration.
 
 ## Alternatives considered
 
-The `spec.md` fork, to be settled here with a failure scenario each — this
-table is the work item's answer to #155's *Named, not chosen*, and the smith
-fills it in before the first edit.
+The `spec.md` fork, settled here on 2026-09-06, before the first edit — this
+table is the work item's answer to #155's *Named, not chosen*.
+
+**The three rows are not three ways of doing one thing.** Row 1 asks *where
+does the condition read the open log's version*, and it has exactly one
+answer, so it is adopted whatever else is: `gh issue list --label
+flow-measurement --state open --json number,title` returns a number and a
+title, and the title is the only place a version exists. Rows 2 and 3 ask
+*what does the new title say*, and that is the fork.
 
 | Approach | Failure scenario | Verdict |
 |---|---|---|
-| Parse the version out of the open issue's title | | |
-| Title by the version it rolls **from** | | |
-| Predict, but only roll once the prediction is confirmed | | |
+| Parse the version out of the open issue's title | Somebody tidies a title — a hyphen for the em dash, a word added, the version dropped — and the parse finds nothing. What the parse does then IS the design: answering *not due* stops the log forever with the workflow green, and answering *due* costs at most one roll that was not owed | **Adopted, for the condition only.** The open log's version exists nowhere else, so every condition reads the title. What is chosen with it is the direction of the unreadable case: a title this script cannot read as its own is **due**, never silent |
+| Title by the version it rolls **from** — `chore: flow measurement — after 0.8.1` | The convention changes under a log that is already open. #172 is titled `chore: flow measurement — 0.9.0` and means a prediction; read as *the version this log rolled from*, `0.9.0` is a version that has not shipped, and a condition comparing versions in order would leave it never due — the stall, arriving through the migration itself | **Winner.** The scenario is answered rather than accepted: the marker the roll writes (` — after `) appears in no title written before this change, so an old title reads as *no version stated*, which row 1's direction makes always due. The first release after this change rolls #172 and the old convention retires itself |
+| Predict, but only roll once the prediction is confirmed | The repository ships a version the prediction did not name and then never ships the predicted one — `0.9.0` predicted, `1.0.0` shipped. Every release after that prints *nothing due*, the log never rolls, and the workflow is green throughout | Rejected. It turns a wrong title, which cost a retitle, into a mechanism that has stopped, which costs nothing anybody notices — the failure this plan names to design against, one step over from the bug being fixed. And it fails #155's third *Done when* head-on: at the moment the roll runs `docs/branch-and-release.md` says the next number is not knowable, so a prediction cannot be made and the title has to say so instead of predicting |
+
+**What the winner costs, stated rather than left to be found.** The shape the
+existing fixtures already support is row 3: every case in
+`tests/test_a_release_rolls_the_flow_measurement_issue.py` expects
+`chore: flow measurement — 0.8.0` out of a `0.7.0` tree, so row 3 adds the
+condition and leaves all eighteen green. Row 2 rewrites the expected title and
+body in five of them, and deletes a sixth along with the function it covers —
+`next_version`, which the winner has no caller for. That is a legitimate input
+to the verdict and it lost to the grounding clause `spec.md` already cites: at
+the moment this runs, the just-shipped version is the one thing known and the
+next one is the one thing not. A cheaper set of edits does not make a guess
+knowable.
+
+**Where this leaves `spec.md`'s first acceptance scenario.** That row reads
+*A patch release rolls nothing — given the open log names a version the tree
+has not shipped*, and it is written in row 3's frame, where the title is a
+prediction and a patch release is the case that must not fire. Under the
+winner a patch release does roll, and rightly: the log it closes is named
+after the version before it and holds exactly the work that patch shipped, so
+closing it loses nothing. The scenario's substance — *a run that shipped no
+new version closes nothing and says so* — is kept and pinned by a case; its
+example is not reachable in steady operation, only through the migration above
+and through a title edited by hand, and in both of those rolling is the
+correct act. `phases/phase-1.md` records the divergence with both texts.
 
 ## Phases
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | The alternatives table settled, then the condition: a roll that is not due exits 0, says so, and closes nothing. The title stops being a bare prediction. The docstring's *retitle by hand* paragraph is replaced by what the script now does | `bin/test tests/test_a_release_rolls_the_flow_measurement_issue.py -q` — new cases for the not-due exit, the due roll, the title's form and both printed lines; every existing case still green. Each new case seen red first | |
+| 1 | The alternatives table settled, then the condition: a roll that is not due exits 0, says so, and closes nothing. The title stops being a bare prediction. The docstring's *retitle by hand* paragraph is replaced by what the script now does | `bin/test tests/test_a_release_rolls_the_flow_measurement_issue.py -q` — new cases for the not-due exit, the due roll, the title's form and both printed lines. Each new case seen red first. **Not every existing case stays green, and the cell said so before the fork was settled**: the winner renames what the roll writes, so five cases carry a new expected title, body or recovery version, and `test_next_version_bumps_the_minor_and_resets_the_patch` goes with the function it covers. Every one of the eighteen is accounted for in `phases/phase-1.md` — changed with the reason, or untouched | |
 | 2 | Whatever carries the log's convention to a reader — `skills/verify/SKILL.md`'s measurement section and `docs/issues-and-milestones.md` — says what a title means now, if it changed | the modules reading those files, plus `test_docs_line_wrap` | |
 | 3 | The closing set: ledger fragment, changelog fragment, `overview.md`, `docs/flow.md`'s #155 box | the modules that read them, `evidence-check`, and the orchestrator's broad gate after the rounds | |
 
