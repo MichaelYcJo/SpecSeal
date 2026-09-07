@@ -72,7 +72,7 @@ person who knows the name is invented.
 | 3 | The four occurrences corrected, and the marker written where a reviewer will meet it | Phase 2's check over the tree, exit 0 | `6de1bca` |
 | 4 | The stamp arm — a record naming `path#unit@hash` is resolved the way a ledger anchor is | A case over a fixture whose unit was edited; the tree's one real stamp green | `1b1a1c8` |
 | 5 | **#207** — `new` prints the bound it can already compute, from the previous record's floor row and the walk `chain_check` implements. Round 1 prints nothing | Cases for the three states, each seen red first | `8b82c39` |
-| 6 | `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md` | The fragments; `fold_ledger.py --check` | |
+| 6 | `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md` | The fragments; `fold_ledger.py --check` | `b821e7c` |
 
 Phase 2 before phase 3, and the order is the deliverable: the check has to be
 red on the tree's own four before they are corrected, or nothing shows it reads
