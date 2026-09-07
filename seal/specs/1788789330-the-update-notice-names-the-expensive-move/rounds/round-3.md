@@ -12,7 +12,7 @@
 | Needs a fix | yes — finding 1 |
 | Loses a record or crashes | no |
 
-- [x] Pass
+- [ ] Pass
 
 ## What this round was asked
 
