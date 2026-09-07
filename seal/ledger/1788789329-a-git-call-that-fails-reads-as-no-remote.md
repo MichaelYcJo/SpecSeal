@@ -43,12 +43,17 @@ That is the tool's behaviour rather than a judgment made here, and
 `overview.md` §*Not verified* puts whether the date should move to the
 repository owner.
 
-Round 1's fix pass re-stamped six more rows there, for the same reason and
-under the same rule: four cases pinning the export's `.partial` escapes,
-whose claims are about `write_zip` and are untouched — only the clock the
-cases name the path by changed — and two rows anchored at `import_`, whose
-claims are about zip members, formats and sizes. Each was opened before it
-was re-stamped, and each lands in the same `Checked`-column question above.
+Round 1's fix pass re-stamped six anchors there, across eleven rows, for the
+same reason and under the same rule: four cases pinning the export's
+`.partial` escapes, whose claims are about `write_zip` and are untouched —
+only the clock the cases name the path by changed — `import_` in eight rows,
+whose claims are about zip members, formats and sizes, and
+`test_a_manifest_field_of_the_wrong_type_does_not_raise` in one. Six is the
+count of anchors whose hash moved and eleven is the count of rows that
+carry them; the sentence used to give the first number and the second
+noun, which sends a reader auditing the claims to two rows out of eight.
+Each of the eleven was opened before it was re-stamped, and each lands in
+the same `Checked`-column question above.
 -->
 
 Four more rows arrived with review round 1's fixes. R5 is the receiving

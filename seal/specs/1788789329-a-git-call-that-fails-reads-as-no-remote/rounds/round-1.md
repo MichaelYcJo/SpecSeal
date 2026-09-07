@@ -6,10 +6,10 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 234 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | manifest_of → round-1-report.md, round-1.md, export |
 | New units | the_stem_the_export_will_use (depth 1); test_a_manifest_remote_of_the_wrong_type_refuses (depth 1); test_the_advice_names_the_machine_that_can_fix_it (depth 1); test_the_export_says_what_it_could_not_read (depth 1); test_an_export_that_read_everything_says_nothing_extra (depth 1) |
-| Needs a fix | yes — findings 1, 2 and 3. A guard whose only signal is key |
+| Needs a fix | yes — findings 1, 2 and 3. A guard whose only signal is key presence lets every non-string `remote` past, the refusal sends the reader to a re-run that cannot clear it, and the export stays silent about the field it omitted |
 | Loses a record or crashes | no |
 
 - [x] Pass

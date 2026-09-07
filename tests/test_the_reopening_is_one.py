@@ -405,7 +405,9 @@ def test_this_repositorys_own_records_are_not_refused_by_the_reopening_walk():
     # `TypeError: '<' not supported between instances of 'NoneType' and
     # 'NoneType'` rather than fail an assertion. `chain_check.py#round_records`
     # already drops them on the same test; this is the reader that did not.
-    records = [r for r in records if routing.round_number(os.path.basename(r)) is not None]
+    records = [
+        r for r in records if routing.round_number(os.path.basename(r)) is not None
+    ]
     assert records, "no round records found — the glob or the layout moved"
     by_item = {}
     for rel in records:
