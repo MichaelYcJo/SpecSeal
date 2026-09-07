@@ -54,7 +54,7 @@ def repo_root(cwd):
     # gate's own `root_of`, then `opted_in` and `parity_config` below. Fixing
     # it means passing the root in or memoising here, and three gates import
     # this module, so it is a change to all of them at once.
-    # Verified 2026-08-31 at 9829412.
+    # Verified 2026-09-08 against repo_root@0d131b0f.
     if not cwd or not os.path.isdir(cwd):
         return ""
     try:

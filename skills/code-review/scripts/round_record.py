@@ -203,7 +203,7 @@ CHAIN = os.path.join(HERE, "chain_check.py")
 # case a sentence naming `path` and what to do, the way `below_floor` does,
 # and give it the same exit code the docstring promises. Measured, not read:
 # the real script with `chain_check.py` deleted exits 1 with a traceback.
-# Verified 2026-09-08 at cedc58e.
+# Verified 2026-09-08 against load@643ea575.
 def load(path, name):
     """Import a sibling script by path, or die — either way exit 1.
 
@@ -855,7 +855,7 @@ def swallowed(reader, report, lines):
     # It has no guard because it needs a limit argument the never-closed
     # question does not: a copied block may legitimately carry a whole
     # comment, so its question is balance ACROSS THE SLICE and not presence in
-    # it. Verified 2026-09-06 at 9241a8b.
+    # it. Verified 2026-09-08 against swallowed@dd9b020c.
     stripped = reader.strip_comments([*report.splitlines(), SENTINEL])
     if not stripped[-1]:
         raise Refused(COMMENT_NEVER_CLOSED)
@@ -1867,7 +1867,7 @@ def fix_table(reader, path):
     # `chain_check`'s own readers: widening it there would strip a backtick
     # off a home that is deliberately a code span. Round 2's finding 9;
     # `seal/follow-up.md`'s header sends a coordinate-tied item here rather
-    # than to that file. Verified 2026-09-06 at 9241a8b.
+    # than to that file. Verified 2026-09-08 against fix_table@a9185160.
     text = read_text(path, "fix table")
     raw, lines = text.splitlines(), reader.readable(text)
     out = {}

@@ -1799,7 +1799,7 @@ def unread_items(home):
     #     ⬜ 5, deferred with the rest of that capped round. First stamped at
     #     a feature-branch commit the squash into the release branch
     #     discarded, and re-stamped at the squashed commit carrying the same
-    #     tree: Verified 2026-09-07 at 70c272c.
+    #     tree: Verified 2026-09-08 against unread_items@9046e0b6.
     try:
         names = sorted(os.listdir(specs))
     except OSError:
