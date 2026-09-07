@@ -63,7 +63,7 @@ repository already carries five times over for the same number.
 |---|---|---|---|
 | 1 | The SDD set: `spec.md` with the enumeration table, this plan, `questions.md` | the class enumerated by three executed constructions, recorded with its own method error | `99d4df0` |
 | 2 | The guard in `round_record.py` — `FLOOR`, `FLOOR_TEXT`, `BELOW_FLOOR`, `below_floor()`, the module-level refusal — and the docstring's exit-code line extended | `bin/test tests/test_a_script_says_which_interpreter_it_needs.py -q`, seen red first; and `/usr/bin/python3` (3.9.6) running the real script | `c67a210` |
-| 3 | The records: the four deferrals in `seal/follow-up.md`, the changelog fragment, the ledger fragment, the phase records, `overview.md` | `bin/test tests/test_release_hygiene.py tests/test_a_record_states_what_the_tree_has.py -q`, `evidence_check --reverify`, and the two suites of phase 2 re-run | |
+| 3 | The records: the four deferrals in `seal/follow-up.md`, the changelog fragment, the ledger fragment, the phase records, `overview.md` | `bin/test tests/test_release_hygiene.py tests/test_a_record_states_what_the_tree_has.py -q`, `evidence_check --reverify`, and the two suites of phase 2 re-run | `5ed5fe7` |
 
 ## Operational impact
 
