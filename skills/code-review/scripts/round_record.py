@@ -1381,14 +1381,89 @@ def run_check(root, baseline):
                 pass
 
 
+def worktrees_of(item):
+    """Every work tree of the clone `item` belongs to, main tree first, or [].
+
+    Asked of git rather than derived from the path, because the path is where
+    the derivation goes wrong. A local-mode work item sits under the common
+    git directory (`skills/agent-contract/SKILL.md` §16), and
+    `rev-parse --show-toplevel` REFUSES that -- measured 2026-09-08 against a
+    scratch repository: exit 128, `fatal: this operation must be run in a work
+    tree`. That is not a path git failed to recognise; it is git declining a
+    work-tree question asked from inside the git directory, so no amount of
+    normalising the argument gets an answer out of it.
+
+    `git worktree list --porcelain` does answer from there (measured in the
+    same run, from a main tree and from a linked worktree), and its first
+    entry is the main worktree.
+
+    Nothing here spells `.git`, and nothing takes `dirname` of the common
+    directory. A repository created with `--separate-git-dir` keeps its git
+    directory anywhere at all, and the tree above it is the repository root
+    only by accident -- the kind of accident that holds on the author's
+    machine and not on the one that reports the bug.
+    """
+    try:
+        out = git(item, "worktree", "list", "--porcelain")
+    except (OSError, subprocess.SubprocessError):
+        # `git` missing from PATH or killed by the timeout. This sits on the
+        # path to a REFUSAL, so a traceback here would replace a sentence
+        # naming the item with a stack nobody can act on.
+        return []
+    if not out:
+        return []
+    return [
+        line[len("worktree ") :].strip()
+        for line in out.splitlines()
+        if line.startswith("worktree ")
+    ]
+
+
+def repo_of(item, reader):
+    """The repository root a work item belongs to, or None.
+
+    Shared mode is asked first and is unchanged: the item is in the work tree,
+    `reader.repo_root` answers in one `rev-parse`, and nothing new runs.
+
+    Local mode is the case that used to be refused, and the answer is not the
+    item's -- it is the CALLER's. One local root is shared by every worktree
+    of the clone (`hooks/optin.py#home_at`), so the item cannot say which tree
+    a run is about, and a round record is a record of the tree whose HEAD and
+    branch it names. A caller sitting outside the clone entirely gets the main
+    worktree, which is the only tree the item itself points at.
+    """
+    root = reader.repo_root(item)
+    if root:
+        return root
+    trees = worktrees_of(item)
+    if not trees:
+        return None
+    here = reader.repo_root(os.getcwd())
+    if here and os.path.realpath(here) in {os.path.realpath(t) for t in trees}:
+        return here
+    return trees[0]
+
+
 def where(args):
     """(reader, routing, root, item, rounds) for `--item`, or `Refused`."""
     reader = load(chain.READER, "specseal_unverified_reader")
     routing = load(chain.ROUTING, "specseal_routing")
     item = os.path.abspath(args.item)
-    root = args.root or reader.repo_root(item)
-    if root is None or not os.path.isdir(item):
-        raise Refused(f"--item {args.item} is not a directory inside a git repository")
+    if not os.path.isdir(item):
+        raise Refused(f"--item {args.item} is not a directory")
+    root = args.root or repo_of(item, reader)
+    if root is None:
+        # Split from the test above, and both halves say which one failed.
+        # One sentence covered them jointly -- `is not a directory inside a
+        # git repository` -- and it was TRUE of a local-mode item, which is
+        # how a correctly placed work item read as a mistyped path for three
+        # releases.
+        raise Refused(
+            f"--item {args.item} is not inside a git repository. Both places "
+            "a root lives were tried: the work tree, and the common git "
+            "directory a local-mode root sits under. `--root` names the "
+            "repository directly."
+        )
     root = os.path.abspath(root)
     if args.round < 1:
         raise Refused(f"--round {args.round} — rounds are numbered from 1")
