@@ -5,7 +5,7 @@
 | Target SHA | 0a9dfc54adb12a2d8157be25d96c25a8f807bb28 |
 | Ran by | warden on claude-opus-5 |
 | PR | 233 |
-| Broad gate | not yet |
+| Broad gate | passed at e82ef31, under round 3 |
 | Fixes checked by | round-2 |
 | Contract changes | none — `hooks/version-check.py#notice(have, want)` keeps its signature and both call sites; what the fixes changed is the string it returns, and two cases now pin that string |
 | New units | test_the_notice_agrees_with_the_docstring_about_what_a_reload_re_reads (depth 1) |

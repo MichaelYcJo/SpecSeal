@@ -65,7 +65,7 @@ anything. Executed — each of these leaves the whole module at `18 passed`, exi
 | The deleted assertion | Still held after a rewording |
 |---|---|
 | `"/reload-plugins" in msg` | yes — the docstring case raises if no sentence names a reload |
-| scope in `reload_claim` (`already on` / `in force` / `already running`) | yes — the docstring case asserts the same three |
+| scope in `reload_claim` (`already on` / `in force` / `already running`) | yes — the docstring case asserts the same three |  <!-- NAME NOT IN TREE -->
 | `index("/reload-plugins") < index("restart")` | **no** — the restart can be named first |
 | `"measured" in reload_claim` | **no** — the source label can be dropped |
 | `"skill bodies" in reload_claim` | **no** — the claim's subject can be dropped |
@@ -122,7 +122,7 @@ the closing commit rather than in a fix pass.
 The two record lines marked `NAME NOT IN TREE` were checked by construction rather
 than by reading. Both are load-bearing and both exempt only their own line: stripping
 the marker off `round-1-report.md:162` takes `bin/evidence-check .` to exit 2 naming
-that line, and adding a third unmarked prose mention of `reload_claim` to
+that line, and adding a third unmarked prose mention of `reload_claim` to  <!-- NAME NOT IN TREE -->
 `round-2-fixes.md` is refused the same way. The clean tree is `0 refused`.
 
 The `130 lines` figure survives only in `round-1-report.md:51` and `:112` and in
@@ -181,14 +181,14 @@ bin/evidence-check . --reverify
 | What was run | Result |
 |---|---|
 | `bin/test tests/test_version_check.py -q` at `89333dd`, `--no-local` clone | exit 0, `18 passed`. Baseline |
-| `test_tmp` probe — `yet`-flipped gap, golden NOT updated, both cases | exit 1, `1 failed, 1 passed`; `test_the_warning_names_the_cheap_move_before_the_expensive_one` fails. The orchestrator's M9 finding re-derived |
-| `test_tmp` probe — overclaim ADDED to the reload's claim, golden updated in the same edit, both cases | **exit 0, `2 passed`.** The notice then tells a user the reload re-reads the copy just installed |
-| `test_tmp` probe — `unmeasured, yet it is picked up`, golden updated in the same edit, both cases | **exit 0, `2 passed`** |
-| `test_tmp` probe — scope phrase replaced with `you just installed`, golden updated, both cases | exit 1, `1 failed, 1 passed`; the docstring case fires. Control |
-| `test_tmp` probe — five reWORDINGS with the golden updated, whole module: restart named first · `measured` dropped · `skill bodies` dropped · gap negation dropped · two axes dropped | **exit 0, `18 passed` on all five** |
+| `test_tmp` probe — `yet`-flipped gap, golden NOT updated, both cases | exit 1, `1 failed, 1 passed`; `test_the_warning_names_the_cheap_move_before_the_expensive_one` fails. The orchestrator's M9 finding re-derived |  <!-- NAME NOT IN TREE -->
+| `test_tmp` probe — overclaim ADDED to the reload's claim, golden updated in the same edit, both cases | **exit 0, `2 passed`.** The notice then tells a user the reload re-reads the copy just installed |  <!-- NAME NOT IN TREE -->
+| `test_tmp` probe — `unmeasured, yet it is picked up`, golden updated in the same edit, both cases | **exit 0, `2 passed`** |  <!-- NAME NOT IN TREE -->
+| `test_tmp` probe — scope phrase replaced with `you just installed`, golden updated, both cases | exit 1, `1 failed, 1 passed`; the docstring case fires. Control |  <!-- NAME NOT IN TREE -->
+| `test_tmp` probe — five reWORDINGS with the golden updated, whole module: restart named first · `measured` dropped · `skill bodies` dropped · gap negation dropped · two axes dropped | **exit 0, `18 passed` on all five** |  <!-- NAME NOT IN TREE -->
 | `bin/evidence-check .` on the clean clone | exit 0. `seal/ledger.md` 764 ok, the fragment `12 ok · 0 drifted · 0 broken`; records arm `9 names read · 0 refused` |
 | `bin/evidence-check .` with the marker stripped from `round-1-report.md:162` | exit 2, `NOT-IN-TREE … round-1-report.md:162  \`reload_claim\`` |
-| `bin/evidence-check .` with a third unmarked prose mention of `reload_claim` appended to `round-2-fixes.md` | exit 2, naming that new line. The markers exempt their own line only |
+| `bin/evidence-check .` with a third unmarked prose mention of `reload_claim` appended to `round-2-fixes.md` | exit 2, naming that new line. The markers exempt their own line only |  <!-- NAME NOT IN TREE -->
 | `git show 279628b:hooks/version-check.py \| md5` vs `89333dd` | identical, `cfa60c3f9db6b018076e2927c962cb65`. The notice text did not move in round 2's fixes |
 | `diff` of `^def ` lines in `tests/test_version_check.py` across `279628b..89333dd` | same fifteen names, line numbers only. No unit added or removed |
 | `git status --porcelain` in the clone after every probe | clean; both mutated files restored byte-identical, verified by digest |

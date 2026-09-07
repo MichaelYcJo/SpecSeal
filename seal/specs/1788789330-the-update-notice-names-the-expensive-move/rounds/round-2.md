@@ -5,7 +5,7 @@
 | Target SHA | 279628b |
 | Ran by | warden on claude-opus-5 |
 | PR | 233 |
-| Broad gate | not yet |
+| Broad gate | passed at e82ef31, under round 3 |
 | Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | none |
