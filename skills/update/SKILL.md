@@ -132,9 +132,9 @@ What you are getting:
 Needs action:                     (omit when there is none)
 - <what moved, what to set, what expires when>
 
-To load it: /reload-plugins refreshes the skill bodies a spawned agent is
-handed, which is measured. Nobody has measured what it does for hooks, for
-agent definitions, or for moving this session onto <new> — restart for those.
-Either way this session keeps running <old> until you do, so nothing is
-half-applied.
+To load it: /reload-plugins re-reads the skill bodies a spawned agent is
+handed, out of the copy this session is already on. That is what was measured
+and it is the whole of it. Nobody has measured whether a reload reaches hooks,
+agent definitions, or <new> itself, so restart for those. Either way this
+session keeps running <old> until you do, so nothing is half-applied.
 ```
