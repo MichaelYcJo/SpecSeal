@@ -1414,6 +1414,21 @@ def other_worktrees(repo):
     so the two read two different roots until the commit reaches both. It
     heals itself and loses nothing, so it is named rather than refused.
     """
+    # RIDER: `git worktree list --porcelain` prints the GIT DIRECTORY as the
+    # worktree path for a repository built with `--separate-git-dir`, and for
+    # a bare clone, with no `bare` line on the first to tell it by. Measured
+    # 2026-09-08 against a scratch `--separate-git-dir` repository: this
+    # returns `['<...>/sepgit']`, and `git -C <that> rev-parse --show-toplevel`
+    # answers `fatal: this operation must be run in a work tree`. So `seal
+    # mode` there prints a note calling the git directory another worktree of
+    # this clone. Nothing decides on it and nothing is lost -- the caller at
+    # `mode_switch` only prints -- which is why it was named here rather than
+    # fixed in a round-1 fix pass that had no finding on this function.
+    # `round_record.py#repo_of` had the same reading and DID decide on it; the
+    # fix there is to compare the clone by common git directory
+    # (`#shares_the_clone`) and refuse a path that is not a work tree. Filter
+    # this list the same way when this function is next opened.
+    # Verified 2026-09-08 at a3bea92.
     here = os.path.realpath(repo)
     found = []
     for line in git(repo, "worktree", "list", "--porcelain").splitlines():
