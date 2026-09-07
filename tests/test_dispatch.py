@@ -43,7 +43,15 @@ def test_the_group_reaches_the_gate_inside_it(repo):
 
 
 def test_a_gate_with_nothing_to_say_leaves_the_group_silent(repo):
+    # The mode is recorded, because `mode-gate.py` joined this group (#151)
+    # and an unrecorded one is something it HAS to say. Without the row this
+    # case would still pass on the day it was written and would be asserting
+    # that a gate stays quiet about a state it was added to name.
     (repo / "seal").mkdir()
+    (repo / "seal" / "config.md").write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n",
+        encoding="utf-8",
+    )
     assert run_dispatch("pre-bash", payload("ls", repo)).strip() == ""
 
 

@@ -89,15 +89,32 @@ def _gate_repo_template():
     return _GATE_REPO_TEMPLATE
 
 
+MODE_ROW = "# Repository config\n\n| Item | Value |\n|---|---|\n| Mode | {mode} |\n"
+
+
 def make_repo(path, opted_in, local=False):
     """A repo with one commit, `seal/` when it opts in, and a staged change.
 
-    `local=True` puts the root under the git directory instead (#80)."""
+    `local=True` puts the root under the git directory instead (#80).
+
+    The mode is RECORDED, because `hooks/mode-gate.py` joined the `pre-bash`
+    group (#151) and an unrecorded one is a state it has to name. This file
+    measures the commit gate, and every case in it reads a merged decision or
+    a merged reason -- so a second voice in the group would make some of them
+    pass for a reason they do not state, and one of them (the broken-reader
+    case, which asserts the group falls SILENT) fail outright.
+    """
     shutil.copytree(_gate_repo_template(), path)
     if opted_in and local:
-        local_home(path)
+        home = local_home(path)
     elif opted_in:
-        (path / "seal").mkdir()
+        home = path / "seal"
+        home.mkdir()
+    else:
+        return path
+    (home / "config.md").write_text(
+        MODE_ROW.format(mode="local" if local else "shared"), encoding="utf-8"
+    )
     return path
 
 
