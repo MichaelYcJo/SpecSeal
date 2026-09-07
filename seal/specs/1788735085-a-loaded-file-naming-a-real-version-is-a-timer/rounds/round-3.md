@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 201 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-4 |
 | Contract changes | none |
 | New units | test_the_refusal_names_the_line_and_the_version_it_refused (depth 1) |
 | Needs a fix | yes — finding 7 |
