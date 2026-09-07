@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Two commands in a fixed order, and one thing neither of them does: tell you
 what you are getting. Running them by hand answers "you are now on <version>",
-which is a number, not a reason to restart.
+which is a number, not a reason to reload or restart.
 
 ## Procedure
 
@@ -28,8 +28,8 @@ installs from it. Running only the second reports *already at the latest
 version* against whatever the clone last knew — the failure is silent and
 looks like success.
 
-If the second command reports it is already current, say so and stop. There is
-nothing to restart for.
+If the second command reports it is already current, say so and stop. Nothing
+arrived, so there is nothing to load and neither move below is needed.
 
 **3. Name what changed.** Read `CHANGELOG.md` from the refreshed marketplace
 clone — `~/.claude/plugins/marketplaces/specseal/CHANGELOG.md` — and summarize
@@ -76,16 +76,40 @@ user's own text outside the markers, the file now states it twice, and the copy
 to remove is theirs. Name the overlap and point at `/specseal:preset-setup`,
 which classifies it and proposes the deletion through an approved diff.
 
-**5. Say that a restart is needed, and why it is safe to finish first.** The
-running session keeps the version it started with: the old directory stays in
-the plugin cache and `$CLAUDE_PLUGIN_ROOT` still resolves to it. Nothing is
-half-updated and nothing breaks mid-session — the new version simply is not
-loaded until Claude Code restarts.
+**5. Name both moves, cheapest first, and say what each one is known to do.**
+It is safe to finish what you are doing either way: the running session keeps
+the version it started with, because the old directory stays in the plugin
+cache and `$CLAUDE_PLUGIN_ROOT` still resolves to it. Nothing is half-updated
+and nothing breaks mid-session.
+
+Then say what loads it. The two moves cost very different things — one ends
+the session you are in and the other does not — so they are worth telling
+apart, and the evidence behind them is not the same either:
+
+| Move | What it is known to do | On what evidence |
+|---|---|---|
+| `/reload-plugins` | re-reads preloaded skill bodies out of the copy in force, which is what a spawned agent is handed | **measured.** Run 6 of `docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.md`: a sentinel in the version cache came back PRESENT after a reload, and ABSENT in run 5 without one |
+| the same command, for anything else — hooks, agent definitions, or moving a running session onto a newly installed version | unknown | **not measured.** The experiment touched none of the three, and its sentinel sat in the *running* version's own directory, so it shows a re-read of the copy already loaded and nothing about picking up a new one |
+| restarting Claude Code | starts a session on the newly installed version, with its skills, hooks and agent definitions | the move with no open question |
+
+Say *not measured* rather than *not needed*. The difference is the whole
+value of the row: a user told the reload is insufficient stops using it, and
+a user told it covers everything gets a half-loaded plugin with no way to
+tell.
+
+What would settle the middle row, for whoever wants it settled: plant a
+sentinel in a hook and in an `agents/*.md` under the newly installed version
+in `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`, type
+`/reload-plugins` without restarting, then trigger the hook's event and spawn
+the agent. That is run 6's own method, one artifact over.
 
 ## What this does not do
 
-**It does not restart anything.** Ending a session is the user's call and
-their unfinished work is in it.
+**It does not restart or reload anything.** Both are the user's to type.
+Ending a session is their call and their unfinished work is in it — and a
+built-in CLI command is not a skill, so `/reload-plugins` is not something
+this procedure can invoke on their behalf either. Naming the cheaper move and
+running it are different acts, and only the first is this command's job.
 
 **It does not delete anything the user wrote.** The preset block is replaced
 inside its markers, which is the whole of what the plugin owns. An overlap with
@@ -108,6 +132,9 @@ What you are getting:
 Needs action:                     (omit when there is none)
 - <what moved, what to set, what expires when>
 
-Restart Claude Code to load it. This session keeps running <old> until then —
-the old version stays in the cache, so nothing is half-applied.
+To load it: /reload-plugins refreshes the skill bodies a spawned agent is
+handed, which is measured. Nobody has measured what it does for hooks, for
+agent definitions, or for moving this session onto <new> — restart for those.
+Either way this session keeps running <old> until you do, so nothing is
+half-applied.
 ```
