@@ -70,7 +70,7 @@ repository with no remote (S3) is what would catch it.
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | `git_asked`, `git()` as its wrapper, `remote_url`, `head_sha`; `manifest_of` omits what it could not read | S7, S8, S9 + the existing export cases, `bin/test tests/test_the_records_can_be_carried_out_and_in.py -q` | 64aa0c6 |
-| 2 | `import_` refuses an unanswerable remote; `--allow-unreadable-remote`; the message names git's cause; `:953`'s second call goes; `other_worktrees`' sentence | S1, S2, S3, S4, S5, S6, S10, S11 | |
+| 2 | `import_` refuses an unanswerable remote; `--allow-unreadable-remote`; the message names git's cause; `:953`'s second call goes; `other_worktrees`' sentence | S1, S2, S3, S4, S5, S6, S10, S11 | 4a6e7d4 |
 | 3 | Both READMEs; the changelog and ledger fragments | S12 + the record- and document-scanning modules | |
 
 S11 moved from phase 3 to phase 2 while the work ran. It is a docstring in

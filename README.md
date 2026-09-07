@@ -505,7 +505,9 @@ choices, the review and parity marks and every lease sit *beside* the root
 under the git directory, so none of them travels — the export walks the root,
 which is why the root has to be its own directory. A symbolic link inside it
 is skipped and named rather than followed. Alongside the files goes a
-manifest naming the remote URL and the HEAD SHA at export.
+manifest naming the remote URL and the HEAD SHA at export. A field git could
+not answer is **left out** rather than written empty, so the machine taking
+the zip in can tell *this repository has no remote* from *nobody could say*.
 
 **Import never overwrites and never asks.** A file that is not there is
 added. One that is there with the same bytes is left alone, so re-importing
@@ -518,6 +520,10 @@ rows drift against this tree.
 
 It refuses, writing nothing, when the zip came from another repository
 (`--allow-other-repo` if the two are one repository under two spellings),
+when the remote could not be read on either side and so that question cannot
+be answered at all (`--allow-unreadable-remote` to import without the check —
+a separate flag, because *there is no remote* and *nobody could say* are
+different facts and only the second is a reason to run the command again),
 when the manifest declares a format this build does not read,
 when a member would land outside the root, when a member or the whole zip
 declares more bytes or more members than a root of records holds, when a
