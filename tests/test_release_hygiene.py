@@ -126,13 +126,22 @@ DATED_RECORD = re.compile(r"^\d{4}-\d{2}-\d{2}-")
 
 def is_a_record_of_a_moment(rel):
     """Exact paths and, where an entry ends in `/`, every DATED file beneath
-    it."""
-    for entry in RECORDS_OF_A_MOMENT:
-        if rel == entry:
-            return True
-        if entry.endswith("/") and rel.startswith(entry):
-            return bool(DATED_RECORD.match(rel.rsplit("/", 1)[-1]))
-    return False
+    it.
+
+    Every entry is considered, never only the first that matches: an exact
+    path written below the prefix that contains it has to keep working, and
+    an early return made the list order-dependent (review round 2).
+    """
+    basename = rel.rsplit("/", 1)[-1]
+    return any(
+        rel == entry
+        or (
+            entry.endswith("/")
+            and rel.startswith(entry)
+            and DATED_RECORD.match(basename)
+        )
+        for entry in RECORDS_OF_A_MOMENT
+    )
 
 
 def shipped_versions():
@@ -425,6 +434,30 @@ def test_a_record_of_a_moment_keeps_every_version_it_names():
     assert timers_in(
         "docs/about-docs-experiments-2.1.259.md", text, RUNNING_IN_THE_FIXTURES
     ) == [(1, "2.1.259")]
+
+
+def test_the_exemption_list_does_not_depend_on_the_order_it_is_written_in():
+    """`RECORDS_OF_A_MOMENT` is the list a later author appends to, and
+    appending at the end is the natural act.
+
+    An early `return` on the first `/` entry whose prefix matched made every
+    entry after it unreachable — so an exact path, or a narrower prefix,
+    written below the prefix that contains it silently stopped working
+    (review round 2). The failure direction is loud, a file the author meant
+    to exempt goes red, but nothing said the order mattered.
+    """
+    entries = RECORDS_OF_A_MOMENT
+    try:
+        globals()["RECORDS_OF_A_MOMENT"] = (
+            "docs/experiments/",
+            "docs/experiments/README.md",
+        )
+        assert is_a_record_of_a_moment("docs/experiments/README.md"), (
+            "an exact entry written after the prefix that contains it is "
+            "unreachable — the list has become order-dependent"
+        )
+    finally:
+        globals()["RECORDS_OF_A_MOMENT"] = entries
 
 
 def test_the_experiments_prefix_covers_only_a_dated_record():
