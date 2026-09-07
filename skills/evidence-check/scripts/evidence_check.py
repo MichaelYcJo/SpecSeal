@@ -2112,7 +2112,25 @@ def main():
     # (#190). Printed under its own heading and counted separately, because
     # the two arms read different files and a reader who sees one number has
     # to be able to tell which arm moved it.
-    records, names_read, stamps_read = check_records(root, seal_home(root), maps)
+    # Both resolution arguments, not one. A stamp in a record is resolved by
+    # `check_text`, the ledger's own reader, so an anchor that grades `OK` in
+    # `seal/ledger.md` has to grade `OK` here too — and `--default-repo` is
+    # what tells that reader a path resolving in no local checkout belongs to
+    # the original rather than to nobody. Dropped, one arm answered `BROKEN`
+    # for the anchor the other answered `OK`, with the cross-repo look-alike
+    # scan back on, and a migration repository's CI exited 2 on every run
+    # (round 1, 🔴 1).
+    # Both resolution arguments, not one. A stamp in a record is resolved by
+    # `check_text`, the ledger's own reader, so an anchor that grades `OK` in
+    # `seal/ledger.md` has to grade `OK` here too — and `--default-repo` is
+    # what tells that reader a path resolving in no local checkout belongs to
+    # the original rather than to nobody. Dropped, one arm answered `BROKEN`
+    # for the anchor the other answered `OK`, with the cross-repo look-alike
+    # scan back on, and a migration repository's CI exited 2 on every run
+    # (round 1, 🔴 1).
+    records, names_read, stamps_read = check_records(
+        root, seal_home(root), maps, default_repo
+    )
     print(f"\n{RECORDS_HEADING}")
     for status, coord, detail in records:
         print(f"  {status:12} {coord}  {detail}")

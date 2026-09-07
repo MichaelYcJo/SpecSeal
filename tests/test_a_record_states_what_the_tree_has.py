@@ -548,6 +548,38 @@ def test_a_records_drift_does_not_fail_the_run_and_a_broken_anchor_does(tmp_path
     assert "1 refused · 0 drifted" in broken.stdout
 
 
+# --- what `main` hands the arm ----------------------------------------------
+
+
+def test_the_same_anchor_answers_the_same_in_both_arms_under_default_repo(tmp_path):
+    """`--default-repo` reaches the records arm, the way it reaches the ledger.
+
+    Both arms resolve an anchor through `check_text`, so a coordinate that
+    grades `OK` in `seal/ledger.md` has to grade `OK` in a record stating the
+    same thing. `main` handed the records arm `maps` and not `default_repo`
+    (round 1, 🔴 1), so the identical anchor read `1 ok` from the ledger and
+    `BROKEN` from the record — exit 2, with the cross-repo look-alike scan
+    switched back on, which is a migration repository's CI failing on every
+    invocation.
+    """
+    root = tmp_path / "repo"
+    root.mkdir()
+    original = tmp_path / "original"
+    (original / "src").mkdir(parents=True)
+    (original / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
+    h = home(root)
+    anchor = f"src/service.py#handler@{GOOD}"
+    work_item(h, "1780000000-live", **{"overview.md": f"# o\n\n`{anchor}`\n"})
+    (h / "ledger" / "1780000000-live.md").write_text(
+        f"| S1 | `{anchor}` | read | 2026-09-07 |\n", encoding="utf-8"
+    )
+    got = run([".", "--default-repo", str(original)], root)
+    assert got.returncode == 0, got.stdout + got.stderr
+    assert "1 ok · 0 drifted · 0 broken" in got.stdout, got.stdout
+    assert "1 stamp read · 0 refused" in got.stdout, got.stdout
+    assert "BROKEN" not in got.stdout, got.stdout
+
+
 # --- this repository's own records ------------------------------------------
 
 
