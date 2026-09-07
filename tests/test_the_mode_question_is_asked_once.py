@@ -109,6 +109,28 @@ def test_the_four_spellings_of_undeclared_are_one_answer(config, repo, text, exp
     assert config.declared_mode(str(home)) == expected
 
 
+def test_rows_above_the_header_are_not_rows_of_this_table(config, repo):
+    """A mutation survived here, and the branch it broke is the one the
+    docstring's whole claim rests on: the header is this table's furniture
+    ABOVE its first row. Without it a `| Mode | local |` written into some
+    other table earlier in the file — an example, a comparison — is read as
+    the declaration.
+
+    Uncovered because it arrived uncovered. The parser moved here from
+    `seal.py`, and the suite that looks like its home,
+    `tests/test_the_pull_request_language_is_the_repositorys.py`, carries a
+    second copy of the loop rather than calling this one."""
+    home = opt_in_shared(repo)
+    write_config(
+        home,
+        "# Repository config\n\n"
+        "An example of what NOT to write:\n\n"
+        "| Mode | local |\n\n"
+        "| Item | Value |\n|---|---|\n| Mode | shared |\n",
+    )
+    assert config.declared_mode(str(home)) == ("mode", "shared")
+
+
 def test_the_command_and_the_gate_read_one_parser(config):
     """`seal mode` writes the row and the gate reads it. Two readers of one
     table is how a file passes one and fails the other; `seal.py` re-exports
@@ -235,6 +257,22 @@ def test_the_subject_is_the_session_s_repository(repo, tmp_path):
     out = run_hook(GATE, payload(f"git -C {other} commit -m x", repo))
     assert decision_of(out) == "deny", out
     assert str(repo) in reason_of(out)
+
+
+def test_a_session_in_a_subdirectory_is_still_asked(repo):
+    """A mutation survived here too, and it is the ordinary case: sessions sit
+    in `src/` as often as at the top. Taking `cwd` for the repository root
+    makes the gate look for `<cwd>/seal/`, find nothing, and go quiet for
+    every session that is not at the top — silence that reads exactly like a
+    repository with the row already written."""
+    opt_in_shared(repo)
+    sub = repo / "src"
+    sub.mkdir()
+    out = run_hook(GATE, payload("ls", sub))
+    assert decision_of(out) == "deny", out
+    said = reason_of(out)
+    assert str(repo / "seal") in said
+    assert str(sub) not in said, "the prompt names the subdirectory as the root"
 
 
 def test_a_repository_that_is_not_this_one_is_not_judged(repo, tmp_path):
