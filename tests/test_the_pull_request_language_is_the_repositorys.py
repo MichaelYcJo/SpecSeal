@@ -764,13 +764,25 @@ def shipped_templates(root):
         #
         # `-z`: round 4 finding 3. git C-escapes a non-ASCII path by default,
         # so the name came back in a spelling no prose can contain and the
-        # check called it unreachable. Round 5's 2 measured which argument
-        # does the work: `-z` alone turns the quoting off, and
-        # `core.quotePath=false` alone does not.
+        # check called it unreachable. EITHER argument turns that escaping
+        # off by itself — issue #98, re-measured on git 2.50.1 (Apple
+        # Git-155), where `core.quotePath=false` alone answered
+        # `templates/한글.md` unescaped. Round 5 recorded that it does not,
+        # and this comment used to repeat that.
+        #
+        # What `-z` does that the config does not, measured the same way, is
+        # two things. It turns off the escaping of CONTROL characters as
+        # well: under `core.quotePath=false` alone, a name holding a newline
+        # still comes back as `"templates/new\nline.md"`, quoted. And it
+        # separates on NUL, the one byte a filename cannot hold — the split
+        # below is on NUL, so dropping `-z` returns the whole listing as one
+        # entry.
         #
         # `core.quotePath=false` therefore changes nothing while `-z` is
-        # here. It stays as the argument that WOULD be needed if `-z` were
-        # ever dropped — so if one of the two is ever pruned, prune this one.
+        # here — the two listings are byte-identical. It stays as the
+        # argument that would still be doing part of the job if `-z` were
+        # ever dropped, so if one of the two is ever pruned, prune this one.
+        # That instruction is unchanged; only the grounds under it were wrong.
         [
             "git",
             "-c",
@@ -892,9 +904,13 @@ def test_the_templates_check_reads_prose_only_and_descends(repo):
     is not ASCII, or holds a space, has to reach the corpus. git C-escapes
     the first and `.split()` cut the second in two, and either way
     `unreachable_templates` dropped that document silently and called the
-    template only it names unreachable. The two documents below carry the
-    only mention of `templates/sub/buried.md`, so if either is dropped the
-    assertion at the end of this case goes red.
+    template only it names unreachable. Each of the two documents below
+    carries the only mention of one template — `안내.md` names
+    `templates/sub/buried.md` and `two words.md` names
+    `templates/.hidden.md` — so dropping either one leaves that template
+    reported unreachable, and the assertion at the end of this case goes red.
+    (#98: this said both documents named the same one template, which is
+    true of neither. The conclusion it drew is unchanged.)
     """
     (repo / "templates" / "sub").mkdir(parents=True)
     (repo / "templates" / "named.md").write_text("x", encoding="utf-8")

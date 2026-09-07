@@ -86,6 +86,25 @@ URL_HOST_RE = re.compile(r"(?://|\bhttps?:)[^\s)\]<>\"']*$")
 # this is a claim about the whole function, and the row should drop the claim
 # anchor and locate alone rather than pretend to a narrower subject.
 CLAIM_CAP = 12
+# Directories no walk in this file descends. Build output and caches hold
+# copies of names that were deleted from the tree -- a `__pycache__` carries
+# the module's own identifiers in its constants pool -- so a walk that reads
+# them answers "the tree still has this name" for a name the tree lost. `.git`
+# is excluded for the same reason and one more: it is where every deleted
+# version of every file lives.
+SKIP_DIRS = frozenset(
+    {
+        ".git",
+        "__pycache__",
+        ".venv",
+        "venv",
+        "node_modules",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".tox",
+    }
+)
 
 
 def normalise(lines):
@@ -614,7 +633,14 @@ def scan_candidates(repo, rel, cache):
     if key not in cache:
         found, capped = [], False
         for dirpath, dirnames, filenames in os.walk(repo):
-            dirnames[:] = sorted(d for d in dirnames if d != ".git")
+            # Every directory `SKIP_DIRS` names, not `.git` alone. This walk
+            # looks for where a unit WENT, and a copy of a deleted name in a
+            # cache or a vendored package is the one place it cannot have
+            # gone: a hint reading `same name at .venv/lib/site-packages/pkg/
+            # a.py` sends the reader somewhere the repository does not own
+            # (round 1, ⬜ 14). It is also what makes the constant's own
+            # comment true of every walk in this file.
+            dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
             for fn in sorted(filenames):
                 if os.path.splitext(fn)[1] != ext:
                     continue
@@ -1129,9 +1155,30 @@ def check_ledger(ledger, root, maps, default_repo=None):
         # traceback for that silence, and a traceback is at least a broken
         # build (round 5, 🔴 B).
         return [("BROKEN", display_name(ledger, root), "ledger unreadable")]
+    findings = check_text(text, root, maps, default_repo)
+    findings.extend(old_format_rows(text))
+    return findings
+
+
+def check_text(text, root, maps, default_repo=None, seen=None, scan_cache=None):
+    """Every `path#anchor@hash` in TEXT, classified — the whole of the anchor
+    reading, with no file of its own and no `old_format_rows`.
+
+    Split out of `check_ledger` so the records arm resolves a stamp in a
+    RECORD by the same code path rather than by a second implementation of it
+    (#190). Two things do not carry across: a record is read a line at a time,
+    because a refusal there has to name the line the way the identifier arm
+    does, and `old_format_rows` is not run over one — a verdict table's
+    `Location` column is `path:line` by design, and a checker calling every
+    one of those an unmigrated coordinate would refuse the format the round
+    template prescribes.
+
+    `seen` and `scan_cache` are passed in by a caller that reads one text in
+    pieces, so a repo-wide scan is paid once across all of them.
+    """
     findings = []
-    seen = set()
-    scan_cache = {}
+    seen = set() if seen is None else seen
+    scan_cache = {} if scan_cache is None else scan_cache
     for m in ANCHOR_RE.finditer(text):
         raw_path, want = m.group("path"), m.group("hash")
         locator, claim = m.group("locator"), m.group("claim")
@@ -1287,7 +1334,6 @@ def check_ledger(ledger, root, maps, default_repo=None):
             )
             continue
         findings.append(("OK", coord, f"{start}-{end}"))
-    findings.extend(old_format_rows(text))
     return findings
 
 
@@ -1640,6 +1686,566 @@ def reverify(ledgers, root, maps, default_repo=None):
     return 1 if unreadable else 0
 
 
+# --- the records arm: what a work item's records state about the tree -------
+#
+# A ledger row is a claim about the tree that something reads. A RECORD --
+# `spec.md`, `plan.md`, `overview.md`, `rounds/round-N.md`, `phases/phase-N.md`
+# -- states the same kind of thing and nothing reads it (#190). It names a
+# unit, or stamps one, and the next commit moves what it named. The class was
+# closed three times on one work item by grepping for the carriers, and came
+# back each time, because a grep is not a reader.
+#
+# This is the reader. It answers the ledger's own question -- does this still
+# point at what it claims -- over the records of work items that have not
+# shipped yet.
+
+SPECS_DIR = "specs"
+FRAGMENT_DIR = "ledger"
+
+
+def unshipped(home, refused=None):
+    """The work items under `<home>/specs/` whose records are still live.
+
+    `refused` is an optional list this appends `<home>/ledger/` to when the
+    directory exists and cannot be listed. An out-parameter rather than a
+    widened return, because three call sites and seven cases read the return
+    and none of them is the one place this state has to reach — a fix pass
+    threads a channel, it does not re-shape a contract.
+
+    **A work item whose `<home>/ledger/<id>.md` fragment still exists has not
+    shipped.** The fold is what removes it: `fold_ledger.py` moves a work
+    item's rows into the gathered ledger at the release and deletes the
+    fragment, so the fragment's presence already IS the boundary and there is
+    no second piece of state to keep true.
+
+    The boundary is the whole of why this arm can exist at all. Measured over
+    this repository at `a6b6b17`: 129 backticked identifiers in the records of
+    work items that HAVE shipped name nothing in the tree, and every one of
+    them is history -- a plan from 0.4.0 proposing a helper that was built
+    under another name is a correct record of what was decided then. A check
+    that refused those would be refusing the past, which is the mistake #179's
+    branch turned down twice; a check with no boundary at all would have to
+    refuse them.
+
+    Returns `{id: the work item's directory}`, in id order. An id with no
+    directory under `specs/` is not returned: a fragment can outlive its
+    records in a tree where the records were carried out (`seal export`), and
+    an arm that reads records has nothing to say about a work item that has
+    none here.
+    """
+    fragments = os.path.join(home, FRAGMENT_DIR)
+    specs = os.path.join(home, SPECS_DIR)
+    try:
+        names = os.listdir(fragments)
+    except FileNotFoundError:
+        # ABSENT is not the same state as UNLISTABLE, and only the second is
+        # a refusal. A root with no `ledger/` is a repository that has not
+        # started, which is the empty answer this has always given.
+        return {}
+    except OSError:
+        if refused is not None:
+            refused.append(fragments)
+        return {}
+    live = {}
+    for name in sorted(names):
+        if not name.endswith(".md"):
+            continue
+        if not os.path.isfile(os.path.join(fragments, name)):
+            continue
+        item = name[: -len(".md")]
+        if not item:
+            # `seal/ledger/.md` leaves `item` empty, `os.path.join(specs, "")`
+            # is `specs/` itself, and `isdir` says yes — so the whole records
+            # tree became ONE live work item under the empty id and every
+            # shipped record in it was read (round 1, 🟡 10). An id is a
+            # directory name, and the empty string is not one.
+            continue
+        directory = os.path.join(specs, item)
+        if os.path.isdir(directory):
+            live[item] = directory
+    return live
+
+
+def unread_items(home):
+    """Work item directories under `<home>/specs/` carrying no fragment, in
+    id order.
+
+    `unshipped` answers whose records are read; this answers whose are not,
+    and the pair is what lets a run say what it did not open. A checker that
+    reads nothing has to say so: `0 names read` and exit 0 is the same output
+    for *every record is clean* and *no record was opened*, and this arm's
+    own work item sat in the second state through five of its six phases.
+
+    A directory with no fragment is not a defect. Most of them have shipped
+    and the fold removed the file, which is the boundary working. What the
+    count is for is the other reading — a live work item that has not written
+    its rows yet — and the caller prints the number rather than the names,
+    because thirty-eight names on every run is a notice nobody reads.
+
+    A missing `specs/` is an empty answer rather than a raise, the way
+    `unshipped` treats a missing `ledger/`.
+    """
+    live = unshipped(home)
+    specs = os.path.join(home, SPECS_DIR)
+    # RIDER: this `except OSError` is the third instance of the class round
+    #     2's 🟡 4 opened — a directory read whose failure answers *nothing
+    #     found*. `unshipped` and `record_files` were fixed with that finding;
+    #     this one was not, because it moves a COUNT on the summary line
+    #     rather than a finding, and the honest repair widens a return three
+    #     call sites and seven cases read. If you open this function, thread
+    #     the same optional `refused` list `unshipped` takes and let `main`
+    #     report it as `UNREADABLE`. The cost written above is `unshipped`'s
+    #     rather than this function's, which has two call sites — round 3's
+    #     ⬜ 5, deferred with the rest of that capped round. First stamped at
+    #     a feature-branch commit the squash into the release branch
+    #     discarded, and re-stamped at the squashed commit carrying the same
+    #     tree: Verified 2026-09-07 at 70c272c.
+    try:
+        names = sorted(os.listdir(specs))
+    except OSError:
+        return []
+    return [
+        name
+        for name in names
+        if name not in live and os.path.isdir(os.path.join(specs, name))
+    ]
+
+
+def record_files(directory):
+    """Every `.md` under one work item's directory, in path order.
+
+    Two returns: the records, and the directories the walk could not list.
+
+    The whole SDD set and not the round records alone. #190's own three
+    instances landed in a `plan.md`, an `overview.md` and a ledger row, and
+    the two records a reviewer opens next are `rounds/round-N.md` and
+    `phases/phase-N.md`. Nothing here is specific to the review chain, so
+    nothing here reads a file name to decide.
+
+    **`os.walk` swallows a directory it cannot list**, so a work item whose
+    `rounds/` was unreadable contributed no records and the run said nothing
+    at exit 0 — where an unreadable FILE is `UNREADABLE` and exit 2 (round 2,
+    🟡 4). `onerror` is what turns that into an answer.
+
+    **The class is every directory read in this file, enumerated by
+    construction** — `os.walk`, `os.listdir`, `os.scandir` and `glob`, which
+    is the whole of how a directory is read here — and then asked of each
+    whether its failure reads as *nothing found*:
+
+    - `unshipped`'s `ledger/` listing: the same defect one directory up and
+      strictly worse, because an empty answer there silences the WHOLE arm
+      rather than one work item. Fixed with it.
+    - this walk: the instance the round opened.
+    - `unread_items`' `specs/` listing: same shape, and it moves a COUNT on
+      the summary line rather than a finding. Deferred as a rider comment at
+      that line, which is where `seal/follow-up.md` sends anything tied to a
+      coordinate — the honest repair widens a return three call sites and
+      seven cases read, and a fix pass is not where that belongs.
+    - `tree_names`' walk over the repository: a directory it cannot list
+      supplies no names, so names the tree HAS read as absent. That refuses
+      more, not less, and is not this class.
+    - the look-alike scan's walk for a `BROKEN` anchor's hint: the row is
+      already refused, so a narrowed scan weakens a hint rather than a
+      verdict, and `_capped` already says a narrowed search out loud.
+    - `ledger_paths`' `glob`: `glob` reports no error by design, and a
+      pattern the operator named that matches nothing is `skipped_by_
+      narrowing`'s subject rather than this one's.
+    """
+    found, refused = [], []
+    for dirpath, dirnames, filenames in os.walk(directory, onerror=refused.append):
+        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
+        for name in sorted(filenames):
+            if name.endswith(".md"):
+                found.append(os.path.join(dirpath, name))
+    return found, [error.filename for error in refused]
+
+
+# The marker a reviewer already writes beside a name the tree does not have —
+# `skills/code-review/SKILL.md` shows it in the findings format, records carry
+# it today, and it says exactly what this arm needs to be told. It covers both
+# ways a record means a name that is genuinely absent: one a paste-ready fix
+# is PROPOSING, and one a record is naming as GONE ("`x` was deleted and its
+# call site moved"). Either way the line is not read here at all.
+#
+# The exemption is a MARKER ON THE LINE and never a list inside this file, for
+# the reason `plan.md` gives about what breaks in six months. A list is edited
+# by whoever is annoyed by a refusal; a marker is written by the person who
+# knows the name is absent, in the record where the claim is.
+NOT_IN_TREE = "NAME NOT IN TREE"
+# A backticked identifier, with an optional call suffix — the shape a record
+# names a unit in. `round_record.py`'s `IDENTIFIER_RE` reads the same thing
+# for the fix surface; the two are separate because that one measures a diff
+# and this one reads prose, and folding them would give one pattern two jobs.
+RECORD_NAME_RE = re.compile(r"`([A-Za-z_]\w*)(?:\(\))?`")
+TOKEN_RE = re.compile(r"[A-Za-z_]\w*")
+# A file bigger than this is not read into the name corpus. A minified bundle
+# or a lockfile is megabytes of tokens that name nothing anyone claims, and
+# the cost of reading it is paid on every run.
+NAME_FILE_CAP = 512 * 1024
+NAME_SNIFF = 8192
+NOT_IN_TREE_STATUS = "NOT-IN-TREE"
+UNREADABLE_STATUS = "UNREADABLE"
+# The records arm's own section heading. A constant because it is the ONE
+# unindented line in this program's output that is not a ledger name, and a
+# case that counts ledger headers has to be able to tell it apart by reading
+# this rather than by carrying a second copy of the sentence.
+RECORDS_HEADING = "records — what unreleased work items state about the tree"
+
+
+def compound(name):
+    """Whether a backticked name is read as a claim about this tree at all.
+
+    **It carries an underscore.** Measured over every `.md` under
+    `seal/specs/` in this repository: of the 55 distinct backticked names that
+    appear nowhere outside that directory, the 19 without an underscore are
+    `cmp`, `rpartition`, `divmod`, `pow`, `Starred`, `NameError`,
+    `TypeAlias`, `EACCES`, `PYTHONHASHSEED`, `RUF002`, `bin2`, `fixedly`,
+    `monitors`, `resurrect`, `themes`, `ASK`, `UNMEASURED`, `AMBIGUOUS` and
+    `CITATION` — a shell command, six stdlib names, an errno, an environment
+    variable, a lint code, a probe value, five words of ordinary prose in
+    backticks, and three verdict words a checker used to emit. Not one is a
+    claim about a unit. All 36 with an underscore are, including every one of
+    the four occurrences #190 was opened for.
+
+    So the narrowing loses no true positive on the corpus that exists and
+    removes 56 of 146 occurrences that were never claims. This is the repair
+    `plan.md` names for the false positive this arm grows: **narrow the
+    pattern, do not widen the exemption.** A single word in backticks is
+    prose far more often than it is a unit, and a unit worth a claim is
+    almost always named in more than one word here.
+
+    What it gives up runs in BOTH directions, and the docstring used to name
+    only the first.
+
+    A one-word unit that was renamed away goes unnoticed. That is the cheaper
+    mistake — the alternative refuses `rpartition` and asks the author to mark
+    it `NAME NOT IN TREE`, which is marker noise attached to a true name.
+
+    And an underscore does not make a name a claim the corpus can settle. A
+    record spelling a case short, or under the name it had two releases ago,
+    states a compound name the tree does not carry and is refused for a unit
+    that exists — this repository's own `phase-2.md` carries two such names
+    with the marker on the line (round 1, 🟡 11). That direction is the
+    author's to answer at the commit that writes it, which is the whole reason
+    the marker is a line rather than a list, but it is a cost rather than
+    nothing.
+    """
+    return "_" in name
+
+
+def claim_lines(lines):
+    """[(line number, line)] for the record lines that are read as claims.
+
+    Three kinds of line are not. A line carrying `NAME NOT IN TREE` is the
+    writer's own statement that the name on it is one the tree does not have,
+    and it exempts the LINE rather than the name, so the same name still has
+    to exist everywhere else it is claimed.
+
+    **A FENCED line is a quotation, and an HTML COMMENT is an aside** (round
+    1, 🟡 11). A round record's `## Paste-ready fixes` section is fences of
+    code the tree does not have yet — that is what a paste-ready fix IS — and
+    a template's comments describe fields rather than assert units. Refusing
+    either asks the writer to mark up a block they copied verbatim, and a
+    marker inside a fence changes the fix somebody pastes.
+
+    One reader for both arms, because `spec.md` asks for the escape hatch
+    named once rather than twice and the same is true of the quotation rule:
+    a stamp in a fence is a quoted anchor exactly as a name in one is a
+    quoted name.
+
+    **Both arms are about a REGION and both used to be read one line at a
+    time**, which is the same defect twice and the enumeration this fix ran:
+    over the three kinds of line above, ask of each whether it opens
+    something that continues.
+
+    - `NAME NOT IN TREE` is one line by construction — it exempts the line it
+      sits on, which is the whole of the rule — so there is nothing to widen.
+    - An HTML comment continues to `-->`, and an aside was recognised only on
+      the line that OPENS it: a two-line template comment had its second line
+      read as a claim, a false refusal at exit 2 on a record using a template
+      the way `templates/` writes them (round 2, 🟡 2). `aside` is now a
+      state that ends at `-->`.
+    - A fence continues to a matching close, and one flag for both markers
+      let ``` and ~~~ close each other, so a `~~~` quoted inside a ```-block
+      re-opened prose. `opener` remembers which marker opened the region.
+
+    **A fence the record never closes is a malformed record, not a licence
+    to read nothing** (round 2, 🟡 3). A toggle took every remaining line of
+    the file, and the arm said nothing — a claim went from refused to `0
+    names read`, no findings, exit 0, which is the silent direction on a file
+    whose author made a mistake. What an unclosed fence holds is therefore
+    kept in `held` and read at the end, and the marker still exempts a held
+    line. A CLOSED fence clears `held`, so a quotation stays a quotation.
+
+    What that gives up: inside a never-closed fence an HTML comment is not
+    recognised as an aside, so a name inside one is read. The record is
+    already malformed there, the direction is to read rather than to drop,
+    and the marker is one comment away.
+    """
+    out, opener, held, aside = [], None, [], False
+    for number, line in enumerate(lines, 1):
+        stripped = line.lstrip()
+        mark = (
+            "```"
+            if stripped.startswith("```")
+            else "~~~"
+            if stripped.startswith("~~~")
+            else None
+        )
+        if opener is not None:
+            if mark == opener:
+                opener, held = None, []
+            elif NOT_IN_TREE not in line:
+                # The marker exempts the LINE, and a line a never-closed
+                # fence held is still a line. Filtering here rather than
+                # where `held` is spent keeps one rule for the marker.
+                held.append((number, line))
+            continue
+        if aside:
+            if "-->" in line:
+                aside = False
+            continue
+        if mark is not None:
+            opener = mark
+            continue
+        if stripped.startswith("<!--"):
+            if "-->" not in line:
+                aside = True
+            continue
+        if NOT_IN_TREE in line:
+            continue
+        out.append((number, line))
+    return sorted(out + held)
+
+
+def stated_names(lines):
+    """[(line number, name)] for every compound identifier a record states."""
+    out = []
+    for number, line in claim_lines(lines):
+        for match in RECORD_NAME_RE.finditer(line):
+            name = match.group(1)
+            if compound(name):
+                out.append((number, name))
+    return out
+
+
+def tree_names(root, home):
+    """Every identifier-shaped token the repository carries outside its records.
+
+    The comparison set for `stated_names`. A name in it is a name the tree
+    has; a name absent from it is one the record alone carries.
+
+    **Two directories are excluded and they are the two a work item writes
+    about itself**: `<home>/specs/` and `<home>/ledger/`. Nothing else under
+    `<home>/` is, and `seal/ledger.md` in particular is IN. The line is
+    lifetime, the same line the boundary is drawn on. The gathered ledger is a
+    permanent, curated document — its S15 note keeps a renamed unit's old name
+    beside the new one on purpose, *so a reader coming from an older record
+    can follow it*, and excluding it refuses five occurrences of that name in
+    work item `1788735085`'s records, every one of them that work item
+    narrating its own rename. A FRAGMENT is the other thing: same branch, same
+    author, same lifetime as the records it sits beside. Measured while this
+    arm was being built — writing this work item's own rows put four names
+    into the corpus and silenced four refusals in its own `phase-2.md`, so a
+    work item could clear the check on its records by naming the unit in its
+    own ledger file. The fold moves the fragment into `seal/ledger.md` at the
+    release, which is the same moment the work item stops being live, so
+    nothing changes hands at the boundary.
+
+    **A name in ANY other file is a name the tree has, prose included**, and
+    that is the claim rather than a loophole in it: the check says nothing
+    outside the records carries the name, and a document naming it is a place
+    a reader can find it. It does mean an example in a skill or a document can
+    silence the check for every record — `skills/code-review/SKILL.md`'s
+    marker example uses an invented name for exactly that reason, and says so.
+
+    **Any file the walk reaches, and not any file git carries**, which is a
+    real hole and a deliberate one: an untracked scratch note or a
+    `.gitignore`d bundle holding a name silences a refusal with no committed
+    byte (round 1, 🟡 3). The repair is `git ls-files`, and this checker may
+    not call git — `README.md` §*A row carries no line number and no commit*
+    makes `--migrate` the one exception, and
+    `test_the_checker_asks_git_for_nothing` holds it with a run under an
+    empty `PATH`, which a `subprocess` call here would not survive. What the
+    hole costs is bounded in the safe direction: CI reads a clean checkout,
+    where the untracked file is not there, so it is the stricter reader and
+    the local run is the lenient one. Widening the exception is the policy
+    owner's call — `questions.md` Q1.
+
+    File NAMES are tokens too: a record naming `test_foo` is naming a file as
+    often as a function, and a suite module that exists is not a false claim.
+
+    Nothing is skipped for being numerous. A cap on how many files are read
+    would quietly shrink the corpus, and every name the shrunken corpus misses
+    becomes a refusal for a name the tree has — the expensive direction. Only
+    a single file's SIZE is capped, and only where the content cannot be a
+    claim's subject anyway.
+    """
+    excluded = {
+        os.path.normpath(os.path.join(home, SPECS_DIR)),
+        os.path.normpath(os.path.join(home, FRAGMENT_DIR)),
+    }
+    # `home` is walked in its own right because in LOCAL mode (#80) it sits
+    # under the git common directory, which `SKIP_DIRS` prunes — so identical
+    # bytes answered exit 0 in shared mode and exit 2 in local, on the
+    # strength of where `seal/` happens to sit (round 1, 🟡 4). `names` is a
+    # set, so shared mode, where the two walks overlap, pays a few files and
+    # nothing else, and `excluded` keeps `specs/` and `ledger/` out of both.
+    bases = [root]
+    if os.path.normpath(home) != os.path.normpath(root):
+        bases.append(home)
+    names = set()
+    for base in bases:
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [
+                d
+                for d in dirnames
+                if d not in SKIP_DIRS
+                and os.path.normpath(os.path.join(dirpath, d)) not in excluded
+            ]
+            for filename in filenames:
+                path = os.path.join(dirpath, filename)
+                names.update(TOKEN_RE.findall(filename))
+                try:
+                    if os.path.getsize(path) > NAME_FILE_CAP:
+                        continue
+                    with open(path, "rb") as handle:
+                        raw = handle.read()
+                except OSError:
+                    continue
+                # A NUL in the first few kilobytes is the one binary test that
+                # needs no extension list, and an extension list is what would
+                # need editing every time a repository carries a format nobody
+                # here thought of.
+                if b"\0" in raw[:NAME_SNIFF]:
+                    continue
+                names.update(TOKEN_RE.findall(raw.decode("utf-8", "replace")))
+    return names
+
+
+def stated_stamps(lines):
+    """[(line number, the line)] for every record line carrying an anchor.
+
+    Which lines count is `claim_lines`', for the same reason and in one
+    place: `spec.md` asks for the escape hatch named once rather than twice,
+    and a record's fixture stamp — `mod.py#helper@deadbeef`, which this
+    repository carries in two records — is exactly the shape the marker
+    exists for.
+    """
+    return [
+        (number, line) for number, line in claim_lines(lines) if ANCHOR_RE.search(line)
+    ]
+
+
+def built_name(path, root, flavour=os.path):
+    """`display_name` for a coordinate this arm BUILT rather than a person spelled.
+
+    `display_name` returns the caller's own spelling on purpose, and that is
+    right for a `--ledger` pattern: the operator typed it and gets it back.
+    The records arm types nothing. Every path it prints came out of
+    `os.walk` and `os.path.join`, so on Windows it carries `\\`, while the
+    ledger arm's rows carry `/` because they were READ FROM A FILE. The same
+    coordinate then reads two ways depending on which arm printed it — round
+    1's finding 1 in a different currency, and a coordinate is written with
+    `/` everywhere else in this repository.
+
+    Measured: the Windows leg of CI had been red from the commit that added
+    this arm through three review rounds and two fix passes, on
+    `assert coord.endswith("rounds/round-2.md:3")`. Every round and every
+    gate ran on macOS, where the replacement below is a no-op — which is
+    `agent-contract` §13 exactly, a defence resting on a platform guarantee
+    nobody removed. `flavour` is why a case can remove it: pass `ntpath` and
+    the Windows separators are exercised from a POSIX machine.
+    """
+    return display_name(path, root, flavour).replace(flavour.sep, "/")
+
+
+def check_records(root, home, maps=None, default_repo=None):
+    """(findings, names read, stamps read) over every unreleased work item's
+    records.
+
+    A finding is `(status, coordinate, detail)`, the shape `check_ledger`
+    returns, so `main` prints both arms the same way — and the stamp half is
+    literally `check_text`, the ledger's own reader, so a stamp in a record is
+    resolved the way a ledger anchor is rather than by a second rule.
+    """
+    # A directory that could not be listed is a finding, not an empty answer
+    # — the direction an unreadable FILE already takes one line down. It is
+    # reported before the early return, because `{}` here is exactly what an
+    # unlistable `ledger/` produces and returning nothing would be the
+    # silence (round 2, 🟡 4).
+    unlistable = []
+    live = unshipped(home, unlistable)
+    findings = [
+        (
+            UNREADABLE_STATUS,
+            built_name(path, root),
+            "the ledger fragments directory could not be listed",
+        )
+        for path in unlistable
+    ]
+    if not live:
+        return findings, 0, 0
+    known = tree_names(root, home)
+    records_root = os.path.join(home, SPECS_DIR)
+    fragments_root = os.path.join(home, FRAGMENT_DIR)
+    names_read, stamps_read = 0, 0
+    scan_cache = {}
+    for _item, directory in sorted(live.items()):
+        paths, refused_dirs = record_files(directory)
+        for path in refused_dirs:
+            findings.append(
+                (
+                    UNREADABLE_STATUS,
+                    built_name(path, root),
+                    "the records directory could not be listed",
+                )
+            )
+        for path in paths:
+            body = read(path)
+            shown = built_name(path, root)
+            if body is None:
+                findings.append(
+                    (UNREADABLE_STATUS, shown, "the record could not be read")
+                )
+                continue
+            lines = body.splitlines()
+            for number, name in stated_names(lines):
+                names_read += 1
+                if name in known:
+                    continue
+                findings.append(
+                    (
+                        NOT_IN_TREE_STATUS,
+                        f"{shown}:{number}",
+                        f"`{name}` — nothing outside "
+                        f"{built_name(records_root, root)} and "
+                        f"{built_name(fragments_root, root)} carries this "
+                        f"name. Correct the record, or write {NOT_IN_TREE} on "
+                        "the line where the record means a name the tree does "
+                        "not have",
+                    )
+                )
+            for number, line in stated_stamps(lines):
+                # The stamps on the line, counted from the line. Counting
+                # what `check_text` RETURNS counts findings: it dedupes a
+                # repeated anchor, so one line stamping a unit twice read as
+                # one stamp, and `0 stamps read` beside a refusal named a
+                # number that was never the number of stamps (round 1, ⬜ 14).
+                stamps_read += sum(1 for _ in ANCHOR_RE.finditer(line))
+                # A fresh `seen` per line and a shared `scan_cache` across
+                # them: two lines stamping one unit are two claims and both
+                # are reported, while the repo-wide scan a broken anchor
+                # triggers is paid once for the whole run.
+                for status, coord, detail in check_text(
+                    line, root, maps or {}, default_repo, set(), scan_cache
+                ):
+                    if status == "OK":
+                        continue
+                    findings.append((status, f"{shown}:{number}", f"{coord} {detail}"))
+    return findings, names_read, stamps_read
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root", nargs="?", default=".")
@@ -1713,7 +2319,11 @@ def main():
             )
     else:
         ledgers = resolve_patterns(default_patterns(root))
-    if not ledgers:
+    if not ledgers and (args.migrate or args.reverify):
+        # Both are writers over ledger files, and with none there is nothing
+        # to write. The check below has a second arm that reads records, so
+        # it does NOT stop here — a `--ledger` narrowing that matched nothing
+        # must not also silence the records the narrowing said nothing about.
         print("no evidence ledgers found — nothing to check")
         return 0
 
@@ -1734,6 +2344,9 @@ def main():
         return 1 if left else 0
     if args.reverify:
         return reverify(ledgers, root, maps, default_repo)
+
+    if not ledgers:
+        print("no evidence ledgers found — nothing to check")
 
     totals = {"OK": 0, "DRIFTED": 0, "BROKEN": 0, "EXTERNAL": 0, "OLD-FORMAT": 0}
     for ledger in ledgers:
@@ -1757,11 +2370,72 @@ def main():
         f"{totals['BROKEN']} broken · {totals['EXTERNAL']} external · "
         f"{totals['OLD-FORMAT']} old-format"
     )
+
+    # The second arm. A ledger row is a claim about the tree that something
+    # reads; a RECORD states the same kind of thing and nothing reads it
+    # (#190). Printed under its own heading and counted separately, because
+    # the two arms read different files and a reader who sees one number has
+    # to be able to tell which arm moved it.
+    # Both resolution arguments, not one. A stamp in a record is resolved by
+    # `check_text`, the ledger's own reader, so an anchor that grades `OK` in
+    # `seal/ledger.md` has to grade `OK` here too — and `--default-repo` is
+    # what tells that reader a path resolving in no local checkout belongs to
+    # the original rather than to nobody. Dropped, one arm answered `BROKEN`
+    # for the anchor the other answered `OK`, with the cross-repo look-alike
+    # scan back on, and a migration repository's CI exited 2 on every run
+    # (round 1, 🔴 1).
+    records, names_read, stamps_read = check_records(
+        root, seal_home(root), maps, default_repo
+    )
+    print(f"\n{RECORDS_HEADING}")
+    for status, coord, detail in records:
+        print(f"  {status:12} {coord}  {detail}")
+    # **Drift in a record is graded the way drift in a ledger is, and a name
+    # or a broken anchor is not.** A live work item's branch is editing the
+    # very units its records stamp, so failing on drift would be red by
+    # construction — the state the `ledger` CI job's own comment refuses. A
+    # name the tree does not carry has no mid-flight excuse: it is absent or
+    # the record is wrong, and the marker is one comment away.
+    #
+    # **`EXTERNAL` is exit 0 in both arms.** It is what a coordinate reads in
+    # a repository that has DECLARED cross-repo intent, `SKILL.md` documents
+    # it at exit 0, and counting it as a refusal here made a migration
+    # repository's records fail for the state its parity config exists to
+    # allow (round 1, 🟡 5).
+    drifted = sum(1 for status, _, _ in records if status == "DRIFTED")
+    external = sum(1 for status, _, _ in records if status == "EXTERNAL")
+    refused = len(records) - drifted - external
+    # **What this arm did NOT read is on the line too.** The boundary reads
+    # *a fragment exists* as *this work item has not shipped*, which is
+    # sound, and then acts on the converse, which is not: a live work item
+    # that has not written its fragment yet is skipped, and it used to be
+    # skipped in silence. This arm's own work item was unread through five of
+    # its six phases and every run said `0 names read` and exited 0 (round 1,
+    # 🟡 6) — a zero that reads as *nothing to find* where it meant *nothing
+    # was opened*, which is the silence `skipped_by_narrowing` exists to end
+    # one arm over.
+    #
+    # The two counts and not the 38 names behind the second: naming every
+    # shipped work item costs two thousand characters on every run, and a
+    # notice nobody reads is the state this is fixing. The count moves the
+    # moment a work item's fragment is missing, which is what a reader
+    # checks.
+    home = seal_home(root)
+    live_count = len(unshipped(home))
+    unread = len(unread_items(home))
+    print(
+        f"  {live_count} work item{'' if live_count == 1 else 's'} read · "
+        f"{unread} unread · "
+        f"{names_read} name{'' if names_read == 1 else 's'} read · "
+        f"{stamps_read} stamp{'' if stamps_read == 1 else 's'} read · "
+        f"{refused} refused · {drifted} drifted · {external} external"
+    )
+
     if totals["OLD-FORMAT"]:
         return 2
-    if totals["BROKEN"]:
+    if totals["BROKEN"] or refused:
         return 2
-    if totals["DRIFTED"]:
+    if totals["DRIFTED"] or drifted:
         return 2 if args.strict else 1
     return 0
 

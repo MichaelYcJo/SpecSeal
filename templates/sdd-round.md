@@ -230,6 +230,29 @@ durable, committed home instead. -->
      only by mechanism a fix pass may not add. A bare `deferred`, nothing
      after it, stays OPEN: it says something was left and not where. -->
 
+## Paste-ready fixes
+
+<one fenced block per 🔴/🟡, copied from the report's section of the same
+name — or `no paste-ready fix in the report`>
+
+<!-- The findings format requires a paste-ready fix for every 🔴 and every 🟡
+and spends four paragraphs on what makes one paste-ready. Until this section
+existed, `round_record.py new` copied the tables and dropped every one of
+those blocks, so the file the fix pass is told to open instead of the report
+carried none of the artefact those paragraphs are about (#187). Measured: a
+162-line report with three executed snippets became an 80-line record with
+none of them, and the fix pass rebuilt all three from a description, getting
+its first reproduction wrong.
+
+The generator takes the FENCES and nothing else of the section, which is what
+keeps prose nobody parses out of a file `chain_check.py` reads. A fix
+described in sentences reaches no record.
+
+`no paste-ready fix in the report` is what the generator writes when the
+report carried no fence under the heading. It states what was observed, never
+that none was needed — beside an open row in the verdict table above, that
+sentence is the gap written down. No check reads it. -->
+
 ## Executed probes
 
 | What was run | Result |

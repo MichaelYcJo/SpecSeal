@@ -143,6 +143,44 @@ REPORT_TABLES = (
     (PROBES, PROBE_HEADER),
     (DEFERRED, DEFERRED_HEADER),
 )
+# The section that is fenced blocks and no table. `skills/code-review/SKILL.md`
+# §Findings format requires a paste-ready fix for every 🔴/🟡 and spends four
+# paragraphs on what makes one paste-ready; until this heading existed, `new`
+# copied the tables and dropped every one of those blocks (#187), so the file
+# the fix pass is told to open instead of the report carried none of the
+# artefact the report's four paragraphs are about.
+PASTE_READY = "## Paste-ready fixes"
+# What the section says when the report carried no fence under that heading.
+# It states what the generator OBSERVED, not that none was needed: a round
+# that opened a 🔴 and wrote no block is a gap, and this sentence beside that
+# row in the verdict table is what makes the gap visible in the record itself.
+NO_PASTE_READY = "no paste-ready fix in the report"
+# Every heading the generator looks up in the report. A section added later is
+# read, and guarded, by being added here, and no second list goes stale.
+READ_HEADINGS = (*(h for h, _ in REPORT_TABLES), PASTE_READY)
+# The subset `swallowed` may refuse a report over, and `PASTE_READY` is the
+# first member of `READ_HEADINGS` that is NOT in it. The guard's premise is
+# that a heading hidden by a fence and absent outside it was SWALLOWED, and
+# that holds only where the report must carry the section. `agents/warden.md`
+# §Report tells a round that opened nothing needing a fix to leave this
+# heading out, so absence is a legitimate state here and the refusal would
+# report a loss that did not happen (round 1's 🟡 3).
+#
+# It is also the shape that stops this tool during its own review rounds: a
+# reviewer of the record generator pastes record-shaped blocks, headings and
+# all, and the round that quotes the empty section's own sentence is exactly
+# the round that wrote no fixes. `seal/ledger.md` F3 names that scenario as
+# what the guard must never do.
+#
+# What it gives up, stated rather than left to be found: a report that DOES
+# carry paste-ready fixes and whose heading a closed fence swallows now writes
+# a record saying the report carried none. Nothing can tell that apart from a
+# round that wrote none — the two texts are identical outside the fence — and
+# the record shows the gap where a reader meets it, beside the open rows in
+# the verdict table above. A refusal here would stop an unattended run over
+# the legitimate case to catch the unlikely one, which is the trade
+# `CLAUDE.md`'s first goal decides.
+REQUIRED_HEADINGS = tuple(h for h, _ in REPORT_TABLES)
 # The two sections the generator fills from somewhere other than the report.
 ASKED = "## What this round was asked"
 INHERITED = "## Inherited coordinates"
@@ -253,6 +291,185 @@ def row(cells):
 
 def separator(width):
     return "|" + "---|" * width
+
+
+def split_cells(line, spans=False, limit=None, comments=False):
+    """Cells of one markdown row, or None when the line is not one.
+
+    Three knobs over what `reader.split_row` does, and with all three off
+    this is that function: leading `|` dropped, one closing `|` dropped, a
+    break at every `|` no single backslash precedes, each cell stripped and
+    its `\\|` unescaped. Nothing here may drift from it — the record is read
+    back through it, so a cell this composes and that one reads differently
+    is a cell the pull-request check reads differently from the record.
+
+    `spans` reads a `|` inside a backtick code span as text. That is the
+    reviewer's own markup saying the character is not a column break — a
+    shell pipeline in a probes row, an augmented assignment in a Grounds
+    cell — and it is the one reading that recovers the column it belongs
+    to. Runs close the way CommonMark closes a code span: a run of N closes
+    a run of N. An unbalanced run swallows every break after it, which is
+    why the reading is taken only when it lands on the width its caller
+    expects.
+
+    `comments` reads a `|` between `<!--` and `-->` as text, for the same
+    reason `spans` does inside a backtick run, and for one more that is not
+    about markup at all: `table_body` measured this row's width on
+    `strip_comments(report)`, where that character is NOT a break, and
+    `copied_row` rebuilds the row from `raw`, where it is. Two texts
+    disagreeing about one character is the asymmetry `NEVER_CLOSED_VERBATIM`
+    already documents for fences; here it cost a column, at exactly header
+    width, so nothing downstream complained and the Location stood in the
+    Verdict cell `chain_check` reads (round 1's 🔴 1).
+
+    `limit` caps how many breaks are taken; every `|` after that stays in
+    the last cell as the text it stood in, spacing and all. Rejoining
+    already-split cells cannot do that — `split_row` strips each one, so
+    `a |= b` comes back as `a | = b`.
+    """
+    s = line.strip()
+    if not s.startswith("|"):
+        return None
+    body = s[1:]
+    if body.endswith("|") and not body.endswith("\\|"):
+        body = body[:-1]
+    out, buf, i, marker, hidden = [], [], 0, None, False
+    while i < len(body):
+        ch = body[i]
+        if comments and not hidden and body.startswith("<!--", i):
+            hidden = True
+            buf.append(body[i : i + 4])
+            i += 4
+            continue
+        if hidden:
+            if body.startswith("-->", i):
+                hidden = False
+                buf.append(body[i : i + 3])
+                i += 3
+                continue
+            buf.append(ch)
+            i += 1
+            continue
+        if spans and ch == "`":
+            j = i
+            while j < len(body) and body[j] == "`":
+                j += 1
+            if marker is None:
+                marker = j - i
+            elif j - i == marker:
+                marker = None
+            buf.append(body[i:j])
+            i = j
+            continue
+        broken = len(out)
+        if (
+            ch == "|"
+            and marker is None
+            and (i == 0 or body[i - 1] != "\\")
+            and (limit is None or broken < limit)
+        ):
+            out.append("".join(buf))
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    out.append("".join(buf))
+    return [c.strip().replace("\\|", "|") for c in out]
+
+
+def raw_cells(line, spans=False, limit=None):
+    """`split_cells` as a line of the RAW report has to be read.
+
+    One place rather than a flag at each call site, and the difference is
+    whether the rule can be observed. `table_body` counts a row's columns on
+    `strip_comments(report)` and `copied_row` is handed `raw`, so a `|`
+    inside an HTML comment is never a break here — not as a preference but
+    because the two texts have to agree about every character. Measured
+    while closing round 1's 🔴 1: with the flag written at each of
+    `row_cells`' four readings, removing any ONE of them left every case
+    green, because a later reading recovers what an earlier one splits
+    wrongly. Removing it here turns them red.
+
+    `split_cells` keeps the knob and keeps defaulting it off, because with
+    all three knobs off that function has to be `reader.split_row` and
+    `test_the_plain_reading_is_the_readers_own` holds it there.
+    """
+    return split_cells(line, spans=spans, limit=limit, comments=True)
+
+
+def row_cells(reader, line, width):
+    """`line`'s cells, `width` of them wherever the line can give that many.
+
+    Three readings, in the order that keeps the reviewer's own placement
+    most often. #189 measured the loss this repairs: a `|` inside a cell
+    makes the row carry more cells than the header declares, every renderer
+    drops the surplus, and the text from that character on is invisible in
+    the rendered record while surviving in the raw file.
+
+    1. The plain reading, wherever it already fits. This is what every
+       downstream check does, so the ordinary row is read by the function
+       that will read it back rather than by a second spelling of it.
+    2. Otherwise the code-span reading, capped at `width` breaks, wherever
+       that lands on the width. A `|` inside a backtick code span is the
+       reviewer's own markup saying the character is not a break: all eight
+       over-wide rows in this repository's committed records have their
+       pipe inside one, and one of the eight has it in a column that is not
+       the last. The cap has to be ON here — a row carrying both a span
+       pipe and a bare one past it is over-wide under either reading alone,
+       and the uncapped span reading then missed it and let the plain cap
+       re-split the code span, landing the Location in the Verdict cell
+       (round 1's 🟡 2).
+    3. Otherwise the plain cap, so a `|` past the last column stays in the
+       last cell as text. An unbalanced backtick run lands here, because it
+       swallows every break and comes in UNDER the width at reading 2.
+
+    Every reading goes through `raw_cells`, so a `|` inside an HTML comment
+    is never a break. That is not a preference: `table_body` counted this
+    row's columns on the comment-stripped text and this function is handed
+    `raw` (round 1's 🔴 1).
+
+    **An uncapped span reading used to stand before reading 1** — the shape
+    round 1's fix arrived in. It is gone because it is subsumed: a reading
+    that lands exactly on `width` is unchanged by a cap of `width - 1`, and
+    it is reached only where the plain reading is over the width, which is
+    reading 2. Measured before removing it, over all 4128 body rows of this
+    repository's committed records and 432 generated rows covering every
+    combination of a bare pipe, a span pipe, a comment pipe and an
+    unbalanced backtick run in three columns: zero disagreements. What it
+    cost while it stood was a branch no case could observe — dropping its
+    `spans=True` left the whole module green, because reading 2 returns the
+    same cells.
+
+    The cap is a guess and it is the only one available: nothing in a
+    flattened row says which column a bare `|` came from. It is never worse
+    than what the record did before — the leading cells land at the same
+    indices either way — and it makes the text visible instead of dropped.
+    The stated limit is that a bare `|` in a column that is not the last
+    lands the rest of the row in the last column.
+
+    Returns None for a line that is not a row, and fewer than `width` cells
+    for a row that has fewer. Neither is refused here: `table_body` and
+    `fix_table` own what a short row means, and a refusal would stop an
+    unattended run over something no person can decide.
+    """
+    if reader.split_row(line) is None:
+        return None
+    plain = raw_cells(line)
+    if len(plain) <= width:
+        return plain
+    spanned = raw_cells(line, spans=True, limit=max(width - 1, 0))
+    if len(spanned) == width:
+        return spanned
+    return raw_cells(line, limit=max(width - 1, 0))
+
+
+def copied_row(reader, line, width):
+    """One report row re-serialised into the record, its pipes escaped."""
+    cells = row_cells(reader, line, width)
+    if cells is None:
+        return line.strip()
+    return row([escape(c) for c in cells])
 
 
 def cell(label, value):
@@ -400,7 +617,11 @@ def table_body(reader, lines, heading, header, required):
             )
         return None
     _start, body = found
-    rows = [(i, reader.split_row(ln)) for i, ln in body if ln.strip()]
+    # `row_cells` rather than `split_row`: a `|` the reviewer wrote inside a
+    # cell used to make the row carry more cells than the header declares,
+    # and every reader downstream of this one — `fix_table`'s third cell,
+    # `verdict_rows`' verdict column — then read the wrong index (#189).
+    rows = [(i, row_cells(reader, ln, len(header))) for i, ln in body if ln.strip()]
     rows = [(i, cells) for i, cells in rows if cells is not None]
     if not rows:
         if required:
@@ -421,11 +642,20 @@ def table_body(reader, lines, heading, header, required):
 
 
 def table_of(reader, raw, lines, heading, header, required):
-    """The rows under `heading` as raw lines, header and separator first."""
+    """The rows under `heading`, header and separator first, pipes escaped.
+
+    Each row is re-serialised from `raw` rather than copied from it, so a
+    `|` the reviewer wrote inside a cell reaches the record as text instead
+    of splitting the row (#189). `raw` and not `lines`, because `lines` has
+    the HTML comments stripped and a comment a reviewer wrote inside a cell
+    is theirs to keep.
+    """
     body = table_body(reader, lines, heading, header, required)
     if body is None:
         return None
-    return [row(header), separator(len(header))] + [raw[i].strip() for i, _ in body]
+    return [row(header), separator(len(header))] + [
+        copied_row(reader, raw[i], len(header)) for i, _ in body
+    ]
 
 
 def swallowed(reader, report, lines):
@@ -458,11 +688,19 @@ def swallowed(reader, report, lines):
     probes section with it, and `fenced_after` is never even called for that
     section, so no guard living inside it could see the shape.
 
-    What may not be lost is `REPORT_TABLES`' headings, the table rows that
-    stand under them, and `TERMINAL_LINES`. A list of section constants typed
-    out here would go stale the day a section is added; these two are the
-    constants the generator reads BY, so a section it cannot read is a
-    section it does not have.
+    What may not be lost is `REQUIRED_HEADINGS`, the table rows that stand
+    under `REPORT_TABLES`' members, and `TERMINAL_LINES`. A list of section
+    constants typed out here would go stale the day a section is added;
+    these are the constants the generator reads BY, so a section it cannot
+    read is a section it does not have.
+
+    `REQUIRED_HEADINGS` and not `READ_HEADINGS`, and the difference is a
+    rule rather than an omission: the premise here is that a heading hidden
+    by a fence and absent outside it was SWALLOWED, and that inference holds
+    only for a section the report must carry. `PASTE_READY` is optional, so
+    its absence is a legitimate state and the refusal would report a loss
+    that did not happen — round 1's 🟡 3, whose grounds are F3's own Notes.
+    That constant carries the trade this gives up.
 
     The rows are the third loop and they are the half round 1 of this work
     item's own chain found missing (🟡 2): a heading is only half of what a
@@ -529,7 +767,7 @@ def swallowed(reader, report, lines):
     pairs = enumerate(zip(stripped, lines, strict=True))
     hidden = [(i, s.strip()) for i, (s, ln) in pairs if s.strip() and not ln]
     text = [t for _i, t in hidden]
-    for heading, _header in REPORT_TABLES:
+    for heading in REQUIRED_HEADINGS:
         if heading in text and not reader.sections(lines, heading):
             raise Refused(SWALLOWED.format(name=heading))
     for label in TERMINAL_LINES:
@@ -770,6 +1008,216 @@ def reach_back(reader, path, n):
     )
 
 
+# --- the bound the next round is under, said as the record is written -------
+
+ENDS_THE_RUN = "this record ends the run"
+ONE_REOPENING = "one reopening remains"
+
+
+def floor_and_fixes(reader, earlier):
+    """(the floor record, the later ones that closed on a fix, how many
+    records the FIRING count walk has spent, whether a count walk is still
+    running, the record that walk started from).
+
+    The last three are one answer in three cells and never disagree: with no
+    walk running the count is 0 and the record is None, because a walk that
+    has stopped bounds nothing and a count reported from one would be a
+    number about a record the caller is not told.
+
+    **`chain_check.stopping_floor` runs TWO walks over the records after the
+    floor, and this used to carry one of them.** The reopening walk counts
+    fix-closing records wherever they sit and refuses a second; the count walk
+    counts every later record up to and including the first that reopened
+    (`Needs a fix: yes`) or closed on a fix, and refuses a second counted
+    record. A run whose floor was met and whose next rounds are simply QUIET
+    is bounded by the second walk alone — so reading only the first printed
+    `one reopening remains` at round 2 and the gate then refused round 3, the
+    invitation into a round the gate does not allow (round 1, 🔴 2). That is
+    #207's own defect, reproduced by the fix for it.
+
+    **And the gate runs each walk from EVERY record whose floor row reads
+    `no`, not from the earliest alone.** `stopping_floor` is called on every
+    record — its own docstring says so, for the same reason `checked_by` is —
+    so a second floor record starts its walks over the records after IT. The
+    two walks answer that differently, and the answer is a property of the
+    walk rather than a case anybody noticed:
+
+      | Walk          | Stops? | Start point                              |
+      | the reopening | never  | a suffix filter, so a later start's hits |
+      |               |        | are all in an earlier start's. The       |
+      |               |        | earliest DOMINATES: ≤ 1 there is ≤ 1     |
+      |               |        | everywhere, and ≥ 2 there already fires  |
+      | the count     | yes    | stopping breaks that. An earlier walk    |
+      |               |        | that stopped says nothing about a later  |
+      |               |        | floor record's own walk, which starts    |
+      |               |        | fresh — so every floor record is walked  |
+
+    That is the enumeration, taken by construction over `stopping_floor`'s
+    body — the two loops under `word == FLOOR_NO`, which is the whole of what
+    it does with `later` — and then a monotonicity question asked of each,
+    rather than by reading for more instances of the shape. Reading the
+    earliest floor record's count walk alone printed `one reopening remains`
+    at round 4 of this work item while the gate returned an error at
+    `round-2.md` (round 2, 🟡 1): round 1's 🔴 2 one floor record over, and
+    the third instance of one class on this branch.
+
+    The floor record is the EARLIEST earlier record whose `Loses a record or
+    crashes` reads `no`, and taking the LATEST instead is the failure
+    `chain_check.stopping_floor` records in its own docstring: every record
+    the count stops at is itself a record that met the floor, so a count keyed
+    to the latest restarts there and is unbounded by construction. That is
+    about which record the RETURNED floor is, and the count walk above is
+    about which records are walked — a walk from every floor record is not a
+    count keyed to the latest, because each walk is bounded by its own start.
+
+    **Whether the walk is still RUNNING is the fourth value, because the count
+    the record being written inherits depends on it.** A record that reopened
+    the run without writing fixes stops the walk at the gate, so this record
+    is not counted at all and the gate allows it — counting it anyway would
+    print `ends the run` over a round the gate is about to permit, which is
+    the same false sentence one direction over.
+
+    Read from disk rather than from `HEAD`. `chain_check.read_record` asks git
+    because it is enforcing at a pull request, where the working tree is
+    exactly what CI cannot see; this is a line printed to whoever just ran the
+    command, and the records in front of them are the ones on disk. A record
+    whose row is outside the vocabulary is simply not the floor record —
+    `stopping_floor` already reports that at the gate, and a second reader
+    inventing a sentence about it here would be the thing #207 is about.
+
+    **An unreadable record answers nothing at all**, and that is the whole
+    return rather than a record dropped from `fixes`. Skipping one leaves a
+    run that HAS closed on a fix reading as a run that still has its reopening
+    — the permissive direction, and against what this docstring says it does
+    (round 1, 🟡 12). `checked_by` already names the unreadable record.
+    """
+    seen = []
+    for _k, path in earlier:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+        except OSError:
+            return None, [], 0, False, None
+        lines = reader.readable(text)
+        rows = chain.table_rows(reader, lines)
+        floor = chain.field(rows, chain.FLOOR)
+        met = floor is not None and (
+            chain.yes_or_no(reader.visible(floor).strip())[0] == chain.FLOOR_NO
+        )
+        needs = chain.field(rows, chain.NEEDS)
+        reopened = needs is not None and (
+            chain.yes_or_no(reader.visible(needs).strip())[0] == chain.FLOOR_YES
+        )
+        seen.append((path, met, reopened, chain.closed_with_a_fix(reader, lines, path)))
+
+    floor_i = next((i for i, row in enumerate(seen) if row[1]), None)
+    if floor_i is None:
+        return None, [], 0, False, None
+    # The reopening walk, from the EARLIEST floor record — the only start it
+    # needs, by the monotonicity argument above.
+    fixes = [p for p, _m, _r, wrote in seen[floor_i + 1 :] if wrote]
+
+    # The count walk, from EVERY floor record. Among the walks still running,
+    # the earliest has the largest count — a later walk's records are all in
+    # the earlier one, which would have to have stopped for the later one to
+    # start fresh — so the maximum is the walk the gate refuses first, and
+    # `counted_at` is the record it started from.
+    counted, counted_at = 0, None
+    for i, (path, met, _r, _w) in enumerate(seen):
+        if not met:
+            continue
+        spent, stopped = 0, False
+        for _p, _m, reopened, wrote in seen[i + 1 :]:
+            spent += 1
+            if reopened or wrote:
+                stopped = True
+                break
+        if not stopped and spent > counted:
+            counted, counted_at = spent, path
+    return seen[floor_i][0], fixes, counted, counted_at is not None, counted_at
+
+
+def bound_line(reader, routing, rounds, n):
+    """What bound the next round is under, or None where there is none.
+
+    **`docs/review-chain-spec.md` bounds a run one step earlier than the cap**:
+    after a record whose floor row reads `no`, at most one later record may
+    close on a fix, and the record that reads its fixes ends the run whatever
+    it finds. `chain_check.py` enforces that at the broad gate — after every
+    round of the run has already been spawned — and nothing says it at the
+    moment a session decides whether to spawn again. Measured (#207): one work
+    item ran rounds 3, 4 and 5 past the bound, wrote *"round N of a cap of
+    five"* into every spawn prompt, and reverted 37.9 minutes of agent time.
+
+    The cap is a number a prompt can carry and is wrong; the bound is a
+    condition that has to be recomputed from the previous record's floor row
+    every time a round ends. `new` already has that record in hand for the
+    reach-back, so the answer costs a read it is already paying for.
+
+    **A first round, and a run whose floor has not been met, print nothing.**
+    A sentence invented for a state that has none is worse than silence: the
+    cap still governs there, and the cap is not this line's subject.
+
+    **A work item the gate grandfathers prints nothing either, and the two
+    walks are grandfathered against DIFFERENT constants.** `stopping_floor`
+    excuses the count walk's refusal below `FLOOR_FROM` and the reopening
+    walk's below `REOPEN_FROM`, and for an item between the two the gate
+    refuses one and merely notices the other. One guard for both would have
+    silenced a bound that is really enforced at `1788500000-an-item`, and no
+    guard at all declares a run capped where the gate only prints (round 1,
+    🟡 8). Silence is the answer rather than a hedged sentence: this line
+    exists to bound the decision to spawn again, and for a record the gate
+    will not refuse there is no bound to state.
+    """
+    floor_at, fixes, counted, running, counted_at = floor_and_fixes(
+        reader, earlier_records(routing, rounds, n)
+    )
+    if floor_at is None:
+        return None
+    # Every record here is one work item's, so `item_began` answers the same
+    # whichever floor record is named — `floor_at` and `counted_at` alike.
+    began = chain.item_began(floor_at.replace(os.sep, "/"))
+    reopen_excused = began is None or began < chain.REOPEN_FROM
+    count_excused = began is None or began < chain.FLOOR_FROM
+    met = os.path.basename(floor_at)
+    if fixes:
+        if reopen_excused:
+            return None
+        reopened = os.path.basename(fixes[0])
+        return (
+            f"round-record: {ENDS_THE_RUN} — {met} met the floor and "
+            f"{reopened} closed on a fix. At most one later record may close "
+            "on a fix, and the record that reads its fixes ends the run "
+            f"whatever it finds. {chain.CAPPED_EXIT}"
+        )
+    if counted and running:
+        # Every record after some floor record was quiet, so that walk is
+        # still running and this record is the one it counts next — the
+        # gate's SECOND counted record, which it refuses.
+        if count_excused:
+            return None
+        quiet = "record" if counted == 1 else "records"
+        # The record the FIRING walk started from, which is not always the
+        # earliest floor record `met` names (round 2, 🟡 1). Naming `met`
+        # here sent the reader to a walk that had already stopped, and the
+        # count beside it then belonged to a record the sentence did not
+        # mention — the one thing in this line a reader can check.
+        started = os.path.basename(counted_at)
+        return (
+            f"round-record: {ENDS_THE_RUN} — {started} met the floor and the "
+            f"{counted} {quiet} after it neither reopened the run nor closed "
+            "on a fix, so the gate's count of round records after the floor "
+            f"reaches {counted + 1} here. {chain.CAPPED_EXIT}"
+        )
+    if reopen_excused:
+        return None
+    return (
+        f"round-record: {ONE_REOPENING} — {met} met the floor and no later "
+        "record has closed on a fix. If this round's own verdicts close on "
+        "one, the record after it ends the run whatever it finds"
+    )
+
+
 def build(reader, routing, args, root, item, rounds):
     """The record's text, and the reach-back to make once it is written."""
     if not reader.resolves(root, args.target):
@@ -818,6 +1266,19 @@ def build(reader, routing, args, root, item, rounds):
     fenced = fenced_after(reader, raw, lines, PROBES)
     if fenced:
         probes = [*probes, "", *fenced]
+    # #187: the paste-ready fix the findings format requires used to reach no
+    # file at all. It is extracted by the mechanism the probes table has used
+    # since #161 -- a fence is copied whole and nothing else of the section
+    # is, so no prose enters a file `chain_check.py` reads.
+    #
+    # The empty arm is a scenario rather than an edge case: a verifying round
+    # that opens nothing writes no fix, and the record still has to be
+    # written. The sentence says what was OBSERVED -- that the report carried
+    # no fence under the heading -- because a round that opened a 🔴 and wrote
+    # no block is a gap, and only the reader can tell the two apart. Beside an
+    # open row in the verdict table above, this line IS the gap made visible,
+    # which is what `plan.md` says mitigates a reviewer omitting the heading.
+    sketches = fenced_after(reader, raw, lines, PASTE_READY) or [NO_PASTE_READY]
     deferred = table_of(reader, raw, lines, DEFERRED, DEFERRED_HEADER, False)
     if deferred is None:
         deferred = [row(DEFERRED_HEADER), separator(len(DEFERRED_HEADER)), ""]
@@ -867,6 +1328,10 @@ def build(reader, routing, args, root, item, rounds):
         VERDICTS,
         "",
         *verdicts,
+        "",
+        PASTE_READY,
+        "",
+        *sketches,
         "",
         PROBES,
         "",
@@ -950,6 +1415,12 @@ def new(args):
     print(f"round-record: wrote {os.path.relpath(target, root)}")
     if reached is not None:
         print(reached)
+    # After the record is written and before the check runs — the moment the
+    # orchestrator decides whether to spawn again, which is the moment the
+    # enforcement at the broad gate does not reach (#207).
+    bound = bound_line(reader, routing, rounds, args.round)
+    if bound is not None:
+        print(bound)
     return run_check(root, args.baseline or default_baseline(root))
 
 
@@ -1590,7 +2061,7 @@ def close(args):
     # the one insertion last.
     for number, (word, value, note) in fixes.items():
         i, _cells = rows[number]
-        cells = reader.split_row(raw[i])
+        cells = row_cells(reader, raw[i], len(VERDICT_HEADER))
         while len(cells) <= GROUNDS_COL:
             cells.append("")
         old = cells[GROUNDS_COL].strip()
@@ -1605,7 +2076,8 @@ def close(args):
         raw[i] = row([escape(c) for c in cells])
     words = [
         chain.verdict_of(
-            [reader.visible(c) for c in reader.split_row(raw[i])], VERDICT_COL
+            [reader.visible(c) for c in row_cells(reader, raw[i], len(VERDICT_HEADER))],
+            VERDICT_COL,
         )
         for i, _ in rows.values()
     ]

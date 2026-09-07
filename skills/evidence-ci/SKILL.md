@@ -53,16 +53,30 @@ of this command, not something that arrives silently.
      that one code.
 
      ```yaml
-     run: python3 tools/evidence_check.py . || [ $? -eq 1 ]  # 2 (broken) still fails
+     run: python3 tools/evidence_check.py . || [ $? -eq 1 ]  # 2 still fails
      ```
+
+     **2 is not only a broken coordinate.** The records arm — what an
+     unshipped work item's records state about the tree — exits 2 for a name
+     the tree does not carry and for a record it cannot read, whatever this
+     flag says, because neither has a mid-flight excuse. Drift in a record
+     follows `--strict` the way drift in a ledger does.
    - **Path filters.** The template watches `docs/**`, `src/**`, and the
      checker. Replace `src/**` with this repo's actual source roots; a filter
      that never matches is a check that never runs.
 
-5. **Say what happens next, honestly.** If the repo has no `seal/ledger.md` yet,
-   the check passes trivially — `no evidence ledgers found` — until the smith
-   records a first coordinate. That is not a failure, but it does mean the
-   green check proves nothing yet.
+5. **Say what happens next, honestly.** If the repo has no `seal/ledger.md`
+   yet, the ledger arm passes trivially — `no evidence ledgers found` — until
+   the smith records a first coordinate. That is not a failure, but it does
+   mean that half of the green check proves nothing yet.
+
+   The records arm is not trivial in the same way, and it is why "no ledger,
+   nothing can fail" is no longer true. It reads the records of every work
+   item whose `seal/ledger/<id>.md` fragment is still on disk, so a
+   repository with records and no gathered ledger can go red on the first
+   run. Its counts print under their own heading, `N work items read · M
+   unread` first, so a run that opened nothing says so rather than reporting
+   a zero that reads as clean.
 
 6. **Do not commit for the user.** Show the two files and let them review.
    Adding a required check to someone's CI is their call to make in a diff.

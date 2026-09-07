@@ -25,8 +25,10 @@ and nobody closed its milestone.
 and scheduling is two acts rather than one: the milestone changes, and the
 issue gains a line in `docs/flow.md` under the release that will carry it.
 Neither act alone is a schedule — `flow.md` is what a person reads at the
-start of a ticket, and the milestone is what answers "what is in 0.9.0"
-without opening a file.
+start of a ticket, and the milestone is what answers "what is in 1.2.3"
+without opening a file. The number is illustrative, for the reason
+**A rolling log is titled after the version it rolled from** gives below.
+It named a real unshipped release here for three of them (#179).
 
 `log:` is the shape that surprises people, and there is one of it:
 `log: measurement`. What it holds are not tasks. `#51` is the durable
@@ -58,9 +60,11 @@ answers no lookup.
 **A rolling log is titled after the version it rolled from**, in the form
 `chore: flow measurement — after 1.2.3`. That log opened at the 1.2.3
 release, holds the measurements taken since, and is closed by whatever ships
-next. The number here is illustrative on purpose: a released version written
-into a loaded file is what `test_no_loaded_file_hardcodes_the_running_version`
-refuses, and this paragraph would go red at its own next release.
+next. The number here is illustrative on purpose: a real version written
+into a loaded file is what
+`test_no_loaded_file_names_a_version_at_or_above_the_running_one` refuses —
+whether it has shipped or is still ahead — and this paragraph would go red
+at its own next release.
 The version in it is a fact rather than a prediction:
 `docs/branch-and-release.md` says whether the next number is a minor or a
 patch is known at the end and not at the cut, so at the moment the roll runs
