@@ -41,8 +41,9 @@ screen. The stamps were computed with the checker's own `resolve_unit` and
 will judge it.
 
 **The records arm caught a stale name in this work item's own `spec.md`.** An
-acceptance row cited `test_consent_follows_the_clone_not_the_worktree`, and the
-case that got written is `test_the_record_follows_the_clone_not_the_worktree` —
+acceptance row cited `test_consent_follows_the_clone_not_the_worktree` — NAME NOT IN TREE, which is the point of the sentence.
+The case that got written is
+`test_the_record_follows_the_clone_not_the_worktree`, and
 the scenario had moved from *the guard allows* to *the record lands under the
 common directory* while the plan was being built, and the name moved with it.
 Nothing but that check would have found it: the suite is green either way.

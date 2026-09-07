@@ -6,7 +6,7 @@ the diff cannot show goes here. -->
 
 📋 implement applied
 · spec:     `gh issue view 237`; `CONTRIBUTING.md` §*What a change to a gate must carry*; `CLAUDE.md` §*The goal a design is chosen against*; `docs/worktree-guard-spec.md` §B, §Choice sites; `skills/agent-contract/SKILL.md` §§2, 9, 12, 13, 15; `hooks/worktree-guard.py`'s module docstring and `has_token`'s; `seal/config.md` (no `Record language` row → English); `seal/follow-up.md`
-· evidence: 9 rows in `seal/ledger/1788817291-the-guard-asks-once-per-worktree-not-once-per-session.md`, all `Executed`; `hooks/dispatch.py#GROUPS` re-verified in `seal/ledger.md` (`b3d45306 -> a5e67d2c`)
+· evidence: 9 rows over 7 coordinates in `seal/ledger/1788817291-the-guard-asks-once-per-worktree-not-once-per-session.md`, all `Executed`; `hooks/dispatch.py#GROUPS` re-verified in `seal/ledger.md` (`b3d45306 -> a5e67d2c`)
 · verified: executed — `tests/test_the_guard_asks_once_per_session.py` (26 cases), `test_worktree_guard.py`, `test_worktree_guard_signals.py`, `test_dispatch.py`, `test_guard_resolves_the_tree_it_judges.py`, `test_gates_do_not_fail_open.py`, `test_lint_python.py`, `test_chain_hooks_hardening.py`, `bin/evidence-check .`, and 16 single-unit mutations each seen red. Unverified — the full suite, lint and typecheck (the broad gate, the orchestrator's)
 
 ## Why this work exists
@@ -48,6 +48,17 @@ the ticket asks for is reached without it.
 that created a worktree, the way `specseal-worktree-choice/` already does, and
 pruning by mtime would be the time bound Q1 rejected arriving through the back
 door. If the directory ever needs bounding, it wants a rule that is not a clock.
+
+**Four red cases in `tests/test_the_records_can_be_carried_out_and_in.py` were
+left alone**, because they are red at the base commit too. Executed: at
+`86e140f`, detached, the module reports `4 failed, 74 passed` —
+`test_a_link_at_the_partial_name_refuses_the_export`,
+`test_a_file_at_the_partial_name_survives_the_refusal`,
+`test_the_export_refuses_the_link_where_o_excl_does_not_catch_it` and
+`test_a_broken_link_at_the_zips_own_name_is_not_a_free_name`. They are about
+`seal` export/import and nothing here touches it. It is a follow-up for the
+orchestrator to file rather than a defect for this branch to chase, and fixing
+it here would be scope this work item did not ask for.
 
 **`split_command` was not deleted.** Its rider says no production caller reaches
 it; this work added two more readers and neither uses it, so the rider is still
