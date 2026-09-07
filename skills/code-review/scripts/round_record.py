@@ -97,7 +97,8 @@ only what the checker never reads: the headings and headers of the two tables
 it does not parse, and the honest starting values of the cells it does.
 
 Exit codes: 0 and 1 are `chain_check`'s own, after the record is written ·
-2 the input was unusable and nothing was written.
+2 the input was unusable, or the interpreter is below the floor — either way
+nothing was read and nothing was written.
 """
 
 import argparse
@@ -110,6 +111,77 @@ import shutil
 import subprocess
 import sys
 import tempfile
+
+# The interpreter, before this file does anything a reader could mistake for
+# progress.
+#
+# Issue #226, reported from another repository. On a machine whose `python3`
+# is 3.9 this died at the `zip(..., strict=True)` below with an interpreter
+# traceback -- and it died there, which is to say after argument parsing, path
+# resolution and the report read had all succeeded. So the failure read as a
+# bug in the report, and the message named neither the version needed nor the
+# flag. macOS still ships 3.9 as `/usr/bin/python3`, so that is the default
+# interpreter on a common platform, and a repository pinning a newer one does
+# not help: this script is invoked directly rather than through it.
+#
+# The four `strict=True` sites stay. `CONTRIBUTING.md` §Running the checks
+# names 3.12 as the supported floor, so dropping them would buy nothing but a
+# few more lines before the next 3.10+ construct, at the price of the
+# invariant the comment above the first one states.
+#
+# **The floor is one number, and this is a sixth carrier of it** -- after
+# `ruff.toml`, both READMEs, the CI matrix and CONTRIBUTING's sentence, all of
+# which say 3.12 and are held together by tests. It deliberately does not
+# import `FLOOR` from `.github/scripts/run_tests.py`: a read that can fail
+# gives the guard a second way to die on the one machine that has no other
+# way of being told what is wrong, and a fallback-safe read still has to name
+# a floor in its `except` branch, so the second spelling survives the import
+# anyway. `tests/test_a_script_says_which_interpreter_it_needs.py` pins this
+# number to the runner's and to ruff.toml's instead.
+#
+# **This block is the spelling to copy**, for the other scripts of the class
+# `seal/specs/1788789985-round-record-dies-on-python-3-9/spec.md` enumerates.
+# Two things about its shape are load-bearing. It sits after the imports and
+# not after `import sys`, because ruff's E402 is selected and every shipped
+# script was measured to compile under 3.9, so no import above it can fail
+# first. And it uses no syntax newer than the oldest interpreter it means to
+# catch -- no walrus, no f-string -- since a guard that cannot parse is the
+# traceback it exists to replace.
+FLOOR = (3, 12)
+FLOOR_TEXT = ".".join(str(part) for part in FLOOR)
+BELOW_FLOOR = (
+    "round-record: needs python {floor} or newer, and this is python {found} "
+    "at {executable}.\n"
+    "Nothing was read and nothing was written.\n"
+    "`python3` is not always the newest interpreter installed -- macOS ships "
+    "python 3.9 under that name -- so name one explicitly, `python{floor} "
+    "<this script> ...`, or see CONTRIBUTING.md §Running the checks."
+)
+
+
+def below_floor(version=None, executable=None):
+    """The sentence for an interpreter under the floor, or None above it.
+
+    Both numbers are in the sentence. A floor with no found version tells the
+    reader what is wanted and not whether they have it -- and the reader
+    whose `python3` is secretly 3.9 is exactly the one who does not know what
+    they are running. The interpreter's path is there for the same reason: on
+    macOS the surprise is not the version, it is which file `python3` was.
+    """
+    version = tuple(sys.version_info[:3]) if version is None else tuple(version)
+    if version[:2] >= FLOOR:
+        return None
+    return BELOW_FLOOR.format(
+        floor=FLOOR_TEXT,
+        found=".".join(str(part) for part in version),
+        executable=sys.executable if executable is None else executable,
+    )
+
+
+_refusal = below_floor()
+if _refusal:
+    sys.stderr.write(_refusal + "\n")
+    raise SystemExit(2)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CHAIN = os.path.join(HERE, "chain_check.py")
