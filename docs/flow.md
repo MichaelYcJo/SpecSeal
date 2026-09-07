@@ -42,7 +42,7 @@ or five rather than at nineteen.
 
 ## 0.9.0 — a record is written by a machine and trusted like one
 
-Six tickets on one surface, `round_record.py` and `chain_check.py`, and four
+Five tickets on one surface, `round_record.py` and `chain_check.py`, and four
 of them are what 0.8.3's own rounds earned. #207 is the sixth and this
 release's own: it was earned by #179's chain overrunning the reopening bound,
 and its repair sits in the same file as the rest. They are the same sentence in
@@ -55,7 +55,6 @@ only because the version forces the date.
 - [x] #189 — a bare pipe inside a Verdicts cell truncates the row, and nothing sees it. Two paste-ready fixtures were invisible in a rendered record; a later fix pass then hit it again after being warned. Compounds with #187, which makes that cell the only durable home a paste-ready fix has.
 - [ ] #207 — the record knows the bound the next round is under and does not say it, so a session carries the cap instead. #179's own chain ran three rounds past the reopening bound; the gate caught it at the broad run, after 37.9 minutes and 180 calls that were then reverted.
 - [ ] #190 — a record states a figure or a stamp the next commit moves, and no check reads it. Closed three times on one work item by enumerating carriers, and back each time.
-- [ ] #194 — `Contract changes` compares arities, so a unit returning a new *meaning* reads as `none`. That row exists for #57's largest regression class and read `none` on a live instance of it.
 - [x] #98 — three sentences say `-z` is what turns git's path quoting off, and the instruction they give is right while the reason they give for it is false. One line, and it rides whichever branch of this release is open.
 
 ## 0.9.1 — what a repository using SpecSeal actually hits
@@ -76,6 +75,7 @@ refusal. The fifth is this repository meeting the same class about itself.
 - [ ] #209 — the pre-merge guard's reader has a failure arm no case watches, and a broken reader would stop a session. The seventh instance on one branch of a case that cannot observe what its own guard removes, and the sixth and seventh both landed inside the function a fix pass had just parametrized to enumerate its arms.
 - [ ] #210 — the guard's parametrized case is a class over two literals rather than over the reader's passes, so a third pass is unguarded and silent. `seal/ledger.md` F1 already states this repository's standard for that shape.
 - [ ] #211 — `Contract changes` reads `no call site found` for a pytest test function, where `pytest only` is the value that exists for it. No gate reads the value; what it costs is a wrong impression in the row #57's largest regression class exists for.
+- [ ] #194 — `Contract changes` compares arities, so a unit returning a new *meaning* reads as `none`. Moved out of 0.9.0 on 2026-09-07: a second measured instance arrived during #187's chain and it is a shape the ticket's proposed literal-set comparison does not catch — `is_a_record_of_a_moment` changed which inputs map to which of the two values it already returned, with signature, arity, return type and returnable set all unchanged. The design grew rather than shrank, and redesigning it under a release that is otherwise finished is what stops a release mid-run.
 - [ ] #198 — a release closes its flow-measurement log with nothing written in it, and nothing notices. 0.8.3 ran three work items and twelve rounds and left its cycle log empty, which is the same shape as #150: a mechanism built, used once, then not, with nothing in the way to say so. It lands here rather than in 0.9.3 because #145 and #149 are the two tickets that eat the data it protects.
 
 ## 0.9.2 — the enumeration was done by reading
