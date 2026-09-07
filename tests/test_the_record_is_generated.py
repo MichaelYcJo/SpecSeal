@@ -1584,3 +1584,44 @@ def test_a_fence_opened_inside_a_comment_under_the_paste_ready_heading(repo):
     assert text is None, "a refusal writes no record"
     assert generator_module().PASTE_READY in out, out
     assert "never closed" in out
+
+
+def test_the_reviewer_is_told_where_the_paste_ready_fixes_go():
+    """A heading the generator extracts from and no reviewer is told to write
+    is a section that arrives empty every round — which is #187 again with an
+    extra step. The heading is read out of the generator, so the two carriers
+    cannot drift, and it is looked for in the three places a reviewer, a
+    record and a reader meet it."""
+    heading = generator_module().PASTE_READY
+    body = read("agents", "warden.md")
+    assert f"\n{heading}\n" in body[body.index("\n## Report\n") :], (
+        "the reviewer's own output contract has to show the heading in the "
+        "block of headings it tells the reviewer to write, not only mention "
+        "it in prose — a presence-anywhere assertion survives its removal "
+        "from that block, which was measured by mutating it"
+    )
+    skill = read("skills", "code-review", "SKILL.md")
+    findings = skill[skill.index("\n## Findings format\n") :]
+    assert f"`{heading}`" in findings, (
+        "the findings format is where a reviewer reads what a paste-ready "
+        "fix is; it has to say where the fix goes"
+    )
+    assert f"\n{heading}\n" in read("templates", "sdd-round.md"), (
+        "the template names the record's sections as headings, and a reader "
+        "who opens a record has to find this one described"
+    )
+    assert f"| {heading.lstrip('# ')} |" in read(
+        "docs", "review-handoff-protocol.md"
+    ), "the protocol's own table of what the record carries owes it a row"
+
+
+def test_the_reviewer_is_not_told_the_report_is_read_for_tables_alone():
+    """The sentence that has to change with the section, pinned so the next
+    edit does not take it back. `agents/warden.md` told the reviewer the
+    generator *reads nothing else of the report*, which was true when the
+    fenced blocks reached no file and is what #187 measured."""
+    body = read("agents", "warden.md")
+    report = body[body.index("\n## Report\n") :]
+    assert "reads nothing else of the report" not in report, (
+        "the generator now reads the fenced blocks under two headings too"
+    )
