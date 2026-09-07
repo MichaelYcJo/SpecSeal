@@ -71,109 +71,66 @@ def test_the_warning_names_both_commands_in_order(hook, repo):
 
 def test_the_warning_names_the_cheap_move_before_the_expensive_one(hook, repo):
     """`/reload-plugins` costs no session and a restart costs the one you are
-    in, so the cheaper move is named first.
-
-    What the notice may not do is oversell it. The experiment behind this
+    in, so the cheaper move is named first — and the notice may not oversell
+    it. The experiment behind this
     (`docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.md`,
     run 6) measured one thing: a preloaded skill body handed to a SPAWNED
     AGENT is re-read at a reload. It measured nothing about hooks and nothing
     about agent definitions, and its sentinel sat in the running version's own
     directory, so it says nothing about picking up a newly installed one
-    either. A reader infers from silence that the reload covers everything, so
-    the gap is stated rather than left.
+    either.
+
+    THE WHOLE MESSAGE IS PINNED, EXACTLY, because a predicate over this prose
+    cannot be written. Four were tried and each was blind one word over:
+
+      1. the words appear anywhere in the message;
+      2. the words appear in the SENTENCE that makes the claim;
+      3. the clause from `install` to the next comma carries the negation;
+      4. and no adversative from a four-word list follows it.
+
+    `unmeasured, yet it is picked up` walks through all four and tells a user
+    the opposite of what run 6 found. English has more ways to hand an axis
+    back than a list can hold, so this stops being a list.
+
+    What that costs, stated rather than discovered: a legitimate rewording
+    fails this case. That is the cost being accepted, because the wording IS
+    the contract here — it is what a user reads about what was measured, and
+    whoever changes it should have to state the new text deliberately instead
+    of satisfying a checker.
+
+    The case below is what catches a careless paste. The module docstring
+    independently scopes the reload, so an editor who overclaims while
+    updating this string still has to contradict the file to do it.
     """
     opt_in(repo)
     out, _ = drive(hook, repo)
     msg = json.loads(out)["systemMessage"]
 
-    assert "/reload-plugins" in msg, "the notice names only the expensive move"
-    assert msg.index("/reload-plugins") < msg.lower().index("restart")
-
-    # Per SENTENCE, not over the whole message: a bare `"measured" in msg` is
-    # satisfied by the gap sentence alone, so the reload's claim could drop its
-    # source label and stay green. And per CLAIM, not per word — round 1 killed
-    # the sentence-split version too, with `a reload was measured to install
-    # the new version into this session`, which carries every word this case
-    # used to look for. Lowered, so a capitalised `Hooks` cannot make the gap
-    # lookup raise instead of assert.
-    sentences = [s.strip().lower() for s in msg.replace("\n", " ").split(". ")]
-
-    reload_claim = next((s for s in sentences if "/reload-plugins" in s), "")
-    assert reload_claim, "no sentence carries the reload's own claim"
-    assert "measured" in reload_claim, "the reload's reach is asserted, not sourced"
-    assert "skill bodies" in reload_claim, (
-        "the reload's claim names no subject, so it pins a word and not a fact"
-    )
-    assert any(
-        scope in reload_claim for scope in ("already on", "in force", "already running")
+    assert msg == (
+        "SpecSeal 0.8.0 is out; this session is running 0.7.1.\n"
+        "Run /specseal:update — it takes the release and tells you what is in "
+        "it, which the version number does not.\n"
+        "By hand: `claude plugin marketplace update specseal` then "
+        "`claude plugin update specseal@specseal`, in that order. The second "
+        "alone reports 'already at the latest version' against stale local "
+        "data.\nThen load it. /reload-plugins costs no session, and what was "
+        "measured is a re-read of preloaded skill bodies out of the copy you "
+        "are already on. Whether it reaches hooks, agent definitions, or the "
+        "version you just installed is unmeasured, so restart for those."
     ), (
-        "run 6's sentinel sat in the RUNNING version's directory, so what it "
-        "measured is a re-read of the copy in force. Without that qualifier the "
-        "notice sells the reload as the cheap way to load the new install, "
-        "which nothing measured — and the module docstring says the opposite "
-        "130 lines up"
+        "the notice changed. State the new text here deliberately — and check "
+        "it against run 6: the reload's claim carries its subject and the copy "
+        "it re-reads, and all three unmeasured axes are named as unmeasured "
+        "rather than left to silence"
     )
-
-    # All THREE unmeasured axes. The third — picking up a newly installed
-    # version — is the one run 6's own sentinel placement rules out, and it is
-    # the axis the ticket assumed, so it is the one most likely to be dropped.
-    gap = next(
-        (s for s in sentences if "hooks" in s and "/reload-plugins" not in s), ""
-    )
-    assert gap, "no sentence states the gap apart from the reload's own claim"
-    for axis in ("agent definitions", "installed"):
-        assert axis in gap, f"the gap leaves {axis} to silence"
-    assert any(
-        negation in gap
-        for negation in ("nobody", "not measured", "unmeasured", "no one")
-    ), "the gap is stated as a fact rather than as an absence of measurement"
-
-    # A required phrase cannot see an ADDED clause. That is the class round 1
-    # named, and the assertions above only moved it down one level: each axis
-    # is pinned by its own word appearing SOMEWHERE in the sentence, and one
-    # negation anywhere in that sentence stands for all three. Round 2 ran the
-    # body above verbatim against two mutations that carry every word it looks
-    # for and still tell a user the reload picks up the new install:
-    #   M6 — the gap keeps its negation for two axes and hands the third back:
-    #        `hooks or agent definitions is unmeasured, BUT the version you
-    #        just installed is picked up`.
-    #   M7 — the reload's own claim keeps its subject and its scope and gains
-    #        `and out of the one you just installed`.
-    # Both were green. So pin the negative by POSITION rather than by presence.
-    # Wherever a sentence names the newly installed version, the clause
-    # carrying that mention has to be the clause that calls the pairing
-    # unmeasured, and no adversative may follow to hand it back. The weaker
-    # sentence-wide check above is implied by this one and is kept for its own
-    # failure message.
-    for where, sentence in (("the reload's claim", reload_claim), ("the gap", gap)):
-        if "install" not in sentence:
-            continue
-        clause = sentence[sentence.index("install") :]
-        for boundary in (",", ";", "."):
-            clause = clause.split(boundary)[0]
-        assert any(
-            negation in clause
-            for negation in ("nobody", "not measured", "unmeasured", "no one")
-        ), (
-            f"{where} names the newly installed version in a clause that does "
-            "not call that pairing unmeasured, so the sentence asserts what "
-            "run 6's own sentinel placement rules out"
-        )
-        assert not any(
-            adversative in sentence
-            for adversative in (" but ", " however", " though ", " except ")
-        ), (
-            f"{where} carries an adversative, so a negation that reads as "
-            "covering the whole sentence governs only the clause before it, "
-            "and what follows hands an axis back as a positive claim"
-        )
 
 
 def test_the_notice_agrees_with_the_docstring_about_what_a_reload_re_reads(hook):
     """The module docstring scopes a reload to the copy already in force. A
     notice that sells the reload as the way to load the NEW version contradicts
-    the file it lives in, and the contradiction is silent — the docstring is
-    130 lines above the string a user actually reads.
+    the file it lives in, and the contradiction is silent: the docstring is at
+    the top of the module and the string a user reads is near the bottom, so
+    nobody editing one has the other on screen.
 
     What this case checks is the PRESENCE half of that agreement: the notice
     carries the scope qualifier the docstring states. The absence half — that
