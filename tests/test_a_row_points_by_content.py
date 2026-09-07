@@ -1683,7 +1683,13 @@ def test_the_two_commands_that_must_know_ask_for_the_flag(repo):
     flag beside the places. That split is only safe while the two consumers
     that must act on the flag actually ask for it — a later edit reaching for
     the shorter name would drop the fact silently, which is the whole failure
-    round 6 found (round 6, 🔴 J)."""
+    round 6 found (round 6, 🔴 J).
+
+    `check_text` and not `check_ledger`: the anchor loop moved out of
+    `check_ledger` into `check_text` when the records arm was added (#190), so
+    a stamp in a record is resolved by the same code as a row in a ledger.
+    `check_ledger` is now that call plus `old_format_rows`, and the consumer
+    that has to act on the flag is the loop, wherever it lives."""
     import ast as ast_mod
 
     tree = ast_mod.parse(open(SCRIPT, encoding="utf-8").read())
@@ -1695,7 +1701,7 @@ def test_the_two_commands_that_must_know_ask_for_the_flag(repo):
             if isinstance(inner, ast_mod.Call) and isinstance(inner.func, ast_mod.Name):
                 if inner.func.id in ("resolve", "resolve_unit"):
                     calls.setdefault(node.name, set()).add(inner.func.id)
-    for consumer in ("check_ledger", "reverify"):
+    for consumer in ("check_text", "reverify"):
         assert calls.get(consumer) == {"resolve_unit"}, (
             f"{consumer} does not ask for the resurrection flag: {calls.get(consumer)}"
         )
