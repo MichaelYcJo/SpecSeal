@@ -8,7 +8,7 @@
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
 | Contract changes | none. `notice(have, want)` is untouched by the fixes; what changed is three sentences of documentation and the assertion body of one existing case |
-| New units | none. `db5b9cd` adds no function and no mechanism — it extends `test_the_warning_names_the_cheap_move_before_the_expensive_one`, corrects the docstring of the case beside it, and edits `README.md:182`, `README.md:325` and `README.ko.md:317` |
+| New units | none, and the second fix commit REMOVES rather than adds. `db5b9cd` extends `test_the_warning_names_the_cheap_move_before_the_expensive_one` and edits `README.md:182`, `README.md:325` and `README.ko.md:317`; `760ac3e` deletes the four substring predicates in that case and pins `notice()`'s whole output as an exact string, after the orchestrator's re-run found a fourth mutation of the same class alive at `e678c47`. No function added in either |
 | Needs a fix | yes — findings 1 and 2 |
 | Loses a record or crashes | no |
 

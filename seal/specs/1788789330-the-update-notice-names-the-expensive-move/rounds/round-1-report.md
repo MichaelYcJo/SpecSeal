@@ -159,7 +159,7 @@ I ran the case's assertion body verbatim against five mutations
 
 - **M1 — the reload's claim replaced with a false one, vocabulary intact.**
   *"a reload was measured to install the new version into this session"*.
-  `reload_claim` contains `/reload-plugins` and `measured`, so the assertion
+  `reload_claim` contains `/reload-plugins` and `measured`, so the assertion <!-- NAME NOT IN TREE — the local was deleted at 760ac3e, where the four substring predicates gave way to an exact pin on the notice. The sentence is left as round 1 wrote it because it records what was true then. -->
   passes. This is finding 1 written as a flat falsehood, and the case is green.
 - **M2 — the third unmeasured axis deleted.** *"Nobody has measured what it
   does for hooks or for agent definitions"* — the clause about *moving a
