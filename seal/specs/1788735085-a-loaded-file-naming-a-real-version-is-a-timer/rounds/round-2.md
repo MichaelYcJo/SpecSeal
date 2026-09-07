@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 201 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | refusal (depth 1); test_the_exemption_list_does_not_depend_on_the_order_it_is_written_in (depth 1); test_the_declared_token_is_the_one_the_refusal_printed (depth 1) |
 | Needs a fix | yes — findings 4, 5, 6 and 7 |
