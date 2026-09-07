@@ -2132,6 +2132,29 @@ def stated_stamps(lines):
     ]
 
 
+def built_name(path, root, flavour=os.path):
+    """`display_name` for a coordinate this arm BUILT rather than a person spelled.
+
+    `display_name` returns the caller's own spelling on purpose, and that is
+    right for a `--ledger` pattern: the operator typed it and gets it back.
+    The records arm types nothing. Every path it prints came out of
+    `os.walk` and `os.path.join`, so on Windows it carries `\\`, while the
+    ledger arm's rows carry `/` because they were READ FROM A FILE. The same
+    coordinate then reads two ways depending on which arm printed it — round
+    1's finding 1 in a different currency, and a coordinate is written with
+    `/` everywhere else in this repository.
+
+    Measured: the Windows leg of CI had been red from the commit that added
+    this arm through three review rounds and two fix passes, on
+    `assert coord.endswith("rounds/round-2.md:3")`. Every round and every
+    gate ran on macOS, where the replacement below is a no-op — which is
+    `agent-contract` §13 exactly, a defence resting on a platform guarantee
+    nobody removed. `flavour` is why a case can remove it: pass `ntpath` and
+    the Windows separators are exercised from a POSIX machine.
+    """
+    return display_name(path, root, flavour).replace(flavour.sep, "/")
+
+
 def check_records(root, home, maps=None, default_repo=None):
     """(findings, names read, stamps read) over every unreleased work item's
     records.
@@ -2151,7 +2174,7 @@ def check_records(root, home, maps=None, default_repo=None):
     findings = [
         (
             UNREADABLE_STATUS,
-            display_name(path, root),
+            built_name(path, root),
             "the ledger fragments directory could not be listed",
         )
         for path in unlistable
@@ -2169,13 +2192,13 @@ def check_records(root, home, maps=None, default_repo=None):
             findings.append(
                 (
                     UNREADABLE_STATUS,
-                    display_name(path, root),
+                    built_name(path, root),
                     "the records directory could not be listed",
                 )
             )
         for path in paths:
             body = read(path)
-            shown = display_name(path, root)
+            shown = built_name(path, root)
             if body is None:
                 findings.append(
                     (UNREADABLE_STATUS, shown, "the record could not be read")
@@ -2191,8 +2214,8 @@ def check_records(root, home, maps=None, default_repo=None):
                         NOT_IN_TREE_STATUS,
                         f"{shown}:{number}",
                         f"`{name}` — nothing outside "
-                        f"{display_name(records_root, root)} and "
-                        f"{display_name(fragments_root, root)} carries this "
+                        f"{built_name(records_root, root)} and "
+                        f"{built_name(fragments_root, root)} carries this "
                         f"name. Correct the record, or write {NOT_IN_TREE} on "
                         "the line where the record means a name the tree does "
                         "not have",

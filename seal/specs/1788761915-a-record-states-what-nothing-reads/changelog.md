@@ -117,3 +117,24 @@
   the only record the count beside it is true of. Keyed to the latest it would
   restart at every record it stops at and bound nothing, which is the failure
   the count itself was rebuilt for. (#207)
+
+- **A coordinate the records arm printed used the platform's separator, so
+  the same file read two ways.** The ledger arm's rows carry `/` because they
+  were read from a file; the records arm builds every path it prints out of
+  `os.walk` and `os.path.join`, so on Windows a refusal named
+  `seal\specs\…\rounds\round-2.md` where a ledger row naming the same file
+  said `seal/specs/…`. A coordinate is written with `/` everywhere else in
+  this repository, and it is a thing a person copies and opens.
+
+  The five printers inside `check_records` now go through one helper rather
+  than five replacements, so a sixth built path added later is normalised or
+  does not print. The split is **who spelled it**: a `--ledger` pattern comes
+  back exactly as the operator typed it, which is the rule the display helper
+  exists for and is unchanged.
+
+  **The Windows leg of CI had been red on this since the commit that added
+  the arm — through three review rounds and two fix passes.** Every round and
+  every broad gate ran on macOS, where the normalisation is a no-op, so
+  nothing local could see it. The case passes `ntpath` to the helper rather
+  than skipping off Windows, which is how a POSIX machine removes the
+  guarantee instead of resting on it. (#190)

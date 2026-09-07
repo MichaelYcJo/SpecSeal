@@ -14,6 +14,7 @@ and the arms resolve content, the way `test_a_row_points_by_content.py` does.
 """
 
 import importlib.util
+import ntpath
 import os
 import subprocess
 import sys
@@ -984,3 +985,36 @@ def test_this_repositorys_own_records_state_nothing_the_tree_lacks():
     """
     findings, _names, _stamps = module().check_records(ROOT, os.path.join(ROOT, "seal"))
     assert findings == [], "\n".join(f"{c}  {d}" for _s, c, d in findings)
+
+
+def test_a_built_coordinate_prints_with_forward_slashes_on_windows():
+    """The records arm builds every path it prints, so it normalises them.
+
+    `display_name` returns the caller's own spelling, which is right for a
+    `--ledger` pattern and wrong for a coordinate this arm built out of
+    `os.walk` and `os.path.join`: on Windows that carries `\\`, while the
+    ledger arm's rows carry `/` because they were read from a file, and the
+    same coordinate then reads two ways depending on which arm printed it.
+
+    **Seen red the only way this one can be**: the Windows leg of CI was red
+    on `assert coord.endswith("rounds/round-2.md:3")` from the commit that
+    added this arm through three review rounds and two fix passes, because
+    every round and every broad gate ran on macOS where the replacement is a
+    no-op. `ntpath` is what removes that guarantee from a POSIX machine
+    (`agent-contract` §13); with the `.replace` deleted this case returns
+    `seal\\specs\\1780000000-live\\rounds\\round-2.md` and fails.
+    """
+    built = module().built_name
+    assert (
+        built(
+            r"C:\proj\seal\specs\1780000000-live\rounds\round-2.md",
+            r"C:\proj",
+            flavour=ntpath,
+        )
+        == "seal/specs/1780000000-live/rounds/round-2.md"
+    )
+    # A path the root does not cover comes back whole, and still with `/`:
+    # length is what a miss costs, never a separator a reader cannot paste.
+    assert built(r"D:\other\seal\specs\x\plan.md", r"C:\proj", flavour=ntpath) == (
+        "D:/other/seal/specs/x/plan.md"
+    )
