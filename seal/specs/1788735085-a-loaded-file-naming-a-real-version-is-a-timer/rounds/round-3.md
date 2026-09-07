@@ -7,12 +7,12 @@
 | PR | 201 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | test_the_refusal_names_the_line_and_the_version_it_refused (depth 1) |
 | Needs a fix | yes — finding 7 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -57,10 +57,10 @@ has moved one unit sideways, into the extraction round 2 commissioned.
 | 4 | round 2 finding 7 — the message was inline in the `assert`, so detaching it left every case green | `tests/test_release_hygiene.py:212-227` and `:270-273` | answered | executed: replacing `+ what_to_write_instead()` with a literal turns the routes case red. What the extraction left unpinned is finding 7 below |
 | 5 | round 2 finding 8 — `RECORDS_OF_A_MOMENT` was order-dependent | `tests/test_release_hygiene.py:127-144` and `:439-460` | answered | executed: reverting to the early-return loop turns the new case red |
 | 6 | round 2 finding 9 — `DATED_RECORD`'s shape was unpinned | `tests/test_release_hygiene.py:124` and `:504-514` | answered | executed: the trailing `-`, the fully loosened widths and a partly loosened `\d{2,4}-\d{1,2}-\d{1,2}-` all turn the case red. Both mutations round 2 recorded as surviving are now caught |
-| 7 | 🟡 no case observes `refusal()`'s offender lines, running version or explanatory paragraph, and the docstring and ledger R3 record the opposite as a measured fact | `tests/test_release_hygiene.py:210-225`, `:248-251`, the fragment's R3 notes | open | executed: each of the three deleted on its own leaves 30 passed. `refusal` and `what_to_write_instead` are referenced nowhere outside this module. Same class as round 2's finding 7 |
-| 8 | ⬜ the case pinning `x0.9.0` as allowed carries no argument for it, and `V0.9.0` is invisible to the check | `tests/test_release_hygiene.py:578-590` and `:68` | open | executed: dropping the `\w` half adds 0 offenders to the loaded tree and no word-glued token exists there; `V0.9.0` answers `[]` and the loaded set holds no uppercase spelling |
-| 9 | ⬜ the docstring's narrower-prefix example changes no answer in either implementation | `tests/test_release_hygiene.py:443-445` and `:131-132` | open | executed: four arrangements through `any()` and the early-return loop; only the exact-path entry differs |
-| 10 | ⬜ a document states the check refuses a version whether it has shipped or is ahead, where it refuses at or above the running one | `docs/issues-and-milestones.md:63-67` | open | read: line 160 of the same file is the counterexample, and `docs/release-checklist.md:80` states it correctly |
+| 7 | 🟡 no case observes `refusal()`'s offender lines, running version or explanatory paragraph, and the docstring and ledger R3 record the opposite as a measured fact | `tests/test_release_hygiene.py:210-225`, `:248-251`, the fragment's R3 notes | **fixed** `dcbb4e8` | fixed at dcbb4e8 — ``; executed: each of the three deleted on its own leaves 30 passed. `refusal` and `what_to_write_instead` are referenced nowhere outside this module. Same class as round 2's finding 7 |
+| 8 | ⬜ the case pinning `x0.9.0` as allowed carries no argument for it, and `V0.9.0` is invisible to the check | `tests/test_release_hygiene.py:578-590` and `:68` | **fixed** `632260c` | fixed at 632260c — ``; executed: dropping the `\w` half adds 0 offenders to the loaded tree and no word-glued token exists there; `V0.9.0` answers `[]` and the loaded set holds no uppercase spelling |
+| 9 | ⬜ the docstring's narrower-prefix example changes no answer in either implementation | `tests/test_release_hygiene.py:443-445` and `:131-132` | **fixed** `672a127` | fixed at 672a127 — ``; executed: four arrangements through `any()` and the early-return loop; only the exact-path entry differs |
+| 10 | ⬜ a document states the check refuses a version whether it has shipped or is ahead, where it refuses at or above the running one | `docs/issues-and-milestones.md:63-67` | **fixed** `4be419c` | fixed at 4be419c — ``; read: line 160 of the same file is the counterexample, and `docs/release-checklist.md:80` states it correctly |
 | 11 | ✅ the blind-case class is closed in this diff — all five new cases observe their own guard | the five cases in `a48d27f..7349afc` | answered | executed: 15 mutations, 12 caught. Two survivors are finding 7; the third is `DATED_RECORD`'s `^`, which the code already records at `:495-498` as redundant beside `.match()` |
 | 12 | ✅ the ledger fragment's rows all resolve, unscoped | `seal/ledger/1788735085-a-loaded-file-naming-a-real-version-is-a-timer.md` | answered | executed `./bin/evidence-check .` with no narrowing: 719 ok · 0 drifted · 0 broken · 0 external · 0 old-format, exit 0. The fragment carries 17 anchors, one more than round 2 |
 
