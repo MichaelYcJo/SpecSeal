@@ -143,6 +143,23 @@ REPORT_TABLES = (
     (PROBES, PROBE_HEADER),
     (DEFERRED, DEFERRED_HEADER),
 )
+# The section that is fenced blocks and no table. `skills/code-review/SKILL.md`
+# §Findings format requires a paste-ready fix for every 🔴/🟡 and spends four
+# paragraphs on what makes one paste-ready; until this heading existed, `new`
+# copied the tables and dropped every one of those blocks (#187), so the file
+# the fix pass is told to open instead of the report carried none of the
+# artefact the report's four paragraphs are about.
+PASTE_READY = "## Paste-ready fixes"
+# What the section says when the report carried no fence under that heading.
+# It states what the generator OBSERVED, not that none was needed: a round
+# that opened a 🔴 and wrote no block is a gap, and this sentence beside that
+# row in the verdict table is what makes the gap visible in the record itself.
+NO_PASTE_READY = "no paste-ready fix in the report"
+# Every heading the generator looks up in the report, which is what `swallowed`
+# guards. A section added later is guarded by being added here, and no second
+# list goes stale. `REPORT_TABLES` stays the table half of that guard, because
+# only a table can lose its rows to a fence while its heading stands.
+READ_HEADINGS = (*(h for h, _ in REPORT_TABLES), PASTE_READY)
 # The two sections the generator fills from somewhere other than the report.
 ASKED = "## What this round was asked"
 INHERITED = "## Inherited coordinates"
@@ -585,11 +602,14 @@ def swallowed(reader, report, lines):
     probes section with it, and `fenced_after` is never even called for that
     section, so no guard living inside it could see the shape.
 
-    What may not be lost is `REPORT_TABLES`' headings, the table rows that
-    stand under them, and `TERMINAL_LINES`. A list of section constants typed
-    out here would go stale the day a section is added; these two are the
-    constants the generator reads BY, so a section it cannot read is a
-    section it does not have.
+    What may not be lost is `READ_HEADINGS`, the table rows that stand under
+    `REPORT_TABLES`' members, and `TERMINAL_LINES`. A list of section
+    constants typed out here would go stale the day a section is added; these
+    are the constants the generator reads BY, so a section it cannot read is
+    a section it does not have. `READ_HEADINGS` is the wider of the two
+    because `PASTE_READY` is a section with no table: a fence can take its
+    heading, and the record then says the report carried no paste-ready fix
+    beside a 🔴 whose fix the reviewer did write.
 
     The rows are the third loop and they are the half round 1 of this work
     item's own chain found missing (🟡 2): a heading is only half of what a
@@ -656,7 +676,7 @@ def swallowed(reader, report, lines):
     pairs = enumerate(zip(stripped, lines, strict=True))
     hidden = [(i, s.strip()) for i, (s, ln) in pairs if s.strip() and not ln]
     text = [t for _i, t in hidden]
-    for heading, _header in REPORT_TABLES:
+    for heading in READ_HEADINGS:
         if heading in text and not reader.sections(lines, heading):
             raise Refused(SWALLOWED.format(name=heading))
     for label in TERMINAL_LINES:
@@ -945,6 +965,19 @@ def build(reader, routing, args, root, item, rounds):
     fenced = fenced_after(reader, raw, lines, PROBES)
     if fenced:
         probes = [*probes, "", *fenced]
+    # #187: the paste-ready fix the findings format requires used to reach no
+    # file at all. It is extracted by the mechanism the probes table has used
+    # since #161 -- a fence is copied whole and nothing else of the section
+    # is, so no prose enters a file `chain_check.py` reads.
+    #
+    # The empty arm is a scenario rather than an edge case: a verifying round
+    # that opens nothing writes no fix, and the record still has to be
+    # written. The sentence says what was OBSERVED -- that the report carried
+    # no fence under the heading -- because a round that opened a 🔴 and wrote
+    # no block is a gap, and only the reader can tell the two apart. Beside an
+    # open row in the verdict table above, this line IS the gap made visible,
+    # which is what `plan.md` says mitigates a reviewer omitting the heading.
+    sketches = fenced_after(reader, raw, lines, PASTE_READY) or [NO_PASTE_READY]
     deferred = table_of(reader, raw, lines, DEFERRED, DEFERRED_HEADER, False)
     if deferred is None:
         deferred = [row(DEFERRED_HEADER), separator(len(DEFERRED_HEADER)), ""]
@@ -994,6 +1027,10 @@ def build(reader, routing, args, root, item, rounds):
         VERDICTS,
         "",
         *verdicts,
+        "",
+        PASTE_READY,
+        "",
+        *sketches,
         "",
         PROBES,
         "",

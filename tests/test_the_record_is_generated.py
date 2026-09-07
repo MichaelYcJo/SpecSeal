@@ -159,17 +159,21 @@ def report(
     floor="no",
     verdict_header=VERDICT_HEADER,
     lines=True,
+    fixes=None,
 ):
     """A reviewer's report in the shape `agents/warden.md` §Report asks for.
 
     `probes=None` / `deferred=None` leave that table out entirely, which is a
     state the generator has to fill rather than refuse. `verdicts=None`
     leaves the verdict table out, which it refuses. `lines=False` drops the
-    two terminal lines, which it refuses too.
+    two terminal lines, which it refuses too. `fixes=None` leaves the
+    paste-ready section out, which is the empty arm and is a record.
     """
     text = "# what the round found\n\nProse about 🔴 1, with a paste-ready fix.\n\n"
     if verdicts is not None:
         text += f"## Verdicts\n\n{verdict_header}{verdicts}\n"
+    if fixes is not None:
+        text += f"## Paste-ready fixes\n\n{fixes}\n"
     if probes is not None:
         text += f"## Executed probes\n\n{PROBE_HEADER}{probes}\n"
     if deferred is not None:
@@ -570,10 +574,15 @@ def test_a_fence_closed_after_the_deferred_table_is_refused(repo):
     assert "swallows `## Deferred`" in out
 
 
+# No fence of its own: this section is wrapped in one by the case below, and
+# a fence inside a fence is a different question from the one being asked.
+# The heading alone is what the guard reads.
+PASTE_READY_SECTION = "## Paste-ready fixes\n\nThe fix for 🔴 1.\n\n"
 SECTION_TEXT = {
     "## Verdicts": f"## Verdicts\n\n{VERDICT_HEADER}{OPEN_ROW}\n",
     "## Executed probes": PROBES_TABLE,
     "## Deferred": DEFERRED_TABLE,
+    "## Paste-ready fixes": PASTE_READY_SECTION,
 }
 
 
@@ -586,16 +595,18 @@ def test_a_fence_that_takes_a_section_the_generator_reads_is_refused(repo, taken
     tables, `the report has no ## Verdicts section` for the required one.
     Each blames the reviewer for a section they did in fact write.
 
-    Parametrized over `REPORT_TABLES` rather than over three names typed
-    here, which is the whole argument against #169's `SECTIONS` tuple: a
-    section added later is guarded, and gets a case, by being added there.
+    Parametrized over `READ_HEADINGS` rather than over the names typed here,
+    which is the whole argument against #169's `SECTIONS` tuple: a section
+    added later is guarded, and gets a case, by being added there.
+    `## Paste-ready fixes` is the section that proved it — it arrived after
+    this case was written and was guarded by one constant gaining a member.
 
     `## Executed probes` is the member #169 did not name, and it is the one
     that settles where the guard lives -- a fence that takes that heading
     means `build` never calls `fenced_after` for it, so no guard inside that
     function could ever see the shape. Executed at `c4d7077`: exit 0 for
     `## Deferred` and `## Executed probes`."""
-    assert [h for h, _ in generator_module().REPORT_TABLES] == list(SECTION_TEXT)
+    assert list(generator_module().READ_HEADINGS) == list(SECTION_TEXT)
     declared(repo)
     body = "# what the round found\n\nProse about 🔴 1.\n\n"
     for heading, text in SECTION_TEXT.items():
@@ -1455,3 +1466,121 @@ def test_a_bare_pipe_before_the_last_column_keeps_its_text(repo):
     cells = cells_under(text, "## Verdicts", 0)
     assert len(cells) == 5, rows_of(text, "## Verdicts")
     assert cells[4] == "open | executed"
+
+
+# --- the paste-ready fix reaches the record ----------------------------------
+#
+# #187: the findings format spends four paragraphs requiring a paste-ready fix
+# for every 🔴/🟡, and `new` copied the tables and dropped everything else, so
+# not one of those blocks reached the file the fix pass is told to open
+# instead of the report. Measured on work item 1788686494 round 1 -- a
+# 162-line report with three fenced snippets became an 80-line record with
+# none of them, and the fix pass said so unprompted and rebuilt all three,
+# getting its first reproduction wrong. Measured again five times on the
+# branch merged at `bc123aa`: a 264-line report, an 82-line record, and
+# `grep -c '```'` answering 0.
+#
+# The mechanism is `fenced_after`, which the file has carried since #161 for
+# this exact loss one section over. It is now called for a second heading.
+
+ONE_FIX = (
+    "```python\nif requester != owner:   # NAME NOT IN TREE\n    raise Error\n```\n"
+)
+OTHER_FIX = "```python\ncells = row_cells(reader, line, width)\n```\n"
+
+
+def paste_ready(text):
+    """The record's paste-ready section as raw lines, fences included."""
+    body = text.split("## Paste-ready fixes", 1)[1]
+    return body.split("\n## ", 1)[0]
+
+
+def test_a_paste_ready_fix_reaches_the_record(repo):
+    """The block lands in the record verbatim, fence and marked name intact.
+    Before this, the record's only durable home for a fix was a Grounds
+    cell -- which is a single line, and which #189 then truncated."""
+    declared(repo)
+    code, out, text = generate(repo, report_text=report(fixes=ONE_FIX))
+    assert code == 0, out
+    assert ONE_FIX.strip() in paste_ready(text), text
+
+
+def test_two_paste_ready_fixes_stay_apart_and_in_the_reviewers_order(repo):
+    """One entry per finding, and the reviewer's order is the fix pass's
+    agenda order."""
+    declared(repo)
+    both = f"For 🔴 1:\n\n{ONE_FIX}\nFor 🟡 2:\n\n{OTHER_FIX}"
+    code, out, text = generate(repo, report_text=report(fixes=both))
+    assert code == 0, out
+    section = paste_ready(text)
+    assert ONE_FIX.strip() in section, text
+    assert OTHER_FIX.strip() in section, text
+    assert section.index(ONE_FIX.strip()) < section.index(OTHER_FIX.strip())
+
+
+def test_prose_under_the_paste_ready_heading_stays_in_the_report(repo):
+    """A fence is copied whole and nothing else of the section is. Prose
+    nobody parses in a file `chain_check.py` reads is what `plan.md` refused
+    when it turned down keeping the report verbatim."""
+    declared(repo)
+    code, out, text = generate(
+        repo, report_text=report(fixes=f"This paragraph explains it.\n\n{ONE_FIX}")
+    )
+    assert code == 0, out
+    assert "This paragraph explains it" not in text, text
+    assert ONE_FIX.strip() in paste_ready(text)
+
+
+def test_a_report_with_no_paste_ready_fix_is_still_a_record(repo):
+    """The empty arm is a scenario, not an edge case: a verifying round that
+    opens nothing writes no fix, and the record still has to be written. The
+    section says what the generator observed -- that the report carried
+    none -- rather than claiming none was needed."""
+    declared(repo)
+    code, out, text = generate(
+        repo, report_text=report(verdicts=CLOSED_ROW, needs="no", fixes=None)
+    )
+    assert code == 0, out
+    assert generator_module().NO_PASTE_READY in paste_ready(text), text
+
+
+def test_an_empty_paste_ready_section_says_the_report_carried_none(repo):
+    """The heading written with only prose under it lands on the same
+    sentence: what reaches the record is what a fence carried, and there
+    was no fence."""
+    declared(repo)
+    code, out, text = generate(
+        repo, report_text=report(fixes="Described, not shown.\n")
+    )
+    assert code == 0, out
+    assert generator_module().NO_PASTE_READY in paste_ready(text), text
+
+
+def test_an_unclosed_fence_under_the_paste_ready_heading_is_refused(repo):
+    """The same refusal the probes section already carries: an open fence
+    copied as it stands blanks every section below it in the record, and the
+    record is written before any reader gets to say so."""
+    declared(repo)
+    code, out, text = generate(
+        repo, report_text=report(fixes="```python\ndef helper(a):\n    return a\n")
+    )
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "never closed" in out
+
+
+def test_a_fence_opened_inside_a_comment_under_the_paste_ready_heading(repo):
+    """The second text, for the second section `fenced_after` is called on.
+    `swallowed` reads the report with its comments stripped and this copy
+    reads it as written, so an opener a comment hides is absent from the
+    report-wide check and an opener to the copy. Without the verbatim raise
+    the record is written carrying an open fence, and every section below it
+    is gone to every reader."""
+    declared(repo)
+    code, out, text = generate(
+        repo, report_text=report(fixes=ONE_FIX + "\n" + COMMENTED_OPENER)
+    )
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert generator_module().PASTE_READY in out, out
+    assert "never closed" in out
