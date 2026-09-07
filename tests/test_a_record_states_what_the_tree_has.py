@@ -180,7 +180,9 @@ def tree(tmp_path, **files):
 
 
 def refusals(tmp_path):
-    findings, read = module().check_records(str(tmp_path), str(tmp_path / "seal"))
+    findings, read, _stamps = module().check_records(
+        str(tmp_path), str(tmp_path / "seal")
+    )
     return [(status, coord, detail) for status, coord, detail in findings], read
 
 
@@ -374,6 +376,158 @@ def test_the_records_arm_runs_even_when_a_narrowing_finds_no_ledger(tmp_path):
     assert "NOT-IN-TREE" in r.stdout
 
 
+# --- the stamp arm: an anchor a record wrote down ---------------------------
+
+SERVICE = "def handler(x):\n    return x + 1\n"
+# `handler`'s body, hashed the way the checker hashes it. Pinned rather than
+# computed, so a fixture cannot agree with a broken hasher.
+GOOD = "9207ed06"
+
+
+def test_a_stamp_the_tree_contradicts_is_named(tmp_path):
+    """#190's own worked example: an `overview.md` naming an anchor stamp the
+    tree no longer holds."""
+    h = home(tmp_path)
+    tree(tmp_path, **{"src__service.py": "def handler(x):\n    return x + 2\n"})
+    work_item(
+        h,
+        "1780000000-live",
+        **{"overview.md": f"# o\n\nstamped `src/service.py#handler@{GOOD}`\n"},
+    )
+    findings, _names, stamps = module().check_records(
+        str(tmp_path), str(tmp_path / "seal")
+    )
+    assert stamps == 1
+    assert len(findings) == 1
+    status, coord, detail = findings[0]
+    assert status == "DRIFTED"
+    assert coord.endswith("overview.md:3")
+    assert "src/service.py#handler" in detail
+
+
+def test_a_stamp_naming_a_file_the_tree_lacks_is_broken(tmp_path):
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\nthe fixture `mod.py#helper@deadbeef`\n"},
+    )
+    findings, _names, _stamps = module().check_records(
+        str(tmp_path), str(tmp_path / "seal")
+    )
+    assert [f[0] for f in findings] == ["BROKEN"]
+    assert findings[0][1].endswith("plan.md:3")
+
+
+def test_a_stamp_the_tree_still_holds_passes(tmp_path):
+    h = home(tmp_path)
+    tree(tmp_path, **{"src__service.py": SERVICE})
+    work_item(
+        h,
+        "1780000000-live",
+        **{"overview.md": f"# o\n\n`src/service.py#handler@{GOOD}`\n"},
+    )
+    findings, _names, stamps = module().check_records(
+        str(tmp_path), str(tmp_path / "seal")
+    )
+    assert (findings, stamps) == ([], 1)
+
+
+def test_the_marker_exempts_a_stamp_line_too(tmp_path):
+    """One marker, named in one place. `plan.md` and a round record in this
+    repository both carry the fixture stamp `mod.py#helper@deadbeef`, which is
+    exactly the shape the marker exists for."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\n`mod.py#helper@deadbeef` — NAME NOT IN TREE\n"},
+    )
+    assert module().check_records(str(tmp_path), str(tmp_path / "seal")) == ([], 0, 0)
+
+
+def test_a_shipped_work_items_stamp_is_left_alone(tmp_path):
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1770000000-shipped",
+        fragment=False,
+        **{"overview.md": f"# o\n\n`src/service.py#handler@{GOOD}`\n"},
+    )
+    assert module().check_records(str(tmp_path), str(tmp_path / "seal")) == ([], 0, 0)
+
+
+def test_a_location_column_is_not_an_unmigrated_coordinate(tmp_path):
+    """`path:line` is what the round template prescribes for a Location cell.
+
+    `old_format_rows` reads every table row for that shape and tells the
+    author to run the migrator, which is right for a ledger and wrong for a
+    record — so the records arm calls `check_text` and not `check_ledger`.
+    """
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "rounds__round-1.md": (
+                "# r\n\n| # | Finding | Location |\n|---|---|---|\n"
+                "| 1 | the guard | `hooks/review-history-guard.py:130` |\n"
+            )
+        },
+    )
+    assert module().check_records(str(tmp_path), str(tmp_path / "seal")) == ([], 0, 0)
+
+
+def test_two_lines_stamping_one_unit_are_two_claims(tmp_path):
+    """A record repeating a stale stamp is stale twice, and a reader who has
+    to open one line has to open the other."""
+    h = home(tmp_path)
+    tree(tmp_path, **{"src__service.py": "def handler(x):\n    return x + 2\n"})
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "overview.md": (
+                f"# o\n\n`src/service.py#handler@{GOOD}`\n\n"
+                f"and again `src/service.py#handler@{GOOD}`\n"
+            )
+        },
+    )
+    findings, _names, stamps = module().check_records(
+        str(tmp_path), str(tmp_path / "seal")
+    )
+    assert stamps == 2
+    assert [f[1].rsplit(":", 1)[1] for f in findings] == ["3", "5"]
+
+
+def test_a_records_drift_does_not_fail_the_run_and_a_broken_anchor_does(tmp_path):
+    """A live work item's branch is editing the units its records stamp, so a
+    run that failed on drift would be red by construction — the state the
+    ledger CI job's own comment refuses. A name or an anchor that does not
+    resolve has no mid-flight excuse."""
+    h = home(tmp_path)
+    (h / "ledger" / "1780000000-live.md").write_text("rows\n", encoding="utf-8")
+    tree(tmp_path, **{"src__service.py": "def handler(x):\n    return x + 2\n"})
+    d = work_item(
+        h,
+        "1780000000-live",
+        **{"overview.md": f"# o\n\n`src/service.py#handler@{GOOD}`\n"},
+    )
+    drift = run(["."], tmp_path)
+    assert drift.returncode == 1, drift.stdout + drift.stderr
+    assert "0 refused · 1 drifted" in drift.stdout
+
+    strict = run(["--strict", "."], tmp_path)
+    assert strict.returncode == 2, strict.stdout + strict.stderr
+
+    (d / "overview.md").write_text(
+        "# o\n\n`src/gone.py#handler@deadbeef`\n", encoding="utf-8"
+    )
+    broken = run(["."], tmp_path)
+    assert broken.returncode == 2, broken.stdout + broken.stderr
+    assert "1 refused · 0 drifted" in broken.stdout
+
+
 # --- this repository's own records ------------------------------------------
 
 
@@ -384,5 +538,5 @@ def test_this_repositorys_own_records_state_nothing_the_tree_lacks():
     the instance that work item's own round 3 found by READING, three weeks of
     records later. This is what a check names at the commit that writes it.
     """
-    findings, _read = module().check_records(ROOT, os.path.join(ROOT, "seal"))
+    findings, _names, _stamps = module().check_records(ROOT, os.path.join(ROOT, "seal"))
     assert findings == [], "\n".join(f"{c}  {d}" for _s, c, d in findings)

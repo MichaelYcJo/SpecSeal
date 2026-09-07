@@ -1148,9 +1148,30 @@ def check_ledger(ledger, root, maps, default_repo=None):
         # traceback for that silence, and a traceback is at least a broken
         # build (round 5, 🔴 B).
         return [("BROKEN", display_name(ledger, root), "ledger unreadable")]
+    findings = check_text(text, root, maps, default_repo)
+    findings.extend(old_format_rows(text))
+    return findings
+
+
+def check_text(text, root, maps, default_repo=None, seen=None, scan_cache=None):
+    """Every `path#anchor@hash` in TEXT, classified — the whole of the anchor
+    reading, with no file of its own and no `old_format_rows`.
+
+    Split out of `check_ledger` so the records arm resolves a stamp in a
+    RECORD by the same code path rather than by a second implementation of it
+    (#190). Two things do not carry across: a record is read a line at a time,
+    because a refusal there has to name the line the way the identifier arm
+    does, and `old_format_rows` is not run over one — a verdict table's
+    `Location` column is `path:line` by design, and a checker calling every
+    one of those an unmigrated coordinate would refuse the format the round
+    template prescribes.
+
+    `seen` and `scan_cache` are passed in by a caller that reads one text in
+    pieces, so a repo-wide scan is paid once across all of them.
+    """
     findings = []
-    seen = set()
-    scan_cache = {}
+    seen = set() if seen is None else seen
+    scan_cache = {} if scan_cache is None else scan_cache
     for m in ANCHOR_RE.finditer(text):
         raw_path, want = m.group("path"), m.group("hash")
         locator, claim = m.group("locator"), m.group("claim")
@@ -1306,7 +1327,6 @@ def check_ledger(ledger, root, maps, default_repo=None):
             )
             continue
         findings.append(("OK", coord, f"{start}-{end}"))
-    findings.extend(old_format_rows(text))
     return findings
 
 
@@ -1871,18 +1891,37 @@ def tree_names(root, home):
     return names
 
 
-def check_records(root, home):
-    """(findings, names read) over the records of every unreleased work item.
+def stated_stamps(lines):
+    """[(line number, the line)] for every record line carrying an anchor.
+
+    The marker skip is `stated_names`', for the same reason and in one place:
+    `spec.md` asks for the escape hatch named once rather than twice, and a
+    record's fixture stamp — `mod.py#helper@deadbeef`, which this repository
+    carries in two records — is exactly the shape the marker exists for.
+    """
+    return [
+        (number, line)
+        for number, line in enumerate(lines, 1)
+        if NOT_IN_TREE not in line and ANCHOR_RE.search(line)
+    ]
+
+
+def check_records(root, home, maps=None, default_repo=None):
+    """(findings, names read, stamps read) over every unreleased work item's
+    records.
 
     A finding is `(status, coordinate, detail)`, the shape `check_ledger`
-    returns, so `main` prints both arms the same way.
+    returns, so `main` prints both arms the same way — and the stamp half is
+    literally `check_text`, the ledger's own reader, so a stamp in a record is
+    resolved the way a ledger anchor is rather than by a second rule.
     """
     live = unshipped(home)
     if not live:
-        return [], 0
+        return [], 0, 0
     known = tree_names(root, home)
     records_root = os.path.join(home, SPECS_DIR)
-    findings, read_count = [], 0
+    findings, names_read, stamps_read = [], 0, 0
+    scan_cache = {}
     for _item, directory in sorted(live.items()):
         for path in record_files(directory):
             body = read(path)
@@ -1892,8 +1931,9 @@ def check_records(root, home):
                     (UNREADABLE_STATUS, shown, "the record could not be read")
                 )
                 continue
-            for number, name in stated_names(body.splitlines()):
-                read_count += 1
+            lines = body.splitlines()
+            for number, name in stated_names(lines):
+                names_read += 1
                 if name in known:
                     continue
                 findings.append(
@@ -1906,7 +1946,19 @@ def check_records(root, home):
                         "name the tree does not have",
                     )
                 )
-    return findings, read_count
+            for number, line in stated_stamps(lines):
+                # A fresh `seen` per line and a shared `scan_cache` across
+                # them: two lines stamping one unit are two claims and both
+                # are reported, while the repo-wide scan a broken anchor
+                # triggers is paid once for the whole run.
+                for status, coord, detail in check_text(
+                    line, root, maps or {}, default_repo, set(), scan_cache
+                ):
+                    stamps_read += 1
+                    if status == "OK":
+                        continue
+                    findings.append((status, f"{shown}:{number}", f"{coord} {detail}"))
+    return findings, names_read, stamps_read
 
 
 def main():
@@ -2039,20 +2091,29 @@ def main():
     # (#190). Printed under its own heading and counted separately, because
     # the two arms read different files and a reader who sees one number has
     # to be able to tell which arm moved it.
-    records, names_read = check_records(root, seal_home(root))
+    records, names_read, stamps_read = check_records(root, seal_home(root), maps)
     print(f"\n{RECORDS_HEADING}")
     for status, coord, detail in records:
         print(f"  {status:12} {coord}  {detail}")
-    refused = len(records)
+    # **Drift in a record is graded the way drift in a ledger is, and a name
+    # or a broken anchor is not.** A live work item's branch is editing the
+    # very units its records stamp, so failing on drift would be red by
+    # construction — the state the `ledger` CI job's own comment refuses. A
+    # name the tree does not carry has no mid-flight excuse: it is absent or
+    # the record is wrong, and the marker is one comment away.
+    drifted = sum(1 for status, _, _ in records if status == "DRIFTED")
+    refused = len(records) - drifted
     print(
-        f"  {names_read} name{'' if names_read == 1 else 's'} read · {refused} refused"
+        f"  {names_read} name{'' if names_read == 1 else 's'} read · "
+        f"{stamps_read} stamp{'' if stamps_read == 1 else 's'} read · "
+        f"{refused} refused · {drifted} drifted"
     )
 
     if totals["OLD-FORMAT"]:
         return 2
     if totals["BROKEN"] or refused:
         return 2
-    if totals["DRIFTED"]:
+    if totals["DRIFTED"] or drifted:
         return 2 if args.strict else 1
     return 0
 
