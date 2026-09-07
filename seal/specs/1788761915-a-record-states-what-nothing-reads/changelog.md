@@ -40,7 +40,26 @@
   table's `Location` column is `path:line` by design, so a record is never
   told to run the coordinate migrator, and drift in a record reports rather
   than fails — a live work item's branch is editing the very units its records
-  stamp, and a check that is always red gets ignored. (#190)
+  stamp, and a check that is always red gets ignored. An `EXTERNAL`
+  coordinate is exit 0 in a record exactly as it is in a ledger, so a
+  migration repository does not fail for the state its parity config exists
+  to allow.
+
+  **A quotation is not a claim.** A fenced line and an HTML comment are not
+  read: `## Paste-ready fixes` is code the tree does not have yet, which is
+  what a paste-ready fix is, and marking one up would change the fix somebody
+  pastes.
+
+  **The run says how many work items it did not read.** A work item that has
+  not written its ledger fragment yet is skipped, and `0 names read` with exit
+  0 used to say the same thing for *every record is clean* and *no record was
+  opened*. The summary now opens with `N work items read · M unread`.
+
+  One hole is known and left: an untracked or `.gitignore`d file still counts
+  as part of the tree, so a scratch note holding a name can silence a refusal
+  locally. Closing it means asking git what it carries, and this checker calls
+  git for nothing outside `--migrate`. CI reads a clean checkout, where the
+  file is not there, so CI is the stricter reader. (#190)
 
 - **`round_record.py new` says what bound the next round is under, as it
   writes the record (issue #207).** The review chain bounds a run one step
@@ -60,6 +79,15 @@
   is worse than silence — `one reopening remains` where none has closed on a
   fix since, and `this record ends the run` where one has, carrying the same
   four-cell exit the refusal at the gate names.
+
+  **It reads both of the walks the gate runs, because a quiet run is bounded
+  by only one of them.** Floor `no`, then two rounds that neither reopened the
+  run nor closed on a fix: nothing has closed on a fix, and the gate still
+  refuses the third record. Reading one walk printed `one reopening remains`
+  at round 2 and invited exactly the round that would be refused. It is also
+  silent for a work item old enough that the gate grandfathers it, guarded
+  separately for each walk, because a work item can be past one cutoff and not
+  the other — one bound really enforced, the other only noticed.
 
   The floor record it names is the **earliest** whose row reads `no`. Keyed to
   the latest it restarts at every record it stops at and bounds nothing, which
