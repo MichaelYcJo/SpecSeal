@@ -1612,6 +1612,15 @@ def main():
             user_ok=False,
             session_id=data.get("session_id", ""),
             single_stream="ask",
+            # Silent rather than `allow`, where the Bash path allows. This call
+            # is a worktree creation PLUS an agent with a prompt, and the record
+            # is about the first half only; silence is the guard withdrawing
+            # its objection, which is the whole of what the record establishes.
+            # Whatever the harness wants to ask about running the agent is not
+            # the guard's to remove. The record itself is shared with the Bash
+            # path in both directions -- this path writes one too -- because it
+            # is the same decision arriving through a different tool.
+            consented="silent",
             # No command to re-issue and nowhere to put a token: the way on
             # here is the one the origin line already names, and an option
             # telling the model to run `git switch` would bury it.
