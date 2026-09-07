@@ -330,6 +330,18 @@ def test_shared_mode_is_still_told_to_add_the_file(repo):
     assert "local mode" not in out, out
 
 
+def test_the_shared_sentence_says_what_it_searched_and_for_what(repo):
+    """S6, the half a mutation survived. *Add this file* on its own does not
+    say a search happened — it reads as advice, and the whole complaint in
+    #225 is that a reader cannot tell a search that found nothing from one
+    that looked in the wrong place. The prefix and the branch are what make
+    the sentence checkable."""
+    (repo / "seal" / "specs").mkdir(parents=True)
+    _code, out = run_check(repo)
+    assert "under `seal/specs/`" in out, out
+    assert "declares `feature`" in out, out
+
+
 def test_a_repository_with_no_root_is_told_to_add_the_file(repo):
     """The third state, and it takes the shared wording: there is no root to
     name, so the file to write is the answer."""
