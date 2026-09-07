@@ -50,12 +50,22 @@ LOADED = (
 )
 
 # A version-shaped token, with the optional `v` prefix the substring test this
-# replaced caught for free. `(?!\w)` keeps `v1.2.30` from reading as `1.2.3`,
-# and `(?!\.\d)` keeps `2.0.1.5` from reading as a release of this plugin. The
-# two are spelled apart because a single `(?![\w.])` also swallowed a version
-# at the END OF A SENTENCE — `right for 0.8.3.` answered no offender, where the
-# substring check this replaced caught it (review round 1).
-VERSION_TOKEN = re.compile(r"(?<![\w.])v?(\d+\.\d+\.\d+)(?!\w)(?!\.\d)")
+# replaced caught for free. `(?!\.\d)` keeps `2.0.1.5` from reading as a
+# release of this plugin, and it is the ONLY trailing guard: a single
+# `(?![\w.])` swallowed a version at the END OF A SENTENCE — `right for
+# 0.8.3.` answered no offender, where the substring check this replaced caught
+# it (review round 1).
+#
+# There was a `(?!\w)` beside it, added for `v1.2.30`, and it is gone. `\d+`
+# is greedy, so `v1.2.30` matches whole with or without it — measured — and
+# its only remaining effect was to hide a LETTER-suffixed prerelease:
+# `0.9.0rc1`, `0.9.0b1`, `0.9.0_final` all answered no offender while
+# `0.9.0-rc1` was refused, so the rule turned on punctuation rather than on
+# meaning. **A prerelease of a version that has not shipped is a timer**, in
+# both spellings, which is what the substring check said and what the owner
+# decided when the same lookahead produced a finding in three consecutive
+# passes (review round 2).
+VERSION_TOKEN = re.compile(r"(?<![\w.])v?(\d+\.\d+\.\d+)(?!\.\d)")
 
 # The value the repository already tells an author to write where a real
 # version would be wrong. `docs/issues-and-milestones.md` §"A rolling log is
@@ -471,15 +481,29 @@ def test_a_number_that_is_not_a_version_is_not_read_as_one():
     assert timers_in(
         "docs/x.md", "the token v1.2.30 is its own", RUNNING_IN_THE_FIXTURES
     ) == [(1, "v1.2.30")]
-    # `(?!\w)`'s own case. The line above does NOT pin it: `\d+` is greedy, so
-    # `v1.2.30` is matched whole with or without that lookahead, and a run
-    # that dropped it left every case in this module green. What only it
-    # refuses is a third component followed by a LETTER — the same shape as
-    # round 1's finding, where a lookaround's guard could not see its loss.
+    # The LEADING lookbehind, which the line above cannot see either.
+    # `2.0.1.5`'s tail `0.1.5` is below the running version, so that line
+    # answers `[]` whether the lookbehind is there or not — measured. Only a
+    # four-part number whose tail is ABOVE it shows the loss, and a version
+    # glued to a preceding word is the other half of the same guard.
     assert (
-        timers_in("docs/x.md", "tagged 0.9.0rc1 last week", RUNNING_IN_THE_FIXTURES)
+        timers_in("docs/x.md", "build 1.9.9.9 of something", RUNNING_IN_THE_FIXTURES)
         == []
     )
+    assert (
+        timers_in("docs/x.md", "the token x0.9.0 is not ours", RUNNING_IN_THE_FIXTURES)
+        == []
+    )
+    # A prerelease of a version that has not shipped is a timer in both its
+    # spellings. `0.9.0-rc1` was always refused; `0.9.0rc1` used to be
+    # invisible, because a `(?!\w)` added for `v1.2.30` — which `\d+`'s greed
+    # already covers — hid it (review round 2).
+    assert timers_in(
+        "docs/x.md", "tagged 0.9.0rc1 last week", RUNNING_IN_THE_FIXTURES
+    ) == [(1, "0.9.0")]
+    assert timers_in(
+        "docs/x.md", "tagged 0.9.0-rc1 last week", RUNNING_IN_THE_FIXTURES
+    ) == [(1, "0.9.0")]
     assert (
         timers_in("docs/x.md", "the python floor is 3.12", RUNNING_IN_THE_FIXTURES)
         == []
