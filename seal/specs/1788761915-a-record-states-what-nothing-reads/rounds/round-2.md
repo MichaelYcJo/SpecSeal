@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 214 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | floor_and_fixes → round-1.md, round-2.md, bound_line, pytest; unshipped → round-1.md, unread_items, check_records, main, pytest; record_files → round-2.md, check_records, pytest |
 | New units | test_a_multi_line_html_comment_is_an_aside_to_its_end (depth 1); test_a_name_after_a_multi_line_comment_closes_is_a_claim_again (depth 1); test_a_fence_the_record_never_closes_does_not_silence_what_follows (depth 1); test_a_tilde_fence_does_not_close_a_backtick_fence (depth 1); test_the_marker_exempts_a_line_a_never_closed_fence_held (depth 1); refuses_scandir (depth 1); test_a_records_directory_that_cannot_be_listed_is_named (depth 1); test_a_ledger_fragment_directory_that_cannot_be_listed_is_named (depth 1); test_a_missing_ledger_folder_is_still_an_empty_answer (depth 1); test_an_intermediate_floor_record_starts_a_count_walk_of_its_own (depth 1); test_the_count_walks_message_says_records_when_it_counted_two (depth 1) |
 | Needs a fix | yes — findings 1, 2, 3 and 4 |
