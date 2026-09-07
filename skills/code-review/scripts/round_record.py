@@ -1015,7 +1015,19 @@ ONE_REOPENING = "one reopening remains"
 
 
 def floor_and_fixes(reader, earlier):
-    """(the record that met the floor, the later ones that closed on a fix).
+    """(the floor record, the later ones that closed on a fix, how many the
+    count walk has spent, whether that walk is still running).
+
+    **`chain_check.stopping_floor` runs TWO walks over the records after the
+    floor, and this used to carry one of them.** The reopening walk counts
+    fix-closing records wherever they sit and refuses a second; the count walk
+    counts every later record up to and including the first that reopened
+    (`Needs a fix: yes`) or closed on a fix, and refuses a second counted
+    record. A run whose floor was met and whose next rounds are simply QUIET
+    is bounded by the second walk alone — so reading only the first printed
+    `one reopening remains` at round 2 and the gate then refused round 3, the
+    invitation into a round the gate does not allow (round 1, 🔴 2). That is
+    #207's own defect, reproduced by the fix for it.
 
     The floor record is the EARLIEST earlier record whose `Loses a record or
     crashes` reads `no`, and taking the LATEST instead is the failure
@@ -1023,23 +1035,34 @@ def floor_and_fixes(reader, earlier):
     the count stops at is itself a record that met the floor, so a count keyed
     to the latest restarts there and is unbounded by construction.
 
+    **Whether the walk is still RUNNING is the fourth value, because the count
+    the record being written inherits depends on it.** A record that reopened
+    the run without writing fixes stops the walk at the gate, so this record
+    is not counted at all and the gate allows it — counting it anyway would
+    print `ends the run` over a round the gate is about to permit, which is
+    the same false sentence one direction over.
+
     Read from disk rather than from `HEAD`. `chain_check.read_record` asks git
     because it is enforcing at a pull request, where the working tree is
     exactly what CI cannot see; this is a line printed to whoever just ran the
     command, and the records in front of them are the ones on disk. A record
-    that cannot be read, or whose row is outside the vocabulary, is simply not
-    the floor record — `stopping_floor` already reports both states at the
-    gate, and a second reader inventing a sentence about them here would be
-    the thing #207 is about.
+    whose row is outside the vocabulary is simply not the floor record —
+    `stopping_floor` already reports that at the gate, and a second reader
+    inventing a sentence about it here would be the thing #207 is about.
+
+    **An unreadable record answers nothing at all**, and that is the whole
+    return rather than a record dropped from `fixes`. Skipping one leaves a
+    run that HAS closed on a fix reading as a run that still has its reopening
+    — the permissive direction, and against what this docstring says it does
+    (round 1, 🟡 12). `checked_by` already names the unreadable record.
     """
-    floor_at = None
-    fixes = []
+    floor_at, fixes, counted, stopped = None, [], 0, False
     for _k, path in earlier:
         try:
             with open(path, encoding="utf-8") as handle:
                 text = handle.read()
         except OSError:
-            continue
+            return None, [], 0, False
         lines = reader.readable(text)
         if floor_at is None:
             cell_value = chain.field(chain.table_rows(reader, lines), chain.FLOOR)
@@ -1048,9 +1071,18 @@ def floor_and_fixes(reader, earlier):
                 if word == chain.FLOOR_NO:
                     floor_at = path
             continue
-        if chain.closed_with_a_fix(reader, lines, path):
+        wrote = chain.closed_with_a_fix(reader, lines, path)
+        if wrote:
             fixes.append(path)
-    return floor_at, fixes
+        if not stopped:
+            counted += 1
+            needs = chain.field(chain.table_rows(reader, lines), chain.NEEDS)
+            reopened = needs is not None and (
+                chain.yes_or_no(reader.visible(needs).strip())[0] == chain.FLOOR_YES
+            )
+            if reopened or wrote:
+                stopped = True
+    return floor_at, fixes, counted, not stopped
 
 
 def bound_line(reader, routing, rounds, n):
@@ -1073,12 +1105,30 @@ def bound_line(reader, routing, rounds, n):
     **A first round, and a run whose floor has not been met, print nothing.**
     A sentence invented for a state that has none is worse than silence: the
     cap still governs there, and the cap is not this line's subject.
+
+    **A work item the gate grandfathers prints nothing either, and the two
+    walks are grandfathered against DIFFERENT constants.** `stopping_floor`
+    excuses the count walk's refusal below `FLOOR_FROM` and the reopening
+    walk's below `REOPEN_FROM`, and for an item between the two the gate
+    refuses one and merely notices the other. One guard for both would have
+    silenced a bound that is really enforced at `1788500000-an-item`, and no
+    guard at all declares a run capped where the gate only prints (round 1,
+    🟡 8). Silence is the answer rather than a hedged sentence: this line
+    exists to bound the decision to spawn again, and for a record the gate
+    will not refuse there is no bound to state.
     """
-    floor_at, fixes = floor_and_fixes(reader, earlier_records(routing, rounds, n))
+    floor_at, fixes, counted, running = floor_and_fixes(
+        reader, earlier_records(routing, rounds, n)
+    )
     if floor_at is None:
         return None
+    began = chain.item_began(floor_at.replace(os.sep, "/"))
+    reopen_excused = began is None or began < chain.REOPEN_FROM
+    count_excused = began is None or began < chain.FLOOR_FROM
     met = os.path.basename(floor_at)
     if fixes:
+        if reopen_excused:
+            return None
         reopened = os.path.basename(fixes[0])
         return (
             f"round-record: {ENDS_THE_RUN} — {met} met the floor and "
@@ -1086,6 +1136,21 @@ def bound_line(reader, routing, rounds, n):
             "on a fix, and the record that reads its fixes ends the run "
             f"whatever it finds. {chain.CAPPED_EXIT}"
         )
+    if counted and running:
+        # Every record after the floor so far was quiet, so the count walk is
+        # still running and this record is the one it counts next — the
+        # gate's SECOND counted record, which it refuses.
+        if count_excused:
+            return None
+        quiet = "record" if counted == 1 else "records"
+        return (
+            f"round-record: {ENDS_THE_RUN} — {met} met the floor and the "
+            f"{counted} {quiet} after it neither reopened the run nor closed "
+            "on a fix, so the gate's count of round records after the floor "
+            f"reaches {counted + 1} here. {chain.CAPPED_EXIT}"
+        )
+    if reopen_excused:
+        return None
     return (
         f"round-record: {ONE_REOPENING} — {met} met the floor and no later "
         "record has closed on a fix. If this round's own verdicts close on "

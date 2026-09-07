@@ -892,13 +892,31 @@ prompt it sent, and reverted 37.9 minutes of agent time.
 
 | What `new` prints | When |
 |---|---|
-| nothing | no earlier record met the floor — the cap governs, and the cap is not this line's subject |
-| `one reopening remains` | an earlier record's floor row reads `no` and no later record has closed on a fix |
-| `this record ends the run` | one later record has, so this record is the one that reads its fixes |
+| nothing | no earlier record met the floor — the cap governs, and the cap is not this line's subject — or the gate grandfathers this work item, so there is no refusal to warn of |
+| `one reopening remains` | an earlier record's floor row reads `no`, no later record has closed on a fix, and the count walk has not already spent a record |
+| `this record ends the run` | one later record closed on a fix — or every later record was quiet, so this one is the gate's second counted record |
 
 The floor record it names is the **earliest** whose row reads `no`, for the
 reason the count above gives: keyed to the latest, it restarts at every
 record it stops at and bounds nothing.
+
+**It reads BOTH walks, because a quiet run is bounded by only one of them.**
+Floor `no`, then two rounds that neither reopened nor closed on a fix: the
+reopening walk finds nothing and the count walk reaches two, so the check
+below refuses the third record. Reading the reopening walk alone printed
+`one reopening remains` at round 2 and invited exactly the round the gate
+would refuse — #207's own defect, made by the line written to end it. A
+record that reopened the run without writing fixes stops the count walk, and
+then this record is not one of the counted and nothing here ends the run.
+
+**A work item the gate grandfathers prints nothing**, and the two walks are
+grandfathered against different constants — the count from `FLOOR_FROM`, the
+reopening from `REOPEN_FROM` — so a work item between them has one bound
+really enforced and the other only noticed. One guard for both would silence
+a bound that is enforced; no guard at all declares a run capped where the
+gate merely prints. Silence rather than a hedged sentence: this line exists
+to bound the decision to spawn again, and where the gate will not refuse
+there is no bound to state.
 
 **Failure direction: blocks more.** A run that reopens twice is refused where
 it used to pass. What it lets through, stated rather than left to be found: a

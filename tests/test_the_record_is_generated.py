@@ -1996,11 +1996,14 @@ def test_the_floor_record_is_the_earliest_and_not_the_latest(repo):
     record(2, "yes — a record leaves", FIXED_ROW)
     record(3, "no", CLOSED_ROW)
 
-    floor_at, fixes = generator.floor_and_fixes(
+    floor_at, fixes, counted, running = generator.floor_and_fixes(
         reader, generator.earlier_records(routing, str(rounds), 4)
     )
     assert os.path.basename(floor_at) == "round-1.md"
     assert [os.path.basename(p) for p in fixes] == ["round-2.md"]
+    # The count walk stopped at round 2, which is the record that closed on a
+    # fix, so round 4 is not one of the records it counts.
+    assert (counted, running) == (1, False)
 
     line = generator.bound_line(reader, routing, str(rounds), 4)
     assert "this record ends the run" in line, line
@@ -2021,3 +2024,203 @@ def test_a_record_that_cannot_be_read_is_not_the_floor_record(repo):
         encoding="utf-8",
     )
     assert generator.bound_line(reader, routing, str(rounds), 2) is None
+
+
+# --- the count walk, and what the gate grandfathers (round 1, 🟡 2, 8, 12) ---
+#
+# `chain_check.stopping_floor` runs TWO walks over the records after the
+# floor. The reopening walk counts fix-closing records wherever they sit; the
+# COUNT walk counts every later record up to and including the first that
+# reopened or closed on a fix, and refuses a second counted record. Reading
+# only the first invited a round the gate refuses.
+
+
+def chain_of(repo, name, *records):
+    """A work item directory holding hand-written records, and its rounds path.
+
+    Direct-call rather than `generate`, because what these cases vary is the
+    work item's NAME — the second the grandfathering reads — and `generate`
+    writes into one item.
+    """
+    rounds = repo / "seal" / "specs" / name / "rounds"
+    rounds.mkdir(parents=True, exist_ok=True)
+    for n, floor, needs, verdicts in records:
+        (rounds / f"round-{n}.md").write_text(
+            f"# {name} — review round {n}\n\n"
+            "| Field | Value |\n|---|---|\n"
+            f"| Needs a fix | {needs} |\n"
+            f"| Loses a record or crashes | {floor} |\n\n"
+            f"## Verdicts\n\n{VERDICT_HEADER}{verdicts}\n",
+            encoding="utf-8",
+        )
+    return rounds
+
+
+LATE = "1799000000-a-later-work-item"
+
+
+def test_two_quiet_rounds_after_the_floor_end_the_run(repo):
+    """The defect #207's own fix carried (round 1, 🔴 2).
+
+    Round 1 met the floor and round 2 was quiet — it neither reopened the run
+    nor closed on a fix. The gate's count walk then counts round 2 AND round
+    3 and refuses at two, so round 3 is a round it will not accept. Reading
+    the reopening walk alone, `new` printed `one reopening remains` at round
+    2 and the session spawned the round the gate was about to refuse. That is
+    the same *round N of a cap of five* mistake #207 exists to end, made by
+    the line written to end it.
+    """
+    generator, reader = generator_module(), reader_module()
+    routing = generator.load(check_module().ROUTING, "specseal_routing_count_walk")
+    rounds = chain_of(
+        repo,
+        LATE,
+        (1, "no", "yes — 🔴 1", CLOSED_ROW),
+        (2, "no", "no", CLOSED_ROW),
+    )
+    line = generator.bound_line(reader, routing, str(rounds), 3)
+    assert line is not None, "the count walk says round 3 is over the bound"
+    assert "this record ends the run" in line, line
+    assert "reaches 2" in line, line
+    assert check_module().CAPPED_EXIT in line, line
+
+
+def test_a_round_that_reopened_without_writing_fixes_stops_the_count(repo):
+    """The gate's count walk stops AT the record that reopened, so the record
+    being written now is not counted and the gate allows it.
+
+    `Needs a fix: yes` with every verdict `answered` is the sequence where
+    the two walks come apart: nothing was written for a later round to read,
+    so the reopening walk still finds no fix — and the count walk has already
+    stopped, so nothing here ends the run. Counting it anyway would print
+    `ends the run` over a round the gate is about to permit.
+    """
+    generator, reader = generator_module(), reader_module()
+    routing = generator.load(check_module().ROUTING, "specseal_routing_count_stop")
+    rounds = chain_of(
+        repo,
+        LATE,
+        (1, "no", "yes — 🔴 1", CLOSED_ROW),
+        (2, "no", "yes — 🟡 3", CLOSED_ROW),
+    )
+    line = generator.bound_line(reader, routing, str(rounds), 3)
+    assert line is not None, line
+    assert "one reopening remains" in line, line
+
+
+def test_the_reopening_named_is_the_first_record_that_closed_on_a_fix(repo):
+    """The reopening walk never stops, so a run that closed on a fix twice
+    has two paths in `fixes` — and the one the line names is the reopening
+    this floor allowed, which is the FIRST. Naming the last would put the
+    record the gate refuses in the sentence explaining why the run is over.
+    """
+    generator, reader = generator_module(), reader_module()
+    routing = generator.load(check_module().ROUTING, "specseal_routing_two_fixes")
+    rounds = chain_of(
+        repo,
+        LATE,
+        (1, "no", "yes — 🔴 1", CLOSED_ROW),
+        (2, "no", "no", FIXED_ROW),
+        (3, "no", "no", FIXED_ROW),
+    )
+    line = generator.bound_line(reader, routing, str(rounds), 4)
+    assert "this record ends the run" in line, line
+    assert "round-2.md" in line and "round-3.md" not in line, line
+
+
+def test_a_work_item_older_than_the_count_rule_prints_nothing(repo):
+    """Below `FLOOR_FROM` the gate prints a notice instead of failing, so
+    there is no bound for this line to state. Declaring the run capped where
+    the gate only notices is the finding (round 1, 🟡 8)."""
+    generator, reader = generator_module(), reader_module()
+    routing = generator.load(check_module().ROUTING, "specseal_routing_old_item")
+    assert check_module().FLOOR_FROM > 1788400000
+    rounds = chain_of(
+        repo,
+        "1788400000-an-early-item",
+        (1, "no", "yes — 🔴 1", CLOSED_ROW),
+        (2, "no", "no", CLOSED_ROW),
+    )
+    assert generator.bound_line(reader, routing, str(rounds), 3) is None
+
+
+def test_the_two_walks_are_grandfathered_against_different_constants(repo):
+    """`1788500000-an-item` sits between `FLOOR_FROM` and `REOPEN_FROM`.
+
+    The gate REFUSES its count walk there and only notices its reopening
+    walk, so one guard covering both would have silenced a bound that is
+    really enforced.
+    """
+    check = check_module()
+    assert check.FLOOR_FROM < 1788500000 < check.REOPEN_FROM
+    generator, reader = generator_module(), reader_module()
+    routing = generator.load(check.ROUTING, "specseal_routing_between")
+
+    quiet = chain_of(
+        repo,
+        "1788500000-an-item",
+        (1, "no", "yes — 🔴 1", CLOSED_ROW),
+        (2, "no", "no", CLOSED_ROW),
+    )
+    line = generator.bound_line(reader, routing, str(quiet), 3)
+    assert line is not None and "this record ends the run" in line, line
+
+    fixed = chain_of(
+        repo,
+        "1788500001-another-item",
+        (1, "no", "yes — 🔴 1", CLOSED_ROW),
+        (2, "no", "no", FIXED_ROW),
+    )
+    assert generator.bound_line(reader, routing, str(fixed), 3) is None
+
+
+def test_a_work_item_with_no_epoch_in_its_name_prints_nothing(repo):
+    """`item_began` answers None for a repository that names its work items
+    some other way, and the gate grandfathers every such record.
+
+    Both branches, because they are guarded separately: with only the floor
+    record on disk the line would be `one reopening remains`, and with a
+    quiet round after it the line would be the count walk's.
+    """
+    generator, reader = generator_module(), reader_module()
+    routing = generator.load(check_module().ROUTING, "specseal_routing_no_epoch")
+    alone = chain_of(repo, "my-work-item", (1, "no", "yes — 🔴 1", CLOSED_ROW))
+    assert generator.bound_line(reader, routing, str(alone), 2) is None
+    quiet = chain_of(
+        repo,
+        "another-work-item",
+        (1, "no", "yes — 🔴 1", CLOSED_ROW),
+        (2, "no", "no", CLOSED_ROW),
+    )
+    assert generator.bound_line(reader, routing, str(quiet), 3) is None
+
+
+def test_an_unreadable_record_answers_nothing_rather_than_no_fix(repo, monkeypatch):
+    """A record dropped from the fix walk alone reads as a run that still has
+    its reopening — the permissive direction, and against what the unit's own
+    docstring says it does (round 1, 🟡 12).
+
+    Constructed by refusing the read rather than by `chmod 000`, which is
+    nothing to root and sets only a read-only flag on Windows —
+    `test_gates_do_not_fail_open.py` makes the same choice for the same
+    reason.
+    """
+    generator, reader = generator_module(), reader_module()
+    routing = generator.load(check_module().ROUTING, "specseal_routing_unreadable")
+    rounds = chain_of(
+        repo,
+        LATE,
+        (1, "no", "yes — 🔴 1", CLOSED_ROW),
+        (2, "no", "no", FIXED_ROW),
+    )
+    assert generator.bound_line(reader, routing, str(rounds), 3) is not None
+
+    real = open
+
+    def refuse(path, *args, **kwargs):
+        if str(path).endswith("round-2.md"):
+            raise PermissionError(13, "permission denied")
+        return real(path, *args, **kwargs)
+
+    monkeypatch.setattr(generator, "open", refuse, raising=False)
+    assert generator.bound_line(reader, routing, str(rounds), 3) is None
