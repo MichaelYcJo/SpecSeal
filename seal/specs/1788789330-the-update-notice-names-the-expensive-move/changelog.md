@@ -34,6 +34,14 @@
   including the two README command-table rows and the two by-hand code
   comments, which are as much an instruction as the paragraph above them.
 
+  **The gate table stopped calling the banner one line.** `README.md`'s
+  version-check row said the hook *shows one line*; it has shown four since
+  before this work item, and this work item is what made the notice longer.
+  The row now says it shows a short notice naming `/specseal:update` and the
+  two moves that load a release — a description of what the notice says rather
+  than a count of how it renders, so there is no number left to go stale. The
+  Korean edition never carried the count and is unchanged.
+
   **Fifteen sentences moved, enumerated by grep rather than from the ticket's
   list** — which was three lines short and named neither of the Korean
   README's three. Two of the fifteen are code comments inside fenced blocks
