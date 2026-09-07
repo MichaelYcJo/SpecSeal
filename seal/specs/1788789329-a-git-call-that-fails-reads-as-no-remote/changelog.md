@@ -78,3 +78,14 @@
   failure — by running the export again — was told it had succeeded. Only the
   `remote` line carries the note about the other machine's flag, because only
   a missing `remote` is refused there. (#111)
+
+- **Two checks of this repository's own round records stopped crashing on the
+  files the review chain writes beside a record.** Both asked git for
+  `seal/specs/*/rounds/round-*.md`, and git's pathspec has no way to say *and
+  then a number*, so the glob also picked up `round-N-report.md`,
+  `round-N-asked.md` and `round-N-fixes.md`. Ordering the result asked for a
+  round number those files do not have, and two of them in one work item ended
+  the check with a `TypeError` instead of a verdict — so a run that committed
+  a reviewer's report beside its record turned two checks off and reported it
+  as a crash. `chain_check.py` itself already drops those files on the same
+  test; the two readers that did not now do. (#111)
