@@ -739,6 +739,39 @@ refuses a unit listed without a reach and an empty half would be the tolerant
 read that row refuses. The last three live in `round_record.py` as `PYTEST`,
 `PYTEST_ONLY` and `NO_SITE`.
 
+**`pytest only` is also what a unit pytest itself reaches gets, and that is
+not the same condition.** The clause above is about a unit's CALLERS all
+sitting under `tests/`. A collected test function has no callers at all: the
+runner calls it, so the only `test_thing(` in the tree is its own `def` line
+and the reach came back empty. The row then read `no call site found` — *this
+unit is dead* — about a case that runs on every CI leg (#211). Three shapes
+are members, each by a rule of pytest's own collection rather than by a
+convention of any repository:
+
+| The unit | How pytest reaches it |
+|---|---|
+| a `test_*` def under `tests/` | collected by name pattern |
+| a fixture under `tests/` | injected by parameter name, so `name(` never occurs |
+| a `pytest_*` def in a `conftest.py` under `tests/` | dispatched by the plugin manager |
+
+**It is those three and not everything under `tests/`,** which is the
+boundary the rule needs to stay honest. A helper that is passed by name as a
+value and never called reads `no call site found` for a different reason, and
+saying *the runner covers this* about a unit nothing covers is #211's own
+false sentence pointing the other way. Measured at the fix: 1892 of 1947
+`test_*` defs and 8 of 42 fixtures were reading `no call site found`, against
+one helper that was reading it correctly.
+
+**One limit, recorded rather than closed: the hook arm reads `conftest.py`
+alone, and pytest is wider than that.** It registers collected test modules as
+plugins too, so a `pytest_generate_tests` in a test module really is
+dispatched and really has no call site — and it still reads `no call site
+found`. Widening the arm to every `pytest_*` def under `tests/` would catch it
+and would also catch any helper somebody named `pytest_something`, which is
+the row saying *the runner covers this* about a unit nothing covers. The
+narrower rule with the limit written down is the trade; a hook that wants the
+row moves to a `conftest.py`, where pytest looks for it first anyway.
+
 **Leaving that vocabulary out is what made a correct cell read as a
 mistake.** A review round of the work item that added this paragraph opened a
 finding against `hide_from_git → build, ensure, pytest`, on the grounds that

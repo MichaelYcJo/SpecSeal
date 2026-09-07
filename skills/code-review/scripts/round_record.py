@@ -1450,6 +1450,26 @@ PYTEST_ONLY = "pytest only"
 PYTEST = "pytest"
 NO_SITE = "no call site found"
 TESTS_DIR = "tests"
+# The three shapes pytest reaches without a call site anywhere in the tree
+# (#211): a collected test function, a fixture it injects by parameter name,
+# and a `conftest` hook it dispatches through its plugin manager. None of the
+# three is ever written as `name(`, so the reach walk came back empty and the
+# row said `no call site found` about units that run on every CI leg.
+#
+# Measured over this repository at ba22b28 rather than reasoned about: 1892 of
+# 1947 `test_*` defs under `tests/` read `no call site found`, and so did 8 of
+# 42 fixtures. The ticket named the first set and left the second in its own
+# `Not verified` section.
+#
+# The rule is these three and NOT everything under `tests/`. One helper there
+# reads `no call site found` for an unrelated reason — it is passed by name as
+# a value and never called — and a wider rule would say the runner covers a
+# unit nothing covers, which is #211's own false sentence pointing the other
+# way.
+TEST_PREFIX = "test_"
+HOOK_PREFIX = "pytest_"
+CONFTEST = "conftest.py"
+FIXTURE = "fixture"
 # The columns of the verdict table, by the record's header.
 NUMBER_COL = VERDICT_HEADER.index("#")
 LOCATION_COL = VERDICT_HEADER.index("Location")
@@ -1751,15 +1771,64 @@ def under_tests(path):
     return TESTS_DIR in path.split("/")[:-1]
 
 
+def decorated_as(node, name):
+    """True when a decorator on `node` is `name` or ends in `.name`.
+
+    Covers the four spellings a fixture arrives in — `@fixture`,
+    `@fixture(...)`, `@pytest.fixture`, `@pytest.fixture(...)` — by reading
+    the callee of a decorator that is a call and the decorator itself
+    otherwise. The import alias is deliberately not resolved: what a module
+    calls `pytest` is its own business, and the tail is the part that names
+    the decorator.
+    """
+    for dec in getattr(node, "decorator_list", []):
+        target = dec.func if isinstance(dec, ast.Call) else dec
+        if isinstance(target, ast.Attribute) and target.attr == name:
+            return True
+        if isinstance(target, ast.Name) and target.id == name:
+            return True
+    return False
+
+
+def runner_reached(reader, root, b, rel, name):
+    """True when pytest reaches `rel`'s `name` with no call site in the tree.
+
+    The three members are the constants above, and each is a rule of pytest's
+    own collection rather than a convention of this repository: a `test_*`
+    def under `tests/` is collected, a fixture is injected by parameter name,
+    and a `pytest_*` def in a `conftest.py` is dispatched as a hook. A unit
+    outside `tests/` is none of them however it is named — collection is
+    about where the file sits.
+    """
+    if not rel.endswith(".py") or not under_tests(rel):
+        return False
+    module = parse_module(reader.show(root, b, rel))
+    if module is None:
+        return False
+    for node in module.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if node.name != name:
+            continue
+        if name.startswith(TEST_PREFIX):
+            return True
+        if name.startswith(HOOK_PREFIX) and os.path.basename(rel) == CONFTEST:
+            return True
+        return decorated_as(node, FIXTURE)
+    return False
+
+
 def call_sites(reader, root, b, rel, name, at_b):
     """The reach of one changed unit at `b`: the enclosing top-level unit of
     every `name(` in the tracked files, the unit's own def line excluded,
     the file's basename for a call at module level or outside Python.
 
     Callers under `tests/` collapse to `pytest`, and to `pytest only` when
-    they are the whole reach; a unit nobody calls reads `no call site
-    found`, because `fix_surface` refuses a unit listed without a reach
-    and an empty reach would be the tolerant read it refuses.
+    they are the whole reach — or when the unit is one pytest itself reaches
+    (`runner_reached`), which has no call site in the tree by design. A unit
+    nobody calls and nothing collects reads `no call site found`, because
+    `fix_surface` refuses a unit listed without a reach and an empty reach
+    would be the tolerant read it refuses.
     """
     out = git(root, "grep", "-n", "-F", "-e", f"{name}(", b) or ""
     word = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(name) + r"\(")
@@ -1788,7 +1857,9 @@ def call_sites(reader, root, b, rel, name, at_b):
         elif site not in named:
             named.append(site)
     if not named:
-        return [PYTEST_ONLY] if tested else [NO_SITE]
+        if tested or runner_reached(reader, root, b, rel, name):
+            return [PYTEST_ONLY]
+        return [NO_SITE]
     return named + ([PYTEST] if tested else [])
 
 
