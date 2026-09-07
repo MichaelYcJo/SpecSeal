@@ -45,10 +45,24 @@
   migration repository does not fail for the state its parity config exists
   to allow.
 
-  **A quotation is not a claim.** A fenced line and an HTML comment are not
+  **A quotation is not a claim.** A fenced region and an HTML comment are not
   read: `## Paste-ready fixes` is code the tree does not have yet, which is
   what a paste-ready fix is, and marking one up would change the fix somebody
-  pastes.
+  pastes. Each runs to its own end — a comment to its `-->`, so a template's
+  two-line comment is an aside on both lines, and a fence to a close carrying
+  the marker that opened it, so a `~~~` quoted inside a ```-block does not end
+  the quotation. A fence the record never closes is read as a malformed record
+  rather than as a quotation of everything left: its lines are read as claims,
+  because an author's missing backticks must not be the thing that makes the
+  rest of a record pass in silence.
+
+  **A directory the walk cannot list is `UNREADABLE` and exit 2**, the way an
+  unreadable file already was. `os.walk` swallows one, so a work item whose
+  records folder could not be listed contributed nothing and the run said
+  nothing; the same held one directory up, where an unlistable `seal/ledger/`
+  read as a repository with no live work item and took the whole arm quiet. A
+  directory that is ABSENT is still an empty answer — a repository that has
+  not started is not a broken one.
 
   **The run says how many work items it did not read.** A work item that has
   not written its ledger fragment yet is skipped, and `0 names read` with exit
@@ -89,6 +103,17 @@
   separately for each walk, because a work item can be past one cutoff and not
   the other — one bound really enforced, the other only noticed.
 
-  The floor record it names is the **earliest** whose row reads `no`. Keyed to
-  the latest it restarts at every record it stops at and bounds nothing, which
-  is the failure the count itself was rebuilt for. (#207)
+  **And it runs each walk from every record whose floor row reads `no`.** The
+  gate reads that row on every record, so a second one starts walks of its
+  own. Only the count walk needs more than one starting point: the reopening
+  walk never stops, so a later start's findings are all inside an earlier
+  one's, while the count walk does stop — and an earlier walk that had already
+  stopped hid a later floor record's walk entirely. Reading the earliest alone
+  printed `one reopening remains` at a round the gate returned an error for,
+  which is the same defect one floor record over.
+
+  The floor record it names is the **earliest** whose row reads `no`, except
+  in the count branch, where it is the record the firing walk started from —
+  the only record the count beside it is true of. Keyed to the latest it would
+  restart at every record it stops at and bound nothing, which is the failure
+  the count itself was rebuilt for. (#207)
