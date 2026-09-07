@@ -86,7 +86,7 @@ TEST_MOD = (
     "from mod import reached\n"
     "\n"
     "\n"
-    "def test_thing(a_fixture):\n"
+    "def test_thing(a_fixture, a_root_fixture):\n"
     "    assert reached(1) == 1\n"
     "\n"
     "\n"
@@ -96,6 +96,26 @@ TEST_MOD = (
     "\n"
     "def pytest_generate_tests(metafunc):\n"
     "    return None\n"
+)
+# Round 1's finding 1. Collection is TWO rules: `python_files` decides which
+# file becomes a test module and `python_functions` decides which def in it is
+# a case. `tests/helpers.py` satisfies neither pattern, so a `test_*` def here
+# is never imported as a case and nothing else calls it.
+HELPERS = "def test_shaped_but_uncollected(x):\n    return x\n"
+# Round 1's finding 2. A `conftest.py` at the repository ROOT — the placement
+# pytest documents first — holding one fixture and one hook. Both are reached
+# without a call site exactly as their `tests/` counterparts are.
+ROOT_CONFTEST = (
+    "import pytest\n"
+    "\n"
+    "\n"
+    "def pytest_configure(config):\n"
+    "    return None\n"
+    "\n"
+    "\n"
+    "@pytest.fixture\n"
+    "def a_root_fixture(x):\n"
+    "    return x\n"
 )
 # A `test_*` def that is NOT under `tests/`: the rule is about where pytest
 # collects, and a name-shaped def elsewhere is not collected.
@@ -132,7 +152,7 @@ WIDENED = {
         "from mod import reached\n"
         "\n"
         "\n"
-        "def test_thing(a_fixture, extra=None):\n"
+        "def test_thing(a_fixture, a_root_fixture, extra=None):\n"
         "    assert reached(1) == 1\n"
         "\n"
         "\n"
@@ -143,12 +163,29 @@ WIDENED = {
         "def pytest_generate_tests(metafunc, extra=None):\n"
         "    return None\n"
     ),
+    "tests/helpers.py": (
+        "def test_shaped_but_uncollected(x, extra=None):\n    return x\n"
+    ),
+    "conftest.py": (
+        "import pytest\n"
+        "\n"
+        "\n"
+        "def pytest_configure(config, extra=None):\n"
+        "    return None\n"
+        "\n"
+        "\n"
+        "@pytest.fixture\n"
+        "def a_root_fixture(x, extra=None):\n"
+        "    return x\n"
+    ),
     "root_level.py": "def test_looks_like_one(x, extra=None):\n    return x\n",
 }
 BEFORE = {
     "mod.py": MOD,
     "tests/conftest.py": CONFTEST,
     "tests/test_mod.py": TEST_MOD,
+    "tests/helpers.py": HELPERS,
+    "conftest.py": ROOT_CONFTEST,
     "root_level.py": ROOT_LEVEL,
 }
 
@@ -187,6 +224,8 @@ def _build(d):
     write(d, "mod.py", MOD)
     write(d, "tests/conftest.py", CONFTEST)
     write(d, "tests/test_mod.py", TEST_MOD)
+    write(d, "tests/helpers.py", HELPERS)
+    write(d, "conftest.py", ROOT_CONFTEST)
     write(d, "root_level.py", ROOT_LEVEL)
     commit(d, "base")
     git(d, "switch", "-qc", "feature")
@@ -264,6 +303,19 @@ def test_a_conftest_hook_reads_pytest_only(reach):
     assert reach["pytest_collection_modifyitems"] == generator.PYTEST_ONLY, reach
 
 
+def test_a_conftest_at_the_repository_root_is_still_a_conftest(reach):
+    """Round 1's finding 2. `under_tests` used to gate the whole predicate,
+    so the fixture and hook arms reached only a `conftest.py` sitting under
+    `tests/` — and the repository root is the placement pytest documents
+    first, where the fixtures and hooks every module in the tree sees are
+    kept. A conftest is a conftest wherever it sits: pytest loads it by name,
+    not by directory, so both arms read the basename and the `tests/` gate
+    lets a conftest through from anywhere."""
+    generator = generator_module()
+    assert reach["a_root_fixture"] == generator.PYTEST_ONLY, reach
+    assert reach["pytest_configure"] == generator.PYTEST_ONLY, reach
+
+
 # --- and the boundary that keeps the rule honest ----------------------------
 
 
@@ -292,6 +344,18 @@ def test_a_hook_outside_a_conftest_is_a_recorded_limit(reach):
     """
     generator = generator_module()
     assert reach["pytest_generate_tests"] == generator.NO_SITE, reach
+
+
+def test_a_test_shaped_def_in_an_uncollected_module_is_not_the_runners(reach):
+    """Round 1's finding 1, and the boundary above pointing the other way.
+    `python_files = test_*.py *_test.py` is the half of collection the arm
+    was not asking about: `tests/helpers.py` matches neither pattern, so
+    pytest never imports it and `test_shaped_but_uncollected` never runs.
+    Saying `pytest only` about it is the row claiming the runner covers a
+    unit nothing covers — the sentence `plan.md`'s alternatives table
+    rejected the wider rule in order to avoid."""
+    generator = generator_module()
+    assert reach["test_shaped_but_uncollected"] == generator.NO_SITE, reach
 
 
 def test_a_test_shaped_def_outside_tests_is_not_collected(reach):

@@ -750,9 +750,20 @@ convention of any repository:
 
 | The unit | How pytest reaches it |
 |---|---|
-| a `test_*` def under `tests/` | collected by name pattern |
-| a fixture under `tests/` | injected by parameter name, so `name(` never occurs |
-| a `pytest_*` def in a `conftest.py` under `tests/` | dispatched by the plugin manager |
+| a `test_*` def in a file `python_files` collects | collected by name pattern, the file and the function both |
+| a fixture under `tests/`, or in a `conftest.py` anywhere | injected by parameter name, so `name(` never occurs |
+| a `pytest_*` def in a `conftest.py` anywhere | dispatched by the plugin manager |
+
+**Two of those three rows say where the file sits, and they say different
+things.** Collection is two rules: `python_files = test_*.py *_test.py`
+decides which FILE becomes a test module, and `python_functions = test_*`
+decides which def inside it is a case. A `test_*` def in `tests/helpers.py`
+satisfies the second and not the first, so pytest never runs it — reading the
+def name and the directory alone said *the runner covers this* about it. A
+`conftest.py` is the opposite case: pytest loads it by name and documents the
+repository root placement first, so a fixture or a hook there is reached from
+outside `tests/` exactly as one inside it is. Both were round 1's findings on
+the change that introduced this section.
 
 **It is those three and not everything under `tests/`,** which is the
 boundary the rule needs to stay honest. A helper that is passed by name as a

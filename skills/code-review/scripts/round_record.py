@@ -1573,7 +1573,18 @@ TESTS_DIR = "tests"
 # a value and never called — and a wider rule would say the runner covers a
 # unit nothing covers, which is #211's own false sentence pointing the other
 # way.
+#
+# Round 1 of this work item is that the code drew the boundary one step short
+# of the prose twice, in opposite directions. `test_*` alone is the FUNCTION
+# half of pytest's collection and `python_files` is the other half, so a
+# `test_*` def in `tests/helpers.py` was reading `pytest only` about a unit
+# nothing collects — the false sentence above, pointing the way the rule
+# exists to refuse. And the `tests/` gate stood in front of every arm, so a
+# `conftest.py` at the repository ROOT — the placement pytest documents
+# first — read `no call site found` for its fixtures and its hooks, which is
+# #211's own defect left standing at the commonest placement of all.
 TEST_PREFIX = "test_"
+TEST_SUFFIX = "_test.py"
 HOOK_PREFIX = "pytest_"
 CONFTEST = "conftest.py"
 FIXTURE = "fixture"
@@ -1960,17 +1971,38 @@ def decorated_as(node, name):
     return False
 
 
+def collected(base):
+    """True when pytest's default `python_files` patterns import this file.
+
+    Collection is two rules and the arm below used to ask only one of them:
+    `python_files = test_*.py *_test.py` decides which FILE becomes a test
+    module, and `python_functions = test_*` decides which def inside it is a
+    case. A `test_*` def in `tests/helpers.py` satisfies the second and not
+    the first, so pytest never runs it — and `pytest only` would then say the
+    runner covers a unit nothing covers.
+    """
+    return base.startswith(TEST_PREFIX) or base.endswith(TEST_SUFFIX)
+
+
 def runner_reached(reader, root, b, rel, name):
     """True when pytest reaches `rel`'s `name` with no call site in the tree.
 
     The three members are the constants above, and each is a rule of pytest's
-    own collection rather than a convention of this repository: a `test_*`
-    def under `tests/` is collected, a fixture is injected by parameter name,
-    and a `pytest_*` def in a `conftest.py` is dispatched as a hook. A unit
-    outside `tests/` is none of them however it is named — collection is
-    about where the file sits.
+    own collection rather than a convention of this repository: a def that
+    `python_files` collects and `python_functions` names is a case, a fixture
+    is injected by parameter name, and a `pytest_*` def in a `conftest.py` is
+    dispatched as a hook.
+
+    Where the file sits decides two different things, and they are not the
+    same gate. A conftest is a conftest wherever it sits — pytest loads it by
+    name and documents the repository root first — so the `tests/` gate lets
+    one through from anywhere. Nothing else outside `tests/` is a member
+    however it is named.
     """
-    if not rel.endswith(".py") or not under_tests(rel):
+    base = os.path.basename(rel)
+    if not rel.endswith(".py"):
+        return False
+    if not under_tests(rel) and base != CONFTEST:
         return False
     module = parse_module(reader.show(root, b, rel))
     if module is None:
@@ -1980,9 +2012,9 @@ def runner_reached(reader, root, b, rel, name):
             continue
         if node.name != name:
             continue
-        if name.startswith(TEST_PREFIX):
+        if name.startswith(TEST_PREFIX) and collected(base):
             return True
-        if name.startswith(HOOK_PREFIX) and os.path.basename(rel) == CONFTEST:
+        if name.startswith(HOOK_PREFIX) and base == CONFTEST:
             return True
         return decorated_as(node, FIXTURE)
     return False
