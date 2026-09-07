@@ -259,11 +259,19 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
     `test_the_refusal_names_the_line_and_the_version_it_refused` is what
     covers that.
 
-    Six mutations of `refusal` were run one at a time (review round 3): the
-    offender lines, the `{running}` interpolation, the explanatory paragraph,
-    the routes, and the separator between offender lines all turn a case red.
+    Eight mutations of `refusal` have been run one at a time, six in review
+    round 3 and two more in round 4. Seven turn a case red: the offender
+    lines deleted, the `{running}` interpolation dropped, the explanatory
+    paragraph deleted, the routes dropped, the separator BETWEEN offender
+    lines collapsed, the separator BEFORE THE FIRST offender line deleted,
+    and the routes printed above the offender lines instead of below them.
     The one that survives is `assert not offenders, refusal(...)` being
     replaced by a literal, which no assertion here reaches.
+
+    The sixth of those was found by round 4 inside the case written to close
+    the fifth: passing two offenders rendered the join and left the paragraph's
+    own trailing break unobserved, so the first refused line could run into
+    the paragraph above it while every case stayed green.
 
     Twice now a paragraph in this position claimed a limit wider than what
     had been measured, and each time the claim was the grounds for looking no
@@ -305,9 +313,16 @@ def test_the_refusal_names_the_line_and_the_version_it_refused():
     # is never rendered, so a case passing one cannot see it collapse and
     # every refused line after the first would run into its neighbour —
     # measured, that mutation survived a case built on one offender.
+    #
+    # There are TWO separators, not one, and this comment used to stop a line
+    # short of saying so. The first offender's own line break is the `\n  `
+    # ending the paragraph literal in `refusal`; the rest come from the join.
+    # Both assertions below therefore require the leading break rather than a
+    # bare substring (review round 4).
     text = refusal("0.8.3", ["docs/x.md:12 names 0.9.0", "docs/y.md:3 names 0.9.1"])
-    assert "docs/x.md:12 names 0.9.0" in text, (
-        "the refusal stopped printing the lines it refused — a person is told "
+    assert "\n  docs/x.md:12 names 0.9.0" in text, (
+        "the refusal stopped printing the lines it refused, or stopped "
+        "printing the first of them on a line of its own — a person is told "
         "that a loaded file names a version and not where to go"
     )
     assert "\n  docs/y.md:3 names 0.9.1" in text, (
