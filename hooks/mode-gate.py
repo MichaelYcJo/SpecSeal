@@ -42,12 +42,19 @@ session collects before it starts, which is where this project wants questions.
 The number of interruptions is the same either way -- one -- because the budget
 below is per session, not per command.
 
-**The budget, stated because `CONTRIBUTING.md` asks for it.** One deny per
-session per repository, then `ask`, which approving gets past. Zero once the
-row exists, which `seal mode` writes and which
-`skills/implement/SKILL.md` §Bootstrap now writes when it creates the root --
-so a repository that went through the bootstrap is never asked here, and this
-gate sees only the roots that did not.
+**The budget, stated because `CONTRIBUTING.md` asks for it.** Two prompts per
+session per repository and no more: one deny, then one `ask` that approving
+gets past, then silence for every command after them. Zero once the row
+exists, which `seal mode` writes and which `skills/implement/SKILL.md`
+§Bootstrap now writes when it creates the root -- so a repository that went
+through the bootstrap is never asked here, and this gate sees only the roots
+that did not.
+
+**Per session per REPOSITORY, and a local root is one repository.** The two
+markers are keyed to the folder the question is about rather than to the work
+tree the command came from, because a local root is one folder every worktree
+of the clone shares -- `marker_dir` below owns that, and asking twice about
+one folder is what it was measured doing.
 
 **No waiver token.** The two arms of the commit gate each carry one because
 each is about whether a CHANGE was checked, and a change can honestly be
@@ -73,16 +80,31 @@ import optin
 # directory. Sharing it would make answering one question silence the other,
 # and the two are different questions that can arrive in the same session.
 CHOICE_DIR = "specseal-mode-choice"
+# The session's SECOND and last prompt: the approvable retry the deny tells
+# the model to make. Its own directory, because the deny and the ask are two
+# different questions and each is spent once.
+RETRY_DIR = "specseal-mode-retry"
 
 
-def already_asked(cwd, git_dir, session):
-    """True when this session was already offered the question in this repo.
+def already_asked(git_dir, session, choice_dir=CHOICE_DIR):
+    """True when this session was already offered `choice_dir`'s prompt here.
 
     Records it when it was not. A marker that cannot be written counts as
     already asked: one missed question beats a deny the session cannot get
     past, and in a run with nobody at the keyboard that deny is an outage
     rather than a cost. The same rule as `hooks/commit-review-gate.py`, and
     not the same marker.
+
+    `git_dir` is absolute, which `git_dir_of` guarantees by resolving git's
+    answer against the root. The sibling this was copied from takes a `cwd`
+    first argument because it is handed a RELATIVE git directory and the join
+    is what places the marker; here that argument only ever discarded itself,
+    since `os.path.join` drops everything before an absolute path -- so it is
+    gone rather than kept as a no-op somebody would later read as a guard.
+    What replaces it is `git_dir_of`'s own resolution, which is the thing that
+    has to hold: `--git-common-dir` answers `.git` from a main work tree,
+    measured 2026-09-08, so a resolution left to this join would have written
+    the marker relative to whatever directory this process happened to be in.
 
     The id names a file, so a separator in a malformed one must not become a
     path escape -- measured on a sibling guard, where `../../escaped` put an
@@ -91,7 +113,7 @@ def already_asked(cwd, git_dir, session):
     session = os.path.basename(str(session or ""))
     if not git_dir or not session or session in (".", ".."):
         return True
-    path = os.path.join(cwd or ".", git_dir, CHOICE_DIR, session)
+    path = os.path.join(git_dir, choice_dir, session)
     if os.path.exists(path):
         return True
     try:
@@ -114,24 +136,63 @@ def undeclared(root):
     `unknown` -- a row naming something that is not a mode -- counts as
     undeclared, which is the direction `seal mode` already takes: a claim
     nobody can act on is not an answer somebody gave.
+
+    A file that cannot be OPENED is the one case that goes the other way; see
+    `unreadable` below for why the gate and the writer part company there.
     """
     home = optin.home_at(root)
     if not home:
+        return ""
+    if unreadable(repo_config.config_path(home)):
         return ""
     kind, _value = repo_config.declared_mode(home)
     return "" if kind == "mode" else home
 
 
-def git_dir_of(root):
+def unreadable(path):
+    """True when `path` is there and this process cannot read it as text.
+
+    `hooks/config.py#declared_mode` folds no file, no row, an empty value and
+    a file that will not open into one answer, and that is right for the
+    WRITER: `seal mode` goes on to write the row either way. For a GATE the
+    fourth is different in kind. A file that exists and cannot be opened -- a
+    directory of that name, a permission this process does not have, bytes
+    this locale cannot decode -- is not a repository that failed to answer. It
+    is one whose answer could not be read, and this module's docstring says
+    what to do then: say nothing, the way `hooks/optin.py` does.
+
+    Not exotic, and it compounds. `hooks/optin.py#repo_root` already records a
+    repository under a path a cp949 console cannot decode; a `Record language`
+    row hand-edited in a non-UTF-8 locale puts those bytes in this file. The
+    escape is `seal mode`, and the row it would write is in the file nothing
+    can parse.
+    """
+    if not os.path.lexists(path):
+        return False
+    try:
+        with open(path, encoding="utf-8") as handle:
+            handle.read()
+    except (OSError, ValueError):
+        return True
+    return False
+
+
+def git_dir_of(root, which="--absolute-git-dir"):
     """`root`'s git directory as an absolute path, or "".
 
-    Absolute, so a linked worktree's marker lands in that worktree's own git
-    directory rather than beside the main tree's -- and so the join in
-    `already_asked` does not depend on which directory this process is in.
+    Absolute always, resolved against `root` the way `optin.git_common_dir`
+    resolves its own answer -- because git's is not. `--absolute-git-dir` is,
+    but `--git-common-dir` answers `.git` from a main work tree and an
+    absolute path from a linked one (measured 2026-09-08), and a marker path
+    that is relative to whatever directory this process was started in is a
+    question asked again in the same session.
+
+    `which` picks WHOSE git directory, and that follows the ROOT rather than
+    the tree -- see `marker_dir`.
     """
     try:
         done = subprocess.run(
-            ["git", "-C", root, "rev-parse", "--absolute-git-dir"],
+            ["git", "-C", root, "rev-parse", which],
             capture_output=True,
             encoding="utf-8",
             errors="replace",
@@ -139,7 +200,29 @@ def git_dir_of(root):
         )
     except (OSError, subprocess.SubprocessError):
         return ""
-    return (done.stdout or "").strip() if done.returncode == 0 else ""
+    if done.returncode != 0:
+        return ""
+    out = (done.stdout or "").strip()
+    return os.path.normpath(os.path.join(root, out)) if out else ""
+
+
+def marker_dir(root, home):
+    """The git directory this root's answer is recorded in.
+
+    Per work tree for a SHARED root, which one tree owns: each work tree has
+    its own `<repo>/seal/`, so each is a separate unanswered root and each
+    deserves its own question.
+
+    Per CLONE for a LOCAL one. There is one root under the common git
+    directory serving every work tree, `undeclared()` reads that same folder
+    from all of them, and `README.md`'s gate row says once per session per
+    repository -- so keying it to the tree asks twice about one folder,
+    measured 2026-09-08: one session, one clone, one local root, two denies.
+    """
+    shared, _local = optin.home_paths(root)
+    if shared and os.path.realpath(home) == os.path.realpath(shared):
+        return git_dir_of(root)
+    return git_dir_of(root, "--git-common-dir")
 
 
 def question_reason(root, home):
@@ -218,11 +301,29 @@ def main():
         return
 
     session = payload.get("session_id")
-    # No session id means no way to record that the question was asked, so a
-    # deny would repeat forever. `ask` cannot loop: approving is the way out.
-    if session and not already_asked(root, git_dir_of(root), session):
+    # Two prompts, each spent once, then silence for the rest of the session.
+    #
+    # The ask is spent too, and that is the half this gate got wrong. It fires
+    # on every Bash call rather than on a commit, so an `ask` that stands for
+    # the rest of the session is a permission prompt on every command --
+    # measured 2026-09-08, one deny and NINE asks over ten ordinary calls,
+    # where the sibling gate was silent on nine of the same ten because it
+    # returns early for a command that is not a commit. This has no such early
+    # return by design, so the budget has to be spent rather than bounded by
+    # what the command happens to be.
+    #
+    # The way out is `seal mode`, which is itself a Bash call. A run that
+    # cannot answer an `ask` therefore could not reach the command that ends
+    # the asking, and every command it tried was stopped rather than one --
+    # the outage the docstring above says this cannot become.
+    #
+    # No session id means no way to record either prompt, so both count as
+    # already spent and the gate says nothing. That is the direction
+    # everything here is documented to fail in.
+    git_dir = marker_dir(root, home)
+    if session and not already_asked(git_dir, session, CHOICE_DIR):
         decide("deny", question_reason(root, home))
-    else:
+    elif session and not already_asked(git_dir, session, RETRY_DIR):
         decide("ask", ask_reason(root, home))
 
 

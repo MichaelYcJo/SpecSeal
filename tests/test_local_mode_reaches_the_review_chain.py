@@ -254,6 +254,80 @@ def test_a_shared_item_in_a_linked_worktree_resolves_to_that_worktree(
     assert os.path.realpath(root) == os.path.realpath(str(side))
 
 
+def test_a_separated_git_directory_does_not_displace_the_callers_tree(
+    generator, tmp_path, monkeypatch
+):
+    """`git worktree list --porcelain` prints the GIT DIRECTORY as the
+    worktree path for a repository built with `--separate-git-dir`, and there
+    is no `bare` line to tell the two apart — measured 2026-09-08:
+
+        worktree /…/sepgit
+        HEAD c7e5ecd…
+        branch refs/heads/base
+
+    So the caller's real tree is not in the list it belongs to, the set
+    comparison discards it, and the fallback named the git directory as the
+    root even with the caller standing in the work tree. End to end that
+    wrote the record and then printed *…/sepgit is not in a git repository —
+    nothing was compared*, exit 2: the chain check never ran.
+
+    `pr-notes.md` §*Platform honesty* called this the case the design avoids
+    relying on. It is the case the design gets wrong, so the clone is compared
+    by common git directory rather than by the printed paths.
+    """
+    sep_git = tmp_path / "sepgit"
+    tree = tmp_path / "septree"
+    tree.mkdir()
+    git(tree, "init", "-q", "-b", "base", f"--separate-git-dir={sep_git}", ".")
+    (tree / "f.py").write_text("x = 1\n", encoding="utf-8")
+    git(tree, "add", "-A")
+    git(
+        tree,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "commit",
+        "-qm",
+        "b",
+    )
+    item = sep_git / "seal" / "specs" / ITEM_ID
+    (item / "rounds").mkdir(parents=True)
+
+    monkeypatch.chdir(str(tree))
+    _reader, _routing, root, _where, _rounds = generator.where(args_for(str(item)))
+    assert os.path.realpath(root) == os.path.realpath(str(tree))
+
+
+def test_a_root_that_is_not_a_work_tree_is_refused(generator, tmp_path, monkeypatch):
+    """A root every later `git -C <root>` refuses is not a root.
+
+    A bare clone prints its git directory as the worktree path too (with a
+    `bare` line, which the separated case does not carry), and with no caller
+    inside the clone the fallback took that first entry. Refusing is the
+    honest answer, and the caller's sentence already says both places were
+    tried — naming a path that cannot be used defers the failure to whatever
+    runs next.
+    """
+    origin = tmp_path / "origin"
+    _build(origin)
+    bare = tmp_path / "bare.git"
+    subprocess.run(
+        ["git", "clone", "-q", "--bare", str(origin), str(bare)],
+        check=True,
+        capture_output=True,
+    )
+    item = bare / "seal" / "specs" / ITEM_ID
+    (item / "rounds").mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+
+    monkeypatch.chdir(str(outside))
+    with pytest.raises(generator.Refused) as caught:
+        generator.where(args_for(str(item)))
+    assert "not inside a git repository" in str(caught.value)
+
+
 def test_an_explicit_root_still_wins(generator, repo, tmp_path):
     """`--root` is the escape hatch every 0.8.3 caller had to use, and it
     keeps working — a fix that broke it would break the workaround before

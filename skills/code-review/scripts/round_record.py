@@ -1439,9 +1439,43 @@ def repo_of(item, reader):
     if not trees:
         return None
     here = reader.repo_root(os.getcwd())
-    if here and os.path.realpath(here) in {os.path.realpath(t) for t in trees}:
+    if here and (
+        os.path.realpath(here) in {os.path.realpath(t) for t in trees}
+        or shares_the_clone(here, item)
+    ):
         return here
-    return trees[0]
+    # `git worktree list` prints the GIT DIRECTORY rather than a work tree for
+    # a bare clone and for one made with `--separate-git-dir` -- measured
+    # 2026-09-08, both, and the second carries no `bare` line to tell it by.
+    # `pr-notes.md` claimed this case was the one asking git avoids relying
+    # on; executed, it is the one asking git gets wrong. A root every later
+    # `git -C <root>` refuses is not a root, so this refuses instead of naming
+    # one, and the caller's own sentence says both places were tried.
+    first = trees[0]
+    return first if reader.repo_root(first) else None
+
+
+def common_dir_of(where):
+    """`where`'s common git directory, absolute and resolved, or ""."""
+    try:
+        out = git(where, "rev-parse", "--git-common-dir")
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    out = (out or "").strip()
+    return os.path.realpath(os.path.join(where, out)) if out else ""
+
+
+def shares_the_clone(root, item):
+    """True when `root` is a work tree of the clone `item` sits in.
+
+    Compared by common git directory, never by the paths `git worktree list`
+    prints. With `--separate-git-dir` those paths ARE the git directory, so
+    the caller's own tree is not in the list it belongs to -- and the set
+    comparison above then discards a caller who is standing in exactly the
+    tree the record is about.
+    """
+    ours, theirs = common_dir_of(root), common_dir_of(item)
+    return bool(ours) and ours == theirs
 
 
 def where(args):

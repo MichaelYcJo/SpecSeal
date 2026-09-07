@@ -214,6 +214,125 @@ def test_the_second_attempt_in_a_session_only_asks(repo):
     assert "seal mode" in reason_of(out)
 
 
+def test_the_third_command_of_a_session_is_silent(repo):
+    """The budget is TWO prompts, and the ask is spent like the deny.
+
+    Round 1 measured what an ask that stands for the rest of the session
+    costs on a gate that fires per command rather than per commit: one deny
+    and NINE asks over ten ordinary calls, where the sibling gate was silent
+    on nine of the same ten. And the way out, `seal mode`, is itself a Bash
+    call — so a run with nobody at the keyboard could not reach the command
+    that ends the asking, and every command it tried was stopped rather than
+    one. That is the outage the module docstring says this cannot become.
+    """
+    opt_in_shared(repo)
+    seen = [decision_of(run_hook(GATE, payload("ls", repo))) for _ in range(6)]
+    assert seen == ["deny", "ask", "silent", "silent", "silent", "silent"], seen
+
+
+def test_the_two_prompts_are_counted_apart(repo):
+    """One marker each, so spending the deny does not spend the ask.
+
+    Sharing a directory would collapse the budget to a single prompt and lose
+    the approvable retry the deny's own reason tells the model to make.
+    """
+    gate = load_hook_module(GATE, "specseal_mode_gate_markers")
+    assert gate.CHOICE_DIR != gate.RETRY_DIR
+    opt_in_shared(repo)
+    run_hook(GATE, payload("ls", repo))
+    marker = os.path.join(git_dir(repo), gate.CHOICE_DIR, "s1")
+    assert os.path.isfile(marker)
+    assert not os.path.exists(os.path.join(git_dir(repo), gate.RETRY_DIR, "s1"))
+
+
+@pytest.mark.parametrize("shape", ["directory", "undecodable", "unreadable"])
+def test_a_config_nobody_can_open_is_silence_not_a_deny(repo, shape):
+    """`hooks/optin.py`'s rule, which this module's docstring adopts: a
+    repository this cannot read is one it says nothing about.
+
+    `hooks/config.py#declared_mode` folds *will not open* into *declared
+    nothing*, and that is right for the WRITER — `seal mode` goes on to write
+    the row either way. For a gate the two are different states, and treating
+    them alike denied a repository whose answer might already be there.
+
+    Reachable, not exotic: `hooks/optin.py#repo_root` already records a
+    repository under a path a cp949 console cannot decode, and a row
+    hand-edited in a non-UTF-8 locale puts those bytes here. The escape would
+    have been `seal mode`, writing a row into the file nothing can parse.
+    """
+    home = opt_in_shared(repo)
+    path = os.path.join(str(home), "config.md")
+    if shape == "directory":
+        os.mkdir(path)
+    elif shape == "undecodable":
+        with open(path, "wb") as f:
+            f.write(b"| Item | Value |\n|---|---|\n| Mode | \xff\xfe shared |\n")
+    else:
+        write_config(home, TABLE.format(rows="| Mode | shared |\n"))
+        os.chmod(path, 0o000)
+    try:
+        assert decision_of(run_hook(GATE, payload("ls", repo))) == "silent"
+    finally:
+        if shape == "unreadable":
+            os.chmod(path, 0o600)
+
+
+def test_one_local_root_is_one_question_for_the_whole_clone(repo, tmp_path):
+    """`README.md`'s gate row says once per session per repository, and in
+    local mode one folder under the common git directory IS the repository —
+    `undeclared()` reads that same root from every work tree.
+
+    Keying the marker to `--absolute-git-dir` keyed it to the TREE, so one
+    session was denied once per worktree about one folder. Measured 2026-09-08
+    before the fix: main tree deny, linked worktree deny, the same folder both
+    times.
+    """
+    local_home(repo)
+    side = tmp_path / "side"
+    subprocess.run(
+        ["git", "-C", str(repo), "worktree", "add", "-q", "-b", "side", str(side)],
+        check=True,
+        capture_output=True,
+    )
+    assert decision_of(run_hook(GATE, payload("ls", repo))) == "deny"
+    assert decision_of(run_hook(GATE, payload("ls", side))) == "ask"
+    assert decision_of(run_hook(GATE, payload("ls", side))) == "silent"
+
+
+def test_a_shared_root_is_still_a_question_per_work_tree(repo, tmp_path):
+    """The half that must NOT move with it. Each work tree carries its own
+    `<repo>/seal/`, so each is a separate root nobody chose a mode for and
+    each deserves its own question. A marker keyed to the clone for both modes
+    would answer for a root the session has never seen."""
+    opt_in_shared(repo)
+    side = tmp_path / "side"
+    subprocess.run(
+        ["git", "-C", str(repo), "worktree", "add", "-q", "-b", "side", str(side)],
+        check=True,
+        capture_output=True,
+    )
+    (side / "seal").mkdir()
+    assert decision_of(run_hook(GATE, payload("ls", repo))) == "deny"
+    assert decision_of(run_hook(GATE, payload("ls", side))) == "deny"
+
+
+def test_the_marker_directory_is_absolute_for_either_question(repo):
+    """`git_dir_of` promises an absolute path and `already_asked` joins
+    nothing onto it, so the promise is the whole of what places the marker.
+
+    It is not git's promise. `--absolute-git-dir` is absolute; measured
+    2026-09-08, `--git-common-dir` answers `.git` from a main work tree and an
+    absolute path from a linked one. A relative answer passed through would
+    put the marker under whatever directory the hook process happened to start
+    in — a different file each time, which is a question asked again.
+    """
+    gate = load_hook_module(GATE, "specseal_mode_gate_absolute")
+    for which in ("--absolute-git-dir", "--git-common-dir"):
+        answer = gate.git_dir_of(str(repo), which)
+        assert os.path.isabs(answer), f"{which} answered {answer!r}"
+        assert os.path.isdir(answer)
+
+
 def test_a_different_session_is_asked_too(repo):
     """The budget is per session, like the answer it spends. A session that
     never saw the question has not been asked it."""
