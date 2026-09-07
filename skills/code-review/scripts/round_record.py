@@ -203,7 +203,13 @@ CHAIN = os.path.join(HERE, "chain_check.py")
 # case a sentence naming `path` and what to do, the way `below_floor` does,
 # and give it the same exit code the docstring promises. Measured, not read:
 # the real script with `chain_check.py` deleted exits 1 with a traceback.
-# Verified 2026-09-08 at cedc58e.
+# The stamp first named the fix pass's own commit on the feature branch, and
+# the squash into the release branch discarded it -- a feature branch squashes
+# by rule, so the only commits a fix pass has to name are the ones that stop
+# existing. Re-measured on the squash commit that carries the same state, and
+# the stamp names that. #239 holds what to do about the class; this is the
+# instance.
+# Verified 2026-09-08 at 00e63c3.
 def load(path, name):
     """Import a sibling script by path, or die — either way exit 1.
 
