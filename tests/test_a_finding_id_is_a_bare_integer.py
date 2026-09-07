@@ -38,6 +38,7 @@ which the old message quotes neither.
 import re
 import shutil
 import subprocess
+import time
 
 import pytest
 from test_the_fixes_close_the_record import (
@@ -205,6 +206,23 @@ def test_a_number_with_no_marker_at_all_is_read(repo):
         repo, 1, fix_table(f"| 12 | fixed | {b[:7]} |\n"), f"{a}..{b}"
     )
     assert f"**fixed** `{b[:7]}`" in record, out
+
+
+def test_a_long_punctuation_cell_is_refused_without_hanging():
+    """The refusal is the deliverable, so it has to arrive.
+
+    Round 1's finding 3. `[^\\w\\s]+` inside the `*` group let a run of
+    punctuation be split into groups in exponentially many ways, and a cell
+    ending in a non-digit made the engine try all of them before failing:
+    0.18 s at 22 characters, 2.9 s at 26, 11.4 s at 28, doubling per
+    character. What a person saw was `close` or `new` producing nothing and
+    never returning — worse than the confusing message #227 opened for, on
+    the tool that gates every record.
+    """
+    generator = generator_module()
+    start = time.monotonic()
+    assert generator.FINDING_ID_RE.match("!" * 4000 + "x") is None
+    assert time.monotonic() - start < 1.0, "the pattern is backtracking"
 
 
 # --- the duplicate that really is one ---------------------------------------

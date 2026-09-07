@@ -1615,7 +1615,18 @@ BARE_IDENTIFIER_RE = re.compile(r"^([A-Za-z_]\w*)(?:\(\))?$")
 # `[^\w\s]` reaches every marker the records carry — 🔴 🟡 🟢 ⬜ ❓ ✅ — and
 # reaches no letter, so `r3 🟡 2`, `1-1`, `1b` and `A2` are refused rather
 # than silently keyed to whichever digits came first.
-FINDING_ID_RE = re.compile(r"^(?:[^\w\s]+\s*)*(\d+)$")
+#
+# The repetition takes ONE marker character, not a run of them, and that is
+# round 1's finding 3 rather than a style choice. `[^\w\s]+` inside the `*`
+# group let a run of punctuation be split into groups in exponentially many
+# ways, and a cell ending in a non-digit made the engine try all of them
+# before refusing: 0.18 s at 22 characters, 2.9 s at 26, 11.4 s at 28, and
+# each further character doubles it — so `close` and `new` produced nothing
+# and never returned. The language is unchanged, because every repetition of
+# the group already consumes exactly one marker and the outer `*` supplies
+# the run; measured identical over 16 id shapes, and a 4000-character run
+# now refuses in 0.00014 s.
+FINDING_ID_RE = re.compile(r"^(?:[^\w\s]\s*)*(\d+)$")
 BARE_ID = "a bare integer"
 # Which of the two tables a refusal is about. The reviewer writes one and the
 # fixer copies the numbering into the other, so a message naming the format
