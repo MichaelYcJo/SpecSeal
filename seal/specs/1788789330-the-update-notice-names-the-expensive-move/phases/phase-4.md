@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 4 |
-| Commit | <filled at the commit that closes this phase> |
+| Commit | `47b255a` |
 | Ran by | specseal:smith on Opus 5 (1M context) |
 
 ## What this phase was asked
