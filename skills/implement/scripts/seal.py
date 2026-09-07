@@ -202,8 +202,15 @@ def remote_url(root):
     not set**, so this is the one command here whose exit 1 is an answer
     (measured 2026-09-07 against git 2.50.1: unset gives `(1, '', '')` and a
     `.git/config` git cannot parse gives `(128, '', 'fatal: bad config line
-    9 …')`). Exit 1 also covers `error: key does not contain a section`, which
-    a literal well-formed key cannot reach.
+    9 …')`). Two other states exit 1 with both streams empty, so **exit 1 is
+    an answer only for a caller whose `root` git has already resolved**:
+    `error: key does not contain a section`, which a literal well-formed key
+    cannot reach, and a `root` that is not a repository at all, which is
+    indistinguishable from an unset key. `repo` here comes from `resolve`,
+    which is `optin.repo_root(cwd)` — a path git itself resolved one command
+    earlier — and `import_` returns before this call when that is empty. A
+    later caller reaching for `answered=(0, 1)` has to be able to say the
+    same.
 
     `--default ""` would collapse the unset case into exit 0 and remove the
     special case. It is not used: it arrived in git 2.18 and nothing else this
@@ -379,7 +386,7 @@ def work_item_digests(files):
 
 
 def manifest_of(repo, mode, files):
-    """The manifest, with a field LEFT OUT where git could not answer.
+    """(the manifest, what git could not answer), a field LEFT OUT for each.
 
     Absent and empty are different facts, and `remote` needs all three states:
     a URL, `""` for a repository with no `origin`, and absent for a question
@@ -390,6 +397,11 @@ def manifest_of(repo, mode, files):
     `head` has no empty state at all. `git rev-parse HEAD` prints a SHA
     whenever it succeeds, so present here means a SHA was read, and a
     repository with no commit leaves the field out.
+
+    **The reasons come back rather than being dropped.** An omitted `remote`
+    is refused on arrival, and the machine running THIS command is the only
+    one that can clear the failure by running it again — so an export that
+    said nothing left the diagnosis on the machine that cannot act on it.
 
     The format number does not move for this. No field was renamed or
     repurposed, and format 1's only reader of these two already goes through
@@ -403,13 +415,23 @@ def manifest_of(repo, mode, files):
         ),
         "items": work_item_digests(files),
     }
-    url, _ = remote_url(repo)
+    unread = []
+    url, why = remote_url(repo)
     if url is not None:
         manifest["remote"] = url
-    head, _ = head_sha(repo)
-    if head:
+    else:
+        unread.append(f"the remote was left out — {why}")
+    # `is not None`, the same test as the line above. `if head` behaves
+    # identically today — `head_sha`'s docstring argues there is no empty
+    # answer — but it is the spelling that would silently drop a legitimate
+    # empty one, and two spellings of one question five lines apart is what
+    # sent a reader looking for a difference that is not there.
+    head, head_why = head_sha(repo)
+    if head is not None:
         manifest["head"] = head
-    return manifest
+    else:
+        unread.append(f"the HEAD SHA was left out — {head_why}")
+    return manifest, unread
 
 
 def unused(directory, stem, suffix):
@@ -545,7 +567,7 @@ def export(args, cwd):
         print(f"{directory} is not a directory — pass --output somewhere that is")
         return 1
 
-    manifest = manifest_of(repo, mode, files)
+    manifest, unread = manifest_of(repo, mode, files)
     try:
         write_zip(target, home, files, manifest)
     except OSError as exc:
@@ -561,6 +583,18 @@ def export(args, cwd):
     for rel in links:
         print(
             f"  skipped the symbolic link {optin.HOME}/{rel} — links are not followed"
+        )
+    for line in unread:
+        print(f"  {line}")
+    if unread:
+        # Named here because this is the machine that can fix it. `seal
+        # import` refuses a zip recording no remote, and re-running the
+        # import there cannot change what these bytes say — so an export that
+        # exits 0 in silence leaves the diagnosis with the person who has no
+        # way to act on it.
+        print(
+            "  Running this again once git answers writes a zip the other "
+            "machine takes in without a flag."
         )
     print(
         f"\nTake it in on the other machine with:\n  seal import {os.path.basename(target)}"
@@ -1045,14 +1079,21 @@ def import_(args, cwd):
         unreadable = []
         if mine is None:
             unreadable.append(f"this clone's remote could not be read: {why}")
-        if "remote" not in manifest:
-            # Absent is the export's word for *I could not read it*. An older
-            # build always wrote the key, so a zip missing it either comes
-            # from a build that could not look or was not written by `seal
-            # export` at all, and neither answers the question.
+        if not isinstance(theirs, str):
+            # The TYPE, not the presence. Absent is the export's word for *I
+            # could not read it*, and so is `null` — which is what any JSON
+            # writer produces from the `None` this file's own `remote_url`
+            # returns. Every other non-string reduces to "" in
+            # `normalise_remote`, which is the empty ANSWER this check exists
+            # to tell apart from silence, so presence alone let `null`, `42`,
+            # `[]`, `{}` and `true` through at exit 0 with both guards off
+            # (measured at `8fb1fb5`). An older build always wrote a string
+            # here, so a zip carrying anything else either comes from a build
+            # that could not look or was not written by `seal export` at all,
+            # and neither answers the question.
             unreadable.append(
-                "the zip records no remote, so the machine that exported it "
-                "could not read one either"
+                "the zip records no remote this command can read, so the "
+                "machine that exported it could not read one either"
             )
         if unreadable and not args.allow_unreadable_remote:
             print("whether this zip came from this repository cannot be answered:")
@@ -1063,10 +1104,26 @@ def import_(args, cwd):
                 "merging another project's would spread through the root with "
                 "nothing to tell them apart afterwards, and a remote that "
                 "could not be read is not the same fact as a repository "
-                "without one.\n"
-                "Run this again if the failure was transient, or pass "
-                "--allow-unreadable-remote to import without the check."
+                "without one."
             )
+            # Which machine can fix this decides what to tell the person. A
+            # git that failed HERE may answer on the next run; a zip that
+            # records no remote reads the same on every run there is, so the
+            # export has to happen again on the machine that wrote it. One
+            # line for both sent a person into a re-run loop that can never
+            # end.
+            if mine is None:
+                print(
+                    "Run this again if the failure here was transient, or "
+                    "pass --allow-unreadable-remote to import without the "
+                    "check."
+                )
+            else:
+                print(
+                    "Re-running this cannot change what the zip records — "
+                    "export again on the machine that wrote it, or pass "
+                    "--allow-unreadable-remote to import without the check."
+                )
             return 1
 
         here = normalise_remote(mine)

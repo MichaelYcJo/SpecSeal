@@ -105,6 +105,31 @@ def run(seal, argv, cwd, capsys):
     return code, capsys.readouterr().out
 
 
+def the_stem_the_export_will_use(seal, repo):
+    """The zip name the export is about to write, from the SAME clock it uses.
+
+    The four cases that plant something at `<stem>.zip.partial` have to name
+    that path before the export runs, and they used to recompute it from
+    `datetime.date.today()` — the LOCAL date, where `seal.py`'s export takes
+    UTC. East of UTC the two differ between local midnight and UTC midnight,
+    so for nine hours a day in this clone's timezone the link landed at a name
+    the export never touched: the export succeeded, wrote nothing outside, and
+    four escape cases asserted a refusal against a path nothing was written to.
+
+    Measured 2026-09-08 at 06:50 KST, at `5cf81b3` with no other change in the
+    tree: all four red, `wrote …-2026-09-07.zip` at exit 0 against a link
+    planted at `…-2026-09-08.zip.partial`. Round 1 ran the same module green
+    nine hours earlier, which is the shape of the thing — a case that is armed
+    or disarmed by the hour it is run at reports nothing either way.
+
+    What is left is the UTC midnight instant itself, between this call and the
+    export's own: microseconds a day where it used to be hours.
+    """
+    return seal.zip_stem(
+        str(repo), datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+    )
+
+
 def only_zip(directory):
     found = sorted(p for p in os.listdir(directory) if p.endswith(".zip"))
     assert len(found) == 1, f"expected one zip in {directory}, found {found}"
@@ -605,6 +630,92 @@ def test_a_zip_recording_an_empty_remote_still_imports(seal, carried, capsys):
     assert (home / "ledger" / "1788000000-a-work-item.md").exists(), out
 
 
+@pytest.mark.parametrize("value", [None, 42, [], {}, True])
+def test_a_manifest_remote_of_the_wrong_type_refuses(seal, carried, capsys, value):
+    """Round 1's 🟡 1. The guard's signal is the field's TYPE, not its
+    presence.
+
+    `null` is what any JSON writer produces from the `None` this work item
+    introduced, so the very state the export uses to say *I could not look*
+    arrived here as a key that is present. Presence alone let all five of
+    these import at exit 0 with both guards silent, because
+    `normalise_remote` reduces every non-string to `""` — the empty ANSWER
+    this check exists to tell apart from silence.
+    """
+    _zip_path, other, home = carried
+    before = files_under(home)
+    bad = other.parent / f"typed-{type(value).__name__}.zip"
+    with zipfile.ZipFile(bad, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": value}))
+        archive.writestr("seal/ledger/1788000000-a-work-item.md", "# rows\n")
+
+    code, out = run(seal, ["import", str(bad)], other, capsys)
+    assert code == 1, out
+    assert "--allow-unreadable-remote" in out, out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_the_advice_names_the_machine_that_can_fix_it(
+    seal, carried, monkeypatch, capsys
+):
+    """Round 1's 🟡 2. One advice line covered two failures with two
+    different next steps.
+
+    When *this* clone's git went silent, running the import again may
+    succeed. When the ZIP is the silent side, the bytes on disk say the same
+    thing on every run there is, so a re-run here is a loop that can never
+    end — the export has to happen again on the other machine.
+    """
+    _zip_path, other, _home = carried
+    silent = other.parent / "no-remote.zip"
+    with zipfile.ZipFile(silent, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1}))
+        archive.writestr("seal/ledger/1788000000-a-work-item.md", "# rows\n")
+
+    code, out = run(seal, ["import", str(silent)], other, capsys)
+    assert code == 1, out
+    assert "Run this again" not in out, (
+        "the advice sends the person into a re-run that can never succeed"
+    )
+    assert "export again on the machine that wrote it" in out, out
+
+    # The other side of the pair, so the split is pinned in both directions
+    # rather than only in the one that changed.
+    git_cannot_answer(monkeypatch, seal, CONFIG_GET_REMOTE, timed_out)
+    code, out = run(seal, ["import", str(silent)], other, capsys)
+    assert code == 1, out
+    assert "Run this again if the failure here was transient" in out, out
+
+
+def test_the_export_says_what_it_could_not_read(seal, repo, local, monkeypatch, capsys):
+    """Round 1's 🟡 3. The export wrote a zip that will be refused on
+    arrival and said nothing about it.
+
+    `manifest_of` holds the reason git could not answer, and threw it away
+    twice. The consequence is that the failure gets diagnosed on the machine
+    that cannot fix it: the importing end gets a hard refusal whose only
+    escape is a flag, while the exporting end — the one that can re-run until
+    git answers — is told the export succeeded.
+    """
+    git_cannot_answer(monkeypatch, seal, CONFIG_GET_REMOTE, timed_out)
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 0, out
+    manifest = json.loads(zipfile.ZipFile(only_zip(repo.parent)).read("manifest.json"))
+    assert "remote" not in manifest, manifest
+    assert "the remote was left out" in out, out
+    assert "Running this again once git answers" in out, out
+
+
+def test_an_export_that_read_everything_says_nothing_extra(seal, repo, local, capsys):
+    """The other half of the case above. The line only appears when a field
+    was actually left out — an export that read both fields must not grow a
+    note about a failure that did not happen."""
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 0, out
+    assert "was left out" not in out, out
+    assert "Running this again once git answers" not in out, out
+
+
 def test_the_refusal_prints_the_url_it_compared(seal, carried, monkeypatch, capsys):
     """S10. The refusal asked git a SECOND time for the URL it had just read,
     and printed whatever that call answered — so a failure between the two put
@@ -998,7 +1109,7 @@ def test_a_link_at_the_partial_name_refuses_the_export(seal, repo, capsys):
     (home / "ledger.md").write_text("# ledger\n")
     outside = repo.parent / "outside"
     outside.mkdir()
-    stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
+    stem = the_stem_the_export_will_use(seal, repo)
     partial = repo.parent / f"{stem}.zip.partial"
     symlink_or_skip(str(outside / "stolen.bin"), str(partial))
 
@@ -1022,7 +1133,7 @@ def test_a_file_at_the_partial_name_survives_the_refusal(seal, repo, capsys):
     home = local_home(repo)
     home.mkdir(parents=True, exist_ok=True)
     (home / "ledger.md").write_text("# ledger\n")
-    stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
+    stem = the_stem_the_export_will_use(seal, repo)
     partial = repo.parent / f"{stem}.zip.partial"
     partial.write_text("somebody else's bytes\n")
 
@@ -1052,7 +1163,7 @@ def test_the_export_refuses_the_link_where_o_excl_does_not_catch_it(
     (home / "ledger.md").write_text("# ledger\n")
     outside = repo.parent / "outside"
     outside.mkdir()
-    stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
+    stem = the_stem_the_export_will_use(seal, repo)
     partial = repo.parent / f"{stem}.zip.partial"
     symlink_or_skip(str(outside / "stolen.bin"), str(partial))
 
@@ -1079,7 +1190,7 @@ def test_a_broken_link_at_the_zips_own_name_is_not_a_free_name(seal, repo, capsy
     home = local_home(repo)
     home.mkdir(parents=True, exist_ok=True)
     (home / "ledger.md").write_text("# ledger\n")
-    stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
+    stem = the_stem_the_export_will_use(seal, repo)
     taken = repo.parent / f"{stem}.zip"
     symlink_or_skip(str(repo.parent / "nowhere.bin"), str(taken))
 
@@ -1293,7 +1404,15 @@ def test_a_manifest_field_of_the_wrong_type_does_not_raise(
     """`read_manifest` checks that the manifest is an object and that `format`
     is one this build reads. Every other field is whatever the zip says, and
     three shapes reached the console as a traceback — two of them after the
-    records were on disk."""
+    records were on disk.
+
+    A non-string `remote` now REFUSES on its own, which
+    `test_a_manifest_remote_of_the_wrong_type_refuses` is what pins. So the
+    two `remote` rows here go through `--allow-unreadable-remote`, which is
+    the only remaining path on which such a value reaches `normalise_remote`
+    at all — and `normalise_remote`'s `isinstance` guard, which is what these
+    two rows have always been about, lives on exactly that path.
+    """
     _zip_path, other, _home = carried
     manifest = {"format": 1, "remote": "", "head": "a" * 40, "exported_at": "x"}
     manifest[field] = value
@@ -1302,7 +1421,8 @@ def test_a_manifest_field_of_the_wrong_type_does_not_raise(
         archive.writestr("manifest.json", json.dumps(manifest))
         archive.writestr("seal/ledger/w.md", "# w\n")
 
-    code, out = run(seal, ["import", str(z)], other, capsys)
+    past_the_guard = ["--allow-unreadable-remote"] if field == "remote" else []
+    code, out = run(seal, ["import", str(z), *past_the_guard], other, capsys)
     assert code == 0, out
     assert "evidence-check" in out, "the closing lines were not reached"
 

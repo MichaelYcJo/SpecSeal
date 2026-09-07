@@ -508,6 +508,8 @@ is skipped and named rather than followed. Alongside the files goes a
 manifest naming the remote URL and the HEAD SHA at export. A field git could
 not answer is **left out** rather than written empty, so the machine taking
 the zip in can tell *this repository has no remote* from *nobody could say*.
+The export names each field it left out and why, because the machine that
+ran it is the only one that can clear the failure by running it again.
 
 **Import never overwrites and never asks.** A file that is not there is
 added. One that is there with the same bytes is left alone, so re-importing
@@ -523,13 +525,20 @@ It refuses, writing nothing, when the zip came from another repository
 when the remote could not be read on either side and so that question cannot
 be answered at all (`--allow-unreadable-remote` to import without the check —
 a separate flag, because *there is no remote* and *nobody could say* are
-different facts and only the second is a reason to run the command again),
+different facts),
 when the manifest declares a format this build does not read,
 when a member would land outside the root, when a member or the whole zip
 declares more bytes or more members than a root of records holds, when a
 member cannot be read — a bad checksum, encryption, a compression method this
 build has no decompressor for — when a name has to be a directory for the zip
 and is a file, and when both roots already exist.
+
+Which side went silent decides what the unreadable-remote refusal tells you
+to do next. A git that failed *here* may answer on the next run, so running
+the import again is the first thing to try. A zip that records no remote
+reads the same every time, and no re-run there can change it — that one is
+exported again on the machine that wrote it, which is also the machine whose
+export said which field it had to leave out.
 
 Those all stop before the first byte. One failure cannot: if a directory in
 the root cannot be written into, or the disk fills, the copy stops part-way
