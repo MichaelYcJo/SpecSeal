@@ -574,15 +574,14 @@ def test_a_fence_closed_after_the_deferred_table_is_refused(repo):
     assert "swallows `## Deferred`" in out
 
 
-# No fence of its own: this section is wrapped in one by the case below, and
-# a fence inside a fence is a different question from the one being asked.
-# The heading alone is what the guard reads.
-PASTE_READY_SECTION = "## Paste-ready fixes\n\nThe fix for 🔴 1.\n\n"
+# One entry per REQUIRED section, which is what the guard below may refuse a
+# report over. `## Paste-ready fixes` is deliberately absent — it is optional,
+# so a fence quoting it while it is missing is a report the guard must accept,
+# and that is a case of its own rather than a parameter here.
 SECTION_TEXT = {
     "## Verdicts": f"## Verdicts\n\n{VERDICT_HEADER}{OPEN_ROW}\n",
     "## Executed probes": PROBES_TABLE,
     "## Deferred": DEFERRED_TABLE,
-    "## Paste-ready fixes": PASTE_READY_SECTION,
 }
 
 
@@ -595,18 +594,26 @@ def test_a_fence_that_takes_a_section_the_generator_reads_is_refused(repo, taken
     tables, `the report has no ## Verdicts section` for the required one.
     Each blames the reviewer for a section they did in fact write.
 
-    Parametrized over `READ_HEADINGS` rather than over the names typed here,
-    which is the whole argument against #169's `SECTIONS` tuple: a section
-    added later is guarded, and gets a case, by being added there.
-    `## Paste-ready fixes` is the section that proved it — it arrived after
-    this case was written and was guarded by one constant gaining a member.
+    Parametrized over `REQUIRED_HEADINGS` rather than over the names typed
+    here, which is the whole argument against #169's `SECTIONS` tuple: a
+    section added later is guarded, and gets a case, by being added there.
+
+    `REQUIRED_HEADINGS` and not `READ_HEADINGS`, because the refusal is only
+    correct for a section the report MUST carry — round 1's 🟡 3.
+    `test_a_fence_quoting_the_optional_heading_is_kept_when_it_is_absent`
+    holds the other side, and the two lists differing by exactly the optional
+    section is what keeps the pair honest.
 
     `## Executed probes` is the member #169 did not name, and it is the one
     that settles where the guard lives -- a fence that takes that heading
     means `build` never calls `fenced_after` for it, so no guard inside that
     function could ever see the shape. Executed at `c4d7077`: exit 0 for
     `## Deferred` and `## Executed probes`."""
-    assert list(generator_module().READ_HEADINGS) == list(SECTION_TEXT)
+    generator = generator_module()
+    assert list(generator.REQUIRED_HEADINGS) == list(SECTION_TEXT)
+    assert set(generator.READ_HEADINGS) - set(SECTION_TEXT) == {
+        generator.PASTE_READY
+    }, "the optional section is the one this guard must NOT refuse over"
     declared(repo)
     body = "# what the round found\n\nProse about 🔴 1.\n\n"
     for heading, text in SECTION_TEXT.items():
@@ -1756,3 +1763,33 @@ def test_a_short_row_with_a_comment_pipe_is_not_padded_into_a_full_one(repo):
     assert len(cells) == 4, rows_of(text, "## Verdicts")
     assert cells[2] == "`f.py:1`"
     assert cells[3] == "open"
+
+
+def test_a_fence_quoting_the_optional_heading_is_kept_when_it_is_absent(repo):
+    """Round 1's 🟡 3. `## Paste-ready fixes` is the first member of the
+    guard's heading list whose section is OPTIONAL — a round that opened
+    nothing needing a fix is told to leave it out. The guard's premise,
+    hidden AND absent means swallowed, holds only where the report must
+    carry the section: here absence is a legitimate state, so the refusal
+    reports a loss that did not happen and writes no record.
+
+    It is also the shape that stops this tool during its own review rounds.
+    A reviewer of the record generator pastes record-shaped blocks, headings
+    and all, and a round that opened nothing is exactly the round whose
+    report quotes the empty section's own sentence. `seal/ledger.md` F3 names
+    that scenario as what the guard must never do."""
+    declared(repo)
+    quoted = (
+        f"```\n{generator_module().PASTE_READY}\n\n"
+        f"{generator_module().NO_PASTE_READY}\n```\n"
+    )
+    code, out, text = generate(
+        repo,
+        report_text=report(
+            verdicts=CLOSED_ROW, needs="no", probes=PROBE_ROW + "\n" + quoted
+        ),
+    )
+    assert code == 0, out
+    assert generator_module().NO_PASTE_READY in paste_ready(text), text
+    probes = text.split("## Executed probes", 1)[1].split("## Inherited", 1)[0]
+    assert quoted.strip() in probes, "the quoted block is copied as it always was"

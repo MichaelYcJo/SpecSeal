@@ -155,11 +155,32 @@ PASTE_READY = "## Paste-ready fixes"
 # that opened a 🔴 and wrote no block is a gap, and this sentence beside that
 # row in the verdict table is what makes the gap visible in the record itself.
 NO_PASTE_READY = "no paste-ready fix in the report"
-# Every heading the generator looks up in the report, which is what `swallowed`
-# guards. A section added later is guarded by being added here, and no second
-# list goes stale. `REPORT_TABLES` stays the table half of that guard, because
-# only a table can lose its rows to a fence while its heading stands.
+# Every heading the generator looks up in the report. A section added later is
+# read, and guarded, by being added here, and no second list goes stale.
 READ_HEADINGS = (*(h for h, _ in REPORT_TABLES), PASTE_READY)
+# The subset `swallowed` may refuse a report over, and `PASTE_READY` is the
+# first member of `READ_HEADINGS` that is NOT in it. The guard's premise is
+# that a heading hidden by a fence and absent outside it was SWALLOWED, and
+# that holds only where the report must carry the section. `agents/warden.md`
+# §Report tells a round that opened nothing needing a fix to leave this
+# heading out, so absence is a legitimate state here and the refusal would
+# report a loss that did not happen (round 1's 🟡 3).
+#
+# It is also the shape that stops this tool during its own review rounds: a
+# reviewer of the record generator pastes record-shaped blocks, headings and
+# all, and the round that quotes the empty section's own sentence is exactly
+# the round that wrote no fixes. `seal/ledger.md` F3 names that scenario as
+# what the guard must never do.
+#
+# What it gives up, stated rather than left to be found: a report that DOES
+# carry paste-ready fixes and whose heading a closed fence swallows now writes
+# a record saying the report carried none. Nothing can tell that apart from a
+# round that wrote none — the two texts are identical outside the fence — and
+# the record shows the gap where a reader meets it, beside the open rows in
+# the verdict table above. A refusal here would stop an unattended run over
+# the legitimate case to catch the unlikely one, which is the trade
+# `CLAUDE.md`'s first goal decides.
+REQUIRED_HEADINGS = tuple(h for h, _ in REPORT_TABLES)
 # The two sections the generator fills from somewhere other than the report.
 ASKED = "## What this round was asked"
 INHERITED = "## Inherited coordinates"
@@ -667,14 +688,19 @@ def swallowed(reader, report, lines):
     probes section with it, and `fenced_after` is never even called for that
     section, so no guard living inside it could see the shape.
 
-    What may not be lost is `READ_HEADINGS`, the table rows that stand under
-    `REPORT_TABLES`' members, and `TERMINAL_LINES`. A list of section
-    constants typed out here would go stale the day a section is added; these
-    are the constants the generator reads BY, so a section it cannot read is
-    a section it does not have. `READ_HEADINGS` is the wider of the two
-    because `PASTE_READY` is a section with no table: a fence can take its
-    heading, and the record then says the report carried no paste-ready fix
-    beside a 🔴 whose fix the reviewer did write.
+    What may not be lost is `REQUIRED_HEADINGS`, the table rows that stand
+    under `REPORT_TABLES`' members, and `TERMINAL_LINES`. A list of section
+    constants typed out here would go stale the day a section is added;
+    these are the constants the generator reads BY, so a section it cannot
+    read is a section it does not have.
+
+    `REQUIRED_HEADINGS` and not `READ_HEADINGS`, and the difference is a
+    rule rather than an omission: the premise here is that a heading hidden
+    by a fence and absent outside it was SWALLOWED, and that inference holds
+    only for a section the report must carry. `PASTE_READY` is optional, so
+    its absence is a legitimate state and the refusal would report a loss
+    that did not happen — round 1's 🟡 3, whose grounds are F3's own Notes.
+    That constant carries the trade this gives up.
 
     The rows are the third loop and they are the half round 1 of this work
     item's own chain found missing (🟡 2): a heading is only half of what a
@@ -741,7 +767,7 @@ def swallowed(reader, report, lines):
     pairs = enumerate(zip(stripped, lines, strict=True))
     hidden = [(i, s.strip()) for i, (s, ln) in pairs if s.strip() and not ln]
     text = [t for _i, t in hidden]
-    for heading in READ_HEADINGS:
+    for heading in REQUIRED_HEADINGS:
         if heading in text and not reader.sections(lines, heading):
             raise Refused(SWALLOWED.format(name=heading))
     for label in TERMINAL_LINES:
