@@ -37,10 +37,23 @@
   record is about the approval, and the retry after a failure is the worst
   moment to put the question again.
 
-  **The allow is bounded.** `permissionDecision: "allow"` covers the whole tool
+  **The allow is bounded, and the bound is about each segment rather than only
+  about the compound.** `permissionDecision: "allow"` covers the whole tool
   call, so the guard speaks only for a command that is worktree creation and
   nothing else; a compound gets `ask` about the rest of the command line, never
   a deny about the worktree, and a command the lexer gave up on gets `ask` too.
+  So does a creation carrying an expansion or a redirection — `$( )`,
+  backticks, `>`, `>>`, `<`, `2>`, `<(…)`, a subshell, a heredoc — and one
+  behind a wrapper, `sudo git worktree add …` or `env VAR=… git worktree add
+  …`, because a user's own `permissions.deny` must not be spoken over by a hook
+  reasoning about worktrees.
+
+  **A creation anywhere in the command is judged before it runs.** The guard
+  classified the first segment it could read while the writer records for a
+  creation anywhere, so a `git switch` written in front of a creation took the
+  decision and the creation was never judged — it ran, and the session held
+  consent from that point. The switch ladder keeps every verdict it had, and
+  only its two silent exits now fall through to the creation.
   On the `Agent`/`isolation: "worktree"` path the guard goes silent rather than
   allowing, because that call is a creation *plus* an agent with a prompt and
   the record is about the first half.

@@ -125,6 +125,50 @@ nothing else; anything more is an `ask` about the rest of the command line,
 never a deny about the worktree. A command the lexer gave up on is not vouched
 for either — what it could not read is what the allow would be covering.
 
+**And a segment is more than its command word.** *Nothing else* used to be
+asked of the compound only, which is what a `&&` or a `;` produces — and a
+shell runs a great deal inside one segment. Review round 1 executed eleven
+shapes that were vouched for with a record present: `$( )`, backticks, `>`,
+`>>`, `<`, `2>`, `<(…)`, a subshell, a heredoc, `sudo`, `env VAR=…` and a bare
+`VAR=…`. Two were run in a real shell and did what a shell does — the
+substitution created its marker, the redirection truncated a file — under an
+allow that had already covered the whole tool call.
+
+Two tests are the bound now, and both are about one segment rather than the
+command: **`git` is the segment's own command word**, which `cmdline.parse_git`
+deliberately does not require (it reads past `sudo`, `env` and a leading
+`VAR=val`, because the question IT answers is *is this a git invocation*); and
+**no token carries an expansion or a redirection** — `$`, a backtick, `<` or
+`>`. A glob and a `~` are left alone on purpose: both expand and neither runs
+anything. A trailing `&` is left alone too — it backgrounds the creation and
+runs nothing else, and `… & rm -rf <path>` is two segments where the second one
+fails the first test.
+
+**A creation the guard never judged used to mint the record.** The guard's
+`PreToolUse` walk classifies the **first** segment it can read, while
+`hooks/worktree_consent.py` records for a creation **anywhere** in a command
+that ran. Any first segment with a verdict of its own therefore took the
+decision and the creation ladder never ran. Executed at round 1, clean
+single-stream tree, no record: `git worktree add ../wt f` denied and
+`git status && git worktree add ../wt f` denied — `git status` classifies to
+nothing, so the walk moved on — but `git switch feature/x && git worktree add
+../wt f` was **silent**, the shell created the worktree, and the session held
+session-wide consent from that point. The model never had to forge the record;
+it only had to choose which question got asked, and the first segment is where
+that is chosen.
+
+The switch ladder keeps every verdict it had. Making the creation outrank the
+earlier verdict closes the same hole and costs a protection: a switch denied
+because another session is working in the tree would become an `ask` about the
+creation, and the branch would still be taken out from under that session one
+approval later. Instead, the guard's **two silent exits** fall through to the
+creation ladder — the end of the switch ladder (single-stream, clean tree), and
+the earlier `if not top`, which is reached when the shell is outside any
+repository while a `git -C <repo> worktree add` in the same command is not.
+Every other row responds already: a `deny` stops the creation with the rest of
+the command, and an `ask` puts the whole command line to a person, which is the
+standing a creation that runs is claimed to have.
+
 **Why the Agent/Task path is silent rather than an allow.** That call is a
 worktree creation *plus* an agent with a prompt, and the record is about the
 first half. Silence is the guard withdrawing its objection, which is the whole
@@ -136,7 +180,8 @@ and the single-stream row still denies and steers to `git switch`. The switch
 direction never reads the record: a creation the user agreed to says nothing
 about taking another session's branch out from under it.
 
-**The prompt budget.** One per session, from one per worktree unbounded.
+**The prompt budget.** One per session, from one per worktree unbounded — for a creation written on its own, which is the form the measured six took. A creation written as one segment of a compound still costs one
+prompt each time, and so does one carrying an expansion, a redirection or a wrapper, because that is exactly what the bound above refuses to speak for.
 
 ## Choice sites
 

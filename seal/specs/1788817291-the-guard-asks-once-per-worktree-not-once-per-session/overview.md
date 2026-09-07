@@ -24,6 +24,9 @@ something the model cannot write for itself.
 | How a consented creation gets through | The ticket says "`PreToolUse` **allows** a later creation" | `allow`, but only for a command that is worktree creation and nothing else; `ask` otherwise | `permissionDecision: "allow"` bypasses the user's own permission settings for the WHOLE tool call, and a creation is routinely one segment of a compound. The record is about worktree creation, so that is the whole of what the guard may speak for |
 | The `Agent` path | The ticket says the path "shares the record", without saying what sharing produces | Silence, where Bash allows | That call is a creation PLUS an agent with a prompt. Silence is the guard withdrawing its objection, which is the whole of what the record establishes; the harness's own question about running the agent is not the guard's to remove |
 | A redundant condition | `if session_id and worktree_consent.granted(top, session_id)` was written first | The `session_id and` removed | `consent_path` already answers `""` for a missing or separator-only id, so nothing could make the extra condition false — and mutation testing showed no case could pin it. A condition no case can pin is removed rather than kept |
+| What *nothing else* is asked of | The build asked it of the COMPOUND — is every segment a `git worktree add` | Asked of the SEGMENT too: `git` is its own command word, and no token carries `$`, a backtick, `<` or `>` | Round 1 executed eleven single-segment shapes that were allowed anyway, two of them in a real shell where the substitution created its marker and the redirection truncated a file. The docstring already claimed this bound; the code did not enforce it |
+| Which verdict a command holding both a switch and a creation gets | Round 1's paste-ready fix makes the creation OUTRANK the earlier verdict | The switch ladder keeps every verdict it had, and only its two silent exits fall through to the creation | Outranking turns a switch denied under an ACTIVE session into an `ask` about the creation — the branch is still taken out from under that session, one approval later. Pinned by `test_the_switch_ladder_keeps_every_verdict_it_had`, which goes red under the alternative (executed) |
+| Two checks from round 1's paste-ready fix | `cmdline.understood(tokens)` and an `Unresolved` in `wheres` | Neither kept | Mutation-tested one at a time: deleting either left every case green. The command-word test subsumes both and is strictly stronger — `understood` answers True for `time git worktree add …` where the command-word test answers False, and an `Unresolved` cannot occur at all, because a segment that would produce one is not a creation and fails `adds_a_worktree` first. This repository removes a condition no case can pin (the row above) |
 
 ## Not verified
 
@@ -31,10 +34,18 @@ something the model cannot write for itself.
 |---|---|
 | The full suite, repository-wide lint and the typecheck | the orchestrator's broad gate, run once after the rounds settle (`agent-contract` §2) |
 | Behaviour on Linux and on Windows — nothing here reads a process, but `os.makedirs`, `open`, `os.path.isfile` and `git rev-parse --git-common-dir` all run | CI's Linux and Windows legs on the pull request |
-| That a hook `ask` cannot be auto-answered, and that a `PostToolUse` payload means the call ran — the two harness facts the design rests on | not observable from a test; the same standing every gate in this repository has, named under Platform honesty in `pr-notes.md` |
-| Whether a `permissions.deny` rule outranks a hook `allow` — if it does not, a user who explicitly denied `git worktree add` would be overridden after their first approval | the repository owner, or a run against a settings file carrying such a rule |
+| That a hook `ask` cannot be auto-answered, and that a `PostToolUse` payload means the call ran — the two harness facts the design rests on. `--dangerously-skip-permissions` exists today, so the first half is a question about the present, not about a future harness | **the repository owner**, against the harness. It closed with *the same standing every gate in this repository has*, which names nobody — and this is the row that least tolerates that, because the two facts in it are the whole foundation of the change (round 1, finding 5) |
+| Whether a `permissions.deny` rule outranks a hook `allow` — if it does not, a user who explicitly denied `git worktree add` would be overridden after their first approval. Round 1 widened what rides on this: findings 1 and 3 were about how much else an `allow` was covering | **the repository owner**, or a run against a settings file carrying such a rule. `pr-notes.md` §4 says what the guard does if the answer is the unfavourable one |
 
 ## Not done
+
+**A creation carrying an expansion, a redirection or a wrapper is left at one
+prompt each too.** `git worktree add <path> $(…)`, `… > <file>`, `sudo git
+worktree add …` and the eight other shapes round 1 found now answer `ask`
+rather than `allow`. Widening any of them means deciding what else a worktree
+consent may speak for, which is the same question the paragraph below leaves
+open. Nobody writes a worktree creation in those shapes, so the budget is
+unaffected.
 
 **The compound-command case is left at one prompt each.** `cd X && git worktree
 add …` and `git worktree add … && echo done` get `ask` rather than `allow`,

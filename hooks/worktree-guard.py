@@ -428,7 +428,7 @@ def only_creates_a_worktree(command: str, cwd: str, windows=None) -> bool:
     if not parses_cleanly(command, windows):
         return False
     seen = False
-    for tokens, wheres in walk_command(command, cwd, windows):
+    for tokens, _wheres in walk_command(command, cwd, windows):
         if not tokens:
             continue
         if not cmdline.adds_a_worktree(tokens):

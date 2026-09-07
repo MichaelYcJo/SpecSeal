@@ -85,11 +85,32 @@ not an estimate. It was measured on this release's own run on 2026-09-08 — six
 work items on six branches, six `git worktree add` calls, and the guard held
 the run at every one of them.
 
-Two residuals, stated rather than left to be found.
+**Re-measured after review round 1**, because round 1 narrowed what the allow
+covers and the budget is a claim about exactly that. Executed on the branch, in
+a clean single-stream tree, six `git worktree add ../wt f` calls in one
+session: **deny, then allow, allow, allow, allow, allow.** The table above is
+unchanged, and it is unchanged because the six calls the release run actually
+made were single-segment creations, which is the form the bound still speaks
+for.
+
+Three residuals, stated rather than left to be found.
 
 - A creation written as part of a **compound** command still costs one prompt
   each time, because the allow is bounded to a command that is nothing else.
-  The measured six were single-segment `git worktree add` calls.
+  Executed: `git switch feature/x && git worktree add ../wt f` and
+  `cd /tmp && git worktree add ../wt f` both answer `ask` with a record
+  present.
+- **A creation carrying an expansion, a redirection or a wrapper costs one
+  prompt each time too, and that is new.** Round 1 found that eleven such
+  shapes were being allowed — `$( )`, backticks, `>`, `>>`, `<`, `2>`, `<(…)`,
+  a subshell, a heredoc, `sudo`, `env VAR=…` and a bare `VAR=…` — and two of
+  them were run in a real shell, where the substitution created its marker and
+  the redirection truncated a file. Refusing them is what the docstring already
+  claimed, so this is the budget catching up with the bound rather than the
+  bound being widened; the cost is one prompt on a shape nobody writes a
+  worktree creation as. `git worktree add <path> -b <branch> <start>`,
+  `git -C <repo> worktree add …`, a `~` path, a glob path and a lone trailing
+  `&` are all still allowed.
 - The guard's silence is not the harness's. Where the guard now allows, it
   allows; where it goes silent (the `Agent` path), whatever the harness's own
   permission settings want to ask still stands, and that is not the guard's to
@@ -125,9 +146,34 @@ What this change does and does not touch on that axis:
 - The one platform claim this design rests on is not a filesystem one: **a
   `PostToolUse` payload means the tool ran, and a hook `ask` cannot be
   auto-answered.** Both are the harness's, on every platform, and neither is
-  observable from a test. If a future harness auto-answered hook `ask`
-  decisions, a record could be written with nobody asked — which is the same
-  standing every gate in this repository already has.
+  observable from a test.
+
+  **The second half is present tense, not future tense.** This paragraph used
+  to say *if a future harness auto-answered hook `ask` decisions*, and review
+  round 1 pointed out that `--dangerously-skip-permissions` exists today.
+  Whether a hook `ask` still stops a session in that mode is not observable
+  from this repository, so the honest form of the claim is the weaker one: the
+  record means **the harness permitted the call**, which is what
+  `docs/worktree-guard-spec.md` already says in the paragraph beginning "The
+  harness only runs". In a session run with permissions bypassed, a record can
+  be written with nobody asked — and in such a session every gate in this
+  repository is in the same position, which is why the answer changes the
+  standing of this change and not its design. **Answerer: the repository
+  owner**, against the harness; carried in `overview.md` §*Not verified*.
+
+- **Whether a user's own `permissions.deny` rule outranks a hook `allow`** is
+  the other harness property, and round 1 widened what rides on it: findings 1
+  and 3 were about how much else an `allow` was covering. If a hook `allow`
+  loses to `permissions.deny`, nothing here needs to change. **If it wins, a
+  user who explicitly denied `Bash(git worktree add:*)` is overridden from
+  their first approval onward** — and the way out, if the owner wants one, is
+  for `guard_worktree_creation`'s consented row to answer `ask` rather than
+  `allow`, which costs the whole prompt budget this change buys and is a
+  one-word edit at one site. That is the trade the answer decides; it is not a
+  redesign. Two of the three shapes that made this urgent are closed either
+  way: `sudo git worktree add …` and `env LD_PRELOAD=… git worktree add …` no
+  longer get an allow at all. **Answerer: the repository owner**, against the
+  harness.
 
 ## What must not change, and is pinned
 

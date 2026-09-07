@@ -60,6 +60,20 @@ runs only if the guard's `deny` did not fire and its `ask` was answered yes.
 So the record's existence is a fact about an answer a person gave, which is
 exactly the evidence `has_token`'s docstring says the token is not.
 
+**That second sentence was false when this was written, and review round 1
+found it.** It is a claim about the guard's own walk, not about the harness,
+and the walk did not honour it: `main` classified the FIRST segment it could
+read, so a creation written behind a segment with a verdict of its own was
+never judged at all. Executed in a clean single-stream tree with no record,
+`git switch feature/x && git worktree add ../wt f` was silent, the shell
+created the worktree, and the record was written — the model never had to
+forge it, only to choose which question got asked. The row above rests
+entirely on this sentence, so the sentence is now enforced rather than
+asserted: the guard's two silent exits fall through to the creation ladder,
+and every other row of the switch ladder already responds. `deny` stops the
+creation with the rest of the command; `ask` puts the whole command line to a
+person, which is the standing this sentence claims.
+
 What the change gives up is stated rather than left to be found: the
 invariant *creating a worktree always takes one confirmation* becomes *the
 first creation of a session takes one confirmation*. That is the whole of the
@@ -146,6 +160,18 @@ command that is worktree creation and nothing else; for anything else it says
 `ask`, which is one prompt about the rest of the command line rather than a
 deny about the worktree. A command the lexer could not read is not vouched
 for either — what it failed to read is what the allow would be covering.
+
+**And *nothing else* is asked of the segment, not only of the compound.**
+Round 1 executed eleven single-segment shapes that were vouched for anyway —
+`$( )`, backticks, `>`, `>>`, `<`, `2>`, `<(…)`, a subshell, a heredoc,
+`sudo`, `env VAR=…` and a bare `VAR=…` — two of them in a real shell, where
+the substitution created its marker and the redirection truncated a file. The
+bound is two tests now: `git` is the segment's own command word (which
+`cmdline.parse_git` deliberately does not require, because the question it
+answers is *is this a git invocation*), and no token carries `$`, a backtick,
+`<` or `>`. A glob, a `~` and a lone trailing `&` stay allowed: the first two
+expand without running anything, and the third backgrounds the creation and
+runs nothing else.
 
 **Why the `Agent`/`Task` path is silent rather than an allow.** That call is a
 worktree creation *plus* an agent with a prompt, and the record is about the
