@@ -159,7 +159,14 @@ def timers_in(rel, text, running):
             bare = match.group(1)
             if bare == ILLUSTRATIVE_VERSION:
                 continue
-            if (rel, bare) in VERSIONS_OF_ANOTHER_PRODUCT:
+            # Either spelling. The refusal prints `match.group(0)` — `v4.4.17`,
+            # not `4.4.17` — and tells the author to declare what it printed,
+            # so a lookup on the bare token alone is a route nobody can take
+            # (review round 2).
+            if (rel, bare) in VERSIONS_OF_ANOTHER_PRODUCT or (
+                rel,
+                match.group(0),
+            ) in VERSIONS_OF_ANOTHER_PRODUCT:
                 continue
             if as_release(bare) >= ceiling:
                 found.append((number, match.group(0)))
@@ -443,6 +450,31 @@ def test_the_experiments_prefix_covers_only_a_dated_record():
         text,
         RUNNING_IN_THE_FIXTURES,
     ) == [(1, "0.9.0")]
+
+
+def test_the_declared_token_is_the_one_the_refusal_printed():
+    """The route has to work on the token the message hands the author.
+
+    The offender line prints `v4.4.17`, and an author who declares that
+    spelling used to get no change at all — the lookup read the bare token
+    and nothing said so (review round 2).
+    """
+    rel, text = "docs/x.md", "bash's glob changed in v9.9.9"
+    assert timers_in(rel, text, RUNNING_IN_THE_FIXTURES) == [(1, "v9.9.9")]
+    VERSIONS_OF_ANOTHER_PRODUCT[(rel, "v9.9.9")] = "bash's, as the refusal spells it"
+    try:
+        assert timers_in(rel, text, RUNNING_IN_THE_FIXTURES) == []
+    finally:
+        del VERSIONS_OF_ANOTHER_PRODUCT[(rel, "v9.9.9")]
+    # And the BARE spelling keeps working, which is what the live entry uses.
+    # Neither arm is pinned by that entry: `seal.py` writes `4.4.17` with no
+    # `v`, so the printed and the bare token are the same string there and
+    # dropping either arm leaves the tree green — measured.
+    VERSIONS_OF_ANOTHER_PRODUCT[(rel, "9.9.9")] = "bash's, declared bare"
+    try:
+        assert timers_in(rel, text, RUNNING_IN_THE_FIXTURES) == []
+    finally:
+        del VERSIONS_OF_ANOTHER_PRODUCT[(rel, "9.9.9")]
 
 
 def test_another_products_version_is_allowed_only_in_the_file_that_declares_it():
