@@ -1,5 +1,300 @@
 # Changelog
 
+## 0.9.0 — 2026-09-07
+
+<!-- specs/1788735085-a-loaded-file-naming-a-real-version-is-a-timer -->
+- **A loaded file may no longer name a version at or above the running one,
+  so a document naming a release that has not shipped goes red on the commit
+  that writes it (issue #179).** The check read one number — the version in
+  `plugin.json` — so a version written *ahead* of the release was green every
+  day until the day it shipped, and red on that release's own preparation
+  commit, hours in, after the broad gate had already run.
+  `docs/issues-and-milestones.md` carried `0.9.0` that way for three releases,
+  and the branch that found it had just written two more of the same shape.
+  The comparison is read rather than the equality: at or above the running
+  version is a timer and is refused, below it is history and is kept.
+
+  **The half that is kept is what decided the design.** The obvious wider
+  rule — refuse every version this repository has ever shipped, read from the
+  tags or the changelog — refuses `docs/issues-and-milestones.md`'s own
+  sentence saying that *the branch `release/v0.3.0` shipped as 0.2.0*, which
+  is the reader's only way to tell which release an issue went out in. A rule
+  that cannot state that fact is refusing history rather than catching a
+  timer, so it was not taken.
+
+  **The comparison is numeric, and that is not a detail.** `0.10.0` is above
+  `0.8.3` and every comparison of the two as text says otherwise — and
+  `0.10.0` is the exact version the issue names as the one the next author
+  writes. A mutation run that swapped the numeric comparison for a textual
+  one is what put a case behind it.
+
+  **Three exemptions, each argued where it is declared, and the illustrative
+  one asserts its own precondition.** The value the repository already tells
+  authors to write (`1.2.3`) is allowed in every loaded file, because the
+  point of an illustrative number is that the next author writes it somewhere
+  this list cannot know the name of. `docs/experiments/` joins the
+  records-of-a-moment list as a path prefix rather than as three more file
+  names: those records are dated by their own file names and rewriting the
+  version an experiment measured on falsifies the record, which is true of
+  every file that directory will ever hold. A version belonging to another
+  product — bash's, in a comment about its glob behaviour — is pinned to the
+  file that names it, so the token cannot walk through anywhere else.
+
+  The illustrative exemption carries a case of its own asserting that the
+  value is neither the running version nor one `CHANGELOG.md` records as
+  shipped. On the day this repository ships that number, a bare string in an
+  allow-list would wave through exactly the line the check exists to catch,
+  and it would do so in silence.
+
+  **The failure message is where the reason now lives**, which is what the
+  issue asked for: it names the file, the line and the token, says why such a
+  line is a timer, and tells the next author what to write instead and which
+  paragraph explains why. `docs/issues-and-milestones.md`'s milestone example
+  now asks "what is in 1.2.3" and points at that paragraph. (#179)
+
+- **The comment on `git ls-files`' quoting arguments credits `-z` with what
+  it alone does, and so do the two records that repeated it (issue #98).**
+  Three places said `-z` alone turns git's escaping of non-ASCII paths off
+  and `core.quotePath=false` does not. Re-measured on git 2.50.1 (Apple
+  Git-155) over four quoting variants and a fifth for control characters:
+  either argument turns that escaping off by itself, so the sentence was
+  false, and the same comment contradicted itself three lines further down.
+
+  What `-z` does that the config does not is two things. It turns off the
+  escaping of control characters as well — under `core.quotePath=false` alone
+  a name holding a newline still comes back quoted — and it separates on NUL,
+  the one byte a filename cannot hold. The split below the call is on NUL, so
+  dropping `-z` returns the whole listing as a single entry.
+
+  **Nothing in the call changed.** The instruction the comment gives — if one
+  of the two is ever pruned, prune `core.quotePath=false` — was right all
+  along; only the grounds under it were wrong, which is why no test could
+  have caught this and why it travelled from a round record into a ledger row
+  and a comment unremarked. The ledger row whose own clause stated the false
+  sentence is corrected in `seal/ledger.md` itself, and the two rows anchored
+  on the unit the comment lives in were re-read and re-verified.
+
+  Folded in with it: a fixture docstring said two documents carry the only
+  mention of one template, where each carries the only mention of one. The
+  conclusion it drew was right; the reason given for it was true of one
+  document. (#98)
+
+<!-- specs/1788749195-the-record-drops-the-fix-and-a-pipe-truncates-the-row -->
+- **The round record now carries the reviewer's paste-ready fix, and a `|`
+  inside a cell no longer truncates the row (#187, #189).** The review skill
+  requires a paste-ready fix for every 🔴 and every 🟡 and spends four
+  paragraphs on what makes one paste-ready, and `round_record.py new` copied
+  the report's four tables and dropped everything else — so not one of those
+  blocks reached the file the fix pass is told to open instead of the report.
+  Measured: a 162-line report carried three executed snippets, its record came
+  out at 80 lines with none of them, and the fix pass rebuilt all three from a
+  description and got its first reproduction wrong. The same loss then
+  recurred five times on the next branch, whose orchestrator worked around it
+  by posting each report as a pull-request comment — durable, and not a file
+  any clone contains. **The record gains `## Paste-ready fixes`**, extracted
+  by the mechanism the probes table has used since #161: every fenced block
+  under the heading, copied whole, and nothing else of the section, so no
+  prose nobody parses enters a file the pull-request check reads. A report
+  that carries no fence under the heading is still a record — the section
+  reads `no paste-ready fix in the report`, which says what was observed
+  rather than that none was needed, and beside an open row in the verdict
+  table that sentence is the gap written down. A verifying round that opens
+  nothing writes no fix, which is why refusing there would stop an unattended
+  run over a report that is correct.
+
+  **And a `|` the reviewer wrote inside a cell reaches the record as text.**
+  It used to make the row carry more cells than the header declares; every
+  renderer drops the surplus, so the text from that character on was invisible
+  in the rendered record while surviving in the raw file, and the checker read
+  the shifted index. The two compounded: with the fenced blocks going nowhere,
+  a table cell was the only durable home for a fix, and a fix is where a pipe
+  comes from. Rows are now re-serialised with their pipes escaped rather than
+  copied verbatim — in every table the record copies and in the fix table the
+  implementer hands over. **A `|` inside a backtick code span is read as
+  text**, which is the reviewer's own markup saying so, and that reading is
+  taken only when it lands on exactly the header's width; otherwise the plain
+  reading is capped at that width and a bare pipe past the last column stays
+  in the last cell. A `|` inside an HTML comment is never a break in any
+  reading — the row's width is counted on the comment-stripped report and the
+  copy is rebuilt from the raw one, and where those two texts disagreed about
+  a character the record lost a column at exactly header width, with the
+  location standing in the verdict cell the checker reads. The obvious
+  repair — fold the surplus into the last column, since the last column is
+  the free-text one — was ruled out by measurement over this repository's own
+  committed records: of 4128 body rows, eight are over-wide, all eight have
+  their pipe inside a code span, one has it in a probes command where folding
+  would move half the command into `Result`, and one has it in the Finding
+  column where folding shifts that same verdict cell. Nothing here asks a
+  person anything. **One report shape that produced a record before is now
+  refused**: a fence opener hidden inside an HTML comment under the new
+  heading, which would otherwise write a record carrying an open fence and
+  blank every section below it.
+
+  **The reviewer is told where the fix goes**, which is the half that keeps
+  the section from arriving empty every round: the agent's report contract
+  shows the heading beside the three table headings and no longer says the
+  generator reads nothing else of the report, and the findings format says the
+  fenced block is the only place a fix survives the session — a Grounds cell
+  is one line, and this is what used to truncate it.
+
+  **The pre-merge reminder no longer reads a narrated word as a closing
+  note.** It stayed quiet once some round record said the rows were drained,
+  and it decided that by matching `closed` against the record's raw text.
+  Putting the reviewer's code into every record made that reachable
+  everywhere, and this repository's own fixes carry the word. The record is
+  now read through the same reader every other check uses, so a closing word
+  counts only where a reader would read it — **not inside a fenced block and
+  not inside an HTML comment.** The second half is the one that was already
+  costing something: over this repository's 127 committed round records the
+  repair changes the verdict on three, all three because their only closing
+  word stands inside an HTML comment the round wrote to narrate itself — two
+  of them in the record's header comment, the third in a note beside the field
+  table saying the loop is *not closed by one more small fix* — and all three
+  still have unresolved rows the reminder should have
+  been naming. (#187, #189)
+
+<!-- specs/1788761915-a-record-states-what-nothing-reads -->
+- **`evidence-check` now reads what a record says about the tree, and refuses
+  a record of a work item that has not shipped when it names a unit nothing
+  outside the records carries (issue #190).** A ledger row is a claim about
+  the tree that something reads; a `spec.md`, a `plan.md`, an `overview.md`,
+  a round record or a phase record states the same kind of thing and nothing
+  read it. One work item closed that class three times in three rounds and it
+  came back each time, because every closing grepped for the carriers instead
+  of building a reader.
+
+  **The boundary is a file the release already removes.** A work item whose
+  `seal/ledger/<id>.md` fragment still exists has not shipped, and the fold
+  deletes that fragment at the release — so *this record is still the file
+  the next segment opens* needs no state of its own. The 129 occurrences in
+  work items that have shipped are history and are never opened: a plan from
+  0.4.0 proposing a helper that was built under another name is a correct
+  record of what was decided then, and a check that refuses history is a
+  different mistake.
+
+  **A backticked name is read as a claim only when it carries an
+  underscore**, and that narrowing was forced by measuring. Of the 55 distinct
+  names in this repository's records that appear nowhere else, the 19 without
+  an underscore are a shell command, six stdlib names, an errno, an
+  environment variable, a lint code, a probe value, five words of ordinary
+  prose in backticks, and three verdict words a checker used to emit — not one
+  a claim about a unit, where all 36 compound names are. Without it the first
+  record mentioning `str.rpartition` would be asked to mark it as absent,
+  which is noise attached to a name that is real.
+
+  **The escape hatch is the marker reviewers already write.** A line carrying
+  `NAME NOT IN TREE` is not read at all, in either of the marker's two
+  meanings: a name a paste-ready fix is proposing, and a name a record is
+  deliberately calling gone. It exempts the line and not the name, so the same
+  name still has to exist everywhere else it is claimed — and the exemption
+  stays with the person who knows the name is absent instead of becoming a
+  list inside the checker that whoever is annoyed by a refusal can widen.
+
+  **A `path#unit@hash` a record wrote down is resolved by the ledger's own
+  reader**, so a stamp in a record and a row in a ledger cannot drift apart
+  into two rules. Two things deliberately do not carry across: a verdict
+  table's `Location` column is `path:line` by design, so a record is never
+  told to run the coordinate migrator, and drift in a record reports rather
+  than fails — a live work item's branch is editing the very units its records
+  stamp, and a check that is always red gets ignored. An `EXTERNAL`
+  coordinate is exit 0 in a record exactly as it is in a ledger, so a
+  migration repository does not fail for the state its parity config exists
+  to allow.
+
+  **A quotation is not a claim.** A fenced region and an HTML comment are not
+  read: `## Paste-ready fixes` is code the tree does not have yet, which is
+  what a paste-ready fix is, and marking one up would change the fix somebody
+  pastes. Each runs to its own end — a comment to its `-->`, so a template's
+  two-line comment is an aside on both lines, and a fence to a close carrying
+  the marker that opened it, so a `~~~` quoted inside a ```-block does not end
+  the quotation. A fence the record never closes is read as a malformed record
+  rather than as a quotation of everything left: its lines are read as claims,
+  because an author's missing backticks must not be the thing that makes the
+  rest of a record pass in silence.
+
+  **A directory the walk cannot list is `UNREADABLE` and exit 2**, the way an
+  unreadable file already was. `os.walk` swallows one, so a work item whose
+  records folder could not be listed contributed nothing and the run said
+  nothing; the same held one directory up, where an unlistable `seal/ledger/`
+  read as a repository with no live work item and took the whole arm quiet. A
+  directory that is ABSENT is still an empty answer — a repository that has
+  not started is not a broken one.
+
+  **The run says how many work items it did not read.** A work item that has
+  not written its ledger fragment yet is skipped, and `0 names read` with exit
+  0 used to say the same thing for *every record is clean* and *no record was
+  opened*. The summary now opens with `N work items read · M unread`.
+
+  One hole is known and left: an untracked or `.gitignore`d file still counts
+  as part of the tree, so a scratch note holding a name can silence a refusal
+  locally. Closing it means asking git what it carries, and this checker calls
+  git for nothing outside `--migrate`. CI reads a clean checkout, where the
+  file is not there, so CI is the stricter reader. (#190)
+
+- **`round_record.py new` says what bound the next round is under, as it
+  writes the record (issue #207).** The review chain bounds a run one step
+  earlier than the cap: after a record whose floor row reads `no`, at most one
+  later record may close on a fix, and the record that reads its fixes ends
+  the run whatever it finds. That was enforced only at the broad gate — after
+  every round of the run had already been spawned — so a session deciding
+  whether to spawn again had nothing but the cap, which is a number a prompt
+  can carry and is wrong. One work item ran three rounds past the bound with
+  both documents open, wrote *"round N of a cap of five"* into every spawn
+  prompt it sent, and reverted 37.9 minutes of agent time.
+
+  `new` already opens the previous record to set its `Fixes checked by`, and
+  the floor row is a row of the same table, so the answer costs a read it was
+  already paying for. It prints nothing where no earlier record met the floor
+  — including round 1, because a sentence invented for a state that has none
+  is worse than silence — `one reopening remains` where none has closed on a
+  fix since, and `this record ends the run` where one has, carrying the same
+  four-cell exit the refusal at the gate names.
+
+  **It reads both of the walks the gate runs, because a quiet run is bounded
+  by only one of them.** Floor `no`, then two rounds that neither reopened the
+  run nor closed on a fix: nothing has closed on a fix, and the gate still
+  refuses the third record. Reading one walk printed `one reopening remains`
+  at round 2 and invited exactly the round that would be refused. It is also
+  silent for a work item old enough that the gate grandfathers it, guarded
+  separately for each walk, because a work item can be past one cutoff and not
+  the other — one bound really enforced, the other only noticed.
+
+  **And it runs each walk from every record whose floor row reads `no`.** The
+  gate reads that row on every record, so a second one starts walks of its
+  own. Only the count walk needs more than one starting point: the reopening
+  walk never stops, so a later start's findings are all inside an earlier
+  one's, while the count walk does stop — and an earlier walk that had already
+  stopped hid a later floor record's walk entirely. Reading the earliest alone
+  printed `one reopening remains` at a round the gate returned an error for,
+  which is the same defect one floor record over.
+
+  The floor record it names is the **earliest** whose row reads `no`, except
+  in the count branch, where it is the record the firing walk started from —
+  the only record the count beside it is true of. Keyed to the latest it would
+  restart at every record it stops at and bound nothing, which is the failure
+  the count itself was rebuilt for. (#207)
+
+- **A coordinate the records arm printed used the platform's separator, so
+  the same file read two ways.** The ledger arm's rows carry `/` because they
+  were read from a file; the records arm builds every path it prints out of
+  `os.walk` and `os.path.join`, so on Windows a refusal named
+  `seal\specs\…\rounds\round-2.md` where a ledger row naming the same file
+  said `seal/specs/…`. A coordinate is written with `/` everywhere else in
+  this repository, and it is a thing a person copies and opens.
+
+  The five printers inside `check_records` now go through one helper rather
+  than five replacements, so a sixth built path added later is normalised or
+  does not print. The split is **who spelled it**: a `--ledger` pattern comes
+  back exactly as the operator typed it, which is the rule the display helper
+  exists for and is unchanged.
+
+  **The Windows leg of CI had been red on this since the commit that added
+  the arm — through three review rounds and two fix passes.** Every round and
+  every broad gate ran on macOS, where the normalisation is a no-op, so
+  nothing local could see it. The case passes `ntpath` to the helper rather
+  than skipping off Windows, which is how a POSIX machine removes the
+  guarantee instead of resting on it. (#190)
+
 ## 0.8.3 — 2026-09-06
 
 <!-- specs/1788686494-the-printed-ledger-name-collapses-through-relpath -->
