@@ -56,13 +56,13 @@ Vertical slices: each one ends with something that runs.
 
 | # | What it delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | The SDD ladder — `spec.md`, `plan.md`, `questions.md` | the documents exist and carry the two arguments | |
-| 2 | `.github/scripts/rider_check.py` — rider block detection, region hashing, anchor resolution, `--check` and `--reverify`. No corpus moved yet | run against the tree: every rider reports the old form, red | |
-| 3 | The check in `tests/test_a_rider_reaches_its_file.py`, replacing the ancestry case. Seen red against the unmigrated corpus | the new case fails naming every unmigrated rider, before any stamp moves | |
-| 4 | The corpus migrated — all 19 stamps rewritten by `--reverify` | the new case passes; `grep` finds no `at <sha>` stamp | |
-| 5 | The corpus widened — the three unguarded riders brought under the check, the non-canonical one given a canonical stamp | the widened scan finds 20 riders and holds every one | |
-| 6 | `templates/sdd-round.md` states the `Target SHA` exemption; `seal/follow-up.md` states the new stamp form | the template and the header say it; the test pins the sentence | |
-| 7 | Records — `overview.md`, `changelog.md`, `seal/ledger/<id>.md`, phase records | written and committed | |
+| 1 | The SDD ladder — `spec.md`, `plan.md`, `questions.md` | the documents exist and carry the two arguments | `c2c7864` |
+| 2 | `.github/scripts/rider_check.py` — rider block detection, region hashing, anchor resolution, `--check` and `--reverify`. No corpus moved yet | run against the tree: every rider reports the old form, red | `03594e0` |
+| 3 | The check in `tests/test_a_rider_reaches_its_file.py`, replacing the ancestry case. Seen red against the unmigrated corpus | the new case fails naming every unmigrated rider, before any stamp moves | `cbdd66e` planted red · `e2076cc` closed it, after mutation found two cases verifying nothing |
+| 4 | The corpus migrated — all 19 stamps rewritten by `--reverify` | the new case passes; `grep` finds no `at <sha>` stamp | `4bf8dcb` |
+| 5 | The corpus widened — the three unguarded riders brought under the check, the non-canonical one given a canonical stamp | the widened scan finds 20 riders and holds every one | delivered in `03594e0` and `4bf8dcb`; it is not a vertical slice and `phases/phase-5.md` says why |
+| 6 | `templates/sdd-round.md` states the `Target SHA` exemption; `seal/follow-up.md` states the new stamp form | the template and the header say it; the test pins the sentence | `c381371` |
+| 7 | Records — `overview.md`, `changelog.md`, `seal/ledger/<id>.md`, phase records | written and committed | this commit |
 
 ## What is deliberately not built
 
