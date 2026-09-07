@@ -76,8 +76,17 @@ def grant(repo, session="me"):
 
 
 def decide(
-    monkeypatch, capsys, repo, command, sessions=([], [], True), session_id="me"
+    monkeypatch,
+    capsys,
+    repo,
+    command,
+    sessions=([], [], True),
+    session_id="me",
+    cwd=None,
 ):
+    """`cwd` is where the SHELL is, which is not always `repo`: a `git -C
+    <repo> worktree add` issued from outside any repository is the one shape
+    that reaches the guard's second silent exit."""
     monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": sessions)
     monkeypatch.setattr(
         wg,
@@ -86,7 +95,7 @@ def decide(
             "tool_name": "Bash",
             "session_id": session_id,
             "tool_input": {"command": command},
-            "cwd": str(repo),
+            "cwd": str(cwd or repo),
         },
     )
     try:
@@ -243,6 +252,72 @@ def test_a_command_with_no_creation_in_it_is_vouched_for_by_nothing(repo):
     assert wg.only_creates_a_worktree("git worktree add ../wt f", str(repo))
 
 
+def test_the_allow_refuses_a_segment_that_does_anything_else(monkeypatch, capsys, repo):
+    """The test above asks about a COMPOUND, and every shape here is one
+    segment. `permissionDecision: "allow"` bypasses the user's own permission
+    settings for the whole tool call, and all ten of these answered `allow`
+    before this case existed -- two of them were run in a real shell and did
+    what a shell does: `$(touch <marker>)` created the marker, and `> <file>`
+    left a file that held `important` holding `''`."""
+    grant(repo)
+    for command in (
+        "git worktree add ../wt f $(touch /tmp/marker)",
+        "git worktree add ../wt f `touch /tmp/marker`",
+        "git worktree add ../wt f > /tmp/clobber",
+        "git worktree add ../wt f >> /tmp/clobber",
+        "git worktree add ../wt f < /tmp/clobber",
+        "git worktree add ../wt f 2>/tmp/clobber",
+        "git worktree add ../wt f <(touch /tmp/marker)",
+        "(git worktree add ../wt f)",
+        "git worktree add ../wt f <<EOF\nbody\nEOF",
+        'git worktree add "$HOME/wt" f',
+    ):
+        decision, reason = decide(monkeypatch, capsys, repo, command)
+        assert decision == "ask", (command, decision)
+        assert "git switch" not in reason, command
+
+
+def test_a_wrapper_in_front_of_the_creation_carries_no_allow(monkeypatch, capsys, repo):
+    """`cmdline.parse_git` reads past `WRAPPERS` and leading `VAR=val`, which
+    is right for "is this a git invocation" and wrong for "is this nothing but
+    a creation". A user's own `permissions.deny` on `Bash(sudo:*)` must not be
+    spoken over by a hook that was reasoning about worktrees."""
+    grant(repo)
+    for command in (
+        "sudo git worktree add ../wt f",
+        "env LD_PRELOAD=/tmp/e.so git worktree add ../wt f",
+        "LD_PRELOAD=/tmp/e.so git worktree add ../wt f",
+        "command git worktree add ../wt f",
+    ):
+        assert decide(monkeypatch, capsys, repo, command)[0] == "ask", command
+    # ...and the two forms that are ordinary git are untouched. `-C` names
+    # another clone, whose consent is its own, so the predicate is asked
+    # directly rather than through a verdict about this one.
+    assert wg.only_creates_a_worktree(
+        "git -C /elsewhere worktree add ../wt f", str(repo)
+    )
+    assert (
+        decide(
+            monkeypatch, capsys, repo, "git worktree add ../a -b feature/x origin/main"
+        )[0]
+        == "allow"
+    )
+
+
+def test_a_backgrounded_creation_is_still_only_a_creation(monkeypatch, capsys, repo):
+    """The one shape from that enumeration left allowed, pinned as a decision
+    rather than left looking like an oversight. A trailing `&` backgrounds the
+    creation and runs nothing else, so it is inside the bound the docstring
+    claims -- and `… & rm -rf <path>` is two segments, where the second one
+    fails the first test in `only_creates_a_worktree`."""
+    grant(repo)
+    assert decide(monkeypatch, capsys, repo, "git worktree add ../wt f &")[0] == "allow"
+    assert (
+        decide(monkeypatch, capsys, repo, "git worktree add ../wt f & rm -rf /tmp/x")[0]
+        == "ask"
+    )
+
+
 def test_a_second_creation_never_denies(monkeypatch, capsys, repo):
     """The consented `ask` is a floor, not a fallthrough. Landing back on the
     ladder would put the single-stream deny in front of a session that has
@@ -298,6 +373,100 @@ def test_the_pre_tool_use_arm_records_nothing(monkeypatch, capsys, repo):
         sessions=(ACTIVE, [], True),
     )
     assert not consent_dir(repo).exists()
+
+
+# --- the walk: a creation behind another verdict ---------------------------
+#
+# `main` classifies the FIRST segment it can read, while the writer below
+# records for a creation ANYWHERE in a command that ran. Those two readings
+# disagreed, and the gap was writable by whoever composed the command: a
+# `git switch` in front of a creation took the verdict, the creation ladder
+# never ran, and `PostToolUse` then minted session-wide consent for a question
+# nobody was asked. The premise the whole design rests on -- a creation runs
+# only if the deny did not fire and the ask was answered yes -- was false for
+# exactly that shape.
+
+
+def test_a_creation_behind_another_verdict_is_still_judged(monkeypatch, capsys, repo):
+    """The class is any first segment whose OWN verdict is not None. `git
+    status` classifies to nothing, so the walk moved on and the creation ladder
+    did run -- that is the safe half, and the only half the build tried."""
+    assert not consent_dir(repo).exists()
+    for command in (
+        "git switch feature/x && git worktree add ../wt f",
+        "git switch feature/x; git worktree add ../wt f",
+        "git switch feature/x || git worktree add ../wt f",
+        "git checkout feature/x && git worktree add ../wt f",
+        "git switch -c newbranch && git worktree add ../wt f",
+        "git switch feature/x\ngit worktree add ../wt f",
+    ):
+        decision, reason = decide(monkeypatch, capsys, repo, command)
+        assert decision == "deny", (command, decision)
+        assert "git switch" in reason, command
+
+
+def test_the_switch_ladder_keeps_every_verdict_it_had(monkeypatch, capsys, repo):
+    """The alternative -- making a creation OUTRANK the earlier verdict --
+    closes the same hole and costs this. A switch in a tree another session is
+    working in denies, and under that alternative it becomes an `ask` about the
+    creation: the branch is still taken out from under the other session, one
+    approval later. So the switch ladder is left intact and only its one silent
+    exit falls through."""
+    # A session id per row. Two of these rows are `choose` sites, whose deny is
+    # spent once per session per direction, so three rows sharing one id would
+    # measure that budget rather than the verdict.
+    for n, sessions in enumerate(
+        ((ACTIVE, [], True), ([], IDLE, True), ([], [], False))
+    ):
+        assert (
+            decide(
+                monkeypatch,
+                capsys,
+                repo,
+                "git switch feature/x && git worktree add ../wt f",
+                sessions=sessions,
+                session_id=f"s{n}",
+            )[0]
+            == "deny"
+        ), sessions
+
+
+def test_the_guard_is_never_silent_where_the_writer_records(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """The property, rather than the six shapes above. Whatever the writer
+    would record for, the guard has already said something about -- a `deny`
+    that stops the creation with the rest of the command, or an `ask` that puts
+    the whole command line to a person, which is the standing a creation that
+    runs is claimed to have.
+
+    The `outside` half is the guard's SECOND silent exit: `judgeable` falls
+    back to the session's own directory, so `top` is empty only when the SHELL
+    is outside any repository -- and a `git -C <repo> worktree add` in the same
+    command is not. Executed before this case: silent here, record written."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    holes = []
+    for cwd in (repo, outside):
+        for command in (
+            "git worktree add ../wt f",
+            "git status && git worktree add ../wt f",
+            "git switch feature/x && git worktree add ../wt f",
+            "git switch feature/x; git worktree add ../wt f",
+            "git checkout feature/x && git worktree add ../wt f",
+            "git switch feature/x && echo mid && git worktree add ../wt f",
+            "git switch feature/x && git worktree add ../wt f && git switch main",
+            "git switch feature/x && git worktree add ../wt f  # [worktree-ok]",
+            "git worktree list && git switch feature/x && git worktree add ../wt f",
+            "git switch feature/x && git worktree add ../wt f &",
+            f"git switch feature/x && git -C {repo} worktree add ../wt f",
+            f"cd {repo} && git switch feature/x && git worktree add ../wt f",
+        ):
+            verdict = decide(monkeypatch, capsys, repo, command, cwd=cwd)[0]
+            where = wc.creation_directory(command, str(cwd))
+            if where and wc.optin.repo_root(where) and verdict == "silent":
+                holes.append((str(cwd), command.replace("\n", "\\n")))
+    assert not holes, holes
 
 
 # --- the writer: a creation that actually ran ------------------------------
