@@ -71,7 +71,7 @@ person who knows the name is invented.
 | 2 | The identifier arm — a record of a live work item naming a backticked identifier the tree does not have is refused, naming file, line and name; a line carrying the invented-name marker is not | Cases seen red first; **the tree's own four `chain_module` occurrences red before phase 3 and green after**, and the 129 shipped ones green throughout | `b5ed944` |
 | 3 | The four occurrences corrected, and the marker written where a reviewer will meet it | Phase 2's check over the tree, exit 0 | `6de1bca` |
 | 4 | The stamp arm — a record naming `path#unit@hash` is resolved the way a ledger anchor is | A case over a fixture whose unit was edited; the tree's one real stamp green | `1b1a1c8` |
-| 5 | **#207** — `new` prints the bound it can already compute, from the previous record's floor row and the walk `chain_check` implements. Round 1 prints nothing | Cases for the three states, each seen red first | |
+| 5 | **#207** — `new` prints the bound it can already compute, from the previous record's floor row and the walk `chain_check` implements. Round 1 prints nothing | Cases for the three states, each seen red first | `8b82c39` |
 | 6 | `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md` | The fragments; `fold_ledger.py --check` | |
 
 Phase 2 before phase 3, and the order is the deliverable: the check has to be
