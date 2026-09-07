@@ -6,7 +6,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 235 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | test_the_refusal_is_ascii_because_it_is_written_before_stderr_is_set_up (depth 1) |
 | Needs a fix | yes — findings 1, 2 and 3; finding 4 is answerable with grounds |
