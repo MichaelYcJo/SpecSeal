@@ -54,4 +54,27 @@
   for the URL it had just read and printed whatever that call answered — so a
   failure between the two put a blank where the message promises this clone's
   URL. That is this ticket's own failure appearing inside the message
-  reporting it. The value compared is now the value printed. (#111)
+  reporting it. The value compared is now the value printed.
+
+  **The receiving guard reads the manifest's `remote` for its TYPE, not its
+  presence.** Review round 1 measured `null`, `42`, `[]`, `{}` and `true` all
+  importing at exit 0 with both guards silent — and `null` is what any JSON
+  writer produces from the `None` this change introduced, so the very state
+  the export uses to say *I could not look* arrived at the guard as a key that
+  was present.
+
+  **The refusal names the machine that can fix it.** One closing line used to
+  cover two failures with two different next steps. When this clone's git went
+  silent, running the import again may succeed; when the ZIP is the silent
+  side, the bytes say the same thing on every run there is and the export has
+  to happen again on the other machine — so telling that person to re-run sent
+  them into a loop that cannot end. When both sides are silent the zip
+  decides, because no re-run here clears it whatever this clone's git answers
+  next.
+
+  **The export says which field it had to leave out.** It used to write a zip
+  that would be refused on arrival and print nothing about it, which left the
+  diagnosis on the importing machine while the one that could clear the
+  failure — by running the export again — was told it had succeeded. Only the
+  `remote` line carries the note about the other machine's flag, because only
+  a missing `remote` is refused there. (#111)
