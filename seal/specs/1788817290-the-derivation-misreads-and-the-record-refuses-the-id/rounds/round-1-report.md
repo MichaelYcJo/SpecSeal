@@ -6,7 +6,7 @@
 | Branch | `fix/211-194-227-the-derivation-misreads-and-the-record-refuses-the-id` |
 | Target SHA | `ffd1d05` |
 | Base | `86e140f` |
-| Worktree | `/Users/michael/orca/workspaces/SpecSeal/main-worktrees/wi-211` |
+| Worktree | `/Users/x/orca/workspaces/SpecSeal/main-worktrees/wi-211` |
 | Runner | `.venv/bin/python -m pytest` (`bin/test` builds the same environment; the `.venv` was already present) |
 
 ## What this round was asked

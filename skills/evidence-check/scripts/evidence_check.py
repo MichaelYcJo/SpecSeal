@@ -73,6 +73,21 @@ HASH_LEN = 8
 # from these any more, and the one unacceptable outcome is silence: a ledger
 # full of them once read `0 ok · 0 drifted · 0 broken`, exit 0, which stripped
 # an updating user's whole coverage without one printed word.
+#
+# RIDER: the two `[A-Za-z0-9_.@/-]` repetitions below overlap, so the path
+# half of this pattern costs CUBIC time on a line that looks like a path and
+# has no `:<digits>` to finish on. Measured: `"a." + "b/" * n` takes 0.71 s at
+# 1000 characters, 15.6 s at 4000 and 54 s at 6000. It is not the exponential
+# shape round 1 of work item 1788817290 repaired in
+# `round_record.py#FINDING_ID_RE`, and nothing this repository holds comes
+# near it — the slowest of 1520 real ledger lines is 0.009 s, on a 1213-
+# character row — so it was enumerated as a member of that class and left
+# rather than fixed. Repairing it means changing which paths a coordinate may
+# name, which 805 ledger rows depend on, and that is a change with its own
+# argument to make. If you open this pattern, make that argument or anchor
+# the second repetition so the two stop overlapping.
+# Verified 2026-09-08 at 00e63c3 — the release branch commit rather than one
+# of the feature branch's, which a squash discards (#239).
 OLD_COORD_RE = re.compile(
     r"(?P<path>[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?)"
     r":(?P<start>\d+)(?:-(?P<end>\d+))?\b"

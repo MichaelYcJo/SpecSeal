@@ -23,6 +23,16 @@
   numbering and the fix pass copies it, so the refusal used to surface at the
   orchestrator, one hop from either agent that could have avoided it.
 
+  **And the refusal now arrives.** A `#` cell of punctuation ending in a
+  non-digit used to send the pattern exponential — 11.4 s to refuse 28
+  characters, and each further character doubled it — so `close` and `new`
+  produced nothing and never returned. That is worse than the confusing
+  message the ticket opened for, on the tool that gates every record. The
+  pattern reads one marker character per repetition instead of a run of them,
+  which accepts and keys exactly the same set: checked over every `#` cell in
+  every committed record and over 4368 constructed shapes, with no
+  disagreement. A 100 000-character cell now refuses in three milliseconds.
+
 - **`Contract changes` no longer reports `no call site found` for a unit
   pytest itself reaches (issue #211).** A collected test function is called by
   the runner and never by name, so the only `test_thing(` in the tree is its
@@ -44,6 +54,19 @@
   unit nothing covers — the same false sentence pointing the other way. One
   limit is recorded rather than closed: the hook arm reads `conftest.py`
   alone, where pytest also dispatches hooks from collected test modules.
+
+  **Which file a def sits in decides two different things, and the first
+  version of this asked only one of them.** Collection is two rules: which
+  file becomes a test module and which def inside it is a case. A `test_*` def
+  in `tests/helpers.py` satisfies the second and not the first, so pytest
+  never runs it — and it was reading `pytest only`, which is the false
+  sentence above pointing back again. It reads `no call site found` now. And a
+  `conftest.py` is the opposite case: pytest loads it by name and documents
+  the repository root placement first, so a fixture or a hook in a root
+  `conftest.py` was reading `no call site found` — the reported defect, left
+  standing at the commonest placement of all. Both now read what they should,
+  and the boundary was re-derived by running the rule over every top-level def
+  in the tree rather than by reading it.
 
 - **`Contract changes` now sees a unit that gains or loses a returnable
   value, and the shape it still cannot see is written down (issue #194).** The

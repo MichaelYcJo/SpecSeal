@@ -161,6 +161,21 @@ def record(
     )
 
 
+# RIDER: `no call site found` has a second cause and #211 repaired only the
+# first. This def is passed by name as a VALUE at five sites and never
+# called, so the `name(` that `round_record.py#call_sites` greps for occurs
+# nowhere but its own `def` line below — 1 of 483 helpers under `tests/`,
+# enumerated at `ba22b28`, and the one unit in this repository that reads
+# `no call site found` for a reason pytest's collection rules do not explain.
+# Reading a bare `name` in an argument position would reach it and would also
+# name every mention of the word, so the repair is not the one #211 took. If
+# you open this file, decide whether a reach walk should follow a callable
+# passed as a value at all; the answerer is the repository owner. Re-derived
+# after round 1's fix pass by running the repaired predicate over all 3051
+# top-level defs in the tree: this def is still the only survivor.
+# Verified 2026-09-08 at 00e63c3, which is the release branch this work item
+# merges into rather than a commit of the branch itself — a stamp on a
+# feature-branch commit stops resolving the moment the branch squashes (#239).
 def floor_record(sha):
     """A record that met the floor and whose verdicts closed without a fix."""
     return record(sha)

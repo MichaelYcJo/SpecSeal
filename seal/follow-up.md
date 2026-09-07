@@ -44,14 +44,3 @@ read, the trade was wrong and the list comes back.
 
 | Target | Who must answer |
 |---|---|
-
-- **`no call site found` has a second cause, and this branch repaired only the
-  first.** `tests/test_the_reopening_is_one.py#floor_record` is passed by name
-  as a value at five call sites and never called, so the `name(` the reach walk
-  greps for occurs nowhere but its own `def` line. It is the one unit under
-  `tests/` that reads `no call site found` for a reason pytest's collection
-  rules do not explain (enumerated at `ba22b28`: 1 of 483 helpers). Reading a
-  bare `name` in an argument position would reach it and would also name every
-  mention of the word, so the repair is not the one #211 took. Found while
-  building #211; the answerer is the repository owner, who decides whether a
-  reach walk should follow a callable passed as a value at all.

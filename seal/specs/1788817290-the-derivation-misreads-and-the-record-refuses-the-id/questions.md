@@ -19,3 +19,16 @@ answer would not have changed what was built, and one row is genuinely open.
 Q3 is the one row that outlives this branch. It carries no default that
 changes code, so it is a question and not a blocker; `overview.md` §*Not
 verified* names it with its answerer.
+
+**Round 1 supplied the first measurement, and it does not support the worry.**
+The reviewer ran both contracts over three real ranges: `86e140f..ffd1d05`
+0 → 0, `v0.8.0..v0.8.3` 5 → 6, `v0.8.3..v0.9.0` 1 → 1. The wider rule adds
+**one entry across all three**, and that one is `chain_check.py#read_record`,
+the true positive #194 was opened for. Two things sharpen the answer for
+whoever takes it. A returned list, dict or f-string carries no `ast.Constant`
+at the return, so *a fix that swaps a returned message string* — the shape the
+narrowing was proposed for — only enters the row when the message is a bare
+literal. And this branch is its own illustration: `call_sites` changed
+behaviour and stays out of the row, because every one of its returns is a
+list. The question stays open because three ranges are not the release's
+records; what it is no longer is a risk to hedge against.

@@ -45,15 +45,21 @@ unchanged. The old two-element contract read it as unchanged; the new one
 reports it. Two other real spans held no member, and containment on those
 proves nothing, which is why only the first is cited.
 
-**The independent cross-check is a second implementation, not a list of
-examples.** This repository has eight measured instances of a class
-enumerated by reading that missed a member, so the same rule is implemented
-twice — once shipped, once in the test file — and compared unit by unit over
-every top-level def in every tracked `.py` file, and over the 21 pairs whose
-expectation column is itself checked against the reading before either judges
-the shipped code. The whole-tree case also asserts how many units carry a
-literal at all, so a derivation that always answered the empty set could not
-pass it.
+**The cross-check is two halves, and only one of them is independent.**
+Round 1's finding 4 is that this paragraph used to call both halves a second
+implementation. The whole-tree comparison runs `literals_of` over every
+top-level def in every tracked `.py` file, and `literals_of` is the shipped
+`return_literals` loop character for character apart from the order of one
+assignment — two copies of one algorithm agree by construction, so what that
+half catches is a later edit to one of them, not a blind spot in both. It
+also asserts how many units carry a literal at all, so a derivation that
+always answered the empty set could not pass it.
+
+The half that could have caught a blind spot is the 21 constructed pairs,
+whose expectation column is a hand-written statement of what should be
+reported per shape rather than a reading of the code, and it is where the
+nested-scope boundaries and the bare `return` are pinned. That is the half
+the eight measured instances of a class enumerated by reading argue for.
 
 **The hole is pinned as a hole.** `test_the_hole_is_a_hole_and_not_a_claim`
 rebuilds `is_a_record_of_a_moment` from its two ends and asserts the contract
