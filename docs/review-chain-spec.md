@@ -896,9 +896,26 @@ prompt it sent, and reverted 37.9 minutes of agent time.
 | `one reopening remains` | an earlier record's floor row reads `no`, no later record has closed on a fix, and the count walk has not already spent a record |
 | `this record ends the run` | one later record closed on a fix — or every later record was quiet, so this one is the gate's second counted record |
 
-The floor record it names is the **earliest** whose row reads `no`, for the
+The floor record it names is the **earliest** whose row reads `no` — except
+in the count branch, where it is the record the firing walk **started
+from**. The two are usually the same record and come apart when an earlier
+floor record's own count walk has already stopped: the line then names the
+later floor record, which is where the gate returns its error and the only
+record the count beside it is true of. Which record the RETURNED floor is,
+is a separate question, and there the answer is still the earliest, for the
 reason the count above gives: keyed to the latest, it restarts at every
 record it stops at and bounds nothing.
+
+**Each walk runs from EVERY record whose floor row reads `no`, and only the
+count walk needs more than one start.** `stopping_floor` is read on every
+record, so a second floor record starts its walks over the records after it.
+The reopening walk never stops, so a later start's hits are all in an earlier
+start's and the earliest start dominates. The count walk stops, which breaks
+that: an earlier walk that stopped says nothing about a later floor record's
+walk, which starts fresh. Reading the earliest alone printed `one reopening
+remains` at round 4 of the work item that found this while the gate returned
+an error at `round-2.md` — the reopening-walk defect above, one floor record
+over, and the third instance of that class on one branch.
 
 **It reads BOTH walks, because a quiet run is bounded by only one of them.**
 Floor `no`, then two rounds that neither reopened nor closed on a fix: the

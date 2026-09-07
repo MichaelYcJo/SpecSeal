@@ -1996,14 +1996,16 @@ def test_the_floor_record_is_the_earliest_and_not_the_latest(repo):
     record(2, "yes — a record leaves", FIXED_ROW)
     record(3, "no", CLOSED_ROW)
 
-    floor_at, fixes, counted, running = generator.floor_and_fixes(
+    floor_at, fixes, counted, running, counted_at = generator.floor_and_fixes(
         reader, generator.earlier_records(routing, str(rounds), 4)
     )
     assert os.path.basename(floor_at) == "round-1.md"
     assert [os.path.basename(p) for p in fixes] == ["round-2.md"]
-    # The count walk stopped at round 2, which is the record that closed on a
-    # fix, so round 4 is not one of the records it counts.
-    assert (counted, running) == (1, False)
+    # Round 1's count walk stopped at round 2, which closed on a fix. Round
+    # 3's floor row reads `no` and starts a walk of its own, but nothing
+    # follows it, so that walk has spent nothing. `counted` reports the
+    # firing walk and there is none, so the two values cannot disagree.
+    assert (counted, running, counted_at) == (0, False, None)
 
     line = generator.bound_line(reader, routing, str(rounds), 4)
     assert "this record ends the run" in line, line
@@ -2083,6 +2085,54 @@ def test_two_quiet_rounds_after_the_floor_end_the_run(repo):
     assert "this record ends the run" in line, line
     assert "reaches 2" in line, line
     assert check_module().CAPPED_EXIT in line, line
+
+
+def test_an_intermediate_floor_record_starts_a_count_walk_of_its_own(repo):
+    """`stopping_floor` is called on EVERY record, so a second record whose
+    floor row reads `no` starts a count walk of its own (round 2, 🟡 1).
+
+    Round 1 met the floor and reopened, round 2 met the floor and reopened,
+    round 3 was quiet. Round 1's own walk stopped at round 2, so reading the
+    earliest floor record alone found nothing running and printed `one
+    reopening remains` — while the gate refused round 4 at `round-2.md`,
+    whose walk counts round 3 and then this one. That is round 1's 🔴 2 one
+    floor record over.
+    """
+    generator, reader = generator_module(), reader_module()
+    routing = generator.load(check_module().ROUTING, "specseal_routing_second_floor")
+    rounds = chain_of(
+        repo,
+        LATE,
+        (1, "no", "yes — 🔴 1", CLOSED_ROW),
+        (2, "no", "yes — 🟡 3", CLOSED_ROW),
+        (3, "no", "no", CLOSED_ROW),
+    )
+    line = generator.bound_line(reader, routing, str(rounds), 4)
+    assert line is not None and "this record ends the run" in line, line
+    # The record the firing walk STARTED from, not the earliest floor record:
+    # a sentence naming round-1.md would send the reader to a walk that
+    # stopped, which is the one place the message can be checked.
+    assert "round-2.md" in line and "round-1.md" not in line, line
+    assert "reaches 2" in line, line
+
+
+def test_the_count_walks_message_says_records_when_it_counted_two(repo):
+    """The plural branch of the count-walk line, which no case reached
+    (round 2, ⬜ 6). §14 asks the printed line to be pinned, and `1 records`
+    is what an unpinned plural branch ships."""
+    generator, reader = generator_module(), reader_module()
+    routing = generator.load(check_module().ROUTING, "specseal_routing_plural")
+    rounds = chain_of(
+        repo,
+        LATE,
+        (1, "no", "yes — 🔴 1", CLOSED_ROW),
+        (2, "no", "no", CLOSED_ROW),
+        (3, "no", "no", CLOSED_ROW),
+    )
+    line = generator.bound_line(reader, routing, str(rounds), 4)
+    assert line is not None, line
+    assert "the 2 records after it" in line, line
+    assert "reaches 3" in line, line
 
 
 def test_a_round_that_reopened_without_writing_fixes_stops_the_count(repo):

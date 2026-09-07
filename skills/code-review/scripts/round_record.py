@@ -1015,8 +1015,14 @@ ONE_REOPENING = "one reopening remains"
 
 
 def floor_and_fixes(reader, earlier):
-    """(the floor record, the later ones that closed on a fix, how many the
-    count walk has spent, whether that walk is still running).
+    """(the floor record, the later ones that closed on a fix, how many
+    records the FIRING count walk has spent, whether a count walk is still
+    running, the record that walk started from).
+
+    The last three are one answer in three cells and never disagree: with no
+    walk running the count is 0 and the record is None, because a walk that
+    has stopped bounds nothing and a count reported from one would be a
+    number about a record the caller is not told.
 
     **`chain_check.stopping_floor` runs TWO walks over the records after the
     floor, and this used to carry one of them.** The reopening walk counts
@@ -1029,11 +1035,40 @@ def floor_and_fixes(reader, earlier):
     invitation into a round the gate does not allow (round 1, 🔴 2). That is
     #207's own defect, reproduced by the fix for it.
 
+    **And the gate runs each walk from EVERY record whose floor row reads
+    `no`, not from the earliest alone.** `stopping_floor` is called on every
+    record — its own docstring says so, for the same reason `checked_by` is —
+    so a second floor record starts its walks over the records after IT. The
+    two walks answer that differently, and the answer is a property of the
+    walk rather than a case anybody noticed:
+
+      | Walk          | Stops? | Start point                              |
+      | the reopening | never  | a suffix filter, so a later start's hits |
+      |               |        | are all in an earlier start's. The       |
+      |               |        | earliest DOMINATES: ≤ 1 there is ≤ 1     |
+      |               |        | everywhere, and ≥ 2 there already fires  |
+      | the count     | yes    | stopping breaks that. An earlier walk    |
+      |               |        | that stopped says nothing about a later  |
+      |               |        | floor record's own walk, which starts    |
+      |               |        | fresh — so every floor record is walked  |
+
+    That is the enumeration, taken by construction over `stopping_floor`'s
+    body — the two loops under `word == FLOOR_NO`, which is the whole of what
+    it does with `later` — and then a monotonicity question asked of each,
+    rather than by reading for more instances of the shape. Reading the
+    earliest floor record's count walk alone printed `one reopening remains`
+    at round 4 of this work item while the gate returned an error at
+    `round-2.md` (round 2, 🟡 1): round 1's 🔴 2 one floor record over, and
+    the third instance of one class on this branch.
+
     The floor record is the EARLIEST earlier record whose `Loses a record or
     crashes` reads `no`, and taking the LATEST instead is the failure
     `chain_check.stopping_floor` records in its own docstring: every record
     the count stops at is itself a record that met the floor, so a count keyed
-    to the latest restarts there and is unbounded by construction.
+    to the latest restarts there and is unbounded by construction. That is
+    about which record the RETURNED floor is, and the count walk above is
+    about which records are walked — a walk from every floor record is not a
+    count keyed to the latest, because each walk is bounded by its own start.
 
     **Whether the walk is still RUNNING is the fourth value, because the count
     the record being written inherits depends on it.** A record that reopened
@@ -1056,33 +1091,50 @@ def floor_and_fixes(reader, earlier):
     — the permissive direction, and against what this docstring says it does
     (round 1, 🟡 12). `checked_by` already names the unreadable record.
     """
-    floor_at, fixes, counted, stopped = None, [], 0, False
+    seen = []
     for _k, path in earlier:
         try:
             with open(path, encoding="utf-8") as handle:
                 text = handle.read()
         except OSError:
-            return None, [], 0, False
+            return None, [], 0, False, None
         lines = reader.readable(text)
-        if floor_at is None:
-            cell_value = chain.field(chain.table_rows(reader, lines), chain.FLOOR)
-            if cell_value is not None:
-                word, _reason = chain.yes_or_no(reader.visible(cell_value).strip())
-                if word == chain.FLOOR_NO:
-                    floor_at = path
+        rows = chain.table_rows(reader, lines)
+        floor = chain.field(rows, chain.FLOOR)
+        met = floor is not None and (
+            chain.yes_or_no(reader.visible(floor).strip())[0] == chain.FLOOR_NO
+        )
+        needs = chain.field(rows, chain.NEEDS)
+        reopened = needs is not None and (
+            chain.yes_or_no(reader.visible(needs).strip())[0] == chain.FLOOR_YES
+        )
+        seen.append((path, met, reopened, chain.closed_with_a_fix(reader, lines, path)))
+
+    floor_i = next((i for i, row in enumerate(seen) if row[1]), None)
+    if floor_i is None:
+        return None, [], 0, False, None
+    # The reopening walk, from the EARLIEST floor record — the only start it
+    # needs, by the monotonicity argument above.
+    fixes = [p for p, _m, _r, wrote in seen[floor_i + 1 :] if wrote]
+
+    # The count walk, from EVERY floor record. Among the walks still running,
+    # the earliest has the largest count — a later walk's records are all in
+    # the earlier one, which would have to have stopped for the later one to
+    # start fresh — so the maximum is the walk the gate refuses first, and
+    # `counted_at` is the record it started from.
+    counted, counted_at = 0, None
+    for i, (path, met, _r, _w) in enumerate(seen):
+        if not met:
             continue
-        wrote = chain.closed_with_a_fix(reader, lines, path)
-        if wrote:
-            fixes.append(path)
-        if not stopped:
-            counted += 1
-            needs = chain.field(chain.table_rows(reader, lines), chain.NEEDS)
-            reopened = needs is not None and (
-                chain.yes_or_no(reader.visible(needs).strip())[0] == chain.FLOOR_YES
-            )
+        spent, stopped = 0, False
+        for _p, _m, reopened, wrote in seen[i + 1 :]:
+            spent += 1
             if reopened or wrote:
                 stopped = True
-    return floor_at, fixes, counted, not stopped
+                break
+        if not stopped and spent > counted:
+            counted, counted_at = spent, path
+    return seen[floor_i][0], fixes, counted, counted_at is not None, counted_at
 
 
 def bound_line(reader, routing, rounds, n):
@@ -1117,11 +1169,13 @@ def bound_line(reader, routing, rounds, n):
     exists to bound the decision to spawn again, and for a record the gate
     will not refuse there is no bound to state.
     """
-    floor_at, fixes, counted, running = floor_and_fixes(
+    floor_at, fixes, counted, running, counted_at = floor_and_fixes(
         reader, earlier_records(routing, rounds, n)
     )
     if floor_at is None:
         return None
+    # Every record here is one work item's, so `item_began` answers the same
+    # whichever floor record is named — `floor_at` and `counted_at` alike.
     began = chain.item_began(floor_at.replace(os.sep, "/"))
     reopen_excused = began is None or began < chain.REOPEN_FROM
     count_excused = began is None or began < chain.FLOOR_FROM
@@ -1137,14 +1191,20 @@ def bound_line(reader, routing, rounds, n):
             f"whatever it finds. {chain.CAPPED_EXIT}"
         )
     if counted and running:
-        # Every record after the floor so far was quiet, so the count walk is
+        # Every record after some floor record was quiet, so that walk is
         # still running and this record is the one it counts next — the
         # gate's SECOND counted record, which it refuses.
         if count_excused:
             return None
         quiet = "record" if counted == 1 else "records"
+        # The record the FIRING walk started from, which is not always the
+        # earliest floor record `met` names (round 2, 🟡 1). Naming `met`
+        # here sent the reader to a walk that had already stopped, and the
+        # count beside it then belonged to a record the sentence did not
+        # mention — the one thing in this line a reader can check.
+        started = os.path.basename(counted_at)
         return (
-            f"round-record: {ENDS_THE_RUN} — {met} met the floor and the "
+            f"round-record: {ENDS_THE_RUN} — {started} met the floor and the "
             f"{counted} {quiet} after it neither reopened the run nor closed "
             "on a fix, so the gate's count of round records after the floor "
             f"reaches {counted + 1} here. {chain.CAPPED_EXIT}"
