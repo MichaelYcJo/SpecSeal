@@ -72,25 +72,26 @@ that true, and the case for it is S10.
 | `round_record`: `dirname(git-common-dir)` | Correct for a plain `.git`, wrong for `--separate-git-dir` and for anything that moves the git directory. Silent when wrong | Rejected |
 | `round_record`: ask git which worktrees the clone has | One extra git call, only on the path that used to refuse outright. Git owns the answer | **Taken** |
 | `chain_check`: read an untracked declaration | Argued in `spec.md` §*The sharp question* | Rejected; B kept as a follow-up |
-| Mode question as a third arm of `commit-review-gate.py` | Reuses the budget and the target resolution, but the arm renderer builds a waiver form from every arm's marker, so a waiver-less arm either prints a false waiver or forces a third token into the vocabulary | Rejected |
+| Mode question as a third arm of `commit-review-gate.py` | Reuses the budget and the target resolution, and renders into ONE deny where the review arm already fires — so it costs FEWER interruptions, not more. **The stated objection was wrong** (the waiver form is a five-line change); what rejects it is that `tests/test_gate_judges_the_repo_it_commits_to.py` and `tests/test_chain_hooks_hardening.py` pin a two-arm prompt and compare a whole reason against a released version | Rejected — corrected during the build, `phases/phase-3.md` |
 | Mode question as a `SessionStart` notice | Costs zero prompts, which is what this project's first goal wants. It cannot meet #151's first Done-when: in a fresh repository the root does not exist yet at session start, so the notice fires only in the session AFTER the one that opted in and committed | Rejected as the only mechanism |
-| Mode gate fires on any Bash command | Names the state sooner. Nags a session that is doing something unrelated, and the act #151 names is a commit | Rejected |
+| Mode gate fires on any Bash command, judging the SESSION's repository | Names the state on the session's first call, where `skills/implement/SKILL.md` §1 wants questions, and needs no command-line reading at all. The interruption count is unchanged, because the budget is per session. It does reach a session doing something unrelated — once | **Taken — this row was `Rejected` and the build overturned it**, after the two designs above were tried; `phases/phase-3.md` and `overview.md` carry the reasoning |
 
 ## Phases
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `round_record.py#where` resolves a local-mode item, through git's own worktree list; the refusal that stays names both places it looked | S1–S4; `tests/test_local_mode_reaches_the_review_chain.py`, each case seen red first | |
-| 2 | `chain_check.py` names the root it searched; in local mode it says nothing under that root is committed and stops naming a file to add | S5, S6; same file plus `tests/test_chain_check_at_the_pull_request.py` | |
-| 3 | `hooks/config.py` (the `Mode` row, read once for the tree) and `hooks/mode-gate.py` (deny once, then ask), wired into `pre-bash` | S7–S10; `tests/test_the_mode_question_is_asked_once.py` | |
-| 4 | The preset block sends a session to the bootstrap before it writes `routing.md` | S11, S12; new cases in `tests/test_first_setup_asks_once.py` | |
+| 1 | `round_record.py#where` resolves a local-mode item, through git's own worktree list; the refusal that stays names both places it looked | S1–S4; `tests/test_local_mode_reaches_the_review_chain.py`, each case seen red first | `02ef9d7`, `589cf25` |
+| 2 | `chain_check.py` names the root it searched; in local mode it says nothing under that root is committed and stops naming a file to add | S5, S6; same file plus `tests/test_chain_check_at_the_pull_request.py` | `50e3e0b` |
+| 3 | `hooks/config.py` (the `Mode` row, read once for the tree) and `hooks/mode-gate.py` (deny once, then ask), wired into `pre-bash` — fired on any Bash call rather than at a commit, see `phases/phase-3.md` | S7–S10; `tests/test_the_mode_question_is_asked_once.py` | `0d0ea84`, `e580e40` |
+| 4 | The preset block sends a session to the bootstrap before it writes `routing.md`, and the bootstrap records the answer | S11, S12; new cases in `tests/test_first_setup_asks_once.py` | `1ef820b` |
 | 5 | The records — changelog and ledger fragments, `pr-notes.md`, `overview.md` | the fragments exist and `unverified-check` reads the memo | |
 
 ## Operational impact
 
 - **A new prompt.** One deny per session per repository, in a repository that
-  has `seal/` and no `Mode` row, on a commit. Zero once `seal mode` has been
-  run once. Budget argued in `pr-notes.md`.
+  has `seal/` and no `Mode` row, on the session's first Bash call. Zero once
+  `seal mode` has been run once, and zero in a repository with no root. Budget
+  argued in `pr-notes.md`.
 - **`~/.claude/CLAUDE.md` goes stale.** Phase 4 edits the block `install.sh`
   distributes, so a machine that installed an earlier release keeps the old
   text until `install.sh` runs again. No migration exists for that today and
