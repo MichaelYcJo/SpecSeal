@@ -1737,15 +1737,17 @@ def record_files(directory):
     return found
 
 
-# The marker a reviewer already writes beside a name a paste-ready fix is
-# PROPOSING rather than citing — `skills/code-review/SKILL.md` shows it in the
-# findings format, and records carry it today. It is the escape hatch, and it
-# costs no new convention: a line carrying it is not read here at all.
+# The marker a reviewer already writes beside a name the tree does not have —
+# `skills/code-review/SKILL.md` shows it in the findings format, records carry
+# it today, and it says exactly what this arm needs to be told. It covers both
+# ways a record means a name that is genuinely absent: one a paste-ready fix
+# is PROPOSING, and one a record is naming as GONE ("`x` was deleted and its
+# call site moved"). Either way the line is not read here at all.
 #
 # The exemption is a MARKER ON THE LINE and never a list inside this file, for
 # the reason `plan.md` gives about what breaks in six months. A list is edited
 # by whoever is annoyed by a refusal; a marker is written by the person who
-# knows the name is invented, in the record where the claim is.
+# knows the name is absent, in the record where the claim is.
 NOT_IN_TREE = "NAME NOT IN TREE"
 # A backticked identifier, with an optional call suffix — the shape a record
 # names a unit in. `round_record.py`'s `IDENTIFIER_RE` reads the same thing
@@ -1801,9 +1803,9 @@ def stated_names(lines):
     """[(line number, name)] for every compound identifier a record states.
 
     A line carrying `NAME NOT IN TREE` yields nothing at all — the marker is
-    the reviewer's own statement that the name on it is proposed rather than
-    cited, and it exempts the LINE rather than the name, so the same name
-    still has to exist everywhere else it is claimed.
+    the writer's own statement that the name on it is one the tree does not
+    have, and it exempts the LINE rather than the name, so the same name still
+    has to exist everywhere else it is claimed.
     """
     out = []
     for number, line in enumerate(lines, 1):
@@ -1900,8 +1902,8 @@ def check_records(root, home):
                         f"{shown}:{number}",
                         f"`{name}` — nothing outside {display_name(records_root, root)}"
                         f" carries this name. Correct the record, or write "
-                        f"{NOT_IN_TREE} on the line if the record is proposing "
-                        "the name rather than citing one",
+                        f"{NOT_IN_TREE} on the line where the record means a "
+                        "name the tree does not have",
                     )
                 )
     return findings, read_count

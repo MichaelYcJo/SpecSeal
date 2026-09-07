@@ -667,6 +667,18 @@ too many names are missing for a snippet to stand, describe the change in
 sentences and say which document would have to exist for the code to be
 written.
 
+**The same marker is what a record says a gone name with, and it is read.**
+`evidence-check` refuses a compound backticked identifier in the records of a
+work item that has not shipped when nothing outside `seal/specs/` carries it
+(#190) — a record naming a unit the next commit deleted is a claim nothing
+was reading. Writing `NAME NOT IN TREE` on that line is the whole of the
+exemption, in either of its two meanings: a name a fix is proposing, and a
+name a record is deliberately calling gone — *`chain_module` deleted and its
+one call site moved — NAME NOT IN TREE*. It exempts the LINE and not the
+name, so the same name still has to exist everywhere else it is claimed, and
+the exemption stays with the person who knows the name is absent rather than
+becoming a list in the checker.
+
 **Every one of those blocks goes under `## Paste-ready fixes`, and that is
 the only place a fix survives the session.** `round_record.py new` copies the
 report's tables and takes every fenced block under that heading; prose it
