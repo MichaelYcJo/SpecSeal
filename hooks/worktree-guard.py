@@ -401,10 +401,10 @@ def classify(tokens, cwd: str):
 
     if sub == "worktree":
         # Only creation is guarded; list/remove/prune are how you clean up.
-        positionals = [a for a in args if not a.startswith("-")]
-        if positionals and positionals[0] == "add":
-            return "worktree-add"
-        return None
+        # The test itself lives in `cmdline.adds_a_worktree`, because
+        # `hooks/worktree_consent.py` asks the same question of a command that
+        # already ran and cannot import this file by name.
+        return "worktree-add" if cmdline.adds_a_worktree(tokens) else None
 
     if sub == "switch":
         # git switch <branch> / -c <branch> / `-` (previous)  => switches tree
