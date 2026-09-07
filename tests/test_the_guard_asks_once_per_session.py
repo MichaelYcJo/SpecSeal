@@ -34,10 +34,13 @@ import json
 import os
 import pathlib
 import subprocess
+import sys
 
 from conftest import load_hook_module, run_hook
 
 wg = load_hook_module("worktree-guard.py", "wg_consent")
+wc = load_hook_module("worktree_consent.py", "wc_consent")
+HOOKS = os.path.join(os.path.dirname(__file__), "..", "hooks")
 
 ACTIVE = [(111, "/tree", 1.0, 0.5, "VS Code")]
 IDLE = [(222, "/tree", 400.0, 90.0, "Terminal")]
@@ -230,6 +233,16 @@ def test_the_allow_covers_only_a_command_that_is_nothing_else(
     )
 
 
+def test_a_command_with_no_creation_in_it_is_vouched_for_by_nothing(repo):
+    """The predicate on its own. `main` only reaches it after a creation
+    verdict, so nothing else can put a creation-free command in front of it —
+    and a predicate whose false case is unreachable is a predicate no case can
+    pin."""
+    for command in ("", "echo hi", "git status", "git worktree list"):
+        assert not wg.only_creates_a_worktree(command, str(repo)), command
+    assert wg.only_creates_a_worktree("git worktree add ../wt f", str(repo))
+
+
 def test_a_second_creation_never_denies(monkeypatch, capsys, repo):
     """The consented `ask` is a floor, not a fallthrough. Landing back on the
     ladder would put the single-stream deny in front of a session that has
@@ -355,13 +368,47 @@ def test_an_unrecordable_consent_asks_rather_than_crashing(
 ):
     """Q3. A guard that crashes reads as a silent allow — the module says so
     about `_idle_minutes`. The write fails silently instead, no record exists,
-    and the next creation meets the question it always did."""
+    and the next creation meets the question it always did.
+
+    stdout being empty is not the claim: a traceback goes to STDERR and leaves
+    stdout empty too, which is how a crashing hook and a quiet one look alike.
+    The exit status and stderr are what tell them apart, so both are read."""
     blocked = consent_dir(repo)
     blocked.parent.mkdir(parents=True, exist_ok=True)
     blocked.write_text("not a directory")
-    out = run_hook("worktree_consent.py", post(repo))
-    assert out.strip() == ""
+    assert wc.record(str(repo), "me") is False
+    r = subprocess.run(
+        [sys.executable, os.path.join(HOOKS, "worktree_consent.py")],
+        input=json.dumps(post(repo)),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+    )
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == ""
+    assert r.stderr.strip() == "", r.stderr
     assert decide(monkeypatch, capsys, repo, "git worktree add ../wt f")[0] == "deny"
+
+
+def test_a_directory_at_the_record_path_is_not_a_record(monkeypatch, capsys, repo):
+    """The record is a FILE, and its existence is the fact. A directory of that
+    name is not one — the same distinction `optin.py` draws for
+    `specseal-scratch`, where a directory of the marker's name silenced every
+    gate in the tree."""
+    (consent_dir(repo) / "me").mkdir(parents=True)
+    assert not wc.granted(str(repo), "me")
+    assert decide(monkeypatch, capsys, repo, "git worktree add ../wt f")[0] == "deny"
+
+
+def test_a_session_id_that_is_only_separators_has_no_record_path(repo):
+    """The id names a file, so an id that reduces to nothing must resolve to no
+    path at all rather than to the directory above it. Left to the filesystem,
+    `..` would be refused by `open` raising on a directory — a defence resting
+    on a platform guarantee, which `agent-contract` §13 refuses."""
+    for bad in ("", ".", "..", "/", "../..", os.sep):
+        assert wc.consent_path(str(repo), bad) == "", bad
+    assert wc.consent_path(str(repo), "me").endswith(os.path.join("me"))
 
 
 def test_the_record_follows_the_clone_not_the_worktree(repo, tmp_path):

@@ -1358,7 +1358,11 @@ def guard_worktree_creation(
     # `consented` differs by entry point for the same reason `single_stream`
     # does. `hooks/worktree_consent.py` holds the record and the rest of the
     # reasoning.
-    if session_id and worktree_consent.granted(top, session_id):
+    # No `session_id and` in front of it: `consent_path` already answers ""
+    # for a missing or separator-only id, so a second test here would be a
+    # condition nothing could make false — which is a condition no case can
+    # pin.
+    if worktree_consent.granted(top, session_id):
         if consented == "silent":
             return
         respond(
