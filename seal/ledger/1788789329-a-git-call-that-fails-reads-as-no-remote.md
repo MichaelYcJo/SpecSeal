@@ -18,7 +18,30 @@ what a row is supposed to leave behind.
 
 Every hash here was stamped by `evidence-check --reverify --ledger '<this
 fragment>'`, the scoped WRITE form, so no anchor outside this work item was
-re-stamped on behalf of a session that never opened it. -->
+re-stamped on behalf of a session that never opened it.
+
+**`seal/ledger.md` was touched too, and the two acts are different.** One row
+there — `S4 · a repository with no commit records an empty "head"` — was
+REMOVED, because this change makes the field absent rather than empty and the
+row's claim went with the behaviour. R2 above is where its new claim lives,
+which is what `CLAUDE.md` §*a change writes fragments* prescribes for exactly
+this case, and the same paragraph is why removing it there was permitted:
+appended is the word, and a removal is not one.
+
+Nine other rows there were RE-STAMPED rather than removed, their claims
+re-read and still true — eight citing `import_`, whose claims are about zip
+members, formats and checksums that this change does not touch, and one
+citing `other_worktrees`, whose claim is that a second worktree is named
+rather than refused, which is still what it does. That the drift was mine
+alone was checked rather than assumed: `git archive 86e140f | tar -x` into a
+scratch directory and `evidence-check` over it reads `764 ok · 0 drifted`, so
+no row was re-stamped on behalf of an edit this session never read.
+
+`--reverify` rewrites the hash and leaves the `Checked` column alone, so
+those nine rows now carry a 2026-09-03 date over content from 2026-09-07.
+That is the tool's behaviour rather than a judgment made here, and
+`overview.md` §*Not verified* puts whether the date should move to the
+repository owner. -->
 
 | Clause | Code grounds | Verified behavior | Checked | Notes |
 |---|---|---|---|---|
