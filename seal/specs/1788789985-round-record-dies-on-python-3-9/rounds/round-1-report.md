@@ -7,7 +7,7 @@ derived in this round.
 
 All mutation work was done in a `git clone --no-local` of the worktree at the
 target SHA, under the scratchpad, deleted at the end. Nothing was written in
-`/Users/yc/Documents/GitHub/SpecSeal-worktrees/wi-226` except this report.
+`/Users/x/Documents/GitHub/SpecSeal-worktrees/wi-226` except this report.
 
 ## What the acceptance criteria came out as
 
