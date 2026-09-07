@@ -65,6 +65,8 @@
   not inside an HTML comment.** The second half is the one that was already
   costing something: over this repository's 127 committed round records the
   repair changes the verdict on three, all three because their only closing
-  word stands in the record's own header comment narrating what the round
-  found, and all three still have unresolved rows the reminder should have
+  word stands inside an HTML comment the round wrote to narrate itself — two
+  of them in the record's header comment, the third in a note beside the field
+  table saying the loop is *not closed by one more small fix* — and all three
+  still have unresolved rows the reminder should have
   been naming. (#187, #189)

@@ -73,6 +73,9 @@ refusal. The fifth is this repository meeting the same class about itself.
 - [ ] #151 — the preset tells a session to create the root, and the question that was supposed to come first lives in a skill it never loads. Reported from a repository's first work item: `seal/` appeared and nobody was asked about shared or local mode.
 - [ ] #134 — the update notice names a restart and never the reload this repository measured and wrote down. One notice and one skill.
 - [ ] #167 — a closing keyword claims one issue, and a body naming two in one sentence loses the second silently.
+- [ ] #209 — the pre-merge guard's reader has a failure arm no case watches, and a broken reader would stop a session. The seventh instance on one branch of a case that cannot observe what its own guard removes, and the sixth and seventh both landed inside the function a fix pass had just parametrized to enumerate its arms.
+- [ ] #210 — the guard's parametrized case is a class over two literals rather than over the reader's passes, so a third pass is unguarded and silent. `seal/ledger.md` F1 already states this repository's standard for that shape.
+- [ ] #211 — `Contract changes` reads `no call site found` for a pytest test function, where `pytest only` is the value that exists for it. No gate reads the value; what it costs is a wrong impression in the row #57's largest regression class exists for.
 - [ ] #198 — a release closes its flow-measurement log with nothing written in it, and nothing notices. 0.8.3 ran three work items and twelve rounds and left its cycle log empty, which is the same shape as #150: a mechanism built, used once, then not, with nothing in the way to say so. It lands here rather than in 0.9.3 because #145 and #149 are the two tickets that eat the data it protects.
 
 ## 0.9.2 — the enumeration was done by reading

@@ -33,7 +33,7 @@ because they are facts about the code this work item wrote:
   ruled out folding the surplus into the last column.
 - **R2** — that the empty paste-ready section states what was observed and
   never that no fix was needed, because a generator cannot tell those apart.
-- **R3** — that `swallowed` reads two lists, `READ_HEADINGS` for headings and
+- **R3, as corrected by R4** — that `swallowed` reads two lists, `REQUIRED_HEADINGS` for headings and
   `REPORT_TABLES` for rows, because only a table can lose its rows to a fence
   while its heading stands.
 
