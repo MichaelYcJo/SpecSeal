@@ -265,13 +265,30 @@ this report, so the headers are what it parses:
 |---|---|---|
 ```
 
-`round_record.py new` copies these three tables into `round-N.md` row for
-row and reads nothing else of the report, so a finding that is not a row of
-the verdict table reaches no record. The findings prose stays above the
-tables; a verdict cell of a fresh round reads `open` for what this round
-found, and `answered` or `withdrawn` for an earlier round's finding this one
-closed on its own grounds. A probes or deferred table with no rows may be
-left out — the generator writes the empty table and `nothing to drain`.
+And one more heading, with no table under it — the paste-ready fixes
+themselves, one fenced block per finding, in your own order:
+
+```
+## Paste-ready fixes
+
+<a fenced block per 🔴/🟡, each marked the way the findings format asks>
+```
+
+`round_record.py new` copies those three tables into `round-N.md` row for
+row, takes every fenced block under `## Paste-ready fixes` and under
+`## Executed probes` verbatim, and reads nothing else except the two lines
+below — so a finding that is not a row of the verdict table reaches no
+record, and **a fix you describe instead of fencing reaches none either.**
+That was #187: the report's snippets lived only in a transcript, and the fix
+pass rebuilt them from a description and got its first reproduction wrong.
+
+The findings prose stays above the tables; a verdict cell of a fresh round
+reads `open` for what this round found, and `answered` or `withdrawn` for an
+earlier round's finding this one closed on its own grounds. A probes or
+deferred table with no rows may be left out — the generator writes the empty
+table and `nothing to drain` — and a round that opened nothing needing a fix
+may leave `## Paste-ready fixes` out, which the record answers with `no
+paste-ready fix in the report`.
 
 Then two lines, in every round and not only a verifying one:
 

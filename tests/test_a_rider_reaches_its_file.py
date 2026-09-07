@@ -114,7 +114,13 @@ STAMP = re.compile(r"Verified \d{4}-\d{2}-\d{2} at ([0-9a-f]{7,40})\b")
 def rider_stamps():
     """(file, sha) for every rider in the tree."""
     out = subprocess.run(
-        ["grep", "-rn", "RIDER:", *RIDER_ROOTS],
+        # `__pycache__` excluded: a `.pyc` beside a script that carries a
+        # rider matches too, and `grep` answers `Binary file … matches`,
+        # which this then reads as a path. The roots held no rider inside a
+        # compiled module until one landed in `skills/evidence-check/`, and
+        # the failure is a `FileNotFoundError` naming grep's own sentence —
+        # loud, and about nothing. Every walk in this repository skips it.
+        ["grep", "-rn", "--exclude-dir=__pycache__", "RIDER:", *RIDER_ROOTS],
         cwd=ROOT,
         capture_output=True,
         encoding="utf-8",

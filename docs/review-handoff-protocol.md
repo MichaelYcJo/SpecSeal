@@ -125,6 +125,7 @@ subcommands produce.
 | New units | yes, for work items begun after a project adopts it | the top-level definitions and constants this round's fixes added, each with the depth it was added at — `unit (depth N)`, one entry per unit, entries separated by `;`. The verifying round's finding surface. `none` is an answer. See below |
 | PR | when one exists | the change request this work went to. A field, not the key: it does not exist while the rounds that fill this file are running |
 | Verdict table | yes | per finding: location, verdict, grounds |
+| Paste-ready fixes | yes (may be "none") | the fix itself for each finding that has one, as the reviewer wrote it — a fenced block, never a sentence about one. See below |
 | Executed probes | yes (may be "none") | what was RUN, with results — distinguished from what was read |
 | Inherited axes | for N>1 | axes carried from earlier rounds, each with the coordinates it was judged at. The coordinates carry; the verdicts do not — a round opens what they name and reaches its own (Conformance 1) |
 | Deferred | yes (may be "none") | findings this round neither fixed nor answered, each with the durable home it went to. The reviewer already opens this file; a row here is what keeps a deferral inside the inheritance range instead of being raised again next round |
@@ -370,6 +371,38 @@ Records predating a project's adoption print rather than fail when the row is
 ABSENT, the same grandfathering `Fixes checked by` carries. A row that is
 present and unreadable is refused at any age: formatting is always the
 author's, which is the split `Contract changes` already makes.
+
+#### Paste-ready fixes — the artefact, not a description of it
+
+A review that asks for a paste-ready fix per finding produces an artefact per
+finding, and draft 0.5 said nothing about where that artefact goes. So it
+went nowhere: the record carried the tables and the verdicts, and the fix
+itself stayed in the reviewer's report — a message in a session that ends.
+
+Measured in the reference implementation: a 162-line report carried three
+executed snippets, its record came out at 80 lines with none of them, and the
+fix pass — reading the record exactly as prescribed — said so unprompted and
+rebuilt all three from the Grounds cells. It got its first reproduction
+wrong, caught it, and corrected it. Nothing shipped wrong; what was spent was
+the executed artefact, thrown away and rebuilt. The same loss then recurred
+five times on the next branch, whose orchestrator worked around it by posting
+each report as a change-request comment — durable, and not a file any clone
+contains.
+
+Two properties make the section work, and a conforming tool owes both:
+
+- **What is carried is the block, verbatim.** A fix is not reproducible from
+  a sentence about it, which is the same reason the probes table owes a
+  proposed replacement in a fenced block rather than a description of one.
+- **What is carried is ONLY the block.** Prose nobody parses in a file the
+  change-request check reads is where every fence-and-heading hazard in the
+  reference implementation came from. The section's prose stays in the
+  report.
+
+The empty answer is required and it is a statement about the report, not
+about the round: *no paste-ready fix in the report*. A tool cannot tell a
+round that needed none from a reviewer who wrote none, and beside an open
+finding in the verdict table above, that sentence is the gap written down.
 
 ### tests-todo.md — regression tests prescribed, not written
 
