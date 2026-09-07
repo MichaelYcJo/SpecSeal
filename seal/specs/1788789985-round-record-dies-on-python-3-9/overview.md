@@ -26,13 +26,13 @@ and what they are running.
 |---|---|
 | The full suite, the repository-wide `ruff check`, and the typecheck. `agent-contract` §2 reserves the broad gate for the orchestrator, run once after the rounds settle. What was run instead: the new module and `tests/test_the_record_is_generated.py` together, 105 passed | the orchestrator |
 | Any behaviour on an interpreter older than 3.9.6, which is the oldest one this machine had. The guard is deliberately written with no walrus and no f-string so that it parses much further back, and that is a design intent rather than a measured fact | the repository owner, if a report ever arrives from below 3.9 |
-| The four deferred members of the class are **classified, not fixed**: `.github/scripts/gather_changelog.py:151`, `.github/scripts/fold_ledger.py:358`, `skills/implement/scripts/seal.py:324,436`, `hooks/root-migrate.py:425`. The construct in each was read, not run below the floor | the repository owner, via the row in `seal/follow-up.md` |
-| Whether a 3.10+ construct nobody has thought of is present. The suite's class check matches two constructs by text, and the `python3 -m py_compile` sweep that covers syntax was run once by hand rather than wired in | the repository owner |
+| The five deferred members of the class are **classified, not fixed**: `.github/scripts/gather_changelog.py:151`, `.github/scripts/fold_ledger.py:358`, `skills/implement/scripts/seal.py:324,436`, `hooks/root-migrate.py:425`, `skills/verify/scripts/session_cost.py:89`. The construct in the first four was read, not run below the floor; the fifth was run and exits 1 with a bare traceback on 3.9.6 | the repository owner, via the row in `seal/follow-up.md` |
+| Whether a 3.10+ construct nobody has thought of is present. The suite's class check matches two constructs by text, and the `python3 -m py_compile` sweep that covers syntax was run once by hand rather than wired in. **This has now cost two members**, both an instance the pattern could not reach; the two spellings it still cannot see are named in `spec.md` §*The class, enumerated by construction*, and closing them is an AST walk rather than a third widening | the repository owner |
 
 ## Not done
 
-**The four other members of the class were not fixed**, and the scope was drawn
-that way in the handoff rather than by me: two of the five files are held by
+**The five other members of the class were not fixed**, and the scope was drawn
+that way in the handoff rather than by me: two of the six files are held by
 other work items in this same release, and a conflict in them costs a second
 run of the broad gate. The fix for each is the same fifteen lines, and
 `spec.md` §*The guard is a block, not a shared helper* names
@@ -42,7 +42,7 @@ copy so that a third wording does not appear.
 **No shared helper module was written.** Every candidate location for one is
 further from `skills/code-review/scripts/` than `chain_check.py` is, and an
 import is the fragility the whole design is arguing against. The cost of that
-choice, stated: the sentence will exist in five files when the deferrals are
+choice, stated: the sentence will exist in six files when the deferrals are
 taken, and only one test currently reads it. A file adopting the block should
 join that pin rather than write its own wording.
 

@@ -44,16 +44,22 @@
   `test_release_hygiene.py` reads `ruff.toml`, the runner's own suite reads
   `run_tests.py`, and nothing read both.
 
-  **The class was enumerated by construction and four members were deferred,
-  each with an answerer.** Twenty-five entry points ship; five carry a
+  **The class was enumerated by construction and five members were deferred,
+  each with an answerer.** Twenty-five entry points ship; six carry a
   construct newer than the floor. `.github/scripts/gather_changelog.py`,
-  `.github/scripts/fold_ledger.py` and `skills/implement/scripts/seal.py` use
-  `datetime.UTC` (3.11) and `hooks/root-migrate.py` uses `zip(strict=)` —
-  three of them named after a literal `python3 ` in the release checklist, and
-  the fourth invoked by the harness. A new case re-runs that enumeration on
-  every suite run, so a sixth cannot arrive as a traceback on a stranger's
+  `.github/scripts/fold_ledger.py`, `skills/implement/scripts/seal.py` and
+  `skills/verify/scripts/session_cost.py` use `datetime.UTC` (3.11) and
+  `hooks/root-migrate.py` uses `zip(strict=)` — three of them named after a
+  literal `python3 ` in the release checklist, one invoked by the harness, and
+  one that ends a run report. A new case re-runs that enumeration on every
+  suite run, so a seventh cannot arrive as a traceback on a stranger's
   machine.
 
-  The scan's own first spelling was wrong and the record says so:
-  `zip\([^)]*strict=` hid the site at `:935`, where an inner call closes a
-  parenthesis before the keyword is reached — three of four sites answered.
+  The scan's own spelling was wrong twice and the record says so, because it
+  is the same failure both times — an instance the pattern could not reach.
+  `zip\([^)]*strict=` hid the site in `round_record.py#inherited_rows`, where
+  an inner call closes a parenthesis before the keyword is reached; and
+  `datetime\.UTC` hid `session_cost.py`, which spells the module
+  `import datetime as dt`. Review round 1 found the second by re-deriving the
+  class from the AST rather than from the table, which is what an enumeration
+  is for.

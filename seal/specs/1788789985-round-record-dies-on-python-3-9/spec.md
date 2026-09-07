@@ -24,8 +24,8 @@ enumeration of every other member of the class, recorded with an answerer.
 
 **Out, and each for a stated reason.**
 
-- **The four `strict=True` sites stay exactly as they are.** The comment at
-  `round_record.py:761-766` says what the first one states: both of the
+- **The four `strict=True` sites stay exactly as they are.** The comment above
+  the first of them, in `round_record.py#swallowed`, says what it states: both of the
   reader's passes keep indices intact, so the two reads are the same file line
   for line, and a length that differed would truncate the hidden set — which is
   the guard reporting clean because it read less. Removing it to buy 3.9
@@ -37,7 +37,7 @@ enumeration of every other member of the class, recorded with an answerer.
   `seal.py` is a member of the class (`datetime.UTC`, 3.11) and goes to
   `seal/follow-up.md` instead.
 - **The other members are not fixed here.** They are enumerated, measured and
-  deferred with an answerer named. Fixing them would put four more files into a
+  deferred with an answerer named. Fixing them would put five more files into a
   diff two other branches are already touching.
 - **`round_record.py:982`'s `removesuffix`** is 3.9 and is not part of this.
 
@@ -65,32 +65,51 @@ them a walk through the tree looking for problems:
    and a guard placed after the imports is always reached. Runtime API by a
    scan for the names 3.10, 3.11 and 3.12 added.
 
-**The scan's own first spelling was wrong, and that is worth recording.** The
-pattern `zip\([^)]*strict=` hid `round_record.py:935`, where an inner
-`verdict_words(reader, rows)` closes a parenthesis before `strict=` is reached.
-Three of four sites answered; the fourth did not. `zip\(.*strict=` finds all
-four. A class enumerated with a pattern that cannot match every instance is a
-class enumerated by reading, wearing a command's clothes.
+**The scan's own spelling has been wrong twice, and that is the part worth
+recording.** Both times it was an instance the pattern could not reach, and
+both times the class was one member larger than the enumeration said.
+
+1. `zip\([^)]*strict=` hid the site in `round_record.py#inherited_rows`, where
+   an inner `verdict_words(reader, rows)` closes a parenthesis before `strict=`
+   is reached. Three of four sites answered; the fourth did not.
+   `zip\(.*strict=` finds all four, at any depth of nesting on one line.
+2. `datetime\.UTC` hid `skills/verify/scripts/session_cost.py`, which spells
+   the module `import datetime as dt` and writes `dt.UTC`. Found by review
+   round 1, which re-derived the class from the AST instead of from this
+   table. `\b\w+\.UTC\b` matches whatever the module was named.
+
+A class enumerated with a pattern that cannot match every instance is a class
+enumerated by reading, wearing a command's clothes.
+
+**What the pattern still cannot see, stated rather than left to a third
+round**: a `zip(` whose `strict=` is on a later line, and `from datetime
+import UTC` used bare. Neither is in the tree — measured, not assumed. A third
+widening would move the blind spot a third time, so the honest next step is
+the AST walk the ledger fragment's R3 names, and that is a change to a gate
+rather than a line in this work item.
 
 | # | File | What it does below the floor | Needs | Invoked with | Verdict |
 |---|---|---|---|---|---|
-| 1 | `skills/code-review/scripts/round_record.py` `:767 :935 :1587 :1591` | `zip(..., strict=True)` → `TypeError: zip() takes no keyword arguments`, after the report has been read | 3.10 | the orchestrator's `python3` | **fixed here** |
+| 1 | `skills/code-review/scripts/round_record.py` `#swallowed`, `#inherited_rows`, `#signature` (two sites) | `zip(..., strict=True)` → `TypeError: zip() takes no keyword arguments`, after the report has been read | 3.10 | the orchestrator's `python3` | **fixed here** |
 | 2 | `.github/scripts/gather_changelog.py:151` | `datetime.UTC` → `AttributeError`, at the moment it writes the dated heading | 3.11 | a person, at a release — `CONTRIBUTING.md:128,130`, `docs/release-checklist.md:39,46,64`, `docs/branch-and-release.md:163` | deferred, `seal/follow-up.md` |
 | 3 | `.github/scripts/fold_ledger.py:358` | `datetime.UTC` → `AttributeError`, same moment | 3.11 | a person, at a release — `CONTRIBUTING.md:129,131`, `docs/release-checklist.md:40,47,65`, `docs/branch-and-release.md:184` | deferred, `seal/follow-up.md` |
 | 4 | `skills/implement/scripts/seal.py:324,436` | `datetime.UTC` → `AttributeError`, on `seal export` and on `seal mode` | 3.11 | a person, and `.github/workflows/hygiene.yml:170` | deferred — another branch holds the file |
 | 5 | `hooks/root-migrate.py:425` | `zip(..., strict=True)` → `TypeError`, while migrating a 0.3.x layout | 3.10 | the harness, `hooks/hooks.json` session-start | deferred, `seal/follow-up.md` |
-| 6 | `skills/code-review/scripts/chain_check.py` | nothing — no 3.10+ construct. Its `strict=True` at `:2737` is a parameter default, not `zip`'s keyword | — | a person, `docs/release-checklist.md:71` | left alone |
-| 7 | `skills/evidence-check/scripts/evidence_check.py` | nothing found | — | a person, `CONTRIBUTING.md:15` | left alone |
-| 8 | `skills/verify/scripts/unverified_check.py` | nothing found | — | a person, `docs/release-checklist.md:69` | left alone |
-| 9 | `skills/verify/scripts/deferral_check.py`, `session_cost.py` | nothing found | — | a person | left alone |
-| 10 | the other eleven `hooks/*.py` | nothing found | — | the harness | left alone |
-| 11 | `.github/scripts/close_issues_on_release.py`, `roll_flow_measurement_issue.py`, `run_tests.py` | not measured against the floor | — | CI pins it; `run_tests.py` IS the floor | out of the class |
+| 6 | `skills/verify/scripts/session_cost.py:89` | `dt.UTC` → `AttributeError`, when a transcript carries a zone-less timestamp. **Missed by this table's first pass**: the construct is `datetime.UTC` behind `import datetime as dt`, and the scan matched the literal spelling only. Executed on 3.9.6, end to end: exit 1 with a bare traceback | 3.11 | a person, ending a run — `docs/review-handoff-protocol.md` §*After a run* | deferred, `seal/follow-up.md` |
+| 7 | `skills/code-review/scripts/chain_check.py` | nothing — no 3.10+ construct. Its `strict=True` at `:2737` is a parameter default, not `zip`'s keyword | — | a person, `docs/release-checklist.md:71` | left alone |
+| 8 | `skills/evidence-check/scripts/evidence_check.py` | nothing found | — | a person, `CONTRIBUTING.md:15` | left alone |
+| 9 | `skills/verify/scripts/unverified_check.py` | nothing found | — | a person, `docs/release-checklist.md:69` | left alone |
+| 10 | `skills/verify/scripts/deferral_check.py` | nothing found | — | a person | left alone |
+| 11 | the other eleven `hooks/*.py` | nothing found | — | the harness | left alone |
+| 12 | `.github/scripts/close_issues_on_release.py`, `roll_flow_measurement_issue.py`, `run_tests.py` | not measured against the floor | — | CI pins it; `run_tests.py` IS the floor | out of the class |
 
-**Rows 6 to 11 are here on purpose.** A table listing only the offenders is a
+**Rows 7 to 12 are here on purpose.** A table listing only the offenders is a
 list of findings; a table with the rest in it is an enumeration, and it is what
-the next round can check rather than repeat.
+the next round can check rather than repeat. Row 6 is what that is worth: it
+sat among these as *nothing found* for a whole build, and the round that
+checked the table instead of repeating it is what moved it up.
 
-**Count: 25 entry points, 5 members that break, 1 fixed, 4 deferred.**
+**Count: 25 entry points, 6 members that break, 1 fixed, 5 deferred.**
 
 ## Where the floor number lives, and why it is not imported
 
