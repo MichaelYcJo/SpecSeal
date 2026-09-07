@@ -210,6 +210,23 @@ def test_the_sentence_says_nothing_was_read_or_written():
     )
 
 
+def test_the_refusal_is_ascii_because_it_is_written_before_stderr_is_set_up():
+    """The one sentence that cannot rely on stderr being set up is this one.
+
+    The guard writes it at module level, and `__main__`'s
+    `reconfigure(errors="backslashreplace")` block is at the bottom of the
+    file -- so the refusal goes out under whatever encoding the machine had.
+    Under `PYTHONIOENCODING=ascii` a `§` reached the operator as `\\xa7`, in
+    the message written for the worst-configured machine, and this block is
+    documented as the one to copy into a hook whose stderr nobody watches."""
+    sentence = generator().below_floor((3, 9, 6), "/usr/bin/python3")
+    stowaways = sorted({c for c in sentence if not c.isascii()})
+    assert not stowaways, (
+        f"the refusal carries {stowaways}, which prints as an escape under an "
+        "ASCII stderr -- and it is written before anything reconfigures one"
+    )
+
+
 def test_the_floor_and_above_are_let_through():
     """The boundary, and one above it. A floor that refuses itself would take
     the whole repository down at the next release."""

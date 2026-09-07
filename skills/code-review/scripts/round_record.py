@@ -98,7 +98,14 @@ it does not parse, and the honest starting values of the cells it does.
 
 Exit codes: 0 and 1 are `chain_check`'s own, after the record is written ·
 2 the input was unusable, or the interpreter is below the floor — either way
-nothing was read and nothing was written.
+nothing was read and nothing was written · a sibling script that will not
+load is 1, before anything is read.
+
+Those are all three exits, enumerated from this module's own AST rather than
+remembered: `SystemExit(2)` at the guard, `SystemExit(<sentence>)` in `load`,
+and `sys.exit(main())` at the bottom. `SystemExit` carrying a string exits 1
+— only an int argument sets the code — so `load` is 1 either way, and this
+paragraph said 2 until #226's review round asked what actually happens.
 """
 
 import argparse
@@ -155,7 +162,7 @@ BELOW_FLOOR = (
     "Nothing was read and nothing was written.\n"
     "`python3` is not always the newest interpreter installed -- macOS ships "
     "python 3.9 under that name -- so name one explicitly, `python{floor} "
-    "<this script> ...`, or see CONTRIBUTING.md §Running the checks."
+    "<this script> ...`, or see CONTRIBUTING.md section 'Running the checks'."
 )
 
 
@@ -187,8 +194,33 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CHAIN = os.path.join(HERE, "chain_check.py")
 
 
+# RIDER: this function's refusal is the shape #226 fixed one file over, and
+# it is still the old shape here. A missing `chain_check.py` reaches
+# `exec_module` and raises `FileNotFoundError` -- a bare traceback, exit 1 --
+# because `spec_from_file_location` hands back a spec for any path ending in
+# `.py`, present or not, so the `SystemExit` sentence below is unreachable
+# from this call site. Whoever next opens this function: make the missing
+# case a sentence naming `path` and what to do, the way `below_floor` does,
+# and give it the same exit code the docstring promises. Measured, not read:
+# the real script with `chain_check.py` deleted exits 1 with a traceback.
+# Verified 2026-09-08 at cedc58e.
 def load(path, name):
-    """Import a sibling script by path, or die — a missing checker is exit 2."""
+    """Import a sibling script by path, or die — either way exit 1.
+
+    This said `exit 2`, and 2 is the one code this module documents as meaning
+    nothing was read and nothing was written. Both ways out are 1: a
+    `SystemExit` carrying a string prints it and exits 1, since only an int
+    argument sets the code.
+
+    Which way out a missing checker takes is not the one the sentence below
+    suggests, and it was measured rather than read. `spec_from_file_location`
+    returns a spec for a path ending in `.py` whether or not the file is
+    there, so `CHAIN` missing reaches `exec_module` and raises
+    `FileNotFoundError` — an uncaught traceback, exit 1. The `SystemExit`
+    branch fires only for a path with no loader at all, a directory or an
+    unrecognised suffix, which a literal `chain_check.py` cannot be. So a
+    missing sibling still arrives as the bare traceback #226 is about, one
+    file over. The rider above says what that would take."""
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
         raise SystemExit(f"round-record: cannot load {path}")
