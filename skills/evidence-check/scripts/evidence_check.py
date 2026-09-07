@@ -86,6 +86,25 @@ URL_HOST_RE = re.compile(r"(?://|\bhttps?:)[^\s)\]<>\"']*$")
 # this is a claim about the whole function, and the row should drop the claim
 # anchor and locate alone rather than pretend to a narrower subject.
 CLAIM_CAP = 12
+# Directories no walk in this file descends. Build output and caches hold
+# copies of names that were deleted from the tree -- a `__pycache__` carries
+# the module's own identifiers in its constants pool -- so a walk that reads
+# them answers "the tree still has this name" for a name the tree lost. `.git`
+# is excluded for the same reason and one more: it is where every deleted
+# version of every file lives.
+SKIP_DIRS = frozenset(
+    {
+        ".git",
+        "__pycache__",
+        ".venv",
+        "venv",
+        "node_modules",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".tox",
+    }
+)
 
 
 def normalise(lines):
@@ -1638,6 +1657,84 @@ def reverify(ledgers, root, maps, default_repo=None):
     for path in unreadable:
         print(f"  LEFT  {path}  ledger unreadable")
     return 1 if unreadable else 0
+
+
+# --- the records arm: what a work item's records state about the tree -------
+#
+# A ledger row is a claim about the tree that something reads. A RECORD --
+# `spec.md`, `plan.md`, `overview.md`, `rounds/round-N.md`, `phases/phase-N.md`
+# -- states the same kind of thing and nothing reads it (#190). It names a
+# unit, or stamps one, and the next commit moves what it named. The class was
+# closed three times on one work item by grepping for the carriers, and came
+# back each time, because a grep is not a reader.
+#
+# This is the reader. It answers the ledger's own question -- does this still
+# point at what it claims -- over the records of work items that have not
+# shipped yet.
+
+SPECS_DIR = "specs"
+FRAGMENT_DIR = "ledger"
+
+
+def unshipped(home):
+    """The work items under `<home>/specs/` whose records are still live.
+
+    **A work item whose `<home>/ledger/<id>.md` fragment still exists has not
+    shipped.** The fold is what removes it: `fold_ledger.py` moves a work
+    item's rows into the gathered ledger at the release and deletes the
+    fragment, so the fragment's presence already IS the boundary and there is
+    no second piece of state to keep true.
+
+    The boundary is the whole of why this arm can exist at all. Measured over
+    this repository at `a6b6b17`: 129 backticked identifiers in the records of
+    work items that HAVE shipped name nothing in the tree, and every one of
+    them is history -- a plan from 0.4.0 proposing a helper that was built
+    under another name is a correct record of what was decided then. A check
+    that refused those would be refusing the past, which is the mistake #179's
+    branch turned down twice; a check with no boundary at all would have to
+    refuse them.
+
+    Returns `{id: the work item's directory}`, in id order. An id with no
+    directory under `specs/` is not returned: a fragment can outlive its
+    records in a tree where the records were carried out (`seal export`), and
+    an arm that reads records has nothing to say about a work item that has
+    none here.
+    """
+    fragments = os.path.join(home, FRAGMENT_DIR)
+    specs = os.path.join(home, SPECS_DIR)
+    try:
+        names = os.listdir(fragments)
+    except OSError:
+        return {}
+    live = {}
+    for name in sorted(names):
+        if not name.endswith(".md"):
+            continue
+        if not os.path.isfile(os.path.join(fragments, name)):
+            continue
+        item = name[: -len(".md")]
+        directory = os.path.join(specs, item)
+        if os.path.isdir(directory):
+            live[item] = directory
+    return live
+
+
+def record_files(directory):
+    """Every `.md` under one work item's directory, in path order.
+
+    The whole SDD set and not the round records alone. #190's own three
+    instances landed in a `plan.md`, an `overview.md` and a ledger row, and
+    the two records a reviewer opens next are `rounds/round-N.md` and
+    `phases/phase-N.md`. Nothing here is specific to the review chain, so
+    nothing here reads a file name to decide.
+    """
+    found = []
+    for dirpath, dirnames, filenames in os.walk(directory):
+        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
+        for name in sorted(filenames):
+            if name.endswith(".md"):
+                found.append(os.path.join(dirpath, name))
+    return found
 
 
 def main():
