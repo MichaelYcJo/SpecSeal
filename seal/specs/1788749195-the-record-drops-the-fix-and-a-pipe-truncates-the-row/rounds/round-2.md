@@ -7,12 +7,12 @@
 | PR | 208 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | test_the_guard_falls_back_to_the_raw_text_without_the_reader → no call site found |
+| New units | HIDDEN_CLOSING_WORD (depth 1); test_a_closing_word_a_reader_blanks_is_not_a_closing_note (depth 1); test_a_paste_ready_fence_carrying_a_table_is_not_read_as_hidden_rows (depth 1) |
 | Needs a fix | yes — 🟡 1, the hook's comment arm is pinned by no case and named by no sentence |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -56,10 +56,10 @@ The first axis is where the finding came from — the third instance was there.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | 🟡 the reader's comment arm is observed by no case and named by no sentence — swapping `readable` for `blank_fences` leaves all 24 cases green, while that arm is what flips two of the 126 committed records | `hooks/review-history-guard.py:130` | open | executed: `is_closed` at base and HEAD over all 126 committed records, 3 flip and 2 on a header comment; the mutation left the module at 24 passed |
-| 2 | ⬜ the changelog fragment and ledger R5 describe the fence half only, and the changelog ships to users | `seal/specs/1788749195-the-record-drops-the-fix-and-a-pipe-truncates-the-row/changelog.md:57` | open | read; the same understatement as finding 1, in the two carriers a person meets |
-| 3 | ⬜ `overview.md` still names the render question unanswered and owed to the orchestrator, where round 1's record has it answered and executed | `seal/specs/1788749195-the-record-drops-the-fix-and-a-pipe-truncates-the-row/overview.md:24` | open | read at `5d27001`, where both files stand |
-| 4 | ⬜ `chain_module` is a one-line alias for `check_module`, one call site against eight | `tests/test_the_record_is_generated.py:64` | open | read |
+| 1 | 🟡 the reader's comment arm is observed by no case and named by no sentence — swapping `readable` for `blank_fences` leaves all 24 cases green, while that arm is what flips two of the 126 committed records | `hooks/review-history-guard.py:130` | **fixed** `c19766f` | fixed at c19766f — `` — and the number is corrected: **three of three** flipped records turn on the comment arm, not two, and the **fence arm flips none**. So the arm every sentence named moves no committed record and the arm nothing watched moves all of them. The case is written over the reader's passes as a parametrised class rather than over the one arm, because this is the third time the same inference — true of a required section, applied to an optional one — has produced a finding; executed: `is_closed` at base and HEAD over all 126 committed records, 3 flip and 2 on a header comment; the mutation left the module at 24 passed |
+| 2 | ⬜ the changelog fragment and ledger R5 describe the fence half only, and the changelog ships to users | `seal/specs/1788749195-the-record-drops-the-fix-and-a-pipe-truncates-the-row/changelog.md:57` | **fixed** `c19766f` | fixed at c19766f — `` — the docstring, the changelog fragment and ledger R5 each name both arms and say which one moves real records; read; the same understatement as finding 1, in the two carriers a person meets |
+| 3 | ⬜ `overview.md` still names the render question unanswered and owed to the orchestrator, where round 1's record has it answered and executed | `seal/specs/1788749195-the-record-drops-the-fix-and-a-pipe-truncates-the-row/overview.md:24` | **fixed** `c19766f` | fixed at c19766f — `` — `overview.md`'s render row is marked answered with what closed it rather than deleted, so the row count a check reads does not move in the same edit that verifies it; read at `5d27001`, where both files stand |
+| 4 | ⬜ `chain_module` is a one-line alias for `check_module`, one call site against eight | `tests/test_the_record_is_generated.py:64` | **fixed** `c19766f` | fixed at c19766f — `` — `chain_module` deleted, its one call site on `check_module`, and the absence asserted; read |
 | 5 | ✅ round 1's 🔴 1 — a comment pipe loses a column | `skills/code-review/scripts/round_record.py:398` | answered | executed: dropping `comments=True` from `raw_cells` turns 4 cases red; 0 rows in the corpus collapse below the reader's own split |
 | 6 | ✅ round 1's 🟡 2 — span pipe plus bare pipe lands the Location in the Verdict cell | `skills/code-review/scripts/round_record.py:461` | answered | executed: dropping the cap turns its own case red; dropping `spans=True` turns 3 red |
 | 7 | ✅ round 1's 🟡 3 — the swallow guard refused over an optional section | `skills/code-review/scripts/round_record.py:770` | answered | executed: widening back to `READ_HEADINGS` turns the new optional case red; the trade is stated in the constant, the docstring and R4 |
