@@ -403,6 +403,13 @@ def manifest_of(repo, mode, files):
     one that can clear the failure by running it again — so an export that
     said nothing left the diagnosis on the machine that cannot act on it.
 
+    They come back KEYED BY FIELD, because only `remote` is refused on
+    arrival. A caller handed a flat list has to match on the sentences to
+    tell which field went unread, and the first cut of this did not try:
+    it printed *the other machine takes in without a flag* for an export
+    that had read the remote and only missed the HEAD SHA, promising a fix
+    for a refusal that was never going to happen.
+
     The format number does not move for this. No field was renamed or
     repurposed, and format 1's only reader of these two already goes through
     `manifest.get`.
@@ -415,12 +422,12 @@ def manifest_of(repo, mode, files):
         ),
         "items": work_item_digests(files),
     }
-    unread = []
+    unread = {}
     url, why = remote_url(repo)
     if url is not None:
         manifest["remote"] = url
     else:
-        unread.append(f"the remote was left out — {why}")
+        unread["remote"] = f"the remote was left out — {why}"
     # `is not None`, the same test as the line above. `if head` behaves
     # identically today — `head_sha`'s docstring argues there is no empty
     # answer — but it is the spelling that would silently drop a legitimate
@@ -430,7 +437,7 @@ def manifest_of(repo, mode, files):
     if head is not None:
         manifest["head"] = head
     else:
-        unread.append(f"the HEAD SHA was left out — {head_why}")
+        unread["head"] = f"the HEAD SHA was left out — {head_why}"
     return manifest, unread
 
 
@@ -584,14 +591,19 @@ def export(args, cwd):
         print(
             f"  skipped the symbolic link {optin.HOME}/{rel} — links are not followed"
         )
-    for line in unread:
+    for line in unread.values():
         print(f"  {line}")
-    if unread:
+    if "remote" in unread:
         # Named here because this is the machine that can fix it. `seal
         # import` refuses a zip recording no remote, and re-running the
         # import there cannot change what these bytes say — so an export that
         # exits 0 in silence leaves the diagnosis with the person who has no
         # way to act on it.
+        #
+        # `remote` alone, because `remote` alone is refused on arrival. A
+        # missing `head` costs the importing machine one line of its closing
+        # summary and no flag, so promising this for it names a refusal that
+        # never comes.
         print(
             "  Running this again once git answers writes a zip the other "
             "machine takes in without a flag."
@@ -1079,7 +1091,8 @@ def import_(args, cwd):
         unreadable = []
         if mine is None:
             unreadable.append(f"this clone's remote could not be read: {why}")
-        if not isinstance(theirs, str):
+        the_zip_is_silent = not isinstance(theirs, str)
+        if the_zip_is_silent:
             # The TYPE, not the presence. Absent is the export's word for *I
             # could not read it*, and so is `null` — which is what any JSON
             # writer produces from the `None` this file's own `remote_url`
@@ -1112,17 +1125,24 @@ def import_(args, cwd):
             # export has to happen again on the machine that wrote it. One
             # line for both sent a person into a re-run loop that can never
             # end.
-            if mine is None:
-                print(
-                    "Run this again if the failure here was transient, or "
-                    "pass --allow-unreadable-remote to import without the "
-                    "check."
-                )
-            else:
+            #
+            # The ZIP's silence decides, not this clone's, and the two can be
+            # silent at once. A first cut branched on `mine is None`, which
+            # sent exactly the both-silent case back to the re-run advice —
+            # this ticket's own defect, re-entered at a narrower coordinate
+            # by the fix for it. Re-running here cannot clear the zip side no
+            # matter what this clone's git does next, so that side wins.
+            if the_zip_is_silent:
                 print(
                     "Re-running this cannot change what the zip records — "
                     "export again on the machine that wrote it, or pass "
                     "--allow-unreadable-remote to import without the check."
+                )
+            else:
+                print(
+                    "Run this again if the failure here was transient, or "
+                    "pass --allow-unreadable-remote to import without the "
+                    "check."
                 )
             return 1
 

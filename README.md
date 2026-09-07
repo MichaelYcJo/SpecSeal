@@ -538,7 +538,9 @@ to do next. A git that failed *here* may answer on the next run, so running
 the import again is the first thing to try. A zip that records no remote
 reads the same every time, and no re-run there can change it — that one is
 exported again on the machine that wrote it, which is also the machine whose
-export said which field it had to leave out.
+export said which field it had to leave out. When both went silent at once
+the zip decides, because no re-run here clears that side whatever this
+clone's git answers next.
 
 Those all stop before the first byte. One failure cannot: if a directory in
 the root cannot be written into, or the disk fills, the copy stops part-way

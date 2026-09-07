@@ -499,13 +499,24 @@ def test_the_export_omits_a_head_it_could_not_read(
 ):
     """S9's other side. The unborn-branch case above reaches this through git's
     own exit code; this one reaches it through a timeout, which is the failure
-    the return-code check cannot see."""
+    the return-code check cannot see.
+
+    It also holds the line the export must NOT print here. Only a missing
+    `remote` is refused on arrival, so *the other machine takes in without a
+    flag* names a refusal that was never coming when the remote was read and
+    only the SHA was not. The first cut of the export's new output keyed that
+    sentence on either field, and printed it for exactly this case.
+    """
     git_cannot_answer(monkeypatch, seal, REV_PARSE_HEAD, timed_out)
     code, out = run(seal, ["export"], repo, capsys)
     assert code == 0, out
     manifest = json.loads(zipfile.ZipFile(only_zip(repo.parent)).read("manifest.json"))
     assert "head" not in manifest, manifest
     assert manifest["remote"] == "git@example.com:org/thing.git", manifest
+    assert "the HEAD SHA was left out" in out, out
+    assert "without a flag" not in out, (
+        "a missing head is not what the importing machine's flag is for"
+    )
 
 
 def asked_once_then_fails(monkeypatch, seal, question):
@@ -665,13 +676,21 @@ def test_the_advice_names_the_machine_that_can_fix_it(
     succeed. When the ZIP is the silent side, the bytes on disk say the same
     thing on every run there is, so a re-run here is a loop that can never
     end — the export has to happen again on the other machine.
+
+    **All three combinations, because two of them are the zip.** The first
+    cut of this fix branched on `mine is None`, which is right for one silent
+    side each and wrong for the pair: both silent sent the person back to the
+    re-run advice, which is this ticket's own defect re-entered at a narrower
+    coordinate by the fix for it. The zip's silence decides, because no
+    re-run here clears it whatever this clone's git does next.
     """
-    _zip_path, other, _home = carried
+    zip_path, other, _home = carried
     silent = other.parent / "no-remote.zip"
     with zipfile.ZipFile(silent, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("manifest.json", json.dumps({"format": 1}))
         archive.writestr("seal/ledger/1788000000-a-work-item.md", "# rows\n")
 
+    # Only the zip is silent.
     code, out = run(seal, ["import", str(silent)], other, capsys)
     assert code == 1, out
     assert "Run this again" not in out, (
@@ -679,12 +698,19 @@ def test_the_advice_names_the_machine_that_can_fix_it(
     )
     assert "export again on the machine that wrote it" in out, out
 
-    # The other side of the pair, so the split is pinned in both directions
-    # rather than only in the one that changed.
+    # Only this clone is silent — the zip carries a remote it could read.
     git_cannot_answer(monkeypatch, seal, CONFIG_GET_REMOTE, timed_out)
-    code, out = run(seal, ["import", str(silent)], other, capsys)
+    code, out = run(seal, ["import", str(zip_path)], other, capsys)
     assert code == 1, out
     assert "Run this again if the failure here was transient" in out, out
+
+    # Both, with the same injection still in force. The zip wins.
+    code, out = run(seal, ["import", str(silent)], other, capsys)
+    assert code == 1, out
+    assert "Run this again" not in out, (
+        "both sides silent, and the person is sent to the side that cannot change"
+    )
+    assert "export again on the machine that wrote it" in out, out
 
 
 def test_the_export_says_what_it_could_not_read(seal, repo, local, monkeypatch, capsys):
