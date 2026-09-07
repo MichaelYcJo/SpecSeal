@@ -6,13 +6,13 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 233 |
 | Broad gate | passed at e82ef31 + the marker commit, after `release/v0.9.1` was merged in — 2561 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0 |
-| Fixes checked by | nobody — the run is capped and no round follows; both corrections were applied by the orchestrator in the closing commit |
+| Fixes checked by | round-4 |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | yes — finding 1 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
