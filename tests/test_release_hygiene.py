@@ -126,8 +126,15 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
 
 
 def as_release(token):
-    """`v0.9.0` and `0.9.0` alike -> `(0, 9, 0)`, which compares."""
-    return tuple(int(n) for n in token.lstrip("v").split("."))
+    """`V0.9.0`, `v0.9.0` and `0.9.0` alike -> `(0, 9, 0)`, which compares.
+
+    Both cases of the prefix, because `VERSION_TOKEN` produces both and
+    `match.group(0)` — the spelling the refusal prints and the exemption is
+    keyed on — carries whichever the author wrote. This used to strip a
+    lowercase `v` only and raised `ValueError` on `V0.9.0`, a token its own
+    module makes (review round 4).
+    """
+    return tuple(int(n) for n in token.lstrip("vV").split("."))
 
 
 # A `/` entry covers only files whose OWN NAME carries the date its argument
@@ -451,6 +458,45 @@ def test_a_version_at_or_above_the_running_one_is_refused():
         (3, "v0.9.0"),
         (4, "0.8.3"),
     ]
+
+
+def test_as_release_reads_every_spelling_the_token_regex_produces():
+    """A producer and its consumer have to agree on the alphabet.
+
+    `[vV]?` made `V0.9.0` a token the module hands around — `timers_in`
+    appends `match.group(0)`, which is what the refusal prints and what
+    `VERSIONS_OF_ANOTHER_PRODUCT` is matched on. `as_release` stripped a
+    lowercase `v` only, so it raised `ValueError` on a spelling its own
+    module produces (review round 4).
+
+    No live path reached it, because `timers_in` calls `as_release` on
+    `group(1)` and on the running version, both bare. That is why this is a
+    case rather than a crash: what was wrong is that a widening stopped at
+    the producer, and the docstring of a ledger-anchored unit claimed less
+    than the module made.
+    """
+    assert as_release("V0.9.0") == (0, 9, 0)
+    assert as_release("v0.9.0") == (0, 9, 0)
+    assert as_release("0.9.0") == (0, 9, 0)
+    # Every prefix the regex ACCEPTS, discovered by trying the whole alphabet
+    # rather than by listing the two it takes today. A list would have to be
+    # widened by hand alongside the pattern, which is the failure this case
+    # exists for: the prefix was widened and its reader was not.
+    letters = [chr(c) for c in range(ord("a"), ord("z") + 1)]
+    letters += [chr(c) for c in range(ord("A"), ord("Z") + 1)]
+    accepted = []
+    for prefix in [*letters, ""]:
+        for match in VERSION_TOKEN.finditer(f"cut {prefix}0.9.0 today"):
+            accepted.append(match.group(0))
+            assert as_release(match.group(0)) == (0, 9, 0), (
+                f"`as_release` cannot read {match.group(0)!r}, which "
+                "`VERSION_TOKEN` produces and the refusal prints"
+            )
+    assert sorted(accepted) == ["0.9.0", "V0.9.0", "v0.9.0"], (
+        f"the prefixes the regex accepts changed to {sorted(accepted)} — "
+        "`as_release`, the refusal and `VERSIONS_OF_ANOTHER_PRODUCT` are all "
+        "keyed on this spelling, so the change is theirs too"
+    )
 
 
 def test_a_two_digit_component_compares_as_a_number():
