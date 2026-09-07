@@ -5,7 +5,7 @@
 | Target SHA | 73ab600 |
 | Ran by | warden on claude-opus-5 |
 | PR | 233 |
-| Broad gate | passed at e82ef31 — 2561 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0. The three records written after it change no code |
+| Broad gate | passed after `release/v0.9.1` was merged in — 2573 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
