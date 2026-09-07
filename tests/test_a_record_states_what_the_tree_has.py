@@ -161,9 +161,228 @@ def test_the_walk_does_not_descend_into_a_cache(tmp_path):
     assert found == ["spec.md"]
 
 
-def test_the_cli_still_runs_with_the_boundary_in_place(tmp_path):
-    """The arm is wired in later; nothing about phase 1 changes the CLI."""
+def test_a_repository_with_no_records_reads_as_nothing_to_check(tmp_path):
     (tmp_path / "seal").mkdir()
     r = run(["."], tmp_path)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "no evidence ledgers found" in r.stdout
+
+
+# --- the identifier arm: a name the tree does not have ----------------------
+
+
+def tree(tmp_path, **files):
+    """Files outside `seal/`, which is what the name corpus is built from."""
+    for name, text in files.items():
+        path = tmp_path / name.replace("__", "/")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+
+def refusals(tmp_path):
+    findings, read = module().check_records(str(tmp_path), str(tmp_path / "seal"))
+    return [(status, coord, detail) for status, coord, detail in findings], read
+
+
+def test_a_live_record_naming_a_unit_the_tree_lacks_is_refused(tmp_path):
+    h = home(tmp_path)
+    tree(tmp_path, **{"mod.py": "def kept_helper():\n    return 1\n"})
+    work_item(
+        h,
+        "1780000000-live",
+        **{"rounds__round-2.md": "# r\n\nthe alias `gone_helper` has one call site\n"},
+    )
+    found, read = refusals(tmp_path)
+    assert read == 1
+    assert len(found) == 1
+    status, coord, detail = found[0]
+    assert status == "NOT-IN-TREE"
+    assert coord.endswith("rounds/round-2.md:3")
+    assert "`gone_helper`" in detail
+
+
+def test_the_refusal_names_the_file_the_line_and_the_name(tmp_path):
+    """All three, because a class is enumerated from a coordinate.
+
+    A refusal that named the file alone would send the reader through a
+    record looking for which of its backticks moved.
+    """
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\n\n\nphase 2 builds `gone_helper` here\n"},
+    )
+    found, _ = refusals(tmp_path)
+    coord, detail = found[0][1], found[0][2]
+    assert coord.replace(os.sep, "/").endswith("1780000000-live/plan.md:5")
+    assert "`gone_helper`" in detail
+
+
+def test_a_shipped_work_items_record_is_left_alone(tmp_path):
+    """129 occurrences sit in this repository's shipped records and they are
+    history — a plan proposing a helper built under another name is a correct
+    record of what was decided then."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1770000000-shipped",
+        fragment=False,
+        **{"plan.md": "# p\n\nbuild `gone_helper`\n"},
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
+def test_a_name_the_tree_carries_passes(tmp_path):
+    h = home(tmp_path)
+    tree(tmp_path, **{"mod.py": "def kept_helper():\n    return 1\n"})
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`kept_helper` stays\n"})
+    assert refusals(tmp_path) == ([], 1)
+
+
+def test_a_file_name_is_a_name_the_tree_carries(tmp_path):
+    """A record naming `test_foo` is naming a module as often as a function."""
+    h = home(tmp_path)
+    tree(tmp_path, **{"tests__test_the_thing.py": "x = 1\n"})
+    work_item(
+        h, "1780000000-live", **{"plan.md": "# p\n\n`test_the_thing` covers it\n"}
+    )
+    assert refusals(tmp_path) == ([], 1)
+
+
+def test_a_single_word_name_is_not_read_as_a_claim(tmp_path):
+    """`cmp`, `rpartition`, `Starred` — a shell command, a str method and an
+    ast node. Nineteen such names sit in this repository's records and not one
+    is a claim about a unit, so the pattern is narrowed rather than the
+    exemption widened."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\nthe reviewer ran `cmp` and read `rpartition`\n"},
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
+def test_the_marker_exempts_the_line(tmp_path):
+    """The escape hatch a reviewer already writes beside a proposed name."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"rounds__round-1.md": "# r\n\n`gone_helper` — NAME NOT IN TREE\n"},
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
+def test_the_marker_exempts_the_line_and_not_the_name(tmp_path):
+    """Marked on one line, the same name is still a claim on the next.
+
+    The exemption is a marker on the LINE for the reason `plan.md` gives: a
+    list inside the checker gets widened by whoever is annoyed, and a name
+    exempted once would be exempt everywhere it is claimed afterwards.
+    """
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "rounds__round-1.md": (
+                "# r\n\n`gone_helper` — NAME NOT IN TREE\n\n"
+                "and `gone_helper` is what the module calls\n"
+            )
+        },
+    )
+    found, _ = refusals(tmp_path)
+    assert len(found) == 1
+    assert found[0][1].endswith(":5")
+
+
+def test_a_cache_in_the_tree_does_not_supply_a_name(tmp_path):
+    """A compiled module carries its own identifiers in its constants pool,
+    so a corpus that reads one answers "still there" for a name the tree lost
+    at the last commit."""
+    h = home(tmp_path)
+    cache = tmp_path / "__pycache__"
+    cache.mkdir()
+    (cache / "mod.cpython-312.pyc").write_text("gone_helper\n", encoding="utf-8")
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    found, _ = refusals(tmp_path)
+    assert len(found) == 1
+
+
+def test_a_binary_file_does_not_supply_a_name(tmp_path):
+    """A compiled artefact outside a cache directory is still not the tree.
+
+    Decoded with `errors="replace"`, a `.pyc`, an archive or an image yields
+    token-shaped runs from its own bytes, and a name that turns up there is a
+    name nobody wrote. The failure that guard prevents is a false PASS, which
+    is the expensive direction: the record keeps a claim that is not true.
+    """
+    h = home(tmp_path)
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets" / "thing.bin").write_bytes(b"\x00\x01gone_helper\x00")
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    found, _ = refusals(tmp_path)
+    assert len(found) == 1
+
+
+def test_the_records_own_directory_is_not_its_own_corpus(tmp_path):
+    """A name that only another work item's record carries is still a name
+    the tree does not have."""
+    h = home(tmp_path)
+    work_item(
+        h, "1770000000-shipped", fragment=False, **{"plan.md": "# p\n\n`gone_helper`\n"}
+    )
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    found, _ = refusals(tmp_path)
+    assert len(found) == 1
+    assert "1780000000-live" in found[0][1]
+
+
+def test_the_gathered_ledger_is_part_of_the_corpus(tmp_path):
+    """`seal/ledger.md` keeps a renamed unit's old name beside the new one on
+    purpose, so a reader coming from an older record can follow it. Excluding
+    the whole of `seal/` refuses five such occurrences in this repository."""
+    h = home(tmp_path)
+    (h / "ledger.md").write_text(
+        "| Clause | Coordinate |\n|---|---|\n"
+        "| R1 · renamed from `gone_helper` | `mod.py#kept@deadbeef` |\n",
+        encoding="utf-8",
+    )
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper` was renamed\n"})
+    assert refusals(tmp_path)[0] == []
+
+
+def test_a_refusal_fails_the_run(tmp_path):
+    h = home(tmp_path)
+    (h / "ledger" / "1780000000-live.md").write_text("rows\n", encoding="utf-8")
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    r = run(["."], tmp_path)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "NOT-IN-TREE" in r.stdout
+    assert "1 refused" in r.stdout
+
+
+def test_the_records_arm_runs_even_when_a_narrowing_finds_no_ledger(tmp_path):
+    """`--ledger` narrows the LEDGERS read; it says nothing about records, and
+    a narrowing that matched none must not silence the other arm."""
+    h = home(tmp_path)
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    r = run(["--ledger", "nothing/here/*.md", "."], tmp_path)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "NOT-IN-TREE" in r.stdout
+
+
+# --- this repository's own records ------------------------------------------
+
+
+def test_this_repositorys_own_records_state_nothing_the_tree_lacks():
+    """The measurement #190 was opened for, run against the tree itself.
+
+    Four occurrences of one name in work item `1788749195`'s round records —
+    the instance that work item's own round 3 found by READING, three weeks of
+    records later. This is what a check names at the commit that writes it.
+    """
+    findings, _read = module().check_records(ROOT, os.path.join(ROOT, "seal"))
+    assert findings == [], "\n".join(f"{c}  {d}" for _s, c, d in findings)

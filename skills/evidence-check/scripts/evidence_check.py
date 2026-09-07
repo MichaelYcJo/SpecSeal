@@ -1737,6 +1737,176 @@ def record_files(directory):
     return found
 
 
+# The marker a reviewer already writes beside a name a paste-ready fix is
+# PROPOSING rather than citing — `skills/code-review/SKILL.md` shows it in the
+# findings format, and records carry it today. It is the escape hatch, and it
+# costs no new convention: a line carrying it is not read here at all.
+#
+# The exemption is a MARKER ON THE LINE and never a list inside this file, for
+# the reason `plan.md` gives about what breaks in six months. A list is edited
+# by whoever is annoyed by a refusal; a marker is written by the person who
+# knows the name is invented, in the record where the claim is.
+NOT_IN_TREE = "NAME NOT IN TREE"
+# A backticked identifier, with an optional call suffix — the shape a record
+# names a unit in. `round_record.py`'s `IDENTIFIER_RE` reads the same thing
+# for the fix surface; the two are separate because that one measures a diff
+# and this one reads prose, and folding them would give one pattern two jobs.
+RECORD_NAME_RE = re.compile(r"`([A-Za-z_]\w*)(?:\(\))?`")
+TOKEN_RE = re.compile(r"[A-Za-z_]\w*")
+# A file bigger than this is not read into the name corpus. A minified bundle
+# or a lockfile is megabytes of tokens that name nothing anyone claims, and
+# the cost of reading it is paid on every run.
+NAME_FILE_CAP = 512 * 1024
+NAME_SNIFF = 8192
+NOT_IN_TREE_STATUS = "NOT-IN-TREE"
+UNREADABLE_STATUS = "UNREADABLE"
+# The records arm's own section heading. A constant because it is the ONE
+# unindented line in this program's output that is not a ledger name, and a
+# case that counts ledger headers has to be able to tell it apart by reading
+# this rather than by carrying a second copy of the sentence.
+RECORDS_HEADING = "records — what unreleased work items state about the tree"
+
+
+def compound(name):
+    """Whether a backticked name is read as a claim about this tree at all.
+
+    **It carries an underscore.** Measured over every `.md` under
+    `seal/specs/` in this repository: of the 55 distinct backticked names that
+    appear nowhere outside that directory, the 19 without an underscore are
+    `cmp`, `rpartition`, `divmod`, `pow`, `Starred`, `NameError`,
+    `TypeAlias`, `EACCES`, `PYTHONHASHSEED`, `RUF002`, `bin2`, `fixedly`,
+    `monitors`, `resurrect`, `themes`, `ASK`, `UNMEASURED`, `AMBIGUOUS` and
+    `CITATION` — a shell command, six stdlib names, an errno, an environment
+    variable, a lint code, a probe value, five words of ordinary prose in
+    backticks, and three verdict words a checker used to emit. Not one is a
+    claim about a unit. All 36 with an underscore are, including every one of
+    the four occurrences #190 was opened for.
+
+    So the narrowing loses no true positive on the corpus that exists and
+    removes 56 of 146 occurrences that were never claims. This is the repair
+    `plan.md` names for the false positive this arm grows: **narrow the
+    pattern, do not widen the exemption.** A single word in backticks is
+    prose far more often than it is a unit, and a unit worth a claim is
+    almost always named in more than one word here.
+
+    What it gives up, stated rather than left to be found: a one-word unit
+    that was renamed away goes unnoticed. That is the cheaper mistake — the
+    alternative refuses `rpartition` and asks the author to mark it
+    `NAME NOT IN TREE`, which is marker noise attached to a true name.
+    """
+    return "_" in name
+
+
+def stated_names(lines):
+    """[(line number, name)] for every compound identifier a record states.
+
+    A line carrying `NAME NOT IN TREE` yields nothing at all — the marker is
+    the reviewer's own statement that the name on it is proposed rather than
+    cited, and it exempts the LINE rather than the name, so the same name
+    still has to exist everywhere else it is claimed.
+    """
+    out = []
+    for number, line in enumerate(lines, 1):
+        if NOT_IN_TREE in line:
+            continue
+        for match in RECORD_NAME_RE.finditer(line):
+            name = match.group(1)
+            if compound(name):
+                out.append((number, name))
+    return out
+
+
+def tree_names(root, home):
+    """Every identifier-shaped token the repository carries outside its records.
+
+    The comparison set for `stated_names`. A name in it is a name the tree
+    has; a name absent from it is one the record alone carries.
+
+    **The excluded directory is `<home>/specs/` and not the whole of
+    `<home>/`.** Measured: excluding the gathered ledger too refuses five
+    occurrences of one name in work item `1788735085`'s records, and all five
+    are that work item narrating its own rename — `seal/ledger.md`'s S15 note
+    keeps the old name beside the new one on purpose, *so a reader coming from
+    an older record can follow it*. The gathered ledger is a permanent,
+    curated document that something reads; `seal/specs/` is the per-work-item
+    set nothing reads, which is the whole of what #190 is about.
+
+    File NAMES are tokens too: a record naming `test_foo` is naming a file as
+    often as a function, and a suite module that exists is not a false claim.
+
+    Nothing is skipped for being numerous. A cap on how many files are read
+    would quietly shrink the corpus, and every name the shrunken corpus misses
+    becomes a refusal for a name the tree has — the expensive direction. Only
+    a single file's SIZE is capped, and only where the content cannot be a
+    claim's subject anyway.
+    """
+    excluded = os.path.normpath(os.path.join(home, SPECS_DIR))
+    names = set()
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            d
+            for d in dirnames
+            if d not in SKIP_DIRS
+            and os.path.normpath(os.path.join(dirpath, d)) != excluded
+        ]
+        for filename in filenames:
+            names.update(TOKEN_RE.findall(filename))
+            path = os.path.join(dirpath, filename)
+            try:
+                if os.path.getsize(path) > NAME_FILE_CAP:
+                    continue
+                with open(path, "rb") as handle:
+                    raw = handle.read()
+            except OSError:
+                continue
+            # A NUL in the first few kilobytes is the one binary test that
+            # needs no extension list, and an extension list is what would
+            # need editing every time a repository carries a format nobody
+            # here thought of.
+            if b"\0" in raw[:NAME_SNIFF]:
+                continue
+            names.update(TOKEN_RE.findall(raw.decode("utf-8", "replace")))
+    return names
+
+
+def check_records(root, home):
+    """(findings, names read) over the records of every unreleased work item.
+
+    A finding is `(status, coordinate, detail)`, the shape `check_ledger`
+    returns, so `main` prints both arms the same way.
+    """
+    live = unshipped(home)
+    if not live:
+        return [], 0
+    known = tree_names(root, home)
+    records_root = os.path.join(home, SPECS_DIR)
+    findings, read_count = [], 0
+    for _item, directory in sorted(live.items()):
+        for path in record_files(directory):
+            body = read(path)
+            shown = display_name(path, root)
+            if body is None:
+                findings.append(
+                    (UNREADABLE_STATUS, shown, "the record could not be read")
+                )
+                continue
+            for number, name in stated_names(body.splitlines()):
+                read_count += 1
+                if name in known:
+                    continue
+                findings.append(
+                    (
+                        NOT_IN_TREE_STATUS,
+                        f"{shown}:{number}",
+                        f"`{name}` — nothing outside {display_name(records_root, root)}"
+                        f" carries this name. Correct the record, or write "
+                        f"{NOT_IN_TREE} on the line if the record is proposing "
+                        "the name rather than citing one",
+                    )
+                )
+    return findings, read_count
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root", nargs="?", default=".")
@@ -1810,7 +1980,11 @@ def main():
             )
     else:
         ledgers = resolve_patterns(default_patterns(root))
-    if not ledgers:
+    if not ledgers and (args.migrate or args.reverify):
+        # Both are writers over ledger files, and with none there is nothing
+        # to write. The check below has a second arm that reads records, so
+        # it does NOT stop here — a `--ledger` narrowing that matched nothing
+        # must not also silence the records the narrowing said nothing about.
         print("no evidence ledgers found — nothing to check")
         return 0
 
@@ -1831,6 +2005,9 @@ def main():
         return 1 if left else 0
     if args.reverify:
         return reverify(ledgers, root, maps, default_repo)
+
+    if not ledgers:
+        print("no evidence ledgers found — nothing to check")
 
     totals = {"OK": 0, "DRIFTED": 0, "BROKEN": 0, "EXTERNAL": 0, "OLD-FORMAT": 0}
     for ledger in ledgers:
@@ -1854,9 +2031,24 @@ def main():
         f"{totals['BROKEN']} broken · {totals['EXTERNAL']} external · "
         f"{totals['OLD-FORMAT']} old-format"
     )
+
+    # The second arm. A ledger row is a claim about the tree that something
+    # reads; a RECORD states the same kind of thing and nothing reads it
+    # (#190). Printed under its own heading and counted separately, because
+    # the two arms read different files and a reader who sees one number has
+    # to be able to tell which arm moved it.
+    records, names_read = check_records(root, seal_home(root))
+    print(f"\n{RECORDS_HEADING}")
+    for status, coord, detail in records:
+        print(f"  {status:12} {coord}  {detail}")
+    refused = len(records)
+    print(
+        f"  {names_read} name{'' if names_read == 1 else 's'} read · {refused} refused"
+    )
+
     if totals["OLD-FORMAT"]:
         return 2
-    if totals["BROKEN"]:
+    if totals["BROKEN"] or refused:
         return 2
     if totals["DRIFTED"]:
         return 2 if args.strict else 1

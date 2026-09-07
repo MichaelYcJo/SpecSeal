@@ -612,12 +612,19 @@ def test_the_printed_header_names_the_ledger_that_was_read(proj):
         f"row, or this case is measuring nothing:\n{r.stdout}"
     )
 
-    # The per-ledger header is the only unindented line that is neither blank
-    # nor the run total.
+    # The per-ledger header is the only unindented line that is neither blank,
+    # the run total, nor the records arm's own section heading (#190). That
+    # heading is read from the checker's own constant rather than copied here:
+    # a second spelling of it would leave this case counting a ledger that
+    # does not exist the first time the sentence is reworded.
+    heading = checker_module().RECORDS_HEADING
     headers = [
         line
         for line in r.stdout.splitlines()
-        if line and not line.startswith(" ") and not line.startswith("total:")
+        if line
+        and not line.startswith(" ")
+        and not line.startswith("total:")
+        and line != heading
     ]
     assert len(headers) == 1, (
         f"one ledger was read and the run printed {len(headers)} headers "
