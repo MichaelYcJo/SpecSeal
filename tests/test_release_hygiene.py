@@ -492,10 +492,17 @@ def test_the_exemption_list_does_not_depend_on_the_order_it_is_written_in():
     appending at the end is the natural act.
 
     An early `return` on the first `/` entry whose prefix matched made every
-    entry after it unreachable — so an exact path, or a narrower prefix,
-    written below the prefix that contains it silently stopped working
-    (review round 2). The failure direction is loud, a file the author meant
-    to exempt goes red, but nothing said the order mattered.
+    entry after it unreachable, so an EXACT path written below the prefix that
+    contains it silently stopped working (review round 2). The failure
+    direction is loud, a file the author meant to exempt goes red, but nothing
+    said the order mattered.
+
+    A narrower `/` entry written after a wider one is NOT an instance, which
+    this docstring used to claim it was. Measured over four arrangements in
+    both implementations (review round 3): every `/` entry passes the same
+    `DATED_RECORD.match(basename)`, so a later prefix cannot change the
+    answer either way. Only `rel == entry`, which skips that check, can — and
+    that is the one arrangement asserted below.
     """
     entries = RECORDS_OF_A_MOMENT
     try:
