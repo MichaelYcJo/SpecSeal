@@ -404,10 +404,23 @@ def test_the_floor_is_the_number_the_runner_and_the_linter_hold():
 # --- the class -------------------------------------------------------------
 
 # The two constructs that put a shipped script above the floor today, spelled
-# so that neither hides. `zip\([^)]*strict=` was the first spelling and it hid
-# round_record.py:935, where an inner `verdict_words(reader, rows)` closes a
-# parenthesis before the keyword is reached -- three of four sites answered.
-ABOVE_THE_FLOOR = re.compile(r"zip\(.*strict=|datetime\.UTC")
+# so that neither hides. Two blind spots have been found here, one per review,
+# and both were an instance the spelling could not reach:
+# `zip\([^)]*strict=` hid round_record.py:1007, where an inner
+# `verdict_words(reader, rows)` closes a parenthesis before the keyword is
+# reached; and `datetime\.UTC` hid session_cost.py:89, which spells the module
+# `import datetime as dt`. So the UTC half now matches whatever the module was
+# named, and the zip half is deliberately left alone: `.` already crosses any
+# depth of nesting on one line, and the balanced-paren rewrite that was
+# offered for it would have LOST `zip(xs, f(g(y)), strict=True)` to buy a
+# multi-line call nobody here writes.
+#
+# What this still cannot see, measured rather than guessed: a `zip(` whose
+# `strict=` is on a later line, and `from datetime import UTC` used bare.
+# Neither exists in the tree today. Widening the text a third time would move
+# the blind spot a third time, which is what `seal/ledger/`'s R3 says an AST
+# walk is for; this stays the cheap check that catches what is actually here.
+ABOVE_THE_FLOOR = re.compile(r"zip\(.*strict=|\b\w+\.UTC\b")
 
 # Every shipped file the pattern finds, and what was decided about it. A row
 # here is a classification, not a permission: `spec.md`'s enumeration table
@@ -420,6 +433,7 @@ CLASSIFIED = {
     ".github/scripts/fold_ledger.py": "deferred, seal/follow-up.md (#226)",
     "skills/implement/scripts/seal.py": "deferred, seal/follow-up.md (#226)",
     "hooks/root-migrate.py": "deferred, seal/follow-up.md (#226)",
+    "skills/verify/scripts/session_cost.py": "deferred, seal/follow-up.md (#226)",
 }
 
 
@@ -445,10 +459,10 @@ def test_no_shipped_script_needs_more_than_the_floor_without_saying_so():
     """The class, re-enumerated by the suite instead of by whoever remembers.
 
     `skills/agent-contract/SKILL.md` §12: the finding named one coordinate and
-    what was owed was every instance the same cause produces. Five files
-    carried one, and four of them are somebody else's branch or somebody
-    else's release. This is what keeps a sixth from arriving as a traceback on
-    a stranger's mac."""
+    what was owed was every instance the same cause produces. Six files
+    carried one, and five of them are somebody else's branch or somebody
+    else's release. This is what keeps a seventh from arriving as a traceback
+    on a stranger's mac."""
     files = shipped_python()
     assert files, "git ls-files found no shipped python at all"
     found = set()
