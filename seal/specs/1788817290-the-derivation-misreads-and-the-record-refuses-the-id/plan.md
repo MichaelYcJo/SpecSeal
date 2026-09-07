@@ -108,9 +108,9 @@ for is *literals other than strings*, not a retreat to arities.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | #227 — a finding id is a bare integer, in `fix_table` and `verdict_rows`; the refusal names the format and quotes the row; a duplicate quotes both rows; the format stated in `skills/code-review/SKILL.md` §Findings format and `templates/sdd-round.md` | `bin/test tests/test_a_finding_id_is_a_bare_integer.py -q`, each case seen red first; the 130-record corpus case | |
-| 2 | #211 — `call_sites` reads a runner-reached unit as `pytest only`; `docs/review-chain-spec.md`'s five-value paragraph says when | `bin/test tests/test_a_runner_reached_unit_reads_pytest_only.py -q`, four kinds built in a real repo, each seen red first | |
-| 3 | #194 — the contract carries the returnable literal set; the stated hole written into `docs/review-chain-spec.md` | `bin/test tests/test_a_new_returnable_value_is_a_contract_change.py -q`, plus the AST-derived cross-check over a real diff | |
+| 1 | #227 — a finding id is a bare integer, in `fix_table` and `verdict_rows`; the refusal names the format and quotes the row; a duplicate quotes both rows; the format stated in `skills/code-review/SKILL.md` §Findings format and `templates/sdd-round.md` | `bin/test tests/test_a_finding_id_is_a_bare_integer.py -q`, each case seen red first; the 130-record corpus case | 051ebfa |
+| 2 | #211 — `call_sites` reads a runner-reached unit as `pytest only`; `docs/review-chain-spec.md`'s five-value paragraph says when | `bin/test tests/test_a_runner_reached_unit_reads_pytest_only.py -q`, four kinds built in a real repo, each seen red first | db58253 |
+| 3 | #194 — the contract carries the returnable literal set; the stated hole written into `docs/review-chain-spec.md` | `bin/test tests/test_a_new_returnable_value_is_a_contract_change.py -q`, plus the AST-derived cross-check over a real diff | 58c7ce2 |
 | 4 | The records — changelog fragment, ledger fragment, phase records, overview, `docs/flow.md` | the fragment and record checkers in the narrow modules they belong to | |
 
 ## Operational impact

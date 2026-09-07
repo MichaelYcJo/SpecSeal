@@ -50,11 +50,14 @@ verdict `fixed` with the commit, `answered` with the grounds, or `deferred
                        `fixed at <sha>`, `answered` with the grounds, or
                        `deferred <home>` with the home; a commit has to
                        resolve and lie inside the range
-  Contract changes     every top-level Python unit whose parameters or return
-                       arities differ between the two ends of the range, each
-                       with the enclosing unit of every `name(` in the tree,
+  Contract changes     every top-level Python unit whose parameters, return
+                       arities or set of returnable constant literals differ
+                       between the two ends of the range, each with the
+                       enclosing unit of every `name(` in the tree,
                        `unit → site, site`; callers under `tests/` read
-                       `pytest`, or `pytest only` when they are the whole reach
+                       `pytest`, or `pytest only` when they are the whole
+                       reach — and so does a unit pytest itself reaches, which
+                       has no call site in the tree by design
   New units            every top-level def, class and module-level constant
                        present at the end of the range and absent at its
                        start, `unit (depth 1)`; for a file the AST cannot read
