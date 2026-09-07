@@ -8,15 +8,20 @@ The root is at one of two places and whichever exists is the answer:
 `<repo>/seal/`, which is committed, or `$(git rev-parse --git-common-dir)/seal/`,
 which is not. This file goes wherever that root already is.
 
-**This file is optional, and an absent row is not an error.** Every item has
-a default, and the defaults are what every repository got before the row
-existed. Create the file when one of the answers is not the default; a file
-that restates the defaults is a file nobody needs.
+**This file is optional, and an absent row is not an error — with one
+exception, `Mode`.** Every other item has a default, and the defaults are what
+every repository got before the row existed. Create the file when one of the
+answers is not the default; a file that restates the defaults is a file nobody
+needs.
 
-`Mode` is the exception that proves it: what every repository got before that
-row existed is *the folder decides*, which is not a value, so it has no
-default at all. An absent one is filled in from where the folder is, by the
-command that reads it. The section on it below says how.
+`Mode` is the exception, twice over. What every repository got before that row
+existed is *the folder decides*, which is not a value, so it has no default at
+all — an absent one is filled in from where the folder is, by the command that
+reads it. And an absent one is not silent: a root with no `Mode` row is a root
+nobody chose a mode for, so the first Bash call of a session in that
+repository is denied and the second is asked, until `seal mode` writes the
+row. Two prompts per session per repository, then silence, and nothing at all
+once the row exists. The section on it below says how the command fills it in.
 
 | Item | Value |
 |---|---|

@@ -41,15 +41,44 @@ next attempt. The wrong allow it replaces is not recoverable in the same
 sense: a monorepo's review records get committed, every clone carries them,
 and the way back is a documented command sequence somebody has to know exists
 — which is the state #151 was reported from. It also cannot become an outage:
-after the first denial in a session the decision degrades to `ask`, and a
-marker that cannot be written counts as already asked, so no environment can
-be denied twice in a row.
+after the first denial in a session the decision degrades to `ask`, after the
+`ask` it degrades to silence, and a marker that cannot be written counts as
+already asked, so no environment can be denied twice in a row and none is
+prompted for a whole session. The middle clause is round 1's: the decision
+degraded to `ask` and then stopped degrading, which on a per-command gate is a
+prompt on every command and is the outage this paragraph claimed it could not
+become.
 
 ## A prompt budget
 
-**One deny per session per repository, and only while the `Mode` row is
-absent. Zero after `seal mode` has been run once, and zero forever in a
-repository with no `seal/`.**
+**Two prompts per session per repository — one deny, then one `ask` — and
+only while the `Mode` row is absent. Zero after `seal mode` has been run once,
+and zero forever in a repository with no `seal/`.**
+
+Counted by running the gate rather than by reading it, 2026-09-08, twenty
+ordinary Bash calls per session and two sessions in each repository:
+
+| The repository | Session 1 | Session 2 |
+|---|---|---|
+| `seal/`, no `Mode` row | 1 deny, 1 ask, 18 silent | 1 deny, 1 ask, 18 silent |
+| `seal/` with a `Mode` row | 20 silent | 20 silent |
+| no `seal/` at all | 20 silent | 20 silent |
+
+**The first count was wrong, and the reason is worth keeping.** This section
+read *one deny per session per repository* while the code produced one deny
+and then an `ask` on every command for the rest of the session — nine of ten
+ordinary calls, measured in round 1, where the sibling gate was silent on nine
+of the same ten. The gate had moved from the commit to every Bash call and the
+properties bounded by *how often does somebody commit* were not re-derived
+against *how often does somebody run a command*. The sibling has an early
+return for a command that is not a commit; this one has none by design, so the
+budget has to be spent rather than bounded by what the command happens to be.
+
+It matters more than an extra prompt because the way out, `seal mode`, is
+itself a Bash call: a run that cannot answer an `ask` could not reach the
+command that ends the asking, so every command it tried was stopped rather
+than one. Both prompts are spent once now and the rest of the session is
+silent.
 
 It arrives on the session's first Bash call. That placement is the budget
 argument rather than an accident: the count is identical at the commit,
@@ -59,11 +88,34 @@ may have nobody at the keyboard. On the first Bash call it lands in the batch
 `skills/implement/SKILL.md` §1 says a session collects before it starts, which
 is where this project wants questions.
 
+**Per session per REPOSITORY, and in local mode that is the clone.** One root
+under the common git directory serves every work tree, so the two markers are
+keyed to the folder the question is about rather than to the tree the command
+came from. Keyed to the tree, one session was denied once per worktree about
+one folder. Shared roots stay keyed per tree, because each work tree carries
+its own `<repo>/seal/` and each is a separate root nobody chose a mode for.
+
 **What each one costs when nobody is at the keyboard.** The first is a deny,
 which returns the turn to the model with three named options; an unattended
 run cannot answer it and stalls until the next attempt, where the decision is
 `ask` and approving proceeds. So the worst case for an unattended run is one
 stalled command and one approval, not a halt.
+
+**And a cost that is not a prompt: one `git` process per Bash call, in every
+repository on the machine.** Measured the same day with a logging `git` on
+`PATH`, one `ls` payload: this gate makes one `git rev-parse --show-toplevel`
+in a repository with no `seal/` at all, where `commit-review-gate.py` makes
+none — it returns before resolving anything for a command that is not a
+commit. In a repository that has a root and no row it is two, and it stays two
+on the calls after the budget is spent, because the root is resolved before
+there is anything to say. Wall time for the gate alone, median of twelve:
+36.4 ms against the sibling's 26.7 ms on this machine.
+
+That cost is the price of the placement argued for above, and it is stated
+rather than removed. Removing it means resolving the root once per Bash call
+for all three gates instead of once each — `hooks/optin.py#repo_root` carries
+a RIDER counting exactly this class, and this adds a caller to it. That is a
+change to three gates at once and it is not this branch's.
 
 **Why nothing cheaper reaches the same guarantee.** Three cheaper things were
 tried and each is in the tree, doing the part it can do. The bootstrap now
@@ -99,9 +151,17 @@ below is what could not be tried here.
   The repository's own CI has a Windows leg and will run all of it.
 - **Linux.** Not run here either; CI covers it.
 - **A repository whose git directory is elsewhere** (`--separate-git-dir`, a
-  submodule) was not built. It is why the root resolution asks
-  `git worktree list` instead of taking `dirname` of the common directory, so
-  the untested case is the one the design avoids relying on rather than the
-  one it depends on.
+  submodule) **was built in round 1, and this bullet used to say the opposite
+  of what it found.** It read: the root resolution asks `git worktree list`
+  instead of taking `dirname` of the common directory, so the untested case is
+  the one the design avoids relying on. Executed, it is the case the design
+  got wrong. `git worktree list --porcelain` prints the GIT DIRECTORY as the
+  worktree path when the tree was separated from it, with no `bare` line to
+  tell it by, so the caller's real tree was not in the list it belongs to and
+  a path every later `git -C` refuses was named as the root. A bare clone took
+  the same path. Both now compare the clone by common git directory, and a
+  root that is not a work tree is refused rather than named. Not being able to
+  try a case is not the same as the case being avoided, which is what this
+  bullet had quietly turned into.
 - **A console that is not UTF-8** was not exercised for the new gate's text.
   It goes through the same `console.to_utf8()` line every other gate uses.
