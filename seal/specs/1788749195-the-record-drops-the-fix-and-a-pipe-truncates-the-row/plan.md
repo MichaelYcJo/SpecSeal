@@ -65,7 +65,7 @@ judge it.
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | A bare `\|` inside a copied cell is escaped as the row is written, in every table `new` copies and in `close`'s fix table. The record's row count matches its header | Cases over fixture reports for each table, each seen red first; the module's existing cases | 007436a |
-| 2 | `new` carries the reviewer's paste-ready fixes into a section of the record, extracted with `fenced_after` from the heading the findings format names. The empty arm writes a record rather than refusing | Cases for a report with one fix, with two, and with none, each seen red first | |
+| 2 | `new` carries the reviewer's paste-ready fixes into a section of the record, extracted with `fenced_after` from the heading the findings format names. The empty arm writes a record rather than refusing | Cases for a report with one fix, with two, and with none, each seen red first | 30acdd9 |
 | 3 | The reviewer's contract names the heading — `skills/code-review/SKILL.md` §*Findings format*, and `docs/review-handoff-protocol.md`'s description of what the record carries | The documents; whatever case pins their wording | |
 | 4 | `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md` | The fragments; `fold_ledger.py --check` | |
 
