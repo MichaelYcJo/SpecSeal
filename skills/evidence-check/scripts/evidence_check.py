@@ -633,7 +633,14 @@ def scan_candidates(repo, rel, cache):
     if key not in cache:
         found, capped = [], False
         for dirpath, dirnames, filenames in os.walk(repo):
-            dirnames[:] = sorted(d for d in dirnames if d != ".git")
+            # Every directory `SKIP_DIRS` names, not `.git` alone. This walk
+            # looks for where a unit WENT, and a copy of a deleted name in a
+            # cache or a vendored package is the one place it cannot have
+            # gone: a hint reading `same name at .venv/lib/site-packages/pkg/
+            # a.py` sends the reader somewhere the repository does not own
+            # (round 1, ⬜ 14). It is also what makes the constant's own
+            # comment true of every walk in this file.
+            dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
             for fn in sorted(filenames):
                 if os.path.splitext(fn)[1] != ext:
                     continue
@@ -1733,10 +1740,49 @@ def unshipped(home):
         if not os.path.isfile(os.path.join(fragments, name)):
             continue
         item = name[: -len(".md")]
+        if not item:
+            # `seal/ledger/.md` leaves `item` empty, `os.path.join(specs, "")`
+            # is `specs/` itself, and `isdir` says yes — so the whole records
+            # tree became ONE live work item under the empty id and every
+            # shipped record in it was read (round 1, 🟡 10). An id is a
+            # directory name, and the empty string is not one.
+            continue
         directory = os.path.join(specs, item)
         if os.path.isdir(directory):
             live[item] = directory
     return live
+
+
+def unread_items(home):
+    """Work item directories under `<home>/specs/` carrying no fragment, in
+    id order.
+
+    `unshipped` answers whose records are read; this answers whose are not,
+    and the pair is what lets a run say what it did not open. A checker that
+    reads nothing has to say so: `0 names read` and exit 0 is the same output
+    for *every record is clean* and *no record was opened*, and this arm's
+    own work item sat in the second state through five of its six phases.
+
+    A directory with no fragment is not a defect. Most of them have shipped
+    and the fold removed the file, which is the boundary working. What the
+    count is for is the other reading — a live work item that has not written
+    its rows yet — and the caller prints the number rather than the names,
+    because thirty-eight names on every run is a notice nobody reads.
+
+    A missing `specs/` is an empty answer rather than a raise, the way
+    `unshipped` treats a missing `ledger/`.
+    """
+    live = unshipped(home)
+    specs = os.path.join(home, SPECS_DIR)
+    try:
+        names = sorted(os.listdir(specs))
+    except OSError:
+        return []
+    return [
+        name
+        for name in names
+        if name not in live and os.path.isdir(os.path.join(specs, name))
+    ]
 
 
 def record_files(directory):
@@ -1811,62 +1857,66 @@ def compound(name):
     prose far more often than it is a unit, and a unit worth a claim is
     almost always named in more than one word here.
 
-    What it gives up, stated rather than left to be found: a one-word unit
-    that was renamed away goes unnoticed. That is the cheaper mistake — the
-    alternative refuses `rpartition` and asks the author to mark it
-    `NAME NOT IN TREE`, which is marker noise attached to a true name.
+    What it gives up runs in BOTH directions, and the docstring used to name
+    only the first.
+
+    A one-word unit that was renamed away goes unnoticed. That is the cheaper
+    mistake — the alternative refuses `rpartition` and asks the author to mark
+    it `NAME NOT IN TREE`, which is marker noise attached to a true name.
+
+    And an underscore does not make a name a claim the corpus can settle. A
+    record spelling a case short, or under the name it had two releases ago,
+    states a compound name the tree does not carry and is refused for a unit
+    that exists — this repository's own `phase-2.md` carries two such names
+    with the marker on the line (round 1, 🟡 11). That direction is the
+    author's to answer at the commit that writes it, which is the whole reason
+    the marker is a line rather than a list, but it is a cost rather than
+    nothing.
     """
     return "_" in name
 
 
-def stated_names(lines):
-    """[(line number, name)] for every compound identifier a record states.
+def claim_lines(lines):
+    """[(line number, line)] for the record lines that are read as claims.
 
-    A line carrying `NAME NOT IN TREE` yields nothing at all — the marker is
-    the writer's own statement that the name on it is one the tree does not
-    have, and it exempts the LINE rather than the name, so the same name still
-    has to exist everywhere else it is claimed.
+    Three kinds of line are not. A line carrying `NAME NOT IN TREE` is the
+    writer's own statement that the name on it is one the tree does not have,
+    and it exempts the LINE rather than the name, so the same name still has
+    to exist everywhere else it is claimed.
+
+    **A FENCED line is a quotation, and an HTML COMMENT is an aside** (round
+    1, 🟡 11). A round record's `## Paste-ready fixes` section is fences of
+    code the tree does not have yet — that is what a paste-ready fix IS — and
+    a template's comments describe fields rather than assert units. Refusing
+    either asks the writer to mark up a block they copied verbatim, and a
+    marker inside a fence changes the fix somebody pastes.
+
+    One reader for both arms, because `spec.md` asks for the escape hatch
+    named once rather than twice and the same is true of the quotation rule:
+    a stamp in a fence is a quoted anchor exactly as a name in one is a
+    quoted name.
     """
-    out = []
+    out, fenced = [], False
     for number, line in enumerate(lines, 1):
-        if NOT_IN_TREE in line:
+        stripped = line.lstrip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            fenced = not fenced
             continue
+        if fenced or stripped.startswith("<!--") or NOT_IN_TREE in line:
+            continue
+        out.append((number, line))
+    return out
+
+
+def stated_names(lines):
+    """[(line number, name)] for every compound identifier a record states."""
+    out = []
+    for number, line in claim_lines(lines):
         for match in RECORD_NAME_RE.finditer(line):
             name = match.group(1)
             if compound(name):
                 out.append((number, name))
     return out
-
-
-def tracked_paths(root):
-    """The repository-relative paths git carries at `root`, or None where
-    `root` is not a git tree.
-
-    **The corpus is what the TREE has, and an untracked file is not the
-    tree.** Measured (round 1, 🟡 3): one untracked `scratch-notes.txt`
-    containing `gone_helper` took a live refusal from exit 2 to exit 0, and a
-    `.gitignore`d `dist/bundle.js` did the same. A reviewer's own `test_tmp_*`
-    probe, a scratch note, and a dependency tree under a name `SKIP_DIRS`
-    does not list all silenced this arm without one committed byte — and CI,
-    reading a clean checkout, then answered differently from the tree the
-    record was written in.
-
-    None rather than an empty set for a directory git does not carry, because
-    the two are opposite instructions: an empty set means *the tree has
-    nothing*, which would refuse every name a record states, and None means
-    *there is no git here to ask*, which leaves the walk as it was. The
-    vendored copy in a user's `tools/` runs wherever CI checks it out, and a
-    plugin cache is not a checkout at all.
-    """
-    r = subprocess.run(
-        ["git", "-C", root, "ls-files", "-z", "--cached"],
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    if r.returncode != 0:
-        return None
-    return {p for p in r.stdout.split("\0") if p}
 
 
 def tree_names(root, home):
@@ -1892,19 +1942,25 @@ def tree_names(root, home):
     release, which is the same moment the work item stops being live, so
     nothing changes hands at the boundary.
 
-    **A name in any other file git CARRIES is a name the tree has, prose
-    included**, and that is the claim rather than a loophole in it: the check
-    says nothing outside the records carries the name, and a document naming
-    it is a place a reader can find it. It does mean an example in a skill or
-    a document can silence the check for every record —
-    `skills/code-review/SKILL.md`'s marker example uses an invented name for
-    exactly that reason, and says so.
+    **A name in ANY other file is a name the tree has, prose included**, and
+    that is the claim rather than a loophole in it: the check says nothing
+    outside the records carries the name, and a document naming it is a place
+    a reader can find it. It does mean an example in a skill or a document can
+    silence the check for every record — `skills/code-review/SKILL.md`'s
+    marker example uses an invented name for exactly that reason, and says so.
 
-    **Carries, and not merely holds.** `tracked_paths` is what draws that
-    line; without it a file nobody committed answered *the tree has this*,
-    and CI, which reads a clean checkout, then answered differently from the
-    tree the record was written in. Where there is no git to ask, the walk is
-    what it always was.
+    **Any file the walk reaches, and not any file git carries**, which is a
+    real hole and a deliberate one: an untracked scratch note or a
+    `.gitignore`d bundle holding a name silences a refusal with no committed
+    byte (round 1, 🟡 3). The repair is `git ls-files`, and this checker may
+    not call git — `README.md` §*A row carries no line number and no commit*
+    makes `--migrate` the one exception, and
+    `test_the_checker_asks_git_for_nothing` holds it with a run under an
+    empty `PATH`, which a `subprocess` call here would not survive. What the
+    hole costs is bounded in the safe direction: CI reads a clean checkout,
+    where the untracked file is not there, so it is the stricter reader and
+    the local run is the lenient one. Widening the exception is the policy
+    owner's call — `questions.md` Q1.
 
     File NAMES are tokens too: a record naming `test_foo` is naming a file as
     often as a function, and a suite module that exists is not a false claim.
@@ -1919,25 +1975,17 @@ def tree_names(root, home):
         os.path.normpath(os.path.join(home, SPECS_DIR)),
         os.path.normpath(os.path.join(home, FRAGMENT_DIR)),
     }
-    tracked = tracked_paths(root)
     # `home` is walked in its own right because in LOCAL mode (#80) it sits
     # under the git common directory, which `SKIP_DIRS` prunes — so identical
     # bytes answered exit 0 in shared mode and exit 2 in local, on the
     # strength of where `seal/` happens to sit (round 1, 🟡 4). `names` is a
     # set, so shared mode, where the two walks overlap, pays a few files and
     # nothing else, and `excluded` keeps `specs/` and `ledger/` out of both.
-    #
-    # A local-mode home is untracked by construction — git carries nothing
-    # under the directory it keeps itself in — so the tracked filter is not
-    # applied there. Applying it would empty that walk and re-make the very
-    # defect it was added for.
-    home_rel = os.path.relpath(home, root).replace(os.sep, "/") + "/"
-    home_carried = tracked is not None and any(p.startswith(home_rel) for p in tracked)
-    bases = [(root, tracked)]
+    bases = [root]
     if os.path.normpath(home) != os.path.normpath(root):
-        bases.append((home, tracked if home_carried else None))
+        bases.append(home)
     names = set()
-    for base, carried in bases:
+    for base in bases:
         for dirpath, dirnames, filenames in os.walk(base):
             dirnames[:] = [
                 d
@@ -1947,13 +1995,6 @@ def tree_names(root, home):
             ]
             for filename in filenames:
                 path = os.path.join(dirpath, filename)
-                # Ahead of the file NAME, which is a token too: an untracked
-                # `gone_helper.py` would otherwise supply the very name its
-                # contents are not allowed to.
-                if carried is not None and (
-                    os.path.relpath(path, root).replace(os.sep, "/") not in carried
-                ):
-                    continue
                 names.update(TOKEN_RE.findall(filename))
                 try:
                     if os.path.getsize(path) > NAME_FILE_CAP:
@@ -1975,15 +2016,14 @@ def tree_names(root, home):
 def stated_stamps(lines):
     """[(line number, the line)] for every record line carrying an anchor.
 
-    The marker skip is `stated_names`', for the same reason and in one place:
-    `spec.md` asks for the escape hatch named once rather than twice, and a
-    record's fixture stamp — `mod.py#helper@deadbeef`, which this repository
-    carries in two records — is exactly the shape the marker exists for.
+    Which lines count is `claim_lines`', for the same reason and in one
+    place: `spec.md` asks for the escape hatch named once rather than twice,
+    and a record's fixture stamp — `mod.py#helper@deadbeef`, which this
+    repository carries in two records — is exactly the shape the marker
+    exists for.
     """
     return [
-        (number, line)
-        for number, line in enumerate(lines, 1)
-        if NOT_IN_TREE not in line and ANCHOR_RE.search(line)
+        (number, line) for number, line in claim_lines(lines) if ANCHOR_RE.search(line)
     ]
 
 
@@ -2031,6 +2071,12 @@ def check_records(root, home, maps=None, default_repo=None):
                     )
                 )
             for number, line in stated_stamps(lines):
+                # The stamps on the line, counted from the line. Counting
+                # what `check_text` RETURNS counts findings: it dedupes a
+                # repeated anchor, so one line stamping a unit twice read as
+                # one stamp, and `0 stamps read` beside a refusal named a
+                # number that was never the number of stamps (round 1, ⬜ 14).
+                stamps_read += sum(1 for _ in ANCHOR_RE.finditer(line))
                 # A fresh `seen` per line and a shared `scan_cache` across
                 # them: two lines stamping one unit are two claims and both
                 # are reported, while the repo-wide scan a broken anchor
@@ -2038,7 +2084,6 @@ def check_records(root, home, maps=None, default_repo=None):
                 for status, coord, detail in check_text(
                     line, root, maps or {}, default_repo, set(), scan_cache
                 ):
-                    stamps_read += 1
                     if status == "OK":
                         continue
                     findings.append((status, f"{shown}:{number}", f"{coord} {detail}"))
@@ -2203,12 +2248,39 @@ def main():
     # construction — the state the `ledger` CI job's own comment refuses. A
     # name the tree does not carry has no mid-flight excuse: it is absent or
     # the record is wrong, and the marker is one comment away.
+    #
+    # **`EXTERNAL` is exit 0 in both arms.** It is what a coordinate reads in
+    # a repository that has DECLARED cross-repo intent, `SKILL.md` documents
+    # it at exit 0, and counting it as a refusal here made a migration
+    # repository's records fail for the state its parity config exists to
+    # allow (round 1, 🟡 5).
     drifted = sum(1 for status, _, _ in records if status == "DRIFTED")
-    refused = len(records) - drifted
+    external = sum(1 for status, _, _ in records if status == "EXTERNAL")
+    refused = len(records) - drifted - external
+    # **What this arm did NOT read is on the line too.** The boundary reads
+    # *a fragment exists* as *this work item has not shipped*, which is
+    # sound, and then acts on the converse, which is not: a live work item
+    # that has not written its fragment yet is skipped, and it used to be
+    # skipped in silence. This arm's own work item was unread through five of
+    # its six phases and every run said `0 names read` and exited 0 (round 1,
+    # 🟡 6) — a zero that reads as *nothing to find* where it meant *nothing
+    # was opened*, which is the silence `skipped_by_narrowing` exists to end
+    # one arm over.
+    #
+    # The two counts and not the 38 names behind the second: naming every
+    # shipped work item costs two thousand characters on every run, and a
+    # notice nobody reads is the state this is fixing. The count moves the
+    # moment a work item's fragment is missing, which is what a reader
+    # checks.
+    home = seal_home(root)
+    live_count = len(unshipped(home))
+    unread = len(unread_items(home))
     print(
-        f"  {names_read} name{'' if names_read == 1 else 's'} read · "
+        f"  {live_count} work item{'' if live_count == 1 else 's'} read · "
+        f"{unread} unread · "
+        f"{names_read} name{'' if names_read == 1 else 's'} read · "
         f"{stamps_read} stamp{'' if stamps_read == 1 else 's'} read · "
-        f"{refused} refused · {drifted} drifted"
+        f"{refused} refused · {drifted} drifted · {external} external"
     )
 
     if totals["OLD-FORMAT"]:

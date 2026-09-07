@@ -228,6 +228,8 @@ branch had touched.
 | `OLD-FORMAT` (exit 2, `--strict` or not) | an old `path:line` row from before content anchoring, which nothing measures any more | run `evidence-check --migrate .` — a red build naming the migrator beats a green build checking nothing |
 | `DRIFTED` (exit 1; 2 under `--strict`) | the content changed, or a minor anchor's place is gone | re-open it, re-read the claim, then `--reverify` |
 | `EXTERNAL` (exit 0) | the path resolves in no known checkout, in a repository that has DECLARED cross-repo intent — a parity config, `--map`, or `--default-repo` | pass `--map`/`--default-repo`, or accept as out of scope. Without such a declaration a missing path is `BROKEN` instead: a deleted or renamed directory must fail the build, not read as somebody else's repo |
+| `NOT-IN-TREE` (exit 2, records arm) | a record of a work item that has not shipped names a compound backticked identifier that nothing git carries outside `seal/specs/` and `seal/ledger/` | correct the record, or write `NAME NOT IN TREE` on the line where the record means a name the tree does not have. The marker exempts the LINE, not the name |
+| `UNREADABLE` (exit 2, records arm) | a record under a live work item that could not be opened | a record nobody can read is indistinguishable from a record with nothing in it, which is the green build this refuses |
 | `OK` | the content is what the row recorded — the current line numbers are printed for you to open |
 
 **An ambiguous MAJOR unit is BROKEN, loudly, and never a measurement.** With
@@ -278,6 +280,61 @@ reports.
 A row citing a range that spans several definitions becomes several
 coordinates, one per definition. That is not a loss: it is the row saying which
 pieces of code it is actually about.
+
+## The records arm — what a work item's records say about the tree
+
+A ledger row is a claim about the tree that something reads. A **record** —
+`spec.md`, `plan.md`, `overview.md`, `rounds/round-N.md`, `phases/phase-N.md`
+— states the same kind of thing and nothing read it (#190). It names a unit,
+or stamps one, and the next commit moves what it named.
+
+Every run reads them, under its own heading and with its own counts, and no
+flag turns it on:
+
+```
+records — what unreleased work items state about the tree
+  NOT-IN-TREE  seal/specs/1780000000-x/plan.md:14  `gone_helper` — nothing outside …
+  1 work item read · 38 unread · 206 names read · 0 stamps read · 1 refused · 0 drifted · 0 external
+```
+
+**Whose records are read is decided by the ledger fragment.** A work item
+with `seal/ledger/<id>.md` still on disk has not shipped; the release folds
+that file away, so the boundary is a file the fold already removes and there
+is nothing else to keep true. A shipped work item's records are records of a
+moment — a plan from two releases ago proposing a helper that was built under
+another name is correct as history — and refusing those would be refusing the
+past.
+
+**`N unread` is the other half of that boundary**, because *has a fragment*
+answers *is live* and its converse does not: a work item that has not written
+its rows yet is skipped, and used to be skipped in silence. `0 names read`
+and exit 0 says the same thing for *every record is clean* and *no record was
+opened*, so the count is on the line either way.
+
+**What counts as a claim.** A backticked identifier carrying an underscore,
+and an anchor stamp `path#unit@hash` resolved exactly as a ledger row's is. A
+single word in backticks is prose far more often than it is a unit. A FENCED
+line is a quotation — a paste-ready fix is code the tree does not have yet —
+and an HTML comment is an aside; neither is read.
+
+**What counts as the tree.** Every identifier-shaped token in every file the
+walk reaches, prose and file names included, outside `seal/specs/` and
+`seal/ledger/`. Caches, build output and `.git` are skipped, because a
+`__pycache__` carries the identifiers of a module the tree has since lost.
+
+**An untracked or `.gitignore`d file still counts**, and that is a known
+hole: a scratch note holding a name silences a refusal with no committed
+byte. Closing it means asking git what it carries, and this checker calls git
+for nothing outside `--migrate` — see *A row carries no line number and no
+commit* in `README.md`. What the hole costs is bounded in the safe direction:
+CI reads a clean checkout, where the untracked file does not exist, so CI is
+the stricter reader and the local run is the lenient one.
+
+**Grading follows the ledger's**, with one difference. `EXTERNAL` is exit 0
+and `DRIFTED` in a record does not fail the run: a live work item's branch is
+editing the very units its records stamp, so failing on drift would be red by
+construction. A name the tree does not carry has no such excuse — it is
+absent, or the record is wrong, and the marker is one comment away.
 
 ## Known limits
 

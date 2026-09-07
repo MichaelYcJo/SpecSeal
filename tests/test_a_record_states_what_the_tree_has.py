@@ -6,9 +6,10 @@ A ledger row is a claim about the tree that something reads. A record --
 the boundary that decides whose records are read, the identifier arm, the
 stamp arm, and the escape hatch.
 
-**Only the corpus fixtures run git**, and they have to: the corpus is what
-the tree CARRIES, so a case about an untracked file has nothing to say
-without an index to be absent from. The boundary is the presence of a file
+**No fixture here runs git, and no fixture here may.** The checker calls git
+for nothing outside `--migrate` (`README.md` §*A row carries no line number
+and no commit*), so a fixture that needed an index would be pinning behaviour
+the checker is not allowed to have. The boundary is the presence of a file
 and the arms resolve content, the way `test_a_row_points_by_content.py` does.
 """
 
@@ -398,106 +399,7 @@ def test_the_records_arm_runs_even_when_a_narrowing_finds_no_ledger(tmp_path):
     assert "NOT-IN-TREE" in r.stdout
 
 
-# --- the corpus is what git carries (round 1, 🟡 3 and 🟡 4) -----------------
-
-
-def committed(root):
-    """`git init` at `root` and commit everything in it."""
-    for args in (
-        ["init", "-q"],
-        ["config", "user.email", "t@example.com"],
-        ["config", "user.name", "t"],
-        ["add", "-A"],
-        ["commit", "-qm", "base"],
-    ):
-        subprocess.run(
-            ["git", "-C", str(root), *args],
-            check=True,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-
-
-def test_an_untracked_file_does_not_supply_a_name(tmp_path):
-    """One untracked note took a live refusal from exit 2 to exit 0, with no
-    committed byte and no round record to show it.
-
-    A reviewer's own `test_tmp_*` probe, a scratch note and a dependency tree
-    under a name `SKIP_DIRS` does not list all silenced this arm the same
-    way — and CI, which reads a clean checkout, then answered differently
-    from the tree the record was written in.
-    """
-    h = home(tmp_path)
-    tree(tmp_path, **{"mod.py": "def kept_helper():\n    return 1\n"})
-    work_item(
-        h,
-        "1780000000-live",
-        **{"plan.md": "# p\n\nthe alias `gone_helper` has one call site\n"},
-    )
-    committed(tmp_path)
-    (tmp_path / "scratch-notes.txt").write_text("gone_helper\n", encoding="utf-8")
-    found, _read = refusals(tmp_path)
-    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
-
-
-def test_an_untracked_files_name_is_not_a_name_either(tmp_path):
-    """A file NAME is a token too, so the filter has to run ahead of it —
-    otherwise an untracked `gone_helper.py` supplies the very name its
-    contents are not allowed to."""
-    h = home(tmp_path)
-    tree(tmp_path, **{"mod.py": "def kept_helper():\n    return 1\n"})
-    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
-    committed(tmp_path)
-    (tmp_path / "gone_helper.py").write_text("x = 1\n", encoding="utf-8")
-    found, _read = refusals(tmp_path)
-    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
-
-
-def test_a_tracked_file_supplies_the_same_name(tmp_path):
-    """The pair, not either alone: a filter that refused everything and a
-    filter that refused nothing both pass a single-arm case."""
-    h = home(tmp_path)
-    tree(tmp_path, **{"mod.py": "def kept_helper():\n    return 1\n"})
-    work_item(
-        h,
-        "1780000000-live",
-        **{"plan.md": "# p\n\nthe alias `gone_helper` has one call site\n"},
-    )
-    (tmp_path / "scratch-notes.txt").write_text("gone_helper\n", encoding="utf-8")
-    committed(tmp_path)
-    assert refusals(tmp_path) == ([], 1)
-
-
-def test_an_ignored_file_does_not_supply_a_name(tmp_path):
-    """`.gitignore`d build output is the same state arrived at by a rule
-    rather than by forgetting, and a bundle is where a deleted name most
-    often survives."""
-    h = home(tmp_path)
-    tree(
-        tmp_path,
-        **{
-            "mod.py": "def kept_helper():\n    return 1\n",
-            ".gitignore": "dist/\n",
-            "dist__bundle.js": "var gone_helper = 1;\n",
-        },
-    )
-    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
-    committed(tmp_path)
-    found, _read = refusals(tmp_path)
-    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
-
-
-def test_a_root_that_is_not_a_git_tree_reads_every_file(tmp_path):
-    """None rather than an empty set. A vendored copy runs wherever CI checks
-    it out and a plugin cache is not a checkout, so *there is no git here to
-    ask* has to leave the walk as it was — where *the tree has nothing* would
-    refuse every name a record states."""
-    assert module().tracked_paths(str(tmp_path)) is None
-    h = home(tmp_path)
-    tree(tmp_path, **{"scratch-notes.txt": "gone_helper\n"})
-    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
-    assert refusals(tmp_path) == ([], 1)
+# --- the corpus reaches a local-mode root (round 1, 🟡 4) -------------------
 
 
 def test_the_gathered_ledger_is_in_the_corpus_in_local_mode_too(tmp_path):
@@ -506,14 +408,9 @@ def test_the_gathered_ledger_is_in_the_corpus_in_local_mode_too(tmp_path):
     In local mode `seal/` sits under the git common directory, which every
     walk here prunes with `.git` — so `seal/ledger.md`, which is IN the
     corpus by design, was dropped for no reason but where the root happens to
-    sit. Nothing under a local-mode root is tracked either, so the walk that
-    reaches it is not filtered by the index.
+    sit.
     """
     (tmp_path / "mod.py").write_text("def kept_helper():\n    return 1\n")
-    # A real index, because half of what this case pins is that the tracked
-    # filter is NOT applied to a local-mode home. With nothing committed the
-    # filter is absent anyway and the case cannot tell the two apart.
-    committed(tmp_path)
     local = tmp_path / ".git" / "seal"
     (local / "specs").mkdir(parents=True)
     (local / "ledger").mkdir(parents=True)
@@ -678,7 +575,213 @@ def test_a_records_drift_does_not_fail_the_run_and_a_broken_anchor_does(tmp_path
     assert "1 refused · 0 drifted" in broken.stdout
 
 
+# --- a quotation is not a claim (round 1, 🟡 11) -----------------------------
+
+
+def test_a_fenced_name_is_a_quotation_and_not_a_claim(tmp_path):
+    """`## Paste-ready fixes` is fences of code the tree does not have yet —
+    that is what a paste-ready fix IS. Refusing one asks the writer to mark
+    up a block they copied verbatim, and a marker inside a fence changes the
+    fix somebody pastes."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "rounds__round-1.md": "# r\n\n## Paste-ready fixes\n\n"
+            "```python\ndef gone_helper():\n    return `gone_helper`\n```\n"
+        },
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
+def test_a_name_after_the_fence_closes_is_a_claim_again(tmp_path):
+    """The pair: a reader that switched the arm off at the first fence would
+    pass the case above and read nothing after it."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "rounds__round-1.md": "# r\n\n```python\n`inside_a_fence`\n```\n\n"
+            "and then `gone_helper` in prose\n"
+        },
+    )
+    found, read = refusals(tmp_path)
+    assert read == 1
+    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
+    assert "`gone_helper`" in found[0][2]
+
+
+def test_an_html_comment_is_an_aside_and_not_a_claim(tmp_path):
+    """A template's comments describe fields rather than assert units, and
+    the records are bootstrapped from templates that carry them."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\n<!-- `gone_helper` — what this field holds -->\n"},
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
+def test_a_fenced_stamp_is_a_quotation_too(tmp_path):
+    """One reader for both arms: a stamp in a fence is a quoted anchor
+    exactly as a name in one is a quoted name."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\n```\nrow `mod.py#helper@deadbeef`\n```\n"},
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
+# --- the boundary says what it did not read (round 1, 🟡 6) ------------------
+
+
+def test_a_work_item_with_no_fragment_is_counted_as_unread(tmp_path):
+    h = home(tmp_path)
+    work_item(h, "1780000000-live", **{"spec.md": "# a\n"})
+    work_item(h, "1770000000-shipped", fragment=False, **{"spec.md": "# b\n"})
+    assert module().unread_items(str(h)) == ["1770000000-shipped"]
+
+
+def test_the_run_says_how_many_work_items_it_did_not_read(tmp_path):
+    """`0 names read` and exit 0 is the same output for *every record is
+    clean* and *no record was opened*, and this arm's own work item sat in
+    the second state through five of its six phases."""
+    h = home(tmp_path)
+    work_item(h, "1780000000-unwritten", fragment=False, **{"spec.md": "# a\n"})
+    got = run(["."], tmp_path)
+    assert got.returncode == 0, got.stdout + got.stderr
+    assert "0 work items read · 1 unread · 0 names read" in got.stdout, got.stdout
+
+
+def test_a_fragment_named_only_md_is_not_a_work_item(tmp_path):
+    """`seal/ledger/.md` leaves the id empty, `os.path.join(specs, "")` is
+    `specs/` itself and `isdir` says yes — so the whole records tree became
+    one live work item and every shipped record in it was read."""
+    h = home(tmp_path)
+    work_item(
+        h, "1770000000-shipped", fragment=False, **{"plan.md": "# `gone_helper`\n"}
+    )
+    (h / "ledger" / ".md").write_text("rows\n", encoding="utf-8")
+    assert module().unshipped(str(h)) == {}
+    assert refusals(tmp_path) == ([], 0)
+
+
 # --- what `main` hands the arm ----------------------------------------------
+
+
+def test_an_external_anchor_in_a_record_is_exit_0_as_it_is_in_a_ledger(tmp_path):
+    """`EXTERNAL` is what a coordinate reads in a repository that has
+    DECLARED cross-repo intent, and `SKILL.md` documents it at exit 0.
+    Counting it as a refusal made a migration repository's records fail for
+    the state its parity config exists to allow."""
+    h = home(tmp_path)
+    (h / "parity.md").write_text("| Original | somewhere |\n", encoding="utf-8")
+    work_item(
+        h,
+        "1780000000-live",
+        **{"overview.md": "# o\n\n`legacy/mod.py#handler@deadbeef`\n"},
+    )
+    findings, _names, stamps = module().check_records(str(tmp_path), str(h))
+    assert stamps == 1
+    assert [s for s, _, _ in findings] == ["EXTERNAL"], findings
+    got = run(["."], tmp_path)
+    assert got.returncode == 0, got.stdout + got.stderr
+    assert "0 refused · 0 drifted · 1 external" in got.stdout, got.stdout
+
+
+def test_two_stamps_of_one_unit_on_one_line_are_two_stamps(tmp_path):
+    """`check_text` dedupes a repeated anchor, so counting what it RETURNS
+    counted findings: one line stamping a unit twice read as one stamp, and
+    the number beside a refusal was never the number of stamps."""
+    h = home(tmp_path)
+    tree(tmp_path, **{"src__service.py": SERVICE})
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "overview.md": f"# o\n\n`src/service.py#handler@{GOOD}` twice: "
+            f"`src/service.py#handler@{GOOD}`\n"
+        },
+    )
+    findings, _names, stamps = module().check_records(str(tmp_path), str(h))
+    assert (findings, stamps) == ([], 2)
+
+
+# --- the corpus guards, each with an observer (round 1, 🟡 7) ----------------
+
+
+def test_a_deleted_name_surviving_in_the_git_directory_is_not_a_name(tmp_path):
+    """`.git` is where every deleted version of every file lives, so a walk
+    that read it would answer *the tree still has this* for a name the tree
+    lost. Constructed without `git init`, so `SKIP_DIRS` is what refuses it
+    rather than the index."""
+    h = home(tmp_path)
+    tree(tmp_path, **{".git__objects__pack__loose.txt": "gone_helper\n"})
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    found, _read = refusals(tmp_path)
+    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
+
+
+def test_a_broken_stamps_hint_does_not_point_into_a_vendored_package(tmp_path):
+    """The scan looks for where a unit WENT, and a cache or a vendored
+    package is the one place it cannot have gone. A hint reading `same name
+    at .venv/lib/site-packages/pkg/a.py` sends the reader somewhere the
+    repository does not own, and it is what made `SKIP_DIRS`' own comment —
+    *directories no walk in this file descends* — false."""
+    h = home(tmp_path)
+    tree(tmp_path, **{".venv__lib__pkg__service.py": "def handler(x):\n    return x\n"})
+    work_item(
+        h,
+        "1780000000-live",
+        **{"overview.md": "# o\n\n`src/service.py#handler@deadbeef`\n"},
+    )
+    findings, _names, _stamps = module().check_records(str(tmp_path), str(h))
+    assert [s for s, _, _ in findings] == ["BROKEN"], findings
+    assert ".venv" not in findings[0][2], findings[0][2]
+
+
+def test_a_file_over_the_size_cap_supplies_no_name(tmp_path):
+    """A minified bundle or a lockfile is megabytes of tokens that name
+    nothing anyone claims. Without the cap the run pays for reading them on
+    every invocation, and the guard had no observer."""
+    h = home(tmp_path)
+    big = tmp_path / "bundle.min.js"
+    big.write_text("x" * (module().NAME_FILE_CAP + 1) + "\ngone_helper\n")
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    found, _read = refusals(tmp_path)
+    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
+
+
+def test_the_corpus_does_not_fold_case(tmp_path):
+    """`Gone_Helper` and `gone_helper` are two identifiers in every language
+    this reads, and a corpus that folded case would answer for one when the
+    tree carries the other."""
+    h = home(tmp_path)
+    tree(tmp_path, **{"mod.py": "def gone_helper():\n    return 1\n"})
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`Gone_Helper`\n"})
+    found, _read = refusals(tmp_path)
+    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
+    assert "`Gone_Helper`" in found[0][2]
+
+
+def test_a_record_that_cannot_be_read_is_named(tmp_path, monkeypatch):
+    """The status had no case at all. Constructed by refusing the read rather
+    than by `chmod 000`, which is nothing to root and sets only a read-only
+    flag on Windows — `test_gates_do_not_fail_open.py` makes the same choice
+    for the same reason."""
+    mod = module()
+    h = home(tmp_path)
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n"})
+    monkeypatch.setattr(mod, "read", lambda path: None)
+    findings, names, stamps = mod.check_records(str(tmp_path), str(h))
+    assert (names, stamps) == (0, 0)
+    assert [s for s, _, _ in findings] == [mod.UNREADABLE_STATUS], findings
+    assert findings[0][2] == "the record could not be read"
 
 
 def test_the_same_anchor_answers_the_same_in_both_arms_under_default_repo(tmp_path):
