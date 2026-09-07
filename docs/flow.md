@@ -62,7 +62,10 @@ tracker, and #111 is the sharpest thing on the whole list: a git call that
 fails reads as a repository with no remote, and that reading switches off a
 refusal. The fifth is this repository meeting the same class about itself.
 
-- [ ] #203 — `refusal` joins the refused lines to the routes with a separator no case observes, and deleting it leaves every case green. Opened at the round cap of #179's own chain, which is the ninth instance of one class on one branch: a case that cannot observe what its own guard removes, moving to a new unit or a new assertion after every round that declared it closed.
+- [ ] #203 — nothing observes the refused lines, the running version or the reason in what the version check prints; the ledger row recorded a narrower residual than the measurements support. Three passes each enumerated the parts and each stopped one short.
+- [ ] #204 — an uppercase `V0.9.0` is this plugin's version and the check cannot see it, and the guard beside it has no written argument.
+- [ ] #205 — two records say a narrower prefix written later stopped working, and it never did in either implementation.
+- [ ] #206 — the tracker document says the version check refuses a version whether it has shipped, where it refuses at or above the running one.
 - [ ] #111 — `git()` reads every failure as `""`, and in `seal import` that empty string switches off the refusal that keeps another project's records out. Four callers were left after #104 taught two of them to check the return code.
 - [ ] #151 — the preset tells a session to create the root, and the question that was supposed to come first lives in a skill it never loads. Reported from a repository's first work item: `seal/` appeared and nobody was asked about shared or local mode.
 - [ ] #134 — the update notice names a restart and never the reload this repository measured and wrote down. One notice and one skill.

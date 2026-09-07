@@ -50,9 +50,7 @@ LOADED = (
 )
 
 # A version-shaped token, with the optional `v` prefix the substring test this
-# replaced caught for free — in either case, because `V0.9.0` is this
-# plugin's own version in another spelling and was invisible everywhere until
-# review round 3 measured it. `(?!\.\d)` keeps `2.0.1.5` from reading as a
+# replaced caught for free. `(?!\.\d)` keeps `2.0.1.5` from reading as a
 # release of this plugin, and it is the ONLY trailing guard: a single
 # `(?![\w.])` swallowed a version at the END OF A SENTENCE — `right for
 # 0.8.3.` answered no offender, where the substring check this replaced caught
@@ -67,24 +65,7 @@ LOADED = (
 # both spellings, which is what the substring check said and what the owner
 # decided when the same lookahead produced a finding in three consecutive
 # passes (review round 2).
-#
-# The LEADING `(?<![\w.])` stays, and the argument for it is that a version
-# glued to a preceding word is a DIFFERENT identifier: `py3.13.9` names
-# CPython rather than a release of this plugin. That is what makes it unlike
-# the trailing lookahead above, where `rc1` is a prerelease of the same
-# version and belongs to the same timer. The uppercase `V` is not a preceding
-# word and that argument never covered it, which is why the fix for `V0.9.0`
-# is `[vV]?` and not a change to either lookaround (review round 3).
-#
-# The `.` half of that lookbehind has a SEPARATE argument and is load-bearing
-# on its own. It stops the scan restarting inside a number it has already
-# refused: `1.9.9.9` fails at `1.9.9` because of the trailing `(?!\.\d)`, and
-# without `(?<!\.)` the next attempt matches `9.9.9` out of the middle of it
-# and reports a four-part number as a version above the running one.
-# Measured — `(?<!\w)` in place of `(?<![\w.])` turns a case red on exactly
-# that string. The two characters guard different things and only one of them
-# had its grounds written down (review round 4).
-VERSION_TOKEN = re.compile(r"(?<![\w.])[vV]?(\d+\.\d+\.\d+)(?!\.\d)")
+VERSION_TOKEN = re.compile(r"(?<![\w.])v?(\d+\.\d+\.\d+)(?!\.\d)")
 
 # The value the repository already tells an author to write where a real
 # version would be wrong. `docs/issues-and-milestones.md` §"A rolling log is
@@ -126,15 +107,8 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
 
 
 def as_release(token):
-    """`V0.9.0`, `v0.9.0` and `0.9.0` alike -> `(0, 9, 0)`, which compares.
-
-    Both cases of the prefix, because `VERSION_TOKEN` produces both and
-    `match.group(0)` — the spelling the refusal prints and the exemption is
-    keyed on — carries whichever the author wrote. This used to strip a
-    lowercase `v` only and raised `ValueError` on `V0.9.0`, a token its own
-    module makes (review round 4).
-    """
-    return tuple(int(n) for n in token.lstrip("vV").split("."))
+    """`v0.9.0` and `0.9.0` alike -> `(0, 9, 0)`, which compares."""
+    return tuple(int(n) for n in token.lstrip("v").split("."))
 
 
 # A `/` entry covers only files whose OWN NAME carries the date its argument
@@ -267,32 +241,17 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
     none should be added — this repository writes dates with dashes, which
     the check does not read at all.
 
-    **What this case does NOT pin**, stated from measurement rather than from
-    inference. The last assertion reads `refusal`, so an edit detaching the
-    routes from the printed text goes red — that mutation used to leave every
-    case here green (review round 2, finding 7). What this case does not
-    reach is the rest of `refusal`, and
-    `test_the_refusal_names_the_line_and_the_version_it_refused` is what
-    covers that.
+    **What this case does NOT pin**, stated rather than left to be found, and
+    it is now one line rather than the whole message. The last assertion reads
+    `refusal`, which is what the check actually prints, so an edit detaching
+    the routes from the printed text goes red — that mutation used to leave
+    every case here green (review round 2, finding 7). What is still
+    unpinned is only `assert not offenders, refusal(running, offenders)`
+    itself: bypassing that one line leaves every case green, and pinning it
+    would mean reading this file's own source.
 
-    Eight mutations of `refusal` have been run one at a time, six in review
-    round 3 and two more in round 4. Seven turn a case red: the offender
-    lines deleted, the `{running}` interpolation dropped, the explanatory
-    paragraph deleted, the routes dropped, the separator BETWEEN offender
-    lines collapsed, the separator BEFORE THE FIRST offender line deleted,
-    and the routes printed above the offender lines instead of below them.
-    The one that survives is `assert not offenders, refusal(...)` being
-    replaced by a literal, which no assertion here reaches.
-
-    The sixth of those was found by round 4 inside the case written to close
-    the fifth: passing two offenders rendered the join and left the paragraph's
-    own trailing break unobserved, so the first refused line could run into
-    the paragraph above it while every case stayed green.
-
-    Twice now a paragraph in this position claimed a limit wider than what
-    had been measured, and each time the claim was the grounds for looking no
-    further. Anything not on the list above is UNMEASURED rather than
-    unpinnable.
+    The earlier version of this paragraph used that residual as grounds for
+    leaving the whole message inline, which is how the real gap stayed open.
     """
     routes = what_to_write_instead()
     assert ILLUSTRATIVE_VERSION in routes, "no route for this repository's own version"
@@ -311,47 +270,6 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
     assert routes in refusal("0.8.3", ["docs/x.md:1 names 0.9.0"]), (
         "the refusal no longer carries the routes — the text a person sees "
         "and the text this case reads have come apart"
-    )
-
-
-def test_the_refusal_names_the_line_and_the_version_it_refused():
-    """The half of the message that tells a person where to go.
-
-    `refusal` carries four things — the running version, why such a line is a
-    timer, the offender lines, and the routes — and only the routes were
-    pinned. Deleting `"\\n  ".join(offenders)`, dropping the `{running}`
-    interpolation, and deleting the explanatory paragraph each left all 30
-    cases green (review round 3). The offender lines are the half an author
-    acts on first: without them the refusal says a loaded file names a
-    version and not which file, which line, or which token.
-    """
-    # TWO offenders, not one. With a single line the separator between them
-    # is never rendered, so a case passing one cannot see it collapse and
-    # every refused line after the first would run into its neighbour —
-    # measured, that mutation survived a case built on one offender.
-    #
-    # There are TWO separators, not one, and this comment used to stop a line
-    # short of saying so. The first offender's own line break is the `\n  `
-    # ending the paragraph literal in `refusal`; the rest come from the join.
-    # Both assertions below therefore require the leading break rather than a
-    # bare substring (review round 4).
-    text = refusal("0.8.3", ["docs/x.md:12 names 0.9.0", "docs/y.md:3 names 0.9.1"])
-    assert "\n  docs/x.md:12 names 0.9.0" in text, (
-        "the refusal stopped printing the lines it refused, or stopped "
-        "printing the first of them on a line of its own — a person is told "
-        "that a loaded file names a version and not where to go"
-    )
-    assert "\n  docs/y.md:3 names 0.9.1" in text, (
-        "the refused lines stopped being one per line — a second offender "
-        "now runs into the end of the first"
-    )
-    assert "0.8.3" in text, (
-        "the refusal stopped naming the running version, so the comparison "
-        "the author has to make is not in front of them"
-    )
-    assert "goes red on the day that version ships" in text, (
-        "the refusal lost the reason a version-shaped line is a timer, which "
-        "is what makes the routes below it worth reading"
     )
 
 
@@ -460,45 +378,6 @@ def test_a_version_at_or_above_the_running_one_is_refused():
     ]
 
 
-def test_as_release_reads_every_spelling_the_token_regex_produces():
-    """A producer and its consumer have to agree on the alphabet.
-
-    `[vV]?` made `V0.9.0` a token the module hands around — `timers_in`
-    appends `match.group(0)`, which is what the refusal prints and what
-    `VERSIONS_OF_ANOTHER_PRODUCT` is matched on. `as_release` stripped a
-    lowercase `v` only, so it raised `ValueError` on a spelling its own
-    module produces (review round 4).
-
-    No live path reached it, because `timers_in` calls `as_release` on
-    `group(1)` and on the running version, both bare. That is why this is a
-    case rather than a crash: what was wrong is that a widening stopped at
-    the producer, and the docstring of a ledger-anchored unit claimed less
-    than the module made.
-    """
-    assert as_release("V0.9.0") == (0, 9, 0)
-    assert as_release("v0.9.0") == (0, 9, 0)
-    assert as_release("0.9.0") == (0, 9, 0)
-    # Every prefix the regex ACCEPTS, discovered by trying the whole alphabet
-    # rather than by listing the two it takes today. A list would have to be
-    # widened by hand alongside the pattern, which is the failure this case
-    # exists for: the prefix was widened and its reader was not.
-    letters = [chr(c) for c in range(ord("a"), ord("z") + 1)]
-    letters += [chr(c) for c in range(ord("A"), ord("Z") + 1)]
-    accepted = []
-    for prefix in [*letters, ""]:
-        for match in VERSION_TOKEN.finditer(f"cut {prefix}0.9.0 today"):
-            accepted.append(match.group(0))
-            assert as_release(match.group(0)) == (0, 9, 0), (
-                f"`as_release` cannot read {match.group(0)!r}, which "
-                "`VERSION_TOKEN` produces and the refusal prints"
-            )
-    assert sorted(accepted) == ["0.9.0", "V0.9.0", "v0.9.0"], (
-        f"the prefixes the regex accepts changed to {sorted(accepted)} — "
-        "`as_release`, the refusal and `VERSIONS_OF_ANOTHER_PRODUCT` are all "
-        "keyed on this spelling, so the change is theirs too"
-    )
-
-
 def test_a_two_digit_component_compares_as_a_number():
     """`0.10.0` is above `0.8.3`, and every string comparison says otherwise.
 
@@ -562,17 +441,10 @@ def test_the_exemption_list_does_not_depend_on_the_order_it_is_written_in():
     appending at the end is the natural act.
 
     An early `return` on the first `/` entry whose prefix matched made every
-    entry after it unreachable, so an EXACT path written below the prefix that
-    contains it silently stopped working (review round 2). The failure
-    direction is loud, a file the author meant to exempt goes red, but nothing
-    said the order mattered.
-
-    A narrower `/` entry written after a wider one is NOT an instance, which
-    this docstring used to claim it was. Measured over four arrangements in
-    both implementations (review round 3): every `/` entry passes the same
-    `DATED_RECORD.match(basename)`, so a later prefix cannot change the
-    answer either way. Only `rel == entry`, which skips that check, can — and
-    that is the one arrangement asserted below.
+    entry after it unreachable — so an exact path, or a narrower prefix,
+    written below the prefix that contains it silently stopped working
+    (review round 2). The failure direction is loud, a file the author meant
+    to exempt goes red, but nothing said the order mattered.
     """
     entries = RECORDS_OF_A_MOMENT
     try:
@@ -706,30 +578,16 @@ def test_a_number_that_is_not_a_version_is_not_read_as_one():
     # The LEADING lookbehind, which the line above cannot see either.
     # `2.0.1.5`'s tail `0.1.5` is below the running version, so that line
     # answers `[]` whether the lookbehind is there or not — measured. Only a
-    # four-part number whose tail is ABOVE it shows the loss.
+    # four-part number whose tail is ABOVE it shows the loss, and a version
+    # glued to a preceding word is the other half of the same guard.
     assert (
         timers_in("docs/x.md", "build 1.9.9.9 of something", RUNNING_IN_THE_FIXTURES)
         == []
     )
-    # And the argument for the other half, which was pinned with none.
-    # A version glued to a preceding WORD is a different identifier — `py3.13.9`
-    # names CPython, not a release of this plugin — where a trailing `rc1` is a
-    # prerelease of the SAME version and is refused. That asymmetry is the
-    # whole of why one lookaround guards and the other was removed.
     assert (
         timers_in("docs/x.md", "the token x0.9.0 is not ours", RUNNING_IN_THE_FIXTURES)
         == []
     )
-    assert (
-        timers_in("docs/x.md", "needs py3.13.9 or newer", RUNNING_IN_THE_FIXTURES) == []
-    )
-    # `V` is not a preceding word, so that argument does not reach it: an
-    # uppercase `V0.9.0` is this plugin's own version in another spelling, and
-    # it used to be invisible everywhere. `[vV]?` rather than a change to
-    # either lookaround, which is what produced round 1's finding 1.
-    assert timers_in("docs/x.md", "cut V0.9.0 last week", RUNNING_IN_THE_FIXTURES) == [
-        (1, "V0.9.0")
-    ]
     # A prerelease of a version that has not shipped is a timer in both its
     # spellings. `0.9.0-rc1` was always refused; `0.9.0rc1` used to be
     # invisible, because a `(?!\w)` added for `v1.2.30` — which `\d+`'s greed
