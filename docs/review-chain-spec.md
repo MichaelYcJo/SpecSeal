@@ -881,6 +881,25 @@ wherever it sits, and refuses the second — a run reopened twice, however the
 records between are shaped. `stopping_floor`'s docstring carries the same
 table.
 
+**`round_record.py new` says which of the three states this record is in, as
+it writes it.** Not a fourth document restating the rule — the record already
+knows, and until #207 it did not say. The line arrives at the moment the
+orchestrator decides whether to spawn again, which is the moment the check
+below does not reach: it runs at the broad gate, after every round of the run
+has already been spawned. One work item ran rounds 3, 4 and 5 past this bound
+with both documents open, wrote *"round N of a cap of five"* into every spawn
+prompt it sent, and reverted 37.9 minutes of agent time.
+
+| What `new` prints | When |
+|---|---|
+| nothing | no earlier record met the floor — the cap governs, and the cap is not this line's subject |
+| `one reopening remains` | an earlier record's floor row reads `no` and no later record has closed on a fix |
+| `this record ends the run` | one later record has, so this record is the one that reads its fixes |
+
+The floor record it names is the **earliest** whose row reads `no`, for the
+reason the count above gives: keyed to the latest, it restarts at every
+record it stops at and bounds nothing.
+
 **Failure direction: blocks more.** A run that reopens twice is refused where
 it used to pass. What it lets through, stated rather than left to be found: a
 defect the second reopening would have found ships as an issue rather than as

@@ -1886,3 +1886,138 @@ def test_a_paste_ready_fence_carrying_a_table_is_not_read_as_hidden_rows(repo):
     code, out, text = generate(repo, report_text=report(fixes=fix))
     assert code == 0, out
     assert fix.strip() in paste_ready(text), text
+
+
+# --- the bound the next round is under (#207) --------------------------------
+#
+# `docs/review-chain-spec.md` bounds a run one step earlier than the cap: after
+# a record whose floor row reads `no`, at most one later record may close on a
+# fix, and the record that reads its fixes ends the run whatever it finds.
+# `chain_check.py` enforces that at the broad gate, after every round has
+# already been spawned. `new` says it as it writes the record, which is the
+# moment the orchestrator decides whether to spawn again.
+
+FIXED_ROW = "| 🟡 2 | round 1's finding | `f.py:1` | fixed `abc1234` | executed |\n"
+
+
+def bound_of(out):
+    """The bound line `new` printed, or None."""
+    for line in out.splitlines():
+        if line.startswith("round-record: ") and (
+            "ends the run" in line or "reopening remains" in line
+        ):
+            return line
+    return None
+
+
+def test_a_first_round_says_nothing_about_the_bound(repo):
+    """There is no earlier record, so there is no floor and no bound.
+
+    A sentence invented for a state that has none is worse than silence: the
+    cap still governs here, and the cap is not this line's subject.
+    """
+    declared(repo)
+    code, out, _ = generate(repo)
+    assert code == 0, out
+    assert bound_of(out) is None, out
+
+
+def test_a_run_whose_floor_is_not_met_says_nothing_about_the_bound(repo):
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(floor="yes — a record leaves"))
+    assert code == 0, out
+    commit(repo, "round 1")
+    _code, out, text = generate(repo, n=2, report_text=report(verdicts=CLOSED_ROW))
+    assert text is not None, out
+    assert bound_of(out) is None, out
+
+
+def test_a_record_after_the_floor_with_no_fix_says_one_reopening_remains(repo):
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(floor="no"))
+    assert code == 0, out
+    commit(repo, "round 1")
+    _code, out, text = generate(repo, n=2, report_text=report(verdicts=CLOSED_ROW))
+    assert text is not None, out
+    line = bound_of(out)
+    assert line is not None, out
+    assert "one reopening remains" in line
+    assert "round-1.md" in line
+
+
+def test_a_record_reading_the_reopenings_fixes_says_it_ends_the_run(repo):
+    """Round 1 met the floor, round 2 closed on a fix, and round 3 is the
+    record that reads those fixes — so it ends the run whatever it finds."""
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(floor="no"))
+    assert code == 0, out
+    commit(repo, "round 1")
+    _code, out, text = generate(repo, n=2, report_text=report(verdicts=FIXED_ROW))
+    assert text is not None, out
+    commit(repo, "round 2")
+    _code, out, text = generate(repo, n=3, report_text=report(verdicts=CLOSED_ROW))
+    assert text is not None, out
+    line = bound_of(out)
+    assert line is not None, out
+    assert "this record ends the run" in line
+    assert "round-1.md" in line and "round-2.md" in line
+    # The exit the refusal at the gate names, in the one spelling both carry.
+    assert check_module().CAPPED_EXIT in line
+
+
+def test_the_floor_record_is_the_earliest_and_not_the_latest(repo):
+    """The count keyed to the LATEST record that met the floor is unbounded by
+    construction — every record it stops at is itself a record that met the
+    floor, so the count restarts there. `chain_check.stopping_floor` records
+    that failure in its own docstring, and the writer's side must not re-make
+    it.
+
+    Round 1 met the floor, round 2 closed on a fix, round 3 met the floor
+    again. Writing round 4: from the earliest, one later record has closed on
+    a fix and this one ends the run. From the latest, nothing has, and the run
+    reads as having a reopening left.
+    """
+    generator = generator_module()
+    reader = reader_module()
+    routing = generator.load(check_module().ROUTING, "specseal_routing_for_bounds")
+    rounds = repo / ROUNDS
+    rounds.mkdir(parents=True, exist_ok=True)
+
+    def record(n, floor, verdicts):
+        (rounds / f"round-{n}.md").write_text(
+            f"# item — review round {n}\n\n"
+            "| Field | Value |\n|---|---|\n"
+            f"| Loses a record or crashes | {floor} |\n\n"
+            f"## Verdicts\n\n{VERDICT_HEADER}{verdicts}\n",
+            encoding="utf-8",
+        )
+
+    record(1, "no", CLOSED_ROW)
+    record(2, "yes — a record leaves", FIXED_ROW)
+    record(3, "no", CLOSED_ROW)
+
+    floor_at, fixes = generator.floor_and_fixes(
+        reader, generator.earlier_records(routing, str(rounds), 4)
+    )
+    assert os.path.basename(floor_at) == "round-1.md"
+    assert [os.path.basename(p) for p in fixes] == ["round-2.md"]
+
+    line = generator.bound_line(reader, routing, str(rounds), 4)
+    assert "this record ends the run" in line, line
+
+
+def test_a_record_that_cannot_be_read_is_not_the_floor_record(repo):
+    """`stopping_floor` reports an unreadable record and a malformed row at
+    the gate. A second reader inventing a sentence about either here would be
+    the failure #207 is about, one file over."""
+    generator = generator_module()
+    reader = reader_module()
+    routing = generator.load(check_module().ROUTING, "specseal_routing_for_bounds_2")
+    rounds = repo / ROUNDS
+    rounds.mkdir(parents=True, exist_ok=True)
+    (rounds / "round-1.md").write_text(
+        "# item — review round 1\n\n| Field | Value |\n|---|---|\n"
+        "| Loses a record or crashes | possibly |\n",
+        encoding="utf-8",
+    )
+    assert generator.bound_line(reader, routing, str(rounds), 2) is None

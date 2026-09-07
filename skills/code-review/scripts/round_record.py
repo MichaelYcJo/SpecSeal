@@ -1008,6 +1008,91 @@ def reach_back(reader, path, n):
     )
 
 
+# --- the bound the next round is under, said as the record is written -------
+
+ENDS_THE_RUN = "this record ends the run"
+ONE_REOPENING = "one reopening remains"
+
+
+def floor_and_fixes(reader, earlier):
+    """(the record that met the floor, the later ones that closed on a fix).
+
+    The floor record is the EARLIEST earlier record whose `Loses a record or
+    crashes` reads `no`, and taking the LATEST instead is the failure
+    `chain_check.stopping_floor` records in its own docstring: every record
+    the count stops at is itself a record that met the floor, so a count keyed
+    to the latest restarts there and is unbounded by construction.
+
+    Read from disk rather than from `HEAD`. `chain_check.read_record` asks git
+    because it is enforcing at a pull request, where the working tree is
+    exactly what CI cannot see; this is a line printed to whoever just ran the
+    command, and the records in front of them are the ones on disk. A record
+    that cannot be read, or whose row is outside the vocabulary, is simply not
+    the floor record — `stopping_floor` already reports both states at the
+    gate, and a second reader inventing a sentence about them here would be
+    the thing #207 is about.
+    """
+    floor_at = None
+    fixes = []
+    for _k, path in earlier:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+        except OSError:
+            continue
+        lines = reader.readable(text)
+        if floor_at is None:
+            cell_value = chain.field(chain.table_rows(reader, lines), chain.FLOOR)
+            if cell_value is not None:
+                word, _reason = chain.yes_or_no(reader.visible(cell_value).strip())
+                if word == chain.FLOOR_NO:
+                    floor_at = path
+            continue
+        if chain.closed_with_a_fix(reader, lines, path):
+            fixes.append(path)
+    return floor_at, fixes
+
+
+def bound_line(reader, routing, rounds, n):
+    """What bound the next round is under, or None where there is none.
+
+    **`docs/review-chain-spec.md` bounds a run one step earlier than the cap**:
+    after a record whose floor row reads `no`, at most one later record may
+    close on a fix, and the record that reads its fixes ends the run whatever
+    it finds. `chain_check.py` enforces that at the broad gate — after every
+    round of the run has already been spawned — and nothing says it at the
+    moment a session decides whether to spawn again. Measured (#207): one work
+    item ran rounds 3, 4 and 5 past the bound, wrote *"round N of a cap of
+    five"* into every spawn prompt, and reverted 37.9 minutes of agent time.
+
+    The cap is a number a prompt can carry and is wrong; the bound is a
+    condition that has to be recomputed from the previous record's floor row
+    every time a round ends. `new` already has that record in hand for the
+    reach-back, so the answer costs a read it is already paying for.
+
+    **A first round, and a run whose floor has not been met, print nothing.**
+    A sentence invented for a state that has none is worse than silence: the
+    cap still governs there, and the cap is not this line's subject.
+    """
+    floor_at, fixes = floor_and_fixes(reader, earlier_records(routing, rounds, n))
+    if floor_at is None:
+        return None
+    met = os.path.basename(floor_at)
+    if fixes:
+        reopened = os.path.basename(fixes[0])
+        return (
+            f"round-record: {ENDS_THE_RUN} — {met} met the floor and "
+            f"{reopened} closed on a fix. At most one later record may close "
+            "on a fix, and the record that reads its fixes ends the run "
+            f"whatever it finds. {chain.CAPPED_EXIT}"
+        )
+    return (
+        f"round-record: {ONE_REOPENING} — {met} met the floor and no later "
+        "record has closed on a fix. If this round's own verdicts close on "
+        "one, the record after it ends the run whatever it finds"
+    )
+
+
 def build(reader, routing, args, root, item, rounds):
     """The record's text, and the reach-back to make once it is written."""
     if not reader.resolves(root, args.target):
@@ -1205,6 +1290,12 @@ def new(args):
     print(f"round-record: wrote {os.path.relpath(target, root)}")
     if reached is not None:
         print(reached)
+    # After the record is written and before the check runs — the moment the
+    # orchestrator decides whether to spawn again, which is the moment the
+    # enforcement at the broad gate does not reach (#207).
+    bound = bound_line(reader, routing, rounds, args.round)
+    if bound is not None:
+        print(bound)
     return run_check(root, args.baseline or default_baseline(root))
 
 
