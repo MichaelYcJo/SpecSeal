@@ -92,6 +92,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # module's docstring for the 496 executions per hook event it cost.
 import cmdline
 import console
+
+# The AFTER half of this guard: it owns the consent record, and this file reads
+# it. A plain filename again -- and the reason that file's name carries an
+# underscore where every other gate here carries a hyphen.
+import worktree_consent
 from cmdline import apply_chdir, parse_git
 
 
@@ -313,6 +318,42 @@ def has_token(command: str, token: str) -> bool:
     return any(
         tok == token or tok.strip("()") == token for toks in segments for tok in toks
     )
+
+
+def only_creates_a_worktree(command: str, cwd: str, windows=None) -> bool:
+    """True when EVERY segment of `command` is a `git worktree add`.
+
+    The bound on the allow, and the reason there is one.
+    `permissionDecision: "allow"` bypasses the user's own permission settings
+    for the WHOLE tool call, and a creation is routinely written as one segment
+    of a compound. What the consent record establishes is that this session may
+    create worktrees, so the guard may speak for a command that is worktree
+    creation and nothing else; for anything more it says `ask`, which is one
+    prompt about the rest of the command line rather than a deny about the
+    worktree.
+
+    A command the lexer gave up on is not vouched for either -- what it could
+    not read is exactly what the allow would be covering. That is the opposite
+    call from `has_token`, which widens on an unreadable command, and the
+    asymmetry is the same one that file states: widening a CONSENT read costs
+    one prompt, widening a permission decision costs whatever else was on the
+    line.
+
+    Judged from `walk_command`, so a creation written inside a quoted string or
+    a heredoc body is read here the way the guard already reads it -- neither
+    is executed, so neither makes a command anything but what its real segments
+    say.
+    """
+    if not parses_cleanly(command, windows):
+        return False
+    seen = False
+    for tokens, _wheres in walk_command(command, cwd, windows):
+        if not tokens:
+            continue
+        if not cmdline.adds_a_worktree(tokens):
+            return False
+        seen = True
+    return seen
 
 
 def judgeable(tokens, where: str, cwd: str):
@@ -1287,6 +1328,7 @@ def guard_worktree_creation(
     shared_option=None,
     shared_steer=None,
     single_stream="deny",
+    consented="ask",
 ):
     """Worktrees are for CONCURRENT work only -- block the single-stream case."""
     # Same reason as the switch path: without a repository there is no tree to
@@ -1294,6 +1336,58 @@ def guard_worktree_creation(
     # like concurrent work in it.
     if not top:
         return
+
+    # 0) 이 세션이 이 클론에서 이미 worktree 를 만들었다면, 아래 모든 자리는
+    #    사용자가 이미 답한 질문을 다시 내는 것이다.
+    #
+    # This row goes ABOVE every other one, including the ACTIVE-session row.
+    # Each of them asks something the record has already answered: the ACTIVE
+    # row asks for a confirmation, the two choice rows ask which way to go, and
+    # the `[worktree-ok]` row asks whether the token was meant. A session that
+    # created a worktree with a person's answer has settled all four.
+    #
+    # And it answers the `[worktree-ok]` docstring rather than stepping around
+    # it. That site is right that the TOKEN is not evidence -- it is written
+    # into the command by whoever issues it, so the model can write it on the
+    # first attempt. This record is written by a PostToolUse hook AFTER the
+    # call ran, and a `git worktree add` runs only if the deny did not fire and
+    # the ask was answered yes. What changes is the invariant "creating a
+    # worktree always takes one confirmation", which becomes "the FIRST
+    # creation of a session takes one". That is the whole behaviour change.
+    #
+    # `consented` differs by entry point for the same reason `single_stream`
+    # does. `hooks/worktree_consent.py` holds the record and the rest of the
+    # reasoning.
+    if session_id and worktree_consent.granted(top, session_id):
+        if consented == "silent":
+            return
+        respond(
+            consented,
+            (
+                f"{origin}\n"
+                + tr(
+                    "A worktree creation already ran in this repository this session, "
+                    "which means the user answered for it -- the harness only runs a "
+                    "call that was permitted. It is the same decision, so it is not "
+                    "put again.\n",
+                    "이 세션에서 이 저장소에 worktree 생성이 이미 실행되었습니다. "
+                    "허용된 호출만 실행되므로 사용자가 이미 답한 것입니다. 같은 "
+                    "결정이라 다시 묻지 않습니다.\n",
+                )
+                + (
+                    ""
+                    if consented == "allow"
+                    else tr(
+                        "This command does more than create a worktree, so the "
+                        "confirmation covers the rest of the command line rather "
+                        "than the worktree.",
+                        "이 명령은 worktree 생성 외의 일도 합니다. 따라서 이 확인은 "
+                        "worktree 가 아니라 명령의 나머지 부분에 대한 것입니다.",
+                    )
+                )
+            ),
+        )
+
     active, idle, reliable = sessions_in_tree(top, session_id)
 
     # 두 방향의 목적지는 어느 자리에서 물어도 같다 — worktree 를 만들거나,
@@ -1610,6 +1704,10 @@ def main():
             origin,
             user_ok=user_ok,
             session_id=data.get("session_id", ""),
+            # The bound on the allow, computed from the command rather than
+            # from the verdict: the verdict says a creation is in here
+            # somewhere, and the allow needs to know there is nothing else.
+            consented=("allow" if only_creates_a_worktree(command, eff_cwd) else "ask"),
         )
         sys.exit(0)
 
