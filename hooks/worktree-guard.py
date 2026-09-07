@@ -1739,7 +1739,11 @@ def main():
             # The bound on the allow, computed from the command rather than
             # from the verdict: the verdict says a creation is in here
             # somewhere, and the allow needs to know there is nothing else.
-            consented=("allow" if only_creates_a_worktree(command, eff_cwd) else "ask"),
+            # `cwd`, not `eff_cwd`: this reads the command from where the SHELL
+            # started, which is what the `walk_command` above was given too.
+            # `eff_cwd` is where the classified segment LANDED, and handing that
+            # back as a starting point would walk the same `cd` twice.
+            consented=("allow" if only_creates_a_worktree(command, cwd) else "ask"),
         )
         sys.exit(0)
 
