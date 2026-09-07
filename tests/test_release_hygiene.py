@@ -241,17 +241,24 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
     none should be added — this repository writes dates with dashes, which
     the check does not read at all.
 
-    **What this case does NOT pin**, stated rather than left to be found, and
-    it is now one line rather than the whole message. The last assertion reads
-    `refusal`, which is what the check actually prints, so an edit detaching
-    the routes from the printed text goes red — that mutation used to leave
-    every case here green (review round 2, finding 7). What is still
-    unpinned is only `assert not offenders, refusal(running, offenders)`
-    itself: bypassing that one line leaves every case green, and pinning it
-    would mean reading this file's own source.
+    **What this case does NOT pin**, stated from measurement rather than from
+    inference. The last assertion reads `refusal`, so an edit detaching the
+    routes from the printed text goes red — that mutation used to leave every
+    case here green (review round 2, finding 7). What this case does not
+    reach is the rest of `refusal`, and
+    `test_the_refusal_names_the_line_and_the_version_it_refused` is what
+    covers that.
 
-    The earlier version of this paragraph used that residual as grounds for
-    leaving the whole message inline, which is how the real gap stayed open.
+    Six mutations of `refusal` were run one at a time (review round 3): the
+    offender lines, the `{running}` interpolation, the explanatory paragraph,
+    the routes, and the separator between offender lines all turn a case red.
+    The one that survives is `assert not offenders, refusal(...)` being
+    replaced by a literal, which no assertion here reaches.
+
+    Twice now a paragraph in this position claimed a limit wider than what
+    had been measured, and each time the claim was the grounds for looking no
+    further. Anything not on the list above is UNMEASURED rather than
+    unpinnable.
     """
     routes = what_to_write_instead()
     assert ILLUSTRATIVE_VERSION in routes, "no route for this repository's own version"
@@ -270,6 +277,40 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
     assert routes in refusal("0.8.3", ["docs/x.md:1 names 0.9.0"]), (
         "the refusal no longer carries the routes — the text a person sees "
         "and the text this case reads have come apart"
+    )
+
+
+def test_the_refusal_names_the_line_and_the_version_it_refused():
+    """The half of the message that tells a person where to go.
+
+    `refusal` carries four things — the running version, why such a line is a
+    timer, the offender lines, and the routes — and only the routes were
+    pinned. Deleting `"\\n  ".join(offenders)`, dropping the `{running}`
+    interpolation, and deleting the explanatory paragraph each left all 30
+    cases green (review round 3). The offender lines are the half an author
+    acts on first: without them the refusal says a loaded file names a
+    version and not which file, which line, or which token.
+    """
+    # TWO offenders, not one. With a single line the separator between them
+    # is never rendered, so a case passing one cannot see it collapse and
+    # every refused line after the first would run into its neighbour —
+    # measured, that mutation survived a case built on one offender.
+    text = refusal("0.8.3", ["docs/x.md:12 names 0.9.0", "docs/y.md:3 names 0.9.1"])
+    assert "docs/x.md:12 names 0.9.0" in text, (
+        "the refusal stopped printing the lines it refused — a person is told "
+        "that a loaded file names a version and not where to go"
+    )
+    assert "\n  docs/y.md:3 names 0.9.1" in text, (
+        "the refused lines stopped being one per line — a second offender "
+        "now runs into the end of the first"
+    )
+    assert "0.8.3" in text, (
+        "the refusal stopped naming the running version, so the comparison "
+        "the author has to make is not in front of them"
+    )
+    assert "goes red on the day that version ships" in text, (
+        "the refusal lost the reason a version-shaped line is a timer, which "
+        "is what makes the routes below it worth reading"
     )
 
 
