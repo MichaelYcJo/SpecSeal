@@ -65,11 +65,12 @@ work exists to remove.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | The SDD ladder — this file, `spec.md`, `questions.md` | Nothing executable; the design gate reads it | |
-| 2 | `hooks/worktree_consent.py` — the record, and the `PostToolUse` arm that writes it; wired into `post-bash` | `tests/test_the_guard_asks_once_per_session.py`, the writing half, each case seen red first | |
-| 3 | The `PreToolUse` read in `guard_worktree_creation`, with its bounded allow | The same file, the reading half, each case seen red first | |
-| 4 | The `Agent`/`Task` path sharing the record, both directions, and the `post-agent` group in `hooks.json` | The same file, the Agent half, seen red first | |
-| 5 | `docs/worktree-guard-spec.md`, the module docstring, `pr-notes.md`, and the fragments | `tests/test_docs_line_wrap.py`, `tests/test_no_real_identifiers.py`, and a reading of §B against the code | |
+| 1 | The SDD ladder — this file, `spec.md`, `questions.md` | Nothing executable; the design gate reads it | e5ed166 |
+| 2 | `hooks/worktree_consent.py` — the record, and the `PostToolUse` arm that writes it; wired into `post-bash` | `tests/test_the_guard_asks_once_per_session.py`, the writing half, each case seen red first | 2273a5d |
+| 3 | The `PreToolUse` read in `guard_worktree_creation`, with its bounded allow | The same file, the reading half, each case seen red first | 1000a0b |
+| 4 | The `Agent`/`Task` path sharing the record, both directions, and the `post-agent` group in `hooks.json` | The same file, the Agent half, seen red first | 275345f |
+| 5 | Every unit this branch added broken one at a time, and the three cases that had nothing behind them | 16 mutations, 16 red | d64a3fd |
+| 6 | `docs/worktree-guard-spec.md`, the module docstring, `pr-notes.md`, `overview.md`, and the fragments | `bin/evidence-check .`, `tests/test_docs_line_wrap.py`, `tests/test_no_real_identifiers.py`, and a reading of §B against the code | |
 
 This table is also where the work records how far it got. There is no separate
 task list: a list of tasks is mutable progress, and a stale one asserts a state

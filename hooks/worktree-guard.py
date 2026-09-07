@@ -21,6 +21,14 @@ B) Worktree creation, whichever path it takes:
      - Agent/Task tool with `isolation: "worktree"` (harness-managed, lands in
        `<repo>/.claude/worktrees/<name>` and never goes through Bash)
 
+  - this session already created one in this clone  -> allow (Bash, where the
+    command is worktree creation and nothing else), ask (Bash, where it does
+    more), silent (Agent/Task). Read FIRST, above every row below it: each of
+    them asks something a person has already answered. The record is written
+    by hooks/worktree_consent.py AFTER a creation ran, which is why it is
+    evidence where `[worktree-ok]` is not -- that file holds the whole
+    argument, and the budget it buys is one prompt per SESSION rather than one
+    per worktree
   - another Claude session inside THIS working tree -> ask (concurrent:
     justified; declining leads only to "use that session's worktree or wait",
     which is not a command this session issues, so there is no choice to offer)
@@ -28,7 +36,9 @@ B) Worktree creation, whichever path it takes:
     switch in the shared tree
   - `[worktree-ok]` given                           -> ask. NOT a choice: the
     token is what a completed confirmation looks like coming back through the
-    guard, and declining it withdraws the token, which is the other way on
+    guard, and declining it withdraws the token, which is the other way on.
+    Still true, and still not consent for the NEXT creation: the token is
+    written before the question and the record after the answer
   - otherwise (single work stream)                  -> deny, steer to `git switch`
 
 CHOICE sites: a hook decision renders as approve/decline and the model never
@@ -42,6 +52,15 @@ nobody to answer (headless) pays one extra round trip and then behaves as it
 always did. Direction, not site: within one direction the sites are mutually
 exclusive on tree state, while one budget for the whole guard let a creation
 question spend the answer a later switch needed.
+
+Creation consent is a SECOND session-scoped record and deliberately not part
+of that budget: `<git-common-dir>/specseal-worktree-consent/<session-id>`,
+written only by hooks/worktree_consent.py on PostToolUse. The choice marker
+above says "the question was put" and is written before the answer; this one
+says "a creation ran" and is written after it, so one file could not carry
+both without the guard reading its own question back as consent. They also
+fail in opposite directions -- an unwritable choice marker counts as already
+asked, an unwritable consent record counts as no consent.
 
 Retry tokens, one per direction, both matched as BARE WORDS of the command
 (has_token) -- a substring test read `echo 'we documented [shared-tree-ok]'`

@@ -29,6 +29,7 @@ actually live on the tree.
 
 | Tree state | Decision |
 |---|---|
+| **this session already created a worktree in this clone** | **allow** where the tool call is worktree creation and nothing else · **ask** where the command does more · **silent** on the Agent/Task path. Read before every row below it — see §Creation consent |
 | ACTIVE session present | ask — separation justified, creation still needs a human. Declining leads to "use the worktree that session opened, or wait for it", neither of which is a command this session issues, so there is nothing to offer |
 | only IDLE sessions | **choice** — create it, or switch in the shared tree; likely single-stream |
 | detection unusable | **choice** — the same two |
@@ -59,6 +60,84 @@ step outright costs nothing and removes the guessing. So the Agent verdict
 does not depend on the prompt at all, and its reason names the only way on it
 actually has: call the Agent again without `isolation: "worktree"`.
 
+## Creation consent — the first creation is the question, not every one
+
+The guard used to answer creation with `ask` at every site that reached it, so
+no path through it cost zero prompts and the cost grew with the number of
+worktrees. Measured on the 0.9.1 release run: six work items on six branches
+needed six `git worktree add` calls, and the guard held the run at all six. An
+unattended run reaches the first and stops there, which is the one shape
+`CONTRIBUTING.md`'s prompt-budget rule has no room for.
+
+`[worktree-ok]` cannot fix that, and the reason is the same one `has_token`
+gives: the token is written into the command by whoever issues it, so the model
+can write it on the first attempt, and reading it as consent turns the guard
+off with nobody asked.
+
+**What separates the first creation from the sixth is available without
+trusting any token.** The harness only runs a `git worktree add` that was
+permitted, so a `PostToolUse` observation of one that actually ran is written
+**after** the answer rather than before the question. That is the one thing a
+command text cannot forge.
+
+| | `[worktree-ok]` | the consent record |
+|---|---|---|
+| written by | whoever issues the command | the `PostToolUse` hook |
+| written when | before the question | after the answer |
+| forgeable by the model | yes | no |
+
+`hooks/worktree_consent.py` writes it, on both entry points, and
+`guard_worktree_creation` reads it. What changes is one invariant: *creating a
+worktree always takes one confirmation* becomes *the first creation of a
+session takes one*.
+
+**The record.** An empty file at
+`<git-common-dir>/specseal-worktree-consent/<session-id>`; its existence is the
+whole fact, the way the choice marker's is.
+
+- **A third directory, not a value in `specseal-worktree-choice/create/`.**
+  That marker is written by `PreToolUse` before the answer and means *the
+  question was put*, so one shared file would let the guard read its own
+  question back as consent. The two also fail in opposite directions — an
+  unwritable choice marker counts as **already asked**, an unwritable consent
+  record counts as **no consent** — and one file cannot fail two ways.
+- **The common git directory, not the per-worktree one.** The record stands
+  for *this session may split this clone into worktrees*, and a linked worktree
+  is the same clone. A session that creates its first worktree from the main
+  tree and its second from inside a linked one has made one decision, so it
+  pays for one.
+- **No expiry and no pruning.** A session id is already scoped to a session, so
+  a time bound can only produce one new outcome: a session that outlives it is
+  asked a second time, which is the failure this removes.
+- **A failed `git worktree add` records too.** The record is about the
+  approval, which happened; the retry after a failure — a path that already
+  exists, a branch already checked out — is the worst moment to put the
+  question again.
+- **An unwritable record leaves none**, silently, and the next creation asks.
+  A crash would be worse than the prompt it saves: a hook that raises dies with
+  stdout empty, which is how a hook says *nothing to see here*.
+
+**Why the allow is bounded.** `permissionDecision: "allow"` bypasses the user's
+own permission settings for the **whole** tool call, and a creation is
+routinely written as one segment of a compound. The record is about worktree
+creation, so the guard speaks for a command that is worktree creation and
+nothing else; anything more is an `ask` about the rest of the command line,
+never a deny about the worktree. A command the lexer gave up on is not vouched
+for either — what it could not read is what the allow would be covering.
+
+**Why the Agent/Task path is silent rather than an allow.** That call is a
+worktree creation *plus* an agent with a prompt, and the record is about the
+first half. Silence is the guard withdrawing its objection, which is the whole
+of what the record establishes; whatever the harness asks about running the
+agent is not the guard's to remove.
+
+**What does not change.** A session with no record still asks at every site,
+and the single-stream row still denies and steers to `git switch`. The switch
+direction never reads the record: a creation the user agreed to says nothing
+about taking another session's branch out from under it.
+
+**The prompt budget.** One per session, from one per worktree unbounded.
+
 ## Choice sites
 
 A hook decision renders as approve/decline and the model never gets the turn,
@@ -86,6 +165,12 @@ and the switch then got the two-button prompt this design exists to replace
 (measured). Splitting per site would buy nothing — within a direction the
 sites are mutually exclusive on tree state — while costing a second question
 whenever the model retries with a token and lands on a neighbouring site.
+
+**Not the same record as creation consent**, and the difference is what keeps
+them apart in one directory listing: this marker is written by `PreToolUse`
+before the answer and means *the question was put*; the consent record is
+written by `PostToolUse` after it and means *a creation ran*. §Creation consent
+holds the rest.
 
 An unwritable marker counts as already asked: one missed question beats a deny
 nothing can get past. Every attempt after the first gets the decision the site

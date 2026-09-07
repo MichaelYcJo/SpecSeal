@@ -81,7 +81,7 @@ behaviour change, and it is the one the ticket asks for.
 | The first creation is still a question | Given a session with no consent record, single-stream, When it runs `git worktree add`, Then the guard denies and steers to `git switch` | `test_the_first_creation_is_still_a_question` |
 | The second costs nothing | Given a session whose `PostToolUse` recorded a creation, single-stream, When it runs `git worktree add` again, Then the guard allows | `test_a_second_creation_in_the_same_session_is_allowed` |
 | Consent is per session | Given session A's record, When session B runs `git worktree add`, Then session B is denied | `test_consent_belongs_to_the_session_that_earned_it` |
-| Consent is per clone | Given a record written from the main tree, When the same session creates from a linked worktree of that clone, Then the guard allows | `test_consent_follows_the_clone_not_the_worktree` |
+| Consent is per clone | Given a creation that ran inside a linked worktree, When the record is written, Then it lands under the main clone's common git directory | `test_the_record_follows_the_clone_not_the_worktree` |
 | A `PreToolUse` call records nothing | Given no record, When the guard runs its `PreToolUse` arm on a `git worktree add`, Then no record exists afterwards | `test_the_pre_tool_use_arm_records_nothing` |
 | A failed creation still records | Given a `PostToolUse` payload whose `tool_response` reports failure, When the arm runs, Then the record is written | `test_a_failed_creation_still_records_the_approval` |
 | The allow is bounded | Given a record, When the command creates a worktree AND does something else, Then the guard asks rather than allowing | `test_the_allow_covers_only_a_command_that_is_nothing_else` |
