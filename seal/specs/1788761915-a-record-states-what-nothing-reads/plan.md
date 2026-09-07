@@ -67,7 +67,7 @@ person who knows the name is invented.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | The boundary: a reader that answers *has this work item shipped* from the presence of `seal/ledger/<id>.md`, with the fold as its stated grounds | Cases for both arms; the tree's own two unreleased items | |
+| 1 | The boundary: a reader that answers *has this work item shipped* from the presence of `seal/ledger/<id>.md`, with the fold as its stated grounds | Cases for both arms; the tree's own two unreleased items | `10871e3` |
 | 2 | The identifier arm — a record of a live work item naming a backticked identifier the tree does not have is refused, naming file, line and name; a line carrying the invented-name marker is not | Cases seen red first; **the tree's own four `chain_module` occurrences red before phase 3 and green after**, and the 129 shipped ones green throughout | |
 | 3 | The four occurrences corrected, and the marker written where a reviewer will meet it | Phase 2's check over the tree, exit 0 | |
 | 4 | The stamp arm — a record naming `path#unit@hash` is resolved the way a ledger anchor is | A case over a fixture whose unit was edited; the tree's one real stamp green | |
