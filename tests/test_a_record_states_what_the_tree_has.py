@@ -6,8 +6,10 @@ A ledger row is a claim about the tree that something reads. A record --
 the boundary that decides whose records are read, the identifier arm, the
 stamp arm, and the escape hatch.
 
-**No fixture here runs git.** The boundary is the presence of a file and the
-arms resolve content, the way `test_a_row_points_by_content.py` does.
+**Only the corpus fixtures run git**, and they have to: the corpus is what
+the tree CARRIES, so a case about an untracked file has nothing to say
+without an index to be absent from. The boundary is the presence of a file
+and the arms resolve content, the way `test_a_row_points_by_content.py` does.
 """
 
 import importlib.util
@@ -394,6 +396,134 @@ def test_the_records_arm_runs_even_when_a_narrowing_finds_no_ledger(tmp_path):
     r = run(["--ledger", "nothing/here/*.md", "."], tmp_path)
     assert r.returncode == 2, r.stdout + r.stderr
     assert "NOT-IN-TREE" in r.stdout
+
+
+# --- the corpus is what git carries (round 1, 🟡 3 and 🟡 4) -----------------
+
+
+def committed(root):
+    """`git init` at `root` and commit everything in it."""
+    for args in (
+        ["init", "-q"],
+        ["config", "user.email", "t@example.com"],
+        ["config", "user.name", "t"],
+        ["add", "-A"],
+        ["commit", "-qm", "base"],
+    ):
+        subprocess.run(
+            ["git", "-C", str(root), *args],
+            check=True,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+
+
+def test_an_untracked_file_does_not_supply_a_name(tmp_path):
+    """One untracked note took a live refusal from exit 2 to exit 0, with no
+    committed byte and no round record to show it.
+
+    A reviewer's own `test_tmp_*` probe, a scratch note and a dependency tree
+    under a name `SKIP_DIRS` does not list all silenced this arm the same
+    way — and CI, which reads a clean checkout, then answered differently
+    from the tree the record was written in.
+    """
+    h = home(tmp_path)
+    tree(tmp_path, **{"mod.py": "def kept_helper():\n    return 1\n"})
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\nthe alias `gone_helper` has one call site\n"},
+    )
+    committed(tmp_path)
+    (tmp_path / "scratch-notes.txt").write_text("gone_helper\n", encoding="utf-8")
+    found, _read = refusals(tmp_path)
+    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
+
+
+def test_an_untracked_files_name_is_not_a_name_either(tmp_path):
+    """A file NAME is a token too, so the filter has to run ahead of it —
+    otherwise an untracked `gone_helper.py` supplies the very name its
+    contents are not allowed to."""
+    h = home(tmp_path)
+    tree(tmp_path, **{"mod.py": "def kept_helper():\n    return 1\n"})
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    committed(tmp_path)
+    (tmp_path / "gone_helper.py").write_text("x = 1\n", encoding="utf-8")
+    found, _read = refusals(tmp_path)
+    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
+
+
+def test_a_tracked_file_supplies_the_same_name(tmp_path):
+    """The pair, not either alone: a filter that refused everything and a
+    filter that refused nothing both pass a single-arm case."""
+    h = home(tmp_path)
+    tree(tmp_path, **{"mod.py": "def kept_helper():\n    return 1\n"})
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\nthe alias `gone_helper` has one call site\n"},
+    )
+    (tmp_path / "scratch-notes.txt").write_text("gone_helper\n", encoding="utf-8")
+    committed(tmp_path)
+    assert refusals(tmp_path) == ([], 1)
+
+
+def test_an_ignored_file_does_not_supply_a_name(tmp_path):
+    """`.gitignore`d build output is the same state arrived at by a rule
+    rather than by forgetting, and a bundle is where a deleted name most
+    often survives."""
+    h = home(tmp_path)
+    tree(
+        tmp_path,
+        **{
+            "mod.py": "def kept_helper():\n    return 1\n",
+            ".gitignore": "dist/\n",
+            "dist__bundle.js": "var gone_helper = 1;\n",
+        },
+    )
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    committed(tmp_path)
+    found, _read = refusals(tmp_path)
+    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
+
+
+def test_a_root_that_is_not_a_git_tree_reads_every_file(tmp_path):
+    """None rather than an empty set. A vendored copy runs wherever CI checks
+    it out and a plugin cache is not a checkout, so *there is no git here to
+    ask* has to leave the walk as it was — where *the tree has nothing* would
+    refuse every name a record states."""
+    assert module().tracked_paths(str(tmp_path)) is None
+    h = home(tmp_path)
+    tree(tmp_path, **{"scratch-notes.txt": "gone_helper\n"})
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    assert refusals(tmp_path) == ([], 1)
+
+
+def test_the_gathered_ledger_is_in_the_corpus_in_local_mode_too(tmp_path):
+    """Identical bytes answered exit 0 shared and exit 2 local.
+
+    In local mode `seal/` sits under the git common directory, which every
+    walk here prunes with `.git` — so `seal/ledger.md`, which is IN the
+    corpus by design, was dropped for no reason but where the root happens to
+    sit. Nothing under a local-mode root is tracked either, so the walk that
+    reaches it is not filtered by the index.
+    """
+    (tmp_path / "mod.py").write_text("def kept_helper():\n    return 1\n")
+    # A real index, because half of what this case pins is that the tracked
+    # filter is NOT applied to a local-mode home. With nothing committed the
+    # filter is absent anyway and the case cannot tell the two apart.
+    committed(tmp_path)
+    local = tmp_path / ".git" / "seal"
+    (local / "specs").mkdir(parents=True)
+    (local / "ledger").mkdir(parents=True)
+    work_item(local, "1780000000-live", **{"plan.md": "# p\n\n`renamed_helper`\n"})
+    (local / "ledger.md").write_text(
+        "| S1 | `mod.py#renamed_helper@00000000` | read | 2026-09-07 |\n",
+        encoding="utf-8",
+    )
+    findings, read, _stamps = module().check_records(str(tmp_path), str(local))
+    assert (findings, read) == ([], 1)
 
 
 # --- the stamp arm: an anchor a record wrote down ---------------------------

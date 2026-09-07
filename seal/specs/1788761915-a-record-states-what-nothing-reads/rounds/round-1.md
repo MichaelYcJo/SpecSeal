@@ -32,7 +32,7 @@ findings. The build had measured **19 of 55 distinct names as false positives**
 and narrowed the pattern to compound names — *re-derive that, because the arm's
 precision rests on it*. It had found **two ways a work item could clear the
 check on its own records** — its own ledger fragment, and the marker's worked
-example in a skill, which put `chain_module` back into the corpus — and the
+example in a skill, which put `chain_module` back into the corpus <!-- NAME NOT IN TREE --> — and the
 prompt asked for a third. And it had run 36 mutations with one genuine
 survivor, so the prompt asked the round to assume a second.
 
@@ -229,7 +229,7 @@ def stated_names(lines):
 
 | What was run | Result |
 |---|---|
-| `./bin/evidence-check .` at `61ea096`, `--no-local` clone | exit 2 · `176 names read · 4 refused`, `chain_module` at `round-2.md:62` twice, `round-3.md:53`, `:58` |
+| `./bin/evidence-check .` at `61ea096`, `--no-local` clone | exit 2 · `176 names read · 4 refused`, `chain_module` at `round-2.md:62` twice, `round-3.md:53`, `:58` <!-- NAME NOT IN TREE --> |
 | the same at `6de1bca` | exit 1 · records arm `169 names read · 0 refused`; the 1 is three unrelated `seal/ledger.md` drifts |
 | the same at `d80469a` | exit 0 · `760 ok` · records `207 names read · 0 stamps read · 0 refused` |
 | `./bin/test` on four modules | 242 passed |

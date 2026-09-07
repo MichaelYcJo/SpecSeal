@@ -1838,6 +1838,37 @@ def stated_names(lines):
     return out
 
 
+def tracked_paths(root):
+    """The repository-relative paths git carries at `root`, or None where
+    `root` is not a git tree.
+
+    **The corpus is what the TREE has, and an untracked file is not the
+    tree.** Measured (round 1, 🟡 3): one untracked `scratch-notes.txt`
+    containing `gone_helper` took a live refusal from exit 2 to exit 0, and a
+    `.gitignore`d `dist/bundle.js` did the same. A reviewer's own `test_tmp_*`
+    probe, a scratch note, and a dependency tree under a name `SKIP_DIRS`
+    does not list all silenced this arm without one committed byte — and CI,
+    reading a clean checkout, then answered differently from the tree the
+    record was written in.
+
+    None rather than an empty set for a directory git does not carry, because
+    the two are opposite instructions: an empty set means *the tree has
+    nothing*, which would refuse every name a record states, and None means
+    *there is no git here to ask*, which leaves the walk as it was. The
+    vendored copy in a user's `tools/` runs wherever CI checks it out, and a
+    plugin cache is not a checkout at all.
+    """
+    r = subprocess.run(
+        ["git", "-C", root, "ls-files", "-z", "--cached"],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if r.returncode != 0:
+        return None
+    return {p for p in r.stdout.split("\0") if p}
+
+
 def tree_names(root, home):
     """Every identifier-shaped token the repository carries outside its records.
 
@@ -1861,12 +1892,19 @@ def tree_names(root, home):
     release, which is the same moment the work item stops being live, so
     nothing changes hands at the boundary.
 
-    **A name in ANY other file is a name the tree has, prose included**, and
-    that is the claim rather than a loophole in it: the check says nothing
-    outside the records carries the name, and a document naming it is a place
-    a reader can find it. It does mean an example in a skill or a document can
-    silence the check for every record — `skills/code-review/SKILL.md`'s
-    marker example uses an invented name for exactly that reason, and says so.
+    **A name in any other file git CARRIES is a name the tree has, prose
+    included**, and that is the claim rather than a loophole in it: the check
+    says nothing outside the records carries the name, and a document naming
+    it is a place a reader can find it. It does mean an example in a skill or
+    a document can silence the check for every record —
+    `skills/code-review/SKILL.md`'s marker example uses an invented name for
+    exactly that reason, and says so.
+
+    **Carries, and not merely holds.** `tracked_paths` is what draws that
+    line; without it a file nobody committed answered *the tree has this*,
+    and CI, which reads a clean checkout, then answered differently from the
+    tree the record was written in. Where there is no git to ask, the walk is
+    what it always was.
 
     File NAMES are tokens too: a record naming `test_foo` is naming a file as
     often as a function, and a suite module that exists is not a false claim.
@@ -1881,31 +1919,56 @@ def tree_names(root, home):
         os.path.normpath(os.path.join(home, SPECS_DIR)),
         os.path.normpath(os.path.join(home, FRAGMENT_DIR)),
     }
+    tracked = tracked_paths(root)
+    # `home` is walked in its own right because in LOCAL mode (#80) it sits
+    # under the git common directory, which `SKIP_DIRS` prunes — so identical
+    # bytes answered exit 0 in shared mode and exit 2 in local, on the
+    # strength of where `seal/` happens to sit (round 1, 🟡 4). `names` is a
+    # set, so shared mode, where the two walks overlap, pays a few files and
+    # nothing else, and `excluded` keeps `specs/` and `ledger/` out of both.
+    #
+    # A local-mode home is untracked by construction — git carries nothing
+    # under the directory it keeps itself in — so the tracked filter is not
+    # applied there. Applying it would empty that walk and re-make the very
+    # defect it was added for.
+    home_rel = os.path.relpath(home, root).replace(os.sep, "/") + "/"
+    home_carried = tracked is not None and any(p.startswith(home_rel) for p in tracked)
+    bases = [(root, tracked)]
+    if os.path.normpath(home) != os.path.normpath(root):
+        bases.append((home, tracked if home_carried else None))
     names = set()
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [
-            d
-            for d in dirnames
-            if d not in SKIP_DIRS
-            and os.path.normpath(os.path.join(dirpath, d)) not in excluded
-        ]
-        for filename in filenames:
-            names.update(TOKEN_RE.findall(filename))
-            path = os.path.join(dirpath, filename)
-            try:
-                if os.path.getsize(path) > NAME_FILE_CAP:
+    for base, carried in bases:
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [
+                d
+                for d in dirnames
+                if d not in SKIP_DIRS
+                and os.path.normpath(os.path.join(dirpath, d)) not in excluded
+            ]
+            for filename in filenames:
+                path = os.path.join(dirpath, filename)
+                # Ahead of the file NAME, which is a token too: an untracked
+                # `gone_helper.py` would otherwise supply the very name its
+                # contents are not allowed to.
+                if carried is not None and (
+                    os.path.relpath(path, root).replace(os.sep, "/") not in carried
+                ):
                     continue
-                with open(path, "rb") as handle:
-                    raw = handle.read()
-            except OSError:
-                continue
-            # A NUL in the first few kilobytes is the one binary test that
-            # needs no extension list, and an extension list is what would
-            # need editing every time a repository carries a format nobody
-            # here thought of.
-            if b"\0" in raw[:NAME_SNIFF]:
-                continue
-            names.update(TOKEN_RE.findall(raw.decode("utf-8", "replace")))
+                names.update(TOKEN_RE.findall(filename))
+                try:
+                    if os.path.getsize(path) > NAME_FILE_CAP:
+                        continue
+                    with open(path, "rb") as handle:
+                        raw = handle.read()
+                except OSError:
+                    continue
+                # A NUL in the first few kilobytes is the one binary test that
+                # needs no extension list, and an extension list is what would
+                # need editing every time a repository carries a format nobody
+                # here thought of.
+                if b"\0" in raw[:NAME_SNIFF]:
+                    continue
+                names.update(TOKEN_RE.findall(raw.decode("utf-8", "replace")))
     return names
 
 
