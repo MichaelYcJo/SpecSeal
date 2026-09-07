@@ -63,8 +63,10 @@ release, holds the measurements taken since, and is closed by whatever ships
 next. The number here is illustrative on purpose: a real version written
 into a loaded file is what
 `test_no_loaded_file_names_a_version_at_or_above_the_running_one` refuses —
-whether it has shipped or is still ahead — and this paragraph would go red
-at its own next release.
+at or above the running one, whether that is the version being cut or one
+still ahead of it — and this paragraph would go red at its own next release.
+A version **below** the running one is history and is kept, which is what
+lets the sentence further down say that `release/v0.3.0` shipped as 0.2.0.
 The version in it is a fact rather than a prediction:
 `docs/branch-and-release.md` says whether the next number is a minor or a
 patch is known at the end and not at the cut, so at the moment the roll runs
