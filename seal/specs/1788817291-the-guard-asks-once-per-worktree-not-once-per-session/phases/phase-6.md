@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 6 |
-| Commit | (this one) |
+| Commit | 13a57d2 |
 | Ran by | specseal:smith on Opus 5 (1M context) |
 
 ## What this phase was asked
