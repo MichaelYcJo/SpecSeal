@@ -1794,7 +1794,12 @@ def unread_items(home):
     #     rather than a finding, and the honest repair widens a return three
     #     call sites and seven cases read. If you open this function, thread
     #     the same optional `refused` list `unshipped` takes and let `main`
-    #     report it as `UNREADABLE`. Verified 2026-09-07 at a58fffe.
+    #     report it as `UNREADABLE`. The cost written above is `unshipped`'s
+    #     rather than this function's, which has two call sites — round 3's
+    #     ⬜ 5, deferred with the rest of that capped round. First stamped at
+    #     a feature-branch commit the squash into the release branch
+    #     discarded, and re-stamped at the squashed commit carrying the same
+    #     tree: Verified 2026-09-07 at 70c272c.
     try:
         names = sorted(os.listdir(specs))
     except OSError:
