@@ -5,14 +5,14 @@
 | Target SHA | bc94eb1 |
 | Ran by | warden on claude-opus-5 |
 | PR | 234 |
-| Broad gate | passed at e13b75b — 2559 passed, 2 skipped; ruff check and ruff format clean |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Broad gate | passed at 775fd91 — 2559 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0 |
+| Fixes checked by | no fixes to check — this round opened nothing needing one |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 

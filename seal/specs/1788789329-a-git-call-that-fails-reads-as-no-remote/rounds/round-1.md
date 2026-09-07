@@ -5,7 +5,7 @@
 | Target SHA | 8fb1fb533c700f43e07c69a9c72cada5b1734234 |
 | Ran by | warden on claude-opus-5 |
 | PR | 234 |
-| Broad gate | not yet |
+| Broad gate | passed at 775fd91, under round 2 |
 | Fixes checked by | round-2 |
 | Contract changes | manifest_of → round-1-report.md, round-1.md, export |
 | New units | the_stem_the_export_will_use (depth 1); test_a_manifest_remote_of_the_wrong_type_refuses (depth 1); test_the_advice_names_the_machine_that_can_fix_it (depth 1); test_the_export_says_what_it_could_not_read (depth 1); test_an_export_that_read_everything_says_nothing_extra (depth 1) |
