@@ -7,12 +7,12 @@
 | PR | 235 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | test_the_refusal_is_ascii_because_it_is_written_before_stderr_is_set_up (depth 1) |
 | Needs a fix | yes — findings 1, 2 and 3; finding 4 is answerable with grounds |
 | Loses a record or crashes | yes — `skills/verify/scripts/session_cost.py:89` exits 1 with a bare `AttributeError` traceback on python 3.9, and finding 1 is that the branch's enumeration and its regression test both place that file out of the class |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -28,13 +28,13 @@ Five targets were named in order. The guard's placement was to be attacked rathe
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | A sixth member of the class ships and the case written to stop a sixth cannot see it — `dt.UTC` behind an aliased import defeats `ABOVE_THE_FLOOR`, and `session_cost.py` dies with a bare traceback on 3.9 | `tests/test_a_script_says_which_interpreter_it_needs.py:410` | open | Executed: `session_cost.py` under 3.9.6 exits 1 with `AttributeError: module 'datetime' has no attribute 'UTC'` at `:89`, end to end on a zone-less transcript; the module's own 11 cases are green at the same time; an AST re-derivation returns six members where the branch's pattern returns five |
-| 2 | The `seal/follow-up.md` deferral row is separated from its table by a blank line, so it is not a row of *Schedulable items with nowhere else to go* and its `Who must answer` value is not a column; its text also says four where finding 1 makes five | `seal/follow-up.md:41` | open | Read: line 41 is blank and lines 38-40 are the table; GFM ends a table at the first blank line. Nothing in the tree parses this file, so nothing catches it |
-| 3 | `test_the_guard_precedes_every_other_module_level_act` asserts against one act, the `load(…)` assign, not against every module-level act as its name says | `tests/test_a_script_says_which_interpreter_it_needs.py:350` | open | Executed: with `_EARLY = os.path.abspath(__file__)` inserted above `FLOOR`, the shipped module reports `11 passed`; the widened check reports `module level calls abspath() at line 150, above the guard at line 183` |
-| 4 | The rewritten exit-code paragraph reads as exhaustive for pre-write failures, but `load`'s refusal at `:194` exits 1 and the same paragraph files 1 under *after the record is written* | `skills/code-review/scripts/round_record.py:99` | open | Executed: `raise SystemExit('boom')` exits 1. Read: no caller in the tree branches on this script's exit code, so the blast radius is the documented contract only. Pre-existing wording; answerable with grounds |
-| 5 | `spec.md` cites `round_record.py:761-766` and `:767 :935 :1587 :1591`, which are the pre-guard line numbers — 72 lines short of where those sites now are | `seal/specs/1788789985-round-record-dies-on-python-3-9/spec.md:27` | open | Read against the file: the comment is at 833-838 and the four `zip` sites are at 839, 1007, 1659, 1663, confirmed from the AST |
-| 6 | The ledger fragment's R3 states, under an **Executed** label, that five files carry a construct above the floor and four are deferred | `seal/ledger/1788789985-round-record-dies-on-python-3-9.md` | open | Same executed enumeration as finding 1: six and five |
-| 7 | `BELOW_FLOOR`'s `§` is written before `__main__` reconfigures stderr, so under an ASCII stderr the sentence ends `CONTRIBUTING.md \xa7Running the checks` | `skills/code-review/scripts/round_record.py:158` | open | Executed: `PYTHONIOENCODING=ascii /usr/bin/python3 …` prints the escape and still exits 2 |
+| 1 | A sixth member of the class ships and the case written to stop a sixth cannot see it — `dt.UTC` behind an aliased import defeats `ABOVE_THE_FLOOR`, and `session_cost.py` dies with a bare traceback on 3.9 | `tests/test_a_script_says_which_interpreter_it_needs.py:410` | **fixed** `1e24566` | fixed at 1e24566 — ``; Executed: `session_cost.py` under 3.9.6 exits 1 with `AttributeError: module 'datetime' has no attribute 'UTC'` at `:89`, end to end on a zone-less transcript; the module's own 11 cases are green at the same time; an AST re-derivation returns six members where the branch's pattern returns five |
+| 2 | The `seal/follow-up.md` deferral row is separated from its table by a blank line, so it is not a row of *Schedulable items with nowhere else to go* and its `Who must answer` value is not a column; its text also says four where finding 1 makes five | `seal/follow-up.md:41` | **fixed** `cedc58e` | fixed at cedc58e — ``; Read: line 41 is blank and lines 38-40 are the table; GFM ends a table at the first blank line. Nothing in the tree parses this file, so nothing catches it |
+| 3 | `test_the_guard_precedes_every_other_module_level_act` asserts against one act, the `load(…)` assign, not against every module-level act as its name says | `tests/test_a_script_says_which_interpreter_it_needs.py:350` | **fixed** `ed7f577` | fixed at ed7f577 — ``; Executed: with `_EARLY = os.path.abspath(__file__)` inserted above `FLOOR`, the shipped module reports `11 passed`; the widened check reports `module level calls abspath() at line 150, above the guard at line 183` |
+| 4 | The rewritten exit-code paragraph reads as exhaustive for pre-write failures, but `load`'s refusal at `:194` exits 1 and the same paragraph files 1 under *after the record is written* | `skills/code-review/scripts/round_record.py:99` | **fixed** `00bc9b0` | fixed at 00bc9b0 — ``; Executed: `raise SystemExit('boom')` exits 1. Read: no caller in the tree branches on this script's exit code, so the blast radius is the documented contract only. Pre-existing wording; answerable with grounds |
+| 5 | `spec.md` cites `round_record.py:761-766` and `:767 :935 :1587 :1591`, which are the pre-guard line numbers — 72 lines short of where those sites now are | `seal/specs/1788789985-round-record-dies-on-python-3-9/spec.md:27` | **fixed** `fb45bc1` | fixed at fb45bc1 — ``; Read against the file: the comment is at 833-838 and the four `zip` sites are at 839, 1007, 1659, 1663, confirmed from the AST |
+| 6 | The ledger fragment's R3 states, under an **Executed** label, that five files carry a construct above the floor and four are deferred | `seal/ledger/1788789985-round-record-dies-on-python-3-9.md` | **fixed** `fb45bc1` | fixed at fb45bc1 — ``; Same executed enumeration as finding 1: six and five |
+| 7 | `BELOW_FLOOR`'s `§` is written before `__main__` reconfigures stderr, so under an ASCII stderr the sentence ends `CONTRIBUTING.md \xa7Running the checks` | `skills/code-review/scripts/round_record.py:158` | **fixed** `00bc9b0` | fixed at 00bc9b0 — ``; Executed: `PYTHONIOENCODING=ascii /usr/bin/python3 …` prints the escape and still exits 2 |
 
 ## Paste-ready fixes
 
