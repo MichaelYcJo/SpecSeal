@@ -272,15 +272,15 @@ def separator(width):
     return "|" + "---|" * width
 
 
-def split_cells(line, spans=False, limit=None):
+def split_cells(line, spans=False, limit=None, comments=False):
     """Cells of one markdown row, or None when the line is not one.
 
-    Two knobs over what `reader.split_row` does, and with both off this is
-    that function: leading `|` dropped, one closing `|` dropped, a break at
-    every `|` no single backslash precedes, each cell stripped and its `\\|`
-    unescaped. Nothing here may drift from it — the record is read back
-    through it, so a cell this composes and that one reads differently is a
-    cell the pull-request check reads differently from the record.
+    Three knobs over what `reader.split_row` does, and with all three off
+    this is that function: leading `|` dropped, one closing `|` dropped, a
+    break at every `|` no single backslash precedes, each cell stripped and
+    its `\\|` unescaped. Nothing here may drift from it — the record is read
+    back through it, so a cell this composes and that one reads differently
+    is a cell the pull-request check reads differently from the record.
 
     `spans` reads a `|` inside a backtick code span as text. That is the
     reviewer's own markup saying the character is not a column break — a
@@ -290,6 +290,16 @@ def split_cells(line, spans=False, limit=None):
     a run of N. An unbalanced run swallows every break after it, which is
     why the reading is taken only when it lands on the width its caller
     expects.
+
+    `comments` reads a `|` between `<!--` and `-->` as text, for the same
+    reason `spans` does inside a backtick run, and for one more that is not
+    about markup at all: `table_body` measured this row's width on
+    `strip_comments(report)`, where that character is NOT a break, and
+    `copied_row` rebuilds the row from `raw`, where it is. Two texts
+    disagreeing about one character is the asymmetry `NEVER_CLOSED_VERBATIM`
+    already documents for fences; here it cost a column, at exactly header
+    width, so nothing downstream complained and the Location stood in the
+    Verdict cell `chain_check` reads (round 1's 🔴 1).
 
     `limit` caps how many breaks are taken; every `|` after that stays in
     the last cell as the text it stood in, spacing and all. Rejoining
@@ -302,9 +312,23 @@ def split_cells(line, spans=False, limit=None):
     body = s[1:]
     if body.endswith("|") and not body.endswith("\\|"):
         body = body[:-1]
-    out, buf, i, marker = [], [], 0, None
+    out, buf, i, marker, hidden = [], [], 0, None, False
     while i < len(body):
         ch = body[i]
+        if comments and not hidden and body.startswith("<!--", i):
+            hidden = True
+            buf.append(body[i : i + 4])
+            i += 4
+            continue
+        if hidden:
+            if body.startswith("-->", i):
+                hidden = False
+                buf.append(body[i : i + 3])
+                i += 3
+                continue
+            buf.append(ch)
+            i += 1
+            continue
         if spans and ch == "`":
             j = i
             while j < len(body) and body[j] == "`":
@@ -333,24 +357,68 @@ def split_cells(line, spans=False, limit=None):
     return [c.strip().replace("\\|", "|") for c in out]
 
 
+def raw_cells(line, spans=False, limit=None):
+    """`split_cells` as a line of the RAW report has to be read.
+
+    One place rather than a flag at each call site, and the difference is
+    whether the rule can be observed. `table_body` counts a row's columns on
+    `strip_comments(report)` and `copied_row` is handed `raw`, so a `|`
+    inside an HTML comment is never a break here — not as a preference but
+    because the two texts have to agree about every character. Measured
+    while closing round 1's 🔴 1: with the flag written at each of
+    `row_cells`' four readings, removing any ONE of them left every case
+    green, because a later reading recovers what an earlier one splits
+    wrongly. Removing it here turns them red.
+
+    `split_cells` keeps the knob and keeps defaulting it off, because with
+    all three knobs off that function has to be `reader.split_row` and
+    `test_the_plain_reading_is_the_readers_own` holds it there.
+    """
+    return split_cells(line, spans=spans, limit=limit, comments=True)
+
+
 def row_cells(reader, line, width):
     """`line`'s cells, `width` of them wherever the line can give that many.
 
-    Two readings, in the order that keeps the reviewer's own placement most
-    often. #189 measured the loss this repairs: a `|` inside a cell makes
-    the row carry more cells than the header declares, every renderer drops
-    the surplus, and the text from that character on is invisible in the
-    rendered record while surviving in the raw file.
+    Three readings, in the order that keeps the reviewer's own placement
+    most often. #189 measured the loss this repairs: a `|` inside a cell
+    makes the row carry more cells than the header declares, every renderer
+    drops the surplus, and the text from that character on is invisible in
+    the rendered record while surviving in the raw file.
 
-    1. The code-span reading, taken when it lands on exactly `width`. All
-       eight over-wide rows in this repository's 125 committed records have
-       their pipe inside a code span, and one of the eight has it in a
-       column that is not the last — so this is the reading that leaves the
-       row's columns where the reviewer put them.
-    2. Otherwise the plain reading, capped at `width` breaks, so a `|` past
-       the last column stays in the last cell as text. An unbalanced
-       backtick run lands here, and so does a bare `|` outside any code
-       span.
+    1. The plain reading, wherever it already fits. This is what every
+       downstream check does, so the ordinary row is read by the function
+       that will read it back rather than by a second spelling of it.
+    2. Otherwise the code-span reading, capped at `width` breaks, wherever
+       that lands on the width. A `|` inside a backtick code span is the
+       reviewer's own markup saying the character is not a break: all eight
+       over-wide rows in this repository's committed records have their
+       pipe inside one, and one of the eight has it in a column that is not
+       the last. The cap has to be ON here — a row carrying both a span
+       pipe and a bare one past it is over-wide under either reading alone,
+       and the uncapped span reading then missed it and let the plain cap
+       re-split the code span, landing the Location in the Verdict cell
+       (round 1's 🟡 2).
+    3. Otherwise the plain cap, so a `|` past the last column stays in the
+       last cell as text. An unbalanced backtick run lands here, because it
+       swallows every break and comes in UNDER the width at reading 2.
+
+    Every reading goes through `raw_cells`, so a `|` inside an HTML comment
+    is never a break. That is not a preference: `table_body` counted this
+    row's columns on the comment-stripped text and this function is handed
+    `raw` (round 1's 🔴 1).
+
+    **An uncapped span reading used to stand before reading 1** — the shape
+    round 1's fix arrived in. It is gone because it is subsumed: a reading
+    that lands exactly on `width` is unchanged by a cap of `width - 1`, and
+    it is reached only where the plain reading is over the width, which is
+    reading 2. Measured before removing it, over all 4128 body rows of this
+    repository's committed records and 432 generated rows covering every
+    combination of a bare pipe, a span pipe, a comment pipe and an
+    unbalanced backtick run in three columns: zero disagreements. What it
+    cost while it stood was a branch no case could observe — dropping its
+    `spans=True` left the whole module green, because reading 2 returns the
+    same cells.
 
     The cap is a guess and it is the only one available: nothing in a
     flattened row says which column a bare `|` came from. It is never worse
@@ -364,18 +432,15 @@ def row_cells(reader, line, width):
     `fix_table` own what a short row means, and a refusal would stop an
     unattended run over something no person can decide.
     """
-    plain = reader.split_row(line)
-    if plain is None:
+    if reader.split_row(line) is None:
         return None
-    cells = split_cells(line, spans=True)
-    if len(cells) == width:
-        return cells
-    # The reader's own answer wherever it fits, so the common row is read by
-    # the function every downstream check reads it by and not by a second
-    # spelling of it. Only an over-wide row needs the cap.
+    plain = raw_cells(line)
     if len(plain) <= width:
         return plain
-    return split_cells(line, limit=max(width - 1, 0))
+    spanned = raw_cells(line, spans=True, limit=max(width - 1, 0))
+    if len(spanned) == width:
+        return spanned
+    return raw_cells(line, limit=max(width - 1, 0))
 
 
 def copied_row(reader, line, width):

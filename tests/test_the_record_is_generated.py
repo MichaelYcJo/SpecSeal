@@ -1625,3 +1625,134 @@ def test_the_reviewer_is_not_told_the_report_is_read_for_tables_alone():
     assert "reads nothing else of the report" not in report, (
         "the generator now reads the fenced blocks under two headings too"
     )
+
+
+# --- the two texts must agree about what a `|` is ----------------------------
+#
+# Round 1's 🔴 1 and 🟡 2. `table_body` counts a row's columns on `lines`,
+# where `strip_comments` has already blanked the HTML comments; `copied_row`
+# rebuilds the row from `raw`, where they stand. Where the two texts disagree
+# about one character, the record loses a column — and it loses it at exactly
+# header width, so nothing downstream complains and the Location ends up in
+# the Verdict cell `chain_check` reads. That is the placement `plan.md` names
+# as its reason for refusing the fold, produced by the fix that refused it.
+
+
+def verdict_row_as_written(text, n=0):
+    """The n-th verdict row of a record as the FILE holds it.
+
+    `rows_of` goes through `readable`, which blanks comment content — that is
+    the right view for what a checker reads and the wrong one for asking
+    whether the reviewer's own text survived the copy. Both are asserted
+    below, because the defect showed up in one and the repair has to hold in
+    both."""
+    body = text.split("## Verdicts", 1)[1].split("\n## ", 1)[0]
+    rows = [ln.strip() for ln in body.splitlines() if ln.strip().startswith("|")]
+    return rows[2 + n]
+
+
+def test_a_pipe_inside_an_html_comment_is_not_a_column_break(repo):
+    """🔴 1. A comment a reviewer wrote inside a cell is theirs to keep —
+    `table_of` copies `raw` for exactly that reason — so the copy has to read
+    the comment the way the column count did."""
+    declared(repo)
+    finding = "a <!-- read | again --> b"
+    row = f"| 🔴 1 | {finding} | `f.py:1` | open | executed |\n"
+    code, out, text = generate(repo, report_text=report(verdicts=row))
+    assert code == 0, out
+    written = verdict_row_as_written(text)
+    assert "<!-- read \\| again -->" in written, written
+    assert finding in written.replace("\\|", "|"), written
+    cells = cells_under(text, "## Verdicts", 0)
+    assert len(cells) == 5, rows_of(text, "## Verdicts")
+    assert cells[2] == "`f.py:1`"
+    assert cells[3] == "open", "the Location must not stand in the Verdict cell"
+    assert cells[4] == "executed"
+
+
+def test_two_html_comments_in_one_row_keep_their_columns(repo):
+    """The same defect twice in one row. One comment cost a column; two cost
+    two, and the record came out narrower than its own header — a row the
+    generator wrote and its own checker will not read."""
+    declared(repo)
+    row = "| 🔴 1 | a <!-- p | q --> b | `f.py:1` | <!-- r | s --> open | executed |\n"
+    code, out, text = generate(repo, report_text=report(verdicts=row))
+    assert code == 0, out
+    written = verdict_row_as_written(text).replace("\\|", "|")
+    assert "<!-- p | q -->" in written, written
+    assert "<!-- r | s -->" in written, written
+    cells = cells_under(text, "## Verdicts", 0)
+    assert len(cells) == 5, rows_of(text, "## Verdicts")
+    assert cells[2] == "`f.py:1`"
+    assert cells[3] == "open", "the Location must not stand in the Verdict cell"
+    assert cells[4] == "executed"
+
+
+def test_a_row_carrying_a_span_pipe_and_a_bare_pipe_keeps_its_columns(repo):
+    """🟡 2. Either pipe alone is handled — the code-span reading takes the
+    first, the capped plain reading takes the second. Together, the span
+    reading is over the width and the plain cap re-splits the reviewer's code
+    span, shifting every later column left. The cap has to be taken with the
+    span reading still on."""
+    declared(repo)
+    finding = "the cell reads `Contract changes | none`"
+    grounds = "executed; a |= b"
+    row = f"| 🔴 1 | {finding} | `f.py:1` | open | {grounds} |\n"
+    code, out, text = generate(repo, report_text=report(verdicts=row))
+    assert code == 0, out
+    cells = cells_under(text, "## Verdicts", 0)
+    assert len(cells) == 5, rows_of(text, "## Verdicts")
+    assert cells[1] == finding
+    assert cells[2] == "`f.py:1`"
+    assert cells[3] == "open", "the Location must not stand in the Verdict cell"
+    assert cells[4] == grounds
+
+
+def test_an_unbalanced_backtick_run_still_reads_a_comment_as_text(repo):
+    """The last reading, which nothing observed until this case.
+
+    An unbalanced backtick run swallows every break, so the code-span
+    reading comes in under the width and the plain cap is the answer. That
+    reading has to read an HTML comment the same way the others do — with
+    a comment pipe and a bare surplus pipe in the same row, dropping it puts
+    the Location in the Verdict cell exactly as round 1's 🔴 1 did, in the
+    one path 🔴 1's own cases never reach."""
+    declared(repo)
+    finding = "a `b <!-- p | q --> c"
+    grounds = "executed; x | y"
+    row = f"| 🔴 1 | {finding} | `f.py:1` | open | {grounds} |\n"
+    code, out, text = generate(repo, report_text=report(verdicts=row))
+    assert code == 0, out
+    cells = cells_under(text, "## Verdicts", 0)
+    assert len(cells) == 5, rows_of(text, "## Verdicts")
+    assert cells[2] == "`f.py:1`"
+    assert cells[3] == "open", "the Location must not stand in the Verdict cell"
+    assert cells[4] == grounds
+    assert "<!-- p \\| q -->" in verdict_row_as_written(text)
+
+
+def test_a_short_row_with_a_comment_pipe_is_not_padded_into_a_full_one(repo):
+    """The first reading, which nothing observed until this case.
+
+    A row missing a column and carrying a comment pipe is the one shape
+    where the reader's own splitter and the raw reading disagree BELOW the
+    header width: `split_row` counts the comment's pipe and reports a full
+    row, `table_body` counted the stripped text and saw a short one. Copying
+    the first would invent a column — the record would look complete with
+    the Finding's tail standing in `Location` — where the reviewer in fact
+    left one out."""
+    declared(repo)
+    row = "| 🔴 1 | a <!-- p | q --> b | `f.py:1` | open |\n"
+    code, out, text = generate(repo, report_text=report(verdicts=row))
+    assert code == 0, out
+    # The reader's view is four cells either way -- it strips the comment
+    # before it counts -- so what separates the two readings is the ESCAPE,
+    # which is what a renderer sees. Escaped, the row renders at four
+    # columns, which is the number `table_body` counted; unescaped it
+    # renders at five, one of them invented from a comment.
+    written = verdict_row_as_written(text)
+    assert "<!-- p \\| q -->" in written, written
+    cells = cells_under(text, "## Verdicts", 0)
+    assert len(cells) == 4, rows_of(text, "## Verdicts")
+    assert cells[2] == "`f.py:1`"
+    assert cells[3] == "open"
