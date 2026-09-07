@@ -237,6 +237,23 @@ def test_a_shared_mode_item_resolves_the_way_it_always_did(generator, repo):
     assert os.path.realpath(root) == os.path.realpath(str(repo))
 
 
+def test_a_shared_item_in_a_linked_worktree_resolves_to_that_worktree(
+    generator, repo, tmp_path
+):
+    """S4, the half a mutation survived. Asking git about the ITEM is what
+    answers this one: a shared root lives in ONE tree, so the item names its
+    own worktree and the caller's does not get a say. Dropping the shared-mode
+    fast path left every case green and moved this answer to the MAIN tree,
+    because the fallback below picks the first entry `git worktree list`
+    prints. Nothing had reason to look."""
+    side = tmp_path / "side"
+    git(repo, "worktree", "add", "-q", "-b", "side", str(side))
+    item = side / "seal" / "specs" / ITEM_ID
+    (item / "rounds").mkdir(parents=True)
+    _reader, _routing, root, _where, _rounds = generator.where(args_for(str(item)))
+    assert os.path.realpath(root) == os.path.realpath(str(side))
+
+
 def test_an_explicit_root_still_wins(generator, repo, tmp_path):
     """`--root` is the escape hatch every 0.8.3 caller had to use, and it
     keeps working — a fix that broke it would break the workaround before
