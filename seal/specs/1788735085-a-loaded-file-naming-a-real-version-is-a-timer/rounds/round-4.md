@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 201 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-5 |
 | Contract changes | none |
 | New units | test_as_release_reads_every_spelling_the_token_regex_produces (depth 1) |
 | Needs a fix | yes — finding 5 |
