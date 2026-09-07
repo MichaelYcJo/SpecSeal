@@ -75,6 +75,15 @@ LOADED = (
 # version and belongs to the same timer. The uppercase `V` is not a preceding
 # word and that argument never covered it, which is why the fix for `V0.9.0`
 # is `[vV]?` and not a change to either lookaround (review round 3).
+#
+# The `.` half of that lookbehind has a SEPARATE argument and is load-bearing
+# on its own. It stops the scan restarting inside a number it has already
+# refused: `1.9.9.9` fails at `1.9.9` because of the trailing `(?!\.\d)`, and
+# without `(?<!\.)` the next attempt matches `9.9.9` out of the middle of it
+# and reports a four-part number as a version above the running one.
+# Measured — `(?<!\w)` in place of `(?<![\w.])` turns a case red on exactly
+# that string. The two characters guard different things and only one of them
+# had its grounds written down (review round 4).
 VERSION_TOKEN = re.compile(r"(?<![\w.])[vV]?(\d+\.\d+\.\d+)(?!\.\d)")
 
 # The value the repository already tells an author to write where a real
