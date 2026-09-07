@@ -11,7 +11,7 @@
 Build the identifier arm: a record of a live work item naming a backticked
 identifier the tree does not have is refused, naming file, line and name; a
 line carrying the invented-name marker is not. Cases seen red first, **the
-tree's own four `chain_module` occurrences red before phase 3 corrects them**,
+tree's own four `chain_module` occurrences red before phase 3 corrects them**, <!-- NAME NOT IN TREE -->
 and the 129 in shipped work items green throughout.
 
 ## What this phase found
@@ -39,8 +39,8 @@ it the first live record mentioning `str.rpartition` would be asked to mark it
 `NAME NOT IN TREE`, which is marker noise attached to a name that is real.
 
 **The spot-check of shipped records confirms `plan.md`'s boundary.** Six names
-were opened at their coordinates. `header_of`, `row_baseline`,
-`_correction_traces` and `test_ledger_stamps_resolve` are units that existed
+were opened at their coordinates. `header_of`, `row_baseline`, <!-- NAME NOT IN TREE -->
+`_correction_traces` and `test_ledger_stamps_resolve` are units that existed <!-- NAME NOT IN TREE -->
 when the record was written and were renamed or removed since; `cmp` and
 `rpartition` are the false-positive class above. None is a live defect, which
 is what the plan assumed and drew the boundary on.

@@ -673,8 +673,11 @@ work item that has not shipped when nothing outside `seal/specs/` carries it
 (#190) — a record naming a unit the next commit deleted is a claim nothing
 was reading. Writing `NAME NOT IN TREE` on that line is the whole of the
 exemption, in either of its two meanings: a name a fix is proposing, and a
-name a record is deliberately calling gone — *`chain_module` deleted and its
-one call site moved — NAME NOT IN TREE*. It exempts the LINE and not the
+name a record is deliberately calling gone — *`stale_helper` deleted and its
+one call site moved — NAME NOT IN TREE*. The example name is invented on
+purpose: writing a real gone name here would put it back in the tree the
+check compares against, and silence the very records it was meant to catch.
+It exempts the LINE and not the
 name, so the same name still has to exist everywhere else it is claimed, and
 the exemption stays with the person who knows the name is absent rather than
 becoming a list in the checker.

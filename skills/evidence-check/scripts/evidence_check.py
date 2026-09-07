@@ -1844,14 +1844,29 @@ def tree_names(root, home):
     The comparison set for `stated_names`. A name in it is a name the tree
     has; a name absent from it is one the record alone carries.
 
-    **The excluded directory is `<home>/specs/` and not the whole of
-    `<home>/`.** Measured: excluding the gathered ledger too refuses five
-    occurrences of one name in work item `1788735085`'s records, and all five
-    are that work item narrating its own rename — `seal/ledger.md`'s S15 note
-    keeps the old name beside the new one on purpose, *so a reader coming from
-    an older record can follow it*. The gathered ledger is a permanent,
-    curated document that something reads; `seal/specs/` is the per-work-item
-    set nothing reads, which is the whole of what #190 is about.
+    **Two directories are excluded and they are the two a work item writes
+    about itself**: `<home>/specs/` and `<home>/ledger/`. Nothing else under
+    `<home>/` is, and `seal/ledger.md` in particular is IN. The line is
+    lifetime, the same line the boundary is drawn on. The gathered ledger is a
+    permanent, curated document — its S15 note keeps a renamed unit's old name
+    beside the new one on purpose, *so a reader coming from an older record
+    can follow it*, and excluding it refuses five occurrences of that name in
+    work item `1788735085`'s records, every one of them that work item
+    narrating its own rename. A FRAGMENT is the other thing: same branch, same
+    author, same lifetime as the records it sits beside. Measured while this
+    arm was being built — writing this work item's own rows put four names
+    into the corpus and silenced four refusals in its own `phase-2.md`, so a
+    work item could clear the check on its records by naming the unit in its
+    own ledger file. The fold moves the fragment into `seal/ledger.md` at the
+    release, which is the same moment the work item stops being live, so
+    nothing changes hands at the boundary.
+
+    **A name in ANY other file is a name the tree has, prose included**, and
+    that is the claim rather than a loophole in it: the check says nothing
+    outside the records carries the name, and a document naming it is a place
+    a reader can find it. It does mean an example in a skill or a document can
+    silence the check for every record — `skills/code-review/SKILL.md`'s
+    marker example uses an invented name for exactly that reason, and says so.
 
     File NAMES are tokens too: a record naming `test_foo` is naming a file as
     often as a function, and a suite module that exists is not a false claim.
@@ -1862,14 +1877,17 @@ def tree_names(root, home):
     a single file's SIZE is capped, and only where the content cannot be a
     claim's subject anyway.
     """
-    excluded = os.path.normpath(os.path.join(home, SPECS_DIR))
+    excluded = {
+        os.path.normpath(os.path.join(home, SPECS_DIR)),
+        os.path.normpath(os.path.join(home, FRAGMENT_DIR)),
+    }
     names = set()
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [
             d
             for d in dirnames
             if d not in SKIP_DIRS
-            and os.path.normpath(os.path.join(dirpath, d)) != excluded
+            and os.path.normpath(os.path.join(dirpath, d)) not in excluded
         ]
         for filename in filenames:
             names.update(TOKEN_RE.findall(filename))
@@ -1920,6 +1938,7 @@ def check_records(root, home, maps=None, default_repo=None):
         return [], 0, 0
     known = tree_names(root, home)
     records_root = os.path.join(home, SPECS_DIR)
+    fragments_root = os.path.join(home, FRAGMENT_DIR)
     findings, names_read, stamps_read = [], 0, 0
     scan_cache = {}
     for _item, directory in sorted(live.items()):
@@ -1940,10 +1959,12 @@ def check_records(root, home, maps=None, default_repo=None):
                     (
                         NOT_IN_TREE_STATUS,
                         f"{shown}:{number}",
-                        f"`{name}` — nothing outside {display_name(records_root, root)}"
-                        f" carries this name. Correct the record, or write "
-                        f"{NOT_IN_TREE} on the line where the record means a "
-                        "name the tree does not have",
+                        f"`{name}` — nothing outside "
+                        f"{display_name(records_root, root)} and "
+                        f"{display_name(fragments_root, root)} carries this "
+                        f"name. Correct the record, or write {NOT_IN_TREE} on "
+                        "the line where the record means a name the tree does "
+                        "not have",
                     )
                 )
             for number, line in stated_stamps(lines):

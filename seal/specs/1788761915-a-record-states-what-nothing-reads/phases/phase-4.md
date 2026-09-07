@@ -45,7 +45,7 @@ broken anchor triggers is paid once.
 
 **The acceptance row's *the tree's one real stamp stays green* is not what
 the tree holds, and the boundary is what makes it not matter.** Measured over
-this tree: `skills/code-review/scripts/chain_check.py#main@fd1525ae` in
+this tree: `skills/code-review/scripts/chain_check.py#main@fd1525ae` in <!-- NAME NOT IN TREE: a stamp quoted as another record's, measured at a moment -->
 `1788326734`'s `overview.md` reads DRIFTED, the `"## Comparison axes"` stamp
 in `1788272986`'s `round-2.md` reads DRIFTED, and the fixture stamp in
 `1788597030`'s `round-1.md` reads BROKEN. All three sit in work items that

@@ -27,7 +27,7 @@
 
 | Scenario | Given / When / Then | Verifiable how |
 |---|---|---|
-| A record naming a unit the tree does not have is refused | Given a live work item's record naming `` `some_helper` `` that appears nowhere outside `seal/specs/`; when the check runs; then it names the file, the line and the identifier | A case over a fixture record, seen red first, and the tree's own four occurrences of `chain_module` |
+| A record naming a unit the tree does not have is refused | Given a live work item's record naming `` `some_helper` `` that appears nowhere outside `seal/specs/`; when the check runs; then it names the file, the line and the identifier | A case over a fixture record, seen red first, and the tree's own four occurrences of `chain_module` | <!-- NAME NOT IN TREE: `some_helper` and `chain_module` are both named here as names the tree does not have -->
 | A shipped work item's record is left alone | Given the same shape in a work item whose ledger fragment has been folded; when the check runs; then it passes | A case; and the tree's 129 occurrences stay green |
 | An invented name a reviewer marked is allowed | Given a record whose line carries the marker a paste-ready fix uses for a name it is proposing; when the check runs; then it passes | A case, and the marker named in one place rather than two |
 | A stamp the tree contradicts is refused | Given a record naming `path#unit@hash` where the unit's content hashes to something else; when the check runs; then it says so | A case over a fixture; the tree's one real stamp stays green |

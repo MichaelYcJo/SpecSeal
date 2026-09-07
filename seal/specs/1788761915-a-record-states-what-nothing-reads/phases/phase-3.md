@@ -8,7 +8,7 @@
 
 ## What this phase was asked
 
-Correct the four `chain_module` occurrences phase 2 turned red, and write the
+Correct the four `chain_module` occurrences phase 2 turned red, and write the <!-- NAME NOT IN TREE -->
 marker where a reviewer will meet it. Verified by phase 2's check over the
 tree, exit 0.
 
@@ -17,7 +17,7 @@ tree, exit 0.
 **The marker has two meanings and only one of them was written down.**
 `skills/code-review/SKILL.md` shows `NAME NOT IN TREE` beside a name a
 paste-ready fix is *proposing*, and the four occurrences here are the other
-kind: work item `1788749195` deleted `chain_module` on its own branch, and
+kind: work item `1788749195` deleted `chain_module` on its own branch, and <!-- NAME NOT IN TREE -->
 three of its round-record rows still name it. Round 3's own grounds cell says
 it — *the name is simply gone from the tree*. Marking those lines is not a
 concession, it is the record saying what is true, so the checker's message

@@ -13,11 +13,11 @@ and neither needs a convention a person has to remember.
 
 | What a record can state about the tree | Occurrences today |
 |---|---|
-| a `path#unit@hash` stamp | **2**, and one of them is a fixture (`mod.py#helper@deadbeef`) |
+| a `path#unit@hash` stamp | **2**, and one of them is a fixture (`mod.py#helper@deadbeef`) | <!-- NAME NOT IN TREE -->
 | a backticked identifier that appears nowhere outside `seal/specs/` | **179** — of which 50 are distinct names once commit SHAs are excluded |
 | the same, in a work item whose `seal/ledger/<id>.md` fragment still exists | **4**, and all four are one name |
 
-The four are `chain_module`, in `rounds/round-2.md` and `rounds/round-3.md` of
+The four are `chain_module`, in `rounds/round-2.md` and `rounds/round-3.md` of <!-- NAME NOT IN TREE -->
 `1788749195-…`. **That is the instance review round 3 of that work item found
 by reading**, three weeks of records later. A check would have named it at the
 commit that wrote it.
@@ -68,7 +68,7 @@ person who knows the name is invented.
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | The boundary: a reader that answers *has this work item shipped* from the presence of `seal/ledger/<id>.md`, with the fold as its stated grounds | Cases for both arms; the tree's own two unreleased items | `10871e3` |
-| 2 | The identifier arm — a record of a live work item naming a backticked identifier the tree does not have is refused, naming file, line and name; a line carrying the invented-name marker is not | Cases seen red first; **the tree's own four `chain_module` occurrences red before phase 3 and green after**, and the 129 shipped ones green throughout | `b5ed944` |
+| 2 | The identifier arm — a record of a live work item naming a backticked identifier the tree does not have is refused, naming file, line and name; a line carrying the invented-name marker is not | Cases seen red first; **the tree's own four `chain_module` occurrences red before phase 3 and green after**, and the 129 shipped ones green throughout | `b5ed944` | <!-- NAME NOT IN TREE -->
 | 3 | The four occurrences corrected, and the marker written where a reviewer will meet it | Phase 2's check over the tree, exit 0 | `6de1bca` |
 | 4 | The stamp arm — a record naming `path#unit@hash` is resolved the way a ledger anchor is | A case over a fixture whose unit was edited; the tree's one real stamp green | `1b1a1c8` |
 | 5 | **#207** — `new` prints the bound it can already compute, from the previous record's floor row and the walk `chain_check` implements. Round 1 prints nothing | Cases for the three states, each seen red first | `8b82c39` |

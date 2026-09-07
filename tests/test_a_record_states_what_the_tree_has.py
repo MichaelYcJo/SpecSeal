@@ -342,6 +342,26 @@ def test_the_records_own_directory_is_not_its_own_corpus(tmp_path):
     assert "1780000000-live" in found[0][1]
 
 
+def test_a_work_items_own_ledger_fragment_is_not_part_of_the_corpus(tmp_path):
+    """A fragment is the work item writing about itself, same branch and same
+    lifetime as the records beside it.
+
+    Found while writing this work item's own rows: naming four units in the
+    fragment put them in the corpus and silenced four refusals in its own
+    `phase-2.md`. A work item could clear the check on its records by naming
+    the unit in its own ledger file.
+    """
+    h = home(tmp_path)
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper` is gone\n"})
+    (h / "ledger" / "1780000000-live.md").write_text(
+        "| Clause | Coordinate |\n|---|---|\n| R1 · `gone_helper` went | x |\n",
+        encoding="utf-8",
+    )
+    found, _ = refusals(tmp_path)
+    assert len(found) == 1
+    assert "`gone_helper`" in found[0][2]
+
+
 def test_the_gathered_ledger_is_part_of_the_corpus(tmp_path):
     """`seal/ledger.md` keeps a renamed unit's old name beside the new one on
     purpose, so a reader coming from an older record can follow it. Excluding
