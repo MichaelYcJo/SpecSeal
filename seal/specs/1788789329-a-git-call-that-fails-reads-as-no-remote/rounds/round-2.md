@@ -6,7 +6,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 234 |
 | Broad gate | passed at 775fd91 — 2559 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0 |
-| Fixes checked by | no fixes to check — this round opened nothing needing one |
+| Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | no |
