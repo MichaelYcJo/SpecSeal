@@ -105,17 +105,33 @@ def reader():
 def is_closed(records):
     """True when some round record says the rows were drained.
 
-    Read through the shared reader, so a closing WORD inside a fenced block
-    is not a closing note. `## Paste-ready fixes` puts the reviewer's own
-    code into every record, and `closed` is a word this repository's fixes
-    carry — the record of the round that found this carries it inside a
-    fence. Matched on the raw text, one pasted line silences the reminder
-    for a record whose Deferred rows are still live, which is the one moment
-    the reminder exists for (round 1's 🟡 8).
+    Read through the shared reader, so a closing WORD counts only where a
+    reader would read it. `readable` is `blank_fences(strip_comments(...))`
+    and **both arms are load-bearing**, for different records:
 
-    A probes fence could already do this, so the defect predates the
-    section; what the section changed is that it is now every record rather
-    than one that happened to quote code.
+      the fence arm    `## Paste-ready fixes` puts the reviewer's own code
+                       into every record, and `closed` is a word this
+                       repository's fixes carry — the record of the round
+                       that found this carries it inside a fence. Matched on
+                       the raw text, one pasted line silences the reminder
+                       for a record whose Deferred rows are still live,
+                       which is the one moment the reminder exists for
+                       (round 1's 🟡 8)
+      the comment arm  a record's header comment NARRATES the round. *It
+                       closed all five* is a sentence about findings, not a
+                       statement that the rows were drained
+
+    The comment arm is the one doing the work: over this repository's 127
+    committed round records the reader flips three from closed to
+    not-closed, **all three of them on the comment arm** and none on the
+    fence arm, and all three still have live `Deferred` rows. It went
+    unwatched for a whole round because every sentence and every case named
+    the fence (round 2's 🟡 1), which is why the case that pins this is
+    parametrized over both passes rather than written for one.
+
+    A probes fence could already hide a closing word, so the defect predates
+    the paste-ready section; what the section changed is that it is now
+    every record rather than one that happened to quote code.
     """
     if not records:
         return True  # nothing to close

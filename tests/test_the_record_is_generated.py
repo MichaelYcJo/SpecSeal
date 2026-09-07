@@ -61,11 +61,6 @@ def generator_module():
     return _load("specseal_round_record_for_tests", GENERATOR)
 
 
-def chain_module():
-    """`chain_check`, by the name this module's newer cases use."""
-    return check_module()
-
-
 def check_module():
     return _load("specseal_chain_check_for_generated_records", CHECK)
 
@@ -1673,7 +1668,8 @@ def test_the_reviewer_is_not_told_the_report_is_read_for_tables_alone():
             f"`{false_claim}` is false: the generator reads the fenced blocks "
             "under two headings and the two terminal lines off prose"
         )
-    for label in (chain_module().NEEDS, chain_module().FLOOR):
+    chain = check_module()
+    for label in (chain.NEEDS, chain.FLOOR):
         assert f"{label}:" in flat, (
             f"the section has to keep naming `{label}:` — it is one of the "
             "prose lines the generator does read"
@@ -1867,3 +1863,26 @@ def test_the_empty_arms_sentence_is_the_generators_constant():
         ("docs", "review-handoff-protocol.md"),
     ):
         assert sentence in " ".join(read(*parts).split()), parts
+
+
+def test_a_paste_ready_fence_carrying_a_table_is_not_read_as_hidden_rows(repo):
+    """`swallowed`'s ROW loop reads `REPORT_TABLES` and not `READ_HEADINGS`,
+    which is round 1's 🟡 3 one level down and was pinned by nothing.
+
+    The row half asks whether a section's rows stand ONLY inside a fence. A
+    section with no table of its own answers that vacuously, so widening the
+    loop to the optional section makes any fenced fix containing a markdown
+    table read as hidden rows — and this repository's own paste-ready fixes
+    carry tables. Measured before this case: widening the row loop left all
+    78 cases green."""
+    declared(repo)
+    fix = (
+        "```markdown\n"
+        "| Finding | Where it went | Who answers it |\n"
+        "|---|---|---|\n"
+        "| the windows leg | `overview.md` | the CI leg |\n"
+        "```\n"
+    )
+    code, out, text = generate(repo, report_text=report(fixes=fix))
+    assert code == 0, out
+    assert fix.strip() in paste_ready(text), text

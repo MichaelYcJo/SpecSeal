@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 
+import pytest
 from conftest import (
     decision_of,
     declare_routing,
@@ -371,17 +372,32 @@ def test_a_real_closing_note_still_silences_the_merge_reminder(repo):
     assert out.strip() == "", out
 
 
-def test_the_guard_falls_back_to_the_raw_text_without_the_reader(tmp_path):
+@pytest.mark.parametrize(
+    "missing", ["a path that does not exist", "a file with no Python loader"]
+)
+def test_the_guard_falls_back_to_the_raw_text_without_the_reader(tmp_path, missing):
     """§13, and the reason `reader()` returns None instead of raising.
 
     The reader is reached by a relative path from `hooks/` into `skills/`,
     and a copy of the plugin without that directory has to leave the hook
     printing a possibly-wrong reminder rather than stopping a session's Bash
-    call. The guarantee is REMOVED here — the constant is pointed at a file
-    that does not exist — because a defence nobody has run without its
-    platform is not verified."""
+    call. The guarantee is REMOVED here — the constant is pointed away from
+    the real reader — because a defence nobody has run without its platform
+    is not verified.
+
+    Two parameters because `reader()` has TWO arms and each takes a
+    different input: an absent path raises `FileNotFoundError` and lands in
+    the `except`, while a file Python has no loader for makes
+    `spec_from_file_location` return None and never raises at all. Measured
+    — with one parameter, deleting the `spec is None` arm left the module
+    green, which is round 2's 🟡 1 one unit over."""
     guard = load_hook_module("review-history-guard.py", "guard_without_a_reader")
-    guard.READER = os.path.join(str(tmp_path), "no_such_reader.py")
+    if missing == "a path that does not exist":
+        guard.READER = os.path.join(str(tmp_path), "no_such_reader.py")
+    else:
+        other = tmp_path / "reader.txt"
+        other.write_text("not python\n", encoding="utf-8")
+        guard.READER = str(other)
     assert guard.reader() is None
     record = tmp_path / "round-1.md"
     record.write_text(
@@ -408,3 +424,52 @@ def test_the_reader_is_what_makes_a_fenced_closing_word_not_count(tmp_path):
     plain.write_text("| Target SHA | abc |\n\nnothing to drain\n", encoding="utf-8")
     assert guard.is_closed([str(fenced)]) is False
     assert guard.is_closed([str(plain)]) is True
+
+
+# `readable` is `blank_fences(strip_comments(...))` — TWO passes, and a
+# closing word hidden by either one is not a closing note. Parametrized over
+# both rather than written for one, because round 2's 🟡 1 is exactly the
+# second arm going unwatched while every case and every sentence named the
+# first. A third pass added to the reader later wants a third entry here.
+HIDDEN_CLOSING_WORD = {
+    "a fenced block": (
+        "```python\ndef close(args):\n    # the fence reads as closed\n"
+        "    return 0\n```"
+    ),
+    "an HTML comment": (
+        "<!-- The verifying round for round 1's fixes.\n"
+        "     It closed all five and opened three. -->"
+    ),
+}
+
+
+@pytest.mark.parametrize("hider", list(HIDDEN_CLOSING_WORD))
+def test_a_closing_word_a_reader_blanks_is_not_a_closing_note(tmp_path, hider):
+    """Round 2's 🟡 1, and the class rather than the instance.
+
+    The fence arm is what a pasted fix needs. The comment arm is what a
+    record's own narration needs, and it is the one doing the work in
+    production: over this repository's 127 committed round records the
+    reader flips three from closed to not-closed, and **all three** flip on
+    the comment arm — the fence arm flips none of them. All three have live
+    `Deferred` rows, so the reminder firing is right.
+
+    Measured before this case existed: swapping `readable` for
+    `blank_fences` left all 24 cases of this module green, while swapping it
+    for `strip_comments` turned two red. The arm that does the work rested
+    on nothing.
+
+    *It closed all five* narrates what the round found. It is not a
+    statement that the Deferred rows were drained, and the three records it
+    silenced all still have theirs."""
+    guard = load_hook_module("review-history-guard.py", f"guard_{hider.split()[-1]}")
+    record = tmp_path / "round-1.md"
+    record.write_text(
+        f"# round 1\n\n{HIDDEN_CLOSING_WORD[hider]}\n\n"
+        "| Target SHA | abc |\n\n"
+        "## Deferred\n\n"
+        "| Finding | Where it went | Who answers it |\n|---|---|---|\n"
+        "| the windows leg | nowhere yet | nobody |\n",
+        encoding="utf-8",
+    )
+    assert guard.is_closed([str(record)]) is False

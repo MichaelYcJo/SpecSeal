@@ -55,10 +55,16 @@
   fenced block is the only place a fix survives the session — a Grounds cell
   is one line, and this is what used to truncate it.
 
-  **The pre-merge reminder no longer reads a pasted fix as a closing note.**
-  It stayed quiet once some round record said the rows were drained, and it
-  decided that by matching `closed` against the record's raw text. Putting the
-  reviewer's code into every record made that reachable in every record, and
-  this repository's own fixes carry the word. The record is now read through
-  the same reader every other check uses, so a closing word inside a fenced
-  block is not a closing note. (#187, #189)
+  **The pre-merge reminder no longer reads a narrated word as a closing
+  note.** It stayed quiet once some round record said the rows were drained,
+  and it decided that by matching `closed` against the record's raw text.
+  Putting the reviewer's code into every record made that reachable
+  everywhere, and this repository's own fixes carry the word. The record is
+  now read through the same reader every other check uses, so a closing word
+  counts only where a reader would read it — **not inside a fenced block and
+  not inside an HTML comment.** The second half is the one that was already
+  costing something: over this repository's 127 committed round records the
+  repair changes the verdict on three, all three because their only closing
+  word stands in the record's own header comment narrating what the round
+  found, and all three still have unresolved rows the reminder should have
+  been naming. (#187, #189)
