@@ -643,6 +643,26 @@ def test_a_multi_line_html_comment_is_an_aside_to_its_end(tmp_path):
     assert refusals(tmp_path) == ([], 0)
 
 
+def test_a_name_after_a_multi_line_comment_closes_is_a_claim_again(tmp_path):
+    """The pair for the case above, and the same pair the fence already has:
+    a reader that switched the arm off at the first `<!--` would pass it and
+    read nothing after the comment either."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "plan.md": "# p\n\n<!-- what this field holds, and\n"
+            "     why `inside_a_comment` is the example -->\n\n"
+            "and then `gone_helper` in prose\n"
+        },
+    )
+    found, read = refusals(tmp_path)
+    assert read == 1, (found, read)
+    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
+    assert "`gone_helper`" in found[0][2]
+
+
 def test_a_fence_the_record_never_closes_does_not_silence_what_follows(tmp_path):
     """A fence the record never closes took every claim under it, in silence
     (round 2, 🟡 3). An unclosed fence is a malformed record, not a licence
