@@ -207,7 +207,15 @@ durable, committed home instead. -->
 |---|---|---|---|---|
 | 🔴 1 | <what is wrong> | `file.py:120` | <fixed · answered · open> | <the policy clause, the original's behavior, or the constraint — not "it probably meant that"> |
 
-<!-- Severities name what they require, not a rank:
+<!-- The `#` cell is a bare integer, optionally behind a severity marker:
+     `1`, `🔴 2`, `⬜ 13`. `R2-1`, `1-1`, `1b` and `A2` are refused, naming
+     the format and quoting the row. The round is already in this file's own
+     name, so an id does not carry it — a prefixed id used to collapse eight
+     findings toward one key in silence (#227). The fix pass copies these
+     numbers into its `## Fixes` table, so the format is one choice two
+     agents pay for.
+
+     Severities name what they require, not a rank:
      🔴 blocks merge · 🟡 needs grounds · 🟢 matches · ❓ could not be judged.
      Earlier rounds' verdicts set this round's agenda. Every one needs an
      answer here, on this round's grounds — a verdict on current code carries

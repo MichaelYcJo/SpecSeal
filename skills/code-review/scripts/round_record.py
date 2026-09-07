@@ -1480,8 +1480,58 @@ LOCATION_LINE_RE = re.compile(r"([\w./-]+\.py):(\d+)")
 FRAGMENT_RE = re.compile(r'(?<![\w./\-"#])#([A-Za-z_]\w*)')
 IDENTIFIER_RE = re.compile(r"`([A-Za-z_]\w*)(?:\(\))?`")
 BARE_IDENTIFIER_RE = re.compile(r"^([A-Za-z_]\w*)(?:\(\))?$")
-NUMBER_RE = re.compile(r"\d+")
+# A finding id is a bare integer, optionally behind a severity marker. #227:
+# the id used to be the FIRST digit run anywhere in the cell, so `R2-1` and
+# `R2-2` both read as `2` and eight round-prefixed findings collapsed toward
+# one key. The refusal that followed reported a duplicate the table did not
+# visibly have. The marker is what the group skips and the digits are the id;
+# `[^\w\s]` reaches every marker the records carry — 🔴 🟡 🟢 ⬜ ❓ ✅ — and
+# reaches no letter, so `r3 🟡 2`, `1-1`, `1b` and `A2` are refused rather
+# than silently keyed to whichever digits came first.
+FINDING_ID_RE = re.compile(r"^(?:[^\w\s]+\s*)*(\d+)$")
+BARE_ID = "a bare integer"
+# Which of the two tables a refusal is about. The reviewer writes one and the
+# fixer copies the numbering into the other, so a message naming the format
+# and not the file sends the reader to the table that is already correct.
+RECORD_LABEL = "verdict table"
+FIX_TABLE_LABEL = "fix table"
 DEPTH_EXIT = "deferred with a named answerer, or becomes an issue"
+
+
+def finding_number(label, seen, line, taken):
+    """The finding one `#` cell names, or `Refused` naming format and row.
+
+    Two refusals, and #227 is that the old code could produce only the
+    second, out of a table that held no duplicate. Both name the table they
+    read, quote the offending cell, and quote the whole row — with eight rows
+    and no coordinate, finding the pair was a manual scan.
+
+    `taken` is {number: the row that already claimed it}, so the duplicate
+    refusal can quote both rows rather than assert that two exist.
+    """
+    text = chain.EMPHASIS.sub("", seen).strip()
+    m = FINDING_ID_RE.match(text)
+    if not m:
+        raise Refused(
+            f"the {label} has a row whose `#` reads {seen!r}, and a finding id "
+            f"is {BARE_ID} — an optional severity marker, then digits and "
+            "nothing else (`1`, `\N{LARGE RED CIRCLE} 2`, "
+            "`\N{WHITE LARGE SQUARE} 13`). A round-prefixed id collapses "
+            "toward one key: `R2-1` and `R2-2` are the same digits to a reader "
+            "that takes the first run, which is how eight findings became one. "
+            "Number this round's findings 1..N and let the record's own file "
+            f"name carry the round. The row: {line.strip()}"
+        )
+    number = int(m.group(1))
+    if number in taken:
+        raise Refused(
+            f"the {label} has two rows numbered {number}:\n"
+            f"    {taken[number].strip()}\n"
+            f"    {line.strip()}\n"
+            "A finding id names one row, so one of these has to change"
+        )
+    taken[number] = line
+    return number
 
 
 def part(label, text):
@@ -1766,17 +1816,12 @@ def fix_table(reader, path):
     # than to that file. Verified 2026-09-06 at 9241a8b.
     text = read_text(path, "fix table")
     raw, lines = text.splitlines(), reader.readable(text)
-    out = {}
+    out, taken = {}, {}
     for i, cells in table_body(reader, lines, FIXES, FIXES_HEADER, True):
         seen = [reader.visible(c) for c in cells]
         if len(seen) < len(FIXES_HEADER):
             raise Refused(f"a fix row has {len(seen)} cells: {raw[i].strip()!r}")
-        m = NUMBER_RE.search(seen[0])
-        if not m:
-            raise Refused(f"a fix row's `#` names no finding: {seen[0]!r}")
-        number = int(m.group())
-        if number in out:
-            raise Refused(f"the fix table has two rows for finding {number}")
+        number = finding_number(FIX_TABLE_LABEL, seen[0], raw[i], taken)
         verdict = chain.EMPHASIS.sub("", seen[1]).strip().rstrip(".").strip()
         word, third = verdict.lower(), seen[2].strip()
         if word == FIXED:
@@ -1820,15 +1865,12 @@ def fix_table(reader, path):
 
 def verdict_rows(reader, lines):
     """{finding number: (index, cells)} for round N's verdict table."""
-    out = {}
+    out, taken = {}, {}
     for i, cells in table_body(reader, lines, VERDICTS, VERDICT_HEADER, True):
         seen = [reader.visible(c) for c in cells]
-        m = NUMBER_RE.search(seen[NUMBER_COL]) if len(seen) > NUMBER_COL else None
-        if not m:
-            raise Refused(f"a verdict row's `#` names no number: {lines[i].strip()!r}")
-        number = int(m.group())
-        if number in out:
-            raise Refused(f"the record has two verdict rows numbered {number}")
+        if len(seen) <= NUMBER_COL:
+            raise Refused(f"a verdict row has no `#` cell: {lines[i].strip()!r}")
+        number = finding_number(RECORD_LABEL, seen[NUMBER_COL], lines[i], taken)
         out[number] = (i, cells)
     return out
 

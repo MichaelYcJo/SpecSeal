@@ -661,6 +661,51 @@ later, and the last record has none. What that costs is a repository updating
 the plugin: every record in a work item whose declaration the pull request
 touches needs the row, not just the newest.
 
+##### The finding id — a bare integer, behind an optional severity marker
+
+The `#` cell of the verdict table, and of the `## Fixes` table that answers
+it, holds **a bare integer**: an optional severity marker, then digits and
+nothing else. `1`, `🔴 2`, `⬜ 13` are the shape; `R2-1`, `1-1`, `1b`, `A2`
+and `r3 🟡 2` are not.
+
+| The cell | What happens |
+|---|---|
+| digits, with or without a marker in front | read as that finding |
+| anything else | **refused**, naming the format, quoting the cell and quoting the whole row |
+| two rows that resolve to the same integer | **refused**, quoting **both** rows |
+
+**The rule exists because the reader used to guess.** `round_record.py` took
+the first digit run anywhere in the cell, so `R2-1` and `R2-2` were both `2`
+and a reviewer who numbered eight findings `R2-1` … `R2-8` — the round in the
+id, so a finding stays unambiguous when three rounds are read side by side —
+got *the fix table has two rows for finding 2* out of a table holding one
+`R2-1` and one `R2-2`. The first read is that the table is malformed, not
+that the ids are, and with eight rows and no coordinate the pair had to be
+found by hand (#227).
+
+**The refusal is the repair rather than an accepted prefix, and the corpus is
+why.** Every committed `round-N.md` was run through both rules before the
+format was fixed: of 130 that parse, 82 pass under either, 46 already refuse
+today, and 2 pass today only by miscounting — `r3 🟡 2` keys as finding **3**,
+out of the `3` in `r3`, and `🟢 round 2's finding (🟡 4)` keys as **2** where
+the cell names 4. So the rule takes away two wrong answers and no right one.
+Accepting a prefix instead would make two rounds' findings legal in one table
+and turn the `{number: …}` key that `close` threads through `unknown`,
+`missing`, `already` and `depth_two` into a two-part key, for a shape no
+record actually uses.
+
+**The round is already in the file name**, `rounds/round-N.md`, which is what
+the prefix was reaching for. A record read beside two others is a record whose
+path says which round it is.
+
+**Where the numbering is chosen is where the rule is stated**, not only at the
+point of refusal. The reviewer picks the numbers in
+`skills/code-review/SKILL.md` §*Findings format*; the fixer copies them into
+the fix table from `skills/implement/SKILL.md` §5. Both say bare integer, and
+so does `templates/sdd-round.md` where the column is defined — because the
+refusal lands at the orchestrator, one hop from either agent that could have
+avoided it.
+
 ##### The fix surface — `Contract changes` and `New units`
 
 Two more rows, read on every record the same way `Fixes checked by` is, and
