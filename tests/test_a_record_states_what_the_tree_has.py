@@ -140,7 +140,7 @@ def test_the_records_read_are_every_md_in_the_work_item(tmp_path):
     )
     found = {
         os.path.relpath(p, str(d)).replace(os.sep, "/")
-        for p in module().record_files(str(d))
+        for p in module().record_files(str(d))[0]
     }
     assert found == {
         "spec.md",
@@ -160,7 +160,7 @@ def test_the_walk_does_not_descend_into_a_cache(tmp_path):
     d = work_item(h, "1780000000-live", **{"spec.md": "# a\n"})
     (d / "__pycache__").mkdir()
     (d / "__pycache__" / "stale.md").write_text("# stale\n", encoding="utf-8")
-    found = [os.path.basename(p) for p in module().record_files(str(d))]
+    found = [os.path.basename(p) for p in module().record_files(str(d))[0]]
     assert found == ["spec.md"]
 
 
@@ -851,6 +851,76 @@ def test_a_record_that_cannot_be_read_is_named(tmp_path, monkeypatch):
     assert (names, stamps) == (0, 0)
     assert [s for s, _, _ in findings] == [mod.UNREADABLE_STATUS], findings
     assert findings[0][2] == "the record could not be read"
+
+
+def refuses_scandir(mod, monkeypatch, tail):
+    """`os.scandir` raising for one directory, and answering for the rest.
+
+    Not `chmod 000`, which is nothing to root and sets only a read-only flag
+    on Windows — `test_gates_do_not_fail_open.py` makes the same call, and a
+    defence resting on a platform guarantee is not verified until the
+    guarantee is gone.
+    """
+    real = os.scandir
+
+    def refuses(path=".", *args, **kwargs):
+        if str(path).replace(os.sep, "/").endswith(tail):
+            raise PermissionError(13, "Permission denied", str(path))
+        return real(path, *args, **kwargs)
+
+    monkeypatch.setattr(mod.os, "scandir", refuses)
+
+
+def test_a_records_directory_that_cannot_be_listed_is_named(tmp_path, monkeypatch):
+    """`os.walk` swallows a directory it cannot list, so a work item whose
+    `rounds/` is unreadable contributed no records and the run said nothing —
+    exit 0, where an unreadable FILE is `UNREADABLE` and exit 2 (round 2,
+    🟡 4)."""
+    mod = module()
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n", "rounds__round-1.md": "# r\n\n`gone_helper`\n"},
+    )
+    refuses_scandir(mod, monkeypatch, "1780000000-live/rounds")
+    findings, _names, _stamps = mod.check_records(str(tmp_path), str(h))
+    assert [s for s, _, _ in findings] == [mod.UNREADABLE_STATUS], findings
+    assert findings[0][2] == "the records directory could not be listed"
+    assert findings[0][1].endswith("rounds"), findings
+
+
+def test_a_ledger_fragment_directory_that_cannot_be_listed_is_named(
+    tmp_path, monkeypatch
+):
+    """The same cause one directory up, and it silences the WHOLE arm rather
+    than one work item: `unshipped` answered `{}` for a `ledger/` it could
+    not list, so `check_records` returned nothing and the run exited 0."""
+    mod = module()
+    h = home(tmp_path)
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    real = os.listdir
+
+    def refuses(path=".", *args, **kwargs):
+        if str(path).replace(os.sep, "/").endswith("seal/ledger"):
+            raise PermissionError(13, "Permission denied", str(path))
+        return real(path, *args, **kwargs)
+
+    monkeypatch.setattr(mod.os, "listdir", refuses)
+    findings, names, stamps = mod.check_records(str(tmp_path), str(h))
+    assert (names, stamps) == (0, 0)
+    assert [s for s, _, _ in findings] == [mod.UNREADABLE_STATUS], findings
+    assert findings[0][2] == "the ledger fragments directory could not be listed"
+
+
+def test_a_missing_ledger_folder_is_still_an_empty_answer(tmp_path):
+    """The pair: `unshipped` distinguishes a directory that is ABSENT from
+    one it cannot list, and only the second is a refusal. A root with no
+    `ledger/` at all is a repository that has not started, not a broken one.
+    """
+    (tmp_path / "seal" / "specs").mkdir(parents=True)
+    assert module().unshipped(str(tmp_path / "seal")) == {}
+    assert module().check_records(str(tmp_path), str(tmp_path / "seal")) == ([], 0, 0)
 
 
 def test_the_same_anchor_answers_the_same_in_both_arms_under_default_repo(tmp_path):

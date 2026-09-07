@@ -1703,8 +1703,14 @@ SPECS_DIR = "specs"
 FRAGMENT_DIR = "ledger"
 
 
-def unshipped(home):
+def unshipped(home, refused=None):
     """The work items under `<home>/specs/` whose records are still live.
+
+    `refused` is an optional list this appends `<home>/ledger/` to when the
+    directory exists and cannot be listed. An out-parameter rather than a
+    widened return, because three call sites and seven cases read the return
+    and none of them is the one place this state has to reach — a fix pass
+    threads a channel, it does not re-shape a contract.
 
     **A work item whose `<home>/ledger/<id>.md` fragment still exists has not
     shipped.** The fold is what removes it: `fold_ledger.py` moves a work
@@ -1731,7 +1737,14 @@ def unshipped(home):
     specs = os.path.join(home, SPECS_DIR)
     try:
         names = os.listdir(fragments)
+    except FileNotFoundError:
+        # ABSENT is not the same state as UNLISTABLE, and only the second is
+        # a refusal. A root with no `ledger/` is a repository that has not
+        # started, which is the empty answer this has always given.
+        return {}
     except OSError:
+        if refused is not None:
+            refused.append(fragments)
         return {}
     live = {}
     for name in sorted(names):
@@ -1774,6 +1787,14 @@ def unread_items(home):
     """
     live = unshipped(home)
     specs = os.path.join(home, SPECS_DIR)
+    # RIDER: this `except OSError` is the third instance of the class round
+    #     2's 🟡 4 opened — a directory read whose failure answers *nothing
+    #     found*. `unshipped` and `record_files` were fixed with that finding;
+    #     this one was not, because it moves a COUNT on the summary line
+    #     rather than a finding, and the honest repair widens a return three
+    #     call sites and seven cases read. If you open this function, thread
+    #     the same optional `refused` list `unshipped` takes and let `main`
+    #     report it as `UNREADABLE`. Verified 2026-09-07 at a58fffe.
     try:
         names = sorted(os.listdir(specs))
     except OSError:
@@ -1788,19 +1809,50 @@ def unread_items(home):
 def record_files(directory):
     """Every `.md` under one work item's directory, in path order.
 
+    Two returns: the records, and the directories the walk could not list.
+
     The whole SDD set and not the round records alone. #190's own three
     instances landed in a `plan.md`, an `overview.md` and a ledger row, and
     the two records a reviewer opens next are `rounds/round-N.md` and
     `phases/phase-N.md`. Nothing here is specific to the review chain, so
     nothing here reads a file name to decide.
+
+    **`os.walk` swallows a directory it cannot list**, so a work item whose
+    `rounds/` was unreadable contributed no records and the run said nothing
+    at exit 0 — where an unreadable FILE is `UNREADABLE` and exit 2 (round 2,
+    🟡 4). `onerror` is what turns that into an answer.
+
+    **The class is every directory read in this file, enumerated by
+    construction** — `os.walk`, `os.listdir`, `os.scandir` and `glob`, which
+    is the whole of how a directory is read here — and then asked of each
+    whether its failure reads as *nothing found*:
+
+    - `unshipped`'s `ledger/` listing: the same defect one directory up and
+      strictly worse, because an empty answer there silences the WHOLE arm
+      rather than one work item. Fixed with it.
+    - this walk: the instance the round opened.
+    - `unread_items`' `specs/` listing: same shape, and it moves a COUNT on
+      the summary line rather than a finding. Deferred as a rider comment at
+      that line, which is where `seal/follow-up.md` sends anything tied to a
+      coordinate — the honest repair widens a return three call sites and
+      seven cases read, and a fix pass is not where that belongs.
+    - `tree_names`' walk over the repository: a directory it cannot list
+      supplies no names, so names the tree HAS read as absent. That refuses
+      more, not less, and is not this class.
+    - the look-alike scan's walk for a `BROKEN` anchor's hint: the row is
+      already refused, so a narrowed scan weakens a hint rather than a
+      verdict, and `_capped` already says a narrowed search out loud.
+    - `ledger_paths`' `glob`: `glob` reports no error by design, and a
+      pattern the operator named that matches nothing is `skipped_by_
+      narrowing`'s subject rather than this one's.
     """
-    found = []
-    for dirpath, dirnames, filenames in os.walk(directory):
+    found, refused = [], []
+    for dirpath, dirnames, filenames in os.walk(directory, onerror=refused.append):
         dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
         for name in sorted(filenames):
             if name.endswith(".md"):
                 found.append(os.path.join(dirpath, name))
-    return found
+    return found, [error.filename for error in refused]
 
 
 # The marker a reviewer already writes beside a name the tree does not have —
@@ -2089,16 +2141,39 @@ def check_records(root, home, maps=None, default_repo=None):
     literally `check_text`, the ledger's own reader, so a stamp in a record is
     resolved the way a ledger anchor is rather than by a second rule.
     """
-    live = unshipped(home)
+    # A directory that could not be listed is a finding, not an empty answer
+    # — the direction an unreadable FILE already takes one line down. It is
+    # reported before the early return, because `{}` here is exactly what an
+    # unlistable `ledger/` produces and returning nothing would be the
+    # silence (round 2, 🟡 4).
+    unlistable = []
+    live = unshipped(home, unlistable)
+    findings = [
+        (
+            UNREADABLE_STATUS,
+            display_name(path, root),
+            "the ledger fragments directory could not be listed",
+        )
+        for path in unlistable
+    ]
     if not live:
-        return [], 0, 0
+        return findings, 0, 0
     known = tree_names(root, home)
     records_root = os.path.join(home, SPECS_DIR)
     fragments_root = os.path.join(home, FRAGMENT_DIR)
-    findings, names_read, stamps_read = [], 0, 0
+    names_read, stamps_read = 0, 0
     scan_cache = {}
     for _item, directory in sorted(live.items()):
-        for path in record_files(directory):
+        paths, refused_dirs = record_files(directory)
+        for path in refused_dirs:
+            findings.append(
+                (
+                    UNREADABLE_STATUS,
+                    display_name(path, root),
+                    "the records directory could not be listed",
+                )
+            )
+        for path in paths:
             body = read(path)
             shown = display_name(path, root)
             if body is None:
@@ -2273,14 +2348,6 @@ def main():
     # (#190). Printed under its own heading and counted separately, because
     # the two arms read different files and a reader who sees one number has
     # to be able to tell which arm moved it.
-    # Both resolution arguments, not one. A stamp in a record is resolved by
-    # `check_text`, the ledger's own reader, so an anchor that grades `OK` in
-    # `seal/ledger.md` has to grade `OK` here too — and `--default-repo` is
-    # what tells that reader a path resolving in no local checkout belongs to
-    # the original rather than to nobody. Dropped, one arm answered `BROKEN`
-    # for the anchor the other answered `OK`, with the cross-repo look-alike
-    # scan back on, and a migration repository's CI exited 2 on every run
-    # (round 1, 🔴 1).
     # Both resolution arguments, not one. A stamp in a record is resolved by
     # `check_text`, the ledger's own reader, so an anchor that grades `OK` in
     # `seal/ledger.md` has to grade `OK` here too — and `--default-repo` is
