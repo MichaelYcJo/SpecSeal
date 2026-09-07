@@ -102,6 +102,10 @@ TEST_MOD = (
 # a case. `tests/helpers.py` satisfies neither pattern, so a `test_*` def here
 # is never imported as a case and nothing else calls it.
 HELPERS = "def test_shaped_but_uncollected(x):\n    return x\n"
+# `python_files` is TWO patterns and the second is as real as the first. A
+# mutation dropping the `_test.py` half survived while this file did not
+# exist, so the case that pins it is here rather than in the enumeration.
+SUFFIX_MOD = "def test_in_a_suffix_module(x):\n    return x\n"
 # Round 1's finding 2. A `conftest.py` at the repository ROOT — the placement
 # pytest documents first — holding one fixture and one hook. Both are reached
 # without a call site exactly as their `tests/` counterparts are.
@@ -166,6 +170,9 @@ WIDENED = {
     "tests/helpers.py": (
         "def test_shaped_but_uncollected(x, extra=None):\n    return x\n"
     ),
+    "tests/helpers_test.py": (
+        "def test_in_a_suffix_module(x, extra=None):\n    return x\n"
+    ),
     "conftest.py": (
         "import pytest\n"
         "\n"
@@ -185,6 +192,7 @@ BEFORE = {
     "tests/conftest.py": CONFTEST,
     "tests/test_mod.py": TEST_MOD,
     "tests/helpers.py": HELPERS,
+    "tests/helpers_test.py": SUFFIX_MOD,
     "conftest.py": ROOT_CONFTEST,
     "root_level.py": ROOT_LEVEL,
 }
@@ -225,6 +233,7 @@ def _build(d):
     write(d, "tests/conftest.py", CONFTEST)
     write(d, "tests/test_mod.py", TEST_MOD)
     write(d, "tests/helpers.py", HELPERS)
+    write(d, "tests/helpers_test.py", SUFFIX_MOD)
     write(d, "conftest.py", ROOT_CONFTEST)
     write(d, "root_level.py", ROOT_LEVEL)
     commit(d, "base")
@@ -356,6 +365,16 @@ def test_a_test_shaped_def_in_an_uncollected_module_is_not_the_runners(reach):
     rejected the wider rule in order to avoid."""
     generator = generator_module()
     assert reach["test_shaped_but_uncollected"] == generator.NO_SITE, reach
+
+
+def test_the_second_python_files_pattern_collects_too(reach):
+    """`python_files` is `test_*.py *_test.py`, and the second half is as
+    real as the first — `tests/helpers_test.py` is imported as a test module
+    and its `test_*` defs run. Without this case a mutation dropping the
+    suffix half of `collected` survived, which is the half of the boundary
+    nothing was holding."""
+    generator = generator_module()
+    assert reach["test_in_a_suffix_module"] == generator.PYTEST_ONLY, reach
 
 
 def test_a_test_shaped_def_outside_tests_is_not_collected(reach):
