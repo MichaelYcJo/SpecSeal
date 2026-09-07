@@ -69,10 +69,20 @@ never judged at all. Executed in a clean single-stream tree with no record,
 created the worktree, and the record was written — the model never had to
 forge it, only to choose which question got asked. The row above rests
 entirely on this sentence, so the sentence is now enforced rather than
-asserted: the guard's two silent exits fall through to the creation ladder,
-and every other row of the switch ladder already responds. `deny` stops the
-creation with the rest of the command; `ask` puts the whole command line to a
-person, which is the standing this sentence claims.
+asserted. The creation is judged between the switch ladder's two halves: below
+the three concurrency rows, which all deny and so stop the creation with the
+rest of the command, and above the two that do not protect a tree — the
+tracked-changes `ask`, whose own text says the switch is allowed, and the
+silent single-stream exit. The guard's other silent exit, at `if not top`, falls
+through as well. Measured after the change over 576 command/tree-state/directory
+combinations: no command the writer would record for leaves the guard silent.
+
+Silence was not the only way the question went unasked, and the second way was
+found only by re-enumerating rather than by applying the round's fix. Row 3
+asks about uncommitted changes riding along, and approving it created the
+worktree too — so **whether the tree happened to be dirty decided whether the
+creation was questioned at all.** Executed: the same command denied on a clean
+tree and asked about the changes on a dirty one.
 
 What the change gives up is stated rather than left to be found: the
 invariant *creating a worktree always takes one confirmation* becomes *the

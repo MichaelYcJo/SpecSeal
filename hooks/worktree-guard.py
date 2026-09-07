@@ -2045,6 +2045,28 @@ def main():
             + steer,
         )
 
+    # A creation later in the same command has not been judged yet, and this is
+    # where it gets its verdict. The three rows above keep their precedence
+    # because they ARE the concurrency protections: a switch denied under an
+    # ACTIVE session must stay denied, and making a creation outrank it would
+    # turn that deny into an `ask` about the creation while the branch is still
+    # taken out from under the other session, one approval later.
+    #
+    # The two rows BELOW yield, and neither of them protects a tree. Row 4 says
+    # nothing at all, which is where `git switch feature/x && git worktree add
+    # ../wt f` ran unjudged on a clean tree and `hooks/worktree_consent.py`
+    # minted session-wide consent for it. Row 3 asks about uncommitted changes
+    # riding along and its own text says the switch is ALLOWED -- so approving
+    # it created the worktree too, and whether the creation was questioned at
+    # all came down to whether the tree happened to be dirty. Executed: the
+    # same command denied on a clean tree and asked about the changes on a
+    # dirty one.
+    #
+    # The creation's own repository, not this switch's: they are not always the
+    # same tree, and `guard_worktree_creation` refuses an empty one.
+    if creation_at:
+        judge_creation(command, cwd, repo_paths(creation_at)[0], session_id)
+
     # 3) 단건이지만 추적 중인 변경이 있으면 사용자에게 확인.
     entries = tracked_changes(cwd)
     if entries:
@@ -2081,19 +2103,6 @@ def main():
         )
 
     # 4) 단건 + clean -> 워크트리 없이 그냥 전환.
-    #
-    # This is the guard's ONE silent exit, and it is where a creation later in
-    # the same command escaped judgment. Every row above responds: a `deny`
-    # stops the creation along with the switch, and an `ask` puts the whole
-    # command line to a person, which is exactly the standing `spec.md` claims
-    # for a creation that runs. Only here does nobody get asked anything --
-    # and `hooks/worktree_consent.py` still recorded session-wide consent
-    # afterwards. `judge_creation` carries the measurement.
-    #
-    # The creation's own repository, not this switch's: they are not always
-    # the same tree, and `guard_worktree_creation` refuses an empty one.
-    if creation_at:
-        judge_creation(command, cwd, repo_paths(creation_at)[0], session_id)
     sys.exit(0)
 
 

@@ -431,6 +431,28 @@ def test_the_switch_ladder_keeps_every_verdict_it_had(monkeypatch, capsys, repo)
         ), sessions
 
 
+def test_a_dirty_tree_does_not_decide_whether_the_creation_is_questioned(
+    monkeypatch, capsys, repo
+):
+    """Silence is not the only way the creation question went unasked. Row 3 of
+    the switch ladder asks about uncommitted changes riding along, and its own
+    text says *the switch is allowed* -- it protects nothing about concurrency.
+    Approving it created the worktree and recorded session-wide consent, so
+    whether the creation was questioned at all came down to whether the tree
+    happened to be dirty. Executed before this case: the clean tree denied and
+    the dirty one asked about the changes, for the same command.
+
+    The three rows above it keep their precedence, because those ARE the
+    concurrency protections -- `test_the_switch_ladder_keeps_every_verdict_it_had`
+    is the other half of this."""
+    (repo / "f.txt").write_text("changed on purpose\n")
+    decision, reason = decide(
+        monkeypatch, capsys, repo, "git switch feature/x && git worktree add ../wt f"
+    )
+    assert decision == "deny", (decision, reason)
+    assert "git switch" in reason, reason
+
+
 def test_the_guard_is_never_silent_where_the_writer_records(
     monkeypatch, capsys, repo, tmp_path
 ):

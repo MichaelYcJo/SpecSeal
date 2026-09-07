@@ -161,13 +161,20 @@ The switch ladder keeps every verdict it had. Making the creation outrank the
 earlier verdict closes the same hole and costs a protection: a switch denied
 because another session is working in the tree would become an `ask` about the
 creation, and the branch would still be taken out from under that session one
-approval later. Instead, the guard's **two silent exits** fall through to the
-creation ladder — the end of the switch ladder (single-stream, clean tree), and
-the earlier `if not top`, which is reached when the shell is outside any
-repository while a `git -C <repo> worktree add` in the same command is not.
-Every other row responds already: a `deny` stops the creation with the rest of
-the command, and an `ask` puts the whole command line to a person, which is the
-standing a creation that runs is claimed to have.
+approval later. **So the creation is judged between the ladder's two halves.**
+
+| Switch-ladder row | Order | Why |
+|---|---|---|
+| ACTIVE session · only IDLE · detection unusable | above the creation | these are the concurrency protections, and every one of them denies. A `deny` stops the creation along with the rest of the command |
+| **the creation** | | |
+| tracked changes present | below | its own text says *the switch is allowed* — it protects no tree, it asks whether uncommitted changes should ride along. Approving it created the worktree too, so whether the creation was questioned came down to whether the tree happened to be dirty. Executed: the same command denied on a clean tree and asked about the changes on a dirty one |
+| single stream, clean | below | says nothing at all. This is where `git switch feature/x && git worktree add ../wt f` ran unjudged and minted session-wide consent |
+
+The guard's other silent exit is earlier, at `if not top`, and it has the same
+hole: it is reached when the shell is outside any repository while a `git -C
+<repo> worktree add` in the same command is not. That one falls through too.
+Measured after the change, over 576 command/tree-state/directory combinations:
+no command the writer would record for leaves the guard silent.
 
 **Why the Agent/Task path is silent rather than an allow.** That call is a
 worktree creation *plus* an agent with a prompt, and the record is about the
