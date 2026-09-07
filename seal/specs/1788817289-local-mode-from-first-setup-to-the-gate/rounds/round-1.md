@@ -7,12 +7,12 @@
 | PR | not yet opened |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | already_asked → already_asked, main, choose, round-1-report.md; git_dir_of → marker_dir, round-1-report.md, pytest |
+| New units | RETRY_DIR (depth 1); unreadable (depth 1); marker_dir (depth 1); common_dir_of (depth 1); shares_the_clone (depth 1); test_a_separated_git_directory_does_not_displace_the_callers_tree (depth 1); test_the_clone_is_identified_from_the_directory_it_was_asked_about (depth 1); test_a_root_that_is_not_a_work_tree_is_refused (depth 1); test_the_third_command_of_a_session_is_silent (depth 1); test_the_two_prompts_are_counted_apart (depth 1); test_a_config_nobody_can_open_is_silence_not_a_deny (depth 1); test_one_local_root_is_one_question_for_the_whole_clone (depth 1); test_a_shared_root_is_still_a_question_per_work_tree (depth 1); test_the_marker_directory_is_absolute_for_either_question (depth 1) |
 | Needs a fix | yes — 1, 2, 3, 4 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -32,14 +32,14 @@ The report was to be written to a file, finding ids bare integers, every verdict
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | 🔴 The `ask` never stops: the gate fires on every Bash call, so after the first deny every command in the session needs an approval — including the `seal mode` that would end it. The budget `pr-notes.md` states is one deny per session per repository | `hooks/mode-gate.py:223-226` | open | executed — ten ordinary Bash calls in one session returned deny + nine asks; the sibling gate returned silence on nine of the same ten |
-| 2 | 🟡 A `config.md` that exists and cannot be read is treated as one that declared nothing, so the gate denies. Its own docstring says everything here fails toward silence | `hooks/mode-gate.py:105-122` · `hooks/config.py:104-111` | open | executed — a directory of that name, undecodable bytes and `chmod 000` each returned deny then ask; a readable row returned silence |
-| 3 | 🟡 The marker is keyed per work tree while a local root is one folder for the whole clone, so one session is denied once per worktree. `README.md` says once per repository | `hooks/mode-gate.py:125-142` | open | executed — one session, one clone, one local root, two denies |
-| 4 | 🟡 `repo_of` returns a directory that is not a work tree for a `--separate-git-dir` repository and for a bare clone, discarding the caller's real tree even when the caller is in it. `pr-notes.md` claims this case is the one the design avoids | `skills/code-review/scripts/round_record.py:1384-1439` | open | executed — `git worktree list --porcelain` prints the git directory with no `bare` line; `round_record.py new` from inside the work tree exits 2 with *is not in a git repository* |
-| 5 | ⬜ Every Bash call in every repository on the machine now costs one extra `git rev-parse --show-toplevel`, paid again on calls that have nothing left to say | `hooks/mode-gate.py:210-226` | open | executed — one `git` call against the sibling's zero for `ls`; 69.4 ms against 53.8 ms, median of twelve |
-| 6 | ⬜ `already_asked`'s `cwd` argument is discarded because `git_dir_of` returns an absolute path; the sibling it was copied from passes a relative one, where the join matters | `hooks/mode-gate.py:94` | open | read |
-| 7 | ⬜ `templates/config.md` still opens with *an absent row is not an error*, which is no longer true of the `Mode` row | `templates/config.md` | open | read |
-| 8 | ⬜ The changelog fragment does not say the gate fires in every repository that opted in before this branch | `seal/specs/1788817289-local-mode-from-first-setup-to-the-gate/changelog.md` | open | read |
+| 1 | 🔴 The `ask` never stops: the gate fires on every Bash call, so after the first deny every command in the session needs an approval — including the `seal mode` that would end it. The budget `pr-notes.md` states is one deny per session per repository | `hooks/mode-gate.py:223-226` | **fixed** `1a54687` | fixed at 1a54687; executed — ten ordinary Bash calls in one session returned deny + nine asks; the sibling gate returned silence on nine of the same ten |
+| 2 | 🟡 A `config.md` that exists and cannot be read is treated as one that declared nothing, so the gate denies. Its own docstring says everything here fails toward silence | `hooks/mode-gate.py:105-122` · `hooks/config.py:104-111` | **fixed** `1a54687` | fixed at 1a54687; executed — a directory of that name, undecodable bytes and `chmod 000` each returned deny then ask; a readable row returned silence |
+| 3 | 🟡 The marker is keyed per work tree while a local root is one folder for the whole clone, so one session is denied once per worktree. `README.md` says once per repository | `hooks/mode-gate.py:125-142` | **fixed** `1a54687` | fixed at 1a54687; executed — one session, one clone, one local root, two denies |
+| 4 | 🟡 `repo_of` returns a directory that is not a work tree for a `--separate-git-dir` repository and for a bare clone, discarding the caller's real tree even when the caller is in it. `pr-notes.md` claims this case is the one the design avoids | `skills/code-review/scripts/round_record.py:1384-1439` | **fixed** `1a54687` | fixed at 1a54687; executed — `git worktree list --porcelain` prints the git directory with no `bare` line; `round_record.py new` from inside the work tree exits 2 with *is not in a git repository* |
+| 5 | ⬜ Every Bash call in every repository on the machine now costs one extra `git rev-parse --show-toplevel`, paid again on calls that have nothing left to say | `hooks/mode-gate.py:210-226` | **fixed** `a3bea92` | fixed at a3bea92; executed — one `git` call against the sibling's zero for `ls`; 69.4 ms against 53.8 ms, median of twelve |
+| 6 | ⬜ `already_asked`'s `cwd` argument is discarded because `git_dir_of` returns an absolute path; the sibling it was copied from passes a relative one, where the join matters | `hooks/mode-gate.py:94` | **fixed** `1a54687` | fixed at 1a54687; read |
+| 7 | ⬜ `templates/config.md` still opens with *an absent row is not an error*, which is no longer true of the `Mode` row | `templates/config.md` | **fixed** `a3bea92` | fixed at a3bea92; read |
+| 8 | ⬜ The changelog fragment does not say the gate fires in every repository that opted in before this branch | `seal/specs/1788817289-local-mode-from-first-setup-to-the-gate/changelog.md` | **fixed** `a3bea92` | fixed at a3bea92; read |
 
 ## Paste-ready fixes
 
