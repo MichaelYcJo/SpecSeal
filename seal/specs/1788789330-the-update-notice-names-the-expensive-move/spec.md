@@ -40,15 +40,33 @@ update lands**. It was enumerated with two greps over the whole tree rather
 than from the ticket's list, which was three lines short and omitted the
 Korean README entirely.
 
+**Measured over tracked files at `86e140f`, the commit this branch was cut
+from**, which is the tree the class has to be enumerated against — the branch's
+own commits add hits of their own, and counting those makes the enumeration a
+measure of the fix rather than of the defect.
+
 ```
-grep -rniI --exclude-dir=.git 'restart' .        # 33 hits
-grep -rnI  --exclude-dir=.git '재시작' .          #  3 hits
-grep -rniI --exclude-dir=.git 'reload' . | grep -vi preload   #  3 hits
+git grep -ciI 'restart' 86e140f                        # 33 lines
+git grep -cI  '재시작'   86e140f                        #  3 lines
+git grep -niI 'reload'  86e140f | grep -vi preload     #  2 lines
 ```
 
-Deduplicated (`docs/flow.md:74` carries two of the three words): **38 distinct
-lines.** A second pass over `plugin update` and `/specseal:update` added two
+Deduplicated (`docs/flow.md:74` carries both `restart` and `reload`):
+**37 distinct lines**, reconciling as 15 in class and 22 out against the rows
+below. A second pass over `plugin update` and `/specseal:update` added two
 candidates and no new members.
+
+<!-- Round 1, finding 4. This block first read 33 · 3 · 3 → 38, from `grep -r`
+     over the WORKING TREE partway through the branch. The third `reload` hit
+     was this work item's own `routing.md:18`, committed at `389ad12` — so the
+     count included a line the branch had just written. The reviewer's proposed
+     cause, an untracked `.venv`, is not it: `grep -rnI 'reload' .venv` returns
+     0. Both numbers were right for their own tree, and neither said which tree
+     it measured, which is the whole of the defect. -->
+
+**Every count here is of a line, and a line is not a coordinate.** Two rows
+below name a range or a group; their line counts are stated so the table
+reconciles to 37, and the rows themselves are what carry the judgment.
 
 | # | Coordinate | What it says | In the class? |
 |---|---|---|---|
@@ -70,15 +88,26 @@ candidates and no new members.
 | 16 | `README.md:439` | *"The hooks need no restart: the next command reads the folder where it is."* | no — about `seal mode`, a different act, and it already names the cheap move for that act |
 | 17 | `README.md:182` · `README.ko.md:178` | the version-check row of the hooks table | no — describes what the hook asks and prints, not what a user does with the release |
 | 18 | `docs/flow.md:74` | the tracker row for #134 | no — the tracker describing this ticket. Its checkbox is ticked, its text is not rewritten |
-| 19 | `docs/experiments/2026-09-03-…md:31-34, 53-63` · `.ko.md:32` | result 3 and the results table | no — the evidence this work cites. Rewriting it would be editing the measurement to match the claim |
-| 20 | `CHANGELOG.md:274, 893` · `docs/review-chain-spec.md:858, 906` · `seal/ledger.md:985, 1417` · `skills/code-review/scripts/chain_check.py:218, 591, 2515` · `round_record.py:1068` · `tests/test_the_record_is_generated.py:1971` · `tests/test_the_reopening_is_one.py:6` | the bound walk *restarting* at a floor record | no — same word, unrelated subject. Thirteen lines |
+| 19 | `docs/experiments/2026-09-03-…md` result 3 and the results table · `.ko.md:32` | the evidence this work cites | no — and **not among the 37 either**: every one of those lines says *preloaded*, so the pattern's own `grep -vi preload` removes them. Listed because it is the document a reader will expect to see judged, and rewriting it would be editing the measurement to match the claim |
+| 20 | `CHANGELOG.md:274, 893` · `docs/review-chain-spec.md:858, 906` · `seal/ledger.md:985, 1417` · `skills/code-review/scripts/chain_check.py:218, 591, 2515` · `round_record.py:1068` · `tests/test_the_record_is_generated.py:1971` · `tests/test_the_reopening_is_one.py:6` | the bound walk *restarting* at a floor record | no — same word, unrelated subject. **Twelve lines**, which is the count of the coordinates listed |
 | 21 | `tests/test_one_word_one_meaning.py:36` | *"A round does not restart it"* | no — about when a work item starts |
-| 22 | six lines under `seal/specs/17885…`, `17886…`, `17887…` | past work items' records | no — a record asserts a past state and is never rewritten |
+| 22 | six lines under `seal/specs/1788354065-…/spec.md`, `1788597030-…/changelog.md` and `plan.md`, `1788761915-…/changelog.md`, `overview.md` and `phases/phase-5.md` | past work items' records | no — a record asserts a past state and is never rewritten |
 | 23 | `seal/specs/1788445862-…/overview.md:61` | an unverified row naming a reload | no — an open row of another work item, whose answerer is already named there |
-| 24 | `seal/specs/1788789330-…/routing.md:18` | this work item's own routing note | no |
 
-**15 in the class, 23 out.** Rows 16 through 24 are here because the table is
-what shows the decision was made rather than the hit missed.
+**15 in the class, 22 out** — 1 + 1 + 12 + 1 + 6 + 1 across rows 16, 18, 20,
+21, 22 and 23, which is 22 and reconciles to the 37 above. Rows 17 and 19 are
+candidates that carry none of the three words at `86e140f` and so are not
+members of the count; they are in the table because a reader looking for them
+would otherwise read their absence as a miss.
+
+<!-- Round 1, finding 4. Row 20 read *Thirteen lines* and listed twelve
+     coordinates; row 22 named the three work items as `17885…`, `17886…`,
+     `17887…` and no item begins `17886` — they are `1788354065`,
+     `1788597030` and `1788761915`. A row 24 for this work item's own
+     `routing.md:18` is gone with the count that included it. -->
+
+Rows 16 through 23 are here because the table is what shows the decision was
+made rather than the hit missed.
 
 ## What is measured, and exactly how far it reaches
 

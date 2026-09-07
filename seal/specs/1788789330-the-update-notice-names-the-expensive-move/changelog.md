@@ -26,6 +26,14 @@
   distinction. A user told the reload is insufficient stops using it; a user
   told it covers everything gets a half-loaded plugin with no way to tell.
 
+  **Every sentence that names the reload says which copy it re-reads.** Without
+  that qualifier the notice recommends, as the cheap way to get the release
+  that just arrived, a move whose only measured effect is on the version the
+  user already has — and the module's own docstring said so thirty lines up.
+  The qualifier now sits inside the claim's own sentence in both languages,
+  including the two README command-table rows and the two by-hand code
+  comments, which are as much an instruction as the paragraph above them.
+
   **Fifteen sentences moved, enumerated by grep rather than from the ticket's
   list** — which was three lines short and named neither of the Korean
   README's three. Two of the fifteen are code comments inside fenced blocks

@@ -25,8 +25,14 @@ Silence there is not a claim either way.
 
 **The boundary is one axis tighter than the handoff drew it, and the extra axis
 changes the wording.** Run 6 placed its sentinel in the version cache directory
-of the **running** version (`…/specseal/0.5.0/…` while 0.5.0 was loaded) and
-then reloaded. So what it measured is a re-read of the copy already in force.
+of the **running** version and then reloaded, so what it measured is a re-read
+of the copy already in force. The experiment record carries that without naming
+a plugin version: its §*Method* installs no second version, and runs 1–4 failed
+**because** they edited the marketplace clone rather than the copy that loads.
+The path with a version in it is at
+`seal/specs/1788433011-every-spawn-prompt-is-retyped-from-memory/questions.md`
+Q1 (round 1, finding 5 — this record cited it to the experiment, which does not
+carry it).
 It measured nothing about a session picking up a **newly installed** version
 directory — which is the case a user is actually in when this notice fires.
 
