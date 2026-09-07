@@ -667,6 +667,22 @@ too many names are missing for a snippet to stand, describe the change in
 sentences and say which document would have to exist for the code to be
 written.
 
+**Every one of those blocks goes under `## Paste-ready fixes`, and that is
+the only place a fix survives the session.** `round_record.py new` copies the
+report's tables and takes every fenced block under that heading; prose it
+does not take. A fix written into the findings paragraphs alone reaches no
+file, and the record is what the fix pass opens instead of the report —
+*the report is a message in a session that ends; the record is a file the
+next segment opens.* Measured (#187): a 162-line report carried three
+executed snippets, the record came out at 80 lines with none of them, and the
+fix pass rebuilt all three from a description. Its first reproduction was
+wrong. A round that opened nothing needing a fix writes no section, and the
+record says so.
+
+A Grounds cell is not the place either. It is one line of one table row, a
+paste-ready fix is a fenced block with comments in it, and a `|` inside that
+cell used to truncate the row without a word (#189).
+
 **A fix touching an OS boundary states its assumed precondition.** The
 premises are the ones a snippet assumes without a line to show for them —
 path resolution, file modes, symlinks, subprocess working directory,

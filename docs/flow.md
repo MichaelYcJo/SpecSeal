@@ -42,15 +42,18 @@ or five rather than at nineteen.
 
 ## 0.9.0 — a record is written by a machine and trusted like one
 
-Five tickets on one surface, `round_record.py` and `chain_check.py`, and four
-of them are what 0.8.3's own rounds earned. They are the same sentence in
+Six tickets on one surface, `round_record.py` and `chain_check.py`, and four
+of them are what 0.8.3's own rounds earned. #207 is the sixth and this
+release's own: it was earned by #179's chain overrunning the reopening bound,
+and its repair sits in the same file as the rest. They are the same sentence in
 different clothes: nothing reads what the record says. #179 is that sentence
 about a document rather than a record, which is why it sits with them and not
 only because the version forces the date.
 
 - [x] #179 — a loaded file naming a real version is a timer. `docs/issues-and-milestones.md` named `0.9.0` in a sentence about milestones, and the check refused the running version only. Green today, red on this release's own preparation commit — after the broad gate has already run. Closed by widening it to every version at or above the running one, as `test_no_loaded_file_names_a_version_at_or_above_the_running_one`.
-- [ ] #187 — the round record carries the reviewer's tables and drops the paste-ready fix the findings format requires. Measured: a fix pass re-derived a verified artefact from scratch, and its first re-derivation was wrong.
-- [ ] #189 — a bare pipe inside a Verdicts cell truncates the row, and nothing sees it. Two paste-ready fixtures were invisible in a rendered record; a later fix pass then hit it again after being warned. Compounds with #187, which makes that cell the only durable home a paste-ready fix has.
+- [x] #187 — the round record carries the reviewer's tables and drops the paste-ready fix the findings format requires. Measured: a fix pass re-derived a verified artefact from scratch, and its first re-derivation was wrong.
+- [x] #189 — a bare pipe inside a Verdicts cell truncates the row, and nothing sees it. Two paste-ready fixtures were invisible in a rendered record; a later fix pass then hit it again after being warned. Compounds with #187, which makes that cell the only durable home a paste-ready fix has.
+- [ ] #207 — the record knows the bound the next round is under and does not say it, so a session carries the cap instead. #179's own chain ran three rounds past the reopening bound; the gate caught it at the broad run, after 37.9 minutes and 180 calls that were then reverted.
 - [ ] #190 — a record states a figure or a stamp the next commit moves, and no check reads it. Closed three times on one work item by enumerating carriers, and back each time.
 - [ ] #194 — `Contract changes` compares arities, so a unit returning a new *meaning* reads as `none`. That row exists for #57's largest regression class and read `none` on a live instance of it.
 - [x] #98 — three sentences say `-z` is what turns git's path quoting off, and the instruction they give is right while the reason they give for it is false. One line, and it rides whichever branch of this release is open.
@@ -70,6 +73,9 @@ refusal. The fifth is this repository meeting the same class about itself.
 - [ ] #151 — the preset tells a session to create the root, and the question that was supposed to come first lives in a skill it never loads. Reported from a repository's first work item: `seal/` appeared and nobody was asked about shared or local mode.
 - [ ] #134 — the update notice names a restart and never the reload this repository measured and wrote down. One notice and one skill.
 - [ ] #167 — a closing keyword claims one issue, and a body naming two in one sentence loses the second silently.
+- [ ] #209 — the pre-merge guard's reader has a failure arm no case watches, and a broken reader would stop a session. The seventh instance on one branch of a case that cannot observe what its own guard removes, and the sixth and seventh both landed inside the function a fix pass had just parametrized to enumerate its arms.
+- [ ] #210 — the guard's parametrized case is a class over two literals rather than over the reader's passes, so a third pass is unguarded and silent. `seal/ledger.md` F1 already states this repository's standard for that shape.
+- [ ] #211 — `Contract changes` reads `no call site found` for a pytest test function, where `pytest only` is the value that exists for it. No gate reads the value; what it costs is a wrong impression in the row #57's largest regression class exists for.
 - [ ] #198 — a release closes its flow-measurement log with nothing written in it, and nothing notices. 0.8.3 ran three work items and twelve rounds and left its cycle log empty, which is the same shape as #150: a mechanism built, used once, then not, with nothing in the way to say so. It lands here rather than in 0.9.3 because #145 and #149 are the two tickets that eat the data it protects.
 
 ## 0.9.2 — the enumeration was done by reading
