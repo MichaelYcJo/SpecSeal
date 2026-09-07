@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 201 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | DATED_RECORD (depth 1); what_to_write_instead (depth 1); test_the_message_has_a_route_for_every_token_the_check_refuses (depth 1); test_the_experiments_prefix_covers_only_a_dated_record (depth 1); test_a_version_that_ends_a_sentence_is_still_a_version (depth 1) |
 | Needs a fix | yes — findings 1 and 2 |
