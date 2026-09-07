@@ -8,7 +8,7 @@
 | Broad gate | not yet |
 | Fixes checked by | round-2 |
 | Contract changes | none — `hooks/version-check.py#notice(have, want)` keeps its signature and both call sites; what the fixes changed is the string it returns, and two cases now pin that string |
-| New units | one — `tests/test_version_check.py::test_the_notice_agrees_with_the_docstring_about_what_a_reload_re_reads` |
+| New units | test_the_notice_agrees_with_the_docstring_about_what_a_reload_re_reads (depth 1) |
 | Needs a fix | yes — findings 1 and 2. The notice tells a user the reload is the |
 | Loses a record or crashes | no |
 
