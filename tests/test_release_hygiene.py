@@ -501,6 +501,17 @@ def test_the_experiments_prefix_covers_only_a_dated_record():
         text,
         RUNNING_IN_THE_FIXTURES,
     ) == [(1, "0.9.0")]
+    # The shape is the README's own, `<date>-<what-was-asked>.md`. A bare
+    # date is not that name, and neither is a loose one (review round 2).
+    # Without these two, dropping the trailing `-` or loosening the component
+    # widths left every case in this module green — and the first of those
+    # silently widens the exemption.
+    assert timers_in(
+        "docs/experiments/2026-09-03.md", text, RUNNING_IN_THE_FIXTURES
+    ) == [(1, "0.9.0")]
+    assert timers_in(
+        "docs/experiments/26-9-3-run.md", text, RUNNING_IN_THE_FIXTURES
+    ) == [(1, "0.9.0")]
 
 
 def test_the_declared_token_is_the_one_the_refusal_printed():
