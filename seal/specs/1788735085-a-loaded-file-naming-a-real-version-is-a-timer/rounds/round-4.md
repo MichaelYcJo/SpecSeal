@@ -7,12 +7,12 @@
 | PR | 201 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | test_as_release_reads_every_spelling_the_token_regex_produces (depth 1) |
 | Needs a fix | yes — finding 5 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -60,10 +60,10 @@ ship without and which single one it would spend the last round on.
 | 2 | round 3 finding 8 — `V0.9.0` invisible and `x0.9.0` unargued | `tests/test_release_hygiene.py:78`, `:636-662` | answered | executed: 22 token shapes at running `0.8.3`; `V0.9.0` refused, nine word-glued and dot-glued shapes allowed. Across 64 loaded files, 0 lines where `[vV]?` differs from `v?`, 0 offenders. All four lookbehind and prefix mutations turn a case red |
 | 3 | round 3 finding 9 — the docstring's narrower-prefix example | `tests/test_release_hygiene.py:490-505`, `:138-144` | answered | executed: four arrangements over five paths through both implementations; only the exact-path-after-prefix cell differs, and it is already asserted |
 | 4 | round 3 finding 10 — the tracker document's scope sentence | `docs/issues-and-milestones.md:63-70` | answered | read: all three documents naming the check agree with the current behaviour |
-| 5 | 🟡 the separator before the FIRST offender line is unobserved; deleting it leaves all 31 cases green, and the case's own next assertion refuses the same defect for the second offender | `tests/test_release_hygiene.py:309-312` against `:233` | open | executed: one mutation at a time, cache cleared — 31 passed, exit 0. Instance seven of the blind-case class, the first inside the unit built to close it |
-| 6 | ⬜ a ledger row credits itself with cases it does not name — *the 58 cases the row names*, where the row names four | `seal/ledger.md:1137` | open | executed: the two modules the four anchors sit in report 58 passed. The row's own earlier sentence keeps the two figures apart correctly |
-| 7 | ⬜ the lookbehind's newly written argument covers the `\w` half and not the `.` half, which a case two lines above pins | `tests/test_release_hygiene.py:70-77` | open | executed: `(?<!\w)` in place of `(?<![\w.])` turns `test_a_number_that_is_not_a_version_is_not_read_as_one` red on `1.9.9.9` |
-| 8 | ⬜ `as_release` cannot parse a token `VERSION_TOKEN` now produces | `tests/test_release_hygiene.py:119-121` | open | executed: `as_release("V0.9.0")` raises `ValueError`. No live call site reaches it |
+| 5 | 🟡 the separator before the FIRST offender line is unobserved; deleting it leaves all 31 cases green, and the case's own next assertion refuses the same defect for the second offender | `tests/test_release_hygiene.py:309-312` against `:233` | **fixed** `5663bd0` | fixed at 5663bd0 — ``; executed: one mutation at a time, cache cleared — 31 passed, exit 0. Instance seven of the blind-case class, the first inside the unit built to close it |
+| 6 | ⬜ a ledger row credits itself with cases it does not name — *the 58 cases the row names*, where the row names four | `seal/ledger.md:1137` | **fixed** `adc0b02` | fixed at adc0b02 — ``; executed: the two modules the four anchors sit in report 58 passed. The row's own earlier sentence keeps the two figures apart correctly |
+| 7 | ⬜ the lookbehind's newly written argument covers the `\w` half and not the `.` half, which a case two lines above pins | `tests/test_release_hygiene.py:70-77` | **fixed** `f7c7bb1` | fixed at f7c7bb1 — ``; executed: `(?<!\w)` in place of `(?<![\w.])` turns `test_a_number_that_is_not_a_version_is_not_read_as_one` red on `1.9.9.9` |
+| 8 | ⬜ `as_release` cannot parse a token `VERSION_TOKEN` now produces | `tests/test_release_hygiene.py:119-121` | **fixed** `356a4a0` | fixed at 356a4a0 — ``; executed: `as_release("V0.9.0")` raises `ValueError`. No live call site reaches it |
 | 9 | ✅ the ledger fragment resolves unscoped and carries the two anchors this pass added | `seal/ledger/1788735085-a-loaded-file-naming-a-real-version-is-a-timer.md` | answered | executed `./bin/evidence-check .` unscoped: 721 ok · 0 drifted · 0 broken · 0 external · 0 old-format, exit 0. 19 anchors, two more than round 3 |
 
 ## Executed probes
