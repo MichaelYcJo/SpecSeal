@@ -151,12 +151,10 @@ def notice(have, want):
         "By hand: `claude plugin marketplace update specseal` then "
         "`claude plugin update specseal@specseal`, in that order. The second "
         "alone reports 'already at the latest version' against stale local "
-        "data.\nEither way it still has to be loaded. /reload-plugins is the "
-        "cheap move: a reload was measured to refresh the skill bodies a "
-        "spawned agent is handed, and it costs you no session. Nobody has "
-        "measured what it does for hooks, for agent definitions, or for "
-        "moving a running session onto the new version, so a restart is the "
-        "move with no open question."
+        "data.\nThen load it. /reload-plugins costs no session, and what was "
+        "measured is a re-read of preloaded skill bodies out of the copy you "
+        "are already on. Whether it reaches hooks, agent definitions, or the "
+        "version you just installed is unmeasured, so restart for those."
     )
 
 

@@ -89,20 +89,70 @@ def test_the_warning_names_the_cheap_move_before_the_expensive_one(hook, repo):
     assert "/reload-plugins" in msg, "the notice names only the expensive move"
     assert msg.index("/reload-plugins") < msg.lower().index("restart")
 
-    # Per SENTENCE, not over the whole message. A bare `"measured" in msg` is
-    # satisfied by the gap sentence below on its own, so the reload's claim
-    # could drop its source label and the case stayed green — that mutation
-    # survived the first draft of this test, which is why the split is here.
-    sentences = [s.strip() for s in msg.replace("\n", " ").split(". ")]
+    # Per SENTENCE, not over the whole message: a bare `"measured" in msg` is
+    # satisfied by the gap sentence alone, so the reload's claim could drop its
+    # source label and stay green. And per CLAIM, not per word — round 1 killed
+    # the sentence-split version too, with `a reload was measured to install
+    # the new version into this session`, which carries every word this case
+    # used to look for. Lowered, so a capitalised `Hooks` cannot make the gap
+    # lookup raise instead of assert.
+    sentences = [s.strip().lower() for s in msg.replace("\n", " ").split(". ")]
 
-    reload_claim = next(s for s in sentences if "/reload-plugins" in s)
+    reload_claim = next((s for s in sentences if "/reload-plugins" in s), "")
+    assert reload_claim, "no sentence carries the reload's own claim"
     assert "measured" in reload_claim, "the reload's reach is asserted, not sourced"
+    assert "skill bodies" in reload_claim, (
+        "the reload's claim names no subject, so it pins a word and not a fact"
+    )
+    assert any(
+        scope in reload_claim for scope in ("already on", "in force", "already running")
+    ), (
+        "run 6's sentinel sat in the RUNNING version's directory, so what it "
+        "measured is a re-read of the copy in force. Without that qualifier the "
+        "notice sells the reload as the cheap way to load the new install, "
+        "which nothing measured — and the module docstring says the opposite "
+        "130 lines up"
+    )
 
-    gap = next(s for s in sentences if "hooks" in s)
-    assert "agent definitions" in gap, "the gap names only one of the two halves"
-    assert "measured" in gap and any(
-        negation in gap.lower() for negation in ("nobody", "not measured", "no one")
-    ), "the gap for hooks and agent definitions is left to silence"
+    # All THREE unmeasured axes. The third — picking up a newly installed
+    # version — is the one run 6's own sentinel placement rules out, and it is
+    # the axis the ticket assumed, so it is the one most likely to be dropped.
+    gap = next(
+        (s for s in sentences if "hooks" in s and "/reload-plugins" not in s), ""
+    )
+    assert gap, "no sentence states the gap apart from the reload's own claim"
+    for axis in ("agent definitions", "installed"):
+        assert axis in gap, f"the gap leaves {axis} to silence"
+    assert any(
+        negation in gap
+        for negation in ("nobody", "not measured", "unmeasured", "no one")
+    ), "the gap is stated as a fact rather than as an absence of measurement"
+
+
+def test_the_notice_agrees_with_the_docstring_about_what_a_reload_re_reads(hook):
+    """The module docstring scopes a reload to the copy already in force. A
+    notice that sells the reload as the way to load the NEW version contradicts
+    the file it lives in, and the contradiction is silent — the docstring is
+    130 lines above the string a user actually reads.
+
+    The docstring is read whitespace-normalised: it is hand-wrapped prose, so
+    `out of that same copy` straddles a line break and a raw `in` is False
+    against the very text it is checking.
+    """
+    doc = " ".join((hook.__doc__ or "").split())
+    assert "out of that same copy" in doc, (
+        "the docstring no longer scopes the reload to the copy in force, so "
+        "this case is comparing the notice against nothing"
+    )
+
+    msg = hook.notice((0, 7, 1), (0, 8, 0))
+    claim = next((s for s in msg.replace("\n", " ").split(". ") if "/reload" in s), "")
+    assert claim, "the notice names no reload for the docstring to disagree with"
+    assert any(
+        q in claim.lower() for q in ("already on", "in force", "already running")
+    ), (
+        "the docstring scopes the reload and the notice does not; a user reads the notice"
+    )
 
 
 def test_silent_when_current(hook, repo):
