@@ -448,3 +448,107 @@ def test_the_decided_table_carries_this_work_items_rows(parts, decided):
         )
     stamp = [row for row in rows if re.search(r"stamp|스탬프|표시", row)]
     assert stamp, f"{'/'.join(parts)}: the migration hook's stamp rule has no row"
+
+
+# --- #151: the route that actually happens, and the state it leaves ---------
+#
+# The bootstrap above is where the mode question lives, and the cases in this
+# file all reach it by reading the skill. That is not how a session gets
+# there. `install.sh` copies the block between `<!-- specseal:start -->` and
+# `<!-- specseal:end -->` into `~/.claude/CLAUDE.md`, so the block loads in
+# EVERY project on the machine — including one that has never seen SpecSeal —
+# and it tells a session to write `seal/specs/<id>/routing.md` before the
+# first edit. That write creates `seal/`. Creating `seal/` opts the repository
+# in. Every case above passed while that route existed, because none of them
+# read the preset block.
+#
+# Each case here was written against the block as it stood at 589cf25, before
+# it was edited, and each failed; the output is in the body of the commit that
+# added them.
+
+START, END = "<!-- specseal:start -->", "<!-- specseal:end -->"
+
+
+def preset():
+    """Exactly the text `install.sh` copies, markers included.
+
+    Extracted the way the installer extracts it rather than by reading the
+    whole file: a sentence added BELOW `specseal:end` reaches this repository
+    and reaches no user, and a case that read the whole file could not tell
+    the two apart.
+    """
+    text = read("CLAUDE.md")
+    assert START in text and END in text, "the preset markers moved"
+    return text[text.index(START) : text.index(END) + len(END)]
+
+
+def routing_rule():
+    """The preset's routing bullet, its line breaks folded."""
+    return paragraph(preset(), "- **Routing, decided at the start**")
+
+
+def test_the_preset_sends_a_fresh_repository_to_the_bootstrap():
+    """S11. The instruction that creates the root has to name the question
+    first. #151's own reading of the cheap fix is that a conditional put into
+    a block meant to be read straight through only helps a session that
+    notices the condition applies — so the condition leads the rule rather
+    than trailing it."""
+    rule = routing_rule()
+    lead = rule[: rule.index("write `seal/specs/")]
+    assert "Bootstrap" in lead, (
+        "the routing rule instructs the write before it names the bootstrap, "
+        "which is the order that made #151 happen"
+    )
+    assert "implement" in lead
+    assert "neither" in lead, "the rule does not say WHICH repositories it means"
+
+
+def test_the_preset_names_both_places_the_root_can_be():
+    """A session cannot tell a fresh repository from an opted-in one without
+    both. `<repo>/seal/` alone reads every local-mode repository as fresh, and
+    sends it back through a question it already answered."""
+    lead = routing_rule()
+    assert "`<repo>/seal/`" in lead
+    assert "git rev-parse --git-common-dir" in lead
+
+
+def test_the_preset_says_the_write_is_what_opts_the_repository_in():
+    """Without the consequence the sentence is a detour with no reason, and a
+    rule with no reason is the one that gets skipped when the work is
+    obvious."""
+    rule = routing_rule()
+    assert "opts the repository in" in rule
+    assert "user's decision" in rule, (
+        "the rule does not say whose decision the place is, which is the "
+        "whole of what #151 lost"
+    )
+
+
+def test_what_the_installer_copies_carries_it():
+    """S12. The block is copied by `install.sh` with `awk` between the two
+    markers, so a sentence outside them ships to nobody. This reads the same
+    span the installer reads."""
+    assert "Bootstrap" in preset()
+
+
+def test_the_bootstrap_records_the_answer_it_was_given():
+    """#151's second Done-when: the answer has to be observable afterwards.
+    An asked-and-answered root and a root that appeared because a session
+    followed the routing rule are byte-identical until something writes the
+    row — and `hooks/mode-gate.py` reads exactly that absence, so a bootstrap
+    that records nothing gets the person it just asked asked again."""
+    boot = flat(bootstrap())
+    assert "seal mode" in boot
+    assert "Do **not** write that config row here" not in read(
+        "skills", "implement", "SKILL.md"
+    ), "the skill still forbids recording the answer it just collected"
+
+
+def test_the_gate_that_reads_the_absence_exists_and_is_wired():
+    """The document half and the mechanism half are one change. A skill that
+    says a gate reads this, beside no such gate, is the shape #151 opened
+    about one layer up."""
+    hooks = os.path.join(ROOT, "hooks")
+    assert os.path.isfile(os.path.join(hooks, "mode-gate.py"))
+    dispatch = read("hooks", "dispatch.py")
+    assert '"mode-gate.py"' in dispatch
