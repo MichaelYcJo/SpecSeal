@@ -136,14 +136,29 @@ MEMBER_COUNT_LIMIT = 20_000
 # --- git, asked the way `hooks/optin.py` asks it ----------------------------
 
 
-def git(root, *args):
-    """`git -C root <args>` stdout, stripped, or "" for any failure.
+def git_asked(root, *args, answered=(0,)):
+    """(`git -C root <args>` stdout stripped, "") — or (None, why).
+
+    **The one place that can say why**, which is what separates *there is no
+    remote* from *the question could not be answered*. `porcelain`, `tracked`
+    and `gitlinks_under_root` each grew this shape for themselves; this is it
+    promoted, so a fourth spelling is not what a caller needing the
+    distinction has to write. `git()` below is this function with the
+    distinction thrown away — the right reading for a caller that has nothing
+    to do with `why`, and the wrong one for a caller that reads "" as a FACT
+    about the repository. #111 found four call sites doing the second, one of
+    which switched off `seal import`'s refusal.
+
+    `answered` is the return codes that count as an answer, because for one
+    command a non-zero code IS one: `git config --get` exits 1 when the key is
+    not set. Every other caller leaves it at `(0,)`.
 
     Encoding named for the reason `optin.repo_root` names it: `text=True`
     alone decodes with the parent's locale, git answers UTF-8, and a
     repository under a path this locale cannot decode kills subprocess's
     reader thread without the exception propagating.
     """
+    named = f"git {args[0]}" if args else "git"
     try:
         done = subprocess.run(
             ["git", "-C", root, *args],
@@ -152,14 +167,62 @@ def git(root, *args):
             errors="replace",
             timeout=15,
         )
-    except (OSError, subprocess.SubprocessError):
-        return ""
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, f"{named} could not be run ({exc})"
     # The return code, not the output alone. `git rev-parse HEAD` on a branch
     # with no commit yet exits 128 and still prints `HEAD`, which the manifest
     # would record as this export's SHA (measured 2026-09-03).
-    if done.returncode != 0:
-        return ""
-    return (done.stdout or "").strip()
+    if done.returncode not in answered:
+        return None, (done.stderr or "").strip() or (
+            f"{named} exited {done.returncode}"
+        )
+    return (done.stdout or "").strip(), ""
+
+
+def git(root, *args):
+    """`git -C root <args>` stdout, stripped, or "" for any failure.
+
+    For the callers that are right not to care why one is the same as the
+    other. A caller that would read "" as a fact about the repository wants
+    `git_asked` instead — see its docstring, and `other_worktrees` for the one
+    call site here that reads "" as a fact and is right to.
+    """
+    text, _ = git_asked(root, *args)
+    return text or ""
+
+
+def remote_url(root):
+    """(`origin`'s fetch URL, "") — or (None, why) when git could not answer.
+
+    `""` is a repository with no `origin`, and that is an ANSWER: it is the
+    case `seal import`'s other-repository check is allowed to be switched off
+    by, so it has to be tellable from a failure.
+
+    **`git config --get` exits 1 with nothing on either stream when the key is
+    not set**, so this is the one command here whose exit 1 is an answer
+    (measured 2026-09-07 against git 2.50.1: unset gives `(1, '', '')` and a
+    `.git/config` git cannot parse gives `(128, '', 'fatal: bad config line
+    9 …')`). Exit 1 also covers `error: key does not contain a section`, which
+    a literal well-formed key cannot reach.
+
+    `--default ""` would collapse the unset case into exit 0 and remove the
+    special case. It is not used: it arrived in git 2.18 and nothing else this
+    plugin runs needs a git that new, so leaning on it would turn an old git
+    into a refusal on a path that works today.
+    """
+    return git_asked(root, "config", "--get", "remote.origin.url", answered=(0, 1))
+
+
+def head_sha(root):
+    """(the HEAD SHA, "") — or (None, why) when git could not answer.
+
+    There is no empty answer. `git rev-parse HEAD` prints a SHA whenever it
+    succeeds and exits 128 on a branch with no commit yet — printing `HEAD`,
+    which is what #81's round 1 measured reaching the manifest as an export's
+    SHA. So a repository with no commit is *unanswered* here, and the manifest
+    leaves the field out rather than writing a string that is not a SHA.
+    """
+    return git_asked(root, "rev-parse", "HEAD")
 
 
 def normalise_remote(url):
@@ -316,16 +379,37 @@ def work_item_digests(files):
 
 
 def manifest_of(repo, mode, files):
-    return {
+    """The manifest, with a field LEFT OUT where git could not answer.
+
+    Absent and empty are different facts, and `remote` needs all three states:
+    a URL, `""` for a repository with no `origin`, and absent for a question
+    that went unanswered. Freezing `""` in for the third switched off the
+    receiving machine's own refusal (#111) — an export cannot ask the importer
+    to tell two facts apart while writing one string for both.
+
+    `head` has no empty state at all. `git rev-parse HEAD` prints a SHA
+    whenever it succeeds, so present here means a SHA was read, and a
+    repository with no commit leaves the field out.
+
+    The format number does not move for this. No field was renamed or
+    repurposed, and format 1's only reader of these two already goes through
+    `manifest.get`.
+    """
+    manifest = {
         "format": FORMAT,
         "mode": mode,
-        "remote": git(repo, "config", "--get", "remote.origin.url"),
-        "head": git(repo, "rev-parse", "HEAD"),
         "exported_at": datetime.datetime.now(datetime.UTC).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         ),
         "items": work_item_digests(files),
     }
+    url, _ = remote_url(repo)
+    if url is not None:
+        manifest["remote"] = url
+    head, _ = head_sha(repo)
+    if head:
+        manifest["head"] = head
+    return manifest
 
 
 def unused(directory, stem, suffix):

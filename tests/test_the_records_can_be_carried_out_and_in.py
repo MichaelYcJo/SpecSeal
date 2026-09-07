@@ -373,8 +373,11 @@ def test_a_repository_with_no_commit_records_no_head(seal, tmp_path, capsys):
     the exit code — so the manifest recorded the four letters as this export's
     SHA and the import printed them back as one.
 
-    The spec says the field is the SHA or empty. Empty is what a reader can
-    act on; a string that is not a SHA is one they cannot tell from one.
+    #111 moved the field from empty to **absent**. `git rev-parse HEAD` prints
+    a SHA whenever it succeeds, so there is nothing a present-and-empty `head`
+    could mean that absence does not say better: present now means a SHA was
+    read, and that is the whole of it. The one reader, the closing
+    `Exported at …` line, already treated absent and empty alike.
     """
     repo = tmp_path / "unborn"
     repo.mkdir()
@@ -389,7 +392,95 @@ def test_a_repository_with_no_commit_records_no_head(seal, tmp_path, capsys):
     assert len(written) == 1, out
     with zipfile.ZipFile(written[0]) as archive:
         manifest = json.loads(archive.read("manifest.json"))
-    assert manifest["head"] == "", manifest
+    assert "head" not in manifest, manifest
+
+
+# --- #111: "there is no remote" and "git could not answer" are two facts ----
+#
+# `git()` reads every failure as "", and four of its five call sites read that
+# "" as a fact about the repository. `spec.md` enumerates all five.
+
+CONFIG_GET_REMOTE = ["config", "--get", "remote.origin.url"]
+REV_PARSE_HEAD = ["rev-parse", "HEAD"]
+
+
+def git_cannot_answer(monkeypatch, seal, question, failure):
+    """Make ONE git question go unanswered, and leave every other one alone.
+
+    **Why this is injected rather than built out of a repository.** The
+    failures the ticket names — a timeout, a git that is not on PATH, a held
+    `index.lock`, a fork that could not be made — are transient and specific
+    to a single invocation. A `.git/config` broken badly enough to fail `git
+    config --get` also fails the `git rev-parse --show-toplevel` that resolves
+    the root, so the command stops one screen earlier with a different message
+    and never reaches the code under test: measured 2026-09-07 against git
+    2.50.1, a bad config line exits 128 for both. A duplicated `url =` line
+    does not work either — the same measurement has `--get` answering with the
+    last value at exit 0.
+
+    So the seam is `subprocess.run`, one question deep. Everything above it
+    runs for real: `git_asked`'s own `except` and return-code branches,
+    `remote_url`, the refusal, the message and the flag.
+    """
+    real = subprocess.run
+
+    def answering(argv, *args, **kwargs):
+        if list(argv)[-len(question) :] == question:
+            return failure(list(argv))
+        return real(argv, *args, **kwargs)
+
+    monkeypatch.setattr(seal.subprocess, "run", answering)
+
+
+def timed_out(argv):
+    raise subprocess.TimeoutExpired(argv, 15)
+
+
+def exits(code, stderr):
+    """A git that ran and refused, the way a held `index.lock` answers."""
+
+    def refused(argv):
+        return subprocess.CompletedProcess(argv, code, "", stderr)
+
+    return refused
+
+
+def test_the_export_omits_a_remote_it_could_not_read(
+    seal, repo, local, monkeypatch, capsys
+):
+    """S7. The field is absent, not empty. Empty is what the receiving machine
+    reads as *this repository has no origin*, which switches its own refusal
+    off — the ticket's second failure, one machine over from the first."""
+    git_cannot_answer(monkeypatch, seal, CONFIG_GET_REMOTE, timed_out)
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 0, out
+    manifest = json.loads(zipfile.ZipFile(only_zip(repo.parent)).read("manifest.json"))
+    assert "remote" not in manifest, manifest
+
+
+def test_the_export_records_an_empty_remote_it_could_read(seal, repo, capsys):
+    """S8. The other half of the pair, and the one that keeps `""` meaning
+    something. A clone with no `origin` is the case the import's guard is
+    allowed to be switched off by, so the export has to be able to say it."""
+    with_records(repo, local_home(repo))
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 0, out
+    manifest = json.loads(zipfile.ZipFile(only_zip(repo.parent)).read("manifest.json"))
+    assert manifest["remote"] == "", manifest
+
+
+def test_the_export_omits_a_head_it_could_not_read(
+    seal, repo, local, monkeypatch, capsys
+):
+    """S9's other side. The unborn-branch case above reaches this through git's
+    own exit code; this one reaches it through a timeout, which is the failure
+    the return-code check cannot see."""
+    git_cannot_answer(monkeypatch, seal, REV_PARSE_HEAD, timed_out)
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 0, out
+    manifest = json.loads(zipfile.ZipFile(only_zip(repo.parent)).read("manifest.json"))
+    assert "head" not in manifest, manifest
+    assert manifest["remote"] == "git@example.com:org/thing.git", manifest
 
 
 def test_a_member_declaring_more_than_a_record_refuses_the_zip(seal, carried, capsys):
