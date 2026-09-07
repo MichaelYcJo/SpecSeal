@@ -1,0 +1,7 @@
+Round 1 of `1788789329-a-git-call-that-fails-reads-as-no-remote` (ticket #111, PR #234), at target `8fb1fb5`, base `86e140f`. No prior rounds.
+
+Judged against five acceptance criteria: the call sites distinguish *no remote* from *unanswerable*; the escape is a flag of its own (the owner's decision, before the first edit — the implementation is what is judged); the manifest omits what could not be read and every reader copes; `other_worktrees` carries its sentence; new cases were seen red.
+
+Five targets were named in order. `seal/ledger.md` was edited — one row removed, nine re-stamped — and `CLAUDE.md` §*a change writes fragments* permits exactly the removal case, so both halves were to be opened and the branch's own `git archive` check re-run rather than inherited. The measurement the design rests on (`git config --get` exits 1 for an unset key, 128 for an unparseable config) was to be re-run against a scratch repository. The promotion of `git_asked` out of three callers was to be checked for behaviour change. The manifest's three states were to be enumerated against every reader by construction, including zips written by earlier versions. And the class was to be re-derived at both commits rather than inherited, because a fix pass's own commit producing the next round's finding is this repository's most-measured regression shape.
+
+`11 mutations, all killed` was named as an aggregate to re-run rather than accept, at least for the two that would hurt most.

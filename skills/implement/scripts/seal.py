@@ -137,14 +137,29 @@ MEMBER_COUNT_LIMIT = 20_000
 # --- git, asked the way `hooks/optin.py` asks it ----------------------------
 
 
-def git(root, *args):
-    """`git -C root <args>` stdout, stripped, or "" for any failure.
+def git_asked(root, *args, answered=(0,)):
+    """(`git -C root <args>` stdout stripped, "") — or (None, why).
+
+    **The one place that can say why**, which is what separates *there is no
+    remote* from *the question could not be answered*. `porcelain`, `tracked`
+    and `gitlinks_under_root` each grew this shape for themselves; this is it
+    promoted, so a fourth spelling is not what a caller needing the
+    distinction has to write. `git()` below is this function with the
+    distinction thrown away — the right reading for a caller that has nothing
+    to do with `why`, and the wrong one for a caller that reads "" as a FACT
+    about the repository. #111 found four call sites doing the second, one of
+    which switched off `seal import`'s refusal.
+
+    `answered` is the return codes that count as an answer, because for one
+    command a non-zero code IS one: `git config --get` exits 1 when the key is
+    not set. Every other caller leaves it at `(0,)`.
 
     Encoding named for the reason `optin.repo_root` names it: `text=True`
     alone decodes with the parent's locale, git answers UTF-8, and a
     repository under a path this locale cannot decode kills subprocess's
     reader thread without the exception propagating.
     """
+    named = f"git {args[0]}" if args else "git"
     try:
         done = subprocess.run(
             ["git", "-C", root, *args],
@@ -153,14 +168,69 @@ def git(root, *args):
             errors="replace",
             timeout=15,
         )
-    except (OSError, subprocess.SubprocessError):
-        return ""
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, f"{named} could not be run ({exc})"
     # The return code, not the output alone. `git rev-parse HEAD` on a branch
     # with no commit yet exits 128 and still prints `HEAD`, which the manifest
     # would record as this export's SHA (measured 2026-09-03).
-    if done.returncode != 0:
-        return ""
-    return (done.stdout or "").strip()
+    if done.returncode not in answered:
+        return None, (done.stderr or "").strip() or (
+            f"{named} exited {done.returncode}"
+        )
+    return (done.stdout or "").strip(), ""
+
+
+def git(root, *args):
+    """`git -C root <args>` stdout, stripped, or "" for any failure.
+
+    For the callers that are right not to care why one is the same as the
+    other. A caller that would read "" as a fact about the repository wants
+    `git_asked` instead — see its docstring, and `other_worktrees` for the one
+    call site here that reads "" as a fact and is right to.
+    """
+    text, _ = git_asked(root, *args)
+    return text or ""
+
+
+def remote_url(root):
+    """(`origin`'s fetch URL, "") — or (None, why) when git could not answer.
+
+    `""` is a repository with no `origin`, and that is an ANSWER: it is the
+    case `seal import`'s other-repository check is allowed to be switched off
+    by, so it has to be tellable from a failure.
+
+    **`git config --get` exits 1 with nothing on either stream when the key is
+    not set**, so this is the one command here whose exit 1 is an answer
+    (measured 2026-09-07 against git 2.50.1: unset gives `(1, '', '')` and a
+    `.git/config` git cannot parse gives `(128, '', 'fatal: bad config line
+    9 …')`). Two other states exit 1 with both streams empty, so **exit 1 is
+    an answer only for a caller whose `root` git has already resolved**:
+    `error: key does not contain a section`, which a literal well-formed key
+    cannot reach, and a `root` that is not a repository at all, which is
+    indistinguishable from an unset key. `repo` here comes from `resolve`,
+    which is `optin.repo_root(cwd)` — a path git itself resolved one command
+    earlier — and `import_` returns before this call when that is empty. A
+    later caller reaching for `answered=(0, 1)` has to be able to say the
+    same.
+
+    `--default ""` would collapse the unset case into exit 0 and remove the
+    special case. It is not used: it arrived in git 2.18 and nothing else this
+    plugin runs needs a git that new, so leaning on it would turn an old git
+    into a refusal on a path that works today.
+    """
+    return git_asked(root, "config", "--get", "remote.origin.url", answered=(0, 1))
+
+
+def head_sha(root):
+    """(the HEAD SHA, "") — or (None, why) when git could not answer.
+
+    There is no empty answer. `git rev-parse HEAD` prints a SHA whenever it
+    succeeds and exits 128 on a branch with no commit yet — printing `HEAD`,
+    which is what #81's round 1 measured reaching the manifest as an export's
+    SHA. So a repository with no commit is *unanswered* here, and the manifest
+    leaves the field out rather than writing a string that is not a SHA.
+    """
+    return git_asked(root, "rev-parse", "HEAD")
 
 
 def normalise_remote(url):
@@ -317,16 +387,59 @@ def work_item_digests(files):
 
 
 def manifest_of(repo, mode, files):
-    return {
+    """(the manifest, what git could not answer), a field LEFT OUT for each.
+
+    Absent and empty are different facts, and `remote` needs all three states:
+    a URL, `""` for a repository with no `origin`, and absent for a question
+    that went unanswered. Freezing `""` in for the third switched off the
+    receiving machine's own refusal (#111) — an export cannot ask the importer
+    to tell two facts apart while writing one string for both.
+
+    `head` has no empty state at all. `git rev-parse HEAD` prints a SHA
+    whenever it succeeds, so present here means a SHA was read, and a
+    repository with no commit leaves the field out.
+
+    **The reasons come back rather than being dropped.** An omitted `remote`
+    is refused on arrival, and the machine running THIS command is the only
+    one that can clear the failure by running it again — so an export that
+    said nothing left the diagnosis on the machine that cannot act on it.
+
+    They come back KEYED BY FIELD, because only `remote` is refused on
+    arrival. A caller handed a flat list has to match on the sentences to
+    tell which field went unread, and the first cut of this did not try:
+    it printed *the other machine takes in without a flag* for an export
+    that had read the remote and only missed the HEAD SHA, promising a fix
+    for a refusal that was never going to happen.
+
+    The format number does not move for this. No field was renamed or
+    repurposed, and format 1's only reader of these two already goes through
+    `manifest.get`.
+    """
+    manifest = {
         "format": FORMAT,
         "mode": mode,
-        "remote": git(repo, "config", "--get", "remote.origin.url"),
-        "head": git(repo, "rev-parse", "HEAD"),
         "exported_at": datetime.datetime.now(datetime.UTC).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         ),
         "items": work_item_digests(files),
     }
+    unread = {}
+    url, why = remote_url(repo)
+    if url is not None:
+        manifest["remote"] = url
+    else:
+        unread["remote"] = f"the remote was left out — {why}"
+    # `is not None`, the same test as the line above. `if head` behaves
+    # identically today — `head_sha`'s docstring argues there is no empty
+    # answer — but it is the spelling that would silently drop a legitimate
+    # empty one, and two spellings of one question five lines apart is what
+    # sent a reader looking for a difference that is not there.
+    head, head_why = head_sha(repo)
+    if head is not None:
+        manifest["head"] = head
+    else:
+        unread["head"] = f"the HEAD SHA was left out — {head_why}"
+    return manifest, unread
 
 
 def unused(directory, stem, suffix):
@@ -462,7 +575,7 @@ def export(args, cwd):
         print(f"{directory} is not a directory — pass --output somewhere that is")
         return 1
 
-    manifest = manifest_of(repo, mode, files)
+    manifest, unread = manifest_of(repo, mode, files)
     try:
         write_zip(target, home, files, manifest)
     except OSError as exc:
@@ -478,6 +591,23 @@ def export(args, cwd):
     for rel in links:
         print(
             f"  skipped the symbolic link {optin.HOME}/{rel} — links are not followed"
+        )
+    for line in unread.values():
+        print(f"  {line}")
+    if "remote" in unread:
+        # Named here because this is the machine that can fix it. `seal
+        # import` refuses a zip recording no remote, and re-running the
+        # import there cannot change what these bytes say — so an export that
+        # exits 0 in silence leaves the diagnosis with the person who has no
+        # way to act on it.
+        #
+        # `remote` alone, because `remote` alone is refused on arrival. A
+        # missing `head` costs the importing machine one line of its closing
+        # summary and no flag, so promising this for it names a refusal that
+        # never comes.
+        print(
+            "  Running this again once git answers writes a zip the other "
+            "machine takes in without a flag."
         )
     print(
         f"\nTake it in on the other machine with:\n  seal import {os.path.basename(target)}"
@@ -945,14 +1075,84 @@ def import_(args, cwd):
             )
             return 1
 
-        here = normalise_remote(git(repo, "config", "--get", "remote.origin.url"))
-        there = normalise_remote(manifest.get("remote"))
+        # Two facts, and they used to have one spelling. *There is no remote*
+        # switches the check below off on purpose; *the question could not be
+        # answered* switched it off just the same, so a git that timed out or
+        # exited non-zero merged another project's records with no word about
+        # it (#111). The unanswerable question refuses, which is the direction
+        # `gitlinks_under_root` states and `porcelain` and `indexed` take.
+        #
+        # Read ONCE. The refusal below used to ask git a second time for the
+        # URL it had already read and print whatever that call answered, so a
+        # failure between the two put a blank where the message promises this
+        # clone's URL — this ticket's own failure inside the message reporting
+        # it.
+        mine, why = remote_url(repo)
+        theirs = manifest.get("remote")
+        unreadable = []
+        if mine is None:
+            unreadable.append(f"this clone's remote could not be read: {why}")
+        the_zip_is_silent = not isinstance(theirs, str)
+        if the_zip_is_silent:
+            # The TYPE, not the presence. Absent is the export's word for *I
+            # could not read it*, and so is `null` — which is what any JSON
+            # writer produces from the `None` this file's own `remote_url`
+            # returns. Every other non-string reduces to "" in
+            # `normalise_remote`, which is the empty ANSWER this check exists
+            # to tell apart from silence, so presence alone let `null`, `42`,
+            # `[]`, `{}` and `true` through at exit 0 with both guards off
+            # (measured at `8fb1fb5`). An older build always wrote a string
+            # here, so a zip carrying anything else either comes from a build
+            # that could not look or was not written by `seal export` at all,
+            # and neither answers the question.
+            unreadable.append(
+                "the zip records no remote this command can read, so the "
+                "machine that exported it could not read one either"
+            )
+        if unreadable and not args.allow_unreadable_remote:
+            print("whether this zip came from this repository cannot be answered:")
+            for reason in unreadable:
+                print(f"  {reason}")
+            print(
+                "\nNothing was written. Records are keyed by work-item id, so "
+                "merging another project's would spread through the root with "
+                "nothing to tell them apart afterwards, and a remote that "
+                "could not be read is not the same fact as a repository "
+                "without one."
+            )
+            # Which machine can fix this decides what to tell the person. A
+            # git that failed HERE may answer on the next run; a zip that
+            # records no remote reads the same on every run there is, so the
+            # export has to happen again on the machine that wrote it. One
+            # line for both sent a person into a re-run loop that can never
+            # end.
+            #
+            # The ZIP's silence decides, not this clone's, and the two can be
+            # silent at once. A first cut branched on `mine is None`, which
+            # sent exactly the both-silent case back to the re-run advice —
+            # this ticket's own defect, re-entered at a narrower coordinate
+            # by the fix for it. Re-running here cannot clear the zip side no
+            # matter what this clone's git does next, so that side wins.
+            if the_zip_is_silent:
+                print(
+                    "Re-running this cannot change what the zip records — "
+                    "export again on the machine that wrote it, or pass "
+                    "--allow-unreadable-remote to import without the check."
+                )
+            else:
+                print(
+                    "Run this again if the failure here was transient, or "
+                    "pass --allow-unreadable-remote to import without the "
+                    "check."
+                )
+            return 1
+
+        here = normalise_remote(mine)
+        there = normalise_remote(theirs)
         if here and there and here != there and not args.allow_other_repo:
             print("this zip was exported from another repository:")
-            print(f"  the zip says   {manifest.get('remote')}")
-            print(
-                f"  this clone is  {git(repo, 'config', '--get', 'remote.origin.url')}"
-            )
+            print(f"  the zip says   {theirs}")
+            print(f"  this clone is  {mine}")
             print(
                 "\nNothing was written. Records are keyed by work-item id, so "
                 "merging another project's would spread through the root with "
@@ -1413,6 +1613,15 @@ def other_worktrees(repo):
     every other one holding the committed `<repo>/seal/` on its own branch,
     so the two read two different roots until the commit reaches both. It
     heals itself and loses nothing, so it is named rather than refused.
+
+    **A git that cannot answer here is silent by design, and this is the one
+    call site left that asks through `git()`.** `git()` reads every failure as
+    `""`, so a timeout or a non-zero exit reads here as *this clone has no
+    other worktrees* and the note does not print. That is the whole
+    consequence: the note is advisory, nothing is lost and nothing is claimed
+    falsely. The other four call sites read `""` as a fact somebody acts on
+    and now ask through `git_asked` (#111) — this one is the member of that
+    class that is right to.
     """
     # RIDER: `git worktree list --porcelain` prints the GIT DIRECTORY as the
     # worktree path for a repository built with `--separate-git-dir`, and for
@@ -2090,6 +2299,16 @@ def main(argv=None, cwd=None):
         "--allow-other-repo",
         action="store_true",
         help="import although the manifest names a different remote",
+    )
+    # A flag of its own, not a second meaning for the one above. Typing
+    # `--allow-other-repo` is saying *I have read both URLs and they are one
+    # repository under two spellings*; a person whose git could not answer has
+    # read neither and is saying something else (#111).
+    im.add_argument(
+        "--allow-unreadable-remote",
+        action="store_true",
+        help="import although the remote could not be read on one side or "
+        "the other, so whether the zip came from this repository is unknown",
     )
 
     md = sub.add_parser(
