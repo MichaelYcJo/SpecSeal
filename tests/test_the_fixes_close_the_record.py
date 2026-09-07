@@ -792,3 +792,140 @@ def test_the_implement_skill_says_the_same_in_section_five():
         "the reviewer closed in the report takes no row, and `close` refuses one"
         in flat
     )
+
+
+# --- a pipe the smith wrote survives the close -------------------------------
+#
+# #189's last paragraph: the same question applies to `close`'s fix table,
+# which takes free text in `Commit or grounds`. `new` escaping the report is
+# half of it; a grounds cell the smith writes goes through this one.
+
+
+def test_a_pipe_in_the_fix_tables_third_cell_reaches_the_record(repo):
+    """`answered` puts the smith's third cell straight into `Grounds`. A `|`
+    in it used to split the fix row before it was ever read, so the grounds
+    the record carried stopped at the pipe."""
+    a = round_one(repo)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    grounds = "the guard reads flags |= NEW, so the bit is set"
+    code, out, record = close(
+        repo,
+        1,
+        fix_table(
+            f"| 1 | fixed | {b[:7]} |\n",
+            f"| 2 | answered | {grounds} |\n",
+            "| 3 | deferred #12 | #12 |\n",
+        ),
+        f"{a}..{b}",
+    )
+    assert code in (0, 1), out
+    _one, two, _three = verdict_cells(record)
+    assert two[4] == grounds, record
+
+
+def test_a_pipe_the_record_already_carries_survives_close(repo):
+    """The row `new` wrote is re-serialised by `close`, so an escaped pipe
+    has to make the round trip once more without doubling its backslash or
+    splitting the row."""
+    grounds = "the augmented assignment reads a |= b"
+    a = round_one(
+        repo,
+        verdicts=(
+            f"| 🔴 1 | helper drops b | `mod.py#helper` | open | {grounds} |\n"
+            + OPEN_2
+            + OPEN_3
+        ),
+    )
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, record = close(
+        repo,
+        1,
+        fix_table(
+            f"| 1 | fixed | {b[:7]} |\n",
+            "| 2 | answered | the rest is never passed |\n",
+            "| 3 | deferred #12 | #12 |\n",
+        ),
+        f"{a}..{b}",
+    )
+    assert code in (0, 1), out
+    one, _two, _three = verdict_cells(record)
+    assert len(one) == 5, record
+    assert one[4] == f"fixed at {b[:7]}; {grounds}"
+
+
+def test_a_raw_pipe_the_record_already_carries_survives_close(repo):
+    """Round 1's 🟡 5. `close` re-reads a verdict row out of the record it is
+    about to rewrite, and that row may carry a BARE `|`: every record written
+    before this branch escaped nothing, and a record is a file a person
+    edits. Seven such rows stand in this repository's own committed records.
+
+    `reader.split_row` puts the tail in a sixth cell, so the grounds stop at
+    the pipe and the row outgrows its header. The two cases added with the
+    change could not see it — one goes through `fix_table`, the other through
+    an already-escaped pipe both readings agree about — and reverting both
+    `close` sites left the module green."""
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(verdicts=THREE))
+    assert code == 0, out
+    path = repo / ROUNDS / "round-1.md"
+    grounds = "the augmented assignment reads a |= b"
+    text = path.read_text(encoding="utf-8")
+    assert "| open | executed |" in text
+    path.write_text(
+        text.replace("| open | executed |", f"| open | {grounds} |", 1),
+        encoding="utf-8",
+    )
+    a = commit(repo, "round 1")
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, record = close(
+        repo,
+        1,
+        fix_table(
+            f"| 1 | fixed | {b[:7]} |\n",
+            "| 2 | answered | the rest is never passed |\n",
+            "| 3 | deferred #12 | #12 |\n",
+        ),
+        f"{a}..{b}",
+    )
+    assert code in (0, 1), out
+    one, _two, _three = verdict_cells(record)
+    assert len(one) == 5, record
+    assert one[4] == f"fixed at {b[:7]}; {grounds}"
+
+
+def test_a_span_pipe_in_a_closed_row_does_not_leave_pass_unchecked(repo):
+    """The other of `close`'s two reads of a verdict row, and it decides the
+    `Pass` box rather than a Grounds cell.
+
+    After the fix table is applied, `close` re-derives every row's verdict to
+    decide whether anything is still open. That read walks rows the fix table
+    never touched — including a finding the reviewer already closed — and a
+    record written before this branch escaped nothing. Read by the plain
+    splitter, a `|` inside a code span in the Finding cell shifts the row and
+    the Location stands where the verdict word should be, so a closed finding
+    counts as open and the run's own record goes out with `Pass` unchecked.
+
+    The Grounds case beside this one cannot see it: it exercises the rewrite
+    loop, which only visits rows the fix table names."""
+    declared(repo)
+    closed = "| 🟢 2 | round 0's finding | `mod.py:1` | answered | read |\n"
+    code, out, _ = generate(repo, report_text=report(verdicts=OPEN_1 + closed))
+    assert code == 0, out
+    path = repo / ROUNDS / "round-1.md"
+    text = path.read_text(encoding="utf-8")
+    assert "round 0's finding" in text
+    path.write_text(
+        text.replace("round 0's finding", "the cell reads `a | b`", 1),
+        encoding="utf-8",
+    )
+    a = commit(repo, "round 1")
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code in (0, 1), out
+    assert "- [x] Pass" in record, record
