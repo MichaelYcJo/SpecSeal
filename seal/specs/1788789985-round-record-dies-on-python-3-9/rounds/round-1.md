@@ -5,7 +5,7 @@
 | Target SHA | 804f14b3a8ab34b0b01de6f03bc2a7856d1d9508 |
 | Ran by | warden on claude-opus-5 |
 | PR | 235 |
-| Broad gate | not yet |
+| Broad gate | passed at 5077e12, under round 2 |
 | Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | test_the_refusal_is_ascii_because_it_is_written_before_stderr_is_set_up (depth 1) |

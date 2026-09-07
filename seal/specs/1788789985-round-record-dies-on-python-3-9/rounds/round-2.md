@@ -5,14 +5,14 @@
 | Target SHA | ea2aa70 |
 | Ran by | warden on claude-opus-5 |
 | PR | 235 |
-| Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Broad gate | passed at 5077e12, after `release/v0.9.1` was merged in — 2571 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0; `evidence-check .` 797 ok, 0 drifted |
+| Fixes checked by | no fixes to check |
+| Contract changes | none |
+| New units | test_the_refusal_is_ascii_because_it_is_written_before_stderr_is_set_up (depth 1) |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
