@@ -39,7 +39,35 @@ before the rule landed print instead of failing. -->
 
 - [ ] Pass
 
-<!-- `Fixes checked by` is the companion to the box below, and they answer
+<!-- **`Target SHA` names a commit on purpose, and it is exempt from the rule
+that a stamp names content.** This is written here because the question comes
+back: every `# RIDER:` comment in this repository carried a commit SHA until
+#239 moved it to `path#anchor@hash`, on the grounds that a feature branch
+squashes into its release branch and the squash keeps none of the branch's own
+commits. There are 135 of these rows. The next person to notice that should
+find the answer rather than re-open it.
+
+Three grounds, in the order that decides it.
+
+**A round record's SHA already survives the squash and a rider's did not.**
+`chain_check.py#reachable` tries HEAD and the declared branch, then falls back
+to `carried_by_a_pull_head`, which scans `refs/pull/<N>/head`. Nothing but a
+pull request writes that namespace and a squash does not touch it, so the
+commit a feature branch's round reviewed stays reachable there. The rider check
+had one call, `git merge-base --is-ancestor <sha> HEAD`, and no fallback. The
+two were never the same mechanism with a different corpus.
+
+**They are different objects.** This row records a MOMENT — *this round
+reviewed this tree*. A rider stamp is a live pointer — *the claim below is
+measured against the state under it*. `skills/implement/SKILL.md` turns that
+difference into the reason round records may sit beside the contract at all:
+a round record carries the SHA it reviewed, so it never asserts a present
+state. Re-anchoring it to content would make it assert one.
+
+**Content anchoring has no target here.** The reviewed tree is a whole commit
+across every file, not a region of one. There is no anchor to write.
+
+`Fixes checked by` is the companion to the box below, and they answer
 different questions. `Pass` says no finding in this round's table is still
 open. This says who opened the work that closed them, and it takes three
 values and nothing else:

@@ -82,6 +82,41 @@ def test_the_header_says_what_belongs_and_what_does_not():
     assert 'grep -rn "RIDER:"' in text
 
 
+def test_the_header_states_the_stamp_form_riders_actually_carry():
+    """`seal/follow-up.md` is where the convention is written down, and it
+    described the old form for as long as the old form existed. A rule stated
+    in one place and enforced in another drifts, and the direction it drifts
+    is always toward the document, because that is what a person reads."""
+    text = read(FOLLOW_UP)
+    assert "Verified <date> against <anchor>@<hash>" in text
+    assert ".github/scripts/rider_check.py" in text
+    assert "the date it was read and the content it" in text
+    assert "date and SHA it was verified at" not in text, (
+        "the header still describes the stamp form #239 removed"
+    )
+
+
+def test_the_round_template_says_why_target_sha_is_exempt():
+    """The other half of #239's answer, pinned beside the half it is about.
+
+    135 round records carry a `Target SHA`, and the same squash that orphaned
+    the rider stamps runs past every one of them. Leaving it is correct — a
+    round record names a MOMENT, `chain_check.py#reachable` already falls back
+    to `refs/pull/<N>/head` which a squash does not touch, and a whole
+    reviewed tree has no anchor to write. What is not correct is leaving that
+    unwritten, because the next person to count the rows re-opens it.
+
+    This case lives in the rider file rather than beside the other round-record
+    cases on purpose: the ticket asked for one answer covering both mechanisms
+    so they could not drift into different rules, and a pin in two files is
+    how they would."""
+    text = read(os.path.join(ROOT, "templates", "sdd-round.md"))
+    assert "exempt from the rule" in text
+    assert "carried_by_a_pull_head" in text
+    assert "refs/pull/<N>/head" in text
+    assert "records a MOMENT" in text
+
+
 def test_the_header_stops_the_answerer_that_is_really_a_condition():
     """The file already forbade a deferral to nobody, and every one of its
     seventeen rows read `repository owner, next time X is opened` — a
