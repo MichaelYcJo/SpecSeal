@@ -69,6 +69,42 @@ def test_the_warning_names_both_commands_in_order(hook, repo):
     assert "restart" in msg.lower()
 
 
+def test_the_warning_names_the_cheap_move_before_the_expensive_one(hook, repo):
+    """`/reload-plugins` costs no session and a restart costs the one you are
+    in, so the cheaper move is named first.
+
+    What the notice may not do is oversell it. The experiment behind this
+    (`docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.md`,
+    run 6) measured one thing: a preloaded skill body handed to a SPAWNED
+    AGENT is re-read at a reload. It measured nothing about hooks and nothing
+    about agent definitions, and its sentinel sat in the running version's own
+    directory, so it says nothing about picking up a newly installed one
+    either. A reader infers from silence that the reload covers everything, so
+    the gap is stated rather than left.
+    """
+    opt_in(repo)
+    out, _ = drive(hook, repo)
+    msg = json.loads(out)["systemMessage"]
+
+    assert "/reload-plugins" in msg, "the notice names only the expensive move"
+    assert msg.index("/reload-plugins") < msg.lower().index("restart")
+
+    # Per SENTENCE, not over the whole message. A bare `"measured" in msg` is
+    # satisfied by the gap sentence below on its own, so the reload's claim
+    # could drop its source label and the case stayed green — that mutation
+    # survived the first draft of this test, which is why the split is here.
+    sentences = [s.strip() for s in msg.replace("\n", " ").split(". ")]
+
+    reload_claim = next(s for s in sentences if "/reload-plugins" in s)
+    assert "measured" in reload_claim, "the reload's reach is asserted, not sourced"
+
+    gap = next(s for s in sentences if "hooks" in s)
+    assert "agent definitions" in gap, "the gap names only one of the two halves"
+    assert "measured" in gap and any(
+        negation in gap.lower() for negation in ("nobody", "not measured", "no one")
+    ), "the gap for hooks and agent definitions is left to silence"
+
+
 def test_silent_when_current(hook, repo):
     opt_in(repo)
     out, _ = drive(hook, repo, running=(0, 8, 0), remote=(0, 8, 0))
