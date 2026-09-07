@@ -50,7 +50,9 @@ LOADED = (
 )
 
 # A version-shaped token, with the optional `v` prefix the substring test this
-# replaced caught for free. `(?!\.\d)` keeps `2.0.1.5` from reading as a
+# replaced caught for free — in either case, because `V0.9.0` is this
+# plugin's own version in another spelling and was invisible everywhere until
+# review round 3 measured it. `(?!\.\d)` keeps `2.0.1.5` from reading as a
 # release of this plugin, and it is the ONLY trailing guard: a single
 # `(?![\w.])` swallowed a version at the END OF A SENTENCE — `right for
 # 0.8.3.` answered no offender, where the substring check this replaced caught
@@ -65,7 +67,15 @@ LOADED = (
 # both spellings, which is what the substring check said and what the owner
 # decided when the same lookahead produced a finding in three consecutive
 # passes (review round 2).
-VERSION_TOKEN = re.compile(r"(?<![\w.])v?(\d+\.\d+\.\d+)(?!\.\d)")
+#
+# The LEADING `(?<![\w.])` stays, and the argument for it is that a version
+# glued to a preceding word is a DIFFERENT identifier: `py3.13.9` names
+# CPython rather than a release of this plugin. That is what makes it unlike
+# the trailing lookahead above, where `rc1` is a prerelease of the same
+# version and belongs to the same timer. The uppercase `V` is not a preceding
+# word and that argument never covered it, which is why the fix for `V0.9.0`
+# is `[vV]?` and not a change to either lookaround (review round 3).
+VERSION_TOKEN = re.compile(r"(?<![\w.])[vV]?(\d+\.\d+\.\d+)(?!\.\d)")
 
 # The value the repository already tells an author to write where a real
 # version would be wrong. `docs/issues-and-milestones.md` §"A rolling log is
@@ -619,16 +629,30 @@ def test_a_number_that_is_not_a_version_is_not_read_as_one():
     # The LEADING lookbehind, which the line above cannot see either.
     # `2.0.1.5`'s tail `0.1.5` is below the running version, so that line
     # answers `[]` whether the lookbehind is there or not — measured. Only a
-    # four-part number whose tail is ABOVE it shows the loss, and a version
-    # glued to a preceding word is the other half of the same guard.
+    # four-part number whose tail is ABOVE it shows the loss.
     assert (
         timers_in("docs/x.md", "build 1.9.9.9 of something", RUNNING_IN_THE_FIXTURES)
         == []
     )
+    # And the argument for the other half, which was pinned with none.
+    # A version glued to a preceding WORD is a different identifier — `py3.13.9`
+    # names CPython, not a release of this plugin — where a trailing `rc1` is a
+    # prerelease of the SAME version and is refused. That asymmetry is the
+    # whole of why one lookaround guards and the other was removed.
     assert (
         timers_in("docs/x.md", "the token x0.9.0 is not ours", RUNNING_IN_THE_FIXTURES)
         == []
     )
+    assert (
+        timers_in("docs/x.md", "needs py3.13.9 or newer", RUNNING_IN_THE_FIXTURES) == []
+    )
+    # `V` is not a preceding word, so that argument does not reach it: an
+    # uppercase `V0.9.0` is this plugin's own version in another spelling, and
+    # it used to be invisible everywhere. `[vV]?` rather than a change to
+    # either lookaround, which is what produced round 1's finding 1.
+    assert timers_in("docs/x.md", "cut V0.9.0 last week", RUNNING_IN_THE_FIXTURES) == [
+        (1, "V0.9.0")
+    ]
     # A prerelease of a version that has not shipped is a timer in both its
     # spellings. `0.9.0-rc1` was always refused; `0.9.0rc1` used to be
     # invisible, because a `(?!\w)` added for `v1.2.30` — which `\d+`'s greed
