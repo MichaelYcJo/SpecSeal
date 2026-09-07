@@ -6,7 +6,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 233 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | yes — findings 1 and 2 |
