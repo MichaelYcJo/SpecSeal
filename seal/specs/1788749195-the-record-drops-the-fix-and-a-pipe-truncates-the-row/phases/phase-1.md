@@ -6,7 +6,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | 007436a |
-| Ran by | unknown — the spawn prompt named no model, and the template's rule is that a segment transcribes this value or leaves it, never sources it from its own idea of what it is |
+| Ran by | specseal:smith on claude-opus-5 |
 
 ## What this phase was asked
 
