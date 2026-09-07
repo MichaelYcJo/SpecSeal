@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | (filled at the commit that closes this phase) |
+| Commit | 3c366c2 |
 | Ran by | unknown — the spawn prompt named no model, and the template forbids a segment sourcing this from its own idea of what it is. The orchestrator that spawned this segment is the party that can fill it |
 
 ## What this phase was asked
