@@ -35,7 +35,7 @@ more than import order: Python compiles the entire file before executing the
 first line, so a 3.10+ *syntax* construct anywhere below the guard would keep
 the guard from ever running. There is none.
 
-**AC2, nothing changes above the floor — holds.** `py_compile` clean, the
+**AC2, nothing changes above the floor — holds.** `py_compile` clean, the  <!-- NAME NOT IN TREE -->
 module's own 11 cases green at the target, and
 `test_above_the_floor_the_same_arguments_get_past_the_guard` is the control
 that keeps the refusal cases honest.
