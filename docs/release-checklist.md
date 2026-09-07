@@ -77,7 +77,7 @@ What each one has caught, so a failure is recognised rather than debugged:
 |---|---|
 | `evidence-check --strict` | rows anchored on units the preparation edited read as drifted; `--reverify` after re-reading them, in the same commit. The total can drop across a fold: two fragments citing one coordinate identically fold into one row, and the unique-anchor count is what stays equal |
 | the full suite | a gathered entry prescribed a `git mv` whose destination nothing creates; a layout test asserted `seal/ledger/` exists, and git keeps no empty directory once the fold removes the last fragment |
-| `test_no_loaded_file_hardcodes_the_running_version` | living prose that named the release by number the moment it became the running one. Records of a moment are listed in the test; everything else is reworded to name the change |
+| `test_no_loaded_file_names_a_version_at_or_above_the_running_one` | living prose that named the release by number the moment it became the running one. Since #179 it also names one written *ahead* of the release, which used to be green until the day it shipped — a document had carried an unshipped version for three releases that way. Records of a moment are listed in the test; everything else is reworded to name the change, or to the illustrative version the test's own message points at |
 | `chain_check --baseline origin/main` | exit 1 in a checkout that never fetched `refs/pull/*/head` — the fetch line above is the fix, not a lost commit. CI fetches it itself |
 
 ## 4. Commit, push, open the first pull request
