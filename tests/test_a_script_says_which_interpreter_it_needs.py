@@ -354,6 +354,32 @@ def test_the_guard_precedes_every_other_module_level_act():
         "before it says the interpreter is wrong"
     )
 
+    # And not `load(...)` alone. This case is named for EVERY other
+    # module-level act, and a check that names one call cannot see the second
+    # one somebody adds above the guard -- an `open`, a `subprocess.run`, a
+    # constant read off the disk. So every module-level statement that calls
+    # anything sits below the refusal, less the guard's own three constants
+    # and the assignment that runs it.
+    OWN = {"FLOOR", "FLOOR_TEXT", "BELOW_FLOOR", "_refusal"}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.Import)):
+            continue
+        if isinstance(node, ast.Assign) and all(
+            getattr(t, "id", None) in OWN for t in node.targets
+        ):
+            continue
+        for inner in ast.walk(node):
+            if not isinstance(inner, ast.Call):
+                continue
+            called = getattr(inner.func, "id", None) or getattr(
+                inner.func, "attr", None
+            )
+            assert node.lineno >= refusal, (
+                f"module level calls {called}() at line {node.lineno}, above "
+                f"the guard at line {refusal}; the guard has to precede every "
+                "act, not only the sibling checker's load"
+            )
+
 
 def test_the_docstring_says_what_exit_2_now_covers():
     """A code whose meaning is written down and then quietly widened is a code
