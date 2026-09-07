@@ -61,6 +61,11 @@ def generator_module():
     return _load("specseal_round_record_for_tests", GENERATOR)
 
 
+def chain_module():
+    """`chain_check`, by the name this module's newer cases use."""
+    return check_module()
+
+
 def check_module():
     return _load("specseal_chain_check_for_generated_records", CHECK)
 
@@ -1411,7 +1416,12 @@ def test_a_pipe_in_the_deferred_table_keeps_its_width(repo):
 def test_an_escaped_pipe_the_reviewer_wrote_is_not_doubled(repo):
     """A reviewer who already escaped the pipe gets one backslash back, not
     two: the copy unescapes and re-escapes, and the round trip is the
-    identity."""
+    identity.
+
+    **Green on the base as well, and deliberately so.** The base copied the
+    row verbatim, which is also correct for an already-escaped pipe, so this
+    pins the fix rather than a defect. It is seen red by mutation instead —
+    dropping `split_cells`' unescape doubles the backslash."""
     declared(repo)
     row = "| 🔴 1 | a \\| b | `f.py:1` | open | executed |\n"
     code, out, text = generate(repo, report_text=report(verdicts=row))
@@ -1566,7 +1576,14 @@ def test_an_empty_paste_ready_section_says_the_report_carried_none(repo):
 def test_an_unclosed_fence_under_the_paste_ready_heading_is_refused(repo):
     """The same refusal the probes section already carries: an open fence
     copied as it stands blanks every section below it in the record, and the
-    record is written before any reader gets to say so."""
+    record is written before any reader gets to say so.
+
+    **Green on the base as well, and deliberately so.** `swallowed` asks the
+    never-closed question over the WHOLE report, so an unclosed fence under a
+    heading the base did not read was already refused. What this pins is that
+    the new section inherits that guard rather than needing one of its own;
+    the shape the section really does add is the comment-hidden opener, which
+    is the case below it."""
     declared(repo)
     code, out, text = generate(
         repo, report_text=report(fixes="```python\ndef helper(a):\n    return a\n")
@@ -1599,13 +1616,23 @@ def test_the_reviewer_is_told_where_the_paste_ready_fixes_go():
     extra step. The heading is read out of the generator, so the two carriers
     cannot drift, and it is looked for in the three places a reviewer, a
     record and a reader meet it."""
-    heading = generator_module().PASTE_READY
+    generator = generator_module()
+    heading = generator.PASTE_READY
+    # Round 1's 🟡 7: each assertion names the PLACE its document owes, not
+    # the region the heading may stand anywhere inside. Measured — a
+    # presence-in-a-region pin passed the heading moving out of the reviewer's
+    # fenced contract into prose, the section moving to the end of the
+    # template, and the protocol's row moving out of the field table.
+    #
+    # 1. warden.md: inside a fenced block of §Report, which IS the reviewer's
+    #    output contract. §Report is the file's last section, so a slice of it
+    #    is the whole tail.
     body = read("agents", "warden.md")
-    assert f"\n{heading}\n" in body[body.index("\n## Report\n") :], (
-        "the reviewer's own output contract has to show the heading in the "
-        "block of headings it tells the reviewer to write, not only mention "
-        "it in prose — a presence-anywhere assertion survives its removal "
-        "from that block, which was measured by mutating it"
+    section = body[body.index("\n## Report\n") :]
+    blocks = re.findall(r"\n```[^\n]*\n(.*?\n)```\n", section, re.S)
+    assert any(f"\n{heading}\n" in f"\n{block}" for block in blocks), (
+        "the heading has to stand in a fenced block of the reviewer's output "
+        "contract, not only in the prose around it"
     )
     skill = read("skills", "code-review", "SKILL.md")
     findings = skill[skill.index("\n## Findings format\n") :]
@@ -1613,25 +1640,44 @@ def test_the_reviewer_is_told_where_the_paste_ready_fixes_go():
         "the findings format is where a reviewer reads what a paste-ready "
         "fix is; it has to say where the fix goes"
     )
-    assert f"\n{heading}\n" in read("templates", "sdd-round.md"), (
-        "the template names the record's sections as headings, and a reader "
-        "who opens a record has to find this one described"
-    )
-    assert f"| {heading.lstrip('# ')} |" in read(
-        "docs", "review-handoff-protocol.md"
-    ), "the protocol's own table of what the record carries owes it a row"
+    # 2. sdd-round.md: in the record's own section order, which `build`
+    #    writes. A section moved to the end of the template describes a record
+    #    nobody gets.
+    order = re.findall(r"(?m)^##\s.*$", read("templates", "sdd-round.md"))
+    assert order.index(heading) == order.index(generator.VERDICTS) + 1, order
+    assert order.index(generator.PROBES) == order.index(heading) + 1, order
+    # 3. review-handoff-protocol.md: a row of the field table, which is the
+    #    table of what a record carries — not the prose below it.
+    proto = read("docs", "review-handoff-protocol.md")
+    table = proto[proto.index("\n| Field | Required | Content |\n") :]
+    assert f"| {heading.lstrip('# ')} |" in table[: table.index("\n#### ")], table
 
 
 def test_the_reviewer_is_not_told_the_report_is_read_for_tables_alone():
     """The sentence that has to change with the section, pinned so the next
     edit does not take it back. `agents/warden.md` told the reviewer the
     generator *reads nothing else of the report*, which was true when the
-    fenced blocks reached no file and is what #187 measured."""
+    fenced blocks reached no file and is what #187 measured.
+
+    Round 1's ⬜ 9: the replacement said *reads no other prose*, and that is
+    false in the other direction — `terminal_value` reads `Needs a fix:` and
+    `Loses a record or crashes:` off prose lines, which the same section
+    names four paragraphs later. Both spellings are refused here, because a
+    reviewer who believes either one writes a report the generator cannot
+    read."""
     body = read("agents", "warden.md")
     report = body[body.index("\n## Report\n") :]
-    assert "reads nothing else of the report" not in report, (
-        "the generator now reads the fenced blocks under two headings too"
-    )
+    flat = " ".join(report.split())
+    for false_claim in ("reads nothing else of the report", "reads no other prose"):
+        assert false_claim not in flat, (
+            f"`{false_claim}` is false: the generator reads the fenced blocks "
+            "under two headings and the two terminal lines off prose"
+        )
+    for label in (chain_module().NEEDS, chain_module().FLOOR):
+        assert f"{label}:" in flat, (
+            f"the section has to keep naming `{label}:` — it is one of the "
+            "prose lines the generator does read"
+        )
 
 
 # --- the two texts must agree about what a `|` is ----------------------------
@@ -1670,6 +1716,10 @@ def test_a_pipe_inside_an_html_comment_is_not_a_column_break(repo):
     written = verdict_row_as_written(text)
     assert "<!-- read \\| again -->" in written, written
     assert finding in written.replace("\\|", "|"), written
+    # The width a RENDERER sees, which is where the loss lives: reading the
+    # record back through `readable` strips the comment before it counts, so
+    # the row looks five wide even while it renders as six.
+    assert len(reader_module().split_row(written)) == 5, written
     cells = cells_under(text, "## Verdicts", 0)
     assert len(cells) == 5, rows_of(text, "## Verdicts")
     assert cells[2] == "`f.py:1`"
@@ -1685,7 +1735,9 @@ def test_two_html_comments_in_one_row_keep_their_columns(repo):
     row = "| 🔴 1 | a <!-- p | q --> b | `f.py:1` | <!-- r | s --> open | executed |\n"
     code, out, text = generate(repo, report_text=report(verdicts=row))
     assert code == 0, out
-    written = verdict_row_as_written(text).replace("\\|", "|")
+    row_as_written = verdict_row_as_written(text)
+    assert len(reader_module().split_row(row_as_written)) == 5, row_as_written
+    written = row_as_written.replace("\\|", "|")
     assert "<!-- p | q -->" in written, written
     assert "<!-- r | s -->" in written, written
     cells = cells_under(text, "## Verdicts", 0)
@@ -1793,3 +1845,25 @@ def test_a_fence_quoting_the_optional_heading_is_kept_when_it_is_absent(repo):
     assert generator_module().NO_PASTE_READY in paste_ready(text), text
     probes = text.split("## Executed probes", 1)[1].split("## Inherited", 1)[0]
     assert quoted.strip() in probes, "the quoted block is copied as it always was"
+
+
+def test_the_empty_arms_sentence_is_the_generators_constant():
+    """Round 1's 🟡 6. The two empty-arm cases read `NO_PASTE_READY` out of
+    the module on BOTH sides of their comparison, so they hold whatever it
+    says — rewording it to `none was needed` left the whole module green,
+    and that reading is the one thing the sentence exists not to say.
+
+    Three documents quote it word for word, and the ledger fragment's R2
+    calls it a load-bearing wording rather than a default string. This is
+    what makes that true: one constant, four carriers."""
+    sentence = generator_module().NO_PASTE_READY
+    assert "report" in sentence, (
+        "the sentence names what was OBSERVED — that the report carried no "
+        "fence — and never that no fix was needed, which nothing can know"
+    )
+    for parts in (
+        ("agents", "warden.md"),
+        ("templates", "sdd-round.md"),
+        ("docs", "review-handoff-protocol.md"),
+    ):
+        assert sentence in " ".join(read(*parts).split()), parts

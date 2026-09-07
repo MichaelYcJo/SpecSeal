@@ -310,3 +310,101 @@ def test_stale_leases_are_pruned(repo):
     os.utime(stale, (time.time() - 100000,) * 2)
     run_hook("session-lease.py", payload("ls", repo, session="sess-new"))
     assert leases_of(repo) == ["sess-new"]
+
+
+def test_a_pasted_fix_does_not_read_as_a_closing_note(repo):
+    """Round 1's 🟡 8. The merge branch stays quiet once some record says the
+    rows were drained, and it decided that by matching `nothing to drain`,
+    `drained` or `closed` against the record's RAW text.
+
+    `## Paste-ready fixes` puts the reviewer's code into every record, and
+    `closed` is a word this repository's own fixes carry — the record of the
+    round that found this carries `close(` five times. One pasted
+    `def close(args):` and the pre-merge reminder goes silent for a record
+    whose Deferred rows are still live, which is the moment the reminder
+    exists for: after the merge nobody is looking.
+
+    A probes fence could already do this, so the defect predates the section;
+    what the section changes is that it is now every record rather than one
+    with a probes fence."""
+    opt_in(repo)
+    item = declare_routing(repo)
+    (rounds_dir(item) / "round-1.md").write_text(
+        "| Target SHA | abc |\n\n"
+        "## Paste-ready fixes\n\n"
+        "```python\ndef close(args):\n    # the fence reads as closed\n    return 0\n```\n\n"
+        "## Deferred\n\n"
+        "| Finding | Where it went | Who answers it |\n|---|---|---|\n"
+        "| the windows leg | nowhere yet | nobody |\n",
+        encoding="utf-8",
+    )
+    out = run_hook("review-history-guard.py", payload("gh pr merge 42", repo))
+    assert out.strip(), (
+        "a closing word inside a pasted fix silenced the pre-merge reminder "
+        f"for a record with a live Deferred row. Message was:\n{out!r}"
+    )
+
+
+def test_a_real_closing_note_still_silences_the_merge_reminder(repo):
+    """The other side of 🟡 8, so the fix cannot be *never close anything*.
+
+    `nothing to drain` stands in the Deferred section as prose, which the
+    reader keeps — it blanks fenced blocks and comment bodies and nothing
+    else. A record that says the rows were drained still says so.
+
+    **Green on the base as well, and deliberately so.** The base stayed
+    silent here too; what this pins is that the repair did not buy its
+    silence by making the guard never close anything. It is seen red by
+    mutation — dropping the drain phrase from `CLOSED_RE`."""
+    opt_in(repo)
+    item = declare_routing(repo)
+    (rounds_dir(item) / "round-1.md").write_text(
+        "| Target SHA | abc |\n\n"
+        "## Paste-ready fixes\n\n"
+        "```python\ndef close(args):\n    return 0\n```\n\n"
+        "## Deferred\n\n"
+        "| Finding | Where it went | Who answers it |\n|---|---|---|\n\n"
+        "nothing to drain\n",
+        encoding="utf-8",
+    )
+    out = run_hook("review-history-guard.py", payload("gh pr merge 42", repo))
+    assert out.strip() == "", out
+
+
+def test_the_guard_falls_back_to_the_raw_text_without_the_reader(tmp_path):
+    """§13, and the reason `reader()` returns None instead of raising.
+
+    The reader is reached by a relative path from `hooks/` into `skills/`,
+    and a copy of the plugin without that directory has to leave the hook
+    printing a possibly-wrong reminder rather than stopping a session's Bash
+    call. The guarantee is REMOVED here — the constant is pointed at a file
+    that does not exist — because a defence nobody has run without its
+    platform is not verified."""
+    guard = load_hook_module("review-history-guard.py", "guard_without_a_reader")
+    guard.READER = os.path.join(str(tmp_path), "no_such_reader.py")
+    assert guard.reader() is None
+    record = tmp_path / "round-1.md"
+    record.write_text(
+        "| Target SHA | abc |\n\n```python\n# closed\n```\n", encoding="utf-8"
+    )
+    # Without the reader the fenced word counts, which is the pre-fix
+    # behaviour and the honest fallback: a reminder that may not fire beats a
+    # hook that raises inside somebody's Bash call.
+    assert guard.is_closed([str(record)]) is True
+    assert guard.is_closed([str(tmp_path / "nothing.md")]) is True
+
+
+def test_the_reader_is_what_makes_a_fenced_closing_word_not_count(tmp_path):
+    """The same pair with the reader in place, asserted on `is_closed`
+    itself so the rule is pinned where it lives rather than only through the
+    reminder's text."""
+    guard = load_hook_module("review-history-guard.py", "guard_with_its_reader")
+    assert guard.reader() is not None
+    fenced = tmp_path / "fenced.md"
+    fenced.write_text(
+        "| Target SHA | abc |\n\n```python\n# closed\n```\n", encoding="utf-8"
+    )
+    plain = tmp_path / "plain.md"
+    plain.write_text("| Target SHA | abc |\n\nnothing to drain\n", encoding="utf-8")
+    assert guard.is_closed([str(fenced)]) is False
+    assert guard.is_closed([str(plain)]) is True

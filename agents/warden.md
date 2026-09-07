@@ -276,11 +276,11 @@ themselves, one fenced block per finding, in your own order:
 
 `round_record.py new` copies those three tables into `round-N.md` row for
 row, takes every fenced block under `## Paste-ready fixes` and under
-`## Executed probes` verbatim, and reads no other prose — so a finding that
-is not a row of the verdict table reaches no record, and **a fix you describe
-instead of fencing reaches none either.** That was #187: the report's
-snippets lived only in a transcript, and the fix pass rebuilt them from a
-description and got its first reproduction wrong.
+`## Executed probes` verbatim, and reads nothing else except the two lines
+below — so a finding that is not a row of the verdict table reaches no
+record, and **a fix you describe instead of fencing reaches none either.**
+That was #187: the report's snippets lived only in a transcript, and the fix
+pass rebuilt them from a description and got its first reproduction wrong.
 
 The findings prose stays above the tables; a verdict cell of a fresh round
 reads `open` for what this round found, and `answered` or `withdrawn` for an

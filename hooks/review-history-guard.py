@@ -72,17 +72,64 @@ MERGE_RE = re.compile(r"\bgh\s+pr\s+merge\b")
 CLOSED_RE = re.compile(r"nothing to drain|drained|closed", re.IGNORECASE)
 
 
+READER = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "..",
+    "skills",
+    "verify",
+    "scripts",
+    "unverified_check.py",
+)
+
+
+def reader():
+    """The one reader, or None when this copy of the plugin has no `skills/`.
+
+    None rather than a raise: this hook only prints, so a copy of `hooks/`
+    taken on its own must fall back to the raw text rather than stop a
+    session's Bash call.
+    """
+    import importlib.util
+
+    try:
+        spec = importlib.util.spec_from_file_location("specseal_reader", READER)
+        if spec is None or spec.loader is None:
+            return None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    except (OSError, ImportError, SyntaxError):
+        return None
+
+
 def is_closed(records):
-    """True when some round record says the rows were drained."""
+    """True when some round record says the rows were drained.
+
+    Read through the shared reader, so a closing WORD inside a fenced block
+    is not a closing note. `## Paste-ready fixes` puts the reviewer's own
+    code into every record, and `closed` is a word this repository's fixes
+    carry — the record of the round that found this carries it inside a
+    fence. Matched on the raw text, one pasted line silences the reminder
+    for a record whose Deferred rows are still live, which is the one moment
+    the reminder exists for (round 1's 🟡 8).
+
+    A probes fence could already do this, so the defect predates the
+    section; what the section changed is that it is now every record rather
+    than one that happened to quote code.
+    """
     if not records:
         return True  # nothing to close
+    seen = reader()
     for path in records:
         try:
             with open(path, encoding="utf-8", errors="replace") as f:
-                if CLOSED_RE.search(f.read()):
-                    return True
+                text = f.read()
         except OSError:
             return True  # unreadable: say nothing rather than nag wrongly
+        if seen is not None:
+            text = "\n".join(seen.readable(text))
+        if CLOSED_RE.search(text):
+            return True
     return False
 
 

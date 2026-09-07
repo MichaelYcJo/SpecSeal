@@ -32,18 +32,33 @@
   text**, which is the reviewer's own markup saying so, and that reading is
   taken only when it lands on exactly the header's width; otherwise the plain
   reading is capped at that width and a bare pipe past the last column stays
-  in the last cell. The obvious repair — fold the surplus into the last column,
-  since the last column is the free-text one — was ruled out by measurement
-  over this repository's own 125 committed records: eight rows are over-wide,
-  all eight have their pipe inside a code span, one has it in a probes
-  command where folding would move half the command into `Result`, and one has
-  it in the Finding column where folding shifts the verdict cell the checker
-  reads. Neither change adds a question, and no report that produced a record
-  before produces a refusal now.
+  in the last cell. A `|` inside an HTML comment is never a break in any
+  reading — the row's width is counted on the comment-stripped report and the
+  copy is rebuilt from the raw one, and where those two texts disagreed about
+  a character the record lost a column at exactly header width, with the
+  location standing in the verdict cell the checker reads. The obvious
+  repair — fold the surplus into the last column, since the last column is
+  the free-text one — was ruled out by measurement over this repository's own
+  committed records: of 4128 body rows, eight are over-wide, all eight have
+  their pipe inside a code span, one has it in a probes command where folding
+  would move half the command into `Result`, and one has it in the Finding
+  column where folding shifts that same verdict cell. Nothing here asks a
+  person anything. **One report shape that produced a record before is now
+  refused**: a fence opener hidden inside an HTML comment under the new
+  heading, which would otherwise write a record carrying an open fence and
+  blank every section below it.
 
   **The reviewer is told where the fix goes**, which is the half that keeps
   the section from arriving empty every round: the agent's report contract
   shows the heading beside the three table headings and no longer says the
   generator reads nothing else of the report, and the findings format says the
   fenced block is the only place a fix survives the session — a Grounds cell
-  is one line, and this is what used to truncate it. (#187, #189)
+  is one line, and this is what used to truncate it.
+
+  **The pre-merge reminder no longer reads a pasted fix as a closing note.**
+  It stayed quiet once some round record said the rows were drained, and it
+  decided that by matching `closed` against the record's raw text. Putting the
+  reviewer's code into every record made that reachable in every record, and
+  this repository's own fixes carry the word. The record is now read through
+  the same reader every other check uses, so a closing word inside a fenced
+  block is not a closing note. (#187, #189)
