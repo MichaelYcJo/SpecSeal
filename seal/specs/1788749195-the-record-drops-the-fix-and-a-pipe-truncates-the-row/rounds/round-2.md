@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 208 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | test_the_guard_falls_back_to_the_raw_text_without_the_reader → no call site found |
 | New units | HIDDEN_CLOSING_WORD (depth 1); test_a_closing_word_a_reader_blanks_is_not_a_closing_note (depth 1); test_a_paste_ready_fence_carrying_a_table_is_not_read_as_hidden_rows (depth 1) |
 | Needs a fix | yes — 🟡 1, the hook's comment arm is pinned by no case and named by no sentence |
