@@ -483,6 +483,148 @@ def test_the_export_omits_a_head_it_could_not_read(
     assert manifest["remote"] == "git@example.com:org/thing.git", manifest
 
 
+def asked_once_then_fails(monkeypatch, seal, question):
+    """Count how many times ONE git question is asked, and make every ask
+    after the first go unanswered.
+
+    A fact read twice is invisible while both reads succeed. This is what
+    makes the second read visible: it returns the asks, so a case can say the
+    value printed is the value that was compared rather than a fresh answer
+    to the same question.
+    """
+    real = subprocess.run
+    asks = []
+
+    def answering(argv, *args, **kwargs):
+        if list(argv)[-len(question) :] == question:
+            asks.append(list(argv))
+            if len(asks) > 1:
+                raise subprocess.TimeoutExpired(argv, 15)
+        return real(argv, *args, **kwargs)
+
+    monkeypatch.setattr(seal.subprocess, "run", answering)
+    return asks
+
+
+def test_an_unreadable_remote_here_refuses_the_import(
+    seal, carried, monkeypatch, capsys
+):
+    """S1. The sharp one. `here` empty short-circuited the whole condition, so
+    a git that timed out or exited non-zero merged another project's records
+    with no word about it — the outcome the refusal exists to prevent, reached
+    through the guard that prevents it.
+
+    The message carries git's own words, because *run it again* and *this
+    machine will never answer* are the two things a person does next and only
+    git's text tells them apart.
+    """
+    zip_path, other, home = carried
+    before = files_under(home)
+    git_cannot_answer(
+        monkeypatch,
+        seal,
+        CONFIG_GET_REMOTE,
+        exits(128, "fatal: bad config line 9 in file .git/config"),
+    )
+    code, out = run(seal, ["import", str(zip_path)], other, capsys)
+    assert code == 1, out
+    assert "bad config line 9" in out, out
+    assert "--allow-unreadable-remote" in out, out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_the_flag_lets_an_unreadable_remote_through(seal, carried, monkeypatch, capsys):
+    """S2. The escape, and it is a flag of its own. A person typing
+    `--allow-other-repo` is saying *I have read both URLs and they are one
+    repository*; a person whose git just timed out has read neither."""
+    zip_path, other, home = carried
+    git_cannot_answer(monkeypatch, seal, CONFIG_GET_REMOTE, timed_out)
+    code, out = run(
+        seal, ["import", str(zip_path), "--allow-unreadable-remote"], other, capsys
+    )
+    assert code == 0, out
+    assert (home / "ledger" / "1788000000-a-work-item.md").exists(), out
+
+
+def test_allow_other_repo_does_not_cover_an_unreadable_remote(
+    seal, carried, monkeypatch, capsys
+):
+    """S4. The two flags are separate opt-ins. Routing both past one of them
+    would merge the two facts again at the only place a user acts on the
+    distinction."""
+    zip_path, other, _home = carried
+    git_cannot_answer(monkeypatch, seal, CONFIG_GET_REMOTE, timed_out)
+    code, out = run(
+        seal, ["import", str(zip_path), "--allow-other-repo"], other, capsys
+    )
+    assert code == 1, out
+    assert "--allow-unreadable-remote" in out, out
+
+
+def test_a_clone_with_no_remote_still_imports(seal, carried, capsys):
+    """S3. `""` is an ANSWER and has to keep working. A repository genuinely
+    without an `origin` is the intended case for the check being off, and
+    refusing it would be this fix taking more than the defect."""
+    zip_path, other, home = carried
+    git(other, "remote", "remove", "origin")
+    code, out = run(seal, ["import", str(zip_path)], other, capsys)
+    assert code == 0, out
+    assert (home / "ledger" / "1788000000-a-work-item.md").exists(), out
+
+
+def test_a_zip_that_records_no_remote_refuses(seal, carried, capsys):
+    """S5. The receiving end of the manifest change. A zip with no `remote`
+    key was written by a machine that could not read one, and the ticket's
+    reason for making the field absent is that this machine can then tell —
+    which is worth nothing unless this machine acts on it."""
+    _zip_path, other, home = carried
+    before = files_under(home)
+    silent = other.parent / "no-remote.zip"
+    with zipfile.ZipFile(silent, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1}))
+        archive.writestr("seal/ledger/1788000000-a-work-item.md", "# rows\n")
+
+    code, out = run(seal, ["import", str(silent)], other, capsys)
+    assert code == 1, out
+    assert "--allow-unreadable-remote" in out, out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_a_zip_recording_an_empty_remote_still_imports(seal, carried, capsys):
+    """S6. The other half of S5, and the invariant that kept this change from
+    touching twenty-two existing fixtures: `""` in a manifest means the
+    exporting repository had no `origin`, not that it could not look."""
+    _zip_path, other, home = carried
+    quiet = other.parent / "empty-remote.zip"
+    with zipfile.ZipFile(quiet, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": ""}))
+        archive.writestr("seal/ledger/1788000000-a-work-item.md", "# rows\n")
+
+    code, out = run(seal, ["import", str(quiet)], other, capsys)
+    assert code == 0, out
+    assert (home / "ledger" / "1788000000-a-work-item.md").exists(), out
+
+
+def test_the_refusal_prints_the_url_it_compared(seal, carried, monkeypatch, capsys):
+    """S10. The refusal asked git a SECOND time for the URL it had just read,
+    and printed whatever that call answered — so a failure between the two put
+    a blank where the message promises this clone's URL, which is this
+    ticket's own failure appearing inside the message that reports it.
+
+    One ask, and the value compared is the value printed.
+    """
+    zip_path, other, _home = carried
+    git(other, "remote", "set-url", "origin", "https://example.com/org/elsewhere")
+    asks = asked_once_then_fails(monkeypatch, seal, CONFIG_GET_REMOTE)
+
+    code, out = run(seal, ["import", str(zip_path)], other, capsys)
+    assert code == 1, out
+    assert len(asks) == 1, f"this clone's remote was read {len(asks)} times"
+    assert "git@example.com:org/thing.git" in out, out
+    assert "https://example.com/org/elsewhere" in out, out
+    assert "--allow-other-repo" in out, out
+
+
 def test_a_member_declaring_more_than_a_record_refuses_the_zip(seal, carried, capsys):
     """Round 1's 🟡 5. `write_members` reads each member whole, and the zip
     comes from another machine — so the declared size is the sender's choice.

@@ -1028,14 +1028,53 @@ def import_(args, cwd):
             )
             return 1
 
-        here = normalise_remote(git(repo, "config", "--get", "remote.origin.url"))
-        there = normalise_remote(manifest.get("remote"))
+        # Two facts, and they used to have one spelling. *There is no remote*
+        # switches the check below off on purpose; *the question could not be
+        # answered* switched it off just the same, so a git that timed out or
+        # exited non-zero merged another project's records with no word about
+        # it (#111). The unanswerable question refuses, which is the direction
+        # `gitlinks_under_root` states and `porcelain` and `indexed` take.
+        #
+        # Read ONCE. The refusal below used to ask git a second time for the
+        # URL it had already read and print whatever that call answered, so a
+        # failure between the two put a blank where the message promises this
+        # clone's URL — this ticket's own failure inside the message reporting
+        # it.
+        mine, why = remote_url(repo)
+        theirs = manifest.get("remote")
+        unreadable = []
+        if mine is None:
+            unreadable.append(f"this clone's remote could not be read: {why}")
+        if "remote" not in manifest:
+            # Absent is the export's word for *I could not read it*. An older
+            # build always wrote the key, so a zip missing it either comes
+            # from a build that could not look or was not written by `seal
+            # export` at all, and neither answers the question.
+            unreadable.append(
+                "the zip records no remote, so the machine that exported it "
+                "could not read one either"
+            )
+        if unreadable and not args.allow_unreadable_remote:
+            print("whether this zip came from this repository cannot be answered:")
+            for reason in unreadable:
+                print(f"  {reason}")
+            print(
+                "\nNothing was written. Records are keyed by work-item id, so "
+                "merging another project's would spread through the root with "
+                "nothing to tell them apart afterwards, and a remote that "
+                "could not be read is not the same fact as a repository "
+                "without one.\n"
+                "Run this again if the failure was transient, or pass "
+                "--allow-unreadable-remote to import without the check."
+            )
+            return 1
+
+        here = normalise_remote(mine)
+        there = normalise_remote(theirs)
         if here and there and here != there and not args.allow_other_repo:
             print("this zip was exported from another repository:")
-            print(f"  the zip says   {manifest.get('remote')}")
-            print(
-                f"  this clone is  {git(repo, 'config', '--get', 'remote.origin.url')}"
-            )
+            print(f"  the zip says   {theirs}")
+            print(f"  this clone is  {mine}")
             print(
                 "\nNothing was written. Records are keyed by work-item id, so "
                 "merging another project's would spread through the root with "
@@ -1554,6 +1593,15 @@ def other_worktrees(repo):
     every other one holding the committed `<repo>/seal/` on its own branch,
     so the two read two different roots until the commit reaches both. It
     heals itself and loses nothing, so it is named rather than refused.
+
+    **A git that cannot answer here is silent by design, and this is the one
+    call site left that asks through `git()`.** `git()` reads every failure as
+    `""`, so a timeout or a non-zero exit reads here as *this clone has no
+    other worktrees* and the note does not print. That is the whole
+    consequence: the note is advisory, nothing is lost and nothing is claimed
+    falsely. The other four call sites read `""` as a fact somebody acts on
+    and now ask through `git_asked` (#111) — this one is the member of that
+    class that is right to.
     """
     here = os.path.realpath(repo)
     found = []
@@ -2216,6 +2264,16 @@ def main(argv=None, cwd=None):
         "--allow-other-repo",
         action="store_true",
         help="import although the manifest names a different remote",
+    )
+    # A flag of its own, not a second meaning for the one above. Typing
+    # `--allow-other-repo` is saying *I have read both URLs and they are one
+    # repository under two spellings*; a person whose git could not answer has
+    # read neither and is saying something else (#111).
+    im.add_argument(
+        "--allow-unreadable-remote",
+        action="store_true",
+        help="import although the remote could not be read on one side or "
+        "the other, so whether the zip came from this repository is unknown",
     )
 
     md = sub.add_parser(
