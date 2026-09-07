@@ -105,6 +105,31 @@ def run(seal, argv, cwd, capsys):
     return code, capsys.readouterr().out
 
 
+def the_stem_the_export_will_use(seal, repo):
+    """The zip name the export is about to write, from the SAME clock it uses.
+
+    The four cases that plant something at `<stem>.zip.partial` have to name
+    that path before the export runs, and they used to recompute it from
+    `datetime.date.today()` — the LOCAL date, where `seal.py`'s export takes
+    UTC. East of UTC the two differ between local midnight and UTC midnight,
+    so for nine hours a day in this clone's timezone the link landed at a name
+    the export never touched: the export succeeded, wrote nothing outside, and
+    four escape cases asserted a refusal against a path nothing was written to.
+
+    Measured 2026-09-08 at 06:50 KST, at `5cf81b3` with no other change in the
+    tree: all four red, `wrote …-2026-09-07.zip` at exit 0 against a link
+    planted at `…-2026-09-08.zip.partial`. Round 1 ran the same module green
+    nine hours earlier, which is the shape of the thing — a case that is armed
+    or disarmed by the hour it is run at reports nothing either way.
+
+    What is left is the UTC midnight instant itself, between this call and the
+    export's own: microseconds a day where it used to be hours.
+    """
+    return seal.zip_stem(
+        str(repo), datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+    )
+
+
 def only_zip(directory):
     found = sorted(p for p in os.listdir(directory) if p.endswith(".zip"))
     assert len(found) == 1, f"expected one zip in {directory}, found {found}"
@@ -373,8 +398,11 @@ def test_a_repository_with_no_commit_records_no_head(seal, tmp_path, capsys):
     the exit code — so the manifest recorded the four letters as this export's
     SHA and the import printed them back as one.
 
-    The spec says the field is the SHA or empty. Empty is what a reader can
-    act on; a string that is not a SHA is one they cannot tell from one.
+    #111 moved the field from empty to **absent**. `git rev-parse HEAD` prints
+    a SHA whenever it succeeds, so there is nothing a present-and-empty `head`
+    could mean that absence does not say better: present now means a SHA was
+    read, and that is the whole of it. The one reader, the closing
+    `Exported at …` line, already treated absent and empty alike.
     """
     repo = tmp_path / "unborn"
     repo.mkdir()
@@ -389,7 +417,349 @@ def test_a_repository_with_no_commit_records_no_head(seal, tmp_path, capsys):
     assert len(written) == 1, out
     with zipfile.ZipFile(written[0]) as archive:
         manifest = json.loads(archive.read("manifest.json"))
-    assert manifest["head"] == "", manifest
+    assert "head" not in manifest, manifest
+
+
+# --- #111: "there is no remote" and "git could not answer" are two facts ----
+#
+# `git()` reads every failure as "", and four of its five call sites read that
+# "" as a fact about the repository. `spec.md` enumerates all five.
+
+CONFIG_GET_REMOTE = ["config", "--get", "remote.origin.url"]
+REV_PARSE_HEAD = ["rev-parse", "HEAD"]
+
+
+def git_cannot_answer(monkeypatch, seal, question, failure):
+    """Make ONE git question go unanswered, and leave every other one alone.
+
+    **Why this is injected rather than built out of a repository.** The
+    failures the ticket names — a timeout, a git that is not on PATH, a held
+    `index.lock`, a fork that could not be made — are transient and specific
+    to a single invocation. A `.git/config` broken badly enough to fail `git
+    config --get` also fails the `git rev-parse --show-toplevel` that resolves
+    the root, so the command stops one screen earlier with a different message
+    and never reaches the code under test: measured 2026-09-07 against git
+    2.50.1, a bad config line exits 128 for both. A duplicated `url =` line
+    does not work either — the same measurement has `--get` answering with the
+    last value at exit 0.
+
+    So the seam is `subprocess.run`, one question deep. Everything above it
+    runs for real: `git_asked`'s own `except` and return-code branches,
+    `remote_url`, the refusal, the message and the flag.
+    """
+    real = subprocess.run
+
+    def answering(argv, *args, **kwargs):
+        if list(argv)[-len(question) :] == question:
+            return failure(list(argv))
+        return real(argv, *args, **kwargs)
+
+    monkeypatch.setattr(seal.subprocess, "run", answering)
+
+
+def timed_out(argv):
+    raise subprocess.TimeoutExpired(argv, 15)
+
+
+def exits(code, stderr):
+    """A git that ran and refused, the way a held `index.lock` answers."""
+
+    def refused(argv):
+        return subprocess.CompletedProcess(argv, code, "", stderr)
+
+    return refused
+
+
+def test_the_export_omits_a_remote_it_could_not_read(
+    seal, repo, local, monkeypatch, capsys
+):
+    """S7. The field is absent, not empty. Empty is what the receiving machine
+    reads as *this repository has no origin*, which switches its own refusal
+    off — the ticket's second failure, one machine over from the first."""
+    git_cannot_answer(monkeypatch, seal, CONFIG_GET_REMOTE, timed_out)
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 0, out
+    manifest = json.loads(zipfile.ZipFile(only_zip(repo.parent)).read("manifest.json"))
+    assert "remote" not in manifest, manifest
+
+
+def test_the_export_records_an_empty_remote_it_could_read(seal, repo, capsys):
+    """S8. The other half of the pair, and the one that keeps `""` meaning
+    something. A clone with no `origin` is the case the import's guard is
+    allowed to be switched off by, so the export has to be able to say it."""
+    with_records(repo, local_home(repo))
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 0, out
+    manifest = json.loads(zipfile.ZipFile(only_zip(repo.parent)).read("manifest.json"))
+    assert manifest["remote"] == "", manifest
+
+
+def test_the_export_omits_a_head_it_could_not_read(
+    seal, repo, local, monkeypatch, capsys
+):
+    """S9's other side. The unborn-branch case above reaches this through git's
+    own exit code; this one reaches it through a timeout, which is the failure
+    the return-code check cannot see.
+
+    It also holds the line the export must NOT print here. Only a missing
+    `remote` is refused on arrival, so *the other machine takes in without a
+    flag* names a refusal that was never coming when the remote was read and
+    only the SHA was not. The first cut of the export's new output keyed that
+    sentence on either field, and printed it for exactly this case.
+    """
+    git_cannot_answer(monkeypatch, seal, REV_PARSE_HEAD, timed_out)
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 0, out
+    manifest = json.loads(zipfile.ZipFile(only_zip(repo.parent)).read("manifest.json"))
+    assert "head" not in manifest, manifest
+    assert manifest["remote"] == "git@example.com:org/thing.git", manifest
+    assert "the HEAD SHA was left out" in out, out
+    assert "without a flag" not in out, (
+        "a missing head is not what the importing machine's flag is for"
+    )
+
+
+def asked_once_then_fails(monkeypatch, seal, question):
+    """Count how many times ONE git question is asked, and make every ask
+    after the first go unanswered.
+
+    A fact read twice is invisible while both reads succeed. This is what
+    makes the second read visible: it returns the asks, so a case can say the
+    value printed is the value that was compared rather than a fresh answer
+    to the same question.
+    """
+    real = subprocess.run
+    asks = []
+
+    def answering(argv, *args, **kwargs):
+        if list(argv)[-len(question) :] == question:
+            asks.append(list(argv))
+            if len(asks) > 1:
+                raise subprocess.TimeoutExpired(argv, 15)
+        return real(argv, *args, **kwargs)
+
+    monkeypatch.setattr(seal.subprocess, "run", answering)
+    return asks
+
+
+def test_an_unreadable_remote_here_refuses_the_import(
+    seal, carried, monkeypatch, capsys
+):
+    """S1. The sharp one. `here` empty short-circuited the whole condition, so
+    a git that timed out or exited non-zero merged another project's records
+    with no word about it — the outcome the refusal exists to prevent, reached
+    through the guard that prevents it.
+
+    The message carries git's own words, because *run it again* and *this
+    machine will never answer* are the two things a person does next and only
+    git's text tells them apart.
+    """
+    zip_path, other, home = carried
+    before = files_under(home)
+    git_cannot_answer(
+        monkeypatch,
+        seal,
+        CONFIG_GET_REMOTE,
+        exits(128, "fatal: bad config line 9 in file .git/config"),
+    )
+    code, out = run(seal, ["import", str(zip_path)], other, capsys)
+    assert code == 1, out
+    assert "bad config line 9" in out, out
+    assert "--allow-unreadable-remote" in out, out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_the_flag_lets_an_unreadable_remote_through(seal, carried, monkeypatch, capsys):
+    """S2. The escape, and it is a flag of its own. A person typing
+    `--allow-other-repo` is saying *I have read both URLs and they are one
+    repository*; a person whose git just timed out has read neither."""
+    zip_path, other, home = carried
+    git_cannot_answer(monkeypatch, seal, CONFIG_GET_REMOTE, timed_out)
+    code, out = run(
+        seal, ["import", str(zip_path), "--allow-unreadable-remote"], other, capsys
+    )
+    assert code == 0, out
+    assert (home / "ledger" / "1788000000-a-work-item.md").exists(), out
+
+
+def test_allow_other_repo_does_not_cover_an_unreadable_remote(
+    seal, carried, monkeypatch, capsys
+):
+    """S4. The two flags are separate opt-ins. Routing both past one of them
+    would merge the two facts again at the only place a user acts on the
+    distinction."""
+    zip_path, other, _home = carried
+    git_cannot_answer(monkeypatch, seal, CONFIG_GET_REMOTE, timed_out)
+    code, out = run(
+        seal, ["import", str(zip_path), "--allow-other-repo"], other, capsys
+    )
+    assert code == 1, out
+    assert "--allow-unreadable-remote" in out, out
+
+
+def test_a_clone_with_no_remote_still_imports(seal, carried, capsys):
+    """S3. `""` is an ANSWER and has to keep working. A repository genuinely
+    without an `origin` is the intended case for the check being off, and
+    refusing it would be this fix taking more than the defect."""
+    zip_path, other, home = carried
+    git(other, "remote", "remove", "origin")
+    code, out = run(seal, ["import", str(zip_path)], other, capsys)
+    assert code == 0, out
+    assert (home / "ledger" / "1788000000-a-work-item.md").exists(), out
+
+
+def test_a_zip_that_records_no_remote_refuses(seal, carried, capsys):
+    """S5. The receiving end of the manifest change. A zip with no `remote`
+    key was written by a machine that could not read one, and the ticket's
+    reason for making the field absent is that this machine can then tell —
+    which is worth nothing unless this machine acts on it."""
+    _zip_path, other, home = carried
+    before = files_under(home)
+    silent = other.parent / "no-remote.zip"
+    with zipfile.ZipFile(silent, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1}))
+        archive.writestr("seal/ledger/1788000000-a-work-item.md", "# rows\n")
+
+    code, out = run(seal, ["import", str(silent)], other, capsys)
+    assert code == 1, out
+    assert "--allow-unreadable-remote" in out, out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_a_zip_recording_an_empty_remote_still_imports(seal, carried, capsys):
+    """S6. The other half of S5, and the invariant that kept this change from
+    touching twenty-two existing fixtures: `""` in a manifest means the
+    exporting repository had no `origin`, not that it could not look."""
+    _zip_path, other, home = carried
+    quiet = other.parent / "empty-remote.zip"
+    with zipfile.ZipFile(quiet, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": ""}))
+        archive.writestr("seal/ledger/1788000000-a-work-item.md", "# rows\n")
+
+    code, out = run(seal, ["import", str(quiet)], other, capsys)
+    assert code == 0, out
+    assert (home / "ledger" / "1788000000-a-work-item.md").exists(), out
+
+
+@pytest.mark.parametrize("value", [None, 42, [], {}, True])
+def test_a_manifest_remote_of_the_wrong_type_refuses(seal, carried, capsys, value):
+    """Round 1's 🟡 1. The guard's signal is the field's TYPE, not its
+    presence.
+
+    `null` is what any JSON writer produces from the `None` this work item
+    introduced, so the very state the export uses to say *I could not look*
+    arrived here as a key that is present. Presence alone let all five of
+    these import at exit 0 with both guards silent, because
+    `normalise_remote` reduces every non-string to `""` — the empty ANSWER
+    this check exists to tell apart from silence.
+    """
+    _zip_path, other, home = carried
+    before = files_under(home)
+    bad = other.parent / f"typed-{type(value).__name__}.zip"
+    with zipfile.ZipFile(bad, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1, "remote": value}))
+        archive.writestr("seal/ledger/1788000000-a-work-item.md", "# rows\n")
+
+    code, out = run(seal, ["import", str(bad)], other, capsys)
+    assert code == 1, out
+    assert "--allow-unreadable-remote" in out, out
+    assert files_under(home) == before, "a refusal wrote files"
+
+
+def test_the_advice_names_the_machine_that_can_fix_it(
+    seal, carried, monkeypatch, capsys
+):
+    """Round 1's 🟡 2. One advice line covered two failures with two
+    different next steps.
+
+    When *this* clone's git went silent, running the import again may
+    succeed. When the ZIP is the silent side, the bytes on disk say the same
+    thing on every run there is, so a re-run here is a loop that can never
+    end — the export has to happen again on the other machine.
+
+    **All three combinations, because two of them are the zip.** The first
+    cut of this fix branched on `mine is None`, which is right for one silent
+    side each and wrong for the pair: both silent sent the person back to the
+    re-run advice, which is this ticket's own defect re-entered at a narrower
+    coordinate by the fix for it. The zip's silence decides, because no
+    re-run here clears it whatever this clone's git does next.
+    """
+    zip_path, other, _home = carried
+    silent = other.parent / "no-remote.zip"
+    with zipfile.ZipFile(silent, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps({"format": 1}))
+        archive.writestr("seal/ledger/1788000000-a-work-item.md", "# rows\n")
+
+    # Only the zip is silent.
+    code, out = run(seal, ["import", str(silent)], other, capsys)
+    assert code == 1, out
+    assert "Run this again" not in out, (
+        "the advice sends the person into a re-run that can never succeed"
+    )
+    assert "export again on the machine that wrote it" in out, out
+
+    # Only this clone is silent — the zip carries a remote it could read.
+    git_cannot_answer(monkeypatch, seal, CONFIG_GET_REMOTE, timed_out)
+    code, out = run(seal, ["import", str(zip_path)], other, capsys)
+    assert code == 1, out
+    assert "Run this again if the failure here was transient" in out, out
+
+    # Both, with the same injection still in force. The zip wins.
+    code, out = run(seal, ["import", str(silent)], other, capsys)
+    assert code == 1, out
+    assert "Run this again" not in out, (
+        "both sides silent, and the person is sent to the side that cannot change"
+    )
+    assert "export again on the machine that wrote it" in out, out
+
+
+def test_the_export_says_what_it_could_not_read(seal, repo, local, monkeypatch, capsys):
+    """Round 1's 🟡 3. The export wrote a zip that will be refused on
+    arrival and said nothing about it.
+
+    `manifest_of` holds the reason git could not answer, and threw it away
+    twice. The consequence is that the failure gets diagnosed on the machine
+    that cannot fix it: the importing end gets a hard refusal whose only
+    escape is a flag, while the exporting end — the one that can re-run until
+    git answers — is told the export succeeded.
+    """
+    git_cannot_answer(monkeypatch, seal, CONFIG_GET_REMOTE, timed_out)
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 0, out
+    manifest = json.loads(zipfile.ZipFile(only_zip(repo.parent)).read("manifest.json"))
+    assert "remote" not in manifest, manifest
+    assert "the remote was left out" in out, out
+    assert "Running this again once git answers" in out, out
+
+
+def test_an_export_that_read_everything_says_nothing_extra(seal, repo, local, capsys):
+    """The other half of the case above. The line only appears when a field
+    was actually left out — an export that read both fields must not grow a
+    note about a failure that did not happen."""
+    code, out = run(seal, ["export"], repo, capsys)
+    assert code == 0, out
+    assert "was left out" not in out, out
+    assert "Running this again once git answers" not in out, out
+
+
+def test_the_refusal_prints_the_url_it_compared(seal, carried, monkeypatch, capsys):
+    """S10. The refusal asked git a SECOND time for the URL it had just read,
+    and printed whatever that call answered — so a failure between the two put
+    a blank where the message promises this clone's URL, which is this
+    ticket's own failure appearing inside the message that reports it.
+
+    One ask, and the value compared is the value printed.
+    """
+    zip_path, other, _home = carried
+    git(other, "remote", "set-url", "origin", "https://example.com/org/elsewhere")
+    asks = asked_once_then_fails(monkeypatch, seal, CONFIG_GET_REMOTE)
+
+    code, out = run(seal, ["import", str(zip_path)], other, capsys)
+    assert code == 1, out
+    assert len(asks) == 1, f"this clone's remote was read {len(asks)} times"
+    assert "git@example.com:org/thing.git" in out, out
+    assert "https://example.com/org/elsewhere" in out, out
+    assert "--allow-other-repo" in out, out
 
 
 def test_a_member_declaring_more_than_a_record_refuses_the_zip(seal, carried, capsys):
@@ -765,7 +1135,7 @@ def test_a_link_at_the_partial_name_refuses_the_export(seal, repo, capsys):
     (home / "ledger.md").write_text("# ledger\n")
     outside = repo.parent / "outside"
     outside.mkdir()
-    stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
+    stem = the_stem_the_export_will_use(seal, repo)
     partial = repo.parent / f"{stem}.zip.partial"
     symlink_or_skip(str(outside / "stolen.bin"), str(partial))
 
@@ -789,7 +1159,7 @@ def test_a_file_at_the_partial_name_survives_the_refusal(seal, repo, capsys):
     home = local_home(repo)
     home.mkdir(parents=True, exist_ok=True)
     (home / "ledger.md").write_text("# ledger\n")
-    stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
+    stem = the_stem_the_export_will_use(seal, repo)
     partial = repo.parent / f"{stem}.zip.partial"
     partial.write_text("somebody else's bytes\n")
 
@@ -819,7 +1189,7 @@ def test_the_export_refuses_the_link_where_o_excl_does_not_catch_it(
     (home / "ledger.md").write_text("# ledger\n")
     outside = repo.parent / "outside"
     outside.mkdir()
-    stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
+    stem = the_stem_the_export_will_use(seal, repo)
     partial = repo.parent / f"{stem}.zip.partial"
     symlink_or_skip(str(outside / "stolen.bin"), str(partial))
 
@@ -846,7 +1216,7 @@ def test_a_broken_link_at_the_zips_own_name_is_not_a_free_name(seal, repo, capsy
     home = local_home(repo)
     home.mkdir(parents=True, exist_ok=True)
     (home / "ledger.md").write_text("# ledger\n")
-    stem = seal.zip_stem(str(repo), datetime.date.today().isoformat())
+    stem = the_stem_the_export_will_use(seal, repo)
     taken = repo.parent / f"{stem}.zip"
     symlink_or_skip(str(repo.parent / "nowhere.bin"), str(taken))
 
@@ -1060,7 +1430,15 @@ def test_a_manifest_field_of_the_wrong_type_does_not_raise(
     """`read_manifest` checks that the manifest is an object and that `format`
     is one this build reads. Every other field is whatever the zip says, and
     three shapes reached the console as a traceback — two of them after the
-    records were on disk."""
+    records were on disk.
+
+    A non-string `remote` now REFUSES on its own, which
+    `test_a_manifest_remote_of_the_wrong_type_refuses` is what pins. So the
+    two `remote` rows here go through `--allow-unreadable-remote`, which is
+    the only remaining path on which such a value reaches `normalise_remote`
+    at all — and `normalise_remote`'s `isinstance` guard, which is what these
+    two rows have always been about, lives on exactly that path.
+    """
     _zip_path, other, _home = carried
     manifest = {"format": 1, "remote": "", "head": "a" * 40, "exported_at": "x"}
     manifest[field] = value
@@ -1069,7 +1447,8 @@ def test_a_manifest_field_of_the_wrong_type_does_not_raise(
         archive.writestr("manifest.json", json.dumps(manifest))
         archive.writestr("seal/ledger/w.md", "# w\n")
 
-    code, out = run(seal, ["import", str(z)], other, capsys)
+    past_the_guard = ["--allow-unreadable-remote"] if field == "remote" else []
+    code, out = run(seal, ["import", str(z), *past_the_guard], other, capsys)
     assert code == 0, out
     assert "evidence-check" in out, "the closing lines were not reached"
 

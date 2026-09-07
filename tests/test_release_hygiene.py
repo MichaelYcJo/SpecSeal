@@ -103,6 +103,11 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
     ("skills/implement/scripts/seal.py", "4.4.17"): (
         "bash's, named in a comment about the glob behaviour of that release"
     ),
+    ("skills/implement/scripts/seal.py", "2.50.1"): (
+        "git's, named in `remote_url`'s docstring as the build whose exit "
+        "codes were measured. An exit code read off an unnamed git is not a "
+        "measurement, and no release of SpecSeal makes the number wrong (#111)"
+    ),
 }
 
 
