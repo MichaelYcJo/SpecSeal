@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 208 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | split_cells → round-1.md, raw_cells, pytest |
 | New units | READER (depth 1); reader (depth 1); REQUIRED_HEADINGS (depth 1); raw_cells (depth 1); test_a_pasted_fix_does_not_read_as_a_closing_note (depth 1); test_a_real_closing_note_still_silences_the_merge_reminder (depth 1); test_the_guard_falls_back_to_the_raw_text_without_the_reader (depth 1); test_the_reader_is_what_makes_a_fenced_closing_word_not_count (depth 1); test_a_raw_pipe_the_record_already_carries_survives_close (depth 1); test_a_span_pipe_in_a_closed_row_does_not_leave_pass_unchecked (depth 1); chain_module (depth 1); verdict_row_as_written (depth 1); test_a_pipe_inside_an_html_comment_is_not_a_column_break (depth 1); test_two_html_comments_in_one_row_keep_their_columns (depth 1); test_a_row_carrying_a_span_pipe_and_a_bare_pipe_keeps_its_columns (depth 1); test_an_unbalanced_backtick_run_still_reads_a_comment_as_text (depth 1); test_a_short_row_with_a_comment_pipe_is_not_padded_into_a_full_one (depth 1); test_a_fence_quoting_the_optional_heading_is_kept_when_it_is_absent (depth 1); test_the_empty_arms_sentence_is_the_generators_constant (depth 1) |
 | Needs a fix | yes — 🔴 1 and 🟡 2 in `row_cells`, 🟡 3 in `swallowed`, 🟡 4's gate answers, and the blind cases 🟡 5, 🟡 6, 🟡 7 |
