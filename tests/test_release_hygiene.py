@@ -200,6 +200,24 @@ def what_to_write_instead():
     )
 
 
+def refusal(running, offenders):
+    """The whole text the check prints, so a case can read what it prints.
+
+    Extracted for the same reason `what_to_write_instead` was: with the
+    message inline in the `assert`, an edit that stops calling the builder
+    leaves every case green — measured, review round 2.
+    """
+    return (
+        f"a loaded file names a version at or above the running {running}. "
+        "Such a line is right for exactly one release and a timer before it: "
+        "it goes red on the day that version ships, on the release's own "
+        "preparation commit, after the broad gate has already run.\n  "
+        + "\n  ".join(offenders)
+        + "\n\n"
+        + what_to_write_instead()
+    )
+
+
 def test_the_message_has_a_route_for_every_token_the_check_refuses():
     """The message is a deliverable, and a refusal with no route is a wall.
 
@@ -214,13 +232,17 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
     none should be added — this repository writes dates with dashes, which
     the check does not read at all.
 
-    **What this case does NOT pin**, stated rather than left to be found: it
-    reads `what_to_write_instead`, so it catches an edit to the routes and
-    would NOT catch the refusal above being changed to emit some other text
-    instead of calling it. Measured — that mutation leaves every case here
-    green. No assertion can pin which expression an `assert` uses as its
-    message without reading this file's own source, so the floor is one
-    obvious line at the refusal rather than another check.
+    **What this case does NOT pin**, stated rather than left to be found, and
+    it is now one line rather than the whole message. The last assertion reads
+    `refusal`, which is what the check actually prints, so an edit detaching
+    the routes from the printed text goes red — that mutation used to leave
+    every case here green (review round 2, finding 7). What is still
+    unpinned is only `assert not offenders, refusal(running, offenders)`
+    itself: bypassing that one line leaves every case green, and pinning it
+    would mean reading this file's own source.
+
+    The earlier version of this paragraph used that residual as grounds for
+    leaving the whole message inline, which is how the real gap stayed open.
     """
     routes = what_to_write_instead()
     assert ILLUSTRATIVE_VERSION in routes, "no route for this repository's own version"
@@ -235,6 +257,10 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
         "the message offers no route for a token that is not a release at "
         "all — `2026.09.03` reads as a version and none of the exemptions "
         "above is a truthful home for it"
+    )
+    assert routes in refusal("0.8.3", ["docs/x.md:1 names 0.9.0"]), (
+        "the refusal no longer carries the routes — the text a person sees "
+        "and the text this case reads have come apart"
     )
 
 
@@ -299,15 +325,7 @@ def test_no_loaded_file_names_a_version_at_or_above_the_running_one():
             text = f.read()
         for number, token in timers_in(rel, text, running):
             offenders.append(f"{rel}:{number} names {token}")
-    assert not offenders, (
-        f"a loaded file names a version at or above the running {running}. "
-        "Such a line is right for exactly one release and a timer before it: "
-        "it goes red on the day that version ships, on the release's own "
-        "preparation commit, after the broad gate has already run.\n  "
-        + "\n  ".join(offenders)
-        + "\n\n"
-        + what_to_write_instead()
-    )
+    assert not offenders, refusal(running, offenders)
 
 
 # The fixtures below run `timers_in` against text this repository does not
