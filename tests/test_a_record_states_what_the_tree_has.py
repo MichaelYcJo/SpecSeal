@@ -625,6 +625,75 @@ def test_an_html_comment_is_an_aside_and_not_a_claim(tmp_path):
     assert refusals(tmp_path) == ([], 0)
 
 
+def test_a_multi_line_html_comment_is_an_aside_to_its_end(tmp_path):
+    """An aside was an aside only on the line that OPENS it, so a comment
+    spanning lines had every continuation line read as a claim (round 2,
+    🟡 2). `templates/` writes comments that way, so the false refusal
+    landed on a record using a template exactly as the template is written.
+    """
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "plan.md": "# p\n\n<!-- what this field holds, and\n"
+            "     why `gone_helper` is the example -->\n"
+        },
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
+def test_a_fence_the_record_never_closes_does_not_silence_what_follows(tmp_path):
+    """A fence the record never closes took every claim under it, in silence
+    (round 2, 🟡 3). An unclosed fence is a malformed record, not a licence
+    to read nothing, so the lines it holds are read rather than dropped."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "rounds__round-1.md": "# r\n\n```python\ndef f():\n    pass\n\n"
+            "and then `gone_helper` in prose\n"
+        },
+    )
+    found, read = refusals(tmp_path)
+    assert read == 1, (found, read)
+    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
+    assert "`gone_helper`" in found[0][2]
+
+
+def test_a_tilde_fence_does_not_close_a_backtick_fence(tmp_path):
+    """The two markers shared one flag, so a `~~~` line quoted INSIDE a
+    ```-fence closed it and everything after was read as prose. The opener
+    is remembered, so only its own marker closes it."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "rounds__round-1.md": "# r\n\n```python\n~~~\n`gone_helper`\n```\n\n"
+            "prose after the fence\n"
+        },
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
+def test_the_marker_exempts_a_line_a_never_closed_fence_held(tmp_path):
+    """The marker exempts the LINE, and a line an unclosed fence held is
+    still a line. Re-reading held lines past the marker would refuse a name
+    the writer had already said the tree does not have."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "rounds__round-1.md": "# r\n\n```python\n"
+            "`gone_helper`  <!-- NAME NOT IN TREE -->\n"
+        },
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
 def test_a_fenced_stamp_is_a_quotation_too(tmp_path):
     """One reader for both arms: a stamp in a fence is a quoted anchor
     exactly as a name in one is a quoted name."""

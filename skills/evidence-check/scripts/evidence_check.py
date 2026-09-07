@@ -1895,17 +1895,70 @@ def claim_lines(lines):
     named once rather than twice and the same is true of the quotation rule:
     a stamp in a fence is a quoted anchor exactly as a name in one is a
     quoted name.
+
+    **Both arms are about a REGION and both used to be read one line at a
+    time**, which is the same defect twice and the enumeration this fix ran:
+    over the three kinds of line above, ask of each whether it opens
+    something that continues.
+
+    - `NAME NOT IN TREE` is one line by construction — it exempts the line it
+      sits on, which is the whole of the rule — so there is nothing to widen.
+    - An HTML comment continues to `-->`, and an aside was recognised only on
+      the line that OPENS it: a two-line template comment had its second line
+      read as a claim, a false refusal at exit 2 on a record using a template
+      the way `templates/` writes them (round 2, 🟡 2). `aside` is now a
+      state that ends at `-->`.
+    - A fence continues to a matching close, and one flag for both markers
+      let ``` and ~~~ close each other, so a `~~~` quoted inside a ```-block
+      re-opened prose. `opener` remembers which marker opened the region.
+
+    **A fence the record never closes is a malformed record, not a licence
+    to read nothing** (round 2, 🟡 3). A toggle took every remaining line of
+    the file, and the arm said nothing — a claim went from refused to `0
+    names read`, no findings, exit 0, which is the silent direction on a file
+    whose author made a mistake. What an unclosed fence holds is therefore
+    kept in `held` and read at the end, and the marker still exempts a held
+    line. A CLOSED fence clears `held`, so a quotation stays a quotation.
+
+    What that gives up: inside a never-closed fence an HTML comment is not
+    recognised as an aside, so a name inside one is read. The record is
+    already malformed there, the direction is to read rather than to drop,
+    and the marker is one comment away.
     """
-    out, fenced = [], False
+    out, opener, held, aside = [], None, [], False
     for number, line in enumerate(lines, 1):
         stripped = line.lstrip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            fenced = not fenced
+        mark = (
+            "```"
+            if stripped.startswith("```")
+            else "~~~"
+            if stripped.startswith("~~~")
+            else None
+        )
+        if opener is not None:
+            if mark == opener:
+                opener, held = None, []
+            elif NOT_IN_TREE not in line:
+                # The marker exempts the LINE, and a line a never-closed
+                # fence held is still a line. Filtering here rather than
+                # where `held` is spent keeps one rule for the marker.
+                held.append((number, line))
             continue
-        if fenced or stripped.startswith("<!--") or NOT_IN_TREE in line:
+        if aside:
+            if "-->" in line:
+                aside = False
+            continue
+        if mark is not None:
+            opener = mark
+            continue
+        if stripped.startswith("<!--"):
+            if "-->" not in line:
+                aside = True
+            continue
+        if NOT_IN_TREE in line:
             continue
         out.append((number, line))
-    return out
+    return sorted(out + held)
 
 
 def stated_names(lines):

@@ -317,6 +317,16 @@ single word in backticks is prose far more often than it is a unit. A FENCED
 line is a quotation — a paste-ready fix is code the tree does not have yet —
 and an HTML comment is an aside; neither is read.
 
+**Both of those are REGIONS, and each runs to its own end.** A comment is an
+aside to its `-->`, so a template's two-line comment is an aside on both
+lines. A fence runs to a close carrying the marker that opened it, so a `~~~`
+quoted inside a ```-block does not end the quotation. And a fence the record
+never closes reads as a malformed record rather than as a quotation of
+everything left: its lines are read as claims, because an author's missing
+backticks must not be the thing that makes the rest of a record pass in
+silence. The `NAME NOT IN TREE` marker still exempts any line it sits on,
+held or not.
+
 **What counts as the tree.** Every identifier-shaped token in every file the
 walk reaches, prose and file names included, outside `seal/specs/` and
 `seal/ledger/`. Caches, build output and `.git` are skipped, because a
