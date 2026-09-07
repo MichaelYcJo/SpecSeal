@@ -1326,3 +1326,132 @@ def test_the_generators_headings_are_the_checkers_where_the_checker_has_one():
     assert chain.VERDICT_COLUMN in generator.VERDICT_HEADER
     assert f"{chain.NONE_WORD} — {chain.NOT_YET}" == generator.PENDING_SURFACE
     assert f"{chain.NOBODY} — {chain.NOT_YET}" == generator.PENDING_CHECKER
+
+
+# --- a pipe the reviewer wrote is text, and the row keeps its width ----------
+#
+# #189: a `|` inside a Verdicts cell makes the row carry more cells than the
+# header declares, every renderer drops the surplus, and everything from that
+# character on is invisible in the rendered record while surviving in the raw
+# file. Measured on work item 1788691941 round 1 -- six cells against a
+# five-column header, and both paste-ready fixtures the round commissioned
+# invisible. The sweep over this repository's 125 committed records found
+# eight such rows; every one of them has its pipe inside a backtick code
+# span, and one of the eight has it in a column that is not the last.
+
+
+def cells_under(text, heading, n):
+    """The n-th body row of a record table, read the way every reader reads
+    it: through the shared splitter, which unescapes `\\|`."""
+    reader = reader_module()
+    rows = rows_of(text, heading)
+    return [reader.visible(c) for c in reader.split_row(rows[2 + n])]
+
+
+def test_a_bare_pipe_in_a_grounds_cell_keeps_the_row_at_its_header_width(repo):
+    """The last column is free text, and a bare `|` in it used to split the
+    row. The record's row has as many cells as its header, and the cell
+    renders the pipe the reviewer wrote."""
+    declared(repo)
+    grounds = "the augmented assignment reads a |= b, not a or b"
+    row = f"| 🔴 1 | the parser drops a row | `f.py:1` | open | {grounds} |\n"
+    code, out, text = generate(repo, report_text=report(verdicts=row))
+    assert code == 0, out
+    cells = cells_under(text, "## Verdicts", 0)
+    assert len(cells) == 5, rows_of(text, "## Verdicts")
+    assert cells[4] == grounds
+
+
+def test_a_pipe_inside_a_code_span_stays_in_its_own_column(repo):
+    """The probes table's first column is a command, and a command has a
+    pipe in it. Folding the surplus into the last column would move half the
+    command into `Result`; a `|` inside a code span is the reviewer's own
+    markup saying it is text."""
+    declared(repo)
+    ran = "reviewer: `grep -c '^| L'` on the fragment"
+    probes = f"| {ran} | 10 rows |\n"
+    code, out, text = generate(repo, report_text=report(probes=probes))
+    assert code == 0, out
+    cells = cells_under(text, "## Executed probes", 0)
+    assert len(cells) == 2, rows_of(text, "## Executed probes")
+    assert cells[0] == ran
+    assert cells[1] == "10 rows"
+
+
+def test_a_pipe_in_the_deferred_table_keeps_its_width(repo):
+    """Every table the record copies, not the Verdicts table alone."""
+    declared(repo)
+    who = "the CI leg, which reads `a | b`"
+    deferred = f"| the windows leg | `overview.md` | {who} |\n"
+    code, out, text = generate(repo, report_text=report(deferred=deferred))
+    assert code == 0, out
+    cells = cells_under(text, "## Deferred", 0)
+    assert len(cells) == 3, rows_of(text, "## Deferred")
+    assert cells[2] == who
+
+
+def test_an_escaped_pipe_the_reviewer_wrote_is_not_doubled(repo):
+    """A reviewer who already escaped the pipe gets one backslash back, not
+    two: the copy unescapes and re-escapes, and the round trip is the
+    identity."""
+    declared(repo)
+    row = "| 🔴 1 | a \\| b | `f.py:1` | open | executed |\n"
+    code, out, text = generate(repo, report_text=report(verdicts=row))
+    assert code == 0, out
+    raw = rows_of(text, "## Verdicts")[2]
+    assert "\\\\|" not in raw, raw
+    assert cells_under(text, "## Verdicts", 0)[1] == "a | b"
+
+
+def test_the_plain_reading_is_the_readers_own(repo):
+    """`split_cells` with both knobs off has to be `reader.split_row`, or a
+    cell the generator composes is one the pull-request check reads
+    differently. Asserted over the shapes the two could disagree about:
+    escapes, an empty last cell, a missing closing pipe, a line that is not
+    a row at all."""
+    generator, reader = generator_module(), reader_module()
+    for line in (
+        "| a | b |",
+        "| a | b",
+        "| a | |",
+        "|",
+        "| a \\| b | c |",
+        "| a | b \\|",
+        "| `x | y` | z |",
+        "|---|---|",
+        "  | a | b |  ",
+        "not a row",
+        "",
+    ):
+        assert generator.split_cells(line) == reader.split_row(line), line
+
+
+def test_a_pipe_in_a_column_that_is_not_the_last_stays_there(repo):
+    """The eighth of the eight over-wide rows this repository has written:
+    `Contract changes | none` quoted in the FINDING column. Folding the
+    surplus into the last column would put the location in the verdict cell,
+    which `chain_check` reads."""
+    declared(repo)
+    finding = "the cell reads `Contract changes | none`"
+    row = f"| 🔴 1 | {finding} | `f.py:1` | open | executed |\n"
+    code, out, text = generate(repo, report_text=report(verdicts=row))
+    assert code == 0, out
+    cells = cells_under(text, "## Verdicts", 0)
+    assert len(cells) == 5, rows_of(text, "## Verdicts")
+    assert cells[1] == finding
+    assert cells[2] == "`f.py:1`"
+    assert cells[3] == "open"
+
+
+def test_a_bare_pipe_before_the_last_column_keeps_its_text(repo):
+    """The stated limit, pinned so it is a decision and not a surprise: a
+    bare `|` outside a code span cannot be placed, so the rest of the row
+    lands in the last column. Nothing is dropped, which is the whole of what
+    this buys."""
+    declared(repo)
+    row = "| 🔴 1 | a | b | `f.py:1` | open | executed |\n"
+    code, out, text = generate(repo, report_text=report(verdicts=row))
+    assert code == 0, out
+    cells = cells_under(text, "## Verdicts", 0)
+    assert len(cells) == 5, rows_of(text, "## Verdicts")
+    assert cells[4] == "open | executed"

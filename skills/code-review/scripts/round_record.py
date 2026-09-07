@@ -255,6 +255,120 @@ def separator(width):
     return "|" + "---|" * width
 
 
+def split_cells(line, spans=False, limit=None):
+    """Cells of one markdown row, or None when the line is not one.
+
+    Two knobs over what `reader.split_row` does, and with both off this is
+    that function: leading `|` dropped, one closing `|` dropped, a break at
+    every `|` no single backslash precedes, each cell stripped and its `\\|`
+    unescaped. Nothing here may drift from it — the record is read back
+    through it, so a cell this composes and that one reads differently is a
+    cell the pull-request check reads differently from the record.
+
+    `spans` reads a `|` inside a backtick code span as text. That is the
+    reviewer's own markup saying the character is not a column break — a
+    shell pipeline in a probes row, an augmented assignment in a Grounds
+    cell — and it is the one reading that recovers the column it belongs
+    to. Runs close the way CommonMark closes a code span: a run of N closes
+    a run of N. An unbalanced run swallows every break after it, which is
+    why the reading is taken only when it lands on the width its caller
+    expects.
+
+    `limit` caps how many breaks are taken; every `|` after that stays in
+    the last cell as the text it stood in, spacing and all. Rejoining
+    already-split cells cannot do that — `split_row` strips each one, so
+    `a |= b` comes back as `a | = b`.
+    """
+    s = line.strip()
+    if not s.startswith("|"):
+        return None
+    body = s[1:]
+    if body.endswith("|") and not body.endswith("\\|"):
+        body = body[:-1]
+    out, buf, i, marker = [], [], 0, None
+    while i < len(body):
+        ch = body[i]
+        if spans and ch == "`":
+            j = i
+            while j < len(body) and body[j] == "`":
+                j += 1
+            if marker is None:
+                marker = j - i
+            elif j - i == marker:
+                marker = None
+            buf.append(body[i:j])
+            i = j
+            continue
+        broken = len(out)
+        if (
+            ch == "|"
+            and marker is None
+            and (i == 0 or body[i - 1] != "\\")
+            and (limit is None or broken < limit)
+        ):
+            out.append("".join(buf))
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    out.append("".join(buf))
+    return [c.strip().replace("\\|", "|") for c in out]
+
+
+def row_cells(reader, line, width):
+    """`line`'s cells, `width` of them wherever the line can give that many.
+
+    Two readings, in the order that keeps the reviewer's own placement most
+    often. #189 measured the loss this repairs: a `|` inside a cell makes
+    the row carry more cells than the header declares, every renderer drops
+    the surplus, and the text from that character on is invisible in the
+    rendered record while surviving in the raw file.
+
+    1. The code-span reading, taken when it lands on exactly `width`. All
+       eight over-wide rows in this repository's 125 committed records have
+       their pipe inside a code span, and one of the eight has it in a
+       column that is not the last — so this is the reading that leaves the
+       row's columns where the reviewer put them.
+    2. Otherwise the plain reading, capped at `width` breaks, so a `|` past
+       the last column stays in the last cell as text. An unbalanced
+       backtick run lands here, and so does a bare `|` outside any code
+       span.
+
+    The cap is a guess and it is the only one available: nothing in a
+    flattened row says which column a bare `|` came from. It is never worse
+    than what the record did before — the leading cells land at the same
+    indices either way — and it makes the text visible instead of dropped.
+    The stated limit is that a bare `|` in a column that is not the last
+    lands the rest of the row in the last column.
+
+    Returns None for a line that is not a row, and fewer than `width` cells
+    for a row that has fewer. Neither is refused here: `table_body` and
+    `fix_table` own what a short row means, and a refusal would stop an
+    unattended run over something no person can decide.
+    """
+    plain = reader.split_row(line)
+    if plain is None:
+        return None
+    cells = split_cells(line, spans=True)
+    if len(cells) == width:
+        return cells
+    # The reader's own answer wherever it fits, so the common row is read by
+    # the function every downstream check reads it by and not by a second
+    # spelling of it. Only an over-wide row needs the cap.
+    if len(plain) <= width:
+        return plain
+    return split_cells(line, limit=max(width - 1, 0))
+
+
+def copied_row(reader, line, width):
+    """One report row re-serialised into the record, its pipes escaped."""
+    cells = row_cells(reader, line, width)
+    if cells is None:
+        return line.strip()
+    return row([escape(c) for c in cells])
+
+
 def cell(label, value):
     """`| label | value |`, or `Refused`.
 
@@ -400,7 +514,11 @@ def table_body(reader, lines, heading, header, required):
             )
         return None
     _start, body = found
-    rows = [(i, reader.split_row(ln)) for i, ln in body if ln.strip()]
+    # `row_cells` rather than `split_row`: a `|` the reviewer wrote inside a
+    # cell used to make the row carry more cells than the header declares,
+    # and every reader downstream of this one — `fix_table`'s third cell,
+    # `verdict_rows`' verdict column — then read the wrong index (#189).
+    rows = [(i, row_cells(reader, ln, len(header))) for i, ln in body if ln.strip()]
     rows = [(i, cells) for i, cells in rows if cells is not None]
     if not rows:
         if required:
@@ -421,11 +539,20 @@ def table_body(reader, lines, heading, header, required):
 
 
 def table_of(reader, raw, lines, heading, header, required):
-    """The rows under `heading` as raw lines, header and separator first."""
+    """The rows under `heading`, header and separator first, pipes escaped.
+
+    Each row is re-serialised from `raw` rather than copied from it, so a
+    `|` the reviewer wrote inside a cell reaches the record as text instead
+    of splitting the row (#189). `raw` and not `lines`, because `lines` has
+    the HTML comments stripped and a comment a reviewer wrote inside a cell
+    is theirs to keep.
+    """
     body = table_body(reader, lines, heading, header, required)
     if body is None:
         return None
-    return [row(header), separator(len(header))] + [raw[i].strip() for i, _ in body]
+    return [row(header), separator(len(header))] + [
+        copied_row(reader, raw[i], len(header)) for i, _ in body
+    ]
 
 
 def swallowed(reader, report, lines):
@@ -1590,7 +1717,7 @@ def close(args):
     # the one insertion last.
     for number, (word, value, note) in fixes.items():
         i, _cells = rows[number]
-        cells = reader.split_row(raw[i])
+        cells = row_cells(reader, raw[i], len(VERDICT_HEADER))
         while len(cells) <= GROUNDS_COL:
             cells.append("")
         old = cells[GROUNDS_COL].strip()
@@ -1605,7 +1732,8 @@ def close(args):
         raw[i] = row([escape(c) for c in cells])
     words = [
         chain.verdict_of(
-            [reader.visible(c) for c in reader.split_row(raw[i])], VERDICT_COL
+            [reader.visible(c) for c in row_cells(reader, raw[i], len(VERDICT_HEADER))],
+            VERDICT_COL,
         )
         for i, _ in rows.values()
     ]

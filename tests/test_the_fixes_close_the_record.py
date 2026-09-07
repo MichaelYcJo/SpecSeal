@@ -792,3 +792,64 @@ def test_the_implement_skill_says_the_same_in_section_five():
         "the reviewer closed in the report takes no row, and `close` refuses one"
         in flat
     )
+
+
+# --- a pipe the smith wrote survives the close -------------------------------
+#
+# #189's last paragraph: the same question applies to `close`'s fix table,
+# which takes free text in `Commit or grounds`. `new` escaping the report is
+# half of it; a grounds cell the smith writes goes through this one.
+
+
+def test_a_pipe_in_the_fix_tables_third_cell_reaches_the_record(repo):
+    """`answered` puts the smith's third cell straight into `Grounds`. A `|`
+    in it used to split the fix row before it was ever read, so the grounds
+    the record carried stopped at the pipe."""
+    a = round_one(repo)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    grounds = "the guard reads flags |= NEW, so the bit is set"
+    code, out, record = close(
+        repo,
+        1,
+        fix_table(
+            f"| 1 | fixed | {b[:7]} |\n",
+            f"| 2 | answered | {grounds} |\n",
+            "| 3 | deferred #12 | #12 |\n",
+        ),
+        f"{a}..{b}",
+    )
+    assert code in (0, 1), out
+    _one, two, _three = verdict_cells(record)
+    assert two[4] == grounds, record
+
+
+def test_a_pipe_the_record_already_carries_survives_close(repo):
+    """The row `new` wrote is re-serialised by `close`, so an escaped pipe
+    has to make the round trip once more without doubling its backslash or
+    splitting the row."""
+    grounds = "the augmented assignment reads a |= b"
+    a = round_one(
+        repo,
+        verdicts=(
+            f"| 🔴 1 | helper drops b | `mod.py#helper` | open | {grounds} |\n"
+            + OPEN_2
+            + OPEN_3
+        ),
+    )
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, record = close(
+        repo,
+        1,
+        fix_table(
+            f"| 1 | fixed | {b[:7]} |\n",
+            "| 2 | answered | the rest is never passed |\n",
+            "| 3 | deferred #12 | #12 |\n",
+        ),
+        f"{a}..{b}",
+    )
+    assert code in (0, 1), out
+    one, _two, _three = verdict_cells(record)
+    assert len(one) == 5, record
+    assert one[4] == f"fixed at {b[:7]}; {grounds}"
