@@ -1686,19 +1686,71 @@ def return_arities(node):
     return frozenset(found)
 
 
+def return_literals(node):
+    """The set of constant values the unit's own `return` statements can
+    produce, as `(type name, repr)` pairs — the value taken whole when the
+    return is a constant, and its constant elements when it is a tuple. A
+    nested def, class or lambda is somebody else's returns, the same boundary
+    `return_arities` draws.
+
+    #194: the contract compared parameters and return ARITIES, so a unit that
+    began returning a value it could not return before — the same shape with
+    a new meaning — changed neither and the row read `none`. The measured
+    instance is `token_thirds`, which began returning 0 for a mean it cannot
+    compute; the one call site interpreting that 0 was not revisited, and it
+    reports growth on a run whose input collapsed. `templates/sdd-round.md`
+    had already promised this half — *signature, return arity, return type,
+    or set of returnable values*.
+
+    **Keyed by type as well as value on purpose.** Python hashes `0` and
+    `False` into one key, and `1` and `True` likewise, so a plain set of
+    values reads a unit that swapped a count for a flag as unchanged. Those
+    are two different things to return and two different things for a caller
+    to test.
+
+    What this does NOT catch is a changed input→value mapping, and that hole
+    is stated in `docs/review-chain-spec.md` rather than closed. Widening it
+    to reach that is not a small step: it is asking which inputs reach which
+    return, which is the function.
+    """
+    found, stack = set(), list(node.body)
+    while stack:
+        n = stack.pop()
+        if isinstance(
+            n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+        ):
+            continue
+        if isinstance(n, ast.Return) and n.value is not None:
+            parts = n.value.elts if isinstance(n.value, ast.Tuple) else [n.value]
+            for part in parts:
+                if isinstance(part, ast.Constant):
+                    found.add((type(part.value).__name__, repr(part.value)))
+        stack.extend(ast.iter_child_nodes(n))
+    return frozenset(found)
+
+
 def top_units(module):
     """{name: (contract, first line, last line)} for every top-level def,
     class and constant, in source order.
 
     The contract is what `Contract changes` compares: a function's
-    parameters and return arities, a class's `__init__` parameters, and
-    nothing for a constant — a changed value is not a changed contract. A
-    constant is an assignment to a bare name at module level.
+    parameters, return arities and set of returnable constant literals; a
+    class's `__init__` parameters; and nothing for a constant — a changed
+    value is not a changed contract. A constant is an assignment to a bare
+    name at module level.
+
+    The third element is #194's, and it is the last of the four things
+    `templates/sdd-round.md` promises this row reads. `return_literals` says
+    what it is and what it deliberately does not reach.
     """
     out = {}
     for node in module.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            contract = (signature(node.args), return_arities(node))
+            contract = (
+                signature(node.args),
+                return_arities(node),
+                return_literals(node),
+            )
             out[node.name] = (contract, node.lineno, node.end_lineno)
         elif isinstance(node, ast.ClassDef):
             init = next(
@@ -1710,7 +1762,7 @@ def top_units(module):
                 ),
                 None,
             )
-            contract = (signature(init.args) if init else None, None)
+            contract = (signature(init.args) if init else None, None, None)
             out[node.name] = (contract, node.lineno, node.end_lineno)
         elif isinstance(node, ast.Assign):
             for target in node.targets:

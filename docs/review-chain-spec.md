@@ -772,6 +772,40 @@ the row saying *the runner covers this* about a unit nothing covers. The
 narrower rule with the limit written down is the trade; a hook that wants the
 row moves to a `conftest.py`, where pytest looks for it first anyway.
 
+**What `Contract changes` does not see, and this paragraph is the deliverable
+rather than an apology for one.** The derivation compares a unit's
+parameters, its return arities, and its **set of returnable constant
+literals** — the last of the four `templates/sdd-round.md` promises. What
+none of the three reaches is a changed **input→value mapping**: a unit that
+keeps returning exactly the values it already returned, and changes which
+inputs reach which one.
+
+The measured instance is `tests/test_release_hygiene.py#is_a_record_of_a_moment`,
+confirmed at
+`seal/specs/1788735085-a-loaded-file-naming-a-real-version-is-a-timer/rounds/round-2.md`,
+finding 11. Its fix made it answer `False` where it had answered `True` —
+narrowing the exemption from any file under a dated directory to a file whose
+own name begins with the date. Signature unchanged, arity unchanged, return
+type unchanged, and the returnable set is `{True, False}` at both ends. The
+comparison is blind to it **by construction**, not by an oversight a later
+edit could quietly repair, because asking which inputs reach which return is
+asking what the function computes.
+
+So the residual is the reviewer's, and it belongs in the round's own verdicts
+rather than in this row. A `Contract changes` cell reading `none` means *no
+unit's parameters, arities or returnable literals moved* — never *nothing a
+caller depends on moved*.
+
+**The check ships anyway, and the order of those two facts is the point.**
+Stating the limit without the check was refused as an answer: it moves the
+work to a person, which this repository's first goal treats as the more
+expensive design. The literal-set comparison catches the sentinel case #194
+opened for — `token_thirds` returning 0 for a mean it cannot compute — and
+this paragraph says where it stops. A later session that widens the check to
+try to cover the mapping is removing a stated hole rather than closing a gap;
+what it would have to add is an answer to *which inputs reach which return*,
+which the arrow's and the comma's limits already decline for the same reason.
+
 **Leaving that vocabulary out is what made a correct cell read as a
 mistake.** A review round of the work item that added this paragraph opened a
 finding against `hide_from_git → build, ensure, pytest`, on the grounds that
