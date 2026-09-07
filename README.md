@@ -263,7 +263,7 @@ wrong for every other machine.
 | `/specseal:parity-setup` | declare that this repo ports from another codebase — finds the original, records the baseline |
 | `/specseal:security-audit` · `/specseal:testing` | prompt checklists the model walks — an OWASP-shaped security pass and a test-strategy pass |
 | `/specseal:config` | show what this repository decided for itself — the two languages it writes in and where its records live — and change any of it. Routes a change to whatever owns that row rather than editing behind it |
-| `/specseal:update` | take the newest release and see what is in it — runs both update commands in the right order, then names the changelog entries between your version and the new one. Restart to load it |
+| `/specseal:update` | take the newest release and see what is in it — runs both update commands in the right order, then names the changelog entries between your version and the new one. Then `/reload-plugins` or a restart to load it — it says which of the two is measured to do what |
 | `bash install.sh [--project]` / `bash uninstall.sh` | add / remove the CLAUDE.md marker block |
 
 **Inline switches:**
@@ -308,14 +308,21 @@ bash install.sh --project  # non-interactive project scope
 
 It runs both commands below in the right order and then names the changelog
 entries between your version and the new one, calling out anything that
-changes behavior or needs you to do something. Restart to load it; the session
-you are in keeps the version it started with, so nothing is half-applied.
+changes behavior or needs you to do something. The session you are in keeps
+the version it started with either way, so nothing is half-applied.
+
+Then load it, cheapest move first. `/reload-plugins` re-reads the preloaded
+skill bodies a spawned agent is handed, which was measured in
+`docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.md`. Nobody
+has measured what it does for hooks, for agent definitions, or for moving a
+running session onto the newly installed version, so restart when you want
+all of it.
 
 By hand:
 
 ```bash
 claude plugin marketplace update specseal
-claude plugin update specseal@specseal   # then restart
+claude plugin update specseal@specseal   # then /reload-plugins, or restart
 ```
 
 Both lines, in that order. The first refreshes the marketplace clone; the

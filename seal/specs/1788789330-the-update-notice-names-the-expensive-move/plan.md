@@ -55,7 +55,7 @@ tell.
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | The notice and its module docstring — the case written and seen red against the old text first | `bin/test tests/test_version_check.py -q`, plus the recorded red run and a mutation of the new sentence | `4bdb05f` |
-| 2 | `skills/update/SKILL.md` — steps, the scope statement, the output template | read; `bin/test tests/test_first_setup_asks_once.py -q` for the path claim it also carries | |
+| 2 | `skills/update/SKILL.md` — steps, the scope statement, the output template | read; six modules run at the boundary, 217 passed | `d361b06` |
 | 3 | Both READMEs, English and Korean, in one commit | `bin/test tests/test_docs_line_wrap.py tests/test_one_word_one_meaning.py tests/test_chain_hooks_hardening.py -q` | |
 | 4 | Records — changelog fragment, ledger fragment, overview, the `docs/flow.md` tick | `bin/test tests/test_the_set_a_work_item_always_has.py tests/test_no_real_identifiers.py tests/test_release_hygiene.py -q` | |
 
