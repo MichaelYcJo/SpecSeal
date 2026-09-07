@@ -299,6 +299,25 @@ def test_a_separated_git_directory_does_not_displace_the_callers_tree(
     assert os.path.realpath(root) == os.path.realpath(str(tree))
 
 
+def test_the_clone_is_identified_from_the_directory_it_was_asked_about(
+    generator, repo, tmp_path, monkeypatch
+):
+    """`common_dir_of` resolves git's answer against the directory it asked,
+    not against wherever this process happens to be standing.
+
+    Measured 2026-09-08: `rev-parse --git-common-dir` answers `.git` from a
+    main work tree and an absolute path from a linked one. Only the second
+    shape reaches the separated-git-dir case above, so a version that dropped
+    the join stayed green there — it would compare `<cwd>/.git` against a
+    clone's real common directory and report two trees of one clone as
+    strangers.
+    """
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    monkeypatch.chdir(str(outside))
+    assert generator.common_dir_of(str(repo)) == os.path.realpath(common_dir(repo))
+
+
 def test_a_root_that_is_not_a_work_tree_is_refused(generator, tmp_path, monkeypatch):
     """A root every later `git -C <root>` refuses is not a root.
 
