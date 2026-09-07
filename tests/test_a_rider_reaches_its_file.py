@@ -209,11 +209,18 @@ def test_the_check_asks_git_for_nothing():
     it. Nothing needs saying about depth any more.
 
     Pinned by execution rather than by reading: `git` is replaced on PATH with
-    a script that fails the run if it is called at all."""
+    a script that RECORDS being called, and the case reads the record.
+
+    A tripwire that only returns a failing code was tried first and proved
+    nothing — `subprocess.run` with `capture_output` does not raise, so a call
+    whose result the caller ignores leaves the exit code untouched and the
+    case passed with a `git status` added to the check. The mutation that
+    caught it is the reason this writes a file instead."""
     bin_dir = tempfile.mkdtemp()
+    called = os.path.join(bin_dir, "called")
     tripwire = os.path.join(bin_dir, "git")
     with open(tripwire, "w", encoding="utf-8") as f:
-        f.write("#!/bin/sh\nexit 97\n")
+        f.write(f'#!/bin/sh\necho "$@" >> "{called}"\nexit 97\n')
     os.chmod(tripwire, 0o755)
     env = dict(os.environ, PATH=bin_dir + os.pathsep + os.environ["PATH"])
     run = subprocess.run(
@@ -224,9 +231,12 @@ def test_the_check_asks_git_for_nothing():
         encoding="utf-8",
         errors="replace",
     )
+    assert not os.path.exists(called), "the check called git: " + read(
+        called
+    ).strip().replace("\n", " · ")
     assert run.returncode == 0, (
-        "the check reached git, or failed for another reason: "
-        f"exit {run.returncode}\n{run.stdout}\n{run.stderr}"
+        f"the check failed for another reason: exit {run.returncode}\n"
+        f"{run.stdout}\n{run.stderr}"
     )
 
 
@@ -286,8 +296,15 @@ def test_a_second_rider_in_a_unit_does_not_drift_the_first(tmp_path):
     the more the convention is used."""
     one = a_module()
     two = one.replace(
-        "    value = 1\n",
-        f"    {MARK} a second claim\n    # Verified 2026-01-02 against unit@0\n    value = 1\n",
+        "    return value\n",
+        f"    {MARK} a second claim\n"
+        "    # Verified 2026-01-02 against unit@00000000\n"
+        "    return value\n",
+    )
+    assert len(riders.comment_blocks(two.splitlines())) == 2, (
+        "the fixture put its second rider straight after the first, so the "
+        "two merged into ONE comment run and this case would pass with the "
+        "rule applied to `blocks[:1]`. Found by mutating exactly that"
     )
     assert hashed(tmp_path, one) == hashed(tmp_path, two)
 
