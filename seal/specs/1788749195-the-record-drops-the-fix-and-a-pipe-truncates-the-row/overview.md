@@ -21,6 +21,7 @@ re-serialises every copied row with its pipes escaped.
 | The full suite, the repository-wide lint and the typecheck | the orchestrator — `agent-contract` §2 makes the broad gate theirs, run once after the rounds settle. Narrow runs here: 684 cases over the record modules and 637 over the document modules, both green, plus `uvx ruff check` and `ruff format --check` scoped to the three changed Python files |
 | Whether the eight over-wide rows already committed in other work items' records should be corrected | the owner — they belong to `1788184145`, `1788433011` and `1788501054`, and this branch does not edit another work item's record. Each is a finding for the work item that wrote it |
 | Whether `## Paste-ready fixes` should be read by `chain_check.py` at the pull request | the owner — `spec.md` left it to `plan.md` and `plan.md` added no checker, so the section is a declaration like `## Executed probes`. A round that opened a 🔴 and wrote no block is visible in the record and refused by nothing |
+| Whether a `\|` actually RENDERS as a pipe. Every case in this branch asserts the parse; no record in this repository has ever carried one, so the rendering the whole #189 arm is about has never been seen on screen. GFM's tables extension specifies it, which is a reading and not an observation | the review orchestrator — round 1's ❓ 10, taken by them in the fix-pass prompt. One look at a rendered record settles it |
 
 ## What was fed back into the spec
 
