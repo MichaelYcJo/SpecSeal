@@ -314,7 +314,7 @@ bash install.sh --project  # 비대화형 프로젝트 범위
 
 ```bash
 claude plugin marketplace update specseal
-claude plugin update specseal@specseal   # 그다음 적용 — 아래 참고
+claude plugin update specseal@specseal   # 그다음 적용 — 위 문단 참고
 ```
 
 두 줄을 이 순서로 실행합니다. 첫 줄이 마켓플레이스 클론을 갱신하고, 둘째 줄이

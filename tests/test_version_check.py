@@ -128,12 +128,59 @@ def test_the_warning_names_the_cheap_move_before_the_expensive_one(hook, repo):
         for negation in ("nobody", "not measured", "unmeasured", "no one")
     ), "the gap is stated as a fact rather than as an absence of measurement"
 
+    # A required phrase cannot see an ADDED clause. That is the class round 1
+    # named, and the assertions above only moved it down one level: each axis
+    # is pinned by its own word appearing SOMEWHERE in the sentence, and one
+    # negation anywhere in that sentence stands for all three. Round 2 ran the
+    # body above verbatim against two mutations that carry every word it looks
+    # for and still tell a user the reload picks up the new install:
+    #   M6 — the gap keeps its negation for two axes and hands the third back:
+    #        `hooks or agent definitions is unmeasured, BUT the version you
+    #        just installed is picked up`.
+    #   M7 — the reload's own claim keeps its subject and its scope and gains
+    #        `and out of the one you just installed`.
+    # Both were green. So pin the negative by POSITION rather than by presence.
+    # Wherever a sentence names the newly installed version, the clause
+    # carrying that mention has to be the clause that calls the pairing
+    # unmeasured, and no adversative may follow to hand it back. The weaker
+    # sentence-wide check above is implied by this one and is kept for its own
+    # failure message.
+    for where, sentence in (("the reload's claim", reload_claim), ("the gap", gap)):
+        if "install" not in sentence:
+            continue
+        clause = sentence[sentence.index("install") :]
+        for boundary in (",", ";", "."):
+            clause = clause.split(boundary)[0]
+        assert any(
+            negation in clause
+            for negation in ("nobody", "not measured", "unmeasured", "no one")
+        ), (
+            f"{where} names the newly installed version in a clause that does "
+            "not call that pairing unmeasured, so the sentence asserts what "
+            "run 6's own sentinel placement rules out"
+        )
+        assert not any(
+            adversative in sentence
+            for adversative in (" but ", " however", " though ", " except ")
+        ), (
+            f"{where} carries an adversative, so a negation that reads as "
+            "covering the whole sentence governs only the clause before it, "
+            "and what follows hands an axis back as a positive claim"
+        )
+
 
 def test_the_notice_agrees_with_the_docstring_about_what_a_reload_re_reads(hook):
     """The module docstring scopes a reload to the copy already in force. A
     notice that sells the reload as the way to load the NEW version contradicts
     the file it lives in, and the contradiction is silent — the docstring is
     130 lines above the string a user actually reads.
+
+    What this case checks is the PRESENCE half of that agreement: the notice
+    carries the scope qualifier the docstring states. The absence half — that
+    no sentence claims the reload picks up the newly installed version — is
+    pinned in the case above, because a mutation that appends `and out of the
+    one you just installed` to the reload's claim leaves every phrase this
+    case looks for standing.
 
     The docstring is read whitespace-normalised: it is hand-wrapped prose, so
     `out of that same copy` straddles a line break and a raw `in` is False
