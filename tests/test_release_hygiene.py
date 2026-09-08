@@ -274,8 +274,10 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
     attachment**, and nothing else. The last assertion reads `refusal`, which
     is what the check actually prints, so an edit detaching the routes from it
     goes red — that mutation used to leave every case here green (review round
-    2, finding 7). The other six elements of `refusal` are pinned one at a time
-    by `test_the_refusal_prints_every_piece_it_builds` below.
+    2, finding 7). The routes are one of the six leaves `ast.parse` gives for
+    the expression `refusal` returns; the other five are read whole by
+    `test_the_refusal_prints_every_piece_it_builds` below, which is where that
+    count is taken.
 
     This paragraph used to say, as a measured fact, that what was still
     unpinned was ONLY `assert not offenders, refusal(running, offenders)`.
@@ -308,35 +310,57 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
 
 
 def test_the_refusal_prints_every_piece_it_builds():
-    """Seven elements, enumerated from `refusal`'s own source, each pinned on
-    its own.
+    """Six elements, taken from `refusal`'s syntax tree, each read whole.
 
     A case that stops one short is the shape this repository produced nine
     times on one branch (#51, observation 6), and the three attempts that
     closed this gap on the original branch each missed a different separator
-    (#203). So the enumeration is by construction rather than by reading:
-    `refusal` returns four pieces joined by three separators.
+    (#203). A fourth attempt said it had enumerated by construction and had
+    not: it counted "four pieces and three separators", which is a reading of
+    the source rather than the source, and review round 1 measured 86
+    characters of the timer paragraph that no assertion here touched.
 
-    - the running version, and the sentence that says what happened;
-    - the paragraph saying why such a line is a timer;
-    - the refused lines;
-    - the routes out — pinned by the case above, which reads `refusal` too.
+    So the elements are the leaves `ast.parse` gives for the returned
+    expression. The `+` chain flattens to four operands, and the first is one
+    f-string — a single `JoinedStr` of three parts. Six leaves:
 
-    - the `"\\n  "` closing the first literal, which is the separator BEFORE
-      the first refused line;
-    - the `"\\n  "` the join puts BETWEEN them, invisible with one offender,
-      which is why this case passes two;
-    - the `"\\n\\n"` before the routes.
+    1. `"a loaded file names a version at or above the running "`;
+    2. the `{running}` interpolation;
+    3. one constant running from the `.` after the version through
+       `run.\\n  ` — the whole timer paragraph AND the separator that closes
+       it, which is one element rather than two;
+    4. `"\\n  ".join(offenders)`;
+    5. `"\\n\\n"`;
+    6. `what_to_write_instead()`, read here and by the case above.
 
-    **The survivor of that measured set is the check's own last line**,
-    `assert not offenders, refusal(running, offenders)` handed a literal: no
-    assertion here reads it, and pinning it would mean reading this file's own
-    source. It is what these seven mutations left standing, which is a smaller
-    claim than "unpinnable" — what is absent from a measured list is
-    unmeasured, and this module has twice written the larger claim into a
-    record where it then stood as grounds for looking no further.
+    Element 3 is where reading failed twice over. It split that constant into
+    a paragraph and a trailing separator, and it promoted the join's `"\\n  "`
+    argument to an element of its own — an argument to element 4, never a leaf
+    of the expression. That is how the count reached seven while the paragraph
+    itself was read only at its two ends. Every element below is read WHOLE,
+    so nothing between two spot-checks can go missing again.
+
+    **Two mutations survive this set, and neither is a limit.** Handing the
+    check's own `assert not offenders, refusal(running, offenders)` a literal
+    leaves this module green, and so does emitting the routes before the
+    refused lines.
+
+    The first is pinnable, and nothing about pinning it needs this file's own
+    source read — that sentence was written here and disproved in review round
+    1 by writing the pin. `tracked` and `timers_in` are module globals, and
+    swapping them the way
+    `test_the_exemption_list_does_not_depend_on_the_order_it_is_written_in`
+    already does one constant over raises the check, whose message compares
+    equal to `refusal(running, offenders)`. It stays on this list until
+    somebody plants that case. The second is pinnable only by rebuilding
+    `refusal` inside the test, which is the assertion this case was designed
+    not to be.
+
+    What must not be written here again is that either one CANNOT be pinned.
+    Three times now a limit nobody measured has gone into a record about this
+    function and then stood as the grounds for looking no further.
     """
-    running = "0.8.3"
+    running = RUNNING_IN_THE_FIXTURES
     first = "docs/a.md:1 names 0.9.0"
     second = "docs/b.md:2 names V0.9.0"
     text = refusal(running, [first, second])
@@ -347,11 +371,22 @@ def test_the_refusal_prints_every_piece_it_builds():
         "it is measured against, so an author cannot tell which number made "
         f"these lines offenders. It opens {text[: len(opening)]!r}"
     )
-    assert "right for exactly one release and a timer before it" in text, (
+    # Element 3, whole, in two contiguous halves — the first ends on the
+    # comma the second opens after, so no character between them goes unread.
+    # It used to be read at its two ends only: deleting the literal `it goes
+    # red on the day that version ships, on the release's own `, or just
+    # `preparation commit, `, each left this module at 32 passed (round 1).
+    assert (
+        ". Such a line is right for exactly one release and a timer before "
+        "it: it goes red on the day that version ships," in text
+    ), (
         "the reason went: the text says a line is refused and not why, which "
         "is the half that stops the next author writing another one"
     )
-    assert "after the broad gate has already run" in text, (
+    assert (
+        " on the release's own preparation commit, after the broad gate has "
+        "already run." in text
+    ), (
         "the timer's cost went — it fires on the release's own preparation "
         "commit, hours in, and that is what makes this worth a check rather "
         "than a convention"
@@ -360,15 +395,20 @@ def test_the_refusal_prints_every_piece_it_builds():
         "the refused lines are gone: a person is told that a loaded file "
         "names a version and not which file, which line, or which token"
     )
+    # The `"\n  "` that CLOSES element 3, read where it attaches; the two
+    # halves above are the rest of that same element.
     assert f"\n  {first}" in text, (
         "the first refused line is glued to the sentence above it — the "
         "separator that opens the indented block went, and with it the only "
         "thing that makes the block a block"
     )
+    # Element 4 whole — the join's output, whose own separator cannot be
+    # observed with one offender, which is why the fixture passes two.
     assert f"{first}\n  {second}" in text, (
         "the refused lines run together on one line: the join's separator "
         "went, and a tree with one offender in it would never show that"
     )
+    # Elements 5 and 6, whole.
     assert f"\n\n{what_to_write_instead()}" in text, (
         "the routes no longer stand off the refused lines as their own "
         "paragraph — either the blank line between them went, or the routes "
