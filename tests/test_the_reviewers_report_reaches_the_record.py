@@ -234,6 +234,52 @@ def test_the_warden_is_told_where_to_leave_the_report():
     assert "return that path" in warden or "returns that path" in warden
 
 
+def test_the_warden_is_told_its_report_is_now_scanned_like_any_tracked_file():
+    """§14: the cost this convention added, stated where the reviewer reads it.
+
+    The report used to be chat text, and nothing in the tree scanned chat
+    text. Committed beside the record it is a tracked file, so two
+    repository-wide readers reach it: the no-real-identifiers rule over every
+    tracked file, and the evidence checker over every `.md` under a live work
+    item. Neither reader is new. What is new is that a reviewer's prose is
+    their input, and the round that found this had to be told so by nothing.
+
+    The contract walks the reviewer into the first of them — §8 says to write
+    the clone's absolute path out, which is exactly the string the identifier
+    rule refuses. Both refusals land at the pull request, after the round has
+    ended and where nobody can ask the reviewer what it meant, so the warning
+    is worth nothing without the edit that answers it. Both escapes are
+    pinned for that reason: the fixture user path, and the evidence checker's
+    own per-line exemption marker.
+    """
+    warden = read(*WARDEN)
+    assert "## Report" in warden
+    section = warden.split("## Report", 1)[1]
+    for needle, why in (
+        (
+            "tracked content",
+            "nothing tells the reviewer its report becomes a file the tree's "
+            "own readers scan",
+        ),
+        (
+            "test_no_real_identifiers.py",
+            "the identifier rule is not named, so the reviewer cannot tell "
+            "which red build its absolute paths caused",
+        ),
+        (
+            "/Users/x/",
+            "the identifier rule is named with no way through it — a warning "
+            "that leaves the reviewer a red build and no edit to make",
+        ),
+        (
+            "NAME NOT IN TREE",
+            "the evidence checker's exemption marker is not named, so a "
+            "paste-ready fix proposing a new symbol has no legal spelling",
+        ),
+    ):
+        assert needle in section, f"agents/warden.md §Report: {why}"
+
+
 def test_the_record_and_the_report_are_told_apart(repo):
     """The distinction the change turns on, in the documents that state it.
 

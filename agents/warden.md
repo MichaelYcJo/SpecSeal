@@ -269,6 +269,27 @@ The file is yours and the record is not. You write it, you do not commit it,
 and you write no `round-N.md` — §Role above says why that is one exception
 and not a general permission.
 
+**Once the orchestrator commits it the report is tracked content, so the
+rules a repository applies to its own tree apply to your prose.** Two of them
+reach it in this one, and the contract walks you into the first.
+
+The no-real-identifiers rule (`CLAUDE.md`) is enforced over every tracked
+file, and §8 of the contract is what told you to write your clone's absolute
+path out. So the probe row that records the command you ran is the row that
+turns `tests/test_no_real_identifiers.py` red at the pull request, after your
+round has ended and where nobody can ask you what you meant. Name paths
+relative to the repository root, and spell a user path `/Users/x/`.
+
+The evidence checker reads every `.md` under a live work item and asks the
+tree for each compound identifier it finds. A name your report writes that
+the tree does not carry comes back `NOT-IN-TREE` — including a name a
+paste-ready fix proposes to **add**, which by definition is not there yet.
+Write `NAME NOT IN TREE` on that line and it is exempt.
+
+A repository other than this one enforces other things. What generalises is
+the shape: the moment a report stops being chat text, whatever scans the tree
+scans it.
+
 Follow the `code-review` findings format: every finding with `file:line`,
 what is wrong, why it matters, and a paste-ready fix for **each 🔴 and each
 🟡**. This file used to say *blocking items*, which is narrower than the
