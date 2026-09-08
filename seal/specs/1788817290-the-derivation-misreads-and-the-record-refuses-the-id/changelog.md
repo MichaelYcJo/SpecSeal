@@ -68,6 +68,25 @@
   and the boundary was re-derived by running the rule over every top-level def
   in the tree rather than by reading it.
 
+  **A conftest is loaded by name, but the directory decides whether pytest
+  loads it at all.** The first repair accepted the name from anywhere, which
+  put the false sentence back: a `conftest.py` in a directory nothing is
+  collected under — a vendored tree, an examples directory, `src/` in a
+  repository whose tests live under `tests/` — is imported by nobody, so its
+  fixtures are injected into nothing and the row was saying the runner covers
+  them. The rule now asks whether a file pytest collects sits at or below the
+  conftest's own directory, which is the question pytest itself asks, and it
+  asks it inside `tests/` as well as outside.
+
+- **A rider comment is now checked wherever this repository plants one.** The
+  list of directories the rider checks walk left out `tests/`, so four riders
+  were held to nothing at all — two carrying a measurement, one with no
+  verification stamp in any form, and one whose own branch record said the
+  stamp had been checked when nothing had checked it. Two of the four could
+  not be given a stamp naming a commit, because the commits their measurements
+  were taken at were discarded when their branches squashed, so a stamp may
+  now name the content it was read against instead.
+
 - **`Contract changes` now sees a unit that gains or loses a returnable
   value, and the shape it still cannot see is written down (issue #194).** The
   derivation compared parameters and return arities, so a unit returning the

@@ -33,6 +33,15 @@ passed by name as a value at five sites and never called. A rule reading
 nothing covers — #211's own false sentence pointing the other way — so the
 rule is the three pytest constructions and a case refuses the wider one.
 
+*Corrected by round 2's fix pass.* That was true of the tree this phase ran
+against and is not true of the branch. `floor_record` stopped reading `no call
+site found` at `824bfca`, where round 1's record and report landed quoting its
+`def` line — the walk greps every tracked file, so a committed record that
+quotes code invents a call site for the unit it quotes. The unit bounding the
+rule at HEAD is `tests/test_the_records_can_be_carried_out_and_in.py#timed_out`,
+which the merge of `release/v0.9.1` brought in. What the phase decided is
+unchanged; only the example moved.
+
 **One limit is recorded rather than closed, and it was a surviving mutation
 that forced the decision.** The hook arm reads `conftest.py` alone; pytest
 also registers collected test modules as plugins, so a `pytest_generate_tests`

@@ -358,9 +358,11 @@ def test_a_conftest_at_the_repository_root_is_still_a_conftest(reach):
     so the fixture and hook arms reached only a `conftest.py` sitting under
     `tests/` — and the repository root is the placement pytest documents
     first, where the fixtures and hooks every module in the tree sees are
-    kept. A conftest is a conftest wherever it sits: pytest loads it by name,
-    not by directory, so both arms read the basename and the `tests/` gate
-    lets a conftest through from anywhere."""
+    kept. pytest loads a conftest by NAME, not by the directory it is in, so
+    both arms read the basename rather than asking where the file sits — and
+    the root passes the one directory question that is left, `conftest_is_
+    loaded`, in any tree that has tests at all. That question is round 2's
+    finding 1; this case is why it could not simply be answered *no*."""
     generator = generator_module()
     assert reach["a_root_fixture"] == generator.PYTEST_ONLY, reach
     assert reach["pytest_configure"] == generator.PYTEST_ONLY, reach

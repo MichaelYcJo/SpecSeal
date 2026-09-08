@@ -63,6 +63,14 @@ That is `runner_reached`'s docstring and `docs/review-chain-spec.md`
 §*The fix surface* word for word, which is the point — the two findings were
 that the prose said this and the code said less.
 
+*Corrected by round 2's fix pass, finding 1.* The third sentence is false of
+pytest and this pass wrote it in three places. A conftest is loaded by name,
+but the DIRECTORY still decides whether pytest loads it at all: rootdir down
+to each collected test file. So a conftest with nothing collected under it is
+imported by nobody, and calling its fixtures the runner's is round 1's own
+finding 1 pointing the other way. The sentence now reads *wherever pytest
+loads it*, and `conftest_is_loaded` is the code that asks.
+
 ## The re-enumeration
 
 `runner_reached`, old and new, over **every top-level def in every tracked
@@ -118,6 +126,13 @@ collected test module is still the recorded limit.
 never collects `src/`. The trade is that a fixture in a file named
 `conftest.py` is pytest's by construction wherever it sits, against leaving
 #211's own defect standing at the placement pytest documents first.
+
+*Corrected by round 2's fix pass, finding 1.* The grounds are false and the
+cost was read one instance wide. `src/conftest.py` was the only placement
+built, and the members are every conftest in a directory nothing is collected
+under, at any depth and inside `tests/` as well as outside it — executed over
+seven of them. It was not a trade to accept; it was the same false sentence
+arriving from the other side, and the round was right to open it.
 
 ## The mutation run, and the one that survived
 
