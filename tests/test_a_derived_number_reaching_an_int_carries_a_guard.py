@@ -153,9 +153,18 @@ SITE_KINDS = (ast.Call, ast.BinOp, ast.UnaryOp, ast.AugAssign, ast.Compare)
 class Converted(BaseException):
     """Raised by the recording operand the moment a conversion is asked for.
 
-    A `BaseException` on purpose: an `except Exception` inside a probed
-    callable would otherwise swallow the signal and the site would read as
-    not converting."""
+    It stops the probed callable at the conversion rather than letting it run
+    on with a half-converted operand, which is the whole of what it buys.
+
+    **What it does NOT buy, stated because the obvious claim is false.**
+    `_recorder` records before it raises, so detection never depends on who
+    catches this — a callable that swallows `Exception` around its own `int()`
+    still classifies as a converter, which
+    `GUARD_SHAPES`' *a converter that already guards itself* is built on.
+    Deriving from `BaseException` is therefore a defensive choice no case can
+    tell from `Exception`: it survived the mutation battery for #192, and
+    that is recorded rather than papered over with a case that would only
+    pin the class statement to itself."""
 
 
 class Operand:
@@ -372,25 +381,31 @@ def operator_forms(node):
     return []
 
 
-def operator_converts(node):
+def operator_converts(node, benign=BENIGN):
     """Whether this node's operator reaches an int through one of its operands.
 
-    Both halves, as for a call: the operand is consumed as an integer, and
-    the operator answers integer operands with an `int`."""
+    Probed with numeric operands, because numbers are what a transcript
+    yields. `benign` is what the other slot holds, and handing it a sequence
+    shows the one route the numeric probe cannot see: `"ab" * n` converts `n`
+    through `__index__`. Whether an operand is a sequence is provenance this
+    walk does not have, so `2 * third` in `token_thirds` must not be read as
+    one — which is why the default stays numeric and
+    `test_the_operator_half_is_probed_and_says_what_it_cannot_see` holds the
+    positive control."""
     for form in operator_forms(node):
-        for env in ({"a": Operand(), "b": BENIGN}, {"a": BENIGN, "b": Operand()}):
+        for env in ({"a": Operand(), "b": benign}, {"a": benign, "b": Operand()}):
             quiet(lambda: exec(form, {}, dict(env)))  # noqa: B023
             if any(isinstance(v, Operand) and v.fired for v in env.values()):
                 return True
     return False
 
 
-def operator_raised(node):
+def operator_raised(node, benign=BENIGN):
     """The exception types this node's operator raises on derived operands."""
     kinds = set()
     for form in operator_forms(node):
         for value in DERIVED:
-            for env in ({"a": value, "b": BENIGN}, {"a": BENIGN, "b": value}):
+            for env in ({"a": value, "b": benign}, {"a": benign, "b": value}):
                 _value, kind = quiet(lambda: exec(form, {}, dict(env)))  # noqa: B023
                 if kind is not None and kind is not TypeError:
                     kinds.add(kind)
@@ -438,9 +453,16 @@ def integer_shaped(node):
 
     An integer literal, or integer arithmetic over integer literals. A name
     is never integer-shaped: what it holds is provenance, which is the
-    subscript question in `questions.md` Q1."""
+    subscript question in `questions.md` Q1.
+
+    A `bool` counts, and it is the one place this file parts from `count`.
+    `count` excludes `bool` because `True + 1` is a wrong number in a token
+    column; the question here is only whether a transcript could have derived
+    this operand, and a literal `True` no more derives from one than a
+    literal `7` does. Excluding it would refuse `round(True)`, which cannot
+    raise."""
     if isinstance(node, ast.Constant):
-        return isinstance(node.value, int) and not isinstance(node.value, bool)
+        return isinstance(node.value, int)
     if isinstance(node, ast.UnaryOp):
         return integer_shaped(node.operand) and keeps_an_int(node)
     if isinstance(node, ast.BinOp):
@@ -704,6 +726,108 @@ def test_the_unresolved_callees_are_runtime_receivers(module_text, namespace):
     )
 
 
+def test_the_operator_half_is_probed_and_says_what_it_cannot_see():
+    """The operator dimension, with a positive control so its `no` is a
+    measurement rather than an unreachable branch.
+
+    Over numeric operands no binary operator reaches an int through an
+    operand — `//` and `%` build integers out of integers and convert
+    nothing — which is what the walk reports for the module. Sequence
+    repetition does convert, and it is the route a numeric probe cannot see.
+
+    `//` on a huge integer and a float DOES raise, and it is still not a
+    member: what a site raises only matters once it converts, and this is
+    the line between #192's class and the wider one in `questions.md` Q2."""
+    mult = ast.parse("a * b").body[0].value
+    floordiv = ast.parse("a // b").body[0].value
+    assert operator_forms(mult) == ["a * b"]
+    assert operator_forms(floordiv) == ["a // b"]
+    assert not operator_converts(mult)
+    assert not operator_converts(floordiv)
+    assert operator_converts(mult, benign="ab"), (
+        "sequence repetition no longer converts, so the negative answer above "
+        "is an unreachable branch rather than a measurement"
+    )
+    assert operator_raised(mult, benign="ab") == {OverflowError}
+    assert operator_raised(floordiv) == {OverflowError}
+
+
+def test_a_type_error_is_not_a_hazard_the_guard_has_to_cover():
+    """A `TypeError` is the probe's own filler talking, not a hazard.
+
+    Measured: `round(3.0, inf)` raises `TypeError` because `ndigits` has to
+    be an index, so a derived value in that slot says nothing about the
+    conversion — and demanding a guard for it would refuse a site over the
+    probe's choice of filler. That filler cuts the other way too and this is
+    where the limit is stated: with a benign float in an index slot, every
+    call raises `TypeError` first, so a two-argument conversion's hazards
+    come from the slot the probe can still reach."""
+    assert quiet(lambda: round(3.0, float("inf")))[1] is TypeError
+    assert TypeError not in raised_by(round, 2, [])
+    assert raised_by(round, 1, []) == {OverflowError, ValueError}
+
+
+def test_a_call_on_a_literal_receiver_resolves(module_text, namespace):
+    """`" ".join(text.split())` in `load` is a method on a literal.
+
+    The resolver answers for it, because a literal is itself. Left
+    unresolved it would join the residual, and the residual is the set this
+    file promises holds only receivers computed at runtime."""
+    _members, unresolved, _examined = classify(module_text, namespace)
+    literal_receivers = [
+        where
+        for where, node in unresolved
+        if isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Constant)
+    ]
+    assert not literal_receivers, literal_receivers
+    assert any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Constant)
+        for node in ast.walk(ast.parse(module_text))
+    ), "the module no longer calls a method on a literal, so this case is vacuous"
+
+
+def test_the_residual_check_names_a_callee_the_module_binds_nowhere(tmp_path):
+    """The residual check can fail, which is what makes it a check.
+
+    A call through a name the module binds nowhere is the resolver missing
+    something rather than a receiver being a runtime value, and that is the
+    one shape `test_the_unresolved_callees_are_runtime_receivers` refuses."""
+    text = "def under_test(value):\n    return nowhere.convert(value)\n"
+    _members, unresolved, _examined = classify(
+        text, namespace_of_source(text, tmp_path)
+    )
+    bound = names_bound_inside(ast.parse(text))
+    stray = [
+        where
+        for where, node in unresolved
+        if root_name(node.func) is not None and root_name(node.func) not in bound
+    ]
+    assert stray, "a callee the module binds nowhere was not named"
+
+
+def test_a_callable_that_yields_an_int_without_converting_is_not_a_member(tmp_path):
+    """Both probes have to agree, and this is the half the first one answers.
+
+    A function that answers with an integer without ever consuming its
+    operand as one cannot raise on a derived value, so requiring a guard of
+    it would be a refusal with nothing behind it."""
+    text = (
+        "def bucket(value):\n"
+        "    return 1 if value > 0 else 0\n"
+        "\n\n"
+        "def under_test(mean):\n"
+        "    return [bucket(mean)]\n"
+    )
+    bindings = namespace_of_source(text, tmp_path)
+    assert yields_an_int(bindings["bucket"], 1, [])
+    assert not consumes_an_integer(bindings["bucket"], 1, [])
+    members, _unresolved, _examined = classify(text, bindings)
+    assert not [where for where, _p, _why in members if where.startswith("under_test:")]
+
+
 def test_a_predicate_that_converts_but_answers_a_bool_is_not_a_member(namespace):
     """The third stated residual, kept visible instead of incidental.
 
@@ -752,6 +876,11 @@ GUARD_SHAPES = (
         True,
     ),
     (
+        "a bare except, which covers whatever the conversion raises",
+        "    try:\n        return [round(mean)]\n    except:\n        return [0]",
+        True,
+    ),
+    (
         "an except Exception, which covers both of them",
         "    try:\n        return [round(mean)]\n"
         "    except Exception:\n        return [0]",
@@ -765,6 +894,16 @@ GUARD_SHAPES = (
     (
         "integer arithmetic over literals, still nothing derived",
         "    return [round(7 // 2)]",
+        True,
+    ),
+    (
+        "a boolean literal, which no transcript derived either",
+        "    return [round(True)]",
+        True,
+    ),
+    (
+        "a converter that already guards itself needs no second guard",
+        "    return [safe_int(mean)]",
         True,
     ),
     (
@@ -815,6 +954,21 @@ GUARD_SHAPES = (
         False,
     ),
     (
+        "a predicate on the same operand that is not a finiteness test",
+        "    return [round(mean) if positive(mean) else 0]",
+        False,
+    ),
+    (
+        "a predicate that is falsy for a benign number as well",
+        "    return [round(mean) if never(mean) else 0]",
+        False,
+    ),
+    (
+        "a conversion reached through a keyword argument, guarded",
+        "    return [to_int_kw(value=mean) if math.isfinite(mean) else 0]",
+        True,
+    ),
+    (
         "a try covering only the OverflowError, so a NaN still ends the report",
         "    try:\n        return [round(mean)]\n"
         "    except OverflowError:\n        return [0]",
@@ -837,6 +991,21 @@ PREAMBLE = (
     "\n\n"
     "def sane(value):\n"
     "    return math.isfinite(value)\n"
+    "\n\n"
+    "def positive(value):\n"
+    "    return value > 0\n"
+    "\n\n"
+    "def never(value):\n"
+    "    return False\n"
+    "\n\n"
+    "def to_int_kw(value=1.0):\n"
+    "    return int(value)\n"
+    "\n\n"
+    "def safe_int(value):\n"
+    "    try:\n"
+    "        return int(value)\n"
+    "    except (OverflowError, ValueError):\n"
+    "        return 0\n"
     "\n\n"
 )
 
