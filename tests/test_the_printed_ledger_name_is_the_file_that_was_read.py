@@ -626,7 +626,7 @@ def test_the_refusal_above_can_actually_fail():
     # `pad = " " * len(text[: text.index(header)].rsplit("\n", 1)[-1])`.
     # Round 2's ⬜ 10, deferred rather than fixed because closing it on a fix
     # word would commission a reader for a change nothing needs today.
-    # Verified 2026-09-06 at 4581fe1.
+    # Verified 2026-09-08 against test_the_refusal_above_can_actually_fail@8e0a246a
     shapes = {
         "direct": 'print(f"\\n{os.path.relpath(ledger, root)}")',
         "alias": header
