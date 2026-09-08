@@ -21,10 +21,21 @@ It fails for what the author can always fix:
   malformed   a section that cannot be read. A tolerant parser reports zero
               here, and zero reads as "everything has been closed" — the worst
               available failure, because it is indistinguishable from success
-  fewer rows  a table that lost rows against the base revision, or an
-              `overview.md` that was there and is not (`--baseline REF`)
-  no baseline the ref itself does not resolve. That is exit 2, not a pass:
-              a comparison against nothing is not a comparison
+  fewer rows  a table that lost rows against the base, or an `overview.md`
+              that was there and is not (`--baseline REF`)
+  no baseline the ref itself does not resolve, or it shares no history with
+              HEAD. That is exit 2, not a pass: a comparison against nothing
+              is not a comparison
+
+**The base is the merge base, not the ref's tip.** `--baseline REF` names the
+branch a pull request merges into, and that branch moves: the moment one work
+item squashes into it, every sibling branch cut before that squash has the
+squashed item's `overview.md` at the base and never had it at all. So the ref
+is resolved once, to `git merge-base REF HEAD`, and every read below uses that
+commit. A row present at the fork point and absent here was removed by THIS
+branch, which is the only claim this makes; a row that arrived on the base
+after the fork is not this branch's business. `merge_base` carries what the
+old footing cost (#272).
 
 An item is closed by marking it, never by deleting it: prefix the Item cell
 with the check mark and say in the second cell what closed it. Anything
@@ -466,20 +477,80 @@ def repo_root(path):
     return r.stdout.strip() if r.returncode == 0 else None
 
 
-def resolves(root, ref):
-    """Whether `ref` names a commit in `root`.
+def commit_of(root, ref):
+    """The commit `ref` names in `root`, or None.
 
-    Asked before anything is compared. An unresolvable ref used to make every
-    comparison return "no base version", which is the same silence as a file
-    that is genuinely new — so a CI checkout too shallow to hold the base
-    branch turned the deletion check off and reported success."""
+    One reader for two questions — whether a ref resolves at all, and which
+    commit it is. `resolves` below used to ask rev-parse itself and answer only
+    the first; the second is what `base_label` needs, and asking twice is the
+    duplicated-reader shape `check_text` above spent three review rounds
+    closing."""
     r = subprocess.run(
         ["git", "-C", root, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
         capture_output=True,
         encoding="utf-8",
         errors="replace",
     )
-    return r.returncode == 0
+    if r.returncode != 0:
+        return None
+    return r.stdout.strip() or None
+
+
+def resolves(root, ref):
+    """Whether `ref` names a commit in `root`.
+
+    Asked before anything is compared. An unresolvable ref used to make every
+    comparison return "no base version", which is the same silence as a file
+    that is genuinely new — so a CI checkout too shallow to hold the base
+    branch turned the deletion check off and reported success.
+
+    `chain_check.py` loads this module and calls this by name, which is why it
+    stays a predicate rather than becoming `commit_of` at its call sites."""
+    return commit_of(root, ref) is not None
+
+
+def merge_base(root, ref):
+    """The last commit `ref` and `HEAD` agreed on, or None.
+
+    This is the revision every comparison below reads, and `ref` is not. The
+    baseline a caller passes is the branch the pull request merges into, and
+    that branch MOVES: the moment one work item squashes into it, every
+    sibling branch cut before that squash has the squashed item's `overview.md`
+    at the base and never had it at all. Three of 0.9.2's four branches were
+    refused for exactly that, and the refusal was right about what it measured
+    and wrong about what happened (#272).
+
+    The merge base is the fork point, so a file present there and absent here
+    was removed by THIS branch — which is the only claim this tool makes. A
+    file that arrived on the base after the fork is not this branch's business.
+
+    None for two states, and both are exit 2 rather than a degraded pass:
+    unrelated histories (exit 1, empty output) and a `HEAD` that names no
+    commit (exit 128). A shallow clone whose base ref resolves while their
+    common ancestor sits beyond the graft lands in the first."""
+    r = subprocess.run(
+        ["git", "-C", root, "merge-base", ref, "HEAD"],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if r.returncode != 0:
+        return None
+    return r.stdout.strip() or None
+
+
+def base_label(ref, ref_commit, base):
+    """How a report names the revision it compared against.
+
+    The shortest form that is TRUE, which is one rule and not a special case.
+    Where the merge base IS the ref's own commit the ref names it exactly, and
+    that is the ordinary run: `--baseline HEAD` locally, and CI, whose checkout
+    on a `pull_request` event is the merge of the head into the base. Where the
+    base has moved past the fork, naming the ref alone would send a reader to a
+    commit this run never opened."""
+    if base == ref_commit:
+        return ref
+    return f"the merge-base of {ref} and HEAD ({base[:7]})"
 
 
 def overviews_at(root, ref, prefixes):
@@ -546,9 +617,13 @@ def main(argv=None):
     ap.add_argument(
         "--baseline",
         metavar="REF",
-        help="also fail when a table holds fewer rows than it does at REF, or "
-        "when an overview.md that exists at REF is gone — an item leaves by "
-        "being marked closed, not by the row or the file being deleted",
+        help="the branch this pull request merges into. Also fail when a "
+        "table holds fewer rows than it did where this branch forked from "
+        "REF, or when an overview.md that existed there is gone — an item "
+        "leaves by being marked closed, not by the row or the file being "
+        "deleted. The comparison is against `git merge-base REF HEAD`, so a "
+        "work item squashed into REF after this branch forked is not this "
+        "branch's removal",
     )
     args = ap.parse_args(argv)
 
@@ -568,7 +643,11 @@ def main(argv=None):
     # used to exit 2 saying "nothing was checked", which reads as a bad
     # argument — and in a repository with one work item, deleting a single
     # file is that case.
-    root = None
+    # `base` is the commit every comparison below reads and `named` is how a
+    # report spells it. Resolved ONCE, here, because all three of the reads
+    # below used to take `args.baseline` and a repair applied at any one of
+    # them would leave two arms of one refusal reading two revisions.
+    root = base = named = None
     if args.baseline:
         root = repo_root(real(nearest_existing(args.path[0])))
         if root is None:
@@ -579,7 +658,8 @@ def main(argv=None):
                 file=sys.stderr,
             )
             return 2
-        if not resolves(root, args.baseline):
+        ref_commit = commit_of(root, args.baseline)
+        if ref_commit is None:
             print(
                 f"unverified-check: --baseline {args.baseline} does not resolve "
                 f"in {root} — nothing was compared. A shallow checkout or a "
@@ -588,6 +668,17 @@ def main(argv=None):
                 file=sys.stderr,
             )
             return 2
+        base = merge_base(root, args.baseline)
+        if base is None:
+            print(
+                f"unverified-check: --baseline {args.baseline} and HEAD "
+                f"share no history in {root} — nothing was compared. What "
+                "this asks is what THIS branch removed, and without a commit "
+                "they agree on there is no such question to answer",
+                file=sys.stderr,
+            )
+            return 2
+        named = base_label(args.baseline, ref_commit, base)
         # Every argument is compared against ONE repository, the one the FIRST
         # argument is in. That was always the rule and nothing stated it, so on
         # Windows a second argument on another drive reached `os.path.relpath`
@@ -614,14 +705,14 @@ def main(argv=None):
             for p in missing
             if not overviews_at(
                 root,
-                args.baseline,
+                base,
                 [repo_relative(real(p), root)],
             )
         ]
         if typos:
             print(
                 f"unverified-check: no such path: {typos[0]} — and nothing "
-                f"under it at {args.baseline} either, so there is nothing to "
+                f"under it at {named} either, so there is nothing to "
                 "compare it against",
                 file=sys.stderr,
             )
@@ -646,7 +737,7 @@ def main(argv=None):
         if args.baseline and not errors:
             # An unreadable section returns zero rows, and comparing that zero
             # told the author to restore rows that never left.
-            base_text = show(root, args.baseline, repo_relative(path, root))
+            base_text = show(root, base, repo_relative(path, root))
             if base_text is None:
                 continue
             base_open, base_closed, base_errors = check_text(
@@ -662,7 +753,7 @@ def main(argv=None):
                         "notice",
                         rel,
                         1,
-                        f"not compared: the section at {args.baseline} could "
+                        f"not compared: the section at {named} could "
                         f"not be read ({base_errors[0][1]})",
                     )
                 )
@@ -675,7 +766,7 @@ def main(argv=None):
                         "error",
                         rel,
                         1,
-                        f"{was} rows at {args.baseline}, {now} here. An item leaves "
+                        f"{was} rows at {named}, {now} here. An item leaves "
                         f"this table by being marked {CLOSED} with what closed it, "
                         "never by being deleted",
                     )
@@ -684,7 +775,7 @@ def main(argv=None):
     if args.baseline:
         prefixes = sorted({repo_relative(real(p), root) for p in args.path})
         here = {repo_relative(f, root) for f in files}
-        for rel in overviews_at(root, args.baseline, prefixes):
+        for rel in overviews_at(root, base, prefixes):
             if rel not in here:
                 # Relative to the caller's directory, like every other line
                 # this prints. The two deletion reports used to answer on
@@ -695,7 +786,7 @@ def main(argv=None):
                         "error",
                         display_path(os.path.join(root, rel), cwd),
                         1,
-                        f"present at {args.baseline} and not here. Whatever it "
+                        f"present at {named} and not here. Whatever it "
                         "recorded as unverified left with it — a renamed "
                         "directory reads the same way, and says so out loud "
                         "rather than dropping the rows",
@@ -718,7 +809,7 @@ def main(argv=None):
     )
 
     if uncompared:
-        print(f"\nnot compared against {args.baseline}:")
+        print(f"\nnot compared against {named}:")
         for line in uncompared:
             print(line)
 

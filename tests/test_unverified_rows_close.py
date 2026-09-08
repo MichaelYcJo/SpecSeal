@@ -960,3 +960,177 @@ def test_a_path_on_another_volume_stops_the_run_instead_of_aborting_it(
     assert run([str(d), str(elsewhere), "--baseline", "HEAD"]) == 2
     err = capsys.readouterr().err
     assert "is not in" in err and "another volume" in err, err
+
+
+# --- #272: the baseline is the pull request's base, and the base moves -------
+
+
+def forked(tmp_path, section=CANONICAL):
+    """A repository whose `base` and `work` branches sit on one fork point.
+
+    Checked out on `work`, which is where a feature branch lives. Each case
+    below moves `base` forward the way a release branch does when another work
+    item squashes into it, and then asks what THIS branch removed."""
+    d = tmp_path / "repo"
+    shutil.copytree(_bare_inited_repo_template(), d)
+
+    def git(*a):
+        subprocess.run(["git", "-C", str(d), *a], check=True, capture_output=True)
+
+    p = write(d, section)
+    git("add", "-A")
+    git("commit", "-qm", "the fork point")
+    git("branch", "base")
+    git("switch", "-q", "-c", "work")
+    return d, p, git
+
+
+def squash_a_sibling_into_the_base(d, git, name="1780000001-squashed-sibling"):
+    """What the base branch does when another work item is squashed into it.
+
+    The sibling's `overview.md` is then at the base and was never on this
+    branch at all -- which is the whole of #272."""
+    git("switch", "-q", "base")
+    other = d / "specs" / name
+    other.mkdir(parents=True)
+    (other / "overview.md").write_text(
+        f"# {name} — overview\n\n" + CANONICAL, encoding="utf-8"
+    )
+    git("add", "-A")
+    git("commit", "-qm", "another work item, squashed into the base")
+    git("switch", "-q", "work")
+
+
+def short(d, ref="HEAD"):
+    out = subprocess.run(
+        ["git", "-C", str(d), "rev-parse", ref],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+    )
+    return out.stdout.strip()[:7]
+
+
+def test_a_work_item_squashed_after_the_fork_is_not_this_branchs_removal(
+    tmp_path, capsys
+):
+    """#272, and the case the repair exists for. On 0.9.2 three of four
+    branches met this: the moment one work item squashed into the release
+    branch, every sibling cut before that squash read the squashed item's
+    `overview.md` as rows that left the record. The message was right about
+    what it measured and wrong about what happened -- nothing left, the base
+    moved.
+
+    The merge base is the last commit this branch and the base agreed on, so a
+    file present there and absent here was removed by this branch. A file that
+    arrived on the base after the fork is not this branch's business."""
+    d, _, git = forked(tmp_path)
+    squash_a_sibling_into_the_base(d, git)
+    assert run([str(d), "--baseline", "base"]) == 0
+    out = capsys.readouterr().out
+    assert "left the record" not in out, out
+    assert "squashed-sibling" not in out, out
+
+
+def test_the_moved_base_does_not_excuse_this_branchs_own_deletion(tmp_path, capsys):
+    """The control. Without it the repair is indistinguishable from making the
+    arm inert, which is the direction that loses a real removal.
+
+    Same moved base, and this branch really did delete its own record."""
+    d, p, git = forked(tmp_path)
+    squash_a_sibling_into_the_base(d, git)
+    os.remove(p)
+    assert run([str(d), "--baseline", "base"]) == 1
+    out = capsys.readouterr().out
+    assert "1780000000-work" in out, out
+    # And still only its own: the sibling is not reported alongside it.
+    assert "squashed-sibling" not in out, out
+
+
+def test_a_row_the_base_gained_after_the_fork_is_not_a_deletion(tmp_path, capsys):
+    """The row-count arm reads the base revision too, through
+    `git show <ref>:<path>`, so it is in the same class as the arm the ticket
+    names -- the ticket's own repair section says otherwise, and that is what
+    reading it rather than assuming it settles (questions.md Q1).
+
+    Reachable the moment the base gains a row in THIS branch's overview after
+    the fork: a row closed on the base, or one added there by a later work
+    item."""
+    d, p, git = forked(tmp_path)
+    git("switch", "-q", "base")
+    text = open(p, encoding="utf-8").read()
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(text + "| whether the hooks fire on Windows | the same maintainer |\n")
+    git("add", "-A")
+    git("commit", "-qm", "a third row, on the base")
+    git("switch", "-q", "work")
+    assert run([str(d), "--baseline", "base"]) == 0
+    out = capsys.readouterr().out
+    assert "left the record" not in out, out
+
+
+def test_the_moved_base_does_not_excuse_a_deleted_row(tmp_path, capsys):
+    """The row arm's control, for the same reason as the file arm's."""
+    d, p, git = forked(tmp_path)
+    squash_a_sibling_into_the_base(d, git)
+    text = open(p, encoding="utf-8").read()
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(
+            text.replace(
+                "| whether Windows hooks fire | a maintainer with a Windows machine |\n",
+                "",
+            )
+        )
+    assert run([str(d), "--baseline", "base"]) == 1
+    assert "2 rows at" in capsys.readouterr().out
+
+
+def test_a_moved_base_report_names_the_merge_base_it_compared(tmp_path, capsys):
+    """A refusal is read and acted on, so it names the revision it actually
+    compared against -- in the shortest form that is true. Naming `base` here
+    would send the reader to a commit this run never opened.
+
+    The sibling cases above assert the other half: with `--baseline HEAD`, the
+    ref IS the merge base, so the ref's own name is the true short form and
+    every earlier case still reads `present at HEAD and not here`."""
+    d, p, git = forked(tmp_path)
+    squash_a_sibling_into_the_base(d, git)
+    os.remove(p)
+    assert run([str(d), "--baseline", "base"]) == 1
+    out = capsys.readouterr().out
+    assert f"the merge-base of base and HEAD ({short(d)})" in out, out
+    assert "present at base and not here" not in out, out
+
+
+def test_a_base_that_is_the_merge_base_is_named_by_its_ref_alone(tmp_path, capsys):
+    """The shortest true form, stated as its own case rather than left to the
+    earlier ones. Where the ref's commit IS the merge base -- every local run
+    against `HEAD`, and CI, where the checkout is the merge of the head into
+    the base -- the extra words carry nothing."""
+    d, p, _ = forked(tmp_path)
+    os.remove(p)
+    assert run([str(d), "--baseline", "base"]) == 1
+    out = capsys.readouterr().out
+    assert "present at base and not here" in out, out
+    assert "merge-base" not in out, out
+
+
+def test_a_baseline_that_shares_no_history_with_head_exits_2(tmp_path, capsys):
+    """A comparison against nothing is not a comparison -- the same answer the
+    module already gives for a ref that does not resolve. Without a common
+    commit there is no question of the form "what did THIS branch remove", so
+    there is nothing to degrade to.
+
+    A shallow clone whose base ref resolves while the common ancestor sits
+    beyond the graft lands here too. Both workflows set `fetch-depth: 0`;
+    questions.md Q2 carries the case that does not."""
+    d, _, git = forked(tmp_path)
+    git("switch", "-q", "--orphan", "unrelated")
+    (d / "readme.md").write_text("no commit in common\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-qm", "an unrelated root")
+    git("switch", "-q", "work")
+    assert run([str(d), "--baseline", "unrelated"]) == 2
+    err = capsys.readouterr().err
+    assert "share no history" in err, err
+    assert "nothing was compared" in err, err
