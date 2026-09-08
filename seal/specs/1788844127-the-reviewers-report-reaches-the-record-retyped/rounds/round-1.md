@@ -7,12 +7,12 @@
 | PR | 258 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | test_the_corpus_is_records_only (depth 1); test_a_directory_at_the_record_path_is_refused_as_a_directory (depth 1); test_a_directory_at_the_report_path_is_refused_as_a_directory (depth 1); test_the_warden_is_told_its_report_is_now_scanned_like_any_tracked_file (depth 1) |
 | Needs a fix | yes — 🟡 1 (a third reader judges 20 reports as records while two shipped documents say none does), 🟡 2 (nothing warns the reviewer that its report is now scanned by the identifier rule and the evidence checker), 🟡 3 (nothing carries the report into the commit, and `close` was never weighed as the gate) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -53,12 +53,12 @@ failure to do so as a finding of the first order.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | a third reader of `rounds/` selects records by directory membership, and two shipped documents say none does | `tests/test_a_finding_id_is_a_bare_integer.py:275` | open | executed — the pathspec returns 204 paths, 20 of them reports, and all 20 parse as verdict tables and are judged as records |
-| 🟡 2 | the report is tracked content now and nothing warns the reviewer that the identifier rule and the evidence checker reach it | `agents/warden.md` §Report | open | executed — a report carrying one absolute user path fails `test_no_real_identifiers.py`, and contract §8 asks for exactly that string |
-| 🟡 3 | nothing carries the report into the commit, and `close` — which runs after the record commit by design — was never weighed as the gate | `skills/code-review/SKILL.md` §And commit the record before commissioning the fixes | open | read — `plan.md` and `overview.md` reject a gate in `new` only, for a reason that does not apply to `close` |
-| ⬜ 4 | the acceptance row says `warden.md` "says the write happens in the clone"; it says the opposite | `seal/specs/1788844127-the-reviewers-report-reaches-the-record-retyped/spec.md` | open | read — `agents/warden.md` §Where you work names the repository under review |
-| ⬜ 5 | the spec says the clone rule needed no change; the change is an exception written under that rule | `seal/specs/1788844127-the-reviewers-report-reaches-the-record-retyped/spec.md` | open | read — `plan.md` calls the clone rule "the wall" |
-| ⬜ 6 | a directory at the conventional path is refused as "no report at", which does not say what is there | `skills/code-review/scripts/round_record.py:739` | open | executed — the probe created a directory at the path and read the message back |
+| 🟡 1 | a third reader of `rounds/` selects records by directory membership, and two shipped documents say none does | `tests/test_a_finding_id_is_a_bare_integer.py:275` | **fixed** `1e35d5d` | fixed at 1e35d5d — ``; executed — the pathspec returns 204 paths, 20 of them reports, and all 20 parse as verdict tables and are judged as records |
+| 🟡 2 | the report is tracked content now and nothing warns the reviewer that the identifier rule and the evidence checker reach it | `agents/warden.md` §Report | **fixed** `b76ce68` | fixed at b76ce68 — ``; executed — a report carrying one absolute user path fails `test_no_real_identifiers.py`, and contract §8 asks for exactly that string |
+| 🟡 3 | nothing carries the report into the commit, and `close` — which runs after the record commit by design — was never weighed as the gate | `skills/code-review/SKILL.md` §And commit the record before commissioning the fixes | answered | `--report` defeats a `close` gate. The flag exists so a report can live off the conventional path, `new` records nowhere which path it read, so `close` has nothing to ask and refuses the runs the flag was added for. **Executed** — with the reviewer's paste-ready gate inserted after `close`'s target check, 36 of 41 cases in `tests/test_the_fixes_close_the_record.py` fail, because the suite's own helper writes the report outside the repository and passes `--report` on purpose. A gate that survives it needs `new` to record the path — a new record field, a template section and a checker, which is mechanism a fix pass does not add. Weighed at `b38d694` in `plan.md`; the residual stays in `overview.md` §*Not done* with the orchestrator named |
+| ⬜ 4 | the acceptance row says `warden.md` "says the write happens in the clone"; it says the opposite | `seal/specs/1788844127-the-reviewers-report-reaches-the-record-retyped/spec.md` | answered | corrected at `dd152e8` |
+| ⬜ 5 | the spec says the clone rule needed no change; the change is an exception written under that rule | `seal/specs/1788844127-the-reviewers-report-reaches-the-record-retyped/spec.md` | answered | corrected at `dd152e8` |
+| ⬜ 6 | a directory at the conventional path is refused as "no report at", which does not say what is there | `skills/code-review/scripts/round_record.py:739` | **fixed** `dd152e8` | fixed at dd152e8 — ``; executed — the probe created a directory at the path and read the message back |
 
 ## Paste-ready fixes
 
