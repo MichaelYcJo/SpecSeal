@@ -1637,7 +1637,21 @@ def other_worktrees(repo):
     # fix there is to compare the clone by common git directory
     # (`#shares_the_clone`) and refuse a path that is not a work tree. Filter
     # this list the same way when this function is next opened.
-    # Verified 2026-09-08 at a3bea92.
+    #
+    # Stamped at a commit on the RELEASE branch rather than at the fix pass's
+    # own, because a feature branch squashes and the commit that measured this
+    # stops existing at that merge. #239 holds the class and this was its
+    # second instance; the first turned `release/v0.9.1` red. `other_worktrees`
+    # is identical at `2138c98` and here once comment lines are stripped, so
+    # the release-branch commit carries the state this was measured against.
+    #
+    # PROVISIONAL FORM. `fix/239-a-stamp-names-content-not-a-commit` replaces
+    # `at <sha>` with `against <anchor>@<hash>` and refuses this spelling;
+    # written this way because the check IN THIS TREE refuses that one --
+    # measured 2026-09-08, two cases red in
+    # `tests/test_a_rider_reaches_its_file.py`. Whichever of the two branches
+    # merges second re-stamps this rider in the form its own check reads.
+    # Verified 2026-09-08 at 2138c98.
     here = os.path.realpath(repo)
     found = []
     for line in git(repo, "worktree", "list", "--porcelain").splitlines():
