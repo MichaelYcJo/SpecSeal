@@ -189,9 +189,12 @@ code on `origin/main`, the reads of that directory fall into three groups.
   folder is gone.
 - **Would break on removal, so must change before `settle` lands.**
   `skills/verify/scripts/unverified_check.py --baseline` compares the
-  work-item tree against the base revision and fails for "a file that was
-  there and is gone"; it has to be scoped to work items the pull request
-  touches, or to unmerged ones. `.github/scripts/gather_changelog.py --check`
+  work-item tree against the merge base of the base ref and `HEAD` — the
+  fork point, never the base branch's moving tip (#272) — and fails for "a
+  file that was there and is gone". The merge base does not answer this one:
+  a `settle` commit removes a merged work item's directory relative to the
+  fork point as well, so the arm still refuses. It has to be scoped to work
+  items the pull request touches, or to unmerged ones. `.github/scripts/gather_changelog.py --check`
   finds fragments that never reached `CHANGELOG.md` by reading the
   fragments; after a removal it can only judge by the comment in
   `CHANGELOG.md`. Both are named here so the `settle` item starts from
