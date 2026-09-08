@@ -281,10 +281,20 @@ round has ended and where nobody can ask you what you meant. Name paths
 relative to the repository root, and spell a user path `/Users/x/`.
 
 The evidence checker reads every `.md` under a live work item and asks the
-tree for each compound identifier it finds. A name your report writes that
-the tree does not carry comes back `NOT-IN-TREE` — including a name a
-paste-ready fix proposes to **add**, which by definition is not there yet.
-Write `NAME NOT IN TREE` on that line and it is exempt.
+tree for each backticked name carrying an underscore that it finds in prose.
+A name your report writes that the tree does not carry comes back
+`NOT-IN-TREE`, and writing `NAME NOT IN TREE` on that prose line exempts the
+line.
+
+**A fenced block is already exempt, and marking one up corrupts it.** The
+checker reads a fence as a quotation, which is why a paste-ready fix may
+propose a unit that does not exist yet and say nothing — so the marker never
+goes inside a fence, where the smith would paste it. Where you also name that
+proposed unit in prose, the marker goes on the prose line and nowhere else.
+
+The identifier rule has a second half as well: a real-looking domain outside
+its allowlist fails the same module, so quote a URL only from a host that
+allowlist already carries.
 
 A repository other than this one enforces other things. What generalises is
 the shape: the moment a report stops being chat text, whatever scans the tree

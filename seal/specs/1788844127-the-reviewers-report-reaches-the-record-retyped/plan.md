@@ -66,10 +66,15 @@ cases in `tests/test_the_fixes_close_the_record.py` fail, because the suite's
 own `generate` helper writes the report outside the repository and passes
 `--report` on purpose.
 
-A gate that survives that has to make `new` record the path it read, which is
-a new field in the record, a template section and a checker that reads it —
-mechanism, and a fix pass adds none. The residual is unchanged and stays in
-`overview.md` §*Not done*, with the orchestrator named (round 1 🟡 3).
+A gate that reaches every run has to make `new` record the path it read, which
+is a new field in the record, a template section and a checker that reads it —
+mechanism, and a fix pass adds none. A narrower gate needs none of that:
+guarded on the conventional path actually holding a file, the same refusal
+passes all 41 cases at `b76ce68`, because a run that passed the flag leaves
+that path empty. It buys less — it cannot see a report written elsewhere and
+never committed — and that, rather than the cost, is why it is deferred rather
+than built here. The residual is unchanged and stays in `overview.md`
+§*Not done*, with the orchestrator named (round 1 🟡 3, round 2 ⬜ 8).
 
 ## Alternatives considered
 

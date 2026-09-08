@@ -57,10 +57,15 @@ exists so a report can live elsewhere, `new` records nowhere which path it
 read, and a gate in `close` therefore refuses the runs the flag was added for
 — executed, 36 of 41 cases in `tests/test_the_fixes_close_the_record.py` fail
 with the proposed gate inserted. `plan.md` §*Technical context* carries the
-measurement. **A gate that survives `--report` needs `new` to record the path
-it read, which is a new record field, a template section and a checker.**
-That is a mechanism nobody has decided to build, and whether to open an issue
-for it is the orchestrator's call.
+measurement. **A gate that reaches every run needs `new` to record the path it read, which
+is a new record field, a template section and a checker.** That is a mechanism
+nobody has decided to build. **A narrower gate needs none of it** — guarded on
+the conventional path actually holding a file, the same refusal passes all 41
+cases at `b76ce68`, because a run that passed the flag leaves that path empty.
+What the narrow gate gives up is a report the flag put somewhere else and
+nobody committed, and that is the honest ground for deferring rather than the
+cost (round 2 ⬜ 8). Whether to open an issue for either is the orchestrator's
+call.
 
 **The ticket's smaller version was not built.** It is recorded as the rejected
 alternative in `plan.md`, with what it costs.
