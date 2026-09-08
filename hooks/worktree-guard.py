@@ -1586,6 +1586,36 @@ def guard_worktree_creation(
     # for a missing or separator-only id, so a second test here would be a
     # condition nothing could make false — which is a condition no case can
     # pin.
+    # WHY `silent` AND NOT `ask` FOR A COMPOUND — the argument both entry
+    # points rest on, kept here because a reader of the Bash path will not go
+    # looking at the Agent call site for it.
+    #
+    # A call that is a creation PLUS something else -- an agent with a prompt,
+    # a pipe, a `cd`, a redirection -- is two questions, and the record
+    # answers only the first. Silence is the guard WITHDRAWING ITS OBJECTION,
+    # which is the whole of what the record establishes; whatever the harness
+    # wants to ask about the rest of the command line is not the guard's to
+    # remove, and it is equally not the guard's to ASK. `silent` grants
+    # nothing: this function returns without responding, and the harness's own
+    # permission flow then judges the call on its own terms, so a user's
+    # `permissions.deny` on `Bash(sudo:*)` still fires -- it is simply not a
+    # worktree guard that fires it.
+    #
+    # That is why the bound on the ALLOW is untouched by this. `allow` speaks
+    # FOR the whole tool call and needs `only_creates_a_worktree` behind it;
+    # `silent` speaks for none of it. The eleven shapes measured at `d82a02c`
+    # are what an unbounded allow signs for, and every one of them still
+    # fails that test and still reaches the harness rather than this guard.
+    #
+    # Measured on this repository's 0.9.2 release run: of five worktrees
+    # created, two confirmations were paid here, both because the command
+    # carried a pipe or a `cd` -- shapes the repository's own CLAUDE.md asks
+    # sessions to write, by telling them to batch independent runs into one
+    # call. The rule that shapes the command and the arm that stayed quiet for
+    # it disagreed, and the session paid a stop for following the rule.
+    #
+    # #237's invariant is untouched: the FIRST creation of a session is still
+    # a question. This arm is only reached once a record exists.
     if worktree_consent.granted(top, session_id):
         if consented == "silent":
             return
@@ -1873,7 +1903,12 @@ def judge_creation(command: str, cwd: str, top: str, session_id: str):
         # where the SHELL started, which is what the `walk_command` in `main`
         # was given too. Where the classified segment LANDED is not a starting
         # point -- handing it back would walk the same `cd` twice.
-        consented=("allow" if only_creates_a_worktree(command, cwd) else "ask"),
+        #
+        # `silent` on the else arm, not `ask`: see the `granted` block in
+        # `guard_worktree_creation`, which holds the argument both entry
+        # points now rest on. The bound on the ALLOW is unchanged -- a
+        # compound still never earns one.
+        consented=("allow" if only_creates_a_worktree(command, cwd) else "silent"),
     )
 
 
@@ -1929,12 +1964,12 @@ def main():
             user_ok=False,
             session_id=data.get("session_id", ""),
             single_stream="ask",
-            # Silent rather than `allow`, where the Bash path allows. This call
-            # is a worktree creation PLUS an agent with a prompt, and the record
-            # is about the first half only; silence is the guard withdrawing
-            # its objection, which is the whole of what the record establishes.
-            # Whatever the harness wants to ask about running the agent is not
-            # the guard's to remove. The record itself is shared with the Bash
+            # Silent rather than `allow`: this call is a worktree creation
+            # PLUS an agent with a prompt, and the record is about the first
+            # half only. The argument in full now lives on the `granted` block
+            # in `guard_worktree_creation`, where the Bash path reads it too --
+            # it used to sit only here, which is the one place a reader of that
+            # path would not look. The record itself is shared with the Bash
             # path in both directions -- this path writes one too -- because it
             # is the same decision arriving through a different tool.
             consented="silent",
