@@ -578,6 +578,49 @@ def hiders_close(reader, text, messages):
     raise Refused(f"{messages[kind]} (line {line}: {seen!r})")
 
 
+def write_record(reader, path, text):
+    """Write a record, once the shared reader can read all of it.
+
+    **This is the one function in this module that opens a file for writing,
+    and that is the completeness argument #182 asks for.** The rule the
+    (copy x hider) grid was reaching for is not about copies at all: every
+    copy the generator makes out of `raw` lands in one artefact, so asking
+    the question of the ARTEFACT answers for every copy path at once -- the
+    three the grid named, the fourth it did not (`inherited_rows`), and a
+    fifth somebody adds next year. The grid's row axis was a list of the
+    sources somebody could see, which is the enumeration-by-reading this
+    release is named for; the destination is one, and it is greppable:
+    `grep -n 'open(' round_record.py` finds every writer, and
+    `tests/test_the_record_is_generated.py` walks the AST for them.
+
+    It closes the cell the `# RIDER:` in `swallowed` left open, too. A
+    comment balanced in the report and half in the record is exactly a record
+    the reader cannot read, and *balance across the slice* asked here needs
+    no knowledge of which slice took the half. Measured at `8114937`: a
+    report whose Grounds cell opens a comment and closes it on the line below
+    is accepted, `new` exits 0, and the record's `## Executed probes`,
+    `## Inherited coordinates` and `## Deferred` each resolve to 0
+    occurrences while standing in the bytes.
+
+    It also reaches what no question asked of an INPUT can: a flag. `cell`
+    refuses a `|` and a newline because either breaks the row, and `<!--`
+    breaks every reader below it -- so `--ran-by 'x <!-- y'` used to write a
+    record whose whole tail was blank.
+
+    **What this gives up, stated rather than left to be found.** A record
+    that legitimately ends inside a hider is refused, and the only way out is
+    to fix the text it was copied from. The bound is that a fenced block is
+    copied WHOLE, so a balanced comment inside one stays balanced here; only
+    a slice can take half, and a slice taking half is the defect. And it is
+    measured rather than argued: all 163 records committed under
+    `seal/specs/*/rounds/round-*.md` were read through both passes at
+    `8114937` and none has an open hider.
+    """
+    hiders_close(reader, text, RECORD_HIDERS)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
 def escape(value):
     """A cell's text with its pipes escaped the way `split_row` unescapes."""
     return value.replace("|", "\\|")
@@ -1342,8 +1385,7 @@ def reach_back(reader, path, n):
         )
     raw[i] = cell(chain.CHECKED_BY, mine)
     ending = "\n" if text.endswith("\n") else ""
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("\n".join(raw) + ending)
+    write_record(reader, path, "\n".join(raw) + ending)
     return (
         f"round-record: set `{chain.CHECKED_BY}` of {os.path.basename(path)} to {mine}"
     )
@@ -1857,8 +1899,7 @@ def new(args):
     if previous is not None:
         reached = reach_back(reader, previous, args.round)
     os.makedirs(rounds, exist_ok=True)
-    with open(target, "w", encoding="utf-8") as f:
-        f.write(text)
+    write_record(reader, target, text)
     print(f"round-record: wrote {os.path.relpath(target, root)}")
     if reached is not None:
         print(reached)
@@ -2808,8 +2849,7 @@ def close(args):
         )
 
     ending = "\n" if text.endswith("\n") else ""
-    with open(target, "w", encoding="utf-8") as f:
-        f.write("\n".join(raw) + ending)
+    write_record(reader, target, "\n".join(raw) + ending)
     counts = {
         w: sum(1 for word, _, _ in fixes.values() if word == w)
         for w in (FIXED, ANSWERED, DEFERRED_WORD)
