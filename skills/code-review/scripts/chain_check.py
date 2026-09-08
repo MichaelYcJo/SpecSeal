@@ -1076,12 +1076,71 @@ def declared_for_this_branch(root, routing):
             f"the commit: {', '.join(sorted(matching))}"
         )
     if not matching:
-        return [], (
-            "this pull request declared neither way, so the review-chain "
-            "check examined nothing. Add seal/specs/<work-item>/routing.md to "
-            "declare."
-        )
+        return [], nothing_declared(root, routing, branch)
     return [matching[0]], ""
+
+
+def local_root(root, routing):
+    """The local-mode root of `root`, or "" when this repository is not in it.
+
+    Local mode is where the root sits under the common git directory and
+    nothing under it is committed (`skills/agent-contract/SKILL.md` §16). The
+    mode is read the way every gate reads it -- from WHERE THE FOLDER IS, with
+    no config key -- so this asks `optin.home_at` and compares its answer with
+    the shared place rather than deciding anything of its own.
+
+    `routing.optin` rather than a second load of that module. `hooks/routing.py`
+    imports it by plain name, so it is already in `sys.modules`, and loading it
+    again under a name of our own would leave two module objects answering one
+    question -- which is the split this file keeps closing elsewhere.
+    """
+    optin = routing.optin
+    # One `rev-parse --git-common-dir` for both readers. The same two calls in
+    # `hooks/mode-gate.py#marker_dir` cost that gate a `git` process on every
+    # Bash call; here it is once per check, and the shape is the same one.
+    common = optin.git_common_dir(root)
+    home = optin.home_at(root, common)
+    if not home:
+        return ""
+    shared, _local = optin.home_paths(root, common)
+    return "" if os.path.realpath(home) == os.path.realpath(shared) else home
+
+
+def nothing_declared(root, routing, branch):
+    """Why no committed declaration names `branch` — and where it was looked for.
+
+    Two states used to print one sentence, and the sentence was written for
+    only one of them. A shared-mode repository with no declaration is told to
+    write the file, which is right. A LOCAL-MODE repository was told the same
+    thing about a file it already had, at
+    `<git-common-dir>/seal/specs/<id>/routing.md`, because nothing there is
+    committed and this check reads what git carries. A false *no declaration*
+    is indistinguishable from a real one, and that distinction is the only
+    thing the gate gives (#225).
+
+    What does NOT change is the verdict. Naming the root does not turn an
+    untracked declaration into a checked one: `tracked_declarations` reads
+    HEAD on purpose, because CI sees nothing else, and reading the working
+    tree here would make the local run more permissive than the place this
+    actually runs. `spec.md` §*The sharp question* holds the argument.
+    """
+    home = local_root(root, routing)
+    if home:
+        return (
+            f"this repository keeps its root at {home} — local mode, where "
+            "nothing under the root is committed. So no routing declaration "
+            f"for `{branch}` can be read from what git carries, and the "
+            "review-chain check examined nothing. That is local mode's trade "
+            "rather than a missing file: the pull-request checks read "
+            "committed files. `seal mode shared` moves the root into the tree "
+            "and gets them running."
+        )
+    return (
+        "this pull request declared neither way, so the review-chain check "
+        f"examined nothing. Nothing git carries under `{routing.WORK_ITEMS}/` "
+        f"declares `{branch}`. Add {routing.WORK_ITEMS}/<work-item>/"
+        f"{routing.FILENAME} to declare."
+    )
 
 
 def is_ancestor(root, sha, ref):
