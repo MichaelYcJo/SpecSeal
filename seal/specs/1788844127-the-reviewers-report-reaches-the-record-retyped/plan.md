@@ -54,6 +54,23 @@ report was considered and left out: `new` runs before the record is committed
 by design (`skills/code-review/SKILL.md` §*And commit the record before
 commissioning the fixes*), so it would refuse every correct run.
 
+**`close` was weighed as the gate in round 1's fix pass, and it fails the same
+way.** It runs after the record's own commit, so the timing objection above
+does not reach it and the reviewer was right to ask. What defeats it is
+`--report`. That flag exists so a report can live somewhere other than the
+conventional path — `report_path`'s own docstring names two callers who need
+it — and `new` records nowhere which path it read, so `close` has nothing to
+ask. A gate there refuses the runs the flag was added for. Executed at
+`b76ce68`: with the gate inserted after `close`'s `target` check, 36 of the 41
+cases in `tests/test_the_fixes_close_the_record.py` fail, because the suite's
+own `generate` helper writes the report outside the repository and passes
+`--report` on purpose.
+
+A gate that survives that has to make `new` record the path it read, which is
+a new field in the record, a template section and a checker that reads it —
+mechanism, and a fix pass adds none. The residual is unchanged and stays in
+`overview.md` §*Not done*, with the orchestrator named (round 1 🟡 3).
+
 ## Alternatives considered
 
 | Approach | Failure scenario | Verdict |

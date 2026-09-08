@@ -51,6 +51,17 @@ directory so `git status` shows them together. Making `round_record.py new`
 refuse an uncommitted report was considered and rejected: `new` runs before
 the record is committed by design, so it would refuse every correct run.
 
+Round 1 🟡 3 asked for `close` instead, which runs after that commit, and the
+fix pass weighed it and answered no. `--report` is what defeats it: the flag
+exists so a report can live elsewhere, `new` records nowhere which path it
+read, and a gate in `close` therefore refuses the runs the flag was added for
+— executed, 36 of 41 cases in `tests/test_the_fixes_close_the_record.py` fail
+with the proposed gate inserted. `plan.md` §*Technical context* carries the
+measurement. **A gate that survives `--report` needs `new` to record the path
+it read, which is a new record field, a template section and a checker.**
+That is a mechanism nobody has decided to build, and whether to open an issue
+for it is the orchestrator's call.
+
 **The ticket's smaller version was not built.** It is recorded as the rejected
 alternative in `plan.md`, with what it costs.
 
