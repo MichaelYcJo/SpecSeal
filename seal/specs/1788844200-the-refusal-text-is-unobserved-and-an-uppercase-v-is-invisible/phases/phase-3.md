@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | (this commit) |
+| Commit | 5b6c533 |
 | Ran by | specseal:smith on claude-opus-5[1m] — the harness's own model identifier; the spawn prompt named none |
 
 ## What this phase was asked
