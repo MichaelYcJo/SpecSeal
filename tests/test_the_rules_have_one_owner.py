@@ -448,8 +448,8 @@ def test_the_flow_opens_the_draft_between_the_build_and_the_rounds():
 GENERATOR_NAMED = {
     PROTOCOL: "The record is written by `round_record.py new` from the reviewer's report",
     WARDEN: (
-        "`round_record.py new` writes the record from this report once the "
-        "orchestrator has verified its findings"
+        "`round_record.py new` writes `round-N.md` from your report once the "
+        "orchestrator has verified your findings"
     ),
     SMITH: "`round_record.py new` sets it on the previous record when the next round posts",
     IMPLEMENT: "`round_record.py new`, run by the review orchestrator; `close` applies the fix table",
