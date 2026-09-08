@@ -48,12 +48,28 @@
   …`, because a user's own `permissions.deny` must not be spoken over by a hook
   reasoning about worktrees.
 
+  The command word has to be the word `git` and not a file whose name ends
+  that way. The test compared basenames, so `./git`, `bin/git`,
+  `/tmp/evil/git`, `~/git` and `*/git worktree add …` were all vouched for —
+  and that allow covers the whole tool call, so one approved creation would
+  have let a session run any executable on the machine by giving it a filename
+  of `git`. `/usr/bin/git worktree add …` now costs one prompt; a wrong deny
+  spends a prompt, a wrong allow signs for a binary nobody identified.
+
   **A creation anywhere in the command is judged before it runs.** The guard
   classified the first segment it could read while the writer records for a
   creation anywhere, so a `git switch` written in front of a creation took the
   decision and the creation was never judged — it ran, and the session held
   consent from that point. The switch ladder keeps every verdict it had, and
-  only its two silent exits now fall through to the creation.
+  its two silent exits now fall through to the creation.
+
+  So does the branch of a choice site that lets the command through. Two of
+  the three concurrency rows kept above the creation deny only **once** per
+  session per direction and ask on every attempt after, so the second `git
+  switch feature/x && git worktree add ../wt f` in a session was answered
+  *Approve — switch branches in this shared tree* — and approving it created
+  the worktree with the creation question never put. The deny keeps its
+  precedence; only the ask yields.
   On the `Agent`/`isolation: "worktree"` path the guard goes silent rather than
   allowing, because that call is a creation *plus* an agent with a prompt and
   the record is about the first half.
