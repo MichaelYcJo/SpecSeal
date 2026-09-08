@@ -198,9 +198,20 @@ shared mode without a question goes looking in a README for the way out.
    workflow file and writing the mode into `seal/config.md` on the way. Say
    so in one line when you create the root, because this question is asked
    once and the person answering it does not yet know what they will want.
-   Do **not** write that config row here: it has no default, an absent one is
-   not an error, and the first `seal mode` fills it in from where the folder
-   actually is.
+
+   **Then record the answer: run `seal mode`, with no argument.** It writes
+   the row from where the folder is, which is where you just put it, and it
+   moves nothing — `seal mode shared` on a root that is already shared works
+   too and answers with the whole switch narrative, which is not what
+   somebody who has just chosen needs to read. The row is not decoration and
+   it is not a default being guessed at: it is the only trace
+   that anybody was asked. Left unwritten, a root somebody chose and a root
+   that appeared because a session followed the preset's routing rule are
+   byte-identical — which is #151, reported from a repository whose review
+   records were committed without the question ever reaching a person.
+   `hooks/mode-gate.py` is what reads the absence, and it stops the next
+   command to ask this same question; running the command here is what keeps
+   the person who just answered from being asked twice.
 2. Say in three lines what you created, that its presence at that place is
    the opt-in, and what each part of the root is for. The layout is invisible
    otherwise: it appears in a diff the user did not request — or, in local
@@ -382,7 +393,8 @@ the prompt.
      a `specs/`-only commit as a chicken-and-egg the design does not have and
      put it to the user twice. The table above says it unambiguously; this
      paragraph is what gets read instead. Name the arm in the sentence when
-     this section is next opened. Verified 2026-08-31 at 9829412. -->
+     this section is next opened.
+     Verified 2026-09-08 against "### 1. Read the spec before the code"@908ef9e0. -->
 
 The declaration is what the commit gate reads, for **either** review answer.
 A work item routed to the chain used to carry "no marker at all", and that was

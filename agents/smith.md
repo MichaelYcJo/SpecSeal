@@ -63,7 +63,7 @@ incorporation. This file only adds what the skill does not carry.
         this work item exists to remove. Do not quiet it by breaking the
         example: shown verbatim is the whole of its value. The trade is Q2 in
         the work item's questions.md, answerable by the repository owner.
-        Verified 2026-08-31 at f1cd65d. -->
+        Verified 2026-09-08 against "## Phases"@cf74ac0c. -->
 
    Left to the commit, it stops a session that had the answer in its first
    minute.
