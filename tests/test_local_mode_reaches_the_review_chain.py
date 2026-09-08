@@ -399,7 +399,7 @@ def test_local_mode_is_told_it_is_local_mode(repo):
     assert code == 0, out
     assert ADD_THE_FILE not in out, out
     assert "local mode" in out, out
-    assert os.path.join(common_dir(repo), "seal") in out, out
+    assert os.path.normpath(os.path.join(common_dir(repo), "seal")) in out, out
     assert "seal mode shared" in out, out
 
 

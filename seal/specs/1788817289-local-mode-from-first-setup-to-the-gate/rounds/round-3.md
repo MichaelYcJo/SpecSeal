@@ -5,7 +5,7 @@
 | Target SHA | 3476579 |
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
-| Broad gate | passed — 2624 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0. `evidence-check` exits 1 on nine rows already deferred to the repository owner, which CI reads as a warning |
+| Broad gate | passed — 2624 passed, 2 skipped locally; `ruff check .` and `ruff format --check .` both exit 0; `evidence-check` exits 1 on nine rows already deferred to the repository owner, which CI reads as a warning. CI's **Windows** leg then failed one case and it was a real defect: `git rev-parse --git-common-dir` answers with `/` on Windows too, so joining `seal` onto it printed `C:/Users/x/repo\.git\seal` — one path spelled two ways, in the gate's question and in chain-check's local-mode sentence. Normalised at the source in `optin.home_paths`, which closes it for all four places that print it |
 | Fixes checked by | no fixes to check |
 | Contract changes | `hooks/optin.py#home_at` `(root)` → `(root, common=None)`; `hooks/mode-gate.py#undeclared` `(root)` → `(root, common=None)`; `hooks/mode-gate.py#marker_dir` `(root, home)` → `(root, home, common=None)` — all defaulted |
 | New units | none |

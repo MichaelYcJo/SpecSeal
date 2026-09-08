@@ -149,7 +149,19 @@ def home_paths(root, common=None):
         return ("", "")
     if common is None:
         common = git_common_dir(root)
-    return (os.path.join(root, HOME), os.path.join(common, HOME) if common else "")
+    # `normpath` on the git-derived half, and it is not tidying. `git
+    # rev-parse --git-common-dir` answers with `/` on Windows as well, so
+    # joining `seal` onto it produced `C:/Users/x/repo\.git\seal` -- one
+    # path spelled two ways, printed to a person in the gate's question and
+    # in chain-check's local-mode sentence. Nothing here hands `home` to
+    # git, so the native spelling is the right one, and normalising at the
+    # source closes it for every caller rather than at each of the four
+    # places that print it. Found by CI's Windows leg on a branch whose two
+    # authors both said Windows was CI's to answer.
+    return (
+        os.path.join(root, HOME),
+        os.path.normpath(os.path.join(common, HOME)) if common else "",
+    )
 
 
 def home_at(root, common=None):
