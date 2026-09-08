@@ -494,13 +494,20 @@ def test_a_live_lease_owner_keeps_its_transcript(repo, tmp_path, monkeypatch):
 def test_a_lease_from_another_host_does_not_retire_a_transcript(
     repo, tmp_path, monkeypatch
 ):
-    """Another machine's pid is not ours to probe, so it is not evidence."""
+    """Another machine's pid is not ours to probe, so it is not evidence.
+
+    The pid here is one that has certainly exited ON THIS host, which is the
+    whole point: only the host check keeps it out of the dead set. An earlier
+    draft used pid 1, which is alive everywhere, so the case passed with the
+    host check deleted — it was pinning nothing."""
     proj = transcripts_for(monkeypatch, tmp_path, repo)
     fresh_transcript(proj / "elsewhere.jsonl")
     write_lease(
         repo,
         "elsewhere",
-        json.dumps({"ts": int(time.time()), "pid": 1, "host": "some-other-host"}),
+        json.dumps(
+            {"ts": int(time.time()), "pid": dead_pid(), "host": "some-other-host"}
+        ),
     )
     idle = idle_minutes(repo)
     assert idle is not None and idle < wg.IDLE_MIN
@@ -566,7 +573,7 @@ def test_dead_session_ids_is_empty_without_a_lease_directory(tmp_path):
     assert wg.dead_session_ids(str(d)) == frozenset()
 
 
-def only_our_own_claude(monkeypatch, fake_pid=424242):
+def only_our_own_claude(monkeypatch, fake_pid=424242, *others):
     """Make the process scan work and find no OTHER session — the incident.
 
     `sessions_in_tree` returns unreliable unless it can spot its own process,
@@ -575,10 +582,11 @@ def only_our_own_claude(monkeypatch, fake_pid=424242):
     a scan that worked, correctly finding nobody else.
     """
     real = wg.subprocess.run
+    listing = "".join(f"{p} claude\n" for p in (fake_pid, *others))
 
     def fake(cmd, *a, **k):
         if list(cmd[:2]) == ["ps", "-axo"]:
-            return subprocess.CompletedProcess(cmd, 0, f"{fake_pid} claude\n", "")
+            return subprocess.CompletedProcess(cmd, 0, listing, "")
         return real(cmd, *a, **k)
 
     monkeypatch.setattr(wg.subprocess, "run", fake)
@@ -627,3 +635,50 @@ def test_an_unprobeable_owner_does_not_retire_a_transcript(repo, tmp_path, monke
     monkeypatch.setattr(wg, "lease_owner_alive", lambda pid: None)
     idle = idle_minutes(repo)
     assert idle is not None and idle < wg.IDLE_MIN
+
+
+def test_a_non_integer_pid_is_never_asked_about(repo, monkeypatch):
+    """The guard clause, pinned where POSIX cannot show it on its own.
+
+    `os.kill` rejects a string pid with TypeError, so on this platform a bad
+    pid falls out anyway and the check looks redundant. It is not: Windows
+    probes with `tasklist /FI "PID eq {pid}"`, where a string interpolates
+    happily and can match a real process. Forcing lease_owner_alive to answer
+    "gone" for anything is what makes the clause the only thing standing
+    between a malformed lease and a retired transcript.
+    """
+    write_lease(
+        repo,
+        "bad-pid",
+        json.dumps(
+            {"ts": int(time.time()), "pid": "424242", "host": socket.gethostname()}
+        ),
+    )
+    monkeypatch.setattr(wg, "lease_owner_alive", lambda pid: False)
+    assert wg.dead_session_ids(str(repo)) == frozenset()
+
+
+def test_a_live_session_is_not_kept_active_by_a_dead_neighbours_transcript(
+    repo, tmp_path, monkeypatch
+):
+    """The same defect on the OTHER call site, which the arm's fix does not
+    reach on its own.
+
+    A live `claude` process sits in the tree with no terminal input for an
+    hour. Its only remaining evidence of work is the project transcript — and
+    that transcript belongs to a neighbour that has exited. Counting it holds
+    the session in `active`, which on the switch path is a hard deny; with the
+    dead session excluded it falls to `idle`, which is a question the user can
+    answer. Never a silent allow either way: the pid is real, so the session
+    stays in one of the two lists.
+    """
+    exited_session(repo, tmp_path, monkeypatch)
+    other = 525252
+    only_our_own_claude(monkeypatch, 424242, other)
+    monkeypatch.setattr(wg, "proc_cwd", lambda pid: str(repo))
+    monkeypatch.setattr(wg, "tty_idle_minutes", lambda pid: 60.0)
+
+    active, idle, reliable = wg.sessions_in_tree(str(repo), "my-session")
+    assert reliable is True
+    assert active == [], f"a dead neighbour's transcript held it active: {active}"
+    assert len(idle) == 1 and idle[0][0] == other
