@@ -1134,3 +1134,73 @@ def test_a_baseline_that_shares_no_history_with_head_exits_2(tmp_path, capsys):
     err = capsys.readouterr().err
     assert "share no history" in err, err
     assert "nothing was compared" in err, err
+
+
+def test_a_scan_path_that_only_the_base_ever_had_is_a_mistyped_argument(
+    tmp_path, capsys
+):
+    """The missing-path arm asks the same `overviews_at` question, so it moves
+    with the other two rather than being left on the tip.
+
+    A path this branch never had, and that the fork point never held either,
+    is a mistyped argument from this branch — whatever the base's tip carries
+    now. Left on the tip it read as a work item this branch had deleted, which
+    is #272 arriving through the third door."""
+    d, _, git = forked(tmp_path)
+    squash_a_sibling_into_the_base(d, git)
+    gone = d / "specs" / "1780000001-squashed-sibling"
+    assert run([str(gone), "--baseline", "base"]) == 2
+    err = capsys.readouterr().err
+    assert "no such path" in err, err
+
+
+def test_a_merge_base_that_answers_with_nothing_is_not_a_comparison(
+    tmp_path, monkeypatch, capsys
+):
+    """`git merge-base` answering exit 0 with an empty line is not a revision,
+    and an empty string reaching `git ls-tree` lists nothing — the silent zero
+    this whole module refuses, reached through the one code path that cannot
+    be driven by a fixture.
+
+    Induced rather than found, the way the `relpath` cases below are, so it
+    runs on every leg. No git this repository requires answers that way; the
+    guard is here because the alternative to a guard is a pass."""
+    d, _, git = forked(tmp_path)
+    squash_a_sibling_into_the_base(d, git)
+    real_run = subprocess.run
+
+    def empty_merge_base(argv, *a, **kw):
+        if isinstance(argv, list) and "merge-base" in argv:
+            return subprocess.CompletedProcess(argv, 0, "\n", "")
+        return real_run(argv, *a, **kw)
+
+    monkeypatch.setattr(uc.subprocess, "run", empty_merge_base)
+    assert run([str(d), "--baseline", "base"]) == 2
+    assert "share no history" in capsys.readouterr().err
+
+
+def test_a_ref_that_resolves_to_nothing_is_a_ref_that_does_not_resolve(
+    tmp_path, monkeypatch, capsys
+):
+    """`commit_of` answers two questions at once — whether the ref resolves and
+    which commit it is — and `chain_check.py` loads it for the first through
+    `resolves`. `rev-parse --verify --quiet` exits 1 for a name it cannot find,
+    so the empty-output guard is reached only by a git that exits 0 and prints
+    nothing, and a mutation loop found it the one branch here no fixture drives.
+
+    Induced, like the merge-base case above and the `relpath` cases below. What
+    it pins is that an empty answer is a refusal rather than a truthy sentinel
+    travelling into `base_label` and out to `chain_check.py` as a resolved
+    ref."""
+    d, _, _ = forked(tmp_path)
+    real_run = subprocess.run
+
+    def empty_verify(argv, *a, **kw):
+        if isinstance(argv, list) and "--verify" in argv:
+            return subprocess.CompletedProcess(argv, 0, "\n", "")
+        return real_run(argv, *a, **kw)
+
+    monkeypatch.setattr(uc.subprocess, "run", empty_verify)
+    assert uc.resolves(str(d), "base") is False
+    assert run([str(d), "--baseline", "base"]) == 2
+    assert "does not resolve" in capsys.readouterr().err
