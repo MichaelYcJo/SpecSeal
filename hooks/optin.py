@@ -149,10 +149,22 @@ def home_paths(root, common=None):
         return ("", "")
     if common is None:
         common = git_common_dir(root)
-    return (os.path.join(root, HOME), os.path.join(common, HOME) if common else "")
+    # `normpath` on the git-derived half, and it is not tidying. `git
+    # rev-parse --git-common-dir` answers with `/` on Windows as well, so
+    # joining `seal` onto it produced `C:/Users/x/repo\.git\seal` -- one
+    # path spelled two ways, printed to a person in the gate's question and
+    # in chain-check's local-mode sentence. Nothing here hands `home` to
+    # git, so the native spelling is the right one, and normalising at the
+    # source closes it for every caller rather than at each of the four
+    # places that print it. Found by CI's Windows leg on a branch whose two
+    # authors both said Windows was CI's to answer.
+    return (
+        os.path.join(root, HOME),
+        os.path.normpath(os.path.join(common, HOME)) if common else "",
+    )
 
 
-def home_at(root):
+def home_at(root, common=None):
     """The `seal/` of the repository at `root`, or "" — for a caller that has
     already resolved the root and should not pay for a second `git` call.
 
@@ -162,6 +174,15 @@ def home_at(root):
     honoured by one arm of a gate and missed by the other — the migration
     config sits inside the root the marker takes back, and a repository
     nobody reviews has nothing to compare against an original either.
+
+    `common` is passed by a caller that needs the common git directory for
+    something else too, so one invocation asks git for it once rather than
+    once per unit that wants it — the same parameter, for the same reason, as
+    `home_paths` above. `hooks/mode-gate.py#main` is that caller: it resolves
+    the root, the opt-in and the marker directory in one pass, and measured
+    2026-09-08 from a linked worktree, where `.git` is a file and the fast
+    path below does not apply, the same `rev-parse --git-common-dir` was
+    running three times on every Bash call.
     """
     if not root:
         return ""
@@ -169,7 +190,8 @@ def home_at(root):
     # existed too: the opt-out below needs the common directory even when the
     # shared root is the answer, so the old fast path never actually skipped
     # it. Hoisting it is what lets the two places be produced in one place.
-    common = git_common_dir(root)
+    if common is None:
+        common = git_common_dir(root)
     # A FILE, which is what this module and `seal/README.md` both say the
     # signal is. `os.path.exists` also accepted a DIRECTORY of that name, and
     # the marker used to sit in a committed directory — so `.specseal/scratch/`

@@ -94,6 +94,7 @@ sys.path.insert(
     0,
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "hooks"),
 )
+import config as repo_config
 import optin
 
 # The manifest's shape. An import refuses a number it does not know rather
@@ -1322,13 +1323,17 @@ def write_members(archive, into):
 # guess (`docs/one-root-by-lifetime.md`, "The opt-in signal is the root
 # itself").
 
-CONFIG = "config.md"
-ROW_ITEM = "Mode"
-
-# The two modes, spelled the way every document in this repository spells
-# them. Read case-insensitively, written lowercase.
-LOCAL, SHARED = "local", "shared"
-MODES = (LOCAL, SHARED)
+# The config table is READ in `hooks/config.py` and WRITTEN here. The reader
+# moved because a `PreToolUse` gate needs the `Mode` row and must not import
+# this file to get it (#151), and these aliases are what keeps the move from
+# becoming a second parser: one implementation, reached by the name each
+# caller already spells. Everything below the writer's own line -- `with_row`,
+# `table_span`, `write_row`, `NEW_CONFIG` -- stays here, because writing the
+# row is this command's job and nothing else does it.
+CONFIG = repo_config.CONFIG
+ROW_ITEM = repo_config.ROW_ITEM
+LOCAL, SHARED = repo_config.LOCAL, repo_config.SHARED
+MODES = repo_config.MODES
 
 # The workflow shared mode installs, as GIT spells a pathspec: forward
 # slashes on every platform. `under()` turns it into a path for this
@@ -1359,11 +1364,9 @@ PLUGIN_ROOT = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")
 )
 
-# The `| Item | Value |` table, read exactly as `templates/parity.md` and the
-# pull-request-language row are read.
-CONFIG_HEADER = re.compile(r"^\|\s*Item\s*\|\s*Value\s*\|\s*$")
-CONFIG_ROW = re.compile(r"^\|\s*(?P<item>[^|]+?)\s*\|\s*(?P<value>[^|]*?)\s*\|\s*$")
-CONFIG_SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
+CONFIG_HEADER = repo_config.CONFIG_HEADER
+CONFIG_ROW = repo_config.CONFIG_ROW
+CONFIG_SEPARATOR = repo_config.CONFIG_SEPARATOR
 
 NEW_CONFIG = """# Repository config
 
@@ -1387,71 +1390,11 @@ def under(root, rel):
     return os.path.join(root, *rel.split("/"))
 
 
-def config_path(home):
-    return os.path.join(home, CONFIG)
+config_path = repo_config.config_path
+config_rows = repo_config.config_rows
 
 
-def config_rows(text):
-    """Every `| Item | Value |` row under the first such header, in order.
-
-    The header and the separator are this table's own furniture ABOVE its
-    first row and somebody else's table BELOW it; any other line ends the
-    table. Both rules are the ones
-    `tests/test_the_pull_request_language_is_the_repositorys.py#items`
-    arrived at over two review rounds, and a second reader that read the
-    table differently would answer a different question about the same file.
-    """
-    found, seen_header = [], False
-    for line in text.splitlines():
-        if not seen_header:
-            if CONFIG_HEADER.match(line):
-                seen_header = True
-            continue
-        if CONFIG_HEADER.match(line) or CONFIG_SEPARATOR.match(line.strip()):
-            if found:
-                break
-            continue
-        match = CONFIG_ROW.match(line)
-        if not match:
-            if found:
-                break
-            continue
-        found.append((match.group("item").strip(), match.group("value").strip()))
-    return found
-
-
-def declared(home):
-    """(kind, value) for the `Mode` row — what the repository SAYS it wants.
-
-      "none"     nothing is declared: no file, no such row, an empty value,
-                 or a file that does not parse as that table. Four spellings
-                 of one state, the same four the pull-request-language row
-                 has for not naming a language
-      "mode"     `local` or `shared`, lowercased
-      "unknown"  a row is there and its value is not a mode — a claim nobody
-                 can act on, which is not the same as no claim
-
-    **There is no default.** Every other item in `config.md` falls back to
-    what every repository got before the row existed; for the mode that is
-    *the folder decides*, so an absent row is filled in from the folder by
-    `seal mode` rather than assumed here. A default of `shared` would report
-    every undeclared local-mode repository as lying.
-    """
-    try:
-        with open(config_path(home), encoding="utf-8") as handle:
-            text = handle.read()
-    except (OSError, ValueError):
-        # Unreadable is one of the four, not a failure: `IsADirectoryError`
-        # and a file this locale cannot decode both land here, and neither is
-        # a reason to stop answering where the folder is.
-        return "none", ""
-    for item, value in config_rows(text):
-        if item == ROW_ITEM:
-            lowered = value.lower()
-            if not lowered:
-                return "none", ""
-            return ("mode", lowered) if lowered in MODES else ("unknown", value)
-    return "none", ""
+declared = repo_config.declared_mode
 
 
 def ending_of(line, fallback):
@@ -1680,6 +1623,35 @@ def other_worktrees(repo):
     and now ask through `git_asked` (#111) — this one is the member of that
     class that is right to.
     """
+    # RIDER: `git worktree list --porcelain` prints the GIT DIRECTORY as the
+    # worktree path for a repository built with `--separate-git-dir`, and for
+    # a bare clone, with no `bare` line on the first to tell it by. Measured
+    # 2026-09-08 against a scratch `--separate-git-dir` repository: this
+    # returns `['<...>/sepgit']`, and `git -C <that> rev-parse --show-toplevel`
+    # answers `fatal: this operation must be run in a work tree`. So `seal
+    # mode` there prints a note calling the git directory another worktree of
+    # this clone. Nothing decides on it and nothing is lost -- the caller at
+    # `mode_switch` only prints -- which is why it was named here rather than
+    # fixed in a round-1 fix pass that had no finding on this function.
+    # `round_record.py#repo_of` had the same reading and DID decide on it; the
+    # fix there is to compare the clone by common git directory
+    # (`#shares_the_clone`) and refuse a path that is not a work tree. Filter
+    # this list the same way when this function is next opened.
+    #
+    # Stamped at a commit on the RELEASE branch rather than at the fix pass's
+    # own, because a feature branch squashes and the commit that measured this
+    # stops existing at that merge. #239 holds the class and this was its
+    # second instance; the first turned the release branch red. `other_worktrees`
+    # is identical at `2138c98` and here once comment lines are stripped, so
+    # the release-branch commit carries the state this was measured against.
+    #
+    # PROVISIONAL FORM. `fix/239-a-stamp-names-content-not-a-commit` replaces
+    # `at <sha>` with `against <anchor>@<hash>` and refuses this spelling;
+    # written this way because the check IN THIS TREE refuses that one --
+    # measured 2026-09-08, two cases red in
+    # `tests/test_a_rider_reaches_its_file.py`. Whichever of the two branches
+    # merges second re-stamps this rider in the form its own check reads.
+    # Verified 2026-09-08 at 2138c98.
     here = os.path.realpath(repo)
     found = []
     for line in git(repo, "worktree", "list", "--porcelain").splitlines():

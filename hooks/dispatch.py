@@ -33,7 +33,7 @@ from contextlib import redirect_stderr, redirect_stdout
 HOOKS = os.path.dirname(os.path.abspath(__file__))
 
 GROUPS = {
-    "pre-bash": ("commit-review-gate.py", "worktree-guard.py"),
+    "pre-bash": ("commit-review-gate.py", "worktree-guard.py", "mode-gate.py"),
     "pre-agent": ("worktree-guard.py", "implementer-mark.py"),
     "pre-skill": ("review-skill-gate.py",),
     "post-bash": (
