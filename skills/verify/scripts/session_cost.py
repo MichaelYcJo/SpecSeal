@@ -22,13 +22,20 @@ What it separates, because each has a different fix:
 Usage:
   session_cost.py <transcript.jsonl>     one transcript
   session_cost.py --latest [DIR]         newest transcript for a repo (default: cwd)
+  session_cost.py --spawns <transcript>  one row per spawn cycle, not one per run
   session_cost.py --json <transcript>    the same numbers, machine-readable
 
 Transcripts live under ~/.claude/projects/<path-with-slashes-as-dashes>/,
 with subagent runs in <session-id>/subagents/. `--latest` searches both.
+
+**Why `--spawns` exists, in one sentence.** Every other segment of a chain is
+a transcript of its own, so its row is the whole file; an orchestrator's
+segments are spawn cycles inside one file, so the whole file is the only row
+it ever had — three segment kinds have bands and this one has none (#145).
 """
 
 import argparse
+import bisect
 import datetime as dt
 import json
 import math
@@ -211,6 +218,46 @@ def message_key(message, row, number):
     return f"row-{number}"
 
 
+# The tools whose duration is somebody else's work. A call to one of these
+# spans an interval this session spent waiting, and the thinking inside it is
+# already the whole of another transcript's row -- so charging it here too is
+# a double count, and it is the one that makes a cumulative reading look like
+# a slow orchestrator (#145).
+#
+# **A name, and `plan.md` chose disclosure over a second signal.** A spawn's
+# `input` also carries `subagent_type`, so a harness renaming the tool could
+# be survived by matching on that field instead. `plan.md`'s failure scenario
+# answers the rename the other way on purpose: the mode names the count it
+# found and refuses to print a table when it found none, rather than
+# defending a shape nobody has seen change. A defence against a rename that
+# has not happened is a defence nothing can test; a count of zero beside the
+# transcript path is a reading somebody can act on.
+DELEGATING = ("Agent",)
+
+
+def spawn_labels(payload):
+    """What a delegating call says it spawned, as strings.
+
+    Read at the block rather than out of the call's `command`. `load` writes
+    a call carrying no `command` field as a JSON dump of its whole input and
+    then collapses the result's whitespace, so recovering `subagent_type`
+    from that string means re-parsing JSON whose string values have already
+    been rewritten. Here the two fields are still the values the harness
+    wrote.
+
+    A field that is not a non-empty string reads as absent, the floor
+    `tool_name` takes one function down: a label this file cannot print is a
+    label that was never there, and the cycle still gets its row. The row is
+    what the reading needs; the name on it is what makes the row easy to
+    read."""
+    labels = {}
+    for field in ("subagent_type", "description"):
+        value = payload.get(field)
+        if isinstance(value, str) and value:
+            labels[field] = value
+    return labels
+
+
 def tool_name(value):
     """A `tool_use` block's `name` as a string, or `?` when it is not one.
 
@@ -289,6 +336,7 @@ def load(path):
                         tool_name(block.get("name")),
                         " ".join(text.split()),
                         turn_key,
+                        spawn_labels(payload),
                     )
                 elif block.get("type") == "tool_result":
                     result_id = block.get("tool_use_id")
@@ -298,7 +346,7 @@ def load(path):
                         else None
                     )
                     if started:
-                        began, tool, text, turn = started
+                        began, tool, text, turn, spawn = started
                         start, end = parse_time(began), parse_time(stamp)
                         if start and end:
                             calls.append(
@@ -308,6 +356,11 @@ def load(path):
                                     "tool": tool,
                                     "command": text,
                                     "turn": turn,
+                                    # Empty for every call that delegated
+                                    # nothing, which is almost all of them.
+                                    # `spawn_cycles` reads it only for the
+                                    # calls `DELEGATING` names.
+                                    "spawn": spawn,
                                 }
                             )
             # Once per message, not once per block: a split message's later
@@ -351,11 +404,39 @@ def strip_pipe(command):
     return re.split(r"\s*\|\s*(?!\|)", command)[0].strip()
 
 
-def analyse(calls, turns):
+def analyse(calls, turns, delegated=()):
+    """The numbers for one call list. `delegated` names the tools whose own
+    duration is somebody else's work.
+
+    **Called without `delegated`, every number below is what it was before
+    `--spawns` existed**, and that is deliberate rather than incidental.
+    Changing what the plain reading prints would make every reading this
+    repository has already published incomparable with the next one, with
+    nothing on the page saying so — which is what #200 and #202 were, and
+    what `plan.md`'s *no existing output changes shape* is protecting.
+
+    So `delegated_s` is 0.0 for the whole-run call, and it means exactly
+    *how much of this window's command time was removed because it ran
+    somewhere else* — nothing was, so it is zero. It is NOT a claim that the
+    run delegated nothing: the `Agent` row of `by_family` is where that
+    question is answered, and a cycle row is where the removal happens.
+
+    What a delegated call goes on counting toward, because the orchestrator
+    really did make it: `calls`, `tools_per_turn`, the turn walk that bounds
+    the model gaps, and its own `by_family` row. What it is kept out of:
+    `command_s`, `slowest`, and the repeat groups. A prompt is not a check,
+    so a prompt re-sent is not a check re-run, and a twenty-minute wait at
+    the top of `slowest` tells a reader something they already know."""
     if not calls:
         return None
     span = (calls[-1]["end"] - calls[0]["start"]).total_seconds()
-    command_time = sum((c["end"] - c["start"]).total_seconds() for c in calls)
+    command_time = delegated_time = 0.0
+    for call in calls:
+        seconds = (call["end"] - call["start"]).total_seconds()
+        if call["tool"] in delegated:
+            delegated_time += seconds
+        else:
+            command_time += seconds
 
     # Model time: the last result of one TURN to the first call of the next.
     # Two calls issued together are one turn — the wait between the first
@@ -388,6 +469,15 @@ def analyse(calls, turns):
     exact, stripped = defaultdict(list), defaultdict(list)
     for call in calls:
         seconds = (call["end"] - call["start"]).total_seconds()
+        if call["tool"] in delegated:
+            # A spawn's `command` is the JSON dump of its whole input, prompt
+            # included, so `family` reads a prompt as a command line -- a
+            # prompt naming `pytest` outside a heredoc classifies as a test
+            # run, and two spawns carrying the same prompt would then read as
+            # a check re-run for a result already in hand. Kept out here
+            # rather than everywhere, because the whole-run reading passes no
+            # `delegated` and must go on printing what it printed before.
+            continue
         if family(call["command"]) not in ("test", "lint/type", "build"):
             continue
         exact[call["command"]].append(seconds)
@@ -421,9 +511,16 @@ def analyse(calls, turns):
                     "command": c["command"][:110],
                 }
                 for c in calls
+                if c["tool"] not in delegated
             ),
             key=lambda d: -d["seconds"],
         )[:8],
+        # The command time this window did not spend: a call whose work ran
+        # in another transcript, removed from `command_s` above and reported
+        # here instead. Zero whenever `delegated` is empty, which is every
+        # whole-run reading -- see the docstring for why that is not the
+        # claim that nothing was delegated.
+        "delegated_s": delegated_time,
         "repeat_exact_s": wasted(exact),
         "repeat_same_work_s": wasted(stripped),
         # The command that cost the most of what the table could not name.
@@ -438,6 +535,160 @@ def analyse(calls, turns):
         "unnamed": (max(unnamed.items(), key=lambda kv: kv[1])[0] if unnamed else ""),
         "context_growth": token_thirds(turns),
     }
+
+
+def spawn_cuts(calls):
+    """The spawns in report order, and the times the run is cut at.
+
+    Ordered by when each report ARRIVED rather than by when its spawn went
+    out, because that is what bounds a cycle. Two agents spawned in one batch
+    report at different times, and the second one's cycle is the window that
+    ends at its report — its own call sits inside the first one's cycle,
+    which is where the orchestrator actually made it.
+
+    The cuts are run through a running maximum so they never go backwards. A
+    harness writing a result before the call it answers gives that call a
+    negative duration, and non-monotone cuts would overlap windows whose
+    whole job is to partition. `share`'s non-positive span is the same shape
+    one reader over, answered the same way: the numbers stay internally
+    consistent instead of the slice inverting."""
+    found = sorted(
+        (c for c in calls if c["tool"] in DELEGATING),
+        key=lambda c: (c["end"], c["start"]),
+    )
+    if not found:
+        return [], []
+    cuts = [min(c["start"] for c in found)]
+    for spawn in found:
+        cuts.append(max(cuts[-1], spawn["end"]))
+    return found, cuts
+
+
+def in_windows(cuts, items, when):
+    """`items` in the `len(cuts) + 1` windows those cuts define.
+
+    Assignment is by ONE instant per item — a call's start, a turn's stamp —
+    which is what makes the windows a partition: every item has exactly one
+    of those and every instant falls in exactly one window. Assigning a call
+    by overlap would put one that outlived a report in two rows, and a sum
+    over the rows would then come out larger than the run."""
+    windows = [[] for _ in range(len(cuts) + 1)]
+    for item in items:
+        windows[bisect.bisect_right(cuts, when(item))].append(item)
+    return windows
+
+
+def spawn_cycles(calls, turns=()):
+    """The run sliced at its spawn cycles, every call in exactly one slice.
+
+    A spawn is an `Agent` `tool_use` block and its result arriving is the
+    report. Cycle *N* ends when report *N* arrives and begins where the row
+    before it ended, so the slices are, in order:
+
+      head      before the first spawn went out — the run's framing
+      cycle 1   the first spawn going out, until its report arrives
+      cycle N   report N-1 arriving, until report N arrives
+      tail      after the last report — the run's closing work
+
+    **Cycle 1 is not the same shape as the others and a reader has to know
+    it.** Cycles 2..N each carry the window in which the orchestrator
+    verified the previous report and framed the next prompt. Cycle 1 carries
+    neither: the run's own start is a boundary a script can take, and the
+    head row is where that work goes. The head printed beside cycle 1 is what
+    keeps the two readable together.
+
+    **What no boundary here can separate**, said here rather than found
+    later: between report N-1 arriving and spawn N going out the orchestrator
+    does two different acts — verifying the report it just took, and framing
+    the next prompt — and no transcript field marks where one ends. The whole
+    window is charged to cycle N, so verifying report N-1 is counted in the
+    cycle after it. That is why a cycle row is read as a band and not as an
+    attribution, and it is the one thing the per-act split (#145's second
+    candidate) would answer.
+
+    The turns are sliced by the same cuts, because `analyse` reads that list
+    for its own denominator: handed the whole run's, a window's calls would
+    be divided by the run's turns. A turn's stamp is the timestamp of the
+    message that sent its calls, so it lands where its calls do."""
+    found, cuts = spawn_cuts(calls)
+    if not found:
+        return []
+    call_windows = in_windows(cuts, calls, lambda c: c["start"])
+    stamped = [(parse_time(stamp), value) for stamp, value in turns]
+    turn_windows = in_windows(
+        cuts,
+        # A stamp that will not parse has no window to fall in. It is dropped
+        # from the denominator rather than charged to a guess, which is the
+        # direction `parse_time` already takes for a call.
+        [t for t in stamped if t[0] is not None],
+        lambda t: t[0],
+    )
+    rows = []
+    for index in range(len(cuts) + 1):
+        if index == 0:
+            labels = {
+                "kind": "head",
+                "cycle": 0,
+                "subagent_type": "",
+                "description": "",
+            }
+        elif index == len(cuts):
+            labels = {
+                "kind": "tail",
+                "cycle": len(found) + 1,
+                "subagent_type": "",
+                "description": "",
+            }
+        else:
+            spawn = found[index - 1].get("spawn") or {}
+            labels = {
+                "kind": "cycle",
+                "cycle": index,
+                "subagent_type": spawn.get("subagent_type", ""),
+                "description": spawn.get("description", ""),
+            }
+        rows.append(
+            {**labels, "window": call_windows[index], "turns": turn_windows[index]}
+        )
+    return rows
+
+
+def measure_cycles(calls, turns):
+    """Every slice's own numbers, from the same `analyse` the whole run uses.
+
+    `found` is the count of spawns, and it is returned even when it is zero
+    because a caller that reads only `rows` cannot tell *this run delegated
+    nothing* from *this file no longer recognises a spawn*. `plan.md`'s
+    failure scenario in six months is the second one, and #200 is what the
+    first reading of an empty table costs.
+
+    `delegated=DELEGATING` is the whole difference between a cycle row and
+    the whole-run row, and it is the point of the mode: the interval an
+    `Agent` call spans is a subagent thinking, already the whole of that
+    subagent's own row.
+
+    A slice with no calls keeps its row with `numbers` at null. A head of
+    nothing is a real reading — the run's first act was a spawn — and
+    dropping the row would stop the rows partitioning the run, which is the
+    one property the sum over them rests on.
+
+    The numbers are NESTED under `numbers` rather than spread beside the
+    labels, because `analyse` already returns a key called `calls` and a row
+    naming its own call count would have to shadow it. Nesting also lets a
+    case assert that a cycle's keys are the whole run's keys, which is what
+    keeps a second meter from being hand-rolled here."""
+    rows = []
+    for row in spawn_cycles(calls, turns):
+        rows.append(
+            {
+                "kind": row["kind"],
+                "cycle": row["cycle"],
+                "subagent_type": row["subagent_type"],
+                "description": row["description"],
+                "numbers": analyse(row["window"], row["turns"], DELEGATING),
+            }
+        )
+    return {"found": len(spawn_cuts(calls)[0]), "rows": rows}
 
 
 def token_thirds(turns):
@@ -800,6 +1051,91 @@ def report(data):
         print("  nothing obvious — the command time is the command's own cost")
 
 
+def cycle_label(row):
+    """A slice's name in the printed table.
+
+    A cycle with no `subagent_type` still gets a name. The label is how a
+    reader tells one row from the next, so `cycle 3  ?` is worth more than a
+    row that reads as a blank."""
+    if row["kind"] == "cycle":
+        return f"cycle {row['cycle']}  {row['subagent_type'] or '?'}"
+    return row["kind"]
+
+
+def report_spawns(spawns, path, total_calls):
+    """One row per spawn cycle, or the count and no table.
+
+    **The refusal is the whole reason this prints a count.** A harness that
+    renames the spawn tool, or spawns arriving through a path that writes no
+    `tool_use` block, would leave this mode reporting zero cycles on a run
+    that had six — and an empty table reads as *this run spawned nothing*,
+    which is #200's failure shape exactly. So the count and the transcript
+    path are printed and the table is not, which is the same repair #200
+    took: say what was found, and do not render a shape that means something
+    else when it is empty."""
+    found, rows = spawns["found"], spawns["rows"]
+    if not rows:
+        print(f"0 spawns found in {path}\n")
+        print(
+            "No `Agent` tool_use block in this transcript, so there is no "
+            "spawn cycle to slice it at."
+        )
+        print(
+            "The count is printed and the table is not: an empty table reads "
+            "as a run that\nspawned nothing, and a run that DID spawn reads "
+            "exactly the same way the moment\na harness stops writing a spawn "
+            "as an `Agent` call."
+        )
+        return
+    print(
+        f"{plural(found, 'spawn')} found, and the run slices into "
+        f"{plural(len(rows), 'row')} — every call in exactly one of them"
+    )
+    print("  head        before the first spawn went out — the run's framing")
+    print("  cycle N     report N-1 arriving until report N arrives, so")
+    print("              verifying report N-1 is charged to cycle N: the row")
+    print("              is a band over two acts, not an attribution to one")
+    print("  tail        after the last report — the run's closing work")
+    print(
+        "\n  "
+        f"{'row':<30}{'span':>8}{'command':>9}{'model':>8}"
+        f"{'delegated':>11}{'calls':>7}{'t/turn':>8}{'gap':>7}"
+    )
+    counted = 0
+    for row in rows:
+        numbers = row["numbers"]
+        if not numbers:
+            # A real reading, not a gap in the table: an empty head means the
+            # run's first act was a spawn. The row stays so the rows go on
+            # partitioning the run.
+            print(f"  {cycle_label(row):<30}     no call in this window")
+            continue
+        counted += numbers["calls"]
+        delegated = numbers["delegated_s"]
+        print(
+            f"  {cycle_label(row):<30}"
+            f"{minutes(numbers['span_s']):>8}"
+            f"{minutes(numbers['command_s']):>9}"
+            f"{minutes(numbers['model_s']):>8}"
+            f"{(minutes(delegated) if delegated else '—'):>11}"
+            f"{numbers['calls']:>7}"
+            f"{numbers['tools_per_turn']:>8.2f}"
+            f"{numbers['gap_mean_s']:>6.0f}s"
+        )
+    # Printed rather than asserted, and printed even when it agrees. The
+    # partition is what the rows rest on, so a reader gets to see it hold
+    # instead of taking this file's word for it.
+    print(
+        f"\n  {plural(counted, 'call')} over the rows above, of "
+        f"{plural(total_calls, 'call')} in the transcript"
+    )
+    described = [r for r in rows if r["kind"] == "cycle" and r["description"]]
+    if described:
+        print("\nwhat each cycle spawned")
+        for row in described:
+            print(f"  {cycle_label(row):<30}{row['description'][:70]}")
+
+
 def newest(directory):
     # `~/.claude/projects` encodes a cwd by replacing every non-alphanumeric
     # character, not just the separator. Replacing `os.sep` alone is right on
@@ -824,6 +1160,7 @@ def main():
     parser.add_argument("transcript", nargs="?")
     parser.add_argument("--latest", nargs="?", const=".", metavar="DIR")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--spawns", action="store_true")
     args = parser.parse_args()
 
     path = args.transcript
@@ -838,6 +1175,20 @@ def main():
 
     calls, turns = load(path)
     timings = analyse(calls, turns)
+    # The orchestrator's own rows. Computed for every reading, because
+    # `questions.md` Q1 puts `spawns` in `--json` beside the existing keys
+    # rather than behind the flag: a reading taken with `--json` and no
+    # `--spawns` would otherwise be missing the one thing this work item
+    # exists to produce.
+    spawns = measure_cycles(calls, turns)
+    if args.spawns and not args.json:
+        # Before the token walk, which this report does not print and which
+        # opens every transcript under the run. A cycle carries no token
+        # count of its own: `load` gives tokens per TURN and the tokens a
+        # spawn spent are in the subagent's own transcript, so a per-cycle
+        # token column would be summing the wrong file.
+        report_spawns(spawns, path, len(calls))
+        return 0
     # The whole run, not the transcript that was named: a token count covering
     # one segment is not comparable with one that covered a run, and #170 asks
     # for the row to be one command rather than one command per transcript.
@@ -850,7 +1201,7 @@ def main():
     tokens = token_totals([path, *subagent_transcripts(path)])
     if timings is None and not tokens["turns"]:
         sys.exit("no tool calls in this transcript")
-    data = {**(timings or {}), "tokens": tokens}
+    data = {**(timings or {}), "tokens": tokens, "spawns": spawns}
     if args.json:
         print(json.dumps(data, indent=2))
     elif timings:
