@@ -216,11 +216,23 @@ def read(body):
         # it reads as a different sentence. The masking is length-preserving,
         # so these offsets index the body as written.
         sentence = " ".join(body[start:end].split())
+        # One warning per unclaimed NUMBER in this segment, not one per
+        # occurrence: `Closes #1 and #2 and #2` is one thing to fix, and the
+        # same annotation printed twice reads as two. Per segment, so the same
+        # number named in two sentences still earns one warning each.
+        #
+        # The candidate is any `#N`, which is what the mention list already
+        # says: a hex colour or a link ending `#22` reads as an issue number
+        # here too, and beside a claim in the same sentence that is a warning
+        # rather than a mention. The alternative -- excluding a `#N` preceded
+        # by a URL character -- is a second syntax to be wrong about.
+        seen = set()
         for m in ISSUE_REF.finditer(text, start, end):
-            if m.group(1) in claimed:
+            if m.group(1) in claimed or m.group(1) in seen:
                 continue
             before = [c for c in here if c[1] < m.start(1)]
             if before:
+                seen.add(m.group(1))
                 warnings.append((before[-1][0], m.group(1), sentence))
     return claimed, mentioned, warnings
 

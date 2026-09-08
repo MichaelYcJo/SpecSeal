@@ -90,6 +90,31 @@ def test_a_hard_wrapped_sentence_is_still_one_sentence():
     assert warned("Closes #11 and\n#22 are both done.") == [("11", "22")]
 
 
+def test_the_same_number_twice_in_one_sentence_is_one_warning():
+    """One warning per unclaimed NUMBER, not per occurrence. The sentence is
+    one thing to fix, and the same annotation printed twice reads as two."""
+    assert warned("Closes #11 and #22, and #22 again.") == [("11", "22")]
+
+
+def test_the_same_number_in_two_sentences_earns_a_warning_each():
+    """The set is per segment. Two sentences that each lose the number are two
+    places the author has to write the keyword."""
+    assert warned("Closes #11 and #22. Closes #33 and #22.") == [
+        ("11", "22"),
+        ("33", "22"),
+    ]
+
+
+def test_a_numeric_url_fragment_beside_a_claim_is_a_warning():
+    """A link ending `#22` reads as an issue number here, which is what the
+    mention list already says. Beside a claim in the same sentence that is a
+    warning rather than a mention -- excluding a `#N` preceded by a URL
+    character would be a second syntax to be wrong about."""
+    assert warned("Closes #11, and https://example.com/x#22 has the rest.") == [
+        ("11", "22")
+    ]
+
+
 def test_the_nearest_claim_is_the_one_named():
     """With two keywords ahead of it, the number the author was reusing is the
     one beside it -- naming the first would send them to the wrong keyword."""
