@@ -5,8 +5,8 @@
 | Target SHA | 2f0dd02 |
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
-| Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Broad gate | passed under round 3 |
+| Fixes checked by | round-3 |
 | Contract changes | comment_blocks → riders_in, region_lines, round-1-report.md, round-1.md, round-2-report.md, round-2.md, pytest |
 | New units | test_a_markdown_heading_naming_the_marker_is_not_a_rider (depth 1); test_the_hasher_reads_a_markdown_heading_the_same_way_the_reader_does (depth 1); test_reverify_says_so_when_only_selects_no_rider (depth 1); test_only_without_a_verb_is_refused_rather_than_ignored (depth 1) |
 | Needs a fix | yes — findings 10 and 11 |

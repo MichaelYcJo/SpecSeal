@@ -1805,7 +1805,13 @@ def main():
     # open is whether the Agent path should be judged by a different rule than
     # counting sessions. Reading a token out of the Agent's prompt was tried
     # and taken back for the reason the comment below gives.
-    # Verified 2026-08-31 against main@7415c477.
+    #
+    # Re-read 2026-09-08 after #237 changed this function: the claim holds.
+    # `single_stream="ask"` is still what the Agent path passes, so nothing is
+    # blocked by it, and the `consented="silent"` #237 added is about a session
+    # that already answered the creation question rather than about the count
+    # this rider is open on.
+    # Verified 2026-09-08 against main@d6d7fd35.
     if tool in ("Agent", "Task"):
         if str(tool_input.get("isolation", "")).lower() != "worktree":
             sys.exit(0)
