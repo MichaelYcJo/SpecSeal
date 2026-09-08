@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 2 |
 | Commit | 1ccfbb9 |
-| Ran by | unknown — the spawn prompt named no model, and a segment must not source this row from its own idea of what it is; the orchestrator fills it |
+| Ran by | `claude-opus-5` — filled by the orchestrator, read from the segment transcript's own message rows. The spawn prompt named no model, which is why the segment could not source this row itself |
 
 ## What this phase was asked
 
