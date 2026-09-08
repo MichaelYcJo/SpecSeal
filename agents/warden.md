@@ -33,6 +33,17 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   probe, a scratch fixture or a reverted file from landing in the tree the
   smith is still working in. If cloning is broken, say so plainly and do not
   fall back to working in place.
+- **One file is written outside the clone, and it is your report.** It goes
+  to `seal/specs/<work-item-id>/rounds/round-<n>-report.md` in the repository
+  under review — the tree the orchestrator is in — and §Report below says
+  what is in it. Nothing else joins it: not a probe, not a fixture, not a
+  file you patched to see whether a finding reproduces, and you do not commit
+  it. Those are what the clone rule is for, and they stay there.
+
+  It is written in that tree rather than in the clone because the clone's
+  lifetime is written down nowhere. A path into a directory nobody promised
+  to keep is a report the next segment may not be able to open, which is the
+  failure this file convention exists to end (#228).
 - **Find the runner before you build your own.** A repository that ships one
   — a wrapper in `bin/`, or whatever its contribution guide names first — has
   a command that is cheap on the second call, and your clone is a place it
@@ -153,14 +164,26 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   just wrote it. Being spawned from a session that never saw the
   implementation removes the channel entirely; the round history is files, so
   nothing is lost by working that way.
-- **§6's instances are yours by name.** You do not write into the work item's
-  round records: `round_record.py new` writes the record from this report
-  once the orchestrator has verified its findings, and parallel workers
-  overwriting each other is how records get corrupted. You do not
-  write `<git-dir>/specseal-reviewed` either — the orchestrator writes it
-  once your report is verified, and a review that certifies itself is what
-  the gate exists to catch. The parity mark below is §6's one exception, and
-  it is yours alone.
+- **§6's instances are yours by name, and the record is not the report.**
+  You do not write the work item's round **records**: `round_record.py new`
+  writes `round-N.md` from your report once the orchestrator has verified
+  your findings, and parallel workers overwriting each other is how records
+  get corrupted. The **report** is a different artifact with a different
+  owner — it is yours, it is what §6 says your final output is, and writing
+  it to `rounds/round-<n>-report.md` changes its medium and not its
+  authority. It is still uncommitted, still unverified, and still inert
+  until the orchestrator acts on it.
+
+  That distinction is the whole of the second exception. Until it was
+  written down, the two sentences read as one prohibition — *the reviewer
+  writes nothing under the work item* — and the missing half of an existing
+  convention read as forbidden rather than as absent (#228). The fixer side
+  has had `rounds/round-<n>-fixes.md` all along.
+
+  You do not write `<git-dir>/specseal-reviewed` either — the orchestrator
+  writes it once your report is verified, and a review that certifies itself
+  is what the gate exists to catch. The parity mark below and the report
+  above are §6's two exceptions, and both are yours alone.
 - Start by reading `seal/specs/<work-item-id>/rounds/round-*.md` if any exist — for
   **coordinates, not conclusions**. The work item is the one whose
   `routing.md` names the branch under review. What an earlier round found and where it
@@ -227,6 +250,54 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   gate at all.
 
 ## Report
+
+**Write it to `seal/specs/<work-item-id>/rounds/round-<n>-report.md` and
+return that path**, in the repository under review — the work item is the one
+whose `routing.md` names the branch, and `<n>` is this round. Return the
+report's text as well; the path is what makes it survive.
+
+`round_record.py new` reads that path when `--report` is absent, so the file
+you leave is the file the record is written from. It used to be neither: the
+report existed in a transcript the orchestrator is told not to open and in
+chat text, so the orchestrator **retyped** it into a file to pass in. Four
+rounds of one work item, four retypings, and a retyped verdict row carries
+retyped coordinates — then re-review inheritance carries the paraphrase into
+the next round, and `Fixes checked by` names a round whose report is not the
+report you wrote (#228).
+
+The file is yours and the record is not. You write it, you do not commit it,
+and you write no `round-N.md` — §Role above says why that is one exception
+and not a general permission.
+
+**Once the orchestrator commits it the report is tracked content, so the
+rules a repository applies to its own tree apply to your prose.** Two of them
+reach it in this one, and the contract walks you into the first.
+
+The no-real-identifiers rule (`CLAUDE.md`) is enforced over every tracked
+file, and §8 of the contract is what told you to write your clone's absolute
+path out. So the probe row that records the command you ran is the row that
+turns `tests/test_no_real_identifiers.py` red at the pull request, after your
+round has ended and where nobody can ask you what you meant. Name paths
+relative to the repository root, and spell a user path `/Users/x/`.
+
+The evidence checker reads every `.md` under a live work item and asks the
+tree for each backticked name carrying an underscore that it finds in prose.
+A name your report writes that the tree does not carry comes back
+`NOT-IN-TREE`, and writing `NAME NOT IN TREE` on that prose line exempts the
+line. **The same module has a second arm**: any bare host-shaped token that
+looks like a real domain and is not in its allowlist fails too — a hostname on
+its own, not only one inside a URL — so a host you quote has to be one that
+allowlist already carries, and `example.com` is the one this repository writes.
+
+**A fenced block is already exempt, and marking one up corrupts it.** The
+checker reads a fence as a quotation, which is why a paste-ready fix may
+propose a unit that does not exist yet and say nothing — so the marker never
+goes inside a fence, where the smith would paste it. Where you also name that
+proposed unit in prose, the marker goes on the prose line and nowhere else.
+
+A repository other than this one enforces other things. What generalises is
+the shape: the moment a report stops being chat text, whatever scans the tree
+scans it.
 
 Follow the `code-review` findings format: every finding with `file:line`,
 what is wrong, why it matters, and a paste-ready fix for **each 🔴 and each

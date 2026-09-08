@@ -1,8 +1,12 @@
 """commit-review-gate, review-history-guard, session-lease — via real stdin."""
 
+import ast
+import importlib.util
+import inspect
 import json
 import os
 import subprocess
+import textwrap
 
 import pytest
 from conftest import (
@@ -269,6 +273,69 @@ def test_history_guard_silent_without_opt_in(repo):
     )
 
 
+def test_an_unbalanced_quote_in_a_piped_gh_command_does_not_stop_the_session():
+    """`gh_segments`' `except ValueError`, which nothing watched.
+
+    `SEG_RE` splits on `|`, so a pipe inside a quoted string leaves a segment
+    whose quoting is unbalanced and `shlex.split` raises `ValueError` on it.
+    The command that does it is an ordinary one — the READ branch's own
+    example piped into `jq`. Without the arm the exception leaves
+    `gh_segments`, passes `main()` unguarded (whose own `try` covers
+    `json.load` alone) and stops the session's Bash call, which is the one
+    thing R5's own argument says must never happen.
+
+    Round 1's 🟡 1, and the same class as T1 and T3 one function over: the
+    arm was found by walking `gh_segments` for `ExceptHandler`, `If` and
+    `While` nodes rather than by reading it. Deleting it left this module at
+    30 passed and all seven modules that reference the hook at 270 passed,
+    exit 0 — the silence that looks exactly like correctness."""
+    guard = load_hook_module("review-history-guard.py", "guard_unbalanced_quote")
+    assert guard.gh_segments("gh pr view 1 --json comments | jq '.c[] | .b'") == [
+        "gh pr view 1 --json comments"
+    ]
+    assert guard.gh_segments("gh pr merge 1 --squash | tee it's-done.log") == [
+        "gh pr merge 1 --squash"
+    ]
+
+
+@pytest.mark.parametrize(
+    "command,expected",
+    [
+        (
+            "gh pr view 1 --json comments | jq '.c[] | .b'",
+            ["gh pr view 1 --json comments"],
+        ),
+        ("gh pr merge 1 --squash | tee it's-done.log", ["gh pr merge 1 --squash"]),
+        ("gh pr view 1 --json comments\n", ["gh pr view 1 --json comments"]),
+        ("echo hi;", []),
+        ("FOO=bar", []),
+    ],
+)
+def test_no_segment_of_a_bash_command_raises_out_of_gh_segments(command, expected):
+    r"""`gh_segments`' THREE arms whose failure stops a session, not one.
+
+    Round 2's 🟡 1. The fix pass closed `except ValueError` on the ground
+    that it was the only survivor of round 1's enumeration whose failure
+    leaves the hook — and the two `i < len(toks)` guards do the same, for a
+    different input. `SEG_RE` splits on `\n` as well as on `|`, so ANY
+    multi-line Bash command leaves a trailing empty segment whose token list
+    is empty; both guards are what keeps `toks[i]` off it. Deleting either
+    left this module at 33 passed, exit 0, while the hook fed a real
+    PostToolUse payload exited 1 with `IndexError: list index out of range`
+    — out of a hook and into the session's Bash call, the one thing this
+    file's own docstring says must never happen.
+
+    The parameters are grouped by arm, so a mutation says which one went:
+    the two quoted-pipe commands are the `except ValueError` arm, and the
+    other three are the index guards. Two of those leave a segment whose
+    token list is empty; `FOO=bar` leaves one token, which the
+    env-assignment prefix arm consumes, so `i` reaches `len(toks)` by the
+    other route. Contract §12 — the finding named one instance and the cause
+    produces three."""
+    guard = load_hook_module("review-history-guard.py", "guard_every_segment")
+    assert guard.gh_segments(command) == expected
+
+
 # --- session-lease ---------------------------------------------------------
 
 
@@ -373,7 +440,13 @@ def test_a_real_closing_note_still_silences_the_merge_reminder(repo):
 
 
 @pytest.mark.parametrize(
-    "missing", ["a path that does not exist", "a file with no Python loader"]
+    "missing",
+    [
+        "a path that does not exist",
+        "a file with no Python loader",
+        "a reader that does not parse",
+        "a reader whose own import is missing",
+    ],
 )
 def test_the_guard_falls_back_to_the_raw_text_without_the_reader(tmp_path, missing):
     """§13, and the reason `reader()` returns None instead of raising.
@@ -385,19 +458,64 @@ def test_the_guard_falls_back_to_the_raw_text_without_the_reader(tmp_path, missi
     the real reader — because a defence nobody has run without its platform
     is not verified.
 
-    Two parameters because `reader()` has TWO arms and each takes a
-    different input: an absent path raises `FileNotFoundError` and lands in
-    the `except`, while a file Python has no loader for makes
-    `spec_from_file_location` return None and never raises at all. Measured
-    — with one parameter, deleting the `spec is None` arm left the module
-    green, which is round 2's 🟡 1 one unit over."""
+    **One parameter per arm `reader()` has, and each takes a different
+    input.** The four:
+
+      `except OSError`      an absent path, which raises `FileNotFoundError`
+      `spec is None`        a file Python has no loader for, where
+                            `spec_from_file_location` returns None and never
+                            raises at all
+      `except SyntaxError`  a `.py` reader that exists and does not parse —
+                            a truncated copy of the plugin, or one whose
+                            syntax the running Python is older than (#209)
+      `except ImportError`  a `.py` reader that parses and imports something
+                            this interpreter does not have, which is the
+                            same truncated copy one line further in
+
+    The last two were unwatched: deleting `SyntaxError` from the except
+    tuple, and deleting `ImportError`, each left the whole module green.
+    Without its arm the same input raises out of `reader()`, through
+    `is_closed`, into the hook's `main()` — the one thing this case's own
+    argument says must never happen.
+
+    **`spec.loader is None` is the fifth arm and gets no parameter**, because
+    no file path constructs it. The durable reason is one line of CPython
+    rather than the sweep: `spec_from_file_location` assigns `spec.loader`
+    inside its supported-suffix loop and returns None from that loop's
+    `else`, so a truthy spec with a falsy loader is unreachable for ANY
+    location string — not merely for the ones anybody tried. It is defence
+    in depth, and saying so is the honest close rather than a case that
+    cannot be written.
+
+    The sweep is corroboration and is stated as such, because a sample can
+    only ever say *not these* (round 1's ⬜ 5, and #205 is a ticket about a
+    stated limit standing in for a case). Executed here over 21 inputs:
+    `spec_from_file_location` returns None outright for a directory, a
+    `.txt`, an extensionless file and an empty string, and returns a spec
+    with a real loader for a `.py`, a `.pyc`, a `.so`, a missing `.py` and a
+    DIRECTORY named `x.py`; none of the 21 makes `spec` truthy while its
+    loader is falsy. **The suffix list is per-platform** — on the machine
+    that ran it, `.cpython-314-darwin.so`, `.abi3.so`, `.so`, `.py`, `.pyc`
+    — so the sweep settles one interpreter and one operating system, and
+    contract §13 is the section about resting a defence on a platform.
+
+    Measured — with one parameter, deleting the `spec is None` arm left the
+    module green, which is round 2's 🟡 1 one unit over."""
     guard = load_hook_module("review-history-guard.py", "guard_without_a_reader")
     if missing == "a path that does not exist":
         guard.READER = os.path.join(str(tmp_path), "no_such_reader.py")
-    else:
+    elif missing == "a file with no Python loader":
         other = tmp_path / "reader.txt"
         other.write_text("not python\n", encoding="utf-8")
         guard.READER = str(other)
+    elif missing == "a reader that does not parse":
+        broken = tmp_path / "truncated_reader.py"
+        broken.write_text("def (\n", encoding="utf-8")
+        guard.READER = str(broken)
+    else:
+        half = tmp_path / "half_a_reader.py"
+        half.write_text("import specseal_no_such_module\n", encoding="utf-8")
+        guard.READER = str(half)
     assert guard.reader() is None
     record = tmp_path / "round-1.md"
     record.write_text(
@@ -408,6 +526,29 @@ def test_the_guard_falls_back_to_the_raw_text_without_the_reader(tmp_path, missi
     # hook that raises inside somebody's Bash call.
     assert guard.is_closed([str(record)]) is True
     assert guard.is_closed([str(tmp_path / "nothing.md")]) is True
+
+
+def test_no_records_at_all_is_not_an_unclosed_directory(tmp_path):
+    """`is_closed`'s fourth arm, which nothing watched.
+
+    Found by enumerating the function's arms out of its own source rather
+    than by reading it and listing what stood out — which is how #209 and
+    #210 were both missed for a round. `if not records: return True` stayed
+    green when mutated to `return False`, because `main()` only calls
+    `is_closed` behind `if records` and no case called it with an empty
+    list.
+
+    Defence in depth, like `reader()`'s `spec.loader is None`. Unlike that
+    one it is CONSTRUCTIBLE — the call is one line — so the honest close is
+    a case rather than a sentence saying no input reaches it.
+
+    The direction is what makes it worth a case. Mutated to `return False`,
+    a work item whose `rounds/` directory holds no record reads as one whose
+    rows were never drained, and the pre-merge reminder fires at every merge
+    for the state most work items are in — the noise this hook's own
+    docstring says must stay quiet."""
+    guard = load_hook_module("review-history-guard.py", "guard_with_no_records")
+    assert guard.is_closed([]) is True
 
 
 def test_the_reader_is_what_makes_a_fenced_closing_word_not_count(tmp_path):
@@ -426,17 +567,66 @@ def test_the_reader_is_what_makes_a_fenced_closing_word_not_count(tmp_path):
     assert guard.is_closed([str(plain)]) is True
 
 
-# `readable` is `blank_fences(strip_comments(...))` — TWO passes, and a
-# closing word hidden by either one is not a closing note. Parametrized over
-# both rather than written for one, because round 2's 🟡 1 is exactly the
-# second arm going unwatched while every case and every sentence named the
-# first. A third pass added to the reader later wants a third entry here.
+def reader_blanking_passes(reader):
+    """The passes `readable` composes, read out of `readable`'s own source.
+
+    Derived rather than typed, which is the whole of #210: this list used to
+    be two literals with a comment saying *a third pass added to the reader
+    later wants a third entry here*, and nothing made it want one. A third
+    pass was added to `readable` and the module stayed at 27 passed — a
+    closing word inside an inline code span then read as hidden, `is_closed`
+    returned False, and no case said a word about it.
+
+    `readable` is `blank_fences(strip_comments(text.splitlines()))`, so the
+    passes are the calls it makes by NAME to functions its own module
+    defines. `text.splitlines()` is an attribute call and drops out; a
+    builtin like `list` would have no function on the reader module and
+    drops out too. What survives is what a closing word can be hidden by.
+
+    **Dropping attribute calls is the limit, and it is refused rather than
+    left silent** (round 1's 🟡 2). A pass written as `_SPAN_RE.sub(...)`
+    hides a closing word exactly as well as a named pass and is an
+    `ast.Attribute` call, so this derivation cannot see it: executed, that
+    pass leaves the module at 30 passed, exit 0 while `is_closed` on a
+    record whose only closing word sits in an inline span flips True to
+    False — which is #210 reproduced with the tie in place. It is also the
+    shape #210 and round 3 both used as their example, because a text-level
+    blanker is naturally written as a sub rather than as a line-based
+    function. So an attribute call other than `splitlines` fails here
+    instead of quietly narrowing what the tie compares."""
+    src = textwrap.dedent(inspect.getsource(reader.readable))
+    called = {
+        node.func.id
+        for node in ast.walk(ast.parse(src))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    attrs = {
+        node.func.attr
+        for node in ast.walk(ast.parse(src))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    assert attrs <= {"splitlines"}, (
+        f"`readable` makes an attribute call this derivation cannot see: "
+        f"{sorted(attrs - {'splitlines'})}. A pass written as `_SPAN_RE.sub(...)` "
+        "rather than as a module function hides a closing word just as well and "
+        "leaves the set below unchanged — which is #210 with the tie in place. "
+        "Give the pass a name on the reader module, or teach this function to "
+        "read the shape you used."
+    )
+    return {name for name in called if inspect.isfunction(getattr(reader, name, None))}
+
+
+# One entry per pass `readable` makes, keyed by the pass's own name so the
+# parametrization can be read back out of the reader (`seal/ledger.md` F1's
+# standard, and the case below is where the tie is asserted). `blank_fences`
+# is what a pasted fix needs; `strip_comments` is what a record's own
+# narration needs, and it is the arm that moves real records.
 HIDDEN_CLOSING_WORD = {
-    "a fenced block": (
+    "blank_fences": (
         "```python\ndef close(args):\n    # the fence reads as closed\n"
         "    return 0\n```"
     ),
-    "an HTML comment": (
+    "strip_comments": (
         "<!-- The verifying round for round 1's fixes.\n"
         "     It closed all five and opened three. -->"
     ),
@@ -461,8 +651,25 @@ def test_a_closing_word_a_reader_blanks_is_not_a_closing_note(tmp_path, hider):
 
     *It closed all five* narrates what the round found. It is not a
     statement that the Deferred rows were drained, and the three records it
-    silenced all still have theirs."""
-    guard = load_hook_module("review-history-guard.py", f"guard_{hider.split()[-1]}")
+    silenced all still have theirs.
+
+    **The tie is the first assertion, and it is what makes this a class
+    rather than two literals** (#210, `seal/ledger.md` F1's standard). The
+    parametrization is compared with the passes read out of `readable`'s own
+    source, so a pass added to the reader fails this case instead of
+    arriving unguarded and silent."""
+    guard = load_hook_module("review-history-guard.py", f"guard_{hider}")
+    reader = guard.reader()
+    assert reader is not None, "the tie needs the real reader, not the fallback"
+    assert reader_blanking_passes(reader) == set(HIDDEN_CLOSING_WORD), (
+        "the passes `readable` composes and the keys below have parted. If a "
+        "pass was ADDED, a closing word it hides reads as hidden, `is_closed` "
+        "returns False, and without this assertion nothing goes red — the "
+        "silence looks exactly like correctness; add it to HIDDEN_CLOSING_WORD, "
+        "keyed by its name, with a record that hides its word the way that "
+        "pass hides it. If a pass was RENAMED, re-key its entry rather than "
+        "adding one: an extra key leaves this assertion red."
+    )
     record = tmp_path / "round-1.md"
     record.write_text(
         f"# round 1\n\n{HIDDEN_CLOSING_WORD[hider]}\n\n"
@@ -473,3 +680,56 @@ def test_a_closing_word_a_reader_blanks_is_not_a_closing_note(tmp_path, hider):
         encoding="utf-8",
     )
     assert guard.is_closed([str(record)]) is False
+
+
+def test_a_blanking_pass_written_as_a_sub_is_refused_rather_than_unseen(tmp_path):
+    """The tie's own blind spot, watched (round 1's 🟡 2).
+
+    `reader_blanking_passes` derives the passes from the calls `readable`
+    makes to `ast.Name` targets, so a pass written as `_SPAN_RE.sub(...)` is
+    an `ast.Attribute` call and never reaches the set the tie compares. The
+    derivation therefore answered the same two names for a reader with three
+    passes, the tie held, and a closing word inside an inline code span
+    began reading as hidden — #210 with the tie in place.
+
+    The refusal is what closes it, and this is the case that watches the
+    refusal. Without the assertion in `reader_blanking_passes` the reader
+    below derives `{'blank_fences'}`, nothing raises, and no case in this
+    repository says a word — which is the same silence the tie itself exists
+    to end, one function further out."""
+    fake = tmp_path / "a_reader_that_blanks_with_a_sub.py"
+    fake.write_text(
+        "import re\n\n"
+        '_SPAN_RE = re.compile(r"`[^`]*`")\n\n\n'
+        "def blank_fences(lines):\n"
+        "    return lines\n\n\n"
+        "def readable(text):\n"
+        '    return blank_fences(_SPAN_RE.sub("", text).splitlines())\n',
+        encoding="utf-8",
+    )
+    spec = importlib.util.spec_from_file_location("specseal_fake_reader", fake)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with pytest.raises(AssertionError, match="attribute call this derivation"):
+        reader_blanking_passes(module)
+
+
+def test_the_ties_message_answers_a_rename_as_well_as_an_addition():
+    """Round 1's ⬜ 6 — the message prescribed the wrong repair for a rename.
+
+    The tie goes red for two different causes and the repairs differ. A pass
+    ADDED wants a new key; a pass RENAMED wants the existing key re-keyed,
+    and adding one leaves three keys against two passes and the assertion
+    still red. Executed: renaming `blank_fences` on the reader turns both
+    parameters red, and adding a third key does not turn them green.
+
+    The message said only *add the pass, keyed by its name*, so a renamer
+    reading it does the one thing that cannot work. This case is why the
+    next edit cannot quietly take the second half back."""
+    src = inspect.getsource(test_a_closing_word_a_reader_blanks_is_not_a_closing_note)
+    assert "RENAMED" in src and "re-key" in src, (
+        "the tie's failure message no longer tells a renamer what to do. It "
+        "goes red for an ADDED pass and for a RENAMED one, and adding a key "
+        "repairs only the first — a renamer who follows that advice ends up "
+        "with three keys against two passes and the case still red."
+    )
