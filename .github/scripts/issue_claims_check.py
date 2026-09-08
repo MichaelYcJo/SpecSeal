@@ -98,7 +98,13 @@ SENTENCE_END = re.compile(r"[.!?;](?=\s|$)")
 # Rule 3. A line that opens a new markdown block ends the segment before it,
 # even with no blank line between them -- consecutive list items are the case
 # that matters, and they are written without one.
-BLOCK_START = re.compile(r"^[ \t]*(?:[-*+>|#]|\d+[.)])")
+#
+# Every marker that CommonMark requires a space after asks for one here. A
+# bare `[-*+>|#]` class reads `#22` at the start of a line as a heading, and
+# `#22` at the start of a line is this defect hard-wrapped -- which is the one
+# thing this module exists to see. `*bold*` opening a line is the same trap
+# one marker over. `>` and `|` take no space in the markdown either.
+BLOCK_START = re.compile(r"^[ \t]*(?:[-*+](?=\s)|\#{1,6}(?=\s|$)|\d+[.)](?=\s)|[>|])")
 
 
 def prose_only(body):
