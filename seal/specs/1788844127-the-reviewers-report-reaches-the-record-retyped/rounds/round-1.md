@@ -6,7 +6,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 258 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | test_the_corpus_is_records_only (depth 1); test_a_directory_at_the_record_path_is_refused_as_a_directory (depth 1); test_a_directory_at_the_report_path_is_refused_as_a_directory (depth 1); test_the_warden_is_told_its_report_is_now_scanned_like_any_tracked_file (depth 1) |
 | Needs a fix | yes — 🟡 1 (a third reader judges 20 reports as records while two shipped documents say none does), 🟡 2 (nothing warns the reviewer that its report is now scanned by the identifier rule and the evidence checker), 🟡 3 (nothing carries the report into the commit, and `close` was never weighed as the gate) |
