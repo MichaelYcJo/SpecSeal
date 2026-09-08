@@ -202,9 +202,25 @@ jobs:
       # in `seal/specs/<id>/survivors.md` with a quote from the standing text
       # and the grounds; the quote is the anchor, so the exemption stops
       # holding once that text changes.
+      #
+      # **It runs on a pull request into a release branch and not on one into
+      # `main`, because the range decides what this check means.** The range
+      # it was calibrated over is a fix pass's — 77 real ones, and the floor of
+      # 1.6 was chosen against that curve. A release pull request's range is
+      # the union of every work item the release carries, which is a range no
+      # fix pass ever writes: the wording one item removed is measured against
+      # four other items' prose, and every one of those items was already
+      # checked at its own pull request. Measured on the release that added
+      # this step: over five work items it reported **72** places, none of them
+      # a survivor of the range that removed the wording. So the union is not
+      # a bigger version of the same question, it is a different one, and the
+      # answer to it here is silence rather than a raised floor.
       - name: wording this branch removed is not still standing elsewhere
         shell: bash
         run: |
+          if [ "${{ github.base_ref }}" = "main" ]; then
+            echo "base is main — a release's range is every work item it carries, which is not a range a fix pass wrote; each of them was checked at its own pull request"; exit 0
+          fi
           # `if`, not `&&`: an unmatched glob leaves the pattern itself as the
           # loop's one value, and whether `set -e` forgives a failing test at
           # the tail of an `&&` list is a rule nobody should have to recall to
