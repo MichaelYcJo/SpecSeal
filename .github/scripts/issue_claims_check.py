@@ -48,7 +48,9 @@ wrong. A segment ends at the first of:
   1. `.`, `!`, `?` or `;` followed by whitespace or the end of the text;
   2. a blank line;
   3. the start of a new markdown block -- a line whose first non-space
-     character is `-`, `*`, `+`, `#`, `>`, `|`, or a `1.`-style list marker.
+     character is `-`, `*`, `+`, `#`, `>`, `|`, or a `1.`-style list marker,
+     and a whole line of `-`, `*`, `_` or `=`, which is a thematic break or a
+     setext underline.
 
 **A single newline is not a boundary.** Every body in this repository is
 hard-wrapped, so one sentence spans lines routinely and `Closes #1 and\\n#2` is
@@ -104,7 +106,25 @@ SENTENCE_END = re.compile(r"[.!?;](?=\s|$)")
 # `#22` at the start of a line is this defect hard-wrapped -- which is the one
 # thing this module exists to see. `*bold*` opening a line is the same trap
 # one marker over. `>` and `|` take no space in the markdown either.
-BLOCK_START = re.compile(r"^[ \t]*(?:[-*+](?=\s)|\#{1,6}(?=\s|$)|\d+[.)](?=\s)|[>|])")
+#
+# The space requirement takes the run-of-three markers OUT of the class, and
+# they have to come back separately: a thematic break and a setext underline
+# are blocks in their own right, and without these four alternatives a claim
+# above a horizontal rule and an unrelated `#N` below it land in one segment
+# and earn a warning -- the false positive this whole design is spending to
+# avoid. They match a WHOLE line only, so `a --- b`, `--` and `= x` are prose.
+BLOCK_START = re.compile(
+    r"^[ \t]*(?:"
+    r"[-*+](?=\s)"
+    r"|\#{1,6}(?=\s|$)"
+    r"|\d+[.)](?=\s)"
+    r"|[>|]"
+    r"|(?:-[ \t]*){3,}\r*$"
+    r"|(?:\*[ \t]*){3,}\r*$"
+    r"|(?:_[ \t]*){3,}\r*$"
+    r"|=+[ \t]*\r*$"
+    r")"
+)
 
 
 def prose_only(body):

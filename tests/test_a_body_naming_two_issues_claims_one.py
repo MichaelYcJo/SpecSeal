@@ -151,6 +151,25 @@ def test_a_table_row_ends_the_segment():
     assert warned("| Closes #11 |\n| #22 |\n") == []
 
 
+@pytest.mark.parametrize("rule", ["---", "***", "___", "==="])
+def test_a_horizontal_rule_ends_the_segment(rule):
+    """A thematic break and a setext underline are blocks of their own, and
+    the space every other marker requires takes all four out of the class. A
+    claim above one and an unrelated number below it are not one sentence, and
+    warning about them is the false positive this check spends everything to
+    avoid."""
+    assert warned(f"Closes #11\n{rule}\n#22 is unrelated.") == []
+
+
+@pytest.mark.parametrize("prose", ["a --- b", "--", "= x", "-x", "#22", "*bold* x"])
+def test_a_run_of_markers_inside_a_line_is_still_prose(prose):
+    """The four break alternatives match a WHOLE line only. Widened to match
+    anywhere, they would take `#22` at the start of a line back out of the
+    segment it belongs to -- which is the defect this module exists to see,
+    hard-wrapped."""
+    assert check.BLOCK_START.match(prose) is None
+
+
 def test_a_number_before_the_keyword_is_not_the_shape():
     """`Part of #11, and this closes #22` is not somebody losing a claim. Only
     a number AFTER the claim is a candidate, and that is where the whole
@@ -182,6 +201,49 @@ def test_an_anchor_is_not_an_issue_number():
 
 def test_a_body_with_no_numbers_says_so():
     assert read("A tidy-up with no ticket behind it.") == ([], [], [])
+
+
+def test_the_document_that_teaches_the_rule_carries_no_instance_of_it():
+    """`docs/issues-and-milestones.md` says a body quoting the failing shape
+    inside a fence or a code span is not an instance of it. This repository's
+    bodies quote its documents routinely, so the section has to hold to that
+    everywhere -- a narrative past-tense keyword is still a keyword, and
+    `KEYWORDS` carries the past tense of all three verbs."""
+    with open(
+        os.path.join(ROOT, "docs", "issues-and-milestones.md"), encoding="utf-8"
+    ) as f:
+        _, _, warnings = read(f.read())
+    assert warnings == [], warnings[0][2] if warnings else ""
+
+
+# --- what a person reads -----------------------------------------------------
+
+
+def test_the_warning_is_written_as_a_job_annotation():
+    """`::warning::` at the start of the line is what makes GitHub render this
+    on the job rather than bury it in the log. Dropping the prefix while
+    tidying the f-string leaves every other case green."""
+    lines = []
+    check.report(*read("Closes #11 and #22"), out=lines.append)
+    annotations = [line for line in lines if line.startswith("::warning::")]
+    assert len(annotations) == 1, lines
+    assert "#11" in annotations[0] and "#22" in annotations[0]
+
+
+def test_the_two_lists_say_what_closes_and_what_does_not():
+    """The author acts on these two lines. A rename that leaves `read()` alone
+    changes what they are told and no case notices."""
+    lines = []
+    check.report(*read("Closes #11 and #22"), out=lines.append)
+    assert lines[0] == "claimed (closed when the release reaches `main`): #11"
+    assert lines[1] == "mentioned only (nothing closes these): #22"
+
+
+def test_a_clean_body_says_so_rather_than_saying_nothing():
+    """Silence reads as a check that did not run."""
+    lines = []
+    check.report(*read("Closes #11"), out=lines.append)
+    assert lines[-1] == "no sentence claims one number and names another beside it"
 
 
 # --- the process contract ----------------------------------------------------
