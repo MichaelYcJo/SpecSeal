@@ -42,6 +42,18 @@ rewrite of the refusal's prose reddens it. That is the intended cost: #179's
 *Done when* makes the text a deliverable, and a case that survives every
 rewording is the case that survived all three deletions here.
 
+> **Corrected by review round 1 — "four pieces joined by three separators" is
+> a reading of the source, and the count it produced is wrong.** `ast.parse`
+> flattens the returned `+` chain to four operands whose first is one
+> `JoinedStr` of three parts: **six** leaves, and the `"\n  "` closing the
+> paragraph is the tail of one of them rather than an element beside it. The
+> approach the table below takes — one assertion per element, each with its own
+> message — is unaffected; what changed is that each element is now read WHOLE,
+> because reading the paragraph at its two ends left 86 characters that no
+> assertion touched. The same round found the other count in this file wrong
+> the same way: **two** documents state what the check refuses, not three, and
+> the alternatives table's #206 row should be read with that number.
+
 ## Alternatives considered
 
 | Approach | Failure scenario | Verdict |
