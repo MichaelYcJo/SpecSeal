@@ -39,6 +39,26 @@ gets a directory and the two todo files do not. Six records beside six other
 files was the worst case measured in the reference implementation, and a
 reader scanning that directory could not tell at a glance which member grows.
 
+**A record is selected by name, never by directory membership.** `rounds/`
+holds whatever an implementation writes beside the records — the reference
+implementation puts three such files there, one per round: the reviewer's
+report, the round paragraph it was spawned with, and the fixer's fix table.
+The diagram above is the protocol's requirement and not an inventory of the
+directory. Three readers in the reference implementation took membership for
+record-ness. Two raised `TypeError` on sorting two `None`s rather than failing
+an assertion. The third took in fifty-three files that were not records —
+three siblings per round, across a corpus of two hundred and four paths —
+counted the twenty of them that happened to parse as verdict tables, and said
+nothing at all. That is the quieter half of the same defect, and the worse
+half: a reader that cannot name a file it does not understand is worse than
+one that refuses it, and a reader that never notices is worse than either.
+
+Those extra files are **implementation, like the parent path**. The protocol
+requires a record; it does not require that anything be written before one,
+and a conforming tool whose reviewer writes `round-N.md` directly needs none
+of them. What is protocol-level is the selection rule above, because without
+it the layout is unreadable.
+
 The directory is **committed** — ignored files do not follow worktrees or
 other machines — and it **outlives the merge**. It is closed, not deleted
 (below).
