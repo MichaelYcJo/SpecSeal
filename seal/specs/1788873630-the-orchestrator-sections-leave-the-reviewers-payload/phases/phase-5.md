@@ -46,6 +46,28 @@ not touch the example, so the rider was re-stamped rather than acted on —
 which is the branch that drifted it saying so, instead of a later branch
 finding a stale stamp with no account.
 
+**The two re-stampers interact, and the order decides whether the tree is
+clean.** `rider_check.py --reverify` writes a new hash into a comment that
+sits INSIDE `agents/smith.md` §Phases, and a ledger row is anchored on that
+same unit — so re-stamping the rider after the ledger reverify drifted the
+row the ledger reverify had just fixed. Caught by re-reading
+`evidence_check --strict`'s exit code at the end rather than by anything
+announcing it. **The rider goes first**: the ledger's anchor covers the unit
+the rider lives in, so the ledger reverify has to be the last of the two.
+
+**And that is how a §1 breach in this session was found.** An earlier run had
+been written `evidence_check … | tail -10; echo "exit=$?"`, which reports the
+pipe's status and printed `exit=0` over a run that exited 2. Contract §1 is
+about exactly that form, in exactly those words. The clean readings in
+`overview.md` are from runs redirected to a file with the code read
+afterwards.
+
+**A note about the move became the sixth instance of what the move
+corrected.** The sentence above first named the old path beside the moved
+heading — the shape five live references had just been fixed out of — and the
+construction that checked those five flagged it. Reworded so the heading and
+the destination are named and the old path is not.
+
 ## What this phase removes
 
 | Removed item | Where it must land |
