@@ -298,6 +298,41 @@ def test_an_unbalanced_quote_in_a_piped_gh_command_does_not_stop_the_session():
     ]
 
 
+@pytest.mark.parametrize(
+    "command,expected",
+    [
+        (
+            "gh pr view 1 --json comments | jq '.c[] | .b'",
+            ["gh pr view 1 --json comments"],
+        ),
+        ("gh pr merge 1 --squash | tee it's-done.log", ["gh pr merge 1 --squash"]),
+        ("gh pr view 1 --json comments\n", ["gh pr view 1 --json comments"]),
+        ("echo hi;", []),
+        ("FOO=bar", []),
+    ],
+)
+def test_no_segment_of_a_bash_command_raises_out_of_gh_segments(command, expected):
+    r"""`gh_segments`' THREE arms whose failure stops a session, not one.
+
+    Round 2's 🟡 1. The fix pass closed `except ValueError` on the ground
+    that it was the only survivor of round 1's enumeration whose failure
+    leaves the hook — and the two `i < len(toks)` guards do the same, for a
+    different input. `SEG_RE` splits on `\n` as well as on `|`, so ANY
+    multi-line Bash command leaves a trailing empty segment whose token list
+    is empty; both guards are what keeps `toks[i]` off it. Deleting either
+    left this module at 33 passed, exit 0, while the hook fed a real
+    PostToolUse payload exited 1 with `IndexError: list index out of range`
+    — out of a hook and into the session's Bash call, the one thing this
+    file's own docstring says must never happen.
+
+    The parameters are grouped by arm, so a mutation says which one went:
+    the two quoted-pipe commands are the `except ValueError` arm, and the
+    three that reduce to an empty token list are the index guards. Contract
+    §12 — the finding named one instance and the cause produces three."""
+    guard = load_hook_module("review-history-guard.py", "guard_every_segment")
+    assert guard.gh_segments(command) == expected
+
+
 # --- session-lease ---------------------------------------------------------
 
 

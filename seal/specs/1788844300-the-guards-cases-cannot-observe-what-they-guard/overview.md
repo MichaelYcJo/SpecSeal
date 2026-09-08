@@ -71,15 +71,19 @@ can only say *not these* and the suffix list it walks is per-platform (contract
 about exactly this kind of stated limit, so it is stated with its evidence
 rather than asserted.
 
-**Eleven more unwatched arms of the same file went to #262 rather than to
-eleven cases.** Round 1 walked all four functions and mutated every arm: 29
+**Nine more unwatched arms of the same file went to #262 rather than to
+nine cases.** Round 1 walked all four functions and mutated every arm: 29
 mutations, 13 red, 16 green, and the 16 re-run against the 270 cases of all
-seven modules that reference the hook turned 2 red. One of the fourteen
-survivors is fixed here — `gh_segments`' `except ValueError`, the only one
-whose failure stops a session's Bash call — and two are behaviour-preserving.
-The other eleven misfile a reminder rather than stopping anything, and writing
-a case for each closes today's list and not the class. That is #210 one level
-up: a written list of arms rots exactly the way the written list of reader
+seven modules that reference the hook turned 2 red. Three of the fourteen
+survivors are fixed here, all in `gh_segments` and all under one parametrized
+case: `except ValueError`, and the two `i < len(toks)` index guards. Those are
+the three whose failure stops a session's Bash call rather than misfiling a
+reminder — the index guards because `SEG_RE` splits on a newline, so any
+multi-line command leaves an empty token list for `toks[i]` to fall off. Two
+more survivors are behaviour-preserving. The nine that remain misfile a
+reminder rather than stopping anything, and writing a case for each closes
+today's list and not the class. That is #210 one level up: a written list of
+arms rots exactly the way the written list of reader
 passes did, so the durable close is a checker that derives the arms and mutates
 them. A fix pass may add the unit that pins a finding and may not add
 mechanism, which is why it is an issue.
