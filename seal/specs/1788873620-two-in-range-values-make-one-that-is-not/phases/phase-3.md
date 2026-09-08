@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 3 |
 | Commit | ae0c238 |
-| Ran by | `claude-opus-5` — filled by the orchestrator, read from the segment transcript's own message rows. The spawn prompt named no model, which is why the segment could not source this row itself |
+| Ran by | smith on `claude-opus-5[1m]` — the spawn prompt named no model. The segment's own harness line is the source; the transcript's `message.model` rows carry the bare id `claude-opus-5`, the same model without the context-window marker |
 
 ## What this phase was asked
 
