@@ -34,6 +34,13 @@ outrank this file; cite them, don't restate. -->
 > one `JoinedStr` of three parts. And **two** documents state what the check
 > refuses, not three — `docs/flow.md:30` describes the equality check #179
 > replaced, so it names the ticket rather than the check.
+>
+> **This reaches the acceptance table below as well** (round 2 ⬜ 8). Its rows
+> still say *builds its four pieces* and *any one of the three separators*,
+> which is the same reading of the source. Every one of those rows is
+> satisfied — all three separator mutations are caught — so what is superseded
+> is the vocabulary and not the criterion, and the rows are left in the words
+> they were accepted in rather than rewritten under a passed gate.
 
 **Out.**
 

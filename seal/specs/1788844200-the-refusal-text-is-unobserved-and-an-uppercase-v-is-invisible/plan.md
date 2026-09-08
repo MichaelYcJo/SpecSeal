@@ -46,7 +46,12 @@ rewording is the case that survived all three deletions here.
 > a reading of the source, and the count it produced is wrong.** `ast.parse`
 > flattens the returned `+` chain to four operands whose first is one
 > `JoinedStr` of three parts: **six** leaves, and the `"\n  "` closing the
-> paragraph is the tail of one of them rather than an element beside it. The
+> paragraph is the tail of one of them rather than an element beside it. **It
+> reaches every use of that vocabulary in this file, not the #206 row alone**
+> (round 2 ⬜ 8): §*Technical context* above still says *four pieces joined by
+> three separators*, and the alternatives table below still offers *#203 as
+> seven assertions*. Both are the superseded reading; neither changes what the
+> alternatives were weighed against. The
 > approach the table below takes — one assertion per element, each with its own
 > message — is unaffected; what changed is that each element is now read WHOLE,
 > because reading the paragraph at its two ends left 86 characters that no
