@@ -27,11 +27,30 @@ which nothing can schedule.
 
 **What that costs.** Nothing forces a rider to be deleted, so a comment can
 outlive the fix it asked for and the next reader cannot tell a live one from a
-spent one. Each therefore carries the date and SHA it was verified at. The
-judgment is that a rider outliving its fix costs a confused reader for a
-minute, while a rider nobody ever sees costs the defect. **This is written
-down so it can be overturned**: if the stamps go stale faster than they are
-read, the trade was wrong and the list comes back.
+spent one. Each therefore carries **the date it was read and the content it
+was read against** — `Verified <date> against <anchor>@<hash>`, where the
+anchor is the ledger's own: a symbol name, a heading path, or a quoted line,
+resolved in the rider's own file. `.github/scripts/rider_check.py` checks
+every one and `--reverify` re-stamps them; the path the ledger writes is left
+off because a rider IS the coordinate. The judgment is that a rider outliving
+its fix costs a confused reader for a minute, while a rider nobody ever sees
+costs the defect. **This is written down so it can be overturned**: if the
+stamps go stale faster than they are read, the trade was wrong and the list
+comes back.
+
+**A stamp used to name a commit, and this repository's merge rule destroyed
+the commits it had to name** (#239). A fix pass runs on a feature branch, a
+feature branch squashes into its release branch, and the squash keeps none of
+the branch's own commits — so the check failed on the RELEASE branch, where
+whoever met it was never whoever caused it, and no mistake was required
+anywhere. `skills/evidence-check/SKILL.md` already cited that failure as one
+of the four grounds for deriving a ledger anchor from content; this is the
+same repair reaching the mechanism that supplied the evidence.
+
+A drifted rider is **the rider firing**, not a chore: it says somebody edited
+the unit and did not answer the comment sitting in it, which is the arrival
+this whole arrangement is for. Read it, then either do what it asks and delete
+it, or re-stamp.
 
 ## Schedulable items with nowhere else to go
 

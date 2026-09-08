@@ -107,8 +107,8 @@ one, which is what pytest does. The paste-ready fix is below.
 
     RIDER_ROOTS = ["hooks", "skills", "agents", "templates"]
 
-`tests` is not in it. So `test_every_rider_carries_the_date_and_sha_it_was_verified_at`
-and `test_every_rider_stamp_names_a_commit_this_branch_can_reach` never see the
+`tests` is not in it. So `test_every_rider_carries_the_date_and_sha_it_was_verified_at`  <!-- NAME NOT IN TREE -->
+and `test_every_rider_stamp_names_a_commit_this_branch_can_reach` never see the  <!-- NAME NOT IN TREE -->
 rider this branch planted, and the branch's own record asserts *the rider names
 no commit of this branch* as though a check had answered it. I verified the
 stamp by hand and it is correct — that is finding 7 below — but nothing in the

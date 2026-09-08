@@ -1651,7 +1651,7 @@ def other_worktrees(repo):
     # measured 2026-09-08, two cases red in
     # `tests/test_a_rider_reaches_its_file.py`. Whichever of the two branches
     # merges second re-stamps this rider in the form its own check reads.
-    # Verified 2026-09-08 at 2138c98.
+    # Verified 2026-09-08 against other_worktrees@ddf91b71.
     here = os.path.realpath(repo)
     found = []
     for line in git(repo, "worktree", "list", "--porcelain").splitlines():

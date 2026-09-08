@@ -169,7 +169,7 @@ def demote(text, work_item_id):
         # same character at least as long as the opener with nothing after it
         # (`^(`{3,}|~{3,})(.*)$` and `len(run) >= len(fence) and not
         # rest.strip()`), and plant the case beside the tilde test.
-        # Verified 2026-09-02 at 881fb0f.
+        # Verified 2026-09-08 against demote@8f967708.
         elif fence is not None and head.startswith(fence):
             fence = None
         m = None if fence else HEADING_RE.match(line)

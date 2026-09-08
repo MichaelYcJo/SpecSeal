@@ -94,10 +94,17 @@ def test_every_job_that_runs_pytest_has_the_whole_history():
                 offenders.append(f"{name}:{job}")
     assert not offenders, (
         f"jobs that run pytest on a shallow checkout: {offenders}. "
-        "`tests/test_a_rider_reaches_its_file.py` asks git for ancestry, and "
-        "at depth 1 every recorded SHA is missing rather than wrong. The "
-        "ledger's own stamp test is gone with the stamps — a ledger row names "
-        "no commit any more — so the rider stamps are what keeps this needed"
+        "At depth 1 a ref this repository's own records name is MISSING "
+        "rather than wrong, so a case that resolves one skips instead of "
+        "failing — which turns the one checkout setting that voids these "
+        "checks into the setting that silences them. "
+        "`tests/test_the_reopening_is_one.py#"
+        "test_the_whole_check_names_no_earlier_items_record` is the live "
+        "case: it resolves `origin/release/v0.8.1` and skips when it cannot. "
+        "Neither of the two mechanisms that used to be the reason is one any "
+        "more — a ledger row has named no commit since the anchors went to "
+        "content, and a rider stamp has named none since #239, which is also "
+        "why `tests/test_a_rider_reaches_its_file.py` no longer appears here"
     )
 
 

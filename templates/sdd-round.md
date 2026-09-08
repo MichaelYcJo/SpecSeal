@@ -39,7 +39,41 @@ before the rule landed print instead of failing. -->
 
 - [ ] Pass
 
-<!-- `Fixes checked by` is the companion to the box below, and they answer
+<!-- **`Target SHA` names a commit on purpose, and it is exempt from the rule
+that a stamp names content.** This is written here because the question comes
+back: every `# RIDER:` comment in this repository carried a commit SHA until
+#239 moved it to `path#anchor@hash`, on the grounds that a feature branch
+squashes into its release branch and the squash keeps none of the branch's own
+commits. There are 135 of these rows. The next person to notice that should
+find the answer rather than re-open it.
+
+Three grounds, in the order that decides it.
+
+**A round record's SHA already survives the squash and a rider's did not.**
+`chain_check.py#reachable` tries HEAD and the declared branch, then falls back
+to `carried_by_a_pull_head`, which scans `refs/remotes/pull/<N>/head` — the
+local mirror of the namespace GitHub writes for every pull request, fetched by
+`.github/workflows/hygiene.yml`, because a default clone carries none of it.
+Nothing but a pull request writes it and a squash does not touch it, so the
+commit a feature branch's round reviewed stays reachable there. The rider check
+had one call, `git merge-base --is-ancestor <sha> HEAD`, and no fallback. The
+two were never the same mechanism with a different corpus.
+
+Run the mirror rather than the remote name when checking this: `git
+for-each-ref 'refs/pull/*/head'` returns nothing in a working clone, and
+reading that as the ground being false is what put this correction here.
+
+**They are different objects.** This row records a MOMENT — *this round
+reviewed this tree*. A rider stamp is a live pointer — *the claim below is
+measured against the state under it*. `skills/implement/SKILL.md` turns that
+difference into the reason round records may sit beside the contract at all:
+a round record carries the SHA it reviewed, so it never asserts a present
+state. Re-anchoring it to content would make it assert one.
+
+**Content anchoring has no target here.** The reviewed tree is a whole commit
+across every file, not a region of one. There is no anchor to write.
+
+`Fixes checked by` is the companion to the box below, and they answer
 different questions. `Pass` says no finding in this round's table is still
 open. This says who opened the work that closed them, and it takes three
 values and nothing else:
