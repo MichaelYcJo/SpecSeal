@@ -1235,3 +1235,368 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     assert other.returncode == 0, other.stderr
     assert "every call shares one timestamp" in other.stdout, other.stdout
     assert "the last call to begin" not in other.stdout, other.stdout
+
+
+# --- #193: a third the file could not compute is not a baseline -------------
+
+
+def test_a_charged_third_is_not_a_baseline_the_context_line_multiplies(tmp_path):
+    """`token_thirds` charges 0 for a mean it cannot compute, and the context
+    line took that 0 for a measurement.
+
+    The threshold is a multiple of the FIRST third, so any positive last third
+    clears a threshold of zero. A transcript whose first third overflowed and
+    whose last third is ordinary printed `0 -> 10 input tokens; later calls
+    cost more than the same call would have earlier` — the input had collapsed
+    by 307 orders of magnitude and the line said it grew.
+
+    Which direction the reader was told depended on which third overflowed,
+    which is why both are here: with the charged third LAST the line is
+    suppressed, and that arm was already correct and must stay so.
+
+    Exit 0 throughout. This is the wrong-number direction rather than the
+    ended-report one, which is why nothing above it caught it."""
+    for name, odd_index in (("first-third", 0), ("last-third", 5)):
+        lines = []
+        for n in range(6):
+            usage = (
+                {"input_tokens": TOP_FLOAT, "cache_read_input_tokens": TOP_FLOAT}
+                if n == odd_index
+                else {"input_tokens": 10}
+            )
+            lines += turn_at(n, {**usage, "output_tokens": 1}, f"b{n}")
+        path = tmp_path / f"{name}.jsonl"
+        path.write_text("\n".join(lines) + "\n")
+
+        proc = run([str(path)])
+        assert proc.returncode == 0, f"{name}: {proc.stderr}"
+        assert "context" not in proc.stdout, f"{name}: {proc.stdout}"
+
+        machine = run(["--json", str(path)])
+        assert machine.returncode == 0, f"{name}: {machine.stderr}"
+        growth = json.loads(machine.stdout)["context_growth"]
+        assert growth[0 if odd_index == 0 else 2] == 0, f"{name}: {growth}"
+
+
+def test_the_context_line_still_prints_where_the_baseline_is_real(tmp_path):
+    """The conjunct above must not have bought its silence by silencing the
+    line. A first third of ten and a last third of a hundred is the growth the
+    line exists to report, and it is asserted with the numbers in it."""
+    lines = []
+    for n in range(6):
+        lines += turn_at(n, {"input_tokens": 10 if n < 3 else 100}, f"g{n}")
+    path = tmp_path / "real-growth.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+
+    proc = run([str(path)])
+    assert proc.returncode == 0, proc.stderr
+    assert "10 → 100 input tokens" in proc.stdout, proc.stdout
+
+
+def test_a_negative_input_count_is_dropped_and_a_zero_is_dropped_with_it(tmp_path):
+    """`token_thirds`' input filter was a truthiness test on a signed number,
+    so it dropped a zero and KEPT a negative.
+
+    Six turns whose first three carry minus ten give a growth of [-10, 0, 10]
+    and print the context line off a baseline no harness can mean. The fix is
+    the same inversion round 3's three statements had.
+
+    The zero arm is here to pin the half that did NOT change: `count` answers
+    0 both for a field a harness never wrote and for one it wrote as 0, so the
+    file cannot tell a turn that spent nothing from a turn nobody measured,
+    and both go on being dropped. Six turns carrying zero leave fewer than
+    three inputs, so there is no growth at all."""
+    negatives = []
+    for n in range(6):
+        negatives += turn_at(n, {"input_tokens": -10 if n < 3 else 10}, f"n{n}")
+    path = tmp_path / "negative.jsonl"
+    path.write_text("\n".join(negatives) + "\n")
+
+    proc = run(["--json", str(path)])
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout)["context_growth"] == [10, 10, 10], proc.stdout
+    printed = run([str(path)])
+    assert "context" not in printed.stdout, printed.stdout
+
+    zeros = []
+    for n in range(6):
+        zeros += turn_at(n, {"input_tokens": 0}, f"z{n}")
+    path = tmp_path / "zero-input.jsonl"
+    path.write_text("\n".join(zeros) + "\n")
+
+    machine = run(["--json", str(path)])
+    assert machine.returncode == 0, machine.stderr
+    assert json.loads(machine.stdout)["context_growth"] == [], machine.stdout
+
+
+# --- #202: a streamed message is counted at its completed row ---------------
+
+
+def test_a_streamed_message_is_counted_at_its_largest_row(tmp_path):
+    """A streamed assistant message reaches the transcript as several rows
+    sharing one `message.id`, and its `output_tokens` grows across them.
+
+    Keeping the first row summed however much had been emitted when that row
+    was written. Measured over the 180 transcripts on the machine that found
+    it: 9,098 of 13,425 messages are split, and the reported `output` was
+    4,976,637 where the completed rows give 8,683,844. One warden segment
+    read as **62 output tokens across 20 turns** against a real 34,441.
+
+    A single-row fixture cannot tell the two behaviours apart, which is why
+    every case written before this one passes under either.
+
+    `cache_write` and `cache_read` are asserted alongside because they are the
+    control: they are fixed when the request is made and repeat unchanged on
+    every row, so the maximum is the same number the first row gave. A change
+    that started summing per row rather than per message would move all three
+    together, and this case would still be green if it watched `output`
+    alone."""
+    rows = [
+        at("2026-08-24T10:00:00Z", [use("s", "pytest -q")], "stream", partial)
+        for partial in (
+            {
+                "output_tokens": 3,
+                "cache_creation_input_tokens": 90,
+                "cache_read_input_tokens": 7,
+            },
+            {
+                "output_tokens": 400,
+                "cache_creation_input_tokens": 90,
+                "cache_read_input_tokens": 7,
+            },
+            {
+                "output_tokens": 1234,
+                "cache_creation_input_tokens": 90,
+                "cache_read_input_tokens": 7,
+            },
+        )
+    ]
+    rows.append(
+        at("2026-08-24T10:00:05Z", [{"type": "tool_result", "tool_use_id": "s"}])
+    )
+    path = tmp_path / "streamed.jsonl"
+    path.write_text("\n".join(rows) + "\n")
+
+    data = json.loads(run(["--json", str(path)]).stdout)
+    tokens = data["tokens"]
+    assert tokens["turns"] == 1, tokens
+    assert tokens["output"] == 1234, tokens
+    assert (tokens["cache_write"], tokens["cache_read"]) == (90, 7), tokens
+
+
+def test_a_message_whose_rows_arrive_out_of_order_keeps_the_completed_count(tmp_path):
+    """The reason the fix takes the maximum rather than the last row.
+
+    The two agree on every one of the 13,425 messages measured, with 0 rows
+    out of order, so last-row-wins would have been green everywhere it was
+    checked. It would also have rested on an ordering the transcript format
+    does not promise — and this is the transcript that separates them."""
+    rows = [
+        at("2026-08-24T10:00:00Z", [use("o", "pytest -q")], "reordered", usage)
+        for usage in ({"output_tokens": 900}, {"output_tokens": 12})
+    ]
+    rows.append(
+        at("2026-08-24T10:00:05Z", [{"type": "tool_result", "tool_use_id": "o"}])
+    )
+    path = tmp_path / "reordered.jsonl"
+    path.write_text("\n".join(rows) + "\n")
+
+    tokens = json.loads(run(["--json", str(path)]).stdout)["tokens"]
+    assert (tokens["turns"], tokens["output"]) == (1, 900), tokens
+
+
+def test_a_split_message_is_still_one_turn_and_not_one_per_row(tmp_path):
+    """The half of the dedup that was right and had to stay right.
+
+    A harness writes one message as one row per content block and repeats the
+    usage on each. Taking the maximum per field must not become a sum per row:
+    three rows of one message are one turn, and `cache_read` — which repeats
+    unchanged — must read 500 rather than 1,500."""
+    rows = [
+        at(
+            "2026-08-24T10:00:00Z",
+            [use(f"b{n}", "pytest -q")],
+            "one",
+            {
+                "output_tokens": 10,
+                "cache_read_input_tokens": 500,
+            },
+        )
+        for n in range(3)
+    ]
+    rows += [
+        at("2026-08-24T10:00:05Z", [{"type": "tool_result", "tool_use_id": f"b{n}"}])
+        for n in range(3)
+    ]
+    path = tmp_path / "split.jsonl"
+    path.write_text("\n".join(rows) + "\n")
+
+    tokens = json.loads(run(["--json", str(path)]).stdout)["tokens"]
+    assert (tokens["turns"], tokens["output"], tokens["cache_read"]) == (1, 10, 500), (
+        tokens
+    )
+
+
+def test_load_returns_input_counts_only(tmp_path):
+    """`load`'s per-turn tuple used to carry a third element, this message's
+    `output_tokens`, and nothing in the file read it.
+
+    It is removed rather than repaired: `output_tokens` is the one field that
+    grows across a split message's rows, so what sat there was the first
+    partial count — the same defect as #202, waiting for its first reader.
+    The input-side fields are fixed when the request is made and repeat
+    unchanged, which is why they can be taken from the first row.
+
+    Pinned on the shape rather than on the length alone, so a tuple that
+    regrows a third element under a different meaning still fails."""
+    module = load_script()
+    rows = [
+        at(
+            "2026-08-24T10:00:00Z",
+            [use("l", "pytest -q")],
+            "m",
+            {
+                "input_tokens": 11,
+                "cache_read_input_tokens": 4,
+                "output_tokens": 999,
+            },
+        ),
+        at("2026-08-24T10:00:05Z", [{"type": "tool_result", "tool_use_id": "l"}]),
+    ]
+    path = tmp_path / "load.jsonl"
+    path.write_text("\n".join(rows) + "\n")
+
+    _calls, turns = module.load(str(path))
+    assert len(turns) == 1, turns
+    assert len(turns[0]) == 2, turns
+    assert turns[0][1] == 15, turns
+
+
+# --- #200: the family names the runner a repository actually uses -----------
+
+
+def test_a_runner_named_by_path_is_a_test_run(tmp_path):
+    """A project that ships `bin/test` has said what its test command is, in
+    the filesystem, and the five names the family knew did not include it.
+
+    Measured over the 180 transcripts on the machine that found it: of the
+    `./bin/test` calls, 266 were charged to `other` — the row nobody reads
+    because it is the row everything falls into — and the rest landed in four
+    different families depending on what else shared the command line.
+
+    The negative arm is the same size as the positive one on purpose. A
+    pattern widened until the row is never empty is a row that means nothing,
+    so a directory called `testdata`, a `git log` mentioning the word, and a
+    lint run that shares a line with none of them must all stay out."""
+    module = load_script()
+    for command in (
+        "./bin/test",
+        "bin/test -q",
+        "scripts/test",
+        "scripts/test.sh --fast",
+        "./test.sh",
+        "make test",
+        "npm test",
+        "npm run test",
+        "pnpm run test -- --watch=false",
+        "./gradlew test",
+        "just test",
+        "tox -e py312",
+        "nox -s tests",
+        "rspec spec/models",
+        "phpunit --testsuite unit",
+        "dotnet test",
+        "bun test",
+        "deno test -A",
+        "uv run --with pytest pytest tests/ -q",
+    ):
+        assert module.family(command) == "test", command
+
+    for command in (
+        "bin/testdata --list",
+        "git log --oneline -- test",
+        "uvx ruff check .",
+        "./bin/evidence-check",
+        "python3 .github/scripts/rider_check.py",
+        "cat tests/test_session_cost.py",
+    ):
+        assert module.family(command) != "test", command
+
+
+def test_a_runner_named_inside_a_heredoc_is_not_a_run_of_it(tmp_path):
+    """The other half of #200's *wrong in both directions*, in the same
+    reading: the one call the family did charge to `test` was a `cat > …`
+    heredoc whose body contains the word `pytest`.
+
+    `load` flattens a call's whitespace, so a command that writes a document
+    arrives at the classifier as one line with the whole document in it.
+    Cutting at the heredoc operator answers it for every family at once and
+    needs no list of the words a document might contain.
+
+    The last two are the bound. A `<<` followed by a lowercase unquoted word
+    is more often a quoted comparison than a heredoc, so it is left alone:
+    charging a real run to `other` is the error this whole change exists to
+    remove, and a lowercase heredoc delimiter classified the way it is today
+    is the smaller of the two."""
+    module = load_script()
+    for command in (
+        "cat > x.py <<'EOF' import pytest EOF",
+        "cat > x.py <<EOF import pytest EOF",
+        'cat > q.sql <<-"SQL" select 1 from pytest SQL',
+        "python3 - <<'PY' subprocess.run(['pytest']) PY",
+    ):
+        assert module.family(command) == "other", command
+
+    assert module.family("echo 'a << b' && pytest -q") == "test"
+    assert module.family("cat > x <<eof pytest eof") == "test"
+
+
+def test_the_report_names_the_command_the_table_could_not(tmp_path):
+    """`other` leading the table means the rows above it describe a minority
+    of the run, and nothing on the page said so — which is how #200 was
+    published for four releases.
+
+    Both arms, because a line that always prints is furniture: it appears when
+    `other` leads and is absent when a named family does."""
+    # Built so that two wrong answers are visible rather than merely
+    # possible. `./bin/lint-docs` is the FIRST unnamed command, so an entry
+    # taken in arrival order names it; `./bin/report` is the largest SINGLE
+    # command, so an entry that does not group two pipes of one command names
+    # that instead. Only grouping by `strip_pipe` and then taking the largest
+    # answers `./bin/deploy --wait`.
+    lines = []
+    lines += call("a", 0, 5, "./bin/lint-docs")
+    lines += call("b", 10, 70, "./bin/deploy --wait | tail -3")
+    lines += call("c", 80, 140, "./bin/deploy --wait | head -1")
+    lines += call("d", 150, 250, "./bin/report --long")
+    # Larger than every unnamed command and charged to a family that HAS a
+    # meaning, so an entry collected over the whole table rather than over
+    # `other` alone names this and the case says so. `other` still leads by
+    # total seconds, which is what the line is conditioned on.
+    lines += call("e", 260, 460, "./bin/test --slow")
+    lines += call("f", 470, 475, "pytest -q")
+    unnamed_leads = tmp_path / "unnamed.jsonl"
+    unnamed_leads.write_text("\n".join(lines) + "\n")
+
+    out = run([str(unnamed_leads)]).stdout
+    assert "`other` is the largest family and names nothing" in out, out
+    named_line = next(
+        line for line in out.splitlines() if "Slowest command charged there" in line
+    )
+    # Grouped by `strip_pipe`, so two runs of one command behind different
+    # pipes are one entry and the pipe is not part of what a family would
+    # have to learn. The `slowest` block below prints the pipe and is not
+    # what this asserts on.
+    assert named_line.endswith(": ./bin/deploy --wait"), named_line
+    assert re.search(r"^  other\s+4 calls", out, re.M), out
+    assert re.search(r"^  test\s+2 calls", out, re.M), out
+
+    named = []
+    named += call("d", 0, 120, "./bin/test -q")
+    named += call("e", 130, 135, "./bin/deploy")
+    test_leads = tmp_path / "named.jsonl"
+    test_leads.write_text("\n".join(named) + "\n")
+
+    other = run([str(test_leads)]).stdout
+    assert "names nothing" not in other, other
+    assert re.search(r"^  test\s+1 calls", other, re.M), other
