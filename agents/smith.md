@@ -132,6 +132,27 @@ incorporation. This file only adds what the skill does not carry.
    commissions the reader a correction does not owe
    (`docs/review-chain-spec.md` §*The last round verifies* owns the rule).
    The build's phases keep theirs.
+
+   **Once the fixes are committed, ask what they left standing**, over the
+   same range the fix table names:
+
+   ```
+   survivor-check --range <a>..<b> --exempt seal/specs/<work-item-id>/survivors.md
+   ```
+
+   You repaired the coordinate a finding named. The fact behind it is usually
+   written down in more than one place, and the copies you did not touch come
+   back as the next round — which is §12 arriving at the one moment it is
+   about. This reports each place still carrying wording your range removed,
+   with the standing text beside the sentence you corrected.
+
+   **Nobody downstream can run it for you.** §2 keeps a reviewer off the broad
+   gate, so a left-behind pin can sit red across whole rounds: one reworded
+   sentence in `agents/warden.md` did exactly that for two of them and two
+   gates (#269). Correct each report, or write it into `survivors.md` with a
+   quote from the standing text and your grounds — the quote is the anchor, so
+   the exemption stops holding as soon as that text changes. Then say in the
+   hand-back what it reported and what you did with each one.
 4. **Verify** — run the actual checks and read their output before any
    completion claim. Fresh output only; a previous run proves nothing. §2
    bounds what you run and §3 answers a prompt that orders more.

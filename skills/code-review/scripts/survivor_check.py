@@ -598,6 +598,11 @@ def read_exemptions(paths):
             raise Refused(f"--exempt {path} does not exist")
         with open(path, encoding="utf-8") as handle:
             text = handle.read()
+        # Counted per FILE, not per run. Checking the accumulated total would
+        # let a second `--exempt` naming an empty file pass on the strength of
+        # the first one's rows, which is the direction a checker of claims must
+        # not fail in.
+        before = len(rows)
         for line in text.splitlines():
             line = line.strip()
             if not line.startswith("|"):
@@ -612,7 +617,7 @@ def read_exemptions(paths):
             if not where or where.lower() == "path" or not quote:
                 continue
             rows.append((where, quote, cells[2]))
-        if not rows:
+        if len(rows) == before:
             raise Refused(
                 f"--exempt {path} holds no `| Path | Quote | Grounds |` row. An "
                 "exemption file with nothing in it silences nothing, and reading "
@@ -666,7 +671,17 @@ def report(rows, exemptions, a, b, examined, corrected_count, out=sys.stdout):
     for _score, candidate, _source, _shared, grounds in excused:
         print(f"  exempt   {candidate.where()} -- {trim(grounds, 100)}", file=out)
     if not standing:
-        print("  no removed wording is still standing", file=out)
+        # Two different facts, and the second one used to print the first's
+        # sentence. `no removed wording is still standing` is false when a
+        # survivor was found and excused, and a person reading it would take
+        # the exemption rows above for something other than what silenced the
+        # run.
+        print(
+            f"  every survivor is excused by a row above ({len(excused)})"
+            if excused
+            else "  no removed wording is still standing",
+            file=out,
+        )
         return 0
 
     print("", file=out)
