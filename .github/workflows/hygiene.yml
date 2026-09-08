@@ -181,6 +181,41 @@ jobs:
           python3 skills/code-review/scripts/chain_check.py \
             --baseline "origin/${{ github.base_ref }}"
 
+      # A fix pass repairs the coordinate a finding named, and the fact behind
+      # it is usually written down somewhere else too. The copies nobody
+      # touched come back as a later round — `agent-contract` §12 is the rule
+      # against it, it reaches every agent at startup, and it has been
+      # re-broken seven times by parties that had read it. So this is the
+      # check rather than an eighth sentence.
+      #
+      # It runs here as well as at the fix pass because a review round cannot
+      # run it at all: contract §2 reserves the broad gate for the
+      # orchestrator, and #269 is one reworded sentence whose pin stayed behind
+      # in a test module that was red from that commit through two rounds and
+      # past two gates.
+      #
+      # **This one fails, where the two steps above only print, and the
+      # difference is measured.** Over four real merged pull requests it
+      # reported once, and that report is `seal/ledger.md` row R3 carrying a
+      # claim a docstring had corrected — a defect that shipped, and #267 is
+      # the ticket it became. A branch that means to keep a survivor answers it
+      # in `seal/specs/<id>/survivors.md` with a quote from the standing text
+      # and the grounds; the quote is the anchor, so the exemption stops
+      # holding once that text changes.
+      - name: wording this branch removed is not still standing elsewhere
+        shell: bash
+        run: |
+          # `if`, not `&&`: an unmatched glob leaves the pattern itself as the
+          # loop's one value, and whether `set -e` forgives a failing test at
+          # the tail of an `&&` list is a rule nobody should have to recall to
+          # read this. Most branches match nothing here.
+          exempt=()
+          for file in seal/specs/*/survivors.md; do
+            if [ -e "$file" ]; then exempt+=(--exempt "$file"); fi
+          done
+          python3 skills/code-review/scripts/survivor_check.py \
+            --range "origin/${{ github.base_ref }}...HEAD" ${exempt[@]+"${exempt[@]}"}
+
       # `seal/config.md`'s `Mode` row says which of the two places the root
       # should live at; the folder's location says where it is. Nothing at
       # runtime reads the row — every gate resolves the root through

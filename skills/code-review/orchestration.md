@@ -45,6 +45,29 @@ from that table and the fix range. The pass writes no `phases/phase-N.md` and
 no `plan.md` row — `agents/smith.md` owns that rule, and this sentence is the
 link to it.
 
+**Then ask what the fixes left standing, with the same range.**
+
+```
+survivor-check --range <a>..<b> --exempt seal/specs/<work-item-id>/survivors.md
+```
+
+A fix repairs the coordinate a finding named. The fact the finding was about is
+usually stated in more than one place, so the other statements survive and
+arrive as a later round — that is contract §12, and it has been re-broken seven
+times by parties that had read it. This reports every place at the range's tip
+still carrying wording the range removed, names each with the standing text and
+the corrected sentence it matched, and exits 1 while one is unanswered.
+
+Two things make it the fix pass's step rather than a round's. **No round can
+run it**: §2 reserves the broad gate for you, and #269 is one sentence reworded
+whose pin stayed behind in a test module that was red from that commit through
+two rounds and past two gates. And **the range is already typed** — it is
+`close`'s own `--range`, so nothing new has to be worked out to run this.
+
+Each report is corrected, or answered in `survivors.md` with a quote from the
+standing text and the grounds. The quote is the anchor, so an exemption stops
+holding the moment the text changes.
+
 **The half of a prompt that does not change between rounds is not yours to
 type.** `skills/agent-contract/SKILL.md` reaches every agent you spawn at
 startup, through the `skills:` list in its definition, and each agent's own
