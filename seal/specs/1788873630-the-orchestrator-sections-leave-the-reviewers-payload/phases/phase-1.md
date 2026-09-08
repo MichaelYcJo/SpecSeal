@@ -44,7 +44,7 @@ must type for a procedure no person types.
 
 **The section table had to be re-measured.** The ticket's 24,553 characters
 and 55% were taken on `release/v0.9.2` at `a495e4f`; at this branch's base the
-five sections are 24,947 of 46,986, which is 53.1%. Both readings are correct
+five sections are 24,948 of 46,986, which is 53.1%. Both readings are correct
 about their own commit and only one of them is about this diff.
 
 ## What this phase removes

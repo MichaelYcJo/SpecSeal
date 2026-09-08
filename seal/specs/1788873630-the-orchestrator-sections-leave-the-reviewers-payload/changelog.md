@@ -1,6 +1,6 @@
 - **More than half of the review skill was addressed to the orchestrator, and
   a reviewer read all of it at every spawn (issue #265).** The five sections
-  `skills/code-review/SKILL.md` prefixed `Orchestrator:` were 24,947
+  `skills/code-review/SKILL.md` prefixed `Orchestrator:` were 24,948
   characters, 53% of the file, and a `warden` spawn received them before its
   first tool call. A reviewer acts on none of them: it does not decide whether
   a run ends, does not resume an implementer, does not open or mark a pull
