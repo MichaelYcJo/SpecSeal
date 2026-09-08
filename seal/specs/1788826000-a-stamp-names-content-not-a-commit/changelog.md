@@ -17,6 +17,19 @@
   the date only beside a hash that moved, because a stamp whose content has
   not changed records a reading nobody repeated. `--reverify --only` takes a
   file rather than a rider, and the drift message now says so.
+- **A `## RIDER:` heading in a markdown file no longer breaks the build.** `#`
+  opens a comment in Python, YAML and shell, and in markdown it opens a
+  heading — so a heading naming the marker was read as a rider carrying no
+  stamp, and the check exited 2 on a line nobody wrote as a rider. Markdown's
+  rider form is the HTML comment, and that is now the only form read there.
+  Every other thing this check gives up loses an alarm; this was the one place
+  it invented one.
+- **`--only` no longer reports success for a run that ignored it.** A path no
+  rider carries printed `0 restamped · 0 refused` at exit 0, so a typo in the
+  path read as *nothing needed doing* — and exit 0 is the answer a script
+  reads. It is now refused by name. `--only` without `--reverify`, and beside
+  `--migrate`, were ignored the same way and read the whole tree; both are
+  refused before anything is read.
 - **Three riders were held by nothing.** The scanned roots covered four
   directories and riders live in six, so the one in
   `.github/scripts/fold_ledger.py` and two under `tests/` were checked by no
