@@ -10,7 +10,7 @@ down instead, each with what it would take to overturn it.
 | # | What could have been asked | What answered it |
 |---|---|---|
 | A1 | Does a drifted rider fail the check or warn? | The ticket's own bound — *whatever replaces the SHA must be checkable the same way, a test seen red*. `evidence_check` exits 1 on drift, so a warning-only rider would be the looser of two rules about one thing |
-| A2 | Should `Target SHA` move too? | The ticket asks for it to be answered in this change, not raised. It is answered in `spec.md` §*Question 2*, on measured grounds: `chain_check.py#reachable` already falls back to `refs/pull/<N>/head`, which a squash does not touch |
+| A2 | Should `Target SHA` move too? | The ticket asks for it to be answered in this change, not raised. It is answered in `spec.md` §*Question 2*, on measured grounds: `chain_check.py#reachable` already falls back to `refs/remotes/pull/<N>/head`, the mirror CI fetches, which a squash does not touch |
 | A3 | Where does the rider machinery live? | `CLAUDE.md` and `plan.md` — `evidence_check.py` ships to other repositories through `/specseal:evidence-ci`, and riders are this repository's own convention. `.github/scripts/` is where this repository's own tooling already sits |
 
 ## Assumptions, written down
@@ -25,4 +25,10 @@ down instead, each with what it would take to overturn it.
 
 | # | Question | Who answers it |
 |---|---|---|
-| C1 | The quoted rider stamp inside `seal/specs/1788184145-…/rounds/round-2.md` still reads `Verified 2026-08-31 at f1cd65d`. It is a record of what a round observed, so by the same argument that exempts `Target SHA` it is left alone — but it is the one place the old string survives, and a future `grep` for the old form will find it | the repository owner |
+| C1 | The quoted rider stamp inside `seal/specs/1788184145-…/rounds/round-2.md` still reads `Verified 2026-08-31 at f1cd65d`. It is a record of what a round observed, so by the same argument that exempts `Target SHA` it is left alone — but it is one of TWO places the old string survives, with `seal/specs/1788700685-two-value-shaped-odd-rows-end-the-report/phases/phase-2.md:96`, and a future `grep` for the old form will find both | the repository owner |
+
+<!-- *"the one place"* was corrected to *"two"* in round 1's fix pass
+(finding 7). Executed: `grep -rn "Verified [0-9-]* at [0-9a-f]"` returns both.
+Both are quotations inside records and both are correctly left alone; the
+count is what mattered, because a reader who greps and finds two reads the
+second as a missed migration. -->

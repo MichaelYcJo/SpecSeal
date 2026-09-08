@@ -48,3 +48,12 @@ the tree restored from bytes held in memory rather than from HEAD.
 |---|---|
 | `test_every_rider_stamp_names_a_commit_this_branch_can_reach` — NAME NOT IN TREE | replaced by `test_no_rider_stamp_names_a_commit` and `test_every_rider_stamp_resolves_and_reproduces_its_hash`, in the same file |
 | `is_shallow` and the shallow-clone assertion — NAME NOT IN TREE | nowhere — the fact it protected is gone with it. A check that makes no git call cannot be silenced by clone depth, and `test_the_check_asks_git_for_nothing` is what now says so. `tests/test_ci_gives_the_checks_what_they_need.py` still pins `fetch-depth: 0`, for a reason phase 6 re-measured |
+| `test_every_rider_carries_the_date_and_sha_it_was_verified_at` — NAME NOT IN TREE | replaced by `test_every_rider_carries_a_verification_stamp`, in the same file |
+| `STAMP` — NAME NOT IN TREE | replaced by `NEW_STAMP` in `.github/scripts/rider_check.py`, which the test file imports rather than restating |
+
+<!-- The last two rows were added in round 1's fix pass (finding 8). An AST
+comparison of `tests/test_a_rider_reaches_its_file.py` across this phase's
+range removes four units and the table named two. Both of the missing ones
+have live replacements, so nothing was lost; the table was what was
+incomplete, and an incomplete removes table is exactly what the records arm
+of `evidence-check` exists to catch. -->

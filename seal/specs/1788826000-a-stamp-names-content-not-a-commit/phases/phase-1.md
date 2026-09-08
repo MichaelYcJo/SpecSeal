@@ -39,7 +39,9 @@ special case.
 
 **Question 2 was settled by opening `chain_check.py`, not by analogy.**
 `reachable()` falls back to `carried_by_a_pull_head`, which scans
-`refs/pull/<N>/head` — a namespace a squash does not touch. So a round
+`refs/remotes/pull/<N>/head` — the mirror CI fetches of a namespace a squash
+does not touch. The phase wrote the remote spelling, `refs/pull/<N>/head`, and
+round 1 found it in six places; it is corrected here. So a round
 record's SHA already survives the merge rule that orphans a rider's, and the
 two mechanisms were never the same mechanism with a different corpus. That is
 the whole grounds for leaving `Target SHA` alone, and it would not have been

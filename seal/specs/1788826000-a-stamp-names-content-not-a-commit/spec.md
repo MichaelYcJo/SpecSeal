@@ -180,7 +180,13 @@ Three grounds, in the order that decides it:
 1. **A round record's SHA already has a squash-survivable resolution path, and
    a rider's did not.** Executed by reading `chain_check.py#reachable`: after
    `HEAD` and the declared branch, it falls back to
-   `carried_by_a_pull_head`, which scans `refs/pull/<N>/head`. Nothing but a
+   `carried_by_a_pull_head`, which scans `refs/remotes/pull/<N>/head` — the
+   local mirror `.github/workflows/hygiene.yml` fetches, because a default
+   clone carries none of the namespace GitHub writes. Corrected in round 1's
+   fix pass: five documents and one assertion named `refs/pull/<N>/head`, the
+   remote spelling, and `git for-each-ref 'refs/pull/*/head'` returns 0 refs
+   in a working clone against 86 for the mirror — a reader who checks the
+   ground the way it was written reads it as false. Nothing but a
    pull request writes that namespace and a squash does not touch it, so the
    commit a feature branch's round reviewed stays reachable there. The rider
    test has one call, `git merge-base --is-ancestor <sha> HEAD`, and no

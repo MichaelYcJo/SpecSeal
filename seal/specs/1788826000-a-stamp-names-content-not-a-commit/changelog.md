@@ -13,7 +13,10 @@
   squash, a rebase and a shallow clone are invisible to it.
   A drifted rider names the unit that changed and says to re-read the comment,
   which is what a rider is for. `.github/scripts/rider_check.py` checks them
-  and `--reverify` re-stamps them.
+  and `--reverify` re-stamps them — rewriting the hash wherever it moved, and
+  the date only beside a hash that moved, because a stamp whose content has
+  not changed records a reading nobody repeated. `--reverify --only` takes a
+  file rather than a rider, and the drift message now says so.
 - **Three riders were held by nothing.** The scanned roots covered four
   directories and riders live in six, so the one in
   `.github/scripts/fold_ledger.py` and two under `tests/` were checked by no
@@ -21,4 +24,5 @@
 - **A round record's `Target SHA` stays as it is, and `templates/sdd-round.md`
   now says why.** It records a moment rather than pointing at live content, a
   reviewed tree has no anchor to write, and the record check already falls
-  back to `refs/pull/<N>/head`, which a squash does not touch.
+  back to `refs/remotes/pull/<N>/head` — the copy of GitHub's pull-request
+  refs that CI fetches — which a squash does not touch.

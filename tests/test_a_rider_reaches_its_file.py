@@ -102,9 +102,14 @@ def test_the_round_template_says_why_target_sha_is_exempt():
     135 round records carry a `Target SHA`, and the same squash that orphaned
     the rider stamps runs past every one of them. Leaving it is correct — a
     round record names a MOMENT, `chain_check.py#reachable` already falls back
-    to `refs/pull/<N>/head` which a squash does not touch, and a whole
+    to `refs/remotes/pull/<N>/head` which a squash does not touch, and a whole
     reviewed tree has no anchor to write. What is not correct is leaving that
     unwritten, because the next person to count the rows re-opens it.
+
+    The namespace has to be the one the code scans. `PULL_HEADS` is
+    `refs/remotes/pull/`, the mirror CI fetches; a reader who runs
+    `git for-each-ref 'refs/pull/*/head'` in a working clone gets nothing and
+    reads a true ground as false (round 1, deferred).
 
     This case lives in the rider file rather than beside the other round-record
     cases on purpose: the ticket asked for one answer covering both mechanisms
@@ -113,7 +118,7 @@ def test_the_round_template_says_why_target_sha_is_exempt():
     text = read(os.path.join(ROOT, "templates", "sdd-round.md"))
     assert "exempt from the rule" in text
     assert "carried_by_a_pull_head" in text
-    assert "refs/pull/<N>/head" in text
+    assert "refs/remotes/pull/<N>/head" in text
     assert "records a MOMENT" in text
 
 

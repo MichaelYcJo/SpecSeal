@@ -51,11 +51,17 @@ Three grounds, in the order that decides it.
 
 **A round record's SHA already survives the squash and a rider's did not.**
 `chain_check.py#reachable` tries HEAD and the declared branch, then falls back
-to `carried_by_a_pull_head`, which scans `refs/pull/<N>/head`. Nothing but a
-pull request writes that namespace and a squash does not touch it, so the
+to `carried_by_a_pull_head`, which scans `refs/remotes/pull/<N>/head` — the
+local mirror of the namespace GitHub writes for every pull request, fetched by
+`.github/workflows/hygiene.yml`, because a default clone carries none of it.
+Nothing but a pull request writes it and a squash does not touch it, so the
 commit a feature branch's round reviewed stays reachable there. The rider check
 had one call, `git merge-base --is-ancestor <sha> HEAD`, and no fallback. The
 two were never the same mechanism with a different corpus.
+
+Run the mirror rather than the remote name when checking this: `git
+for-each-ref 'refs/pull/*/head'` returns nothing in a working clone, and
+reading that as the ground being false is what put this correction here.
 
 **They are different objects.** This row records a MOMENT — *this round
 reviewed this tree*. A rider stamp is a live pointer — *the claim below is
