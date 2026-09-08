@@ -1,7 +1,8 @@
 # 1788826000-a-stamp-names-content-not-a-commit — round 1, the fix pass
 
-Fix commits: `bdf65df..HEAD` on `fix/239-a-stamp-names-content-not-a-commit`,
-from the round's target `404dd4d` (the record is committed at `7ff1e63`).
+Fix commits: `7ff1e63..HEAD` on `fix/239-a-stamp-names-content-not-a-commit`
+— `bdf65df`, `eaa8030`, `923f86c`, `e1b83b8` and the commit carrying this
+file. The round's target was `404dd4d`; its record is committed at `7ff1e63`.
 
 ## Fixes
 
@@ -9,12 +10,12 @@ from the round's target `404dd4d` (the record is committed at `7ff1e63`).
 |---|---|---|
 | 1 | fixed | `eaa8030` — the twelve dates restored, each proved against the commit its pre-migration stamp named; `bdf65df` is the writer that erased them |
 | 2 | fixed | `bdf65df` — `--reverify` skips on the hash alone, and the drift message says `--only` takes a file |
-| 3 | fixed | `bdf65df` — the same change; a hash that has not moved is no longer re-stamped, so no ledger row drifts for a unit nobody edited. `phase-4.md`'s steady-state paragraph corrected in `HEAD` |
+| 3 | fixed | `bdf65df` — the same change; a hash that has not moved is no longer re-stamped, so no ledger row drifts for a unit nobody edited. `phase-4.md`'s steady-state paragraph corrected in `e1b83b8` |
 | 4 | fixed | `bdf65df` for the `#` form, `923f86c` for the HTML form and the opener that was looser than its own docstring |
 | 5 | fixed | `eaa8030` — `agents/smith.md` and `skills/implement/SKILL.md` re-anchored to their headings. `templates/evidence-check.yml` answered rather than changed: see below |
-| 6 | fixed | `bdf65df` for `content_at`, `HEAD` for `phase-4.md`'s bullet and ledger row S4 |
-| 7 | fixed | `HEAD` — `questions.md` C1 and `overview.md` both say two, and name the second |
-| 8 | fixed | `HEAD` — `phase-3.md` gains the two missing rows, both marked NAME NOT IN TREE |
+| 6 | fixed | `bdf65df` for `content_at`, `e1b83b8` for `phase-4.md`'s bullet and ledger row S4 |
+| 7 | fixed | `e1b83b8` — `questions.md` C1 and `overview.md` both say two, and name the second |
+| 8 | fixed | `e1b83b8` — `phase-3.md` gains the two missing rows, both marked NAME NOT IN TREE |
 | 9 | deferred the orchestrator | contract §2 reserves the full suite, the repository-wide lint and the typecheck for one run after the rounds settle |
 
 ## Where finding 5 was answered rather than changed
