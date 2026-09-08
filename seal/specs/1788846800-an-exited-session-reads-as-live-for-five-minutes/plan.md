@@ -104,8 +104,17 @@ beyond the red test, which is in the Phases table)*
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `dead_session_ids` + `lease_dir`, and `transcript_idle_minutes` skipping them | the seven cases in `spec.md`, each seen red first | |
-| 2 | Records: changelog fragment, ledger fragment, `docs/flow.md` row, overview | `evidence_check.py --strict --ledger …`, `bin/test` on the two modules | |
+| 1 | **#256** — `dead_session_ids` + `lease_dir`, and `transcript_idle_minutes` skipping them | the cases in `spec.md`, each seen red first; 9 mutants killed | e926704 |
+| 2 | **#257** — `silent` on the Bash path's else arm, and the shared argument moved where both entry points read it | `tests/test_the_guard_asks_once_per_session.py`, 6 existing cases updated and 3 added; 5 mutants killed | 5047209 |
+| 3 | Records: changelog fragment, ledger fragment, `docs/flow.md` rows, overview, phase records | `evidence_check.py --strict --ledger … .`, `bin/test` on the two modules | |
+
+**Phase 2 was not in this plan when it was approved.** #257 was opened after
+the work began and routed to this branch by the orchestrator, on the grounds
+that it is the same file and the same subsystem and that two branches on
+`hooks/worktree-guard.py` would collide for no gain. Its own scope, bounds and
+findings are in `phases/phase-2.md`; the summary is that the change is
+`ask` → `silent` on one arm, the allow's bound is untouched, and #237's
+first-creation question stands.
 
 ## Operational impact
 

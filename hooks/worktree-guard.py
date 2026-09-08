@@ -1632,6 +1632,19 @@ def guard_worktree_creation(
                     "허용된 호출만 실행되므로 사용자가 이미 답한 것입니다. 같은 "
                     "결정이라 다시 묻지 않습니다.\n",
                 )
+                # RIDER: this else branch is unreachable from either production
+                # caller since #257. The Bash path passes `allow` or `silent`
+                # and the Agent path passes `silent`, so no call arrives here
+                # with `ask` — only the default parameter and a direct caller
+                # in a test can produce it. Removing it, and with it the
+                # `consented` parameter's `ask` default, was outside the bound
+                # #257 was given ("the change is `ask` -> `silent` on the else
+                # arm, nothing else"), so it was deliberately left. If you are
+                # here to change this block, decide that first: a message no
+                # caller can reach is a message nobody maintains, and this
+                # repository's own rule is that a branch nothing can make true
+                # is a branch no case can pin.
+                # Verified 2026-09-08 against guard_worktree_creation@b8bdb94d.
                 + (
                     ""
                     if consented == "allow"
@@ -1937,7 +1950,16 @@ def main():
     # blocked by it, and the `consented="silent"` #237 added is about a session
     # that already answered the creation question rather than about the count
     # this rider is open on.
-    # Verified 2026-09-08 against main@d6d7fd35.
+    #
+    # Re-read again 2026-09-08 after #257 moved the Bash path to `silent` too:
+    # the claim still holds, and for the same reason. What changed on this
+    # path is the COMMENT only -- the argument for `silent` moved to the
+    # `granted` block where both entry points read it -- while
+    # `single_stream="ask"` and `consented="silent"` are the values they were.
+    # #257 is about a session that already has a consent record; this rider is
+    # about a subagent never being counted as a session in the first place,
+    # which no arm of either change touches.
+    # Verified 2026-09-08 against main@e3756daa.
     if tool in ("Agent", "Task"):
         if str(tool_input.get("isolation", "")).lower() != "worktree":
             sys.exit(0)

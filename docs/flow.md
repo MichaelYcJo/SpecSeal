@@ -115,6 +115,22 @@ one.
 instances on one branch and seven on the next, every one found by mutating code
 rather than by reading it, and each one inside the fix for the one before.
 
+**Two more work items sit here and are not that method**, so the count above
+names the three it describes rather than everything in the section. #256 and
+#257 arrived from the 0.9.2 release run, on one branch and one file, and they
+were moved here rather than into 0.9.2 because that release was already
+running and does not take new items. Whether the heading and its opening
+sentence should be rewritten to cover both groups is the owner's call, and it
+is `questions.md` Q3 on that work item — the rows are written plainly in the
+meantime.
+
+They are the section's own subject seen from the other side, which is why the
+grouping is tolerable. Both were found by *using* the guard rather than by
+reading it, and #256's repair had to discard the direction its own ticket
+settled: the discriminator that ticket names was measured false, and the
+measurement needed a positive control that the ticket's own probe did not
+have.
+
 - [ ] #182 — the hider guard's enumeration names three copies where the property is every copy out of `raw`. `spec.md` and `plan.md` for it were drafted during 0.8.3 and are in that run's scratch, not in the tree.
 - [ ] #192 — a funnel answers for the values that enter, and nothing answers for what two of them make. #175's round 3, measured at the base as well as on the branch.
 - [ ] #180 — three written rules were each re-broken in one run; written down and arriving at the act are different states. **Seven instances now.** The fifth is the reopening bound itself — a rule the acting session had read, restated as the cap, and propagated five times. The sixth arrived on 2026-09-07 as #229, folded here and closed: the first measurement of this class **outside this repository**, over a documentation work item of fifteen files whose findings per round ran 13 → 8 → 5 → **6** and never converged, with 3 of its 4 rounds repeating an earlier finding in a different file. The seventh is 0.9.0's own #190 · #207 run — the printed bound fixed three times in three places, each fix inside the one before, and `claim_lines` fixed twice. The rule already written for all seven is `agent-contract` §12, *do not fix the coordinate*, and it reaches every agent at startup. **The repair this ticket takes is the check, not another instruction**: after a fix pass, grep the changed sentences' distinguishing terms across the rest of the corpus and report the survivors — a thing that can fail, where a widened instruction is one more sentence in the state that has now failed seven times.
@@ -129,6 +145,7 @@ per-segment reading this repository has published carries them.
 - [ ] #200 — the meter's `test` family names five runners and not this repository's, so fourteen `./bin/test` runs read as `other` and the one call it charged to `test` was a file write containing the word.
 - [ ] #202 — a streamed message is counted at its first partial row, so a round that wrote a full report reads as 62 output tokens. The error is not a scale factor: 3.2x on one segment and 334x on another, the same day, with nothing in the printed report saying which.
 - [ ] #193 — a third the file could not compute is charged 0, and the context line takes that 0 for a baseline. Carries a verified patch and a case seen red, plus two smaller ones as a comment.
+- [ ] **[#256 · #257] — one branch, `hooks/worktree-guard.py`.** Both came out of the 0.9.2 release run's own worktree friction. #256: the guard's last liveness arm reads a fresh transcript with no matching process as a live session, and an exited session presents identically, so the tree read as concurrent for five minutes after every session in the project ended — a hard deny on `git switch`, steering work into worktrees nobody needed. **The ticket's settled direction was measured false and not built.** No live `claude` holds its transcript open, including one writing its own file seconds earlier, so the open-descriptor probe would have answered *not held* for every session and collapsed the arm to always-idle; no terminal marker exists either. The ticket's own probe had no positive control, which is what let a true reading stand for a discriminator that never discriminated. The repair needed no new signal: `fresh_leases` had already retired that session's lease on positive evidence its pid was gone, and the arm was putting it back. #257: with a consent record present, a command that creates a worktree *and anything else* still asked, where the Agent path already answered `silent` for the same shape with the argument written beside it — two of five confirmations on the 0.9.2 run, both triggered by the batching this repository's own `CLAUDE.md` asks for.
 
 ## 0.9.5 — what the readings answer, and what a green gate means
 
