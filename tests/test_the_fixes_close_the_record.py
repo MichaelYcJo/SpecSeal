@@ -145,6 +145,56 @@ def close(repo, n, fixes, rng, extra=()):
     return r.returncode, r.stdout + r.stderr, record
 
 
+def test_a_directory_at_the_record_path_is_refused_as_a_directory(repo):
+    """The second member of ⬜ 6's class, in `close` rather than `report_path`.
+
+    `not os.path.isfile(target)` is True for a directory as well as for a
+    missing file, and `does not exist` about a path that has a directory at
+    it sends the reader looking for something they already made. The fix
+    that closed the report guard is owed here for the same cause (§12).
+
+    Driven through `subprocess` rather than the `close` helper above: that
+    helper reads the record back on its way out, which is exactly the read
+    that cannot work when the record path is a directory.
+    """
+    declared(repo)
+    (repo / ROUNDS / "round-1.md").mkdir(parents=True)
+    fixes = repo.parent / "fixes-none.md"
+    fixes.write_text(fix_table("| 1 | answered | none |\n"), encoding="utf-8")
+    head = git(repo, "rev-parse", "HEAD").stdout.strip()
+    r = subprocess.run(
+        [
+            sys.executable,
+            GENERATOR,
+            "close",
+            "--item",
+            str(repo / ITEM),
+            "--round",
+            "1",
+            "--fixes",
+            str(fixes),
+            "--range",
+            f"{head}..{head}",
+            "--baseline",
+            "base",
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=env_without_a_pull_request(),
+    )
+    out = r.stdout + r.stderr
+    assert r.returncode == 2, out
+    assert "is a directory" in out, out
+    assert "does not exist" not in out, (
+        "the refusal still says the record is missing where a directory is"
+    )
+    # And it still says what `close` is for, which is how the reader learns
+    # the directory is in the record's place rather than beside it.
+    assert "`new` wrote" in out, out
+
+
 def round_one(repo, verdicts=THREE):
     """Round 1 generated and committed; returns the commit the range starts at."""
     declared(repo)
