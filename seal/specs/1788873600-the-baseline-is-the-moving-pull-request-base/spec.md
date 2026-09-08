@@ -73,7 +73,7 @@ resolution point, and the repair is at that point rather than at any of them.
 | S5 no common commit | Given a baseline ref sharing no history with `HEAD` · When the check runs · Then exit 2 and `nothing was compared` | `test_a_baseline_that_shares_no_history_with_head_exits_2` |
 | S6 the report says what it read | Given a base whose commit is not the merge base · When a refusal is printed · Then it names the merge base and its short commit | `test_a_moved_base_report_names_the_merge_base_it_compared` |
 | S7 and says it in the shortest true form | Given a base that IS the merge base · When a refusal is printed · Then it names the ref alone | the existing baseline cases, which assert `present at HEAD and not here` |
-| S8 the documents agree | Given the repair · When the corpus is scanned for the old footing · Then no document states the base revision as the comparison | `test_no_document_still_states_the_moving_base` |
+| S8 the documents agree | Given the repair · When each of the eight documents that describe this arm is read · Then each states the merge base as the revision compared against | `test_the_documents_state_the_merge_base_footing`, parametrized over the eight |
 
 ## Data & interfaces
 

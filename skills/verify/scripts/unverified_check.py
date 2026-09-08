@@ -516,9 +516,9 @@ def merge_base(root, ref):
     baseline a caller passes is the branch the pull request merges into, and
     that branch MOVES: the moment one work item squashes into it, every
     sibling branch cut before that squash has the squashed item's `overview.md`
-    at the base and never had it at all. Three of 0.9.2's four branches were
-    refused for exactly that, and the refusal was right about what it measured
-    and wrong about what happened (#272).
+    at the base and never had it at all. On the release that found this, three
+    of four branches were refused for exactly that, and the refusal was right
+    about what it measured and wrong about what happened (#272).
 
     The merge base is the fork point, so a file present there and absent here
     was removed by THIS branch — which is the only claim this tool makes. A

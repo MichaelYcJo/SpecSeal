@@ -1204,3 +1204,32 @@ def test_a_ref_that_resolves_to_nothing_is_a_ref_that_does_not_resolve(
     assert uc.resolves(str(d), "base") is False
     assert run([str(d), "--baseline", "base"]) == 2
     assert "does not resolve" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "doc",
+    [
+        "README.md",
+        "README.ko.md",
+        os.path.join("docs", "one-root-by-lifetime.md"),
+        os.path.join("docs", "one-root-by-lifetime.ko.md"),
+        os.path.join("docs", "release-checklist.md"),
+        os.path.join("skills", "verify", "SKILL.md"),
+        os.path.join(".github", "workflows", "hygiene.yml"),
+        os.path.join("templates", "hygiene.yml"),
+    ],
+)
+def test_the_documents_state_the_merge_base_footing(doc):
+    """Eight files told a reader that `--baseline` compares against the base
+    revision, and after #272 it compares against the fork point. A corrected
+    behaviour whose old sentence survives somewhere else is #180's class, and
+    eight places is where this one could survive.
+
+    A positive assertion, the way `test_the_skill_states_the_closing_convention`
+    is: the sentence has to be there, rather than the old wording having to be
+    absent. Nothing else in these files had reason to name a merge base."""
+    text = open(os.path.join(ROOT, doc), encoding="utf-8").read()
+    assert "merge-base" in text or "merge base" in text, (
+        f"{doc} describes `unverified-check --baseline` and does not say the "
+        "comparison is against the merge base"
+    )
