@@ -41,7 +41,13 @@ GROUPS = {
         "implementer-notice.py",
         "session-lease.py",
         "evidence-advisor.py",
+        "worktree_consent.py",
     ),
+    # The AFTER half of the worktree guard, and the only group that exists for
+    # one gate. It cannot join `pre-agent`: what it records is that the call
+    # RAN, which is the whole of why the record is evidence a command text
+    # cannot forge.
+    "post-agent": ("worktree_consent.py",),
     "post-edit": ("lint-python.py", "session-lease.py"),
     # The root move precedes the ledger-format migration, because the second
     # reads the ledgers at the addresses the first creates.
