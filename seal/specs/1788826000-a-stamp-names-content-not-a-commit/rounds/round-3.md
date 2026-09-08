@@ -5,7 +5,7 @@
 | Target SHA | cdcadc0 |
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
-| Broad gate | passed after `release/v0.9.1` was merged in — 2629 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0; `rider_check.py` 20 ok, 0 drifted, 0 broken; `evidence-check .` 849 ok, 0 drifted |
+| Broad gate | passed after `release/v0.9.1` was merged in — 2629 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0; `rider_check.py` 20 ok, 0 drifted, 0 broken; `evidence-check .` 849 ok, 0 drifted. CI's **Windows** leg then failed one case and it was a real defect: `tree_files` built `rel` with the native separator, and `migrate` spends it as `git show <sha>:./<rel>` where git takes only `/` — so the migration could resolve no file at all on Windows, and the drift message handed a person a `--only` argument that would never match |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |

@@ -281,7 +281,18 @@ def riders_in(rel, text):
 
 
 def tree_files(root, roots=RIDER_ROOTS):
-    """Every readable file under the rider roots, sorted."""
+    """Every readable file under the rider roots, sorted.
+
+    Paths come back spelled with `/` on every platform, and that is not
+    tidying. Three consumers read them and all three need the one spelling:
+    `migrate` spends `rel` as `git show <sha>:./<rel>` and git accepts and
+    prints only `/`, so a backslash made the migration unable to resolve any
+    file at all on Windows; `--only` compares the argument a person types
+    against `rel`; and the drift message hands that person the very command
+    to type. `skills/code-review/scripts/chain_check.py#round_records` carries
+    the same rule and the same reason, learned there first -- this script
+    repeated it. Found by CI's Windows leg.
+    """
     found = []
     for top in roots:
         base = os.path.join(root, top)
@@ -291,7 +302,8 @@ def tree_files(root, roots=RIDER_ROOTS):
             dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
             for name in sorted(names):
                 if name.endswith(READABLE):
-                    found.append(os.path.relpath(os.path.join(here, name), root))
+                    rel = os.path.relpath(os.path.join(here, name), root)
+                    found.append(rel.replace(os.sep, "/"))
     return sorted(found)
 
 
