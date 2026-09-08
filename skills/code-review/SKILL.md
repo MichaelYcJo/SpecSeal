@@ -154,9 +154,21 @@ The work item is the key now, and its `routing.md` names the branch.
 
 **Right after posting the report**, three files are written at the work item:
 `rounds/round-N.md` by `round_record.py new`, from the reviewer's report, and
-the two todo files by the orchestrator (reviewer workers never write here —
-parallel writers overwrite each other, and worker findings are
-pre-verification). One of them gets a directory and
+the two todo files by the orchestrator. Reviewer workers write none of those
+three — parallel writers overwrite each other, and worker findings are
+pre-verification.
+
+**The reviewer does write one file, and it is not a record.**
+`rounds/round-N-report.md` is the report itself, left where
+`round_record.py new` reads it when `--report` is absent, and it carries
+neither of the properties that sentence protects: it is one file per round
+rather than a shared one, and it is the pre-verification text rather than
+something that asserts a verdict has been checked. Before it existed the
+report reached the orchestrator as chat text and a transcript, and the
+orchestrator **retyped** it to have a file to pass — a lossy copy of the one
+document whose whole value is that it is exact (#228). The fixer side had
+`rounds/round-N-fixes.md` all along; this is the other half of that
+convention. One of them gets a directory and
 two do not: `round-N` is the only member of the set that is plural and
 unbounded, so the two todo files sit at the work item's own level, beside
 `rounds/` rather than inside it. The release guard reads `evidence-todo.md`
@@ -167,6 +179,7 @@ company because the layout is one rule rather than two:
 | File | Contents |
 |---|---|
 | `rounds/round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table — and **whether anything it found leaves the root or crashes**, the reviewer's `Loses a record or crashes` line, which is the floor under the cap, and **what ran the round** — the `Ran by` row, the agent and the model, filled by the session that spawned it (below) |
+| `rounds/round-N-report.md` | the reviewer's report as the reviewer wrote it — written by the reviewer, read by `round_record.py new`, committed by the orchestrator beside the record it produced. Not a record: nothing reads a verdict out of it, and every reader of `rounds/` selects records by name |
 | `tests-todo.md` | regression tests to plant, with the destination file per row |
 | `evidence-todo.md` | verified facts to merge into `seal/ledger.md` |
 
@@ -530,6 +543,13 @@ land next, and `close` updates the cells to `fixed at <sha>` afterwards, from
 the fix table the pass hands back, in the same command that writes the fix
 surface.
 
+**`round-N-report.md` goes in that same commit**, because the reviewer left
+it uncommitted and it is what the record was derived from. A record committed
+without it leaves `Fixes checked by` pointing at a round whose report nobody
+can open, which is the audit line the record exists to hold. It sits in the
+same directory, so the commit that adds one has the other a line away in
+`git status`.
+
 **A record written late leaves no trace**, which is why this is a gate rather
 than a reminder. By the time a late record is committed the fixes have landed,
 so its cells read `fixed at <sha>` — indistinguishable from a correct record
@@ -705,6 +725,17 @@ executed snippets, the record came out at 80 lines with none of them, and the
 fix pass rebuilt all three from a description. Its first reproduction was
 wrong. A round that opened nothing needing a fix writes no section, and the
 record says so.
+
+**The report is a file now, and that changes what the sentence above is
+saying rather than retiring it.** `rounds/round-N-report.md` survives the
+session, so a fix pass that wants the report's own words can open it. What is
+unchanged is which file the fix pass is *told* to open and which one anything
+downstream reads: `chain_check.py` reads the record, `close` writes the
+record, and the next round inherits from the record. So a fix that exists
+only in the report's prose still reaches nothing that acts on it — the loss
+is no longer *the words are gone* but *the words are in the file nobody is
+pointed at*, which costs the same fix pass. Fence it under
+`## Paste-ready fixes` regardless.
 
 A Grounds cell is not the place either. It is one line of one table row, a
 paste-ready fix is a fenced block with comments in it, and a `|` inside that
