@@ -27,6 +27,14 @@ outrank this file; cite them, don't restate. -->
 - #206 — one sentence in `docs/issues-and-milestones.md`, so the three
   documents naming the check agree.
 
+> **Corrected by review round 1 — two counts in the list above came from a
+> reading of the source rather than from the source, and the scope they
+> describe is unchanged.** `refusal` has **six** elements, not seven:
+> `ast.parse` flattens the returned `+` chain to four operands whose first is
+> one `JoinedStr` of three parts. And **two** documents state what the check
+> refuses, not three — `docs/flow.md:30` describes the equality check #179
+> replaced, so it names the ticket rather than the check.
+
 **Out.**
 
 - `docs/release-checklist.md` and `docs/flow.md`. Both state the rule

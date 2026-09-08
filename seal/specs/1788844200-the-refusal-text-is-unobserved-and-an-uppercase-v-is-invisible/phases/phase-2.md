@@ -26,6 +26,18 @@ The separator three attempts kept missing is not an operand at all — it is the
 and is invisible to anyone listing the operands. Counting sub-parts rather than
 operands is what makes it the fifth of seven instead of a footnote.
 
+> **Corrected by review round 1: that paragraph is a reading of the source
+> presented as a construction, and the count is six.** `ast.parse` flattens
+> the `+` chain to four operands and the first is one `JoinedStr` of three
+> parts — six leaves. Seven was reached by splitting the third part into a
+> paragraph and the separator closing it, and by counting the join's `"\n  "`
+> argument as an element, which is an argument to an operand rather than a
+> leaf. What that cost is the thing the phase was spawned to prevent: the
+> paragraph itself went read at its two ends only, with 86 characters between
+> the two assertions read by nothing, and two deletions inside it left the
+> module at 32 passed. Listing operands by eye and calling it construction is
+> the same act as reading, one level down.
+
 **Two offenders in the fixture, not one.** The separator the join contributes
 cannot be observed with a single offender, and the tree has had zero offenders
 for its whole life — so nothing about a real run would ever have shown it.
@@ -36,6 +48,13 @@ literal leaves the module at 32 passed. That is the same shape as the claim
 this ticket exists to correct, so it was executed rather than repeated: it is
 what these seven mutations left standing, and it stays a survivor rather than
 becoming a limit.
+
+> **Corrected by review round 1: the sentence beside it made the survivor a
+> limit anyway.** The docstring said pinning that line *"would mean reading
+> this file's own source"*. The round disproved it by writing the pin —
+> `tracked` and `timers_in` are module globals, and swapping them raises the
+> check with a message comparing equal to `refusal(running, offenders)`. The
+> survivor is real and the impossibility beside it was not measured.
 
 **What the next phase needs.** The neighbouring docstring's false sentence has
 a twin in `seal/ledger.md`'s R3 note, folded there at the 0.9.1 release. Phase

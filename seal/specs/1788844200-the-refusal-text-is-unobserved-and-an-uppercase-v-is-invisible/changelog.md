@@ -16,10 +16,12 @@
   lists the refused lines and offers the routes out — and only the routes were
   read by any assertion. Deleting the refused lines, the running version or
   the whole explanation each left the module green, so a refusal could lose
-  the half a person acts on first and no test would say so. All seven of its
-  elements — four pieces and the three separators that join them — are now
-  pinned one at a time, and every one was seen red on its own deletion before
-  the case was committed.
+  the half a person acts on first and no test would say so. Every piece it
+  builds is now read whole — six of them, counted from the expression the
+  builder returns rather than from a reading of it — and each was seen red on
+  its own deletion before the case was committed. The two mutations that still
+  pass are named in the case itself, because what survived a measurement is a
+  fact and "nothing else can be pinned" is not.
 - **Two records described an order bug that never happened.** The exemption
   list of files whose whole job is to name a moment stopped depending on the
   order it is written in, and both the case that pins it and the ledger row
@@ -32,5 +34,7 @@
   shipped or is still ahead".** It refuses versions at or above the running
   one and keeps everything below as history, which is what lets that same
   document say which release an issue shipped in. A reader learning the rule
-  from the wider sentence would go looking for history to rewrite. The three
-  documents naming the check now agree.
+  from the wider sentence would go looking for history to rewrite. Both
+  documents that state the rule now agree — a third names the ticket rather
+  than the check, and describes what the check used to do, so it is left as
+  the record of that moment it is.
