@@ -321,7 +321,10 @@ def test_the_refusal_prints_every_piece_it_builds():
     characters of the timer paragraph that no assertion here touched.
 
     So the elements are the leaves `ast.parse` gives for the returned
-    expression. The `+` chain flattens to four operands, and the first is one
+    expression, under three normalisations stated here because the count
+    depends on them: the `+` chain flattens, a `JoinedStr` expands to its
+    parts, and a `Call` counts as ONE atom — its receiver and its arguments
+    inside it. The chain flattens to four operands, and the first is one
     f-string — a single `JoinedStr` of three parts. Six leaves:
 
     1. `"a loaded file names a version at or above the running "`;
@@ -362,8 +365,14 @@ def test_the_refusal_prints_every_piece_it_builds():
     A third class is unmeasured by design: nothing here pins that nothing was
     ADDED. A sentence inserted at the end of the timer paragraph, or a line
     inserted before the routes, leaves this module at 32 passed (round 2).
-    Every element is read whole, so nothing can go missing; pinning that
-    nothing was added means rebuilding `refusal` in the test.
+    Every element is read whole, so nothing can go missing. The pin is
+    available and it is measured, not absent: the six pieces asserted below
+    tile the text exactly, so `assert text ==` their concatenation costs one
+    assertion and no literal this case does not already carry — 32 passed
+    unmutated, and 1 failed on either insertion (round 3). It is declined
+    because that concatenation IS `refusal` rebuilt in the test, which
+    `plan.md` weighed and rejected. Declined on a measurement, not on a
+    limit.
 
     What must not be written here again is that either one CANNOT be pinned.
     Three times now a limit nobody measured has gone into a record about this
