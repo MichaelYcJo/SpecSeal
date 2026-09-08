@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 2 |
 | Commit | 2125094 |
-| Ran by | specseal:smith on claude-opus-5 |
+| Ran by | smith on `claude-opus-5[1m]` — the spawn prompt named no model. The segment's own harness line is the source; the transcript's `message.model` rows carry the bare id `claude-opus-5`, the same model without the context-window marker |
 
 ## What this phase was asked
 
