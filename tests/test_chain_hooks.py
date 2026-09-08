@@ -327,8 +327,11 @@ def test_no_segment_of_a_bash_command_raises_out_of_gh_segments(command, expecte
 
     The parameters are grouped by arm, so a mutation says which one went:
     the two quoted-pipe commands are the `except ValueError` arm, and the
-    three that reduce to an empty token list are the index guards. Contract
-    §12 — the finding named one instance and the cause produces three."""
+    other three are the index guards. Two of those leave a segment whose
+    token list is empty; `FOO=bar` leaves one token, which the
+    env-assignment prefix arm consumes, so `i` reaches `len(toks)` by the
+    other route. Contract §12 — the finding named one instance and the cause
+    produces three."""
     guard = load_hook_module("review-history-guard.py", "guard_every_segment")
     assert guard.gh_segments(command) == expected
 
