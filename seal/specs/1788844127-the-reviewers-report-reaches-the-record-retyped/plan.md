@@ -67,7 +67,7 @@ commissioning the fixes*), so it would refuse every correct run.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | The report reaches the record as a file: the reviewer is told where to leave it, `round_record.py new` defaults `--report` to that path, the flag still wins, the absence is named, and the four documents tell the record from the report | `bin/test tests/test_the_reviewers_report_reaches_the_record.py -q`, each case seen red first | |
+| 1 | The report reaches the record as a file: the reviewer is told where to leave it, `round_record.py new` defaults `--report` to that path, the flag still wins, the absence is named, and the four documents tell the record from the report | `bin/test tests/test_the_reviewers_report_reaches_the_record.py -q`, each case seen red first | 7bcf36a |
 
 **One phase, not two.** The generator's default and the reviewer's write were
 planned as separate phases and are one vertical slice: a default that reads a
