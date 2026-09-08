@@ -19,9 +19,15 @@ without naming where the refused work goes stops the chain at a wall, and the
 two files that state the rule to a session state the exit before it. That
 ordering is what `test_the_exit_is_stated_before_the_rule` reads, and it is why
 the sections are sliced rather than searched whole: the same exit sentence
-appears earlier in `skills/code-review/SKILL.md` under the floor, so a
-whole-file search would be satisfied by a sentence that is not the one this
+appears earlier in `skills/code-review/orchestration.md` under the floor, so
+a whole-file search would be satisfied by a sentence that is not the one this
 case is about.
+
+Both sections are in `orchestration.md` rather than in the review skill since
+#265 split that file on the seam its own `Orchestrator:` headings drew. The
+rule, the exit and the floor moved together and none of them changed, so this
+file reads the same prose one file over — except where it counts the exit
+sentence, which is counted across both halves and says why there.
 
 `templates/sdd-round.md` is checked for presence only. It is a form to copy
 rather than an argument to follow, and its own reading order — what the row
@@ -34,6 +40,8 @@ import os
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 SKILL = ("skills", "code-review", "SKILL.md")
+# The orchestrator's half, where the floor and the depth bound live (#265).
+ORCH = ("skills", "code-review", "orchestration.md")
 SMITH = ("agents", "smith.md")
 TEMPLATE = ("templates", "sdd-round.md")
 
@@ -43,13 +51,13 @@ SHAPE = "unit (depth N)"
 
 # The two files that state the rule to a session that is about to act on it.
 # The template is a form, and is checked for presence alone.
-STATES_THE_RULE = (SKILL, SMITH)
+STATES_THE_RULE = (ORCH, SMITH)
 
 # Each file's rule section, bounded by text that was in the file BEFORE this
 # rule landed, so the slice is defined by the document rather than by the
 # sentence under test.
 SECTION = {
-    SKILL: ("### A fix pass adds the unit that pins it", "### Then say who checked"),
+    ORCH: ("### A fix pass adds the unit that pins it", "### Then say who checked"),
     SMITH: ("the way out is the verifying round above", "What is unresolved at that"),
 }
 
@@ -82,7 +90,7 @@ def test_all_three_files_state_the_rule():
     spellings on the first draft — a semicolon here, a lower-cased clause
     there — and a rule a reader has to recognise across paraphrases is a rule
     a checker cannot find at all."""
-    for parts in (SKILL, SMITH, TEMPLATE):
+    for parts in (ORCH, SMITH, TEMPLATE):
         assert RULE in flat(*parts), (
             f"{'/'.join(parts)} does not state the depth bound, so a fix pass "
             "reading that file is told nothing about what it may create"
@@ -91,7 +99,7 @@ def test_all_three_files_state_the_rule():
 
 def test_the_exit_is_named_in_the_section_that_states_the_rule():
     """Presence, in the slice rather than the file. `skills/code-review/
-    SKILL.md` carries this same sentence under the floor as well, and a
+    orchestration.md` carries this same sentence under the floor as well, and a
     whole-file search would pass on that one while this section named no exit
     at all."""
     for parts in STATES_THE_RULE:
@@ -125,10 +133,10 @@ def test_the_section_slice_is_narrower_than_the_file():
     """`section()` is what keeps the case above honest, so it is pinned rather
     than trusted.
 
-    Degrade it to the whole file and the `skills/code-review/SKILL.md` half of
-    the ordering case passes on the floor's exit sentence — a different
-    sentence, in a different section, that happens to sit before the rule. The
-    case would then be green while saying nothing, which is the shape this
+    Degrade it to the whole file and the `orchestration.md` half of the
+    ordering case passes on the floor's exit sentence — a different sentence,
+    in a different section, that happens to sit before the rule. The case
+    would then be green while saying nothing, which is the shape this
     repository calls a counterfeit seal.
     """
     for parts in STATES_THE_RULE:
@@ -142,10 +150,14 @@ def test_the_section_slice_is_narrower_than_the_file():
         assert SECTION[parts][1] not in sliced, (
             f"{'/'.join(parts)}: the slice runs past its own closing marker"
         )
-    assert flat(*SKILL).count(EXIT) >= 2, (
-        "the exit sentence appears once in `skills/code-review/SKILL.md`, so "
-        "either the floor or the depth bound is now borrowing the other's, "
-        "and one of the two sections refuses without an exit of its own"
+    halves = flat(*SKILL) + " " + flat(*ORCH)
+    assert halves.count(EXIT) >= 2, (
+        "the exit sentence appears once across the review skill's two halves, "
+        "so either the floor or the depth bound is now borrowing the other's, "
+        "and one of the two sections refuses without an exit of its own. "
+        "Counted across both halves and not in one file: #265 moved both "
+        "copies into `orchestration.md`, and a count taken there alone would "
+        "go green again the day one of them moves back"
     )
 
 
@@ -171,13 +183,13 @@ def test_the_new_units_row_carries_the_depth():
 
 
 def test_the_skills_fix_surface_table_names_the_depth():
-    """🟡 4 of round 1. `skills/code-review/SKILL.md` says the depth once, in
-    the section that argues for the rule, and again — differently — in the
-    table a session actually opens to fill the cell in. The table said the
-    row holds the units and nothing more, so a session following it writes a
-    cell the checker refuses."""
+    """🟡 4 of round 1. `skills/code-review/orchestration.md` says the depth
+    once, in the section that argues for the rule, and again — differently —
+    in the table a session actually opens to fill the cell in. The table said
+    the row holds the units and nothing more, so a session following it writes
+    a cell the checker refuses."""
     row = next(
-        line for line in read(*SKILL).splitlines() if line.startswith("| `New units` |")
+        line for line in read(*ORCH).splitlines() if line.startswith("| `New units` |")
     )
     for needle in ("depth", "`;`"):
         assert needle in row, (
