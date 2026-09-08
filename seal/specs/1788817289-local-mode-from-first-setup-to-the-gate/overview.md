@@ -30,6 +30,8 @@ mode may never have been asked which one it wanted.
 | four cases in `tests/test_the_records_can_be_carried_out_and_in.py` fail on this branch AND on its base — reproduced with the branch stashed | the repository owner; they predate this work and are outside the scope it may change |
 | whether `--worktree` should read routing declarations from the working tree, so a local-mode round reports *declared* | the repository owner; `questions.md` Q3 and `seal/follow-up.md` |
 | `tests/test_the_pull_request_language_is_the_repositorys.py#items` reimplements `hooks/config.py#config_rows` rather than calling it — a third copy of one parser | the repository owner; the header-gate case this branch added exists because that copy left the real one uncovered |
+| a regression case for the gate's `git` process count from a linked worktree — round 2's finding 11 cut it from 4 to 2 and nothing pins it | the repository owner. The finding sits inside `marker_dir`, a unit round 1's fixes created, so a case pinning its fix is at depth 2 and `round_record.py close` refuses it (`skills/code-review/SKILL.md` §*A fix pass adds the unit that pins it*) |
+| the rider on `seal.py#other_worktrees` is stamped in the pre-#239 form, `Verified <date> at <sha>` | the repository owner, at whichever of this branch and `fix/239-a-stamp-names-content-not-a-commit` merges into `release/v0.9.1` second. The two forms are mutually exclusive — measured, each is refused by the other branch's check — and the rider carries the note at its own coordinate |
 
 ## Not done
 
