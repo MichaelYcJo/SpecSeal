@@ -142,10 +142,18 @@ was wrong.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | The reader — normalisation, sentence segmentation, corpus enumeration, the two by-construction exclusions | Cases over the real ledger row and the real split string literal, each seen red on a mutation | |
-| 2 | The check — corrected-sentence derivation from a range, the n-gram index, the score, the report and the exit codes | S4, S5; the module's cases | |
-| 3 | `BITS` calibrated against S1 and S2, and the noise measured over the release's real ranges | Executed against `7bcf36a` and `ad6f81a`; the numbers in `phases/phase-3.md` | |
-| 4 | `bin/survivor-check` + `.cmd`, the exemption reader (S6), the prose at the two places that run it (S7), the CI step the phase-3 measurement decides on | The wrapper cases the suite already parametrises over `bin/`; cases for S6 and S7 | |
+| 1 | The reader, the check and the calibrated threshold — normalisation, segmentation, corpus enumeration, the two by-construction exclusions, the score, the report and the exit codes | Executed against `7bcf36a` and `ad6f81a`; the curve over 77 real ranges in `phases/phase-1.md` | f168d33 |
+| 2 | `bin/survivor-check` + `.cmd`, the exemption reader (S6), the prose at the places that run it (S7), and the CI step | The wrapper cases the suite already parametrises over `bin/`; cases for S4, S5, S6, S7 | 23066d4 |
+| 3 | What a probe repository found that the two real cases could not: a threshold that measured this repository's size, and a self-match guard comparing a line across revisions | `tests/test_a_corrected_sentence_survives_elsewhere.py`, 26 cases, and the mutation sweep in `phases/phase-3.md` | 28b90da |
+
+**Three phases where the table above first said four, and the merge is the
+divergence `overview.md` records.** Planned phases 1–3 were the reader, the
+check and the calibration, and none of the three is a runnable slice on its
+own: a threshold is a measurement OF the finished check, and the reader's
+normalisation is only observable through the score that reads it. Splitting
+them would have bought three commits that could not be verified apart.
+Planned phase 4 is phase 2 here, unchanged. Phase 3 is new, and it is the
+phase the plan could not have named — see its record.
 
 ## Operational impact
 

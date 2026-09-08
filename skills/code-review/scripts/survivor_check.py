@@ -64,8 +64,17 @@ means the same thing in a repository of twenty files and one of a thousand.
 A round record and a reviewer's report carry the SHA they were written against
 and quote the defective wording verbatim -- that is what they are for, and
 `skills/implement/SKILL.md` says a round record never asserts a present state.
-Measured on #267's range: the corrected clause stands in `round-2.md` and
-`round-2-report.md`, and reporting either would be wrong.
+
+**What it is worth was measured, and it is not what it looks like.** On #267's
+range the corrected clause does stand in `round-2.md` and `round-2-report.md`,
+and with the exclusion switched off those two score **1.51** -- under the floor
+by 0.09, so the floor would have refused them anyway. What the exclusion
+actually buys is the other side of the same arithmetic: dropping two files that
+carry the wording raises `idf` for every phrase they held, and row R3 goes from
+**1.69 to 1.79**. So it is not the thing that keeps a record from being
+reported on this range; it is the thing that stops records from diluting the
+survivors into the floor. Both matter, and only the second was measurable
+here.
 
 **Struck-through text.** A `~~...~~` span is this repository's own mark for a
 claim it no longer makes; `seal/ledger.md`'s R3 carries three of them. Text
@@ -144,14 +153,18 @@ N = 3
 # against it.
 FLOOR = 1.6
 
-# A candidate needs more than one INDEPENDENT phrase in common -- see `runs`
-# for why independence is the thing being counted. Without this, one six-word
-# coincidence read as four overlapping n-grams cleared any threshold at all,
-# which is what the first calibration run found.
+# **A floor above 1.0 is what requires two independent phrases**, and there is
+# no second constant saying so. One run is worth `log2(F / df) / log2(F)`,
+# which is at most 1.0 and reaches it only when nothing else in the corpus
+# carries the phrase -- so any floor past 1.0 cannot be cleared by one run
+# however rare it is. That is the whole reason the unit is what it is.
 #
-# Two, because the defect is a restated FACT and a fact takes more than three
-# words to state. Both real survivors share exactly two.
-SHARED_FLOOR = 2
+# There WAS a second constant, `SHARED_FLOOR = 2`, and a mutation sweep found
+# it could not change a single answer: the floor had already refused every
+# one-run candidate. Removing it is not a simplification for its own sake --
+# a constant that cannot change the answer tells a reader the independence
+# requirement lives somewhere it does not, and it hid the fact that dropping
+# the corpus scale would let a one-run coincidence through.
 
 # A blob bigger than this is not prose anybody wrote by hand.
 SIZE_CAP = 2 * 1024 * 1024
@@ -589,7 +602,7 @@ def score(gone, keep, where, weight_of, floor):
                 reached.setdefault(id(candidate), [candidate, set()])[1].add(gram)
         for candidate, shared in reached.values():
             total, named = weigh(sequence, shared, weight_of)
-            if len(named) < SHARED_FLOOR or total < floor:
+            if total < floor:
                 continue
             best = found.get(id(candidate))
             if best is None or total > best[0]:

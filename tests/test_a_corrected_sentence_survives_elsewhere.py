@@ -140,10 +140,11 @@ def test_a_reworded_sentence_reports_the_pin_it_left_behind():
         "the report does not print the wording that survived, so a reader "
         f"cannot find it:\n{text}"
     )
-    # And ONLY that one. This is where both thresholds are pinned from the
-    # outside: raise `FLOOR` and the survivor goes missing, drop `SHARED_FLOOR`
-    # to one and this range grows the false positive the calibration measured
-    # -- `plan.md` records it as a single six-word run counted four ways.
+    # And ONLY that one. This is where the floor is pinned from both sides:
+    # raise it and the survivor goes missing, and take the corpus scale out of
+    # the weighting -- so a one-run coincidence is worth `log2(F)` instead of
+    # 1.0 -- and this range grows the false positive the calibration measured,
+    # a single six-word run counted four ways.
     named = paths_in(text)
     assert named == [PIN_CARRIER], (
         f"the range reported {named}; the pin is the one thing standing, and "
@@ -195,7 +196,19 @@ def test_a_record_of_a_past_round_is_not_a_survivor():
     the reviewer describing the defect."""
     if not resolves(CLASS_LEFT_STANDING):
         pytest.skip(f"{CLASS_LEFT_STANDING} is not in this clone")
-    _code, text = over(CLASS_LEFT_STANDING)
+    # **Under a floor that would admit them**, and a mutation sweep is why.
+    # At the shipped floor those two records score 1.51 against 1.6, so this
+    # case passed with the exclusion switched off entirely -- it was measuring
+    # the threshold and reading as though it measured the exclusion. 1.4 is
+    # below their score and above nothing else on this range.
+    _code, text = run(
+        "--range",
+        f"{CLASS_LEFT_STANDING}^..{CLASS_LEFT_STANDING}",
+        "--root",
+        ROOT,
+        "--floor",
+        "1.4",
+    )
     named = paths_in(text)
     assert named, f"the report named no coordinate at all:\n{text}"
     offenders = [path for path in named if CLASS_ROUND_RECORDS in path]
@@ -507,6 +520,118 @@ def test_a_second_exemption_file_with_no_rows_is_refused_too(tmp_path):
         f"exit {code}\n{text}"
     )
     assert "two.md" in text, f"the refusal names the wrong file:\n{text}"
+
+
+def test_one_independent_run_can_never_clear_the_floor():
+    """Where the independence requirement actually lives.
+
+    A run is worth `log2(F / df) / log2(F)`, at most 1.0 and only when nothing
+    else carries the phrase, so a floor past 1.0 refuses every one-run
+    candidate on its own. There used to be a second constant asserting the
+    same thing and a mutation sweep found it could not change an answer --
+    which is worse than redundant, because it told a reader the requirement
+    lived in a count."""
+    reader = module()
+    assert reader.FLOOR > 1.0, (
+        f"FLOOR is {reader.FLOOR}, so a single run can clear it and one "
+        "six-word coincidence is a survivor again"
+    )
+    # And the cap is real, at both ends of a plausible corpus.
+    for size in (3, 633, 100000):
+        weight = reader.weights(size, {"a rare phrase": 1})["a rare phrase"]
+        assert weight == pytest.approx(1.0), (
+            f"a phrase unique in a {size}-file corpus is worth {weight}, not "
+            "1.0; the unit is not one phrase that occurs nowhere else"
+        )
+
+
+def test_a_one_file_corpus_reports_nothing_rather_than_dividing_by_zero():
+    """`log2(1)` is 0. A corpus with one file has no elsewhere, so the honest
+    answer is that nothing can be reported -- not a traceback."""
+    assert module().weights(1, {"a rare phrase": 1}) == {}
+
+
+def test_an_exemption_row_with_no_quote_does_not_silence_a_whole_file(tmp_path):
+    """The row that would have exempted everything.
+
+    An empty quote is a zero-length word run, and a zero-length run is
+    contained in every text. So a row with an empty Quote cell would silence
+    its path entirely -- the *check nothing* value this design says it does
+    not have. It is refused instead."""
+    table = tmp_path / "survivors.md"
+    table.write_text(
+        "| Path | Quote | Grounds |\n|---|---|---|\n| `seal/ledger.md` |  | no quote |\n",
+        encoding="utf-8",
+    )
+    code, text = run("--range", "HEAD..HEAD", "--root", ROOT, "--exempt", str(table))
+    assert code == 2, (
+        f"a row with an empty quote was accepted; exit {code}. An empty anchor "
+        f"matches every text, so that row exempts a whole file\n{text}"
+    )
+
+
+def test_a_quote_whose_words_are_scattered_does_not_exempt():
+    """The anchor is a run, not a bag of words.
+
+    Every word of `report once findings` appears in the sentence below and
+    none of them adjacently. Matching on membership would exempt a carrier
+    that says something else entirely with the same vocabulary."""
+    reader = module()
+    candidate = reader.Sentence(
+        "notes.md", 1, "The report says findings reach the record once verified."
+    )
+    rows = [("notes.md", reader.words("report once findings"), "why")]
+    assert reader.exempted(candidate, rows) is None, (
+        "a quote whose words are scattered through the text exempted it, so "
+        "the anchor is a bag of words rather than a phrase"
+    )
+    contiguous = [("notes.md", reader.words("`findings` reach the record"), "why")]
+    assert reader.exempted(candidate, contiguous) == "why", (
+        "a quote that IS a run of the text did not match, so the case above "
+        "passes for the wrong reason"
+    )
+
+
+def test_a_three_dot_range_starts_at_the_merge_base(tmp_path):
+    """`A...B` is what a pull request compares, and it is not `A..B`.
+
+    **Asked of `parse_range` rather than through a report, and that is a
+    decision with a reason.** Three end-to-end fixtures were built for this
+    and each was absorbed by a different part of the design: a base's
+    additions read as removals under `A..B`, but they survive nowhere at `B`;
+    where both sides wrote the same sentence, `wanted` subtracts it as wording
+    the range also added; and an identical copy shares one contiguous run,
+    which the floor refuses. So the difference the merge base makes is real in
+    the input and hard to make visible in the output on a two-file probe.
+
+    What the unit promises is that `A...B` starts at the merge base, and that
+    is what is asked here. `docs/review-handoff-protocol.md`'s own reason for
+    the spelling stands behind it: CI compares against the base a pull request
+    actually has, and reading `...` as `..` would hand this check every commit
+    the base made too."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    common = build(repo, {"a.md": "# a\n\nFirst.\n"}, "the common commit")
+    base = build(repo, {"a.md": "# a\n\nFirst. Second.\n"}, "the base moves on")
+    subprocess.run(
+        ["git", "-C", str(repo), "checkout", "-q", "-b", "side", common], check=True
+    )
+    tip = build(repo, {"b.md": "# b\n\nThe branch's own.\n"}, "the branch moves on")
+
+    reader = module()
+    two = reader.parse_range(str(repo), f"{base}..{tip}")
+    three = reader.parse_range(str(repo), f"{base}...{tip}")
+    assert two == (base, tip), f"`A..B` did not resolve to its two ends: {two}"
+    assert three == (common, tip), (
+        f"`A...B` resolved to {three[0][:7]}..{three[1][:7]} where the merge "
+        f"base is {common[:7]}. Read as `A..B`, this check is handed every "
+        "commit the base made as well, and reports a branch for wording it "
+        "never touched"
+    )
+    assert two != three, (
+        "the two spellings resolved to the same range, so this probe's tips "
+        "never diverged and the case is measuring nothing"
+    )
 
 
 # --- the refusals ----------------------------------------------------------
