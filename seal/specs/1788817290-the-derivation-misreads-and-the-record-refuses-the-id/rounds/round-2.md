@@ -5,7 +5,7 @@
 | Target SHA | a283e64 |
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
-| Broad gate | not yet |
+| Broad gate | passed at 31329cc — 2623 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0 |
 | Fixes checked by | nobody — the fixes are not yet written |
 | Contract changes | none |
 | New units | conftest_is_loaded (depth 1); MARKER (depth 1); NESTED_CONFTEST (depth 1); VENDORED_CONFTEST (depth 1); EXTRA_MOD (depth 1); test_the_fixture_repository_only_widens_signatures (depth 1); test_a_conftest_nothing_is_collected_under_is_not_loaded (depth 1); test_the_directory_decides_inside_tests_as_well (depth 1); test_a_sibling_whose_name_extends_the_directory_is_not_below_it (depth 1) |
