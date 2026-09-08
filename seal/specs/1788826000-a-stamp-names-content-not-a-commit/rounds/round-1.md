@@ -6,7 +6,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | content_at → migrate, round-1-report.md, round-1.md, content_at, pytest |
 | New units | HTML_MARK (depth 1); test_a_second_rider_directly_under_the_first_is_its_own_rider (depth 1); test_a_second_rider_sharing_one_html_comment_is_its_own_rider (depth 1); stamped_module (depth 1); test_reverify_does_not_move_a_date_whose_hash_did_not_move (depth 1); test_reverify_still_moves_the_date_of_a_rider_that_did_change (depth 1); test_the_drift_message_says_the_re_stamp_takes_a_file (depth 1); test_a_refusal_names_which_of_the_three_things_failed (depth 1) |
 | Needs a fix | yes — findings 1, 2, 3 and 4; 5 and 6 are fix or justify |

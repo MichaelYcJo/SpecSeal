@@ -3,295 +3,26 @@
 | Field | Value |
 |---|---|
 | Target SHA | 2f0dd02 |
-| Base of the reviewed diff | 404dd4d (`git diff 404dd4d..2f0dd02`) |
 | Ran by | warden on claude-opus-5 |
-| Round | 2, the verifying round |
+| PR | not yet opened |
+| Broad gate | not yet |
+| Fixes checked by | nobody — the fixes are not yet written |
+| Contract changes | none — the fixes are not yet written |
+| New units | none — the fixes are not yet written |
+| Needs a fix | yes — findings 10 and 11 |
+| Loses a record or crashes | no |
+
+- [ ] Pass
 
 ## What this round was asked
 
-Round 1 closed four findings that need a fix and four corrections, and this
-round is the diff of those fixes — `eaa8030`, `bdf65df`, `923f86c` and
-`e1b83b8`, plus the two record commits over them. Not the branch: the fixes.
+Round 2 of `1788826000-a-stamp-names-content-not-a-commit` (ticket #239), at target `2f0dd02`, base `origin/release/v0.9.1`. The verifying round over round 1's fixes, whose substance is `eaa8030`, `bdf65df`, `923f86c` and `e1b83b8`.
 
-The named targets were the twelve restored dates with a sample proved
-independently and the twelfth (`4581fe1`) among them; the reverify rule in
-both directions; whether `--only` selects what it says; whether the
-re-enumeration that found the block merge in the HTML form reached a third
-corpus or a third form; whether the two openers now agree and whether any
-other reader in this branch is looser than its own docstring; the count behind
-the trailing-rider deferral and its disposition; whether the record now says
-something true about both `881fb0f` and `4f78074`; and whether `seal/ledger.md`'s
-L5 and R8, re-stamped before being read, were read and recorded.
+Round 1's verdicts were inherited. It had confirmed the whole design by re-derivation — the self-reference fixed point, the exclusion rule swallowing only its two stated losses, the two-rider `blocks[:1]` mutation, seven mutations red, the `135` count — and then opened four things, three of them 🔴 because they were the migration's own headline claims being false: all twenty stamps reading `2026-09-08` while twelve were not read that day; the cause, an `and` in the reverify condition, so an unchanged rider was rewritten for the date alone while `--only` selected a file rather than a rider; a date-only re-stamp drifting the ledger row of a unit nobody touched; and two adjacent riders merging into one block so the second stamp was never read — a merge phase 3 had found in its own fixture and not carried to the production reader.
 
-The report was to be a file, ids bare integers, one row per finding, no commit
-SHA in any rider stamp, and `NAME NOT IN TREE` written on any line naming
-something the tree does not carry.
+The named targets. The twelve restored dates, each claimed proven against the commit its previous stamp named, to be verified independently including the twelfth, with the four hand-written anchors checked for keeping `2026-09-08` on the stated ground that choosing an anchor required reading the rider. The reverify rule, in both directions, and whether `--only` selects what it says. The re-enumeration, which found the same merge in the HTML form so that two markdown files would have kept the defect just cleared from the `#` form — the class this repository has measured eight times — with the round asked to look for a third corpus or a third form. The HTML opener having been looser than its own docstring, surfaced when the file's own fixture constant became a rider. The trailing-rider shape left open, with its count verified and its disposition judged. `hooks/root-migrate.py`'s `4f78074` reported as the same shape as `881fb0f`, whose refusal message round 1 found untrue. And `seal/ledger.md`'s L5 and R8, re-stamped by `--reverify` before being read — a re-verify before a read being the thing the `Checked` column exists to prevent, so it needed justifying or opening.
 
-## How the findings hang together
-
-Every closure round 1 asked for holds, and I re-derived each rather than
-reading the fix record. What this round opens sits in two groups.
-
-- **Two are in the checker** — `--only` reports success for selecting nothing,
-  and a markdown heading is still read as a comment head. Both are the class
-  `923f86c` was written to close, one instance further on.
-- **Four are corrections to records**, all under `seal/`. Three of them are one
-  fact: a count taken before the last fix commit, carried into three files.
-
----
-
-## The twelve dates hold, and a thirteenth was provable and left on purpose
-
-**Executed**, in this repository rather than in a clone, so `4581fe1` is
-present. For each of the twenty riders I took the pre-migration stamp from
-`cbdd66e`, hashed the region its *current* anchor names at the commit that
-stamp claimed, hashed the same region at HEAD, and compared.
-
-Twelve pairs are identical, and each of those twelve carries exactly the
-pre-migration date:
-
-| Rider | Old stamp | Region hash then / now | Date in the tree |
-|---|---|---|---|
-| `hooks/cmdline.py:1775` | 2026-08-31 at `9829412` | `802768ca` / `802768ca` | 2026-08-31 |
-| `hooks/cmdline.py:1814` | 2026-08-31 at `9829412` | `7693c50d` / `7693c50d` | 2026-08-31 |
-| `hooks/dispatch.py:80` | 2026-09-02 at `5a831e8` | `fec67305` / `fec67305` | 2026-09-02 |
-| `hooks/optin.py:51` | 2026-08-31 at `9829412` | `0d131b0f` / `0d131b0f` | 2026-08-31 |
-| `hooks/review-history-guard.py:153` | 2026-08-31 at `9829412` | `3de7fd09` / `3de7fd09` | 2026-08-31 |
-| `hooks/review-skill-gate.py:122` | 2026-08-31 at `9829412` | `98bb724e` / `98bb724e` | 2026-08-31 |
-| `hooks/worktree-guard.py:165` | 2026-08-31 at `9829412` | `8801e5d6` / `8801e5d6` | 2026-08-31 |
-| `hooks/worktree-guard.py:222` | 2026-08-31 at `9829412` | `7e3ba403` / `7e3ba403` | 2026-08-31 |
-| `hooks/worktree-guard.py:1484` | 2026-08-31 at `9829412` | `7415c477` / `7415c477` | 2026-08-31 |
-| `skills/code-review/scripts/round_record.py:1858` | 2026-09-06 at `9241a8b` | `a9185160` / `a9185160` | 2026-09-06 |
-| `skills/evidence-check/scripts/evidence_check.py:1790` | 2026-09-07 at `70c272c` | `9046e0b6` / `9046e0b6` | 2026-09-07 |
-| `tests/test_the_printed_ledger_name_is_the_file_that_was_read.py:618` | 2026-09-06 at `4581fe1` | `8e0a246a` / `8e0a246a` | 2026-09-06 |
-
-The last row is the twelfth, and it is the one a `--no-local` clone cannot
-prove. Its region hashes to `8e0a246a` at `4581fe1` and at HEAD, so
-2026-09-06 is earned.
-
-Three riders' regions moved between the stamped commit and HEAD —
-`agents/smith.md:60`, `round_record.py:197` and `round_record.py:837` — and all
-three read 2026-09-08, which is right. Two carry no provable stamp because
-their old commit does not hold their file, and one never had a pre-migration
-rider at all. **Read**: `phase-4.md` lines 24-40 state the split and name the
-four hand-written anchors, and the fix record's own reason — choosing an anchor
-means reading the rider — is the one that carries them.
-
-**One rider was provable and is deliberately left.**
-`templates/evidence-check.yml:5` hashes to `6a954d30` both at `9829412` and at
-HEAD, so `--migrate`'s own rule would keep 2026-08-31; the tree reads
-2026-09-08. That is disclosed in the same correction block —
-*"`templates/evidence-check.yml` is provable at 2026-08-31 now that it has an
-anchor, and is deliberately left alone for that reason"* — and the reason is
-the one the other three rest on. I judge it defensible and correctly recorded:
-the anchor was chosen by hand on 2026-09-08, round 1 put the anchor itself in
-question, and the fix pass answered it with an executed measurement. A reading
-happened that day. Nothing needs to change here.
-
-## The reverify rule moves a date only where a hash moved, and `--only` takes a file
-
-**Executed**, both directions, on a scratch tree with three modules — one
-stamped with its own true hash, two stamped `00000000`.
-
-- `--reverify --only hooks/b.py` wrote `hooks/b.py` alone. `a.py` and `c.py`
-  came back byte-identical, and `a.py` still reads
-  `# Verified 2026-01-01 against unit@ea8b798d` after a run whose `today` was
-  `2026-12-31`.
-- A second run with no `--only` wrote `hooks/c.py` and left `a.py` alone.
-
-So the unchanged rider is skipped on the hash alone, the changed one still
-moves, and `--only` selects one file rather than one rider. **Executed** on the
-real tree: `rider_check.py` with no flags is `20 ok · 0 drifted · 0 broken`,
-exit 0, so a full `--reverify` today would write nothing at all — which is
-finding 3's steady state actually reached rather than argued.
-
-`.github/scripts/rider_check.py:368-375` says it in the drift message, and
-`test_the_drift_message_says_the_re_stamp_takes_a_file` asserts both halves.
-
-## The merge closes in every form the reader can meet — and one it should not have met
-
-**Executed**, seven constructions through `comment_blocks`:
-
-| Constructed | Blocks | Stamps read |
-|---|---|---|
-| two `#` riders back to back, `.py` | `[(2,3), (4,5)]` | `00000000`, `deadbeef` |
-| two `#` riders back to back, `.yml` | `[(1,2), (3,4)]` | `00000000`, `deadbeef` |
-| two riders sharing ONE html comment | `[(3,4), (5,6)]` | `00000000`, `deadbeef` |
-| **three** riders sharing one html comment | `[(3,4), (5,6), (7,8)]` | `00000000`, `deadbeef`, `feedface` |
-| two html riders in two comments | `[(3,4), (5,6)]` | `00000000`, `deadbeef` |
-| an html rider then a `#` rider in one `.md` | `[(3,4), (5,6)]` | `00000000`, `deadbeef` |
-| an UNCLOSED html rider, then a later marker | `[(3,7), (8,9)]` | `00000000`, `deadbeef` |
-
-The three-rider case matters because it exercises the `in_html` carry twice,
-which the two-rider case does not. The class is closed for both forms, and
-there is no third form to close: `READABLE` admits `.py`, `.md`, `.yml`,
-`.yaml`, `.sh`, `.toml`, `.cfg`, `.txt`, and every comment head among them is
-`#` or `&lt;!--`.
-
-**I looked for the third corpus in the place the copy came from.** Round 1's
-finding 6 was `content_at` printing one sentence for three causes.
-`skills/evidence-check/scripts/evidence_check.py:1369` still returns a bare
-`None` for all three — but its only caller, `migrate` at `:1474`, never turns
-that `None` into a sentence. It counts the row unproven and falls through. So
-the class has no second instance there, and nothing is owed. **Executed** by
-reading both call paths.
-
-## But a markdown heading is still read as a comment head — finding 11
-
-`comment_blocks`'s docstring says the `#` form is *"a `#` comment in Python,
-YAML and shell, or an HTML comment in markdown"*. The code at
-`.github/scripts/rider_check.py:219` asks only `stripped.startswith("#")`, and
-in markdown that is a heading.
-
-**Executed.** A file under a scanned root holding `## RIDER: what one is`:
-
-```
-0 ok · 0 drifted · 1 broken
-('templates/doc.md:3', 'BROKEN', 'no verification stamp. ...')
-```
-
-This is the same shape `923f86c` closed on the other side — a reader looser
-than the paragraph above it — and it is the mirror instance the enumeration
-stopped one step short of. It is worse than the HTML one in kind: the HTML
-opener lost an alarm, and this invents one. Every loss this design states for
-itself is a lost alarm, never an invented one, and CI exits 2 on a line nobody
-wrote as a rider.
-
-Nothing in the tree stands in it today — **executed**, the 33 marker lines
-under the six roots hold no `#`-headed markdown line — so this is a defect
-waiting on one future heading in any `.md` under `skills/`, `agents/`,
-`templates/`, `tests/`, `hooks/` or `.github/`.
-
-**The fix is verified, not proposed.** Against a patched copy: the corpus stays
-at `20 ok · 0 drifted · 0 broken`, the heading returns `[]` where the
-unpatched call returns `[(3, 3)]`, and the `.py` `#` form and the `.md` HTML
-form are untouched. No `.md` file in the tree uses the bare `#` rider form.
-
-## And `--only` reports success for selecting nothing — finding 10
-
-**Executed** on the working tree:
-
-```
-$ rider_check.py --reverify --only hooks/wortree-guard.py
-0 restamped · 0 refused
-exit=0
-```
-
-`reverify` at `:464` filters on `rider.rel != only` and counts nothing, so
-`main` at `:603-610` prints a clean total and returns 0. A person answering a
-drifted rider gets *done* for a run that did nothing, and the tree is unchanged
-underneath them.
-
-The drift message prints the path itself, so a copy-paste always matches. The
-reachable case is a path typed by hand — which `phase-4.md` and round 1's own
-paste-ready fixes both ask for, one of them for `templates/evidence-check.yml`
-— or an absolute one, or `./hooks/…`. Exit 0 is what makes it a defect rather
-than a nuisance: it is the answer a script reads.
-
-**The fix is verified.** Against the same patched copy,
-`--only hooks/no-such-file.py` refuses with the path named, and
-`--only hooks/m.py` still writes its one rider.
-
-## Three ledger re-stamps were recorded and two were not — finding 14
-
-The fix pass moved five hashes in `seal/ledger.md`. Three gained a sentence
-saying who read what:
-
-- `hooks/dispatch.py#run_gate` (`:270`) — a note on why the hash moved without
-  the claim moving.
-- L5 (`:738`) and R8 (`:989`), both anchored at `agents/smith.md#"## Phases"`.
-
-**Read**, and the prompt's premise holds. R8's note says it in its own words —
-*"**Re-read 2026-09-08 in work item 1788826000's round 1 fix pass**, the drift
-this note predicts, for the third time"* — and R8 had already written down that
-`## Phases` is the whole procedure and drifts on any edit to it. L5 carries the
-same re-reading as its third such entry. Both `Checked` columns are unmoved
-(2026-09-04 and 2026-09-05), which is `evidence_check --reverify` behaving:
-it writes the hash and never the column.
-
-**Two rows moved with no note at all.**
-
-- `seal/ledger.md:1203`, *The class check cannot pass vacuously*,
-  `test_the_refusal_above_can_actually_fail@56d55d18` → `@d3aa66c9`.
-- `seal/ledger.md:1418`, R5, `evidence_check.py#unread_items@26161a0a` →
-  `@1edf61c5`.
-
-**Executed**: in both regions the only edit is that rider's own date digit —
-`2026-09-08` → `2026-09-06` and `2026-09-07`. So both claims plainly hold, and
-that is exactly why the silence matters: a reader cannot tell these two from a
-hash that moved because the code did. `seal/ledger.md`'s own discipline is
-against a re-stamp *"on behalf of a session that never read it"*, and the same
-pass wrote that sentence three times for the other three rows.
-
-## The refusals now say something true about both commits — finding 6 closed
-
-**Executed**, both:
-
-| | `881fb0f` (`fold_ledger.py`) | `4f78074` (`root-migrate.py`) |
-|---|---|---|
-| `git cat-file -t` | commit | commit |
-| ancestor of HEAD | yes (exit 0) | yes (exit 0) |
-| `git show <sha>:./<path>` | *exists on disk, but not in `881fb0f`* | *exists on disk, but not in `4f78074`* |
-
-`phase-4.md` lines 82-95 and ledger row S4 both now say *a stamp that was wrong
-when it was written* rather than the squash caught in the act, and both name
-`4f78074` as the same shape. `content_at` at `:387-414` returns the cause, and
-`test_a_refusal_names_which_of_the_three_things_failed` pins all three.
-
-## The count behind the trailing-rider deferral moved under it — findings 12 and 13
-
-**Executed** at `2f0dd02`: a grep of the six roots finds **33** marker lines
-against the reader's 20 riders, so there are **13** extras, not 11. I read all
-thirteen: every one is prose, a docstring, or a string literal.
-
-The number was true when it was taken. **Executed**: 31 at `eaa8030`, 33 at
-`923f86c` — the HTML fix planted the opener in the case file twice, at
-`tests/test_a_rider_reaches_its_file.py:289` and `:435`, and the three records
-carrying the count were written after it.
-
-- `seal/ledger/1788826000-a-stamp-names-content-not-a-commit.md:20`, row S3,
-  in a cell stamped **Executed 2026-09-08** with `Checked` 2026-09-08.
-- `seal/specs/1788826000-…/overview.md:36`, where the count is the whole
-  grounds for *"the tree does not stand in this today"*.
-- `seal/specs/1788826000-…/rounds/round-1-fixes.md:52`.
-
-R5 in the same ledger already records the remedy this repository adopted for
-exactly this — *"an aggregate moves with every line of prose a branch writes,
-which is why a count is not a coordinate and why this one now carries the
-commit it was taken at"*. S3's count carries no commit.
-
-**And the deferral is written for one corpus.** It names
-`value = 1  # RIDER: …` only. **Executed**: the markdown form,
-`some text &lt;!-- RIDER: … --&gt;` under a scanned root, gives
-`0 ok · 0 drifted · 0 broken` — equally read by nothing, equally silent. That
-is the round's own class appearing inside the deferral that closes it, and the
-repository owner is being handed half the shape.
-
-## The orchestrator already answered one open row — finding 15
-
-`overview.md:37` lists, as not verified and owned by the orchestrator, that the
-records arm refuses eight names in `rounds/round-1.md` and
-`rounds/round-1-report.md` and exits 2. **Executed** on the working tree:
-
-```
-records — what unreleased work items state about the tree
-  3 work items read · 42 unread · 416 names read · 0 stamps read · 0 refused · 0 drifted · 0 external
-exit=0
-```
-
-`2f0dd02` is the commit that answered it — three `NAME NOT IN TREE` marks in
-`round-1.md` and six in `round-1-report.md`. The row is closed and still listed
-as open, which sends the next session to redo it.
-
-## Not verified
-
-The full suite, the repository-wide lint and the typecheck are the
-orchestrator's under contract §2, and this round ran none of them. **Executed**
-on the point the fix pass raised: there is no `ruff` in `.venv` and none on
-`PATH`, so no lint has run anywhere in this work item. It is not *deferred*
-until the orchestrator has an interpreter that carries it.
-
----
+The report was to be a file, finding ids bare integers, one row per finding, no real user path, `NAME NOT IN TREE` written by the reviewer on any line naming something the tree does not carry — round 1's report had needed five such marks added afterwards and blocked the broad gate until it had them — and no commit SHA in any rider stamp.
 
 ## Verdicts
 
@@ -315,8 +46,6 @@ until the orchestrator has an interpreter that carries it.
 
 ## Paste-ready fixes
 
-Finding 10 — `.github/scripts/rider_check.py`, in `reverify`:
-
 ```python
     checker = checker or load_checker()
     today = today or datetime.date.today().isoformat()
@@ -327,7 +56,6 @@ Finding 10 — `.github/scripts/rider_check.py`, in `reverify`:
             continue
         seen += 1
 ```
-
 ```python
         written.append((rider.where(), digest))
     if only and not seen:
@@ -341,9 +69,6 @@ Finding 10 — `.github/scripts/rider_check.py`, in `reverify`:
         )
     return written, refused
 ```
-
-Finding 10 — the case, in `tests/test_a_rider_reaches_its_file.py`:
-
 ```python
 def test_reverify_says_so_when_only_selects_no_rider(tmp_path):  # NAME NOT IN TREE
     """`--only` selects by exact relative path. One that matches nothing
@@ -361,13 +86,9 @@ def test_reverify_says_so_when_only_selects_no_rider(tmp_path):  # NAME NOT IN T
     assert not written and len(refused) == 1, (written, refused)
     assert "no rider in the tree has this path" in refused[0][1], refused
 ```
-
-Finding 11 — `.github/scripts/rider_check.py`, four substitutions:
-
 ```python
 def comment_blocks(lines, rel=None):
 ```
-
 ```python
     out = []
     i, n = 0, len(lines)
@@ -379,18 +100,13 @@ def comment_blocks(lines, rel=None):
     # was the one place it invented one (round 2, finding 11).
     hash_opens_a_comment = not (rel or "").endswith(".md")  # NAME NOT IN TREE
 ```
-
 ```python
         elif stripped.startswith("#") and hash_opens_a_comment:
 ```
-
 ```python
 def riders_in(rel, text):
     return [Rider(rel, a, b, text) for a, b in comment_blocks(text.splitlines(), rel)]
 ```
-
-Finding 11 — the case, in `tests/test_a_rider_reaches_its_file.py`:
-
 ```python
 def test_a_markdown_heading_naming_the_marker_is_not_a_rider():  # NAME NOT IN TREE
     """`comment_blocks`'s own docstring gives the `#` form to Python, YAML and
@@ -407,40 +123,21 @@ def test_a_markdown_heading_naming_the_marker_is_not_a_rider():  # NAME NOT IN T
     md = f'## H\n\n{HTML_MARK} claim\n     Verified 2026-01-01 against "## H"@00000000. --&gt;\n'
     assert riders.comment_blocks(md.splitlines(), "a.md") == [(3, 4)]
 ```
-
-Finding 12 — `seal/ledger/1788826000-a-stamp-names-content-not-a-commit.md:20`,
-the *Verified behavior* cell of row S3, first sentence:
-
 ```markdown
 **Executed** 2026-09-08 at `2f0dd02`: the widened scan over six roots finds exactly 20 riders; a grep of the same roots at that commit finds 33 marker lines, and all 13 extras are prose or string literals. The count names the commit it was taken at because an aggregate is not a coordinate — it read 31 at `eaa8030` and moved when `923f86c` planted the HTML opener in the case file twice, which is the correction R5 in `0.9.0` already records.
 ```
-
-Finding 12 — `rounds/round-1-fixes.md:52`, the right-hand cell:
-
 ```markdown
 | **read by nothing, and silent about it.** Not in the tree: at `2f0dd02` a grep of the six roots finds 33 marker lines against the reader's 20 riders, and all 13 extras are prose or string literals. Closing it needs a rule comparing the two corpora, which a fix pass may not add — deferred to the repository owner in `overview.md` |
 ```
-
-Finding 13 — `seal/specs/1788826000-…/overview.md:36`, replacing the row:
-
 ```markdown
 | a rider written as a TRAILING comment is read by nothing and says nothing about it, because a block opens only at the head of a comment line. Both forms: `value = 1  # RIDER: …` in a `#` file, and `some text &lt;!-- RIDER: … --&gt;` in a markdown one. Executed in round 2 — each gives `0 ok · 0 drifted · 0 broken` under a scanned root. Executed at `2f0dd02`: a grep of the six roots finds 33 marker lines against the reader's 20 riders, and all 13 extras are prose or string literals, so the tree does not stand in either form today. Closing it means a rule that compares the grep corpus with the reader's, which is mechanism a fix pass may not add | the repository owner. `skills/code-review/SKILL.md` §*A fix pass adds the unit that pins it* is why it is written here rather than built |
 ```
-
-Finding 14 — appended to the Notes cell of `seal/ledger.md:1203`:
-
 ```markdown
  **Re-read 2026-09-08 in work item 1788826000's round 1 fix pass**: the only edit inside `test_the_refusal_above_can_actually_fail` was its own rider's date, restored from 2026-09-08 to the 2026-09-06 `--migrate` proved. The region moved by one digit inside a comment and the claim did not move at all.
 ```
-
-Finding 14 — appended to the Notes cell of `seal/ledger.md:1418`, row R5:
-
 ```markdown
  **Re-read 2026-09-08 in work item 1788826000's round 1 fix pass**: the only edit inside `unread_items` was its own rider's date, restored from 2026-09-08 to the 2026-09-07 `--migrate` proved. The region moved by one digit inside a comment and the claim did not move at all.
 ```
-
-Finding 15 — `seal/specs/1788826000-…/overview.md:37`, replacing the row:
-
 ```markdown
 | the records arm of `bin/evidence-check` refused eight names in `rounds/round-1.md` and `rounds/round-1-report.md` and exited 2 at `7ff1e63`. **Answered at `2f0dd02`**, which wrote `NAME NOT IN TREE` on each line — three in the record and six in the report. Executed in round 2 on the working tree: `3 work items read · 42 unread · 416 names read · 0 stamps read · 0 refused · 0 drifted · 0 external`, exit 0 | answered — the orchestrator, who owns the round records |
 ```
@@ -470,10 +167,15 @@ Finding 15 — `seal/specs/1788826000-…/overview.md:37`, replacing the row:
 
 | From | Coordinate | Why it is still worth opening |
 |---|---|---|
-| round 1, finding 4 | `.github/scripts/rider_check.py:170-232` | The whole block reader in one function; both round-1 and round-2 findings in it live here |
-| round 1, finding 1 | `cbdd66e` as the last pre-migration tree | The only place a rider's old `Verified <date> at <sha>` stamp survives, so any later re-derivation of the twelve starts there |
-| round 1, deferred | `seal/ledger.md:989`, row R8's Notes | Already records that `## Phases` is coarse and drifts on unrelated edits, and why the minor-anchor escape hatch was not taken. It answers the same question for the rider now anchored there |
-| this round | `seal/ledger.md:1418`, row R5's Notes | Holds this repository's own rule for a stale count — an aggregate is not a coordinate, so the number carries the commit it was taken at |
+| round-1 | `.github/scripts/rider_check.py:421` · `seal/specs/1788826000-a-stamp-names-content-not-a-commit/phases/phase-4.md` · `seal/ledger/1788826000-a-stamp-names-content-not-a-commit.md` row S4 | round 1's 1 — fixed |
+| round-1 | `.github/scripts/rider_check.py:421` · message at `:344` | round 1's 2 — fixed |
+| round-1 | `.github/scripts/rider_check.py:421` · `seal/specs/1788826000-a-stamp-names-content-not-a-commit/phases/phase-4.md` | round 1's 3 — fixed |
+| round-1 | `.github/scripts/rider_check.py:197` and `:218` | round 1's 4 — fixed |
+| round-1 | `agents/smith.md:60` · `skills/implement/SKILL.md:379` · `templates/evidence-check.yml:5` | round 1's 5 — fixed |
+| round-1 | `.github/scripts/rider_check.py:359` and `:504` · `phases/phase-4.md` · ledger row S4 | round 1's 6 — fixed |
+| round-1 | `seal/specs/1788826000-a-stamp-names-content-not-a-commit/questions.md:28` · `overview.md:36` | round 1's 7 — fixed |
+| round-1 | `seal/specs/1788826000-a-stamp-names-content-not-a-commit/phases/phase-3.md` | round 1's 8 — fixed |
+| round-1 | whole tree | round 1's 9 — deferred |
 
 ## Deferred
 
@@ -484,30 +186,3 @@ Finding 15 — `seal/specs/1788826000-…/overview.md:37`, replacing the row:
 | Whether the mid-run `git checkout 29e0460 -- .` lost any uncommitted work | `overview.md`'s *Where spec and implementation diverged* | the implementing session (carried, unchanged) |
 | Whether a drifted rider is answered often enough to be worth its noise | `seal/follow-up.md` | the repository owner (carried, unchanged) |
 | `templates/evidence-check.yml`'s rider is half spent | `overview.md` | the repository owner (carried, unchanged) |
-
-Needs a fix: yes — findings 10 and 11
-Loses a record or crashes: no
-
-## Proof
-
-Files opened in this round: `.github/scripts/rider_check.py`,
-`skills/evidence-check/scripts/evidence_check.py`,
-`tests/test_a_rider_reaches_its_file.py`, `agents/smith.md`,
-`skills/implement/SKILL.md`, `templates/evidence-check.yml`,
-`templates/sdd-round.md`, `hooks/cmdline.py`, `hooks/dispatch.py`,
-`hooks/optin.py`, `hooks/review-history-guard.py`,
-`hooks/review-skill-gate.py`, `hooks/worktree-guard.py`,
-`hooks/root-migrate.py`, `.github/scripts/fold_ledger.py`,
-`skills/code-review/scripts/round_record.py`,
-`tests/test_the_printed_ledger_name_is_the_file_that_was_read.py`,
-`tests/test_the_records_can_be_carried_out_and_in.py`, `bin/test`,
-`bin/evidence-check`, `seal/ledger.md`,
-`seal/ledger/1788826000-a-stamp-names-content-not-a-commit.md`, and under
-`seal/specs/1788826000-a-stamp-names-content-not-a-commit/`: `overview.md`,
-`spec.md`, `questions.md`, `changelog.md`, `phases/phase-1.md`,
-`phases/phase-3.md`, `phases/phase-4.md`, `rounds/round-1.md`,
-`rounds/round-1-asked.md`, `rounds/round-1-fixes.md`,
-`rounds/round-1-report.md`. Plus `/Users/x/.claude/skills/writing-style/SKILL.md`.
-
-Three probe scripts were written outside the repository, run once, and deleted.
-The working tree is unchanged: `git status --porcelain` is empty.
