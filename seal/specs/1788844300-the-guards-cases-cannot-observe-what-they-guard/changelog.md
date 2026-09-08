@@ -55,6 +55,10 @@
   used as its example — is invisible to it, and left the comparison agreeing
   while the reminder's answer flipped. That shape is now refused outright with
   a message saying what to do about it, rather than passing unnoticed.
+  The case also goes red when a reader pass is RENAMED, and its message used to
+  offer only the repair for a pass that was added — adding a key, which for a
+  rename leaves an extra key and the case still red. It now names both causes
+  and the repair each one takes.
 - **A work item with no round records at all could have started reading as one
   whose rows were never drained.** `is_closed` answers *closed* when there are
   no records, which is what keeps the reminder quiet for the state most work

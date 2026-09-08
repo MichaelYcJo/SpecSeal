@@ -674,3 +674,24 @@ def test_a_blanking_pass_written_as_a_sub_is_refused_rather_than_unseen(tmp_path
     spec.loader.exec_module(module)
     with pytest.raises(AssertionError, match="attribute call this derivation"):
         reader_blanking_passes(module)
+
+
+def test_the_ties_message_answers_a_rename_as_well_as_an_addition():
+    """Round 1's ⬜ 6 — the message prescribed the wrong repair for a rename.
+
+    The tie goes red for two different causes and the repairs differ. A pass
+    ADDED wants a new key; a pass RENAMED wants the existing key re-keyed,
+    and adding one leaves three keys against two passes and the assertion
+    still red. Executed: renaming `blank_fences` on the reader turns both
+    parameters red, and adding a third key does not turn them green.
+
+    The message said only *add the pass, keyed by its name*, so a renamer
+    reading it does the one thing that cannot work. This case is why the
+    next edit cannot quietly take the second half back."""
+    src = inspect.getsource(test_a_closing_word_a_reader_blanks_is_not_a_closing_note)
+    assert "RENAMED" in src and "re-key" in src, (
+        "the tie's failure message no longer tells a renamer what to do. It "
+        "goes red for an ADDED pass and for a RENAMED one, and adding a key "
+        "repairs only the first — a renamer who follows that advice ends up "
+        "with three keys against two passes and the case still red."
+    )
