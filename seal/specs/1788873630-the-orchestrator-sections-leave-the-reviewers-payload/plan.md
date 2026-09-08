@@ -106,11 +106,11 @@ run before the next begins.
 
 | # | Phase | Delivers | Verified by | Status |
 |---|---|---|---|---|
-| 1 | The five sections move | `skills/code-review/orchestration.md` holds lines 236–653 verbatim; `SKILL.md` holds the pointer | the block is byte-identical to the cut; `git diff` shows no rewritten prose |  |
-| 2 | Live references in the documents | `agents/smith.md`, `skills/implement/SKILL.md`, `docs/flow.md`, `docs/review-handoff-protocol.md` name the new file | the construction of spec.md's table re-run: no live reference names a heading in a file that does not hold it |  |
-| 3 | The twelve test modules | the eleven that pin the path, plus `test_a_record_precedes_the_fixes_it_commissions.py` | `bin/test` on the twelve, and the two structural cases counted across both halves |  |
-| 4 | Part 2 — the three sections move | `skills/writing-style/outside-the-review.md`, the pointer, 「리뷰 코멘트에만」 in place | grep for the four headings across the two files |  |
-| 5 | The ledger, and the records | three rows removed in `seal/ledger.md`, the claims re-written in this item's fragment; `docs/flow.md`'s #265 box; `changelog.md`; `overview.md` | `evidence_check.py --strict .` clean, executed |  |
+| 1 | The five sections move | `skills/code-review/orchestration.md` holds lines 236–653 verbatim; `SKILL.md` holds the pointer | the block is byte-identical to the cut; `git diff` shows no rewritten prose | d735248 |
+| 2 | Live references in the documents | `agents/smith.md`, `skills/implement/SKILL.md`, `docs/flow.md`, `docs/review-handoff-protocol.md` name the new file | the construction of spec.md's table re-run: no live reference names a heading in a file that does not hold it | c5cf5d2 |
+| 3 | The twelve test modules | the eleven that pin the path, plus `test_a_record_precedes_the_fixes_it_commissions.py` | `bin/test` on the twelve, and the two structural cases counted across both halves | c5cf5d2 |
+| 4 | Part 2 — the three sections move | `skills/writing-style/outside-the-review.md`, the pointer, 「리뷰 코멘트에만」 in place | grep for the four headings across the two files | c24f9d1 |
+| 5 | The ledger, and the records | three rows removed in `seal/ledger.md`, the claims re-written in this item's fragment; `docs/flow.md`'s #265 box; `changelog.md`; `overview.md` | `evidence_check.py --strict .` clean, executed | f272342 |
 
 **Phase 1 leaves the suite red on purpose, and phase 3 is what closes it.**
 The task asks for the move and the reference fixes in separate commits, and a
