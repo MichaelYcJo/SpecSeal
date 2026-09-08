@@ -304,6 +304,42 @@ def test_a_wrapper_in_front_of_the_creation_carries_no_allow(monkeypatch, capsys
     )
 
 
+def test_a_path_qualified_git_carries_no_allow(monkeypatch, capsys, repo):
+    """A basename is not an identity, and `allow` covers the whole tool call.
+
+    The wrapper case above stops at `sudo`; this is the same class one step
+    further in. `os.path.basename(tokens[0]) != "git"` vouches for a FILENAME,
+    so a session that had one creation approved could then run any executable
+    on the machine by giving it a last component of `git`. Seen red first: with
+    a record present, every command below answered `allow`, `~/git` and `*/git`
+    included -- the second of which the docstring already claimed was refused
+    "one line below, where `git` has to be the word itself".
+
+    What the exact-equality test costs is a prompt on `/usr/bin/git worktree
+    add …`, and that is the trade the `$`/`>` refusals already make: a wrong
+    deny spends one prompt, a wrong allow signs for a binary nobody
+    identified."""
+    grant(repo)
+    for command in (
+        "./git worktree add ../wt f",
+        "../git worktree add ../wt f",
+        "bin/git worktree add ../wt f",
+        "/tmp/evil/git worktree add ../wt f",
+        "/usr/bin/git worktree add ../wt f",
+        "~/git worktree add ../wt f",
+        "*/git worktree add ../wt f",
+    ):
+        assert decide(monkeypatch, capsys, repo, command)[0] == "ask", command
+    # ...and the spellings the LEXER hands back as the word `git` are the
+    # command `git`, so they stay allowed. Both run what `git` runs; refusing
+    # them would spend a prompt on nothing.
+    for command in ("git worktree add ../wt f", r"\git worktree add ../wt f"):
+        assert decide(monkeypatch, capsys, repo, command)[0] == "allow", command
+    assert wg.only_creates_a_worktree(
+        "git -C /elsewhere worktree add ../wt f", str(repo)
+    )
+
+
 def test_a_backgrounded_creation_is_still_only_a_creation(monkeypatch, capsys, repo):
     """The one shape from that enumeration left allowed, pinned as a decision
     rather than left looking like an oversight. A trailing `&` backgrounds the
@@ -431,6 +467,39 @@ def test_the_switch_ladder_keeps_every_verdict_it_had(monkeypatch, capsys, repo)
         ), sessions
 
 
+def test_a_spent_choose_budget_does_not_decide_whether_the_creation_is_questioned(
+    monkeypatch, capsys, repo
+):
+    """ "The three rows above the creation all deny" was true of two of them.
+
+    Rows 1-b and 2 are `choose` sites, and `choose` denies ONCE per session per
+    direction and asks on every attempt after. Seen red first, in both the
+    idle and the detection-unusable states: the same command answered `deny`
+    then `ask`, the `ask` read *Approve — switch branches in this shared tree*,
+    and approving it created the worktree and minted session-wide consent with
+    the creation question never put.
+
+    What is pinned is the property rather than one verdict per attempt: at no
+    attempt can this command proceed without the creation question having been
+    put. Attempt 1 stops it with the switch's own two options, and every
+    attempt after names the creation."""
+    for name, sessions in (("idle", ([], IDLE, True)), ("blind", ([], [], False))):
+        for attempt in (1, 2, 3):
+            decision, reason = decide(
+                monkeypatch,
+                capsys,
+                repo,
+                "git switch feature/x && git worktree add ../wt f",
+                sessions=sessions,
+                session_id=name,
+            )
+            if attempt == 1:
+                # The deny stops the whole command line, creation included.
+                assert decision == "deny", (name, attempt, decision)
+            else:
+                assert "Attempting to create a worktree" in reason, (name, attempt)
+
+
 def test_a_dirty_tree_does_not_decide_whether_the_creation_is_questioned(
     monkeypatch, capsys, repo
 ):
@@ -465,29 +534,65 @@ def test_the_guard_is_never_silent_where_the_writer_records(
     The `outside` half is the guard's SECOND silent exit: `judgeable` falls
     back to the session's own directory, so `top` is empty only when the SHELL
     is outside any repository -- and a `git -C <repo> worktree add` in the same
-    command is not. Executed before this case: silent here, record written."""
+    command is not. Executed before this case: silent here, record written.
+
+    **Silence was the first half of the property and not the whole of it.**
+    An `ask` lets the command run too -- approving one runs every segment of
+    the line -- so a row that asks about something else leaves the creation
+    just as unjudged as a row that says nothing. Round 2 found the guard doing
+    exactly that: two of the switch ladder's three concurrency rows are choice
+    sites, which deny once per session per direction and `ask` after, and the
+    second attempt at `git switch feature/x && git worktree add ../wt f`
+    answered *Approve — switch branches in this shared tree*. So the test is
+    now `deny`, or an `ask` whose text names the creation, and the attempt and
+    tree-state axes are here because the old shape could not have seen it."""
     outside = tmp_path / "outside"
     outside.mkdir()
     holes = []
-    for cwd in (repo, outside):
-        for command in (
-            "git worktree add ../wt f",
-            "git status && git worktree add ../wt f",
-            "git switch feature/x && git worktree add ../wt f",
-            "git switch feature/x; git worktree add ../wt f",
-            "git checkout feature/x && git worktree add ../wt f",
-            "git switch feature/x && echo mid && git worktree add ../wt f",
-            "git switch feature/x && git worktree add ../wt f && git switch main",
-            "git switch feature/x && git worktree add ../wt f  # [worktree-ok]",
-            "git worktree list && git switch feature/x && git worktree add ../wt f",
-            "git switch feature/x && git worktree add ../wt f &",
-            f"git switch feature/x && git -C {repo} worktree add ../wt f",
-            f"cd {repo} && git switch feature/x && git worktree add ../wt f",
-        ):
-            verdict = decide(monkeypatch, capsys, repo, command, cwd=cwd)[0]
-            where = wc.creation_directory(command, str(cwd))
-            if where and wc.optin.repo_root(where) and verdict == "silent":
-                holes.append((str(cwd), command.replace("\n", "\\n")))
+    for state, sessions in (
+        ("single", ([], [], True)),
+        ("active", (ACTIVE, [], True)),
+        ("idle", ([], IDLE, True)),
+        ("unusable", ([], [], False)),
+    ):
+        for cwd in (repo, outside):
+            for n, command in enumerate(
+                (
+                    "git worktree add ../wt f",
+                    "git status && git worktree add ../wt f",
+                    "git switch feature/x && git worktree add ../wt f",
+                    "git switch feature/x; git worktree add ../wt f",
+                    "git checkout feature/x && git worktree add ../wt f",
+                    "git switch feature/x && echo mid && git worktree add ../wt f",
+                    "git switch feature/x && git worktree add ../wt f && git switch main",
+                    "git switch feature/x && git worktree add ../wt f  # [worktree-ok]",
+                    "git worktree list && git switch feature/x && git worktree add ../wt f",
+                    "git switch feature/x && git worktree add ../wt f &",
+                    f"git switch feature/x && git -C {repo} worktree add ../wt f",
+                    f"cd {repo} && git switch feature/x && git worktree add ../wt f",
+                )
+            ):
+                acted = wc.creation_directory(command, str(cwd))
+                if not acted or not wc.optin.repo_root(acted):
+                    continue
+                # One session id per cell, then three attempts through it, so
+                # both `choose` budgets are spent inside the cell rather than
+                # measured across it.
+                sid = f"{state}-{cwd is repo}-{n}"
+                for _attempt in range(3):
+                    verdict, reason = decide(
+                        monkeypatch,
+                        capsys,
+                        repo,
+                        command,
+                        sessions=sessions,
+                        session_id=sid,
+                        cwd=cwd,
+                    )
+                    if verdict != "deny" and "Attempting to create a worktree" not in (
+                        reason
+                    ):
+                        holes.append((state, str(cwd), verdict, command))
     assert not holes, holes
 
 

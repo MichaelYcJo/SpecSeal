@@ -360,8 +360,10 @@ def has_token(command: str, token: str) -> bool:
 # A glob and a `~` are deliberately absent. Both expand and neither runs
 # anything, and a `~` is the form a person is most likely to type for a
 # worktree path -- refusing it would spend a prompt on the common case to buy
-# nothing. A glob in the COMMAND WORD is refused one line below instead, where
-# `git` has to be the word itself.
+# nothing. A glob or a `~` in the COMMAND WORD is refused one line below
+# instead, where `git` has to be the word itself. That sentence was written
+# while the line below compared BASENAMES, which made it false: executed,
+# `*/git worktree add …` and `~/git worktree add …` both answered `allow`.
 ELSEWHERE = "$`<>"
 
 
@@ -398,12 +400,35 @@ def only_creates_a_worktree(command: str, cwd: str, windows=None) -> bool:
     its marker and the redirection truncated a file. So the two tests below are
     the bound:
 
-      1. `git` is the segment's OWN command word. `cmdline.parse_git` reads
-         PAST `WRAPPERS` and leading `VAR=val` on purpose -- the question IT
-         answers is "is this a git invocation", and this one is "is this
-         nothing but a creation". `sudo git worktree add …` is not, and a
-         user's own `permissions.deny` on `Bash(sudo:*)` must not be spoken
-         over by a hook that was reasoning about worktrees.
+      1. the segment's command word is the WORD `git` -- not a path whose last
+         component is spelled that way. `cmdline.parse_git` reads PAST
+         `WRAPPERS` and leading `VAR=val` on purpose: the question IT answers
+         is "is this a git invocation", and this one is "is this nothing but a
+         creation". `sudo git worktree add …` is not, and a user's own
+         `permissions.deny` on `Bash(sudo:*)` must not be spoken over by a
+         hook that was reasoning about worktrees.
+
+         **`os.path.basename` was this test and a basename is not an
+         identity.** Executed at `62b2d2e` with a consent record present:
+         `./git`, `../git`, `bin/git`, `/tmp/evil/git`, `~/git` and `*/git`
+         all answered `allow`, which covers the whole tool call -- so a
+         session that had ONE creation approved could then run any executable
+         on the machine by giving it a filename of `git`. The reason this test
+         exists does not stop at `sudo`: a hook must not sign for a binary it
+         did not identify.
+
+         So the test is exact equality, and the boundary it draws is *a
+         command word carrying no separator, resolved on `PATH` the way the
+         shell resolves it*. Anything with a `/` in it names a FILE rather
+         than the command, and this function cannot tell whose file it is.
+         `\\git` and `'git'` still pass -- the lexer hands both back as the
+         word `git`, and both run exactly what `git` runs. `GIT` does not, and
+         `git/` does not.
+
+         What it costs is a prompt on `/usr/bin/git worktree add …`, which is
+         a legitimate command a person may type. Falling to `ask` there is the
+         trade this whole docstring already makes for `$` and `>`: a wrong
+         deny spends one prompt, a wrong allow signs for an arbitrary binary.
       2. no `ELSEWHERE` character in any token, which is the expansion and
          redirection family the first test does not reach.
 
@@ -433,7 +458,7 @@ def only_creates_a_worktree(command: str, cwd: str, windows=None) -> bool:
             continue
         if not cmdline.adds_a_worktree(tokens):
             return False
-        if os.path.basename(tokens[0]) != "git":
+        if tokens[0] != "git":
             return False
         if any(ch in tok for tok in tokens for ch in ELSEWHERE):
             return False
@@ -1364,7 +1389,9 @@ def already_asked(top: str, session: str, scope: str) -> bool:
     return False
 
 
-def choose(top, session_id, scope, situation, question, options, fallback):
+def choose(
+    top, session_id, scope, situation, question, options, fallback, before_ask=None
+):
     """Deny once and hand the user the two options; ask on every attempt after.
 
     A hook decision renders as approve/decline, and the model never gets the
@@ -1375,6 +1402,25 @@ def choose(top, session_id, scope, situation, question, options, fallback):
     The fallback is this site's own pre-change decision, which is what keeps
     the deny from becoming a trap: a session with nobody to answer (headless),
     or one that has already been asked here, meets the prompt it always met.
+
+    **`before_ask` runs on the fallback path only, and it exists because the
+    two branches of this function have opposite standing for a command that
+    carries more than the site is asking about.** The deny stops the WHOLE
+    command line, so anything else written on it is stopped too. The ask does
+    not: approving it runs every segment, while its own text asks about one of
+    them. `main`'s switch ladder read "the three rows above the creation all
+    deny" off two sites that are this one -- true of the first attempt and
+    false of every attempt after, so the second `git switch feature/x && git
+    worktree add ../wt f` in a session was answered *Approve — switch branches
+    in this shared tree*, and approving created the worktree with the creation
+    question never put. Executed at `62b2d2e`, both the idle and the
+    detection-unusable states: `deny` then `ask`, the creation question on
+    neither.
+
+    Passing the creation's own judgment here rather than reordering the ladder
+    is what keeps the deny branch intact: the first attempt still puts the
+    switch's two options, naming the sessions it found, and only the branch
+    that would have let the command through yields.
     """
     if session_id and not already_asked(top, session_id, scope):
         lines = [
@@ -1401,6 +1447,8 @@ def choose(top, session_id, scope, situation, question, options, fallback):
             )
         )
         respond("deny", "\n".join(lines))
+    if before_ask is not None:
+        before_ask()
     respond("ask", situation + fallback)
 
 
@@ -1948,6 +1996,18 @@ def main():
         ),
     )
 
+    # What the two `choose` rows below hand their FALLBACK to, when this
+    # command also creates a worktree. `choose` denies once per session per
+    # direction and asks on every attempt after; the deny stops the creation
+    # with the rest of the line and needs nothing, and the ask is where the
+    # creation used to go unjudged. `choose`'s own docstring holds the
+    # measurement.
+    judge_the_creation = (
+        (lambda: judge_creation(command, cwd, repo_paths(creation_at)[0], session_id))
+        if creation_at
+        else None
+    )
+
     # 1) 같은 작업 트리에서 다른 세션이 '지금' 일하는 중 -> 진짜 다중작업. 차단.
     if active:
         respond(
@@ -2007,6 +2067,7 @@ def main():
                 "보존합니다:\n\n",
             )
             + steer,
+            before_ask=judge_the_creation,
         )
 
     # 2) 세션 감지 자체가 불가능하면 사용자에게 확인. deny 였으나 확장 호스트처럼
@@ -2043,6 +2104,7 @@ def main():
                 "보존합니다:\n\n",
             )
             + steer,
+            before_ask=judge_the_creation,
         )
 
     # A creation later in the same command has not been judged yet, and this is
@@ -2051,6 +2113,15 @@ def main():
     # ACTIVE session must stay denied, and making a creation outrank it would
     # turn that deny into an `ask` about the creation while the branch is still
     # taken out from under the other session, one approval later.
+    #
+    # **Only one of those three denies unconditionally.** Rows 1-b and 2 are
+    # `choose` sites, whose deny is spent once per session per direction, and
+    # their fallback is an `ask` whose approval runs the whole command line --
+    # so reaching this line at all was a property of the FIRST attempt. Those
+    # two hand their fallback `judge_the_creation` above, which is why they
+    # still keep their deny and no longer keep the creation from being judged.
+    # `choose`'s docstring holds the measurement; this line is what the two
+    # rows below, and a session that never met either `choose`, still reach.
     #
     # The two rows BELOW yield, and neither of them protects a tree. Row 4 says
     # nothing at all, which is where `git switch feature/x && git worktree add
