@@ -334,11 +334,14 @@ def test_the_refusal_prints_every_piece_it_builds():
     6. `what_to_write_instead()`, read here and by the case above.
 
     Element 3 is where reading failed twice over. It split that constant into
-    a paragraph and a trailing separator, and it promoted the join's `"\\n  "`
-    argument to an element of its own — an argument to element 4, never a leaf
-    of the expression. That is how the count reached seven while the paragraph
-    itself was read only at its two ends. Every element below is read WHOLE,
-    so nothing between two spot-checks can go missing again.
+    a paragraph and a trailing separator, and it promoted the `"\\n  "` the
+    join is called ON — the receiver, not an argument — to an element of its
+    own. Under the rule above it is inside element 4 rather than beside it;
+    a bare `ast.walk` of the expression does return it, which is why the rule
+    is stated before the count and not after. That is how the count reached
+    seven while the paragraph itself was read only at its two ends. Every
+    element below is read WHOLE, so nothing between two spot-checks can go
+    missing again.
 
     **Two mutations survive this set, and neither is a limit.** Handing the
     check's own `assert not offenders, refusal(running, offenders)` a literal
@@ -355,6 +358,12 @@ def test_the_refusal_prints_every_piece_it_builds():
     somebody plants that case. The second is pinnable only by rebuilding
     `refusal` inside the test, which is the assertion this case was designed
     not to be.
+
+    A third class is unmeasured by design: nothing here pins that nothing was
+    ADDED. A sentence inserted at the end of the timer paragraph, or a line
+    inserted before the routes, leaves this module at 32 passed (round 2).
+    Every element is read whole, so nothing can go missing; pinning that
+    nothing was added means rebuilding `refusal` in the test.
 
     What must not be written here again is that either one CANNOT be pinned.
     Three times now a limit nobody measured has gone into a record about this
