@@ -128,10 +128,10 @@ quoting the failing shape inside a fence or a code span, the way this section
 does, is not an instance of it.
 
 The prose around those spans keeps its keywords out for the same reason. A
-past-tense narrative keyword is still a keyword, so the paragraph above says a
-release *acted on* one number rather than using the verb this section is
-about, and a sentence that used it with a second number beside it would earn
-the warning like any body.
+past-tense narrative keyword is still a keyword, so the opening paragraph of
+this section says a release *acted on* one number rather than using the verb
+this section is about, and a sentence that used it with a second number beside
+it would earn the warning like any body.
 
 ## An issue is its body and its comments together
 

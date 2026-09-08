@@ -81,8 +81,12 @@ What it gives up, stated rather than left to be found:
 - **A trailing `#N` in a table cell or a URL fragment.** A markdown table row
   starts a segment (rule 3) and `#L45`-style anchors do not match `#\d+`, but
   a six-digit hex colour outside a code span would read as issue `#123456` in
-  the mention list. It is a report, not a verdict, and the warning arm needs a
-  closing keyword in the same segment before it says anything.
+  the mention list. **A numeric fragment sitting in the same segment as a
+  claim earns a warning rather than a mention**, which is the same syntax read
+  the same way: the alternative, excluding a `#N` preceded by a URL character,
+  would be a second syntax to be wrong about. It is a report, not a verdict,
+  and the warning arm needs a closing keyword in the same segment before it
+  says anything.
 - **A `https://github.com/o/r/issues/150` link.** GitHub reads a full URL
   after a keyword as a closing reference; this check reads only `#N`, so it
   neither claims nor mentions one. Named here rather than handled: this
