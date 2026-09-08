@@ -194,6 +194,69 @@ argued, and the third row's *unreachable* is forced rather than sampled: for
 the comment to be unbalanced across the block the closer has to stand outside
 it, which puts the block's closing fence inside the comment.
 
+<!-- CORRECTED 2026-09-08 by work item
+     1788873610-every-copy-out-of-raw-meets-the-hider-question, issue #182,
+     which round 3 of this chain opened as findings 10, 11 and 12.
+
+     **The paragraph above is false in two of its three sentences, and it is
+     kept as written because this is a record of what was believed on
+     2026-09-07.** What it got right is the columns.
+
+     *A fourth copy would add a row … neither exists* — a fourth copy exists.
+     `round_record.py#inherited_rows` reads every earlier `round-K.md` and
+     takes cells out of its raw verdict rows into the new record; no hider
+     question was asked of it and `swallowed` never saw that file. Two copy
+     paths the grid also does not name are safe, and why is the distinction
+     the argument was missing: `terminal_value` and `close`'s fix-table cells
+     read `lines`, which is `readable`, so no hider survives them. The four
+     unsafe ones all read `raw`.
+
+     *The third row's `unreachable` is forced rather than sampled* — the
+     shape is reachable and the reasoning above is what makes it so. An
+     opener inside the block whose closer stands outside it does put the
+     block's closing fence inside the comment, and what follows is not
+     nothing: it is `NEVER_CLOSED`, a refusal naming a fence that is closed
+     as written. Executed at `c8d2907`. The reviewer is sent to look for
+     something that is not there, which is round 3's 🟡 11.
+
+     **And the method was the failure rather than the row count.** The row
+     axis was chosen by listing the copies somebody could see — the third
+     enumeration on this branch and the third to come up one member short.
+     #182's answer is a property about the DESTINATION: every copy lands in
+     one artefact, so `write_record` reads the record back through the shared
+     reader before it writes, and that answers for every copy path at once,
+     including one added later. `tests/test_the_record_is_generated.py`
+     §`test_every_record_this_writes_is_read_back_before_it_is_written` is
+     that argument as something that can fail — it walks the module's AST for
+     every writer, where a grid can go one row short and stay green. -->
+
+<!-- MEASURED 2026-09-08, in the same work item, against finding 10's stated
+     consequence: **the loss does not re-enter every later record of the
+     chain.** `inherited_rows` copies the `Location` cell alone. An opener
+     there swallows the row's remaining pipes, the row reads as three cells,
+     and the run is refused — loudly, with a message about cell arithmetic.
+     An opener in a `Grounds` cell is never copied at all, and round 2's
+     record came out clean, every section resolving. The copy is real and the
+     consequence the issue gave it is not.
+
+     What is reachable, and worse, is one step earlier: a report whose
+     `Grounds` cell opens a comment and closes it on the line below is
+     accepted, `new` exits **0**, the record is written, and its
+     `## Executed probes`, `## Inherited coordinates` and `## Deferred` each
+     resolve to 0 occurrences while standing in the bytes. That is the
+     straddle §Not done below leaves open, and it is what `write_record`
+     closes. -->
+
+<!-- CORRECTED 2026-09-08, same work item: the paragraph immediately below —
+     *What stays open is the straddle* — is superseded. The straddle is
+     closed. Everything in it about WHY this function could not close it
+     still holds, which is why it is kept as written: the limit argument it
+     says is missing is missing here, and it is not needed at the
+     destination. The `# RIDER:` it names in `swallowed` is gone with the
+     fix; what stands there now is a comment pointing at `write_record`. -->
+
+
+
 **What stays open is the straddle, and its cost was understated.** A comment
 can be whole in the report and half in the record, because both copies take a
 SLICE of `raw`. Round 1's fix pass measured that on a **Deferred** row and

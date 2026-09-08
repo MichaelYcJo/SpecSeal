@@ -1,5 +1,295 @@
 # Changelog
 
+## 0.9.3 — 2026-09-08
+
+<!-- specs/1788890000-the-survivor-step-runs-on-a-range-no-fix-pass-wrote -->
+- **The survivor check no longer runs on a release pull request, and says so
+  rather than being silently skipped.** The check reports every place still
+  carrying wording a range removed, and its unit is a **fix pass's range** —
+  the floor it ships with was calibrated over 77 of them. A pull request into
+  `main` carries the union of every work item the release holds, which is a
+  range no fix pass ever writes: one item's removed wording is scored against
+  four other items' prose, and each of those items was already checked at its
+  own pull request. The release that shipped the check found this the only way
+  it could be found, by failing its own release pull request with 72 places
+  reported, none of them a survivor of the range that removed the wording. So
+  the step now passes on a base of `main` and prints why, in the shape the two
+  steps above it already use — a job-level skip reads as *did not run*, and
+  that is the state where the next reader deletes a guard nobody can explain.
+  (#180)
+
+## 0.9.3 — 2026-09-08
+
+<!-- specs/1788873600-the-baseline-is-the-moving-pull-request-base -->
+- **Squashing one work item turned every sibling branch red, and the message
+  was right about what it measured.** `unverified-check --baseline REF` refuses
+  when a work item's `overview.md` was present at the baseline and is gone on
+  the branch — an honest arm, because deleting the file was otherwise cheaper
+  and quieter than deleting one row from it. But `REF` is the branch a pull
+  request merges into, and that branch moves: the moment one work item squashes
+  into a release branch, every sibling branch cut before that squash has the
+  squashed item's `overview.md` at the base and never had it at all. So each
+  sibling was told that rows had left the record when nothing had left and the
+  base had moved. On the release that found this, three of four branches paid a
+  release-branch merge, a re-run broad gate, a re-pushed pull request and a
+  documentation conflict each, and the cost grows with roughly the square of
+  the work items a release carries.
+
+  **The baseline is now the fork point.** `REF` is resolved once, to
+  `git merge-base REF HEAD`, and every read of the base uses that commit: a row
+  present where this branch forked and absent now was removed by this branch,
+  which is the only claim the tool makes, and a row that arrived on the base
+  afterwards is not this branch's business. Rebasing the stale branch was never
+  the way out — every round record names its branch's commits by `Target SHA`
+  and every rider carries a `Verified … at <sha>` stamp, and a rebase orphans
+  both.
+
+  The repair is applied where the ref is resolved rather than at the arm that
+  reported it, because the row-count arm reads the base revision too, through
+  `git show REF:<path>`: a base that gains a row in this branch's own overview
+  after the fork reported rows the branch never had. Two arms of one refusal
+  reading two revisions is the duplicated-reader split this module has closed
+  four times, so there is one resolution point and one revision in the report.
+
+  A report names the revision it compared against in the shortest form that is
+  true: the ref alone where the merge base is the ref's own commit, and
+  `the merge-base of <ref> and HEAD (<short>)` where the base has moved past
+  the fork. A `REF` that shares no history with `HEAD` is exit 2 beside the
+  `REF` that does not resolve, because a comparison against nothing is not a
+  comparison. `docs/release-checklist.md` step 0 carried the workaround and no
+  longer needs to; the never-rebase rule that was written inside it stays, as
+  the standing rule it always was. (#272)
+
+<!-- specs/1788873610-every-copy-out-of-raw-meets-the-hider-question -->
+- **`round_record.py` reads a record back through the shared reader before it
+  writes it, and that is the guard's completeness argument rather than a
+  list.** #169's guard shipped with an enumeration presented as a two-axis
+  grid — the copies the generator makes, crossed with the two passes
+  `readable` blanks by — and closed with *a fourth copy would add a row …
+  neither exists*. **A fourth copy existed.**
+  `round_record.py#inherited_rows` reads every earlier `round-K.md` and takes
+  cells out of its raw verdict rows into the new record, and no hider
+  question was asked of it. Two copy paths the grid also did not name are
+  safe, and the distinction is what the argument was missing: `terminal_value`
+  and `close`'s fix-table cells read the comment-and-fence-blanked text, so no
+  hider survives them, while the four unsafe ones read the raw file.
+  **The row axis had been chosen by listing the copies somebody could see** —
+  the third enumeration on that branch and the third to come up one member
+  short. What replaces it is a property about the DESTINATION: every copy
+  lands in one artefact, so a record read back before it is written answers
+  for every copy path at once, including one added next year. One function in
+  the module now opens a file for writing, and the argument is a test that
+  walks the module's own syntax tree for every writer — a grid can go one row
+  short and stay green, and a new writer turns that case red.
+  **What it closes that no question asked of a source could.** A comment
+  balanced in the report and half in the record: a copied row and a copied
+  block are slices of the report, so a comment the report itself balances
+  arrives in the record as half of one. Measured before the change — a report
+  whose `Grounds` cell opens a comment and closes it on the line below is
+  accepted, the generator **exits 0**, the record is written, and
+  `## Executed probes`, `## Inherited coordinates` and `## Deferred` each
+  resolve to zero occurrences through the shared reader while standing in the
+  bytes, with nothing in the run saying a word. That shape had been recorded
+  as needing *balance across the slice*, a question the report-wide guard
+  could not ask because a copied block may legitimately carry a whole
+  comment; asked at the destination it needs no knowledge of which slice took
+  the half. And a value that passed through no text at all: `--ran-by` and
+  `--broad-gate` are checked for a pipe and a newline because either breaks
+  the row they are written into, and an HTML comment opener breaks every
+  reader below the row.
+  **A comment that opens inside a fenced block and closes outside it is now
+  refused by a message naming the comment.** It used to be refused as *a
+  fenced block in the report is never closed*, about a report whose every
+  fence closes — the comment's span blanks the block's own closing fence one
+  pass earlier, so the fence question is asked of a text whose closer is
+  already gone. The reviewer was sent to look for something that is not
+  there, which is the defect the same chain's round 2 had already fixed once
+  for the other order of the two questions. Telling the two apart is the
+  fence question asked of the raw text as well, and both texts that are asked
+  — the report and the round paragraph — get their own sentence, because a
+  reviewer told *the report* looks in a different file from one told *the
+  round paragraph*. Every refusal now names the line the hider opens on,
+  found by asking the reader's own pass of each prefix rather than by a
+  second reading of where a marker sits.
+  **The order of the two questions is now written once.** An unterminated
+  comment blanks the closing fence of every block below it, so the comment
+  must be asked first or the refusal names the wrong hider — a rule that is a
+  property of the reader's pass order and not of any one text, and that had
+  been written out once per text, twice, with a third text due.
+  **What is left, named rather than assumed**: a hider in a text read for
+  named sections can make the generator read LESS than the text holds — a
+  verdict row whose coordinate is not inherited, a `New units` entry a depth
+  walk does not see, a fix row reported as never written. All three are
+  refused loudly today and none of them writes a hider into a record, and
+  each refusal talks about cell arithmetic rather than about a comment.
+  Closing it takes a question scoped to the section each text is read for,
+  because a whole-text question there refuses a file this repository already
+  has. It is recorded at the coordinate with that measurement. (#182)
+
+<!-- specs/1788873620-two-in-range-values-make-one-that-is-not -->
+- **A funnel answered for each value that entered, and nothing answered for
+  what two of them made (issue #192).** `session_cost`'s `count` checks that
+  every token figure a transcript carries is a finite number. `load` then adds
+  a turn's `input_tokens` to its `cache_read_input_tokens`, and `token_thirds`
+  sums those and divides — so two figures that each passed could add up to one
+  that would not, and the report ended with nothing printed at all. That one
+  site was fixed in 0.9.2. What was left is every *other* place a computed
+  number could reach the same edge, and it is now checked rather than watched
+  for: a new site that turns a computed number into a whole number without a
+  guard fails the test suite instead of turning up in the next review round.
+
+  **The check finds those places by running the code, not by keeping a list of
+  function names.** It reads `session_cost.py`'s own syntax tree, and for each
+  call it hands the function a stand-in value that reports back whether it was
+  asked to become a whole number, and then asks the same function what it
+  answers for an ordinary one. A site counts when both are true. So `round`,
+  `int`, `math.floor`, a renamed import, and a helper somebody wrote in the
+  file this morning are all found the same way, and none of their names
+  appears in the check. That closes the two gaps the previous review round had
+  written down as a name list's blind spots — a `from math import …` and an
+  `import … as …` — with no name list and no table of aliases to keep in step.
+
+  **What each conversion can fail on is measured, not assumed.** The check
+  hands each one the values `count` lets through — an infinity, a
+  not-a-number, and an integer too large to have a decimal form — and collects
+  what it complains about. A `try` around a conversion has to cover what was
+  actually seen, so a guard against one of the two failures is refused; and a
+  conversion that cannot fail at all is left alone rather than asked for a
+  guard it does not need. The first draft had the two failure names written
+  into it, which would have refused the correct guard already in `count`.
+
+  **Three shapes it does not reach, written into the code where somebody will
+  meet them.** A list index or slice bound is a whole-number conversion too,
+  but telling a computed bound from `len(inputs) // 3` needs to know where the
+  value came from, which the check cannot see. A plain division fails on two
+  large computed integers without converting anything, and the wider rule that
+  would catch it also flags a percentage calculation whose inputs are
+  durations — a behaviour change this issue did not ask for. And
+  `math.isfinite` converts its argument in order to answer a yes or no, which
+  is why it can fail on a very large integer; it is excluded because it does
+  not answer with a whole number, and both halves of that exclusion are
+  pinned by a test. The first two are written up as questions for the
+  repository owner.
+
+  **Verified by breaking it forty-four times.** Every unit the change adds was
+  mutated one at a time, and 43 of the 44 mutations turn a test red — including
+  the real module with its guard removed, and the real module with one new
+  unguarded conversion added in a function nobody would have thought to look
+  at. The first pass left five survivors, each a unit no test actually
+  exercised, and each now has one; two more survivors were the code being
+  wrong rather than untested. The single remaining survivor is recorded in the
+  file rather than papered over: one class the check raises internally could
+  derive from either of two base classes and no test can tell, because the
+  recording happens before the raise.
+
+<!-- specs/1788873630-the-orchestrator-sections-leave-the-reviewers-payload -->
+- **More than half of the review skill was addressed to the orchestrator, and
+  a reviewer read all of it at every spawn (issue #265).** The five sections
+  `skills/code-review/SKILL.md` prefixed `Orchestrator:` were 24,948
+  characters, 53% of the file, and a `warden` spawn received them before its
+  first tool call. A reviewer acts on none of them: it does not decide whether
+  a run ends, does not resume an implementer, does not open or mark a pull
+  request, and does not post. **They now live in
+  `skills/code-review/orchestration.md`**, which the skill names in a pointer
+  where its intro ends, so a session orchestrating a review run meets the
+  path before it reads any of the reviewer's material.
+
+  **The seam is the author's, not this change's.** The five sections were one
+  contiguous block — lines 236 to 653 — and every heading in that run carries
+  the prefix while nothing outside it does. The 418 removed lines are
+  byte-identical to the file that now holds them, and the three ledger rows
+  that were anchored on those headings came back from `--reverify` with the
+  hashes they had before the move.
+
+  The headings keep the `Orchestrator:` prefix, so every reference names the
+  section it always named and only the file changed.
+
+- **Three of `writing-style`'s four per-document sections are not a
+  reviewer's, and they left the reviewer's payload too.** 「PR 본문에만」,
+  「다른 팀에 답할 때」 and 「사용자와의 대화에만」 moved to
+  `skills/writing-style/outside-the-review.md`; 「리뷰 코멘트에만」 stayed,
+  because that one is the only writing a reviewer does. `writing-style` is
+  still in both `warden`'s and `smith`'s `skills:` list — the file moved, not
+  the list.
+
+  **No style check was built, and that is the decision rather than the
+  omission.** Moving the whole skill out of preload would trade a guarantee
+  for a saving and pay for it with an instruction, and #180 is seven measured
+  instances of a rule written down and then re-broken. Whether a style rule
+  can be checked mechanically is still open.
+
+- **What a `warden` spawn reads goes from 108,399 bytes to 78,109**, measured
+  with `wc -c` over the three files its `skills:` list names plus its own
+  definition.
+
+  **This is occupancy, not speed.** Prompt caching flattens the repeat price
+  within a session, so there is no per-spawn token saving to claim and no
+  wall-clock reading behind any of these figures — the meter this repository
+  publishes is wrong until #200 and #202 land. What the numbers say is that
+  the characters occupied the context window on every spawn whether they came
+  from cache or not, and that a round killed and re-run paid the full write
+  again.
+
+- **Both enumerations of what the split would cost were taken by grep, and
+  both were short.** Recorded because the enumeration is the release this
+  ships in.
+
+  The check that *no reference crosses the seam* greped the literal
+  `Orchestrator:`, which matches the five `##` headings and none of the seven
+  `###` subsections beneath them. Re-taken by construction over every heading
+  in the block, four live references appear that the grep could not see —
+  `agents/smith.md` and `skills/implement/SKILL.md` name one subsection,
+  `tests/test_a_record_precedes_the_fixes_it_commissions.py` names another,
+  and `docs/review-handoff-protocol.md` names a `##` one twice.
+
+  *Eleven test modules pin the path* is eleven by path and **21** in fact: ten
+  more name the file as the Python tuple `("skills", "code-review",
+  "SKILL.md")`, which no path grep reaches. Six of the eleven needed no change
+  at all, five modules the estimate never named broke, and
+  `tests/test_docs_line_wrap.py` is the one that could not have been caught by
+  running anything — it reads a fixed list of paths, so 418 lines of
+  wrap-covered prose leaving a listed file lose their guard with nothing going
+  red.
+
+<!-- specs/1788873640-a-corrected-sentence-survives-elsewhere-and-nothing-looks -->
+- **A fix repaired the coordinate a finding named and the same claim stayed
+  standing somewhere else, seven times, and now a check looks.**
+  `survivor-check --range <a>..<b>` takes the range a fix pass wrote and
+  reports every place in the tree that still carries wording the range
+  removed, naming the path, the standing text and the corrected sentence it
+  matched. It runs at the fix pass, in the smith's verify step, and on every
+  pull request. `agent-contract` §12 has said *do not fix the coordinate*
+  since 0.7.0 and reaches every agent at startup; #229 measured the same class
+  in another repository, over a documentation work item whose findings per
+  round ran 13 → 8 → 5 → 6 and never converged, with 3 of its 4 rounds
+  repeating an earlier finding in a different file. So this release ships the
+  check rather than an eighth sentence. (#180)
+
+  **It was built against two events in this repository's history and is seen
+  failing on both.** One commit reworded a sentence in `agents/warden.md` and
+  left its pin behind in a test module that then sat red through two review
+  rounds and two broad gates, because no reviewer may run the broad gate
+  (#269). Another corrected a docstring and left the identical claim in two
+  ledger rows, one of them the shared file a reader meets first (#267). A
+  literal grep finds neither: the first is one sentence split across two
+  adjacent string literals, so no line holds it, and the second is a
+  paraphrase whose longest identical run is three words.
+
+  What a survivor scores is **the number of independent phrases it shares that
+  occur nowhere else**, so the threshold means the same thing in a twenty-file
+  repository and a thousand-file one, and it is calibrated over 77 real
+  ranges rather than chosen. Two kinds of carrier are excluded with a written
+  reason instead of a list: a work item's round records, which quote a
+  finding's wording by design, and struck-through text, which is this
+  repository's own mark for a claim it no longer makes.
+
+  **A survivor a person judges legitimate is answered, not switched off.** A
+  row in `seal/specs/<work-item-id>/survivors.md` names the path, a quoted
+  substring of the standing text and the grounds; the quote is the anchor, so
+  the exemption stops holding the moment that text changes, and an excused
+  survivor is still printed with its grounds. There is no value meaning
+  *check nothing*.
+
 ## 0.9.2 — 2026-09-08
 
 <!-- specs/1788844127-the-reviewers-report-reaches-the-record-retyped -->

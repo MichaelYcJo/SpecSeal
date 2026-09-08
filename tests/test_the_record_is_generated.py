@@ -736,10 +736,36 @@ def test_prose_under_the_probes_table_stays_in_the_report(repo):
 # never closed blanks every line below it exactly as an open fence does, and
 # the fence pass cannot see it because by then those lines are already gone.
 #
-# The grid is the three copies the generator makes -- `build` splices the
-# round paragraph whole, `table_of` copies a row out of `raw`, `fenced_after`
-# copies a block out of `raw` -- crossed with the two hiders. Measured at
-# `aed3ca0`, before the second column existed:
+# Round 2's answer was a grid: the two hiders crossed with the three copies
+# the generator makes -- `build` splices the round paragraph whole, `table_of`
+# copies a row out of `raw`, `fenced_after` copies a block out of `raw`. Its
+# columns were right and its rows were not. **A fourth copy existed**,
+# `inherited_rows`, which reads every earlier record and takes cells out of
+# its raw verdict rows; the grid had no row for it, and the argument closed
+# with *neither exists*. Issue #182.
+#
+# The row axis was chosen by listing the copies somebody could see, which is
+# the third enumeration on that branch and the third to come up one member
+# short. **What replaces it is a property, and the property is about the
+# destination rather than the sources.** Every copy the generator makes lands
+# in one artefact, so a record read back through the shared reader answers for
+# every copy path at once -- the three the grid named, the fourth it did not,
+# and a fifth added next year. It also reaches what no question asked of a
+# source can: `--ran-by` and `--broad-gate` carry a value that passed through
+# no text at all.
+#
+# `test_every_record_this_writes_is_read_back_before_it_is_written` is the
+# argument, as something that can fail: it walks the module's own AST for
+# every call that opens a file for writing. A grid can go one row short and
+# stay green; a new writer turns that case red.
+#
+# What the sources are still asked, and why: the report and the round
+# paragraph ask the question OF THEMSELVES, because a refusal naming the text
+# a person can edit beats one naming the artefact they cannot. That is a
+# message, not a second guard -- `write_record` refuses either way.
+#
+# Measured at `aed3ca0` and `8114937`, cell by cell, and kept because each row
+# names a case below rather than an argument:
 #
 #                       an open fence            an open HTML comment
 #   the report          `NEVER_CLOSED`           exit 2 on `0 Needs a fix:
@@ -748,19 +774,25 @@ def test_prose_under_the_probes_table_stays_in_the_report(repo):
 #   the round paragraph `ASKED_NEVER_CLOSED`     EXIT 1, RECORD WRITTEN, and
 #                                                four of its five sections
 #                                                unreadable                🔴 7
-#   a copied block      `NEVER_CLOSED_VERBATIM`  unreachable: an opener inside
-#                                                the block whose closer is
-#                                                outside it puts the block's
-#                                                own closing fence inside the
-#                                                comment, so the fence pass
-#                                                sees an unclosed fence first
-#   a copied row        `SWALLOWED_TABLE`        the straddle: balanced in the
-#                                                report, half in the record.
-#                                                Open, `overview.md` §Not done
+#   a copied block      `NEVER_CLOSED_VERBATIM`  the STRADDLE, and round 2
+#                                                called this cell unreachable:
+#                                                an opener inside the block
+#                                                whose closer stands outside
+#                                                it does put the block's own
+#                                                closing fence inside the
+#                                                comment -- and the refusal
+#                                                that follows names a fence
+#                                                that CLOSES         🟡 11
+#   a copied row        `SWALLOWED_TABLE`        the straddle, silent: exit 0
+#                                                at `8114937`, the record
+#                                                written, three sections at 0
+#                                                occurrences
+#   an inherited row    --                       the fourth copy the grid had
+#                                                no row for                🔴 10
 #
-# Two cells are closed below. The row straddle stays open because it needs a
-# limit argument the others do not -- a copied block may legitimately carry a
-# whole comment, so its question is balance across the slice, not presence.
+# All of the second column is closed. The two straddle cells are closed
+# differently: the copied block's by a third answer from `open_hider`, which
+# is a message; the copied row's by `write_record`, which is the guard.
 
 
 UNCLOSED_COMMENT_ASKED = "Attack the parser first.\n\n<!-- the coordinate to open\n"
@@ -800,6 +832,11 @@ def test_an_unclosed_html_comment_in_the_round_paragraph_is_refused(repo):
     assert code == 2, out
     assert text is None
     assert "HTML comment" in out, "the fence closes; the comment does not"
+    # `never closed`, not the straddle sentence. Since `open_hider` grew a
+    # third answer, `HTML comment` alone no longer separates the two: this
+    # comment never closes at all, and asked the fence question first the
+    # refusal reads `closes outside it` about a comment that closes nowhere.
+    assert "never closed" in out, "this comment does not close outside the block"
     code, out, text = generate(repo, asked=UNCLOSED_COMMENT_ASKED + "-->\n")
     assert code == 0, out
     assert "the coordinate to open" in text
@@ -844,6 +881,9 @@ def test_an_unclosed_html_comment_in_the_report_names_the_comment(repo):
     assert code == 2, out
     assert text is None
     assert "HTML comment" in out, "the fence closes; the comment does not"
+    # See the sibling case: `HTML comment` no longer separates the two
+    # answers, and this comment never closes rather than closing outside.
+    assert "never closed" in out, "this comment does not close outside the block"
     code, out, text = generate(repo, report_text=head + "-->\n" + tail)
     assert code == 0, out
     assert rows_of(text, "## Deferred") == [
@@ -871,6 +911,132 @@ def test_a_fence_opened_inside_an_html_comment_is_refused(repo):
     assert text is None, "a refusal writes no record"
     assert "never closed" in out
     assert "HTML comment" in out
+
+
+# A comment that opens inside a fenced block and closes AFTER it. Every fence
+# here closes; the block's closer is inside the comment, which is one pass
+# earlier, so the fence question is asked of a text that no longer has it.
+CROSSING_COMMENT = "```python\n<!-- a note\nx = 1\n```\n-->\n"
+
+
+def test_a_comment_that_crosses_a_fence_names_the_comment(repo):
+    """🟡 11 of round 3, and the third answer the two questions needed.
+
+    Executed at `8114937` before this: exit 2 reading `a fenced block in the
+    report is never closed`, and `blank_fences` over the report as WRITTEN
+    leaves no fence open -- so the reviewer is sent to look for something that
+    is not there. That is the defect §14 exists for and the one round 2 of
+    this generator's own chain paid for once already, one hider over.
+
+    The comment question passes here, which is why the order cannot prevent
+    it: the comment is balanced report-wide. What is unbalanced is the
+    comment's span against the block's closing fence, and only asking the
+    fence question of the raw text as well tells that from a fence nobody
+    closed."""
+    declared(repo)
+    body = HEAD_AND_VERDICTS + f"## Executed probes\n\n{PROBE_HEADER}{PROBE_ROW}\n"
+    code, out, text = generate(
+        repo, report_text=body + CROSSING_COMMENT + "\n" + DEFERRED_TABLE + TERMINAL
+    )
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "opens inside a fenced block and closes outside it" in out
+    assert "names a fence you did close" in out, "the message says what it is not"
+    assert "never closed" not in out, "no fence in this report is unclosed"
+    # And the coordinate, because `somewhere in the report` is not actionable.
+    assert "<!-- a note" in out
+
+
+def test_a_comment_that_crosses_a_fence_in_the_round_paragraph(repo):
+    """§12's other instance: the same cause on the other text asked. A spawn
+    prompt carries fenced blocks and HTML comments routinely, and the
+    paragraph is spliced above every section a reader looks up.
+
+    Executed at `8114937` before this: exit 2 reading `a fenced block in the
+    round paragraph is never closed`, about a paragraph whose every fence
+    closes."""
+    declared(repo)
+    code, out, text = generate(repo, asked="Attack it.\n\n" + CROSSING_COMMENT)
+    assert code == 2, out
+    assert text is None
+    assert "round paragraph" in out
+    assert "opens inside a fenced block and closes outside it" in out
+    assert "never closed" not in out
+
+
+# The straddle: a comment whole in the report and half in the record, because
+# a copied row is a SLICE of `raw`. The opener sits in the last cell, where the
+# reader's comment-swallowing keeps the row at its header width, and the closer
+# is on the line below the row -- which `table_of` does not copy.
+STRADDLING_ROW = (
+    "| 🔴 1 | a | `f.py:1` | open | executed <!-- the note |\n"
+    "--> the closer, on the line below the row\n"
+)
+
+
+def test_a_comment_a_copied_cell_takes_half_of_writes_no_record(repo):
+    """The cell the `# RIDER:` in `swallowed` left open, closed at the
+    destination rather than at the slice.
+
+    Executed at `8114937` before this: `new` exits **0**, the record is
+    written, and `## Executed probes`, `## Inherited coordinates` and
+    `## Deferred` each resolve to 0 occurrences through the shared reader
+    while standing in the bytes. Nothing in the run says a word -- and
+    `chain_check.py` reads only `## Verdicts` among sections, so nothing
+    downstream says one either.
+
+    Every question asked of the report passes: the comment is balanced
+    report-wide, and so is every fence. What is unbalanced is the SLICE, and
+    the guard cannot know which slice took the half without a limit argument
+    the never-closed question does not have. Asked of the record, it needs
+    none: a record no reader can read is refused whatever took the half."""
+    declared(repo)
+    code, out, text = generate(repo, report_text=report(verdicts=STRADDLING_ROW))
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "the record this would write" in out
+    assert "SLICES of the report" in out, "the message says where the half went"
+    assert "<!-- the note" in out, "and which line opens it"
+    # The same report with the comment closed inside the cell is a record.
+    closed = "| 🔴 1 | a | `f.py:1` | open | executed <!-- the note --> |\n"
+    code, out, text = generate(repo, n=1, report_text=report(verdicts=closed))
+    assert code == 0, out
+    assert "the note" in text, "a balanced comment in a cell is the reviewer's"
+
+
+HIDDEN_LOCATION = "| 🔴 1 | a | `f.py:1` <!-- the coordinate | open | executed |\n"
+
+
+def test_an_earlier_records_hidden_verdict_row_is_refused(repo):
+    """`inherited_rows` is the fourth copy out of `raw`, and what it copies
+    is the `Location` cell alone.
+
+    Measured at `8114937`, against issue #182's own claim that the loss
+    re-enters every later record: it does not. An opener in a `Location` cell
+    swallows the row's remaining pipes, so the row reads as three cells and
+    the run is refused -- and an opener in a `Grounds` cell is never copied,
+    so round 2's record came out clean, every section resolving. The copy is
+    real and the consequence the ticket gave it is not.
+
+    What is pinned here is that the shape is not silent. The message is about
+    cell arithmetic rather than about a comment, which is the read-less half
+    of this class: `overview.md` §Not done carries it with its measurement
+    and `seal/follow-up.md` names its answerer."""
+    declared(repo)
+    code, out, first = generate(repo)
+    assert code == 0, out
+    path = repo / ROUNDS / "round-1.md"
+    path.write_text(
+        first.replace("| 🔴 1 |", "| 🔴 1 |", 1).replace(
+            "| `f.py:1` |", "| `f.py:1` <!-- the coordinate |", 1
+        ),
+        encoding="utf-8",
+    )
+    commit(repo, "round 1, corrected in place")
+    code, out, second = generate(repo, n=2, report_text=report(verdicts=CLOSED_ROW))
+    assert code == 2, out
+    assert second is None, "a refusal writes no record"
+    assert "cells" in out, "the message is cell arithmetic — the deferred half"
 
 
 FENCED_DEFERRED = f"## Deferred\n\n```\n{DEFERRED_HEADER}{DEFERRED_ROW}```\n"
@@ -1176,6 +1342,81 @@ def test_a_flag_carrying_a_pipe_writes_no_record(repo):
     code, out, text = generate(repo, extra=("--broad-gate", "not yet\nreally"))
     assert code == 2, out
     assert text is None
+
+
+def test_a_flag_carrying_an_open_comment_writes_no_record(repo):
+    """The sibling of the case above, and the reason the hider question is
+    asked of the RECORD and not of each text read.
+
+    `cell` refuses a `|` and a newline because either breaks the row it is
+    written into. `<!--` breaks every reader below the row, and no question
+    asked of an input can see it: the value never passed through a text.
+    Executed at `8114937` before this -- the record written, and read back
+    through the shared reader every heading below `| Ran by |` resolving to
+    0 occurrences."""
+    declared(repo)
+    code, out, text = generate(repo, ran_by="specseal:warden <!-- on a model")
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "the record this would write" in out
+    assert "never closed" in out
+    assert "Ran by" in out, "the coordinate names the row the value landed in"
+
+
+def test_every_record_this_writes_is_read_back_before_it_is_written():
+    """The completeness argument, and it is a property rather than a count.
+
+    #182 is that the guard's enumeration named three copies out of `raw`
+    where the rule is every copy — and the row axis had been chosen by
+    listing the sources somebody could see, twice, each time one member
+    short. The property that replaces it is about the destination: every
+    copy lands in a record, so a record read back through the shared reader
+    answers for every copy path at once, including one added later.
+
+    So this walks the module's own AST for every call to `open` or
+    `os.fdopen` in a write mode and asserts which functions make one. A new
+    writer turns this red rather than being described in a comment, which is
+    the difference between this and the grid: the grid could go one row short
+    and stay green.
+
+    `run_check` is the second name and it is not a record — it writes the
+    GitHub event payload `chain_check` reads a pull request's state from,
+    into a temp file it then unlinks. A THIRD name means a new writer, and
+    it either goes through `write_record` or says here why what it writes is
+    not a record."""
+    import ast
+
+    module = ast.parse(read(GENERATOR))
+    writers, checked = {}, set()
+    for node in ast.walk(module):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        for inner in ast.walk(node):
+            if not isinstance(inner, ast.Call):
+                continue
+            name = getattr(inner.func, "id", None) or getattr(inner.func, "attr", "")
+            if name == "hiders_close":
+                checked.add(node.name)
+            if name not in ("open", "fdopen"):
+                continue
+            modes = [
+                a.value
+                for a in inner.args
+                if isinstance(a, ast.Constant) and isinstance(a.value, str)
+            ]
+            if any(set("wax") & set(m) for m in modes):
+                writers.setdefault(node.name, []).append(inner.lineno)
+    assert set(writers) == {"write_record", "run_check"}, (
+        f"a writer this case does not know about: {writers}. Every record is "
+        "written by `write_record`, which asks the hider question first"
+    )
+    assert "write_record" in checked, (
+        "`write_record` no longer asks the hider question, so nothing reads a "
+        "record back before it is written"
+    )
+    # And the two texts copied into a record ask it of themselves, so the
+    # refusal names the report or the paragraph rather than the artefact.
+    assert {"swallowed", "build"} <= checked, checked
 
 
 def test_an_existing_record_is_not_overwritten(repo):

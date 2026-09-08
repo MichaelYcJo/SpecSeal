@@ -511,8 +511,8 @@ Five requirements, each bought by a measured failure:
 
 One thing precedes the handoff rather than travelling in it: the draft pull
 request is already open when round 1 is spawned, opened when the build's
-last phase closes, because `skills/code-review/SKILL.md` §*Orchestrator: the
-pull request opens before round 1, and a phase is re-run* owns that rule and
+last phase closes, because `skills/code-review/orchestration.md` §*Orchestrator:
+the pull request opens before round 1, and a phase is re-run* owns that rule and
 the platform legs it exists for.
 
 ### While the implementer runs
@@ -539,8 +539,8 @@ A phase's hand-back says what it ran and what the output was, and by §5 of
 the contract that is prose until somebody opens it. Before spawning the next
 phase the orchestrator runs the closed phase's suite and the lint of its
 changed files itself and reads the output; the broad gate still runs once,
-after the rounds settle. `skills/code-review/SKILL.md` §*Orchestrator: the
-pull request opens before round 1, and a phase is re-run* owns the rule. Its
+after the rounds settle. `skills/code-review/orchestration.md` §*Orchestrator:
+the pull request opens before round 1, and a phase is re-run* owns the rule. Its
 grounds are one step from this document: §*verify before posting* said the
 reviewer's report is a claim and nothing said it of the implementer's, and
 the work item that added the rule was checked that way from its first phase

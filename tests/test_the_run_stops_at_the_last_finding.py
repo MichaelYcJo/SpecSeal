@@ -12,7 +12,7 @@ named answerer or becomes an issue. Four files carry it, and the four are not
 interchangeable:
 
   docs/review-chain-spec.md   owns the cap's definition, so it owns the floor's
-  skills/code-review/SKILL.md the reader who meets the cap is the reader who
+  code-review/orchestration.md the reader who meets the cap is the reader
                               needs the floor, and this is where the verifying
                               round the floor must leave standing is defined
   agents/warden.md            the reviewer answers it in a line of its own, the
@@ -40,7 +40,11 @@ import re
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 SPEC = ("docs", "review-chain-spec.md")
-SKILL = ("skills", "code-review", "SKILL.md")
+# The floor is in the orchestrator's half of the review skill (#265); the
+# record-contents row that enumerates it is in the reviewer's half, which
+# is why both names are here and only one case reads the second.
+SKILL = ("skills", "code-review", "orchestration.md")
+REVIEWER_HALF = ("skills", "code-review", "SKILL.md")
 WARDEN = ("agents", "warden.md")
 TEMPLATE = ("templates", "sdd-round.md")
 
@@ -188,10 +192,15 @@ def test_the_skill_enumerates_the_floor_where_it_lists_the_records_contents():
     the deferrals, the broad gate, who checked the fixes, the fix surface,
     and `Needs a fix`. It stopped there, so a session reading the list to
     find out what a record owes is not told about the second answer the run
-    ends on."""
+    ends on.
+
+    This row is the one thing this file reads out of the REVIEWER's half: the
+    record-contents table stayed in `SKILL.md` when #265 moved the floor into
+    `orchestration.md`, and a reviewer does have to know what the record it
+    is feeding carries."""
     row = next(
         line
-        for line in read(*SKILL).splitlines()
+        for line in read(*REVIEWER_HALF).splitlines()
         if line.startswith("| `rounds/round-N.md` |")
     )
     assert ROW in row, (
