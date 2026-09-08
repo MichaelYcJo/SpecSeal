@@ -6,7 +6,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 260 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | test_no_segment_of_a_bash_command_raises_out_of_gh_segments (depth 1) |
 | Needs a fix | yes — finding 1, the ground that sent two more session-stopping arms into the deferred eleven, carried by a ledger row, `overview.md` and issue #262 |
