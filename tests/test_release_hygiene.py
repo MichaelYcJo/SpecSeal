@@ -544,10 +544,18 @@ def test_the_exemption_list_does_not_depend_on_the_order_it_is_written_in():
     appending at the end is the natural act.
 
     An early `return` on the first `/` entry whose prefix matched made every
-    entry after it unreachable — so an exact path, or a narrower prefix,
-    written below the prefix that contains it silently stopped working
-    (review round 2). The failure direction is loud, a file the author meant
-    to exempt goes red, but nothing said the order mattered.
+    entry after it unreachable — so an exact path written below the prefix
+    that contains it silently stopped working (review round 2). The failure
+    direction is loud, a file the author meant to exempt goes red, but nothing
+    said the order mattered.
+
+    **An exact path is the only entry whose answer the order could change**,
+    and this used to say a narrower prefix was the same mechanism (#205). It
+    never was, in either implementation: every `/` entry takes the same
+    `DATED_RECORD.match(basename)` check whether it is wide or narrow, so a
+    narrower one is order-independent by construction. Only `rel == entry`
+    skips that check. No assertion is added for it — pinning an arrangement
+    that changes no answer is the failure this correction is about.
     """
     entries = RECORDS_OF_A_MOMENT
     try:
