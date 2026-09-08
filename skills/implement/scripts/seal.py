@@ -1641,7 +1641,7 @@ def other_worktrees(repo):
     # Stamped at a commit on the RELEASE branch rather than at the fix pass's
     # own, because a feature branch squashes and the commit that measured this
     # stops existing at that merge. #239 holds the class and this was its
-    # second instance; the first turned `release/v0.9.1` red. `other_worktrees`
+    # second instance; the first turned the release branch red. `other_worktrees`
     # is identical at `2138c98` and here once comment lines are stripped, so
     # the release-branch commit carries the state this was measured against.
     #

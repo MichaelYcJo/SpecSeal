@@ -5,7 +5,7 @@
 | Target SHA | 9d2f440 |
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
-| Broad gate | recorded on round 3 |
+| Broad gate | passed under round 3 |
 | Fixes checked by | round-2 |
 | Contract changes | already_asked → already_asked, main, choose, round-1-report.md; git_dir_of → marker_dir, round-1-report.md, pytest |
 | New units | RETRY_DIR (depth 1); unreadable (depth 1); marker_dir (depth 1); common_dir_of (depth 1); shares_the_clone (depth 1); test_a_separated_git_directory_does_not_displace_the_callers_tree (depth 1); test_the_clone_is_identified_from_the_directory_it_was_asked_about (depth 1); test_a_root_that_is_not_a_work_tree_is_refused (depth 1); test_the_third_command_of_a_session_is_silent (depth 1); test_the_two_prompts_are_counted_apart (depth 1); test_a_config_nobody_can_open_is_silence_not_a_deny (depth 1); test_one_local_root_is_one_question_for_the_whole_clone (depth 1); test_a_shared_root_is_still_a_question_per_work_tree (depth 1); test_the_marker_directory_is_absolute_for_either_question (depth 1) |
