@@ -1470,3 +1470,133 @@ def test_load_returns_input_counts_only(tmp_path):
     assert len(turns) == 1, turns
     assert len(turns[0]) == 2, turns
     assert turns[0][1] == 15, turns
+
+
+# --- #200: the family names the runner a repository actually uses -----------
+
+
+def test_a_runner_named_by_path_is_a_test_run(tmp_path):
+    """A project that ships `bin/test` has said what its test command is, in
+    the filesystem, and the five names the family knew did not include it.
+
+    Measured over the 180 transcripts on the machine that found it: of the
+    `./bin/test` calls, 266 were charged to `other` — the row nobody reads
+    because it is the row everything falls into — and the rest landed in four
+    different families depending on what else shared the command line.
+
+    The negative arm is the same size as the positive one on purpose. A
+    pattern widened until the row is never empty is a row that means nothing,
+    so a directory called `testdata`, a `git log` mentioning the word, and a
+    lint run that shares a line with none of them must all stay out."""
+    module = load_script()
+    for command in (
+        "./bin/test",
+        "bin/test -q",
+        "scripts/test",
+        "scripts/test.sh --fast",
+        "./test.sh",
+        "make test",
+        "npm test",
+        "npm run test",
+        "pnpm run test -- --watch=false",
+        "./gradlew test",
+        "just test",
+        "tox -e py312",
+        "nox -s tests",
+        "rspec spec/models",
+        "phpunit --testsuite unit",
+        "dotnet test",
+        "bun test",
+        "deno test -A",
+        "uv run --with pytest pytest tests/ -q",
+    ):
+        assert module.family(command) == "test", command
+
+    for command in (
+        "bin/testdata --list",
+        "git log --oneline -- test",
+        "uvx ruff check .",
+        "./bin/evidence-check",
+        "python3 .github/scripts/rider_check.py",
+        "cat tests/test_session_cost.py",
+    ):
+        assert module.family(command) != "test", command
+
+
+def test_a_runner_named_inside_a_heredoc_is_not_a_run_of_it(tmp_path):
+    """The other half of #200's *wrong in both directions*, in the same
+    reading: the one call the family did charge to `test` was a `cat > …`
+    heredoc whose body contains the word `pytest`.
+
+    `load` flattens a call's whitespace, so a command that writes a document
+    arrives at the classifier as one line with the whole document in it.
+    Cutting at the heredoc operator answers it for every family at once and
+    needs no list of the words a document might contain.
+
+    The last two are the bound. A `<<` followed by a lowercase unquoted word
+    is more often a quoted comparison than a heredoc, so it is left alone:
+    charging a real run to `other` is the error this whole change exists to
+    remove, and a lowercase heredoc delimiter classified the way it is today
+    is the smaller of the two."""
+    module = load_script()
+    for command in (
+        "cat > x.py <<'EOF' import pytest EOF",
+        "cat > x.py <<EOF import pytest EOF",
+        'cat > q.sql <<-"SQL" select 1 from pytest SQL',
+        "python3 - <<'PY' subprocess.run(['pytest']) PY",
+    ):
+        assert module.family(command) == "other", command
+
+    assert module.family("echo 'a << b' && pytest -q") == "test"
+    assert module.family("cat > x <<eof pytest eof") == "test"
+
+
+def test_the_report_names_the_command_the_table_could_not(tmp_path):
+    """`other` leading the table means the rows above it describe a minority
+    of the run, and nothing on the page said so — which is how #200 was
+    published for four releases.
+
+    Both arms, because a line that always prints is furniture: it appears when
+    `other` leads and is absent when a named family does."""
+    # Built so that two wrong answers are visible rather than merely
+    # possible. `./bin/lint-docs` is the FIRST unnamed command, so an entry
+    # taken in arrival order names it; `./bin/report` is the largest SINGLE
+    # command, so an entry that does not group two pipes of one command names
+    # that instead. Only grouping by `strip_pipe` and then taking the largest
+    # answers `./bin/deploy --wait`.
+    lines = []
+    lines += call("a", 0, 5, "./bin/lint-docs")
+    lines += call("b", 10, 70, "./bin/deploy --wait | tail -3")
+    lines += call("c", 80, 140, "./bin/deploy --wait | head -1")
+    lines += call("d", 150, 250, "./bin/report --long")
+    # Larger than every unnamed command and charged to a family that HAS a
+    # meaning, so an entry collected over the whole table rather than over
+    # `other` alone names this and the case says so. `other` still leads by
+    # total seconds, which is what the line is conditioned on.
+    lines += call("e", 260, 460, "./bin/test --slow")
+    lines += call("f", 470, 475, "pytest -q")
+    unnamed_leads = tmp_path / "unnamed.jsonl"
+    unnamed_leads.write_text("\n".join(lines) + "\n")
+
+    out = run([str(unnamed_leads)]).stdout
+    assert "`other` is the largest family and names nothing" in out, out
+    named_line = next(
+        line for line in out.splitlines() if "Slowest command charged there" in line
+    )
+    # Grouped by `strip_pipe`, so two runs of one command behind different
+    # pipes are one entry and the pipe is not part of what a family would
+    # have to learn. The `slowest` block below prints the pipe and is not
+    # what this asserts on.
+    assert named_line.endswith(": ./bin/deploy --wait"), named_line
+    assert re.search(r"^  other\s+4 calls", out, re.M), out
+    assert re.search(r"^  test\s+2 calls", out, re.M), out
+
+    named = []
+    named += call("d", 0, 120, "./bin/test -q")
+    named += call("e", 130, 135, "./bin/deploy")
+    test_leads = tmp_path / "named.jsonl"
+    test_leads.write_text("\n".join(named) + "\n")
+
+    other = run([str(test_leads)]).stdout
+    assert "names nothing" not in other, other
+    assert re.search(r"^  test\s+1 calls", other, re.M), other

@@ -42,8 +42,34 @@ PROJECTS = os.path.join(HOME, ".claude", "projects")
 
 # Command families, in priority order — the first match wins, so a compound
 # `ruff … && pytest …` is charged to the test run that dominates it.
+#
+# **A repository's own runner is named by PATH, and that is what the first
+# five names missed (#200).** A project that ships `bin/test` has said what
+# its test command is, in the filesystem, and every call of it was charged to
+# `other` — the row nobody reads because it is the row everything falls into.
+# Measured over the 180 transcripts on the machine that found it: of the
+# `./bin/test` calls, 266 landed in `other`, and the ones that did NOT landed
+# in four different families depending on what else shared the command line.
+# The one call the `test` family did charge was a heredoc whose body contains
+# the word `pytest`.
+#
+# What is added here is only the shapes that mean the same thing in any
+# repository: a script named `test` invoked by path, and the runners a
+# language's own convention names. What CANNOT be added is a runner with a
+# name nobody outside that repository can guess — `bin/check`, `./run-suite` —
+# and that residual is why `report` prints the slowest command it could not
+# name rather than leaving the reader a `test` row that is quietly empty.
 FAMILIES = [
-    ("test", re.compile(r"\b(pytest|jest|vitest|go test|cargo test|mvn test)\b")),
+    (
+        "test",
+        re.compile(
+            r"\b(pytest|jest|vitest|go test|cargo test|mvn test|tox|nox|rspec"
+            r"|phpunit|dotnet test|bun test|deno test)\b"
+            r"|(^|[\s./\\])(bin|scripts)[/\\]test\b"
+            r"|\btest\.(sh|bash|bat|cmd|ps1)\b"
+            r"|(^|[\s./\\])(make|just|task|npm|yarn|pnpm|gradlew?)\s+(run\s+)?test\b"
+        ),
+    ),
     ("lint/type", re.compile(r"\b(ruff|mypy|eslint|tsc|flake8|black|lint-imports)\b")),
     ("build", re.compile(r"\b(make|cargo build|npm run build|tsc -b|docker build)\b")),
     ("git", re.compile(r"^\s*(git|gh)\b")),
@@ -96,7 +122,31 @@ def parse_time(value):
     return stamp if stamp.tzinfo is not None else stamp.replace(tzinfo=dt.UTC)
 
 
+# A heredoc body is data the command was handed, not a command that ran. The
+# delimiter has to be QUOTED or written in the upper case every convention
+# uses -- `<<EOF`, `<<'PY'`, `<<-"SQL"` -- because a bare `<<` followed by a
+# lowercase word is more often a quoted comparison than a heredoc, and cutting
+# there would charge a real run to `other`, which is the error this whole
+# change exists to remove. A heredoc with a lowercase unquoted delimiter is
+# left classified the way it is today: a smaller error than the one the
+# looser pattern would introduce, and the direction every funnel in this file
+# takes.
+HEREDOC = re.compile(r"""<<-?\s*(?:'[^']*'|"[^"]*"|[A-Z_][A-Z0-9_]*)""")
+
+
 def family(command):
+    """The family of the command that RAN, with any heredoc body removed.
+
+    `load` flattens a call's whitespace, so a `cat > file <<'EOF' … EOF`
+    writing a document arrives here as one line with the whole document in it,
+    and any runner named inside gets the call. That is the second half of
+    #200's *wrong in both directions*: the family missed every real
+    `./bin/test` run and charged one file write to `test`, in the same
+    reading. Cutting at the heredoc operator answers it for every family at
+    once and needs no list of the words a document might contain."""
+    opener = HEREDOC.search(command)
+    if opener:
+        command = command[: opener.start()]
     for name, pattern in FAMILIES:
         if pattern.search(command):
             return name
@@ -326,10 +376,14 @@ def analyse(calls, turns):
         turn_key, turn_end = call["turn"], call["end"]
 
     by_family = defaultdict(lambda: [0, 0.0])
+    unnamed = defaultdict(float)
     for call in calls:
         key = family(call["command"]) if call["tool"] == "Bash" else call["tool"]
+        seconds = (call["end"] - call["start"]).total_seconds()
         by_family[key][0] += 1
-        by_family[key][1] += (call["end"] - call["start"]).total_seconds()
+        by_family[key][1] += seconds
+        if key == "other":
+            unnamed[strip_pipe(call["command"])] += seconds
 
     exact, stripped = defaultdict(list), defaultdict(list)
     for call in calls:
@@ -372,6 +426,16 @@ def analyse(calls, turns):
         )[:8],
         "repeat_exact_s": wasted(exact),
         "repeat_same_work_s": wasted(stripped),
+        # The command that cost the most of what the table could not name.
+        # `other` is the family with no meaning of its own, so a runner these
+        # patterns do not know disappears into it and the `test` row goes on
+        # reading as *no test run happened* — which is what #200 was, silently,
+        # in every reading this repository published. Naming the command turns
+        # that into something the next reader can act on: it is the exact
+        # string a family would have to learn. Grouped by `strip_pipe` so the
+        # same work behind two different pipes is one entry, the way the
+        # repeats lines already count it.
+        "unnamed": (max(unnamed.items(), key=lambda kv: kv[1])[0] if unnamed else ""),
         "context_growth": token_thirds(turns),
     }
 
@@ -666,10 +730,22 @@ def report(data):
     report_tokens(data["tokens"])
 
     print("\nby family")
-    for name, row in sorted(
-        data["by_family"].items(), key=lambda kv: -kv[1]["seconds"]
-    ):
+    ranked = sorted(data["by_family"].items(), key=lambda kv: -kv[1]["seconds"])
+    for name, row in ranked:
         print(f"  {name:<12}{row['calls']:>4} calls  {minutes(row['seconds']):>7}")
+    # Only when `other` LEADS the table, because that is the reading a person
+    # would otherwise take at face value: the family with no meaning of its
+    # own holding more time than any family that has one means the rows above
+    # it are describing a minority of the run. `test` reading 0 while `other`
+    # leads is the shape #200 was, and it was published for four releases with
+    # nothing on the page suggesting the number was not the number.
+    if ranked and ranked[0][0] == "other" and data.get("unnamed"):
+        print(
+            "              `other` is the largest family and names nothing, so "
+            "a runner\n              these patterns do not know reads as no "
+            "such run at all.\n              Slowest command charged there: "
+            f"{data['unnamed'][:76]}"
+        )
 
     print("\nslowest")
     for row in data["slowest"]:
