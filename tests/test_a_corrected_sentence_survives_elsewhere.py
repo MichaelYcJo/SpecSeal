@@ -140,6 +140,15 @@ def test_a_reworded_sentence_reports_the_pin_it_left_behind():
         "the report does not print the wording that survived, so a reader "
         f"cannot find it:\n{text}"
     )
+    # And ONLY that one. This is where both thresholds are pinned from the
+    # outside: raise `FLOOR` and the survivor goes missing, drop `SHARED_FLOOR`
+    # to one and this range grows the false positive the calibration measured
+    # -- `plan.md` records it as a single six-word run counted four ways.
+    named = paths_in(text)
+    assert named == [PIN_CARRIER], (
+        f"the range reported {named}; the pin is the one thing standing, and "
+        f"anything beside it is the score letting a coincidence through:\n{text}"
+    )
 
 
 def test_the_report_names_the_sentence_that_was_corrected_too():
@@ -283,13 +292,12 @@ def test_overlapping_ngrams_count_as_one_piece_of_evidence():
         f"four overlapping n-grams read as {len(runs)} pieces of evidence; "
         "one contiguous run is one piece however many ways it can be read"
     )
-    bits = dict.fromkeys(grams, 8.0)
-    total, named = reader.weigh(grams, set(grams), bits)
-    assert total == 8.0, (
-        f"the run scored {total} where its rarest n-gram is worth 8; summing "
+    total, named = reader.weigh(grams, set(grams), dict.fromkeys(grams, 1.0))
+    assert total == 1.0, (
+        f"the run scored {total} where its rarest n-gram is worth 1; summing "
         "the overlaps counts the same evidence once per position"
     )
-    assert named == [("be a second reader of the", 8.0)], (
+    assert named == [("be a second reader of the", 1.0)], (
         f"the run is not named as the phrase a reader would search for: {named}"
     )
 
@@ -305,9 +313,92 @@ def test_two_separate_runs_are_two_pieces_of_evidence():
     shared = {"alpha beta gamma", "delta epsilon zeta"}
     runs = reader.runs(grams, shared)
     assert len(runs) == 2, f"two separated stretches read as {len(runs)}: {runs}"
-    total, named = reader.weigh(grams, shared, dict.fromkeys(grams, 8.0))
-    assert total == 16.0, f"two independent runs scored {total}, not 16"
+    total, named = reader.weigh(grams, shared, dict.fromkeys(grams, 1.0))
+    assert total == 2.0, f"two independent runs scored {total}, not 2"
     assert len(named) == 2, f"the report names {len(named)} phrase(s): {named}"
+
+
+def build(where, files, message):
+    """Commit `files` into a repository at `where`, and answer with the sha.
+
+    Git is driven from python rather than from a shell line, per contract §8:
+    a probe that commits reaches the commit gate exactly as real work does,
+    and the prompt lands on whoever is at the keyboard -- which, in a suite
+    run, is nobody."""
+    where = str(where)
+    if not os.path.isdir(os.path.join(where, ".git")):
+        for command in (
+            ["init", "-q", "-b", "main"],
+            ["config", "user.email", "probe@example.com"],
+            ["config", "user.name", "probe"],
+            ["config", "commit.gpgsign", "false"],
+        ):
+            subprocess.run(["git", "-C", where, *command], check=True)
+    for name, body in files.items():
+        path = os.path.join(where, name)
+        os.makedirs(os.path.dirname(path), exist_ok=True) if os.path.dirname(
+            path
+        ) else None
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(body)
+    subprocess.run(["git", "-C", where, "add", "-A"], check=True)
+    subprocess.run(
+        ["git", "-C", where, "commit", "-q", "--no-verify", "-m", message], check=True
+    )
+    out = subprocess.run(
+        ["git", "-C", where, "rev-parse", "HEAD"],
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+    )
+    return out.stdout.strip()
+
+
+def test_a_claim_corrected_in_one_place_and_left_in_another_of_the_same_file(tmp_path):
+    """The counted difference, which membership cannot see.
+
+    A sentence is *corrected* when the file holds it FEWER times after than
+    before -- not when it is absent after. #267 is this shape one file wider:
+    the docstring was repaired and two ledger rows carrying the same claim
+    were not. Tested inside one file because that is the case a membership
+    test gets wrong: the wording is still in the file, so it reads as
+    untouched."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    # The rewrite below changes the sentence in TWO separated places, which is
+    # the shape both real survivors have and the shape `SHARED_FLOOR` is set
+    # for. Written first with a single contiguous change, this probe shared one
+    # run and was correctly not reported -- a fixture defect that read as a
+    # missing feature, and the reason the two spots are pointed out here.
+    claim = (
+        "The verdict cell is written by the reviewing round itself and the "
+        "orchestrator never edits it afterwards."
+    )
+    build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {claim}\n\nSecond statement. {claim}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the claim, stated twice in one file",
+    )
+    fixed = (
+        "The verdict cell is written by the generator and the "
+        "orchestrator leaves it untouched afterwards."
+    )
+    head = build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {fixed}\n\nSecond statement. {claim}\n",
+        },
+        "corrected the first statement only",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the second statement still carries the claim the first one corrected, "
+        f"in the same file, and the check called the range clean; exit {code}\n{text}"
+    )
+    assert "notes.md" in text, text
 
 
 # --- the escape ------------------------------------------------------------

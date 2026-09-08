@@ -51,10 +51,12 @@ against *an argument to element 4, never a leaf of the expression* -- and the
 longest identical run is three words. No floor above three accepts it, and at
 three every three-word run in the corpus is accepted with it.
 
-So the metric is rarity-weighted n-gram overlap. Weighting is what lets *never
-a leaf* count while *of the expression* does not, and a summed bit score rather
-than a ratio is what lets a twelve-word test needle and a three-thousand-word
-ledger cell be scored on the same scale.
+So the metric is rarity-weighted n-gram overlap, counted over independent runs
+of shared wording. Rarity is what lets *never a leaf* count while *of the
+expression* does not, and a summed score rather than a ratio is what lets a
+twelve-word test needle and a three-thousand-word ledger cell be judged on the
+same scale. Its unit is **one phrase that occurs nowhere else**, so the number
+means the same thing in a repository of twenty files and one of a thousand.
 
 ## What is excluded, by construction rather than by list
 
@@ -118,25 +120,34 @@ from collections import Counter
 # The rarity weighting below, not the length, is what does the discriminating.
 N = 3
 
-# The score a candidate must reach, in bits: a floor on the summed
-# `log2(F / df)` of the INDEPENDENT phrases it shares with a corrected
-# sentence, where `F` is the corpus file count. It reads as *the odds of this
-# much rare wording co-occurring by accident are under one in two-to-the-BITS*.
+# The score a candidate must reach, and **its unit is one phrase that occurs
+# nowhere else.** A run whose wording is unique in the corpus is worth exactly
+# 1.0, whatever the corpus is; one that also appears in a few other files is
+# worth a fraction of that. So `1.6` reads as *more than one and a half
+# phrases that nothing else in this tree carries*.
 #
-# **Calibrated, not chosen.** Measured over 77 real ranges -- every commit of
-# five unsquashed work-item branches that carried a review chain --
-# `phases/phase-3.md` holds the curve. The two real survivors this work item
-# exists for score 17.6 (#269's left-behind pin) and 16.6 (#267's row R3 in
-# the shared ledger), and the number sits below the weaker of them with room
-# rather than pressed against it: 15 costs 26 reports over the 77 ranges where
-# 16 costs 24, and a floor set at the weakest survivor already measured is a
-# floor that misses the next one.
-BITS = 15.0
+# **Scaled by the corpus, and that was measured rather than foreseen.** The
+# score began as raw `log2(F / df)` bits, calibrated to 15 against a corpus of
+# 633 files. Then a probe repository of two files scored a survivor that was
+# plainly there at 2 bits, because the most a phrase can be worth in a
+# two-file corpus is `log2(2)` -- so the constant was not a property of the
+# defect at all, it was a property of THIS repository's size, and every
+# smaller repository running the plugin would have been silently exempt.
+# Dividing by `log2(F)` is what makes the number mean the same thing in a
+# twenty-file repository and a thousand-file one.
+#
+# **Calibrated over 77 real ranges** -- every commit of five unsquashed
+# work-item branches that carried a review chain -- and `phases/phase-3.md`
+# holds the curve. The two survivors this work item exists for score 1.89
+# (#269's left-behind pin) and 1.79 (#267's row R3 in the shared ledger), and
+# the floor sits below the weaker of them with room rather than pressed
+# against it.
+FLOOR = 1.6
 
 # A candidate needs more than one INDEPENDENT phrase in common -- see `runs`
 # for why independence is the thing being counted. Without this, one six-word
-# coincidence read as four overlapping n-grams cleared any threshold this side
-# of 26 bits, which is what the first calibration run found.
+# coincidence read as four overlapping n-grams cleared any threshold at all,
+# which is what the first calibration run found.
 #
 # Two, because the defect is a restated FACT and a fact takes more than three
 # words to state. Both real survivors share exactly two.
@@ -500,18 +511,34 @@ def runs(sequence, shared):
     return out
 
 
-def weigh(sequence, shared, bits):
-    """`(score, [(phrase, bits)])` for one source-candidate pair.
+def weights(pool_size, files):
+    """`{ngram: weight}`, where 1.0 is *this phrase occurs nowhere else*.
 
-    A run is scored by the bits of its RAREST n-gram, never by their sum. A
-    run carrying a phrase that only two files have is at least as unlikely as
-    that phrase, so the rarest one is a sound floor on the whole run's
+    `log2(F / df)` over `log2(F)`. A one-file corpus has no elsewhere, so
+    every weight is zero and nothing can be reported -- which is the honest
+    answer rather than a division by zero."""
+    scale = math.log2(pool_size) if pool_size > 1 else 0.0
+    if scale <= 0:
+        return {}
+    return {
+        gram: math.log2(pool_size / count) / scale
+        for gram, count in files.items()
+        if count > 0
+    }
+
+
+def weigh(sequence, shared, weight_of):
+    """`(score, [(phrase, weight)])` for one source-candidate pair.
+
+    A run is scored by its RAREST n-gram, never by the sum of them. A run
+    carrying a phrase that only two files have is at least as unlikely as that
+    phrase, so the rarest one is a sound floor on the whole run's
     improbability -- and summing the overlaps would count the same evidence
     once per position it can be read from."""
     total, named = 0.0, []
     for run in runs(sequence, shared):
-        best = max(run, key=lambda gram: bits.get(gram, 0.0))
-        weight = bits.get(best, 0.0)
+        best = max(run, key=lambda gram: weight_of.get(gram, 0.0))
+        weight = weight_of.get(best, 0.0)
         if weight <= 0:
             continue
         total += weight
@@ -525,12 +552,12 @@ def weigh(sequence, shared, bits):
     return total, named
 
 
-def score(gone, keep, where, bits, floor):
+def score(gone, keep, where, weight_of, floor):
     """`[(score, candidate, source, shared)]`, worst first.
 
     `shared` is the phrases a candidate has in common with the sentence it
-    matched, each with the bits it contributed, so the report can name the
-    wording rather than print a number nobody can act on.
+    matched, each with what it contributed, so the report can name the wording
+    rather than print a number nobody can act on.
 
     One candidate is reported once, against its best-scoring source. A
     restated fact reaches several sentences of one paragraph, and reporting the
@@ -542,17 +569,26 @@ def score(gone, keep, where, bits, floor):
         mine = set(sequence) & keep
         reached = {}
         for gram in mine:
-            if bits.get(gram, 0.0) <= 0:
+            if weight_of.get(gram, 0.0) <= 0:
                 continue
             for candidate in where.get(gram, ()):
-                # A sentence does not survive itself: the same words somewhere
-                # else are a survivor, the same words at the same place are the
-                # sentence the range left alone.
-                if candidate.path == source.path and candidate.line == source.line:
-                    continue
+                # **No self-match guard, and it took a probe to see why one
+                # was wrong.** The obvious guard skips a candidate at the
+                # source's own path and line -- but the source is read at `a`
+                # and the candidate at `b`, so equal line numbers are two
+                # different revisions of one file and not one sentence. A
+                # probe where a claim was corrected in the first of two
+                # copies in one file put both at line 5, and the guard threw
+                # away the survivor it exists to find.
+                #
+                # None is needed, because `corrected` counts. A sentence is a
+                # source only where the file holds it FEWER times at `b`, so
+                # an occurrence still there is by construction a different
+                # one, and a sentence that merely moved never becomes a
+                # source at all.
                 reached.setdefault(id(candidate), [candidate, set()])[1].add(gram)
         for candidate, shared in reached.values():
-            total, named = weigh(sequence, shared, bits)
+            total, named = weigh(sequence, shared, weight_of)
             if len(named) < SHARED_FLOOR or total < floor:
                 continue
             best = found.get(id(candidate))
@@ -561,7 +597,7 @@ def score(gone, keep, where, bits, floor):
     return sorted(found.values(), key=lambda row: -row[0])
 
 
-def examine(root, a, b, floor=BITS):
+def examine(root, a, b, floor=FLOOR):
     """The whole run: `(rows, files examined, sentences corrected)`.
 
     Every caller goes through this. It returns the two counts as well as the
@@ -571,14 +607,14 @@ def examine(root, a, b, floor=BITS):
     keep = wanted(gone, written)
     pool = corpus(root, b)
     where, files = carriers(pool, keep)
-    total = len(pool) or 1
-    bits = {
-        gram: math.log2(total / count) for gram, count in files.items() if count > 0
-    }
-    return score(gone, keep, where, bits, floor), len(pool), len(gone)
+    return (
+        score(gone, keep, where, weights(len(pool), files), floor),
+        len(pool),
+        len(gone),
+    )
 
 
-def survivors(root, a, b, floor=BITS):
+def survivors(root, a, b, floor=FLOOR):
     """`examine`'s rows alone, for a caller that wants only the survivors."""
     return examine(root, a, b, floor)[0]
 
@@ -693,7 +729,7 @@ def report(rows, exemptions, a, b, examined, corrected_count, out=sys.stdout):
         print(f"  standing    {trim(candidate.raw)}", file=out)
         print(f"  corrected   {source.where()} -- {trim(source.raw)}", file=out)
         print(
-            f"  shared      {len(shared)} phrase(s), {score:.1f} bits: {phrases}",
+            f"  shared      {len(shared)} phrase(s), {score:.2f}: {phrases}",
             file=out,
         )
         print("", file=out)
@@ -721,10 +757,13 @@ def main(argv=None):
         help="a `| Path | Quote | Grounds |` table of judged survivors",
     )
     ap.add_argument(
-        "--bits",
+        "--floor",
         type=float,
-        default=BITS,
-        help=f"the score a survivor must reach (default: {BITS})",
+        default=FLOOR,
+        help=(
+            "the score a survivor must reach, in units of one phrase that "
+            f"occurs nowhere else (default: {FLOOR})"
+        ),
     )
     args = ap.parse_args(argv)
     try:
@@ -734,7 +773,7 @@ def main(argv=None):
         # parse is exit 2, and finding that out after several seconds of
         # indexing prints a refusal underneath a report.
         exemptions = read_exemptions(args.exempt)
-        rows, examined, gone = examine(root, a, b, args.bits)
+        rows, examined, gone = examine(root, a, b, args.floor)
         return report(rows, exemptions, a, b, examined, gone)
     except Refused as exc:
         print(f"survivor-check: {exc}", file=sys.stderr)
