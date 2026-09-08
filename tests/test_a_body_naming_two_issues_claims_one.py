@@ -161,7 +161,28 @@ def test_a_horizontal_rule_ends_the_segment(rule):
     assert warned(f"Closes #11\n{rule}\n#22 is unrelated.") == []
 
 
-@pytest.mark.parametrize("prose", ["a --- b", "--", "= x", "-x", "#22", "*bold* x"])
+@pytest.mark.parametrize(
+    "prose",
+    [
+        # A run of markers that OPENS the line and then carries prose. These
+        # are what the whole-line anchor is for, and nothing else here needs
+        # it: every other shape below is rejected at the first character, so a
+        # case built only from those leaves the anchor unpinned. Measured --
+        # dropping `$` from one alternative left all forty-two green.
+        "--- not a rule",
+        "*** not a rule",
+        "___ not a rule",
+        "=== not an underline",
+        "= x",
+        # And the shapes the space requirement rejects, which the four
+        # alternatives must not take back.
+        "a --- b",
+        "--",
+        "-x",
+        "#22",
+        "*bold* x",
+    ],
+)
 def test_a_run_of_markers_inside_a_line_is_still_prose(prose):
     """The four break alternatives match a WHOLE line only. Widened to match
     anywhere, they would take `#22` at the start of a line back out of the
