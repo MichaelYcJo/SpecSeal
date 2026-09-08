@@ -194,7 +194,7 @@ def _tokenize_with_separators(command: str, windows=None):
     # then finds no repository there and exits silently. The base hook handled
     # this form, so this one place went backwards; every other Windows form
     # (bare, double-quoted, relative) was compared against base and matches.
-    # Verified 2026-08-31 at 9829412.
+    # Verified 2026-08-31 against _tokenize_with_separators@8801e5d6.
     #
     # A `cd` operand goes through this same doubling since that fix, so the
     # single-quoted UNC form loses the repository there too and the rider now
@@ -251,7 +251,7 @@ def walk_command(command: str, cwd: str, windows=None):
 # `walk_command` and deciding whether a tokenization-only entry point is worth
 # keeping for tests. Left because that is a judgment about the test surface,
 # not a cleanup.
-# Verified 2026-08-31 at 9829412.
+# Verified 2026-08-31 against split_command@7e3ba403.
 def split_command(command: str, windows=None):
     """The segments to JUDGE: comments dropped, quoting respected.
 
@@ -1805,7 +1805,13 @@ def main():
     # open is whether the Agent path should be judged by a different rule than
     # counting sessions. Reading a token out of the Agent's prompt was tried
     # and taken back for the reason the comment below gives.
-    # Verified 2026-08-31 at 9829412.
+    #
+    # Re-read 2026-09-08 after #237 changed this function: the claim holds.
+    # `single_stream="ask"` is still what the Agent path passes, so nothing is
+    # blocked by it, and the `consented="silent"` #237 added is about a session
+    # that already answered the creation question rather than about the count
+    # this rider is open on.
+    # Verified 2026-09-08 against main@d6d7fd35.
     if tool in ("Agent", "Task"):
         if str(tool_input.get("isolation", "")).lower() != "worktree":
             sys.exit(0)

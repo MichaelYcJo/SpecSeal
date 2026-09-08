@@ -213,8 +213,8 @@ the conclusion reproduces exactly, and `comm` of the name sets at `5e56470` and
 - The two stamp forms are mutually exclusive. Writing
   `Verified 2026-09-08 against other_worktrees@00000000` into `seal.py` turns
   `tests/test_a_rider_reaches_its_file.py` red on exactly two cases,
-  `test_every_rider_carries_the_date_and_sha_it_was_verified_at` and
-  `test_every_rider_stamp_names_a_commit_this_branch_can_reach`, exit 1
+  `test_every_rider_carries_the_date_and_sha_it_was_verified_at` and  <!-- NAME NOT IN TREE -->
+  `test_every_rider_stamp_names_a_commit_this_branch_can_reach`, exit 1  <!-- NAME NOT IN TREE -->
   (executed). The other side is read, not executed: on
   `origin/fix/239-a-stamp-names-content-not-a-commit`,
   `test_no_rider_stamp_names_a_commit` **(NAME NOT IN TREE)** refuses the old
