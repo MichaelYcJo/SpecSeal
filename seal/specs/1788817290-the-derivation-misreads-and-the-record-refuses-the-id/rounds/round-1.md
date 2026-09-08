@@ -5,7 +5,7 @@
 | Target SHA | ffd1d05 |
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
-| Broad gate | passed at 31329cc — see round 2, finding 8 |
+| Broad gate | passed under round 3 |
 | Fixes checked by | round-2 |
 | Contract changes | none from this branch's own commits (`29e0460..f8180f4`) |
 | New units | TEST_SUFFIX (depth 1); collected (depth 1); HELPERS (depth 1); SUFFIX_MOD (depth 1); ROOT_CONFTEST (depth 1); test_a_long_punctuation_cell_is_refused_without_hanging (depth 1); test_a_conftest_at_the_repository_root_is_still_a_conftest (depth 1); test_a_test_shaped_def_in_an_uncollected_module_is_not_the_runners (depth 1); test_the_second_python_files_pattern_collects_too (depth 1) |
