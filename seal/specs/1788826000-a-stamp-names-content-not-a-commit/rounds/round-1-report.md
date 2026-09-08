@@ -244,8 +244,8 @@ missed migration.
 
 An AST comparison of `tests/test_a_rider_reaches_its_file.py` between
 `origin/release/v0.9.1` and `404dd4d` gives four removals:
-`test_every_rider_stamp_names_a_commit_this_branch_can_reach`, `is_shallow`,
-`test_every_rider_carries_the_date_and_sha_it_was_verified_at`, and `STAMP`.
+`test_every_rider_stamp_names_a_commit_this_branch_can_reach`, `is_shallow`,  <!-- NAME NOT IN TREE -->
+`test_every_rider_carries_the_date_and_sha_it_was_verified_at`, and `STAMP`.  <!-- NAME NOT IN TREE -->
 `phases/phase-3.md`'s *What this phase removes* names the first two. The other
 two have live replacements — `test_every_rider_carries_a_verification_stamp`
 and `NEW_STAMP` — so nothing is lost; the table is what is incomplete.
@@ -302,7 +302,7 @@ ran here is narrow and listed under *Executed probes*.
 | 5 | 🟡 Three hand-written anchors are quoted sentences, so a reword reports BROKEN rather than DRIFTED — and `skills/implement/SKILL.md`'s rider asks for exactly that reword | `agents/smith.md:60` · `skills/implement/SKILL.md:379` · `templates/evidence-check.yml:5` | open | **executed** — one word changed in each anchored line gives `BROKEN … the anchor resolves to nothing in this file`, exit 2. `evidence_check.resolve_unit`'s docstring and `CLAUDE.md` both state the rule this breaks |
 | 6 | 🟡 The migration's headline refusal says git cannot resolve `881fb0f`; git resolves it, and the file simply did not exist at that path | `.github/scripts/rider_check.py:359` and `:504` · `phases/phase-4.md` · ledger row S4 | open | **executed** — `git cat-file -t 881fb0f` → commit, ancestor of HEAD, 2026-09-02; `git show 881fb0f:./.github/scripts/fold_ledger.py` → *path exists on disk, but not in '881fb0f'* |
 | 7 | ⬜ The disclosure says the old stamp string survives in one record; it survives in two | `seal/specs/1788826000-a-stamp-names-content-not-a-commit/questions.md:28` · `overview.md:36` | open | **executed** — `grep -rn "Verified [0-9-]* at [0-9a-f]"` also hits `seal/specs/1788700685-two-value-shaped-odd-rows-end-the-report/phases/phase-2.md:96` |
-| 8 | ⬜ Phase 3's removes table names two of the four units the phase removed | `seal/specs/1788826000-a-stamp-names-content-not-a-commit/phases/phase-3.md` | open | **executed** — an AST comparison of the test file across the range also removes `test_every_rider_carries_the_date_and_sha_it_was_verified_at` and `STAMP`; both have live replacements |
+| 8 | ⬜ Phase 3's removes table names two of the four units the phase removed | `seal/specs/1788826000-a-stamp-names-content-not-a-commit/phases/phase-3.md` | open | **executed** — an AST comparison of the test file across the range also removes `test_every_rider_carries_the_date_and_sha_it_was_verified_at` and `STAMP`; both have live replacements |  <!-- NAME NOT IN TREE -->
 | 9 | ❓ out of verified scope — the full suite, the repository-wide lint and the typecheck | whole tree | open | **unverified** — contract §2; the orchestrator answers |
 
 ## Executed probes
@@ -556,7 +556,7 @@ Loses a record or crashes: no
 
 | Row | Value |
 |---|---|
-| Contract changes | `RIDER_ROOTS` moved from `tests/test_a_rider_reaches_its_file.py` to `.github/scripts/rider_check.py`, and the test imports it → the test file · `test_every_rider_stamp_names_a_commit_this_branch_can_reach`, `test_every_rider_carries_the_date_and_sha_it_was_verified_at`, `is_shallow` and `STAMP` removed → pytest · `test_every_job_that_runs_pytest_has_the_whole_history`'s failure text rewritten → whoever reads a CI failure |
+| Contract changes | `RIDER_ROOTS` moved from `tests/test_a_rider_reaches_its_file.py` to `.github/scripts/rider_check.py`, and the test imports it → the test file · `test_every_rider_stamp_names_a_commit_this_branch_can_reach`, `test_every_rider_carries_the_date_and_sha_it_was_verified_at`, `is_shallow` and `STAMP` removed → pytest · `test_every_job_that_runs_pytest_has_the_whole_history`'s failure text rewritten → whoever reads a CI failure |  <!-- NAME NOT IN TREE -->
 | New units | `HERE` (depth 1); `ROOT` (depth 1); `CHECKER` (depth 1); `RIDER_ROOTS` (depth 1); `SKIP_DIRS` (depth 1); `READABLE` (depth 1); `MARKER` (depth 1); `OLD_STAMP` (depth 1); `NEW_STAMP` (depth 1); `load_checker` (depth 1); `comment_blocks` (depth 1); `Rider` (depth 1); `Rider.__init__` (depth 2); `Rider.where` (depth 2); `riders_in` (depth 1); `tree_files` (depth 1); `all_riders` (depth 1); `region_lines` (depth 1); `region_hash` (depth 1); `check` (depth 1); `content_at` (depth 1); `restamp` (depth 1); `write_block` (depth 1); `reverify` (depth 1); `inferred_anchor` (depth 1); `migrate` (depth 1); `main` (depth 1) — all in `.github/scripts/rider_check.py`; `_load` (depth 1); `riders` (depth 1); `CHECKER` (depth 1); `OLD_STAMP` (depth 1); `MARK` (depth 1); `a_module` (depth 1); `hashed` (depth 1); `test_the_header_states_the_stamp_form_riders_actually_carry` (depth 1); `test_the_round_template_says_why_target_sha_is_exempt` (depth 1); `test_every_rider_carries_a_verification_stamp` (depth 1); `test_no_rider_stamp_names_a_commit` (depth 1); `test_every_rider_stamp_resolves_and_reproduces_its_hash` (depth 1); `test_the_check_asks_git_for_nothing` (depth 1); `test_the_hash_does_not_cover_the_rider_that_carries_it` (depth 1); `test_editing_a_riders_own_prose_does_not_drift_it` (depth 1); `test_a_second_rider_in_a_unit_does_not_drift_the_first` (depth 1); `test_a_changed_unit_drifts` (depth 1); `test_a_vanished_anchor_is_broken_not_drifted` (depth 1); `test_the_marker_in_prose_or_a_string_is_not_a_rider` (depth 1); `test_a_comment_block_runs_through_its_blank_comment_lines` (depth 1) — all in `tests/test_a_rider_reaches_its_file.py` |
 | Broad gate | not yet — findings remain open, so it is not due |
 
