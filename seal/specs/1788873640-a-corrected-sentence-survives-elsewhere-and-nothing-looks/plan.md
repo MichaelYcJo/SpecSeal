@@ -144,7 +144,7 @@ was wrong.
 |---|---|---|---|
 | 1 | The reader, the check and the calibrated threshold — normalisation, segmentation, corpus enumeration, the two by-construction exclusions, the score, the report and the exit codes | Executed against `7bcf36a` and `ad6f81a`; the curve over 77 real ranges in `phases/phase-1.md` | f168d33 |
 | 2 | `bin/survivor-check` + `.cmd`, the exemption reader (S6), the prose at the places that run it (S7), and the CI step | The wrapper cases the suite already parametrises over `bin/`; cases for S4, S5, S6, S7 | 23066d4 |
-| 3 | What a probe repository found that the two real cases could not: a threshold that measured this repository's size, and a self-match guard comparing a line across revisions | `tests/test_a_corrected_sentence_survives_elsewhere.py`, 26 cases, and the mutation sweep in `phases/phase-3.md` | 28b90da |
+| 3 | What a probe repository found that the two real cases could not: a threshold that measured this repository's size, and a self-match guard comparing a line across revisions | `tests/test_a_corrected_sentence_survives_elsewhere.py`, 31 cases, and the two mutation sweeps in `phases/phase-3.md` | 28b90da · 198d580 |
 
 **Three phases where the table above first said four, and the merge is the
 divergence `overview.md` records.** Planned phases 1–3 were the reader, the
