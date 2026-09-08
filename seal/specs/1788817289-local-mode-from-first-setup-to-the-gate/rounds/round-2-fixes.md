@@ -43,7 +43,7 @@ checker exists in this tree:
 
 | The stamp | This tree's check | The #239 branch's check |
 |---|---|---|
-| `Verified <date> at <sha>` | required | refused by `test_no_rider_stamp_names_a_commit` |
+| `Verified <date> at <sha>` | required | refused by that branch's own rider check  <!-- NAME NOT IN TREE --> |
 | `Verified <date> against <anchor>@<hash>` | refused — `a rider with no verification stamp` | required |
 
 Both halves executed. The new form was written into the file and
@@ -124,8 +124,8 @@ already deferred to the repository owner, still deferred, with no blanket
 
 **Five of the rows this pass re-stamped were nobody's finding.** The
 `home_at` change of finding 11 drifted `hooks/optin.py#home_at` in five
-`seal/ledger.md` rows (S1, S2, S4, S16 and the `Mode`-row clause) and four
-rows in this work item's own fragment. Each claim was re-read: none of them
+`seal/ledger.md` rows (S1, S2, S4, S16 and the `Mode`-row clause) and two
+rows in this work item's own fragment, neither of which names `home_at`. Each claim was re-read: none of them
 is about the signature, all five still hold, and S16 — *the pair costs no
 extra `git` call* — is widened by the change rather than threatened by it.
 

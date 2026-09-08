@@ -5,8 +5,8 @@
 | Target SHA | 5e56470 |
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
-| Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Broad gate | recorded on round 3 |
+| Fixes checked by | round-3 |
 | Contract changes | undeclared → marker_dir, main, round-1-report.md, round-1.md, round-2-report.md, round-2.md, pytest; marker_dir → main, round-1-fixes.md, round-1-report.md, round-1.md, round-2-report.md, round-2.md; home_at → declaration_hint, failing_rows, main, ledgers, undeclared, optin.py, git_common_dir, home, declarations, ledger.md, plan.md, questions.md, round-1.md, spec.md, phase-1.md, round-1-report.md, round-2-report.md, round-2.md, local_root, seal_home, resolve, pytest |
 | New units | none |
 | Needs a fix | yes — 9, 10 and 11 |
