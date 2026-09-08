@@ -274,9 +274,12 @@ def test_the_warden_is_told_its_report_is_now_scanned_like_any_tracked_file():
     the clone's absolute path out, which is exactly the string the identifier
     rule refuses. Both refusals land at the pull request, after the round has
     ended and where nobody can ask the reviewer what it meant, so the warning
-    is worth nothing without the edit that answers it. Both escapes are
-    pinned for that reason: the fixture user path, and the evidence checker's
-    own per-line exemption marker.
+    is worth nothing without the edit that answers it. Every escape is
+    pinned for that reason: the fixture user path, the evidence checker's own
+    per-line exemption marker, the rule that the marker never goes inside a
+    fence (round 2, 🟡 7 -- the block's first version illustrated it there,
+    which is the one region the checker never reads), and the identifier
+    rule's second half, the domain arm.
     """
     warden = read(*WARDEN)
     assert "## Report" in warden
@@ -301,6 +304,19 @@ def test_the_warden_is_told_its_report_is_now_scanned_like_any_tracked_file():
             "NAME NOT IN TREE",
             "the evidence checker's exemption marker is not named, so a "
             "paste-ready fix proposing a new symbol has no legal spelling",
+        ),
+        (
+            "marking one up corrupts it",
+            "the fence rule is gone, and the block is back to the state "
+            "round 2 found: an exemption marker illustrated inside the one "
+            "region the checker reads as a quotation, where nothing reads it "
+            "and the smith pastes it into the fix",
+        ),
+        (
+            "second arm",
+            "the identifier rule's second half is unstated, so a reviewer "
+            "quoting a host meets the domain arm of the same module with no "
+            "warning and no way through",
         ),
     ):
         assert needle in section, f"agents/warden.md §Report: {why}"

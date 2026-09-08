@@ -57,8 +57,9 @@ exists so a report can live elsewhere, `new` records nowhere which path it
 read, and a gate in `close` therefore refuses the runs the flag was added for
 — executed, 36 of 41 cases in `tests/test_the_fixes_close_the_record.py` fail
 with the proposed gate inserted. `plan.md` §*Technical context* carries the
-measurement. **A gate that reaches every run needs `new` to record the path it read, which
-is a new record field, a template section and a checker.** That is a mechanism
+measurement. **A gate that reaches every run needs `new` to record the path
+it read, which is a new record field, a template section and a checker.** That
+is a mechanism
 nobody has decided to build. **A narrower gate needs none of it** — guarded on
 the conventional path actually holding a file, the same refusal passes all 41
 cases at `b76ce68`, because a run that passed the flag leaves that path empty.
