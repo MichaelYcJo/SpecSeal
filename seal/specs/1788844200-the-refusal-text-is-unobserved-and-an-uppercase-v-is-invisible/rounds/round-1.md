@@ -6,7 +6,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 259 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | yes — findings 1, 2, 3 and 4: two deletions inside `refusal` go unobserved, and three records state that as complete |
