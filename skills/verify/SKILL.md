@@ -384,6 +384,29 @@ finished, not as a follow-up someone might do later:
    a resumed smith's transcript holds several segments in one file — split
    it at the user lines where the coordinator sent it a new message, and
    measure only the slice that belongs to the segment just watched.
+
+   **An orchestrator's segments sit inside one file too, and its boundary is
+   not a user line — `session_cost.py --spawns` is what takes it.** Every
+   other segment of a chain is a transcript of its own, so its row is the
+   whole file; the orchestrator's is not, and the whole file was the only row
+   it ever had. That is how three segment kinds came to have bands a later
+   run can be read against while the most expensive one had none. A **spawn
+   cycle** is not the review chain's
+   cycle, which `docs/review-chain-spec.md` owns: it ends when a subagent's
+   report arrives and begins where the row before it ended, so the head is
+   the framing before the first spawn, cycle N is report N-1 arriving until
+   report N arrives, and the tail is the closing work after the last report.
+   The `Agent` call's own interval leaves the row and is printed beside it as
+   `delegated`, because that interval is a subagent thinking and is already
+   the whole of that subagent's own row.
+
+   **Post a cycle row as a band, not as an attribution.** Between a report
+   arriving and the next spawn going out the orchestrator verifies one report
+   and frames the next prompt, and no transcript field marks where the first
+   act ends — so the whole window is charged to the cycle after it. Cycle 1
+   is the one row without that window: the run's own start is a boundary a
+   script can take, so its framing goes to the head row instead, and the two
+   are read together.
 2. Post what the numbers say with `gh issue comment <n> --body-file
    <file>`, where `<n>` is the issue number the lookup above returned — the
    rolling log's for the segment's own numbers, the durable one's for a
