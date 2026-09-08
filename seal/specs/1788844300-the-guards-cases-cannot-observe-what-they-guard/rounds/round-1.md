@@ -6,7 +6,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 260 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | test_an_unbalanced_quote_in_a_piped_gh_command_does_not_stop_the_session (depth 1); test_a_blanking_pass_written_as_a_sub_is_refused_rather_than_unseen (depth 1); test_the_ties_message_answers_a_rename_as_well_as_an_addition (depth 1) |
 | Needs a fix | yes — findings 1 and 2 |
