@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | 1763b61 |
-| Ran by | unknown — the spawn prompt named no model. `templates/sdd-phase.md` makes this row the spawning session's and forbids a segment sourcing it from its own idea of what it is, so it is left for the orchestrator to fill |
+| Ran by | `specseal:smith on claude-opus-5` — filled by the spawning session, which is the only participant that knows what it spawned |
 
 ## What this phase was asked
 
