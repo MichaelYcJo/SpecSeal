@@ -1,5 +1,531 @@
 # Changelog
 
+## 0.9.1 — 2026-09-08
+
+<!-- specs/1788789329-a-git-call-that-fails-reads-as-no-remote -->
+- **A git call that failed used to read as a repository with no remote, and
+  in `seal import` that switched off the refusal keeping another project's
+  records out (issue #111).** `git()` in `skills/implement/scripts/seal.py`
+  answered `""` for every failure — an `OSError`, a timeout, a non-zero exit —
+  and four of its five call sites read that `""` as a fact about the
+  repository. The sharpest of them decided whether the zip in hand came from
+  somewhere else: an empty answer short-circuited the whole condition, so a
+  git that timed out merged another project's records with no word about it.
+  Nothing is destroyed — `seal import` never overwrites — but two projects'
+  work items land in one root keyed by work-item id, with nothing afterwards
+  to tell them apart, which is the outcome the refusal exists to prevent.
+
+  **The unanswerable question now refuses**, which is the direction
+  `gitlinks_under_root`, `porcelain` and `indexed` in the same file already
+  take. The message carries git's own words, because *run it again* and *this
+  machine will never answer* are the two things a person does next and only
+  git's text tells them apart.
+
+  **The escape is `--allow-unreadable-remote`, a flag of its own.** Typing
+  `--allow-other-repo` is saying *I have read both URLs and they are one
+  repository under two spellings*; someone whose git could not answer has read
+  neither and is saying something else. Routing both past one flag would merge
+  the two facts again at the only place a user acts on the distinction.
+
+  **The manifest leaves out what git could not read**, rather than freezing
+  `""` into the zip for the receiving machine to read as a fact. `remote` now
+  has three states — a URL, `""` for a repository with no `origin`, and absent
+  for a question that went unanswered — and a zip recording no remote refuses
+  on arrival for the same reason. `head` loses its empty state entirely: `git
+  rev-parse HEAD` prints a SHA whenever it succeeds, so present means a SHA
+  was read. The format number does not move, because no field was renamed or
+  repurposed and format 1's only reader of the two already went through
+  `manifest.get`.
+
+  **`git_asked` is one helper where there were three.** `porcelain`, `tracked`
+  and `gitlinks_under_root` had each grown the same *(value, why)* shape for
+  themselves; it is promoted so a caller needing the distinction does not
+  write a fourth. `git()` is that helper with the distinction thrown away,
+  which is the right reading for a caller with nothing to do with `why` — and
+  after this change it has exactly one call site left, `other_worktrees`,
+  where a failure means an advisory note does not print. Its docstring now
+  says that silence is by design.
+
+  Its `answered` parameter exists for one measured fact: `git config --get`
+  exits 1 when the key is not set, so for that command alone a non-zero code
+  is an answer. Measured 2026-09-07 — an unset `remote.origin.url` gives
+  `(1, '', '')` and a `.git/config` git cannot parse gives `(128, '', 'fatal:
+  bad config line 9 …')`. `--default ""` would have removed the special case
+  and wants git 2.18, which nothing else here needs, so an old git would have
+  started refusing a path that works today.
+
+  **The ticket said four call sites were left; there were five.** It did not
+  count the second `git()` inside the refusal message, which asked git again
+  for the URL it had just read and printed whatever that call answered — so a
+  failure between the two put a blank where the message promises this clone's
+  URL. That is this ticket's own failure appearing inside the message
+  reporting it. The value compared is now the value printed.
+
+  **The receiving guard reads the manifest's `remote` for its TYPE, not its
+  presence.** Review round 1 measured `null`, `42`, `[]`, `{}` and `true` all
+  importing at exit 0 with both guards silent — and `null` is what any JSON
+  writer produces from the `None` this change introduced, so the very state
+  the export uses to say *I could not look* arrived at the guard as a key that
+  was present.
+
+  **The refusal names the machine that can fix it.** One closing line used to
+  cover two failures with two different next steps. When this clone's git went
+  silent, running the import again may succeed; when the ZIP is the silent
+  side, the bytes say the same thing on every run there is and the export has
+  to happen again on the other machine — so telling that person to re-run sent
+  them into a loop that cannot end. When both sides are silent the zip
+  decides, because no re-run here clears it whatever this clone's git answers
+  next.
+
+  **The export says which field it had to leave out.** It used to write a zip
+  that would be refused on arrival and print nothing about it, which left the
+  diagnosis on the importing machine while the one that could clear the
+  failure — by running the export again — was told it had succeeded. Only the
+  `remote` line carries the note about the other machine's flag, because only
+  a missing `remote` is refused there. (#111)
+
+- **Two checks of this repository's own round records stopped crashing on the
+  files the review chain writes beside a record.** Both asked git for
+  `seal/specs/*/rounds/round-*.md`, and git's pathspec has no way to say *and
+  then a number*, so the glob also picked up `round-N-report.md`,
+  `round-N-asked.md` and `round-N-fixes.md`. Ordering the result asked for a
+  round number those files do not have, and two of them in one work item ended
+  the check with a `TypeError` instead of a verdict — so a run that committed
+  a reviewer's report beside its record turned two checks off and reported it
+  as a crash. `chain_check.py` itself already drops those files on the same
+  test; the two readers that did not now do. (#111)
+
+<!-- specs/1788789330-the-update-notice-names-the-expensive-move -->
+- **The update notice and the update procedure now name `/reload-plugins`,
+  and say exactly how far the measurement behind it reaches (issue #134).**
+  The session-start notice closed with *"Either way, restart to load it"* and
+  the skill closed the same way. Both named the move that ends the session you
+  are in, and neither named the cheaper one this repository had already
+  measured and written down.
+
+  **What a reload was measured to do, and nothing more.** Run 6 of
+  `docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.md` is the
+  only positive case: a sentinel in the version cache came back PRESENT after
+  a `/reload-plugins`, and ABSENT in run 5 without one. So a preloaded skill
+  body handed to a spawned agent is re-read at a reload, and that is the whole
+  of what was established.
+
+  **Three things are stated as unmeasured rather than left to silence**, which
+  is the ticket's second acceptance condition. The experiment touched neither
+  hooks nor agent definitions, and — the part the ticket itself assumed — its
+  sentinel sat in the *running* version's own cache directory, so it shows a
+  re-read of the copy already in force and nothing about a session picking up
+  a newly installed one. A user reading this notice is in exactly that second
+  case. `skills/update/SKILL.md` §5 carries the run that would settle it: run
+  6's own method, with a sentinel in a hook and in an `agents/*.md` instead of
+  in a skill body.
+
+  Saying *not measured* rather than *not needed* is the point of the
+  distinction. A user told the reload is insufficient stops using it; a user
+  told it covers everything gets a half-loaded plugin with no way to tell.
+
+  **Every sentence that names the reload says which copy it re-reads.** Without
+  that qualifier the notice recommends, as the cheap way to get the release
+  that just arrived, a move whose only measured effect is on the version the
+  user already has — and the module's own docstring said so thirty lines up.
+  The qualifier now sits inside the claim's own sentence in both languages,
+  including the two README command-table rows and the two by-hand code
+  comments, which are as much an instruction as the paragraph above them.
+
+  **The gate table stopped calling the banner one line.** `README.md`'s
+  version-check row said the hook *shows one line*; it has shown four since
+  before this work item, and this work item is what made the notice longer.
+  The row now says it shows a short notice naming `/specseal:update` and the
+  two moves that load a release — a description of what the notice says rather
+  than a count of how it renders, so there is no number left to go stale. The
+  Korean edition never carried the count and is unchanged.
+
+  **Fifteen sentences moved, enumerated by grep rather than from the ticket's
+  list** — which was three lines short and named neither of the Korean
+  README's three. Two of the fifteen are code comments inside fenced blocks
+  (`# then restart`, `# 그다음 재시작`), which the wrap test skips by design
+  and which a reader copying the block copies with it.
+
+<!-- specs/1788789985-round-record-dies-on-python-3-9 -->
+- **`round_record.py` says which interpreter it needs, at entry, instead of
+  dying partway through with an interpreter traceback (issue #226).** On a
+  machine whose `python3` is 3.9 it died at `zip(..., strict=True)` with
+  `TypeError: zip() takes no keyword arguments` — and it died there, which is
+  to say after argument parsing, path resolution and the report read had all
+  succeeded. So the failure read as a bug in the report, and the message named
+  neither the version needed nor the flag. macOS still ships 3.9 as
+  `/usr/bin/python3`, so that is the default interpreter on a common platform,
+  and a repository pinning a newer one does not help because the script is
+  invoked directly rather than through it. Reported from another repository on
+  0.8.3.
+
+  Fifteen lines after the imports now refuse an interpreter below the floor
+  with a sentence naming the floor, the version found and the interpreter it
+  was found at, and saying that nothing was read and nothing was written.
+  Exit 2, which already meant *nothing was written*, and the docstring's
+  exit-code line says so now rather than being quietly widened.
+
+  **The four `strict=True` sites stay, and that is the ticket's other
+  suggestion refused on grounds rather than on taste.** `CONTRIBUTING.md`
+  names 3.12 as the supported floor, so dropping them would buy a few more
+  lines before the next 3.10+ construct, at the price of the invariant the
+  comment above the first one states: both of the reader's passes keep indices
+  intact, so the two reads are the same file line for line, and a length that
+  differed would truncate the hidden set — which is that check reporting clean
+  because it read less.
+
+  **The guard runs before `chain = load(CHAIN, ...)`, and the placement is
+  load-bearing.** That assignment reads and executes a second file at import,
+  before `main()` is ever called, and it succeeds on 3.9 — so a guard written
+  in `main()`, which is where one naturally goes, would still let the operator
+  watch exactly the progress the ticket is about. A mutation that moved it
+  there left every end-to-end case green and was caught by one case reading
+  the module's own AST.
+
+  **The floor is not imported from `.github/scripts/run_tests.py`, and the
+  reason is the argument rather than the convenience.** A read that can fail
+  gives the guard a second way to die on the one machine that has no other way
+  of being told what is wrong; and a fallback-safe read still has to name a
+  floor in its `except` branch, so the second spelling survives the import
+  anyway. The number is pinned by a test instead, which is the mechanism this
+  repository already uses for the same number in five other places. That pin
+  ties the repository's two floor authorities together for the first time:
+  `test_release_hygiene.py` reads `ruff.toml`, the runner's own suite reads
+  `run_tests.py`, and nothing read both.
+
+  **The class was enumerated by construction and five members were deferred,
+  each with an answerer.** Twenty-five entry points ship; six carry a
+  construct newer than the floor. `.github/scripts/gather_changelog.py`,
+  `.github/scripts/fold_ledger.py`, `skills/implement/scripts/seal.py` and
+  `skills/verify/scripts/session_cost.py` use `datetime.UTC` (3.11) and
+  `hooks/root-migrate.py` uses `zip(strict=)` — three of them named after a
+  literal `python3 ` in the release checklist, one invoked by the harness, and
+  one that ends a run report. A new case re-runs that enumeration on every
+  suite run, so a seventh cannot arrive as a traceback on a stranger's
+  machine.
+
+  The scan's own spelling was wrong twice and the record says so, because it
+  is the same failure both times — an instance the pattern could not reach.
+  `zip\([^)]*strict=` hid the site in `round_record.py#inherited_rows`, where
+  an inner call closes a parenthesis before the keyword is reached; and
+  `datetime\.UTC` hid `session_cost.py`, which spells the module
+  `import datetime as dt`. Review round 1 found the second by re-deriving the
+  class from the AST rather than from the table, which is what an enumeration
+  is for.
+
+<!-- specs/1788817289-local-mode-from-first-setup-to-the-gate -->
+- **A repository in local mode met a review chain that refused its root and a
+  check that reported its declaration missing.** `round_record.py` derived the
+  repository from the work item, through a `git rev-parse --show-toplevel` run
+  from inside the item — and a local-mode item sits under the common git
+  directory, where git declines that question outright (`fatal: this operation
+  must be run in a work tree`). So every call needed `--root "$PWD"`, and the
+  first one without it was told the item is nowhere. Git is asked which trees
+  belong to the clone now, and the caller's tree is the answer where it belongs
+  to that clone — compared by common git directory rather than by the paths
+  `git worktree list` prints, because for a repository built with
+  `--separate-git-dir`, and for a bare clone, those paths are the git directory
+  itself and the caller's own tree is not among them. A root that is not a work
+  tree is refused rather than named, so the failure lands on the command that
+  can name it instead of on whatever runs next.
+  Then `chain-check` printed *Add `seal/specs/<work-item>/routing.md`
+  to declare* while the declaration sat at
+  `<git-common-dir>/seal/specs/<id>/routing.md` — a path local mode does not
+  use, and a file the operator already had. It says which root it searched
+  now: a local-mode repository is told where its root is and that nothing
+  under it is committed, and a shared-mode one is still told to write the
+  file, with the prefix and the branch it searched for named. The verdict does
+  not move — reading an untracked declaration would make the local run assert
+  something CI can never reproduce — so what is fixed is that a false *no
+  declaration* is no longer indistinguishable from a real one. (#225)
+
+- **The mode nobody was asked about is now a state something names.** Creating
+  `seal/` is what opts a repository in, and whether it lands in the tree or
+  under the git directory decides whether every clone carries that
+  repository's review records. The preset block `install.sh` copies into
+  `~/.claude/CLAUDE.md` — which loads in every project on the machine,
+  including one that has never seen SpecSeal — told a session to write
+  `seal/specs/<id>/routing.md` before the first edit, and that write creates
+  the root. The question lived in a skill the session had no reason to load,
+  and nothing afterwards noticed: a root somebody chose and a root that
+  appeared this way were byte-identical. Two halves close it. The routing rule
+  names the condition **before** it names the write, and the bootstrap now
+  records the answer it collects with `seal mode`. And a new gate,
+  `mode-gate`, names a root whose `seal/config.md` carries no `Mode` row — two
+  prompts per session per repository and no more: one deny carrying the three
+  ways on as options, then the plain confirmation that approving gets past,
+  then silence for the rest of the session, and nothing at all once the row
+  exists. In local mode the repository is the clone, so one root shared by
+  several work trees is one question rather than one per tree. It judges the
+  repository the SESSION sits in rather than one a `-C` names, because this is
+  a fact about a workspace and not a verdict about a change. (#151)
+
+- **On upgrade, every repository that opted in before this release meets that
+  gate.** The `Mode` row is written by `seal mode` and, from this release, by
+  the bootstrap that creates the root. Nothing back-fills it and nothing writes
+  one at session start, so a repository that has had `seal/` for months has no
+  row — and its next session is denied on its first Bash call and asked on its
+  second. Running `seal mode` once in each such repository records the mode
+  from where the folder already is, moves nothing, and ends the prompting
+  before it starts. (#151)
+
+<!-- specs/1788817290-the-derivation-misreads-and-the-record-refuses-the-id -->
+- **A round record's finding id is now a bare integer, and a record that
+  numbers findings any other way is refused with the format named and the row
+  quoted (issue #227).** A reviewer numbered eight findings `R2-1` … `R2-8` —
+  the round in the id, so a finding stays unambiguous when three rounds are
+  read side by side. The generator read the first digit run anywhere in the
+  cell, so all eight collapsed toward `2`, and what came back was *the fix
+  table has two rows for finding 2* about a table holding one `R2-1` and one
+  `R2-2`. The first read is that the table is malformed, not that the ids
+  are, and with eight rows and no coordinate the pair had to be found by
+  hand. Both tables now read the cell through one pattern, and a genuine
+  duplicate quotes both rows.
+
+  **The refusal was chosen over accepting a prefix, and the corpus is why.**
+  Every committed record was run through both rules first: of 130 that parse,
+  82 pass under either, 46 already refuse today, and 2 pass today only by
+  miscounting — `r3 🟡 2` keys as finding **3**, out of the `3` in `r3`, and
+  `🟢 round 2's finding (🟡 4)` keys as **2** where the cell names 4. So the
+  rule takes away two wrong answers and no right one. The round is already in
+  the record's own file name, which is what a prefixed id was reaching for.
+
+  **The format is now stated where reviewers pick numbers**, not only at the
+  point of refusal — the ticket's own last line. The reviewer chooses the
+  numbering and the fix pass copies it, so the refusal used to surface at the
+  orchestrator, one hop from either agent that could have avoided it.
+
+  **And the refusal now arrives.** A `#` cell of punctuation ending in a
+  non-digit used to send the pattern exponential — 11.4 s to refuse 28
+  characters, and each further character doubled it — so `close` and `new`
+  produced nothing and never returned. That is worse than the confusing
+  message the ticket opened for, on the tool that gates every record. The
+  pattern reads one marker character per repetition instead of a run of them,
+  which accepts and keys exactly the same set: checked over every `#` cell in
+  every committed record and over 4368 constructed shapes, with no
+  disagreement. A 100 000-character cell now refuses in three milliseconds.
+
+- **`Contract changes` no longer reports `no call site found` for a unit
+  pytest itself reaches (issue #211).** A collected test function is called by
+  the runner and never by name, so the only `test_thing(` in the tree is its
+  own `def` line and the reach came back empty — the row said *this unit is
+  dead* about a case that runs on every CI leg. It reads `pytest only` now,
+  which is the value that already existed for a unit reached only from
+  `tests/`.
+
+  **The class was enumerated by running the derivation, not by reading it.**
+  Over every top-level def under `tests/`: 1892 of 1947 `test_*` defs read
+  `no call site found`, and so did 8 of 42 fixtures — the member the ticket
+  had left in its own *Not verified* section. A fixture is injected by
+  parameter name and a `conftest` hook is dispatched by the plugin manager,
+  so neither is ever written as `name(` either.
+
+  **It is those three shapes and not everything under `tests/`.** One helper
+  there reads `no call site found` correctly, because it is passed by name as
+  a value and never called, and a wider rule would say the runner covers a
+  unit nothing covers — the same false sentence pointing the other way. One
+  limit is recorded rather than closed: the hook arm reads `conftest.py`
+  alone, where pytest also dispatches hooks from collected test modules.
+
+  **Which file a def sits in decides two different things, and the first
+  version of this asked only one of them.** Collection is two rules: which
+  file becomes a test module and which def inside it is a case. A `test_*` def
+  in `tests/helpers.py` satisfies the second and not the first, so pytest
+  never runs it — and it was reading `pytest only`, which is the false
+  sentence above pointing back again. It reads `no call site found` now. And a
+  `conftest.py` is the opposite case: pytest loads it by name and documents
+  the repository root placement first, so a fixture or a hook in a root
+  `conftest.py` was reading `no call site found` — the reported defect, left
+  standing at the commonest placement of all. Both now read what they should,
+  and the boundary was re-derived by running the rule over every top-level def
+  in the tree rather than by reading it.
+
+  **A conftest is loaded by name, but the directory decides whether pytest
+  loads it at all.** The first repair accepted the name from anywhere, which
+  put the false sentence back: a `conftest.py` in a directory nothing is
+  collected under — a vendored tree, an examples directory, `src/` in a
+  repository whose tests live under `tests/` — is imported by nobody, so its
+  fixtures are injected into nothing and the row was saying the runner covers
+  them. The rule now asks whether a file pytest collects sits at or below the
+  conftest's own directory, which is the question pytest itself asks, and it
+  asks it inside `tests/` as well as outside.
+
+- **A rider comment is now checked wherever this repository plants one.** The
+  list of directories the rider checks walk left out `tests/`, so four riders
+  were held to nothing at all — two carrying a measurement, one with no
+  verification stamp in any form, and one whose own branch record said the
+  stamp had been checked when nothing had checked it. Two of the four could
+  not be given a stamp naming a commit, because the commits their measurements
+  were taken at were discarded when their branches squashed, so a stamp may
+  now name the content it was read against instead.
+
+- **`Contract changes` now sees a unit that gains or loses a returnable
+  value, and the shape it still cannot see is written down (issue #194).** The
+  derivation compared parameters and return arities, so a unit returning the
+  same shape with a meaning it could not return before changed neither and the
+  row read `none` — on the row that exists for the largest regression class
+  #57 measured. The measured instance returned 0 for a mean it cannot compute,
+  and the one call site interpreting that 0 was never revisited: it takes the
+  charged 0 as a baseline and reports growth on a run whose input collapsed.
+  The contract now carries the set of returnable constant literals, keyed by
+  type as well as value — Python hashes `0` and `False` into one key, and
+  those are two different things to return.
+
+  **A real instance the old rule missed, found by construction:** between
+  v0.8.0 and v0.8.3, `chain_check.py#read_record` began returning an explicit
+  `None` with signature and arity unchanged. The old contract read it as
+  unchanged.
+
+  **The hole is the other half of the deliverable, not a gap left over.** A
+  changed input→value mapping — a unit that keeps returning exactly the values
+  it already returned and changes which inputs reach which one — is invisible
+  to a literal-set comparison by construction. `docs/review-chain-spec.md` now
+  says so, names the measured instance, and says the residual is the
+  reviewer's. Documentation alone had been refused as an answer, because it
+  moves the work to a person; the check ships and the paragraph states where
+  it stops, so a later session widening it is removing a stated limit rather
+  than closing a gap.
+
+<!-- specs/1788817291-the-guard-asks-once-per-worktree-not-once-per-session -->
+- **The worktree guard asks once per session instead of once per worktree
+  (issue #237).** It answered creation with `ask` at every site that reached
+  it, so no path through it cost zero prompts and the cost grew with the number
+  of worktrees. Measured on the 0.9.1 release run: six work items on six
+  branches needed six `git worktree add` calls, and the guard held the run at
+  all six. An unattended run reaches the first and stops there.
+
+  **`[worktree-ok]` could not fix that and `has_token`'s docstring says why.**
+  The token is written into the command by whoever issues it, so the model can
+  write it on the first attempt; reading it as consent turns the guard off with
+  nobody asked. What separates the first creation from the sixth needs no
+  token: the harness only runs a `git worktree add` that was permitted, so a
+  `PostToolUse` observation of one that actually **ran** is written after the
+  answer rather than before the question, which is the one thing a command text
+  cannot forge.
+
+  `hooks/worktree_consent.py` writes that record — an empty file at
+  `<git-common-dir>/specseal-worktree-consent/<session-id>` — on both entry
+  points, and the guard reads it above every row of its creation ladder,
+  because each of them asks something a person has already answered. One
+  invariant changes: *creating a worktree always takes one confirmation*
+  becomes *the first creation of a session takes one*.
+
+  **A third directory, not a value in the choice marker beside it.** That
+  marker is written by `PreToolUse` before the answer and means *the question
+  was put*, so one shared file would let the guard read its own question back
+  as consent. They also fail in opposite directions — an unwritable choice
+  marker counts as **already asked**, an unwritable consent record counts as
+  **no consent** — and one file cannot fail two ways.
+
+  **Keyed to the clone, with no expiry.** The record stands for *this session
+  may split this clone into worktrees*, so it lives under the common git
+  directory and a linked worktree of the same clone shares it. A session id is
+  already scoped to a session, so a time bound on top of it could only produce
+  one new outcome: a session outliving the bound is asked a second time, which
+  is the failure being removed. A failed `git worktree add` records too — the
+  record is about the approval, and the retry after a failure is the worst
+  moment to put the question again.
+
+  **The allow is bounded, and the bound is about each segment rather than only
+  about the compound.** `permissionDecision: "allow"` covers the whole tool
+  call, so the guard speaks only for a command that is worktree creation and
+  nothing else; a compound gets `ask` about the rest of the command line, never
+  a deny about the worktree, and a command the lexer gave up on gets `ask` too.
+  So does a creation carrying an expansion or a redirection — `$( )`,
+  backticks, `>`, `>>`, `<`, `2>`, `<(…)`, a subshell, a heredoc — and one
+  behind a wrapper, `sudo git worktree add …` or `env VAR=… git worktree add
+  …`, because a user's own `permissions.deny` must not be spoken over by a hook
+  reasoning about worktrees.
+
+  The command word has to be the word `git` and not a file whose name ends
+  that way. The test compared basenames, so `./git`, `bin/git`,
+  `/tmp/evil/git`, `~/git` and `*/git worktree add …` were all vouched for —
+  and that allow covers the whole tool call, so one approved creation would
+  have let a session run any executable on the machine by giving it a filename
+  of `git`. `/usr/bin/git worktree add …` now costs one prompt; a wrong deny
+  spends a prompt, a wrong allow signs for a binary nobody identified.
+
+  **A creation anywhere in the command is judged before it runs.** The guard
+  classified the first segment it could read while the writer records for a
+  creation anywhere, so a `git switch` written in front of a creation took the
+  decision and the creation was never judged — it ran, and the session held
+  consent from that point. The switch ladder keeps every verdict it had, and
+  its two silent exits now fall through to the creation.
+
+  So does the branch of a choice site that lets the command through. Two of
+  the three concurrency rows kept above the creation deny only **once** per
+  session per direction and ask on every attempt after, so the second `git
+  switch feature/x && git worktree add ../wt f` in a session was answered
+  *Approve — switch branches in this shared tree* — and approving it created
+  the worktree with the creation question never put. The deny keeps its
+  precedence; only the ask yields.
+  On the `Agent`/`isolation: "worktree"` path the guard goes silent rather than
+  allowing, because that call is a creation *plus* an agent with a prompt and
+  the record is about the first half.
+
+  What does not change: a session with no record still asks at every site, the
+  single-stream row still denies and steers to `git switch`, and the switch
+  direction never reads the record. (#237)
+
+<!-- specs/1788824000-a-rider-stamp-names-a-commit-the-squash-discards -->
+- **A rider stamp no longer names a commit the release's own merge rule
+  destroys.** `# RIDER:` comments carry a `Verified … at <sha>` line so whoever
+  opens one can see how stale it is. A fix pass works on a feature branch, so
+  the only commits it has to name are that branch's — and a feature branch
+  **squashes** into its release branch, which writes one new commit and keeps
+  none of the originals. The stamp planted by #226's fix pass stopped
+  resolving the moment #226 merged, and
+  `tests/test_a_rider_reaches_its_file.py::test_every_rider_stamp_names_a_commit_this_branch_can_reach`
+  turned the release branch red — on the merge rather than on the branch that
+  wrote it, so the person who has to repair it is never the person who caused
+  it. The claim was re-measured on the squash commit that carries the same
+  state and the stamp names that. The class this belongs to — a stamp naming a
+  position in a repository whose rules rewrite positions at every boundary — is
+  #239. (#239)
+
+<!-- specs/1788826000-a-stamp-names-content-not-a-commit -->
+<!-- specs/1788826000-a-stamp-names-content-not-a-commit -->
+
+### Fixed
+
+- **A rider comment's verification stamp names the content it was checked
+  against, not a commit.** Every `# RIDER:` in the tree carried a
+  `Verified <date> at <sha>` line, and a feature branch squashes into its
+  release branch — which keeps none of the branch's own commits, so the check
+  failed on the release branch with nobody who caused it looking, and every
+  pull request into that branch failed until somebody re-pointed it by hand.
+  A stamp now reads `Verified <date> against <anchor>@<hash>`, using the same
+  anchors the evidence ledger uses, and the check makes no git call at all: a
+  squash, a rebase and a shallow clone are invisible to it.
+  A drifted rider names the unit that changed and says to re-read the comment,
+  which is what a rider is for. `.github/scripts/rider_check.py` checks them
+  and `--reverify` re-stamps them — rewriting the hash wherever it moved, and
+  the date only beside a hash that moved, because a stamp whose content has
+  not changed records a reading nobody repeated. `--reverify --only` takes a
+  file rather than a rider, and the drift message now says so.
+- **A `## RIDER:` heading in a markdown file no longer breaks the build.** `#`
+  opens a comment in Python, YAML and shell, and in markdown it opens a
+  heading — so a heading naming the marker was read as a rider carrying no
+  stamp, and the check exited 2 on a line nobody wrote as a rider. Markdown's
+  rider form is the HTML comment, and that is now the only form read there.
+  Every other thing this check gives up loses an alarm; this was the one place
+  it invented one.
+- **`--only` no longer reports success for a run that ignored it.** A path no
+  rider carries printed `0 restamped · 0 refused` at exit 0, so a typo in the
+  path read as *nothing needed doing* — and exit 0 is the answer a script
+  reads. It is now refused by name. `--only` without `--reverify`, and beside
+  `--migrate`, were ignored the same way and read the whole tree; both are
+  refused before anything is read.
+- **Three riders were held by nothing.** The scanned roots covered four
+  directories and riders live in six, so the one in
+  `.github/scripts/fold_ledger.py` and two under `tests/` were checked by no
+  case at all — and one of those had never carried a stamp in any form.
+- **A round record's `Target SHA` stays as it is, and `templates/sdd-round.md`
+  now says why.** It records a moment rather than pointing at live content, a
+  reviewed tree has no anchor to write, and the record check already falls
+  back to `refs/remotes/pull/<N>/head` — the copy of GitHub's pull-request
+  refs that CI fetches — which a squash does not touch.
+
 ## 0.9.0 — 2026-09-07
 
 <!-- specs/1788735085-a-loaded-file-naming-a-real-version-is-a-timer -->
