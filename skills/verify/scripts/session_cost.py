@@ -388,7 +388,17 @@ def token_thirds(turns):
     the `try` around it is doing work the finiteness test below cannot do.
     Both are `questions.md` Q1 and Q2 of work item
     `1788873620-two-in-range-values-make-one-that-is-not`."""
-    inputs = [t[1] for t in turns if t[1]]
+    # Strictly positive, not truthy. A truthiness test on a SIGNED number
+    # drops a zero and KEEPS A NEGATIVE, and the negative is the half that
+    # was wrong: six turns whose first three carry minus ten input tokens gave
+    # a growth of [-10, 0, 10] and printed the context line off a baseline no
+    # harness can mean. Zero goes on being dropped and that is not a
+    # regression -- `count` answers 0 both for a field a harness never wrote
+    # and for one it wrote as 0, so this file cannot tell a turn that spent
+    # nothing from a turn nobody measured, and a mean is the wrong place to
+    # guess. What changes is only that a count below zero leaves with it
+    # (#193).
+    inputs = [t[1] for t in turns if t[1] > 0]
     if len(inputs) < 3:
         return []
     third = len(inputs) // 3
@@ -635,7 +645,17 @@ def report(data):
             f"{data['gap_mean_s']:.0f}s of model time on top of the command"
         )
     growth = data["context_growth"]
-    if len(growth) == 3 and growth[2] > growth[0] * 1.5:
+    # `growth[0]` is 0 either because the file could not compute that third --
+    # `token_thirds` charges 0 for a mean outside the range -- or because the
+    # third really was zero, which `token_thirds`' own input filter already
+    # excludes. Neither is a baseline a multiple can be taken of, and without
+    # this conjunct any positive last third clears a threshold of zero: a
+    # transcript whose FIRST third overflowed printed `0 -> 10 input tokens;
+    # later calls cost more`, where the input had collapsed by 307 orders of
+    # magnitude. With the charged third LAST the line is suppressed instead,
+    # so which direction the reader was told depended on which third
+    # overflowed. Same shape as the positive-span conjunct in `share` (#193).
+    if len(growth) == 3 and growth[0] > 0 and growth[2] > growth[0] * 1.5:
         print(
             f"  context            {growth[0]:,} → {growth[2]:,} input tokens; "
             f"later calls cost more than the same call would have earlier"

@@ -1235,3 +1235,95 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     assert other.returncode == 0, other.stderr
     assert "every call shares one timestamp" in other.stdout, other.stdout
     assert "the last call to begin" not in other.stdout, other.stdout
+
+
+# --- #193: a third the file could not compute is not a baseline -------------
+
+
+def test_a_charged_third_is_not_a_baseline_the_context_line_multiplies(tmp_path):
+    """`token_thirds` charges 0 for a mean it cannot compute, and the context
+    line took that 0 for a measurement.
+
+    The threshold is a multiple of the FIRST third, so any positive last third
+    clears a threshold of zero. A transcript whose first third overflowed and
+    whose last third is ordinary printed `0 -> 10 input tokens; later calls
+    cost more than the same call would have earlier` — the input had collapsed
+    by 307 orders of magnitude and the line said it grew.
+
+    Which direction the reader was told depended on which third overflowed,
+    which is why both are here: with the charged third LAST the line is
+    suppressed, and that arm was already correct and must stay so.
+
+    Exit 0 throughout. This is the wrong-number direction rather than the
+    ended-report one, which is why nothing above it caught it."""
+    for name, odd_index in (("first-third", 0), ("last-third", 5)):
+        lines = []
+        for n in range(6):
+            usage = (
+                {"input_tokens": TOP_FLOAT, "cache_read_input_tokens": TOP_FLOAT}
+                if n == odd_index
+                else {"input_tokens": 10}
+            )
+            lines += turn_at(n, {**usage, "output_tokens": 1}, f"b{n}")
+        path = tmp_path / f"{name}.jsonl"
+        path.write_text("\n".join(lines) + "\n")
+
+        proc = run([str(path)])
+        assert proc.returncode == 0, f"{name}: {proc.stderr}"
+        assert "context" not in proc.stdout, f"{name}: {proc.stdout}"
+
+        machine = run(["--json", str(path)])
+        assert machine.returncode == 0, f"{name}: {machine.stderr}"
+        growth = json.loads(machine.stdout)["context_growth"]
+        assert growth[0 if odd_index == 0 else 2] == 0, f"{name}: {growth}"
+
+
+def test_the_context_line_still_prints_where_the_baseline_is_real(tmp_path):
+    """The conjunct above must not have bought its silence by silencing the
+    line. A first third of ten and a last third of a hundred is the growth the
+    line exists to report, and it is asserted with the numbers in it."""
+    lines = []
+    for n in range(6):
+        lines += turn_at(n, {"input_tokens": 10 if n < 3 else 100}, f"g{n}")
+    path = tmp_path / "real-growth.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+
+    proc = run([str(path)])
+    assert proc.returncode == 0, proc.stderr
+    assert "10 → 100 input tokens" in proc.stdout, proc.stdout
+
+
+def test_a_negative_input_count_is_dropped_and_a_zero_is_dropped_with_it(tmp_path):
+    """`token_thirds`' input filter was a truthiness test on a signed number,
+    so it dropped a zero and KEPT a negative.
+
+    Six turns whose first three carry minus ten give a growth of [-10, 0, 10]
+    and print the context line off a baseline no harness can mean. The fix is
+    the same inversion round 3's three statements had.
+
+    The zero arm is here to pin the half that did NOT change: `count` answers
+    0 both for a field a harness never wrote and for one it wrote as 0, so the
+    file cannot tell a turn that spent nothing from a turn nobody measured,
+    and both go on being dropped. Six turns carrying zero leave fewer than
+    three inputs, so there is no growth at all."""
+    negatives = []
+    for n in range(6):
+        negatives += turn_at(n, {"input_tokens": -10 if n < 3 else 10}, f"n{n}")
+    path = tmp_path / "negative.jsonl"
+    path.write_text("\n".join(negatives) + "\n")
+
+    proc = run(["--json", str(path)])
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout)["context_growth"] == [10, 10, 10], proc.stdout
+    printed = run([str(path)])
+    assert "context" not in printed.stdout, printed.stdout
+
+    zeros = []
+    for n in range(6):
+        zeros += turn_at(n, {"input_tokens": 0}, f"z{n}")
+    path = tmp_path / "zero-input.jsonl"
+    path.write_text("\n".join(zeros) + "\n")
+
+    machine = run(["--json", str(path)])
+    assert machine.returncode == 0, machine.stderr
+    assert json.loads(machine.stdout)["context_growth"] == [], machine.stdout
