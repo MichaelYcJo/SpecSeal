@@ -846,3 +846,37 @@ def test_the_first_creation_of_a_session_is_still_a_question(monkeypatch, capsys
         "sudo git worktree add ../wt f",
     ):
         assert decide(monkeypatch, capsys, repo, command)[0] != "silent", command
+
+
+def test_the_silent_arm_emits_nothing_at_all(monkeypatch, capsys, repo):
+    """`silent` is the ABSENCE of a decision, not a decision named "silent".
+
+    Seen red by deleting the early return in `guard_worktree_creation`'s
+    `granted` block. `respond` then prints `permissionDecision: "silent"` --
+    not one of the three values the harness defines -- and every other case in
+    this file still passed, because `decide` reports the same word for an
+    empty stream as for that JSON. So the whole suite could not tell a guard
+    that withdrew from a guard that answered with a word nobody implements.
+
+    What the harness does with an undefined decision is not this repository's
+    to assume, and #257 rests on the opposite: that a call the hook declines
+    to decide falls to the harness's normal permission flow. That only holds
+    if the hook truly says nothing, which is asserted here on the raw stream.
+    """
+    grant(repo)
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": ([], [], True))
+    monkeypatch.setattr(
+        wg,
+        "load_input",
+        lambda: {
+            "tool_name": "Bash",
+            "session_id": "me",
+            "tool_input": {"command": "git worktree add ../wt f | tail -2"},
+            "cwd": str(repo),
+        },
+    )
+    try:
+        wg.main()
+    except SystemExit:
+        pass
+    assert capsys.readouterr().out == "", "the silent arm printed a decision"
