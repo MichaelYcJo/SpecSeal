@@ -225,7 +225,7 @@ existing cases still passing.
 
 ## Facts for the evidence ledger
 
-- The removed `claimed_at` position guard is dead by construction, not only by
+- The removed `claimed_at` position guard is dead by construction, not only by  <!-- NAME NOT IN TREE: the guard the fix pass removed; naming it is the point of the row -->
   the mutation that found it: `CLOSING` and `ISSUE_REF` both capture a maximal
   digit run beginning one character after the hash, so a match at a claimed
   digit position always carries the claimed number. Measured over 250,000
