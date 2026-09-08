@@ -59,7 +59,7 @@ rewording is the case that survived all three deletions here.
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | #204 — the argument beside `VERSION_TOKEN`, `[vV]?`, and the case that pins the widening and the two guards it must not disturb | the new case seen red against `v?`; the loaded-set enumeration run before and after | c05044d |
-| 2 | #203 — `test_the_refusal_prints_every_piece_it_builds`, and the neighbouring docstring's false limit corrected | seven mutations of `refusal`, one at a time, each seen red | |
+| 2 | #203 — `test_the_refusal_prints_every_piece_it_builds`, and the neighbouring docstring's false limit corrected | seven mutations of `refusal`, one at a time, each seen red | f6ad622 |
 | 3 | #205 and #206 — the case docstring, the two `seal/ledger.md` notes, and the tracker document's sentence | the four arrangements executed through both implementations; the three documents read together | |
 
 ## Operational impact
