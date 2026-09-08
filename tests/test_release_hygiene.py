@@ -65,7 +65,31 @@ LOADED = (
 # both spellings, which is what the substring check said and what the owner
 # decided when the same lookahead produced a finding in three consecutive
 # passes (review round 2).
-VERSION_TOKEN = re.compile(r"(?<![\w.])v?(\d+\.\d+\.\d+)(?!\.\d)")
+#
+# The LEADING `(?<![\w.])` is two guards written as one class, and each does a
+# different job. Neither had an argument written down until #204, and the case
+# that pins `x0.9.0` as allowed explained what the guard does rather than why
+# such a token is not a timer.
+#
+# `\w` — a preceding word character makes the token part of a DIFFERENT
+# identifier rather than another spelling of this one. `py3.13.9` names
+# CPython, and no release of SpecSeal makes that number wrong. That is the
+# asymmetry with the trailing side, where `rc1` is a prerelease of the SAME
+# version and so is a timer: what precedes a version renames it, what follows
+# it qualifies it.
+#
+# `.` — a preceding dot makes the match the TAIL of a longer dotted number.
+# `1.9.9.9` is a build number rather than a release of anything, and without
+# this half its tail `9.9.9` is refused as a version the line never named. The
+# trailing `(?!\.\d)` catches such a number read from the front; this catches
+# the same number read from the middle, and neither covers the other.
+#
+# **Neither argument reaches an uppercase `V`**, which is a version PREFIX and
+# not a preceding word: `V0.9.0` is this plugin's own number in another
+# spelling, and it was invisible wherever it was written (#204). So the prefix
+# is `[vV]?` and both lookarounds are left exactly as they are — narrowing one
+# for a single shape is what took another shape with it in round 1.
+VERSION_TOKEN = re.compile(r"(?<![\w.])[vV]?(\d+\.\d+\.\d+)(?!\.\d)")
 
 # The value the repository already tells an author to write where a real
 # version would be wrong. `docs/issues-and-milestones.md` §"A rolling log is
@@ -606,6 +630,44 @@ def test_a_number_that_is_not_a_version_is_not_read_as_one():
     assert (
         timers_in("docs/x.md", "the python floor is 3.12", RUNNING_IN_THE_FIXTURES)
         == []
+    )
+
+
+def test_an_uppercase_v_is_a_prefix_and_not_a_preceding_word():
+    """`V0.9.0` is this plugin's own version, and the check could not see it.
+
+    The argument for the leading lookbehind is written beside the constant: a
+    preceding word makes the token a different identifier, so `py3.13.9` names
+    CPython and no release of this plugin makes it wrong. An uppercase `V` is
+    not a preceding word — it is the version prefix in another spelling — so
+    that argument never reached it, and the token was invisible in every loaded
+    file (#204).
+
+    The fix is `[vV]?` and NOT a narrowed lookbehind: round 1's finding was a
+    lookaround narrowed for one shape taking another with it. The two shapes
+    the widening must not disturb are asserted here beside it, because they are
+    what a narrowing would have taken.
+    """
+    assert timers_in(
+        "docs/x.md", "the token V0.9.0 is ours", RUNNING_IN_THE_FIXTURES
+    ) == [(1, "V0.9.0")], (
+        "an uppercase prefix hides this plugin's own version, and the refusal "
+        "has to print the spelling the author wrote or the declaration route "
+        "cannot be taken on it"
+    )
+    # The `\w` half, which the widening must not open one character to the
+    # left: a word before the number renames it.
+    assert (
+        timers_in("docs/x.md", "built on py3.13.9 today", RUNNING_IN_THE_FIXTURES) == []
+    ), "a composite identifier is read as this plugin's version"
+    assert (
+        timers_in(
+            "docs/x.md", "the token PyV0.9.0 is not ours", RUNNING_IN_THE_FIXTURES
+        )
+        == []
+    ), (
+        "a word before the `V` no longer refuses the token — the widening "
+        "reached the lookbehind, which is what it must not do"
     )
 
 
