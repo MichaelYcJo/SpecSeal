@@ -7,12 +7,12 @@
 | PR | 260 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | test_no_segment_of_a_bash_command_raises_out_of_gh_segments (depth 1) |
 | Needs a fix | yes — finding 1, the ground that sent two more session-stopping arms into the deferred eleven, carried by a ledger row, `overview.md` and issue #262 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -58,9 +58,9 @@ and ruff clean at round 1's target; at `d7dce3d` the unscoped total 909 ok ·
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | 🟡 `except ValueError` is not the only survivor whose failure stops a session — two `gh_segments` index guards do too, on a command ending in a newline, and both sit in the deferred eleven that three carriers call arms which "misfile a reminder rather than stopping anything" | `hooks/review-history-guard.py:176` | open | executed: deleting either `i < len(toks)` leaves this module at 33 passed, exit 0, and makes the hook exit 1 with `IndexError` on four ordinary payloads including a plain multi-line command. Contract §12 — one input class, one case; the parametrized case below is green at 38 passed and red on each of the three arms in turn |
-| 2 | ⬜ T4 says thirteen arms watched by nothing where #262's own table and round 1 both give twelve, and thirteen minus the one closed here is not the eleven the rest of the row is written against | `seal/ledger/1788844300-the-guards-cases-cannot-observe-what-they-guard.md:6` | open | read: #262's table is 4 plus 8; round 1's finding 1 says twelve. `thirteen` is round 1's count of red mutations, not of unwatched arms. A ledger fragment, so a correction rather than a fix |
-| 3 | ⬜ R5's anchor was re-verified 2026-09-08 and its `Checked` column still reads 2026-09-07, which round 1's own paste-ready fix asked to move | `seal/ledger.md:1385` | open | read: `--reverify` rewrites the hash cell alone, so the date is the writer's half and it was not written. `CLAUDE.md` makes that column the date somebody read the code. A ledger location, so a correction rather than a fix |
+| 1 | 🟡 `except ValueError` is not the only survivor whose failure stops a session — two `gh_segments` index guards do too, on a command ending in a newline, and both sit in the deferred eleven that three carriers call arms which "misfile a reminder rather than stopping anything" | `hooks/review-history-guard.py:176` | **fixed** `54d614a` | fixed at 54d614a; executed: deleting either `i < len(toks)` leaves this module at 33 passed, exit 0, and makes the hook exit 1 with `IndexError` on four ordinary payloads including a plain multi-line command. Contract §12 — one input class, one case; the parametrized case below is green at 38 passed and red on each of the three arms in turn |
+| 2 | ⬜ T4 says thirteen arms watched by nothing where #262's own table and round 1 both give twelve, and thirteen minus the one closed here is not the eleven the rest of the row is written against | `seal/ledger/1788844300-the-guards-cases-cannot-observe-what-they-guard.md:6` | **fixed** `54d614a` | fixed at 54d614a; read: #262's table is 4 plus 8; round 1's finding 1 says twelve. `thirteen` is round 1's count of red mutations, not of unwatched arms. A ledger fragment, so a correction rather than a fix |
+| 3 | ⬜ R5's anchor was re-verified 2026-09-08 and its `Checked` column still reads 2026-09-07, which round 1's own paste-ready fix asked to move | `seal/ledger.md:1385` | **fixed** `54d614a` | fixed at 54d614a; read: `--reverify` rewrites the hash cell alone, so the date is the writer's half and it was not written. `CLAUDE.md` makes that column the date somebody read the code. A ledger location, so a correction rather than a fix |
 | 4 | round 1's 🟡 1 — `gh_segments`' `except ValueError` | `hooks/review-history-guard.py:173` | answered | executed: deleting the arm fails the new case alone, 32 green, and `shlex` raises `No closing quotation` on the segments the case feeds — the input reaches the arm |
 | 5 | round 1's 🟡 2 — the tie could not see a pass written as a substitution | `tests/test_chain_hooks.py:515` | answered | executed: round 1's own control is now red. The same blanking written inline gave 30 passed exit 0 for round 1 and gives 2 failed / 31 passed here, refused by name; deleting the refusal fails the new case alone |
 | 6 | round 1's ⬜ 3 — R5's drifted anchor | `seal/ledger.md:1385` | answered | read: the anchored case still removes the guarantee, still asserts the raw-text fallback rather than a raise, and now carries one parameter per reachable arm — four, which is what the corrected sentence claims. The claim holds under `504b6136`. Residual is finding 3 |
