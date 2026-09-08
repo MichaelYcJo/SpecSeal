@@ -270,17 +270,22 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
     none should be added — this repository writes dates with dashes, which
     the check does not read at all.
 
-    **What this case does NOT pin**, stated rather than left to be found, and
-    it is now one line rather than the whole message. The last assertion reads
-    `refusal`, which is what the check actually prints, so an edit detaching
-    the routes from the printed text goes red — that mutation used to leave
-    every case here green (review round 2, finding 7). What is still
-    unpinned is only `assert not offenders, refusal(running, offenders)`
-    itself: bypassing that one line leaves every case green, and pinning it
-    would mean reading this file's own source.
+    **What this case pins of the printed text is the routes and their
+    attachment**, and nothing else. The last assertion reads `refusal`, which
+    is what the check actually prints, so an edit detaching the routes from it
+    goes red — that mutation used to leave every case here green (review round
+    2, finding 7). The other six elements of `refusal` are pinned one at a time
+    by `test_the_refusal_prints_every_piece_it_builds` below.
 
-    The earlier version of this paragraph used that residual as grounds for
-    leaving the whole message inline, which is how the real gap stayed open.
+    This paragraph used to say, as a measured fact, that what was still
+    unpinned was ONLY `assert not offenders, refusal(running, offenders)`.
+    Three mutations disprove it: deleting the offender join, deleting the
+    `{running}` interpolation and deleting the timer paragraph each left this
+    module at 30 passed (#203). The sentence this one replaced made the same
+    mistake a round earlier — it used its own residual as grounds for leaving
+    the whole message inline — which is how the real gap stayed open twice.
+    **A residual is the survivor of the mutations that were actually run,
+    never a limit**: what is absent from a measured list is unmeasured.
     """
     routes = what_to_write_instead()
     assert ILLUSTRATIVE_VERSION in routes, "no route for this repository's own version"
@@ -299,6 +304,75 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
     assert routes in refusal("0.8.3", ["docs/x.md:1 names 0.9.0"]), (
         "the refusal no longer carries the routes — the text a person sees "
         "and the text this case reads have come apart"
+    )
+
+
+def test_the_refusal_prints_every_piece_it_builds():
+    """Seven elements, enumerated from `refusal`'s own source, each pinned on
+    its own.
+
+    A case that stops one short is the shape this repository produced nine
+    times on one branch (#51, observation 6), and the three attempts that
+    closed this gap on the original branch each missed a different separator
+    (#203). So the enumeration is by construction rather than by reading:
+    `refusal` returns four pieces joined by three separators.
+
+    - the running version, and the sentence that says what happened;
+    - the paragraph saying why such a line is a timer;
+    - the refused lines;
+    - the routes out — pinned by the case above, which reads `refusal` too.
+
+    - the `"\\n  "` closing the first literal, which is the separator BEFORE
+      the first refused line;
+    - the `"\\n  "` the join puts BETWEEN them, invisible with one offender,
+      which is why this case passes two;
+    - the `"\\n\\n"` before the routes.
+
+    **The survivor of that measured set is the check's own last line**,
+    `assert not offenders, refusal(running, offenders)` handed a literal: no
+    assertion here reads it, and pinning it would mean reading this file's own
+    source. It is what these seven mutations left standing, which is a smaller
+    claim than "unpinnable" — what is absent from a measured list is
+    unmeasured, and this module has twice written the larger claim into a
+    record where it then stood as grounds for looking no further.
+    """
+    running = "0.8.3"
+    first = "docs/a.md:1 names 0.9.0"
+    second = "docs/b.md:2 names V0.9.0"
+    text = refusal(running, [first, second])
+
+    opening = f"a loaded file names a version at or above the running {running}."
+    assert text.startswith(opening), (
+        "the refusal no longer opens by naming what happened and the version "
+        "it is measured against, so an author cannot tell which number made "
+        f"these lines offenders. It opens {text[: len(opening)]!r}"
+    )
+    assert "right for exactly one release and a timer before it" in text, (
+        "the reason went: the text says a line is refused and not why, which "
+        "is the half that stops the next author writing another one"
+    )
+    assert "after the broad gate has already run" in text, (
+        "the timer's cost went — it fires on the release's own preparation "
+        "commit, hours in, and that is what makes this worth a check rather "
+        "than a convention"
+    )
+    assert first in text and second in text, (
+        "the refused lines are gone: a person is told that a loaded file "
+        "names a version and not which file, which line, or which token"
+    )
+    assert f"\n  {first}" in text, (
+        "the first refused line is glued to the sentence above it — the "
+        "separator that opens the indented block went, and with it the only "
+        "thing that makes the block a block"
+    )
+    assert f"{first}\n  {second}" in text, (
+        "the refused lines run together on one line: the join's separator "
+        "went, and a tree with one offender in it would never show that"
+    )
+    assert f"\n\n{what_to_write_instead()}" in text, (
+        "the routes no longer stand off the refused lines as their own "
+        "paragraph — either the blank line between them went, or the routes "
+        "did"
     )
 
 
