@@ -1095,10 +1095,14 @@ def local_root(root, routing):
     question -- which is the split this file keeps closing elsewhere.
     """
     optin = routing.optin
-    home = optin.home_at(root)
+    # One `rev-parse --git-common-dir` for both readers. The same two calls in
+    # `hooks/mode-gate.py#marker_dir` cost that gate a `git` process on every
+    # Bash call; here it is once per check, and the shape is the same one.
+    common = optin.git_common_dir(root)
+    home = optin.home_at(root, common)
     if not home:
         return ""
-    shared, _local = optin.home_paths(root)
+    shared, _local = optin.home_paths(root, common)
     return "" if os.path.realpath(home) == os.path.realpath(shared) else home
 
 

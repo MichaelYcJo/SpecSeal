@@ -124,7 +124,7 @@ def already_asked(git_dir, session, choice_dir=CHOICE_DIR):
     return False
 
 
-def undeclared(root):
+def undeclared(root, common=None):
     """`root`'s seal root when nobody recorded a mode for it, else "".
 
     Both halves are read where they live: the folder through `optin.home_at`,
@@ -139,8 +139,11 @@ def undeclared(root):
 
     A file that cannot be OPENED is the one case that goes the other way; see
     `unreadable` below for why the gate and the writer part company there.
+
+    `common` is `main`'s already-resolved common git directory, handed down so
+    this invocation asks git for it once; see `marker_dir` below.
     """
-    home = optin.home_at(root)
+    home = optin.home_at(root, common)
     if not home:
         return ""
     if unreadable(repo_config.config_path(home)):
@@ -206,7 +209,7 @@ def git_dir_of(root, which="--absolute-git-dir"):
     return os.path.normpath(os.path.join(root, out)) if out else ""
 
 
-def marker_dir(root, home):
+def marker_dir(root, home, common=None):
     """The git directory this root's answer is recorded in.
 
     Per work tree for a SHARED root, which one tree owns: each work tree has
@@ -218,11 +221,20 @@ def marker_dir(root, home):
     from all of them, and `README.md`'s gate row says once per session per
     repository -- so keying it to the tree asks twice about one folder,
     measured 2026-09-08: one session, one clone, one local root, two denies.
+
+    `common` is the caller's already-resolved common git directory, and it is
+    the answer for a local root -- `git_dir_of(root, "--git-common-dir")` asks
+    git the question `optin.git_common_dir` has already answered. Without it
+    this invocation ran that same `rev-parse` twice more, once through
+    `home_paths` and once here, which from a linked worktree, where `.git` is
+    a file and `optin.py`'s fast path does not apply, was four `git` processes
+    on every Bash call against a main work tree's two (measured 2026-09-08
+    with a logging `git` on `PATH`).
     """
-    shared, _local = optin.home_paths(root)
+    shared, _local = optin.home_paths(root, common)
     if shared and os.path.realpath(home) == os.path.realpath(shared):
         return git_dir_of(root)
-    return git_dir_of(root, "--git-common-dir")
+    return os.path.normpath(common) if common else git_dir_of(root, "--git-common-dir")
 
 
 def question_reason(root, home):
@@ -296,7 +308,10 @@ def main():
     root = optin.repo_root(cwd)
     if not root:
         return
-    home = undeclared(root)
+    # Resolved once, here, and handed to both readers below. Three units
+    # wanted the common git directory and each asked git for itself.
+    common = optin.git_common_dir(root)
+    home = undeclared(root, common)
     if not home:
         return
 
@@ -320,7 +335,7 @@ def main():
     # No session id means no way to record either prompt, so both count as
     # already spent and the gate says nothing. That is the direction
     # everything here is documented to fail in.
-    git_dir = marker_dir(root, home)
+    git_dir = marker_dir(root, home, common)
     if session and not already_asked(git_dir, session, CHOICE_DIR):
         decide("deny", question_reason(root, home))
     elif session and not already_asked(git_dir, session, RETRY_DIR):
