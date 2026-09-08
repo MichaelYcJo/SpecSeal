@@ -82,8 +82,8 @@ What it gives up, stated rather than left to be found:
   starts a segment (rule 3) and `#L45`-style anchors do not match `#\d+`, but
   a six-digit hex colour outside a code span would read as issue `#123456` in
   the mention list. **A numeric fragment sitting in the same segment as a
-  claim earns a warning rather than a mention**, which is the same syntax read
-  the same way: the alternative, excluding a `#N` preceded by a URL character,
+  claim earns a warning as well as its place in that list**, which is the same
+  syntax read the same way: the alternative, excluding a `#N` preceded by a URL character,
   would be a second syntax to be wrong about. It is a report, not a verdict,
   and the warning arm needs a closing keyword in the same segment before it
   says anything.

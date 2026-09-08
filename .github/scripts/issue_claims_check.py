@@ -223,9 +223,11 @@ def read(body):
         #
         # The candidate is any `#N`, which is what the mention list already
         # says: a hex colour or a link ending `#22` reads as an issue number
-        # here too, and beside a claim in the same sentence that is a warning
-        # rather than a mention. The alternative -- excluding a `#N` preceded
-        # by a URL character -- is a second syntax to be wrong about.
+        # here too, and beside a claim in the same segment it earns a warning
+        # as well as its place in that list -- the mention line is still true
+        # of it, because nothing closes it. The alternative -- excluding a
+        # `#N` preceded by a URL character -- is a second syntax to be wrong
+        # about.
         seen = set()
         for m in ISSUE_REF.finditer(text, start, end):
             if m.group(1) in claimed or m.group(1) in seen:
