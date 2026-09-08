@@ -171,15 +171,19 @@ def read(body):
     """
     text = prose_only(body)
     claims = claimed_spans(text)
-    claimed_at = {start for _, start, _ in claims}
 
     claimed, mentioned, warnings = [], [], []
     for number, _, _ in claims:
         if number not in claimed:
             claimed.append(number)
+    # A number is filtered by its VALUE, never by the position it was claimed
+    # at. The two are not alternatives: every claimed position holds a number
+    # that is in `claimed`, so a position test beside this one is dead. It was
+    # here, and the mutation that deleted it left the module green — which is
+    # what a redundant guard looks like from the outside.
     for m in ISSUE_REF.finditer(text):
         number = m.group(1)
-        if m.start(1) in claimed_at or number in claimed or number in mentioned:
+        if number in claimed or number in mentioned:
             continue
         mentioned.append(number)
 
@@ -193,7 +197,7 @@ def read(body):
         # so these offsets index the body as written.
         sentence = " ".join(body[start:end].split())
         for m in ISSUE_REF.finditer(text, start, end):
-            if m.start(1) in claimed_at or m.group(1) in claimed:
+            if m.group(1) in claimed:
                 continue
             before = [c for c in here if c[1] < m.start(1)]
             if before:
