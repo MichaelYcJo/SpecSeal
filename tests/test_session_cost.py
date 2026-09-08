@@ -1327,3 +1327,146 @@ def test_a_negative_input_count_is_dropped_and_a_zero_is_dropped_with_it(tmp_pat
     machine = run(["--json", str(path)])
     assert machine.returncode == 0, machine.stderr
     assert json.loads(machine.stdout)["context_growth"] == [], machine.stdout
+
+
+# --- #202: a streamed message is counted at its completed row ---------------
+
+
+def test_a_streamed_message_is_counted_at_its_largest_row(tmp_path):
+    """A streamed assistant message reaches the transcript as several rows
+    sharing one `message.id`, and its `output_tokens` grows across them.
+
+    Keeping the first row summed however much had been emitted when that row
+    was written. Measured over the 180 transcripts on the machine that found
+    it: 9,098 of 13,425 messages are split, and the reported `output` was
+    4,976,637 where the completed rows give 8,683,844. One warden segment
+    read as **62 output tokens across 20 turns** against a real 34,441.
+
+    A single-row fixture cannot tell the two behaviours apart, which is why
+    every case written before this one passes under either.
+
+    `cache_write` and `cache_read` are asserted alongside because they are the
+    control: they are fixed when the request is made and repeat unchanged on
+    every row, so the maximum is the same number the first row gave. A change
+    that started summing per row rather than per message would move all three
+    together, and this case would still be green if it watched `output`
+    alone."""
+    rows = [
+        at("2026-08-24T10:00:00Z", [use("s", "pytest -q")], "stream", partial)
+        for partial in (
+            {
+                "output_tokens": 3,
+                "cache_creation_input_tokens": 90,
+                "cache_read_input_tokens": 7,
+            },
+            {
+                "output_tokens": 400,
+                "cache_creation_input_tokens": 90,
+                "cache_read_input_tokens": 7,
+            },
+            {
+                "output_tokens": 1234,
+                "cache_creation_input_tokens": 90,
+                "cache_read_input_tokens": 7,
+            },
+        )
+    ]
+    rows.append(
+        at("2026-08-24T10:00:05Z", [{"type": "tool_result", "tool_use_id": "s"}])
+    )
+    path = tmp_path / "streamed.jsonl"
+    path.write_text("\n".join(rows) + "\n")
+
+    data = json.loads(run(["--json", str(path)]).stdout)
+    tokens = data["tokens"]
+    assert tokens["turns"] == 1, tokens
+    assert tokens["output"] == 1234, tokens
+    assert (tokens["cache_write"], tokens["cache_read"]) == (90, 7), tokens
+
+
+def test_a_message_whose_rows_arrive_out_of_order_keeps_the_completed_count(tmp_path):
+    """The reason the fix takes the maximum rather than the last row.
+
+    The two agree on every one of the 13,425 messages measured, with 0 rows
+    out of order, so last-row-wins would have been green everywhere it was
+    checked. It would also have rested on an ordering the transcript format
+    does not promise — and this is the transcript that separates them."""
+    rows = [
+        at("2026-08-24T10:00:00Z", [use("o", "pytest -q")], "reordered", usage)
+        for usage in ({"output_tokens": 900}, {"output_tokens": 12})
+    ]
+    rows.append(
+        at("2026-08-24T10:00:05Z", [{"type": "tool_result", "tool_use_id": "o"}])
+    )
+    path = tmp_path / "reordered.jsonl"
+    path.write_text("\n".join(rows) + "\n")
+
+    tokens = json.loads(run(["--json", str(path)]).stdout)["tokens"]
+    assert (tokens["turns"], tokens["output"]) == (1, 900), tokens
+
+
+def test_a_split_message_is_still_one_turn_and_not_one_per_row(tmp_path):
+    """The half of the dedup that was right and had to stay right.
+
+    A harness writes one message as one row per content block and repeats the
+    usage on each. Taking the maximum per field must not become a sum per row:
+    three rows of one message are one turn, and `cache_read` — which repeats
+    unchanged — must read 500 rather than 1,500."""
+    rows = [
+        at(
+            "2026-08-24T10:00:00Z",
+            [use(f"b{n}", "pytest -q")],
+            "one",
+            {
+                "output_tokens": 10,
+                "cache_read_input_tokens": 500,
+            },
+        )
+        for n in range(3)
+    ]
+    rows += [
+        at("2026-08-24T10:00:05Z", [{"type": "tool_result", "tool_use_id": f"b{n}"}])
+        for n in range(3)
+    ]
+    path = tmp_path / "split.jsonl"
+    path.write_text("\n".join(rows) + "\n")
+
+    tokens = json.loads(run(["--json", str(path)]).stdout)["tokens"]
+    assert (tokens["turns"], tokens["output"], tokens["cache_read"]) == (1, 10, 500), (
+        tokens
+    )
+
+
+def test_load_returns_input_counts_only(tmp_path):
+    """`load`'s per-turn tuple used to carry a third element, this message's
+    `output_tokens`, and nothing in the file read it.
+
+    It is removed rather than repaired: `output_tokens` is the one field that
+    grows across a split message's rows, so what sat there was the first
+    partial count — the same defect as #202, waiting for its first reader.
+    The input-side fields are fixed when the request is made and repeat
+    unchanged, which is why they can be taken from the first row.
+
+    Pinned on the shape rather than on the length alone, so a tuple that
+    regrows a third element under a different meaning still fails."""
+    module = load_script()
+    rows = [
+        at(
+            "2026-08-24T10:00:00Z",
+            [use("l", "pytest -q")],
+            "m",
+            {
+                "input_tokens": 11,
+                "cache_read_input_tokens": 4,
+                "output_tokens": 999,
+            },
+        ),
+        at("2026-08-24T10:00:05Z", [{"type": "tool_result", "tool_use_id": "l"}]),
+    ]
+    path = tmp_path / "load.jsonl"
+    path.write_text("\n".join(rows) + "\n")
+
+    _calls, turns = module.load(str(path))
+    assert len(turns) == 1, turns
+    assert len(turns[0]) == 2, turns
+    assert turns[0][1] == 15, turns
