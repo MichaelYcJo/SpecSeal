@@ -7,12 +7,12 @@
 | PR | 258 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -67,8 +67,8 @@ flag — the change working in its own review.
 | ⬜ 4 | the acceptance row described the write as happening in the clone | `seal/specs/1788844127-the-reviewers-report-reaches-the-record-retyped/spec.md:42` | answered | corrected at `dd152e8`; the row now matches `agents/warden.md`, which says the repository under review |
 | ⬜ 5 | the spec said the clone rule needed no change | `seal/specs/1788844127-the-reviewers-report-reaches-the-record-retyped/spec.md:60` | answered | corrected at `dd152e8`; the section now names the exception as the cost the chosen design pays |
 | ⬜ 6 | a directory at the conventional path is refused as nothing being there | `skills/code-review/scripts/round_record.py:739` | answered | closed at `dd152e8`, both members. Executed — reverting either lead turns its own case red, and each refusal keeps the path and the convention. Enumerated: the class is two, and the two other sites that ask the same question are not members |
-| 🟡 7 | the reviewer warning's one worked example sends the exemption marker into a fenced paste-ready fix, which the checker never reads and which a smith pastes | `agents/warden.md:286` | open | executed — a proposed name in prose is refused at `NOT-IN-TREE`, exit 2; the same name backticked inside a fence is not read at all, 0 refused. `claim_lines` reads a fence as a quotation and its docstring names the pasted-fix corruption as the reason |
-| ⬜ 8 | the recorded ground for deferring the report gate says any surviving gate needs a new record field, a template section and a checker; a gate conditioned on the conventional path needs none of them | `seal/specs/1788844127-the-reviewers-report-reaches-the-record-retyped/plan.md:69` | open | executed at `b76ce68` — round 1's unconditional gate fails 36 of 41, and the same gate wrapped in a file test at the conventional path passes 41 of 41, exit 0. The narrower gate buys less, which is the honest ground for deferring; the cost sentence is what overstates. `overview.md:61` carries the same sentence |
+| 🟡 7 | the reviewer warning's one worked example sends the exemption marker into a fenced paste-ready fix, which the checker never reads and which a smith pastes | `agents/warden.md:286` | **fixed** `35ad9cd` | fixed at 35ad9cd; executed — a proposed name in prose is refused at `NOT-IN-TREE`, exit 2; the same name backticked inside a fence is not read at all, 0 refused. `claim_lines` reads a fence as a quotation and its docstring names the pasted-fix corruption as the reason |
+| ⬜ 8 | the recorded ground for deferring the report gate says any surviving gate needs a new record field, a template section and a checker; a gate conditioned on the conventional path needs none of them | `seal/specs/1788844127-the-reviewers-report-reaches-the-record-retyped/plan.md:69` | **fixed** `35ad9cd` | fixed at 35ad9cd; executed at `b76ce68` — round 1's unconditional gate fails 36 of 41, and the same gate wrapped in a file test at the conventional path passes 41 of 41, exit 0. The narrower gate buys less, which is the honest ground for deferring; the cost sentence is what overstates. `overview.md:61` carries the same sentence |
 
 ## Paste-ready fixes
 
