@@ -1,5 +1,232 @@
 # Changelog
 
+## 0.9.2 — 2026-09-08
+
+<!-- specs/1788844127-the-reviewers-report-reaches-the-record-retyped -->
+- **The reviewer's report reached the record retyped, and now it reaches it as
+  a file (issue #228).** `round_record.py new` took `--report <path>`, and the
+  reviewer's report was not a path: the warden returns it as its final message
+  and the orchestrator is told not to open the agent transcript, so the report
+  existed in a transcript nobody may read and in chat text, and the
+  orchestrator typed it into a file to have something to pass. Four rounds of
+  one work item in another repository, four retypings; 0.9.0's own #190 · #207
+  run retyped rounds 2 and 3 by hand. A retyped verdict row carries retyped
+  coordinates, re-review inheritance carries the paraphrase into the next
+  round, and `Fixes checked by` then names a round whose report is not the
+  report the reviewer wrote.
+
+  **The warden writes its report to
+  `seal/specs/<work-item-id>/rounds/round-<n>-report.md` and returns that
+  path**, and **`round_record.py new` reads that path when `--report` is
+  absent**, derived from `--item` and `--round` — the same pair `round-N.md`
+  itself is derived from, so the reviewer and the generator cannot spell it
+  differently from each other. The flag stays and it still wins: a round whose
+  report predates the convention, and a round that ran more than one reviewer,
+  both need it. Where neither the flag nor the file is there, the run refuses
+  and the message names the path AND the convention that fills it — a derived
+  path with no sentence beside it reads as a mistyped argument, which is the
+  one thing it cannot be.
+
+  **The fixer side already had this shape**, `rounds/round-<n>-fixes.md`, so
+  this is the missing half of a convention rather than a new one.
+
+- **The record and the report are told apart, in the three documents that used
+  to carry only the prohibition.** *The reviewer writes no round record* and
+  *the reviewer writes nothing under the work item* had become one sentence,
+  which is why the missing half above read as forbidden rather than as absent.
+  `agents/warden.md` now says the record is `round_record.py new`'s, written
+  after the orchestrator verifies the findings, and the report is the
+  reviewer's own artifact — the thing the contract's §6 already calls its
+  final output, in a different medium and with no more authority. It is still
+  uncommitted, still unverified, and still inert until the orchestrator acts
+  on it.
+
+  `skills/agent-contract/SKILL.md` is unchanged. §6 says an exception *"is one
+  agent's, and it is named in that agent's definition — never here"*, so the
+  permission is written in `agents/warden.md` beside the rule it excepts —
+  the clone rule, which is what actually forbade the write and is a section
+  above the one that looked like it did.
+
+- **A record is selected by name, never by directory membership
+  (`docs/review-handoff-protocol.md` §Layout).** `rounds/` holds three files
+  per round beside the record — the report, the round paragraph, the fix
+  table — and the layout diagram read as an inventory of the directory. Three
+  readers in this repository took membership for record-ness. Two raised
+  `TypeError` on sorting two `None`s rather than failing an assertion; the
+  third counted fifty-three non-records into a corpus of records and said
+  nothing at all, and it is fixed here. The
+  report itself stays implementation, like the parent path: the protocol
+  requires a record, and a conforming tool whose reviewer writes `round-N.md`
+  directly needs none of the three.
+
+<!-- specs/1788844200-the-refusal-text-is-unobserved-and-an-uppercase-v-is-invisible -->
+<!-- specs/1788844200-the-refusal-text-is-unobserved-and-an-uppercase-v-is-invisible -->
+
+### Fixed
+
+- **This plugin's own version written with an uppercase `V` was invisible to
+  the release check.** The token pattern read a lowercase `v` only, so a
+  loaded file naming `V0.9.0` passed a check whose whole job is to refuse
+  exactly that number. The prefix now reads either case, and neither guard
+  around it moved: a version preceded by a word character is still not one of
+  ours — `py3.13.9` names CPython — and a version preceded by a dot is still
+  the tail of a longer number. Both of those guards now carry the argument for
+  why they exist, written beside the pattern, which is what a reader needed
+  before deciding the uppercase case either way.
+- **Nothing observed most of what the check prints when it refuses a file.**
+  The refusal names the running version, says why such a line is a timer,
+  lists the refused lines and offers the routes out — and only the routes were
+  read by any assertion. Deleting the refused lines, the running version or
+  the whole explanation each left the module green, so a refusal could lose
+  the half a person acts on first and no test would say so. Every piece it
+  builds is now read whole — six of them, counted from the expression the
+  builder returns rather than from a reading of it — and each was seen red on
+  its own deletion before the case was committed. The two mutations that still
+  pass are named in the case itself, because what survived a measurement is a
+  fact and "nothing else can be pinned" is not.
+- **Two records described an order bug that never happened.** The exemption
+  list of files whose whole job is to name a moment stopped depending on the
+  order it is written in, and both the case that pins it and the ledger row
+  that records it said the bug had also broken a narrower prefix written after
+  a wider one. It never did, in either implementation: every prefix entry
+  takes the same date check, so only an exact path can change answers. The
+  reason is corrected in both places, and no assertion was added — asserting
+  an arrangement that changes no answer is the failure being corrected.
+- **The tracker document said the check refuses a real version "whether it has
+  shipped or is still ahead".** It refuses versions at or above the running
+  one and keeps everything below as history, which is what lets that same
+  document say which release an issue shipped in. A reader learning the rule
+  from the wider sentence would go looking for history to rewrite. Both
+  documents that state the rule now agree — a third names the ticket rather
+  than the check, and describes what the check used to do, so it is left as
+  the record of that moment it is.
+
+<!-- specs/1788844300-the-guards-cases-cannot-observe-what-they-guard -->
+<!-- specs/1788844300-the-guards-cases-cannot-observe-what-they-guard -->
+
+### Fixed
+
+- **An ordinary `gh` command piped into `jq` could have stopped a session's
+  Bash call.** The same reminder decides which parts of a command line are `gh`
+  commands by splitting on `|` and reading each piece with `shlex`. A pipe
+  inside a quoted string — `gh pr view 123 --json comments | jq '.comments[] |
+  .body'`, which is the reminder's own example — leaves a piece whose quoting
+  is unbalanced, and `shlex` raises on it. One arm absorbs that, and no case
+  watched it: deleting the arm left this module and every other module that
+  touches the hook green, while the hook itself began exiting 1 with
+  `ValueError: No closing quotation` on that command — out of a `PostToolUse`
+  hook and into the session's Bash call, which is the one thing this hook is
+  written never to do. It has a case now. The arm was found by applying the
+  same enumeration to the two functions of the file the first pass had not
+  walked, which is what a review round is for.
+- **So could a command as ordinary as one ending in a newline.** The same
+  splitter breaks on `\n` as well as on `|`, so any multi-line Bash command
+  leaves a trailing piece with no tokens in it at all. Two index guards keep
+  the reminder from reading a first word off such a piece, and no case watched
+  either: deleting one left the module green while the hook exited 1 with
+  `IndexError: list index out of range` on `gh pr view 1 --json comments` with
+  a trailing newline and on `echo hi;`. `FOO=bar` gets there by the other
+  route — it is one token, which the environment-assignment prefix arm
+  consumes, so the index runs off the end just the same. All of it is covered
+  now, together with the quoting arm above, by **one parametrized case rather
+  than four** — they share a single input class, a piece the reminder cannot
+  reduce to a first word — and the case closed a fourth decision as a
+  by-product. What is still unwatched in that function misfiles a reminder
+  rather than stopping anything, and went to a ticket, because writing a case
+  for each closes today's list and not the class (#209, #210).
+- **The pre-merge reminder's reader had two failure arms nothing watched, and
+  either one would have stopped a session's Bash call.** `reader()` loads the
+  shared reader by relative path and answers `None` where it cannot, so a copy
+  of the plugin without `skills/` leaves the reminder printing rather than
+  raising — that is the whole reason it returns `None` instead of raising. Two
+  of its arms were pinned by cases and two were not: a `.py` reader that does
+  not parse, and a `.py` reader that parses and imports something this
+  interpreter does not have. Deleting either arm left the whole module green,
+  so nothing would have noticed the arm going away. Both have a case now, and
+  each was seen red on its own arm with the other left green (#209).
+  The second of them was named by no ticket and no ledger row. It turned up
+  because the arms were enumerated out of the function's own source instead of
+  read off the page: the except tuple has three members where every prose
+  reading of it had counted two, which makes four reachable arms rather than
+  three. The evidence ledger's row said three, and now says four.
+  A fifth arm, `spec.loader is None`, gets a sentence rather than a case. No
+  file path constructs it — a directory, a `.txt`, an extensionless file and an
+  empty string all make `spec_from_file_location` answer `None` outright, while
+  a `.py`, a `.pyc`, a `.so`, a missing `.py` and even a directory *named*
+  `x.py` all come back with a real loader. It is defence in depth, and saying so
+  is the honest close.
+- **The case guarding what a closing word can hide behind was a list of two
+  literals, so a third hiding place would have arrived unguarded and silent.**
+  The reminder decides a round record is closed by reading it the way the
+  shared reader does, which blanks fenced blocks and HTML comment bodies — a
+  closing word inside either is not a closing note. The case covering that was
+  parametrized over two hand-written entries with a comment saying a third
+  reader pass would want a third entry, and nothing made it want one: adding a
+  third pass and running the module left everything green, while a closing word
+  inside an inline code span silently began reading as hidden. The
+  parametrization is now compared against the passes the reader actually
+  composes, read out of its own source, so a pass added later fails that case
+  instead of passing quietly (#210). The direction was never dangerous — a
+  further pass only makes the reminder fire more often — but the silence was.
+  What that comparison can see is passes the reader calls **by name**. A pass
+  written instead as a regular-expression substitution on the text — the shape
+  a text-level blanker is naturally written in, and the shape the ticket itself
+  used as its example — is invisible to it, and left the comparison agreeing
+  while the reminder's answer flipped. That shape is now refused outright with
+  a message saying what to do about it, rather than passing unnoticed.
+  The case also goes red when a reader pass is RENAMED, and its message used to
+  offer only the repair for a pass that was added — adding a key, which for a
+  rename leaves an extra key and the case still red. It now names both causes
+  and the repair each one takes.
+- **A work item with no round records at all could have started reading as one
+  whose rows were never drained.** `is_closed` answers *closed* when there are
+  no records, which is what keeps the reminder quiet for the state most work
+  items are in, and no case called it that way: mutating that answer to
+  *not closed* left every case green. It has a case now. The arm is unreachable
+  from the hook itself, which asks only when records exist, but it is reachable
+  in one line of code — and where an arm can be reached directly, a case is the
+  honest close rather than a sentence.
+
+<!-- specs/1788844400-a-body-naming-two-issues-claims-one -->
+- **A pull request body naming two issues claims one, and nothing said so
+  (issue #167).** PR #162's body wrote a closing keyword followed by two
+  numbers in one sentence. At the 0.8.0 release the first was closed and the
+  second stayed open, and somebody closed it by hand afterwards.
+
+  Nothing malfunctioned. A closing keyword claims the one number that follows
+  it — GitHub reads it that way, and `close_issues_on_release.py` says so in a
+  comment two lines above its own regex. The answer was written down in the
+  one file whose author needs it least at the moment the prose is written: the
+  session writing a pull request body is not reading the release closer.
+
+  **So the repair is a check that reports, not a wider regex.** Widening
+  `CLOSING` would make this repository close issues GitHub does not, and the
+  two would then disagree about what a body means — worse than the loss it
+  repairs.
+
+  `.github/scripts/issue_claims_check.py` runs first in the `hygiene`
+  workflow, on every pull request. It prints every issue number the body
+  claims, every one it merely mentions, and a warning for any sentence that
+  claims one number and names another beside it. **It never fails a pull
+  request**: a check that goes red on prose stops a release for a false
+  positive, and one measured occurrence does not buy that. Its only non-zero
+  exit is a step handed no body at all, which is a misconfigured workflow
+  rather than a body.
+
+  **What a sentence is, since the whole check turns on it.** A segment ends at
+  `.!?;` before whitespace, at a blank line, or at the start of a new markdown
+  block — and **not** at a single newline, because every body here is
+  hard-wrapped and the defect arrives split across two lines. Fenced blocks
+  and code spans are blanked character for character, so a body quoting the
+  failing shape as an example reports nothing, and the warning can still quote
+  the sentence as the author wrote it. `e.g.` ends a segment too, which can
+  only split two numbers apart: the check under-reports rather than inventing
+  a warning.
+
+  `docs/issues-and-milestones.md` gains the rule in prose, beside the section
+  that already says a missing `Closes #N` costs an issue that stays open
+  forever.
+
 ## 0.9.1 — 2026-09-08
 
 <!-- specs/1788789329-a-git-call-that-fails-reads-as-no-remote -->

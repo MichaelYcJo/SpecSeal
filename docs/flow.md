@@ -100,7 +100,7 @@ read them.
 
 - [x] **[#203 · #204 · #205 · #206] — one branch, `tests/test_release_hygiene.py`.** #179's run hit the reopening bound with these open: nothing observes what the version check prints, an uppercase `V0.9.0` is invisible, two records describe an order bug that never happened, and the tracker document states the check wider than it is.
 - [x] **[#209 · #210] — one branch, the pre-merge guard.** Its reader has a failure arm no case watches, and its parametrized case is a class over two literals rather than over the reader's passes.
-- [ ] #167 — a closing keyword claims one issue, and a body naming two in one sentence loses the second silently.
+- [x] #167 — a closing keyword claims one issue, and a body naming two in one sentence loses the second silently.
 - [x] #228 — `round_record.py new` takes `--report <path>`, a file. The reviewer returns its report as its final message and the orchestrator is told not to open the agent transcript, so the report exists in two places and neither is a file — and the orchestrator retypes it. **A lossy copy of a document whose whole value is that it is exact**: verdict rows carry coordinates, and a coordinate typed from memory is worse than no coordinate. It compounds per round, because re-review inheritance carries the paraphrase forward, and it breaks the audit line the record holds — `Fixes checked by` points at a round whose report is not the report the reviewer wrote. The fixer already writes its fix table to a path under the work item, so the shape exists and the reviewer side is the half that is missing.
 
 ## 0.9.3 — the enumeration was done by reading
@@ -151,6 +151,59 @@ In this order, and the third is not optional.
 - [ ] **#30 — `sealer` owns the one full-suite run.** Today the smith and the warden are both forbidden it and nobody is assigned it.
 - [ ] **#84 — `framer` writes the frame the smith fills**, so the writer of the contract is not its executor. Needs #121's phase channel — a framer that draws the plan and never authors the half of a phase prompt only building can teach is a partial answer.
 - [ ] **#120 — the agent contract is settled against five agents rather than three, and it lands before either of the two above is released.** Three of its sixteen sections apply to all five; §2 forbids the broad gate the sealer exists to run, and §6 forbids the durable record the framer and the sealer both write. A release that ships five agents under a contract contradicting two of them is the release that teaches readers the contract has exceptions.
+
+**Which delegate a step goes to, and the one question that decides it.**
+Written after 0.9.2, off #263's side-by-side and the comments on it, because
+this set is where the answer stops being academic — three agents become five
+and #120 settles a contract against all of them.
+
+The axis is **not** *delegate or do it myself*. It is **is this work finding
+out, or writing down**, and the two sit on opposite sides of a subagent
+boundary for a structural reason:
+
+| Kind of work | Shape | Why the boundary helps or hurts |
+|---|---|---|
+| discovery | large input → small output | the delegate pays the reading and the parent receives coordinates. A subagent boundary IS a compression boundary, and this is what it is for |
+| transcription | small input → large output | the parent already holds the input. A prompt can be handed over; a context cannot — so the delegate buys the discovery a second time |
+
+#263 measured the second row without naming it: `smith` #1 · #2 · #3 spent
+378k · 474k · 555k tokens and 141 · 43 · 35 tool calls against a parent doing
+the same class of change in 8–14 calls, and that issue's own reading is *the
+files were already read — that, not reasoning speed, is the dominant cost*.
+Neither of the two things it credits to delegation was `smith` writing code:
+the only genuine security finding was `warden`, in twelve minutes, and the
+third-repository field mapping was discovery by a run that was killed before
+it implemented anything.
+
+**So `smith` is the role this set empties out**, because after the split its
+whole remit is the transcription step. Three answers are live — keep it as the
+default, retire it, or re-scope it as a **conditional** executor — and the
+recommendation is the third, with the criterion written into `routing.md`
+first, where the axis already exists and has no stated criterion:
+
+> Finding out goes to `scribe`. Writing down stays with the session — unless
+> the expected diff is large enough to threaten what the orchestrator still
+> has to hold, which is the one case `smith` answers.
+
+That last clause is the only number nobody has, and it is not a cost question:
+the orchestrator is the single participant a release cannot replace mid-run, so
+the case for a delegate there is **replaceability**, on a different axis from
+everything measured above.
+
+**#84 has a falsifiable success test and it is `smith`'s token count.** The
+documents a frame needs already exist — `spec.md`, `plan.md`, `phases/`, and
+whatever a `scribe` wrote — so the cost is not intrinsic to delegation but to
+spawning with a prompt instead of a dossier. If the frame is complete, `smith`
+reads the frame rather than the repository and 378k / 141 falls; if it does not
+fall, the frame was not complete. What a frame cannot remove is the fixed part
+`#265` measured, ~30k tokens before the first tool call, so the gap narrows
+toward that floor and never to zero.
+
+**And the ordering `#120` states is right for `sealer` and `framer` and wrong
+for `smith`.** A contract that scopes a role whose scope is unsettled is the
+most expensive place to be wrong, because it is paid on every spawn of every
+agent. Settle §2 and §6 here; let `smith`'s sections be the one thing that
+waits.
 
 **Why last, and why the number moved.** #84 needs the channel 0.7.0 builds and
 the attribution #137 builds. These three were 0.9.0 until 2026-09-04, when the
