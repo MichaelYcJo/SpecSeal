@@ -647,6 +647,18 @@ The line between 🟡 and ⬜ is *would the release ship a defect*. Half of the
 last branch's 53 🟡 were true sentences about prose, and each cost a fix pass
 and a reader; `Needs a fix` counts 🔴 and 🟡 only.
 
+**Number the findings 1..N — the id is a bare integer.** The marker may lead
+it (`🔴 1`, `⬜ 13`); nothing else may. `R2-1`, `1-1`, `1b` and `A2` are
+refused by `round_record.py`, which names the format and quotes the row. Do
+not put the round in the id: `rounds/round-N.md`'s own file name carries it,
+and a prefixed id used to collapse eight findings toward one key in silence
+(#227, `docs/review-chain-spec.md` §*The finding id*).
+
+**This is the one format choice a reviewer makes that another agent pays
+for.** The fix pass copies your numbering into its `## Fixes` table, so a
+numbering the generator refuses surfaces at the orchestrator — one hop from
+you, and one hop from the fixer, neither of whom is there to fix it.
+
 Every finding carries `file:line`, what is wrong, why it matters, and a
 paste-ready fix for 🔴/🟡. The report is written for posting as a PR comment,
 but **the user posts it** — publishing externally is the user's call.
