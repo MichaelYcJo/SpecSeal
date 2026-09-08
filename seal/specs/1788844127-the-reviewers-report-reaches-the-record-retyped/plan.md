@@ -67,8 +67,14 @@ commissioning the fixes*), so it would refuse every correct run.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `round_record.py new` defaults `--report` to `<item>/rounds/round-<n>-report.md`; the flag still wins; the absence is named | `bin/test tests/test_the_reviewers_report_reaches_the_record.py -q`, each case seen red first | |
-| 2 | `agents/warden.md` says where the report goes, that the path is returned, and names the write as its second exception. The four documents state record against report | the same module — the sentences are pinned (§14) | |
+| 1 | The report reaches the record as a file: the reviewer is told where to leave it, `round_record.py new` defaults `--report` to that path, the flag still wins, the absence is named, and the four documents tell the record from the report | `bin/test tests/test_the_reviewers_report_reaches_the_record.py -q`, each case seen red first | |
+
+**One phase, not two.** The generator's default and the reviewer's write were
+planned as separate phases and are one vertical slice: a default that reads a
+path nothing fills delivers nothing, and a file nothing reads delivers
+nothing either. Splitting them would have put a red case in a commit or an
+untested commit in the branch, which is the choice that says the split was
+wrong.
 
 ## Operational impact
 

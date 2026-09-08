@@ -12,8 +12,18 @@ it by hand, one cell at a time, with the reviewer's report open and a fix
 pass waiting.
 
 So this writes the record. `new` takes the reviewer's report and the round
-paragraph of the spawn prompt, and derives the rest:
+paragraph of the spawn prompt, and derives the rest.
 
+The report is read from `<item>/rounds/round-N-report.md` where `--report` is
+absent — the path the reviewer wrote it to, derived from the same two
+arguments the record's own path is. It used to be a required flag pointing at
+a file that did not exist: the reviewer returns its report as a message, the
+orchestrator is told not to open the transcript, so the orchestrator retyped
+the report to have something to pass. That is #228, and a retyped verdict row
+carries retyped coordinates.
+
+  Report              `--report`, else `<item>/rounds/round-N-report.md`; the
+                      absence of both refuses and names the path
   Target SHA          `--target`, which has to resolve
   Ran by              `--ran-by`
   PR                  `--pr`, else what `gh pr view` says, else `not yet opened`
@@ -288,6 +298,25 @@ READ_HEADINGS = (*(h for h, _ in REPORT_TABLES), PASTE_READY)
 # the legitimate case to catch the unlikely one, which is the trade
 # `CLAUDE.md`'s first goal decides.
 REQUIRED_HEADINGS = tuple(h for h, _ in REPORT_TABLES)
+# Where the reviewer leaves the report, beside the record it becomes. The
+# record is `round-N.md` and the report is `round-N-report.md`, so both names
+# come out of `--item` and `--round` and neither can be spelled differently
+# from the other (#228).
+#
+# `--report` used to be required, and the reviewer's report was not a file:
+# the warden returns it as its final message and the orchestrator is told not
+# to open the agent transcript, so the orchestrator RETYPED it into a file to
+# pass here. Four rounds of one work item, four retypings, and 0.9.0's own
+# #190 · #207 run retyped rounds 2 and 3. A retyped verdict row carries
+# retyped coordinates, re-review inheritance carries the paraphrase into the
+# next round, and `Fixes checked by` then points at a round whose report is
+# not the report the reviewer wrote.
+#
+# The fixer side already had this shape -- `rounds/round-N-fixes.md`, which
+# `close` takes as `--fixes` -- so this is the missing half of a convention
+# rather than a new one. `agents/warden.md` §Report is the other half: it
+# tells the reviewer to write the file and return the path.
+REPORT_NAME = "round-{n}-report.md"
 # The two sections the generator fills from somewhere other than the report.
 ASKED = "## What this round was asked"
 INHERITED = "## Inherited coordinates"
@@ -684,6 +713,38 @@ def read_text(path, what):
             return f.read()
     except OSError as exc:
         raise Refused(f"cannot read the {what} at {path}: {exc}") from exc
+
+
+def report_path(rounds, n, given):
+    """The report to read: `--report` where it was passed, else the convention.
+
+    The default is derived from `--item` and `--round` -- the same pair
+    `round-N.md` itself is built from, one function away -- so the reviewer
+    and the generator cannot spell the path differently from each other.
+
+    The flag stays, and it wins. Two callers still need it: a round whose
+    report was written before `agents/warden.md` told the reviewer where to
+    leave one, and a round that ran more than one reviewer, where the
+    orchestrator hands each its own path rather than letting the second
+    overwrite the first.
+
+    The absence of the default names the path AND the convention. `read_text`
+    would name the path alone, and a path with no sentence beside it reads as
+    a mistyped argument -- which is the one thing it cannot be here, because
+    nobody typed it.
+    """
+    if given is not None:
+        return given
+    path = os.path.join(rounds, REPORT_NAME.format(n=n))
+    if not os.path.isfile(path):
+        raise Refused(
+            f"no report at {path} and no --report. The reviewer writes its "
+            f"report there and returns the path (`agents/warden.md` §Report), "
+            "and this reads it from where the reviewer left it rather than "
+            "from a copy somebody retyped (#228). `--report <path>` names one "
+            "written somewhere else"
+        )
+    return path
 
 
 def section_body(reader, lines, heading):
@@ -1332,7 +1393,7 @@ def build(reader, routing, args, root, item, rounds):
             f"--target {args.target} does not resolve in {root} — a record "
             "naming a commit nobody can open names nothing"
         )
-    report = read_text(args.report, "report")
+    report = read_text(report_path(rounds, args.round, args.report), "report")
     raw = report.splitlines()
     lines = reader.readable(report)
     # Before anything is looked up: a section a fence has taken is absent by
@@ -2594,7 +2655,13 @@ def main(argv=None):
     p.add_argument("--item", required=True, help="the work item directory")
     p.add_argument("--round", required=True, type=int, metavar="N")
     p.add_argument("--target", required=True, help="the commit this round reviewed")
-    p.add_argument("--report", required=True, help="the reviewer's report, a file")
+    p.add_argument(
+        "--report",
+        default=None,
+        help="the reviewer's report, a file "
+        "(default: <item>/rounds/round-<N>-report.md, where the reviewer "
+        "leaves it)",
+    )
     p.add_argument("--asked", required=True, help="the round paragraph, a file")
     p.add_argument("--ran-by", required=True, help="`<agent> on <model>`")
     p.add_argument("--broad-gate", default=None, help="the Broad gate cell")
