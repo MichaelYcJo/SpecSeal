@@ -98,6 +98,11 @@ Usage:
   rider_check.py --reverify       recompute every hash and set today's date
   rider_check.py --reverify --only PATH   the same, for one file
 
+`--only` scopes `--reverify` and nothing else, so it is REFUSED anywhere else
+rather than ignored, and a path no rider carries is refused too. Both used to
+print a clean total at exit 0 — the answer a script reads — for a run that did
+nothing the person asked for (round 2, finding 10 and its class).
+
 `--migrate` consults the old stamp's commit before it trusts anything, exactly
 as `evidence_check.py --migrate` does and for the same reason: a date says when
 a person read the claim and a hash says what they read, so the two are true
@@ -630,6 +635,21 @@ def main(argv=None):
     parser.add_argument("--reverify", action="store_true")
     parser.add_argument("--only", default=None, help="one path, for --reverify")
     args = parser.parse_args(argv)
+
+    # `--only` scopes `--reverify` and nothing else. Typed without it, or
+    # beside `--migrate`, every path below ignored it and printed a clean
+    # total at exit 0, so somebody who scoped the run read success for a run
+    # that ignored their argument. Finding 10's cause one argument over: an
+    # input accepted and silently dropped (round 2, re-enumeration).
+    if args.only and not args.reverify:
+        sys.stderr.write(
+            "rider_check: `--only` scopes `--reverify`, and this run has no "
+            "`--reverify` to scope. Without it the whole tree is read and "
+            "`--only` would change nothing, so nothing here is what you "
+            "asked for\n"
+        )
+        return 2
+
     checker = load_checker()
 
     if args.migrate:

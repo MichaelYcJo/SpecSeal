@@ -550,6 +550,22 @@ def test_reverify_says_so_when_only_selects_no_rider(tmp_path):
     assert "no rider in the tree has this path" in refused[0][1], refused
 
 
+def test_only_without_a_verb_is_refused_rather_than_ignored(tmp_path):
+    """`--only` scopes `--reverify` and nothing else. Typed without it, or
+    beside `--migrate`, argparse accepted it and every code path ignored it:
+    the whole tree was checked and `20 ok · 0 drifted · 0 broken` printed at
+    exit 0, so a person who scoped the run read success for a run that ignored
+    their argument. The same cause as finding 10 one argument over — an input
+    accepted and silently dropped — found by enumerating the entry points
+    rather than by a finding."""
+    stamped_module(tmp_path)
+    for argv in (
+        ["--root", str(tmp_path), "--only", "hooks/m.py"],
+        ["--root", str(tmp_path), "--migrate", "--only", "hooks/m.py"],
+    ):
+        assert riders.main(argv) == 2, argv
+
+
 def test_the_drift_message_says_the_re_stamp_takes_a_file(tmp_path):
     """`--only` selects a FILE, not a rider. Three files carry more than one
     rider, so a reader who answers one drifted rider with the command this
