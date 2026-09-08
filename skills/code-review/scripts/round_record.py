@@ -50,11 +50,14 @@ verdict `fixed` with the commit, `answered` with the grounds, or `deferred
                        `fixed at <sha>`, `answered` with the grounds, or
                        `deferred <home>` with the home; a commit has to
                        resolve and lie inside the range
-  Contract changes     every top-level Python unit whose parameters or return
-                       arities differ between the two ends of the range, each
-                       with the enclosing unit of every `name(` in the tree,
+  Contract changes     every top-level Python unit whose parameters, return
+                       arities or set of returnable constant literals differ
+                       between the two ends of the range, each with the
+                       enclosing unit of every `name(` in the tree,
                        `unit → site, site`; callers under `tests/` read
-                       `pytest`, or `pytest only` when they are the whole reach
+                       `pytest`, or `pytest only` when they are the whole
+                       reach — and so does a unit pytest itself reaches, which
+                       has no call site in the tree by design
   New units            every top-level def, class and module-level constant
                        present at the end of the range and absent at its
                        start, `unit (depth 1)`; for a file the AST cannot read
@@ -1669,6 +1672,37 @@ PYTEST_ONLY = "pytest only"
 PYTEST = "pytest"
 NO_SITE = "no call site found"
 TESTS_DIR = "tests"
+# The three shapes pytest reaches without a call site anywhere in the tree
+# (#211): a collected test function, a fixture it injects by parameter name,
+# and a `conftest` hook it dispatches through its plugin manager. None of the
+# three is ever written as `name(`, so the reach walk came back empty and the
+# row said `no call site found` about units that run on every CI leg.
+#
+# Measured over this repository at ba22b28 rather than reasoned about: 1892 of
+# 1947 `test_*` defs under `tests/` read `no call site found`, and so did 8 of
+# 42 fixtures. The ticket named the first set and left the second in its own
+# `Not verified` section.
+#
+# The rule is these three and NOT everything under `tests/`. One helper there
+# reads `no call site found` for an unrelated reason — it is passed by name as
+# a value and never called — and a wider rule would say the runner covers a
+# unit nothing covers, which is #211's own false sentence pointing the other
+# way.
+#
+# Round 1 of this work item is that the code drew the boundary one step short
+# of the prose twice, in opposite directions. `test_*` alone is the FUNCTION
+# half of pytest's collection and `python_files` is the other half, so a
+# `test_*` def in `tests/helpers.py` was reading `pytest only` about a unit
+# nothing collects — the false sentence above, pointing the way the rule
+# exists to refuse. And the `tests/` gate stood in front of every arm, so a
+# `conftest.py` at the repository ROOT — the placement pytest documents
+# first — read `no call site found` for its fixtures and its hooks, which is
+# #211's own defect left standing at the commonest placement of all.
+TEST_PREFIX = "test_"
+TEST_SUFFIX = "_test.py"
+HOOK_PREFIX = "pytest_"
+CONFTEST = "conftest.py"
+FIXTURE = "fixture"
 # The columns of the verdict table, by the record's header.
 NUMBER_COL = VERDICT_HEADER.index("#")
 LOCATION_COL = VERDICT_HEADER.index("Location")
@@ -1699,8 +1733,69 @@ LOCATION_LINE_RE = re.compile(r"([\w./-]+\.py):(\d+)")
 FRAGMENT_RE = re.compile(r'(?<![\w./\-"#])#([A-Za-z_]\w*)')
 IDENTIFIER_RE = re.compile(r"`([A-Za-z_]\w*)(?:\(\))?`")
 BARE_IDENTIFIER_RE = re.compile(r"^([A-Za-z_]\w*)(?:\(\))?$")
-NUMBER_RE = re.compile(r"\d+")
+# A finding id is a bare integer, optionally behind a severity marker. #227:
+# the id used to be the FIRST digit run anywhere in the cell, so `R2-1` and
+# `R2-2` both read as `2` and eight round-prefixed findings collapsed toward
+# one key. The refusal that followed reported a duplicate the table did not
+# visibly have. The marker is what the group skips and the digits are the id;
+# `[^\w\s]` reaches every marker the records carry — 🔴 🟡 🟢 ⬜ ❓ ✅ — and
+# reaches no letter, so `r3 🟡 2`, `1-1`, `1b` and `A2` are refused rather
+# than silently keyed to whichever digits came first.
+#
+# The repetition takes ONE marker character, not a run of them, and that is
+# round 1's finding 3 rather than a style choice. `[^\w\s]+` inside the `*`
+# group let a run of punctuation be split into groups in exponentially many
+# ways, and a cell ending in a non-digit made the engine try all of them
+# before refusing: 0.18 s at 22 characters, 2.9 s at 26, 11.4 s at 28, and
+# each further character doubles it — so `close` and `new` produced nothing
+# and never returned. The language is unchanged, because every repetition of
+# the group already consumes exactly one marker and the outer `*` supplies
+# the run; measured identical over 16 id shapes, and a 4000-character run
+# now refuses in 0.00014 s.
+FINDING_ID_RE = re.compile(r"^(?:[^\w\s]\s*)*(\d+)$")
+BARE_ID = "a bare integer"
+# Which of the two tables a refusal is about. The reviewer writes one and the
+# fixer copies the numbering into the other, so a message naming the format
+# and not the file sends the reader to the table that is already correct.
+RECORD_LABEL = "verdict table"
+FIX_TABLE_LABEL = "fix table"
 DEPTH_EXIT = "deferred with a named answerer, or becomes an issue"
+
+
+def finding_number(label, seen, line, taken):
+    """The finding one `#` cell names, or `Refused` naming format and row.
+
+    Two refusals, and #227 is that the old code could produce only the
+    second, out of a table that held no duplicate. Both name the table they
+    read, quote the offending cell, and quote the whole row — with eight rows
+    and no coordinate, finding the pair was a manual scan.
+
+    `taken` is {number: the row that already claimed it}, so the duplicate
+    refusal can quote both rows rather than assert that two exist.
+    """
+    text = chain.EMPHASIS.sub("", seen).strip()
+    m = FINDING_ID_RE.match(text)
+    if not m:
+        raise Refused(
+            f"the {label} has a row whose `#` reads {seen!r}, and a finding id "
+            f"is {BARE_ID} — an optional severity marker, then digits and "
+            "nothing else (`1`, `\N{LARGE RED CIRCLE} 2`, "
+            "`\N{WHITE LARGE SQUARE} 13`). A round-prefixed id collapses "
+            "toward one key: `R2-1` and `R2-2` are the same digits to a reader "
+            "that takes the first run, which is how eight findings became one. "
+            "Number this round's findings 1..N and let the record's own file "
+            f"name carry the round. The row: {line.strip()}"
+        )
+    number = int(m.group(1))
+    if number in taken:
+        raise Refused(
+            f"the {label} has two rows numbered {number}:\n"
+            f"    {taken[number].strip()}\n"
+            f"    {line.strip()}\n"
+            "A finding id names one row, so one of these has to change"
+        )
+    taken[number] = line
+    return number
 
 
 def part(label, text):
@@ -1835,19 +1930,71 @@ def return_arities(node):
     return frozenset(found)
 
 
+def return_literals(node):
+    """The set of constant values the unit's own `return` statements can
+    produce, as `(type name, repr)` pairs — the value taken whole when the
+    return is a constant, and its constant elements when it is a tuple. A
+    nested def, class or lambda is somebody else's returns, the same boundary
+    `return_arities` draws.
+
+    #194: the contract compared parameters and return ARITIES, so a unit that
+    began returning a value it could not return before — the same shape with
+    a new meaning — changed neither and the row read `none`. The measured
+    instance is `token_thirds`, which began returning 0 for a mean it cannot
+    compute; the one call site interpreting that 0 was not revisited, and it
+    reports growth on a run whose input collapsed. `templates/sdd-round.md`
+    had already promised this half — *signature, return arity, return type,
+    or set of returnable values*.
+
+    **Keyed by type as well as value on purpose.** Python hashes `0` and
+    `False` into one key, and `1` and `True` likewise, so a plain set of
+    values reads a unit that swapped a count for a flag as unchanged. Those
+    are two different things to return and two different things for a caller
+    to test.
+
+    What this does NOT catch is a changed input→value mapping, and that hole
+    is stated in `docs/review-chain-spec.md` rather than closed. Widening it
+    to reach that is not a small step: it is asking which inputs reach which
+    return, which is the function.
+    """
+    found, stack = set(), list(node.body)
+    while stack:
+        n = stack.pop()
+        if isinstance(
+            n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+        ):
+            continue
+        if isinstance(n, ast.Return) and n.value is not None:
+            parts = n.value.elts if isinstance(n.value, ast.Tuple) else [n.value]
+            for part in parts:
+                if isinstance(part, ast.Constant):
+                    found.add((type(part.value).__name__, repr(part.value)))
+        stack.extend(ast.iter_child_nodes(n))
+    return frozenset(found)
+
+
 def top_units(module):
     """{name: (contract, first line, last line)} for every top-level def,
     class and constant, in source order.
 
     The contract is what `Contract changes` compares: a function's
-    parameters and return arities, a class's `__init__` parameters, and
-    nothing for a constant — a changed value is not a changed contract. A
-    constant is an assignment to a bare name at module level.
+    parameters, return arities and set of returnable constant literals; a
+    class's `__init__` parameters; and nothing for a constant — a changed
+    value is not a changed contract. A constant is an assignment to a bare
+    name at module level.
+
+    The third element is #194's, and it is the last of the four things
+    `templates/sdd-round.md` promises this row reads. `return_literals` says
+    what it is and what it deliberately does not reach.
     """
     out = {}
     for node in module.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            contract = (signature(node.args), return_arities(node))
+            contract = (
+                signature(node.args),
+                return_arities(node),
+                return_literals(node),
+            )
             out[node.name] = (contract, node.lineno, node.end_lineno)
         elif isinstance(node, ast.ClassDef):
             init = next(
@@ -1859,7 +2006,7 @@ def top_units(module):
                 ),
                 None,
             )
-            contract = (signature(init.args) if init else None, None)
+            contract = (signature(init.args) if init else None, None, None)
             out[node.name] = (contract, node.lineno, node.end_lineno)
         elif isinstance(node, ast.Assign):
             for target in node.targets:
@@ -1920,15 +2067,120 @@ def under_tests(path):
     return TESTS_DIR in path.split("/")[:-1]
 
 
+def decorated_as(node, name):
+    """True when a decorator on `node` is `name` or ends in `.name`.
+
+    Covers the four spellings a fixture arrives in — `@fixture`,
+    `@fixture(...)`, `@pytest.fixture`, `@pytest.fixture(...)` — by reading
+    the callee of a decorator that is a call and the decorator itself
+    otherwise. The import alias is deliberately not resolved: what a module
+    calls `pytest` is its own business, and the tail is the part that names
+    the decorator.
+    """
+    for dec in getattr(node, "decorator_list", []):
+        target = dec.func if isinstance(dec, ast.Call) else dec
+        if isinstance(target, ast.Attribute) and target.attr == name:
+            return True
+        if isinstance(target, ast.Name) and target.id == name:
+            return True
+    return False
+
+
+def collected(base):
+    """True when pytest's default `python_files` patterns import this file.
+
+    Collection is two rules and the arm below used to ask only one of them:
+    `python_files = test_*.py *_test.py` decides which FILE becomes a test
+    module, and `python_functions = test_*` decides which def inside it is a
+    case. A `test_*` def in `tests/helpers.py` satisfies the second and not
+    the first, so pytest never runs it — and `pytest only` would then say the
+    runner covers a unit nothing covers.
+    """
+    return base.startswith(TEST_PREFIX) or base.endswith(TEST_SUFFIX)
+
+
+def conftest_is_loaded(root, b, rel):
+    """True when pytest imports this `conftest.py` at all.
+
+    A conftest is loaded for the test files collected at or below its OWN
+    directory — rootdir down to each collected file, `confcutdir` defaulting
+    to rootdir — so one in a directory nothing is collected under is never
+    imported, and its fixtures and hooks are injected into nothing. Round 2's
+    finding 1 is that accepting the name alone said `pytest only` about all
+    of them: `src/`, `a/b/`, a vendored tree, an examples directory, and
+    `tests/vendor/` one gate over. That is round 1's finding 1 pointing the
+    other way, which is the sentence `plan.md`'s alternatives table rejected
+    the wider rule to avoid.
+
+    The question is asked of the tracked file list rather than of the
+    filesystem, so it answers for the tree at `b` the way every other walk
+    here does. The repository root passes it in any tree that has tests at
+    all, which is the placement round 1's finding 2 was raised for;
+    `src/conftest.py` passes it in a colocated layout and fails it in a
+    segregated one, which is what pytest does.
+    """
+    here = os.path.dirname(rel)
+    prefix = f"{here}/" if here else ""
+    return any(
+        p.startswith(prefix) and collected(os.path.basename(p))
+        for p in tracked_at(root, b)
+        if p.endswith(".py")
+    )
+
+
+def runner_reached(reader, root, b, rel, name):
+    """True when pytest reaches `rel`'s `name` with no call site in the tree.
+
+    The three members are the constants above, and each is a rule of pytest's
+    own collection rather than a convention of this repository: a def that
+    `python_files` collects and `python_functions` names is a case, a fixture
+    is injected by parameter name, and a `pytest_*` def in a `conftest.py` is
+    dispatched as a hook.
+
+    Where the file sits decides two different things, and they are not the
+    same gate. A conftest is loaded by NAME rather than by directory, so it
+    is a member from anywhere pytest would load it — and the directory is
+    what says whether pytest loads it at all, which is `conftest_is_loaded`.
+    That one rule replaces the `tests/` gate for a conftest at every
+    placement, inside `tests/` and outside it alike, because a conftest with
+    nothing collected under it is imported by nobody wherever it sits.
+    Nothing else outside `tests/` is a member however it is named.
+    """
+    base = os.path.basename(rel)
+    if not rel.endswith(".py"):
+        return False
+    if base == CONFTEST:
+        if not conftest_is_loaded(root, b, rel):
+            return False
+    elif not under_tests(rel):
+        return False
+    module = parse_module(reader.show(root, b, rel))
+    if module is None:
+        return False
+    for node in module.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if node.name != name:
+            continue
+        if name.startswith(TEST_PREFIX) and collected(base):
+            return True
+        if name.startswith(HOOK_PREFIX) and base == CONFTEST:
+            return True
+        return decorated_as(node, FIXTURE)
+    return False
+
+
 def call_sites(reader, root, b, rel, name, at_b):
     """The reach of one changed unit at `b`: the enclosing top-level unit of
     every `name(` in the tracked files, the unit's own def line excluded,
     the file's basename for a call at module level or outside Python.
 
     Callers under `tests/` collapse to `pytest`, and to `pytest only` when
-    they are the whole reach; a unit nobody calls reads `no call site
-    found`, because `fix_surface` refuses a unit listed without a reach
-    and an empty reach would be the tolerant read it refuses.
+    they are the whole reach — or when the unit is one pytest itself reaches
+    (`runner_reached`), which has no call site in the tree by design. A unit
+    nobody calls and nothing collects reads `no call site found`, because
+    `fix_surface` refuses a unit listed without a reach and an empty reach
+    would be the tolerant read it refuses.
     """
     out = git(root, "grep", "-n", "-F", "-e", f"{name}(", b) or ""
     word = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(name) + r"\(")
@@ -1957,7 +2209,9 @@ def call_sites(reader, root, b, rel, name, at_b):
         elif site not in named:
             named.append(site)
     if not named:
-        return [PYTEST_ONLY] if tested else [NO_SITE]
+        if tested or runner_reached(reader, root, b, rel, name):
+            return [PYTEST_ONLY]
+        return [NO_SITE]
     return named + ([PYTEST] if tested else [])
 
 
@@ -1985,17 +2239,12 @@ def fix_table(reader, path):
     # than to that file. Verified 2026-09-06 at 9241a8b.
     text = read_text(path, "fix table")
     raw, lines = text.splitlines(), reader.readable(text)
-    out = {}
+    out, taken = {}, {}
     for i, cells in table_body(reader, lines, FIXES, FIXES_HEADER, True):
         seen = [reader.visible(c) for c in cells]
         if len(seen) < len(FIXES_HEADER):
             raise Refused(f"a fix row has {len(seen)} cells: {raw[i].strip()!r}")
-        m = NUMBER_RE.search(seen[0])
-        if not m:
-            raise Refused(f"a fix row's `#` names no finding: {seen[0]!r}")
-        number = int(m.group())
-        if number in out:
-            raise Refused(f"the fix table has two rows for finding {number}")
+        number = finding_number(FIX_TABLE_LABEL, seen[0], raw[i], taken)
         verdict = chain.EMPHASIS.sub("", seen[1]).strip().rstrip(".").strip()
         word, third = verdict.lower(), seen[2].strip()
         if word == FIXED:
@@ -2039,15 +2288,12 @@ def fix_table(reader, path):
 
 def verdict_rows(reader, lines):
     """{finding number: (index, cells)} for round N's verdict table."""
-    out = {}
+    out, taken = {}, {}
     for i, cells in table_body(reader, lines, VERDICTS, VERDICT_HEADER, True):
         seen = [reader.visible(c) for c in cells]
-        m = NUMBER_RE.search(seen[NUMBER_COL]) if len(seen) > NUMBER_COL else None
-        if not m:
-            raise Refused(f"a verdict row's `#` names no number: {lines[i].strip()!r}")
-        number = int(m.group())
-        if number in out:
-            raise Refused(f"the record has two verdict rows numbered {number}")
+        if len(seen) <= NUMBER_COL:
+            raise Refused(f"a verdict row has no `#` cell: {lines[i].strip()!r}")
+        number = finding_number(RECORD_LABEL, seen[NUMBER_COL], lines[i], taken)
         out[number] = (i, cells)
     return out
 

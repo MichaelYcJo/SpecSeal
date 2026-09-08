@@ -105,14 +105,44 @@ def test_the_riders_exist_where_the_rows_said_they_would():
 
 # Where riders are allowed to live. `templates` was missing, so the rider in
 # `templates/evidence-check.yml` was never checked by anything at all —
-# `follow-up.md` names it as planted and nothing here could see it.
-RIDER_ROOTS = ["hooks", "skills", "agents", "templates"]
+# `follow-up.md` names it as planted and nothing here could see it. `tests`
+# was missing for the same reason and one release longer, and it cost four
+# riders unwatched: two carrying a measurement, one with no stamp in any form,
+# and the one round 1's fix pass planted at `test_the_reopening_is_one.py`,
+# whose own record then asserted the stamp names no commit of this branch as
+# though a check had answered it. That is twice now that this list was the
+# defect rather than the corpus, which is why `fix/239-a-stamp-names-content-
+# not-a-commit` moves the walk to `.github/scripts/rider_check.py` over a
+# sixth root as well. Whichever of the two lands second takes that version.
+RIDER_ROOTS = ["hooks", "skills", "agents", "templates", "tests"]
 
-STAMP = re.compile(r"Verified \d{4}-\d{2}-\d{2} at ([0-9a-f]{7,40})\b")
+# A rider opens a COMMENT. Matching the bare text reads an assertion ABOUT a
+# rider as a rider — see `rider_stamps`.
+MARKER = re.compile(r"^[ \t]*#+ *RIDER:", re.M)
+# A stamp says what state the claim was read against, and there are two
+# spellings of that on this release. `at <sha>` names a commit, and the
+# release's merge rule destroys the commits it has to name (#239) — a feature
+# branch squashes, so the stamp resolves to nothing for whoever reads it next.
+# `against <anchor>@<hash>` names CONTENT, which is the ledger's own rule and
+# what `fix/239-a-stamp-names-content-not-a-commit` migrates every stamp to.
+#
+# Both are accepted HERE and only one is verified here: this file checks that
+# a stamp exists and that a commit-form stamp resolves, and the hash behind an
+# anchor is #239's checker's to recompute. Accepting the anchor form is what
+# lets a rider whose measurement commit was already squashed away carry a
+# stamp at all — `test_the_records_can_be_carried_out_and_in.py`'s was taken
+# at `3f8f846`, which is an ancestor of neither `HEAD` nor
+# `origin/release/v0.9.1`, so no commit-form stamp for it can be written that
+# resolves.
+STAMP = re.compile(
+    r"Verified \d{4}-\d{2}-\d{2}"
+    r"(?: at (?P<sha>[0-9a-f]{7,40})\b"
+    r"| against (?:\"(?:[^\"\n]|\\\")+\"|[A-Za-z_][A-Za-z0-9_.]*)@[0-9a-f]{6,12})"
+)
 
 
 def rider_stamps():
-    """(file, sha) for every rider in the tree."""
+    """(file, sha) for every rider in the tree; `sha` is None for an anchor."""
     out = subprocess.run(
         # `__pycache__` excluded: a `.pyc` beside a script that carries a
         # rider matches too, and `grep` answers `Binary file … matches`,
@@ -130,11 +160,24 @@ def rider_stamps():
     found = []
     for rel in {line.split(":", 1)[0] for line in out.splitlines()}:
         block = read(os.path.join(ROOT, rel))
-        for chunk in block.split("# RIDER:")[1:]:
+        # A rider OPENS a comment, so the split anchors on a line that starts
+        # one. The marker inside a string literal is a case asserting that a
+        # rider exists somewhere else, and splitting on the bare text read
+        # each of those as a rider with no stamp. Three files carry one:
+        # `tests/test_the_root_migrates_itself.py`, and this file twice — the
+        # check's own corpus, the moment `tests` joined the roots.
+        #
+        # The marker itself is never spelled out in a comment anywhere in this
+        # file, and that is deliberate rather than shy. #239's checker opens a
+        # block at any comment line CONTAINING it, which is the looser of the
+        # two readings, so prose about the convention would be a rider with no
+        # stamp there while passing here — and the two have to agree while
+        # both are in the tree.
+        for chunk in MARKER.split(block)[1:]:
             head = chunk.split("\n\n", 1)[0]
             m = STAMP.search(head)
             assert m, f"{rel}: a rider with no verification stamp"
-            found.append((rel, m.group(1)))
+            found.append((rel, m.group("sha")))
     return found
 
 
@@ -177,7 +220,19 @@ def test_every_rider_stamp_names_a_commit_this_branch_can_reach():
         "nothing. Fetch the full history (`fetch-depth: 0` in the workflow, "
         "`git fetch --unshallow` locally) rather than reading a pass into it"
     )
-    for rel, sha in rider_stamps():
+    stamps = rider_stamps()
+    assert any(sha for _rel, sha in stamps), (
+        "no rider carries a commit-form stamp, so this check reads as a pass "
+        "over an empty corpus. Either the migration to content anchors is "
+        "complete, in which case delete this case and let #239's checker own "
+        "the rule, or the walk stopped seeing riders"
+    )
+    for rel, sha in stamps:
+        if sha is None:
+            # An anchor names content, so there is no commit to resolve. What
+            # it claims is a hash, and recomputing that is #239's checker's
+            # job rather than this one's.
+            continue
         reachable = subprocess.run(
             ["git", "merge-base", "--is-ancestor", sha, "HEAD"],
             cwd=ROOT,
