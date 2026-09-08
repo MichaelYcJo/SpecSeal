@@ -21,10 +21,11 @@ sentence spans lines routinely and the defect arrives split across two of
 them. A segmenter that treats a line as a sentence passes every other case in
 this file and misses the one it was written for.
 
-The real #162 body is deliberately NOT a fixture: it carries a `claude.ai`
-session URL, which `tests/test_no_real_identifiers.py` refuses, and the shape
-is what matters rather than the numbers. It was run live instead, and the
-output is in this work item's `phases/phase-2.md`.
+The real #162 body is deliberately NOT a fixture. It carries a session URL on
+a domain outside this repository's fixture allowlist, so committing it turns
+`tests/test_no_real_identifiers.py` red — and the shape is what matters rather
+than the numbers anyway. It was run live instead, and the output is in this
+work item's `phases/phase-2.md`.
 """
 
 import importlib.util

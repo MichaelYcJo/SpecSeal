@@ -132,9 +132,9 @@ false-positive direction the whole design is spending on.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `.github/scripts/issue_claims_check.py` — the reader, the segmentation, the two lists, the warning | `bin/test tests/test_a_body_naming_two_issues_claims_one.py -q`, and the check run against PR #162's live body and against a fenced quote of the failure shape | |
-| 2 | Every case seen red, one mutation at a time | The mutation log in `phases/phase-2.md` | |
-| 3 | The workflow step, the prose signpost in `docs/issues-and-milestones.md`, the changelog and ledger fragments | `bin/test tests/test_a_body_naming_two_issues_claims_one.py tests/test_docs_line_wrap.py tests/test_release_hygiene.py tests/test_no_real_identifiers.py -q`, `evidence_check.py --strict` on this work item's fragment | |
+| 1 | `.github/scripts/issue_claims_check.py` — the reader, the segmentation, the two lists, the warning | `bin/test tests/test_a_body_naming_two_issues_claims_one.py -q`, and the check run against PR #162's live body and against a fenced quote of the failure shape | `9a3f9d1` |
+| 2 | Every case seen red, one mutation at a time | The mutation log in `phases/phase-2.md` — 16 mutations, 0 survivors | `4b62203`, and `6b81d10` for what the mutations found |
+| 3 | The workflow step, the prose signpost in `docs/issues-and-milestones.md`, the changelog and ledger fragments | `bin/test tests/test_a_body_naming_two_issues_claims_one.py tests/test_docs_line_wrap.py tests/test_release_hygiene.py tests/test_no_real_identifiers.py -q`, `evidence_check.py --strict` on this work item's fragment | `a7c8190` |
 
 ## Operational impact
 
