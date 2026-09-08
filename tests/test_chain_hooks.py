@@ -1,8 +1,11 @@
 """commit-review-gate, review-history-guard, session-lease — via real stdin."""
 
+import ast
+import inspect
 import json
 import os
 import subprocess
+import textwrap
 
 import pytest
 from conftest import (
@@ -373,7 +376,13 @@ def test_a_real_closing_note_still_silences_the_merge_reminder(repo):
 
 
 @pytest.mark.parametrize(
-    "missing", ["a path that does not exist", "a file with no Python loader"]
+    "missing",
+    [
+        "a path that does not exist",
+        "a file with no Python loader",
+        "a reader that does not parse",
+        "a reader whose own import is missing",
+    ],
 )
 def test_the_guard_falls_back_to_the_raw_text_without_the_reader(tmp_path, missing):
     """§13, and the reason `reader()` returns None instead of raising.
@@ -385,19 +394,52 @@ def test_the_guard_falls_back_to_the_raw_text_without_the_reader(tmp_path, missi
     the real reader — because a defence nobody has run without its platform
     is not verified.
 
-    Two parameters because `reader()` has TWO arms and each takes a
-    different input: an absent path raises `FileNotFoundError` and lands in
-    the `except`, while a file Python has no loader for makes
-    `spec_from_file_location` return None and never raises at all. Measured
-    — with one parameter, deleting the `spec is None` arm left the module
-    green, which is round 2's 🟡 1 one unit over."""
+    **One parameter per arm `reader()` has, and each takes a different
+    input.** The four:
+
+      `except OSError`      an absent path, which raises `FileNotFoundError`
+      `spec is None`        a file Python has no loader for, where
+                            `spec_from_file_location` returns None and never
+                            raises at all
+      `except SyntaxError`  a `.py` reader that exists and does not parse —
+                            a truncated copy of the plugin, or one whose
+                            syntax the running Python is older than (#209)
+      `except ImportError`  a `.py` reader that parses and imports something
+                            this interpreter does not have, which is the
+                            same truncated copy one line further in
+
+    The last two were unwatched: deleting `SyntaxError` from the except
+    tuple, and deleting `ImportError`, each left the whole module green.
+    Without its arm the same input raises out of `reader()`, through
+    `is_closed`, into the hook's `main()` — the one thing this case's own
+    argument says must never happen.
+
+    **`spec.loader is None` is the fifth arm and gets no parameter**, because
+    no file path constructs it. Executed: `spec_from_file_location` returns
+    None outright for a directory, a `.txt`, an extensionless file and an
+    empty string, and returns a spec with a real loader for a `.py`, a
+    `.pyc`, a `.so`, a missing `.py` and a DIRECTORY named `x.py` — so
+    nothing makes `spec` truthy while its loader is falsy. It is defence in
+    depth, and saying so is the honest close rather than a case that cannot
+    be written.
+
+    Measured — with one parameter, deleting the `spec is None` arm left the
+    module green, which is round 2's 🟡 1 one unit over."""
     guard = load_hook_module("review-history-guard.py", "guard_without_a_reader")
     if missing == "a path that does not exist":
         guard.READER = os.path.join(str(tmp_path), "no_such_reader.py")
-    else:
+    elif missing == "a file with no Python loader":
         other = tmp_path / "reader.txt"
         other.write_text("not python\n", encoding="utf-8")
         guard.READER = str(other)
+    elif missing == "a reader that does not parse":
+        broken = tmp_path / "truncated_reader.py"
+        broken.write_text("def (\n", encoding="utf-8")
+        guard.READER = str(broken)
+    else:
+        half = tmp_path / "half_a_reader.py"
+        half.write_text("import specseal_no_such_module\n", encoding="utf-8")
+        guard.READER = str(half)
     assert guard.reader() is None
     record = tmp_path / "round-1.md"
     record.write_text(
@@ -426,17 +468,41 @@ def test_the_reader_is_what_makes_a_fenced_closing_word_not_count(tmp_path):
     assert guard.is_closed([str(plain)]) is True
 
 
-# `readable` is `blank_fences(strip_comments(...))` — TWO passes, and a
-# closing word hidden by either one is not a closing note. Parametrized over
-# both rather than written for one, because round 2's 🟡 1 is exactly the
-# second arm going unwatched while every case and every sentence named the
-# first. A third pass added to the reader later wants a third entry here.
+def reader_blanking_passes(reader):
+    """The passes `readable` composes, read out of `readable`'s own source.
+
+    Derived rather than typed, which is the whole of #210: this list used to
+    be two literals with a comment saying *a third pass added to the reader
+    later wants a third entry here*, and nothing made it want one. A third
+    pass was added to `readable` and the module stayed at 27 passed — a
+    closing word inside an inline code span then read as hidden, `is_closed`
+    returned False, and no case said a word about it.
+
+    `readable` is `blank_fences(strip_comments(text.splitlines()))`, so the
+    passes are the calls it makes by NAME to functions its own module
+    defines. `text.splitlines()` is an attribute call and drops out; a
+    builtin like `list` would have no function on the reader module and
+    drops out too. What survives is what a closing word can be hidden by."""
+    src = textwrap.dedent(inspect.getsource(reader.readable))
+    called = {
+        node.func.id
+        for node in ast.walk(ast.parse(src))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    return {name for name in called if inspect.isfunction(getattr(reader, name, None))}
+
+
+# One entry per pass `readable` makes, keyed by the pass's own name so the
+# parametrization can be read back out of the reader (`seal/ledger.md` F1's
+# standard, and the case below is where the tie is asserted). `blank_fences`
+# is what a pasted fix needs; `strip_comments` is what a record's own
+# narration needs, and it is the arm that moves real records.
 HIDDEN_CLOSING_WORD = {
-    "a fenced block": (
+    "blank_fences": (
         "```python\ndef close(args):\n    # the fence reads as closed\n"
         "    return 0\n```"
     ),
-    "an HTML comment": (
+    "strip_comments": (
         "<!-- The verifying round for round 1's fixes.\n"
         "     It closed all five and opened three. -->"
     ),
@@ -461,8 +527,24 @@ def test_a_closing_word_a_reader_blanks_is_not_a_closing_note(tmp_path, hider):
 
     *It closed all five* narrates what the round found. It is not a
     statement that the Deferred rows were drained, and the three records it
-    silenced all still have theirs."""
-    guard = load_hook_module("review-history-guard.py", f"guard_{hider.split()[-1]}")
+    silenced all still have theirs.
+
+    **The tie is the first assertion, and it is what makes this a class
+    rather than two literals** (#210, `seal/ledger.md` F1's standard). The
+    parametrization is compared with the passes read out of `readable`'s own
+    source, so a pass added to the reader fails this case instead of
+    arriving unguarded and silent."""
+    guard = load_hook_module("review-history-guard.py", f"guard_{hider}")
+    reader = guard.reader()
+    assert reader is not None, "the tie needs the real reader, not the fallback"
+    assert reader_blanking_passes(reader) == set(HIDDEN_CLOSING_WORD), (
+        "`readable` makes a pass this case list does not cover. A closing "
+        "word that pass hides reads as hidden, `is_closed` returns False, "
+        "and without this assertion nothing goes red — the silence looks "
+        "exactly like correctness. Add the pass to HIDDEN_CLOSING_WORD, "
+        "keyed by its name, with a record that hides its word the way that "
+        "pass hides it."
+    )
     record = tmp_path / "round-1.md"
     record.write_text(
         f"# round 1\n\n{HIDDEN_CLOSING_WORD[hider]}\n\n"
