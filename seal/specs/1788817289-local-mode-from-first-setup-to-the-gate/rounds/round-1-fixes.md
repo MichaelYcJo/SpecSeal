@@ -88,11 +88,16 @@ rewritten and re-verified with the units this pass added; S1–S4 gains the
 re-verified in the fragment, which is now clean.
 
 One row in `seal/ledger.md` drifted because this pass rewrote the prose above
-`templates/config.md`'s table. It was re-read rather than re-stamped: the row
-pins the table's shape, and the table is untouched. The nine other drifted
-rows there are the ones already deferred to the repository owner, and a
-blanket `--reverify` would have closed that deferral without anyone reading a
-line.
+`templates/config.md`'s table. It was re-read and then RE-VERIFIED — the two
+are different acts and this repository's ledger rules turn on the difference:
+the row's anchor hash moved from `541502a6` to `b8ea59c3` and its `Checked`
+date from 2026-09-07 to 2026-09-08, which is a re-verify however it was
+described here. The claim still holds, because the row pins the table's shape
+and the table is untouched. The hash was rewritten by hand rather than swept:
+the nine other drifted rows there are already deferred to the repository
+owner, and a blanket `--reverify` would have closed that deferral without
+anyone reading a line. (Corrected in round 2's fix pass, which is where the
+sentence was found saying the opposite of what its own diff shows.)
 
 ## Not verified
 

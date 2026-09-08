@@ -101,21 +101,42 @@ run cannot answer it and stalls until the next attempt, where the decision is
 `ask` and approving proceeds. So the worst case for an unattended run is one
 stalled command and one approval, not a halt.
 
-**And a cost that is not a prompt: one `git` process per Bash call, in every
-repository on the machine.** Measured the same day with a logging `git` on
-`PATH`, one `ls` payload: this gate makes one `git rev-parse --show-toplevel`
-in a repository with no `seal/` at all, where `commit-review-gate.py` makes
-none — it returns before resolving anything for a command that is not a
-commit. In a repository that has a root and no row it is two, and it stays two
-on the calls after the budget is spent, because the root is resolved before
-there is anything to say. Wall time for the gate alone, median of twelve:
-36.4 ms against the sibling's 26.7 ms on this machine.
+**And a cost that is not a prompt: one `git` process per Bash call from a main
+work tree, two from a linked one.** Measured 2026-09-08 with a logging `git`
+on `PATH`, one `ls` payload, in every state:
 
-That cost is the price of the placement argued for above, and it is stated
-rather than removed. Removing it means resolving the root once per Bash call
-for all three gates instead of once each — `hooks/optin.py#repo_root` carries
-a RIDER counting exactly this class, and this adds a caller to it. That is a
-change to three gates at once and it is not this branch's.
+| The repository | Main work tree | Linked worktree |
+|---|---|---|
+| no `seal/` at all | 1 | 2 |
+| local root, no `Mode` row | 1 | 2 |
+| shared root, no `Mode` row | 2 | 3 |
+
+`commit-review-gate.py` makes none in any of them — it returns before
+resolving anything for a command that is not a commit. The count stays where
+the table says on the calls after the budget is spent, because the root is
+resolved before there is anything to say.
+
+**Where the second process comes from, and why the shape has to be stated.**
+A linked worktree's `.git` is a file, so `optin.py`'s fast path does not
+apply and the common git directory has to be asked of git. That is the shape
+this project's own sessions run in, and the first version of this paragraph
+gave a main work tree's numbers as if they held everywhere — one and two
+against the real two and four. Review round 2 measured it.
+
+Two of those four were this branch asking git a question it had already
+answered: `undeclared`, `home_paths` and `git_dir_of` each resolved the
+common directory for themselves inside one hook invocation. `main` resolves
+it once now and hands it to both, which is what makes the local-root row of
+the table read 1 and 2 rather than 2 and 4. Wall time for the gate alone,
+median of twelve, no `seal/`: 32.8 ms in a main work tree and 44.8 ms in a
+linked one, against the sibling's 21.9 and 22.2.
+
+What remains is one `git rev-parse --show-toplevel` per Bash call in every
+repository on the machine, and that one is the price of the placement argued
+for above. Removing it means resolving the root once for all three gates
+instead of once each — `hooks/optin.py#repo_root` carries a RIDER counting
+exactly this class, and this adds a caller to it. That is a change to three
+gates at once and it is not this branch's.
 
 **Why nothing cheaper reaches the same guarantee.** Three cheaper things were
 tried and each is in the tree, doing the part it can do. The bootstrap now
