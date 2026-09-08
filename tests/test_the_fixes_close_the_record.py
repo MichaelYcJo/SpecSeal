@@ -309,6 +309,36 @@ def test_a_gate_cell_left_alone_stays_as_it_was(repo):
     assert fields(record)["Broad gate"] == "not yet", out
 
 
+def test_close_reads_back_the_record_it_writes(repo):
+    """#182: `close` is the second writer, and its flag reaches the record
+    the same way `new`'s does.
+
+    `cell` refuses a `|` and a newline because either breaks the row. `<!--`
+    breaks every reader below the row, and `close` writes the gate cell into
+    the field table at the top of the record — so an opener there blanks the
+    verdict table, the probes, the inherited coordinates and the Deferred
+    section, in a file the pull-request check then reads.
+
+    Executed at `0b99eb9` before this: the record rewritten, exit 1, and its
+    `## Verdicts` resolving to 0 occurrences through the shared reader."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    before = (repo / ROUNDS / "round-1.md").read_text(encoding="utf-8")
+    code, out, record = close(
+        repo,
+        1,
+        fix_table(f"| 1 | fixed | {b[:7]} |\n"),
+        f"{a}..{b}",
+        extra=("--broad-gate", "abc1234 <!-- vs base"),
+    )
+    assert code == 2, out
+    assert record == before, "a refusal writes nothing"
+    assert "the record this would write" in out
+    assert "never closed" in out
+    assert "Broad gate" in out, "the coordinate names the row the value landed in"
+
+
 # --- the four refusals -------------------------------------------------------
 
 
