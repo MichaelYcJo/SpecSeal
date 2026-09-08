@@ -2,6 +2,19 @@
 
 ### Fixed
 
+- **An ordinary `gh` command piped into `jq` could have stopped a session's
+  Bash call.** The same reminder decides which parts of a command line are `gh`
+  commands by splitting on `|` and reading each piece with `shlex`. A pipe
+  inside a quoted string — `gh pr view 123 --json comments | jq '.comments[] |
+  .body'`, which is the reminder's own example — leaves a piece whose quoting
+  is unbalanced, and `shlex` raises on it. One arm absorbs that, and no case
+  watched it: deleting the arm left this module and every other module that
+  touches the hook green, while the hook itself began exiting 1 with
+  `ValueError: No closing quotation` on that command — out of a `PostToolUse`
+  hook and into the session's Bash call, which is the one thing this hook is
+  written never to do. It has a case now. The arm was found by applying the
+  same enumeration to the two functions of the file the first pass had not
+  walked, which is what a review round is for.
 - **The pre-merge reminder's reader had two failure arms nothing watched, and
   either one would have stopped a session's Bash call.** `reader()` loads the
   shared reader by relative path and answers `None` where it cannot, so a copy
@@ -36,6 +49,12 @@
   composes, read out of its own source, so a pass added later fails that case
   instead of passing quietly (#210). The direction was never dangerous — a
   further pass only makes the reminder fire more often — but the silence was.
+  What that comparison can see is passes the reader calls **by name**. A pass
+  written instead as a regular-expression substitution on the text — the shape
+  a text-level blanker is naturally written in, and the shape the ticket itself
+  used as its example — is invisible to it, and left the comparison agreeing
+  while the reminder's answer flipped. That shape is now refused outright with
+  a message saying what to do about it, rather than passing unnoticed.
 - **A work item with no round records at all could have started reading as one
   whose rows were never drained.** `is_closed` answers *closed* when there are
   no records, which is what keeps the reminder quiet for the state most work
