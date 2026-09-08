@@ -59,6 +59,16 @@ over-exclusion, because a block is read as the run of comment lines starting at
 the `RIDER:` line and absorbs whatever follows it. Both failures lose an alarm
 rather than inventing one.
 
+**Every loss stated here goes that one way, and that asymmetry is load-bearing
+rather than a coincidence of the list.** A lost alarm costs whatever the
+unanswered rider was worth; an invented one exits 2 in CI on a line nobody
+wrote as a rider, and the person who has to clear it is not the person who
+wrote the line. So a reader that is looser than the paragraph describing it is
+a defect in the direction the design does not accept: `#` at the head of a
+markdown line is a HEADING, and reading it as a comment made a heading naming
+the marker into a stampless rider (round 2, finding 11). Where a rule here has
+to fall one way, it falls toward the silence.
+
 ## The verdicts, and why drift is loud
 
   OK       the anchor resolves once and the hash is what the stamp recorded
@@ -167,7 +177,7 @@ def load_checker(path=CHECKER):
     return module
 
 
-def comment_blocks(lines):
+def comment_blocks(lines, rel=None):
     """[(start, end)] 1-based inclusive for every rider block in `lines`.
 
     A block opens at a line that both carries the marker and IS a comment: a
@@ -196,9 +206,22 @@ def comment_blocks(lines):
     production reader unchanged, and finding it in the `#` form is what sent
     somebody to construct the HTML one, where a second marker before the
     closing `-->` is a second rider sharing one comment.
+
+    **`rel` is what decides whether `#` opens a comment at all**, so every
+    caller passes it. Without it the reader and `region_lines` disagree about
+    what a block is the moment one of them learns about markdown: the reader
+    returns no rider for a heading and the hasher still cuts that line out of
+    the region it hashes.
     """
     out = []
     i, n = 0, len(lines)
+    # `#` opens a comment in Python, YAML, shell and TOML. In markdown it opens
+    # a HEADING, so a heading naming the marker became a rider with no stamp --
+    # BROKEN at exit 2 for a line nobody wrote as a rider. Markdown's rider
+    # form is the HTML comment the branch below reads, and no `.md` file in the
+    # tree uses the `#` form. Every stated loss of this design loses an alarm;
+    # this was the one place it invented one (round 2, finding 11).
+    hash_opens_a_comment = not (rel or "").endswith(".md")
     # An HTML comment the previous block left open, because that block ended
     # at a second marker rather than at `-->`. The marker line that opens the
     # next block is then inside a comment and carries no opener of its own.
@@ -216,7 +239,7 @@ def comment_blocks(lines):
                 j += 1
             end = min(j, n - 1)
             in_html = "-->" not in lines[end]
-        elif stripped.startswith("#"):
+        elif stripped.startswith("#") and hash_opens_a_comment:
             j = i
             while (
                 j + 1 < n
@@ -249,7 +272,7 @@ class Rider:
 
 
 def riders_in(rel, text):
-    return [Rider(rel, a, b, text) for a, b in comment_blocks(text.splitlines())]
+    return [Rider(rel, a, b, text) for a, b in comment_blocks(text.splitlines(), rel)]
 
 
 def tree_files(root, roots=RIDER_ROOTS):
@@ -301,7 +324,7 @@ def region_lines(checker, rel, locator, text):
         )
     start, end = places[0]
     lines = text.splitlines()
-    blocks = comment_blocks(lines)
+    blocks = comment_blocks(lines, rel)
     kept = [
         line
         for number, line in enumerate(lines[start - 1 : end], start)
@@ -456,13 +479,22 @@ def reverify(root, only=None, roots=RIDER_ROOTS, today=None, checker=None):
     twelve original dates `--migrate` had proved, and it drifted the ledger
     row of a unit nobody had touched, because a ledger hash covers comments
     (round 1, findings 1, 2 and 3).
+
+    **An `only` that selects no rider is REFUSED by path**, so the run exits 1
+    rather than printing a clean total. It used to print `0 restamped · 0
+    refused` and exit 0, which reads as *nothing needed doing* — and exit 0 is
+    the answer a script reads. The reachable case is a path typed by hand, an
+    absolute one, or `./hooks/…`, because the drift message prints the path a
+    copy-paste always matches (round 2, finding 10).
     """
     checker = checker or load_checker()
     today = today or datetime.date.today().isoformat()
     written, refused = [], []
+    seen = 0
     for rider in all_riders(root, roots):
         if only and rider.rel != only:
             continue
+        seen += 1
         if not rider.new:
             refused.append(
                 (rider.where(), "no anchor to recompute — `--migrate` first")
@@ -480,6 +512,15 @@ def reverify(root, only=None, roots=RIDER_ROOTS, today=None, checker=None):
             root, rider, restamp(rider.body, today, rider.new.group("locator"), digest)
         )
         written.append((rider.where(), digest))
+    if only and not seen:
+        refused.append(
+            (
+                only,
+                "no rider in the tree has this path — `--only` selects by "
+                "the path the drift message printed, so a hand-typed or "
+                "absolute one selects nothing and this run did nothing",
+            )
+        )
     return written, refused
 
 

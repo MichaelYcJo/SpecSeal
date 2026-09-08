@@ -441,6 +441,51 @@ def test_a_second_rider_sharing_one_html_comment_is_its_own_rider():
     assert "deadbeef" in stamps, f"the second rider's stamp was never read: {stamps}"
 
 
+def test_a_markdown_heading_naming_the_marker_is_not_a_rider():
+    """`comment_blocks`'s own docstring gives the `#` form to Python, YAML and
+    shell and gives markdown the HTML comment. The code asked only that the
+    stripped line start with `#`, which in markdown is a HEADING, so a heading
+    naming the marker became a rider with no stamp and the check exited 2 on a
+    line nobody wrote as a rider. The mirror of the HTML opener `923f86c`
+    closed — a reader looser than the paragraph above it (round 2, finding 11).
+
+    Every other loss this design states for itself loses an alarm. This was
+    the one place it invented one, which is why it is the mirror and not the
+    twin."""
+    src = f"# Title\n\n## {'RIDER:'} what one is\n\nprose.\n"
+    assert riders.comment_blocks(src.splitlines(), "skills/x/SKILL.md") == []
+    assert riders.riders_in("skills/x/SKILL.md", src) == []
+    # the two real forms are untouched
+    py = f"def u():\n    {MARK} claim\n    # Verified 2026-01-01 against u@00000000\n"
+    assert riders.comment_blocks(py.splitlines(), "hooks/m.py") == [(2, 3)]
+    md = (
+        f"## H\n\n{HTML_MARK} claim\n"
+        '     Verified 2026-01-01 against "## H"@00000000. -->\n'
+    )
+    assert riders.comment_blocks(md.splitlines(), "a.md") == [(3, 4)]
+
+
+def test_the_hasher_reads_a_markdown_heading_the_same_way_the_reader_does():
+    """`region_lines` had `rel` in scope and passed it to nothing, so the two
+    callers of `comment_blocks` would have disagreed about what a block is the
+    moment the reader learned about markdown: the reader returns no rider for
+    a `#`-headed heading and the hasher would still cut that line out of the
+    region it hashes. Found by enumerating the call sites of the fix above
+    rather than by a finding.
+
+    The marker heading is one level DEEPER than the anchor, so it sits inside
+    the region rather than ending it — a sibling heading closes the section and
+    would be outside the hash for a reason that has nothing to do with this."""
+    src = f"## H\n\nprose under it.\n\n### {'RIDER:'} what one is\n\nmore prose.\n"
+    assert riders.comment_blocks(src.splitlines(), "a.md") == []
+    kept, why = riders.region_lines(CHECKER, "a.md", '"## H"', src)
+    assert kept is not None, why
+    assert any("RIDER:" in line for line in kept), (
+        "the hasher excluded a markdown heading the reader does not read as a "
+        f"rider, so the two disagree: {kept}"
+    )
+
+
 def stamped_module(tmp_path, digest=None, date="2026-01-01"):
     """A rider file under `hooks/`, stamped with its own true hash by default."""
     d = tmp_path / "hooks"
@@ -486,6 +531,23 @@ def test_reverify_still_moves_the_date_of_a_rider_that_did_change(tmp_path):
     assert len(written) == 1 and not refused, (written, refused)
     after = (tmp_path / "hooks" / "m.py").read_text(encoding="utf-8")
     assert "Verified 2026-12-31 against unit@" in after, after
+
+
+def test_reverify_says_so_when_only_selects_no_rider(tmp_path):
+    """`--only` selects by exact relative path. One that matches nothing
+    printed `0 restamped · 0 refused` and exited 0, so a reader answering a
+    drifted rider read success for a run that wrote nothing — and exit 0 is
+    what a script reads (round 2, finding 10)."""
+    stamped_module(tmp_path, digest="00000000")
+    written, refused = riders.reverify(
+        str(tmp_path),
+        only="hooks/no-such-file.py",
+        roots=("hooks",),
+        today="2026-12-31",
+        checker=CHECKER,
+    )
+    assert not written and len(refused) == 1, (written, refused)
+    assert "no rider in the tree has this path" in refused[0][1], refused
 
 
 def test_the_drift_message_says_the_re_stamp_takes_a_file(tmp_path):
