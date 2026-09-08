@@ -58,12 +58,20 @@ incorporation. This file only adds what the skill does not carry.
    `git commit` a bare word is a pathspec and git rejects it.
 
    <!-- # RIDER: the waiver example above puts a commit command in command
-        position, so `_hides_a_commit` returns True for this file as a whole
-        and a session patching its own contract by heredoc meets the prompt
-        this work item exists to remove. Do not quiet it by breaking the
-        example: shown verbatim is the whole of its value. The trade is Q2 in
-        the work item's questions.md, answerable by the repository owner.
-        Verified 2026-09-08 against "## Phases"@cf74ac0c. -->
+        position. Do not quiet it by breaking the example: shown verbatim is
+        the whole of its value, and the trade is Q2 in the work item's
+        questions.md, answerable by the repository owner.
+        This rider used to say that `_hides_a_commit` therefore returns True
+        for this file as a whole, so a session patching its own contract by
+        heredoc meets the prompt. MEASURED 2026-09-08 and that half is false,
+        and was already false one commit before this branch: the exact line,
+        alone in a heredoc body, gives `commit_invocations` one invocation,
+        and the same line with everything above it gives zero, parsed
+        cleanly. Whatever silences it is earlier in the file, not the
+        example -- so the standing instruction above is still right and its
+        stated consequence is not. Why it is silenced is unanswered and is
+        nobody's finding yet.
+        Verified 2026-09-08 against "## Phases"@447a8f77. -->
 
    Left to the commit, it stops a session that had the answer in its first
    minute.
