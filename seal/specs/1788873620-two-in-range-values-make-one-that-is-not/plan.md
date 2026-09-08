@@ -73,7 +73,7 @@ membership by execution instead of by a list.
 |---|---|---|---|
 | 1 | The checker — the walk, the probes, the discharge analysis, the cases — **and** `token_thirds`' docstring naming the class, the check and the shapes the property does not reach | `./bin/test tests/test_a_derived_number_reaching_an_int_carries_a_guard.py tests/test_session_cost.py -q` | b08bab4 |
 | 2 | The mutation battery, and what it changed: five units gained the case that exercises them, `integer_shaped` stopped excluding `bool`, and the cannot-raise discharge gained a shape | 44 mutations one at a time, 43 caught; the survivor recorded in `Converted`'s docstring | 1ccfbb9 |
-| 3 | The records: ledger fragment, the one re-read row in `seal/ledger.md`, changelog fragment, questions, phase records, overview, and the `#192` box in `docs/flow.md` | `evidence_check.py --reverify`, then the two test modules unchanged | |
+| 3 | The records: ledger fragment, the one re-read row in `seal/ledger.md`, changelog fragment, questions, phase records, overview, and the `#192` box in `docs/flow.md` | `evidence_check.py --reverify`, then the two test modules unchanged | ae0c238 |
 
 The docstring was planned as phase 2 and shipped inside phase 1: the
 checker's last case pins it, so splitting them would have shipped a red case.
