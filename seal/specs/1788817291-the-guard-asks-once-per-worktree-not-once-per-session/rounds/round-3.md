@@ -5,7 +5,7 @@
 | Target SHA | 3287c78 |
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
-| Broad gate | passed — 2605 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0 |
+| Broad gate | passed — 2606 passed, 2 skipped locally; `ruff check .` and `ruff format --check .` both exit 0. CI's **Windows** leg then failed one case, and the guard was right where the case was not: `\git` is an escape of `git` on POSIX and a path at the drive root on Windows, so `ask` is correct there and the case now asks per platform |
 | Fixes checked by | no fixes to check |
 | Contract changes | `choose` → `guard_worktree_creation`, `main`; `only_creates_a_worktree` → `judge_creation` |
 | New units | none |

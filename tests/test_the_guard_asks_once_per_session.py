@@ -331,10 +331,18 @@ def test_a_path_qualified_git_carries_no_allow(monkeypatch, capsys, repo):
     ):
         assert decide(monkeypatch, capsys, repo, command)[0] == "ask", command
     # ...and the spellings the LEXER hands back as the word `git` are the
-    # command `git`, so they stay allowed. Both run what `git` runs; refusing
-    # them would spend a prompt on nothing.
-    for command in ("git worktree add ../wt f", r"\git worktree add ../wt f"):
-        assert decide(monkeypatch, capsys, repo, command)[0] == "allow", command
+    # command `git`, so they stay allowed. Refusing them would spend a prompt
+    # on nothing.
+    assert decide(monkeypatch, capsys, repo, "git worktree add ../wt f")[0] == "allow"
+    # `\git` is TWO different commands and the boundary is right about both.
+    # On POSIX the backslash escapes the `g` and the lexer hands back the word
+    # `git`, so it is the command `git` and stays allowed. On Windows `\` is
+    # the path separator, so `\git` names a file at the drive root -- exactly
+    # what this case refuses above, and `ask` is the correct answer there.
+    # Asserting one of the two on both platforms is what CI's Windows leg
+    # caught: the guard was right and this case was not.
+    want = "ask" if os.name == "nt" else "allow"
+    assert decide(monkeypatch, capsys, repo, r"\git worktree add ../wt f")[0] == want
     assert wg.only_creates_a_worktree(
         "git -C /elsewhere worktree add ../wt f", str(repo)
     )
