@@ -178,6 +178,32 @@ def test_the_absence_names_the_path_and_the_convention(repo):
     assert "--report" in out, out
 
 
+def test_a_directory_at_the_report_path_is_refused_as_a_directory(repo):
+    """`isfile` is False for two states, and the message named only one.
+
+    A reviewer that made the directory instead of the file read `no report at
+    <path>` about a path with something at it — the one reading this guard
+    exists to rule out, because nobody typed the path and *nothing is there*
+    is therefore not a typo the reader can go and find. Both leads still
+    carry the convention: the path, the document that fills it, and the flag
+    that names one written elsewhere.
+    """
+    declared(repo)
+    (repo / ROUNDS / REPORT_NAME.format(n=1)).mkdir(parents=True)
+    code, out, text = run_new(repo)
+    assert code == 2, out
+    assert text is None, "a record was written from a directory"
+    assert "is a directory" in out, out
+    assert "no report at" not in out, (
+        "the refusal still says nothing is at a path that has a directory at it"
+    )
+    # The tail the absence carries too — a lead that drops it leaves the
+    # reviewer knowing what is wrong and not what to do.
+    assert REPORT_NAME.format(n=1) in out, out
+    assert "warden.md" in out, out
+    assert "--report" in out, out
+
+
 def test_a_report_beside_a_record_is_not_a_record(repo):
     """`rounds/` now holds a second file per round, and only one is a record.
 

@@ -737,8 +737,18 @@ def report_path(rounds, n, given):
         return given
     path = os.path.join(rounds, REPORT_NAME.format(n=n))
     if not os.path.isfile(path):
+        # `isfile` is False for two different states and the message named
+        # one. A reviewer that made the directory instead of the file read
+        # `no report at <path>` about a path with something at it, which is
+        # the one reading the guard has to rule out -- it exists to be
+        # readable by somebody who typed no path (#228, round 1 ⬜ 6).
+        lead = (
+            f"{path} is a directory, and the report is a file"
+            if os.path.isdir(path)
+            else f"no report at {path}"
+        )
         raise Refused(
-            f"no report at {path} and no --report. The reviewer writes its "
+            f"{lead}, and no --report. The reviewer writes its "
             f"report there and returns the path (`agents/warden.md` §Report), "
             "and this reads it from where the reviewer left it rather than "
             "from a copy somebody retyped (#228). `--report <path>` names one "
@@ -2499,7 +2509,15 @@ def close(args):
     reader, routing, root, _item, rounds = where(args)
     target = os.path.join(rounds, f"round-{args.round}.md")
     if not os.path.isfile(target):
-        raise Refused(f"{target} does not exist — `close` fills a record `new` wrote")
+        # The second member of ⬜ 6's class, same cause: `isfile` is False for
+        # a directory too, and `does not exist` about a path that has one is
+        # the reading the message has to rule out.
+        raise Refused(
+            f"{target} is a directory, not a record — `close` fills a record "
+            "`new` wrote"
+            if os.path.isdir(target)
+            else f"{target} does not exist — `close` fills a record `new` wrote"
+        )
     a, b = parse_range(root, args.range)
     fixes = fix_table(reader, args.fixes)
 

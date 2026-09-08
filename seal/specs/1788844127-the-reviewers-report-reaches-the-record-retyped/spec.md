@@ -39,7 +39,7 @@ the rejected alternative.
 | The flag still wins | Given a report at some other path · when `--report <that path>` is passed · then that file is read and the conventional one is not | executed — same module |
 | The absence is named | Given neither the flag nor a file at the conventional path · when `new` runs · then it refuses, and the message names the path it looked at | executed — same module |
 | A report is not a record | Given `rounds/` holds `round-3-report.md` beside `round-3.md` · when any reader of `rounds/` runs · then only `round-3.md` is a record | executed — `routing.round_number` returns `None` for the report name |
-| The reviewer is told where to write | Given `agents/warden.md` · when a warden reads it · then it names the path, says it returns it, and says the write happens in the clone | read + pinned — a case asserts the sentences are there (§14) |
+| The reviewer is told where to write | Given `agents/warden.md` · when a warden reads it · then it names the path, says it returns it, and says the write happens **in the repository under review** — not in the clone, and it gives the clone's unstated lifetime as the reason | read + pinned — a case asserts the sentences are there (§14) |
 
 ## Data & interfaces
 
@@ -58,5 +58,11 @@ is what makes the convention checkable rather than remembered.
 ## Open questions → questions.md
 
 Q1 — which checkout the reviewer's report is written in — is answered there,
-with the orchestrator named. The implementation takes the answer that needs
-no change to `agents/warden.md`'s clone rule.
+with the orchestrator named. The implementation writes the report into the
+repository under review, which is the answer that **does** change
+`agents/warden.md`'s clone rule: it adds a named exception directly beneath
+it, for this one file. `plan.md`'s constraint table calls that rule *"the
+wall"*, and the exception is the cost the chosen design pays. The reading
+that needed no change to it was the rejected alternative — the report written
+inside the clone — and `plan.md` §*Alternatives considered* says why the
+clone's unstated lifetime is what rules it out.
