@@ -45,7 +45,7 @@ runs on every pull request.
 
 | Scenario | Given / When / Then | Verifiable how |
 |---|---|---|
-| The measured instance | Given PR #162's real body, which writes `Closes #153 and #150` / When the check reads it / Then `#153` is reported claimed, `#150` mentioned, and one warning names the sentence | Executed against the live body fetched with `gh pr view 162`. Not committed as a fixture — it carries a `claude.ai` URL that `tests/test_no_real_identifiers.py` refuses |
+| The measured instance | Given PR #162's real body, which writes `Closes #153 and #150` / When the check reads it / Then `#153` is reported claimed, `#150` mentioned, and one warning names the sentence | Executed against the live body fetched with `gh pr view 162`. Not committed as a fixture — it carries a session URL on a domain outside the fixture allowlist, which `tests/test_no_real_identifiers.py` refuses |
 | The comma spelling | Given `Closes #1, #2` / When the check reads it / Then `#1` is claimed, `#2` mentioned, one warning | `tests/test_a_body_naming_two_issues_claims_one.py` |
 | A body quoting the failure inside a fence | Given a body whose fenced block holds `Closes #1, #2` as an example of the defect / When the check reads it / Then it reports nothing at all — no claim, no mention, no warning | Same module, and executed against a hand-written body |
 | A body quoting it in an inline span | Given `` see `Closes #1, #2` in the ticket `` / Then nothing is reported | Same module |
