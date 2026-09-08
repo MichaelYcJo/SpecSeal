@@ -213,7 +213,7 @@ it writes the hash and never the column.
 
 - `seal/ledger.md:1203`, *The class check cannot pass vacuously*,
   `test_the_refusal_above_can_actually_fail@56d55d18` → `@d3aa66c9`.
-- `seal/ledger.md:1418`, R5, `evidence_check.py#unread_items@26161a0a` →
+- `seal/ledger.md:1418`, R5, `skills/evidence-check/scripts/evidence_check.py#unread_items@26161a0a` →  <!-- NAME NOT IN TREE -->
   `@1edf61c5`.
 
 **Executed**: in both regions the only edit is that rider's own date digit —
