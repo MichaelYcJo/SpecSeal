@@ -19,6 +19,32 @@ jobs:
         with:
           fetch-depth: 0
 
+      # A closing keyword claims the ONE number that follows it. PR #162's
+      # body wrote `Closes #153 and #150`; the 0.8.0 release closed #153 and
+      # left #150 open, and somebody closed it by hand afterwards. Nothing
+      # malfunctioned — GitHub reads it that way and so does
+      # `close_issues_on_release.py`, whose own comment says so two lines
+      # above its regex. The rule was written down in the one file whose
+      # author needs it least while the prose is being written.
+      #
+      # So this reports the split — every number the body claims, every one it
+      # merely mentions — and never fails. A check that goes red on prose
+      # stops a release for a false positive, and one measured occurrence does
+      # not buy that. Its only non-zero exit is a step handed no body at all.
+      #
+      # FIRST among the steps, because the gates below it can stop the job and
+      # a reminder nobody reaches is not a reminder — and a body is most worth
+      # rereading on a build that is already red.
+      #
+      # The body goes through `env:`. It is text whoever opens the pull
+      # request wrote, and `${{ }}` inside `run:` is textual substitution into
+      # a shell script.
+      - name: every issue this pull request claims, and every one it only names
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        shell: bash
+        run: python3 .github/scripts/issue_claims_check.py
+
       # Updates are keyed to the version in plugin.json, not to commits — a
       # change to what ships that leaves the version alone reaches nobody.
       - name: a change to what ships must move the version

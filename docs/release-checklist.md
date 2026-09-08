@@ -17,6 +17,26 @@ running.
       commit; the corrections then need a pull request of their own.
 - [ ] `docs/flow.md` has every item of the release ticked except the release
       line itself.
+- [ ] **Squash the work items back to back, and expect the second one to need
+      the release branch merged in.** `unverified_check` takes its baseline
+      from the pull request's base, and CI does the same
+      (`origin/${{ github.base_ref }}`), so the moment one item is squashed
+      the others read its `overview.md` as *rows that left the record*:
+      present at the baseline, absent on the branch. The fix is
+      `git merge origin/release/vX.Y.Z` on the stale branch, its gate re-run,
+      and its pull request pushed again. **Never rebase it** — every round
+      record names its branch's commits by `Target SHA`, a rebase orphans
+      them, and that is the class this repository has a patch release about.
+      The merge commit costs nothing: the squash discards it. Measured on
+      the release that added this line, where three of four branches paid it.
+- [ ] **`docs/flow.md` conflicts even when the branches touch different
+      lines.** The rule that a branch writes only its own row is what keeps
+      the file mergeable, and it is not enough: the boxes sit on adjacent
+      lines, so the diff context overlaps and git stops. Resolve by keeping
+      **every** box that is ticked on either side — and check the release
+      branch afterwards, because the release that added this line lost one
+      tick to a squash that auto-merged the other side of that hunk, and
+      nothing noticed until step 0 was read again.
 - [ ] No other Claude session is working in this checkout, and the editor is
       not about to pull. An IDE pull once switched the checkout to the release
       branch between two commands, and the preparation commit landed there.
