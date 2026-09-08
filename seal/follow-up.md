@@ -27,17 +27,39 @@ which nothing can schedule.
 
 **What that costs.** Nothing forces a rider to be deleted, so a comment can
 outlive the fix it asked for and the next reader cannot tell a live one from a
-spent one. Each therefore carries the date and SHA it was verified at. The
-judgment is that a rider outliving its fix costs a confused reader for a
-minute, while a rider nobody ever sees costs the defect. **This is written
-down so it can be overturned**: if the stamps go stale faster than they are
-read, the trade was wrong and the list comes back.
+spent one. Each therefore carries **the date it was read and the content it
+was read against** — `Verified <date> against <anchor>@<hash>`, where the
+anchor is the ledger's own: a symbol name, a heading path, or a quoted line,
+resolved in the rider's own file. `.github/scripts/rider_check.py` checks
+every one and `--reverify` re-stamps them; the path the ledger writes is left
+off because a rider IS the coordinate. The judgment is that a rider outliving
+its fix costs a confused reader for a minute, while a rider nobody ever sees
+costs the defect. **This is written down so it can be overturned**: if the
+stamps go stale faster than they are read, the trade was wrong and the list
+comes back.
+
+**A stamp used to name a commit, and this repository's merge rule destroyed
+the commits it had to name** (#239). A fix pass runs on a feature branch, a
+feature branch squashes into its release branch, and the squash keeps none of
+the branch's own commits — so the check failed on the RELEASE branch, where
+whoever met it was never whoever caused it, and no mistake was required
+anywhere. `skills/evidence-check/SKILL.md` already cited that failure as one
+of the four grounds for deriving a ledger anchor from content; this is the
+same repair reaching the mechanism that supplied the evidence.
+
+A drifted rider is **the rider firing**, not a chore: it says somebody edited
+the unit and did not answer the comment sitting in it, which is the arrival
+this whole arrangement is for. Read it, then either do what it asks and delete
+it, or re-stamp.
 
 ## Schedulable items with nowhere else to go
 
 | Item | Who must answer |
 |---|---|
+| `evidence-check` ignores a ledger row whose coordinate is malformed instead of naming it. Found while writing a row during round 1's fix pass of #237: a coordinate written `path#unit@0` — a placeholder hash that is not eight hex characters — produced **no row at all**. Executed: the total stayed at 771 with the row present, `--strict` reported `0 broken`, and `--reverify` reported `0 rows re-verified`; the same row with `@00000000` was picked up and re-verified on the next run. So a typo in a hash does not drift and does not break, it removes the claim from the ledger silently, which is the one direction a checker of claims must not fail in. The fix is to count a row whose coordinate cell does not parse and name it, the way an old-format row is named; the judgment it needs is whether that counts as BROKEN or as a fourth state, since a row nobody can resolve is not a claim that drifted | the repository owner |
+| Should `chain_check.py --worktree` read routing declarations from the WORKING TREE, so `round_record.py`'s own chain-check reports *declared* in local mode instead of *examined nothing*? Work item `1788817289-local-mode-from-first-setup-to-the-gate` took the notice only (#225, Q3 of its `questions.md`), and the argument is in that item's `spec.md` §*The sharp question*. It is not unsafe on the axis `read_record`'s docstring warns about — finding a declaration makes the check demand round records, so reading the working tree there is STRICTER than reading HEAD. What is against it: the local run would then assert a chain verdict CI can never reproduce, which is a second guarantee the tree has to keep true, and a declaration is committed before the first edit by rule, so an uncommitted one is not the transient state that flag was built for | the repository owner |
 | Bring `agents/smith.md` and `agents/scribe.md` under `tests/test_docs_line_wrap.py`, together. `spec.md` of work item 1788433011 put this out of scope as a sweep at 148 and 160 columns. Both are now measured, with that test's own rules, at phase 4 of that item (2026-09-03, `4b85d80`): the scribe has **one** prose line over the limit (`:22`, 160 columns) and the smith **two** (`:22`, 148; `:95`, 109) — three lines in total, which is a rewrap and not a sweep. The size argument is therefore spent, and what is left is the one that decides it: adding a path to `COVERED` changes what a test guards, which `CONTRIBUTING.md` asks a separate argument for, and covering one definition and not the other reads as an oversight. So the two go in one change, with that argument | the repository owner |
+| **Five more scripts die below the supported floor with a bare traceback, the way `round_record.py` did before #226.** Enumerated by construction in `seal/specs/1788789985-round-record-dies-on-python-3-9/spec.md` §*The class, enumerated by construction*, which is where the file and line of each one lives, and re-enumerated on every suite run by `tests/test_a_script_says_which_interpreter_it_needs.py#test_no_shipped_script_needs_more_than_the_floor_without_saying_so`, so this row is a decision waiting rather than a fact that can go stale. **No coordinate is repeated in this row, on purpose**: the rule above sends anything tied to one to a `# RIDER:` at the line, and `tests/test_a_rider_reaches_its_file.py#test_no_schedulable_row_carries_a_coordinate` enforces it — the first version of this row carried five and turned that case red, which is the rule catching exactly what it was written for. `gather_changelog.py` and `fold_ledger.py` use `datetime.UTC` (3.11) and are named after a literal `python3 ` in `CONTRIBUTING.md` and `docs/release-checklist.md` §3, so a release run on a 3.9 or 3.10 `python3` fails at the moment it writes the dated heading. `session_cost.py` is the same construct spelled behind `import datetime as dt`, and it ends the run report `docs/review-handoff-protocol.md` §*After a run* points at. `seal.py` is the same construct and **was not touched because another work item in this release holds that file**. `root-migrate.py` uses `zip(..., strict=True)` and is reached through `hooks/hooks.json`'s session-start dispatch, so it fails while migrating a 0.3.x layout, in a hook, where nobody is reading. The fix is fifteen lines each, copied from `skills/code-review/scripts/round_record.py#below_floor`, which was written to be copied and says so. **What needs a person is not the fix, it is whether these belong in the tracker instead**: this file's own opening says a repository with a tracker should normally hold none of these, and the handoff for #226 asked for them here | the repository owner |
 
 ## Riders waiting on a file another branch holds
 

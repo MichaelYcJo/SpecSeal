@@ -69,6 +69,105 @@ def test_the_warning_names_both_commands_in_order(hook, repo):
     assert "restart" in msg.lower()
 
 
+def test_the_warning_names_the_cheap_move_before_the_expensive_one(hook, repo):
+    """`/reload-plugins` costs no session and a restart costs the one you are
+    in, so the cheaper move is named first — and the notice may not oversell
+    it. The experiment behind this
+    (`docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.md`,
+    run 6) measured one thing: a preloaded skill body handed to a SPAWNED
+    AGENT is re-read at a reload. It measured nothing about hooks and nothing
+    about agent definitions, and its sentinel sat in the running version's own
+    directory, so it says nothing about picking up a newly installed one
+    either.
+
+    THE WHOLE MESSAGE IS PINNED, EXACTLY, because a predicate over this prose
+    cannot be written. Four were tried and each was blind one word over:
+
+      1. the words appear anywhere in the message;
+      2. the words appear in the SENTENCE that makes the claim;
+      3. the clause from `install` to the next comma carries the negation;
+      4. and no adversative from a four-word list follows it.
+
+    `unmeasured, yet it is picked up` walks through all four and tells a user
+    the opposite of what run 6 found. English has more ways to hand an axis
+    back than a list can hold, so this stops being a list.
+
+    What that costs, stated rather than discovered: a legitimate rewording
+    fails this case. That is the cost being accepted, because the wording IS
+    the contract here — it is what a user reads about what was measured, and
+    whoever changes it should have to state the new text deliberately instead
+    of satisfying a checker.
+
+    What this does NOT do is check a REWORDING. An author who changes the
+    notice and pastes the new text in here passes both cases — measured, with
+    the golden brought along each time: an overclaim added to the reload's
+    claim, the gap flipped to `unmeasured, yet it is picked up`, the restart
+    named before the reload, and the `measured` and `skill bodies` labels
+    dropped. Every one left the module at `18 passed`.
+
+    The one property the pair still holds across a rewording is the scope
+    qualifier, because
+    `test_the_notice_agrees_with_the_docstring_about_what_a_reload_re_reads`
+    looks for it independently. Everything else is carried by the message
+    below, which is an instruction to a person rather than a check.
+    """
+    opt_in(repo)
+    out, _ = drive(hook, repo)
+    msg = json.loads(out)["systemMessage"]
+
+    assert msg == (
+        "SpecSeal 0.8.0 is out; this session is running 0.7.1.\n"
+        "Run /specseal:update — it takes the release and tells you what is in "
+        "it, which the version number does not.\n"
+        "By hand: `claude plugin marketplace update specseal` then "
+        "`claude plugin update specseal@specseal`, in that order. The second "
+        "alone reports 'already at the latest version' against stale local "
+        "data.\nThen load it. /reload-plugins costs no session, and what was "
+        "measured is a re-read of preloaded skill bodies out of the copy you "
+        "are already on. Whether it reaches hooks, agent definitions, or the "
+        "version you just installed is unmeasured, so restart for those."
+    ), (
+        "the notice changed. State the new text here deliberately — and check "
+        "it against run 6: the reload's claim carries its subject and the copy "
+        "it re-reads, and all three unmeasured axes are named as unmeasured "
+        "rather than left to silence"
+    )
+
+
+def test_the_notice_agrees_with_the_docstring_about_what_a_reload_re_reads(hook):
+    """The module docstring scopes a reload to the copy already in force. A
+    notice that sells the reload as the way to load the NEW version contradicts
+    the file it lives in, and the contradiction is silent: the docstring is at
+    the top of the module and the string a user reads is near the bottom, so
+    nobody editing one has the other on screen.
+
+    What this case checks is the PRESENCE half of that agreement: the notice
+    carries the scope qualifier the docstring states. The absence half — that
+    no sentence claims the reload picks up the newly installed version — is
+    pinned in the case above, because a mutation that appends `and out of the
+    one you just installed` to the reload's claim leaves every phrase this
+    case looks for standing.
+
+    The docstring is read whitespace-normalised: it is hand-wrapped prose, so
+    `out of that same copy` straddles a line break and a raw `in` is False
+    against the very text it is checking.
+    """
+    doc = " ".join((hook.__doc__ or "").split())
+    assert "out of that same copy" in doc, (
+        "the docstring no longer scopes the reload to the copy in force, so "
+        "this case is comparing the notice against nothing"
+    )
+
+    msg = hook.notice((0, 7, 1), (0, 8, 0))
+    claim = next((s for s in msg.replace("\n", " ").split(". ") if "/reload" in s), "")
+    assert claim, "the notice names no reload for the docstring to disagree with"
+    assert any(
+        q in claim.lower() for q in ("already on", "in force", "already running")
+    ), (
+        "the docstring scopes the reload and the notice does not; a user reads the notice"
+    )
+
+
 def test_silent_when_current(hook, repo):
     opt_in(repo)
     out, _ = drive(hook, repo, running=(0, 8, 0), remote=(0, 8, 0))

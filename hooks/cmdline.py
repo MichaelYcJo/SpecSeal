@@ -1781,7 +1781,7 @@ def _git_options(rest):
     # composing paths and becomes a resolved (git-dir, work-tree) pair, which
     # `apply_chdir` below cannot express. The rider is here rather than on the
     # guard because this is the file the fix is in.
-    # Verified 2026-08-31 at 9829412.
+    # Verified 2026-08-31 against _git_options@802768ca.
     takes_value = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
     i, chdirs = 0, []
     while i < len(rest):
@@ -1824,7 +1824,7 @@ def parse_git(tokens):
     # segment would still need a directory, and `Unresolved(CONSTRUCT)` is the
     # only honest one. That is a change to what the gate stops, not a parse
     # fix, and it wants its own work item.
-    # Verified 2026-08-31 at 9829412.
+    # Verified 2026-08-31 against parse_git@7693c50d.
     i = 0
     while i < len(tokens):
         t = tokens[i]
@@ -1850,6 +1850,30 @@ def parse_git(tokens):
     # subcommand — this function documents None for that, and a caller
     # testing the result for identity would read `''` as one.
     return (subcommand, rest[at + 1 :], chdirs) if subcommand else None
+
+
+def adds_a_worktree(tokens) -> bool:
+    """True when this segment is a `git worktree add`.
+
+    One reading, two readers. `hooks/worktree-guard.py` asks it of a command it
+    is about to judge, and `hooks/worktree_consent.py` asks it of one that
+    already ran; the guard's file carries a hyphen and cannot be imported by
+    name, so without a home here the two would each spell "is this a creation"
+    for themselves. That is the divergence this module's own docstring already
+    names for the splitter.
+
+    Only `add` creates anything. `list`, `remove` and `prune` are how a
+    worktree is cleaned up and are never guarded, so they are not consent
+    either.
+    """
+    parsed = parse_git(tokens)
+    if not parsed:
+        return False
+    sub, args, _chdirs = parsed
+    if sub != "worktree":
+        return False
+    positionals = [a for a in args if not a.startswith("-")]
+    return bool(positionals) and positionals[0] == "add"
 
 
 def apply_chdir(cwd: str, chdirs) -> str:

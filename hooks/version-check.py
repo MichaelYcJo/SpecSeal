@@ -14,8 +14,11 @@ user asked for it there.
 
 (The old note here said a self-updating session would run two versions at
 once. That is not what happens — the previous version stays in the plugin
-cache and `$CLAUDE_PLUGIN_ROOT` keeps resolving to it, so a session simply
-keeps what it loaded until a restart.)
+cache and `$CLAUDE_PLUGIN_ROOT` keeps resolving to it, so a session keeps the
+version it started with. `/reload-plugins` re-reads preloaded skill bodies out
+of that same copy, which is measured; what it does for hooks, for agent
+definitions, and for moving a session onto a newly installed version is not,
+and a restart is the move with no open question.)
 
 This is the plugin's second network touch, after lint-python's `uvx ruff`
 fetch, and `CONTRIBUTING.md` names it as an allowed exception. What leaves the
@@ -148,7 +151,10 @@ def notice(have, want):
         "By hand: `claude plugin marketplace update specseal` then "
         "`claude plugin update specseal@specseal`, in that order. The second "
         "alone reports 'already at the latest version' against stale local "
-        "data.\nEither way, restart to load it."
+        "data.\nThen load it. /reload-plugins costs no session, and what was "
+        "measured is a re-read of preloaded skill bodies out of the copy you "
+        "are already on. Whether it reaches hooks, agent definitions, or the "
+        "version you just installed is unmeasured, so restart for those."
     )
 
 

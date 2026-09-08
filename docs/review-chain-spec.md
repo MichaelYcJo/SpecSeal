@@ -661,6 +661,51 @@ later, and the last record has none. What that costs is a repository updating
 the plugin: every record in a work item whose declaration the pull request
 touches needs the row, not just the newest.
 
+##### The finding id — a bare integer, behind an optional severity marker
+
+The `#` cell of the verdict table, and of the `## Fixes` table that answers
+it, holds **a bare integer**: an optional severity marker, then digits and
+nothing else. `1`, `🔴 2`, `⬜ 13` are the shape; `R2-1`, `1-1`, `1b`, `A2`
+and `r3 🟡 2` are not.
+
+| The cell | What happens |
+|---|---|
+| digits, with or without a marker in front | read as that finding |
+| anything else | **refused**, naming the format, quoting the cell and quoting the whole row |
+| two rows that resolve to the same integer | **refused**, quoting **both** rows |
+
+**The rule exists because the reader used to guess.** `round_record.py` took
+the first digit run anywhere in the cell, so `R2-1` and `R2-2` were both `2`
+and a reviewer who numbered eight findings `R2-1` … `R2-8` — the round in the
+id, so a finding stays unambiguous when three rounds are read side by side —
+got *the fix table has two rows for finding 2* out of a table holding one
+`R2-1` and one `R2-2`. The first read is that the table is malformed, not
+that the ids are, and with eight rows and no coordinate the pair had to be
+found by hand (#227).
+
+**The refusal is the repair rather than an accepted prefix, and the corpus is
+why.** Every committed `round-N.md` was run through both rules before the
+format was fixed: of 130 that parse, 82 pass under either, 46 already refuse
+today, and 2 pass today only by miscounting — `r3 🟡 2` keys as finding **3**,
+out of the `3` in `r3`, and `🟢 round 2's finding (🟡 4)` keys as **2** where
+the cell names 4. So the rule takes away two wrong answers and no right one.
+Accepting a prefix instead would make two rounds' findings legal in one table
+and turn the `{number: …}` key that `close` threads through `unknown`,
+`missing`, `already` and `depth_two` into a two-part key, for a shape no
+record actually uses.
+
+**The round is already in the file name**, `rounds/round-N.md`, which is what
+the prefix was reaching for. A record read beside two others is a record whose
+path says which round it is.
+
+**Where the numbering is chosen is where the rule is stated**, not only at the
+point of refusal. The reviewer picks the numbers in
+`skills/code-review/SKILL.md` §*Findings format*; the fixer copies them into
+the fix table from `skills/implement/SKILL.md` §5. Both say bare integer, and
+so does `templates/sdd-round.md` where the column is defined — because the
+refusal lands at the orchestrator, one hop from either agent that could have
+avoided it.
+
 ##### The fix surface — `Contract changes` and `New units`
 
 Two more rows, read on every record the same way `Fixes checked by` is, and
@@ -693,6 +738,104 @@ reach; and `no call site found` when there is nothing, because the row above
 refuses a unit listed without a reach and an empty half would be the tolerant
 read that row refuses. The last three live in `round_record.py` as `PYTEST`,
 `PYTEST_ONLY` and `NO_SITE`.
+
+**`pytest only` is also what a unit pytest itself reaches gets, and that is
+not the same condition.** The clause above is about a unit's CALLERS all
+sitting under `tests/`. A collected test function has no callers at all: the
+runner calls it, so the only `test_thing(` in the tree is its own `def` line
+and the reach came back empty. The row then read `no call site found` — *this
+unit is dead* — about a case that runs on every CI leg (#211). Three shapes
+are members, each by a rule of pytest's own collection rather than by a
+convention of any repository:
+
+| The unit | How pytest reaches it |
+|---|---|
+| a `test_*` def in a file `python_files` collects | collected by name pattern, the file and the function both |
+| a fixture under `tests/`, or in a `conftest.py` pytest loads | injected by parameter name, so `name(` never occurs |
+| a `pytest_*` def in a `conftest.py` pytest loads | dispatched by the plugin manager |
+
+**Two of those three rows say where the file sits, and they say different
+things.** Collection is two rules: `python_files = test_*.py *_test.py`
+decides which FILE becomes a test module, and `python_functions = test_*`
+decides which def inside it is a case. A `test_*` def in `tests/helpers.py`
+satisfies the second and not the first, so pytest never runs it — reading the
+def name and the directory alone said *the runner covers this* about it. A
+`conftest.py` is the opposite case: pytest loads it by name and documents the
+repository root placement first, so a fixture or a hook there is reached from
+outside `tests/` exactly as one inside it is. Both were round 1's findings on
+the change that introduced this section.
+
+The directory still decides whether a conftest is loaded at all, and that is
+the second finding coming back inside the repair for the first. pytest imports
+a `conftest.py` for the test files collected at or below its own directory, so
+one with nothing collected under it — a vendored tree, a package directory, an
+examples directory, `src/` in a segregated layout — is imported by nobody and
+its fixtures are injected into nothing. Calling them the runner's is the same
+false sentence one directory over, and it is true inside `tests/` as well as
+outside it: `tests/vendor/conftest.py` with no test module under it is loaded
+no more than `src/conftest.py` is. So the name gate is not *anywhere*, it is
+*anywhere pytest would load it*, and it replaces the `tests/` gate for a
+conftest rather than sitting beside it.
+
+What that question is asked of is the tracked file list, not the runner's
+configuration. A repository that narrows collection itself — `testpaths`, a
+`confcutdir`, an `--ignore` — has conftests this reads as loaded that a
+particular run does not load, and the error runs toward `pytest only`. The
+trade is that reading the configuration means implementing pytest's own
+rootdir discovery inside a review tool, and a repository whose tests are where
+its tests are gets the right answer without one.
+
+**It is those three and not everything under `tests/`,** which is the
+boundary the rule needs to stay honest. A helper that is passed by name as a
+value and never called reads `no call site found` for a different reason, and
+saying *the runner covers this* about a unit nothing covers is #211's own
+false sentence pointing the other way. Measured at the fix: 1892 of 1947
+`test_*` defs and 8 of 42 fixtures were reading `no call site found`, against
+one helper that was reading it correctly.
+
+**One limit, recorded rather than closed: the hook arm reads `conftest.py`
+alone, and pytest is wider than that.** It registers collected test modules as
+plugins too, so a `pytest_generate_tests` in a test module really is
+dispatched and really has no call site — and it still reads `no call site
+found`. Widening the arm to every `pytest_*` def under `tests/` would catch it
+and would also catch any helper somebody named `pytest_something`, which is
+the row saying *the runner covers this* about a unit nothing covers. The
+narrower rule with the limit written down is the trade; a hook that wants the
+row moves to a `conftest.py`, where pytest looks for it first anyway.
+
+**What `Contract changes` does not see, and this paragraph is the deliverable
+rather than an apology for one.** The derivation compares a unit's
+parameters, its return arities, and its **set of returnable constant
+literals** — the last of the four `templates/sdd-round.md` promises. What
+none of the three reaches is a changed **input→value mapping**: a unit that
+keeps returning exactly the values it already returned, and changes which
+inputs reach which one.
+
+The measured instance is `tests/test_release_hygiene.py#is_a_record_of_a_moment`,
+confirmed at
+`seal/specs/1788735085-a-loaded-file-naming-a-real-version-is-a-timer/rounds/round-2.md`,
+finding 11. Its fix made it answer `False` where it had answered `True` —
+narrowing the exemption from any file under a dated directory to a file whose
+own name begins with the date. Signature unchanged, arity unchanged, return
+type unchanged, and the returnable set is `{True, False}` at both ends. The
+comparison is blind to it **by construction**, not by an oversight a later
+edit could quietly repair, because asking which inputs reach which return is
+asking what the function computes.
+
+So the residual is the reviewer's, and it belongs in the round's own verdicts
+rather than in this row. A `Contract changes` cell reading `none` means *no
+unit's parameters, arities or returnable literals moved* — never *nothing a
+caller depends on moved*.
+
+**The check ships anyway, and the order of those two facts is the point.**
+Stating the limit without the check was refused as an answer: it moves the
+work to a person, which this repository's first goal treats as the more
+expensive design. The literal-set comparison catches the sentinel case #194
+opened for — `token_thirds` returning 0 for a mean it cannot compute — and
+this paragraph says where it stops. A later session that widens the check to
+try to cover the mapping is removing a stated hole rather than closing a gap;
+what it would have to add is an answer to *which inputs reach which return*,
+which the arrow's and the comma's limits already decline for the same reason.
 
 **Leaving that vocabulary out is what made a correct cell read as a
 mistake.** A review round of the work item that added this paragraph opened a

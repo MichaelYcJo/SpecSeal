@@ -102,7 +102,7 @@ Cross-session memory lives in the repo, not the session:
 
 | Root | Lifetime | Holds |
 |---|---|---|
-| `seal/` | permanent | everything this plugin maintains — the ledger, the follow-up list, the repository's own config (the two language rows and the mode live there), the migration config — and, beneath it, the work items. Its existence is also what opts the repository in, for the four hooks that read it — the commit gate, the review-skill gate, the review-history guard and the version check. worktree-guard and session-lease act in every git repo regardless, and lint-python follows ruff (see Where below) |
+| `seal/` | permanent | everything this plugin maintains — the ledger, the follow-up list, the repository's own config (the two language rows and the mode live there), the migration config — and, beneath it, the work items. Its existence is also what opts the repository in, for the hooks that read it — the commit gate, the mode gate, the review-skill gate, the review-history guard, the two implementer hooks and the version check. worktree-guard and session-lease act in every git repo regardless, and lint-python follows ruff (see Where below) |
 | `seal/specs/<id>/` | one work item | SDD set: spec, plan, questions, and a closing memo holding only what the diff cannot show. A human approves `plan.md`, which is why this is a repository document and not tool state |
 | `docs/` | permanent | whatever policy documents the repository already keeps. **Never created here** — a project's documentation convention is its own |
 
@@ -179,7 +179,8 @@ decision tables:
 | review-skill-gate | before the model opens a skill named `code-review` | puts the choice to you rather than making it: that name is Claude Code's built-in, not this plugin's. The built-in sweeps the diff for bugs and cleanup; `specseal:code-review` judges spec compliance first and inherits earlier rounds' verdicts. Fires **once per session per working tree**, so picking the built-in and retrying goes straight through. A skill you invoke yourself never routes through here | `seal/` at the root, or under the common git dir in local mode — silent elsewhere |
 | worktree-guard | before `git checkout`/`switch`, `git worktree add`, and Agent calls with `isolation: "worktree"` | one rule in two directions: denies a switch while another session is actively working this tree, and denies creating a worktree when yours is the only live stream. Where the tree holds only idle sessions, or the environment cannot be read at all, it offers the two ways on as options instead — switch here, or split into a worktree — **once per session per repository per direction**, then the plain confirmation. The two directions are counted apart, so one session can legitimately meet the question twice. `[worktree-ok]` and `[shared-tree-ok]` carry your answer back through on the retry. The reason names the other session's host app, how long each signal has been quiet, and its last message | any git repo |
 | session-lease | after repo-touching tool calls (Bash · file edits) | writes a timestamp, host, and owning session pid to `.git/specseal-leases/<session-id>`. The guard's process heuristics miss sessions not named `claude`; a lease says outright which session is working here. Nothing removes the file at session end, so the owner is recorded: a lease whose session has exited is retired rather than counted, and one that cannot be attributed becomes a question instead of a block | any git repo |
-| version-check | at session start | asks this repository for its newest release tag and, when the running plugin is behind, shows one line naming `/specseal:update`. Once a day, and a lookup that fails retries about twenty minutes later. It never installs anything — telling you a release exists and installing it are different acts | `seal/` at the root, or under the common git dir in local mode — silent elsewhere |
+| mode-gate | before a Bash call, so in practice the session's first one | names a root nobody chose a mode for: `seal/` exists and `seal/config.md` carries no `Mode` row, so nothing records whether this repository's review records travel with it or stay on this machine — and a root somebody chose is byte-identical to one that appeared because a session followed the routing rule. Denies once with the three ways on as options — `seal mode` records where the folder already is and moves nothing, `seal mode shared` / `seal mode local` move it — then the plain confirmation, where approving proceeds and records nothing. **Once per session per repository**, and nothing at all once the row exists. The repository judged is the one the SESSION sits in, not one a `-C` names: this is a fact about the workspace, not a verdict about a change | `seal/` at the root, or under the common git dir in local mode — silent elsewhere, and silent wherever the row is written. There is no waiver token: the way on is one command |
+| version-check | at session start | asks this repository for its newest release tag and, when the running plugin is behind, shows a short notice naming `/specseal:update` and the two moves that load a release. Once a day, and a lookup that fails retries about twenty minutes later. It never installs anything — telling you a release exists and installing it are different acts | `seal/` at the root, or under the common git dir in local mode — silent elsewhere |
 | lint-python | after Write/Edit/NotebookEdit on a `.py` file | runs `ruff check --fix` then `ruff format` on that file — autofixes included, so code changes, not just layout (uv → uvx → global ruff; skips silently if none). `SPECSEAL_LINT=off` disables it | **a project that configures ruff** — `ruff.toml`, `.ruff.toml`, or `[tool.ruff]` in `pyproject.toml`, searched up to the repo root. Silent everywhere else |
 
 The commit gate is not the only place the review chain is enforced any more,
@@ -263,7 +264,7 @@ wrong for every other machine.
 | `/specseal:parity-setup` | declare that this repo ports from another codebase — finds the original, records the baseline |
 | `/specseal:security-audit` · `/specseal:testing` | prompt checklists the model walks — an OWASP-shaped security pass and a test-strategy pass |
 | `/specseal:config` | show what this repository decided for itself — the two languages it writes in and where its records live — and change any of it. Routes a change to whatever owns that row rather than editing behind it |
-| `/specseal:update` | take the newest release and see what is in it — runs both update commands in the right order, then names the changelog entries between your version and the new one. Restart to load it |
+| `/specseal:update` | take the newest release and see what is in it — runs both update commands in the right order, then names the changelog entries between your version and the new one. It also names both ways to load it and how far each one was actually measured |
 | `bash install.sh [--project]` / `bash uninstall.sh` | add / remove the CLAUDE.md marker block |
 
 **Inline switches:**
@@ -308,14 +309,21 @@ bash install.sh --project  # non-interactive project scope
 
 It runs both commands below in the right order and then names the changelog
 entries between your version and the new one, calling out anything that
-changes behavior or needs you to do something. Restart to load it; the session
-you are in keeps the version it started with, so nothing is half-applied.
+changes behavior or needs you to do something. The session you are in keeps
+the version it started with either way, so nothing is half-applied.
+
+Then load it. `/reload-plugins` re-reads the preloaded skill bodies a spawned
+agent is handed, out of the copy your session is already on — that is what
+`docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.md` measured,
+and it is the whole of it. Nobody has measured whether a reload reaches hooks,
+agent definitions, or the newly installed version at all, so restart when you
+want the update loaded for certain.
 
 By hand:
 
 ```bash
 claude plugin marketplace update specseal
-claude plugin update specseal@specseal   # then restart
+claude plugin update specseal@specseal   # then load it — see above
 ```
 
 Both lines, in that order. The first refreshes the marketplace clone; the
@@ -366,8 +374,9 @@ evidence-check --reverify .                  # re-points each row citing a moved
 
 ## First run
 
-Four of the seven gates wake only under a condition: the commit gate, the
-review-history reminder, the review-skill gate, and the version check act in a
+Seven of the ten gates wake only under a condition: the commit gate, the mode
+gate, the review-history reminder, the two implementer hooks, the review-skill
+gate, and the version check act in a
 repo that has a `seal/` directory at its root or under its git directory, and
 stay silent everywhere else. You never create it by hand — the smith builds it
 the first time it works in a repo, after asking one question (*Shared or
@@ -505,7 +514,11 @@ choices, the review and parity marks and every lease sit *beside* the root
 under the git directory, so none of them travels — the export walks the root,
 which is why the root has to be its own directory. A symbolic link inside it
 is skipped and named rather than followed. Alongside the files goes a
-manifest naming the remote URL and the HEAD SHA at export.
+manifest naming the remote URL and the HEAD SHA at export. A field git could
+not answer is **left out** rather than written empty, so the machine taking
+the zip in can tell *this repository has no remote* from *nobody could say*.
+The export names each field it left out and why, because the machine that
+ran it is the only one that can clear the failure by running it again.
 
 **Import never overwrites and never asks.** A file that is not there is
 added. One that is there with the same bytes is left alone, so re-importing
@@ -518,12 +531,25 @@ rows drift against this tree.
 
 It refuses, writing nothing, when the zip came from another repository
 (`--allow-other-repo` if the two are one repository under two spellings),
+when the remote could not be read on either side and so that question cannot
+be answered at all (`--allow-unreadable-remote` to import without the check —
+a separate flag, because *there is no remote* and *nobody could say* are
+different facts),
 when the manifest declares a format this build does not read,
 when a member would land outside the root, when a member or the whole zip
 declares more bytes or more members than a root of records holds, when a
 member cannot be read — a bad checksum, encryption, a compression method this
 build has no decompressor for — when a name has to be a directory for the zip
 and is a file, and when both roots already exist.
+
+Which side went silent decides what the unreadable-remote refusal tells you
+to do next. A git that failed *here* may answer on the next run, so running
+the import again is the first thing to try. A zip that records no remote
+reads the same every time, and no re-run there can change it — that one is
+exported again on the machine that wrote it, which is also the machine whose
+export said which field it had to leave out. When both went silent at once
+the zip decides, because no re-run here clears that side whatever this
+clone's git answers next.
 
 Those all stop before the first byte. One failure cannot: if a directory in
 the root cannot be written into, or the disk fills, the copy stops part-way

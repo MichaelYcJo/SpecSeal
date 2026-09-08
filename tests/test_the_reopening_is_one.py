@@ -161,6 +161,31 @@ def record(
     )
 
 
+# RIDER: `no call site found` has a second cause and #211 repaired only the
+# first. This def is passed by name as a VALUE at five sites and never
+# called, so the `name(` that `round_record.py#call_sites` greps for occurs
+# in no OTHER code than its own `def` line below — 1 of 483 helpers under
+# `tests/`, enumerated at `ba22b28`. Reading a bare `name` in an argument
+# position would reach it and would also name every mention of the word, so
+# the repair is not the one #211 took. If you open this file, decide whether
+# a reach walk should follow a callable passed as a value at all; the
+# answerer is the repository owner.
+#
+# Round 2 re-derived that over all 3052 top-level defs in the 114 tracked
+# `.py` files, and this def no longer demonstrates it. `call_sites` greps
+# EVERY tracked file rather than the Python ones, and this work item's own
+# `rounds/round-1.md` and `rounds/round-1-report.md` quote the `def` line
+# below verbatim in a paste-ready fix — so the row now names two records as
+# this def's reach. Executed: `no call site found` at `ba22b28` and
+# `ffd1d05`, `round-1-report.md, round-1.md` from `824bfca` on. A committed
+# record that quotes code invents a call site for the unit it quotes, which
+# is a defect of `round_record.py#call_sites` and not of this def; it is
+# deferred to the repository owner with the rest of round 2. The unit still
+# reading `no call site found` for the value-passing cause is
+# `tests/test_the_records_can_be_carried_out_and_in.py#timed_out`, passed at
+# six sites and never called, which arrived with the merge of
+# `release/v0.9.1` and did not exist when round 1 enumerated.
+# Verified 2026-09-08 against floor_record@bba5c7a1
 def floor_record(sha):
     """A record that met the floor and whose verdicts closed without a fix."""
     return record(sha)
@@ -397,6 +422,17 @@ def test_this_repositorys_own_records_are_not_refused_by_the_reopening_walk():
     reader = _load("reader_for_reopening", chain.READER)
     routing = _load("routing_for_reopening", chain.ROUTING)
     records = _real_records()
+    # `round-*.md` is git's pathspec and git has no way to say "and then a
+    # number", so the glob also carries the files the review chain writes
+    # BESIDE a record -- `round-N-report.md`, `round-N-asked.md`,
+    # `round-N-fixes.md`. `routing.round_number` answers None for those, and
+    # two Nones in one work item made the sort below raise
+    # `TypeError: '<' not supported between instances of 'NoneType' and
+    # 'NoneType'` rather than fail an assertion. `chain_check.py#round_records`
+    # already drops them on the same test; this is the reader that did not.
+    records = [
+        r for r in records if routing.round_number(os.path.basename(r)) is not None
+    ]
     assert records, "no round records found — the glob or the layout moved"
     by_item = {}
     for rel in records:

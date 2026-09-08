@@ -29,6 +29,7 @@ actually live on the tree.
 
 | Tree state | Decision |
 |---|---|
+| **this session already created a worktree in this clone** | **allow** where the tool call is worktree creation and nothing else · **ask** where the command does more · **silent** on the Agent/Task path. Read before every row below it — see §Creation consent |
 | ACTIVE session present | ask — separation justified, creation still needs a human. Declining leads to "use the worktree that session opened, or wait for it", neither of which is a command this session issues, so there is nothing to offer |
 | only IDLE sessions | **choice** — create it, or switch in the shared tree; likely single-stream |
 | detection unusable | **choice** — the same two |
@@ -59,6 +60,175 @@ step outright costs nothing and removes the guessing. So the Agent verdict
 does not depend on the prompt at all, and its reason names the only way on it
 actually has: call the Agent again without `isolation: "worktree"`.
 
+## Creation consent — the first creation is the question, not every one
+
+The guard used to answer creation with `ask` at every site that reached it, so
+no path through it cost zero prompts and the cost grew with the number of
+worktrees. Measured on the release run that opened #237, on 2026-09-08: six work items on six branches
+needed six `git worktree add` calls, and the guard held the run at all six. An
+unattended run reaches the first and stops there, which is the one shape
+`CONTRIBUTING.md`'s prompt-budget rule has no room for.
+
+`[worktree-ok]` cannot fix that, and the reason is the same one `has_token`
+gives: the token is written into the command by whoever issues it, so the model
+can write it on the first attempt, and reading it as consent turns the guard
+off with nobody asked.
+
+**What separates the first creation from the sixth is available without
+trusting any token.** The harness only runs a `git worktree add` that was
+permitted, so a `PostToolUse` observation of one that actually ran is written
+**after** the answer rather than before the question. That is the one thing a
+command text cannot forge.
+
+| | `[worktree-ok]` | the consent record |
+|---|---|---|
+| written by | whoever issues the command | the `PostToolUse` hook |
+| written when | before the question | after the answer |
+| forgeable by the model | yes | no |
+
+`hooks/worktree_consent.py` writes it, on both entry points, and
+`guard_worktree_creation` reads it. What changes is one invariant: *creating a
+worktree always takes one confirmation* becomes *the first creation of a
+session takes one*.
+
+**The record.** An empty file at
+`<git-common-dir>/specseal-worktree-consent/<session-id>`; its existence is the
+whole fact, the way the choice marker's is.
+
+- **A third directory, not a value in `specseal-worktree-choice/create/`.**
+  That marker is written by `PreToolUse` before the answer and means *the
+  question was put*, so one shared file would let the guard read its own
+  question back as consent. The two also fail in opposite directions — an
+  unwritable choice marker counts as **already asked**, an unwritable consent
+  record counts as **no consent** — and one file cannot fail two ways.
+- **The common git directory, not the per-worktree one.** The record stands
+  for *this session may split this clone into worktrees*, and a linked worktree
+  is the same clone. A session that creates its first worktree from the main
+  tree and its second from inside a linked one has made one decision, so it
+  pays for one.
+- **No expiry and no pruning.** A session id is already scoped to a session, so
+  a time bound can only produce one new outcome: a session that outlives it is
+  asked a second time, which is the failure this removes.
+- **A failed `git worktree add` records too.** The record is about the
+  approval, which happened; the retry after a failure — a path that already
+  exists, a branch already checked out — is the worst moment to put the
+  question again.
+- **An unwritable record leaves none**, silently, and the next creation asks.
+  A crash would be worse than the prompt it saves: a hook that raises dies with
+  stdout empty, which is how a hook says *nothing to see here*.
+
+**Why the allow is bounded.** `permissionDecision: "allow"` bypasses the user's
+own permission settings for the **whole** tool call, and a creation is
+routinely written as one segment of a compound. The record is about worktree
+creation, so the guard speaks for a command that is worktree creation and
+nothing else; anything more is an `ask` about the rest of the command line,
+never a deny about the worktree. A command the lexer gave up on is not vouched
+for either — what it could not read is what the allow would be covering.
+
+**And a segment is more than its command word.** *Nothing else* used to be
+asked of the compound only, which is what a `&&` or a `;` produces — and a
+shell runs a great deal inside one segment. Review round 1 executed eleven
+shapes that were vouched for with a record present: `$( )`, backticks, `>`,
+`>>`, `<`, `2>`, `<(…)`, a subshell, a heredoc, `sudo`, `env VAR=…` and a bare
+`VAR=…`. Two were run in a real shell and did what a shell does — the
+substitution created its marker, the redirection truncated a file — under an
+allow that had already covered the whole tool call.
+
+Two tests are the bound now, and both are about one segment rather than the
+command: **the segment's command word is the word `git`**, which
+`cmdline.parse_git` deliberately does not require (it reads past `sudo`, `env`
+and a leading `VAR=val`, because the question IT answers is *is this a git
+invocation*); and **no token carries an expansion or a redirection** — `$`, a
+backtick, `<` or `>`. A glob and a `~` in an ARGUMENT are left alone on
+purpose: both expand and neither runs anything. A trailing `&` is left alone
+too — it backgrounds the creation and runs nothing else, and `… & rm -rf
+<path>` is two segments where the second one fails the first test.
+
+**The first test is exact equality, because a basename is not an identity.**
+It compared `os.path.basename(tokens[0])` for one release, and review round 2
+executed the consequence with a record present: `./git`, `../git`, `bin/git`,
+`/tmp/evil/git`, `~/git` and `*/git worktree add …` all answered `allow`. That
+allow covers the whole tool call, so a session that had **one** creation
+approved could then run any executable on the machine by giving it a filename
+of `git` — and the reason this test exists, that a hook must not speak over a
+user's own `permissions.deny`, does not stop at `sudo`.
+
+The boundary the code implements is *a command word carrying no separator, so
+the shell resolves it on `PATH`*. Anything with a `/` in it names a file this
+hook cannot identify. Re-enumerated by construction over 32 command-word
+shapes, exactly five are vouched for, and all five are the word `git` after
+lexing: `git`, `\git`, `'git'`, `"git"` and `g"i"t`. Every path, every
+expansion (`~/git`, `*/git`, `gi*`, `$GIT`, `` `which git` ``), a different
+case, a trailing slash, every wrapper and every leading assignment falls to
+`ask`. What that costs is one prompt on `/usr/bin/git worktree add …`, which is
+the trade already made for `$` and `>`: a wrong deny spends a prompt, a wrong
+allow signs for a binary nobody identified.
+
+**A creation the guard never judged used to mint the record.** The guard's
+`PreToolUse` walk classifies the **first** segment it can read, while
+`hooks/worktree_consent.py` records for a creation **anywhere** in a command
+that ran. Any first segment with a verdict of its own therefore took the
+decision and the creation ladder never ran. Executed at round 1, clean
+single-stream tree, no record: `git worktree add ../wt f` denied and
+`git status && git worktree add ../wt f` denied — `git status` classifies to
+nothing, so the walk moved on — but `git switch feature/x && git worktree add
+../wt f` was **silent**, the shell created the worktree, and the session held
+session-wide consent from that point. The model never had to forge the record;
+it only had to choose which question got asked, and the first segment is where
+that is chosen.
+
+The switch ladder keeps every verdict it had. Making the creation outrank the
+earlier verdict closes the same hole and costs a protection: a switch denied
+because another session is working in the tree would become an `ask` about the
+creation, and the branch would still be taken out from under that session one
+approval later. **So the creation is judged between the ladder's two halves.**
+
+| Switch-ladder row | Order | Why |
+|---|---|---|
+| ACTIVE session | above the creation | the one row that denies unconditionally. A `deny` stops the creation along with the rest of the command, and making a creation outrank this would turn it into an `ask` while the branch is still taken out from under the other session, one approval later |
+| only IDLE · detection unusable | **both**, and the branch decides | these are [choice sites](#choice-sites): they deny **once** per session per direction and `ask` on every attempt after. The deny keeps its precedence, because it stops the whole command line. The `ask` does not — approving it runs every segment while its own text asks about the switch — so that branch hands the creation its verdict first, through `choose`'s `before_ask` |
+| **the creation** | | |
+| tracked changes present | below | its own text says *the switch is allowed* — it protects no tree, it asks whether uncommitted changes should ride along. Approving it created the worktree too, so whether the creation was questioned came down to whether the tree happened to be dirty. Executed: the same command denied on a clean tree and asked about the changes on a dirty one |
+| single stream, clean | below | says nothing at all. This is where `git switch feature/x && git worktree add ../wt f` ran unjudged and minted session-wide consent |
+
+**Reading *"the three rows above all deny"* off that first row is what put row
+2 in this table twice.** It was written when the creation sat below all three,
+and it was true of the first attempt in a session and false of every attempt
+after. Executed at round 2, in both the idle and the detection-unusable state:
+the same `git switch feature/x && git worktree add ../wt f` answered `deny`
+then `ask`, the `ask` read *Approve — switch branches in this shared tree*, and
+approving it created the worktree and minted session-wide consent with the
+creation question never put.
+
+The guard's other silent exit is earlier, at `if not top`, and it has the same
+hole: it is reached when the shell is outside any repository while a `git -C
+<repo> worktree add` in the same command is not. That one falls through too.
+
+**The property, measured rather than the shapes.** Whatever the writer would
+record for, the guard has either denied it — which stops the whole command
+line — or put the creation question in the text of its `ask`. Re-derived after
+the change over 21 command shapes × 5 tree states × 2 shell directories × 2
+record states × 3 attempts, which is **1260 combinations**: 230 of them are
+cells the writer records for, and **0** of those reach a verdict that lets the
+command run without the creation question. With both round-2 fixes reverted the
+same sweep finds **64**, all of them the second and third attempt at a
+switch-then-create in the idle or detection-unusable state.
+
+**Why the Agent/Task path is silent rather than an allow.** That call is a
+worktree creation *plus* an agent with a prompt, and the record is about the
+first half. Silence is the guard withdrawing its objection, which is the whole
+of what the record establishes; whatever the harness asks about running the
+agent is not the guard's to remove.
+
+**What does not change.** A session with no record still asks at every site,
+and the single-stream row still denies and steers to `git switch`. The switch
+direction never reads the record: a creation the user agreed to says nothing
+about taking another session's branch out from under it.
+
+**The prompt budget.** One per session, from one per worktree unbounded — for a creation written on its own, which is the form the measured six took. Re-measured after round 2's fixes, six creations in one session on a clean single-stream tree: **deny, allow, allow, allow, allow, allow**.
+A creation written as one segment of a compound still costs one
+prompt each time, and so does one carrying an expansion, a redirection, a wrapper or a **path-qualified command word**, because that is exactly what the bound above refuses to speak for. The last of those is what round 2's second fix added to the list, and it moves nothing in the budget: `git worktree add …`, the same backgrounded, and the `\git` spelling all still allow.
+
 ## Choice sites
 
 A hook decision renders as approve/decline and the model never gets the turn,
@@ -75,6 +245,16 @@ or `deny` are the ones that fail it.
 A choice deny and the ACTIVE-session block are both `deny`; the reason is what
 tells them apart.
 
+**The two branches have opposite standing for whatever else is on the command
+line, and only one of them is a protection.** The deny stops the WHOLE command,
+so anything written beside what the site is asking about is stopped too. The
+fallback `ask` does not: approving it runs every segment, while its own text
+asks about one of them. So a site reading a choice deny as *this row protects
+the tree* is reading the first attempt only. `choose` takes a `before_ask`
+for that reason — a judgment the fallback yields to, run on that branch alone,
+which is how the switch ladder's two choice rows keep their deny and stop
+deciding whether a creation on the same line is questioned at all.
+
 **Once per session per direction**, not per site. The marker is
 `<git-dir>/specseal-worktree-choice/{create,switch}/<session-id>`, and the
 session id is reduced to its basename first — it names a file, and
@@ -86,6 +266,12 @@ and the switch then got the two-button prompt this design exists to replace
 (measured). Splitting per site would buy nothing — within a direction the
 sites are mutually exclusive on tree state — while costing a second question
 whenever the model retries with a token and lands on a neighbouring site.
+
+**Not the same record as creation consent**, and the difference is what keeps
+them apart in one directory listing: this marker is written by `PreToolUse`
+before the answer and means *the question was put*; the consent record is
+written by `PostToolUse` after it and means *a creation ran*. §Creation consent
+holds the rest.
 
 An unwritable marker counts as already asked: one missed question beats a deny
 nothing can get past. Every attempt after the first gets the decision the site

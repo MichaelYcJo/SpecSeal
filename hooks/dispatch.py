@@ -33,7 +33,7 @@ from contextlib import redirect_stderr, redirect_stdout
 HOOKS = os.path.dirname(os.path.abspath(__file__))
 
 GROUPS = {
-    "pre-bash": ("commit-review-gate.py", "worktree-guard.py"),
+    "pre-bash": ("commit-review-gate.py", "worktree-guard.py", "mode-gate.py"),
     "pre-agent": ("worktree-guard.py", "implementer-mark.py"),
     "pre-skill": ("review-skill-gate.py",),
     "post-bash": (
@@ -41,7 +41,13 @@ GROUPS = {
         "implementer-notice.py",
         "session-lease.py",
         "evidence-advisor.py",
+        "worktree_consent.py",
     ),
+    # The AFTER half of the worktree guard, and the only group that exists for
+    # one gate. It cannot join `pre-agent`: what it records is that the call
+    # RAN, which is the whole of why the record is evidence a command text
+    # cannot forge.
+    "post-agent": ("worktree_consent.py",),
     "post-edit": ("lint-python.py", "session-lease.py"),
     # The root move precedes the ledger-format migration, because the second
     # reads the ledgers at the addresses the first creates.
@@ -91,7 +97,7 @@ def run_gate(filename, payload):
         # likeliest trigger, not the silence. Whatever replaces this has to
         # keep the isolation property `tests/test_dispatch.py` and
         # `tests/test_the_implementer_is_recorded.py` assert.
-        # Verified 2026-09-02 at 5a831e8.
+        # Verified 2026-09-02 against run_gate@fec67305.
         return ""
     finally:
         sys.argv, sys.stdin = argv, stdin

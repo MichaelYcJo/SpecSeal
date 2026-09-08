@@ -21,6 +21,14 @@ B) Worktree creation, whichever path it takes:
      - Agent/Task tool with `isolation: "worktree"` (harness-managed, lands in
        `<repo>/.claude/worktrees/<name>` and never goes through Bash)
 
+  - this session already created one in this clone  -> allow (Bash, where the
+    command is worktree creation and nothing else), ask (Bash, where it does
+    more), silent (Agent/Task). Read FIRST, above every row below it: each of
+    them asks something a person has already answered. The record is written
+    by hooks/worktree_consent.py AFTER a creation ran, which is why it is
+    evidence where `[worktree-ok]` is not -- that file holds the whole
+    argument, and the budget it buys is one prompt per SESSION rather than one
+    per worktree
   - another Claude session inside THIS working tree -> ask (concurrent:
     justified; declining leads only to "use that session's worktree or wait",
     which is not a command this session issues, so there is no choice to offer)
@@ -28,7 +36,9 @@ B) Worktree creation, whichever path it takes:
     switch in the shared tree
   - `[worktree-ok]` given                           -> ask. NOT a choice: the
     token is what a completed confirmation looks like coming back through the
-    guard, and declining it withdraws the token, which is the other way on
+    guard, and declining it withdraws the token, which is the other way on.
+    Still true, and still not consent for the NEXT creation: the token is
+    written before the question and the record after the answer
   - otherwise (single work stream)                  -> deny, steer to `git switch`
 
 CHOICE sites: a hook decision renders as approve/decline and the model never
@@ -42,6 +52,15 @@ nobody to answer (headless) pays one extra round trip and then behaves as it
 always did. Direction, not site: within one direction the sites are mutually
 exclusive on tree state, while one budget for the whole guard let a creation
 question spend the answer a later switch needed.
+
+Creation consent is a SECOND session-scoped record and deliberately not part
+of that budget: `<git-common-dir>/specseal-worktree-consent/<session-id>`,
+written only by hooks/worktree_consent.py on PostToolUse. The choice marker
+above says "the question was put" and is written before the answer; this one
+says "a creation ran" and is written after it, so one file could not carry
+both without the guard reading its own question back as consent. They also
+fail in opposite directions -- an unwritable choice marker counts as already
+asked, an unwritable consent record counts as no consent.
 
 Retry tokens, one per direction, both matched as BARE WORDS of the command
 (has_token) -- a substring test read `echo 'we documented [shared-tree-ok]'`
@@ -92,6 +111,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # module's docstring for the 496 executions per hook event it cost.
 import cmdline
 import console
+
+# The AFTER half of this guard: it owns the consent record, and this file reads
+# it. A plain filename again -- and the reason that file's name carries an
+# underscore where every other gate here carries a hyphen.
+import worktree_consent
 from cmdline import apply_chdir, parse_git
 
 
@@ -170,7 +194,7 @@ def _tokenize_with_separators(command: str, windows=None):
     # then finds no repository there and exits silently. The base hook handled
     # this form, so this one place went backwards; every other Windows form
     # (bare, double-quoted, relative) was compared against base and matches.
-    # Verified 2026-08-31 at 9829412.
+    # Verified 2026-08-31 against _tokenize_with_separators@8801e5d6.
     #
     # A `cd` operand goes through this same doubling since that fix, so the
     # single-quoted UNC form loses the repository there too and the rider now
@@ -227,7 +251,7 @@ def walk_command(command: str, cwd: str, windows=None):
 # `walk_command` and deciding whether a tokenization-only entry point is worth
 # keeping for tests. Left because that is a judgment about the test surface,
 # not a cleanup.
-# Verified 2026-08-31 at 9829412.
+# Verified 2026-08-31 against split_command@7e3ba403.
 def split_command(command: str, windows=None):
     """The segments to JUDGE: comments dropped, quoting respected.
 
@@ -313,6 +337,133 @@ def has_token(command: str, token: str) -> bool:
     return any(
         tok == token or tok.strip("()") == token for toks in segments for tok in toks
     )
+
+
+# The characters that make ONE segment do something besides run its command
+# word. The splitter has already taken `;`, `|`, `&` and the newline apart into
+# segments of their own, and `cmdline.understood` refuses a subshell, a brace
+# group, an `eval` and the reserved words, so what is left inside a single
+# segment is these four:
+#
+#   `$`   a parameter expansion, or a command substitution the shell runs
+#         BEFORE git is invoked. Executed: `git worktree add ../wt f $(touch
+#         <marker>)` created the marker under an `allow` that covered the whole
+#         tool call.
+#   `` ` ``  the older spelling of that substitution.
+#   `>`   a redirection writing a file the allow was never about. Executed:
+#         `git worktree add ../wt f > <file>` left a file that held
+#         `important` holding `''`. `2>`, `>>` and `&>` all carry this
+#         character, so one test covers the family.
+#   `<`   the input side, the `<<EOF` whose body the judgment read discards,
+#         and `<(…)` process substitution, which runs a command.
+#
+# A glob and a `~` are deliberately absent. Both expand and neither runs
+# anything, and a `~` is the form a person is most likely to type for a
+# worktree path -- refusing it would spend a prompt on the common case to buy
+# nothing. A glob or a `~` in the COMMAND WORD is refused one line below
+# instead, where `git` has to be the word itself. That sentence was written
+# while the line below compared BASENAMES, which made it false: executed,
+# `*/git worktree add …` and `~/git worktree add …` both answered `allow`.
+ELSEWHERE = "$`<>"
+
+
+def only_creates_a_worktree(command: str, cwd: str, windows=None) -> bool:
+    """True when EVERY segment of `command` is a `git worktree add`.
+
+    The bound on the allow, and the reason there is one.
+    `permissionDecision: "allow"` bypasses the user's own permission settings
+    for the WHOLE tool call, and a creation is routinely written as one segment
+    of a compound. What the consent record establishes is that this session may
+    create worktrees, so the guard may speak for a command that is worktree
+    creation and nothing else; for anything more it says `ask`, which is one
+    prompt about the rest of the command line rather than a deny about the
+    worktree.
+
+    A command the lexer gave up on is not vouched for either -- what it could
+    not read is exactly what the allow would be covering. That is the opposite
+    call from `has_token`, which widens on an unreadable command, and the
+    asymmetry is the same one that file states: widening a CONSENT read costs
+    one prompt, widening a permission decision costs whatever else was on the
+    line.
+
+    Judged from `walk_command`, so a creation written inside a quoted string or
+    a heredoc body is read here the way the guard already reads it -- neither
+    is executed, so neither makes a command anything but what its real segments
+    say.
+
+    **A segment is more than its command word, and asking only "is this a
+    creation" was not the bound this docstring claims.** Executed at `d82a02c`,
+    with a consent record present, eleven shapes answered `allow` -- a command
+    substitution, backticks, `>`, `>>`, `<`, a subshell, a heredoc, `sudo`,
+    `env VAR=…`, a bare `VAR=…` and a trailing `&`. Two of them were run in a
+    real shell and did what the shell says they do: the substitution created
+    its marker and the redirection truncated a file. So the two tests below are
+    the bound:
+
+      1. the segment's command word is the WORD `git` -- not a path whose last
+         component is spelled that way. `cmdline.parse_git` reads PAST
+         `WRAPPERS` and leading `VAR=val` on purpose: the question IT answers
+         is "is this a git invocation", and this one is "is this nothing but a
+         creation". `sudo git worktree add …` is not, and a user's own
+         `permissions.deny` on `Bash(sudo:*)` must not be spoken over by a
+         hook that was reasoning about worktrees.
+
+         **`os.path.basename` was this test and a basename is not an
+         identity.** Executed at `62b2d2e` with a consent record present:
+         `./git`, `../git`, `bin/git`, `/tmp/evil/git`, `~/git` and `*/git`
+         all answered `allow`, which covers the whole tool call -- so a
+         session that had ONE creation approved could then run any executable
+         on the machine by giving it a filename of `git`. The reason this test
+         exists does not stop at `sudo`: a hook must not sign for a binary it
+         did not identify.
+
+         So the test is exact equality, and the boundary it draws is *a
+         command word carrying no separator, resolved on `PATH` the way the
+         shell resolves it*. Anything with a `/` in it names a FILE rather
+         than the command, and this function cannot tell whose file it is.
+         `\\git` and `'git'` still pass -- the lexer hands both back as the
+         word `git`, and both run exactly what `git` runs. `GIT` does not, and
+         `git/` does not.
+
+         What it costs is a prompt on `/usr/bin/git worktree add …`, which is
+         a legitimate command a person may type. Falling to `ask` there is the
+         trade this whole docstring already makes for `$` and `>`: a wrong
+         deny spends one prompt, a wrong allow signs for an arbitrary binary.
+      2. no `ELSEWHERE` character in any token, which is the expansion and
+         redirection family the first test does not reach.
+
+    `cmdline.understood` and an `Unresolved` in `wheres` were in this loop and
+    are not, because a check nothing can make false is a check no case can pin
+    -- the rule `guard_worktree_creation` states about its own missing
+    `session_id and`. Mutation-tested one at a time: deleting either left every
+    case green, while deleting the command-word test or `ELSEWHERE` turned one
+    red. Test 1 subsumes them and is strictly stronger than `understood` --
+    executed, `understood` answers True for `time git worktree add ../wt f`
+    (`time` is a prefix it reads past) where test 1 answers False; a subshell
+    arrives as the token `(git`, which is not `git`; and `Unresolved` cannot
+    occur at all, because a segment that would produce one is not a creation
+    and fails `adds_a_worktree` first.
+
+    A lone trailing `&` is the one shape from that list left allowed, and it is
+    a decision rather than an oversight: it backgrounds the creation and runs
+    nothing else, so it is inside this docstring's bound. `git worktree add …
+    & rm -rf <path>` is two segments and the second one fails the very first
+    test.
+    """
+    if not parses_cleanly(command, windows):
+        return False
+    seen = False
+    for tokens, _wheres in walk_command(command, cwd, windows):
+        if not tokens:
+            continue
+        if not cmdline.adds_a_worktree(tokens):
+            return False
+        if tokens[0] != "git":
+            return False
+        if any(ch in tok for tok in tokens for ch in ELSEWHERE):
+            return False
+        seen = True
+    return seen
 
 
 def judgeable(tokens, where: str, cwd: str):
@@ -401,10 +552,10 @@ def classify(tokens, cwd: str):
 
     if sub == "worktree":
         # Only creation is guarded; list/remove/prune are how you clean up.
-        positionals = [a for a in args if not a.startswith("-")]
-        if positionals and positionals[0] == "add":
-            return "worktree-add"
-        return None
+        # The test itself lives in `cmdline.adds_a_worktree`, because
+        # `hooks/worktree_consent.py` asks the same question of a command that
+        # already ran and cannot import this file by name.
+        return "worktree-add" if cmdline.adds_a_worktree(tokens) else None
 
     if sub == "switch":
         # git switch <branch> / -c <branch> / `-` (previous)  => switches tree
@@ -1238,7 +1389,9 @@ def already_asked(top: str, session: str, scope: str) -> bool:
     return False
 
 
-def choose(top, session_id, scope, situation, question, options, fallback):
+def choose(
+    top, session_id, scope, situation, question, options, fallback, before_ask=None
+):
     """Deny once and hand the user the two options; ask on every attempt after.
 
     A hook decision renders as approve/decline, and the model never gets the
@@ -1249,6 +1402,25 @@ def choose(top, session_id, scope, situation, question, options, fallback):
     The fallback is this site's own pre-change decision, which is what keeps
     the deny from becoming a trap: a session with nobody to answer (headless),
     or one that has already been asked here, meets the prompt it always met.
+
+    **`before_ask` runs on the fallback path only, and it exists because the
+    two branches of this function have opposite standing for a command that
+    carries more than the site is asking about.** The deny stops the WHOLE
+    command line, so anything else written on it is stopped too. The ask does
+    not: approving it runs every segment, while its own text asks about one of
+    them. `main`'s switch ladder read "the three rows above the creation all
+    deny" off two sites that are this one -- true of the first attempt and
+    false of every attempt after, so the second `git switch feature/x && git
+    worktree add ../wt f` in a session was answered *Approve — switch branches
+    in this shared tree*, and approving created the worktree with the creation
+    question never put. Executed at `62b2d2e`, both the idle and the
+    detection-unusable states: `deny` then `ask`, the creation question on
+    neither.
+
+    Passing the creation's own judgment here rather than reordering the ladder
+    is what keeps the deny branch intact: the first attempt still puts the
+    switch's two options, naming the sessions it found, and only the branch
+    that would have let the command through yields.
     """
     if session_id and not already_asked(top, session_id, scope):
         lines = [
@@ -1275,6 +1447,8 @@ def choose(top, session_id, scope, situation, question, options, fallback):
             )
         )
         respond("deny", "\n".join(lines))
+    if before_ask is not None:
+        before_ask()
     respond("ask", situation + fallback)
 
 
@@ -1287,6 +1461,7 @@ def guard_worktree_creation(
     shared_option=None,
     shared_steer=None,
     single_stream="deny",
+    consented="ask",
 ):
     """Worktrees are for CONCURRENT work only -- block the single-stream case."""
     # Same reason as the switch path: without a repository there is no tree to
@@ -1294,6 +1469,62 @@ def guard_worktree_creation(
     # like concurrent work in it.
     if not top:
         return
+
+    # 0) 이 세션이 이 클론에서 이미 worktree 를 만들었다면, 아래 모든 자리는
+    #    사용자가 이미 답한 질문을 다시 내는 것이다.
+    #
+    # This row goes ABOVE every other one, including the ACTIVE-session row.
+    # Each of them asks something the record has already answered: the ACTIVE
+    # row asks for a confirmation, the two choice rows ask which way to go, and
+    # the `[worktree-ok]` row asks whether the token was meant. A session that
+    # created a worktree with a person's answer has settled all four.
+    #
+    # And it answers the `[worktree-ok]` docstring rather than stepping around
+    # it. That site is right that the TOKEN is not evidence -- it is written
+    # into the command by whoever issues it, so the model can write it on the
+    # first attempt. This record is written by a PostToolUse hook AFTER the
+    # call ran, and a `git worktree add` runs only if the deny did not fire and
+    # the ask was answered yes. What changes is the invariant "creating a
+    # worktree always takes one confirmation", which becomes "the FIRST
+    # creation of a session takes one". That is the whole behaviour change.
+    #
+    # `consented` differs by entry point for the same reason `single_stream`
+    # does. `hooks/worktree_consent.py` holds the record and the rest of the
+    # reasoning.
+    # No `session_id and` in front of it: `consent_path` already answers ""
+    # for a missing or separator-only id, so a second test here would be a
+    # condition nothing could make false — which is a condition no case can
+    # pin.
+    if worktree_consent.granted(top, session_id):
+        if consented == "silent":
+            return
+        respond(
+            consented,
+            (
+                f"{origin}\n"
+                + tr(
+                    "A worktree creation already ran in this repository this session, "
+                    "which means the user answered for it -- the harness only runs a "
+                    "call that was permitted. It is the same decision, so it is not "
+                    "put again.\n",
+                    "이 세션에서 이 저장소에 worktree 생성이 이미 실행되었습니다. "
+                    "허용된 호출만 실행되므로 사용자가 이미 답한 것입니다. 같은 "
+                    "결정이라 다시 묻지 않습니다.\n",
+                )
+                + (
+                    ""
+                    if consented == "allow"
+                    else tr(
+                        "This command does more than create a worktree, so the "
+                        "confirmation covers the rest of the command line rather "
+                        "than the worktree.",
+                        "이 명령은 worktree 생성 외의 일도 합니다. 따라서 이 확인은 "
+                        "worktree 가 아니라 명령의 나머지 부분에 대한 것입니다.",
+                    )
+                )
+            ),
+        )
+
     active, idle, reliable = sessions_in_tree(top, session_id)
 
     # 두 방향의 목적지는 어느 자리에서 물어도 같다 — worktree 를 만들거나,
@@ -1472,6 +1703,89 @@ def guard_worktree_creation(
     )
 
 
+def judge_creation(command: str, cwd: str, top: str, session_id: str):
+    """Put the creation question for a `git worktree add` in `command`.
+
+    Extracted because there are now two sites that reach it, and the second one
+    is why. `main` classifies the FIRST segment it can read, while
+    `hooks/worktree_consent.py` records for a creation ANYWHERE in a command
+    that RAN -- its docstring says so on purpose. Those two readings disagreed,
+    and the gap between them was writable by whoever composed the command.
+
+    Executed at `d82a02c`, clean single-stream tree, no consent record:
+
+        git worktree add ../wt f                        deny
+        git status && git worktree add ../wt f          deny
+        git switch feature/x && git worktree add ../wt f   SILENT, record written
+        git switch feature/x ;  git worktree add ../wt f   SILENT, record written
+        git checkout feature/x && git worktree add ../wt f SILENT, record written
+
+    `git status` classifies to nothing so the walk moved on and the creation
+    ladder did run, which is the safe half of the class and the only half
+    `phases/phase-2.md` named. The class is any first segment whose OWN verdict
+    is not `None`: the walk stopped there, the creation ladder never ran, the
+    shell created the worktree, and `PostToolUse` minted session-wide consent
+    for a question nobody was asked. That falsified `spec.md`'s *a `git
+    worktree add` runs only if the guard's `deny` did not fire and its `ask`
+    was answered yes*, and the "Forgeable by the model: no" row resting on it.
+
+    What is NOT done here is making the creation outrank the earlier verdict.
+    That closes the same hole and costs a protection this branch must not move:
+    `git switch feature/x && git worktree add ../wt f` in a tree another
+    session is ACTIVE in denies today as a switch, and would become an `ask`
+    about the creation -- the branch would still be taken out from under the
+    other session, one approval later. The switch ladder keeps every verdict it
+    has; only its ONE silent exit falls through to here.
+
+    `top` is the creation's own repository, which is not always the switch's --
+    `git switch x && git -C /other worktree add ../wt f` acts on two. A `top`
+    of "" is passed straight through; `guard_worktree_creation` refuses that
+    case for the reason its own first lines give.
+    """
+    # A command the lexer gave up on may carry a `[worktree-ok]` in the part it
+    # never reached. Single-stream is the one verdict in this guard with no
+    # budget and no `ask` behind it, and its way past is "append
+    # [worktree-ok]": without this note the user appends a token that is
+    # already there, meets the same deny, and the loop ends only when the
+    # command itself is rewritten.
+    #
+    # The verdict is left alone -- softening deny to ask would hand every
+    # command a bypass costing one apostrophe -- and the instruction is made
+    # followable instead, by naming the quote as the obstacle.
+    user_ok = has_token(command, "[worktree-ok]")
+    origin = tr(
+        "Attempting to create a worktree with `git worktree add`.",
+        "`git worktree add` 로 worktree를 만들려 합니다.",
+    )
+    if not user_ok and not parses_cleanly(command):
+        origin += tr(
+            " No [worktree-ok] was read, and this command has an unbalanced "
+            "quote -- an apostrophe in a comment is enough. Everything "
+            "after the quote opens is unread, so a token written there is "
+            "invisible to a bare-word match. If you already appended one, "
+            "close or drop the quote and re-issue.",
+            " [worktree-ok] 를 읽어내지 못했습니다. 이 명령에는 닫히지 않은 "
+            "따옴표가 있습니다(주석의 아포스트로피 하나면 충분합니다). 따옴표가 "
+            "열린 뒤로는 읽지 못하므로, 그 뒤에 적은 토큰은 낱말로 잡히지 "
+            "않습니다. 이미 붙이셨다면 따옴표를 닫거나 지우고 다시 실행하세요.",
+        )
+    guard_worktree_creation(
+        top,
+        cwd,
+        origin,
+        user_ok=user_ok,
+        session_id=session_id,
+        # The bound on the allow, computed from the command rather than from
+        # the verdict: the verdict says a creation is in here somewhere, and
+        # the allow needs to know there is nothing else.
+        # `cwd`, not the creation's directory: this reads the command from
+        # where the SHELL started, which is what the `walk_command` in `main`
+        # was given too. Where the classified segment LANDED is not a starting
+        # point -- handing it back would walk the same `cd` twice.
+        consented=("allow" if only_creates_a_worktree(command, cwd) else "ask"),
+    )
+
+
 def main():
     data = load_input()
     tool = data.get("tool_name", "")
@@ -1491,7 +1805,13 @@ def main():
     # open is whether the Agent path should be judged by a different rule than
     # counting sessions. Reading a token out of the Agent's prompt was tried
     # and taken back for the reason the comment below gives.
-    # Verified 2026-08-31 at 9829412.
+    #
+    # Re-read 2026-09-08 after #237 changed this function: the claim holds.
+    # `single_stream="ask"` is still what the Agent path passes, so nothing is
+    # blocked by it, and the `consented="silent"` #237 added is about a session
+    # that already answered the creation question rather than about the count
+    # this rider is open on.
+    # Verified 2026-09-08 against main@d6d7fd35.
     if tool in ("Agent", "Task"):
         if str(tool_input.get("isolation", "")).lower() != "worktree":
             sys.exit(0)
@@ -1518,6 +1838,15 @@ def main():
             user_ok=False,
             session_id=data.get("session_id", ""),
             single_stream="ask",
+            # Silent rather than `allow`, where the Bash path allows. This call
+            # is a worktree creation PLUS an agent with a prompt, and the record
+            # is about the first half only; silence is the guard withdrawing
+            # its objection, which is the whole of what the record establishes.
+            # Whatever the harness wants to ask about running the agent is not
+            # the guard's to remove. The record itself is shared with the Bash
+            # path in both directions -- this path writes one too -- because it
+            # is the same decision arriving through a different tool.
+            consented="silent",
             # No command to re-issue and nowhere to put a token: the way on
             # here is the one the origin line already names, and an option
             # telling the model to run `git switch` would bury it.
@@ -1552,17 +1881,40 @@ def main():
     if tool != "Bash":
         sys.exit(0)
     command = tool_input.get("command", "") or ""
+    # Hoisted above the walk: both silent exits below now have a creation to
+    # judge before they take, and each of them needs it.
+    session_id = data.get("session_id", "")
 
     reason = None
     eff_cwd = cwd
+    # Where a `git worktree add` ANYWHERE in this command acts, if there is
+    # one. `reason` still takes the FIRST segment that classifies, because that
+    # is the verdict this call is about and every row it reaches has to keep
+    # working -- but a creation written BEHIND such a segment used to get no
+    # verdict at all, while `hooks/worktree_consent.py` reads every segment and
+    # recorded consent for it anyway. `judge_creation` holds the measurement
+    # and the reasoning; the switch ladder's one silent exit is where the two
+    # readings parted.
+    creation_at = None
     for tokens, wheres in walk_command(command, cwd):
+        creates = cmdline.adds_a_worktree(tokens)
+        # Nothing left to learn here: the verdict is settled, and this segment
+        # is not the creation it may have walked past. Skipping keeps the
+        # second question free -- `classify` runs `git rev-parse` for a
+        # `checkout`, and this walk used to stop at the first verdict.
+        if reason is not None and not creates:
+            continue
         for where in wheres:
             here, target = judgeable(tokens, where, cwd)
-            reason = classify(tokens, here)
-            if reason:
-                eff_cwd = target
-                break
-        if reason:
+            found = classify(tokens, here)
+            if not found:
+                continue
+            if reason is None:
+                reason, eff_cwd = found, target
+            if creates and creation_at is None:
+                creation_at = target
+            break
+        if reason is not None and creation_at is not None:
             break
     if not reason:
         sys.exit(0)
@@ -1574,46 +1926,23 @@ def main():
     # `$HOME`, the containment test in sessions_in_tree() matches every session
     # on the machine.
     if not top:
+        # The guard's OTHER silent exit, and it hides the same escape as the
+        # one at the end of the switch ladder. `judgeable` already falls back
+        # to the session's own directory, so `top` is empty only when the
+        # SHELL is outside any repository -- and a `git -C <repo> worktree
+        # add` later in the same command is not. Executed: with the shell in
+        # an empty directory, `git switch feature/x && git -C <repo> worktree
+        # add ../wt f` was silent here and `hooks/worktree_consent.py`
+        # recorded session-wide consent for it, because the writer resolves
+        # the creation's OWN directory and finds a repository there.
+        if creation_at:
+            judge_creation(command, cwd, repo_paths(creation_at)[0], session_id)
         sys.exit(0)
 
     if reason == "worktree-add":
-        # A command the lexer gave up on may carry a `[worktree-ok]` in the
-        # part it never reached. Single-stream is the one verdict in this
-        # guard with no budget and no `ask` behind it, and its way past is
-        # "append [worktree-ok]": without this note the user appends a token
-        # that is already there, meets the same deny, and the loop ends only
-        # when the command itself is rewritten.
-        #
-        # The verdict is left alone -- softening deny to ask would hand every
-        # command a bypass costing one apostrophe -- and the instruction is
-        # made followable instead, by naming the quote as the obstacle.
-        user_ok = has_token(command, "[worktree-ok]")
-        origin = tr(
-            "Attempting to create a worktree with `git worktree add`.",
-            "`git worktree add` 로 worktree를 만들려 합니다.",
-        )
-        if not user_ok and not parses_cleanly(command):
-            origin += tr(
-                " No [worktree-ok] was read, and this command has an unbalanced "
-                "quote -- an apostrophe in a comment is enough. Everything "
-                "after the quote opens is unread, so a token written there is "
-                "invisible to a bare-word match. If you already appended one, "
-                "close or drop the quote and re-issue.",
-                " [worktree-ok] 를 읽어내지 못했습니다. 이 명령에는 닫히지 않은 "
-                "따옴표가 있습니다(주석의 아포스트로피 하나면 충분합니다). 따옴표가 "
-                "열린 뒤로는 읽지 못하므로, 그 뒤에 적은 토큰은 낱말로 잡히지 "
-                "않습니다. 이미 붙이셨다면 따옴표를 닫거나 지우고 다시 실행하세요.",
-            )
-        guard_worktree_creation(
-            top,
-            cwd,
-            origin,
-            user_ok=user_ok,
-            session_id=data.get("session_id", ""),
-        )
+        judge_creation(command, cwd, top, session_id)
         sys.exit(0)
 
-    session_id = data.get("session_id", "")
     active, idle, reliable = sessions_in_tree(top, session_id)
 
     # The mirror of [worktree-ok]: the user has just chosen the shared tree,
@@ -1671,6 +2000,18 @@ def main():
                 f"생성할 때 다시 묻지 않고 확인만 받습니다.",
             ),
         ),
+    )
+
+    # What the two `choose` rows below hand their FALLBACK to, when this
+    # command also creates a worktree. `choose` denies once per session per
+    # direction and asks on every attempt after; the deny stops the creation
+    # with the rest of the line and needs nothing, and the ask is where the
+    # creation used to go unjudged. `choose`'s own docstring holds the
+    # measurement.
+    judge_the_creation = (
+        (lambda: judge_creation(command, cwd, repo_paths(creation_at)[0], session_id))
+        if creation_at
+        else None
     )
 
     # 1) 같은 작업 트리에서 다른 세션이 '지금' 일하는 중 -> 진짜 다중작업. 차단.
@@ -1732,6 +2073,7 @@ def main():
                 "보존합니다:\n\n",
             )
             + steer,
+            before_ask=judge_the_creation,
         )
 
     # 2) 세션 감지 자체가 불가능하면 사용자에게 확인. deny 였으나 확장 호스트처럼
@@ -1768,7 +2110,39 @@ def main():
                 "보존합니다:\n\n",
             )
             + steer,
+            before_ask=judge_the_creation,
         )
+
+    # A creation later in the same command has not been judged yet, and this is
+    # where it gets its verdict. The three rows above keep their precedence
+    # because they ARE the concurrency protections: a switch denied under an
+    # ACTIVE session must stay denied, and making a creation outrank it would
+    # turn that deny into an `ask` about the creation while the branch is still
+    # taken out from under the other session, one approval later.
+    #
+    # **Only one of those three denies unconditionally.** Rows 1-b and 2 are
+    # `choose` sites, whose deny is spent once per session per direction, and
+    # their fallback is an `ask` whose approval runs the whole command line --
+    # so reaching this line at all was a property of the FIRST attempt. Those
+    # two hand their fallback `judge_the_creation` above, which is why they
+    # still keep their deny and no longer keep the creation from being judged.
+    # `choose`'s docstring holds the measurement; this line is what the two
+    # rows below, and a session that never met either `choose`, still reach.
+    #
+    # The two rows BELOW yield, and neither of them protects a tree. Row 4 says
+    # nothing at all, which is where `git switch feature/x && git worktree add
+    # ../wt f` ran unjudged on a clean tree and `hooks/worktree_consent.py`
+    # minted session-wide consent for it. Row 3 asks about uncommitted changes
+    # riding along and its own text says the switch is ALLOWED -- so approving
+    # it created the worktree too, and whether the creation was questioned at
+    # all came down to whether the tree happened to be dirty. Executed: the
+    # same command denied on a clean tree and asked about the changes on a
+    # dirty one.
+    #
+    # The creation's own repository, not this switch's: they are not always the
+    # same tree, and `guard_worktree_creation` refuses an empty one.
+    if creation_at:
+        judge_creation(command, cwd, repo_paths(creation_at)[0], session_id)
 
     # 3) 단건이지만 추적 중인 변경이 있으면 사용자에게 확인.
     entries = tracked_changes(cwd)
