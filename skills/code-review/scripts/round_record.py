@@ -1990,6 +1990,35 @@ def collected(base):
     return base.startswith(TEST_PREFIX) or base.endswith(TEST_SUFFIX)
 
 
+def conftest_is_loaded(root, b, rel):
+    """True when pytest imports this `conftest.py` at all.
+
+    A conftest is loaded for the test files collected at or below its OWN
+    directory — rootdir down to each collected file, `confcutdir` defaulting
+    to rootdir — so one in a directory nothing is collected under is never
+    imported, and its fixtures and hooks are injected into nothing. Round 2's
+    finding 1 is that accepting the name alone said `pytest only` about all
+    of them: `src/`, `a/b/`, a vendored tree, an examples directory, and
+    `tests/vendor/` one gate over. That is round 1's finding 1 pointing the
+    other way, which is the sentence `plan.md`'s alternatives table rejected
+    the wider rule to avoid.
+
+    The question is asked of the tracked file list rather than of the
+    filesystem, so it answers for the tree at `b` the way every other walk
+    here does. The repository root passes it in any tree that has tests at
+    all, which is the placement round 1's finding 2 was raised for;
+    `src/conftest.py` passes it in a colocated layout and fails it in a
+    segregated one, which is what pytest does.
+    """
+    here = os.path.dirname(rel)
+    prefix = f"{here}/" if here else ""
+    return any(
+        p.startswith(prefix) and collected(os.path.basename(p))
+        for p in tracked_at(root, b)
+        if p.endswith(".py")
+    )
+
+
 def runner_reached(reader, root, b, rel, name):
     """True when pytest reaches `rel`'s `name` with no call site in the tree.
 
@@ -2000,15 +2029,21 @@ def runner_reached(reader, root, b, rel, name):
     dispatched as a hook.
 
     Where the file sits decides two different things, and they are not the
-    same gate. A conftest is a conftest wherever it sits — pytest loads it by
-    name and documents the repository root first — so the `tests/` gate lets
-    one through from anywhere. Nothing else outside `tests/` is a member
-    however it is named.
+    same gate. A conftest is loaded by NAME rather than by directory, so it
+    is a member from anywhere pytest would load it — and the directory is
+    what says whether pytest loads it at all, which is `conftest_is_loaded`.
+    That one rule replaces the `tests/` gate for a conftest at every
+    placement, inside `tests/` and outside it alike, because a conftest with
+    nothing collected under it is imported by nobody wherever it sits.
+    Nothing else outside `tests/` is a member however it is named.
     """
     base = os.path.basename(rel)
     if not rel.endswith(".py"):
         return False
-    if not under_tests(rel) and base != CONFTEST:
+    if base == CONFTEST:
+        if not conftest_is_loaded(root, b, rel):
+            return False
+    elif not under_tests(rel):
         return False
     module = parse_module(reader.show(root, b, rel))
     if module is None:

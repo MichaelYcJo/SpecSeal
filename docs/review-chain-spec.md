@@ -751,8 +751,8 @@ convention of any repository:
 | The unit | How pytest reaches it |
 |---|---|
 | a `test_*` def in a file `python_files` collects | collected by name pattern, the file and the function both |
-| a fixture under `tests/`, or in a `conftest.py` anywhere | injected by parameter name, so `name(` never occurs |
-| a `pytest_*` def in a `conftest.py` anywhere | dispatched by the plugin manager |
+| a fixture under `tests/`, or in a `conftest.py` pytest loads | injected by parameter name, so `name(` never occurs |
+| a `pytest_*` def in a `conftest.py` pytest loads | dispatched by the plugin manager |
 
 **Two of those three rows say where the file sits, and they say different
 things.** Collection is two rules: `python_files = test_*.py *_test.py`
@@ -764,6 +764,26 @@ def name and the directory alone said *the runner covers this* about it. A
 repository root placement first, so a fixture or a hook there is reached from
 outside `tests/` exactly as one inside it is. Both were round 1's findings on
 the change that introduced this section.
+
+The directory still decides whether a conftest is loaded at all, and that is
+the second finding coming back inside the repair for the first. pytest imports
+a `conftest.py` for the test files collected at or below its own directory, so
+one with nothing collected under it — a vendored tree, a package directory, an
+examples directory, `src/` in a segregated layout — is imported by nobody and
+its fixtures are injected into nothing. Calling them the runner's is the same
+false sentence one directory over, and it is true inside `tests/` as well as
+outside it: `tests/vendor/conftest.py` with no test module under it is loaded
+no more than `src/conftest.py` is. So the name gate is not *anywhere*, it is
+*anywhere pytest would load it*, and it replaces the `tests/` gate for a
+conftest rather than sitting beside it.
+
+What that question is asked of is the tracked file list, not the runner's
+configuration. A repository that narrows collection itself — `testpaths`, a
+`confcutdir`, an `--ignore` — has conftests this reads as loaded that a
+particular run does not load, and the error runs toward `pytest only`. The
+trade is that reading the configuration means implementing pytest's own
+rootdir discovery inside a review tool, and a repository whose tests are where
+its tests are gets the right answer without one.
 
 **It is those three and not everything under `tests/`,** which is the
 boundary the rule needs to stay honest. A helper that is passed by name as a

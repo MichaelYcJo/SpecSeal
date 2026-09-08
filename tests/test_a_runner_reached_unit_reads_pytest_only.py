@@ -124,13 +124,37 @@ ROOT_CONFTEST = (
 # A `test_*` def that is NOT under `tests/`: the rule is about where pytest
 # collects, and a name-shaped def elsewhere is not collected.
 ROOT_LEVEL = "def test_looks_like_one(x):\n    return x\n"
+# Round 2's finding 1, at both placements the repair has to reach. pytest
+# loads a `conftest.py` for the test files collected at or below its own
+# directory, so a conftest with nothing collected under it is imported by
+# nobody and its fixtures are injected into nothing — and `pytest only` about
+# one is round 1's finding 1 arriving from the other side, inside its own fix.
+# `src/` is that placement outside `tests/`; `tests/vendor/` is the same
+# placement INSIDE it, which a repair written as *the `tests/` gate, or a
+# loaded conftest* still lets through.
+NESTED_CONFTEST = (
+    "import pytest\n\n\n@pytest.fixture\ndef a_nested_fixture(x):\n    return x\n"
+)
+VENDORED_CONFTEST = (
+    "import pytest\n\n\n@pytest.fixture\ndef a_vendored_fixture(x):\n    return x\n"
+)
+# `src_extra/` is a SIBLING of `src/`, not a directory below it, and its name
+# starts with the other's. "At or below `src/`" is a path-segment question, so
+# the walk asks it with a trailing slash — and a mutation dropping that slash
+# survived the first sweep, because no two directories in this repository had
+# names where one extends the other. The collected module here is what makes
+# that mutation bite.
+EXTRA_MOD = "def test_in_a_sibling(x):\n    return x\n"
 
 
-# Each def takes one more parameter and nothing else moves: a contract
-# change with no unit added and no unit removed, so `Contract changes` names
-# all five and `New units` reads `none`. Written out rather than derived — a
-# helper that rewrites signatures is one more thing that can silently do
-# nothing, which is the failure these cases exist to catch one level up.
+# Each def takes one more parameter and nothing else moves: a contract change
+# with no unit added and no unit removed, so every def that gains the parameter
+# enters `Contract changes` and `New units` reads `none`. The count used to be
+# written here as *all five*, which stopped being true the moment round 1's fix
+# pass added three files and was round 2's finding 3 one file over. Written out
+# rather than derived — a helper that rewrites signatures is one more thing that
+# can silently do nothing, which is the failure these cases exist to catch one
+# level up.
 WIDENED = {
     "mod.py": (
         "def reached(a, extra=None):\n"
@@ -186,6 +210,17 @@ WIDENED = {
         "    return x\n"
     ),
     "root_level.py": "def test_looks_like_one(x, extra=None):\n    return x\n",
+    "src/conftest.py": (
+        "import pytest\n\n\n@pytest.fixture\n"
+        "def a_nested_fixture(x, extra=None):\n    return x\n"
+    ),
+    "tests/vendor/conftest.py": (
+        "import pytest\n\n\n@pytest.fixture\n"
+        "def a_vendored_fixture(x, extra=None):\n    return x\n"
+    ),
+    "src_extra/test_in_a_sibling.py": (
+        "def test_in_a_sibling(x, extra=None):\n    return x\n"
+    ),
 }
 BEFORE = {
     "mod.py": MOD,
@@ -195,10 +230,13 @@ BEFORE = {
     "tests/helpers_test.py": SUFFIX_MOD,
     "conftest.py": ROOT_CONFTEST,
     "root_level.py": ROOT_LEVEL,
+    "src/conftest.py": NESTED_CONFTEST,
+    "tests/vendor/conftest.py": VENDORED_CONFTEST,
+    "src_extra/test_in_a_sibling.py": EXTRA_MOD,
 }
 
 
-def test_the_fixture_repository_changes_five_signatures_and_nothing_else():
+def test_the_fixture_repository_only_widens_signatures():
     """The premise every case below rests on, asserted rather than assumed:
     each `WIDENED` file differs from its `BEFORE` by exactly the one added
     parameter per def, so a case reading `none` would be reading a repository
@@ -236,6 +274,9 @@ def _build(d):
     write(d, "tests/helpers_test.py", SUFFIX_MOD)
     write(d, "conftest.py", ROOT_CONFTEST)
     write(d, "root_level.py", ROOT_LEVEL)
+    write(d, "src/conftest.py", NESTED_CONFTEST)
+    write(d, "tests/vendor/conftest.py", VENDORED_CONFTEST)
+    write(d, "src_extra/test_in_a_sibling.py", EXTRA_MOD)
     commit(d, "base")
     git(d, "switch", "-qc", "feature")
 
@@ -375,6 +416,41 @@ def test_the_second_python_files_pattern_collects_too(reach):
     nothing was holding."""
     generator = generator_module()
     assert reach["test_in_a_suffix_module"] == generator.PYTEST_ONLY, reach
+
+
+def test_a_conftest_nothing_is_collected_under_is_not_loaded(reach):
+    """Round 2's finding 1. `conftest.py` is a name pytest loads BY, and the
+    directory is still what decides whether it is loaded at all: rootdir down
+    to each collected test file. `src/` holds no test module, so this conftest
+    is never imported and its fixture is injected into nothing — the row would
+    say the runner covers a unit nothing covers, which is the sentence round
+    1's finding 1 removed, arriving from the other side inside its own fix."""
+    generator = generator_module()
+    assert reach["a_nested_fixture"] == generator.NO_SITE, reach
+
+
+def test_the_directory_decides_inside_tests_as_well(reach):
+    """The same rule one gate over, and the reason the conftest arm replaces
+    the `tests/` gate instead of sitting beside it. `tests/vendor/conftest.py`
+    has no collected module at or below it either, so pytest imports it no
+    more than it imports `src/conftest.py`. A repair reading *under `tests/`,
+    OR a loaded conftest* passes this one on the first half and leaves the
+    false sentence standing where it is hardest to notice."""
+    generator = generator_module()
+    assert reach["a_vendored_fixture"] == generator.NO_SITE, reach
+
+
+def test_a_sibling_whose_name_extends_the_directory_is_not_below_it(reach):
+    """*At or below `src/`* is a question about path SEGMENTS, and a prefix
+    test without the separator answers a different one. `src_extra/` is a
+    sibling of `src/` holding a collected test module, so a walk asking
+    `startswith("src")` would find it, call `src/conftest.py` loaded and put
+    the false sentence back. A mutation dropping the trailing slash survived
+    the first sweep of this unit for want of exactly this placement — the same
+    blind spot, one release on, as the `_test.py` half of `collected`."""
+    generator = generator_module()
+    assert reach["a_nested_fixture"] == generator.NO_SITE, reach
+    assert reach["test_in_a_sibling"] == generator.NO_SITE, reach
 
 
 def test_a_test_shaped_def_outside_tests_is_not_collected(reach):
