@@ -668,6 +668,38 @@ def read(*parts):
         return handle.read()
 
 
+def test_the_workflow_step_skips_a_release_range_and_says_why():
+    """The range is what decides whether this check means anything.
+
+    It was calibrated over 77 fix-pass ranges and its floor of 1.6 was chosen
+    against that curve. A pull request into `main` carries the union of every
+    work item the release holds, which is a range no fix pass ever writes: one
+    item's removed wording is scored against four other items' prose, and each
+    of those items was already checked at its own pull request. Measured on the
+    release that shipped this check — 72 places reported, not one of them a
+    survivor of the range that removed the wording.
+
+    The guard prints rather than being a job-level `if:`, which is the shape
+    the two steps above it already use: a skipped step reads as *did not run*,
+    and a printed line says which of the two it was.
+    """
+    workflow = read(".github", "workflows", "hygiene.yml")
+    step = workflow[workflow.index("- name: wording this branch removed") :]
+    step = step[: step.index("\n      - name:", 1)]
+    assert 'github.base_ref }}" = "main" ]' in step, (
+        "the survivor step does not bound itself to a release branch's pull "
+        "requests, so a release pull request scores five work items against "
+        "each other"
+    )
+    assert "exit 0" in step, (
+        "the guard does not let the step pass on a release pull request"
+    )
+    assert "not a range a fix pass wrote" in step, (
+        "the guard skips without saying why, which is the state where the "
+        "next reader deletes it"
+    )
+
+
 @pytest.mark.parametrize(
     "carrier",
     [
