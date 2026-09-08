@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | not yet — filled by the commit after this phase's own |
+| Commit | 5e51ca0 |
 | Ran by | specseal:smith on claude-opus-5 |
 
 ## What this phase was asked
