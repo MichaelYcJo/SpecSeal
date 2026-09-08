@@ -7,12 +7,12 @@
 | PR | 261 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | test_the_same_number_twice_in_one_sentence_is_one_warning (depth 1); test_the_same_number_in_two_sentences_earns_a_warning_each (depth 1); test_a_numeric_url_fragment_beside_a_claim_is_a_warning (depth 1); test_a_horizontal_rule_ends_the_segment (depth 1); test_a_run_of_markers_inside_a_line_is_still_prose (depth 1); test_the_document_that_teaches_the_rule_carries_no_instance_of_it (depth 1); test_the_warning_is_written_as_a_job_annotation (depth 1); test_the_two_lists_say_what_closes_and_what_does_not (depth 1); test_a_clean_body_says_so_rather_than_saying_nothing (depth 1) |
 | Needs a fix | yes — findings 1, 2 and 3; finding 4 is a record correction the orchestrator makes without touching the tool |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -59,13 +59,13 @@ inlined.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | A thematic break or a setext underline is not a segment boundary, so a claim above one and an unrelated `#N` below it earn a warning — the false-positive direction the design forbids itself | `.github/scripts/issue_claims_check.py:107` | open | Executed: four break shapes each produced a warning at the target SHA; the module docstring's rule 3 says the segment ends there. Not reachable from any body or document in the tree today |
-| 2 | The section that teaches the rule writes the failing shape in bare prose, in the paragraph claiming it only quotes the shape inside a fence or a span | `docs/issues-and-milestones.md:117` | open | Executed: the branch's own check over that file names `#153` claimed and warns on the sentence. `KEYWORDS` carries the past tense, so a narrative keyword is a keyword |
-| 3 | Nothing pins the four strings the check prints, `::warning::` included — the prefix that makes the third an annotation | `.github/scripts/issue_claims_check.py:208` | open | Read: no case asserts any of them; `test_a_body_is_never_a_failure` discards the output. Executed: grepping `tests/` for the four strings returns nothing from this module. §14 |
-| 4 | Two facts the record hands to CI on #261 are not answered by that run and cannot be | `seal/specs/1788844400-a-body-naming-two-issues-claims-one/overview.md:27` | open | Executed: the step's log shows a non-empty `PR_BODY` and no warning printed; the check-run annotations API returns three annotations, none from this step |
-| 5 | The masking gives up four well-formed shapes the plan does not enumerate, beyond the unclosed fence it does | `.github/scripts/issue_claims_check.py:123` | open | Executed: tilde fence, indented code block, fence inside a list, HTML comment and double-backtick span each report a claim and a warning. Consistent with the release closer, and absent from the tree |
-| 6 | A repeated unclaimed number in one segment prints the identical annotation twice | `.github/scripts/issue_claims_check.py:199` | open | Executed |
-| 7 | A numeric URL fragment in the same segment as a claim earns a warning; the plan's caveat names only the mention list | `.github/scripts/issue_claims_check.py:199` | open | Executed |
+| 1 | A thematic break or a setext underline is not a segment boundary, so a claim above one and an unrelated `#N` below it earn a warning — the false-positive direction the design forbids itself | `.github/scripts/issue_claims_check.py:107` | **fixed** `9dc02ac` | fixed at 9dc02ac — ``, with the case strengthened at `b5945dc`; Executed: four break shapes each produced a warning at the target SHA; the module docstring's rule 3 says the segment ends there. Not reachable from any body or document in the tree today |
+| 2 | The section that teaches the rule writes the failing shape in bare prose, in the paragraph claiming it only quotes the shape inside a fence or a span | `docs/issues-and-milestones.md:117` | **fixed** `9dc02ac` | fixed at 9dc02ac — ``; Executed: the branch's own check over that file names `#153` claimed and warns on the sentence. `KEYWORDS` carries the past tense, so a narrative keyword is a keyword |
+| 3 | Nothing pins the four strings the check prints, `::warning::` included — the prefix that makes the third an annotation | `.github/scripts/issue_claims_check.py:208` | **fixed** `9dc02ac` | fixed at 9dc02ac — ``; Read: no case asserts any of them; `test_a_body_is_never_a_failure` discards the output. Executed: grepping `tests/` for the four strings returns nothing from this module. §14 |
+| 4 | Two facts the record hands to CI on #261 are not answered by that run and cannot be | `seal/specs/1788844400-a-body-naming-two-issues-claims-one/overview.md:27` | answered | corrected at `5bec650` |
+| 5 | The masking gives up four well-formed shapes the plan does not enumerate, beyond the unclosed fence it does | `.github/scripts/issue_claims_check.py:123` | deferred seal/specs/1788844400-a-body-naming-two-issues-claims-one/rounds/round-1.md §Deferred | seal/specs/1788844400-a-body-naming-two-issues-claims-one/rounds/round-1.md §Deferred |
+| 6 | A repeated unclaimed number in one segment prints the identical annotation twice | `.github/scripts/issue_claims_check.py:199` | **fixed** `7da891e` | fixed at 7da891e — ``; Executed |
+| 7 | A numeric URL fragment in the same segment as a claim earns a warning; the plan's caveat names only the mention list | `.github/scripts/issue_claims_check.py:199` | **fixed** `7da891e` | fixed at 7da891e — ``; Executed |
 
 ## Paste-ready fixes
 
