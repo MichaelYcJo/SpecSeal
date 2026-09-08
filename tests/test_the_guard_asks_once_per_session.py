@@ -223,8 +223,13 @@ def test_the_allow_covers_only_a_command_that_is_nothing_else(
     """`permissionDecision: "allow"` covers the WHOLE tool call, and a
     creation is routinely one segment of a compound. The record is about
     worktree creation, so the guard speaks for a command that is worktree
-    creation and nothing else; anything more is an `ask` about the rest of the
-    command line, never a deny about the worktree."""
+    creation and nothing else; anything more it does not speak for at all.
+
+    `silent`, not `ask`, since #257. The record has already answered the
+    worktree question, and the rest of the command line is the harness's to
+    judge -- not this guard's to ask about a second time. What this case pins
+    is unchanged and is the only thing that matters here: none of these earns
+    an `allow`, which would speak for the whole tool call."""
     grant(repo)
     for command in (
         "git worktree add ../wt f && echo done",
@@ -232,13 +237,13 @@ def test_the_allow_covers_only_a_command_that_is_nothing_else(
         "git status; git worktree add ../wt f",
     ):
         decision, reason = decide(monkeypatch, capsys, repo, command)
-        assert decision == "ask", (command, decision)
+        assert decision == "silent", (command, decision)
         assert "git switch" not in reason, command
     # ...and a command the lexer gave up on is not vouched for either: what it
     # could not read is what the allow would be covering.
     assert (
         decide(monkeypatch, capsys, repo, "git worktree add ../wt f  # don't")[0]
-        == "ask"
+        == "silent"
     )
 
 
@@ -273,7 +278,7 @@ def test_the_allow_refuses_a_segment_that_does_anything_else(monkeypatch, capsys
         'git worktree add "$HOME/wt" f',
     ):
         decision, reason = decide(monkeypatch, capsys, repo, command)
-        assert decision == "ask", (command, decision)
+        assert decision == "silent", (command, decision)
         assert "git switch" not in reason, command
 
 
@@ -289,7 +294,7 @@ def test_a_wrapper_in_front_of_the_creation_carries_no_allow(monkeypatch, capsys
         "LD_PRELOAD=/tmp/e.so git worktree add ../wt f",
         "command git worktree add ../wt f",
     ):
-        assert decide(monkeypatch, capsys, repo, command)[0] == "ask", command
+        assert decide(monkeypatch, capsys, repo, command)[0] == "silent", command
     # ...and the two forms that are ordinary git are untouched. `-C` names
     # another clone, whose consent is its own, so the predicate is asked
     # directly rather than through a verdict about this one.
@@ -329,7 +334,7 @@ def test_a_path_qualified_git_carries_no_allow(monkeypatch, capsys, repo):
         "~/git worktree add ../wt f",
         "*/git worktree add ../wt f",
     ):
-        assert decide(monkeypatch, capsys, repo, command)[0] == "ask", command
+        assert decide(monkeypatch, capsys, repo, command)[0] == "silent", command
     # ...and the spellings the LEXER hands back as the word `git` are the
     # command `git`, so they stay allowed. Refusing them would spend a prompt
     # on nothing.
@@ -338,10 +343,10 @@ def test_a_path_qualified_git_carries_no_allow(monkeypatch, capsys, repo):
     # On POSIX the backslash escapes the `g` and the lexer hands back the word
     # `git`, so it is the command `git` and stays allowed. On Windows `\` is
     # the path separator, so `\git` names a file at the drive root -- exactly
-    # what this case refuses above, and `ask` is the correct answer there.
+    # what this case refuses above, and `silent` is the correct answer there.
     # Asserting one of the two on both platforms is what CI's Windows leg
     # caught: the guard was right and this case was not.
-    want = "ask" if os.name == "nt" else "allow"
+    want = "silent" if os.name == "nt" else "allow"
     assert decide(monkeypatch, capsys, repo, r"\git worktree add ../wt f")[0] == want
     assert wg.only_creates_a_worktree(
         "git -C /elsewhere worktree add ../wt f", str(repo)
@@ -358,14 +363,20 @@ def test_a_backgrounded_creation_is_still_only_a_creation(monkeypatch, capsys, r
     assert decide(monkeypatch, capsys, repo, "git worktree add ../wt f &")[0] == "allow"
     assert (
         decide(monkeypatch, capsys, repo, "git worktree add ../wt f & rm -rf /tmp/x")[0]
-        == "ask"
+        == "silent"
     )
 
 
 def test_a_second_creation_never_denies(monkeypatch, capsys, repo):
-    """The consented `ask` is a floor, not a fallthrough. Landing back on the
+    """The consented answer is a floor, not a fallthrough. Landing back on the
     ladder would put the single-stream deny in front of a session that has
-    already been told yes."""
+    already been told yes.
+
+    `silent` since #257, and the case still distinguishes the record arm from
+    a fallthrough for every tuple below: without the record arm these reach
+    the ladder and answer `deny` (no sessions, reliable), `ask` (an idle
+    session) and `ask` (detection unusable). None of the three is silence, so
+    a regression that dropped the arm is still caught here."""
     grant(repo)
     for sessions in (([], [], True), ([], IDLE, True), ([], [], False)):
         assert (
@@ -376,7 +387,7 @@ def test_a_second_creation_never_denies(monkeypatch, capsys, repo):
                 "git worktree add ../wt f && echo done",
                 sessions=sessions,
             )[0]
-            == "ask"
+            == "silent"
         ), sessions
 
 
@@ -790,3 +801,82 @@ def test_hooks_json_sends_the_agent_after_event_to_the_group():
     }
     assert "Agent|Task" in matchers, matchers
     assert "post-agent" in matchers["Agent|Task"]
+
+
+def test_a_consent_record_buys_silence_for_a_compound_not_a_second_prompt(
+    monkeypatch, capsys, repo
+):
+    """#257's headline table, as the three rows a person sees.
+
+    A `silent` verdict here means the guard emitted NOTHING -- `decide`
+    reports it only for empty stdout -- so it granted nothing and denied
+    nothing, and the harness's own permission flow judges the call. That is
+    the probe the ticket asked for, and it is what separates `silent` from
+    `allow`: an `allow` speaks for the whole tool call, and none of these
+    earns one.
+
+    Measured on this repository's 0.9.2 release run: five worktrees created,
+    two confirmations paid on exactly the middle row, both because the command
+    carried a pipe or a `cd` -- the shape CLAUDE.md asks sessions to write
+    when it tells them to batch independent runs into one call.
+    """
+    grant(repo)
+    # bare creation -> the guard speaks for it, because it is all there is
+    assert decide(monkeypatch, capsys, repo, "git worktree add ../wt f")[0] == "allow"
+    # creation plus anything -> the guard withdraws and says nothing
+    assert (
+        decide(monkeypatch, capsys, repo, "git worktree add ../wt f | tail -2")[0]
+        == "silent"
+    )
+    # ...including the row that has to be argued for: `sudo` is left to the
+    # user's own permissions.deny, which is where Bash(sudo:*) already lives.
+    # A guard prompt on top of that was one stop buying nothing.
+    assert (
+        decide(monkeypatch, capsys, repo, "sudo git worktree add ../wt f")[0]
+        == "silent"
+    )
+
+
+def test_the_first_creation_of_a_session_is_still_a_question(monkeypatch, capsys, repo):
+    """#237's invariant, which #257 must not move. Without a record there is
+    nothing to be silent about, and every shape above still meets the ladder."""
+    for command in (
+        "git worktree add ../wt f",
+        "git worktree add ../wt f | tail -2",
+        "sudo git worktree add ../wt f",
+    ):
+        assert decide(monkeypatch, capsys, repo, command)[0] != "silent", command
+
+
+def test_the_silent_arm_emits_nothing_at_all(monkeypatch, capsys, repo):
+    """`silent` is the ABSENCE of a decision, not a decision named "silent".
+
+    Seen red by deleting the early return in `guard_worktree_creation`'s
+    `granted` block. `respond` then prints `permissionDecision: "silent"` --
+    not one of the three values the harness defines -- and every other case in
+    this file still passed, because `decide` reports the same word for an
+    empty stream as for that JSON. So the whole suite could not tell a guard
+    that withdrew from a guard that answered with a word nobody implements.
+
+    What the harness does with an undefined decision is not this repository's
+    to assume, and #257 rests on the opposite: that a call the hook declines
+    to decide falls to the harness's normal permission flow. That only holds
+    if the hook truly says nothing, which is asserted here on the raw stream.
+    """
+    grant(repo)
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": ([], [], True))
+    monkeypatch.setattr(
+        wg,
+        "load_input",
+        lambda: {
+            "tool_name": "Bash",
+            "session_id": "me",
+            "tool_input": {"command": "git worktree add ../wt f | tail -2"},
+            "cwd": str(repo),
+        },
+    )
+    try:
+        wg.main()
+    except SystemExit:
+        pass
+    assert capsys.readouterr().out == "", "the silent arm printed a decision"
