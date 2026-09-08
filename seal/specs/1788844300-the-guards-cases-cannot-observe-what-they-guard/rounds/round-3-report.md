@@ -253,8 +253,8 @@ and this round's prompt carries them as not mine. What was run is one module
 `evidence-check` narrowed to the work item's own fragment.
 
 Carried as not this round's to close, unchanged: the records-arm refusals
-against round 1's own report and record (`_get_supported_file_loaders`,
-`blank_code_fences` ×3, one drifted stamp — reproduced this round at
+against round 1's own report and record (`_get_supported_file_loaders`,  <!-- NAME NOT IN TREE: naming the refusals, not claiming the units -->
+`blank_code_fences` ×3, one drifted stamp — reproduced this round at  <!-- NAME NOT IN TREE: naming the refusals, not claiming the units -->
 4 refused · 1 drifted), and `docs/flow.md:102`'s unticked box.
 
 ## Verdicts

@@ -162,7 +162,7 @@ says what was measured instead of restating a tally over a set nobody ran:
 | the hook fed a real PostToolUse payload for `gh pr view 123 --json comments \| jq '.comments[] \| .body'`, with and without `except ValueError` | exit 0 silent; then **exit 1, `ValueError: No closing quotation`** |
 | a third blanking pass added to `readable` as a module function, then the module run | RED — both parameters of the hidden-word case fail |
 | the identical blanking added as `_SPAN_RE.sub("", text)`, then the module run | **GREEN — 30 passed, exit 0**, while `is_closed` on a record whose only closing word is in an inline span goes True → False |
-| `blank_fences` renamed to `blank_code_fences`, nothing else changed | RED — both parameters fail, with a message that prescribes adding a key |
+| `blank_fences` renamed to `blank_code_fences`, nothing else changed | RED — both parameters fail, with a message that prescribes adding a key |  <!-- NAME NOT IN TREE: `blank_code_fences` is the rename the probe applied -->
 | `readable`'s two passes composed in the other order, then the module run | GREEN — 30 passed; and on a fence that opens an HTML comment the two orders disagree about whether the closing word is visible |
 | `spec_from_file_location` over 21 inputs (the branch's nine plus `.pyw`, `.PY`, `.py.gz`, a trailing space, `a.py/`, `.`, `..`, `missing.pyc`, `missing.so`, `dir/../a.py`) | no input makes `spec` truthy with a falsy loader; supported suffixes here are `.cpython-314-darwin.so`, `.abi3.so`, `.so`, `.py`, `.pyc` |
 | the whole arm tally re-run at `c3c22c2`, 27 passed baseline | `reader` 2 red / 3 green · `is_closed` 3 red / 1 green; deleting `ImportError` leaves 27 passed, exit 0 |

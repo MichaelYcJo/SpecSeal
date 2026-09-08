@@ -15,6 +15,21 @@
   written never to do. It has a case now. The arm was found by applying the
   same enumeration to the two functions of the file the first pass had not
   walked, which is what a review round is for.
+- **So could a command as ordinary as one ending in a newline.** The same
+  splitter breaks on `\n` as well as on `|`, so any multi-line Bash command
+  leaves a trailing piece with no tokens in it at all. Two index guards keep
+  the reminder from reading a first word off such a piece, and no case watched
+  either: deleting one left the module green while the hook exited 1 with
+  `IndexError: list index out of range` on `gh pr view 1 --json comments` with
+  a trailing newline and on `echo hi;`. `FOO=bar` gets there by the other
+  route — it is one token, which the environment-assignment prefix arm
+  consumes, so the index runs off the end just the same. All of it is covered
+  now, together with the quoting arm above, by **one parametrized case rather
+  than four** — they share a single input class, a piece the reminder cannot
+  reduce to a first word — and the case closed a fourth decision as a
+  by-product. What is still unwatched in that function misfiles a reminder
+  rather than stopping anything, and went to a ticket, because writing a case
+  for each closes today's list and not the class (#209, #210).
 - **The pre-merge reminder's reader had two failure arms nothing watched, and
   either one would have stopped a session's Bash call.** `reader()` loads the
   shared reader by relative path and answers `None` where it cannot, so a copy

@@ -161,7 +161,7 @@ orchestrator's 906, and the same single drifted row is in both. The base
 carries no fragment yet, so 899 is the whole of it there.
 
 The drifted row is R5's
-`tests/test_chain_hooks.py#test_the_guard_falls_back_to_the_raw_text_without_the_reader@df85505e`
+`tests/test_chain_hooks.py#test_the_guard_falls_back_to_the_raw_text_without_the_reader@df85505e`  <!-- NAME NOT IN TREE: the stamp is the hash round 1 read at its own target; the unit has since gained a sibling case, and a reviewer's record is not re-stamped -->
 — *content changed at 378-452*, which is the function this branch added two
 parameters to. `--reverify` gives `df85505e -> f0ad0bf1`, and `f0ad0bf1` is the
 hash the branch's **own** fragment T1 already carries for the same anchor. The
@@ -258,7 +258,7 @@ What the sweep does not cover:
   string, not merely for the ones tried. That one line is the durable reason; a
   sample of nine can only ever say *not these*.
 - **The suffix list is per-platform.** **[executed]** on this machine
-  `_get_supported_file_loaders()` yields `.cpython-314-darwin.so`, `.abi3.so`,
+  `_get_supported_file_loaders()` yields `.cpython-314-darwin.so`, `.abi3.so`,  <!-- NAME NOT IN TREE: `_get_supported_file_loaders` is CPython's, not this tree's -->
   `.so`, `.py`, `.pyc`. Nine inputs on one interpreter and one operating system
   do not settle another, and contract §13 is the section about a defence
   resting on a platform guarantee.
@@ -272,7 +272,7 @@ that matter.
 
 `tests/test_chain_hooks.py:563`.
 
-**[executed]** renaming `blank_fences` to `blank_code_fences` turns both
+**[executed]** renaming `blank_fences` to `blank_code_fences` turns both  <!-- NAME NOT IN TREE: `blank_code_fences` is the rename this probe applied, never a unit here -->
 parameters red — the safe direction, and I am not asking for that to change.
 The message says *Add the pass to `HIDDEN_CLOSING_WORD`, keyed by its name*.
 Doing that leaves three keys against two passes and the case still red. The fix
@@ -444,7 +444,7 @@ says what was measured instead of restating a tally over a set nobody ran:
 | the hook fed a real PostToolUse payload for `gh pr view 123 --json comments \| jq '.comments[] \| .body'`, with and without `except ValueError` | exit 0 silent; then **exit 1, `ValueError: No closing quotation`** |
 | a third blanking pass added to `readable` as a module function, then the module run | RED — both parameters of the hidden-word case fail |
 | the identical blanking added as `_SPAN_RE.sub("", text)`, then the module run | **GREEN — 30 passed, exit 0**, while `is_closed` on a record whose only closing word is in an inline span goes True → False |
-| `blank_fences` renamed to `blank_code_fences`, nothing else changed | RED — both parameters fail, with a message that prescribes adding a key |
+| `blank_fences` renamed to `blank_code_fences`, nothing else changed | RED — both parameters fail, with a message that prescribes adding a key |  <!-- NAME NOT IN TREE: `blank_code_fences` is the rename the probe applied -->
 | `readable`'s two passes composed in the other order, then the module run | GREEN — 30 passed; and on a fence that opens an HTML comment the two orders disagree about whether the closing word is visible |
 | `spec_from_file_location` over 21 inputs (the branch's nine plus `.pyw`, `.PY`, `.py.gz`, a trailing space, `a.py/`, `.`, `..`, `missing.pyc`, `missing.so`, `dir/../a.py`) | no input makes `spec` truthy with a falsy loader; supported suffixes here are `.cpython-314-darwin.so`, `.abi3.so`, `.so`, `.py`, `.pyc` |
 | the whole arm tally re-run at `c3c22c2`, 27 passed baseline | `reader` 2 red / 3 green · `is_closed` 3 red / 1 green; deleting `ImportError` leaves 27 passed, exit 0 |
