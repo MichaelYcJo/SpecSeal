@@ -1,6 +1,7 @@
 """commit-review-gate, review-history-guard, session-lease — via real stdin."""
 
 import ast
+import importlib.util
 import inspect
 import json
 import os
@@ -272,6 +273,31 @@ def test_history_guard_silent_without_opt_in(repo):
     )
 
 
+def test_an_unbalanced_quote_in_a_piped_gh_command_does_not_stop_the_session():
+    """`gh_segments`' `except ValueError`, which nothing watched.
+
+    `SEG_RE` splits on `|`, so a pipe inside a quoted string leaves a segment
+    whose quoting is unbalanced and `shlex.split` raises `ValueError` on it.
+    The command that does it is an ordinary one — the READ branch's own
+    example piped into `jq`. Without the arm the exception leaves
+    `gh_segments`, passes `main()` unguarded (whose own `try` covers
+    `json.load` alone) and stops the session's Bash call, which is the one
+    thing R5's own argument says must never happen.
+
+    Round 1's 🟡 1, and the same class as T1 and T3 one function over: the
+    arm was found by walking `gh_segments` for `ExceptHandler`, `If` and
+    `While` nodes rather than by reading it. Deleting it left this module at
+    30 passed and all seven modules that reference the hook at 270 passed,
+    exit 0 — the silence that looks exactly like correctness."""
+    guard = load_hook_module("review-history-guard.py", "guard_unbalanced_quote")
+    assert guard.gh_segments("gh pr view 1 --json comments | jq '.c[] | .b'") == [
+        "gh pr view 1 --json comments"
+    ]
+    assert guard.gh_segments("gh pr merge 1 --squash | tee it's-done.log") == [
+        "gh pr merge 1 --squash"
+    ]
+
+
 # --- session-lease ---------------------------------------------------------
 
 
@@ -415,13 +441,25 @@ def test_the_guard_falls_back_to_the_raw_text_without_the_reader(tmp_path, missi
     argument says must never happen.
 
     **`spec.loader is None` is the fifth arm and gets no parameter**, because
-    no file path constructs it. Executed: `spec_from_file_location` returns
-    None outright for a directory, a `.txt`, an extensionless file and an
-    empty string, and returns a spec with a real loader for a `.py`, a
-    `.pyc`, a `.so`, a missing `.py` and a DIRECTORY named `x.py` — so
-    nothing makes `spec` truthy while its loader is falsy. It is defence in
-    depth, and saying so is the honest close rather than a case that cannot
-    be written.
+    no file path constructs it. The durable reason is one line of CPython
+    rather than the sweep: `spec_from_file_location` assigns `spec.loader`
+    inside its supported-suffix loop and returns None from that loop's
+    `else`, so a truthy spec with a falsy loader is unreachable for ANY
+    location string — not merely for the ones anybody tried. It is defence
+    in depth, and saying so is the honest close rather than a case that
+    cannot be written.
+
+    The sweep is corroboration and is stated as such, because a sample can
+    only ever say *not these* (round 1's ⬜ 5, and #205 is a ticket about a
+    stated limit standing in for a case). Executed here over 21 inputs:
+    `spec_from_file_location` returns None outright for a directory, a
+    `.txt`, an extensionless file and an empty string, and returns a spec
+    with a real loader for a `.py`, a `.pyc`, a `.so`, a missing `.py` and a
+    DIRECTORY named `x.py`; none of the 21 makes `spec` truthy while its
+    loader is falsy. **The suffix list is per-platform** — on the machine
+    that ran it, `.cpython-314-darwin.so`, `.abi3.so`, `.so`, `.py`, `.pyc`
+    — so the sweep settles one interpreter and one operating system, and
+    contract §13 is the section about resting a defence on a platform.
 
     Measured — with one parameter, deleting the `spec is None` arm left the
     module green, which is round 2's 🟡 1 one unit over."""
@@ -505,13 +543,38 @@ def reader_blanking_passes(reader):
     passes are the calls it makes by NAME to functions its own module
     defines. `text.splitlines()` is an attribute call and drops out; a
     builtin like `list` would have no function on the reader module and
-    drops out too. What survives is what a closing word can be hidden by."""
+    drops out too. What survives is what a closing word can be hidden by.
+
+    **Dropping attribute calls is the limit, and it is refused rather than
+    left silent** (round 1's 🟡 2). A pass written as `_SPAN_RE.sub(...)`
+    hides a closing word exactly as well as a named pass and is an
+    `ast.Attribute` call, so this derivation cannot see it: executed, that
+    pass leaves the module at 30 passed, exit 0 while `is_closed` on a
+    record whose only closing word sits in an inline span flips True to
+    False — which is #210 reproduced with the tie in place. It is also the
+    shape #210 and round 3 both used as their example, because a text-level
+    blanker is naturally written as a sub rather than as a line-based
+    function. So an attribute call other than `splitlines` fails here
+    instead of quietly narrowing what the tie compares."""
     src = textwrap.dedent(inspect.getsource(reader.readable))
     called = {
         node.func.id
         for node in ast.walk(ast.parse(src))
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
     }
+    attrs = {
+        node.func.attr
+        for node in ast.walk(ast.parse(src))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    assert attrs <= {"splitlines"}, (
+        f"`readable` makes an attribute call this derivation cannot see: "
+        f"{sorted(attrs - {'splitlines'})}. A pass written as `_SPAN_RE.sub(...)` "
+        "rather than as a module function hides a closing word just as well and "
+        "leaves the set below unchanged — which is #210 with the tie in place. "
+        "Give the pass a name on the reader module, or teach this function to "
+        "read the shape you used."
+    )
     return {name for name in called if inspect.isfunction(getattr(reader, name, None))}
 
 
@@ -561,12 +624,13 @@ def test_a_closing_word_a_reader_blanks_is_not_a_closing_note(tmp_path, hider):
     reader = guard.reader()
     assert reader is not None, "the tie needs the real reader, not the fallback"
     assert reader_blanking_passes(reader) == set(HIDDEN_CLOSING_WORD), (
-        "`readable` makes a pass this case list does not cover. A closing "
-        "word that pass hides reads as hidden, `is_closed` returns False, "
-        "and without this assertion nothing goes red — the silence looks "
-        "exactly like correctness. Add the pass to HIDDEN_CLOSING_WORD, "
+        "the passes `readable` composes and the keys below have parted. If a "
+        "pass was ADDED, a closing word it hides reads as hidden, `is_closed` "
+        "returns False, and without this assertion nothing goes red — the "
+        "silence looks exactly like correctness; add it to HIDDEN_CLOSING_WORD, "
         "keyed by its name, with a record that hides its word the way that "
-        "pass hides it."
+        "pass hides it. If a pass was RENAMED, re-key its entry rather than "
+        "adding one: an extra key leaves this assertion red."
     )
     record = tmp_path / "round-1.md"
     record.write_text(
@@ -578,3 +642,35 @@ def test_a_closing_word_a_reader_blanks_is_not_a_closing_note(tmp_path, hider):
         encoding="utf-8",
     )
     assert guard.is_closed([str(record)]) is False
+
+
+def test_a_blanking_pass_written_as_a_sub_is_refused_rather_than_unseen(tmp_path):
+    """The tie's own blind spot, watched (round 1's 🟡 2).
+
+    `reader_blanking_passes` derives the passes from the calls `readable`
+    makes to `ast.Name` targets, so a pass written as `_SPAN_RE.sub(...)` is
+    an `ast.Attribute` call and never reaches the set the tie compares. The
+    derivation therefore answered the same two names for a reader with three
+    passes, the tie held, and a closing word inside an inline code span
+    began reading as hidden — #210 with the tie in place.
+
+    The refusal is what closes it, and this is the case that watches the
+    refusal. Without the assertion in `reader_blanking_passes` the reader
+    below derives `{'blank_fences'}`, nothing raises, and no case in this
+    repository says a word — which is the same silence the tie itself exists
+    to end, one function further out."""
+    fake = tmp_path / "a_reader_that_blanks_with_a_sub.py"
+    fake.write_text(
+        "import re\n\n"
+        '_SPAN_RE = re.compile(r"`[^`]*`")\n\n\n'
+        "def blank_fences(lines):\n"
+        "    return lines\n\n\n"
+        "def readable(text):\n"
+        '    return blank_fences(_SPAN_RE.sub("", text).splitlines())\n',
+        encoding="utf-8",
+    )
+    spec = importlib.util.spec_from_file_location("specseal_fake_reader", fake)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with pytest.raises(AssertionError, match="attribute call this derivation"):
+        reader_blanking_passes(module)
