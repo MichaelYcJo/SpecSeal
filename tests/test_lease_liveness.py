@@ -607,3 +607,23 @@ def test_sessions_in_tree_still_sees_an_unattached_live_session(
     active, _idle, reliable = wg.sessions_in_tree(str(repo), "my-session")
     assert reliable is True
     assert len(active) == 1 and active[0][0] is None
+
+
+def test_an_unprobeable_owner_does_not_retire_a_transcript(repo, tmp_path, monkeypatch):
+    """Where this fix's fail direction lives. `None` from lease_owner_alive is
+    "could not ask", never "is gone" — so the transcript stays counted, and an
+    unreadable answer reproduces today's behaviour rather than opening the
+    fail-open direction where the guard allows a switch that takes someone
+    else's branch."""
+    proj = transcripts_for(monkeypatch, tmp_path, repo)
+    fresh_transcript(proj / "unprobeable.jsonl")
+    write_lease(
+        repo,
+        "unprobeable",
+        json.dumps(
+            {"ts": int(time.time()), "pid": 424242, "host": socket.gethostname()}
+        ),
+    )
+    monkeypatch.setattr(wg, "lease_owner_alive", lambda pid: None)
+    idle = idle_minutes(repo)
+    assert idle is not None and idle < wg.IDLE_MIN
