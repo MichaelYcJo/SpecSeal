@@ -11,6 +11,7 @@ work stream. A lease that cannot be attributed is a question for the user, not
 a refusal.
 """
 
+import datetime
 import json
 import os
 import socket
@@ -380,3 +381,229 @@ def test_lease_write_survives_an_unwritable_dir(repo):
         run_lease_hook(repo, "sess-y")
     finally:
         os.chmod(d, 0o700)
+
+
+# --- a lease also retires the TRANSCRIPT its session left behind --------------
+#
+# The rule this module opens with — a lease whose owning process is gone is not
+# a work stream — was enforced in one place and ignored in another.
+#
+# `sessions_in_tree`'s last arm reads "no process, but a fresh transcript in
+# this project" as an unattached live session. Those are also, exactly, the
+# inputs of a session that exited inside the idle window. Measured in this
+# repository on 2026-09-08: `fresh_leases` retired session fdbb7b51's lease on
+# positive evidence its pid was gone, and the arm then read that same session's
+# two-minute-old transcript and put it straight back into `active` — which on
+# the switch path is a hard deny. The tree read as concurrent for five minutes
+# after every session in the project ended.
+#
+# Two probes the ticket proposed were measured and BOTH are false, which is why
+# the repair is here and not in a new syscall:
+#
+#   - "a live session holds its transcript open" — it does not. No live
+#     `claude` process holds any transcript fd, including one writing its own
+#     file seconds earlier. That discriminator would answer "not held" for
+#     every session and collapse the arm to always-idle.
+#   - "an exited session leaves a terminal marker" — none exists. Across 188
+#     transcripts no last-record type separates the populations.
+#
+# The lease already carries the answer, and the direction is safe by
+# construction: a session lands in the dead set only on positive evidence its
+# owner is gone, so every unreadable answer leaves the transcript counted
+# exactly as before.
+
+
+def iso(minutes_ago):
+    t = datetime.datetime.now(datetime.UTC) - datetime.timedelta(minutes=minutes_ago)
+    return t.isoformat().replace("+00:00", "Z")
+
+
+def transcripts_for(monkeypatch, tmp_path, cwd):
+    """The ~/.claude/projects directory the guard will scan for `cwd`.
+
+    HOME and USERPROFILE both: expanduser reads HOME on POSIX and USERPROFILE
+    on Windows, so setting one leaves the other platform pointed at the real
+    home directory.
+    """
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    d = tmp_path / ".claude" / "projects" / wg.project_slug(str(cwd))
+    d.mkdir(parents=True)
+    return d
+
+
+def fresh_transcript(path):
+    """A transcript whose tail is ACTIVE events — an exited session's tail
+    looks exactly like this, which is the whole difficulty."""
+    with open(path, "w") as f:
+        f.write(json.dumps({"type": "assistant", "timestamp": iso(1)}) + "\n")
+
+
+def exited_session(repo, tmp_path, monkeypatch, sid="ended-session"):
+    """The incident: a fresh transcript whose owner the lease proves is gone."""
+    proj = transcripts_for(monkeypatch, tmp_path, repo)
+    fresh_transcript(proj / f"{sid}.jsonl")
+    write_lease(
+        repo,
+        sid,
+        json.dumps(
+            {"ts": int(time.time()), "pid": dead_pid(), "host": socket.gethostname()}
+        ),
+    )
+    return proj
+
+
+def idle_minutes(repo, own="my-session"):
+    return wg.transcript_idle_minutes(
+        str(repo), own, dead_ids=wg.dead_session_ids(str(repo))
+    )
+
+
+def test_an_exited_sessions_transcript_is_not_a_work_stream(
+    repo, tmp_path, monkeypatch
+):
+    """THE INCIDENT. Fresh transcript, active tail, owner provably gone."""
+    exited_session(repo, tmp_path, monkeypatch)
+    assert idle_minutes(repo) is None
+
+
+def test_a_transcript_with_no_lease_still_counts(repo, tmp_path, monkeypatch):
+    """THE CASE THAT MUST NOT BREAK — an extension-panel session that has
+    written transcripts but not yet touched the repo, so it has no lease.
+    Nothing proves it dead, so it stays a live work stream."""
+    proj = transcripts_for(monkeypatch, tmp_path, repo)
+    fresh_transcript(proj / "panel-session.jsonl")
+    idle = idle_minutes(repo)
+    assert idle is not None and idle < wg.IDLE_MIN
+
+
+def test_a_live_lease_owner_keeps_its_transcript(repo, tmp_path, monkeypatch):
+    proj = transcripts_for(monkeypatch, tmp_path, repo)
+    fresh_transcript(proj / "running-session.jsonl")
+    write_lease(
+        repo,
+        "running-session",
+        json.dumps(
+            {"ts": int(time.time()), "pid": os.getpid(), "host": socket.gethostname()}
+        ),
+    )
+    idle = idle_minutes(repo)
+    assert idle is not None and idle < wg.IDLE_MIN
+
+
+def test_a_lease_from_another_host_does_not_retire_a_transcript(
+    repo, tmp_path, monkeypatch
+):
+    """Another machine's pid is not ours to probe, so it is not evidence."""
+    proj = transcripts_for(monkeypatch, tmp_path, repo)
+    fresh_transcript(proj / "elsewhere.jsonl")
+    write_lease(
+        repo,
+        "elsewhere",
+        json.dumps({"ts": int(time.time()), "pid": 1, "host": "some-other-host"}),
+    )
+    idle = idle_minutes(repo)
+    assert idle is not None and idle < wg.IDLE_MIN
+
+
+def test_a_lease_without_a_pid_does_not_retire_a_transcript(
+    repo, tmp_path, monkeypatch
+):
+    """The pre-upgrade bare-timestamp format: no owner to ask about."""
+    proj = transcripts_for(monkeypatch, tmp_path, repo)
+    fresh_transcript(proj / "legacy-session.jsonl")
+    write_lease(repo, "legacy-session", "1")
+    idle = idle_minutes(repo)
+    assert idle is not None and idle < wg.IDLE_MIN
+
+
+def test_a_dead_sessions_subagent_transcripts_are_skipped(repo, tmp_path, monkeypatch):
+    """Background agents run inside their session's process; when the lease
+    proves that process gone, its subagents went with it."""
+    proj = transcripts_for(monkeypatch, tmp_path, repo)
+    sub = proj / "ended-session" / "subagents"
+    sub.mkdir(parents=True)
+    fresh_transcript(sub / "agent-x.jsonl")
+    write_lease(
+        repo,
+        "ended-session",
+        json.dumps(
+            {"ts": int(time.time()), "pid": dead_pid(), "host": socket.gethostname()}
+        ),
+    )
+    assert idle_minutes(repo) is None
+
+
+def test_dead_session_ids_names_only_provably_dead_owners(repo, tmp_path, monkeypatch):
+    """Every shape that is not positive evidence of death stays out."""
+    write_lease(
+        repo,
+        "gone",
+        json.dumps(
+            {"ts": int(time.time()), "pid": dead_pid(), "host": socket.gethostname()}
+        ),
+    )
+    write_lease(
+        repo,
+        "running",
+        json.dumps(
+            {"ts": int(time.time()), "pid": os.getpid(), "host": socket.gethostname()}
+        ),
+    )
+    write_lease(
+        repo,
+        "far-away",
+        json.dumps({"ts": int(time.time()), "pid": 1, "host": "some-other-host"}),
+    )
+    write_lease(repo, "no-pid", "1")
+    assert wg.dead_session_ids(str(repo)) == frozenset({"gone"})
+
+
+def test_dead_session_ids_is_empty_without_a_lease_directory(tmp_path):
+    """No repo, no leases, no exclusions — and no exception."""
+    d = tmp_path / "not-a-repo"
+    d.mkdir()
+    assert wg.dead_session_ids(str(d)) == frozenset()
+
+
+def only_our_own_claude(monkeypatch, fake_pid=424242):
+    """Make the process scan work and find no OTHER session — the incident.
+
+    `sessions_in_tree` returns unreliable unless it can spot its own process,
+    and the test runner is not named `claude`. Feeding the scan one pid and
+    putting that pid in the ancestor set reproduces the state at the denial:
+    a scan that worked, correctly finding nobody else.
+    """
+    real = wg.subprocess.run
+
+    def fake(cmd, *a, **k):
+        if list(cmd[:2]) == ["ps", "-axo"]:
+            return subprocess.CompletedProcess(cmd, 0, f"{fake_pid} claude\n", "")
+        return real(cmd, *a, **k)
+
+    monkeypatch.setattr(wg.subprocess, "run", fake)
+    monkeypatch.setattr(wg, "ancestors", lambda pid: {fake_pid})
+
+
+def test_sessions_in_tree_does_not_resurrect_an_exited_session(
+    repo, tmp_path, monkeypatch
+):
+    """End to end: the arm must not put back what fresh_leases just buried."""
+    exited_session(repo, tmp_path, monkeypatch)
+    only_our_own_claude(monkeypatch)
+    active, _idle, reliable = wg.sessions_in_tree(str(repo), "my-session")
+    assert reliable is True
+    assert active == [], f"an exited session came back as active: {active}"
+
+
+def test_sessions_in_tree_still_sees_an_unattached_live_session(
+    repo, tmp_path, monkeypatch
+):
+    """The arm still fires for the case it exists for: a fresh transcript with
+    no process AND nothing proving its session dead."""
+    proj = transcripts_for(monkeypatch, tmp_path, repo)
+    fresh_transcript(proj / "panel-session.jsonl")
+    only_our_own_claude(monkeypatch)
+    active, _idle, reliable = wg.sessions_in_tree(str(repo), "my-session")
+    assert reliable is True
+    assert len(active) == 1 and active[0][0] is None

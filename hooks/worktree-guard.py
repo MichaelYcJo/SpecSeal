@@ -851,7 +851,7 @@ def file_activity_epoch(path: str, stale_before: float):
     return last_active_event_epoch(path)
 
 
-def transcript_idle_minutes(cwd: str, own_session_id: str):
+def transcript_idle_minutes(cwd: str, own_session_id: str, dead_ids=frozenset()):
     """Minutes since any OTHER session's transcript in `cwd`'s project dir was
     written -- top-level <session-id>.jsonl files AND session subdirectories,
     where background-agent transcripts live (<session-id>/subagents/*.jsonl).
@@ -863,6 +863,12 @@ def transcript_idle_minutes(cwd: str, own_session_id: str):
     working sessions out of the "forgotten tab" bucket. Per-project, not
     per-pid: if ANY other session of this project is writing, treat the tree
     as actively worked on.
+
+    `dead_ids` names sessions a lease proves have EXITED (dead_session_ids).
+    Their transcripts are skipped: a file an ended session left behind reads
+    fresh for the whole idle window, and counting it is how the guard denied a
+    switch naming a session that was already gone. Empty by default, so a
+    caller that cannot supply the evidence gets exactly the old behaviour.
     """
     proj = os.path.expanduser(os.path.join("~/.claude/projects", project_slug(cwd)))
     newest = None
@@ -876,6 +882,8 @@ def transcript_idle_minutes(cwd: str, own_session_id: str):
         if name.endswith(".jsonl"):
             if own_session_id and name == f"{own_session_id}.jsonl":
                 continue
+            if name[: -len(".jsonl")] in dead_ids:
+                continue
             m = file_activity_epoch(path, threshold)
             if m is not None and (newest is None or m > newest):
                 newest = m
@@ -885,6 +893,10 @@ def transcript_idle_minutes(cwd: str, own_session_id: str):
             # foreground sits quiet while a background agent grinds for 30+
             # minutes is only visible here. Skip our own session's dir.
             if own_session_id and name == own_session_id:
+                continue
+            # A background agent runs inside its session's process, so when
+            # the lease proves that process gone its subagents went with it.
+            if name in dead_ids:
                 continue
             for root, _dirs, files in os.walk(path):
                 for f in files:
@@ -950,6 +962,84 @@ def lease_owner_alive(pid: int):
         return None
 
 
+def lease_dir(top: str):
+    """<git-dir>/specseal-leases for the tree at `top`, or None if there is
+    none to read. In a linked worktree --absolute-git-dir resolves to
+    .git/worktrees/<name>, which is deliberate: a lease belongs to the tree
+    its session is working in, not to the whole clone."""
+    try:
+        gd = subprocess.run(
+            ["git", "rev-parse", "--absolute-git-dir"],
+            cwd=top or None,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except Exception:
+        return None
+    if gd.returncode != 0:
+        return None
+    d = os.path.join(gd.stdout.strip(), "specseal-leases")
+    return d if os.path.isdir(d) else None
+
+
+def dead_session_ids(top: str):
+    """Session ids a lease PROVES have exited.
+
+    A transcript is evidence that a session wrote something, never that it is
+    still running. Those two readings diverge for exactly IDLE_MIN minutes
+    after a session ends, and that window is where the guard was wrong: it
+    denied a branch switch naming a session whose lease `fresh_leases` had
+    already retired on positive evidence its pid was gone. One arm buried the
+    session and the next read its transcript and put it back.
+
+    So the same evidence is offered to the transcript scan. This set only ever
+    REMOVES liveness, and only on the rule `fresh_leases` states for itself:
+    this host, a recorded pid, and that pid no longer running. A lease from
+    another host, one with no pid, one that will not parse, an owner that
+    cannot be probed, or no lease at all -- none of them land here, so the
+    transcript stays counted exactly as it is counted today. Every unreadable
+    answer therefore falls toward active, which is the direction `proc_cwd`'s
+    docstring argues for: a wrong deny costs a prompt, a wrong allow can move
+    someone else's branch under them.
+
+    What this is NOT is a liveness test on the transcript itself. Two were
+    measured and both are false: no live `claude` holds its transcript file
+    open (so an open-fd probe would answer "not held" for every session and
+    collapse the arm to always-idle), and no record type marks the tail of an
+    exited transcript.
+    """
+    d = lease_dir(top)
+    if not d:
+        return frozenset()
+    this_host = socket.gethostname()
+    dead = set()
+    try:
+        names = os.listdir(d)
+    except OSError:
+        return frozenset()
+    for name in names:
+        record = {}
+        try:
+            with open(os.path.join(d, name)) as f:
+                loaded = json.load(f)
+            if isinstance(loaded, dict):
+                record = loaded
+        except Exception:
+            continue
+        # Mirrors fresh_leases' own reading of the same file, so the two
+        # cannot drift into disagreeing about one lease.
+        host = record.get("host")
+        if host and host != this_host:
+            continue
+        pid = record.get("pid")
+        if not isinstance(pid, int):
+            continue
+        if lease_owner_alive(pid) is False:
+            dead.add(name)
+    return frozenset(dead)
+
+
 def fresh_leases(top: str, own_session_id: str = "", scanned_pids=frozenset()):
     """DECLARED work streams — leases beat every heuristic. The session-lease
     hook stamps <git-dir>/specseal-leases/<session-id> on each tool call
@@ -982,22 +1072,8 @@ def fresh_leases(top: str, own_session_id: str = "", scanned_pids=frozenset()):
     entries = []
     unattributable = []
     this_host = socket.gethostname()
-    try:
-        gd = subprocess.run(
-            ["git", "rev-parse", "--absolute-git-dir"],
-            cwd=top or None,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-        leases = (
-            os.path.join(gd.stdout.strip(), "specseal-leases")
-            if gd.returncode == 0
-            else None
-        )
-    except Exception:
-        leases = None
-    if leases and os.path.isdir(leases):
+    leases = lease_dir(top)
+    if leases:
         for name in os.listdir(leases):
             if own_session_id and name == own_session_id:
                 continue
@@ -1110,12 +1186,18 @@ def sessions_in_tree(top: str, own_session_id: str = ""):
     if not (pids & mine):
         return [], [], False  # our own session is invisible -> detection is unusable
 
+    # Read once, then offered to every transcript scan below: the sessions a
+    # lease proves have exited. Both scans ask the same question -- "is
+    # anybody writing here" -- and a file left behind by an ended session is
+    # not an answer to it.
+    dead_ids = dead_session_ids(top)
+
     active, idle = [], []
     for p in sorted(pids - mine):
         d = proc_cwd(p)
         if d and (d == top or d.startswith(top + os.sep)):
             tty_idle = tty_idle_minutes(p)
-            tr_idle = transcript_idle_minutes(d, own_session_id)
+            tr_idle = transcript_idle_minutes(d, own_session_id, dead_ids)
             signals = [v for v in (tty_idle, tr_idle) if v is not None]
             # Idle only when every readable signal is quiet; no signals at all
             # -> conservative (active).
@@ -1137,8 +1219,17 @@ def sessions_in_tree(top: str, own_session_id: str = ""):
     # this project's transcripts. Fresh active events with no process to pin
     # them on = an unattached live session; measured live when a background
     # agent kept working after its terminal pid died from the scan's view.
+    #
+    # `dead_ids` is what keeps that reading from also catching a session that
+    # simply ENDED. Its two inputs -- no process, a fresh transcript -- are
+    # equally the inputs of a session that exited inside the idle window, and
+    # nothing in the arm separated them, so the tree read as concurrent for
+    # IDLE_MIN minutes after every session in the project closed. The lease
+    # separates them exactly, and it keeps the case this arm exists for: a
+    # live panel session's lease owner is alive, and one that has not written
+    # a lease at all is not proved dead either, so both still count.
     if not active:
-        tr_idle = transcript_idle_minutes(top, own_session_id)
+        tr_idle = transcript_idle_minutes(top, own_session_id, dead_ids)
         if tr_idle is not None and tr_idle < IDLE_MIN:
             active.append((None, top, None, tr_idle, None))
     return active, idle, True
