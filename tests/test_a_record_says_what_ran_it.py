@@ -550,7 +550,8 @@ def test_every_instructing_file_names_the_row(parts, needle):
 
 
 @pytest.mark.parametrize(
-    "parts", [("skills", "code-review", "orchestration.md"), ("skills", "verify", "SKILL.md")]
+    "parts",
+    [("skills", "code-review", "orchestration.md"), ("skills", "verify", "SKILL.md")],
 )
 def test_the_skills_say_the_spawning_session_fills_it(parts):
     """The one thing a reader cannot infer from the row itself.
@@ -592,7 +593,8 @@ def test_verify_says_how_a_phase_record_comes_to_carry_the_row():
 
 
 @pytest.mark.parametrize(
-    "parts", [("skills", "code-review", "orchestration.md"), ("skills", "verify", "SKILL.md")]
+    "parts",
+    [("skills", "code-review", "orchestration.md"), ("skills", "verify", "SKILL.md")],
 )
 def test_the_skills_offer_the_unknown_answer(parts):
     """A skill teaching only the confident answer gets the confident answer
