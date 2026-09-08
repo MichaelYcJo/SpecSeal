@@ -7,12 +7,12 @@
 | PR | not yet opened |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | undeclared → marker_dir, main, round-1-report.md, round-1.md, round-2-report.md, round-2.md, pytest; marker_dir → main, round-1-fixes.md, round-1-report.md, round-1.md, round-2-report.md, round-2.md; home_at → declaration_hint, failing_rows, main, ledgers, undeclared, optin.py, git_common_dir, home, declarations, ledger.md, plan.md, questions.md, round-1.md, spec.md, phase-1.md, round-1-report.md, round-2-report.md, round-2.md, local_root, seal_home, resolve, pytest |
+| New units | none |
 | Needs a fix | yes — 9, 10 and 11 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -36,10 +36,10 @@ The bound was stated: round 1 met the floor, a round that opens nothing needing 
 | 6 | ⬜ `already_asked`'s `cwd` argument was discarded because `git_dir_of` returns an absolute path | `hooks/mode-gate.py:89-124` | **answered** | read, then executed — the parameter is gone, and `git_dir_of` returns an absolute existing directory for both `--absolute-git-dir` and `--git-common-dir` from a main tree and from a linked one |
 | 7 | ⬜ `templates/config.md` still opened with *an absent row is not an error* | `templates/config.md` | **answered** | read — the opening now carves `Mode` out twice over, and no table row changed |
 | 8 | ⬜ The changelog fragment did not say who meets the gate on upgrade | `seal/specs/1788817289-local-mode-from-first-setup-to-the-gate/changelog.md` | **answered** | read — the fragment names every repository that opted in before this release and the one command that ends it |
-| 9 | 🔴 The rider stamp names `a3bea92`, a commit of this feature branch, which the squash into `release/v0.9.1` discards — #239's class, one commit after #239's first instance was repaired | `skills/implement/scripts/seal.py:1640` | **open** | executed — squashed `5e56470` onto `2138c98` in a `--no-local` clone: `test_every_rider_stamp_names_a_commit_this_branch_can_reach` exits 0 before and 1 after, naming `a3bea92` |
-| 10 | 🟡 The rider drifted `seal.py#other_worktrees` in `seal/ledger.md` and in another work item's ledger fragment, and neither row was re-read or re-stamped | `seal/ledger.md:689` · `seal/ledger/1788789329-a-git-call-that-fails-reads-as-no-remote.md:73` | **open** | executed — drifted anchors at `9d2f440` 8, at `2138c98` 0, at `ca59969` 9, at `5e56470` 9; the one name at the target and at neither parent is `seal.py#other_worktrees` |
-| 11 | 🟡 The stated per-call `git` cost is a main work tree's number: a linked worktree pays 2 where the document says 1 and 4 where it says 2, and two of the four are the new code re-asking a question `optin.home_at` already answered | `seal/specs/1788817289-local-mode-from-first-setup-to-the-gate/pr-notes.md` · `hooks/mode-gate.py:209-225` | **open** | executed — logging `git` on `PATH`, one `ls` payload: 1/2 from a main tree, 2/4 from a linked worktree; 59.0 ms against the sibling's 27.2 ms there, median of twelve |
-| 12 | ⬜ `round-1-fixes.md` says the S8 row was "re-read rather than re-stamped"; its anchor hash and `Checked` date both changed, which is a re-verify | `seal/specs/1788817289-local-mode-from-first-setup-to-the-gate/rounds/round-1-fixes.md` | **open** | executed — `541502a6` → `b8ea59c3`, 2026-09-07 → 2026-09-08 across `ca59969` |
+| 9 | 🔴 The rider stamp names `a3bea92`, a commit of this feature branch, which the squash into `release/v0.9.1` discards — #239's class, one commit after #239's first instance was repaired | `skills/implement/scripts/seal.py:1640` | **fixed** `064330b` | fixed at 064330b; executed — squashed `5e56470` onto `2138c98` in a `--no-local` clone: `test_every_rider_stamp_names_a_commit_this_branch_can_reach` exits 0 before and 1 after, naming `a3bea92` |
+| 10 | 🟡 The rider drifted `seal.py#other_worktrees` in `seal/ledger.md` and in another work item's ledger fragment, and neither row was re-read or re-stamped | `seal/ledger.md:689` · `seal/ledger/1788789329-a-git-call-that-fails-reads-as-no-remote.md:73` | answered | corrected at 54cea1f |
+| 11 | 🟡 The stated per-call `git` cost is a main work tree's number: a linked worktree pays 2 where the document says 1 and 4 where it says 2, and two of the four are the new code re-asking a question `optin.home_at` already answered | `seal/specs/1788817289-local-mode-from-first-setup-to-the-gate/pr-notes.md` · `hooks/mode-gate.py:209-225` | **fixed** `ad3ee1b` | fixed at ad3ee1b — and the document half corrected at 54cea1f; executed — logging `git` on `PATH`, one `ls` payload: 1/2 from a main tree, 2/4 from a linked worktree; 59.0 ms against the sibling's 27.2 ms there, median of twelve |
+| 12 | ⬜ `round-1-fixes.md` says the S8 row was "re-read rather than re-stamped"; its anchor hash and `Checked` date both changed, which is a re-verify | `seal/specs/1788817289-local-mode-from-first-setup-to-the-gate/rounds/round-1-fixes.md` | answered | corrected at 54cea1f |
 
 ## Paste-ready fixes
 
