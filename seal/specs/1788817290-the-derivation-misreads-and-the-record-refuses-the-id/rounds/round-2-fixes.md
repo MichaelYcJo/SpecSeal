@@ -16,6 +16,7 @@ edited, and every case was seen red before its fix.
 | 2 | fixed | `df9a3d0` |
 | 3 | fixed | `1742dcf` |
 | 4 | fixed | `1742dcf` |
+| 8 | answered | The broad gate, which `agent-contract` §2 reserves for the orchestrator. Run at this SHA after `release/v0.9.1` was merged in: **`2623 passed, 2 skipped`**, `ruff check .` and `ruff format --check .` both exit 0. One record check was red beforehand and is not this fix pass's — `round-1.md`'s `Contract changes` and `New units` still read *the fixes are not yet written* while `Fixes checked by` already named round 2; the orchestrator filled both cells from round 2's own report in the closing commit |
 
 ## The red I saw before each fix
 
