@@ -843,7 +843,7 @@ def test_the_review_skill_says_close_writes_the_capped_ends_checker_cell():
     skill's `Fixes checked by` section says which subcommand writes it and
     when, beside the sentence that gives `new` the reach-back."""
     chain = check_module()
-    skill = read("skills", "code-review", "SKILL.md")
+    skill = read("skills", "code-review", "orchestration.md")
     section = skill[
         skill.index("### Then say who checked them") : skill.index(
             "### And name the fix surface"

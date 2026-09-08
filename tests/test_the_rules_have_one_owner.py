@@ -7,14 +7,21 @@ places to disagree. `spec.md` §Scope *In — the rules* of the work item that
 added these lists the nine with one owner each:
 
   1  a record-located finding is a correction     docs/review-chain-spec.md
-  2  a fix pass adds no mechanism                 skills/code-review/SKILL.md
+  2  a fix pass adds no mechanism                 code-review/orchestration.md
   3  🟡 is a defect the release would ship; ⬜     skills/code-review/SKILL.md
   4  the reopening is one, then `capped`          docs/review-chain-spec.md
   5  a fix pass hands over a fix table            agents/smith.md
-  6  the draft pull request before round 1        skills/code-review/SKILL.md
-  7  a compacted session hands over the record    skills/code-review/SKILL.md
+  6  the draft pull request before round 1        code-review/orchestration.md
+  7  a compacted session hands over the record    code-review/orchestration.md
   8  the 0.8.x moratorium on fields               docs/review-chain-spec.md
-  9  a hand-back's claim is re-run                skills/code-review/SKILL.md
+  9  a hand-back's claim is re-run                code-review/orchestration.md
+
+Five of the nine used to be owned by `skills/code-review/SKILL.md`. #265 split
+that file on the seam its own headings drew: the five sections it prefixed
+`Orchestrator:` moved to `skills/code-review/orchestration.md`, so four of the
+five rules above moved with their sections and rule 3 stayed with §*Findings
+format*. The headings did not change, so every link sentence names the section
+it always named and only the file it names moved.
 
 Phase 4a wrote the three owners' files and phase 4b the five linking
 carriers; the link tables below hold the links both phases' files carry, one
@@ -36,6 +43,9 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 SPEC = ("docs", "review-chain-spec.md")
 SKILL = ("skills", "code-review", "SKILL.md")
+# The orchestrator's half of the review skill (#265). The five sections the
+# file prefixed `Orchestrator:` live here; the reviewer's half stays in SKILL.
+ORCH = ("skills", "code-review", "orchestration.md")
 TEMPLATE = ("templates", "sdd-round.md")
 SMITH = ("agents", "smith.md")
 PROTOCOL = ("docs", "review-handoff-protocol.md")
@@ -49,12 +59,12 @@ TREE = ("docs", "skills", "agents", "templates")
 
 REOPENING = "§*The reopening — one, and then the run is capped*"
 NO_MECHANISM = (
-    "`skills/code-review/SKILL.md` §*A fix pass adds the unit that pins it, "
-    "and that unit ships unreviewed* owns that rule"
+    "`skills/code-review/orchestration.md` §*A fix pass adds the unit that "
+    "pins it, and that unit ships unreviewed* owns that rule"
 )
 BEFORE_ROUND_ONE = (
-    "`skills/code-review/SKILL.md` §*Orchestrator: the pull request opens "
-    "before round 1, and a phase is re-run* owns"
+    "`skills/code-review/orchestration.md` §*Orchestrator: the pull request "
+    "opens before round 1, and a phase is re-run* owns"
 )
 
 
@@ -78,12 +88,12 @@ RULES = {
         SPEC,
         "A finding located in a record is a correction, not a round.",
         {
-            SKILL: "`docs/review-chain-spec.md` §*The last round verifies* owns the rule",
+            ORCH: "`docs/review-chain-spec.md` §*The last round verifies* owns the rule",
             WARDEN: "`docs/review-chain-spec.md` §*The last round verifies* owns the rule",
         },
     ),
     "2 a fix pass adds no mechanism": (
-        SKILL,
+        ORCH,
         "A fix pass may not add mechanism.",
         {SMITH: NO_MECHANISM, IMPLEMENT: NO_MECHANISM},
     ),
@@ -96,7 +106,7 @@ RULES = {
         SPEC,
         "at most one later record may close on a fix",
         {
-            SKILL: f"`docs/review-chain-spec.md` {REOPENING} owns",
+            ORCH: f"`docs/review-chain-spec.md` {REOPENING} owns",
             TEMPLATE: f"`docs/review-chain-spec.md` {REOPENING} owns",
             PROTOCOL: f"`docs/review-chain-spec.md` {REOPENING} owns",
             WARDEN: f"`docs/review-chain-spec.md` {REOPENING} owns",
@@ -105,10 +115,10 @@ RULES = {
     "5 a fix pass hands over a fix table": (
         SMITH,
         "hands over a fix table under `## Fixes`",
-        {SKILL: "`agents/smith.md` owns that rule"},
+        {ORCH: "`agents/smith.md` owns that rule"},
     ),
     "6 the draft pull request opens before round 1": (
-        SKILL,
+        ORCH,
         "The draft pull request opens at the end of the build, before round 1.",
         {
             PROTOCOL: f"opened when the build's last phase closes, because {BEFORE_ROUND_ONE}",
@@ -116,7 +126,7 @@ RULES = {
         },
     ),
     "7 a compacted session hands the next round to a fresh one": (
-        SKILL,
+        ORCH,
         "A session that has compacted hands the next round to a fresh one, and "
         "the generated record is the handoff.",
         {},
@@ -127,7 +137,7 @@ RULES = {
         {},
     ),
     "9 a hand-back's verification claim is a claim": (
-        SKILL,
+        ORCH,
         "A hand-back's verification claim is a claim.",
         {
             PROTOCOL: f"{BEFORE_ROUND_ONE} the rule. Its grounds are one step from this document"
@@ -177,14 +187,22 @@ def test_the_skill_links_the_reopening_from_both_places_it_used_to_state_it():
     """The skill carried the exception twice — under the verifying round and
     under the floor — and each copy now links rather than restates. Counted,
     because one copy left restating is the disagreement this file exists to
-    refuse."""
-    skill = flat(*SKILL)
-    assert skill.count(REOPENING) == 2, (
-        f"the skill names the reopening subsection {skill.count(REOPENING)} "
-        "times where its two former copies of the exception stood"
+    refuse.
+
+    **Counted across both halves of the skill, not in one file.** #265 moved
+    both places into `orchestration.md`, and a count taken in that file alone
+    would go green again the day a copy moves back to `SKILL.md` — which is
+    the two-answers-in-one-document shape the count exists to refuse. The sum
+    is what the case was written to mean.
+    """
+    halves = flat(*SKILL) + " " + flat(*ORCH)
+    assert halves.count(REOPENING) == 2, (
+        f"the skill names the reopening subsection {halves.count(REOPENING)} "
+        "times across its two halves, where its two former copies of the "
+        "exception stood"
     )
-    assert "`chain: capped`" in skill
-    assert "`deferred #N`" in skill
+    assert "`chain: capped`" in halves
+    assert "`deferred #N`" in halves
 
 
 # --- rule 1's fix word, and rule 6's red leg ---------------------------------
@@ -214,8 +232,8 @@ def test_the_release_leg_is_red_until_round_ones_record_commits():
     assert (
         "The `release` leg is red from the draft's opening until round 1's "
         "record commits"
-    ) in flat(*SKILL)
-    assert "that is the window's expected state" in flat(*SKILL)
+    ) in flat(*ORCH)
+    assert "that is the window's expected state" in flat(*ORCH)
 
 
 def test_the_release_leg_is_red_again_until_the_verifying_rounds_record_commits():
@@ -225,7 +243,7 @@ def test_the_release_leg_is_red_again_until_the_verifying_rounds_record_commits(
     assert (
         "It is red once more from `close` ticking `Pass` until the verifying "
         "round's record commits"
-    ) in flat(*SKILL)
+    ) in flat(*ORCH)
 
 
 def test_the_generator_carries_the_fenced_blocks_under_the_probes_table():
@@ -279,7 +297,7 @@ def test_the_section_names_the_subcommand_that_fills_the_cell(which):
     sections keep the rule and its grounds and no longer ask a session to
     remember the step; the subcommand is named where the instruction was."""
     heading, sentence = REACH_BACKS[which]
-    text = flat(*SKILL)
+    text = flat(*ORCH)
     assert heading in text, f"the section for {which!r} moved: {heading!r}"
     start = text.index(heading)
     end = text.find(" ### ", start + len(heading))
@@ -293,10 +311,15 @@ def test_the_section_names_the_subcommand_that_fills_the_cell(which):
 def test_the_skill_no_longer_calls_the_reach_back_a_habit():
     """The absence half, beside the presence above: the sentence that told
     the orchestrator the cells were a pass to remember is gone, and the one
-    that replaced it names the generator."""
-    text = flat(*SKILL)
-    assert "The habit that makes all of it moot" not in text
-    assert "What makes all of it moot is the generator" in text
+    that replaced it names the generator.
+
+    The absence is read across both halves and the presence in the half that
+    holds the sections (#265): an absence checked in one file is satisfied by
+    the sentence coming back in the other.
+    """
+    both = flat(*SKILL) + " " + flat(*ORCH)
+    assert "The habit that makes all of it moot" not in both
+    assert "What makes all of it moot is the generator" in flat(*ORCH)
 
 
 def test_the_template_says_the_record_is_generated():
@@ -368,7 +391,7 @@ def test_the_count_rules_sentence_is_the_owners_and_its_links():
     — the exception is the owner's to state, bounded to one."""
     found = occurrences(AT_MOST_ONE_MORE)
     assert found.get("/".join(SPEC)) == 1, found
-    for carrier in (SKILL, TEMPLATE):
+    for carrier in (ORCH, TEMPLATE):
         text = flat(*carrier)
         assert found.get("/".join(carrier)) == 1, found
         after = text[text.index(AT_MOST_ONE_MORE) :]
@@ -376,7 +399,9 @@ def test_the_count_rules_sentence_is_the_owners_and_its_links():
             f"{'/'.join(carrier)} carries the count rule's sentence without "
             "the owner's subsection in the same breath"
         )
-    for carrier in (SPEC, SKILL, TEMPLATE):
+    # SKILL keeps its place in the absence half: #265 moved the phrase to
+    # ORCH, and the half it left must not grow a copy of the exception.
+    for carrier in (SPEC, SKILL, ORCH, TEMPLATE):
         assert UNLESS not in flat(*carrier), (
             f"{'/'.join(carrier)} still states the exception as an *unless*, "
             "which is the unbounded reading"

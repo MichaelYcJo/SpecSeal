@@ -2545,14 +2545,15 @@ def stopping_floor(reader, root, rel, later):
     **The count stops at the first later record whose `Needs a fix` says the
     run reopened, that record included — and at the first whose own verdicts
     closed on a fix, whatever that row says.** A verifying round that opens
-    something IS a finding round (`skills/code-review/SKILL.md`), so its own
-    fixes need a reader in turn, and a third record is then the run behaving
-    correctly rather than running on. Counting blindly made that sequence
-    unwritable — round 1's 🔴 1, found on this work item's own first record,
-    which answers the floor `no` and `Needs a fix: yes`. The second stop is
-    `wrote_fixes`, above: the row is the reviewer's answer to what it opened,
-    the verdict column is whether fixes were written, and round 7 of the work
-    item that added it had no terminal record until the walk read both.
+    something IS a finding round (`skills/code-review/orchestration.md`), so
+    its own fixes need a reader in turn, and a third record is then the run
+    behaving correctly rather than running on. Counting blindly made that
+    sequence unwritable — round 1's 🔴 1, found on this work item's own first
+    record, which answers the floor `no` and `Needs a fix: yes`. The second
+    stop is `wrote_fixes`, above: the row is the reviewer's answer to what it
+    opened, the verdict column is whether fixes were written, and round 7 of
+    the work item that added it had no terminal record until the walk read
+    both.
 
     Both rows are read here rather than in two functions, because the bound
     is one question spread over two cells and a second reader of `Needs a

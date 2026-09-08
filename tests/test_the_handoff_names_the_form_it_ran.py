@@ -73,7 +73,7 @@ def test_the_requirement_count_moved_with_the_requirement():
 def test_the_review_skill_names_both_forms_and_what_each_is_for():
     """The orchestrator writes the spawn prompt, so the table it copies from
     has to hold both rows. Guidance naming one form is how this happened."""
-    skill = flat("skills", "code-review", "SKILL.md")
+    skill = flat("skills", "code-review", "orchestration.md")
     assert "The check a round runs reads everything" in skill, (
         "the skill has no section on which form of the ledger check a round is handed"
     )
@@ -91,12 +91,12 @@ def test_the_review_skill_refuses_the_repair_that_looks_obvious():
     """The cheap reading of #153 is *stop narrowing*, and it reintroduces
     the defect the narrowing was adopted to fix. The section has to say so,
     or the next reader makes that trade without knowing it is one."""
-    skill = flat("skills", "code-review", "SKILL.md")
+    skill = flat("skills", "code-review", "orchestration.md")
     assert "do not answer this by deleting the narrowing" in skill
 
 
 def test_the_review_skill_carries_the_measurement_too():
     """A rule with the measurement stripped out is one the next orchestrator
     weighs against convenience. This one lost that weighing already."""
-    skill = flat("skills", "code-review", "SKILL.md")
+    skill = flat("skills", "code-review", "orchestration.md")
     assert "fifteen drifted rows and one broken claim" in skill

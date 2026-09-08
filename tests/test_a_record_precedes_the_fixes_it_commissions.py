@@ -724,7 +724,7 @@ def test_a_forgotten_checker_cell_leaves_the_arm_nothing_to_key_on(repo):
     for where in (
         ("docs", "review-chain-spec.md"),
         ("templates", "sdd-round.md"),
-        ("skills", "code-review", "SKILL.md"),
+        ("skills", "code-review", "orchestration.md"),
     ):
         assert "the session that filled" in flat(*where), (
             f"{'/'.join(where)} describes the refusal without its limit, so a "
@@ -953,7 +953,7 @@ def test_the_review_skill_tells_the_orchestrator_when_to_commit_it():
     orchestrator reads — and the cheapest way to satisfy the check is the
     one that pays anyway: commission the fix pass from the committed record
     rather than from a report in a session that ends."""
-    skill = flat("skills", "code-review", "SKILL.md")
+    skill = flat("skills", "code-review", "orchestration.md")
     assert "And commit the record before commissioning the fixes" in skill
     assert "ORDER_FROM" in skill, (
         "the skill describes the habit and never names the check that "

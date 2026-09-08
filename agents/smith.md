@@ -63,7 +63,7 @@ incorporation. This file only adds what the skill does not carry.
         this work item exists to remove. Do not quiet it by breaking the
         example: shown verbatim is the whole of its value. The trade is Q2 in
         the work item's questions.md, answerable by the repository owner.
-        Verified 2026-09-08 against "## Phases"@cf74ac0c. -->
+        Verified 2026-09-08 against "## Phases"@49683f7c. -->
 
    Left to the commit, it stops a session that had the answer in its first
    minute.
@@ -212,8 +212,9 @@ any cell is written — so a unit you may not add is not one to describe in the
 hand-back; it takes the exit above. One level above the depth, a fix pass may
 not add mechanism at all — a rule, a checker, a template section, a walk —
 and a finding closable only by one is an issue, its row `deferred #N`;
-`skills/code-review/SKILL.md` §*A fix pass adds the unit that pins it, and
-that unit ships unreviewed* owns that rule and the measurement behind it.
+`skills/code-review/orchestration.md` §*A fix pass adds the unit that pins
+it, and that unit ships unreviewed* owns that rule and the measurement
+behind it.
 
 What is unresolved at that point is handed over, not carried: a finding you
 neither fixed nor answered goes to `seal/follow-up.md`, a decision only a
