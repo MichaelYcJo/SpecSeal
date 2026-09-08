@@ -366,7 +366,28 @@ def token_thirds(turns):
 
     A mean the file cannot compute is charged 0, the direction every funnel
     here takes — never carried out as an infinity, which a reader would take
-    for a measurement."""
+    for a measurement.
+
+    **The rule this site is one member of, and where it is enforced (#192).**
+    Every site in this module that converts a number to an `int` carries a
+    guard: a finiteness test on the same operand in the enclosing
+    conditional, or a `try` catching both `OverflowError` and `ValueError`.
+    The class is not a list anybody maintains —
+    `tests/test_a_derived_number_reaching_an_int_carries_a_guard.py`
+    enumerates the sites from this file's own syntax tree and decides
+    membership by invoking Python's integer-conversion protocol on an
+    operand, so a conversion written under any name at all is a member. Add
+    an unguarded one and that check names it with its unit.
+
+    **Two shapes the rule does not reach, so nobody has to rediscover them.**
+    A **subscript** bound converts through `__index__` and is excluded,
+    because telling a derived bound from `len(inputs) // 3` needs provenance
+    the walk does not have. And the true **division** two lines up is not a
+    conversion at all: `sum(part) / len(part)` raises `OverflowError` on two
+    integers that each have a float where their sum does not, which is why
+    the `try` around it is doing work the finiteness test below cannot do.
+    Both are `questions.md` Q1 and Q2 of work item
+    `1788873620-two-in-range-values-make-one-that-is-not`."""
     inputs = [t[1] for t in turns if t[1]]
     if len(inputs) < 3:
         return []

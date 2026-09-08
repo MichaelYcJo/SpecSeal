@@ -749,8 +749,9 @@ applies the table to `rounds/round-N.md` and measures the fix surface from
 the range of fix commits, so the round record is the pass's record. The
 build's phases keep theirs. Nor does a fix pass add mechanism — a rule, a
 checker, a template section, a walk — and a finding closable only by one is
-`deferred #N` to an issue; `skills/code-review/SKILL.md` §*A fix pass adds
-the unit that pins it, and that unit ships unreviewed* owns that rule.
+`deferred #N` to an issue; `skills/code-review/orchestration.md` §*A fix
+pass adds the unit that pins it, and that unit ships unreviewed* owns that
+rule.
 
 ### 6. Close before merge — drain the rows, keep the records
 

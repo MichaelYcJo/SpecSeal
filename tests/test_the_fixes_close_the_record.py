@@ -145,6 +145,56 @@ def close(repo, n, fixes, rng, extra=()):
     return r.returncode, r.stdout + r.stderr, record
 
 
+def test_a_directory_at_the_record_path_is_refused_as_a_directory(repo):
+    """The second member of ⬜ 6's class, in `close` rather than `report_path`.
+
+    `not os.path.isfile(target)` is True for a directory as well as for a
+    missing file, and `does not exist` about a path that has a directory at
+    it sends the reader looking for something they already made. The fix
+    that closed the report guard is owed here for the same cause (§12).
+
+    Driven through `subprocess` rather than the `close` helper above: that
+    helper reads the record back on its way out, which is exactly the read
+    that cannot work when the record path is a directory.
+    """
+    declared(repo)
+    (repo / ROUNDS / "round-1.md").mkdir(parents=True)
+    fixes = repo.parent / "fixes-none.md"
+    fixes.write_text(fix_table("| 1 | answered | none |\n"), encoding="utf-8")
+    head = git(repo, "rev-parse", "HEAD").stdout.strip()
+    r = subprocess.run(
+        [
+            sys.executable,
+            GENERATOR,
+            "close",
+            "--item",
+            str(repo / ITEM),
+            "--round",
+            "1",
+            "--fixes",
+            str(fixes),
+            "--range",
+            f"{head}..{head}",
+            "--baseline",
+            "base",
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=env_without_a_pull_request(),
+    )
+    out = r.stdout + r.stderr
+    assert r.returncode == 2, out
+    assert "is a directory" in out, out
+    assert "does not exist" not in out, (
+        "the refusal still says the record is missing where a directory is"
+    )
+    # And it still says what `close` is for, which is how the reader learns
+    # the directory is in the record's place rather than beside it.
+    assert "`new` wrote" in out, out
+
+
 def round_one(repo, verdicts=THREE):
     """Round 1 generated and committed; returns the commit the range starts at."""
     declared(repo)
@@ -257,6 +307,36 @@ def test_a_gate_cell_left_alone_stays_as_it_was(repo):
         repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
     )
     assert fields(record)["Broad gate"] == "not yet", out
+
+
+def test_close_reads_back_the_record_it_writes(repo):
+    """#182: `close` is the second writer, and its flag reaches the record
+    the same way `new`'s does.
+
+    `cell` refuses a `|` and a newline because either breaks the row. `<!--`
+    breaks every reader below the row, and `close` writes the gate cell into
+    the field table at the top of the record — so an opener there blanks the
+    verdict table, the probes, the inherited coordinates and the Deferred
+    section, in a file the pull-request check then reads.
+
+    Executed at `0b99eb9` before this: the record rewritten, exit 1, and its
+    `## Verdicts` resolving to 0 occurrences through the shared reader."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    before = (repo / ROUNDS / "round-1.md").read_text(encoding="utf-8")
+    code, out, record = close(
+        repo,
+        1,
+        fix_table(f"| 1 | fixed | {b[:7]} |\n"),
+        f"{a}..{b}",
+        extra=("--broad-gate", "abc1234 <!-- vs base"),
+    )
+    assert code == 2, out
+    assert record == before, "a refusal writes nothing"
+    assert "the record this would write" in out
+    assert "never closed" in out
+    assert "Broad gate" in out, "the coordinate names the row the value landed in"
 
 
 # --- the four refusals -------------------------------------------------------
@@ -763,7 +843,7 @@ def test_the_review_skill_says_close_writes_the_capped_ends_checker_cell():
     skill's `Fixes checked by` section says which subcommand writes it and
     when, beside the sentence that gives `new` the reach-back."""
     chain = check_module()
-    skill = read("skills", "code-review", "SKILL.md")
+    skill = read("skills", "code-review", "orchestration.md")
     section = skill[
         skill.index("### Then say who checked them") : skill.index(
             "### And name the fix surface"

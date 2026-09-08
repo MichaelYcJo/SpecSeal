@@ -35,6 +35,7 @@ message does not carry, and the two-row refusals assert on both cells, of
 which the old message quotes neither.
 """
 
+import os
 import re
 import shutil
 import subprocess
@@ -273,13 +274,64 @@ def last_run(cell):
 
 
 def committed_records():
+    """`seal/specs/*/rounds/round-*.md` git carries — the RECORDS among them.
+
+    `round-*.md` is git's pathspec and git has no way to say "and then a
+    number", so it also returns the three files the review chain writes beside
+    a record, one per round: `round-N-report.md`, `round-N-asked.md`,
+    `round-N-fixes.md`. Measured at a50431b: 204 paths, of which 151 are
+    records and **53 are not** — 20 reports, 20 asked, 13 fix tables. Twenty
+    of those 53 parse as a verdict table under this module's own header, so
+    the corpus below was judging twenty reports as records; the other 33 fell
+    out as unparseable and hid the defect rather than reporting it.
+
+    A record is selected by name (`docs/review-handoff-protocol.md` §Layout),
+    and `routing.round_number` is the one place that rule lives. This was the
+    third reader in the tree to take directory membership for record-ness,
+    and the quietest: the other two raised `TypeError` on sorting two `None`s,
+    while this one said nothing at all (#228, round 1 🟡 1).
+    """
+    generator = generator_module()
+    routing = generator.load(generator.chain.ROUTING, "routing_for_the_id_corpus")
     out = subprocess.run(
         ["git", "-C", ROOT, "ls-files", "seal/specs/*/rounds/round-*.md"],
         capture_output=True,
         encoding="utf-8",
         check=True,
     ).stdout.split()
-    return out
+    return [p for p in out if routing.round_number(os.path.basename(p)) is not None]
+
+
+def test_the_corpus_is_records_only():
+    """Not one of the three siblings `rounds/` holds reaches the corpus.
+
+    The assertion below measures a population, so what is IN that population
+    decides what it says. A report parses as a verdict table — it carries the
+    same `## Verdicts` heading under the same header, because the record is
+    written from it — so a report in the corpus is not an inert extra path,
+    it is a counted member with cells of its own. Twenty of them were counted
+    at a50431b.
+
+    Named by suffix rather than by asking `round_number` again: this case has
+    to fail when the filter is removed, and re-running the filter's own rule
+    over its own output cannot.
+    """
+    paths = committed_records()
+    assert paths, "the corpus is empty; the filter takes everything"
+    strays = [
+        p
+        for p in paths
+        if any(
+            os.path.basename(p).endswith(t)
+            for t in ("-report.md", "-asked.md", "-fixes.md")
+        )
+    ]
+    assert not strays, (
+        f"{len(strays)} of {len(paths)} corpus paths are not records: "
+        f"{strays[:3]}. `rounds/` holds three files per round beside the "
+        "record, and a record is selected by name, never by directory "
+        "membership (`docs/review-handoff-protocol.md` §Layout)"
+    )
 
 
 def id_cells(generator, reader, path):

@@ -911,7 +911,7 @@ def test_the_documents_say_why_older_records_are_excused(parts):
 
 CARRIERS = (
     ("docs", "review-chain-spec.md"),
-    ("skills", "code-review", "SKILL.md"),
+    ("skills", "code-review", "orchestration.md"),
     ("agents", "warden.md"),
     ("agents", "smith.md"),
 )
@@ -951,7 +951,7 @@ WHEN_SPAWNED = {
         "target is the diff of those fixes, and its job is the answers rather "
         "than new findings"
     ),
-    ("skills", "code-review", "SKILL.md"): (
+    ("skills", "code-review", "orchestration.md"): (
         "| When | **after the fixes** for the previous round are committed — "
         "never before, or it reviews what has already been reviewed |"
     ),
@@ -976,7 +976,7 @@ WHAT_IT_TARGETS = {
         "| Target | the branch, or what the prompt narrows it to | the diff "
         "of the previous round's fixes |"
     ),
-    ("skills", "code-review", "SKILL.md"): (
+    ("skills", "code-review", "orchestration.md"): (
         "| Target | the **diff of those fixes**, not the branch. That is what "
         "keeps it bounded: it is the cheapest round of the run |"
     ),
@@ -1000,7 +1000,7 @@ CAP_RULE = {
         "**A round that opens nothing needing a fix does not consume the "
         "cap.** The cap counts rounds that found something"
     ),
-    ("skills", "code-review", "SKILL.md"): (
+    ("skills", "code-review", "orchestration.md"): (
         "**A round that opens nothing needing a fix does not consume the "
         "cap.** The cap counts rounds that found something"
     ),
@@ -1080,7 +1080,7 @@ def test_the_condition_is_not_that_the_round_found_nothing():
 
 NEEDS_A_FIX = (
     ("agents", "warden.md"),
-    ("skills", "code-review", "SKILL.md"),
+    ("skills", "code-review", "orchestration.md"),
     ("templates", "sdd-round.md"),
     ("docs", "review-handoff-protocol.md"),
 )
@@ -1153,7 +1153,7 @@ def test_the_reviewer_writes_the_line_the_orchestrator_copies():
     """Two agents and one string. The warden emits it, the orchestrator moves
     it into the record, and a rename on one side alone silently drops it."""
     warden = flat("agents", "warden.md")
-    skill = flat("skills", "code-review", "SKILL.md")
+    skill = flat("skills", "code-review", "orchestration.md")
     assert "Needs a fix: no" in warden
     assert "`Needs a fix: no`" in skill or "Needs a fix: no" in skill
     assert "| Needs a fix |" in skill, (

@@ -65,7 +65,31 @@ LOADED = (
 # both spellings, which is what the substring check said and what the owner
 # decided when the same lookahead produced a finding in three consecutive
 # passes (review round 2).
-VERSION_TOKEN = re.compile(r"(?<![\w.])v?(\d+\.\d+\.\d+)(?!\.\d)")
+#
+# The LEADING `(?<![\w.])` is two guards written as one class, and each does a
+# different job. Neither had an argument written down until #204, and the case
+# that pins `x0.9.0` as allowed explained what the guard does rather than why
+# such a token is not a timer.
+#
+# `\w` — a preceding word character makes the token part of a DIFFERENT
+# identifier rather than another spelling of this one. `py3.13.9` names
+# CPython, and no release of SpecSeal makes that number wrong. That is the
+# asymmetry with the trailing side, where `rc1` is a prerelease of the SAME
+# version and so is a timer: what precedes a version renames it, what follows
+# it qualifies it.
+#
+# `.` — a preceding dot makes the match the TAIL of a longer dotted number.
+# `1.9.9.9` is a build number rather than a release of anything, and without
+# this half its tail `9.9.9` is refused as a version the line never named. The
+# trailing `(?!\.\d)` catches such a number read from the front; this catches
+# the same number read from the middle, and neither covers the other.
+#
+# **Neither argument reaches an uppercase `V`**, which is a version PREFIX and
+# not a preceding word: `V0.9.0` is this plugin's own number in another
+# spelling, and it was invisible wherever it was written (#204). So the prefix
+# is `[vV]?` and both lookarounds are left exactly as they are — narrowing one
+# for a single shape is what took another shape with it in round 1.
+VERSION_TOKEN = re.compile(r"(?<![\w.])[vV]?(\d+\.\d+\.\d+)(?!\.\d)")
 
 # The value the repository already tells an author to write where a real
 # version would be wrong. `docs/issues-and-milestones.md` §"A rolling log is
@@ -246,17 +270,24 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
     none should be added — this repository writes dates with dashes, which
     the check does not read at all.
 
-    **What this case does NOT pin**, stated rather than left to be found, and
-    it is now one line rather than the whole message. The last assertion reads
-    `refusal`, which is what the check actually prints, so an edit detaching
-    the routes from the printed text goes red — that mutation used to leave
-    every case here green (review round 2, finding 7). What is still
-    unpinned is only `assert not offenders, refusal(running, offenders)`
-    itself: bypassing that one line leaves every case green, and pinning it
-    would mean reading this file's own source.
+    **What this case pins of the printed text is the routes and their
+    attachment**, and nothing else. The last assertion reads `refusal`, which
+    is what the check actually prints, so an edit detaching the routes from it
+    goes red — that mutation used to leave every case here green (review round
+    2, finding 7). The routes are one of the six leaves `ast.parse` gives for
+    the expression `refusal` returns; the other five are read whole by
+    `test_the_refusal_prints_every_piece_it_builds` below, which is where that
+    count is taken.
 
-    The earlier version of this paragraph used that residual as grounds for
-    leaving the whole message inline, which is how the real gap stayed open.
+    This paragraph used to say, as a measured fact, that what was still
+    unpinned was ONLY `assert not offenders, refusal(running, offenders)`.
+    Three mutations disprove it: deleting the offender join, deleting the
+    `{running}` interpolation and deleting the timer paragraph each left this
+    module at 30 passed (#203). The sentence this one replaced made the same
+    mistake a round earlier — it used its own residual as grounds for leaving
+    the whole message inline — which is how the real gap stayed open twice.
+    **A residual is the survivor of the mutations that were actually run,
+    never a limit**: what is absent from a measured list is unmeasured.
     """
     routes = what_to_write_instead()
     assert ILLUSTRATIVE_VERSION in routes, "no route for this repository's own version"
@@ -275,6 +306,131 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
     assert routes in refusal("0.8.3", ["docs/x.md:1 names 0.9.0"]), (
         "the refusal no longer carries the routes — the text a person sees "
         "and the text this case reads have come apart"
+    )
+
+
+def test_the_refusal_prints_every_piece_it_builds():
+    """Six elements, taken from `refusal`'s syntax tree, each read whole.
+
+    A case that stops one short is the shape this repository produced nine
+    times on one branch (#51, observation 6), and the three attempts that
+    closed this gap on the original branch each missed a different separator
+    (#203). A fourth attempt said it had enumerated by construction and had
+    not: it counted "four pieces and three separators", which is a reading of
+    the source rather than the source, and review round 1 measured 86
+    characters of the timer paragraph that no assertion here touched.
+
+    So the elements are the leaves `ast.parse` gives for the returned
+    expression, under three normalisations stated here because the count
+    depends on them: the `+` chain flattens, a `JoinedStr` expands to its
+    parts, and a `Call` counts as ONE atom — its receiver and its arguments
+    inside it. The chain flattens to four operands, and the first is one
+    f-string — a single `JoinedStr` of three parts. Six leaves:
+
+    1. `"a loaded file names a version at or above the running "`;
+    2. the `{running}` interpolation;
+    3. one constant running from the `.` after the version through
+       `run.\\n  ` — the whole timer paragraph AND the separator that closes
+       it, which is one element rather than two;
+    4. `"\\n  ".join(offenders)`;
+    5. `"\\n\\n"`;
+    6. `what_to_write_instead()`, read here and by the case above.
+
+    Element 3 is where reading failed twice over. It split that constant into
+    a paragraph and a trailing separator, and it promoted the `"\\n  "` the
+    join is called ON — the receiver, not an argument — to an element of its
+    own. Under the rule above it is inside element 4 rather than beside it;
+    a bare `ast.walk` of the expression does return it, which is why the rule
+    is stated before the count and not after. That is how the count reached
+    seven while the paragraph itself was read only at its two ends. Every
+    element below is read WHOLE, so nothing between two spot-checks can go
+    missing again.
+
+    **Two mutations survive this set, and neither is a limit.** Handing the
+    check's own `assert not offenders, refusal(running, offenders)` a literal
+    leaves this module green, and so does emitting the routes before the
+    refused lines.
+
+    The first is pinnable, and nothing about pinning it needs this file's own
+    source read — that sentence was written here and disproved in review round
+    1 by writing the pin. `tracked` and `timers_in` are module globals, and
+    swapping them the way
+    `test_the_exemption_list_does_not_depend_on_the_order_it_is_written_in`
+    already does one constant over raises the check, whose message compares
+    equal to `refusal(running, offenders)`. It stays on this list until
+    somebody plants that case. The second is pinnable only by rebuilding
+    `refusal` inside the test, which is the assertion this case was designed
+    not to be.
+
+    A third class is unmeasured by design: nothing here pins that nothing was
+    ADDED. A sentence inserted at the end of the timer paragraph, or a line
+    inserted before the routes, leaves this module at 32 passed (round 2).
+    Every element is read whole, so nothing can go missing. The pin is
+    available and it is measured, not absent: the six pieces asserted below
+    tile the text exactly, so `assert text ==` their concatenation costs one
+    assertion and no literal this case does not already carry — 32 passed
+    unmutated, and 1 failed on either insertion (round 3). It is declined
+    because that concatenation IS `refusal` rebuilt in the test, which
+    `plan.md` weighed and rejected. Declined on a measurement, not on a
+    limit.
+
+    What must not be written here again is that either one CANNOT be pinned.
+    Three times now a limit nobody measured has gone into a record about this
+    function and then stood as the grounds for looking no further.
+    """
+    running = RUNNING_IN_THE_FIXTURES
+    first = "docs/a.md:1 names 0.9.0"
+    second = "docs/b.md:2 names V0.9.0"
+    text = refusal(running, [first, second])
+
+    opening = f"a loaded file names a version at or above the running {running}."
+    assert text.startswith(opening), (
+        "the refusal no longer opens by naming what happened and the version "
+        "it is measured against, so an author cannot tell which number made "
+        f"these lines offenders. It opens {text[: len(opening)]!r}"
+    )
+    # Element 3, whole, in two contiguous halves — the first ends on the
+    # comma the second opens after, so no character between them goes unread.
+    # It used to be read at its two ends only: deleting the literal `it goes
+    # red on the day that version ships, on the release's own `, or just
+    # `preparation commit, `, each left this module at 32 passed (round 1).
+    assert (
+        ". Such a line is right for exactly one release and a timer before "
+        "it: it goes red on the day that version ships," in text
+    ), (
+        "the reason went: the text says a line is refused and not why, which "
+        "is the half that stops the next author writing another one"
+    )
+    assert (
+        " on the release's own preparation commit, after the broad gate has "
+        "already run." in text
+    ), (
+        "the timer's cost went — it fires on the release's own preparation "
+        "commit, hours in, and that is what makes this worth a check rather "
+        "than a convention"
+    )
+    assert first in text and second in text, (
+        "the refused lines are gone: a person is told that a loaded file "
+        "names a version and not which file, which line, or which token"
+    )
+    # The `"\n  "` that CLOSES element 3, read where it attaches; the two
+    # halves above are the rest of that same element.
+    assert f"\n  {first}" in text, (
+        "the first refused line is glued to the sentence above it — the "
+        "separator that opens the indented block went, and with it the only "
+        "thing that makes the block a block"
+    )
+    # Element 4 whole — the join's output, whose own separator cannot be
+    # observed with one offender, which is why the fixture passes two.
+    assert f"{first}\n  {second}" in text, (
+        "the refused lines run together on one line: the join's separator "
+        "went, and a tree with one offender in it would never show that"
+    )
+    # Elements 5 and 6, whole.
+    assert f"\n\n{what_to_write_instead()}" in text, (
+        "the routes no longer stand off the refused lines as their own "
+        "paragraph — either the blank line between them went, or the routes "
+        "did"
     )
 
 
@@ -446,10 +602,18 @@ def test_the_exemption_list_does_not_depend_on_the_order_it_is_written_in():
     appending at the end is the natural act.
 
     An early `return` on the first `/` entry whose prefix matched made every
-    entry after it unreachable — so an exact path, or a narrower prefix,
-    written below the prefix that contains it silently stopped working
-    (review round 2). The failure direction is loud, a file the author meant
-    to exempt goes red, but nothing said the order mattered.
+    entry after it unreachable — so an exact path written below the prefix
+    that contains it silently stopped working (review round 2). The failure
+    direction is loud, a file the author meant to exempt goes red, but nothing
+    said the order mattered.
+
+    **An exact path is the only entry whose answer the order could change**,
+    and this used to say a narrower prefix was the same mechanism (#205). It
+    never was, in either implementation: every `/` entry takes the same
+    `DATED_RECORD.match(basename)` check whether it is wide or narrow, so a
+    narrower one is order-independent by construction. Only `rel == entry`
+    skips that check. No assertion is added for it — pinning an arrangement
+    that changes no answer is the failure this correction is about.
     """
     entries = RECORDS_OF_A_MOMENT
     try:
@@ -606,6 +770,44 @@ def test_a_number_that_is_not_a_version_is_not_read_as_one():
     assert (
         timers_in("docs/x.md", "the python floor is 3.12", RUNNING_IN_THE_FIXTURES)
         == []
+    )
+
+
+def test_an_uppercase_v_is_a_prefix_and_not_a_preceding_word():
+    """`V0.9.0` is this plugin's own version, and the check could not see it.
+
+    The argument for the leading lookbehind is written beside the constant: a
+    preceding word makes the token a different identifier, so `py3.13.9` names
+    CPython and no release of this plugin makes it wrong. An uppercase `V` is
+    not a preceding word — it is the version prefix in another spelling — so
+    that argument never reached it, and the token was invisible in every loaded
+    file (#204).
+
+    The fix is `[vV]?` and NOT a narrowed lookbehind: round 1's finding was a
+    lookaround narrowed for one shape taking another with it. The two shapes
+    the widening must not disturb are asserted here beside it, because they are
+    what a narrowing would have taken.
+    """
+    assert timers_in(
+        "docs/x.md", "the token V0.9.0 is ours", RUNNING_IN_THE_FIXTURES
+    ) == [(1, "V0.9.0")], (
+        "an uppercase prefix hides this plugin's own version, and the refusal "
+        "has to print the spelling the author wrote or the declaration route "
+        "cannot be taken on it"
+    )
+    # The `\w` half, which the widening must not open one character to the
+    # left: a word before the number renames it.
+    assert (
+        timers_in("docs/x.md", "built on py3.13.9 today", RUNNING_IN_THE_FIXTURES) == []
+    ), "a composite identifier is read as this plugin's version"
+    assert (
+        timers_in(
+            "docs/x.md", "the token PyV0.9.0 is not ours", RUNNING_IN_THE_FIXTURES
+        )
+        == []
+    ), (
+        "a word before the `V` no longer refuses the token — the widening "
+        "reached the lookbehind, which is what it must not do"
     )
 
 

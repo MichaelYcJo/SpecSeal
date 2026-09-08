@@ -17,6 +17,34 @@ running.
       commit; the corrections then need a pull request of their own.
 - [ ] `docs/flow.md` has every item of the release ticked except the release
       line itself.
+- [ ] **Squash the work items back to back. A squash no longer makes the
+      others red.** `unverified_check` resolves its baseline to
+      `git merge-base <the base ref> HEAD`, so a work item squashed into the
+      release branch after a sibling forked is not that sibling's removal
+      (#272). Nothing has to be merged into a stale branch for that reason and
+      nothing has to be re-gated. Merge the release branch in only when a
+      branch actually needs something the release branch holds; the squash
+      discards the merge commit either way.
+      **Never rebase a work item's branch, for any reason** — every round
+      record names its branch's commits by `Target SHA` and every `# RIDER:`
+      carries a `Verified … at <sha>` stamp, a rebase orphans both, and that
+      is the class this repository has a patch release about. That rule
+      predates the baseline repair and outlives it; it used to be written
+      here as a footnote to a workaround, which is the wrong place for a
+      standing rule.
+      What the old footing cost, so the paragraph is not simply gone: on the
+      release that found it, three of four branches each paid a release-branch
+      merge, a re-run broad gate, a re-pushed pull request and a
+      `docs/flow.md` conflict, and the cost was roughly quadratic in the items
+      a release carries.
+- [ ] **`docs/flow.md` conflicts even when the branches touch different
+      lines.** The rule that a branch writes only its own row is what keeps
+      the file mergeable, and it is not enough: the boxes sit on adjacent
+      lines, so the diff context overlaps and git stops. Resolve by keeping
+      **every** box that is ticked on either side — and check the release
+      branch afterwards, because the release that added this line lost one
+      tick to a squash that auto-merged the other side of that hunk, and
+      nothing noticed until step 0 was read again.
 - [ ] No other Claude session is working in this checkout, and the editor is
       not about to pull. An IDE pull once switched the checkout to the release
       branch between two commands, and the preparation commit landed there.

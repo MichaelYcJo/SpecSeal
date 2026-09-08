@@ -12,8 +12,18 @@ it by hand, one cell at a time, with the reviewer's report open and a fix
 pass waiting.
 
 So this writes the record. `new` takes the reviewer's report and the round
-paragraph of the spawn prompt, and derives the rest:
+paragraph of the spawn prompt, and derives the rest.
 
+The report is read from `<item>/rounds/round-N-report.md` where `--report` is
+absent — the path the reviewer wrote it to, derived from the same two
+arguments the record's own path is. It used to be a required flag pointing at
+a file that did not exist: the reviewer returns its report as a message, the
+orchestrator is told not to open the transcript, so the orchestrator retyped
+the report to have something to pass. That is #228, and a retyped verdict row
+carries retyped coordinates.
+
+  Report              `--report`, else `<item>/rounds/round-N-report.md`; the
+                      absence of both refuses and names the path
   Target SHA          `--target`, which has to resolve
   Ran by              `--ran-by`
   PR                  `--pr`, else what `gh pr view` says, else `not yet opened`
@@ -288,6 +298,25 @@ READ_HEADINGS = (*(h for h, _ in REPORT_TABLES), PASTE_READY)
 # the legitimate case to catch the unlikely one, which is the trade
 # `CLAUDE.md`'s first goal decides.
 REQUIRED_HEADINGS = tuple(h for h, _ in REPORT_TABLES)
+# Where the reviewer leaves the report, beside the record it becomes. The
+# record is `round-N.md` and the report is `round-N-report.md`, so both names
+# come out of `--item` and `--round` and neither can be spelled differently
+# from the other (#228).
+#
+# `--report` used to be required, and the reviewer's report was not a file:
+# the warden returns it as its final message and the orchestrator is told not
+# to open the agent transcript, so the orchestrator RETYPED it into a file to
+# pass here. Four rounds of one work item, four retypings, and 0.9.0's own
+# #190 · #207 run retyped rounds 2 and 3. A retyped verdict row carries
+# retyped coordinates, re-review inheritance carries the paraphrase into the
+# next round, and `Fixes checked by` then points at a round whose report is
+# not the report the reviewer wrote.
+#
+# The fixer side already had this shape -- `rounds/round-N-fixes.md`, which
+# `close` takes as `--fixes` -- so this is the missing half of a convention
+# rather than a new one. `agents/warden.md` §Report is the other half: it
+# tells the reviewer to write the file and return the path.
+REPORT_NAME = "round-{n}-report.md"
 # The two sections the generator fills from somewhere other than the report.
 ASKED = "## What this round was asked"
 INHERITED = "## Inherited coordinates"
@@ -376,14 +405,220 @@ ASKED_COMMENT_NEVER_CLOSED = (
     "to every reader, and the record is written before any reader gets to say "
     "so. Close the comment in the --asked file with `-->`"
 )
+# The third answer, and it is the one the two questions above used to read as
+# the second. A comment that opens inside a fenced block and closes OUTSIDE it
+# blanks that block's closing fence, because `strip_comments` runs first -- so
+# the fence question, asked of the comment-stripped text, finds a block with no
+# closer while every fence in the text as written closes. The refusal then
+# named a fence that is closed and sent the reviewer to look for something
+# that is not there, which is the defect §14 exists for and the one round 2 of
+# #169's chain already paid for once.
+#
+# Asking the fence question of the RAW text as well is what tells the two
+# apart: open in both texts is a fence nobody closed, open in the stripped
+# text alone is a comment crossing a fence marker.
+COMMENT_CROSSES_A_FENCE = (
+    "an HTML comment in the report opens inside a fenced block and closes "
+    "outside it. Every fence in the report as written closes; what reads as "
+    "an unclosed fence is the comment blanking a closing one, because "
+    "`readable` strips comments before it blanks fences. So the refusal you "
+    "would otherwise get names a fence you did close. Close the comment "
+    "inside the block, or move the whole comment out of it"
+)
+ASKED_COMMENT_CROSSES_A_FENCE = (
+    "an HTML comment in the round paragraph opens inside a fenced block and "
+    "closes outside it. Every fence in the paragraph as written closes; what "
+    "reads as an unclosed fence is the comment blanking a closing one, "
+    "because `readable` strips comments before it blanks fences. Close the "
+    "comment inside the block in the --asked file, or move the whole comment "
+    "out of it"
+)
+# The same three questions, asked of the RECORD rather than of an input, and
+# this is the whole of what #182 is. Every copy the generator makes out of
+# `raw` lands in one artefact, so the record's own text is the one place where
+# every copy path is answerable at once -- the three the (copy x hider) grid
+# named, the fourth it did not, and a fifth somebody adds later. A hider a
+# SLICE of `raw` took half of is exactly a record no reader can read, which is
+# why *balance across the slice* asked at the destination needs no knowledge
+# of which slice took it.
+#
+# Measured at 8114937 before the guard: a report whose Grounds cell opens a
+# comment and closes it on the line below is accepted, `new` exits 0, the
+# record is written, and `## Executed probes`, `## Inherited coordinates` and
+# `## Deferred` each resolve to 0 occurrences through the shared reader while
+# standing in the bytes. Nothing in the run says a word.
+RECORD_COMMENT_NEVER_CLOSED = (
+    "the record this would write has an HTML comment that is never closed, so "
+    "every line below it is blank to every reader of it -- `chain_check` at "
+    "the pull request, the next round's inherited coordinates, "
+    "`evidence-check` -- and the record is written before any of them gets to "
+    "say so. A copied cell and a copied block are SLICES of the report, so a "
+    "comment the report itself balances arrives here as half of one. Close it "
+    "inside the cell it opens in, or move it out of the row"
+)
+RECORD_NEVER_CLOSED = (
+    "the record this would write has a fenced block that is never closed, so "
+    "every heading below it is gone to every reader of it and the record is "
+    "written before any of them gets to say so. A copied block is a SLICE of "
+    "the report, so a fence the report itself balances arrives here as half "
+    "of one. Close the block inside the section it is copied from"
+)
+RECORD_COMMENT_CROSSES_A_FENCE = (
+    "the record this would write has an HTML comment that opens inside a "
+    "fenced block and closes outside it. Every fence in the record as written "
+    "closes; what reads as an unclosed fence is the comment blanking a "
+    "closing one, so every reader below that line reads the record as one "
+    "open block. Close the comment inside the block, or move the whole "
+    "comment out of it"
+)
 # A line no fence regex can match and no comment marker, appended to ask a
 # reader pass whether its hider is still open at the end of the file: blanked
 # means open, kept means closed. Both passes ask it, of their own hider.
 SENTINEL = "x"
+# Which hider is open, as `open_hider` answers it and as each text's message
+# set is keyed. Three answers and not two: `STRADDLE` is a comment crossing a
+# fence marker, which the fence question alone reports as `FENCE`.
+COMMENT, FENCE, STRADDLE = "comment", "fence", "straddle"
+# One message set per text the question is asked of. The set is what makes the
+# question shareable: the ORDER of the two passes is a property of `readable`
+# and not of any one text, so a text contributes its three sentences and
+# nothing else. The five sentences that predate #182 keep their bytes, so
+# every case and every ledger anchor naming one still stands.
+REPORT_HIDERS = {
+    COMMENT: COMMENT_NEVER_CLOSED,
+    FENCE: NEVER_CLOSED,
+    STRADDLE: COMMENT_CROSSES_A_FENCE,
+}
+ASKED_HIDERS = {
+    COMMENT: ASKED_COMMENT_NEVER_CLOSED,
+    FENCE: ASKED_NEVER_CLOSED,
+    STRADDLE: ASKED_COMMENT_CROSSES_A_FENCE,
+}
+RECORD_HIDERS = {
+    COMMENT: RECORD_COMMENT_NEVER_CLOSED,
+    FENCE: RECORD_NEVER_CLOSED,
+    STRADDLE: RECORD_COMMENT_CROSSES_A_FENCE,
+}
 
 
 class Refused(Exception):
     """An input this cannot turn into a record. Nothing is written."""
+
+
+def open_hider(reader, text):
+    """Which hider is still open at the end of `text`, or None.
+
+    `readable` blanks with two passes and `strip_comments` runs first, so an
+    HTML comment opened and never closed blanks every line below it exactly
+    as an open fence does -- one pass earlier, where no fence question can
+    see it. The comment is asked FIRST for that reason: an open comment
+    blanks the closing fence of every block below it, so the other order
+    answers first and names a fence that is closed in the text as written.
+
+    **The order lives here and nowhere else.** It is a property of the pass
+    order in `readable`, not of any one text, and it used to be written out
+    once per text -- twice by the time round 2 of #169's chain was done, in
+    `swallowed` and in `build`, each with its own pair of raises. A third
+    text would have carried a third copy of it.
+
+    `STRADDLE` is the third answer, and it is what those two pairs read as
+    `FENCE`: a comment opening inside a fenced block and closing outside it
+    blanks that block's own closing fence, so the fence question finds a
+    block with no closer while every fence in the text as written closes.
+    Asking the fence question of the raw text as well is what tells them
+    apart, and one boolean is the whole difference between a message a
+    reviewer can act on and a message that sends them looking for a fence
+    they did close.
+    """
+    lines = text.splitlines()
+    if not reader.strip_comments([*lines, SENTINEL])[-1]:
+        return COMMENT
+    stripped = reader.strip_comments(lines)
+    if reader.blank_fences([*stripped, SENTINEL])[-1]:
+        return None
+    return FENCE if not reader.blank_fences([*lines, SENTINEL])[-1] else STRADDLE
+
+
+def opens_at(reader, lines, blank):
+    """The 1-based line the still-open hider opens on, or 0 for none.
+
+    Asked of the reader's own pass over each prefix rather than by a second
+    implementation of where a marker sits: the shortest prefix `blank`
+    leaves open is the one whose last line opened it. A second reading of
+    `<!--` and of a fence regex here is the check/copy asymmetry this module
+    has now been bitten by three times, and a prefix walk cannot drift from
+    the pass it calls.
+
+    The record is a few hundred lines, so the quadratic walk is a few
+    hundred thousand line visits on a path that already runs git.
+    """
+    for i in range(1, len(lines) + 1):
+        if not blank([*lines[:i], SENTINEL])[-1]:
+            return i
+    return 0
+
+
+def hiders_close(reader, text, messages):
+    """Refuse `text` when a hider in it is still open, in `messages`' words.
+
+    The coordinate is appended rather than written into each sentence, so
+    the sentences stay one per (text, hider) and none of them can be the one
+    that forgot to say where. A record is composed from three sources and
+    `somewhere in the record` is not something a person can act on.
+    """
+    kind = open_hider(reader, text)
+    if kind is None:
+        return
+    lines = text.splitlines()
+    if kind == FENCE:
+        line = opens_at(reader, reader.strip_comments(lines), reader.blank_fences)
+    else:
+        line = opens_at(reader, lines, reader.strip_comments)
+    seen = lines[line - 1].strip()[:120] if 0 < line <= len(lines) else ""
+    raise Refused(f"{messages[kind]} (line {line}: {seen!r})")
+
+
+def write_record(reader, path, text):
+    """Write a record, once the shared reader can read all of it.
+
+    **This is the one function in this module that opens a file for writing,
+    and that is the completeness argument #182 asks for.** The rule the
+    (copy x hider) grid was reaching for is not about copies at all: every
+    copy the generator makes out of `raw` lands in one artefact, so asking
+    the question of the ARTEFACT answers for every copy path at once -- the
+    three the grid named, the fourth it did not (`inherited_rows`), and a
+    fifth somebody adds next year. The grid's row axis was a list of the
+    sources somebody could see, which is the enumeration-by-reading this
+    release is named for; the destination is one, and it is greppable:
+    `grep -n 'open(' round_record.py` finds every writer, and
+    `tests/test_the_record_is_generated.py` walks the AST for them.
+
+    It closes the cell the `# RIDER:` in `swallowed` left open, too. A
+    comment balanced in the report and half in the record is exactly a record
+    the reader cannot read, and *balance across the slice* asked here needs
+    no knowledge of which slice took the half. Measured at `8114937`: a
+    report whose Grounds cell opens a comment and closes it on the line below
+    is accepted, `new` exits 0, and the record's `## Executed probes`,
+    `## Inherited coordinates` and `## Deferred` each resolve to 0
+    occurrences while standing in the bytes.
+
+    It also reaches what no question asked of an INPUT can: a flag. `cell`
+    refuses a `|` and a newline because either breaks the row, and `<!--`
+    breaks every reader below it -- so `--ran-by 'x <!-- y'` used to write a
+    record whose whole tail was blank.
+
+    **What this gives up, stated rather than left to be found.** A record
+    that legitimately ends inside a hider is refused, and the only way out is
+    to fix the text it was copied from. The bound is that a fenced block is
+    copied WHOLE, so a balanced comment inside one stays balanced here; only
+    a slice can take half, and a slice taking half is the defect. And it is
+    measured rather than argued: all 163 records committed under
+    `seal/specs/*/rounds/round-*.md` were read through both passes at
+    `8114937` and none has an open hider.
+    """
+    hiders_close(reader, text, RECORD_HIDERS)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
 
 
 def escape(value):
@@ -686,6 +921,48 @@ def read_text(path, what):
         raise Refused(f"cannot read the {what} at {path}: {exc}") from exc
 
 
+def report_path(rounds, n, given):
+    """The report to read: `--report` where it was passed, else the convention.
+
+    The default is derived from `--item` and `--round` -- the same pair
+    `round-N.md` itself is built from, one function away -- so the reviewer
+    and the generator cannot spell the path differently from each other.
+
+    The flag stays, and it wins. Two callers still need it: a round whose
+    report was written before `agents/warden.md` told the reviewer where to
+    leave one, and a round that ran more than one reviewer, where the
+    orchestrator hands each its own path rather than letting the second
+    overwrite the first.
+
+    The absence of the default names the path AND the convention. `read_text`
+    would name the path alone, and a path with no sentence beside it reads as
+    a mistyped argument -- which is the one thing it cannot be here, because
+    nobody typed it.
+    """
+    if given is not None:
+        return given
+    path = os.path.join(rounds, REPORT_NAME.format(n=n))
+    if not os.path.isfile(path):
+        # `isfile` is False for two different states and the message named
+        # one. A reviewer that made the directory instead of the file read
+        # `no report at <path>` about a path with something at it, which is
+        # the one reading the guard has to rule out -- it exists to be
+        # readable by somebody who typed no path (#228, round 1 ⬜ 6).
+        lead = (
+            f"{path} is a directory, and the report is a file"
+            if os.path.isdir(path)
+            else f"no report at {path}"
+        )
+        raise Refused(
+            f"{lead}, and no --report. The reviewer writes its "
+            f"report there and returns the path (`agents/warden.md` §Report), "
+            "and this reads it from where the reviewer left it rather than "
+            "from a copy somebody retyped (#228). `--report <path>` names one "
+            "written somewhere else"
+        )
+    return path
+
+
 def section_body(reader, lines, heading):
     """(start, [(index, line)]) for the one section under `heading`, or None.
 
@@ -777,10 +1054,14 @@ def swallowed(reader, report, lines):
     **A hider, not a fence.** `readable` blanks with two passes and
     `strip_comments` runs first, so an unterminated HTML comment blanks every
     line below it exactly as an open fence does -- and it does it one pass
-    earlier, where no fence question can see it. Both are asked here, the
-    comment's first, because an open comment blanks the closing fence of
-    every block below it and the fence question would otherwise answer first
-    and name a fence that is closed in the text as written.
+    earlier, where no fence question can see it. The never-closed half of the
+    rule is `hiders_close(reader, report, REPORT_HIDERS)` below, which is
+    where the pair of raises that used to stand here went: the ORDER of the
+    two questions is a property of `readable` and not of this text, and it
+    had already been written out twice by the time #182 needed a third text
+    asked. What stays here is the positional half -- the span -- which is
+    about `REPORT_TABLES` and `TERMINAL_LINES` and so is about the report
+    alone.
 
     `readable` blanks a fence, so a heading inside one is not a heading to
     any walk downstream: `section_body` runs straight past it, the fence
@@ -837,34 +1118,16 @@ def swallowed(reader, report, lines):
     a Markdown heading and a Python comment both, and only the fence tells
     them apart -- which is why nothing here reads the `#` character.
     """
-    # RIDER: the comment STRADDLE is the one shape of this rule still open,
-    # and unlike the never-closed half above it is a silent loss. A comment
-    # can be whole in the report and half in the record, because both copies
-    # take a SLICE of `raw`: `table_of` copies a row and `fenced_after` copies
-    # a block. A verdict row whose third cell opens an HTML comment, with the
-    # closing marker on the line below the row, is balanced here -- this
-    # function does not raise -- and the record carries half of it.
-    #
-    # Executed 2026-09-06 at aed3ca0, on a VERDICT row: the record is written,
-    # the run then fails, and read back through the shared reader `## Executed
-    # probes`, `## Inherited coordinates` and `## Deferred` each resolve to 0
-    # occurrences. Three whole sections. Round 1's fix pass measured the same
-    # straddle on a DEFERRED row, where nothing follows the row in the record
-    # at all -- so *every section after it resolves to nothing* was true of
-    # nothing, and that shape in fact exits 0 with every heading still
-    # resolving, dropping only the rows below the straddle. The verdict row is
-    # the instance to weigh, and it is three sections rather than a tail.
-    #
-    # It has no guard because it needs a limit argument the never-closed
-    # question does not: a copied block may legitimately carry a whole
-    # comment, so its question is balance ACROSS THE SLICE and not presence in
-    # it. Verified 2026-09-08 against swallowed@dd9b020c.
-    stripped = reader.strip_comments([*report.splitlines(), SENTINEL])
-    if not stripped[-1]:
-        raise Refused(COMMENT_NEVER_CLOSED)
-    stripped = stripped[:-1]
-    if not reader.blank_fences([*stripped, SENTINEL])[-1]:
-        raise Refused(NEVER_CLOSED)
+    # The comment STRADDLE used to be the one shape of this rule left open,
+    # and the rider that carried it here is gone because #182 closed it: a
+    # comment whole in the report and half in the record, because a copied row
+    # and a copied block are SLICES of `raw`, is exactly a record no reader can
+    # read -- and `write_record` asks that of the record. *Balance across the
+    # slice*, which is the limit argument this function could not make, needs
+    # no knowledge of which slice took the half once it is asked at the
+    # destination.
+    hiders_close(reader, report, REPORT_HIDERS)
+    stripped = reader.strip_comments(report.splitlines())
     # `strict=True` states the invariant the pair rests on: both of the
     # reader's passes keep indices intact, so the two reads are the same file
     # line for line. A length that differed would truncate the hidden set,
@@ -1030,6 +1293,32 @@ def inherited_rows(reader, earlier):
     `Why` names the round, the finding and its verdict word, so the next
     round knows what it is reopening; coordinates carry, conclusions do not.
     """
+    # RIDER: this is the fourth copy out of `raw`, and #182's COPY half is
+    # closed at the destination -- `write_record` reads the record back, so a
+    # hider a cell copied here cannot reach a written record. What is still
+    # open is the READ-LESS half of the same class, and it has three members,
+    # all in this module: a hider in an earlier record can blank a verdict row
+    # so this function does not inherit its coordinate; it can blank a `New
+    # units` row so `units_named_earlier` does not see an entry and
+    # `depth_two`'s refusal is not made; and it can blank a `## Fixes` row so
+    # `close` reports the smith as never having written one.
+    #
+    # None of the three writes a hider into a record and all three are LOUD
+    # today, which is why they are here rather than in the guard. Measured
+    # 2026-09-08 at 8114937: a `round-1.md` corrected in place with an opener
+    # in a `Location` cell is refused at `a verdict row has 3 cells`, because
+    # the opener swallows the row's remaining pipes. The message is cell
+    # arithmetic rather than a comment, which is §14's defect one step short
+    # of a loss.
+    #
+    # What closing it takes, and why a fix pass may not: a whole-text question
+    # on an input read for named sections refuses a file this repository
+    # already has -- the `` `<!--` `` inside a code span at
+    # `seal/specs/1788826000-a-stamp-names-content-not-a-commit/rounds/round-1-fixes.md`
+    # blanks that file's tail and hides nothing `fix_table` reads. Narrowed to
+    # the section it is `swallowed` parameterised over its three constants,
+    # which is a design call. If you open this function, take the whole class
+    # or none of it. Verified 2026-09-08 against inherited_rows@8cef4835
     location = VERDICT_HEADER.index("Location")
     number = VERDICT_HEADER.index("#")
     seen, out = set(), []
@@ -1108,8 +1397,7 @@ def reach_back(reader, path, n):
         )
     raw[i] = cell(chain.CHECKED_BY, mine)
     ending = "\n" if text.endswith("\n") else ""
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("\n".join(raw) + ending)
+    write_record(reader, path, "\n".join(raw) + ending)
     return (
         f"round-record: set `{chain.CHECKED_BY}` of {os.path.basename(path)} to {mine}"
     )
@@ -1332,7 +1620,7 @@ def build(reader, routing, args, root, item, rounds):
             f"--target {args.target} does not resolve in {root} — a record "
             "naming a commit nobody can open names nothing"
         )
-    report = read_text(args.report, "report")
+    report = read_text(report_path(rounds, args.round, args.report), "report")
     raw = report.splitlines()
     lines = reader.readable(report)
     # Before anything is looked up: a section a fence has taken is absent by
@@ -1348,22 +1636,19 @@ def build(reader, routing, args, root, item, rounds):
     # The report is not the only text spliced into the record. The round
     # paragraph is a copy of a spawn prompt, spawn prompts carry fenced blocks
     # and HTML comments routinely, and this one lands ABOVE every section a
-    # reader looks up -- so it is asked BOTH questions `swallowed` asks the
-    # report, in the text a reader sees it in. Both, because the check reads
+    # reader looks up -- so it is asked the same questions the report is, in
+    # the text a reader sees it in. All of them, because the check reads
     # `strip_comments(asked)` and the splice below copies `asked` verbatim:
     # asking only the fence question leaves the comment hider free to ride the
     # gap between the two texts, which is 🔴 1's asymmetry inside the guard
     # written to close 🟡 3 (round 2's 🔴 7, executed at `aed3ca0`: the record
     # written and four of its five sections unreadable).
     #
-    # The comment question comes first for the reason `COMMENT_NEVER_CLOSED`
-    # gives: an open comment blanks the closing fence of every block below it,
-    # so the fence question would answer first and name the wrong hider.
-    asked_lines = reader.strip_comments([*asked.splitlines(), SENTINEL])
-    if not asked_lines[-1]:
-        raise Refused(ASKED_COMMENT_NEVER_CLOSED)
-    if not reader.blank_fences([*asked_lines[:-1], SENTINEL])[-1]:
-        raise Refused(ASKED_NEVER_CLOSED)
+    # The pair of raises that used to stand here is now one call. `open_hider`
+    # holds the order and the reason for it, because the order is a property
+    # of `readable`'s passes rather than of this text -- and written out per
+    # text it was already written twice, with a third text due.
+    hiders_close(reader, asked, ASKED_HIDERS)
 
     verdicts = table_of(reader, raw, lines, VERDICTS, VERDICT_HEADER, True)
     probes = table_of(reader, raw, lines, PROBES, PROBE_HEADER, False) or [
@@ -1626,8 +1911,7 @@ def new(args):
     if previous is not None:
         reached = reach_back(reader, previous, args.round)
     os.makedirs(rounds, exist_ok=True)
-    with open(target, "w", encoding="utf-8") as f:
-        f.write(text)
+    write_record(reader, target, text)
     print(f"round-record: wrote {os.path.relpath(target, root)}")
     if reached is not None:
         print(reached)
@@ -2438,7 +2722,15 @@ def close(args):
     reader, routing, root, _item, rounds = where(args)
     target = os.path.join(rounds, f"round-{args.round}.md")
     if not os.path.isfile(target):
-        raise Refused(f"{target} does not exist — `close` fills a record `new` wrote")
+        # The second member of ⬜ 6's class, same cause: `isfile` is False for
+        # a directory too, and `does not exist` about a path that has one is
+        # the reading the message has to rule out.
+        raise Refused(
+            f"{target} is a directory, not a record — `close` fills a record "
+            "`new` wrote"
+            if os.path.isdir(target)
+            else f"{target} does not exist — `close` fills a record `new` wrote"
+        )
     a, b = parse_range(root, args.range)
     fixes = fix_table(reader, args.fixes)
 
@@ -2569,8 +2861,7 @@ def close(args):
         )
 
     ending = "\n" if text.endswith("\n") else ""
-    with open(target, "w", encoding="utf-8") as f:
-        f.write("\n".join(raw) + ending)
+    write_record(reader, target, "\n".join(raw) + ending)
     counts = {
         w: sum(1 for word, _, _ in fixes.values() if word == w)
         for w in (FIXED, ANSWERED, DEFERRED_WORD)
@@ -2594,7 +2885,13 @@ def main(argv=None):
     p.add_argument("--item", required=True, help="the work item directory")
     p.add_argument("--round", required=True, type=int, metavar="N")
     p.add_argument("--target", required=True, help="the commit this round reviewed")
-    p.add_argument("--report", required=True, help="the reviewer's report, a file")
+    p.add_argument(
+        "--report",
+        default=None,
+        help="the reviewer's report, a file "
+        "(default: <item>/rounds/round-<N>-report.md, where the reviewer "
+        "leaves it)",
+    )
     p.add_argument("--asked", required=True, help="the round paragraph, a file")
     p.add_argument("--ran-by", required=True, help="`<agent> on <model>`")
     p.add_argument("--broad-gate", default=None, help="the Broad gate cell")

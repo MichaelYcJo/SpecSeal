@@ -39,6 +39,26 @@ gets a directory and the two todo files do not. Six records beside six other
 files was the worst case measured in the reference implementation, and a
 reader scanning that directory could not tell at a glance which member grows.
 
+**A record is selected by name, never by directory membership.** `rounds/`
+holds whatever an implementation writes beside the records — the reference
+implementation puts three such files there, one per round: the reviewer's
+report, the round paragraph it was spawned with, and the fixer's fix table.
+The diagram above is the protocol's requirement and not an inventory of the
+directory. Three readers in the reference implementation took membership for
+record-ness. Two raised `TypeError` on sorting two `None`s rather than failing
+an assertion. The third took in fifty-three files that were not records —
+three siblings per round, across a corpus of two hundred and four paths —
+counted the twenty of them that happened to parse as verdict tables, and said
+nothing at all. That is the quieter half of the same defect, and the worse
+half: a reader that cannot name a file it does not understand is worse than
+one that refuses it, and a reader that never notices is worse than either.
+
+Those extra files are **implementation, like the parent path**. The protocol
+requires a record; it does not require that anything be written before one,
+and a conforming tool whose reviewer writes `round-N.md` directly needs none
+of them. What is protocol-level is the selection rule above, because without
+it the layout is unreadable.
+
 The directory is **committed** — ignored files do not follow worktrees or
 other machines — and it **outlives the merge**. It is closed, not deleted
 (below).
@@ -491,8 +511,8 @@ Five requirements, each bought by a measured failure:
 
 One thing precedes the handoff rather than travelling in it: the draft pull
 request is already open when round 1 is spawned, opened when the build's
-last phase closes, because `skills/code-review/SKILL.md` §*Orchestrator: the
-pull request opens before round 1, and a phase is re-run* owns that rule and
+last phase closes, because `skills/code-review/orchestration.md` §*Orchestrator:
+the pull request opens before round 1, and a phase is re-run* owns that rule and
 the platform legs it exists for.
 
 ### While the implementer runs
@@ -519,8 +539,8 @@ A phase's hand-back says what it ran and what the output was, and by §5 of
 the contract that is prose until somebody opens it. Before spawning the next
 phase the orchestrator runs the closed phase's suite and the lint of its
 changed files itself and reads the output; the broad gate still runs once,
-after the rounds settle. `skills/code-review/SKILL.md` §*Orchestrator: the
-pull request opens before round 1, and a phase is re-run* owns the rule. Its
+after the rounds settle. `skills/code-review/orchestration.md` §*Orchestrator:
+the pull request opens before round 1, and a phase is re-run* owns the rule. Its
 grounds are one step from this document: §*verify before posting* said the
 reviewer's report is a claim and nothing said it of the implementer's, and
 the work item that added the rule was checked that way from its first phase
