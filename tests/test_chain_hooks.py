@@ -452,6 +452,29 @@ def test_the_guard_falls_back_to_the_raw_text_without_the_reader(tmp_path, missi
     assert guard.is_closed([str(tmp_path / "nothing.md")]) is True
 
 
+def test_no_records_at_all_is_not_an_unclosed_directory(tmp_path):
+    """`is_closed`'s fourth arm, which nothing watched.
+
+    Found by enumerating the function's arms out of its own source rather
+    than by reading it and listing what stood out — which is how #209 and
+    #210 were both missed for a round. `if not records: return True` stayed
+    green when mutated to `return False`, because `main()` only calls
+    `is_closed` behind `if records` and no case called it with an empty
+    list.
+
+    Defence in depth, like `reader()`'s `spec.loader is None`. Unlike that
+    one it is CONSTRUCTIBLE — the call is one line — so the honest close is
+    a case rather than a sentence saying no input reaches it.
+
+    The direction is what makes it worth a case. Mutated to `return False`,
+    a work item whose `rounds/` directory holds no record reads as one whose
+    rows were never drained, and the pre-merge reminder fires at every merge
+    for the state most work items are in — the noise this hook's own
+    docstring says must stay quiet."""
+    guard = load_hook_module("review-history-guard.py", "guard_with_no_records")
+    assert guard.is_closed([]) is True
+
+
 def test_the_reader_is_what_makes_a_fenced_closing_word_not_count(tmp_path):
     """The same pair with the reader in place, asserted on `is_closed`
     itself so the rule is pinned where it lives rather than only through the
