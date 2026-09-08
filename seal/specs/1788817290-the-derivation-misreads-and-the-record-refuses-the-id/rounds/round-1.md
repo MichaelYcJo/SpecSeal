@@ -6,7 +6,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none — the fixes are not yet written |
 | New units | none — the fixes are not yet written |
 | Needs a fix | yes — 1, 2, 3 |
