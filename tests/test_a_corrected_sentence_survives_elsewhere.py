@@ -43,6 +43,13 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, "skills", "code-review", "scripts", "survivor_check.py")
 
 # The two measured events, and what each one left standing.
+#
+# Both commits were squashed into a release branch and their feature branches
+# were later deleted, which took the last ref that reached them: a clone with
+# `fetch-depth: 0` gets branches and tags, never `refs/pull/*`, so CI went red
+# here the day the branch list was tidied. They are now anchored by the tags
+# `fixture/survivor-pin-left-behind` and `fixture/survivor-class-left-standing`
+# rather than by any branch. Delete either tag and every case below skips.
 PIN_LEFT_BEHIND = "7bcf36a"
 PIN_CARRIER = "tests/test_the_rules_have_one_owner.py"
 CLASS_LEFT_STANDING = "ad6f81a"
@@ -114,10 +121,11 @@ def test_the_measured_commits_are_still_here():
     ]
     assert not missing, (
         f"{missing} no longer resolve, so every case in this module is now "
-        "skipping and the check has nothing real left to be held to. Either "
-        "restore the branches that carry them or replace them with commits "
-        "that carry the same two shapes -- a pin left behind by a reworded "
-        "sentence, and a claim corrected at one coordinate and left at another"
+        "skipping and the check has nothing real left to be held to. Push "
+        "the `fixture/survivor-*` tags back at these commits, or replace them "
+        "with commits that carry the same two shapes -- a pin left behind by "
+        "a reworded sentence, and a claim corrected at one coordinate and "
+        "left at another"
     )
 
 

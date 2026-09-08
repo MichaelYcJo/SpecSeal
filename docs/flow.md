@@ -131,14 +131,26 @@ rather than by reading it, and each one inside the fix for the one before.
 
 ## 0.9.4 — the instrument, before anything reads it
 
-Three work items, and the ordering is the whole point: **#145 and #149 are
-answered off a table that is wrong today.** Both meter defects were found on
-2026-09-07 by taking this release line's own segment readings, and every
-per-segment reading this repository has published carries them.
+Four work items. The first three are the ordering the section is named for:
+**#145 and #149 are answered off a table that is wrong today.** Both meter
+defects were found on 2026-09-07 by taking this release line's own segment
+readings, and every per-segment reading this repository has published carries
+them.
+
+**The fourth is not a meter defect and carries no ordering.** #256 and #257
+arrived from the 0.9.2 release run, on one branch and one file, and they were
+held out of 0.9.2 because that release was already running and does not take
+new items. They sit here because 0.9.3 shipped without them and the next
+release is where a finished branch lands, not because they belong to the
+instrument. Both were found by *using* the worktree guard rather than by
+reading it, and #256's repair had to discard the direction its own ticket
+settled — the discriminator that ticket names was measured false, and the
+measurement needed a positive control the ticket's own probe did not have.
 
 - [ ] #200 — the meter's `test` family names five runners and not this repository's, so fourteen `./bin/test` runs read as `other` and the one call it charged to `test` was a file write containing the word.
 - [ ] #202 — a streamed message is counted at its first partial row, so a round that wrote a full report reads as 62 output tokens. The error is not a scale factor: 3.2x on one segment and 334x on another, the same day, with nothing in the printed report saying which.
 - [ ] #193 — a third the file could not compute is charged 0, and the context line takes that 0 for a baseline. Carries a verified patch and a case seen red, plus two smaller ones as a comment.
+- [ ] **[#256 · #257] — one branch, `hooks/worktree-guard.py`.** Both came out of the 0.9.2 release run's own worktree friction. #256: the guard's last liveness arm reads a fresh transcript with no matching process as a live session, and an exited session presents identically, so the tree read as concurrent for five minutes after every session in the project ended — a hard deny on `git switch`, steering work into worktrees nobody needed. **The ticket's settled direction was measured false and not built.** No live `claude` holds its transcript open, including one writing its own file seconds earlier, so the open-descriptor probe would have answered *not held* for every session and collapsed the arm to always-idle; no terminal marker exists either. The ticket's own probe had no positive control, which is what let a true reading stand for a discriminator that never discriminated. The repair needed no new signal: `fresh_leases` had already retired that session's lease on positive evidence its pid was gone, and the arm was putting it back. #257: with a consent record present, a command that creates a worktree *and anything else* still asked, where the Agent path already answered `silent` for the same shape with the argument written beside it — two of five confirmations on the 0.9.2 run, both triggered by the batching this repository's own `CLAUDE.md` asks for.
 
 ## 0.9.5 — what the readings answer, and what a green gate means
 
