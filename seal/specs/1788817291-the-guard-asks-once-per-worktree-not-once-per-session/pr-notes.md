@@ -179,7 +179,7 @@ What this change does and does not touch on that axis:
   for `guard_worktree_creation`'s consented row to answer `ask` rather than
   `allow`, which costs the whole prompt budget this change buys and is a
   one-word edit at one site. That is the trade the answer decides; it is not a
-  redesign. Two of the three shapes that made this urgent are closed either
+  redesign. Round 2 added a third shape to the two that made this urgent, and all three are closed either
   way: `sudo git worktree add …` and `env LD_PRELOAD=… git worktree add …` no
   longer get an allow at all. **Answerer: the repository owner**, against the
   harness.

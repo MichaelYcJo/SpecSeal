@@ -5,7 +5,7 @@
 | Target SHA | d82a02c |
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
-| Broad gate | not yet |
+| Broad gate | passed under round 3 |
 | Fixes checked by | round-2 |
 | Contract changes | decide → decide, main, pytest |
 | New units | ELSEWHERE (depth 1); judge_creation (depth 1); test_the_allow_refuses_a_segment_that_does_anything_else (depth 1); test_a_wrapper_in_front_of_the_creation_carries_no_allow (depth 1); test_a_backgrounded_creation_is_still_only_a_creation (depth 1); test_a_creation_behind_another_verdict_is_still_judged (depth 1); test_the_switch_ladder_keeps_every_verdict_it_had (depth 1); test_a_dirty_tree_does_not_decide_whether_the_creation_is_questioned (depth 1); test_the_guard_is_never_silent_where_the_writer_records (depth 1) |

@@ -64,7 +64,7 @@ actually has: call the Agent again without `isolation: "worktree"`.
 
 The guard used to answer creation with `ask` at every site that reached it, so
 no path through it cost zero prompts and the cost grew with the number of
-worktrees. Measured on the 0.9.1 release run: six work items on six branches
+worktrees. Measured on the release run that opened #237, on 2026-09-08: six work items on six branches
 needed six `git worktree add` calls, and the guard held the run at all six. An
 unattended run reaches the first and stops there, which is the one shape
 `CONTRIBUTING.md`'s prompt-budget rule has no room for.

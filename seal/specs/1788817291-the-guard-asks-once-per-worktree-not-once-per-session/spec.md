@@ -82,7 +82,7 @@ too — so **whether the tree happened to be dirty decided whether the creation
 was questioned at all.** Executed: the same command denied on a clean tree and
 asked about the changes on a dirty one.
 
-**And *"the three concurrency rows all deny"* was true of two of them.** Round
+**And *"the three concurrency rows all deny"* was true of one of them.** Round
 2 found that two of the three are choice sites, which deny **once** per session
 per direction and `ask` on every attempt after — so the creation sitting below
 them was a property of the first attempt. Executed in both the idle and the

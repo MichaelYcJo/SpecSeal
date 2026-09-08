@@ -5,8 +5,8 @@
 | Target SHA | 62b2d2e |
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
-| Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Broad gate | passed under round 3 |
+| Fixes checked by | round-3 |
 | Contract changes | choose → guard_worktree_creation, main |
 | New units | test_a_path_qualified_git_carries_no_allow (depth 1); test_a_spent_choose_budget_does_not_decide_whether_the_creation_is_questioned (depth 1) |
 | Needs a fix | yes — 1 and 2 |
