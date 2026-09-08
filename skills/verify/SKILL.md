@@ -183,6 +183,12 @@ to write none. It fails for a section it cannot read, because a tolerant reader
 reports zero there and zero reads as "everything has been closed". Close an
 item by marking it `✅` with what closed it; the row stays.
 
+**`--baseline` names the branch you merge into, and what it reads is where you
+forked from it** — `git merge-base <ref> HEAD`, so a work item squashed into
+that branch after your branch was cut is not your removal (#272). Before that,
+squashing one item turned every sibling red, and each one paid a merge, a
+re-run broad gate and a re-pushed pull request to clear it.
+
 ## The broad gate — after the rounds, then compare against the base
 
 **It fires after the review rounds settle, never before them.** Nothing broad

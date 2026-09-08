@@ -181,8 +181,11 @@ GitHub 의 것인 것과 같습니다. 기본 모드에서는 커밋합니다. �
   이력에서 찾을 수 있습니다.
 - **지우면 깨지므로, `settle` 이 들어오기 전에 먼저 바꿔야 하는 것.**
   `skills/verify/scripts/unverified_check.py --baseline` 은 작업 항목 트리를
-  base 리비전과 비교해서 "있던 파일이 없어졌다" 를 실패로 봅니다. PR 이
-  건드리는 작업 항목이나 병합 안 된 항목만 보도록 범위를 좁혀야 합니다.
+  base 브랜치의 현재 끝이 아니라 갈라진 지점, 즉 base 참조와 `HEAD` 의
+  merge base 와 비교해서 "있던 파일이 없어졌다" 를 실패로 봅니다 (#272).
+  이 항목은 merge base 로 풀리지 않습니다. `settle` 이 병합된 작업 항목의
+  디렉터리를 지우면 갈라진 지점 기준으로도 없어진 것이므로 여전히 거부합니다.
+  PR 이 건드리는 작업 항목이나 병합 안 된 항목만 보도록 범위를 좁혀야 합니다.
   `.github/scripts/gather_changelog.py --check` 는 조각 파일을 읽어서
   `CHANGELOG.md` 에 못 간 것을 찾습니다. 지운 뒤에는 `CHANGELOG.md` 의
   주석만으로 판단해야 합니다. 둘을 여기 적어 두는 이유는, `settle` 작업

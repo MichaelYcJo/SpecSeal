@@ -60,8 +60,13 @@ jobs:
       # An `unverified` row records a claim nobody proved and names who can
       # answer it. The tally is printed on every pull request and never fails
       # for an open row; it fails for a section that cannot be read, a table
-      # with fewer rows than at the base, a file that was there and is gone,
-      # and a base ref that does not resolve.
+      # with fewer rows than where this branch forked from the base, a file
+      # that was there and is gone, and a base ref that either does not
+      # resolve or shares no history with HEAD.
+      #
+      # The ref goes in and `git merge-base <ref> HEAD` is what gets read,
+      # because `github.base_ref` names a branch that moves. Work that lands
+      # on the base after your branch was cut is not your branch's removal.
       - name: the unverified record is readable, and rows leave it closed
         shell: bash
         run: |
