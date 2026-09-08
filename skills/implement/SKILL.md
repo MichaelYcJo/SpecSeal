@@ -383,7 +383,7 @@ the prompt.
      put it to the user twice. The table above says it unambiguously; this
      paragraph is what gets read instead. Name the arm in the sentence when
      this section is next opened.
-     Verified 2026-09-08 against "Two things the sentences kept dropping. A declaration reaches the review arm"@4acfc513. -->
+     Verified 2026-09-08 against "### 1. Read the spec before the code"@908ef9e0. -->
 
 The declaration is what the commit gate reads, for **either** review answer.
 A work item routed to the chain used to carry "no marker at all", and that was

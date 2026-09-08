@@ -1781,7 +1781,7 @@ def _git_options(rest):
     # composing paths and becomes a resolved (git-dir, work-tree) pair, which
     # `apply_chdir` below cannot express. The rider is here rather than on the
     # guard because this is the file the fix is in.
-    # Verified 2026-09-08 against _git_options@802768ca.
+    # Verified 2026-08-31 against _git_options@802768ca.
     takes_value = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
     i, chdirs = 0, []
     while i < len(rest):
@@ -1824,7 +1824,7 @@ def parse_git(tokens):
     # segment would still need a directory, and `Unresolved(CONSTRUCT)` is the
     # only honest one. That is a change to what the gate stops, not a parse
     # fix, and it wants its own work item.
-    # Verified 2026-09-08 against parse_git@7693c50d.
+    # Verified 2026-08-31 against parse_git@7693c50d.
     i = 0
     while i < len(tokens):
         t = tokens[i]

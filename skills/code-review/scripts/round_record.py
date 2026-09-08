@@ -1867,7 +1867,7 @@ def fix_table(reader, path):
     # `chain_check`'s own readers: widening it there would strip a backtick
     # off a home that is deliberately a code span. Round 2's finding 9;
     # `seal/follow-up.md`'s header sends a coordinate-tied item here rather
-    # than to that file. Verified 2026-09-08 against fix_table@a9185160.
+    # than to that file. Verified 2026-09-06 against fix_table@a9185160.
     text = read_text(path, "fix table")
     raw, lines = text.splitlines(), reader.readable(text)
     out = {}

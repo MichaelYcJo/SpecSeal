@@ -170,7 +170,7 @@ def _tokenize_with_separators(command: str, windows=None):
     # then finds no repository there and exits silently. The base hook handled
     # this form, so this one place went backwards; every other Windows form
     # (bare, double-quoted, relative) was compared against base and matches.
-    # Verified 2026-09-08 against _tokenize_with_separators@8801e5d6.
+    # Verified 2026-08-31 against _tokenize_with_separators@8801e5d6.
     #
     # A `cd` operand goes through this same doubling since that fix, so the
     # single-quoted UNC form loses the repository there too and the rider now
@@ -227,7 +227,7 @@ def walk_command(command: str, cwd: str, windows=None):
 # `walk_command` and deciding whether a tokenization-only entry point is worth
 # keeping for tests. Left because that is a judgment about the test surface,
 # not a cleanup.
-# Verified 2026-09-08 against split_command@7e3ba403.
+# Verified 2026-08-31 against split_command@7e3ba403.
 def split_command(command: str, windows=None):
     """The segments to JUDGE: comments dropped, quoting respected.
 
@@ -1491,7 +1491,7 @@ def main():
     # open is whether the Agent path should be judged by a different rule than
     # counting sessions. Reading a token out of the Agent's prompt was tried
     # and taken back for the reason the comment below gives.
-    # Verified 2026-09-08 against main@7415c477.
+    # Verified 2026-08-31 against main@7415c477.
     if tool in ("Agent", "Task"):
         if str(tool_input.get("isolation", "")).lower() != "worktree":
             sys.exit(0)
