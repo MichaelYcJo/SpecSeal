@@ -105,16 +105,25 @@ read them.
 
 ## 0.9.3 — the enumeration was done by reading
 
-Three work items on one method rather than one file, and the method is what
-observation 6 on #51 found eight times without a single instance caught by
-reading. #170's round 2 is the positive case: a fix pass re-enumerated its
-class by construction and found a second crash site where the finding named
-one.
+**Five work items, and four of them are the one the section is named for.**
+That method — enumerating a class by construction rather than by reading it —
+is what observation 6 on #51 found eight times without a single instance
+caught by reading. #170's round 2 is the positive case: a fix pass
+re-enumerated its class by construction and found a second crash site where
+the finding named one.
+
+**#272 is the fifth and it is here for a different reason**, which is worth
+saying rather than hiding behind the count. It is not a missed enumeration; it
+is the release itself getting more expensive the more work items it carries,
+at roughly the square of them. So it goes first and squashes first, and the
+other four inherit the repair instead of each paying for it — which is the
+only ordering constraint in this section.
 
 0.9.0's own two chains are the second measurement and they are larger: nine
 instances on one branch and seven on the next, every one found by mutating code
 rather than by reading it, and each one inside the fix for the one before.
 
+- [ ] #272 — `unverified_check` took its baseline from the pull request's base, and that branch moves: the moment one work item squashed into the release branch, every sibling cut before that squash read the squashed item's `overview.md` as *rows that left the record*. The refusal was right about what it measured and wrong about what happened. **Three of 0.9.2's four branches paid it**, each a release-branch merge, a re-run broad gate, a re-pushed pull request and a `docs/flow.md` conflict, and the cost is roughly quadratic in the items a release carries. The baseline is now the merge base of the base ref and `HEAD` — the fork point — so what landed on the base after the fork is not this branch's removal. **First of the five and squashed first**, so the other four merge a release branch that already holds it. `docs/release-checklist.md` step 0's workaround goes with the repair; the never-rebase rule that was written inside it stays, as the standing rule it always was.
 - [ ] #182 — the hider guard's enumeration names three copies where the property is every copy out of `raw`. `spec.md` and `plan.md` for it were drafted during 0.8.3 and are in that run's scratch, not in the tree.
 - [ ] #192 — a funnel answers for the values that enter, and nothing answers for what two of them make. #175's round 3, measured at the base as well as on the branch.
 - [x] #265 — a warden spawn reads ~110,000 characters, about 30k tokens, before its first tool call, and **53% of `code-review/SKILL.md` is addressed to the orchestrator** — five sections the file itself prefixes `Orchestrator:`, 24,948 characters measured at this branch's base, which a reviewer never acts on. They were one contiguous block, lines 236–653, and they moved verbatim to `skills/code-review/orchestration.md`; the three `writing-style` sections that are not a reviewer's moved to `skills/writing-style/outside-the-review.md`. A warden spawn drops from 108,399 bytes to 78,109, measured with `wc -c` over the three files its `skills:` list names plus its own definition. Both of #255's supporting enumerations were taken by grep and both were short: the grep for the literal `Orchestrator:` saw the five `##` headings and none of the seven `###` subsections under them, so it missed four live references including one in `agents/smith.md`; and *eleven test modules that pin the path* is eleven by path and 21 in fact, because ten name the file as a Python tuple. Six of the eleven needed nothing and five modules the ticket never named broke.
