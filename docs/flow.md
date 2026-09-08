@@ -84,6 +84,7 @@ parsing, one row over.
 - [x] **[#211 · #194 · #227] — one branch, `round_record.py`'s derivation and id rows.** `Contract changes` reads `no call site found` for a pytest test function, and it compares arities, so a unit returning a new *meaning* reads as `none`. #194 moved here from 0.9.0 on 2026-09-07: a second measured instance arrived during #187's chain and it is a shape the ticket's proposed literal-set comparison does not catch — `is_a_record_of_a_moment` changed which inputs map to which of the two values it already returned, with signature, arity, return type and returnable set all unchanged. #227 joined on 2026-09-07 from another repository: round-prefixed finding ids (`R2-1` … `R2-8`) collapse toward one key, and the refusal names neither the format it wants nor the rows it read — the reviewer picks the numbering and the fixer copies it, so the refusal surfaces at the orchestrator, one hop from either agent that could have avoided it.
 - [x] #237 — `hooks/worktree-guard.py` answers worktree creation with `ask` at every site that reaches it, and the `[worktree-ok]` site says in writing that this is not a choice: the token is written into the command by whoever issues it, so it is not evidence that a person answered, and reading it as consent would turn the guard off with nobody asked. So there is no path through this guard that costs zero prompts, and a run needing six worktrees pays six hard stops — measured on this release's own run, which is where it was reported. What separates the first creation from the sixth is available without trusting the token: the harness only runs a `git worktree add` that was approved, so a `PostToolUse` observation of one that actually ran is consent the command text cannot forge. The budget goes from one per worktree to **one per session**, and the first creation is still a question.
 - [x] **#239 — a stamp names content, not a commit. The owner put this first, on 2026-09-08, because it has been costing a cycle rather than an incident.** `skills/evidence-check/SKILL.md` gives four grounds for deriving a ledger anchor from content instead of writing a marker into the source, and the fourth is this repository's own rider comments: they carried commit SHAs, a squash orphaned them, and a patch release exists because of it. `CLAUDE.md` then states the rule that came out of it — a row carries no line number and no commit SHA — and closes the reasoning with *so a squash orphaned the stamp*. **So the mechanism that supplied the evidence is the one mechanism that never got the repair.** It is not a wrong button either: a fix pass works on a feature branch, a feature branch squashes into its release branch by rule, so the only commits it has to name are the ones that stop existing — and the check then fails on the release branch, where whoever repairs it is never whoever caused it. Three cycles of measurement: `0946350` is a commit whose whole job was re-pointing three stamps after a rewrite, the release-to-`main` direction cost a patch release, and `release/v0.9.1` went red again the moment #226 merged. Scope is 13 rider stamps across 10 files, plus 135 round records carrying a `Target SHA` the same squash orphans — the second half may be right to leave alone, since nothing resolves it, but that is to be answered in this change rather than assumed. #240 is the instance repair and is not this.
+
 ## 0.9.2 — what the chain found about itself, in the units it found them in
 
 Four work items, and six of the ticket numbers below belong to two of them.
@@ -131,14 +132,26 @@ rather than by reading it, and each one inside the fix for the one before.
 
 ## 0.9.4 — the instrument, before anything reads it
 
-Three work items, and the ordering is the whole point: **#145 and #149 are
-answered off a table that is wrong today.** Both meter defects were found on
-2026-09-07 by taking this release line's own segment readings, and every
-per-segment reading this repository has published carries them.
+Four work items. The first three are the ordering the section is named for:
+**#145 and #149 are answered off a table that is wrong today.** Both meter
+defects were found on 2026-09-07 by taking this release line's own segment
+readings, and every per-segment reading this repository has published carries
+them.
 
-- [ ] #200 — the meter's `test` family names five runners and not this repository's, so fourteen `./bin/test` runs read as `other` and the one call it charged to `test` was a file write containing the word.
-- [ ] #202 — a streamed message is counted at its first partial row, so a round that wrote a full report reads as 62 output tokens. The error is not a scale factor: 3.2x on one segment and 334x on another, the same day, with nothing in the printed report saying which.
-- [ ] #193 — a third the file could not compute is charged 0, and the context line takes that 0 for a baseline. Carries a verified patch and a case seen red, plus two smaller ones as a comment.
+**The fourth is not a meter defect and carries no ordering.** #256 and #257
+arrived from the 0.9.2 release run, on one branch and one file, and they were
+held out of 0.9.2 because that release was already running and does not take
+new items. They sit here because 0.9.3 shipped without them and the next
+release is where a finished branch lands, not because they belong to the
+instrument. Both were found by *using* the worktree guard rather than by
+reading it, and #256's repair had to discard the direction its own ticket
+settled — the discriminator that ticket names was measured false, and the
+measurement needed a positive control the ticket's own probe did not have.
+
+- [x] #200 — the meter's `test` family names five runners and not this repository's, so fourteen `./bin/test` runs read as `other` and the one call it charged to `test` was a file write containing the word.
+- [x] #202 — a streamed message is counted at its first partial row, so a round that wrote a full report reads as 62 output tokens. The error is not a scale factor: 3.2x on one segment and 334x on another, the same day, with nothing in the printed report saying which.
+- [x] #193 — a third the file could not compute is charged 0, and the context line takes that 0 for a baseline. Carries a verified patch and a case seen red, plus two smaller ones as a comment. **The three shipped as one branch, because they are one file and one theme** — every per-segment reading this repository has published carries all three — and because the section's ordering constraint is against 0.9.5, not among themselves. What each ticket said and what the measurement said parted twice: #200 names one file write charged to `test` and there are **644**, with `lint/type` and `build` carrying the same kind; and #202's *keep the last row or take the maximum* is a choice its own corpus cannot decide, since the two agree on all 13,425 messages with 0 rows out of order, so the case separating them was built rather than found. **The decision #200 left open was answered with a fourth shape none of its three was**: the widened pattern is the cheap one and its own objection is *no sign of it*, so the report now names the slowest command it could not classify whenever `other` leads. The `seal/config.md` row stays unbuilt with the condition under which it becomes right written down.
+- [x] **[#256 · #257] — one branch, `hooks/worktree-guard.py`.** Both came out of the 0.9.2 release run's own worktree friction. #256: the guard's last liveness arm reads a fresh transcript with no matching process as a live session, and an exited session presents identically, so the tree read as concurrent for five minutes after every session in the project ended — a hard deny on `git switch`, steering work into worktrees nobody needed. **The ticket's settled direction was measured false and not built.** No live `claude` holds its transcript open, including one writing its own file seconds earlier, so the open-descriptor probe would have answered *not held* for every session and collapsed the arm to always-idle; no terminal marker exists either. The ticket's own probe had no positive control, which is what let a true reading stand for a discriminator that never discriminated. The repair needed no new signal: `fresh_leases` had already retired that session's lease on positive evidence its pid was gone, and the arm was putting it back. #257: with a consent record present, a command that creates a worktree *and anything else* still asked, where the Agent path already answered `silent` for the same shape with the argument written beside it — two of five confirmations on the 0.9.2 run, both triggered by the batching this repository's own `CLAUDE.md` asks for.
 
 ## 0.9.5 — what the readings answer, and what a green gate means
 
@@ -170,10 +183,12 @@ The axis is **not** *delegate or do it myself*. It is **is this work finding
 out, or writing down**, and the two sit on opposite sides of a subagent
 boundary for a structural reason:
 
-| Kind of work | Shape | Why the boundary helps or hurts |
-|---|---|---|
-| discovery | large input → small output | the delegate pays the reading and the parent receives coordinates. A subagent boundary IS a compression boundary, and this is what it is for |
-| transcription | small input → large output | the parent already holds the input. A prompt can be handed over; a context cannot — so the delegate buys the discovery a second time |
+
+| Kind of work  | Shape                      | Why the boundary helps or hurts                                                                                                              |
+| ------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| discovery     | large input → small output | the delegate pays the reading and the parent receives coordinates. A subagent boundary IS a compression boundary, and this is what it is for |
+| transcription | small input → large output | the parent already holds the input. A prompt can be handed over; a context cannot — so the delegate buys the discovery a second time         |
+
 
 #263 measured the second row without naming it: `smith` #1 · #2 · #3 spent
 378k · 474k · 555k tokens and 141 · 43 · 35 tool calls against a parent doing
