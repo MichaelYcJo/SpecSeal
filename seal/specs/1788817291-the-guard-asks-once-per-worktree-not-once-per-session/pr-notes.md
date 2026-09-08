@@ -85,15 +85,15 @@ not an estimate. It was measured on this release's own run on 2026-09-08 — six
 work items on six branches, six `git worktree add` calls, and the guard held
 the run at every one of them.
 
-**Re-measured after review round 1**, because round 1 narrowed what the allow
-covers and the budget is a claim about exactly that. Executed on the branch, in
-a clean single-stream tree, six `git worktree add ../wt f` calls in one
-session: **deny, then allow, allow, allow, allow, allow.** The table above is
-unchanged, and it is unchanged because the six calls the release run actually
-made were single-segment creations, which is the form the bound still speaks
-for.
+**Re-measured after review rounds 1 and 2**, because each of them narrowed what
+the allow covers and the budget is a claim about exactly that. Executed on the
+branch, in a clean single-stream tree, six `git worktree add ../wt f` calls in
+one session: **deny, then allow, allow, allow, allow, allow** — the same after
+round 2 as after round 1. The table above is unchanged, and it is unchanged
+because the six calls the release run actually made were single-segment
+creations, which is the form the bound still speaks for.
 
-Three residuals, stated rather than left to be found.
+Four residuals, stated rather than left to be found.
 
 - A creation written as part of a **compound** command still costs one prompt
   each time, because the allow is bounded to a command that is nothing else.
@@ -109,8 +109,17 @@ Three residuals, stated rather than left to be found.
   claimed, so this is the budget catching up with the bound rather than the
   bound being widened; the cost is one prompt on a shape nobody writes a
   worktree creation as. `git worktree add <path> -b <branch> <start>`,
-  `git -C <repo> worktree add …`, a `~` path, a glob path and a lone trailing
-  `&` are all still allowed.
+  `git -C <repo> worktree add …`, a `~` path in an ARGUMENT, a glob path and a
+  lone trailing `&` are all still allowed.
+- **A creation whose command word is a PATH costs one prompt each time, and
+  that is new in round 2.** The bound's first test compared basenames, so
+  `./git`, `../git`, `bin/git`, `/tmp/evil/git`, `~/git` and `*/git worktree
+  add …` were all allowed — and that allow covers the whole tool call, which
+  means one approved creation would have let the session run any executable on
+  the machine by giving it a filename of `git`. The test is exact equality now.
+  What it costs a person is one prompt on `/usr/bin/git worktree add …`; it
+  costs the measured six nothing, because none of them names a path. `git`,
+  `\git` and `'git'` are the same command and are still allowed.
 - The guard's silence is not the harness's. Where the guard now allows, it
   allows; where it goes silent (the `Agent` path), whatever the harness's own
   permission settings want to ask still stands, and that is not the guard's to

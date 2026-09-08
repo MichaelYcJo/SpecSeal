@@ -5,7 +5,7 @@
 | Target SHA | `d82a02c` |
 | Base | `86e140f` |
 | Branch | `fix/237-the-guard-asks-once-per-worktree-not-once-per-session` |
-| Worktree | `/Users/michael/orca/workspaces/SpecSeal/main-worktrees/wi-237` |
+| Worktree | `/Users/x/orca/workspaces/SpecSeal/main-worktrees/wi-237` |
 | PR | not yet |
 | Broad gate | not yet — the full suite, the repository-wide lint and the typecheck are the orchestrator's, once, after the rounds settle (`agent-contract` §2) |
 

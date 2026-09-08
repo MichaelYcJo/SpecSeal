@@ -70,19 +70,37 @@ created the worktree, and the record was written — the model never had to
 forge it, only to choose which question got asked. The row above rests
 entirely on this sentence, so the sentence is now enforced rather than
 asserted. The creation is judged between the switch ladder's two halves: below
-the three concurrency rows, which all deny and so stop the creation with the
-rest of the command, and above the two that do not protect a tree — the
-tracked-changes `ask`, whose own text says the switch is allowed, and the
-silent single-stream exit. The guard's other silent exit, at `if not top`, falls
-through as well. Measured after the change over 576 command/tree-state/directory
-combinations: no command the writer would record for leaves the guard silent.
+the concurrency rows, which stop the creation with the rest of the command, and
+above the two that do not protect a tree — the tracked-changes `ask`, whose own
+text says the switch is allowed, and the silent single-stream exit. The guard's
+other silent exit, at `if not top`, falls through as well.
 
-Silence was not the only way the question went unasked, and the second way was
-found only by re-enumerating rather than by applying the round's fix. Row 3
-asks about uncommitted changes riding along, and approving it created the
-worktree too — so **whether the tree happened to be dirty decided whether the
-creation was questioned at all.** Executed: the same command denied on a clean
-tree and asked about the changes on a dirty one.
+Silence was not the only way the question went unasked, and the other two ways
+were found by re-enumerating rather than by applying a round's fix. Row 3 asks
+about uncommitted changes riding along, and approving it created the worktree
+too — so **whether the tree happened to be dirty decided whether the creation
+was questioned at all.** Executed: the same command denied on a clean tree and
+asked about the changes on a dirty one.
+
+**And *"the three concurrency rows all deny"* was true of two of them.** Round
+2 found that two of the three are choice sites, which deny **once** per session
+per direction and `ask` on every attempt after — so the creation sitting below
+them was a property of the first attempt. Executed in both the idle and the
+detection-unusable state: `deny`, then an `ask` reading *Approve — switch
+branches in this shared tree*, which creates the worktree and mints
+session-wide consent with the creation question never put. Only the ACTIVE row
+denies unconditionally and keeps its place above the creation; the two choice
+rows now hand their fallback `ask` the creation's judgment first, which leaves
+their deny exactly where it was.
+
+**The property, re-derived by construction after the change**, over 21 command
+shapes × 5 tree states × 2 shell directories × 2 record states × 3 attempts =
+**1260 combinations**: 230 are cells the writer would record for, and **0** of
+those reach a verdict that lets the command run without the creation question
+having been put. With both round-2 fixes reverted the same sweep finds **64**.
+The figure this paragraph used to carry, `576 command/tree-state/directory
+combinations`, does not reconstruct from the three axes it names and is
+replaced by one that does.
 
 What the change gives up is stated rather than left to be found: the
 invariant *creating a worktree always takes one confirmation* becomes *the
