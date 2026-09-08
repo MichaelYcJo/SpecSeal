@@ -5,7 +5,7 @@
 | Target SHA | cdcadc0 |
 | Ran by | warden on claude-opus-5 |
 | PR | not yet opened |
-| Broad gate | passed after `release/v0.9.1` was merged in — 2629 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0; `rider_check.py` 20 ok, 0 drifted, 0 broken; `evidence-check .` 849 ok, 0 drifted. CI's **Windows** leg then failed one case and it was a real defect: `tree_files` built `rel` with the native separator, and `migrate` spends it as `git show <sha>:./<rel>` where git takes only `/` — so the migration could resolve no file at all on Windows, and the drift message handed a person a `--only` argument that would never match |
+| Broad gate | passed on the fully merged tree — 2735 passed, 2 skipped; `ruff check .` and `ruff format --check .` both exit 0; `rider_check.py` 23 ok, 0 drifted, 0 broken; `evidence-check .` exits 1 on drift alone, which CI reads as a warning. Merging last cost what merging last is for: one rider arrived BROKEN — #225's provisional `at <sha>` stamp, which its own text said the later branch must re-stamp — and `--migrate` closed it; three more arrived DRIFTED, each claim read and re-verified; and two ledger anchors were REMOVED rather than re-pointed, because #239 deleted the units #211's row cited while the claim itself stayed true on the two that survive |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |

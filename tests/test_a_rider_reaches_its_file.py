@@ -184,7 +184,8 @@ OLD_STAMP = re.compile(r"Verified \d{4}-\d{2}-\d{2} at ([0-9a-f]{7,40})\b")
 def rider_stamps():
     """(file, line) for every rider in the tree, however it is stamped."""
     found = [(r.rel, r.start) for r in riders.all_riders(ROOT)]
-    assert found, "no riders found at all"    return found
+    assert found, "no riders found at all"
+    return found
 
 
 def test_every_rider_carries_a_verification_stamp():
@@ -605,6 +606,7 @@ def test_a_refusal_names_which_of_the_three_things_failed(repo):
 
     text, why = riders.content_at(str(repo), "0" * 40, "f.txt")
     assert text is None and "cannot resolve" in why, why
+
 
 def test_a_held_file_is_named_with_the_branch_holding_it():
     """A rider that cannot be planted has to say what unblocks it, or it is a
