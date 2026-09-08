@@ -7,12 +7,12 @@
 | PR | 261 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -64,9 +64,9 @@ round was asked to say so if it saw the class widen.
 | 5 | The masking gives up four well-formed shapes the plan does not enumerate | `.github/scripts/issue_claims_check.py:130` | answered | The deferral reasoning is right and unchanged — `FENCE` and `SPAN` are imported, so widening them changes what a release closes. `prose_only` is untouched by the fix range. The home is wrong, and that is row 8 |
 | 6 | A repeated unclaimed number printed the identical annotation twice | `.github/scripts/issue_claims_check.py:229` | answered | Closed. Executed: removing the `seen` membership test turns `test_the_same_number_twice_in_one_sentence_is_one_warning` red. `seen.add` sits inside `if before:`, so a number appearing before the claim is not consumed |
 | 7 | A numeric URL fragment beside a claim earns a warning; the caveat named only the mention list | `.github/scripts/issue_claims_check.py:224` | answered | Closed on the code comment plus `test_a_numeric_url_fragment_beside_a_claim_is_a_warning`. Executed: adding the rejected URL-character exclusion turns that case red, so the chosen behaviour is pinned rather than merely current. The plan bullet is row 9 |
-| 8 | ⬜ The deferred finding's home is the round record's own Deferred table, and the two cells point at each other rather than at a destination | `seal/specs/1788844400-a-body-naming-two-issues-claims-one/rounds/round-1.md` §Deferred | open | Record correction, not a code defect. `docs/review-chain-spec.md:177` gives `seal/follow-up.md` named in the pull request body; `seal/follow-up.md` sends a coordinate-bound item to a `# RIDER:` comment instead, and this one is tied to `FENCE` and `SPAN`. Nothing reads a round record's Deferred table for open work, and `chain_check.py:1378` checks only that something follows the word |
-| 9 | ⬜ `plan.md`'s caveat still describes the URL fragment in terms of the mention list alone | `seal/specs/1788844400-a-body-naming-two-issues-claims-one/plan.md:81` | open | Record correction. The bullet's closing sentence is literally true and the behaviour lives durably in the code comment, so finding 7 is closed — but a reader of the plan alone does not learn that a fragment beside a claim earns a warning |
-| 10 | ⬜ The added paragraph's "the paragraph above" points at the wrong paragraph | `docs/issues-and-milestones.md:130` | open | Document correction. The paragraph immediately above is the hygiene-workflow one; the paragraph that says *acted on* is three blocks up. Behaviour and fact are right, so the release ships nothing defective |
+| 8 | ⬜ The deferred finding's home is the round record's own Deferred table, and the two cells point at each other rather than at a destination | `seal/specs/1788844400-a-body-naming-two-issues-claims-one/rounds/round-1.md` §Deferred | **fixed** `6054165` | fixed at 6054165; Record correction, not a code defect. `docs/review-chain-spec.md:177` gives `seal/follow-up.md` named in the pull request body; `seal/follow-up.md` sends a coordinate-bound item to a `# RIDER:` comment instead, and this one is tied to `FENCE` and `SPAN`. Nothing reads a round record's Deferred table for open work, and `chain_check.py:1378` checks only that something follows the word |
+| 9 | ⬜ `plan.md`'s caveat still describes the URL fragment in terms of the mention list alone | `seal/specs/1788844400-a-body-naming-two-issues-claims-one/plan.md:81` | **fixed** `6054165` | fixed at 6054165; Record correction. The bullet's closing sentence is literally true and the behaviour lives durably in the code comment, so finding 7 is closed — but a reader of the plan alone does not learn that a fragment beside a claim earns a warning |
+| 10 | ⬜ The added paragraph's "the paragraph above" points at the wrong paragraph | `docs/issues-and-milestones.md:130` | **fixed** `6054165` | fixed at 6054165; Document correction. The paragraph immediately above is the hygiene-workflow one; the paragraph that says *acted on* is three blocks up. Behaviour and fact are right, so the release ships nothing defective |
 
 ## Paste-ready fixes
 
