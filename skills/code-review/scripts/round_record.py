@@ -405,14 +405,177 @@ ASKED_COMMENT_NEVER_CLOSED = (
     "to every reader, and the record is written before any reader gets to say "
     "so. Close the comment in the --asked file with `-->`"
 )
+# The third answer, and it is the one the two questions above used to read as
+# the second. A comment that opens inside a fenced block and closes OUTSIDE it
+# blanks that block's closing fence, because `strip_comments` runs first -- so
+# the fence question, asked of the comment-stripped text, finds a block with no
+# closer while every fence in the text as written closes. The refusal then
+# named a fence that is closed and sent the reviewer to look for something
+# that is not there, which is the defect §14 exists for and the one round 2 of
+# #169's chain already paid for once.
+#
+# Asking the fence question of the RAW text as well is what tells the two
+# apart: open in both texts is a fence nobody closed, open in the stripped
+# text alone is a comment crossing a fence marker.
+COMMENT_CROSSES_A_FENCE = (
+    "an HTML comment in the report opens inside a fenced block and closes "
+    "outside it. Every fence in the report as written closes; what reads as "
+    "an unclosed fence is the comment blanking a closing one, because "
+    "`readable` strips comments before it blanks fences. So the refusal you "
+    "would otherwise get names a fence you did close. Close the comment "
+    "inside the block, or move the whole comment out of it"
+)
+ASKED_COMMENT_CROSSES_A_FENCE = (
+    "an HTML comment in the round paragraph opens inside a fenced block and "
+    "closes outside it. Every fence in the paragraph as written closes; what "
+    "reads as an unclosed fence is the comment blanking a closing one, "
+    "because `readable` strips comments before it blanks fences. Close the "
+    "comment inside the block in the --asked file, or move the whole comment "
+    "out of it"
+)
+# The same three questions, asked of the RECORD rather than of an input, and
+# this is the whole of what #182 is. Every copy the generator makes out of
+# `raw` lands in one artefact, so the record's own text is the one place where
+# every copy path is answerable at once -- the three the (copy x hider) grid
+# named, the fourth it did not, and a fifth somebody adds later. A hider a
+# SLICE of `raw` took half of is exactly a record no reader can read, which is
+# why *balance across the slice* asked at the destination needs no knowledge
+# of which slice took it.
+#
+# Measured at 8114937 before the guard: a report whose Grounds cell opens a
+# comment and closes it on the line below is accepted, `new` exits 0, the
+# record is written, and `## Executed probes`, `## Inherited coordinates` and
+# `## Deferred` each resolve to 0 occurrences through the shared reader while
+# standing in the bytes. Nothing in the run says a word.
+RECORD_COMMENT_NEVER_CLOSED = (
+    "the record this would write has an HTML comment that is never closed, so "
+    "every line below it is blank to every reader of it -- `chain_check` at "
+    "the pull request, the next round's inherited coordinates, "
+    "`evidence-check` -- and the record is written before any of them gets to "
+    "say so. A copied cell and a copied block are SLICES of the report, so a "
+    "comment the report itself balances arrives here as half of one. Close it "
+    "inside the cell it opens in, or move it out of the row"
+)
+RECORD_NEVER_CLOSED = (
+    "the record this would write has a fenced block that is never closed, so "
+    "every heading below it is gone to every reader of it and the record is "
+    "written before any of them gets to say so. A copied block is a SLICE of "
+    "the report, so a fence the report itself balances arrives here as half "
+    "of one. Close the block inside the section it is copied from"
+)
+RECORD_COMMENT_CROSSES_A_FENCE = (
+    "the record this would write has an HTML comment that opens inside a "
+    "fenced block and closes outside it. Every fence in the record as written "
+    "closes; what reads as an unclosed fence is the comment blanking a "
+    "closing one, so every reader below that line reads the record as one "
+    "open block. Close the comment inside the block, or move the whole "
+    "comment out of it"
+)
 # A line no fence regex can match and no comment marker, appended to ask a
 # reader pass whether its hider is still open at the end of the file: blanked
 # means open, kept means closed. Both passes ask it, of their own hider.
 SENTINEL = "x"
+# Which hider is open, as `open_hider` answers it and as each text's message
+# set is keyed. Three answers and not two: `STRADDLE` is a comment crossing a
+# fence marker, which the fence question alone reports as `FENCE`.
+COMMENT, FENCE, STRADDLE = "comment", "fence", "straddle"
+# One message set per text the question is asked of. The set is what makes the
+# question shareable: the ORDER of the two passes is a property of `readable`
+# and not of any one text, so a text contributes its three sentences and
+# nothing else. The five sentences that predate #182 keep their bytes, so
+# every case and every ledger anchor naming one still stands.
+REPORT_HIDERS = {
+    COMMENT: COMMENT_NEVER_CLOSED,
+    FENCE: NEVER_CLOSED,
+    STRADDLE: COMMENT_CROSSES_A_FENCE,
+}
+ASKED_HIDERS = {
+    COMMENT: ASKED_COMMENT_NEVER_CLOSED,
+    FENCE: ASKED_NEVER_CLOSED,
+    STRADDLE: ASKED_COMMENT_CROSSES_A_FENCE,
+}
+RECORD_HIDERS = {
+    COMMENT: RECORD_COMMENT_NEVER_CLOSED,
+    FENCE: RECORD_NEVER_CLOSED,
+    STRADDLE: RECORD_COMMENT_CROSSES_A_FENCE,
+}
 
 
 class Refused(Exception):
     """An input this cannot turn into a record. Nothing is written."""
+
+
+def open_hider(reader, text):
+    """Which hider is still open at the end of `text`, or None.
+
+    `readable` blanks with two passes and `strip_comments` runs first, so an
+    HTML comment opened and never closed blanks every line below it exactly
+    as an open fence does -- one pass earlier, where no fence question can
+    see it. The comment is asked FIRST for that reason: an open comment
+    blanks the closing fence of every block below it, so the other order
+    answers first and names a fence that is closed in the text as written.
+
+    **The order lives here and nowhere else.** It is a property of the pass
+    order in `readable`, not of any one text, and it used to be written out
+    once per text -- twice by the time round 2 of #169's chain was done, in
+    `swallowed` and in `build`, each with its own pair of raises. A third
+    text would have carried a third copy of it.
+
+    `STRADDLE` is the third answer, and it is what those two pairs read as
+    `FENCE`: a comment opening inside a fenced block and closing outside it
+    blanks that block's own closing fence, so the fence question finds a
+    block with no closer while every fence in the text as written closes.
+    Asking the fence question of the raw text as well is what tells them
+    apart, and one boolean is the whole difference between a message a
+    reviewer can act on and a message that sends them looking for a fence
+    they did close.
+    """
+    lines = text.splitlines()
+    if not reader.strip_comments([*lines, SENTINEL])[-1]:
+        return COMMENT
+    stripped = reader.strip_comments(lines)
+    if reader.blank_fences([*stripped, SENTINEL])[-1]:
+        return None
+    return FENCE if not reader.blank_fences([*lines, SENTINEL])[-1] else STRADDLE
+
+
+def opens_at(reader, lines, blank):
+    """The 1-based line the still-open hider opens on, or 0 for none.
+
+    Asked of the reader's own pass over each prefix rather than by a second
+    implementation of where a marker sits: the shortest prefix `blank`
+    leaves open is the one whose last line opened it. A second reading of
+    `<!--` and of a fence regex here is the check/copy asymmetry this module
+    has now been bitten by three times, and a prefix walk cannot drift from
+    the pass it calls.
+
+    The record is a few hundred lines, so the quadratic walk is a few
+    hundred thousand line visits on a path that already runs git.
+    """
+    for i in range(1, len(lines) + 1):
+        if not blank([*lines[:i], SENTINEL])[-1]:
+            return i
+    return 0
+
+
+def hiders_close(reader, text, messages):
+    """Refuse `text` when a hider in it is still open, in `messages`' words.
+
+    The coordinate is appended rather than written into each sentence, so
+    the sentences stay one per (text, hider) and none of them can be the one
+    that forgot to say where. A record is composed from three sources and
+    `somewhere in the record` is not something a person can act on.
+    """
+    kind = open_hider(reader, text)
+    if kind is None:
+        return
+    lines = text.splitlines()
+    if kind == FENCE:
+        line = opens_at(reader, reader.strip_comments(lines), reader.blank_fences)
+    else:
+        line = opens_at(reader, lines, reader.strip_comments)
+    seen = lines[line - 1].strip()[:120] if 0 < line <= len(lines) else ""
+    raise Refused(f"{messages[kind]} (line {line}: {seen!r})")
 
 
 def escape(value):
@@ -848,10 +1011,14 @@ def swallowed(reader, report, lines):
     **A hider, not a fence.** `readable` blanks with two passes and
     `strip_comments` runs first, so an unterminated HTML comment blanks every
     line below it exactly as an open fence does -- and it does it one pass
-    earlier, where no fence question can see it. Both are asked here, the
-    comment's first, because an open comment blanks the closing fence of
-    every block below it and the fence question would otherwise answer first
-    and name a fence that is closed in the text as written.
+    earlier, where no fence question can see it. The never-closed half of the
+    rule is `hiders_close(reader, report, REPORT_HIDERS)` below, which is
+    where the pair of raises that used to stand here went: the ORDER of the
+    two questions is a property of `readable` and not of this text, and it
+    had already been written out twice by the time #182 needed a third text
+    asked. What stays here is the positional half -- the span -- which is
+    about `REPORT_TABLES` and `TERMINAL_LINES` and so is about the report
+    alone.
 
     `readable` blanks a fence, so a heading inside one is not a heading to
     any walk downstream: `section_body` runs straight past it, the fence
@@ -930,12 +1097,8 @@ def swallowed(reader, report, lines):
     # question does not: a copied block may legitimately carry a whole
     # comment, so its question is balance ACROSS THE SLICE and not presence in
     # it. Verified 2026-09-08 against swallowed@dd9b020c.
-    stripped = reader.strip_comments([*report.splitlines(), SENTINEL])
-    if not stripped[-1]:
-        raise Refused(COMMENT_NEVER_CLOSED)
-    stripped = stripped[:-1]
-    if not reader.blank_fences([*stripped, SENTINEL])[-1]:
-        raise Refused(NEVER_CLOSED)
+    hiders_close(reader, report, REPORT_HIDERS)
+    stripped = reader.strip_comments(report.splitlines())
     # `strict=True` states the invariant the pair rests on: both of the
     # reader's passes keep indices intact, so the two reads are the same file
     # line for line. A length that differed would truncate the hidden set,
@@ -1419,22 +1582,19 @@ def build(reader, routing, args, root, item, rounds):
     # The report is not the only text spliced into the record. The round
     # paragraph is a copy of a spawn prompt, spawn prompts carry fenced blocks
     # and HTML comments routinely, and this one lands ABOVE every section a
-    # reader looks up -- so it is asked BOTH questions `swallowed` asks the
-    # report, in the text a reader sees it in. Both, because the check reads
+    # reader looks up -- so it is asked the same questions the report is, in
+    # the text a reader sees it in. All of them, because the check reads
     # `strip_comments(asked)` and the splice below copies `asked` verbatim:
     # asking only the fence question leaves the comment hider free to ride the
     # gap between the two texts, which is 🔴 1's asymmetry inside the guard
     # written to close 🟡 3 (round 2's 🔴 7, executed at `aed3ca0`: the record
     # written and four of its five sections unreadable).
     #
-    # The comment question comes first for the reason `COMMENT_NEVER_CLOSED`
-    # gives: an open comment blanks the closing fence of every block below it,
-    # so the fence question would answer first and name the wrong hider.
-    asked_lines = reader.strip_comments([*asked.splitlines(), SENTINEL])
-    if not asked_lines[-1]:
-        raise Refused(ASKED_COMMENT_NEVER_CLOSED)
-    if not reader.blank_fences([*asked_lines[:-1], SENTINEL])[-1]:
-        raise Refused(ASKED_NEVER_CLOSED)
+    # The pair of raises that used to stand here is now one call. `open_hider`
+    # holds the order and the reason for it, because the order is a property
+    # of `readable`'s passes rather than of this text -- and written out per
+    # text it was already written twice, with a third text due.
+    hiders_close(reader, asked, ASKED_HIDERS)
 
     verdicts = table_of(reader, raw, lines, VERDICTS, VERDICT_HEADER, True)
     probes = table_of(reader, raw, lines, PROBES, PROBE_HEADER, False) or [

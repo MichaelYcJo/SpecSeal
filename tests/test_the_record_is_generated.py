@@ -873,6 +873,57 @@ def test_a_fence_opened_inside_an_html_comment_is_refused(repo):
     assert "HTML comment" in out
 
 
+# A comment that opens inside a fenced block and closes AFTER it. Every fence
+# here closes; the block's closer is inside the comment, which is one pass
+# earlier, so the fence question is asked of a text that no longer has it.
+CROSSING_COMMENT = "```python\n<!-- a note\nx = 1\n```\n-->\n"
+
+
+def test_a_comment_that_crosses_a_fence_names_the_comment(repo):
+    """🟡 11 of round 3, and the third answer the two questions needed.
+
+    Executed at `8114937` before this: exit 2 reading `a fenced block in the
+    report is never closed`, and `blank_fences` over the report as WRITTEN
+    leaves no fence open -- so the reviewer is sent to look for something that
+    is not there. That is the defect §14 exists for and the one round 2 of
+    this generator's own chain paid for once already, one hider over.
+
+    The comment question passes here, which is why the order cannot prevent
+    it: the comment is balanced report-wide. What is unbalanced is the
+    comment's span against the block's closing fence, and only asking the
+    fence question of the raw text as well tells that from a fence nobody
+    closed."""
+    declared(repo)
+    body = HEAD_AND_VERDICTS + f"## Executed probes\n\n{PROBE_HEADER}{PROBE_ROW}\n"
+    code, out, text = generate(
+        repo, report_text=body + CROSSING_COMMENT + "\n" + DEFERRED_TABLE + TERMINAL
+    )
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "opens inside a fenced block and closes outside it" in out
+    assert "names a fence you did close" in out, "the message says what it is not"
+    assert "never closed" not in out, "no fence in this report is unclosed"
+    # And the coordinate, because `somewhere in the report` is not actionable.
+    assert "<!-- a note" in out
+
+
+def test_a_comment_that_crosses_a_fence_in_the_round_paragraph(repo):
+    """§12's other instance: the same cause on the other text asked. A spawn
+    prompt carries fenced blocks and HTML comments routinely, and the
+    paragraph is spliced above every section a reader looks up.
+
+    Executed at `8114937` before this: exit 2 reading `a fenced block in the
+    round paragraph is never closed`, about a paragraph whose every fence
+    closes."""
+    declared(repo)
+    code, out, text = generate(repo, asked="Attack it.\n\n" + CROSSING_COMMENT)
+    assert code == 2, out
+    assert text is None
+    assert "round paragraph" in out
+    assert "opens inside a fenced block and closes outside it" in out
+    assert "never closed" not in out
+
+
 FENCED_DEFERRED = f"## Deferred\n\n```\n{DEFERRED_HEADER}{DEFERRED_ROW}```\n"
 
 
