@@ -1852,6 +1852,30 @@ def parse_git(tokens):
     return (subcommand, rest[at + 1 :], chdirs) if subcommand else None
 
 
+def adds_a_worktree(tokens) -> bool:
+    """True when this segment is a `git worktree add`.
+
+    One reading, two readers. `hooks/worktree-guard.py` asks it of a command it
+    is about to judge, and `hooks/worktree_consent.py` asks it of one that
+    already ran; the guard's file carries a hyphen and cannot be imported by
+    name, so without a home here the two would each spell "is this a creation"
+    for themselves. That is the divergence this module's own docstring already
+    names for the splitter.
+
+    Only `add` creates anything. `list`, `remove` and `prune` are how a
+    worktree is cleaned up and are never guarded, so they are not consent
+    either.
+    """
+    parsed = parse_git(tokens)
+    if not parsed:
+        return False
+    sub, args, _chdirs = parsed
+    if sub != "worktree":
+        return False
+    positionals = [a for a in args if not a.startswith("-")]
+    return bool(positionals) and positionals[0] == "add"
+
+
 def apply_chdir(cwd: str, chdirs) -> str:
     """The directory a git invocation actually operates in.
 

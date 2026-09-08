@@ -54,11 +54,18 @@ sections below group a ticket set that will be one branch as one row.
 
 ## 0.9.1 — what an installed repository hits
 
-Five work items, and on 2026-09-07 three of the rows below arrived the way
+Six work items, and on 2026-09-07 three of the rows below arrived the way
 this release is named: **reported from another repository running the plugin,
 not from a review round of this one.** Every one of them was hit on 0.8.3 by
 somebody doing ordinary work, which is the evidence this release exists to act
 on and the kind the tracker has least of.
+
+The sixth arrived on 2026-09-08 from this release's own run, and it is the same
+kind of evidence one hop closer: the run needed six branches, so it called
+`git worktree add` six times, and the guard held it six times. #237 is here on
+the owner's call for that reason — a release run is the workload this project
+names its first goal against, and it is where the guard's prompt budget stopped
+being a cost and became the thing that ends the run.
 
 **#111 is still the sharpest thing on the whole 0.9.x list**: a git call that
 fails reads as a repository with no remote, and that reading switches off the
@@ -75,6 +82,7 @@ parsing, one row over.
 - [ ] **[#225 · #151] — one branch, local mode from first setup to the gate.** `round_record.py` derives the root from the item path and refuses an item under `.git/seal/`, and `chain_check` then reports the routing declaration missing while it sits at `.git/seal/specs/<item>/routing.md` — a false *no declaration* is indistinguishable from a genuinely undeclared work item, so the one signal the gate exists to give stops meaning anything in local mode. #151 is the other end of the same path: the mode is chosen without the question being asked. **#158 is deliberately NOT here** — it asks whether the root should live under `.git` at all, where these two make the mode work as documented, and folding them would put a design question inside a bug fix.
 - [ ] #226 — `round_record.py` dies on python 3.9 with a bare interpreter traceback (`zip(..., strict=True)`), after argument parsing and the report read have already succeeded, so the failure reads as a bug in the report rather than an unmet requirement. macOS still ships 3.9 as `/usr/bin/python3`, and a repository pinning a newer interpreter does not help because the script is invoked directly. Reported from another repository on 0.8.3.
 - [ ] **[#211 · #194 · #227] — one branch, `round_record.py`'s derivation and id rows.** `Contract changes` reads `no call site found` for a pytest test function, and it compares arities, so a unit returning a new *meaning* reads as `none`. #194 moved here from 0.9.0 on 2026-09-07: a second measured instance arrived during #187's chain and it is a shape the ticket's proposed literal-set comparison does not catch — `is_a_record_of_a_moment` changed which inputs map to which of the two values it already returned, with signature, arity, return type and returnable set all unchanged. #227 joined on 2026-09-07 from another repository: round-prefixed finding ids (`R2-1` … `R2-8`) collapse toward one key, and the refusal names neither the format it wants nor the rows it read — the reviewer picks the numbering and the fixer copies it, so the refusal surfaces at the orchestrator, one hop from either agent that could have avoided it.
+- [ ] #237 — `hooks/worktree-guard.py` answers worktree creation with `ask` at every site that reaches it, and the `[worktree-ok]` site says in writing that this is not a choice: the token is written into the command by whoever issues it, so it is not evidence that a person answered, and reading it as consent would turn the guard off with nobody asked. So there is no path through this guard that costs zero prompts, and a run needing six worktrees pays six hard stops — measured on this release's own run, which is where it was reported. What separates the first creation from the sixth is available without trusting the token: the harness only runs a `git worktree add` that was approved, so a `PostToolUse` observation of one that actually ran is consent the command text cannot forge. The budget goes from one per worktree to **one per session**, and the first creation is still a question.
 
 ## 0.9.2 — what the chain found about itself, in the units it found them in
 
