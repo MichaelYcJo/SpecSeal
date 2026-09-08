@@ -1611,7 +1611,7 @@ def test_the_report_names_the_command_the_table_could_not(tmp_path):
 
 
 def spawn(uid, start, end, subagent_type, description="a spawn"):
-    """One `Agent` call and its report arriving.
+    """One `Agent` call and its result arriving.
 
     The `prompt` is present and ignored on purpose: `load` writes a call with
     no `command` field as a JSON dump of its whole input, so this is the
@@ -1642,7 +1642,7 @@ def orchestrator(tmp_path):
     head    two calls, one 5s gap
     cycle 1 the first spawn alone — 600s delegated
     cycle 2 two checks and a 1200s spawn; 7s and 9s gaps, 4s of command time
-    tail    one call after the last report
+    tail    one call after the last spawn's result
 
     Cycle 2 is where the delegated-interval case can discriminate: it holds
     three calls, so it has real model gaps that a leaked 1200s would swamp
@@ -1684,8 +1684,8 @@ def test_the_framing_and_the_closing_work_are_each_their_own_row(orchestrator):
     """`spec.md`: the work outside any cycle is reported rather than dropped.
 
     The head is the two framing calls before the first spawn went out and the
-    tail is the one call after the last report — the closing work, which is
-    the half a slice quietly drops when it stops at the last report."""
+    tail is the one call after the last spawn's result — the closing work,
+    which is the half a slice quietly drops when it stops at the last one."""
     rows = spawns_of(orchestrator)["rows"]
     kinds = [row["kind"] for row in rows]
     assert kinds == ["head", "cycle", "cycle", "tail"], kinds
@@ -2036,6 +2036,44 @@ def test_the_printed_table_names_each_cycle_and_what_it_spawned(orchestrator):
     # 20.0m delegated in cycle 2, and a dash where nothing was delegated.
     assert "20.0m" in out, out
     assert "—" in out, out
+
+
+def test_a_delegated_column_of_seconds_says_which_of_two_things_it_is(
+    orchestrator, tmp_path
+):
+    """Measured on this harness: an `Agent` call pairs in 1.5-3.7 seconds
+    because its result is written when the spawn is ACCEPTED, and each
+    subagent's transcript opens at that same stamp — 61 of 67 spawns across
+    three runs, within one second. The agent then runs for a median of about
+    1,000 seconds, inside the NEXT row down.
+
+    So a `delegated` column of near-zeroes is not the reading it looks like,
+    and a reader taking it for *nothing was delegated* is #200's failure
+    shape one column over. Both arms, because a line that always prints is
+    furniture: absent where a spawn's own interval really does cover its run,
+    present where none of them can."""
+    quick = spawn("A", 0, 3, "specseal:smith") + call("a", 20, 25, "git status")
+    path = tmp_path / "quick.jsonl"
+    path.write_text("\n".join(quick) + "\n")
+    out = run(["--spawns", str(path)]).stdout
+    assert "`delegated` never reaches a minute here — 3s at most" in out, out
+    # Whitespace-collapsed, so the wording is what this pins rather than
+    # which column the line happens to wrap at.
+    assert "result is written when the spawn is ACCEPTED" in " ".join(out.split()), out
+
+    covered = run(["--spawns", str(orchestrator)]).stdout
+    assert "never reaches a minute" not in covered, covered
+
+
+def test_the_printed_report_calls_a_cycle_row_a_band(orchestrator):
+    """The row covers the wait, the verifying and the framing at once, and
+    posting it as an attribution to one of those overstates it. The caveat is
+    on the page rather than only in `plan.md`, because the page is what gets
+    pasted into the log."""
+    out = run(["--spawns", str(orchestrator)]).stdout
+    assert "band over several acts and never an attribution" in out, out
+    assert "spawn N-1's result arriving until spawn N's arrives" in out, out
+    assert "the `Agent` call's own tool_use-to-tool_result span" in out, out
 
 
 def test_a_spawn_that_names_no_subagent_type_still_gets_a_row(tmp_path):

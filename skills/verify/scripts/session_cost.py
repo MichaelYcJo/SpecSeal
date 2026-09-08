@@ -218,11 +218,25 @@ def message_key(message, row, number):
     return f"row-{number}"
 
 
-# The tools whose duration is somebody else's work. A call to one of these
-# spans an interval this session spent waiting, and the thinking inside it is
-# already the whole of another transcript's row -- so charging it here too is
-# a double count, and it is the one that makes a cumulative reading look like
-# a slow orchestrator (#145).
+# The tools whose duration is somebody else's work, where the harness charges
+# that work to the call at all.
+#
+# **On the harness measured here it does not, and that is worth knowing before
+# reading `delegated_s`.** An `Agent` call's own tool_use-to-tool_result
+# interval is 1.5-3.7 seconds across 67 spawns of three runs, and each
+# subagent's transcript OPENS at its spawn's result stamp -- 61 of those 67
+# within one second, the six misses being subagents of subagents, which have
+# no call in the main transcript at all. So the result is written when the
+# spawn is ACCEPTED, the agent then runs for a median of about 1,000 seconds,
+# and that interval falls in the cycle AFTER the one that spawned it: in
+# `model_s` while the wait is under the 900-second ceiling `analyse` puts on a
+# gap, and in nothing at all above it.
+#
+# The exclusion below is therefore right and nearly free here, and it is the
+# whole answer on a harness that writes the result at completion. What it is
+# NOT is the removal of the double count #145 set out to remove -- that one is
+# in the model column, and moving it is a decision about what `delegated_s`
+# measures rather than a defect in what it measures now. `questions.md` Q4.
 #
 # **A name, and `plan.md` chose disclosure over a second signal.** A spawn's
 # `input` also carries `subagent_type`, so a harness renaming the tool could
@@ -538,13 +552,19 @@ def analyse(calls, turns, delegated=()):
 
 
 def spawn_cuts(calls):
-    """The spawns in report order, and the times the run is cut at.
+    """The spawns in result order, and the times the run is cut at.
 
-    Ordered by when each report ARRIVED rather than by when its spawn went
-    out, because that is what bounds a cycle. Two agents spawned in one batch
-    report at different times, and the second one's cycle is the window that
-    ends at its report — its own call sits inside the first one's cycle,
-    which is where the orchestrator actually made it.
+    Ordered by when each spawn call's RESULT arrived rather than by when the
+    call went out, because that is what bounds a cycle. Two agents spawned in
+    one batch have their results land at different times, and the second
+    one's cycle is the window that ends at its result — its own call sits
+    inside the first one's cycle, which is where the orchestrator actually
+    made it.
+
+    A result arriving is a transcript fact; what it MEANS is the harness's.
+    `DELEGATING` above carries the measurement: on the harness measured
+    there, it means the spawn was accepted rather than the report having
+    arrived.
 
     The cuts are run through a running maximum so they never go backwards. A
     harness writing a result before the call it answers gives that call a
@@ -581,14 +601,14 @@ def in_windows(cuts, items, when):
 def spawn_cycles(calls, turns=()):
     """The run sliced at its spawn cycles, every call in exactly one slice.
 
-    A spawn is an `Agent` `tool_use` block and its result arriving is the
-    report. Cycle *N* ends when report *N* arrives and begins where the row
-    before it ended, so the slices are, in order:
+    A spawn is an `Agent` `tool_use` block. Cycle *N* ends when spawn *N*'s
+    result arrives and begins where the row before it ended, so the slices
+    are, in order:
 
       head      before the first spawn went out — the run's framing
-      cycle 1   the first spawn going out, until its report arrives
-      cycle N   report N-1 arriving, until report N arrives
-      tail      after the last report — the run's closing work
+      cycle 1   the first spawn going out, until its result arrives
+      cycle N   spawn N-1's result arriving, until spawn N's arrives
+      tail      after the last spawn's result — the run's closing work
 
     **Cycle 1 is not the same shape as the others and a reader has to know
     it.** Cycles 2..N each carry the window in which the orchestrator
@@ -598,13 +618,19 @@ def spawn_cycles(calls, turns=()):
     keeps the two readable together.
 
     **What no boundary here can separate**, said here rather than found
-    later: between report N-1 arriving and spawn N going out the orchestrator
-    does two different acts — verifying the report it just took, and framing
-    the next prompt — and no transcript field marks where one ends. The whole
-    window is charged to cycle N, so verifying report N-1 is counted in the
-    cycle after it. That is why a cycle row is read as a band and not as an
-    attribution, and it is the one thing the per-act split (#145's second
-    candidate) would answer.
+    later: between spawn N-1's result arriving and spawn N going out, the
+    orchestrator waits on that agent, verifies the report it eventually
+    hands over, and frames the next prompt — and no transcript field marks
+    where any of those ends. The whole window is charged to cycle N. That is
+    why a cycle row is read as a band and not as an attribution, and it is
+    the one thing the per-act split (#145's second candidate) would answer.
+
+    **The waiting is in that band on the harness measured in `DELEGATING`,
+    and it usually dominates it.** A subagent runs for a median of about
+    1,000 seconds there while the orchestrator issues nothing, so a cycle's
+    `model_s` is mostly that wait rather than the orchestrator thinking —
+    and above 900 seconds `analyse` drops the gap, which is where a row's
+    span exceeds its own columns by an hour and more.
 
     The turns are sliced by the same cuts, because `analyse` reads that list
     for its own denominator: handed the whole run's, a window's calls would
@@ -663,9 +689,11 @@ def measure_cycles(calls, turns):
     first reading of an empty table costs.
 
     `delegated=DELEGATING` is the whole difference between a cycle row and
-    the whole-run row, and it is the point of the mode: the interval an
-    `Agent` call spans is a subagent thinking, already the whole of that
-    subagent's own row.
+    the whole-run row: whatever interval an `Agent` call spans is work that
+    ran in another transcript, and charging it here too would count it
+    twice. How much of that work the interval actually covers is the
+    harness's answer rather than this file's, and `DELEGATING` carries the
+    measurement for the one measured here.
 
     A slice with no calls keeps its row with `numbers` at null. A head of
     nothing is a real reading — the run's first act was a spawn — and
@@ -1092,10 +1120,35 @@ def report_spawns(spawns, path, total_calls):
         f"{plural(len(rows), 'row')} — every call in exactly one of them"
     )
     print("  head        before the first spawn went out — the run's framing")
-    print("  cycle N     report N-1 arriving until report N arrives, so")
-    print("              verifying report N-1 is charged to cycle N: the row")
-    print("              is a band over two acts, not an attribution to one")
-    print("  tail        after the last report — the run's closing work")
+    print("  cycle N     spawn N-1's result arriving until spawn N's arrives")
+    print("  tail        after the last spawn's result — the closing work")
+    print("  delegated   the `Agent` call's own tool_use-to-tool_result span")
+    print(
+        "\n  A cycle row is a band over several acts and never an attribution\n"
+        "  to one: inside it the orchestrator waits on the previous agent,\n"
+        "  verifies the report it hands over and frames the next prompt, and\n"
+        "  no transcript field marks where any of those ends."
+    )
+    # The measured harness writes the `Agent` result when the spawn is
+    # ACCEPTED, so `delegated` reads seconds where the agent ran for twenty
+    # minutes. A column of zeroes that a reader takes for *nothing was
+    # delegated* is #200's failure shape one column over, so the page says
+    # which of the two it is looking at rather than leaving the reader to
+    # assume. It fails toward saying so: a run of genuinely quick agents gets
+    # one sentence it did not need, where the silence costs a wrong reading.
+    delegated_max = max(
+        (row["numbers"]["delegated_s"] for row in rows if row["numbers"]), default=0.0
+    )
+    if delegated_max < 60:
+        print(
+            f"\n  `delegated` never reaches a minute here — {delegated_max:.0f}s at "
+            "most — so on this\n  harness the `Agent` result is written when the "
+            "spawn is ACCEPTED rather than\n  when its report arrives. The agent's "
+            "own wall clock is then inside the NEXT\n  row down: in `model` while "
+            "the wait stays under the 15 minutes model time\n  stops counting at, "
+            "and in none of these columns above it. Its own\n  transcript under "
+            "`<session-id>/subagents/` is where that number is."
+        )
     print(
         "\n  "
         f"{'row':<30}{'span':>8}{'command':>9}{'model':>8}"

@@ -391,22 +391,31 @@ finished, not as a follow-up someone might do later:
    whole file; the orchestrator's is not, and the whole file was the only row
    it ever had. That is how three segment kinds came to have bands a later
    run can be read against while the most expensive one had none. A **spawn
-   cycle** is not the review chain's
-   cycle, which `docs/review-chain-spec.md` owns: it ends when a subagent's
-   report arrives and begins where the row before it ended, so the head is
-   the framing before the first spawn, cycle N is report N-1 arriving until
-   report N arrives, and the tail is the closing work after the last report.
-   The `Agent` call's own interval leaves the row and is printed beside it as
-   `delegated`, because that interval is a subagent thinking and is already
-   the whole of that subagent's own row.
+   cycle** is not the review chain's cycle, which
+   `docs/review-chain-spec.md` owns: it ends when a spawn call's result
+   arrives and begins where the row before it ended, so the head is the
+   framing before the first spawn, cycle N runs from spawn N-1's result to
+   spawn N's, and the tail is the closing work after the last one.
 
-   **Post a cycle row as a band, not as an attribution.** Between a report
-   arriving and the next spawn going out the orchestrator verifies one report
-   and frames the next prompt, and no transcript field marks where the first
-   act ends — so the whole window is charged to the cycle after it. Cycle 1
-   is the one row without that window: the run's own start is a boundary a
-   script can take, so its framing goes to the head row instead, and the two
-   are read together.
+   **Post a cycle row as a band, and never as an attribution.** Inside one
+   window the orchestrator waits on the previous agent, verifies the report
+   it hands over, and frames the next prompt, and no transcript field marks
+   where any of those ends. Cycle 1 is the one row without that window: the
+   run's own start is a boundary a script can take, so its framing goes to
+   the head row instead, and the two are read together.
+
+   **Read `delegated` before quoting a cycle's model time, because what a
+   spawn's result MEANS is the harness's and not this skill's.** That column
+   is the spawn call's own tool_use-to-tool_result span. Where a harness
+   writes the result when the agent FINISHES, the column is the delegated
+   wall clock and it is out of the row's other columns, which is the double
+   count gone. Where a harness writes it when the spawn is ACCEPTED, the
+   column reads seconds, the agent's own wall clock lands in the next row's
+   model time, and past the fifteen minutes model time stops counting it
+   lands in none of the columns at all — so that row's span exceeds its own
+   parts by however long the agent ran. The report says which of the two it
+   is looking at, and the agent's own transcript is where its wall clock is
+   either way.
 2. Post what the numbers say with `gh issue comment <n> --body-file
    <file>`, where `<n>` is the issue number the lookup above returned — the
    rolling log's for the segment's own numbers, the durable one's for a
