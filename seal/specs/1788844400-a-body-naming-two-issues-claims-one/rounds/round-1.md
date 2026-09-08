@@ -6,7 +6,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 261 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | test_the_same_number_twice_in_one_sentence_is_one_warning (depth 1); test_the_same_number_in_two_sentences_earns_a_warning_each (depth 1); test_a_numeric_url_fragment_beside_a_claim_is_a_warning (depth 1); test_a_horizontal_rule_ends_the_segment (depth 1); test_a_run_of_markers_inside_a_line_is_still_prose (depth 1); test_the_document_that_teaches_the_rule_carries_no_instance_of_it (depth 1); test_the_warning_is_written_as_a_job_annotation (depth 1); test_the_two_lists_say_what_closes_and_what_does_not (depth 1); test_a_clean_body_says_so_rather_than_saying_nothing (depth 1) |
 | Needs a fix | yes — findings 1, 2 and 3; finding 4 is a record correction the orchestrator makes without touching the tool |
