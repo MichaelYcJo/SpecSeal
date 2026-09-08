@@ -671,7 +671,7 @@ def read(*parts):
 @pytest.mark.parametrize(
     "carrier",
     [
-        ("skills", "code-review", "SKILL.md"),
+        ("skills", "code-review", "orchestration.md"),
         ("agents", "smith.md"),
         (".github", "workflows", "hygiene.yml"),
     ],
@@ -693,7 +693,7 @@ def test_the_fix_pass_is_told_to_run_it_over_the_range_close_already_takes():
     `round_record.py close --range <a>..<b>` already takes it, so the step
     costs one command and no derivation. Saying so is what keeps it from
     reading as a second range somebody has to establish."""
-    skill = read("skills", "code-review", "SKILL.md")
+    skill = read("skills", "code-review", "orchestration.md")
     block = skill[skill.index("## Orchestrator: a fix pass resumes") :]
     block = block[: block.index("## Orchestrator: the run ends")]
     assert "survivor-check --range" in block, (
