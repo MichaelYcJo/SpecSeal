@@ -113,6 +113,30 @@ So a milestone that is wrong costs a person a wrong answer to "what is in
 this version" and costs no automation anything. A missing `Closes #N` costs
 an issue that stays open forever.
 
+## A keyword claims the one number after it
+
+`Closes #153 and #150` claims #153. The second number carries no keyword of
+its own, so nothing reads it as a claim — not GitHub, and not the script
+above, whose own comment says `Closes #1, #2` is not read as two either. PR
+#162 wrote that sentence; the 0.8.0 release acted on #153 alone, and #150
+stayed open until somebody dealt with it by hand.
+
+**Write the keyword in front of every number**: `closes #153 and closes #150`.
+
+The hygiene workflow reports the split on every pull request —
+`.github/scripts/issue_claims_check.py` prints every issue the body claims,
+every one it merely mentions, and a warning for any sentence that claims one
+number and names another beside it. It reports and never fails, so the
+correction is the author's to make while the pull request is open. A body
+quoting the failing shape inside a fence or a code span, the way this section
+does, is not an instance of it.
+
+The prose around those spans keeps its keywords out for the same reason. A
+past-tense narrative keyword is still a keyword, so the opening paragraph of
+this section says a release *acted on* one number rather than using the verb
+this section is about, and a sentence that used it with a second number beside
+it would earn the warning like any body.
+
 ## An issue is its body and its comments together
 
 Corrections, measurements and improvements land as comments, and the question

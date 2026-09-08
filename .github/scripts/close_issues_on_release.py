@@ -66,6 +66,14 @@ MERGED_PR = re.compile(r"\(#(\d+)\)\s*$")
 # `Closes #88` in a fenced block as the example to copy, so a pull request
 # body quoting the document would otherwise close the issue the document
 # names -- and this repository's bodies quote its documents routinely.
+# RIDER: Verified 2026-09-08 against FENCE@53c82b1e
+# Review round 1 of work item 1788844400 measured five well-formed shapes
+# these two patterns give up: a tilde fence, a four-space indented block, a
+# fence indented inside a list item, an HTML comment, and a double-backtick
+# span. A closing keyword inside any of them is read as a claim, so a release
+# closes the issue. Widening them changes what a RELEASE closes and not only
+# what issue_claims_check.py reports, which is the decision issue #266
+# carries. If you open these two patterns, answer it there first.
 FENCE = re.compile(r"^```.*?^```", re.M | re.S)
 SPAN = re.compile(r"`[^`\n]*`")
 
