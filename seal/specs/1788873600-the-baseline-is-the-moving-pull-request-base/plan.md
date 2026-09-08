@@ -69,8 +69,14 @@ is what makes the inference safe to build on.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | One resolution point in `unverified_check.py`; all three base reads and all three report labels downstream of it; exit 2 for no common commit | `./bin/test tests/test_unverified_rows_close.py -q`, with S1–S7 seen red against the pre-fix module and the whole module green after | |
-| 2 | Every document that states the old footing, and `docs/flow.md`'s 0.9.3 section | `./bin/test tests/test_unverified_rows_close.py tests/test_release_hygiene.py tests/test_no_real_identifiers.py -q` | |
+| 1 | One resolution point in `unverified_check.py`; all three base reads and all three report labels downstream of it; exit 2 for no common commit | `./bin/test tests/test_unverified_rows_close.py -q`, with S1–S7 seen red against the pre-fix module and the whole module green after | `21b5e98` |
+| 2 | Every document that states the old footing, and `docs/flow.md`'s 0.9.3 section | `./bin/test tests/test_unverified_rows_close.py tests/test_release_hygiene.py tests/test_no_real_identifiers.py -q` | `0aebae4` |
+
+Phase 1's reads turned out to be **three** rather than the one the ticket
+named, and phase 2's documents **eight** rather than the two the handoff
+named. Neither count moved a phase boundary: the third read is downstream of
+the same resolution point, and the six further documents are the same
+sentence. `phases/phase-1.md` and `phases/phase-2.md` carry the enumerations.
 
 ## Operational impact
 
