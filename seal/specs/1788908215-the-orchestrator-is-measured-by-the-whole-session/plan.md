@@ -50,11 +50,11 @@ the transcript path beside it — the same repair #200 took.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `spawn_cycles(calls)` — the pairs, the windows, the head and tail rows; every call lands in exactly one row | a case over two fixtures (two spawns · no spawn) and the partition case | |
-| 2 | Per-cycle numbers: `analyse` over each window, with the `Agent` call's own duration excluded from model time and reported as `delegated_s` | the fabricated 20-minute-`Agent` case | |
-| 3 | The printed report and `--json`: a row per cycle naming its `subagent_type`, and the refusal-with-count when no spawn was found | a case reading the rendered text, and one reading the JSON keys | |
-| 4 | `skills/verify/SKILL.md`'s instruction beside the resumed-agent one; the changelog and ledger fragments | the suite, and `evidence-check` on the fragment | |
-| 5 | The first reading: the mode over this release line's own orchestrator transcripts, posted to #51 with what it covers stated beside the number | the posted comment | |
+| 1 | `spawn_cycles(calls)` — the pairs, the windows, the head and tail rows; every call lands in exactly one row | a case over two fixtures (two spawns · no spawn) and the partition case | `1763b61` |
+| 2 | Per-cycle numbers: `analyse` over each window, with the `Agent` call's own duration excluded from model time and reported as `delegated_s` | the fabricated 20-minute-`Agent` case | `1763b61` |
+| 3 | The printed report and `--json`: a row per cycle naming its `subagent_type`, and the refusal-with-count when no spawn was found | a case reading the rendered text, and one reading the JSON keys | `1763b61`, corrected at `2dbcdb2` |
+| 4 | `skills/verify/SKILL.md`'s instruction beside the resumed-agent one; the changelog and ledger fragments | the suite, and `evidence-check` on the fragment | `fec6e83`, corrected at `2dbcdb2` |
+| 5 | The first reading: the mode over this release line's own orchestrator transcripts, posted to #51 with what it covers stated beside the number | the posted comment | reading drafted; **posting is the orchestrator's and is not done** |
 
 ## Operational impact
 
