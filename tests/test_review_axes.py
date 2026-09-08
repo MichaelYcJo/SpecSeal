@@ -133,7 +133,7 @@ def test_the_fix_pass_resumes_the_implementer():
     282 calls / 45 minutes fresh (#33) against 30 / 3.9 (#29) and 26 / 5.2
     (the #57 chain) resumed — and an expectation with no number behind it
     reads as style advice (work item 1788277657, round 1's tests-todo)."""
-    skill = read("skills", "code-review", "SKILL.md")
+    skill = read("skills", "code-review", "orchestration.md")
     assert "resuming the session that built the branch" in skill, (
         "the orchestrator sections lost the sentence saying how the fixing "
         "session is obtained"

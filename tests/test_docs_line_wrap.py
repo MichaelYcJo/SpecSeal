@@ -52,6 +52,11 @@ COVERED = [
     "SECURITY.md",
     "agents/warden.md",
     "skills/code-review/SKILL.md",
+    # The orchestrator's half of the same file (#265). It arrives
+    # already wrapped, because it was wrapped as part of the file it
+    # was cut from — dropping it here would lose coverage 418 lines
+    # of prose already had.
+    "skills/code-review/orchestration.md",
     # Wrapped from its first line, so it goes in at birth rather than waiting
     # for the sweep that would otherwise be needed to bring it under.
     "skills/commit-pr-convention/SKILL.md",
