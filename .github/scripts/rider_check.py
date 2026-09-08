@@ -177,32 +177,47 @@ def comment_blocks(lines):
     contain the string while describing it, always inside a string literal, a
     table cell or running prose, and never at the head of a comment.
 
+    **Head of a comment in BOTH forms.** The HTML side used to ask only that
+    `<!--` appear somewhere on the line, which is not the rule this paragraph
+    states and not what the `#` side does: a string literal holding both the
+    opener and the marker became a rider held by nothing, and the case file
+    below planted one in itself the moment it needed the opener as a fixture.
+
     A `#` block runs while the following lines are comment lines, so a bare `#`
     continuation line inside a rider carries it on. An HTML block runs to its
     closing marker.
+
+    **A block also ENDS at the next marker, in both forms.** Without that,
+    riders written back to back merge into one block, `Rider` reads the FIRST
+    stamp in the merged body, and the second rider's hash is never resolved,
+    never compared, and never reported as missing -- the same silence as a
+    rider outside `RIDER_ROOTS`, which is what #239 closed. Phase 3 met the
+    shape in its own fixture and hardened the fixture; round 1 found the
+    production reader unchanged, and finding it in the `#` form is what sent
+    somebody to construct the HTML one, where a second marker before the
+    closing `-->` is a second rider sharing one comment.
     """
     out = []
     i, n = 0, len(lines)
+    # An HTML comment the previous block left open, because that block ended
+    # at a second marker rather than at `-->`. The marker line that opens the
+    # next block is then inside a comment and carries no opener of its own.
+    in_html = False
     while i < n:
         line = lines[i]
         if MARKER not in line:
+            in_html = in_html and "-->" not in line
             i += 1
             continue
         stripped = line.lstrip()
-        if "<!--" in line:
+        if stripped.startswith("<!--") or in_html:
             j = i
-            while j < n and "-->" not in lines[j]:
+            while j + 1 < n and "-->" not in lines[j] and MARKER not in lines[j + 1]:
                 j += 1
             end = min(j, n - 1)
+            in_html = "-->" not in lines[end]
         elif stripped.startswith("#"):
             j = i
-            # A second MARKER inside the run opens a second rider rather than
-            # continuing this one. Without it back-to-back riders merge,
-            # `Rider` reads the FIRST stamp in the merged body, and the second
-            # rider's hash is never resolved, compared, or reported as missing
-            # -- the same silence as a rider outside `RIDER_ROOTS`, which is
-            # what #239 closed. Phase 3 met the shape in its own fixture and
-            # hardened the fixture; round 1 found the reader unchanged.
             while (
                 j + 1 < n
                 and lines[j + 1].lstrip().startswith("#")

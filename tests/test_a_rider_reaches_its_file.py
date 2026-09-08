@@ -281,6 +281,7 @@ def test_the_check_asks_git_for_nothing():
 # planting riders in itself: every line below opens with `{MARK}` and not with
 # a `#`, which is exactly the distinction `comment_blocks` draws.
 MARK = "# " + "RIDER:"
+HTML_MARK = "<!-- " + "RIDER:"
 
 
 def a_module(claim="the claim", stamp="Verified 2026-01-01 against unit@00000000"):
@@ -368,6 +369,8 @@ def test_the_marker_in_prose_or_a_string_is_not_a_rider():
         f'assert "{MARK}" in source\n'
         f"**Anything tied to a coordinate is a `{MARK}` comment.**\n"
         f"| a table cell mentioning {MARK} | and its answerer |\n"
+        f'HTML_MARK = "{HTML_MARK}"\n'
+        f"a paragraph naming the `{HTML_MARK}` opener in passing\n"
     )
     assert riders.comment_blocks(text.splitlines()) == []
 
@@ -408,6 +411,28 @@ def test_a_second_rider_directly_under_the_first_is_its_own_rider():
     blocks = riders.comment_blocks(src.splitlines())
     assert len(blocks) == 2, f"the two riders merged into one block: {blocks}"
     stamps = [r.new.group("hash") for r in riders.riders_in("m.py", src)]
+    assert "deadbeef" in stamps, f"the second rider's stamp was never read: {stamps}"
+
+
+def test_a_second_rider_sharing_one_html_comment_is_its_own_rider():
+    """The other half of the case above, found by construction rather than by
+    a second finding. Fixing the `#` form and stopping there would leave the
+    markdown corpus — `agents/smith.md` and `skills/implement/SKILL.md` carry
+    real riders — holding the defect the `#` form had just been cleared of.
+
+    A second marker before the closing `-->` opens a second rider inside the
+    same comment, so the line that opens it carries no `<!--` of its own."""
+    src = (
+        "## Heading\n"
+        "\n"
+        f"{HTML_MARK} first claim\n"
+        '     Verified 2026-01-01 against "## Heading"@00000000.\n'
+        f"     {'RIDER:'} second claim, written into the same comment\n"
+        '     Verified 2026-01-02 against "## Heading"@deadbeef. -->\n'
+    )
+    blocks = riders.comment_blocks(src.splitlines())
+    assert len(blocks) == 2, f"the two riders merged into one block: {blocks}"
+    stamps = [r.new.group("hash") for r in riders.riders_in("d.md", src) if r.new]
     assert "deadbeef" in stamps, f"the second rider's stamp was never read: {stamps}"
 
 
