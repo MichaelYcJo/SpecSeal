@@ -386,6 +386,120 @@ def test_a_comment_block_runs_through_its_blank_comment_lines():
     assert riders.comment_blocks(lines) == [(2, 4)]
 
 
+def test_a_second_rider_directly_under_the_first_is_its_own_rider():
+    """Back-to-back riders merged into one comment run, so `all_riders`
+    returned one rider, `Rider.new` read the FIRST stamp, and the second
+    rider's hash was never resolved, never compared, and never reported as
+    missing. A rider held by nothing is the defect #239 closed for
+    `RIDER_ROOTS`; this is the same one inside a block.
+
+    Phase 3 met this shape in its own fixture — the second rider it inserted
+    merged into the first — and hardened the fixture without carrying the
+    finding to the production reader (round 1, finding 4)."""
+    src = (
+        "def unit():\n"
+        f"    {MARK} first claim\n"
+        "    # Verified 2026-01-01 against unit@00000000\n"
+        f"    {MARK} second claim, written straight under the first\n"
+        "    # Verified 2026-01-02 against unit@deadbeef\n"
+        "    value = 1\n"
+        "    return value\n"
+    )
+    blocks = riders.comment_blocks(src.splitlines())
+    assert len(blocks) == 2, f"the two riders merged into one block: {blocks}"
+    stamps = [r.new.group("hash") for r in riders.riders_in("m.py", src)]
+    assert "deadbeef" in stamps, f"the second rider's stamp was never read: {stamps}"
+
+
+def stamped_module(tmp_path, digest=None, date="2026-01-01"):
+    """A rider file under `hooks/`, stamped with its own true hash by default."""
+    d = tmp_path / "hooks"
+    d.mkdir(exist_ok=True)
+    src = a_module(stamp=f"Verified {date} against unit@00000000")
+    if digest is None:
+        digest, why = riders.region_hash(CHECKER, "hooks/m.py", "unit", src)
+        assert digest, why
+    src = src.replace("unit@00000000", f"unit@{digest}")
+    (d / "m.py").write_text(src, encoding="utf-8")
+    return src
+
+
+def test_reverify_does_not_move_a_date_whose_hash_did_not_move(tmp_path):
+    """What `--reverify` may move and what it may not.
+
+    The skip condition required the hash AND the date to match, so a rider
+    whose region hashed to exactly what its stamp recorded — nobody edited it,
+    nobody re-read it — was rewritten because the date differed. That is a
+    stamp asserting a reading that did not happen, which is the half
+    `--migrate` refuses to manufacture arriving from the writer instead, and
+    it erased twelve original dates this migration had proved (round 1,
+    findings 1 and 2). It also drifted the ledger row of a unit nobody had
+    touched, because a ledger hash covers comments (finding 3)."""
+    before = stamped_module(tmp_path)
+    written, refused = riders.reverify(
+        str(tmp_path), roots=("hooks",), today="2026-12-31", checker=CHECKER
+    )
+    assert not written and not refused, (written, refused)
+    after = (tmp_path / "hooks" / "m.py").read_text(encoding="utf-8")
+    assert after == before, (
+        "`--reverify` moved the date of a rider whose content had not moved:\n"
+        f"{before!r}\n{after!r}"
+    )
+
+
+def test_reverify_still_moves_the_date_of_a_rider_that_did_change(tmp_path):
+    """The other half, so the case above cannot be passed by doing nothing."""
+    stamped_module(tmp_path, digest="00000000")
+    written, refused = riders.reverify(
+        str(tmp_path), roots=("hooks",), today="2026-12-31", checker=CHECKER
+    )
+    assert len(written) == 1 and not refused, (written, refused)
+    after = (tmp_path / "hooks" / "m.py").read_text(encoding="utf-8")
+    assert "Verified 2026-12-31 against unit@" in after, after
+
+
+def test_the_drift_message_says_the_re_stamp_takes_a_file(tmp_path):
+    """`--only` selects a FILE, not a rider. Three files carry more than one
+    rider, so a reader who answers one drifted rider with the command this
+    message hands them re-stamps every other drifted rider in the same file —
+    asserting they read those too. The message has to say so (round 1,
+    finding 2, second half)."""
+    stamped_module(tmp_path, digest="00000000")
+    ok, drifted, problems = riders.check(
+        str(tmp_path), roots=("hooks",), checker=CHECKER
+    )
+    assert (ok, drifted, len(problems)) == (0, 1, 1), (ok, drifted, problems)
+    _where, severity, sentence = problems[0]
+    assert severity == "DRIFTED"
+    assert "--reverify --only hooks/m.py" in sentence, sentence
+    assert "takes a FILE" in sentence and "read the others" in sentence, sentence
+
+
+def test_a_refusal_names_which_of_the_three_things_failed(repo):
+    """`content_at` returned None for any non-zero exit and `--migrate`
+    printed one sentence for it: *git cannot resolve <sha> any more*. Three
+    different things fail there and they are three different repairs. The
+    migration's own headline evidence was a stamp whose commit git resolves
+    perfectly well — the file simply was not in that tree — read as the squash
+    orphaning a stamp in the act (round 1, finding 6)."""
+    head = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+    ).stdout.strip()
+
+    text, why = riders.content_at(str(repo), head, "f.txt")
+    assert why is None and text == "one\ntwo\nthree\n", (text, why)
+
+    (repo / "later.py").write_text("x = 1\n", encoding="utf-8")
+    text, why = riders.content_at(str(repo), head, "later.py")
+    assert text is None and "resolves, but" in why and "later.py" in why, why
+
+    text, why = riders.content_at(str(repo), "0" * 40, "f.txt")
+    assert text is None and "cannot resolve" in why, why
+
+
 def test_a_held_file_is_named_with_the_branch_holding_it():
     """A rider that cannot be planted has to say what unblocks it, or it is a
     deferral to nobody."""

@@ -196,7 +196,18 @@ def comment_blocks(lines):
             end = min(j, n - 1)
         elif stripped.startswith("#"):
             j = i
-            while j + 1 < n and lines[j + 1].lstrip().startswith("#"):
+            # A second MARKER inside the run opens a second rider rather than
+            # continuing this one. Without it back-to-back riders merge,
+            # `Rider` reads the FIRST stamp in the merged body, and the second
+            # rider's hash is never resolved, compared, or reported as missing
+            # -- the same silence as a rider outside `RIDER_ROOTS`, which is
+            # what #239 closed. Phase 3 met the shape in its own fixture and
+            # hardened the fixture; round 1 found the reader unchanged.
+            while (
+                j + 1 < n
+                and lines[j + 1].lstrip().startswith("#")
+                and MARKER not in lines[j + 1]
+            ):
                 j += 1
             end = j
         else:
@@ -342,7 +353,9 @@ def check(root, roots=RIDER_ROOTS, checker=None):
                     "`{}` changed since this was verified on {} ({} -> {}). "
                     "Read the rider — that is what it is for — then either do "
                     "what it asks and delete it, or "
-                    "`rider_check.py --reverify --only {}`".format(
+                    "`rider_check.py --reverify --only {}` — which takes a "
+                    "FILE, so it re-stamps every drifted rider in that one; "
+                    "read the others in it first".format(
                         rider.new.group("locator"),
                         rider.new.group("date"),
                         want,
@@ -357,7 +370,14 @@ def check(root, roots=RIDER_ROOTS, checker=None):
 
 
 def content_at(root, sha, rel):
-    """The file as the stamped commit held it, or None where git cannot say."""
+    """(the file as the stamped commit held it, why not) — one of them is None.
+
+    Three different things fail here and they are three different repairs: the
+    commit is gone, the commit is fine and the path was not in it, or git could
+    not be run at all. The refusal used to say the first for all three, and the
+    record built on it read a stamp naming a commit that predates its own file
+    as the squash orphaning a stamp in the act (round 1, finding 6).
+    """
     try:
         run = subprocess.run(
             ["git", "-C", root, "show", f"{sha}:./{rel}"],
@@ -367,8 +387,16 @@ def content_at(root, sha, rel):
             timeout=10,
         )
     except (OSError, subprocess.SubprocessError):
-        return None
-    return run.stdout if run.returncode == 0 else None
+        return None, "git could not be run at all"
+    if run.returncode == 0:
+        return run.stdout, None
+    known = subprocess.run(
+        ["git", "-C", root, "cat-file", "-e", f"{sha}^{{commit}}"],
+        capture_output=True,
+    )
+    if known.returncode != 0:
+        return None, f"git cannot resolve {sha} any more"
+    return None, f"{sha} resolves, but {rel} was not in it"
 
 
 def restamp(body, date, locator, digest):
@@ -393,13 +421,26 @@ def write_block(root, rider, body):
 
 
 def reverify(root, only=None, roots=RIDER_ROOTS, today=None, checker=None):
-    """Recompute every resolvable hash and set the date to today.
+    """Recompute every resolvable hash, and move a date only where one moved.
 
     Explicitly "I have re-read these", never something the check does — the
-    same act and the same reason as `evidence_check.py --reverify`. The date
-    moves BECAUSE the hash does: a date says when a person read the claim and a
-    hash says what they read, so writing one without the other leaves a stamp
-    asserting a reading that never happened.
+    same act and the same reason as `evidence_check.py --reverify`. What it
+    may write and what it may not:
+
+      the HASH, wherever it has moved, because that is derived from the file
+      in front of it;
+
+      the DATE, only beside a hash that actually changed. A region hashing to
+      exactly what its stamp records was not re-read by this run, so writing
+      today's date over the recorded one asserts a reading that did not
+      happen. That is the half `--migrate` refuses to manufacture, and it is
+      the half this function was manufacturing.
+
+    The skip used to require the date to match too, so a rider whose content
+    had not moved was rewritten because the date differed. It erased the
+    twelve original dates `--migrate` had proved, and it drifted the ledger
+    row of a unit nobody had touched, because a ledger hash covers comments
+    (round 1, findings 1, 2 and 3).
     """
     checker = checker or load_checker()
     today = today or datetime.date.today().isoformat()
@@ -418,7 +459,7 @@ def reverify(root, only=None, roots=RIDER_ROOTS, today=None, checker=None):
         if digest is None:
             refused.append((rider.where(), why))
             continue
-        if digest == rider.new.group("hash") and today == rider.new.group("date"):
+        if digest == rider.new.group("hash"):
             continue
         write_block(
             root, rider, restamp(rider.body, today, rider.new.group("locator"), digest)
@@ -498,16 +539,13 @@ def migrate(root, roots=RIDER_ROOTS, checker=None):
         if digest is None:
             refused.append((rider.where(), f"{anchor}: {why}"))
             continue
-        was = content_at(root, rider.old.group("sha"), rider.rel)
+        was, why_not = content_at(root, rider.old.group("sha"), rider.rel)
         if was is None:
             refused.append(
                 (
                     rider.where(),
-                    "git cannot resolve {} any more, which is the defect this "
-                    "migration removes and also what stops it proving the "
-                    "date. Re-read the rider and `--reverify`".format(
-                        rider.old.group("sha")
-                    ),
+                    f"{why_not}, so the date cannot be proved. Re-read the rider and "
+                    "`--reverify`",
                 )
             )
             continue
