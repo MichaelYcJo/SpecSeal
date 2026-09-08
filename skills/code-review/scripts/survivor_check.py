@@ -26,8 +26,9 @@ A hand-written list of the sentences that appear twice would rot exactly the
 way #210's list of guard arms did, and it would have to be extended by whoever
 writes the next shared sentence -- the party that has just demonstrated seven
 times that it will not. The diff is the one input nobody has to remember to
-update, and `docs/flow.md`'s 0.9.3 row names it: *grep the changed sentences'
-distinguishing terms across the rest of the corpus and report the survivors.*
+update, and `docs/flow.md`'s row for #180 names it: *grep the changed
+sentences' distinguishing terms across the rest of the corpus and report the
+survivors.*
 
 ## Why not a grep, and why not a phrase floor
 
