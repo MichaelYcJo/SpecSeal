@@ -1118,28 +1118,14 @@ def swallowed(reader, report, lines):
     a Markdown heading and a Python comment both, and only the fence tells
     them apart -- which is why nothing here reads the `#` character.
     """
-    # RIDER: the comment STRADDLE is the one shape of this rule still open,
-    # and unlike the never-closed half above it is a silent loss. A comment
-    # can be whole in the report and half in the record, because both copies
-    # take a SLICE of `raw`: `table_of` copies a row and `fenced_after` copies
-    # a block. A verdict row whose third cell opens an HTML comment, with the
-    # closing marker on the line below the row, is balanced here -- this
-    # function does not raise -- and the record carries half of it.
-    #
-    # Executed 2026-09-06 at aed3ca0, on a VERDICT row: the record is written,
-    # the run then fails, and read back through the shared reader `## Executed
-    # probes`, `## Inherited coordinates` and `## Deferred` each resolve to 0
-    # occurrences. Three whole sections. Round 1's fix pass measured the same
-    # straddle on a DEFERRED row, where nothing follows the row in the record
-    # at all -- so *every section after it resolves to nothing* was true of
-    # nothing, and that shape in fact exits 0 with every heading still
-    # resolving, dropping only the rows below the straddle. The verdict row is
-    # the instance to weigh, and it is three sections rather than a tail.
-    #
-    # It has no guard because it needs a limit argument the never-closed
-    # question does not: a copied block may legitimately carry a whole
-    # comment, so its question is balance ACROSS THE SLICE and not presence in
-    # it. Verified 2026-09-08 against swallowed@dd9b020c.
+    # The comment STRADDLE used to be the one shape of this rule left open,
+    # and the rider that carried it here is gone because #182 closed it: a
+    # comment whole in the report and half in the record, because a copied row
+    # and a copied block are SLICES of `raw`, is exactly a record no reader can
+    # read -- and `write_record` asks that of the record. *Balance across the
+    # slice*, which is the limit argument this function could not make, needs
+    # no knowledge of which slice took the half once it is asked at the
+    # destination.
     hiders_close(reader, report, REPORT_HIDERS)
     stripped = reader.strip_comments(report.splitlines())
     # `strict=True` states the invariant the pair rests on: both of the
@@ -1307,6 +1293,32 @@ def inherited_rows(reader, earlier):
     `Why` names the round, the finding and its verdict word, so the next
     round knows what it is reopening; coordinates carry, conclusions do not.
     """
+    # RIDER: this is the fourth copy out of `raw`, and #182's COPY half is
+    # closed at the destination -- `write_record` reads the record back, so a
+    # hider a cell copied here cannot reach a written record. What is still
+    # open is the READ-LESS half of the same class, and it has three members,
+    # all in this module: a hider in an earlier record can blank a verdict row
+    # so this function does not inherit its coordinate; it can blank a `New
+    # units` row so `units_named_earlier` does not see an entry and
+    # `depth_two`'s refusal is not made; and it can blank a `## Fixes` row so
+    # `close` reports the smith as never having written one.
+    #
+    # None of the three writes a hider into a record and all three are LOUD
+    # today, which is why they are here rather than in the guard. Measured
+    # 2026-09-08 at 8114937: a `round-1.md` corrected in place with an opener
+    # in a `Location` cell is refused at `a verdict row has 3 cells`, because
+    # the opener swallows the row's remaining pipes. The message is cell
+    # arithmetic rather than a comment, which is §14's defect one step short
+    # of a loss.
+    #
+    # What closing it takes, and why a fix pass may not: a whole-text question
+    # on an input read for named sections refuses a file this repository
+    # already has -- the `` `<!--` `` inside a code span at
+    # `seal/specs/1788826000-a-stamp-names-content-not-a-commit/rounds/round-1-fixes.md`
+    # blanks that file's tail and hides nothing `fix_table` reads. Narrowed to
+    # the section it is `swallowed` parameterised over its three constants,
+    # which is a design call. If you open this function, take the whole class
+    # or none of it. Verified 2026-09-08 against inherited_rows@8cef4835
     location = VERDICT_HEADER.index("Location")
     number = VERDICT_HEADER.index("#")
     seen, out = set(), []

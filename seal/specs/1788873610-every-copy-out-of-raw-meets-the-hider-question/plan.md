@@ -35,7 +35,7 @@ slice* asked of the destination needs no knowledge of which slice.
 
 **What breaks in six months.** A record legitimately quoting an unbalanced
 marker. A reviewer of this generator pastes record-shaped and report-shaped
-blocks into a report, and a report-shaped block carrying `<!--` with no
+blocks into a report, and a report-shaped block carrying `&lt;!--` with no
 closer would now be refused at the record rather than at the report — the
 tool stopping inside its own review rounds, which
 `REQUIRED_HEADINGS`' own comment names as the thing this guard must never
@@ -58,9 +58,9 @@ were read through both passes at `8114937` and none has an open hider.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `open_hider` with its third answer, `opens_at`, `hiders_close`, and the two straddle messages. `swallowed` and `build` ask through it | the two straddle cases seen red at `8114937`, then green; the 94 cases of `tests/test_the_record_is_generated.py` | 4f4e83f |
-| 2 | `write_record`, the three writers through it, the record message set, and the AST property case | the flag case and `close`'s case seen red, then green; the AST case seen red (no `write_record` exists at `8114937`); the module, and `tests/test_the_fixes_close_the_record.py` | c6ba3b2 |
-| 3 | the four documents, `seal/ledger.md` F2 re-verified, this work item's fragments, `docs/flow.md`'s own row | `evidence-check --reverify` on the rows this change drifted; `tests/test_the_record_is_generated.py` for the grid comment's replacement | 6da4c4b |
+| 1 | `open_hider` with its third answer, `opens_at`, `hiders_close`, and the two straddle messages. `swallowed` and `build` ask through it | the two straddle cases seen red at `8114937`, then green; the 94 cases of `tests/test_the_record_is_generated.py` | 0b99eb9 |
+| 2 | `write_record`, the three writers through it, the record message set, and the AST property case | the flag case and `close`'s case seen red, then green; the AST case seen red (no `write_record` exists at `8114937`); the module, and `tests/test_the_fixes_close_the_record.py` | 2125094 |
+| 3 | the four documents, `seal/ledger.md` F2 re-verified, this work item's fragments, `docs/flow.md`'s own row | `evidence-check --reverify` on the rows this change drifted; `tests/test_the_record_is_generated.py` for the grid comment's replacement | not yet — this phase's own commit |
 
 ## Operational impact
 

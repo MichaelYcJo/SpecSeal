@@ -736,10 +736,36 @@ def test_prose_under_the_probes_table_stays_in_the_report(repo):
 # never closed blanks every line below it exactly as an open fence does, and
 # the fence pass cannot see it because by then those lines are already gone.
 #
-# The grid is the three copies the generator makes -- `build` splices the
-# round paragraph whole, `table_of` copies a row out of `raw`, `fenced_after`
-# copies a block out of `raw` -- crossed with the two hiders. Measured at
-# `aed3ca0`, before the second column existed:
+# Round 2's answer was a grid: the two hiders crossed with the three copies
+# the generator makes -- `build` splices the round paragraph whole, `table_of`
+# copies a row out of `raw`, `fenced_after` copies a block out of `raw`. Its
+# columns were right and its rows were not. **A fourth copy existed**,
+# `inherited_rows`, which reads every earlier record and takes cells out of
+# its raw verdict rows; the grid had no row for it, and the argument closed
+# with *neither exists*. Issue #182.
+#
+# The row axis was chosen by listing the copies somebody could see, which is
+# the third enumeration on that branch and the third to come up one member
+# short. **What replaces it is a property, and the property is about the
+# destination rather than the sources.** Every copy the generator makes lands
+# in one artefact, so a record read back through the shared reader answers for
+# every copy path at once -- the three the grid named, the fourth it did not,
+# and a fifth added next year. It also reaches what no question asked of a
+# source can: `--ran-by` and `--broad-gate` carry a value that passed through
+# no text at all.
+#
+# `test_every_record_this_writes_is_read_back_before_it_is_written` is the
+# argument, as something that can fail: it walks the module's own AST for
+# every call that opens a file for writing. A grid can go one row short and
+# stay green; a new writer turns that case red.
+#
+# What the sources are still asked, and why: the report and the round
+# paragraph ask the question OF THEMSELVES, because a refusal naming the text
+# a person can edit beats one naming the artefact they cannot. That is a
+# message, not a second guard -- `write_record` refuses either way.
+#
+# Measured at `aed3ca0` and `8114937`, cell by cell, and kept because each row
+# names a case below rather than an argument:
 #
 #                       an open fence            an open HTML comment
 #   the report          `NEVER_CLOSED`           exit 2 on `0 Needs a fix:
@@ -748,19 +774,25 @@ def test_prose_under_the_probes_table_stays_in_the_report(repo):
 #   the round paragraph `ASKED_NEVER_CLOSED`     EXIT 1, RECORD WRITTEN, and
 #                                                four of its five sections
 #                                                unreadable                🔴 7
-#   a copied block      `NEVER_CLOSED_VERBATIM`  unreachable: an opener inside
-#                                                the block whose closer is
-#                                                outside it puts the block's
-#                                                own closing fence inside the
-#                                                comment, so the fence pass
-#                                                sees an unclosed fence first
-#   a copied row        `SWALLOWED_TABLE`        the straddle: balanced in the
-#                                                report, half in the record.
-#                                                Open, `overview.md` §Not done
+#   a copied block      `NEVER_CLOSED_VERBATIM`  the STRADDLE, and round 2
+#                                                called this cell unreachable:
+#                                                an opener inside the block
+#                                                whose closer stands outside
+#                                                it does put the block's own
+#                                                closing fence inside the
+#                                                comment -- and the refusal
+#                                                that follows names a fence
+#                                                that CLOSES         🟡 11
+#   a copied row        `SWALLOWED_TABLE`        the straddle, silent: exit 0
+#                                                at `8114937`, the record
+#                                                written, three sections at 0
+#                                                occurrences
+#   an inherited row    --                       the fourth copy the grid had
+#                                                no row for                🔴 10
 #
-# Two cells are closed below. The row straddle stays open because it needs a
-# limit argument the others do not -- a copied block may legitimately carry a
-# whole comment, so its question is balance across the slice, not presence.
+# All of the second column is closed. The two straddle cells are closed
+# differently: the copied block's by a third answer from `open_hider`, which
+# is a message; the copied row's by `write_record`, which is the guard.
 
 
 UNCLOSED_COMMENT_ASKED = "Attack the parser first.\n\n<!-- the coordinate to open\n"

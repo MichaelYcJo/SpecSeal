@@ -36,7 +36,7 @@
   arithmetic rather than about a comment. `overview.md` §Not done carries it
   with its measurement and `seal/follow-up.md` names its answerer.
 - **A whole-text hider question on an input read for named sections.** It
-  would refuse a file this repository already has: the `` `<!--` `` in a code
+  would refuse a file this repository already has: the `` `&lt;!--` `` in a code
   span at `seal/specs/1788826000-a-stamp-names-content-not-a-commit/rounds/round-1-fixes.md`
   blanks that file's tail and hides nothing `fix_table` reads.
 - Any change to `reader.strip_comments`, which does not know a code span
@@ -64,9 +64,9 @@ destination.
 | Scenario | Given / When / Then | Verifiable how |
 |---|---|---|
 | a copied cell takes half a comment | Given a report whose verdict row opens an HTML comment and closes it on the line below · When `new` runs · Then no record is written and the refusal names the comment, the slice and the closer | `tests/test_the_record_is_generated.py`, seen red at `8114937` where it exits 0 with the record written |
-| a comment crosses a fence in the report | Given a fenced block holding `<!-- a note`, the block closed, and `-->` after it · When `new` runs · Then the refusal names the comment and not a fence | same module, seen red at `8114937` where the message reads `a fenced block in the report is never closed` |
+| a comment crosses a fence in the report | Given a fenced block holding `&lt;!-- a note`, the block closed, and `-->` after it · When `new` runs · Then the refusal names the comment and not a fence | same module, seen red at `8114937` where the message reads `a fenced block in the report is never closed` |
 | a comment crosses a fence in the round paragraph | the same text as `--asked` | same module, §12's other instance |
-| a flag carries an opener | Given `--ran-by 'specseal:warden <!-- on a model'` · When `new` runs · Then no record is written | same module. No input check can see this one: the value never passed through a text |
+| a flag carries an opener | Given `--ran-by 'specseal:warden &lt;!-- on a model'` · When `new` runs · Then no record is written | same module. No input check can see this one: the value never passed through a text |
 | `close` reads back what it writes | Given `--broad-gate` carrying an opener · When `close` runs · Then the record is left as it was | `tests/test_the_fixes_close_the_record.py` |
 | the completeness argument is checkable | Given the module's own source · When the AST is walked for every `open(..., "w")` · Then every one of them is inside the single function that asks the question first | `tests/test_the_record_is_generated.py`, over the module rather than over a list of names |
 | an earlier record's hidden verdict row is not silent | Given a `round-1.md` corrected in place with an opener in a `Location` cell · When round 2 runs · Then no record is written | same module. Pins that the read-less half is loud, and its docstring names the message as deferred |
