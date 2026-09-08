@@ -80,14 +80,22 @@ HASH_LEN = 8
 # 1000 characters, 15.6 s at 4000 and 54 s at 6000. It is not the exponential
 # shape round 1 of work item 1788817290 repaired in
 # `round_record.py#FINDING_ID_RE`, and nothing this repository holds comes
-# near it — the slowest of 1520 real ledger lines is 0.009 s, on a 1213-
-# character row — so it was enumerated as a member of that class and left
-# rather than fixed. Repairing it means changing which paths a coordinate may
-# name, which 805 ledger rows depend on, and that is a change with its own
-# argument to make. If you open this pattern, make that argument or anchor
-# the second repetition so the two stop overlapping.
-# Verified 2026-09-08 at 00e63c3 — the release branch commit rather than one
-# of the feature branch's, which a squash discards (#239).
+# near it: over all 1520 lines of `seal/ledger.md` and the `seal/ledger/*.md`
+# fragments the slowest is 0.000533 s, on the LONGEST row in the corpus at
+# 8831 characters, and the 19 rows of 1150-1280 characters top out at
+# 0.000178 s. So it was enumerated as a member of that class and left rather
+# than fixed. What the pathological shape needs is a run with no `:<digits>`
+# to finish on, and a real row's paths terminate. Repairing it means changing
+# which paths a coordinate may name, which 805 ledger rows depend on, and
+# that is a change with its own argument to make. If you open this pattern,
+# make that argument or anchor the second repetition so the two stop
+# overlapping.
+#
+# The number this rider carried until round 2 was `0.009 s on a 1213-
+# character row`, and it named neither the worst row nor a time within a
+# factor of fifty of one. The judgment survives with more room than it
+# claimed, which is why the correction is to the measurement alone.
+# Verified 2026-09-08 against OLD_COORD_RE@1ca5aff0
 OLD_COORD_RE = re.compile(
     r"(?P<path>[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?)"
     r":(?P<start>\d+)(?:-(?P<end>\d+))?\b"

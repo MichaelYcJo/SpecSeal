@@ -66,8 +66,16 @@ that the prose said this and the code said less.
 ## The re-enumeration
 
 `runner_reached`, old and new, over **every top-level def in every tracked
-`.py` file at HEAD** — 3051 defs in 114 files, not only the ones under
+`.py` file at HEAD** — 3052 defs in 114 files, not only the ones under
 `tests/`:
+
+*Corrected by round 2's fix pass, finding 3.* This read `3051` and named no
+commit, so nobody could tell which tree it counted. 3051 was true at
+`824bfca`, where the enumeration was run, and stopped being true one commit
+later at `4dfde1d`, which added the case closing the surviving mutation below.
+Counted per commit: `ffd1d05` 3003 · `824bfca` 3051 · `4dfde1d` 3052 ·
+`a283e64` 3052 · `59dc0e4` 3052. The number here is the branch's, re-derived
+at `59dc0e4`, and the conclusion is unchanged at either count.
 
 | Where | File | Kind | Defs | OLD | NEW |
 |---|---|---|---|---|---|
@@ -192,7 +200,7 @@ Every exit code was read with `; echo $?`, never through a pipe.
 | Both patterns over 6245 committed `#` cells and 4368 constructed shapes | **0 disagreements**, acceptance and captured id |
 | The repaired pattern against `"!" * n + "x"` | `n=28` 0.000003 s · `n=4000` 0.000132 s · `n=100000` 0.003008 s |
 | The two new reach cases against the unfixed predicate | **2 failed, 10 passed** — `pytest only` for the uncollected def, `no call site found` for both root-conftest units |
-| `runner_reached` old and new over 3051 top-level defs in 114 tracked files | 0 verdicts move in this tree; 4 move among the 11 built placements, all correct |
+| `runner_reached` old and new over 3052 top-level defs in 114 tracked files (3051 as run at `824bfca`; see the correction above) | 0 verdicts move in this tree; 4 move among the 11 built placements, all correct |
 | Six mutations of `collected`, one at a time | 1 survived, then 0; `restored byte-identical: True` each time |
 | `pytest` — the seven generator modules | `282 passed, 2 warnings`, exit **0** |
 | `pytest` — `test_evidence_check`, `test_the_reopening_is_one`, `test_a_rider_reaches_its_file`, `test_docs_line_wrap`, `test_no_real_identifiers`, `test_release_hygiene`, `test_a_record_states_what_the_tree_has` | `176 passed, 1 skipped` and **1 pre-existing failure**, exit 1 — see the open items below |
