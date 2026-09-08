@@ -60,8 +60,10 @@ alternative in `plan.md`, with what it costs.
 `docs/review-handoff-protocol.md` §Layout, marked here as inferred during
 implementation. It is a protocol-level rule that nothing had stated, and the
 diagram above it read as an inventory of a directory that has held three other
-file shapes for several releases. The two readers that took membership for
-record-ness raised `TypeError` rather than failing an assertion, which is the
-measurement behind it. A planner may overturn the placement — the report
+file shapes for several releases. Three readers took membership for
+record-ness: two raised `TypeError` rather than failing an assertion, and the
+third counted fifty-three non-records into a corpus of records and said
+nothing at all — that third one was found by round 1 and fixed in its fix
+pass, and it is the measurement behind the rule. A planner may overturn the placement — the report
 itself is implementation, and one could argue the selection rule is too — but
 the diagram cannot stay the only thing saying what `rounds/` holds.

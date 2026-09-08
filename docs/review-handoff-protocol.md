@@ -44,10 +44,14 @@ holds whatever an implementation writes beside the records — the reference
 implementation puts three such files there, one per round: the reviewer's
 report, the round paragraph it was spawned with, and the fixer's fix table.
 The diagram above is the protocol's requirement and not an inventory of the
-directory. Two readers in the reference implementation took membership for
-record-ness, and each raised `TypeError` on sorting `None` rather than
-failing an assertion — a reader that cannot name a file it does not
-understand is worse than one that refuses it.
+directory. Three readers in the reference implementation took membership for
+record-ness. Two raised `TypeError` on sorting two `None`s rather than failing
+an assertion. The third took in fifty-three files that were not records —
+three siblings per round, across a corpus of two hundred and four paths —
+counted the twenty of them that happened to parse as verdict tables, and said
+nothing at all. That is the quieter half of the same defect, and the worse
+half: a reader that cannot name a file it does not understand is worse than
+one that refuses it, and a reader that never notices is worse than either.
 
 Those extra files are **implementation, like the parent path**. The protocol
 requires a record; it does not require that anything be written before one,

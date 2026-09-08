@@ -182,12 +182,13 @@ def test_a_report_beside_a_record_is_not_a_record(repo):
     """`rounds/` now holds a second file per round, and only one is a record.
 
     Every reader of that directory selects by name through
-    `routing.round_number`, and the two readers that did not each raised
-    `TypeError` rather than failing an assertion
-    (`tests/test_the_reopening_is_one.py`,
-    `tests/test_chain_check_at_the_pull_request.py`). The round-2 run is the
-    executed half: its reach-back walks `rounds/` with round 1's record and
-    round 1's report both sitting in it.
+    `routing.round_number`. Three did not. Two raised `TypeError` rather than
+    failing an assertion (`tests/test_the_reopening_is_one.py`,
+    `tests/test_chain_check_at_the_pull_request.py`); the third counted
+    fifty-three non-records into a corpus of records and said nothing at all
+    (`tests/test_a_finding_id_is_a_bare_integer.py`, round 1 🟡 1). The
+    round-2 run is the executed half: its reach-back walks `rounds/` with
+    round 1's record and round 1's report both sitting in it.
     """
     generator = generator_module()
     routing = generator.load(generator.chain.ROUTING, "routing_for_report_names")

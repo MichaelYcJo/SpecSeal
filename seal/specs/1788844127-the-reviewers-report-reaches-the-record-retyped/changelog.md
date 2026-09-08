@@ -45,9 +45,11 @@
 - **A record is selected by name, never by directory membership
   (`docs/review-handoff-protocol.md` §Layout).** `rounds/` holds three files
   per round beside the record — the report, the round paragraph, the fix
-  table — and the layout diagram read as an inventory of the directory. Two
-  readers in this repository took membership for record-ness and each raised
-  `TypeError` on sorting two `None`s rather than failing an assertion. The
+  table — and the layout diagram read as an inventory of the directory. Three
+  readers in this repository took membership for record-ness. Two raised
+  `TypeError` on sorting two `None`s rather than failing an assertion; the
+  third counted fifty-three non-records into a corpus of records and said
+  nothing at all, and it is fixed here. The
   report itself stays implementation, like the parent path: the protocol
   requires a record, and a conforming tool whose reviewer writes `round-N.md`
   directly needs none of the three.
