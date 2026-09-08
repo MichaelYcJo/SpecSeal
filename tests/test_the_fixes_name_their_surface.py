@@ -851,6 +851,7 @@ CARRIERS = (
     ("docs", "review-handoff-protocol.md"),
     ("docs", "review-chain-spec.md"),
     ("skills", "code-review", "SKILL.md"),
+    ("skills", "code-review", "orchestration.md"),
     ("skills", "code-review", "scripts", "chain_check.py"),
 )
 
@@ -979,7 +980,7 @@ def test_the_documents_say_why_older_records_are_excused():
 # --- the verifying round's finding surface ----------------------------------
 
 FINDING_SURFACE = {
-    ("skills", "code-review", "SKILL.md"): (
+    ("skills", "code-review", "orchestration.md"): (
         "treats it as a finding surface — *is this correct* — rather than a "
         "verification surface"
     ),

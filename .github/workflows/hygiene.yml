@@ -123,9 +123,17 @@ jobs:
       # So the tally is printed on every PR. It never fails for an open item —
       # a red build for an honest row teaches sessions to write none, which
       # voids the condition. It fails only for what the author can always fix:
-      # a section that cannot be read, a table with fewer rows than at the
-      # base revision, a file that was there and is gone, and a base ref that
-      # does not resolve (exit 2, because nothing was compared).
+      # a section that cannot be read, a table with fewer rows than where this
+      # branch forked from the base, a file that was there and is gone, and a
+      # base ref that either does not resolve or shares no history with HEAD
+      # (exit 2, because nothing was compared).
+      #
+      # The ref goes in and `git merge-base <ref> HEAD` is what gets read.
+      # `github.base_ref` names a branch that MOVES, and on a release branch it
+      # moves by one squash per work item: the moment one item landed, every
+      # sibling branch cut before it read the squashed item's `overview.md` as
+      # rows that left the record. Three of 0.9.2's four branches paid a merge,
+      # a re-run broad gate and a re-pushed pull request for that (#272).
       - name: the unverified record is readable, and rows leave it closed
         shell: bash
         run: |
@@ -172,6 +180,57 @@ jobs:
         run: |
           python3 skills/code-review/scripts/chain_check.py \
             --baseline "origin/${{ github.base_ref }}"
+
+      # A fix pass repairs the coordinate a finding named, and the fact behind
+      # it is usually written down somewhere else too. The copies nobody
+      # touched come back as a later round — `agent-contract` §12 is the rule
+      # against it, it reaches every agent at startup, and it has been
+      # re-broken seven times by parties that had read it. So this is the
+      # check rather than an eighth sentence.
+      #
+      # It runs here as well as at the fix pass because a review round cannot
+      # run it at all: contract §2 reserves the broad gate for the
+      # orchestrator, and #269 is one reworded sentence whose pin stayed behind
+      # in a test module that was red from that commit through two rounds and
+      # past two gates.
+      #
+      # **This one fails, where the two steps above only print, and the
+      # difference is measured.** Over four real merged pull requests it
+      # reported once, and that report is `seal/ledger.md` row R3 carrying a
+      # claim a docstring had corrected — a defect that shipped, and #267 is
+      # the ticket it became. A branch that means to keep a survivor answers it
+      # in `seal/specs/<id>/survivors.md` with a quote from the standing text
+      # and the grounds; the quote is the anchor, so the exemption stops
+      # holding once that text changes.
+      #
+      # **It runs on a pull request into a release branch and not on one into
+      # `main`, because the range decides what this check means.** The range
+      # it was calibrated over is a fix pass's — 77 real ones, and the floor of
+      # 1.6 was chosen against that curve. A release pull request's range is
+      # the union of every work item the release carries, which is a range no
+      # fix pass ever writes: the wording one item removed is measured against
+      # four other items' prose, and every one of those items was already
+      # checked at its own pull request. Measured on the release that added
+      # this step: over five work items it reported **72** places, none of them
+      # a survivor of the range that removed the wording. So the union is not
+      # a bigger version of the same question, it is a different one, and the
+      # answer to it here is silence rather than a raised floor.
+      - name: wording this branch removed is not still standing elsewhere
+        shell: bash
+        run: |
+          if [ "${{ github.base_ref }}" = "main" ]; then
+            echo "base is main — a release's range is every work item it carries, which is not a range a fix pass wrote; each of them was checked at its own pull request"; exit 0
+          fi
+          # `if`, not `&&`: an unmatched glob leaves the pattern itself as the
+          # loop's one value, and whether `set -e` forgives a failing test at
+          # the tail of an `&&` list is a rule nobody should have to recall to
+          # read this. Most branches match nothing here.
+          exempt=()
+          for file in seal/specs/*/survivors.md; do
+            if [ -e "$file" ]; then exempt+=(--exempt "$file"); fi
+          done
+          python3 skills/code-review/scripts/survivor_check.py \
+            --range "origin/${{ github.base_ref }}...HEAD" ${exempt[@]+"${exempt[@]}"}
 
       # `seal/config.md`'s `Mode` row says which of the two places the root
       # should live at; the folder's location says where it is. Nothing at

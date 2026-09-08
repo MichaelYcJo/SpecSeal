@@ -1188,7 +1188,7 @@ NO_CHECK_READS = {
         "No check reads this row.",
         "read by `chain_check.py`",
     ),
-    ("skills", "code-review", "SKILL.md"): (
+    ("skills", "code-review", "orchestration.md"): (
         "No check reads the row;",
         "read by `chain_check.py`",
     ),
