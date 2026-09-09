@@ -30,9 +30,19 @@ The `delegated` column read seconds on every real cycle, and rather than
 publish a column of near-zeroes the pairing was measured: 1.5–3.7 seconds
 across 67 spawns, and 61 of 67 subagent transcripts opening within one second
 of their spawn's result stamp. The result is written when the spawn is
-accepted. The delegated wall clock is in the next row's `model`, and past
-900 seconds in no column at all — which is what the runs' 10%, 41% and 43%
-unaccounted shares are.
+accepted.
+
+**Where that phase then put the wall clock was wrong, and round 1 measured
+it.** This phase concluded it lands in the next row's `model` under the
+900-second ceiling and in no column above it, and that the runs' 10%, 41% and
+43% unaccounted shares are what it becomes. Neither holds. The wait is in no
+column at any duration — `analyse` starts a window's `span_s` at that
+window's own first call and never counts the gap before it — and it shows up
+as the interval BETWEEN two rows, 12 to 31 per cent of these three runs. The
+10/41/43 per cent shares are a different quantity: gaps above the ceiling
+INSIDE the whole run, which is the orchestrator's own idle time. The
+conclusion is recorded here as this phase reached it, and corrected because a
+reader inherits the number rather than the reasoning.
 
 **1.00 tools per turn, and it is real.** Every row of every run reads exactly
 1.00, which is the shape of a meter defect this repository has already had, so
