@@ -35,6 +35,11 @@ GATE_FROM = 1788912166
 # One level down, because `round-N` is the only member of the SDD set that is
 # plural and unbounded. A record left at `ITEM` itself is a stray and fails.
 ROUNDS = f"{ITEM}/rounds"
+# The row's name as the arm quotes it back, for the cases that assert the arm
+# said NOTHING. Every message this arm writes opens with it, so its absence is
+# what tells a pass from a notice — and after round 1's 🟡 3 this arm has a
+# state that prints at exit 0, which is why exit codes stopped being enough.
+BROAD_GATE_ROW = "Broad gate"
 
 
 def git(repo, *args):
@@ -1463,10 +1468,21 @@ def test_a_broad_gate_spent_before_the_round_it_was_meant_to_seal_fails(repo):
 
 
 def test_a_broad_gate_taken_after_the_rounds_settled_passes(repo):
-    """The state the whole arm exists to let through."""
+    """The state the whole arm exists to let through, and it passes SILENTLY.
+
+    The silence is asserted because the exit code alone does not hold this
+    case: round 1's 🟡 3 added a reported state, and a mutation removing the
+    at-or-after pass left this case green — the honest shape fell through to
+    *different line of history*, which is a notice at exit 0. So the gate
+    ran after the round, the arm said it had no idea, and nothing was red.
+    """
     gated(repo, GATE_FROM, gate="second", target="first")
     code, out = run(repo, draft=False)
     assert code == 0, out
+    assert BROAD_GATE_ROW not in out, (
+        "the arm printed something about a gate run that is exactly right. "
+        f"The passing shape has nothing to say\n{out}"
+    )
 
 
 def test_a_broad_gate_at_the_very_commit_the_round_reviewed_passes(repo):
@@ -1475,10 +1491,16 @@ def test_a_broad_gate_at_the_very_commit_the_round_reviewed_passes(repo):
     So the comparison cannot be ancestry alone: `merge-base --is-ancestor X X`
     exits 0, and an arm resting on it would fail the exactly-correct case —
     the round reviewed a commit and the gate ran at that commit.
+
+    Silent for the reason the case above is: exit 0 beside a notice is a
+    state this arm now has, so a pass has to be told from a shrug.
     """
     gated(repo, GATE_FROM, gate="first", target="first")
     code, out = run(repo, draft=False)
     assert code == 0, out
+    assert BROAD_GATE_ROW not in out, (
+        f"the exactly-correct case was reported rather than passed\n{out}"
+    )
 
 
 def test_a_draft_may_still_have_no_broad_gate_run(repo):
