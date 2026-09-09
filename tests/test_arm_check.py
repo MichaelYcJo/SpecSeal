@@ -755,6 +755,49 @@ def test_the_run_leaves_no_bytecode_cache_behind(two_arms):
     )
 
 
+# A separator `str.splitlines` splits on that the tokenizer does not count,
+# above an arm. Written as escapes rather than literally, so this file's own
+# source says nothing about what the fixtures hold. Eight of the nine put the
+# character inside a string literal, which is where `\u2028` and `\x85`
+# realistically occur; the ninth is a form feed on its own line, the
+# conventional page break in Python source.
+NOT_LINE_ENDS = ("\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029")
+PRELUDES = [
+    (f"in a string literal: {c!r}", f'MESSAGE = "x{c}y"\n') for c in NOT_LINE_ENDS
+]
+PRELUDES.append(("a form feed on its own line", "\x0c\n"))
+
+
+@pytest.mark.parametrize("label,prelude", PRELUDES, ids=[p[0] for p in PRELUDES])
+def test_a_separator_the_tokenizer_ignores_does_not_move_a_spliced_arm(label, prelude):
+    """Round 1's finding 3, as the class rather than as the coordinate.
+
+    `str.splitlines` splits on eight characters `ast` does not count. Split on
+    one, `span.lineno` and the list index part company, and every arm below it
+    comes back as an un-asked pair with an `IndentationError` beside it: the
+    enumeration going short through a door
+    `test_every_ast_constructor_is_classified` cannot see. The bad outcome is
+    quieter — a mis-indexed splice that happens to parse is a verdict recorded
+    against a mutation nobody asked for, which no hash catches.
+
+    `_splice` is the ONLY place in the checker that turns a `lineno` into a
+    list index; every other reader of one displays or sorts it. So the class
+    has one site, and this is it.
+
+    Red how: `_lines` replaced by `source.splitlines(keepends=True)` raises
+    `IndentationError` on every one of these nine. Executed."""
+    source = (
+        prelude + "\n\ndef f(a, b):\n    if a and b:\n        return 1\n    return 0\n"
+    )
+    first, second = ARM.arms(source)
+    assert first.source == "a", f"{label}: the span itself is right either way"
+    assert "if not (a) and b:" in ARM.mutate(source, first)
+    assert "if a and not (b):" in ARM.mutate(source, second)
+    for arm in (first, second):
+        ast.parse(ARM.mutate(source, arm))
+        ast.parse(ARM.mutate(source, arm, "remove"))
+
+
 # --- the command that decides the verdict can hang or fail to start -------
 
 

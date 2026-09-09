@@ -53,6 +53,7 @@ import argparse
 import ast
 import hashlib
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -509,6 +510,37 @@ def counts(found: list[Arm]) -> dict[str, int]:
 NEVER_RAISED = 'type("_specseal_never_raised", (BaseException,), {})'
 
 
+#: The line terminators `ast` counts, and only those.
+_LINE_END = re.compile(r"\r\n|\r|\n")
+
+
+def _lines(source: str) -> list[str]:
+    """`source` split at the line terminators `ast` counts, keeping them.
+
+    Not `str.splitlines`, which also splits on `\\x0b`, `\\x0c`, `\\x1c`,
+    `\\x1d`, `\\x1e`, `\\x85`, `\\u2028` and `\\u2029`. None of those ends a
+    line for the tokenizer, so a single form feed above an arm shifts every
+    span below it by one line. Measured: one form feed turns every arm of a
+    module into an un-asked pair with an `IndentationError` beside it, and a
+    mis-indexed splice that happens to parse is a verdict recorded against a
+    mutation nobody asked for -- which no hash catches, for the same reason
+    the bytecode cache does not.
+
+    The standard library takes the same care in the same place, which is why
+    the SPANS were right while the splice was wrong: `ast.get_source_segment`
+    reads its lines through a private `_splitlines_no_ff`, docstringed *"Split
+    a string into lines ignoring form feed and other chars. This mimics how
+    the Python parser splits source code."*
+    """
+    out, start = [], 0
+    for match in _LINE_END.finditer(source):
+        out.append(source[start : match.end()])
+        start = match.end()
+    if start < len(source):
+        out.append(source[start:])
+    return out
+
+
 def _splice(source: str, span: Span, replacement: str) -> str:
     """`source` with the text at `span` replaced.
 
@@ -516,8 +548,12 @@ def _splice(source: str, span: Span, replacement: str) -> str:
     is taken on the encoded line. A module with a non-ASCII comment above an
     arm is enough to part the two, and this repository's modules are full of
     them.
+
+    This is the ONLY place a `lineno` becomes a list index — every other
+    reader of one displays or sorts it — so it is the only place the line
+    split has to agree with the tokenizer's.
     """
-    lines = source.splitlines(keepends=True)
+    lines = _lines(source)
     first, last = span.lineno - 1, span.end_lineno - 1
     head = lines[first].encode("utf-8")[: span.col_offset].decode("utf-8")
     tail = lines[last].encode("utf-8")[span.end_col_offset :].decode("utf-8")
