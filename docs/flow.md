@@ -42,26 +42,28 @@ ticket set that will be one branch as one row.
 
 ## 0.9.5 — what the readings answer, and what a green gate means
 
-Seven work items, and every move of the count has come from the release's own
+Eight work items, and every move of the count has come from the release's own
 run rather than from planning. #103 and #198 joined without the sentence below
 being widened to hold them. **[#296 · #295 · #297] arrived on 2026-09-09** —
 one found by following `orchestration.md` and watching CI go red for it, one
 by measuring how often the broad gate's row is left open, and one by deleting
 what the file above says to delete. **#300 arrived the same day, out of #145's
-own round 3.** And **#160 left**: its four cases pass on macOS at this commit,
+own round 3, and #310 out of #300's.** And **#160 left**: its four cases pass
+on macOS at this commit,
 because the repair landed in `1dedd1e` a release and a half ago and nobody
 closed the ticket — the ticket's own reading, a symlinked temporary root, was
 never the cause, and the row said the owner still had a call to make when the
 call had been made.
 
 **#145 and #149 are the questions #51 has been holding open for a measurement
-it can trust.** #262, #160 and #103 are the other half of the same sentence —
+it can trust.** #262, #103, #300 and #310 are the other half of the same
+sentence —
 a gate finishing green where green does not mean the code is right. **#198
 sits with them because it protects the data the first two eat**: a release
 cycle that measures nothing is a cycle #145 and #149 cannot use, and 0.8.3 is
 already one of them.
 
-Seven is over the size the section above states, and the count is left
+Eight is over the size the section above states, and the count is left
 standing rather than resolved by moving a row: which item leaves 0.9.5 is not
 a bookkeeping decision. What is worth reading in it is where the items came
 from — four of the seven were opened by this release's own work, and one was
@@ -74,7 +76,8 @@ out loud rather than a target to be met by moving rows.
 - [ ] #262 — nine arms of the pre-merge guard are watched by no case, and a written list of them rots the way #210's did. Opened by 0.9.2's #209 · #210 run, which closed four of the thirteen and measured the rest. It sits with these because the module is green with any of the nine deleted, which is this release's sentence: the durable close is a checker that enumerates a module's arms from its own source and mutates them, not nine hand-written cases.
 - [ ] #103 — the two defect shapes only Windows has caught are made visible without Windows. **A third arrived in 0.9.0**: a coordinate the records arm built printed with the platform separator, and the Windows leg was red on it from the commit that added the arm through three review rounds and two broad gates, all of which ran on macOS where the fix is a no-op.
 - [ ] #198 — a release closes its flow-measurement log with nothing written in it, and nothing notices. It sits with these because #145 and #149 are the two tickets that eat the data it protects, and this is the release they land in.
-- [ ] #300 — the rows' spans do not partition the time, and three printed sentences are wrong about it. Opened by #145's round 3, which ends that run: assigning a call to a window by its START is what makes the CALLS partition, and it leaves a call that outlives its row's cut covering seconds the next row covers too. Two of the three are inside 0.9.5's own new mode — the refusal names a spawn's result where the head row's cut is the first spawn's START, and a sub-three-second overlap prints `by 0.0m` as the grounds for withholding a figure — and the third is pre-existing, in the PLAIN report every published segment reading goes through: `command 16.8m 101%`. **The fix is written, verified and paste-ready** in that work item's `rounds/round-3-report.md`, with a case seen red; a fix pass could not take it because `orchestration.md` refuses depth 2, and a `# RIDER:` is refused by measurement — four ledger rows anchor at `#report_spawns` and two at `#analyse`.
+- [x] #300 — the rows' spans do not partition the time, and three printed sentences are wrong about it. Opened by #145's round 3, which ends that run: assigning a call to a window by its START is what makes the CALLS partition, and it leaves a call that outlives its row's cut covering seconds the next row covers too. Two of the three are inside 0.9.5's own new mode — the refusal names a spawn's result where the head row's cut is the first spawn's START, and a sub-three-second overlap prints `by 0.0m` as the grounds for withholding a figure — and the third is pre-existing, in the PLAIN report every published segment reading goes through: `command 16.8m 101%`. **The fix is written, verified and paste-ready** in that work item's `rounds/round-3-report.md`, with a case seen red; a fix pass could not take it because `orchestration.md` refuses depth 2, and a `# RIDER:` is refused by measurement — four ledger rows anchor at `#report_spawns` and two at `#analyse`.
+- [ ] #310 — a case pins a paragraph's vocabulary and lets three rearrangements of its claim pass. Opened by #300's round 3, the round that ended that run: the pin round 2 commissioned asserts four substrings, and swapping the two causes, inverting the measurement, or adding the old phrase at the start of a sentence each leave every substring standing — all three exit 0. **The replacement is written and verified over five mutation arms, all exit 1**, so what is left is transcription. The general form is what earns it a row: a case that asserts vocabulary pins a phrase, a case that asserts a clause pins a claim, and every regression this one was written against is a rearrangement of true words.
 - [x] **[#296 · #295 · #297] — one branch, what CI reads at a pull request into a release branch.** All three came out of this release's own run and none of them was found by reading. #296: `chain_check`'s `Pass` arm tells the author *"Open it as a draft while the rounds run"* and the record-count arm a hundred lines later has no draft state in it, so a draft opened where `orchestration.md` says to open one is red until round 1's record lands — seen on #294. #295: the one-broad-run rule is written in five places and nothing checks that it arrives, which is 47 of 63 `Not verified` rows still open — and **the home already exists and nothing opens it**, since every round record carries `| Broad gate |`, `not yet` or the SHA the run happened at. #297: deleting a shipped section, which this file's own rule asks for, reads as 153 uncorrected survivors, so #293 merged red. The three share the argument `hygiene.yml:221` already makes for exempting the release range — *a range no fix pass wrote*.
 
 ## 0.10.0 — the agent set
