@@ -889,14 +889,31 @@ def test_the_run_leaves_no_bytecode_cache_behind(two_arms):
 # realistically occur; the ninth is a form feed on its own line, the
 # conventional page break in Python source.
 NOT_LINE_ENDS = ("\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029")
-PRELUDES = [
-    (f"in a string literal: {c!r}", f'MESSAGE = "x{c}y"\n') for c in NOT_LINE_ENDS
+_TWO_ARM_SOURCE = (
+    "{prelude}\n\ndef f(a, b):\n    if a and b:\n        return 1\n    return 0\n"
+)
+SPLICE_FIXTURES = [
+    (
+        f"in a string literal: {c!r}",
+        _TWO_ARM_SOURCE.format(prelude=f'MESSAGE = "x{c}y"'),
+    )
+    for c in NOT_LINE_ENDS
 ]
-PRELUDES.append(("a form feed on its own line", "\x0c\n"))
+SPLICE_FIXTURES.append(
+    ("a form feed on its own line", _TWO_ARM_SOURCE.format(prelude="\x0c"))
+)
+# And the two endings `ast` DOES count, because a split that keeps only `\n`
+# is the same defect from the other side: a lone `\r` ends a line for the
+# tokenizer, and `\r\n` ends exactly one.
+_PLAIN = _TWO_ARM_SOURCE.format(prelude='MESSAGE = "x"')
+SPLICE_FIXTURES.append(("CRLF endings", _PLAIN.replace("\n", "\r\n")))
+SPLICE_FIXTURES.append(("lone CR endings", _PLAIN.replace("\n", "\r")))
 
 
-@pytest.mark.parametrize("label,prelude", PRELUDES, ids=[p[0] for p in PRELUDES])
-def test_a_separator_the_tokenizer_ignores_does_not_move_a_spliced_arm(label, prelude):
+@pytest.mark.parametrize(
+    "label,source", SPLICE_FIXTURES, ids=[f[0] for f in SPLICE_FIXTURES]
+)
+def test_a_separator_the_tokenizer_ignores_does_not_move_a_spliced_arm(label, source):
     """Round 1's finding 3, as the class rather than as the coordinate.
 
     `str.splitlines` splits on eight characters `ast` does not count. Split on
@@ -911,11 +928,11 @@ def test_a_separator_the_tokenizer_ignores_does_not_move_a_spliced_arm(label, pr
     list index; every other reader of one displays or sorts it. So the class
     has one site, and this is it.
 
-    Red how: `_lines` replaced by `source.splitlines(keepends=True)` raises
-    `IndentationError` on every one of these nine. Executed."""
-    source = (
-        prelude + "\n\ndef f(a, b):\n    if a and b:\n        return 1\n    return 0\n"
-    )
+    Red how, both ways round. `_lines` replaced by
+    `source.splitlines(keepends=True)` raises `IndentationError` on all nine
+    of the separators, and `_LINE_END` narrowed to `\\n` alone raises it on
+    the lone-CR fixture — a split that keeps too few terminators is the same
+    defect as one that keeps too many. Executed."""
     first, second = ARM.arms(source)
     assert first.source == "a", f"{label}: the span itself is right either way"
     assert "if not (a) and b:" in ARM.mutate(source, first)
