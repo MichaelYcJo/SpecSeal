@@ -119,15 +119,24 @@ So the same file takes a second row shape, with the range in the first cell:
     | `origin/release/vX.Y.Z...HEAD` | the deleted section's sentences stand
       in the durable copies by design |
 
-**The range is the anchor**, exactly as the quote is above, and it degrades the
-same way. Run the check over a different range and the row does not hold, so a
-declaration cannot outlive the deletion it was written for. The spec is
+**The row is anchored on two things, the range and the work item.** The spec is
 RESOLVED rather than string-matched, because CI spells the range
 `origin/<base>...HEAD` and a person spells it as two oids, and those are the
-same range. A spec that no longer resolves -- the release branch it names has
-been deleted -- silences nothing and prints under `unresolved`, which is the
-loud direction; refusing the whole run would turn every later range's check
-into exit 2 over a row that has nothing to do with it.
+same range. Resolving is what makes the range alone insufficient: that spelling
+is not a range, it is a RELATION, and it re-resolves to whatever range the
+checkout it is read on is over. Every `seal/specs/*/survivors.md` in the tree
+is handed to every run, and a `survivors.md` lives until the release that ships
+it, so one merged row in that spelling matched every later branch cut from the
+same base and excused its whole run. So the second anchor is the directory the
+row lives in: a declaration holds only over a range that touches its own work
+item, which a work item's own range always does.
+
+Both anchors degrade the way the quote above does -- loudly. A spec that no
+longer resolves prints under `unresolved`; a declaration refused for belonging
+to another work item prints under `not yours`, with that work item named.
+Neither refuses the whole run: a `survivors.md` outlives the branch whose refs
+its range names, and exit 2 there would turn every later range's check into a
+refusal over a row that has nothing to do with it.
 
 The grounds are not optional. What a reviewer reads is the written sentence,
 and a row without one silences 153 places on the strength of nothing, so it is
@@ -672,9 +681,17 @@ def survivors(root, a, b, floor=FLOOR):
 # BOTH sides, so `../notes.md` is a path and `A..B` is a range.
 RANGE_CELL = re.compile(r"^[^\s|]+\.\.\.?[^\s|]+$")
 
+# The work item a `survivors.md` belongs to, read off the file's own path. It
+# is the declaration's SECOND anchor, and without it the row has effectively
+# one that does not hold: `hygiene.yml` hands every `seal/specs/*/survivors.md`
+# in the tree to every run, and the spelling this module recommends --
+# `origin/<base>...HEAD` -- re-resolves on each checkout, so one merged row
+# matched every later branch cut from the same base and excused its whole run.
+OWNER_DIR = re.compile(r"(?:^|.*/)(seal/specs/[^/]+)/[^/]+$")
+
 
 def read_exemptions(paths):
-    """`([(path, quote_words, grounds)], [(range_spec, grounds)])`.
+    """`([(path, quote_words, grounds)], [(range_spec, grounds, source_file)])`.
 
     TWO row shapes, told apart by the first cell, and both live in the same
     `survivors.md`:
@@ -692,9 +709,13 @@ def read_exemptions(paths):
           sentences is not an escape anybody takes; a branch turns the check
           off instead, which is the outcome the escape exists to prevent.
 
-    **The RANGE is the anchor here**, exactly as the quote is above, and it
-    degrades the same way: run the check over a different range and the row
-    does not hold. So a declaration cannot outlive the deletion it was
+    **A range row is anchored on TWO things**, and the range alone was not
+    enough. Run the check over a different range and the row does not hold --
+    but `origin/<base>...HEAD`, the spelling CI passes and this module
+    recommends, is not a range, it is a RELATION, and it re-resolves to
+    whatever range the checkout it is read on is over. So the second anchor is
+    the work item the file lives in, which is why the path is carried in the
+    tuple. Between them a declaration cannot outlive the deletion it was
     written for, and it cannot be a standing *check nothing* -- which this
     design still has no value for.
 
@@ -728,7 +749,12 @@ def read_exemptions(paths):
             # a per-survivor row can be captured here.
             if RANGE_CELL.match(first):
                 if cells[1]:
-                    ranges.append((first, cells[1]))
+                    # The file is carried so `whole_range` can ask whose
+                    # declaration this is. A row with no work item directory
+                    # above it -- an `--exempt` file passed from anywhere --
+                    # keeps the old reach, because there is nothing to scope it
+                    # to and refusing it would break running the check by hand.
+                    ranges.append((first, cells[1], path))
                 continue
             if len(cells) < 3:
                 continue
@@ -747,13 +773,38 @@ def read_exemptions(paths):
 
 
 def whole_range(root, ranges, a, b):
-    """The declared range covering this run, and the ones that do not resolve.
+    """`(match, unresolved, foreign)` for the declarations handed to this run.
 
     Resolved rather than string-matched, because the two spellings of one
     range are both real: CI runs `origin/<base>...HEAD`, which is what a
     session copies into the declaration, and a person running it by hand
     types two oids. Comparing the text would refuse the same range for being
     spelled the other way.
+
+    **Resolving is also why the range alone was not an anchor.**
+    `origin/<base>...HEAD` is not a range, it is a RELATION, and it resolves to
+    whatever range the checkout it is read on is over. `hygiene.yml` hands
+    every `seal/specs/*/survivors.md` in the tree to every run, and a
+    `survivors.md` lives until the release that ships it -- so one merged
+    declaration in that spelling matched every later branch cut from the same
+    base, excused every one of its survivors and turned the step off for the
+    rest of the release. That is the outcome the escape exists to prevent,
+    arriving through the escape.
+
+    So a declaration is also its work item's. It holds only over a range that
+    touches the directory the file sits in, and a work item's own range always
+    does -- its routing declaration is committed there before its first edit.
+    A `survivors.md` outside any work item directory keeps the old reach:
+    there is nothing to scope it to, and refusing it would break running the
+    check by hand.
+
+    **Ownership is asked only of a declaration that WOULD have matched**, and
+    a refused one is returned in `foreign` so the report prints it. A row that
+    quietly stopped applying is the one failure a rotting anchor must not
+    have, and that rule binds in this direction too -- a declaration a work
+    item wrote for its own range and cannot use is a line somebody has to
+    read, not a silence. Testing the range first is also what keeps the
+    `git diff` out of every run that has no matching declaration.
 
     **A spec that will not resolve is REPORTED, never exit 2**, and that is a
     landmine avoided rather than leniency. A `survivors.md` lives in the tree
@@ -762,16 +813,30 @@ def whole_range(root, ranges, a, b):
     then would turn every later range's check into exit 2 over a row that has
     nothing to do with it.
     """
-    match, unresolved = None, []
-    for spec, grounds in ranges:
+    match, unresolved, foreign = None, [], []
+    changed = None
+    for spec, grounds, source in ranges:
         try:
             left, right = parse_range(root, spec)
         except Refused:
             unresolved.append((spec, grounds))
             continue
-        if (left, right) == (a, b) and match is None:
+        if (left, right) != (a, b):
+            # Not this run's range at all, which needs no line: the row is
+            # honest and says so itself. Only a row that resolved ONTO this
+            # range and is then refused has something a reader must be told.
+            continue
+        owner = OWNER_DIR.match(source.replace("\\", "/"))
+        if owner is not None:
+            if changed is None:
+                names = git(root, "diff", "--name-only", "-z", a, b)
+                changed = [path for path in (names or "").split("\0") if path]
+            if not any(path.startswith(owner.group(1) + "/") for path in changed):
+                foreign.append((spec, grounds, owner.group(1)))
+                continue
+        if match is None:
             match = (spec, grounds)
-    return match, unresolved
+    return match, unresolved, foreign
 
 
 def exempted(candidate, rows):
@@ -812,6 +877,7 @@ def report(
     out=sys.stdout,
     whole=None,
     unresolved=(),
+    foreign=(),
 ):
     """Print the survivors and answer with the exit code.
 
@@ -819,7 +885,10 @@ def report(
     range, and it excuses every candidate. `unresolved` is the declarations
     whose range does not resolve here; they silence nothing and are printed,
     because a declaration that quietly stopped applying is the one failure a
-    rotting anchor must not have.
+    rotting anchor must not have. `foreign` is the same failure one step
+    over: a declaration that resolved onto this exact range and belongs to a
+    work item the range does not touch, refused and printed with the work
+    item it came from.
     """
     standing, excused = [], []
     for score, candidate, source, shared in rows:
@@ -837,6 +906,13 @@ def report(
         print(
             f"  unresolved  {spec} does not resolve here, so it silences "
             f"nothing -- {trim(grounds, 80)}",
+            file=out,
+        )
+    for spec, grounds, owner in foreign:
+        print(
+            f"  not yours   {spec} was written by {owner} and this range "
+            f"touches nothing in it, so it silences nothing -- "
+            f"{trim(grounds, 80)}",
             file=out,
         )
     if whole:
@@ -916,7 +992,7 @@ def main(argv=None):
         # After the endpoints resolve and before the indexing, for the reason
         # the line above gives: a declaration is judged against the range this
         # run is actually over, and nothing here costs several seconds.
-        whole, unresolved = whole_range(root, ranges, a, b)
+        whole, unresolved, foreign = whole_range(root, ranges, a, b)
         rows, examined, gone = examine(root, a, b, args.floor)
         return report(
             rows,
@@ -927,6 +1003,7 @@ def main(argv=None):
             gone,
             whole=whole,
             unresolved=unresolved,
+            foreign=foreign,
         )
     except Refused as exc:
         print(f"survivor-check: {exc}", file=sys.stderr)

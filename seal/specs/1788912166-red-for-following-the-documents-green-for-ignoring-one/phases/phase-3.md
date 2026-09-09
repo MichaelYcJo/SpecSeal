@@ -32,6 +32,16 @@ shape: declared passes, undeclared fails.
   and that the **range is the anchor**: run the check over a different range
   and the row does not hold, so a declaration cannot outlive the deletion it
   was written for.
+
+  **Corrected after round 1's 🔴 1: that bound did not hold as written, and
+  the phase shipped believing it did.** `origin/<base>...HEAD` — the spelling
+  this phase's own docstring recommends — is a relation rather than a range,
+  and it re-resolves to whatever range the checkout it is read on is over. So
+  one work item's declaration matched every later work item cut from the same
+  base and excused its whole run. The allowance is bounded by two anchors now,
+  the range and the work item directory the row lives in; the sentence above
+  is left standing as what this phase actually believed, which is the finding
+  round 1 opened.
 - **A prompt budget: zero.** No interactive path, no hook, no question. The
   workflow already loops every `seal/specs/*/survivors.md` into `--exempt`, so
   #297 needed no change to `hygiene.yml` at all.
