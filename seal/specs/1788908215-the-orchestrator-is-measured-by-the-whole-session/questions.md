@@ -98,7 +98,7 @@ refusal still does not name an overlap, on new grounds — every row's interval
 now sits inside the run's, so the difference is the gaps between the rows
 minus their overlap — and it now prints both sums rather than the difference,
 because the difference went through a one-decimal formatter and read `by 0.0m`
-on a three-second overlap.
+on a one-second overlap.
 
 **It was not fixed here, and the reason is the same one Q4 has.** `span_s` is
 in every reading this repository has published, and moving it moves them all
