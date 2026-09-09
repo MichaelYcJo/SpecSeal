@@ -84,7 +84,7 @@ is this run's business; redefining a published number is not.
 
 | Answer | What it costs | What it gives up |
 |---|---|---|
-| Leave it, and say so where a reader meets it | nothing | a run with a long-lived call reads a span shorter than its own last call, with only the refusal line hinting at it |
+| Leave it, and one sentence where a reader meets a published span | that sentence, in `skills/verify/SKILL.md` beside the span's own definition — nothing today says it outside the refusal line | a run with a long-lived call reads a span shorter than its own last call, and the PLAIN report prints `command` as a share of it — 101% on a synthetic run with a background command, in the path every published segment reading uses |
 | Take the span to `max(end)` over the calls | one line in `analyse`, and every published span with an outliving call moves — with the same marking `#200` needed | comparability with every reading taken before the change, unless each is re-marked |
 | Take it to `max(end)` for the RUN and leave the window spans alone | the run's span stops being derived the same way as a row's, so two numbers on one page come from two rules | one rule, which is what makes the printed partition checkable |
 

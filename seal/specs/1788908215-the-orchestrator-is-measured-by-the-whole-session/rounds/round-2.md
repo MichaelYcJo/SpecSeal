@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | #294 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | test_a_call_that_outlives_a_cut_prints_no_between_the_rows_figure (depth 1) |
 | Needs a fix | yes — finding 1, the between-the-rows line printing a negative and naming it the wait. |
