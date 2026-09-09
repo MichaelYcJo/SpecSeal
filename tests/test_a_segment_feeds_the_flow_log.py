@@ -532,3 +532,30 @@ def test_the_section_says_which_transcript_is_the_runs_own():
         "the section never says `--latest` can land on a segment, which is "
         "the ordinary case on a run that spawned any"
     )
+
+
+def test_the_section_names_batching_as_the_way_a_share_passes_one_hundred():
+    """A share over 100% is a true reading, and WHY it happens is the half a
+    person acts on. The paragraph used to send that reader looking for a
+    background command; measured over one machine's transcripts, 100% of the
+    overlap above a second is calls batched into one assistant message and
+    none of it crosses a turn. Nothing else in the tree reads this clause, so
+    without this case an edit can put the rarer cause back as the ordinary
+    one and no check says anything."""
+    body = section_body()
+    assert "calls running at once" in body, (
+        "the paragraph must name concurrent calls as what puts a share over "
+        "100%, not something running in the background"
+    )
+    assert "batched into one message" in body, (
+        "batching is the ordinary way a share passes 100% and the paragraph "
+        "has to say so — a reader sent to look for a background command "
+        "finds nothing and reads the share as broken arithmetic"
+    )
+    assert "crossed a turn" in body, (
+        "the measured claim is that none of the overlap crosses a turn; "
+        "without it the paragraph asserts a cause it does not bound"
+    )
+    assert "something running in the background" not in body, (
+        "the old wording named the rarer cause as the ordinary one"
+    )

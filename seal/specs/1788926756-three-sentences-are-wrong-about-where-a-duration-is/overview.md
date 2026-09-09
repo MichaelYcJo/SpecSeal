@@ -13,8 +13,11 @@
             `seal/ledger/1788908215-…​.md` (7), covering 7 drifted anchors and
             18 stamps; 3 sentences in the #145 fragment corrected in place
 · verified: **executed** — `bin/test tests/test_session_cost.py` (69 passed),
-            the two modules the skill change touches (105 passed with the
-            first), `evidence-check` (1033 ok · 0 drifted, exit 0),
+            the two modules the skill change touches (97 passed with the
+            first — `tests/test_session_cost.py` 69 and
+            `tests/test_a_segment_feeds_the_flow_log.py` 28, which is 27
+            plus round 2's pinning case; the pair was 96 before it),
+            `evidence-check` (1033 ok · 0 drifted, exit 0),
             `survivor-check` over the fix range, both span rules over every
             transcript on this machine at run and row level, **8 mutations**
             one at a time — 4 on the span expression and its sentence, 4 on
@@ -55,8 +58,8 @@ than a single call inside it, in the path every published segment reading uses.
 | What the report should print where `command` exceeds 100% of the span — `questions.md` Q3, measured and costed, not built. Round 1 corrected its trigger: a share above 100% is 1 of 169 readings, overlap that moves a printed figure is in 23 | the owner |
 | Whether `seal/ledger.md`'s F5 clause narrows to the three literals its case reads, or the case widens to any issue number in the shipped skill — `questions.md` Q4 | the owner |
 | Whether the span's disclosure belongs in the report's own output as well as in `skills/verify/SKILL.md` — `questions.md` §*Open, and it is small* | the owner |
-| **The corrected disclosure sentence is pinned by nothing.** No case in `tests/test_a_segment_feeds_the_flow_log.py` reads the span paragraph's cause clause, so a later edit can put *something running in the background* back silently. Pinning it means adding a unit to pin a unit this branch created, which `skills/code-review/orchestration.md` §*A fix pass adds the unit that pins it* refuses at depth 2 — so it takes that section's exit rather than being built here. It wants an issue | the orchestrator, after the run |
-| **`survivor-check` hides a survivor the moment it is excused.** `corpus` excludes a work item's `rounds/` records from the scoring pool but not its `survivors.md`, and an exemption quote is the survivor's own wording — so writing the row raises those phrases' document frequency and drives the candidate under the floor. Executed: both candidates score 1.626 at `9d9e717` and below 1.0 at `6a22d56`, the commit that changed only that file. The `exempt` line then never prints and the quote stops working as an anchor. A one-line change to a gate is mechanism a fix pass may not add | the orchestrator — an issue, separate from #307 |
+| ✅ **The corrected disclosure sentence was pinned by nothing**, so a later edit could put *something running in the background* back silently. The depth-2 exit recorded here for declining it was wrong on both halves: `round-1.md`'s `New units` reads `none`, so `depth_two`'s parent set is empty and the mechanised refusal never fires, and the thing to pin is a Markdown paragraph, which that row can never hold. `orchestration.md`'s own two cases put it at depth 1 | closed by round 2's finding 12 — `test_the_section_names_batching_as_the_way_a_share_passes_one_hundred` in `tests/test_a_segment_feeds_the_flow_log.py`, in the module that already reads that section, seen red against the pre-fix `skills/verify/SKILL.md` |
+| **`survivor-check` hides a survivor the moment it is excused, and the mechanism is `wanted` rather than document frequency.** `corrected` returns the n-grams the range wrote and `wanted` subtracts them from what is searched for at all, so an exemption quote — by definition the survivor's own wording — leaves the search set the moment the row is committed. Executed, one change at a time: 1.626 at `9d9e717`, 0.758 as shipped at `6a22d56`, 1.829 with the subtraction disabled, and 0.757 with every `survivors.md` dropped from `corpus`, so the corpus side is worth a thousandth. The reported phrase changes from *span is taken from* to a weaker *the last result*, which is deletion and not reweighting. The repair surface is the diff side: `corrected` skipping a `survivors.md` the way `corpus` skips a `rounds/` record. A change to a gate CI reads is mechanism a fix pass may not add | #308, whose mechanism and repair are corrected in its own comment — separate from #307 |
 | Windows | nobody has run it — #103's standing gap |
 
 ## Not done

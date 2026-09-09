@@ -21,28 +21,37 @@ survived.
 **Writing the two rows below did not excuse those survivors — it hid them,
 and that is a defect in the checker rather than in the rows.** Executed:
 `examine` scores both candidates at **1.626** at `9d9e717`, above the 1.6
-floor, and below 1.0 at `6a22d56`, the commit that changed this file and
-nothing else. The mechanism is document frequency. `weights` is
-`log2(F / df) / log2(F)`, so a phrase's weight falls as more files carry it,
-and `corpus` excludes a work item's `rounds/` records from the pool but not
-its `survivors.md`. An exemption quote is by definition the survivor's own
-wording, so writing one adds a third carrier of those phrases and dilutes the
-very score that found them.
+floor, and **0.758** at `6a22d56`, the commit that changed this file and
+nothing else. The mechanism is the added-n-gram subtraction, not document
+frequency. `corrected` returns the n-grams the range WROTE alongside the
+sentences it removed, and `wanted` subtracts them from what the run looks
+for at all — because a phrase the fix kept is not a phrase the fix
+corrected. An exemption quote is by definition the survivor's own wording,
+so writing the row puts those phrases on the written side and deletes them
+from the search set. The reported phrase changes rather than weakening:
+*span is taken from* at 1.626 before the row, a different and weaker *the
+last result* at 0.758 after it. Dropping every `survivors.md` from `corpus`
+moves the same candidates from 0.758 to 0.757, so document frequency is
+worth a thousandth here and is not the cause.
 
 What it costs is the guarantee this file's own header states. An exempted
 survivor is supposed to stay printed under `exempt`, and the quote is
 supposed to be an anchor that reports again the moment the standing text
-changes. Neither holds once the score is suppressed: the rows below print
-nothing, and a later edit to either standing sentence would be reported by
-nobody. The two rows are still correct and still required by convention —
+changes. Neither holds once the quote leaves the search set: the rows below
+print nothing, and a later edit to either standing sentence would be reported
+by nobody. The two rows are still correct and still required by convention —
 what is broken is that they are now also load-bearing in a way nobody
 intended.
 
-**It is not fixed here.** Excluding `survivors.md` from `corpus` the way
-round records are excluded is a one-line change to a gate, which is mechanism
-a fix pass may not add (`skills/code-review/orchestration.md` §*A fix pass
-adds the unit that pins it*). It is handed to the orchestrator as an issue,
-separate from #307.
+**It is not fixed here, and the surface is the diff side rather than the
+corpus.** `corrected` has to skip a `survivors.md` the way `corpus` already
+skips a `rounds/` record, which is `records_a_past_round` widened to a
+second shape — a change to a gate CI reads, which is mechanism a fix pass
+may not add (`skills/code-review/orchestration.md` §*A fix pass adds the
+unit that pins it*). **#308** carries it, separate from #307, with the
+mechanism and the surface corrected in its own comment. Excluding
+`survivors.md` from `corpus` is the repair this note first named and it does
+not work: measured, it moves the score by 0.001.
 
 **Round 1's fix pass swept the CI range, `78d2c12..HEAD`, which is wider than
 the `7ca5008..HEAD` the build swept.** The wider range reports two more

@@ -58,6 +58,16 @@ two reports are this work item's own spec and questions rows, both still true,
 excused in `survivors.md` with a quote as the anchor. Re-run with `--exempt`:
 763 files against 85 removed sentences, no removed wording standing, exit 0.
 
+**Corrected 2026-09-09, round 2's finding 13.** *A quote as the anchor* is
+what the format promises and not what happened. Writing an exemption row
+puts the survivor's own wording on the side `wanted` subtracts, so the phrase
+leaves the search set and the two reports are not excused but unfindable —
+0.758 as shipped against 1.829 with that subtraction disabled, and 0.757 with
+every `survivors.md` dropped from `corpus`, so the pool side this record and
+`survivors.md` first blamed is worth a thousandth. The `exempt` line prints
+nothing and a later edit to either standing sentence would be reported by
+nobody. #308 carries the repair, on the diff side rather than the corpus side.
+
 **One defect found and not touched, because it is another work item's row.**
 `seal/follow-up.md`'s last schedulable row is about `chain_check.py`'s
 unparseable `Broad gate` refusal, and its grounds read *a `# RIDER:` at the
