@@ -81,6 +81,18 @@ Reproduced by this session:
   remove   32 asked · 20 killed · 12 survived
 ```
 
+**Round 1 moved the `invert` row and the block above is the run before it.**
+Finding 6 refused `invert` for the three handlers with one type left, where
+the two operators produce the same text. Re-measured 2026-09-09: `invert` 29
+asked · 29 killed · **0** survived, `remove` and the combined row unchanged —
+and round 2 relabelled the first line, so a run today prints *arms measured*
+rather than *arms mutated*. The paragraph's *`invert` alone gives 1 survivor*
+is that pre-fix run; the argument it makes is unchanged, because 0 beside the
+ticket's nine reads as a refutation just as 1 did. The case count above is
+likewise the pre-round-1 one: 47 cases and 58 collected after round 2's
+fixes. Annotated rather than frozen, so that this record and the two phase
+records carry one treatment between them.
+
 Ten of the twelve are in `main`, where #262 put eight of its nine, and
 `gh_segments` has none — which matches the four the ticket says were closed on
 an earlier branch. The single arm nothing notices either way is `main:189`,
