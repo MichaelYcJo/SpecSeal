@@ -89,4 +89,4 @@ not a repair.
 | Removed item | Where it must land |
 |---|---|
 | `orchestration.md`'s claim that the `release` leg's first red window is *the window's expected state, not a failure to chase* | the same paragraph, rewritten to say the window is closed and why, and `test_the_rules_have_one_owner.py#test_the_release_leg_is_no_longer_red_until_round_ones_record_commits` — renamed from `..._is_red_...` — pins the correction and both of its halves |
-| the case name `test_the_release_leg_is_red_until_round_ones_record_commits` | the renamed case above; its docstring keeps the ⬜ 8 history and records that #296 closed the window the finding asked somebody to document |
+| the case name `test_the_release_leg_is_red_until_round_ones_record_commits` — NAME NOT IN TREE, which is the point of the row | the renamed case above; its docstring keeps the ⬜ 8 history and records that #296 closed the window the finding asked somebody to document |
