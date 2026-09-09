@@ -228,9 +228,13 @@ def message_key(message, row, number):
 # within one second, the six misses being subagents of subagents, which have
 # no call in the main transcript at all. So the result is written when the
 # spawn is ACCEPTED, the agent then runs for a median of about 1,000 seconds,
-# and that interval falls in the cycle AFTER the one that spawned it: in
-# `model_s` while the wait is under the 900-second ceiling `analyse` puts on a
-# gap, and in nothing at all above it.
+# and that interval is in NO column of any row. It is the gap between the
+# cycle that spawned and the next row's first call: `analyse` starts a
+# window's `span_s` at that first call (`span` below) and never counts the gap
+# before it (the model walk's `turn_key is not None` guard), whether the wait
+# is above the 900-second ceiling or below it. Measured over the same three
+# runs, the interval between one row's last call and the next row's first is
+# 12-31% of each run's wall clock, and the wait is 98% of that.
 #
 # The exclusion below is therefore right and nearly free here, and it is the
 # whole answer on a harness that writes the result at completion. What it is
@@ -598,7 +602,7 @@ def in_windows(cuts, items, when):
     return windows
 
 
-def spawn_cycles(calls, turns=()):
+def spawn_cycles(calls, turns):
     """The run sliced at its spawn cycles, every call in exactly one slice.
 
     A spawn is an `Agent` `tool_use` block. Cycle *N* ends when spawn *N*'s
@@ -625,12 +629,14 @@ def spawn_cycles(calls, turns=()):
     why a cycle row is read as a band and not as an attribution, and it is
     the one thing the per-act split (#145's second candidate) would answer.
 
-    **The waiting is in that band on the harness measured in `DELEGATING`,
-    and it usually dominates it.** A subagent runs for a median of about
-    1,000 seconds there while the orchestrator issues nothing, so a cycle's
-    `model_s` is mostly that wait rather than the orchestrator thinking —
-    and above 900 seconds `analyse` drops the gap, which is where a row's
-    span exceeds its own columns by an hour and more.
+    **The waiting is NOT in that band on the harness measured in
+    `DELEGATING`, and a reader has to know where it went.** A subagent runs
+    for a median of about 1,000 seconds there while the orchestrator issues
+    nothing, and that whole interval falls between two rows: it precedes the
+    next row's first call, where `span_s` begins and where the model walk
+    starts counting. So a cycle's `model_s` is the orchestrator's own gaps
+    and not the wait, the rows partition the run's CALLS rather than its
+    time, and 12-31% of a measured run's wall clock is in no row at all.
 
     The turns are sliced by the same cuts, because `analyse` reads that list
     for its own denominator: handed the whole run's, a window's calls would
@@ -1090,8 +1096,15 @@ def cycle_label(row):
     return row["kind"]
 
 
-def report_spawns(spawns, path, total_calls):
+def report_spawns(spawns, path, total_calls, run_span=0.0):
     """One row per spawn cycle, or the count and no table.
+
+    `run_span` is the whole run's wall clock, and it is a parameter rather
+    than a re-derivation because `main` has already computed it. With it the
+    report can say how much of the run is BETWEEN the rows — which the rows
+    themselves cannot show, since each one's `span` starts at its own first
+    call. Zero means the caller had no reading to give, and the line is then
+    not printed rather than printed as a negative.
 
     **The refusal is the whole reason this prints a count.** A harness that
     renames the spawn tool, or spawns arriving through a path that writes no
@@ -1144,9 +1157,10 @@ def report_spawns(spawns, path, total_calls):
             f"\n  `delegated` never reaches a minute here — {delegated_max:.0f}s at "
             "most — so on this\n  harness the `Agent` result is written when the "
             "spawn is ACCEPTED rather than\n  when its report arrives. The agent's "
-            "own wall clock is then inside the NEXT\n  row down: in `model` while "
-            "the wait stays under the 15 minutes model time\n  stops counting at, "
-            "and in none of these columns above it. Its own\n  transcript under "
+            "own wall clock is then in NONE of the\n  columns above, in this row or "
+            "any other: it is the gap between one row's\n  last call and the next "
+            "row's first, and a row's `span` starts at its own\n  first call while "
+            "`model` never counts the gap before it. Its own transcript\n  under "
             "`<session-id>/subagents/` is where that number is."
         )
     print(
@@ -1182,6 +1196,21 @@ def report_spawns(spawns, path, total_calls):
         f"\n  {plural(counted, 'call')} over the rows above, of "
         f"{plural(total_calls, 'call')} in the transcript"
     )
+    # The rows partition the CALLS. They do not partition the TIME: a row's
+    # `span` starts at its own first call, so the wait after each spawn's
+    # result is between two rows and in no column. Printed because it is
+    # 12-31% of a measured run, and a reader adding the span column has no
+    # other way to learn the total is short. `mostly` is measured: the wait
+    # is 98% of the interval and the rest is each row's last call to the cut.
+    if run_span > 0:
+        outside = run_span - sum(
+            row["numbers"]["span_s"] for row in rows if row["numbers"]
+        )
+        print(
+            f"  {minutes(outside)} of the run's {minutes(run_span)} is BETWEEN "
+            f"the rows — mostly the wait\n  after each spawn's result, in no "
+            "column above"
+        )
     described = [r for r in rows if r["kind"] == "cycle" and r["description"]]
     if described:
         print("\nwhat each cycle spawned")
@@ -1228,19 +1257,25 @@ def main():
 
     calls, turns = load(path)
     timings = analyse(calls, turns)
-    # The orchestrator's own rows. Computed for every reading, because
-    # `questions.md` Q1 puts `spawns` in `--json` beside the existing keys
-    # rather than behind the flag: a reading taken with `--json` and no
-    # `--spawns` would otherwise be missing the one thing this work item
-    # exists to produce.
-    spawns = measure_cycles(calls, turns)
+    # The orchestrator's own rows. Computed for both readings that print
+    # them, because `questions.md` Q1 puts `spawns` in `--json` beside the
+    # existing keys rather than behind the flag: a reading taken with
+    # `--json` and no `--spawns` would otherwise be missing the one thing
+    # this work item exists to produce.
+    #
+    # And NOT computed for the plain printed report, which does not read the
+    # key. Measured on a 497-call transcript with 32 spawns: `measure_cycles`
+    # is 25.5ms against `analyse`'s own 42.6ms, so computing it there is half
+    # again the cost of the reading being printed, for a value nothing shows.
+    # `None` reaches only `report`, which reads the keys it names.
+    spawns = measure_cycles(calls, turns) if args.spawns or args.json else None
     if args.spawns and not args.json:
         # Before the token walk, which this report does not print and which
         # opens every transcript under the run. A cycle carries no token
         # count of its own: `load` gives tokens per TURN and the tokens a
         # spawn spent are in the subagent's own transcript, so a per-cycle
         # token column would be summing the wrong file.
-        report_spawns(spawns, path, len(calls))
+        report_spawns(spawns, path, len(calls), timings["span_s"] if timings else 0.0)
         return 0
     # The whole run, not the transcript that was named: a token count covering
     # one segment is not comparable with one that covered a run, and #170 asks

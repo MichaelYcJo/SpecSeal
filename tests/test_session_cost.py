@@ -2045,7 +2045,9 @@ def test_a_delegated_column_of_seconds_says_which_of_two_things_it_is(
     because its result is written when the spawn is ACCEPTED, and each
     subagent's transcript opens at that same stamp — 61 of 67 spawns across
     three runs, within one second. The agent then runs for a median of about
-    1,000 seconds, inside the NEXT row down.
+    1,000 seconds, in NO column of any row —
+    `test_the_delegated_wait_is_in_no_column_of_any_row` is where that is
+    pinned.
 
     So a `delegated` column of near-zeroes is not the reading it looks like,
     and a reader taking it for *nothing was delegated* is #200's failure
@@ -2063,6 +2065,42 @@ def test_a_delegated_column_of_seconds_says_which_of_two_things_it_is(
 
     covered = run(["--spawns", str(orchestrator)]).stdout
     assert "never reaches a minute" not in covered, covered
+
+
+def test_the_delegated_wait_is_in_no_column_of_any_row(tmp_path):
+    """Where the agent's wall clock actually goes, on the ACCEPTED harness.
+
+    A window's `span_s` starts at its own first call and the model walk never
+    counts the gap before that call, so the wait after a spawn's result is in
+    no column of the row that follows it — under the 900s ceiling as much as
+    above it. Nine pages said it was in the next row's `model` while it
+    stayed under fifteen minutes; this is the case that would have caught
+    that, and it is the number a reader of the band table needs."""
+    lines = call("z", 0, 1, "git status --short")
+    lines += spawn("A", 5, 7, "specseal:smith")
+    # 300s of silence: the agent running, well under the 900s ceiling.
+    lines += call("b", 307, 310, "git log --oneline -5")
+    lines += call("c", 315, 317, "cat seal/specs/x/spec.md")
+    path = tmp_path / "accepted.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    rows = spawns_of(path)["rows"]
+    tail = rows[-1]["numbers"]
+    assert tail["span_s"] == 10, tail  # 307 to 317, not 7 to 317
+    assert tail["model_s"] == 5, tail  # 315-310 alone; the 300s is not here
+    assert tail["command_s"] == 5, tail
+    assert tail["delegated_s"] == 0.0, tail
+    data = json.loads(run(["--json", str(path)]).stdout)
+    outside = data["span_s"] - sum(
+        row["numbers"]["span_s"] for row in rows if row["numbers"]
+    )
+    # 304 and not 300, which is why the printed line says MOSTLY the wait:
+    # 300s of it is the wait after the spawn's result, and 4s is the head's
+    # own last call to the cut. On the three measured runs that second part
+    # is 0.6-0.8m of a 42-168m total, and here it is deliberately visible.
+    assert outside == 304, outside
+    out = " ".join(run(["--spawns", str(path)]).stdout.split())
+    assert "in NONE of the columns above" in out, out
+    assert "5.1m of the run's 5.3m is BETWEEN the rows" in out, out
 
 
 def test_the_printed_report_calls_a_cycle_row_a_band(orchestrator):
