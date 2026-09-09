@@ -64,6 +64,24 @@ same kind of question about the same rows.
 
 ## Q5 — a run's own `span_s` understates it when a call outlives every call started after it
 
+**ANSWERED 2026-09-09 by the owner: the middle answer — take the span to
+`max(end)` over the calls. Fixed in #300**, whose `seal/ledger/1788926756-…​.md`
+carries the rows and whose `spec.md` carries the scope. The marking this
+question was waiting on turned out not to be owed: both rules were computed
+over every transcript on this machine, and no printed figure moves at run
+level or at row level, with every moving row in another project's transcripts.
+Everything below is the question as it stood, kept because the option table is
+what the answer was chosen against — read it in the past tense.
+
+**Two things in it the answer changed.** The third column of the first option
+turned out to name only half of the 101%: `command_s` sums call durations and
+calls can run at once, so the share passes 100% from concurrency alone and the
+span rule narrows it without closing it — measured at 115.7% on a real
+transcript. That residual is #300's `questions.md` Q3, still with the owner.
+And the closing paragraph's prediction held: the refusal does fire less often
+and is still needed, now only where two rows cover the same seconds rather
+than where one row passes the whole run.
+
 Found by round 2's finding 1 and left standing by its fix. `analyse` takes a
 window's span as `calls[-1]["end"] - calls[0]["start"]` with `calls` ordered
 by **start**, so it reads the end of the last call *to begin* rather than the
@@ -72,12 +90,17 @@ later one has finished, therefore ends after the span does.
 
 Executed on a synthetic run: one call at 0–1000s with later calls at 10–12s
 and 990–995s reads a span of **995s**, five seconds short of its own last
-call. It is also half of why the between-the-rows subtraction had to be
-refused rather than repaired — the difference there carries this error as
-well as the rows' overlap, which is why the printed refusal names the sum
-passing the span and not an overlap of that size.
+call. It was also half of why the between-the-rows subtraction had to be
+refused rather than repaired: the difference there carried this error as well
+as the rows' overlap, which is why the printed refusal named the sum passing
+the span and not an overlap of that size. **#300 removed that half.** The
+refusal still does not name an overlap, on new grounds — every row's interval
+now sits inside the run's, so the difference is the gaps between the rows
+minus their overlap — and it now prints both sums rather than the difference,
+because the difference went through a one-decimal formatter and read `by 0.0m`
+on a three-second overlap.
 
-**It is not fixed here, and the reason is the same one Q4 has.** `span_s` is
+**It was not fixed here, and the reason is the same one Q4 has.** `span_s` is
 in every reading this repository has published, and moving it moves them all
 — the marking decision #200 needed. A guard against a false printed sentence
 is this run's business; redefining a published number is not.
