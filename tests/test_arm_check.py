@@ -464,9 +464,16 @@ def test_an_arm_with_no_defined_mutation_is_refused_not_reported_unwatched():
 def test_a_refused_arm_is_counted_and_named_in_the_report(tmp_path):
     """A refusal that nothing prints is a skip with extra steps.
 
-    The report has to say how many arms it enumerated and did not mutate, and
-    name them — otherwise the denominator quietly shrinks and the survivor
-    count still reads like a survivor count."""
+    The report has to say how many arms came back with no verdict from any
+    operator, and name them — otherwise the denominator quietly shrinks and
+    the survivor count still reads like a survivor count.
+
+    **This arm is the one that was never mutated**, and that is now the
+    reason's job rather than the header's: `mutate` refuses a bare `except:`
+    before anything is written, where a timed-out arm reaches the same list
+    with the mutation already applied and restored (round 2's finding 15).
+    So the header is asserted without the word *mutated* in it, and the
+    reason is asserted to be the never-asked kind."""
     module_path = tmp_path / "m.py"
     module_path.write_text(
         "def f(x):\n    try:\n        return x\n    except:\n        return None\n",
@@ -485,8 +492,14 @@ def test_a_refused_arm_is_counted_and_named_in_the_report(tmp_path):
         lines.append,
     )
     text = "\n".join(lines)
-    assert "1 arms refused" in text
-    assert "enumerated and not mutated" in text
+    assert "1 arms with no verdict from any operator" in text
+    assert "not mutated" not in text, (
+        "the header cannot claim this arm was not mutated: the same list "
+        "holds arms the timeout and OSError paths mutated, ran and restored"
+    )
+    assert "NoMutationDefined" in text and "bare `except:` catches" in text, (
+        "so the reason is what says this one was never asked at all"
+    )
 
 
 def test_a_mutation_inverts_the_arm_and_leaves_the_module_parseable():
@@ -1019,6 +1032,129 @@ def test_a_spawn_failure_keeps_the_verdicts_already_measured(two_arms):
     )
 
 
+# The two commands that reach the no-verdict list with a mutation already on
+# disk. Both were written, run and restored before the arm got there, which is
+# what neither headline line used to say.
+NO_VERDICT_COMMANDS = [
+    (
+        "every pair times out",
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        0.3,
+    ),
+    ("the command cannot be spawned", ["specseal-no-such-command-xyz"], 900.0),
+]
+
+
+@pytest.mark.parametrize(
+    "label,tests,timeout",
+    NO_VERDICT_COMMANDS,
+    ids=[c[0] for c in NO_VERDICT_COMMANDS],
+)
+def test_the_report_does_not_call_a_mutated_arm_unmutated(
+    two_arms, label, tests, timeout
+):
+    """Round 2's finding 15. §14 — the report is what a person reads.
+
+    An arm reached this list only when `mutate` had no mutation for any
+    operator, so nothing had been written to disk and *enumerated and not
+    mutated* was true. The timeout and `OSError` paths write the mutation, run
+    the command, restore, and land in the same list — where the header said
+    *enumerated and not mutated* and the summary counted the arm as never
+    mutated. Both were false after four mutations, and `0 arms mutated · 0
+    killed · 0 watched by no case` reads as a clean sweep at exit 0.
+
+    Both doors are driven, because the cause is one: an arm with no verdict is
+    not an arm nothing touched.
+
+    Red how: either label restored prints `not mutated` or `arms mutated`
+    here. Executed on both parameters."""
+    module_path, _ = two_arms
+    before = hashlib.sha256(module_path.read_bytes()).hexdigest()
+    loop = []
+    verdicts, refused = ARM.run_arms(
+        str(module_path), tests, timeout=timeout, echo=loop.append
+    )
+    assert verdicts == []
+    assert len(refused) == 2
+    assert hashlib.sha256(module_path.read_bytes()).hexdigest() == before, (
+        "the premise of this case is that the mutation was applied and then "
+        "restored, so the module has to be back"
+    )
+
+    lines = []
+    found = [v.arm for v in verdicts] + [a for a, _ in refused]
+    ARM._report(str(module_path), verdicts, refused, ARM.counts(found), lines.append)
+    text = "\n".join(lines)
+    assert "not mutated" not in text, (
+        f"{text!r} — every one of these arms was mutated on disk and then "
+        f"restored; what was missing is a verdict, not the mutation"
+    )
+    assert "arms mutated" not in text, (
+        "the summary counts arms that produced a verdict, and an arm that "
+        "was mutated without producing one is not among them"
+    )
+    assert "2 arms with no verdict from any operator" in text
+    assert "2 arms measured" not in text and "0 arms measured" in text
+    # And the per-arm line the loop prints, for the same reason.
+    assert not any("refused" in line for line in loop), (
+        f"{loop!r} — `refused` reads as *never tried* for an arm whose "
+        f"mutation was written and run"
+    )
+    assert sum("no verdict" in line for line in loop) == 2
+
+
+def test_a_pair_whose_command_ran_and_answered_nothing_is_not_called_unasked(two_arms):
+    """Finding 15's cause through its third door, which the record does not
+    name.
+
+    An arm ANOTHER operator measured is not refused, and its unanswered pair
+    is listed on its own. That section said *operator/arm pairs not asked* —
+    true while the only way to get there was `mutate` refusing before
+    anything ran, and false for a pair whose command was spawned, waited for
+    and killed at the bound.
+
+    Driven by timing out the second of the four calls only, so one arm has a
+    measured operator and an unanswered one.
+
+    Red how: the header restored prints `not asked` here. Executed."""
+    module_path, tests = two_arms
+    real_run = ARM.subprocess.run
+    calls = []
+
+    def times_out_on_the_second_call(cmd, **kwargs):
+        calls.append(cmd)
+        if len(calls) == 2:
+            raise ARM.subprocess.TimeoutExpired(cmd, kwargs.get("timeout") or 0.3)
+        return real_run(cmd, **kwargs)
+
+    ARM.subprocess.run = times_out_on_the_second_call
+    try:
+        verdicts, refused = ARM.run_arms(str(module_path), tests)
+    finally:
+        ARM.subprocess.run = real_run
+
+    assert refused == []
+    first = verdicts[0]
+    assert sorted(first.by_operator) == ["invert"]
+    assert "TimeoutExpired" in first.not_applicable["remove"]
+
+    lines = []
+    ARM._report(
+        str(module_path),
+        verdicts,
+        refused,
+        ARM.counts([v.arm for v in verdicts]),
+        lines.append,
+    )
+    text = "\n".join(lines)
+    assert "1 operator/arm pairs with no verdict" in text
+    assert "not asked" not in text, (
+        f"{text!r} — this pair's command was spawned, waited for and killed "
+        f"at the bound. Only a pair `mutate` refused was never asked, and the "
+        f"reason beside each is what tells the two apart"
+    )
+
+
 # --- the two operators are not interchangeable ----------------------------
 
 
@@ -1373,9 +1509,14 @@ def test_a_partly_skipped_operator_is_reported_without_refusing_the_arm():
         lines.append,
     )
     text = "\n".join(lines)
-    assert "not asked" in text, (
-        "an operator with no mutation for an arm must be named; silently "
+    assert "operator/arm pairs with no verdict" in text, (
+        "an operator with no verdict for an arm must be named; silently "
         "excluding it from that operator's denominator is the skip this "
         "whole module refuses"
+    )
+    assert "not asked" not in text, (
+        "and the section cannot be headed *not asked*: a pair whose command "
+        "timed out or could not be spawned was asked and answered nothing, "
+        "and it lands in this same list (round 2's finding 15)"
     )
     assert "remove" in text and "f:10" in text and "SyntaxError" in text

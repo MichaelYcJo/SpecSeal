@@ -850,13 +850,19 @@ def run_arms(
                     restore(path, original, original_sha)
                     clear_bytecode_cache(path)
             if not by_operator:
-                # No operator had a mutation for this arm. Refused, never
-                # reported as a survivor: `survived` would read as "no case
-                # watches this" when the truth is "this was never tried".
+                # No operator came back with a verdict for this arm, and the
+                # list holds two outcomes now: `mutate` had no mutation, so
+                # nothing was written; or the command timed out or could not
+                # be spawned, so the mutation WAS written, run and restored.
+                # Never reported as a survivor either way -- `survived` would
+                # read as "no case watches this" when the truth is "nothing
+                # measured this". Which of the two it was lives in the reason.
                 refused.append(
                     (arm, " | ".join(f"{k}: {v}" for k, v in not_applicable.items()))
                 )
-                echo(f"  refused  {arm}")
+                # Not `refused`, for the same reason the report's label is
+                # not: on the timeout and OSError paths this arm was mutated.
+                echo(f"  no verdict  {arm}")
                 continue
             verdict = Verdict(arm, by_operator, not_applicable)
             verdicts.append(verdict)
@@ -909,8 +915,13 @@ def _report(path, verdicts, refused, counted, echo, *, of_total=None):
 
     survivors = [v for v in verdicts if not v.killed]
     echo("")
+    # `measured`, not `mutated`. An arm whose every operator timed out or could
+    # not be spawned WAS mutated -- written, run, restored -- and is not in
+    # `verdicts`, so counting `verdicts` as arms mutated read as a clean sweep
+    # of zero survivors out of zero arms on exactly the paths that measured
+    # nothing.
     echo(
-        f"{len(verdicts)} arms mutated · {len(verdicts) - len(survivors)} killed "
+        f"{len(verdicts)} arms measured · {len(verdicts) - len(survivors)} killed "
         f"· {len(survivors)} watched by no case"
     )
 
@@ -938,17 +949,22 @@ def _report(path, verdicts, refused, counted, echo, *, of_total=None):
         )
         echo("  table is a `remove` count, so compare it with that row.")
 
-    # An operator that could not be asked of an arm ANOTHER operator handled.
-    # Named, because `remove 31 asked` against 32 arms said nothing about
-    # which arm was missing, and a per-operator count read against #262's
-    # table has to say what its own denominator was.
+    # An operator that produced no verdict for an arm ANOTHER operator
+    # handled. Named, because `remove 31 asked` against 32 arms said nothing
+    # about which arm was missing, and a per-operator count read against
+    # #262's table has to say what its own denominator was.
+    #
+    # NOT "not asked": a pair whose command timed out or could not be spawned
+    # WAS asked, and got no answer. Only a pair `mutate` refused was never
+    # asked. The reason beside each says which of the two it is, and that is
+    # the only place the distinction lives.
     skipped = [
         (v.arm, op, why) for v in verdicts for op, why in v.not_applicable.items()
     ]
     if skipped:
         echo("")
         echo(
-            f"{len(skipped)} operator/arm pairs not asked — the arm was "
+            f"{len(skipped)} operator/arm pairs with no verdict — the arm was "
             f"measured by another operator, so it is not refused, but this "
             f"operator's count excludes it:"
         )
@@ -958,7 +974,16 @@ def _report(path, verdicts, refused, counted, echo, *, of_total=None):
 
     if refused:
         echo("")
-        echo(f"{len(refused)} arms refused — enumerated and not mutated:")
+        # NOT "not mutated": the timeout and OSError paths write the mutation,
+        # run the command and restore, and land here when no operator came
+        # back with a verdict. A reader has to be able to tell "nothing
+        # measured this" from "this was never touched", and the reason beside
+        # each arm is what says which -- `NoMutationDefined` was never asked,
+        # `TimeoutExpired` and the errnos were asked and answered nothing.
+        echo(
+            f"{len(refused)} arms with no verdict from any operator — the "
+            f"reason beside each says whether it was ever mutated:"
+        )
         for arm, why in refused:
             echo(f"  {arm}")
             echo(f"      {why}")
