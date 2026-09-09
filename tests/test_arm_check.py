@@ -1328,7 +1328,7 @@ def test_an_arm_is_watched_when_any_operator_is_noticed(tmp_path):
 
     verdicts, refused = ARM.run_arms(str(module_path), tests)
     assert refused == []
-    first, second = verdicts
+    first, _second = verdicts
     assert first.by_operator == {"invert": True, "remove": False}, (
         "this case is only meaningful while exactly one operator kills this "
         "arm; both agreeing makes `any` and `all` indistinguishable"
@@ -1545,7 +1545,7 @@ def test_an_operator_that_could_not_be_asked_of_an_arm_is_named(tmp_path):
     # The pattern has no mutation for either operator, so the arm is refused.
     assert verdicts == []
     assert len(refused) == 1
-    arm, why = refused[0]
+    _arm, why = refused[0]
     assert "invert" in why and "remove" in why, (
         "a refused arm must say which operators had no mutation for it, or "
         "the reason it went unmeasured is lost"

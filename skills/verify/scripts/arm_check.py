@@ -390,7 +390,15 @@ def _node_arms(node: ast.AST, scope: str, source: str) -> list[Arm]:
             else " or "
         )
         group, withouts = _group_of(members, joiner, test, source)
-        for member, without in zip(members, withouts):
+        # `strict=` is the explicitness B905 asks for and it arrived in 3.10.
+        # This script has no version floor and runs under whatever `python3`
+        # `bin/arm-check` finds -- measured on macOS's own 3.9.6, where it
+        # works. `strict=True` would kill it there after argument parsing and
+        # the whole walk had succeeded, which is #226 exactly: the message
+        # names neither the version nor the flag. `withouts` is built from
+        # `members` by `_group_of`, one entry per member, so the lengths agree
+        # by construction rather than by hope.
+        for member, without in zip(members, withouts):  # noqa: B905
             # **Parenthesised, and it is load-bearing for a wrapped test.**
             # The group's span covers the brackets the source used, so the
             # remainder replaces them too. `gh_segments`'s `while` test is
@@ -409,8 +417,14 @@ def _node_arms(node: ast.AST, scope: str, source: str) -> list[Arm]:
         elif isinstance(node.type, ast.Tuple):
             members = list(node.type.elts)
             group, withouts = _group_of(members, ", ", node.type, source)
-            for member, without in zip(members, withouts):
-                if without == EMPTY_DECISION:
+            # `strict=` is 3.10+ and this script runs on 3.9; see the
+            # `add_boolean` call above for the measurement.
+            for member, without in zip(members, withouts):  # noqa: B905
+                # A ternary here would be one expression and would take both
+                # comment blocks below with it, and what they carry is why the
+                # re-parenthesisation is not cosmetic. SIM108's suggestion is
+                # correct about the shape and wrong about the cost.
+                if without == EMPTY_DECISION:  # noqa: SIM108
                     # A tuple emptied of every type catches nothing that is
                     # raised, which is `NEVER_RAISED` spelled the long way.
                     without = NEVER_RAISED
@@ -728,7 +742,7 @@ def clear_bytecode_cache(path: str) -> list[str]:
     )
     if prefix:
         # `sys.pycache_prefix` mirrors the absolute source tree under itself.
-        drive, tail = os.path.splitdrive(os.path.dirname(absolute))
+        _drive, tail = os.path.splitdrive(os.path.dirname(absolute))
         roots.append(os.path.join(prefix, tail.lstrip(os.sep).lstrip("/")))
     removed = []
     for root in roots:
