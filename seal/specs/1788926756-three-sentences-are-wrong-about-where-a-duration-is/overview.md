@@ -12,7 +12,7 @@
             `seal/ledger.md` (7) and
             `seal/ledger/1788908215-…​.md` (7), covering 7 drifted anchors and
             18 stamps; 3 sentences in the #145 fragment corrected in place
-· verified: **executed** — `bin/test tests/test_session_cost.py` (68 passed),
+· verified: **executed** — `bin/test tests/test_session_cost.py` (69 passed),
             the two modules the skill change touches (105 passed with the
             first), `evidence-check` (1033 ok · 0 drifted, exit 0),
             `survivor-check` over the fix range, both span rules over every
@@ -44,13 +44,16 @@ than a single call inside it, in the path every published segment reading uses.
 | The reviewer's paste-ready `SKILL.md` text | It dropped *leave the between-the-rows share out of the reading rather than substituting the sum* | Kept and widened to *either sum* | That is the one actionable sentence a person taking a reading needs; dropping it would have traded an instruction for a shorter paragraph |
 | Where item 1's clause in `skills/verify/SKILL.md` lands | `plan.md` puts all of that file in phase 3 | Moved to phase 2, with the code it describes | Leaving a sentence there naming a cause the code had stopped naming would put a false sentence in the tree across a phase boundary, which is the class this work item closes |
 | The exact-cover boundary case | `spec.md`: *the existing boundary case, still green* | Planted a new one | There was no existing case for `outside == 0`; the only boundary case covers the positive branch at `outside == 304`, and #145's round 3 probed the exact cover without planting anything. Seen red under `> 0` |
+| **How much rarer the refusal gets** — round 1's finding 5 | `plan.md` §Technical context: *the refusal in items 1 and 2 fires strictly less often afterwards* | The narrow claim kept, the wide one recorded false HERE rather than edited in the plan | **Executed.** Both sides of the subtraction grow, and where the rows grow by more in total than the run does the new rule prints the refusal where the old one printed a figure: head `Bash` 0–100s with a call at 1–2s, spawn 3–4s, calls at 10–11s and 12–13s printed `0.1m of the run's 0.2m is BETWEEN the rows` under the old rule and the refusal under the new one. The new reading is the correct one — the head row really does cover the tail's seconds — so this is a wrong sentence about the change and not a defect in it. What survives is the module comment's narrower claim, that the refusal can no longer fire on ONE row, which is true. `plan.md` is the approved contract and a fix pass does not edit it; `phases/phase-2.md` carried the same conflation in its own words and is corrected there |
+| **The dead span expression restated in the present tense** — round 1's finding 10 | `plan.md:12` and `seal/specs/1788700685-two-value-shaped-odd-rows-end-the-report/plan.md:16` with its `overview.md:19` | `spec.md`'s evidence row marked as pre-change; the three plan and overview lines left standing | A plan's §Technical context states the code as it stood when the plan was written, and that is what all three do — correct at their own SHA and not claims about the tree today. `spec.md`'s row was the one worth a marker, because it sits in an evidence table two of whose rows phase 1 rewrote to post-change values, so the table mixed both states with nothing saying which was which. It now says |
 
 ## Not verified
 
 | Item | Who must answer |
 |---|---|
 | The full suite, the repository-wide lint and the typecheck — `skills/agent-contract/SKILL.md` §2 keeps them off this segment | the orchestrator, once, after the rounds settle |
-| What the report should print where `command` exceeds 100% of the span — `questions.md` Q3, measured and costed, not built | the owner |
+| What the report should print where `command` exceeds 100% of the span — `questions.md` Q3, measured and costed, not built. Round 1 corrected its trigger: a share above 100% is 1 of 169 readings, overlap that moves a printed figure is in 23 | the owner |
+| Whether `seal/ledger.md`'s F5 clause narrows to the three literals its case reads, or the case widens to any issue number in the shipped skill — `questions.md` Q4 | the owner |
 | Whether the span's disclosure belongs in the report's own output as well as in `skills/verify/SKILL.md` — `questions.md` §*Open, and it is small* | the owner |
 | Windows | nobody has run it — #103's standing gap |
 

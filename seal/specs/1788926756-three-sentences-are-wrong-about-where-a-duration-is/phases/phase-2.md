@@ -50,8 +50,14 @@ in general.
 row.** It used to — the head row's span reached 1000s against a run of 995s,
 so a single row passed the whole run by itself. With every row's interval
 inside the run's, a sum past the run requires two rows covering the same
-seconds. That is the prompt's *strictly less often*, now with the reason
-under it.
+seconds. That is narrower than the prompt's *strictly less often*, and the
+wider claim is false: the rows can grow by more in total than the run does,
+and such a shape fires the refusal where the old rule printed a figure.
+Executed — head `Bash` 0-100s with a call at 1-2s, spawn 3-4s, calls at
+10-11s and 12-13s printed `0.1m of the run's 0.2m is BETWEEN the rows` under
+the old rule and the refusal under the new one, and the new reading is the
+correct one because the head row really does cover the tail's seconds. What
+the subinterval property gives is the one-row fact above and nothing more.
 
 **Two numbers moved and both are in the report's text.** The pinned shape's
 run span is 16.7m rather than 16.6m and the magnitude 16.4m rather than
