@@ -1449,6 +1449,10 @@ def record(sha, passed=True, verdict="answered", finding="🟢 1"):
     return (
         "# a round\n\n"
         f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n"
+        # The gate ran at the very commit the round reviewed, which is what a
+        # settled record says. `chain_check.GATE_FROM` reaches this fixture's
+        # work-item id, so this record owes the row like the seven above it.
+        f"| Broad gate | {sha} against base |\n"
         f"| Ran by | {RAN_BY} |\n"
         "| Fixes checked by | no fixes to check |\n"
         "| Contract changes | none |\n| New units | none |\n"

@@ -497,7 +497,11 @@ def test_an_exemption_file_with_no_rows_is_refused(tmp_path):
     table.write_text("# survivors\n\nnothing judged yet.\n", encoding="utf-8")
     code, text = run("--range", "HEAD..HEAD", "--root", ROOT, "--exempt", str(table))
     assert code == 2, f"an exemption file with no rows was accepted; exit {code}"
-    assert "no `| Path | Quote | Grounds |` row" in text, text
+    # Both shapes are named, because either one would have been a row. The
+    # refusal used to name only the per-survivor table, and after #297 that
+    # sentence would send somebody to write the shape they had not chosen.
+    assert "no `| Path | Quote | Grounds |` or" in text, text
+    assert "`| Range | Grounds |` row" in text, text
 
 
 def test_a_second_exemption_file_with_no_rows_is_refused_too(tmp_path):
@@ -598,6 +602,386 @@ def test_a_quote_whose_words_are_scattered_does_not_exempt():
         "a quote that IS a run of the text did not match, so the case above "
         "passes for the wrong reason"
     )
+
+
+# --- the escape for a documented deletion, which is one sentence ------------
+#
+# #297. A branch that DELETES a shipped section leaves every sentence of it
+# standing in the durable copies that are supposed to survive a deletion --
+# `docs/flow.md` §*A shipped version's section is deleted, not kept* names
+# them. Measured on #293's own range: **153** survivors at 1.60-1.62, every
+# one of them correct as a report and none of them a defect. Per-survivor
+# rows would have cost 153 written sentences, which is not an escape anybody
+# takes; the branch turns the check off instead, which is the outcome the
+# escape exists to prevent.
+#
+# **The row is anchored on the range AND on the work item it lives in**, the
+# way the quote is for a per-survivor row. Run the check over a different range
+# and the row does not hold; run it over a range that touches nothing in the
+# declaring work item and it does not hold either. The second anchor is round
+# 1's 🔴 1 and the block further down is where it is measured: the range alone
+# is not one, because `origin/<base>...HEAD` re-resolves per checkout.
+
+
+def one_survivor(repo):
+    """A range that corrects one statement and leaves its twin standing."""
+    os.makedirs(repo, exist_ok=True)
+    claim = (
+        "The verdict cell is written by the reviewing round itself and the "
+        "orchestrator never edits it afterwards."
+    )
+    build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst. {claim}\n\nSecond. {claim}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the claim, stated twice",
+    )
+    fixed = (
+        "The verdict cell is written by the generator and the "
+        "orchestrator leaves it untouched afterwards."
+    )
+    return build(
+        repo,
+        {"notes.md": f"# notes\n\nFirst. {fixed}\n\nSecond. {claim}\n"},
+        "corrected the first statement only",
+    )
+
+
+GROUNDS = "the deleted section's sentences stand in the durable copies by design"
+
+
+def test_an_undeclared_deletion_still_fails(tmp_path):
+    """The floor the whole escape sits on, stated first.
+
+    Without a declaration the range reports exactly as it does today. If this
+    case ever passes, none of the ones below measure anything."""
+    repo = tmp_path / "probe"
+    head = one_survivor(repo)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, text
+    assert "notes.md" in text
+
+
+def test_a_whole_range_row_excuses_the_survivors_of_that_range(tmp_path):
+    """#297's chosen approach: one row with grounds, covering a range.
+
+    Still PRINTED, and that is not negotiable — the per-survivor row's own
+    rule. A row that silences something invisibly is a row nobody audits, and
+    with 153 of them the grounds are the only thing a reader has to judge."""
+    repo = tmp_path / "probe"
+    head = one_survivor(repo)
+    table = tmp_path / "survivors.md"
+    table.write_text(
+        f"| Range | Grounds |\n|---|---|\n| `{head}^..{head}` | {GROUNDS} |\n",
+        encoding="utf-8",
+    )
+    code, text = run(
+        "--range", f"{head}^..{head}", "--root", str(repo), "--exempt", str(table)
+    )
+    assert code == 0, f"the whole-range row did not silence the run\n{text}"
+    assert GROUNDS in text, (
+        "the grounds are not printed, so nobody can audit the declaration"
+    )
+    assert "notes.md" in text, (
+        "and the survivors themselves are still named. A range row that "
+        "prints only its own grounds hides what it covered"
+    )
+
+
+def test_a_whole_range_row_is_resolved_rather_than_string_matched(tmp_path):
+    """The row a session actually writes names refs, not oids.
+
+    In CI the range is `origin/<base>...HEAD`, and that is the spelling a
+    smith copies into the declaration. Comparing the text would refuse it
+    against the same range spelled as two SHAs, which is the same range."""
+    repo = tmp_path / "probe"
+    head = one_survivor(repo)
+    table = tmp_path / "survivors.md"
+    table.write_text(
+        f"| Range | Grounds |\n|---|---|\n| `HEAD^..HEAD` | {GROUNDS} |\n",
+        encoding="utf-8",
+    )
+    code, text = run(
+        "--range", f"{head}^..{head}", "--root", str(repo), "--exempt", str(table)
+    )
+    assert code == 0, f"a ref expression naming the same range was refused\n{text}"
+
+
+def test_a_whole_range_row_does_not_reach_a_different_range(tmp_path):
+    """The anchor, and the direction it degrades in.
+
+    This is the per-survivor row's *quote is the anchor* property in the
+    shape a range row has. A declaration that covered any range would let a
+    branch delete a section and hide a real correction's survivor behind the
+    same sentence for the rest of the work item's life."""
+    repo = tmp_path / "probe"
+    head = one_survivor(repo)
+    table = tmp_path / "survivors.md"
+    table.write_text(
+        f"| Range | Grounds |\n|---|---|\n| `HEAD..HEAD` | {GROUNDS} |\n",
+        encoding="utf-8",
+    )
+    code, text = run(
+        "--range", f"{head}^..{head}", "--root", str(repo), "--exempt", str(table)
+    )
+    assert code == 1, f"a row declaring a different range silenced this one\n{text}"
+    assert "notes.md" in text
+
+
+# --- the second anchor: the work item that wrote the declaration ------------
+#
+# Round 1's 🔴 1. The case above varies the SPEC's text on one checkout, and an
+# elastic spec is identical to itself under that. `origin/<base>...HEAD` is not
+# a range, it is a RELATION, and it resolves to whatever range the checkout it
+# is read on is over -- so the case that reaches this varies the CHECKOUT and
+# leaves the spec alone.
+
+CLAIM_A = (
+    "The verdict cell is written by the reviewing round itself and the "
+    "orchestrator never edits it afterwards."
+)
+# Both claims are shaped the way `one_survivor`'s is, and the shape is what
+# clears the floor rather than the length: the correction WRITES BACK a phrase
+# in the middle, so the wording it removed reads as two stretches that do not
+# touch. A single contiguous run is worth its rarest n-gram and no more --
+# 1.0, under the floor -- because the floor's whole job is to require two
+# independent pieces of evidence. Measured: this claim's first draft was one
+# run, scored exactly 1.0, and the case would have gone green on a clean
+# report rather than on the fix.
+CLAIM_B = (
+    "The exemption row is anchored by the range it declares and the checker "
+    "never widens that reach afterwards."
+)
+ITEM_A = "seal/specs/1799000001-work-item-a"
+
+
+def probe_git(repo, *args):
+    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+
+
+def base_and_item_a(repo):
+    """A base carrying two claims twice over, plus work item A's branch.
+
+    Shaped after `one_survivor`, twice: each claim stands twice in its own
+    file, and each branch corrects the first statement only, so the twin
+    survives at that branch's tip and the range reports it.
+
+    Leaves `work-item-a` checked out with `origin/release` still at the base,
+    which is what a work item's own pull request looks like.
+    """
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "a-notes.md": f"# a\n\nFirst. {CLAIM_A}\n\nSecond. {CLAIM_A}\n",
+            "b-notes.md": f"# b\n\nFirst. {CLAIM_B}\n\nSecond. {CLAIM_B}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "both claims, each stated twice",
+    )
+    probe_git(repo, "branch", "-M", "release")
+    # A real remote, because `origin/<base>` is the spelling CI passes and the
+    # one the module docstring recommends. Resolved against a local branch
+    # name the case would be measuring a spelling nobody writes.
+    probe_git(repo, "remote", "add", "origin", str(repo))
+    probe_git(repo, "fetch", "-q", "origin")
+    probe_git(repo, "switch", "-qc", "work-item-a")
+    fixed = (
+        "The verdict cell is written by the generator and the "
+        "orchestrator leaves it untouched afterwards."
+    )
+    return build(
+        repo,
+        {
+            "a-notes.md": f"# a\n\nFirst. {fixed}\n\nSecond. {CLAIM_A}\n",
+            f"{ITEM_A}/survivors.md": (
+                "| Range | Grounds |\n|---|---|\n"
+                f"| `origin/release...HEAD` | {GROUNDS} |\n"
+            ),
+        },
+        "work item A corrects its claim and declares the whole range",
+    )
+
+
+def declaration_of_a(repo):
+    return os.path.join(str(repo), ITEM_A, "survivors.md")
+
+
+def test_a_work_items_own_declaration_still_holds_in_the_ci_spelling(tmp_path):
+    """The direction that would break the escape if the narrowing went too far.
+
+    Work item A's row, read on A's own checkout over A's own range, covers it:
+    the range touches the directory the row lives in, because a work item's
+    routing declaration is committed there before its first edit. Refusing
+    this would leave #297's 153-survivor case with no escape at all, so it is
+    stated before the case that narrows anything.
+    """
+    repo = tmp_path / "probe"
+    base_and_item_a(repo)
+    code, text = run(
+        "--range",
+        "origin/release...HEAD",
+        "--root",
+        str(repo),
+        "--exempt",
+        declaration_of_a(repo),
+    )
+    assert code == 0, (
+        "a work item's own declaration did not cover its own range, so the "
+        f"escape #297 exists for is unusable\n{text}"
+    )
+    assert GROUNDS in text, f"the grounds are not printed\n{text}"
+    # Without these two the case passes on a report that found nothing, which
+    # measures the fixture rather than the declaration.
+    assert "a-notes.md" in text, (
+        f"A's own survivor was never found, so nothing was excused\n{text}"
+    )
+    assert "every survivor is excused by a row above" in text, (
+        f"the run was clean rather than declared\n{text}"
+    )
+
+
+def test_a_declaration_does_not_reach_a_work_item_that_did_not_write_it(tmp_path):
+    """Round 1's 🔴 1, and the reason the range alone was not an anchor.
+
+    `hygiene.yml` hands every `seal/specs/*/survivors.md` in the tree to every
+    run, and a `survivors.md` lives from the work item's first row until the
+    release that ships it. So work item A's row, spelled the way CI and the
+    docstring both spell it, resolved on work item B's checkout to exactly B's
+    own range — matched it, excused every one of B's survivors, and turned the
+    step off for the rest of the release. That is the outcome the escape
+    exists to prevent, arriving through the escape.
+
+    The declaration is refused here and it PRINTS. A row that quietly stopped
+    applying is the one failure a rotting anchor must not have, and that rule
+    binds in this direction too.
+    """
+    repo = tmp_path / "probe"
+    base_and_item_a(repo)
+    probe_git(repo, "switch", "-q", "release")
+    probe_git(repo, "merge", "-q", "--ff-only", "work-item-a")
+    probe_git(repo, "fetch", "-q", "origin")
+    probe_git(repo, "switch", "-qc", "work-item-b", "release")
+    fixed = (
+        "The exemption row is anchored by the work item and the checker "
+        "leaves that reach untouched afterwards."
+    )
+    build(
+        repo,
+        {"b-notes.md": f"# b\n\nFirst. {fixed}\n\nSecond. {CLAIM_B}\n"},
+        "work item B corrects its claim and declares nothing",
+    )
+    code, text = run(
+        "--range",
+        "origin/release...HEAD",
+        "--root",
+        str(repo),
+        "--exempt",
+        declaration_of_a(repo),
+    )
+    assert code == 1, (
+        "work item A's declaration excused work item B's whole run, so one "
+        "merged row turns the step off for every later branch cut from the "
+        f"same base\n{text}"
+    )
+    assert "b-notes.md" in text, f"B's own survivor was not reported\n{text}"
+    assert "1799000001-work-item-a" in text, (
+        "the refused declaration is not printed with the work item it belongs "
+        f"to, so nobody reading the report can tell why it did not apply\n{text}"
+    )
+
+
+def test_a_range_row_that_does_not_resolve_silences_nothing_and_says_so(tmp_path):
+    """Reported, never exit 2, and the reason is a landmine avoided.
+
+    A `survivors.md` lives in the tree from the work item's first row until
+    the release that ships it, and the refs its range names — a release
+    branch — get deleted. Refusing the whole run then would turn every later
+    range's check into exit 2 for a row that has nothing to do with it."""
+    repo = tmp_path / "probe"
+    head = one_survivor(repo)
+    table = tmp_path / "survivors.md"
+    table.write_text(
+        f"| Range | Grounds |\n|---|---|\n| `origin/gone..HEAD` | {GROUNDS} |\n",
+        encoding="utf-8",
+    )
+    code, text = run(
+        "--range", f"{head}^..{head}", "--root", str(repo), "--exempt", str(table)
+    )
+    assert code == 1, f"an unresolvable declaration silenced the run\n{text}"
+    assert "origin/gone..HEAD" in text, (
+        "and it names the row that could not be resolved. A declaration that "
+        "quietly stopped applying is the one failure a rotting anchor must "
+        "not have"
+    )
+
+
+def test_a_file_holding_only_a_range_row_is_not_refused_as_empty(tmp_path):
+    """A range row IS a row.
+
+    The emptiness refusal exists because a file that silences nothing was
+    probably not written. A file holding one range row was written, and
+    reading it as empty would refuse the very shape #297 adds."""
+    repo = tmp_path / "probe"
+    head = one_survivor(repo)
+    table = tmp_path / "survivors.md"
+    table.write_text(
+        f"| Range | Grounds |\n|---|---|\n| `{head}^..{head}` | {GROUNDS} |\n",
+        encoding="utf-8",
+    )
+    code, text = run(
+        "--range", f"{head}^..{head}", "--root", str(repo), "--exempt", str(table)
+    )
+    assert code != 2, f"a file holding one range row was refused as empty\n{text}"
+
+
+def test_a_range_row_with_no_grounds_is_not_a_declaration(tmp_path):
+    """The grounds are the whole content of the escape.
+
+    What a reviewer reads is the written sentence; a row without one silences
+    153 places on the strength of nothing. It is not a row, so a file holding
+    only that is refused as empty — which is the loud direction."""
+    repo = tmp_path / "probe"
+    head = one_survivor(repo)
+    table = tmp_path / "survivors.md"
+    table.write_text(
+        f"| Range | Grounds |\n|---|---|\n| `{head}^..{head}` |  |\n",
+        encoding="utf-8",
+    )
+    code, text = run(
+        "--range", f"{head}^..{head}", "--root", str(repo), "--exempt", str(table)
+    )
+    assert code == 2, f"a range row with empty grounds was accepted\n{text}"
+
+
+def test_a_path_row_and_a_range_row_are_told_apart(tmp_path):
+    """Asked of the parser, because the two shapes share a file.
+
+    A path cell cannot be read as a range and a range cell cannot be read as
+    a path — the second is what would happen to `| A..B | grounds |` under
+    the old parser, which needed three cells and skipped it in silence."""
+    reader = module()
+    table = tmp_path / "survivors.md"
+    table.write_text(
+        "| Path | Quote | Grounds |\n|---|---|---|\n"
+        "| `seal/ledger.md` | never a leaf | the row records its own correction |\n"
+        # Two cells, which is the documented range shape, sitting in the same
+        # table as a three-cell path row. That is how the two coexist in one
+        # `survivors.md` — the file takes both and the first cell decides.
+        "| `abc1234..def5678` | a documented deletion |\n",
+        encoding="utf-8",
+    )
+    rows, ranges = reader.read_exemptions([str(table)])
+    assert [where for where, _q, _g in rows] == ["seal/ledger.md"], (
+        f"a range row was read as a per-survivor row, whose path cell it is not: {rows}"
+    )
+    # Three elements, and the third is the file the row was read from. That is
+    # the declaration's second anchor: `whole_range` asks whose work item it
+    # is, because the range spelling CI passes re-resolves per checkout and so
+    # anchors nothing on its own.
+    assert ranges == [("abc1234..def5678", "a documented deletion", str(table))], ranges
 
 
 def test_a_three_dot_range_starts_at_the_merge_base(tmp_path):

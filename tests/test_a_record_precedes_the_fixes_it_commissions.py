@@ -171,6 +171,10 @@ def record(
         "# a round\n\n"
         "| Field | Value |\n|---|---|\n"
         f"| Target SHA | {target} |\n"
+        # The gate ran at the very commit the round reviewed, which is what a
+        # settled record says. `chain_check.GATE_FROM` reaches this fixture's
+        # work-item id, so this record owes the row like the seven above it.
+        f"| Broad gate | {target} against base |\n"
         f"| Ran by | {RUNNER} |\n"
         f"| Fixes checked by | {checked_by} |\n"
         f"| Contract changes | {contract} |\n"

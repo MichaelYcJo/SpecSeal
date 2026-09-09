@@ -149,7 +149,7 @@ subcommands produce.
 | Executed probes | yes (may be "none") | what was RUN, with results — distinguished from what was read |
 | Inherited axes | for N>1 | axes carried from earlier rounds, each with the coordinates it was judged at. The coordinates carry; the verdicts do not — a round opens what they name and reaches its own (Conformance 1) |
 | Deferred | yes (may be "none") | findings this round neither fixed nor answered, each with the durable home it went to. The reviewer already opens this file; a row here is what keeps a deferral inside the inheritance range instead of being raised again next round |
-| Broad gate | yes | whether the one full-suite run has happened: `not yet`, or the SHA it ran at and the base it was compared against. A session joining at round 3 watched none of rounds 1–2, and the code does not record which commands were run against it — without this field it either repeats a run that is already sealed or ships assuming someone else made it |
+| Broad gate | yes | whether the one full-suite run has happened: `not yet`, or the SHA it ran at and the base it was compared against. A session joining at round 3 watched none of rounds 1–2, and the code does not record which commands were run against it — without this field it either repeats a run that is already sealed or ships assuming someone else made it. **The reference implementation READS it** on the last record at a ready pull request, so the cell is load-bearing rather than a note to the next session: a run that never happened and a run spent before the round it was meant to seal each fail there |
 
 #### Target SHA after a squash
 

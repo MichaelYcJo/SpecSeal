@@ -71,7 +71,7 @@ incorporation. This file only adds what the skill does not carry.
         example -- so the standing instruction above is still right and its
         stated consequence is not. Why it is silenced is unanswered and is
         nobody's finding yet.
-        Verified 2026-09-09 against "## Phases"@9b196034. -->
+        Verified 2026-09-09 against "## Phases"@7d41769f. -->
 
    Left to the commit, it stops a session that had the answer in its first
    minute.
@@ -161,6 +161,21 @@ incorporation. This file only adds what the skill does not carry.
    quote from the standing text and your grounds — the quote is the anchor, so
    the exemption stops holding as soon as that text changes. Then say in the
    hand-back what it reported and what you did with each one.
+
+   **A range that DELETES a shipped section takes one row for the whole
+   range** instead, `| Range | Grounds |` in the same file. Every sentence of
+   the section stands in the durable copies that are supposed to survive a
+   deletion, so #293's range reported 153 places, all correct as reports and
+   none of them a defect — and 153 written rows is not an escape anybody
+   takes. That row is anchored on the range **and** on the work item it lives
+   in: it stops holding the moment the check runs over a different range, and
+   it never reaches a range that touches nothing in your own work item. The
+   spelling CI passes, `origin/<base>...HEAD`, is a relation rather than a
+   range and re-resolves on every checkout, so without the second anchor one
+   merged row turned the step off for every later branch cut from the same
+   base. A declaration refused for belonging to somebody else prints under
+   `not yours` and names that work item — so if you see that line, the row is
+   not yours to lean on.
 4. **Verify** — run the actual checks and read their output before any
    completion claim. Fresh output only; a previous run proves nothing. §2
    bounds what you run and §3 answers a prompt that orders more.

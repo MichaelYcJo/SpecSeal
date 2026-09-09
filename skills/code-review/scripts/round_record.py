@@ -321,14 +321,21 @@ REPORT_NAME = "round-{n}-report.md"
 ASKED = "## What this round was asked"
 INHERITED = "## Inherited coordinates"
 INHERITED_HEADER = ("From", "Coordinate", "Why it is still worth opening")
-# Field labels the checker has no constant for, because it never reads them.
-BROAD_GATE = "Broad gate"
-# The honest values while nothing has happened yet. `not yet opened` is what
+# The label of the row this script WRITES and `chain_check.py` now READS, and
+# the value meaning the run has not happened. Both used to be defined here,
+# under a comment reading *"Field labels the checker has no constant for,
+# because it never reads them"* -- true until #295, when the checker started
+# reading this one. They moved to the reader, and this is the import, because
+# the failure of two copies is silent in the direction that matters: rename
+# the row here alone and this script keeps writing a row the checker no
+# longer finds, which the checker reads as `no run was named`.
+BROAD_GATE = chain.BROAD_GATE
+GATE_NOT_YET = chain.GATE_NOT_YET
+# The honest value while nothing has happened yet. `not yet opened` is what
 # `chain_check.declared_pull_head` documents as the pre-pull-request value;
 # `nothing to drain` is `templates/sdd-round.md`'s required answer for a
 # Deferred section with no rows.
 PR_NOT_YET = "not yet opened"
-GATE_NOT_YET = "not yet"
 NOTHING_TO_DRAIN = "nothing to drain"
 # Built by codepoint for the reason `chain_check.SEPARATORS` gives: an em dash
 # in a string literal is what ruff's RUF001 reads as a mistyped hyphen.
