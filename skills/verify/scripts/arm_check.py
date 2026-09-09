@@ -392,12 +392,17 @@ def _node_arms(node: ast.AST, scope: str, source: str) -> list[Arm]:
         group, withouts = _group_of(members, joiner, test, source)
         # `strict=` is the explicitness B905 asks for and it arrived in 3.10.
         # This script has no version floor and runs under whatever `python3`
-        # `bin/arm-check` finds -- measured on macOS's own 3.9.6, where it
-        # works. `strict=True` would kill it there after argument parsing and
-        # the whole walk had succeeded, which is #226 exactly: the message
-        # names neither the version nor the flag. `withouts` is built from
-        # `members` by `_group_of`, one entry per member, so the lengths agree
-        # by construction rather than by hope.
+        # `bin/arm-check` finds -- measured on macOS's own, a 3.9, where it
+        # enumerates this repository's guard and exits 0. `strict=True` would
+        # kill it there after argument parsing and the whole walk had
+        # succeeded, which is #226 exactly: the message names neither the
+        # version nor the flag. The minor version is the whole fact and the
+        # patch carries nothing, since no 3.9.x has the keyword -- written
+        # without one on purpose, because a three-part number in a loaded file
+        # is a timer `tests/test_release_hygiene.py` refuses, and it caught
+        # this comment's first draft. `withouts` is built from `members` by
+        # `_group_of`, one entry per member, so the lengths agree by
+        # construction rather than by hope.
         for member, without in zip(members, withouts):  # noqa: B905
             # **Parenthesised, and it is load-bearing for a wrapped test.**
             # The group's span covers the brackets the source used, so the
