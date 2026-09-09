@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | #294 |
 | Broad gate | e381105 against 86dd599 |
-| Fixes checked by | no fixes to check — the run is capped |
+| Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | no |
