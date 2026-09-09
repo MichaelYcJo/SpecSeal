@@ -40,8 +40,9 @@ When a root or file this skill needs doesn't exist, create it from
   the SDD set and the code. Creating `docs/policies/<domain>/` imposes one
   project's documentation habit — and one field's vocabulary — on every
   repository this plugin touches.
-- Leave evidence rows empty. They fill through the feedback rule below as work
-  happens — do not pre-populate speculatively.
+- Leave evidence rows empty. They fill through the feedback rule in
+  `skills/implement/SKILL.md` §2 as work happens — do not pre-populate
+  speculatively.
 
 **When `seal/` exists at neither place — the once-per-repo moment — ask one
 question before creating anything, then do two more things before
