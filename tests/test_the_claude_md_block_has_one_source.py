@@ -210,6 +210,26 @@ def test_exactly_one_mode_is_required():
     assert out.returncode == 2, out.stdout + out.stderr
 
 
+def test_a_floor_above_this_interpreter_refuses_before_anything_is_read(tmp_path):
+    """The guard `round_record.py` says to copy, copied, and shown to be
+    live: the real script with `FLOOR` raised above any interpreter exits 2
+    with a sentence and no traceback, and reads neither file. The
+    substitution asserts it matched, so this is not a case run against an
+    unmodified copy."""
+    copy = tmp_path / "claude_block.py"
+    text = read(SCRIPT)
+    old = "FLOOR = (3, 12)"
+    assert old in text, f"the script no longer spells the floor as `{old}`"
+    copy.write_text(text.replace(old, "FLOOR = (99, 0)"), encoding="utf-8")
+    missing = str(tmp_path / "no-such-template.md")
+    out = run("--check", "--template", missing, script=str(copy))
+    assert out.returncode == 2, out.stdout + out.stderr
+    assert "99.0" in out.stderr and "Traceback" not in out.stderr, out.stderr
+    assert "no-such-template" not in out.stderr + out.stdout, (
+        "the run got as far as the template, so the guard is not at entry"
+    )
+
+
 def test_the_script_asks_nobody_anything():
     """S8: prompt budget zero. The check exits with a message and never a
     question."""
