@@ -5,7 +5,7 @@
 | Review | straight to the PR |
 | Destination | open the pull request |
 | Implementation | the session |
-| Branch | docs/0.10.0-is-next-and-the-shipped-section-goes |
+| Branch | docs/the-deletions-survivors-are-excused-as-one-range |
 
 Answered 2026-09-10 by the owner, before the first edit.
 
