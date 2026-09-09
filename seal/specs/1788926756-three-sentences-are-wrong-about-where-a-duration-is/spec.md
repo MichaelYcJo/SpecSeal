@@ -32,8 +32,13 @@ sentences are about, which is Q5 of that work item and is now answered.
   printed `by 0.0m` as the grounds for withholding a figure.
 - **Item 3, and it is Q5's answer** — a window's `span_s` is taken to
   `max(end)` over its calls rather than to the end of the last call **to
-  begin**. That closes the plain report's `command 16.8m 101%`, which is in
-  the path every published segment reading uses.
+  begin**, so a window can no longer be shorter than a single call inside it.
+  **It does not close the plain report's `command 16.8m 101%`, and phase 1
+  measured that.** On that shape the span moves 995 → 1000 and the share
+  stays 101%, because `command_s` sums three calls that overlap: 1007s of
+  command time inside 1000s of wall clock. The span understatement was the
+  smaller of two causes and #145's finding 5 named only it. The other is
+  `questions.md` Q3, with the owner.
 - The disclosure in `skills/verify/SKILL.md` beside the span's own definition,
   because after item 3 the span means something a reader can state.
 
@@ -55,7 +60,7 @@ sentences are about, which is Q5 of that work item and is now answered.
 | The refusal names a cut, not a result | Given head call 0–8s, spawn 5–9s, calls 6–9s and 9–10s / when `--spawns` runs / then the refusal names *the cut its row ends at* and the phrase *a spawn's result* is absent | the case `test_a_head_call_outlives_the_cut_without_outliving_a_spawns_result`, which the report carries and which is red on the module as it stands |
 | Nothing rounds to `by 0.0m` | Given a one-second overlap / when the refusal prints / then it prints both sums and no magnitude that rounds away | the same case: `sum to 0.2m against the run's own 0.2m` |
 | The exact-cover boundary still reads as the partition agreeing | Given `outside == 0` / when the line prints / then it reads *is BETWEEN the rows — mostly the wait* | the existing boundary case, still green |
-| A span ends at the last call to END | Given calls 0–1000s, 10–12s, 990–995s / when the plain report runs / then `span_s` is 1000 and `command` is at or under 100% | a case asserting the span and the absence of a share over 100% |
+| A span ends at the last call to END | Given calls 0–1000s, 10–12s, 990–995s / when the plain report runs / then `span_s` is 1000, which is no shorter than the longest single call in the window | a case asserting the span against `slowest`'s head. **Corrected in phase 1** — this row asked for `command` at or under 100% as well, and that is not something a span rule can deliver: see `overview.md` and `questions.md` Q3 |
 | The rows still partition the calls | Given any transcript with a spawn / when `--spawns` runs / then every call lands in exactly one row | the existing partition case, still green |
 | No published reading moves | Given the transcripts on this machine / when both span rules are computed / then they agree | executed, below — 15 transcripts, 0 move |
 | A reader meets the span's meaning where the span is defined | Given `skills/verify/SKILL.md` / when a session reads the span's definition / then it says what the span ends at and what that costs | the sentence is in the file |
@@ -68,7 +73,8 @@ No schema, no new flag. Two printed sentences and one arithmetic rule.
 |---|---|---|
 | `spawn_cuts` opens its cut list at the first spawn's **start**, which is why the head row's cut is not a result | `session_cost.py#spawn_cuts` | read, and executed through the probe in #145's round-3 report |
 | `analyse` takes a span as `calls[-1]["end"] - calls[0]["start"]` with `calls` ordered by start | `session_cost.py#analyse` | read |
-| **No transcript on this machine has a span that moves under `max(end)`** — 15 transcripts, 30 to 836 calls, deltas all 0.0s, `command` shares unchanged to one decimal | `~/.claude/projects/<project>/*.jsonl` | **executed 2026-09-09**, both rules computed over each transcript |
+| **No PRINTED figure on this machine moves under `max(end)`** — this project's directory: 16 transcripts, 12 to 836 calls, 0 spans move. Every project: 169 transcripts, **one span moves, by 0.006s**, printed span 10.3m → 10.3m and `command` share 0% → 0% | `~/.claude/projects/*/*.jsonl` | **executed 2026-09-09 twice** — the handoff measured this project's directory, phase 1 re-ran it and widened it to the machine. The literal claim *no span moves* needs the word *printed* in it |
+| **A share over 100% is already on this machine and is not the span's fault** — 169 transcripts, one printing `command` at 115.7% under the new rule, from 5,761.8s of real call overlap across 99 calls; overlap above a second in 72 of 169 | `~/.claude/projects/*/*.jsonl` | **executed 2026-09-09** by phase 1. This is `questions.md` Q3 |
 | Four ledger rows anchor at `#report_spawns` and two at `#analyse`, so a comment inside either drifts them | `seal/ledger.md:101`, `:1818`, and #145's fragment | executed during #145's round 3 |
 
 ## Open questions → questions.md
