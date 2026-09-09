@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | #294 |
 | Broad gate | not yet — the orchestrator's, once, after the rounds settle (contract §2) |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | spawn_cycles → phase-1.md, plan.md, measure_cycles; report_spawns → round-1-report.md, round-1.md, main |
 | New units | test_the_delegated_wait_is_in_no_column_of_any_row (depth 1) |
 | Needs a fix | yes — findings 1 and 2, the false statement of where the delegated wall clock is and the false attribution of the published 116-minute cycle, in the code's printed report, `skills/verify/SKILL.md`, both fragments, the ledger row and the reading about to be posted; and finding 3, the missing disclosure that the rows do not partition the time. |
