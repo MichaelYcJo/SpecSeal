@@ -102,6 +102,46 @@ is still printed, under `exempt`, with its grounds -- a row that silences
 something invisibly is a row nobody audits. There is no value meaning *check
 nothing*.
 
+## A deletion is one row, because otherwise it is 153
+
+A branch that DELETES a shipped section is the case per-survivor rows cannot
+serve. Every sentence of the section stands in the durable copies that are
+supposed to survive a deletion -- `docs/flow.md` §*A shipped version's section
+is deleted, not kept* names them -- so #293's own range reported **153**
+survivors at 1.60-1.62, every one correct as a report and none of them a
+defect. Writing 153 rows is not an escape anybody takes; the branch turns the
+check off instead, which is the outcome the escape exists to prevent.
+
+So the same file takes a second row shape, with the range in the first cell:
+
+    | Range | Grounds |
+    |---|---|
+    | `origin/release/vX.Y.Z...HEAD` | the deleted section's sentences stand
+      in the durable copies by design |
+
+**The row is anchored on two things, the range and the work item.** The spec is
+RESOLVED rather than string-matched, because CI spells the range
+`origin/<base>...HEAD` and a person spells it as two oids, and those are the
+same range. Resolving is what makes the range alone insufficient: that spelling
+is not a range, it is a RELATION, and it re-resolves to whatever range the
+checkout it is read on is over. Every `seal/specs/*/survivors.md` in the tree
+is handed to every run, and a `survivors.md` lives until the release that ships
+it, so one merged row in that spelling matched every later branch cut from the
+same base and excused its whole run. So the second anchor is the directory the
+row lives in: a declaration holds only over a range that touches its own work
+item, which a work item's own range always does.
+
+Both anchors degrade the way the quote above does -- loudly. A spec that no
+longer resolves prints under `unresolved`; a declaration refused for belonging
+to another work item prints under `not yours`, with that work item named.
+Neither refuses the whole run: a `survivors.md` outlives the branch whose refs
+its range names, and exit 2 there would turn every later range's check into a
+refusal over a row that has nothing to do with it.
+
+The grounds are not optional. What a reviewer reads is the written sentence,
+and a row without one silences 153 places on the strength of nothing, so it is
+not a row at all.
+
 **The deliberate-duplication case is not what the escape is for.** `CLAUDE.md`
 and `CONTRIBUTING.md` deliberately carry the same sentence about ledger
 removals. A branch correcting it in one and not the other IS reported, and that
@@ -636,13 +676,54 @@ def survivors(root, a, b, floor=FLOOR):
 # --- the exemptions --------------------------------------------------------
 
 
-def read_exemptions(paths):
-    """`[(path, quote_words, grounds)]` from the markdown tables named.
+# A first cell naming a range rather than a path, which is what tells the two
+# row shapes apart. A path cannot match it: the dots need a non-space word on
+# BOTH sides, so `../notes.md` is a path and `A..B` is a range.
+RANGE_CELL = re.compile(r"^[^\s|]+\.\.\.?[^\s|]+$")
 
-    A row is `| Path | Quote | Grounds |`. The quote is the anchor and it is
-    matched on normalised words, so a backtick or a line break in either the
-    row or the surviving text does not decide whether an exemption holds."""
-    rows = []
+# The work item a `survivors.md` belongs to, read off the file's own path. It
+# is the declaration's SECOND anchor, and without it the row has effectively
+# one that does not hold: `hygiene.yml` hands every `seal/specs/*/survivors.md`
+# in the tree to every run, and the spelling this module recommends --
+# `origin/<base>...HEAD` -- re-resolves on each checkout, so one merged row
+# matched every later branch cut from the same base and excused its whole run.
+OWNER_DIR = re.compile(r"(?:^|.*/)(seal/specs/[^/]+)/[^/]+$")
+
+
+def read_exemptions(paths):
+    """`([(path, quote_words, grounds)], [(range_spec, grounds, source_file)])`.
+
+    TWO row shapes, told apart by the first cell, and both live in the same
+    `survivors.md`:
+
+      `| Path | Quote | Grounds |`    one judged survivor. The quote is the
+          anchor and it is matched on normalised words, so a backtick or a
+          line break in either the row or the surviving text does not decide
+          whether an exemption holds.
+
+      `| Range | Grounds |`          a whole range, for #297. A branch that
+          DELETES a shipped section leaves every sentence of it standing in
+          the durable copies that are supposed to survive a deletion, and
+          #293's own range reported 153 of them at 1.60-1.62 -- every one
+          correct as a report and none of them a defect. 153 written
+          sentences is not an escape anybody takes; a branch turns the check
+          off instead, which is the outcome the escape exists to prevent.
+
+    **A range row is anchored on TWO things**, and the range alone was not
+    enough. Run the check over a different range and the row does not hold --
+    but `origin/<base>...HEAD`, the spelling CI passes and this module
+    recommends, is not a range, it is a RELATION, and it re-resolves to
+    whatever range the checkout it is read on is over. So the second anchor is
+    the work item the file lives in, which is why the path is carried in the
+    tuple. Between them a declaration cannot outlive the deletion it was
+    written for, and it cannot be a standing *check nothing* -- which this
+    design still has no value for.
+
+    A range row with no grounds is NOT a row. The grounds are the whole
+    content of the escape: what a reviewer reads is the written sentence, and
+    a row without one silences 153 places on the strength of nothing.
+    """
+    rows, ranges = [], []
     for path in paths:
         if not os.path.isfile(path):
             raise Refused(f"--exempt {path} does not exist")
@@ -652,28 +733,110 @@ def read_exemptions(paths):
         # let a second `--exempt` naming an empty file pass on the strength of
         # the first one's rows, which is the direction a checker of claims must
         # not fail in.
-        before = len(rows)
+        before = len(rows) + len(ranges)
         for line in text.splitlines():
             line = line.strip()
             if not line.startswith("|"):
                 continue
             cells = [cell.strip() for cell in line.strip("|").split("|")]
-            if len(cells) < 3:
+            if len(cells) < 2:
                 continue
             if set("".join(cells)) <= set("-: "):
                 continue
-            where = cells[0].strip("`").strip()
-            quote = words(cells[1])
-            if not where or where.lower() == "path" or not quote:
+            first = cells[0].strip("`").strip()
+            # The range shape is tested FIRST, because it is the narrower
+            # pattern: a path never matches `RANGE_CELL`, so nothing that is
+            # a per-survivor row can be captured here.
+            if RANGE_CELL.match(first):
+                if cells[1]:
+                    # The file is carried so `whole_range` can ask whose
+                    # declaration this is. A row with no work item directory
+                    # above it -- an `--exempt` file passed from anywhere --
+                    # keeps the old reach, because there is nothing to scope it
+                    # to and refusing it would break running the check by hand.
+                    ranges.append((first, cells[1], path))
                 continue
-            rows.append((where, quote, cells[2]))
-        if len(rows) == before:
+            if len(cells) < 3:
+                continue
+            quote = words(cells[1])
+            if not first or first.lower() == "path" or not quote:
+                continue
+            rows.append((first, quote, cells[2]))
+        if len(rows) + len(ranges) == before:
             raise Refused(
-                f"--exempt {path} holds no `| Path | Quote | Grounds |` row. An "
-                "exemption file with nothing in it silences nothing, and reading "
-                "it as empty would hide the fact that it was not written"
+                f"--exempt {path} holds no `| Path | Quote | Grounds |` or "
+                "`| Range | Grounds |` row. An exemption file with nothing in "
+                "it silences nothing, and reading it as empty would hide the "
+                "fact that it was not written"
             )
-    return rows
+    return rows, ranges
+
+
+def whole_range(root, ranges, a, b):
+    """`(match, unresolved, foreign)` for the declarations handed to this run.
+
+    Resolved rather than string-matched, because the two spellings of one
+    range are both real: CI runs `origin/<base>...HEAD`, which is what a
+    session copies into the declaration, and a person running it by hand
+    types two oids. Comparing the text would refuse the same range for being
+    spelled the other way.
+
+    **Resolving is also why the range alone was not an anchor.**
+    `origin/<base>...HEAD` is not a range, it is a RELATION, and it resolves to
+    whatever range the checkout it is read on is over. `hygiene.yml` hands
+    every `seal/specs/*/survivors.md` in the tree to every run, and a
+    `survivors.md` lives until the release that ships it -- so one merged
+    declaration in that spelling matched every later branch cut from the same
+    base, excused every one of its survivors and turned the step off for the
+    rest of the release. That is the outcome the escape exists to prevent,
+    arriving through the escape.
+
+    So a declaration is also its work item's. It holds only over a range that
+    touches the directory the file sits in, and a work item's own range always
+    does -- its routing declaration is committed there before its first edit.
+    A `survivors.md` outside any work item directory keeps the old reach:
+    there is nothing to scope it to, and refusing it would break running the
+    check by hand.
+
+    **Ownership is asked only of a declaration that WOULD have matched**, and
+    a refused one is returned in `foreign` so the report prints it. A row that
+    quietly stopped applying is the one failure a rotting anchor must not
+    have, and that rule binds in this direction too -- a declaration a work
+    item wrote for its own range and cannot use is a line somebody has to
+    read, not a silence. Testing the range first is also what keeps the
+    `git diff` out of every run that has no matching declaration.
+
+    **A spec that will not resolve is REPORTED, never exit 2**, and that is a
+    landmine avoided rather than leniency. A `survivors.md` lives in the tree
+    from the work item's first row until the release that ships it, and the
+    refs its range names -- a release branch -- get deleted. Refusing the run
+    then would turn every later range's check into exit 2 over a row that has
+    nothing to do with it.
+    """
+    match, unresolved, foreign = None, [], []
+    changed = None
+    for spec, grounds, source in ranges:
+        try:
+            left, right = parse_range(root, spec)
+        except Refused:
+            unresolved.append((spec, grounds))
+            continue
+        if (left, right) != (a, b):
+            # Not this run's range at all, which needs no line: the row is
+            # honest and says so itself. Only a row that resolved ONTO this
+            # range and is then refused has something a reader must be told.
+            continue
+        owner = OWNER_DIR.match(source.replace("\\", "/"))
+        if owner is not None:
+            if changed is None:
+                names = git(root, "diff", "--name-only", "-z", a, b)
+                changed = [path for path in (names or "").split("\0") if path]
+            if not any(path.startswith(owner.group(1) + "/") for path in changed):
+                foreign.append((spec, grounds, owner.group(1)))
+                continue
+        if match is None:
+            match = (spec, grounds)
+    return match, unresolved, foreign
 
 
 def exempted(candidate, rows):
@@ -704,11 +867,32 @@ def trim(text, width=150):
     return text if len(text) <= width else text[: width - 1] + "…"
 
 
-def report(rows, exemptions, a, b, examined, corrected_count, out=sys.stdout):
-    """Print the survivors and answer with the exit code."""
+def report(
+    rows,
+    exemptions,
+    a,
+    b,
+    examined,
+    corrected_count,
+    out=sys.stdout,
+    whole=None,
+    unresolved=(),
+    foreign=(),
+):
+    """Print the survivors and answer with the exit code.
+
+    `whole` is the `(range_spec, grounds)` declaration covering this exact
+    range, and it excuses every candidate. `unresolved` is the declarations
+    whose range does not resolve here; they silence nothing and are printed,
+    because a declaration that quietly stopped applying is the one failure a
+    rotting anchor must not have. `foreign` is the same failure one step
+    over: a declaration that resolved onto this exact range and belongs to a
+    work item the range does not touch, refused and printed with the work
+    item it came from.
+    """
     standing, excused = [], []
     for score, candidate, source, shared in rows:
-        grounds = exempted(candidate, exemptions)
+        grounds = whole[1] if whole else exempted(candidate, exemptions)
         (excused if grounds else standing).append(
             (score, candidate, source, shared, grounds)
         )
@@ -718,6 +902,24 @@ def report(rows, exemptions, a, b, examined, corrected_count, out=sys.stdout):
         f"{corrected_count} sentence(s) the range {a[:7]}..{b[:7]} removed",
         file=out,
     )
+    for spec, grounds in unresolved:
+        print(
+            f"  unresolved  {spec} does not resolve here, so it silences "
+            f"nothing -- {trim(grounds, 80)}",
+            file=out,
+        )
+    for spec, grounds, owner in foreign:
+        print(
+            f"  not yours   {spec} was written by {owner} and this range "
+            f"touches nothing in it, so it silences nothing -- "
+            f"{trim(grounds, 80)}",
+            file=out,
+        )
+    if whole:
+        print(
+            f"  declared    the whole range {whole[0]} -- {trim(whole[1], 100)}",
+            file=out,
+        )
     for _score, candidate, _source, _shared, grounds in excused:
         print(f"  exempt   {candidate.where()} -- {trim(grounds, 100)}", file=out)
     if not standing:
@@ -786,9 +988,23 @@ def main(argv=None):
         # Before the run rather than after it: an exemption file that will not
         # parse is exit 2, and finding that out after several seconds of
         # indexing prints a refusal underneath a report.
-        exemptions = read_exemptions(args.exempt)
+        exemptions, ranges = read_exemptions(args.exempt)
+        # After the endpoints resolve and before the indexing, for the reason
+        # the line above gives: a declaration is judged against the range this
+        # run is actually over, and nothing here costs several seconds.
+        whole, unresolved, foreign = whole_range(root, ranges, a, b)
         rows, examined, gone = examine(root, a, b, args.floor)
-        return report(rows, exemptions, a, b, examined, gone)
+        return report(
+            rows,
+            exemptions,
+            a,
+            b,
+            examined,
+            gone,
+            whole=whole,
+            unresolved=unresolved,
+            foreign=foreign,
+        )
     except Refused as exc:
         print(f"survivor-check: {exc}", file=sys.stderr)
         return 2
