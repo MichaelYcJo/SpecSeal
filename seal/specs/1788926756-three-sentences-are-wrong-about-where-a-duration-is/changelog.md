@@ -10,15 +10,20 @@
   and 990–995s gave a span of **995 seconds** for a window holding a single
   1000-second call. The span now ends at the last call to **end**.
 
-  **Nothing already published moves, and that was measured on two axes rather
-  than one.** Both rules were computed over every transcript under
-  `~/.claude/projects`. Run level: 169 transcripts with calls, one span moves,
+  **Nothing this repository has published moves, and elsewhere on the machine
+  three printed figures do.** Both rules were computed over every transcript
+  under `~/.claude/projects`, on every printed surface the span feeds rather
+  than on two of them. Run level: 169 transcripts with calls, one span moves,
   by six thousandths of a second, with its printed span 10.3m either way.
   Row level — which a run-level sweep does not cover, and which is what the
   per-cycle readings publish — 599 spawn-cycle rows, 8 move at all and 2 move
-  far enough to change a printed figure. Every one of the 8 is in another
-  project's transcript; this repository's own directory has 16 transcripts and
-  not one moving row. The guarantee is a measurement, not a structure, so
+  far enough to change a printed figure. The between-the-rows figure, which is
+  what the refusal below is about, moves on 3 transcripts. `idle`, the `model`
+  share and the whole-run `command` share move nowhere, and no run switches
+  between printing the figure and refusing it. Every move on every axis is in
+  another project's transcript; this repository's own directory has 16
+  transcripts and not one moving figure. So what makes the published readings
+  safe is that per-project measurement and not the rule being harmless, and
   `skills/verify/SKILL.md` now says what a span ends at where a person taking
   a reading meets it.
 
@@ -51,9 +56,9 @@
 
 - **The same refusal printed `by 0.0m` as its grounds for withholding a
   figure.** The magnitude went through a one-decimal formatter, so any overlap
-  under three seconds read as the spans having summed past the run by nothing
-  — beside a span column of 0.1m, 0.0m, 0.0m that could not be reconciled
-  with it. The line now prints **both sums** — *the rows' spans sum to 33.1m
+  under three seconds read as the spans having summed past the run by nothing,
+  beside a span column whose own figures did not add up to it. The line now
+  prints **both sums** — *the rows' spans sum to 33.1m
   against the run's own 16.7m* — and leaves the subtraction to the reader,
   which carries the same fact and never rounds one of the two away.
 

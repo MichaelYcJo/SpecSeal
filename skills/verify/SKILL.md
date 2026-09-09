@@ -429,8 +429,13 @@ finished, not as a follow-up someone might do later:
    everywhere else; and `command` could exceed 100 per cent of the span,
    which the new rule narrows and does not close, because command time is a
    sum over calls and calls can run concurrently. Where you see a share above
-   100, read it as command seconds against wall-clock seconds with something
-   running in the background, never as a broken number.
+   100, read it as command seconds against wall-clock seconds with calls
+   running at once, never as a broken number. Batching is the ordinary way
+   in and a background command is the rarer one: every tool call in one
+   assistant message carries that message's timestamp as its start, so a
+   batch of three overlaps by construction. Measured over the transcripts on
+   one machine, every second of overlap above a second came from calls
+   batched into one message and none of it from a call that crossed a turn.
 
    **Where the report gives no between-the-rows figure and prints the rows'
    spans against the run's own, a call outlived the cut its row ends at.**

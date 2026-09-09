@@ -619,8 +619,8 @@ def in_windows(cuts, items, when):
     Assignment is by ONE instant per item — a call's start, a turn's stamp —
     which is what makes the windows a partition: every item has exactly one
     of those and every instant falls in exactly one window. Assigning a call
-    by overlap would put one that outlived a report in two rows, and a sum
-    over the rows would then come out larger than the run."""
+    by overlap would put one that outlived the cut its row ends at in two
+    rows, and a sum over the rows would then come out larger than the run."""
     windows = [[] for _ in range(len(cuts) + 1)]
     for item in items:
         windows[bisect.bisect_right(cuts, when(item))].append(item)
@@ -1245,10 +1245,10 @@ def report_spawns(spawns, path, total_calls, run_span=0.0):
     # And the subtraction can come out NEGATIVE, which is not an interval and
     # must not be printed as one. `in_windows` assigns a call by its START,
     # which is what makes the CALLS partition and is not enough to make the
-    # spans partition: a call that outlives a spawn's result stays in the row
-    # it began in while the next row's calls have already started, so two
-    # rows' spans cover the same seconds and their sum can pass the run's own
-    # span. A background `Bash` command in the head row printed `-16.5m of the
+    # spans partition: a call that outlives the cut its row ends at stays in
+    # the row it began in while the next row's calls have already started,
+    # so two rows' spans cover the same seconds and their sum can pass the
+    # run's own span. A background `Bash` command in the head row printed `-16.5m of the
     # run's 16.6m is BETWEEN the rows — mostly the wait`, exit 0 — the class of
     # false printed line #145 exists to close, reintroduced by the fix for it.
     #

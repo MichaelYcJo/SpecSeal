@@ -1708,8 +1708,8 @@ def test_every_call_lands_in_exactly_one_row(orchestrator):
     """The property the whole table rests on, asserted as a sum.
 
     A slice that drops the run's closing work, or one that charges a call
-    that outlived a report to both rows either side of it, both pass every
-    other case here and fail this one."""
+    that outlived the cut its row ends at to both rows either side of it,
+    both pass every other case here and fail this one."""
     data = json.loads(run(["--json", str(orchestrator)]).stdout)
     rows = data["spawns"]["rows"]
     counted = sum(row["numbers"]["calls"] for row in rows if row["numbers"])
@@ -2116,8 +2116,8 @@ def test_a_call_that_outlives_a_cut_prints_no_between_the_rows_figure(tmp_path):
 
     `in_windows` assigns a call by its start, which is what makes the calls
     partition and is not enough to make the spans partition: a call that
-    outlives a spawn's result stays in the row it began in while the next
-    row's calls have already started, so two rows' spans cover the same
+    outlives the cut its row ends at stays in the row it began in while the
+    next row's calls have already started, so two rows' spans cover the same
     seconds and their sum can pass the run's own span. The line above then
     subtracts to a negative and printed `-16.5m of the run's 16.6m is
     BETWEEN the rows -- mostly the wait`: a negative interval, named as the
@@ -2227,10 +2227,14 @@ def test_a_head_call_outlives_the_cut_without_outliving_a_spawns_result(tmp_path
     result arrives. The refusal must not name a cause this transcript does
     not carry, and it must not print a magnitude that rounds to nothing.
 
-    The two sums are what removes the rounding. `minutes` is one decimal, so
-    the difference here — three seconds — printed `by 0.0m` as the grounds
-    for withholding a figure, beside a span column that read 0.1m, 0.0m,
-    0.0m and could not be reconciled with it."""
+    The two sums are what removes the magnitude. `minutes` is one decimal, so
+    a difference under three seconds printed `by 0.0m` as the grounds for
+    withholding a figure: #145's round 3 measured that on a one-second
+    overlap. The difference here is three seconds and printed `by 0.1m`; what
+    this fixture pins is item 1, the cut rather than the result. Note that
+    both sums round to 0.2m on it, so the reader's own subtraction gives 0.0m
+    — the two figures stop the line ASSERTING a magnitude of zero, and they
+    do not recover one."""
     lines = call("bg", 0, 8, "npm run dev")
     lines += spawn("A", 5, 9, "specseal:smith")
     lines += call("b", 6, 9, "pytest -q")
