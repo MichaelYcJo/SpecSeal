@@ -418,6 +418,20 @@ finished, not as a follow-up someone might do later:
    12 to 31 per cent of a run — and the agent's own transcript is where its
    number is, either way.
 
+   **A span runs from its window's first call to the last call to END, and
+   that is worth knowing because it used to end at the last call to BEGIN
+   (#300).** The old rule read the end of the last element of a list sorted
+   by start, so a long-lived call — a background command, a suite spanning
+   the window — ended after the window counting it, and a reading could
+   report a span shorter than a single call inside it. Two consequences for
+   anyone comparing readings across that change: a span taken before it is
+   the shorter of the two wherever a call outlived its window, and identical
+   everywhere else; and `command` could exceed 100 per cent of the span,
+   which the new rule narrows and does not close, because command time is a
+   sum over calls and calls can run concurrently. Where you see a share above
+   100, read it as command seconds against wall-clock seconds with something
+   running in the background, never as a broken number.
+
    **Where the report gives no between-the-rows figure and prints the rows'
    spans against the run's own, a call outlived the cut its row ends at.**
    Assigning a call by its start is what makes the calls partition, and it
