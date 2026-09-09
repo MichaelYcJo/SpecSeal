@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# Runs the arm enumeration as `arm-check` instead of a long path into the
+# plugin directory. Claude Code puts a plugin's bin/ on the Bash tool's PATH
+# while the plugin is enabled, so a session can type the command #262 asks for.
+#
+# Resolves the script relative to this file, not the caller's cwd, so it works
+# from any directory. Arguments pass straight through:
+#   arm-check hooks/review-history-guard.py
+#   arm-check hooks/review-history-guard.py --tests "bin/test tests/test_chain_hooks.py -q"
+#   arm-check hooks/review-history-guard.py --only main --tests "..."
+#
+# With no --tests it lists the arms and mutates nothing. With --tests it
+# mutates each arm in turn, runs that command, and reports the arms nothing
+# kills -- restoring the module from held bytes and comparing the hash after
+# every one. It is report-only: exit 0 whether or not an arm survived.
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec python3 "$here/../skills/verify/scripts/arm_check.py" "$@"

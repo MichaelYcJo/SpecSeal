@@ -56,6 +56,63 @@ found", which is a different sentence from "not there". Never promote one to
 a document — a policy or a ledger row built on a search nobody could repeat
 is the same defect as a `read` reported as passing, with a longer fuse.
 
+#### `arm-check` asks condition 2 of a whole module, one arm at a time
+
+Condition 2 is asked of the case in front of you. **A module has arms nobody
+ever asked it of**, and counting them by hand is how the count rots: #262's
+own table says 33 arms where `hooks/review-history-guard.py` now has 31,
+because the file changed twice after the count was taken.
+
+```
+arm-check hooks/review-history-guard.py
+arm-check hooks/review-history-guard.py --tests "bin/test tests/test_chain_hooks.py -q"
+```
+
+With no `--tests` it lists the arms and mutates nothing. With `--tests` it
+makes each arm wrong in turn, runs that command, and names the arms nothing
+kills — restoring the module from held bytes and comparing the sha256 after
+every mutation, never with `git checkout`, which reaches the uncommitted work
+in the rest of the tree.
+
+**There are two ways to be wrong and the counts differ by a lot**, so the
+report keeps them apart and the number you quote has to say which one it is:
+
+| Operator | Asks | Measured 2026-09-09 on `hooks/review-history-guard.py` |
+|---|---|---|
+| `invert` | would a case notice this test being **backwards** | 0 of 29 survived |
+| `remove` | would a case notice this arm being **absent** | 12 of 32 survived |
+
+That third column is a measurement and not a property of the module: it moves
+when either the module or `tests/test_chain_hooks.py` changes, which is the rot
+this checker exists to end. Re-take it with the command above rather than
+reading it as current — a number in a document is exactly what #262 says goes
+stale.
+
+The two denominators differ because **a pair both operators answer identically
+is asked once.** A handler with one type left is aimed at what nothing raises
+by either operator, so `invert` refuses it and the report names the pair;
+`remove` keeps it, because #262's table is a removal count. Three of this
+module's arms are that shape.
+
+An arm counts watched when **either** is noticed, because *does any case
+depend on this arm* is answered by one yes. #262's own table of unwatched arms
+is a `remove` count — every sentence in it is about taking something out — so
+that is the row to compare it with, and the combined total is not.
+
+An arm is what #262's rule says it is: an `ExceptHandler` counting each member
+of an except tuple separately, or an `If`, `While` or `IfExp` counting each
+**top-level** member of the boolean test separately, plus a `match_case`'s
+alternatives and guard and a comprehension's `if` guards. The walk is derived
+from the grammar rather than from a list, and it **refuses an AST node type
+it does not recognise** instead of skipping it — a walk that skips silently is
+the rotted hand count with a shebang on it.
+
+Two things it does not claim. **A survivor is not automatically a defect:** an
+arm that cannot be constructed, or one whose removal preserves behaviour,
+belongs in the report and is not work anybody owes. And it is **report-only,
+exit 0 either way** — whether an unwatched arm should fail a run is an open
+decision, not an omission.
+
 ### 3. Bound to the tree
 
 Evidence attaches to a tree state, not to a session. Note the state the
