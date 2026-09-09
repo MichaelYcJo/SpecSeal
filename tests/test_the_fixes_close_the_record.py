@@ -467,8 +467,19 @@ def test_a_correction_closed_answered_lands_on_no_fixes_to_check(repo):
     a = round_one(repo, verdicts=note)
     write(repo, "README.md", "# the ledger row corrected\n")
     b = commit(repo, "the correction")
+    # `--broad-gate` is passed because this case runs the check judged as
+    # READY, and at a ready pull request `chain_check` reads that cell on the
+    # last record (#295): a generated record says `not yet` until the one
+    # full-suite run happens, and `not yet` there is a refusal of its own.
+    # The value is `b`, the correction commit, because the broad gate runs
+    # AFTER the fixes — a SHA the record's `Target SHA` descends from would
+    # fail as the run spent before the round it was meant to seal.
     _, out, record = close(
-        repo, 1, fix_table(f"| 1 | answered | corrected at {b[:7]} |\n"), f"{a}..{b}"
+        repo,
+        1,
+        fix_table(f"| 1 | answered | corrected at {b[:7]} |\n"),
+        f"{a}..{b}",
+        extra=("--broad-gate", f"{b[:7]} against base"),
     )
     chain = check_module()
     assert fields(record)["Fixes checked by"] == chain.NO_FIXES, out

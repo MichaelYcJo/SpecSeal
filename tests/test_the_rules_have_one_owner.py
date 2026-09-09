@@ -225,24 +225,44 @@ def test_a_correction_row_closes_answered_and_never_fixed():
     assert "§*The last round verifies* owns the rule" in smith
 
 
-def test_the_release_leg_is_red_until_round_ones_record_commits():
-    """Round 1's ⬜ 8: PR #168's `release` leg failed from the draft's
-    opening until the first record committed, and no carrier said that
-    window is the expected state. Rule 6's owner says so beside the rule."""
-    assert (
-        "The `release` leg is red from the draft's opening until round 1's "
-        "record commits"
-    ) in flat(*ORCH)
-    assert "that is the window's expected state" in flat(*ORCH)
+def test_the_release_leg_is_no_longer_red_until_round_ones_record_commits():
+    """Round 1's ⬜ 8 asked the owner to say that window was expected, and
+    #296 closed the window instead.
+
+    The sentence this case used to require — *the `release` leg is red from
+    the draft's opening until round 1's record commits*, and *that is the
+    window's expected state, not a failure to chase* — was true, and was the
+    defect. This file orders the draft pull request opened before round 1,
+    because a reviewer needs a pull request to review, so the arm counting
+    round records was red for obedience to the document beside it. A check
+    like that is one people learn to route around.
+
+    The owner now says the window is closed, and BOTH halves are asserted:
+    the state prints on a draft rather than failing, and the record is still
+    owed. Requiring only the first would go green over a document that had
+    quietly turned the draft into a permanent exemption.
+    """
+    assert "That window used to be red and is not any more" in flat(*ORCH)
+    assert "on a draft the missing record prints and the run exits 0" in flat(*ORCH)
+    assert "Nothing that can reach `main` is exempt" in flat(*ORCH)
 
 
 def test_the_release_leg_is_red_again_until_the_verifying_rounds_record_commits():
     """Round 2's ⬜ 12: the leg has a second red window, from `close`
     ticking `Pass` until the verifying round's record commits, and the
-    ⬜ 8 sentence named one. The owner names both."""
+    ⬜ 8 sentence named one. The owner names both.
+
+    Asserted through the sentence's LAST WORD since round 1's ⬜ 5 of work
+    item 1788912166. It ended `expected too` — the `too` pointing at the
+    first red window — and #296 closed that window, so the word was dropped.
+    Dropping it is right and it is an EDIT, which is what the phase record
+    that called it a restoration got wrong. The clause stopped at `record
+    commits` here, so nothing was watching the half where the word lived.
+    """
     assert (
         "It is red once more from `close` ticking `Pass` until the verifying "
-        "round's record commits"
+        "round's record commits, for the reason the check prints — `Pass` "
+        "beside `nobody` on the last record — and that window is expected."
     ) in flat(*ORCH)
 
 
