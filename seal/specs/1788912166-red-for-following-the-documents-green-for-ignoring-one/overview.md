@@ -64,6 +64,18 @@ to exempt this branch was available and refused: a gate whose author exempts
 their own change from it is the version of this rule nobody downstream would
 trust.
 
+**Round 1's fix pass left one finding of its own unfixed, and it is in
+`seal/follow-up.md`.** Writing a `survivors.md` row silences its survivor a
+second way: once the commit adding the row is inside the range, `corrected`
+reads the row's quote as wording the range ADDED and `wanted` subtracts those
+n-grams from what is looked for. Executed over this fix range — eleven places
+reported before the file existed, one after it, with no `--exempt` flag passed.
+That path has no anchor to degrade, which is the property the whole escape
+rests on. It is closable only by mechanism and a fix pass may not add any
+(`skills/code-review/orchestration.md` §*A fix pass adds the unit that pins
+it*), so it is a row with the repository owner named, carrying the candidate
+fix and the argument against it.
+
 ## Fed back into the spec
 
 **None as a clause.** Two decisions the specification did not cover were
