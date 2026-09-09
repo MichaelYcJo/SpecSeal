@@ -570,6 +570,131 @@ def test_the_report_names_the_scope_the_shape_and_the_line_of_a_survivor():
     )
 
 
+# Two scopes, one arm each, so `--only` narrows the run to half the module.
+TWO_SCOPES = """\
+def one(a):
+    if a:
+        return 1
+    return 0
+
+
+def two(b):
+    if b:
+        return 1
+    return 0
+"""
+
+# A module whose branching lives in the two DECLARED exclusions plus one `if`.
+# #262's rule counts the `if` alone, so the total is 1 of three branchings a
+# reader would count by eye.
+DECLARED = """\
+def f(x, items):
+    assert x > 0 and x < 10
+    for item in items:
+        if item:
+            return item
+    else:
+        return None
+"""
+
+
+def test_the_declared_exclusions_are_named_where_the_total_is_printed(tmp_path):
+    """Round 1's finding 7. §14 — the report is what a person reads.
+
+    `Assert`, `For` and `AsyncFor` are excluded by DECLARATION rather than
+    because they hold no boolean test: an `assert` is a test a mutation could
+    flip, and a `for`'s `orelse` is arguably an arm. #262's rule counts
+    neither and the hand count this walk is checked against was taken under
+    that rule, so the exclusion stands — but on a module whose branching lives
+    in them, `1 arms` reads as *this module has one branch* rather than as
+    *one under this rule*, and the rule is the part a reader has to be able to
+    overturn.
+
+    Named statically rather than counted, which is the smaller fix: a count
+    per module would mean a second walk of the tree, and what the reader needs
+    is which rule narrowed the total and where its grounds are.
+
+    Red how: deleting the two `echo` lines in `_report` leaves the module's
+    `1 arms` with nothing saying what it excludes. Executed."""
+    module_path = tmp_path / "declared.py"
+    module_path.write_text(DECLARED, encoding="utf-8")
+    lines = []
+    found = ARM.arms_of_file(str(module_path))
+    ARM._report(str(module_path), [], [], ARM.counts(found), lines.append)
+    text = "\n".join(lines)
+    assert "1 arms" in text, (
+        "the fixture's assert pair and for/else are excluded, so the walk "
+        "finds only the inner `if` — that is the premise of this case"
+    )
+    assert "excluded by declaration, not in the total" in text
+    for name in ARM.DECLARED_EXCLUSIONS:
+        assert name in text, (
+            f"{name} is excluded by declaration and the report does not say "
+            f"so, so its total reads as the module's branch count"
+        )
+    assert "NOT_ARMS" in text, "and where the grounds for each exclusion are"
+
+
+def test_every_declared_exclusion_is_classified_as_a_non_arm():
+    """The list the report prints cannot name a shape the walk actually walks.
+
+    A name that drifted into `ARM_SHAPES` would be disclosed as excluded while
+    being counted, which is worse than the silence this replaced."""
+    for name in ARM.DECLARED_EXCLUSIONS:
+        assert name in ARM.NOT_ARM_NAMES, f"{name} is not classified as a non-arm"
+        assert name not in ARM.ARM_SHAPES, (
+            f"{name} is walked as an arm shape and reported as excluded"
+        )
+
+
+def test_a_filtered_run_does_not_state_its_count_as_the_modules_total(tmp_path, capsys):
+    """Round 1's finding 8. §14 again, and the harm is in the paste.
+
+    The header names a file and gives a number, so it reads as the file's
+    total. Under `--only` it was the filtered count: `--only reader` printed
+    `hooks/review-history-guard.py — 5 arms` for a module holding 32. This
+    output goes into records — `phase-4.md` and the ledger fragment both paste
+    a run — and the flag that produced it does not travel with the text.
+
+    Both call sites, because `--only` narrows in two places: the listing
+    branch filters `arms_of_file` and the mutating branch filters inside
+    `run_arms`. The unfiltered total is taken before either.
+
+    Red how: `of_total` dropped from a call site prints `1 arms` for a
+    two-arm module. Executed on both."""
+    module_path = tmp_path / "two_scopes.py"
+    module_path.write_text(TWO_SCOPES, encoding="utf-8")
+
+    # The listing branch.
+    ARM.main([str(module_path), "--only", "one"])
+    listed = capsys.readouterr().out
+    assert "1 of 2 arms (--only)" in listed, (
+        f"{listed!r} — a filtered listing must say what it filtered out of, "
+        f"or its number is read as the module's"
+    )
+
+    # And unfiltered, the same line carries no denominator to misread.
+    ARM.main([str(module_path)])
+    whole = capsys.readouterr().out
+    assert "— 2 arms" in whole and "of 2 arms" not in whole
+
+    # The mutating branch, where the total has to be read before `--only`.
+    ARM.main(
+        [
+            str(module_path),
+            "--only",
+            "one",
+            "--tests",
+            shlex.join([sys.executable, "-c", "pass"]),
+        ]
+    )
+    mutated = capsys.readouterr().out
+    assert "1 of 2 arms (--only)" in mutated, (
+        f"{mutated!r} — the mutating branch filters inside `run_arms`, so it "
+        f"needs the total taken before the filter"
+    )
+
+
 def test_the_checker_is_report_only_and_exits_zero_over_the_real_module(two_arms):
     """`questions.md` Q1 is the owner's, and this is the behaviour the code
     has until they answer: report-only.

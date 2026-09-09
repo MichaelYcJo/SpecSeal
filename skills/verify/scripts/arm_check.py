@@ -492,6 +492,18 @@ def arms_of_file(path: str) -> list[Arm]:
         return arms(f.read(), filename=path)
 
 
+#: Node types excluded from the walk by DECLARATION rather than because they
+#: carry no branch, so the report names them where it prints the total. The
+#: grounds for each are in `NOT_ARMS` — an `assert` IS a test a mutation could
+#: flip, and a `for`'s `orelse` is arguably an arm; #262's rule counts neither,
+#: and the hand count this walk is checked against was taken under that rule.
+#:
+#: These are the only two `NOT_ARMS` groups whose grounds are a DECISION about
+#: #262's rule. Every other group excludes a node type because it holds no
+#: boolean test at all, which is not something a report has to disclose.
+DECLARED_EXCLUSIONS = ("Assert", "For", "AsyncFor")
+
+
 def counts(found: list[Arm]) -> dict[str, int]:
     """Arms per enclosing scope, in first-appearance order."""
     out: dict[str, int] = {}
@@ -846,11 +858,27 @@ def run_arms(
 # --------------------------------------------------------------------------
 
 
-def _report(path, verdicts, refused, counted, echo):
+def _report(path, verdicts, refused, counted, echo, *, of_total=None):
     echo("")
-    echo(f"{path} — {sum(counted.values())} arms")
+    shown = sum(counted.values())
+    if of_total is not None and of_total != shown:
+        # `--only` filtered this. The line names a file and gives a total, so
+        # it reads as the file's total -- and this output gets pasted into
+        # records, where the flag that produced it does not travel with it.
+        echo(f"{path} — {shown} of {of_total} arms (--only)")
+    else:
+        echo(f"{path} — {shown} arms")
     for scope, n in counted.items():
         echo(f"  {scope:24} {n}")
+
+    # The exclusions the total does not disclose on its own. A module whose
+    # branching lives in an `assert` and a `for`/`else` reports `1 arms`, which
+    # reads as *this module has one branch* rather than as *one under this
+    # rule* -- and the rule is what a reader has to be able to overturn.
+    echo(
+        "  excluded by declaration, not in the total: " + ", ".join(DECLARED_EXCLUSIONS)
+    )
+    echo("  (#262's rule counts none of them; `NOT_ARMS` carries the grounds)")
 
     if not verdicts and not refused:
         return 0
@@ -954,14 +982,16 @@ def main(argv=None):
         print(msg, flush=True)
 
     if not args.tests:
-        found = arms_of_file(args.module)
-        if args.only:
-            found = [a for a in found if a.scope == args.only]
+        every = arms_of_file(args.module)
+        found = [a for a in every if a.scope == args.only] if args.only else every
         for arm in found:
             echo(f"  {arm}")
-        _report(args.module, [], [], counts(found), echo)
+        _report(args.module, [], [], counts(found), echo, of_total=len(every))
         return 0
 
+    # Taken before `--only` narrows anything, because the header's denominator
+    # is the module's and not the run's.
+    every = arms_of_file(args.module)
     verdicts, refused = run_arms(
         args.module,
         shlex.split(args.tests),
@@ -971,7 +1001,7 @@ def main(argv=None):
         echo=echo,
     )
     found = [v.arm for v in verdicts] + [a for a, _ in refused]
-    _report(args.module, verdicts, refused, counts(found), echo)
+    _report(args.module, verdicts, refused, counts(found), echo, of_total=len(every))
     # Report-only: exit 0 whether or not an arm survived. `questions.md` Q1 is
     # the owner's, and the two other answers -- non-zero on any survivor, or
     # non-zero above a recorded baseline -- both need the first run's number
