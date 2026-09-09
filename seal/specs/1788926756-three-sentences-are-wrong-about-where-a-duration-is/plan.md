@@ -53,8 +53,8 @@ optional.
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | Item 3 — a window's span is `max(end)` over its calls, so it can no longer be shorter than a single call inside it | a case on calls 0–1000s · 10–12s · 990–995s asserting the span covers its longest call; the partition case still green; the sweep re-run — 16 transcripts here and 169 machine-wide, no printed figure moving | `82c1dbb` |
-| 2 | Items 1 and 2 — the refusal names the cut its row ends at and prints both sums, re-read against phase 1's rule and taken from the report where it still holds | the report's own case, seen red first; the `outside == 0` boundary case still green | |
-| 3 | The disclosure in `skills/verify/SKILL.md` beside the span's definition, and the fragments | the modules the skill change touches; `evidence-check` | |
+| 2 | Items 1 and 2 — the refusal names the cut its row ends at and prints both sums, re-read against phase 1's rule and taken from the report where it still holds. Item 1's clause in `skills/verify/SKILL.md` moved here rather than to phase 3, so no phase boundary leaves a false sentence in the tree | the report's own case, seen red first; the `outside == 0` boundary case planted — the spec cited an existing one and there was none — and seen red under `> 0` | `be5bc18` |
+| 3 | The span's own disclosure in `skills/verify/SKILL.md`, the two fragments, and the six ledger rows the edits to `#analyse` and `#report_spawns` drift | the modules the skill change touches; `evidence-check`; `survivor-check` over the whole fix range | |
 
 ## Operational impact
 
