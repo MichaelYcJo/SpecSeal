@@ -1126,7 +1126,14 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     sentence under a dash exists to prevent.
 
     The share itself is unchanged: neither shape gets a percentage, because
-    a share of a non-positive span is not a number anybody can read."""
+    a share of a non-positive span is not a number anybody can read.
+
+    **#300 narrowed what a negative span means, and one arm below flipped
+    with it.** The span ends at the last call to END, so it goes negative
+    only when EVERY call ended before the first call began — not merely when
+    the last call to begin did. A transcript holding one call that ran for
+    two hours is no longer read as negative, which is the shape the third arm
+    now pins."""
     lines = [
         at("2026-08-24T10:00:00Z", [use("a", "pytest -q")], "ma", {"output_tokens": 1}),
         at("2026-08-24T09:00:00Z", [{"type": "tool_result", "tool_use_id": "a"}]),
@@ -1144,9 +1151,7 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     proc = run([str(path)])
     assert proc.returncode == 0, proc.stderr
     assert re.search(r"^span\s+-\d", proc.stdout, re.M), proc.stdout
-    assert "the last call to begin ended before the first call began" in proc.stdout, (
-        proc.stdout
-    )
+    assert "no call ended after the first call began" in proc.stdout, proc.stdout
     # The zero-span sentence must NOT be the one a negative span gets.
     assert "every call shares one timestamp" not in proc.stdout, proc.stdout
     assert re.search(r"^  command\s+\S+\s+—$", proc.stdout, re.M), proc.stdout
@@ -1157,9 +1162,13 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     assert "idle" not in proc.stdout, proc.stdout
 
     # The sentence has to hold for EVERY negative span, not for the one shape
-    # it was written against. The span is taken from the last call to BEGIN,
-    # because `load` sorts by start — so the last RESULT can arrive hours
-    # after the first call and the span still be negative.
+    # it was written against — and after #300 this shape is not one of them.
+    # The span ends at the last call to END, so a call running 10:00 to 12:00
+    # gives a run of two hours however early the OTHER call's result was
+    # written. Under the old rule the span was `calls[-1]["end"]` over a list
+    # sorted by start, so this transcript read minus sixty minutes for a run
+    # that plainly lasted two, and the sentence below was the true statement
+    # about a number that should never have been negative.
     later = [
         at("2026-08-24T10:00:00Z", [use("a", "pytest -q")], "ma", {"output_tokens": 1}),
         at("2026-08-24T12:00:00Z", [{"type": "tool_result", "tool_use_id": "a"}]),
@@ -1175,13 +1184,12 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     out_of_order.write_text("\n".join(later) + "\n")
     third = run([str(out_of_order)])
     assert third.returncode == 0, third.stderr
-    assert re.search(r"^span\s+-\d", third.stdout, re.M), third.stdout
-    # The last result here arrived at 12:00, two hours AFTER the first call
-    # began, so a sentence about the last result would be false.
-    assert "the last call to begin ended before the first call began" in third.stdout, (
-        third.stdout
-    )
-    assert "idle" not in third.stdout, third.stdout
+    # 120 minutes, and neither non-positive sentence: call `a` really did run
+    # from 10:00 to 12:00, and that is the run's wall clock whatever order
+    # the results were written in.
+    assert re.search(r"^span\s+120\.0m", third.stdout, re.M), third.stdout
+    assert "no call ended after the first call began" not in third.stdout, third.stdout
+    assert "every call shares one timestamp" not in third.stdout, third.stdout
 
     # A negative span makes every duration derived from it negative, and the
     # lines that INTERPRET a duration must not fire on one. `repeats` is
@@ -1234,7 +1242,7 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     other = run([str(zero)])
     assert other.returncode == 0, other.stderr
     assert "every call shares one timestamp" in other.stdout, other.stdout
-    assert "the last call to begin" not in other.stdout, other.stdout
+    assert "no call ended after the first call began" not in other.stdout, other.stdout
 
 
 # --- #193: a third the file could not compute is not a baseline -------------
@@ -1700,8 +1708,8 @@ def test_every_call_lands_in_exactly_one_row(orchestrator):
     """The property the whole table rests on, asserted as a sum.
 
     A slice that drops the run's closing work, or one that charges a call
-    that outlived a report to both rows either side of it, both pass every
-    other case here and fail this one."""
+    that outlived the cut its row ends at to both rows either side of it,
+    both pass every other case here and fail this one."""
     data = json.loads(run(["--json", str(orchestrator)]).stdout)
     rows = data["spawns"]["rows"]
     counted = sum(row["numbers"]["calls"] for row in rows if row["numbers"])
@@ -2108,8 +2116,8 @@ def test_a_call_that_outlives_a_cut_prints_no_between_the_rows_figure(tmp_path):
 
     `in_windows` assigns a call by its start, which is what makes the calls
     partition and is not enough to make the spans partition: a call that
-    outlives a spawn's result stays in the row it began in while the next
-    row's calls have already started, so two rows' spans cover the same
+    outlives the cut its row ends at stays in the row it began in while the
+    next row's calls have already started, so two rows' spans cover the same
     seconds and their sum can pass the run's own span. The line above then
     subtracts to a negative and printed `-16.5m of the run's 16.6m is
     BETWEEN the rows -- mostly the wait`: a negative interval, named as the
@@ -2129,17 +2137,26 @@ def test_a_call_that_outlives_a_cut_prints_no_between_the_rows_figure(tmp_path):
     # The premise: the spans overlap, so they sum past the run's own span.
     assert spans > data["span_s"], (spans, data["span_s"])
     out = " ".join(run(["--spawns", str(path)]).stdout.split())
-    # What the reader gets is the sum passing the span, and NOT "the rows
-    # overlap by 16.5m" -- that figure is not the overlap. `analyse` takes a
-    # span as the last call TO BEGIN's end minus the first call's start, so
-    # the outliving call shortens the run's own span too and the difference
-    # carries both errors. Naming it the overlap would be a smaller version
-    # of the defect this case exists for.
-    assert "the rows' spans SUM PAST the run's own 16.6m by 16.5m" in out, out
+    # What the reader gets is the two SUMS, not their difference and not "the
+    # rows overlap by 16.4m". `minutes` is one decimal, so a difference under
+    # three seconds rounds to `by 0.0m` and reads as nothing having happened
+    # beside a refusal; two figures the reader subtracts never round one away.
+    #
+    # And the difference is not the overlap. After #300 every row's interval
+    # is a subinterval of the run's, so what the subtraction gives is the
+    # gaps between the rows MINUS their overlap. Here the head row covers the
+    # whole run, so there are no gaps and the 987s happens to equal the
+    # overlap — which is why naming it the overlap would be a claim that
+    # holds on this fixture and fails in general.
+    assert "the rows' spans sum to 33.1m against the run's own 16.7m" in out, out
     assert "no between-the-rows figure" in out, out
     # The whole point: no negative is stated, and nothing is called the wait.
     assert "is BETWEEN the rows" not in out, out
-    assert "-16.5m" not in out, out
+    assert "-16.4m" not in out, out
+    # The cut a row ends at, never a spawn's result: the head row's cut is
+    # the first spawn's START.
+    assert "outlived the cut its row ends at" in out, out
+    assert "outlived a spawn's result" not in out, out
 
 
 def test_the_printed_report_calls_a_cycle_row_a_band(orchestrator):
@@ -2167,3 +2184,95 @@ def test_a_spawn_that_names_no_subagent_type_still_gets_a_row(tmp_path):
     rows = spawns_of(path)["rows"]
     assert rows[1]["subagent_type"] == "", rows[1]
     assert "cycle 1  ?" in run(["--spawns", str(path)]).stdout
+
+
+# --- #300: a window's span ends at the last call to END ---------------------
+
+
+def test_a_span_covers_every_call_it_counts(tmp_path):
+    """A window's span ends at the last call to END, not the last to BEGIN.
+
+    `analyse` took the span as `calls[-1]["end"] - calls[0]["start"]` over a
+    list `load` sorts by START, so a call that outlived every later call
+    ended after the window it was counted in. A background command running
+    0-1000s beside calls at 10-12s and 990-995s gave a span of 995s — five
+    seconds shorter than the single call the window holds — and `command_s`
+    counted that call in full, so the printed share was taken against a
+    whole that did not contain its own part.
+
+    The invariant this pins is the one that makes a span a span: no call it
+    counted ends after it."""
+    lines = call("bg", 0, 1000, "npm run dev")
+    lines += call("b", 10, 12, "git status --short")
+    lines += call("c", 990, 995, "git log --oneline -5")
+    path = tmp_path / "outlives-the-span.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["span_s"] == 1000, data["span_s"]
+    # `slowest` is sorted by duration, so its head is the longest single
+    # call. A span shorter than that is a window that does not contain one
+    # of its own calls, which is what 995 against 1000 was.
+    longest = data["slowest"][0]["seconds"]
+    assert longest == 1000, data["slowest"][0]
+    assert data["span_s"] >= longest, (data["span_s"], longest)
+    out = run([str(path)]).stdout
+    assert "span          16.7m" in out, out
+
+
+def test_a_head_call_outlives_the_cut_without_outliving_a_spawns_result(tmp_path):
+    """The head row's cut is the first spawn's START, not a spawn's result.
+
+    `spawn_cuts` opens its cut list at the first spawn's start, so a head
+    call can outlive its own row's cut and still end before that spawn's
+    result arrives. The refusal must not name a cause this transcript does
+    not carry, and it must not print a magnitude that rounds to nothing.
+
+    The two sums are what removes the magnitude. `minutes` is one decimal, so
+    a difference under three seconds printed `by 0.0m` as the grounds for
+    withholding a figure: #145's round 3 measured that on a one-second
+    overlap. The difference here is three seconds and printed `by 0.1m`; what
+    this fixture pins is item 1, the cut rather than the result. Note that
+    both sums round to 0.2m on it, so the reader's own subtraction gives 0.0m
+    — the two figures stop the line ASSERTING a magnitude of zero, and they
+    do not recover one."""
+    lines = call("bg", 0, 8, "npm run dev")
+    lines += spawn("A", 5, 9, "specseal:smith")
+    lines += call("b", 6, 9, "pytest -q")
+    lines += call("c", 9, 10, "git status --short")
+    path = tmp_path / "head-cut.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    out = " ".join(run(["--spawns", str(path)]).stdout.split())
+    assert "no between-the-rows figure" in out, out
+    assert "outlived the cut its row ends at" in out, out
+    # No call in this transcript ends after the spawn's result at 9s.
+    assert "outlived a spawn's result" not in out, out
+    # The two sums, so nothing rounds to `by 0.0m`.
+    assert "sum to 0.2m against the run's own 0.2m" in out, out
+    assert "by 0.0m" not in out, out
+
+
+def test_an_exact_cover_reads_as_the_partition_agreeing(tmp_path):
+    """`outside == 0` takes the between-the-rows line, not the refusal.
+
+    The guard is `>= 0` and not `> 0`, and until now nothing pinned that
+    choice: the rows summing to exactly the run's span is the partition
+    agreeing, and the tally above it is printed when it agrees for the same
+    reason. Under `> 0` this transcript would print a refusal — *no
+    between-the-rows figure* — for a run whose rows cover it exactly, which
+    is the one shape where the reader can see the arithmetic work.
+
+    Head 0-8s, spawn 5-7s, call 10-12s: run span 12s against row spans of 8s,
+    2s and 2s. The figure is 0.0m and it is a real reading."""
+    lines = call("bg", 0, 8, "npm run dev")
+    lines += spawn("A", 5, 7, "specseal:smith")
+    lines += call("c", 10, 12, "git status --short")
+    path = tmp_path / "exact-cover.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    rows = spawns_of(path)["rows"]
+    spans = sum(row["numbers"]["span_s"] for row in rows if row["numbers"])
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["span_s"] == 12, data["span_s"]
+    assert spans == 12, spans
+    out = " ".join(run(["--spawns", str(path)]).stdout.split())
+    assert "0.0m of the run's 0.2m is BETWEEN the rows — mostly the wait" in out, out
+    assert "no between-the-rows figure" not in out, out
