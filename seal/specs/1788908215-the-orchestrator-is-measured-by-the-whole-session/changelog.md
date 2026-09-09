@@ -56,14 +56,15 @@
   reads 0 to 3 seconds on those same four rows, which is the point: the
   agent's wall clock is the opening gap and never the column named for it.
 
-  **And where a call outlives a spawn's result, the between-the-rows figure
-  is refused rather than printed.** Assigning a call by its start is what
-  makes the calls partition, and it leaves a long-running one — a background
-  command, a suite spanning a cut — in the row it began in while the next row
-  has already started, so two rows' spans cover the same seconds and sum past
-  the run. The subtraction is then a negative, and a negative printed as *the
-  wait* is the one thing this change exists to stop; the report says the
-  spans summed past the run instead. No run measured here reaches it.
+  **And where a call outlives the cut its row ends at, the between-the-rows
+  figure is refused rather than printed.** Assigning a call by its start is
+  what makes the calls partition, and it leaves a long-running one — a
+  background command, a suite spanning a cut — in the row it began in while
+  the next row has already started, so two rows' spans cover the same
+  seconds and sum past the run. The subtraction is then a negative, and a
+  negative printed as *the wait* is the one thing this change exists to
+  stop; the report prints the two sums and refuses the figure instead. No
+  run measured here reaches it.
 
   **A cycle row is a band and not an attribution**, and the printed report
   says so above the table. Inside one window the orchestrator waits on the

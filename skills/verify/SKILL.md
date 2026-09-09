@@ -418,15 +418,42 @@ finished, not as a follow-up someone might do later:
    12 to 31 per cent of a run — and the agent's own transcript is where its
    number is, either way.
 
-   **Where the report gives no between-the-rows figure and says the spans
-   summed past the run, a call outlived a spawn's result.** Assigning a call
-   by its start is what makes the calls partition, and it leaves a
-   long-running one — a background command, a suite spanning a cut — in the
-   row it began in while the next row has already started, so two rows'
-   spans cover the same seconds. The subtraction is then a negative rather
-   than an interval, so it is refused instead of printed. Quote that run's
-   span and its rows' columns, and leave the between-the-rows share out of
-   the reading rather than substituting the sum.
+   **A span runs from its window's first call to the last call to END, and
+   that is worth knowing because it used to end at the last call to BEGIN
+   (#300).** The old rule read the end of the last element of a list sorted
+   by start, so a long-lived call — a background command, a suite spanning
+   the window — ended after the window counting it, and a reading could
+   report a span shorter than a single call inside it. Two consequences for
+   anyone comparing readings across that change: a span taken before it is
+   the shorter of the two wherever a call outlived its window, and identical
+   everywhere else; and `command` could exceed 100 per cent of the span,
+   which the new rule narrows and does not close, because command time is a
+   sum over calls and calls can run concurrently. Where you see a share above
+   100, read it as command seconds against wall-clock seconds with calls
+   running at once, never as a broken number. Batching is the ordinary way
+   in and a background command is the rarer one: every tool call in one
+   assistant message carries that message's timestamp as its start, so a
+   batch of three overlaps by construction. Measured over the transcripts on
+   one machine, every second of overlap above a second came from calls
+   batched into one message and none of it from a call that crossed a turn.
+
+   **Where the report gives no between-the-rows figure and prints the rows'
+   spans against the run's own, a call outlived the cut its row ends at.**
+   Assigning a call by its start is what makes the calls partition, and it
+   leaves a long-running one — a background command, a suite spanning a cut
+   — in the row it began in while the next row has already started, so two
+   rows' spans cover the same seconds. The head row's cut is the first
+   spawn's START and every other row's is a spawn's RESULT, which is why the
+   line names the cut and not the result: a head call can outlive its own
+   row's cut and still end before any spawn's result arrives.
+
+   **The two figures it prints are not the rows' overlap, so do not subtract
+   them and post the difference as one.** A row's span ends at its own last
+   call to end and so does the run's, so every row's interval sits inside
+   the run's and the difference is the gaps between the rows minus their
+   overlap. Quote that run's span and its rows' columns, and leave the
+   between-the-rows share out of the reading rather than substituting either
+   sum.
 
    **So a long cycle span is not a long agent run.** Where a row's span
    exceeds its own parts by an hour, that hour is a gap INSIDE the row,

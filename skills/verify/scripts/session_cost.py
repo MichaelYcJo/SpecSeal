@@ -434,6 +434,15 @@ def analyse(calls, turns, delegated=()):
     nothing on the page saying so — which is what #200 and #202 were, and
     what `plan.md`'s *no existing output changes shape* is protecting.
 
+    **`span_s` is the one exception and it is a measured one, not a licence.**
+    Its rule moved at #300, from the end of the last call to BEGIN to the end
+    of the last call to END, because the old one could return a window
+    shorter than a single call inside it. The comment at the arithmetic
+    carries the measurement that says no published figure moves;
+    `skills/verify/SKILL.md` carries it where a person taking a reading meets
+    it. Every other number here is untouched, `command_s` and `model_s`
+    included.
+
     So `delegated_s` is 0.0 for the whole-run call, and it means exactly
     *how much of this window's command time was removed because it ran
     somewhere else* — nothing was, so it is zero. It is NOT a claim that the
@@ -448,7 +457,22 @@ def analyse(calls, turns, delegated=()):
     the top of `slowest` tells a reader something they already know."""
     if not calls:
         return None
-    span = (calls[-1]["end"] - calls[0]["start"]).total_seconds()
+    # The last call to END, and not the last to BEGIN. `load` sorts by start,
+    # so `calls[-1]` is whichever call went out last, and a long-lived one --
+    # a background command, a suite spanning the whole window -- ends after
+    # it. Reading that element's end gave a window shorter than a single call
+    # the window holds: 995s against a `Bash` call of 1000s, while
+    # `command_s` counted that call in full, so the share was taken against a
+    # whole that did not contain its own part.
+    #
+    # This is the one number in this function whose RULE changed after the
+    # readings above it were published (#300). Measured before it was changed:
+    # over the 169 transcripts on the machine it was measured on, one span
+    # moves, by 0.006s, and no printed figure moves at all -- `minutes` is one
+    # decimal and `share` is whole percent. So nothing already posted needs a
+    # marking line, and a transcript with a genuinely long-lived call is where
+    # the two rules would part.
+    span = (max(c["end"] for c in calls) - calls[0]["start"]).total_seconds()
     command_time = delegated_time = 0.0
     for call in calls:
         seconds = (call["end"] - call["start"]).total_seconds()
@@ -595,8 +619,8 @@ def in_windows(cuts, items, when):
     Assignment is by ONE instant per item — a call's start, a turn's stamp —
     which is what makes the windows a partition: every item has exactly one
     of those and every instant falls in exactly one window. Assigning a call
-    by overlap would put one that outlived a report in two rows, and a sum
-    over the rows would then come out larger than the run."""
+    by overlap would put one that outlived the cut its row ends at in two
+    rows, and a sum over the rows would then come out larger than the run."""
     windows = [[] for _ in range(len(cuts) + 1)]
     for item in items:
         windows[bisect.bisect_right(cuts, when(item))].append(item)
@@ -985,10 +1009,17 @@ def report(data):
         # MEANS for a percentage, and one dash covers both; what it cannot do
         # is say which shape the reader is looking at, because it is handed
         # the numbers and not the transcript.
+        #
+        # The sentence says what the arithmetic computes, and the arithmetic
+        # moved at #300: the span is now the LAST call to end minus the first
+        # to begin, so a negative one means no call ended after the first
+        # call began -- every one of them, not just the last to begin. The
+        # rule change also made this branch rarer on purpose. A call running
+        # 10:00-12:00 beside a result written before its own call used to
+        # print a negative span for a run that plainly lasted two hours.
         print(
-            "              the last call to begin ended before the first "
-            "call began, so the span is negative and there is no share to "
-            "take of it"
+            "              no call ended after the first call began, so the "
+            "span is negative and there is no share to take of it"
         )
     print(
         f"  command     {minutes(data['command_s'])}"
@@ -1214,24 +1245,49 @@ def report_spawns(spawns, path, total_calls, run_span=0.0):
     # And the subtraction can come out NEGATIVE, which is not an interval and
     # must not be printed as one. `in_windows` assigns a call by its START,
     # which is what makes the CALLS partition and is not enough to make the
-    # spans partition: a call that outlives a spawn's result stays in the row
-    # it began in while the next row's calls have already started, so two
-    # rows' spans cover the same seconds and their sum can pass the run's own
-    # span. A background `Bash` command in the head row printed `-16.5m of the
+    # spans partition: a call that outlives the cut its row ends at stays in
+    # the row it began in while the next row's calls have already started,
+    # so two rows' spans cover the same seconds and their sum can pass the
+    # run's own span. A background `Bash` command in the head row printed `-16.5m of the
     # run's 16.6m is BETWEEN the rows — mostly the wait`, exit 0 — the class of
     # false printed line #145 exists to close, reintroduced by the fix for it.
     #
-    # The refusal says the SUM PASSED THE SPAN, and not `the rows overlap by
-    # N`: N is not the overlap. `analyse` takes a span as the last call TO
-    # BEGIN's end minus the first call's start, so an outliving call shortens
-    # the RUN's span too and the difference carries both errors. Naming it the
-    # overlap would be a smaller version of the defect being fixed here.
+    # The refusal prints the two SUMS and not their difference. `minutes` is
+    # one decimal, so an overlap under three seconds printed `by 0.0m` beside
+    # a refusal and read as nothing having happened; two figures the reader
+    # subtracts carry the same fact and never round one of them away.
+    #
+    # And it names the cut a row ENDS at, never a spawn's result.
+    # `spawn_cuts` opens its cut list at the first spawn's START, so the head
+    # row's cut is not a result at all: a head call can outlive its own row's
+    # cut and still end before that spawn's result arrives, and naming the
+    # result then names a cause the transcript does not carry.
+    #
+    # Neither printed figure is the rows' OVERLAP, and after #300 that holds
+    # for a new reason. A row's span now ends at its own last call to END,
+    # and so does the run's, so every row's interval is a SUBINTERVAL of the
+    # run's. The difference is therefore the gaps between the rows minus
+    # their overlap, and a negative one is the overlap net of the gaps. Where
+    # the head row covers the whole run there are no gaps and the two
+    # coincide -- which is exactly why naming it the overlap would be a claim
+    # that holds on the pinned fixture and fails in general. Before #300 the
+    # grounds were different: the span read the last call TO BEGIN's end, so
+    # an outliving call shortened the RUN's span too and the difference
+    # carried both errors.
+    #
+    # That subinterval property is also why this can no longer fire on ONE
+    # row. It used to: the head row's span reached 1000s against a run of
+    # 995s, so a single row passed the whole run. Now a sum past the run's
+    # span requires two rows covering the same seconds.
     if run_span > 0:
-        outside = run_span - sum(
-            row["numbers"]["span_s"] for row in rows if row["numbers"]
-        )
+        spans = sum(row["numbers"]["span_s"] for row in rows if row["numbers"])
+        outside = run_span - spans
         # `>= 0` and not `> 0`: an exact cover is the partition agreeing, and
         # the tally above is printed even when it agrees for the same reason.
+        # `mostly` covers the other direction too: where a small overlap is
+        # netted off against larger gaps, what prints is the gaps minus the
+        # overlap, so the figure is a floor on what is between the rows and
+        # never an overstatement of it.
         if outside >= 0:
             print(
                 f"  {minutes(outside)} of the run's {minutes(run_span)} is BETWEEN "
@@ -1240,10 +1296,10 @@ def report_spawns(spawns, path, total_calls, run_span=0.0):
             )
         else:
             print(
-                f"  the rows' spans SUM PAST the run's own {minutes(run_span)} by "
-                f"{minutes(-outside)}, so\n  this run has no between-the-rows "
-                "figure: a call outlived a spawn's\n  result, and the row it "
-                "began in covers seconds the next row's does too"
+                f"  the rows' spans sum to {minutes(spans)} against the run's own "
+                f"{minutes(run_span)}, so\n  this run has no between-the-rows "
+                "figure: a call outlived the cut\n  its row ends at, and the row "
+                "it began in covers seconds the\n  next row's does too"
             )
     described = [r for r in rows if r["kind"] == "cycle" and r["description"]]
     if described:
