@@ -42,8 +42,12 @@ ticket set that will be one branch as one row.
 
 ## 0.9.5 — what the readings answer, and what a green gate means
 
-Six work items, and the count moved after the section was written: #103 and
-#198 joined the list without the sentence below being widened to hold them.
+Seven work items, and the count has moved twice: #103 and #198 joined the
+list without the sentence below being widened to hold them, and
+**[#296 · #295 · #297] arrived on 2026-09-09 out of this release's own run** —
+one found by following `orchestration.md` and watching CI go red for it, one
+by measuring how often the broad gate's row is left open, and one by deleting
+what the file above says to delete.
 
 **#145 and #149 are the questions #51 has been holding open for a measurement
 it can trust.** #262, #160 and #103 are the other half of the same sentence —
@@ -52,9 +56,11 @@ sits with them because it protects the data the first two eat**: a release
 cycle that measures nothing is a cycle #145 and #149 cannot use, and 0.8.3 is
 already one of them.
 
-Six is over the size the section above states, and the count is left standing
-rather than resolved by moving a row: which item leaves 0.9.5 is not a
-bookkeeping decision.
+Seven is over the size the section above states, and the count is left
+standing rather than resolved by moving a row: which item leaves 0.9.5 is not
+a bookkeeping decision. The item that pushed it there is the cheapest on the
+list and the one the list itself produced, which is an argument for taking it
+rather than for deferring it.
 
 - [ ] #145 — the orchestrator is the most expensive segment in a chain and the only one measured by the whole session, so #51's observation 1 has bands for three segment kinds and none for it. #170's token line is what makes it answerable — after 0.9.4.
 - [ ] #149 — a record says what a segment cost and not what its output cost the next reader. #137's second half. Five candidate signals and no evidence which of them survive contact: surviving mutations, defects the next round found inside this segment's output, `New units` depth, fix passes needed, and divergences from the plan.
@@ -62,6 +68,7 @@ bookkeeping decision.
 - [ ] #160 — four export cases fail on macOS and pass in CI, so a broad run cannot be read as a verdict. The cause is settled and #127 is folded in here: the cases build their expected zip name from the local date and `export()` writes it in UTC. What is left is the owner's call on which side moves.
 - [ ] #103 — the two defect shapes only Windows has caught are made visible without Windows. **A third arrived in 0.9.0**: a coordinate the records arm built printed with the platform separator, and the Windows leg was red on it from the commit that added the arm through three review rounds and two broad gates, all of which ran on macOS where the fix is a no-op.
 - [ ] #198 — a release closes its flow-measurement log with nothing written in it, and nothing notices. It sits with these because #145 and #149 are the two tickets that eat the data it protects, and this is the release they land in.
+- [ ] **[#296 · #295 · #297] — one branch, what CI reads at a pull request into a release branch.** All three came out of this release's own run and none of them was found by reading. #296: `chain_check`'s `Pass` arm tells the author *"Open it as a draft while the rounds run"* and the record-count arm a hundred lines later has no draft state in it, so a draft opened where `orchestration.md` says to open one is red until round 1's record lands — seen on #294. #295: the one-broad-run rule is written in five places and nothing checks that it arrives, which is 47 of 63 `Not verified` rows still open — and **the home already exists and nothing opens it**, since every round record carries `| Broad gate |`, `not yet` or the SHA the run happened at. #297: deleting a shipped section, which this file's own rule asks for, reads as 153 uncorrected survivors, so #293 merged red. The three share the argument `hygiene.yml:221` already makes for exempting the release range — *a range no fix pass wrote*.
 
 ## 0.10.0 — the agent set
 
