@@ -107,7 +107,7 @@ that replaces the estimate.
 
 | Approach | Failure scenario | Verdict |
 |---|---|---|
-| Count tokens exactly through the API's token-counting endpoint | needs a key no session here has (`ANTHROPIC_API_KEY` is unset), and a meter that works only with one is a meter nobody runs | rejected as the only basis; the `basis` column leaves room for it |
+| Count tokens exactly through the API's token-counting endpoint | needs a key no session here has (`ANTHROPIC_API_KEY` is unset — NAME NOT IN TREE, nothing here reads it), and a meter that works only with one is a meter nobody runs | rejected as the only basis; the `basis` column leaves room for it |
 | A fixed bytes-per-token ratio from published tokenizer averages | a number nobody measured on this tree, and this tree measured three agents at 2.71, 3.16 and 3.44 | rejected — the ratio is per agent, from a transcript |
 | The meter as a flag on `session_cost.py` | that script measures a transcript; this one measures the tree. One script with two subjects is the shape #265 measured a skill into | rejected — a sibling script that imports the transcript helpers |
 | A frontmatter field as the audience marker | machine-readable, and no shipped skill has it — two conventions for one fact | rejected (Q2) |

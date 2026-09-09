@@ -141,7 +141,8 @@ Two things the issue did not have, and the meter has to carry both.
 **The payload IS cached across spawns of the same agent, for five minutes.**
 The second smith and the second scribe wrote nothing and read their whole
 prefix back, and every `cache_creation` block reads
-`ephemeral_5m_input_tokens` with `ephemeral_1h_input_tokens` at 0. The
+`ephemeral_5m_input_tokens` with `ephemeral_1h_input_tokens` at 0 (NAME NOT IN TREE:
+the transcript's own fields; the meter reads neither). The
 issue's 49 readings saw a write every time because no two spawns of one
 agent in a chain fall inside five minutes of each other — a round runs ten
 to forty. So the sentence is narrower than *re-written on every spawn*: it is
