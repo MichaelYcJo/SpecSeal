@@ -698,6 +698,7 @@ def run_arms(
     only: str | None = None,
     cwd: str | None = None,
     operators: tuple[str, ...] = OPERATORS,
+    timeout: float | None = 900.0,
     echo=lambda _msg: None,
 ) -> tuple[list[Verdict], list[tuple[Arm, str]]]:
     """Mutate each arm of `path` in turn and ask whether `tests` notices.
@@ -711,6 +712,12 @@ def run_arms(
     hand on one day and the one that skipped the hash check recorded a
     mutation as killed while never having applied it — the pattern had missed
     by two spaces of indentation.
+
+    `timeout` bounds ONE arm's command, and `None` removes the bound. While a
+    command runs the module on disk holds the mutation and `capture_output`
+    means nothing is printed, so an unbounded hang is indistinguishable from
+    a slow suite — and the longer the process lives mutated, the more likely
+    it is ended by something no `finally` sees.
     """
     with open(path, "rb") as f:
         original = f.read()
@@ -743,9 +750,30 @@ def run_arms(
                 clear_bytecode_cache(path)
                 try:
                     run = subprocess.run(
-                        tests, cwd=cwd, capture_output=True, text=True, env=env
+                        tests,
+                        cwd=cwd,
+                        capture_output=True,
+                        text=True,
+                        env=env,
+                        timeout=timeout,
                     )
                     by_operator[operator] = run.returncode != 0
+                except subprocess.TimeoutExpired:
+                    # A command that never returns is not a verdict. `killed`
+                    # would read as *a case noticed* and `survived` as *none
+                    # did*, and neither was measured -- so it goes where the
+                    # un-asked pairs go, with the bound in the reason.
+                    not_applicable[operator] = (
+                        f"TimeoutExpired: the command did not return within "
+                        f"{timeout}s, so this arm was not measured"
+                    )
+                except OSError as exc:
+                    # The command could not be spawned. Every verdict taken
+                    # before this one is real, so the report has to survive to
+                    # print them: raising here discards the whole run for one
+                    # failed spawn, and `bin/test` builds a virtualenv on
+                    # demand, so a mid-run failure is reachable.
+                    not_applicable[operator] = f"{type(exc).__name__}: {exc}"
                 finally:
                     restore(path, original, original_sha)
                     clear_bytecode_cache(path)
@@ -875,6 +903,15 @@ def main(argv=None):
     )
     parser.add_argument("--only", help="restrict to one enclosing scope, by name")
     parser.add_argument("--cwd", default=None, help="working directory for --tests")
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=900.0,
+        help=(
+            "seconds one arm's command may take before it is recorded as "
+            "unmeasured rather than waited on. 0 removes the bound"
+        ),
+    )
     args = parser.parse_args(argv)
 
     def echo(msg):
@@ -894,6 +931,7 @@ def main(argv=None):
         shlex.split(args.tests),
         only=args.only,
         cwd=args.cwd or os.getcwd(),
+        timeout=args.timeout or None,
         echo=echo,
     )
     found = [v.arm for v in verdicts] + [a for a, _ in refused]

@@ -755,6 +755,83 @@ def test_the_run_leaves_no_bytecode_cache_behind(two_arms):
     )
 
 
+# --- the command that decides the verdict can hang or fail to start -------
+
+
+def test_a_command_that_never_returns_is_recorded_as_unmeasured(two_arms):
+    """Round 1's finding 1, the bounded half.
+
+    While an arm's command runs, the module on disk holds the mutation and
+    `capture_output=True` means nothing is printed — so an unbounded hang is
+    indistinguishable from a slow suite, and the longer the process lives
+    mutated the more likely it is ended by something no `finally` sees. The
+    bound turns the hang into a NAMED unmeasured pair rather than a wait:
+    `killed` would read as *a case noticed* and `survived` as *none did*, and
+    neither was measured.
+
+    Red how: `timeout=timeout` removed from the `subprocess.run` call hangs
+    this case for 30 seconds per pair instead of failing. Executed — and the
+    run is bounded here by the 0.3s the case passes, not by the default.
+    """
+    module_path, _ = two_arms
+    verdicts, refused = ARM.run_arms(
+        str(module_path),
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        timeout=0.3,
+    )
+    # Every pair timed out, so no arm has a verdict from any operator and
+    # both are refused rather than reported as survivors.
+    assert verdicts == []
+    assert len(refused) == 2
+    for _arm, why in refused:
+        assert "did not return within 0.3s" in why, (
+            f"{why!r} — a timed-out pair has to say it was not measured and "
+            f"what bound it, or the report reads as a verdict"
+        )
+
+
+def test_a_spawn_failure_keeps_the_verdicts_already_measured(two_arms):
+    """Round 1's finding 2, and it is the module's own subject arriving from
+    the other side.
+
+    `OSError` out of `subprocess.run` used to leave `run_arms` entirely, so
+    one failed spawn discarded every verdict measured before it and printed
+    no report at all. `bin/test` builds a virtual environment on demand, so a
+    mid-run spawn failure is a reachable state rather than a constructed one.
+
+    Driven by making the third of the four calls raise — arm one is fully
+    measured by then, arm two by nothing.
+
+    Red how: deleting the `except OSError` clause raises `OSError` out of
+    `run_arms` here and the first arm's two verdicts are lost. Executed."""
+    module_path, tests = two_arms
+    real_run = ARM.subprocess.run
+    calls = []
+
+    def fails_from_the_third_call(cmd, **kwargs):
+        calls.append(cmd)
+        if len(calls) >= 3:
+            raise OSError("Errno 8: Exec format error")
+        return real_run(cmd, **kwargs)
+
+    ARM.subprocess.run = fails_from_the_third_call
+    try:
+        verdicts, refused = ARM.run_arms(str(module_path), tests)
+    finally:
+        ARM.subprocess.run = real_run
+
+    assert len(calls) == 4, "every pair still had its command attempted"
+    assert [(v.arm.source, sorted(v.by_operator)) for v in verdicts] == [
+        ('host == "example.com"', ["invert", "remove"])
+    ], "the verdicts taken before the failure are real and must survive it"
+    assert len(refused) == 1
+    _arm, why = refused[0]
+    assert "OSError" in why and "Exec format error" in why, (
+        f"{why!r} — an arm nothing could be spawned for is unmeasured, and "
+        f"the reason has to reach the report"
+    )
+
+
 # --- the two operators are not interchangeable ----------------------------
 
 
@@ -968,9 +1045,7 @@ def test_an_operator_that_could_not_be_asked_of_an_arm_is_named(tmp_path):
         '    return "other"\n',
         encoding="utf-8",
     )
-    verdicts, refused = ARM.run_arms(
-        str(module_path), [sys.executable, "-c", "pass"]
-    )
+    verdicts, refused = ARM.run_arms(str(module_path), [sys.executable, "-c", "pass"])
     # The pattern has no mutation for either operator, so the arm is refused.
     assert verdicts == []
     assert len(refused) == 1
