@@ -11,7 +11,7 @@
   1000-second call. The span now ends at the last call to **end**.
 
   **Nothing this repository has published moves, and elsewhere on the machine
-  three printed figures do.** Both rules were computed over every transcript
+  five printed figures do.** Both rules were computed over every transcript
   under `~/.claude/projects`, on every printed surface the span feeds rather
   than on two of them. Run level: 169 transcripts with calls, one span moves,
   by six thousandths of a second, with its printed span 10.3m either way.

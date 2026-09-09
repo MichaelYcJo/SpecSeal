@@ -17,7 +17,7 @@
             first — `tests/test_session_cost.py` 69 and
             `tests/test_a_segment_feeds_the_flow_log.py` 28, which is 27
             plus round 2's pinning case; the pair was 96 before it),
-            `evidence-check` (1033 ok · 0 drifted, exit 0),
+            `evidence-check` (1041 ok · 0 drifted, exit 0),
             `survivor-check` over the fix range, both span rules over every
             transcript on this machine at run and row level, **8 mutations**
             one at a time — 4 on the span expression and its sentence, 4 on

@@ -8,7 +8,7 @@ question inside it.
 
 | # | Assumption | Why it does not wait |
 |---|---|---|
-| 1 | The readings already posted to #51 need no marking line for the span's new definition | **Executed, on every printed surface.** This project's 16 transcripts move nothing: no run span, no row span, no between-the-rows figure. Machine-wide three printed figures do move — 2 row spans and 3 between-the-rows figures — and every one is in another project's transcript. So no reading posted to #51 moves, which is a per-project measurement rather than a property of the rule, and that is what `skills/verify/SKILL.md` now says where a reading is taken |
+| 1 | The readings already posted to #51 need no marking line for the span's new definition | **Executed, on every printed surface.** This project's 16 transcripts move nothing: no run span, no row span, no between-the-rows figure. Machine-wide five printed figures do move — 2 row spans and 3 between-the-rows figures — and every one is in another project's transcript. So no reading posted to #51 moves, which is a per-project measurement rather than a property of the rule, and that is what `skills/verify/SKILL.md` now says where a reading is taken |
 | 2 | Phase 2 takes the report's paste-ready text where it still holds after phase 1 and says where it does not, rather than pasting it unchanged | The text was written against today's span rule. Pasting it unchanged is what the two prior runs' fix passes correctly refused to do twice |
 
 ## Q3 — `command` still prints over 100% of the span, and no span rule closes it

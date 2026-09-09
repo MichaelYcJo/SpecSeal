@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | #306 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | test_the_section_names_batching_as_the_way_a_share_passes_one_hundred (depth 1) |
 | Needs a fix | yes — finding 12, one case pinning the corrected disclosure clause at `skills/verify/SKILL.md:429-438`; §14 requires it and the depth-2 exit cited for declining it cannot apply, because `round-1.md`'s `New units` is `none` and the parent named is prose rather than a unit |
