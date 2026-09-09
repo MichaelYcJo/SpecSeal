@@ -39,7 +39,7 @@ git 이 있는 곳이면 어디서든 동작합니다.
 | **scribe** (서브에이전트) | `agent-contract` · `legacy-parity` | 원본 코드가 실제로 하는 일을 `경로#앵커` 좌표로 기록하고, 판정이 아니라 사실만 돌려준다. `seal/parity.md` 를 선언한 레포에서만 등장한다 |
 | 스킬 | — | 스물세 개이고 세 묶음이다. 에이전트가 따르는 다섯 개는 왼쪽 열에 있다. 열한 개는 작업이 그것을 요구할 때 세션이 알아서 로드한다 — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. 나머지 일곱은 사용자가 이름을 불러야 움직이며 아래 치트시트에 있다 |
 | 훅 | — | 게이트 그 자체. 플러그인이 자동으로 등록하므로 설정을 따로 만질 필요가 없다 |
-| CLAUDE.md 블록 | — | 늘 로드되는 12줄 — 절 제목 넷(`Tooling`·`Safety`·`Session cost`·`Git`)에 규칙 여덟이다. 툴링 하나, 안전 셋, 세션 비용 하나, git 셋. 응답 언어 규칙은 없다. 그것은 사용자 몫이다 |
+| CLAUDE.md 블록 | — | 늘 로드되는 12줄 — 절 제목 넷(`Tooling`·`Safety`·`Session cost`·`Git`)에 규칙 여덟이다. 툴링 하나, 안전 셋, 세션 비용 하나, git 셋. 응답 언어 규칙은 없다. 그것은 사용자 몫이다. 정본은 `templates/claude-md-block.md` 하나이고, 저장소의 `CLAUDE.md` 에는 거기서 생성한 사본이 들어 있으며, 둘이 다르면 CI 가 PR 을 막는다 |
 
 ## 체인
 
@@ -323,8 +323,9 @@ claude plugin update specseal@specseal   # 그다음 적용 — 위 문단 참�
 최신*이라고 답합니다. 업데이트는 커밋이 아니라 `plugin.json` 의 버전을
 기준으로 하므로, 버전을 올리지 않고 내보낸 변경은 아무에게도 도달하지 않습니다.
 
-`install.sh` 는 기존 파일을 `CLAUDE.md.bak` 으로 백업한 뒤 자기 마커 블록만
-병합합니다. 여러 번 실행해도 결과가 같고, 다시 실행하면 블록만 갱신됩니다.
+`install.sh` 는 기존 파일을 `CLAUDE.md.bak` 으로 백업한 뒤 마커 블록만
+병합합니다. 블록은 `templates/claude-md-block.md` 에서 읽습니다. 여러 번
+실행해도 결과가 같고, 다시 실행하면 블록만 갱신됩니다.
 사용자가 직접 쓴 내용은 고치지 않으며, 겹치는 부분이 있으면 경고만 남긴 채
 그대로 둡니다. 중복까지 정리하려면 Claude Code 안에서
 `/specseal:preset-setup` 을 실행하세요. 무엇을 지우든 diff 를 보여 주고

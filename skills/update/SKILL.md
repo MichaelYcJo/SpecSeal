@@ -58,9 +58,13 @@ block changed in two of thirteen releases, and the first went four releases
 before anyone noticed.
 
 ```bash
-diff <(sed -n '/specseal:start/,/specseal:end/p' ~/.claude/plugins/marketplaces/specseal/CLAUDE.md) \
+diff <(sed -n '/specseal:start/,/specseal:end/p' ~/.claude/plugins/marketplaces/specseal/templates/claude-md-block.md) \
      <(sed -n '/specseal:start/,/specseal:end/p' ~/.claude/CLAUDE.md)
 ```
+
+`templates/claude-md-block.md` is the block's one source; the plugin
+repository's own `CLAUDE.md` carries a generated copy, held identical to it
+in CI, and is not what to diff against.
 
 Compare the scope that holds the block — `./CLAUDE.md` instead when the project
 owns it.

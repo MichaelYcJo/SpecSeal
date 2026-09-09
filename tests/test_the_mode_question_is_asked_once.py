@@ -7,9 +7,9 @@ local mode, and nothing asked the migration question.
 Three files each said something correct and the three together left no route
 to the question. `hooks/optin.py` says the root's existence IS the
 declaration; `skills/implement/SKILL.md` §Bootstrap says the mode question is
-asked there and nowhere else; and the preset block in `CLAUDE.md` — which
-`install.sh` copies into `~/.claude/CLAUDE.md`, so it loads in every project on
-the machine — tells a session to write `seal/specs/<id>/routing.md` before the
+asked there and nowhere else; and the preset block — `templates/claude-md-block.md`,
+which `install.sh` copies into `~/.claude/CLAUDE.md`, so it loads in every project
+on the machine — tells a session to write `seal/specs/<id>/routing.md` before the
 first edit. That write creates `seal/`. Creating `seal/` opts the repository
 in. The question lived in a skill the session had no reason to load.
 

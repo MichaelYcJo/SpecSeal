@@ -471,8 +471,10 @@ def test_the_decided_table_carries_this_work_items_rows(parts, decided):
 # The bootstrap above is where the mode question lives, and the cases in this
 # file all reach it by reading the skill. That is not how a session gets
 # there. `install.sh` copies the block between `<!-- specseal:start -->` and
-# `<!-- specseal:end -->` into `~/.claude/CLAUDE.md`, so the block loads in
-# EVERY project on the machine — including one that has never seen SpecSeal —
+# `<!-- specseal:end -->` — `templates/claude-md-block.md`, of which this
+# repository's `CLAUDE.md` carries a generated copy — into
+# `~/.claude/CLAUDE.md`, so the block loads in EVERY project on the machine —
+# including one that has never seen SpecSeal —
 # and it tells a session to write `seal/specs/<id>/routing.md` before the
 # first edit. That write creates `seal/`. Creating `seal/` opts the repository
 # in. Every case above passed while that route existed, because none of them
@@ -488,10 +490,13 @@ START, END = "<!-- specseal:start -->", "<!-- specseal:end -->"
 def preset():
     """Exactly the text `install.sh` copies, markers included.
 
-    Extracted the way the installer extracts it rather than by reading the
-    whole file: a sentence added BELOW `specseal:end` reaches this repository
-    and reaches no user, and a case that read the whole file could not tell
-    the two apart.
+    Read from the generated copy in `CLAUDE.md`, which
+    `.github/scripts/claude_block.py --check` holds identical to
+    `templates/claude-md-block.md`, the installer's source. Extracted the way
+    the installer extracts it rather than by reading the whole file: a
+    sentence added BELOW `specseal:end` reaches this repository and reaches
+    no user, and a case that read the whole file could not tell the two
+    apart.
     """
     text = read("CLAUDE.md")
     assert START in text and END in text, "the preset markers moved"

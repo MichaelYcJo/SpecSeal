@@ -41,7 +41,7 @@ works outside the context entirely (hooks).
 | **scribe** (subagent) | `agent-contract` · `legacy-parity` | Records what the original code does as `path#anchor` coordinates and returns facts, not verdicts. Appears only in repos that declare `seal/parity.md` |
 | Skills | — | Twenty-three, in three groups. The five the agents follow are in the column to the left. Eleven more a session loads on its own when the work calls for them — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. Seven you invoke by name; they are in the cheat sheet below |
 | Hooks | — | The gates themselves — auto-registered by the plugin, no settings wiring |
-| CLAUDE.md block | — | 12 always-on lines — four section headings (`Tooling`, `Safety`, `Session cost`, `Git`) over eight rules: one on tooling, three on safety, one on session cost, three on git. No response-language rule — that stays yours |
+| CLAUDE.md block | — | 12 always-on lines — four section headings (`Tooling`, `Safety`, `Session cost`, `Git`) over eight rules: one on tooling, three on safety, one on session cost, three on git. No response-language rule — that stays yours. Its one source is `templates/claude-md-block.md`; the repository's own `CLAUDE.md` carries a generated copy, and CI fails a pull request where the two differ |
 
 ## The chain
 
@@ -332,9 +332,10 @@ latest version* against whatever the clone last knew. Updates are keyed to the
 version in `plugin.json`, not to commits — a change that ships without a
 version bump reaches nobody.
 
-`install.sh` backs up to `CLAUDE.md.bak`, merges only its marker block
-(idempotent — rerun to update), and never edits your own content: overlaps
-are warned about, not resolved. For a reviewed, deduplicating merge run
+`install.sh` backs up to `CLAUDE.md.bak`, merges only its marker block — read
+from `templates/claude-md-block.md`, the block's one source — (idempotent —
+rerun to update), and never edits your own content: overlaps are warned
+about, not resolved. For a reviewed, deduplicating merge run
 `/specseal:preset-setup` inside Claude Code instead — every deletion goes through an
 approval diff.
 
