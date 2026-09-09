@@ -16,8 +16,12 @@
             the two modules the skill change touches (105 passed with the
             first), `evidence-check` (1033 ok · 0 drifted, exit 0),
             `survivor-check` over the fix range, both span rules over every
-            transcript on this machine at run and row level, 11 mutations one
-            at a time. **read** — `analyse`, `spawn_cuts`, `in_windows`,
+            transcript on this machine at run and row level, **8 mutations**
+            one at a time — 4 on the span expression and its sentence, 4 on
+            the refusal branch — each restored from bytes the probe kept and
+            each verified byte-identical after, plus 3 rollbacks to the
+            module as it stood, to see the new cases red. **read** —
+            `analyse`, `spawn_cuts`, `in_windows`,
             `spawn_cycles`, `measure_cycles`, `report`, `report_spawns`,
             `share`, `load`. **unverified** — the full suite, the
             repository-wide lint and the typecheck, which are the
