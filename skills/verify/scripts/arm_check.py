@@ -1026,6 +1026,20 @@ def main(argv=None):
         ),
     )
     args = parser.parse_args(argv)
+    if args.timeout < 0:
+        # `0` removes the bound, and `-1` is how several tools spell the same
+        # intention. Passed through, `subprocess.run` raises `TimeoutExpired`
+        # before the command starts, so every pair of every arm is recorded
+        # as unmeasured and the run prints a perfect score for a measurement
+        # nobody took. Refused here rather than reported honestly downstream,
+        # because there is no reading of a negative bound that is worth
+        # running.
+        parser.error(
+            "--timeout takes a non-negative number of seconds, and 0 removes "
+            "the bound. A negative value times every command out before it "
+            "starts, so every arm is recorded as unmeasured and the run "
+            "prints a survivor count of zero it never measured."
+        )
 
     def echo(msg):
         print(msg, flush=True)

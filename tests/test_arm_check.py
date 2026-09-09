@@ -1103,6 +1103,41 @@ def test_the_report_does_not_call_a_mutated_arm_unmutated(
     assert sum("no verdict" in line for line in loop) == 2
 
 
+def test_a_negative_bound_is_refused_rather_than_measured(two_arms, capsys):
+    """Round 2's finding 17, and it is finding 15's cause through a door no
+    label can close.
+
+    `type=float` accepts a negative and `args.timeout or None` passes it
+    through, so `subprocess.run` raises `TimeoutExpired` before the command
+    starts: every pair of every arm unmeasured, exit 0, and a survivor count
+    of zero. `0` is documented as removing the bound and `-1` is how several
+    tools spell the same intention, so a person who types it gets the best
+    possible result out of a run that measured nothing.
+
+    Honest labels are not enough here — round 2's finding 15 makes the report
+    true, and *0 arms measured · 0 watched by no case* is still what a run
+    with a typo in it prints. So the value is refused at parse time, which is
+    the only place the run can be stopped before it wastes the wall clock.
+
+    A tiny positive bound is NOT refused, and that is deliberate: `0.001` is
+    a legitimate thing to type against a fast command, and finding 15's
+    labels are what make its output readable.
+
+    Red how: the guard deleted gives exit 0 and `0 arms measured`, measured
+    through `main`. Executed."""
+    module_path, tests = two_arms
+    with pytest.raises(SystemExit) as exit_code:
+        ARM.main([str(module_path), "--tests", shlex.join(tests), "--timeout", "-1"])
+    assert exit_code.value.code == 2, "argparse's own usage-error exit"
+    printed = capsys.readouterr()
+    assert "--timeout takes a non-negative number of seconds" in printed.err
+    assert "survivor count of zero it never measured" in printed.err, (
+        "the refusal has to say what would have happened, or it reads as an "
+        "arbitrary validation rule"
+    )
+    assert "arms measured" not in printed.out, "and nothing was run"
+
+
 def test_a_pair_whose_command_ran_and_answered_nothing_is_not_called_unasked(two_arms):
     """Finding 15's cause through its third door, which the record does not
     name.
