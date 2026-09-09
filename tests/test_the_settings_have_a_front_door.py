@@ -17,7 +17,8 @@ import pytest
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 SKILL = ("skills", "config", "SKILL.md")
-BOOTSTRAP = ("skills", "implement", "SKILL.md")
+# The bootstrap is `implement`'s orchestrator half since #292.
+BOOTSTRAP = ("skills", "implement", "orchestration.md")
 TEMPLATE = ("templates", "config.md")
 
 
