@@ -12,13 +12,17 @@
 
   **There are two ways to be wrong and the answers differ by a lot.**
   Inverting a test asks whether a case would notice it running backwards;
-  removing the branch asks whether one would notice it not being there. On
-  `hooks/review-history-guard.py`, against `tests/test_chain_hooks.py`:
-  **1 of 32 branches survives inversion and 12 survive removal.** A branch
-  counts watched when either is noticed. The report prints both rows and says
-  which one #262's table of nine compares with, because every sentence in that
-  table is about taking something out — a single merged number invites exactly
-  the wrong comparison.
+  removing the branch asks whether one would notice it not being there.
+  Measured 2026-09-09 on `hooks/review-history-guard.py`, against
+  `tests/test_chain_hooks.py`: **12 of 32 branches survive removal, and none
+  of the 29 that inversion can be asked of survives it.** A branch counts
+  watched when either is noticed. The report prints both rows, says which one
+  #262's table of nine compares with — every sentence in that table is about
+  taking something out, so a single merged number invites exactly the wrong
+  comparison — and names every branch it asked one operator and not the
+  other, which is why the two denominators differ: for a handler with one
+  type left, inverting it and removing it are the same edit, so it is asked
+  once.
 
   **The walk refuses a syntax it does not recognise instead of skipping it.**
   A checker whose own enumeration goes short prints a shorter count that still
@@ -32,6 +36,19 @@
   says so where it prints them: a branch that cannot be reached, or one whose
   removal changes no behaviour, belongs in that list. It is report-only —
   exit 0 either way.
+
+  **One branch's command is bounded and the run survives a failed one.**
+  `--timeout` defaults to 900 seconds and 0 removes the bound; a command that
+  does not return in time, and one that cannot be started at all, is recorded
+  as a branch nothing measured rather than as a verdict — so a virtual
+  environment that stops being buildable partway through costs one branch
+  instead of the whole run.
+
+  **The total says which rule narrowed it.** `assert` and `for`/`else` are not
+  counted, by #262's rule rather than because they hold no test, and the
+  report names them where it prints the total. A run narrowed with `--only`
+  says what it was narrowed out of, so a number pasted into a record does not
+  read as the module's.
 
   Run it as `arm-check <module>` to list the branches, or with
   `--tests "<command>"` to get the verdict. `skills/verify/SKILL.md` §2

@@ -37,10 +37,19 @@ removed, an except handler made unreachable"* — and only two were built.
 
 So there are two operators, and the report keeps them apart:
 
-| Operator | Asks | Result on the real module |
+| Operator | Asks | Result on the real module, as this phase measured it |
 |---|---|---|
 | `invert` | would a case notice this test being **backwards** | 32 asked · 31 killed · **1 survived** |
 | `remove` | would a case notice this arm being **absent** | 32 asked · 20 killed · **12 survived** |
+
+**Round 1's fix moved the top row and the argument above it got sharper.**
+Finding 6: for a handler with one type left, `invert` and `remove` produce the
+same text, so `invert` is refused for those three arms and the pair is named
+in the report. Re-measured 2026-09-09 after the fix: `invert` 29 asked · 29
+killed · **0 survived**, `remove` unchanged, combined unchanged at 31 killed ·
+1 watched by no case. The single inversion survivor was `main:189`, which is
+one of the three — so a checker built with inversion alone would now print
+**0** beside the ticket's nine rather than 1.
 
 An arm counts watched when **any** operator is noticed, because the question
 *does any case depend on this arm* is answered by one yes. The per-operator

@@ -27,6 +27,15 @@ held bytes and sha256-compared after every one, exit 0 (report-only).
 | `remove` | 32 | 32 | 20 | **12** |
 | combined — watched by any operator | 32 | — | 31 | **1** |
 
+**The `invert` row moved in round 1 and this table is the run before it.**
+Finding 6 refused `invert` for the three handlers with one type left, where
+the two operators produce the same text. Re-measured 2026-09-09 with the same
+command, 61 mutations: `invert` 29 asked · 29 killed · **0** survived,
+`remove` and the combined row unchanged. Q1's arithmetic below reads *1 arm
+under `invert` and 12 under `remove`*: the first is **0** since that fix and
+the second is unchanged, which is the number a gate on any survivor would
+fail on either way.
+
 Per scope: `reader` 5 · `is_closed` 4 · `gh_segments` 5 · `main` 17 ·
 `<module>` 1.
 

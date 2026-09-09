@@ -578,13 +578,22 @@ def _splice(source: str, span: Span, replacement: str) -> str:
 #:
 #: `invert` asks *would a case notice if this test were backwards*, and
 #: `remove` asks *would a case notice if this arm were not here at all*.
-#: Measured on `hooks/review-history-guard.py`: inversion kills 31 of 32 arms
-#: and removal kills far fewer. **#262's table of unwatched arms is a REMOVAL
+#: Measured 2026-09-09 on `hooks/review-history-guard.py`: inversion kills
+#: every arm it can be asked of and removal kills 20 of 32. **#262's table of
+#: unwatched arms is a REMOVAL
 #: count** — every sentence in it is about taking something out ("removing
 #: either opt-in half makes a globally installed plugin nag unrelated
 #: repositories", "removing `not segs` makes the stray and unreadable notices
 #: fire on every Bash call") — so a survivor count taken by inversion alone is
-#: not the ticket's number and must not be compared with it.
+#: not the ticket's number and must not be compared with it. Sharper since the
+#: sole-type refusal below: inversion now reports ZERO survivors on that
+#: module, so a checker built with it alone would have printed 0 beside the
+#: ticket's nine.
+#:
+#: The two denominators differ on purpose. A pair both operators answer with
+#: the same edit is asked once — `mutate` refuses `invert` for a handler with
+#: one type left and the report names the pair — so `invert` is asked of 29
+#: arms where `remove` is asked of 32.
 #:
 #: An arm is watched when ANY operator's mutation is noticed: that is the
 #: question *does any case depend on this arm*. The per-operator counts are
@@ -621,6 +630,21 @@ def mutate(source: str, arm: Arm, operator: str = "invert") -> str:
             f"({arm.note or 'no note'}). A match PATTERN is not an "
             f"expression, so neither inverting nor dropping it is available — "
             f"the repair is a mutation for that shape, not a skip."
+        )
+    if handler and arm.group_without == NEVER_RAISED and operator == "invert":
+        # A handler with ONE type left: dropping it and aiming it elsewhere
+        # are the same edit, and both leave a handler that catches nothing.
+        # Asked of both operators, ONE measurement is reported as two
+        # independent answers to the two questions `OPERATORS` says are
+        # different -- and `main:189` in `hooks/review-history-guard.py`, the
+        # arm the report headlines as watched by nothing, is exactly this
+        # shape. `remove` keeps it, because #262's table is a removal count.
+        # Refused rather than silently skipped, so the pair is NAMED in the
+        # report and the arm is still measured by the operator that owns it.
+        raise NoMutationDefined(
+            f"{arm.where}: this handler has one type left, so removing it and "
+            f"aiming it elsewhere are the same edit. Measured by `remove`, "
+            f"which is the row #262's table compares with."
         )
 
     if operator == "remove":

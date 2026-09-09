@@ -77,10 +77,22 @@ in the rest of the tree.
 **There are two ways to be wrong and the counts differ by a lot**, so the
 report keeps them apart and the number you quote has to say which one it is:
 
-| Operator | Asks | On `hooks/review-history-guard.py` |
+| Operator | Asks | Measured 2026-09-09 on `hooks/review-history-guard.py` |
 |---|---|---|
-| `invert` | would a case notice this test being **backwards** | 1 of 32 survived |
+| `invert` | would a case notice this test being **backwards** | 0 of 29 survived |
 | `remove` | would a case notice this arm being **absent** | 12 of 32 survived |
+
+That third column is a measurement and not a property of the module: it moves
+when either the module or `tests/test_chain_hooks.py` changes, which is the rot
+this checker exists to end. Re-take it with the command above rather than
+reading it as current — a number in a document is exactly what #262 says goes
+stale.
+
+The two denominators differ because **a pair both operators answer identically
+is asked once.** A handler with one type left is aimed at what nothing raises
+by either operator, so `invert` refuses it and the report names the pair;
+`remove` keeps it, because #262's table is a removal count. Three of this
+module's arms are that shape.
 
 An arm counts watched when **either** is noticed, because *does any case
 depend on this arm* is answered by one yes. #262's own table of unwatched arms

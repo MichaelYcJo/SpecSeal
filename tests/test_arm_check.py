@@ -866,10 +866,12 @@ def test_the_run_leaves_no_bytecode_cache_behind(two_arms):
 
     **This property has two mechanisms behind it and either one alone
     satisfies it** — the per-arm `clear_bytecode_cache` and the subprocess's
-    `PYTHONDONTWRITEBYTECODE`. So the env var is an arm no case kills: it is
-    redundant insurance for a subprocess whose `PYTHONPYCACHEPREFIX` differs
-    from this process's, where the clear would look in the wrong directory.
-    Named here rather than pinned, because pinning the second mechanism
+    `PYTHONDONTWRITEBYTECODE`. So the env var is an arm no case kills. It is
+    kept for one narrow path: `run_arms` builds the child's environment from
+    `dict(os.environ)`, so the subprocess cannot differ from this process
+    through the environment — only a `--tests` command that sets
+    `PYTHONPYCACHEPREFIX` itself puts the cache somewhere the clear does not
+    look. Named here rather than pinned, because pinning the second mechanism
     separately would pin the implementation and not the claim."""
     module_path, tests = two_arms
     ARM.run_arms(str(module_path), tests)
@@ -1120,9 +1122,10 @@ def test_the_report_separates_the_operators_and_names_the_ticket_row(two_arms):
     a total that mixed the operators would invite exactly the wrong
     comparison.
 
-    Measured on `hooks/review-history-guard.py`: `invert` kills 31 of 32 arms
-    and `remove` far fewer, so a single survivor count is not the ticket's
-    nine and must not be read as a refutation of it."""
+    Measured 2026-09-09 on `hooks/review-history-guard.py`: `invert` kills
+    every one of the 29 arms it can be asked of and `remove` kills 20 of 32,
+    so a single survivor count is not the ticket's nine and must not be read
+    as a refutation of it."""
     module_path, tests = two_arms
     verdicts, refused = ARM.run_arms(str(module_path), tests)
     lines = []
@@ -1151,6 +1154,108 @@ def test_the_report_separates_the_operators_and_names_the_ticket_row(two_arms):
     assert "#262's own" in text and "`remove` count" in text, (
         "and must say which row the ticket's unwatched-arm table compares "
         "with, or a reader compares it with the total"
+    )
+
+
+def test_the_skill_calls_its_survivor_counts_a_measurement_and_not_a_property():
+    """Round 1's finding 5, and it is this work item's own argument turned on
+    it.
+
+    #262 exists because a count typed into a document rots: its own table says
+    33 arms where the module has 31, because the file changed twice after the
+    count was taken. The section that introduces this checker then printed
+    `1 of 32` and `12 of 32` in a column headed like a property of the module,
+    with no date and nothing reading it.
+
+    What is pinned here is the CLAIM, not the numbers. A case asserting
+    `12 of 32` is the rotting list one file further on; a case asserting that
+    the column is a measurement is what stops the next edit putting a bare
+    number back. Asserted as a whole clause and lowered, for the reasons
+    #310's case carries.
+
+    Red how: deleting the sentence, or rewriting it to say the numbers are a
+    property of the module. Executed."""
+    with open(
+        os.path.join(ROOT, "skills", "verify", "SKILL.md"), encoding="utf-8"
+    ) as f:
+        text = " ".join(f.read().split()).lower()
+    assert (
+        "that third column is a measurement and not a property of the module" in text
+    ), (
+        "the section prints two survivor counts, and a reader who takes them "
+        "for a property of the module is reading a number that moves when "
+        "either the module or its cases change — which is the rot #262 is "
+        "about, arriving in the document that introduces the checker"
+    )
+    assert (
+        "re-take it with the command above rather than reading it as current" in text
+    ), (
+        "and it has to say what to do instead, or the disclosure is a caveat "
+        "with no action in it"
+    )
+
+
+def test_a_sole_type_handler_is_measured_by_one_operator_and_not_by_both(tmp_path):
+    """Round 1's finding 6, and it is this module's own subject turned on it.
+
+    For a handler with one type left, `remove` splices `NEVER_RAISED` over the
+    type and `invert` splices it over the same span: byte-identical before
+    this refusal, so ONE measurement was reported as two independent answers
+    to the two questions `OPERATORS` says are different. `main:189` in
+    `hooks/review-history-guard.py` — the arm the report headlines as watched
+    by nothing — is exactly this shape, and it printed `invert survived ·
+    remove survived`.
+
+    `remove` is the operator that keeps it, because #262's table is a removal
+    count. Nothing is lost by refusing `invert`: the identical text is still
+    spliced and still measured, one subprocess run fewer.
+
+    **Both spellings of *one type left*, because the class is not just the
+    sole type.** `except (OSError,):` is a one-member tuple whose remainder is
+    also `NEVER_RAISED`; the two operators reach different spans there, so the
+    texts differ while the edit does not, and it is refused on the same
+    grounds.
+
+    Red how: dropping the refusal makes the two mutations compare equal here
+    and the report print two rows for one measurement. Executed."""
+    sole = "def f():\n    try:\n        pass\n    except OSError:\n        pass\n"
+    (only,) = ARM.arms(sole)
+    with pytest.raises(ARM.NoMutationDefined, match="one type left"):
+        ARM.mutate(sole, only, "invert")
+    # And the measurement itself is not lost -- `remove` splices the same text.
+    assert "_specseal_never_raised" in ARM.mutate(sole, only, "remove")
+
+    one_member = (
+        "def f():\n    try:\n        pass\n    except (OSError,):\n        pass\n"
+    )
+    (wrapped,) = ARM.arms(one_member)
+    assert wrapped.group_without == ARM.NEVER_RAISED, (
+        "a one-member tuple's remainder is what nothing raises, which is the "
+        "same edit spelled over a different span"
+    )
+    with pytest.raises(ARM.NoMutationDefined, match="one type left"):
+        ARM.mutate(one_member, wrapped, "invert")
+
+    # A handler with more than one type keeps both operators: the refusal is
+    # for the arms where the two edits coincide, not for handlers.
+    pair = (
+        "def f():\n    try:\n        pass\n    except (OSError, ValueError):\n"
+        "        pass\n"
+    )
+    first, _second = ARM.arms(pair)
+    assert "_specseal_never_raised" in ARM.mutate(pair, first, "invert")
+    assert "except (ValueError):" in ARM.mutate(pair, first, "remove")
+
+    # And the run names the un-asked pair rather than skipping it.
+    module_path = tmp_path / "sole.py"
+    module_path.write_text(sole, encoding="utf-8")
+    verdicts, refused = ARM.run_arms(str(module_path), [sys.executable, "-c", "pass"])
+    assert refused == [], "the arm is measured by `remove`, so it is not refused"
+    (verdict,) = verdicts
+    assert sorted(verdict.by_operator) == ["remove"]
+    assert "one type left" in verdict.not_applicable["invert"], (
+        "the pair `invert` could not be asked of has to reach the report, or "
+        "its denominator shrinks silently -- the skip this module refuses"
     )
 
 
