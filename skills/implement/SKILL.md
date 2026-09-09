@@ -125,7 +125,7 @@ manufacture the first by writing policy documents nobody asked for: the SDD set
 is the root of judgment, and a policy document is a thing a human decides to
 keep.
 
-### Bootstrap — create what's missing
+### Orchestrator: Bootstrap — create what's missing
 
 When a root or file this skill needs doesn't exist, create it from
 `templates/` in this plugin and continue. In particular:
@@ -232,7 +232,7 @@ or `$(git rev-parse --git-common-dir)/seal/` — has been through this: the
 mode is read from where the folder is, and re-asking is the nagging this
 plugin exists to avoid.
 
-### Parity setup — deriving what can be derived
+### Orchestrator: Parity setup — deriving what can be derived
 
 Three of the four fields come from the machine; only one needs the user.
 Never guess the original: a comparison against a guessed repo proves nothing.
@@ -312,6 +312,8 @@ that leads nowhere — the session that answers it is holding finished work with
 no destination, which is a gate wearing the shape of a question. A yes/no is
 the tell. Ask which of two named paths instead, and say what each one does.
 
+### Orchestrator: how the work is routed — three axes, one question, one file
+
 **How this work is routed is one of them, and it has three axes.** Ask all
 three in the same breath: they are one decision about where the work goes, and
 asking a later one on its own is itself the mid-round prompt this exists to
@@ -382,19 +384,12 @@ it is a table:
 
 Two things the sentences kept dropping. A declaration reaches the review arm
 only, so a migration repository still meets the parity arm on a code-touching
-commit. And a commit confined to those two directories never wakes that arm
-at all — which is why the `routing.md` commit this section mandates costs
-nothing even there, and why asking would only teach a reader to click through
-the prompt.
-
-<!-- # RIDER: "that arm" is the PARITY arm and "even there" is a migration
-     repository. Both readings are correct and both were read the other way
-     round in one session, which then treated the review arm's ordinary wake on
-     a `specs/`-only commit as a chicken-and-egg the design does not have and
-     put it to the user twice. The table above says it unambiguously; this
-     paragraph is what gets read instead. Name the arm in the sentence when
-     this section is next opened.
-     Verified 2026-09-08 against "### 1. Read the spec before the code"@908ef9e0. -->
+commit. And a commit confined to those two directories never wakes the PARITY
+arm at all — which is why the `routing.md` commit this section mandates costs
+nothing even in a migration repository, and why asking would only teach a
+reader to click through the prompt. (Both were once read the other way round
+in one session, which put the question to the user twice; the table above is
+unambiguous and the sentence is what gets read, so the sentence names the arm.)
 
 The declaration is what the commit gate reads, for **either** review answer.
 A work item routed to the chain used to carry "no marker at all", and that was
