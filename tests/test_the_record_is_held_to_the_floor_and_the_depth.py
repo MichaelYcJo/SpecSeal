@@ -164,7 +164,11 @@ def record(sha, floor="no", new_units="none", needs="no"):
         rows += f"| Loses a record or crashes | {floor} |\n"
     return (
         "# a round\n\n"
-        f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n{rows}\n"
+        f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n"
+        # The gate ran at the very commit the round reviewed, which is what a
+        # settled record says. `chain_check.GATE_FROM` reaches this fixture's
+        # work-item id, so this record owes the row like the seven above it.
+        f"| Broad gate | {sha} against base |\n{rows}\n"
         "- [x] Pass\n\n"
         "## Verdicts\n\n"
         "| # | Finding | Location | Verdict | Grounds |\n"

@@ -56,6 +56,63 @@ found", which is a different sentence from "not there". Never promote one to
 a document — a policy or a ledger row built on a search nobody could repeat
 is the same defect as a `read` reported as passing, with a longer fuse.
 
+#### `arm-check` asks condition 2 of a whole module, one arm at a time
+
+Condition 2 is asked of the case in front of you. **A module has arms nobody
+ever asked it of**, and counting them by hand is how the count rots: #262's
+own table says 33 arms where `hooks/review-history-guard.py` now has 31,
+because the file changed twice after the count was taken.
+
+```
+arm-check hooks/review-history-guard.py
+arm-check hooks/review-history-guard.py --tests "bin/test tests/test_chain_hooks.py -q"
+```
+
+With no `--tests` it lists the arms and mutates nothing. With `--tests` it
+makes each arm wrong in turn, runs that command, and names the arms nothing
+kills — restoring the module from held bytes and comparing the sha256 after
+every mutation, never with `git checkout`, which reaches the uncommitted work
+in the rest of the tree.
+
+**There are two ways to be wrong and the counts differ by a lot**, so the
+report keeps them apart and the number you quote has to say which one it is:
+
+| Operator | Asks | Measured 2026-09-09 on `hooks/review-history-guard.py` |
+|---|---|---|
+| `invert` | would a case notice this test being **backwards** | 0 of 29 survived |
+| `remove` | would a case notice this arm being **absent** | 12 of 32 survived |
+
+That third column is a measurement and not a property of the module: it moves
+when either the module or `tests/test_chain_hooks.py` changes, which is the rot
+this checker exists to end. Re-take it with the command above rather than
+reading it as current — a number in a document is exactly what #262 says goes
+stale.
+
+The two denominators differ because **a pair both operators answer identically
+is asked once.** A handler with one type left is aimed at what nothing raises
+by either operator, so `invert` refuses it and the report names the pair;
+`remove` keeps it, because #262's table is a removal count. Three of this
+module's arms are that shape.
+
+An arm counts watched when **either** is noticed, because *does any case
+depend on this arm* is answered by one yes. #262's own table of unwatched arms
+is a `remove` count — every sentence in it is about taking something out — so
+that is the row to compare it with, and the combined total is not.
+
+An arm is what #262's rule says it is: an `ExceptHandler` counting each member
+of an except tuple separately, or an `If`, `While` or `IfExp` counting each
+**top-level** member of the boolean test separately, plus a `match_case`'s
+alternatives and guard and a comprehension's `if` guards. The walk is derived
+from the grammar rather than from a list, and it **refuses an AST node type
+it does not recognise** instead of skipping it — a walk that skips silently is
+the rotted hand count with a shebang on it.
+
+Two things it does not claim. **A survivor is not automatically a defect:** an
+arm that cannot be constructed, or one whose removal preserves behaviour,
+belongs in the report and is not work anybody owes. And it is **report-only,
+exit 0 either way** — whether an unwatched arm should fail a run is an open
+decision, not an omission.
+
 ### 3. Bound to the tree
 
 Evidence attaches to a tree state, not to a session. Note the state the
@@ -384,6 +441,82 @@ finished, not as a follow-up someone might do later:
    a resumed smith's transcript holds several segments in one file — split
    it at the user lines where the coordinator sent it a new message, and
    measure only the slice that belongs to the segment just watched.
+
+   **An orchestrator's segments sit inside one file too, and its boundary is
+   not a user line — `session_cost.py --spawns` is what takes it.** Every
+   other segment of a chain is a transcript of its own, so its row is the
+   whole file; the orchestrator's is not, and the whole file was the only row
+   it ever had. That is how three segment kinds came to have bands a later
+   run can be read against while the most expensive one had none. A **spawn
+   cycle** is not the review chain's cycle, which
+   `docs/review-chain-spec.md` owns: it ends when a spawn call's result
+   arrives and begins where the row before it ended, so the head is the
+   framing before the first spawn, cycle N runs from spawn N-1's result to
+   spawn N's, and the tail is the closing work after the last one.
+
+   **Post a cycle row as a band, and never as an attribution.** Inside one
+   window the orchestrator waits on the previous agent, verifies the report
+   it hands over, and frames the next prompt, and no transcript field marks
+   where any of those ends. Cycle 1 is the one row without that window: the
+   run's own start is a boundary a script can take, so its framing goes to
+   the head row instead, and the two are read together.
+
+   **Read `delegated` before quoting a cycle's model time, because what a
+   spawn's result MEANS is the harness's and not this skill's.** That column
+   is the spawn call's own tool_use-to-tool_result span. Where a harness
+   writes the result when the agent FINISHES, the column is the delegated
+   wall clock and it is out of the row's other columns, which is the double
+   count gone. Where a harness writes it when the spawn is ACCEPTED, the
+   column reads seconds and the agent's own wall clock is in **none** of the
+   row's columns and none of any other row's. It is the gap between one
+   row's last call and the next row's first, and a row's span starts at its
+   own first call while its model time never counts the gap before it. So
+   the rows partition the run's calls and not its wall clock — measured at
+   12 to 31 per cent of a run — and the agent's own transcript is where its
+   number is, either way.
+
+   **A span runs from its window's first call to the last call to END, and
+   that is worth knowing because it used to end at the last call to BEGIN
+   (#300).** The old rule read the end of the last element of a list sorted
+   by start, so a long-lived call — a background command, a suite spanning
+   the window — ended after the window counting it, and a reading could
+   report a span shorter than a single call inside it. Two consequences for
+   anyone comparing readings across that change: a span taken before it is
+   the shorter of the two wherever a call outlived its window, and identical
+   everywhere else; and `command` could exceed 100 per cent of the span,
+   which the new rule narrows and does not close, because command time is a
+   sum over calls and calls can run concurrently. Where you see a share above
+   100, read it as command seconds against wall-clock seconds with calls
+   running at once, never as a broken number. Batching is the ordinary way
+   in and a background command is the rarer one: every tool call in one
+   assistant message carries that message's timestamp as its start, so a
+   batch of three overlaps by construction. Measured over the transcripts on
+   one machine, every second of overlap above a second came from calls
+   batched into one message and none of it from a call that crossed a turn.
+
+   **Where the report gives no between-the-rows figure and prints the rows'
+   spans against the run's own, a call outlived the cut its row ends at.**
+   Assigning a call by its start is what makes the calls partition, and it
+   leaves a long-running one — a background command, a suite spanning a cut
+   — in the row it began in while the next row has already started, so two
+   rows' spans cover the same seconds. The head row's cut is the first
+   spawn's START and every other row's is a spawn's RESULT, which is why the
+   line names the cut and not the result: a head call can outlive its own
+   row's cut and still end before any spawn's result arrives.
+
+   **The two figures it prints are not the rows' overlap, so do not subtract
+   them and post the difference as one.** A row's span ends at its own last
+   call to end and so does the run's, so every row's interval sits inside
+   the run's and the difference is the gaps between the rows minus their
+   overlap. Quote that run's span and its rows' columns, and leave the
+   between-the-rows share out of the reading rather than substituting either
+   sum.
+
+   **So a long cycle span is not a long agent run.** Where a row's span
+   exceeds its own parts by an hour, that hour is a gap INSIDE the row,
+   above the fifteen minutes model time stops counting at — the orchestrator
+   issuing nothing between two of its own calls. Read it as idle time in the
+   orchestrator, never as the agent it spawned.
 2. Post what the numbers say with `gh issue comment <n> --body-file
    <file>`, where `<n>` is the issue number the lookup above returned — the
    rolling log's for the segment's own numbers, the durable one's for a

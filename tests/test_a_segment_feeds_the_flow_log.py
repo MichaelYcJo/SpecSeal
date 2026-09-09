@@ -532,3 +532,67 @@ def test_the_section_says_which_transcript_is_the_runs_own():
         "the section never says `--latest` can land on a segment, which is "
         "the ordinary case on a run that spawned any"
     )
+
+
+def test_the_section_names_batching_as_the_way_a_share_passes_one_hundred():
+    """A share over 100% is a true reading, and WHY it happens is the half a
+    person acts on. The paragraph used to send that reader looking for a
+    background command; measured over one machine's transcripts, 100% of the
+    overlap above a second is calls batched into one assistant message and
+    none of it crosses a turn. Nothing else in the tree reads this clause, so
+    without this case an edit can put the rarer cause back as the ordinary
+    one and no check says anything.
+
+    **The clauses are asserted WHOLE, not by their vocabulary** (#310). This
+    case shipped as four substring assertions and three rearrangements of the
+    paragraph walked past all of them: the two causes swapped, the
+    measurement inverted, and the old phrase re-added at the start of a
+    sentence — each one exit 0. Every regression the case exists against is a
+    rearrangement of true words, and no substring sees a rearrangement. Where
+    a paragraph carries a ranking (*this is the ordinary cause, that the
+    rarer one*) or a direction (*it came from A and not from B*), the
+    assertion has to carry the ranking or the direction. `section_body()`
+    collapses whitespace, so a whole-clause assertion survives a re-wrap and
+    only a change to the wording turns it red.
+
+    **And every needle is lowered, because the clause's POSITION in its
+    sentence is not the claim either.** Matched with its case, a needle that
+    starts with a capital pins the clause to being sentence-initial and one
+    that starts lower pins it to NOT being — the same defect, one direction
+    over. Round 1 found the first: `In practice, ` in front of the batching
+    clause changes no word of it, keeps the ranking and keeps the direction,
+    and turned this case red. All three positive needles are lowered, not
+    just that one."""
+    body = section_body()
+    assert "calls running at once" in body.lower(), (
+        "the paragraph must name concurrent calls as what puts a share over "
+        "100%, not something running in the background"
+    )
+    assert (
+        "batching is the ordinary way in and a background command is the "
+        "rarer one" in body.lower()
+    ), (
+        "batching is the ordinary way a share passes 100% and the background "
+        "command the rarer one; naming the two separately passes with the "
+        "ranking reversed, which is the edit this case exists to stop. "
+        "Lowered for the same reason the negative below is: the clause's "
+        "POSITION in its sentence is not the claim, so prefixing the "
+        "sentence leaves the ranking and the direction intact and must not "
+        "turn this red"
+    )
+    assert (
+        "every second of overlap above a second came from calls batched into "
+        "one message and none of it from a call that crossed a turn" in body.lower()
+    ), (
+        "the measured claim has a direction, and the vocabulary of both "
+        "halves survives inverting it — so the clause is asserted whole. "
+        "Lowered like the two above: this clause is mid-sentence today, so "
+        "a case-sensitive needle pins it to NOT being sentence-initial — "
+        "the same defect as pinning it to being sentence-initial, one "
+        "direction over"
+    )
+    assert "something running in the background" not in body.lower(), (
+        "the old wording named the rarer cause as the ordinary one. Lowered "
+        "because the same phrase returning at the start of a sentence is the "
+        "same regression"
+    )

@@ -1126,7 +1126,14 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     sentence under a dash exists to prevent.
 
     The share itself is unchanged: neither shape gets a percentage, because
-    a share of a non-positive span is not a number anybody can read."""
+    a share of a non-positive span is not a number anybody can read.
+
+    **#300 narrowed what a negative span means, and one arm below flipped
+    with it.** The span ends at the last call to END, so it goes negative
+    only when EVERY call ended before the first call began — not merely when
+    the last call to begin did. A transcript holding one call that ran for
+    two hours is no longer read as negative, which is the shape the third arm
+    now pins."""
     lines = [
         at("2026-08-24T10:00:00Z", [use("a", "pytest -q")], "ma", {"output_tokens": 1}),
         at("2026-08-24T09:00:00Z", [{"type": "tool_result", "tool_use_id": "a"}]),
@@ -1144,9 +1151,7 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     proc = run([str(path)])
     assert proc.returncode == 0, proc.stderr
     assert re.search(r"^span\s+-\d", proc.stdout, re.M), proc.stdout
-    assert "the last call to begin ended before the first call began" in proc.stdout, (
-        proc.stdout
-    )
+    assert "no call ended after the first call began" in proc.stdout, proc.stdout
     # The zero-span sentence must NOT be the one a negative span gets.
     assert "every call shares one timestamp" not in proc.stdout, proc.stdout
     assert re.search(r"^  command\s+\S+\s+—$", proc.stdout, re.M), proc.stdout
@@ -1157,9 +1162,13 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     assert "idle" not in proc.stdout, proc.stdout
 
     # The sentence has to hold for EVERY negative span, not for the one shape
-    # it was written against. The span is taken from the last call to BEGIN,
-    # because `load` sorts by start — so the last RESULT can arrive hours
-    # after the first call and the span still be negative.
+    # it was written against — and after #300 this shape is not one of them.
+    # The span ends at the last call to END, so a call running 10:00 to 12:00
+    # gives a run of two hours however early the OTHER call's result was
+    # written. Under the old rule the span was `calls[-1]["end"]` over a list
+    # sorted by start, so this transcript read minus sixty minutes for a run
+    # that plainly lasted two, and the sentence below was the true statement
+    # about a number that should never have been negative.
     later = [
         at("2026-08-24T10:00:00Z", [use("a", "pytest -q")], "ma", {"output_tokens": 1}),
         at("2026-08-24T12:00:00Z", [{"type": "tool_result", "tool_use_id": "a"}]),
@@ -1175,13 +1184,12 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     out_of_order.write_text("\n".join(later) + "\n")
     third = run([str(out_of_order)])
     assert third.returncode == 0, third.stderr
-    assert re.search(r"^span\s+-\d", third.stdout, re.M), third.stdout
-    # The last result here arrived at 12:00, two hours AFTER the first call
-    # began, so a sentence about the last result would be false.
-    assert "the last call to begin ended before the first call began" in third.stdout, (
-        third.stdout
-    )
-    assert "idle" not in third.stdout, third.stdout
+    # 120 minutes, and neither non-positive sentence: call `a` really did run
+    # from 10:00 to 12:00, and that is the run's wall clock whatever order
+    # the results were written in.
+    assert re.search(r"^span\s+120\.0m", third.stdout, re.M), third.stdout
+    assert "no call ended after the first call began" not in third.stdout, third.stdout
+    assert "every call shares one timestamp" not in third.stdout, third.stdout
 
     # A negative span makes every duration derived from it negative, and the
     # lines that INTERPRET a duration must not fire on one. `repeats` is
@@ -1234,7 +1242,7 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     other = run([str(zero)])
     assert other.returncode == 0, other.stderr
     assert "every call shares one timestamp" in other.stdout, other.stdout
-    assert "the last call to begin" not in other.stdout, other.stdout
+    assert "no call ended after the first call began" not in other.stdout, other.stdout
 
 
 # --- #193: a third the file could not compute is not a baseline -------------
@@ -1600,3 +1608,671 @@ def test_the_report_names_the_command_the_table_could_not(tmp_path):
     other = run([str(test_leads)]).stdout
     assert "names nothing" not in other, other
     assert re.search(r"^  test\s+1 calls", other, re.M), other
+
+
+# --- #145: the orchestrator's row is a spawn cycle, not the whole session ---
+#
+# Every other segment of a chain is a transcript of its own, so its row is the
+# whole file. An orchestrator's segments are spawn cycles INSIDE one file, so
+# until `--spawns` the whole file was the only row it had — which is why #51's
+# observation 1 has bands for three segment kinds and none for this one.
+
+
+def spawn(uid, start, end, subagent_type, description="a spawn"):
+    """One `Agent` call and its result arriving.
+
+    The `prompt` is present and ignored on purpose: `load` writes a call with
+    no `command` field as a JSON dump of its whole input, so this is the
+    shape that makes `command` a flattened prompt rather than a command line.
+    Two cases below rest on that."""
+    return [
+        turn(
+            start,
+            {
+                "type": "tool_use",
+                "id": uid,
+                "name": "Agent",
+                "input": {
+                    "subagent_type": subagent_type,
+                    "description": description,
+                    "prompt": "run pytest tests/ -q and report",
+                },
+            },
+        ),
+        turn(end, {"type": "tool_result", "tool_use_id": uid}),
+    ]
+
+
+@pytest.fixture
+def orchestrator(tmp_path):
+    """One run with two spawns, laid out so every row has something in it.
+
+    head    two calls, one 5s gap
+    cycle 1 the first spawn alone — 600s delegated
+    cycle 2 two checks and a 1200s spawn; 7s and 9s gaps, 4s of command time
+    tail    one call after the last spawn's result
+
+    Cycle 2 is where the delegated-interval case can discriminate: it holds
+    three calls, so it has real model gaps that a leaked 1200s would swamp
+    and that dropping the spawn from the walk would shorten."""
+    lines = []
+    lines += call("a", 0, 10, "git status --short")
+    lines += call("b", 15, 18, "cat seal/specs/x/plan.md")
+    lines += spawn("A", 25, 625, "specseal:smith", "Build phase 1")
+    lines += call("c", 640, 643, "git log --oneline -5")
+    lines += call("d", 650, 651, "cat seal/specs/x/spec.md")
+    lines += spawn("B", 660, 1860, "specseal:warden", "Review round 1")
+    lines += call("e", 1870, 1880, "./bin/test tests/test_x.py -q")
+    path = tmp_path / "orchestrator.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def spawns_of(path, args=()):
+    return json.loads(run(["--json", *args, str(path)]).stdout)["spawns"]
+
+
+def test_two_spawns_are_two_cycles_each_naming_what_it_spawned(orchestrator):
+    """The acceptance row: two `Agent` calls, two cycles, each named."""
+    spawns = spawns_of(orchestrator)
+    assert spawns["found"] == 2, spawns
+    cycles = [row for row in spawns["rows"] if row["kind"] == "cycle"]
+    assert [row["cycle"] for row in cycles] == [1, 2], cycles
+    assert [row["subagent_type"] for row in cycles] == [
+        "specseal:smith",
+        "specseal:warden",
+    ], cycles
+    assert [row["description"] for row in cycles] == [
+        "Build phase 1",
+        "Review round 1",
+    ], cycles
+
+
+def test_the_framing_and_the_closing_work_are_each_their_own_row(orchestrator):
+    """`spec.md`: the work outside any cycle is reported rather than dropped.
+
+    The head is the two framing calls before the first spawn went out and the
+    tail is the one call after the last spawn's result — the closing work,
+    which is the half a slice quietly drops when it stops at the last one."""
+    rows = spawns_of(orchestrator)["rows"]
+    kinds = [row["kind"] for row in rows]
+    assert kinds == ["head", "cycle", "cycle", "tail"], kinds
+    head, tail = rows[0], rows[-1]
+    assert head["numbers"]["calls"] == 2, head
+    assert head["numbers"]["command_s"] == 13, head  # 10 + 3
+    assert tail["numbers"]["calls"] == 1, tail
+    assert tail["numbers"]["command_s"] == 10, tail
+
+
+def test_every_call_lands_in_exactly_one_row(orchestrator):
+    """The property the whole table rests on, asserted as a sum.
+
+    A slice that drops the run's closing work, or one that charges a call
+    that outlived the cut its row ends at to both rows either side of it,
+    both pass every other case here and fail this one."""
+    data = json.loads(run(["--json", str(orchestrator)]).stdout)
+    rows = data["spawns"]["rows"]
+    counted = sum(row["numbers"]["calls"] for row in rows if row["numbers"])
+    assert counted == data["calls"] == 7, (counted, data["calls"])
+
+
+def test_a_row_with_no_call_keeps_its_place_in_the_partition(tmp_path):
+    """A run whose first act is a spawn has an empty head, and that is a
+    reading rather than a gap. Dropping the row would make the rows stop
+    partitioning the run, which is the property above."""
+    lines = spawn("A", 0, 60, "specseal:smith") + call("a", 70, 75, "git status")
+    path = tmp_path / "no-head.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    rows = spawns_of(path)["rows"]
+    assert [row["kind"] for row in rows] == ["head", "cycle", "tail"], rows
+    assert rows[0]["numbers"] is None, rows[0]
+    out = run(["--spawns", str(path)]).stdout
+    assert "no call in this window" in out, out
+
+
+def batch_spawn(uid, second, subagent_type, message_id="batch"):
+    """One block of a message that spawned two agents at once.
+
+    The two blocks carry different row stamps on purpose: a harness writes
+    one message as one row per content block, and `load` takes each block's
+    start from its own row. That is what lets the spawn sent FIRST be the one
+    that reports LAST, which is the only shape where report order and send
+    order disagree.
+
+    The prompt is identical in both, and it names `pytest`: two spawns in one
+    window carrying the same prompt are what a repeat group reads as a check
+    re-run for a result already in hand."""
+    return message(
+        second,
+        [
+            {
+                "type": "tool_use",
+                "id": uid,
+                "name": "Agent",
+                "input": {
+                    "subagent_type": subagent_type,
+                    "prompt": "run pytest tests/ -q and report",
+                },
+            }
+        ],
+        message_id=message_id,
+    )
+
+
+def test_a_batch_of_two_spawns_is_bounded_by_when_each_report_arrived(tmp_path):
+    """Two agents spawned in one turn, and the first one sent reports last.
+
+    A cycle is bounded by its REPORT, so cycle 1 is the window ending at the
+    first report — whichever spawn that was. Ordering the spawns by when they
+    went out instead swaps both names, which is what the name assertion
+    catches; nothing else in this module can tell the two orderings apart,
+    because everywhere else a spawn reports in the order it was sent.
+
+    Both calls sit in cycle 1, which is where the orchestrator actually made
+    them, and cycle 2's window holds nothing at all."""
+    lines = [
+        batch_spawn("A", 0, "specseal:warden"),
+        batch_spawn("B", 10, "specseal:scribe"),
+        result(300, "B"),
+        result(900, "A"),
+    ]
+    path = tmp_path / "batch.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    rows = spawns_of(path)["rows"]
+    cycles = [row for row in rows if row["kind"] == "cycle"]
+    assert [row["subagent_type"] for row in cycles] == [
+        "specseal:scribe",
+        "specseal:warden",
+    ], cycles
+    assert cycles[0]["numbers"]["calls"] == 2, cycles[0]
+    assert cycles[1]["numbers"] is None, cycles[1]
+    # Two delegated calls in ONE window, with one prompt between them. Left in
+    # the repeat groups they read as 290 seconds of work re-run for a result
+    # already produced, on a run where nothing was re-run.
+    assert cycles[0]["numbers"]["repeat_same_work_s"] == 0, cycles[0]["numbers"]
+
+
+def test_the_subagents_own_interval_is_not_charged_to_the_orchestrator(orchestrator):
+    """The acceptance row, on cycle 2's fabricated 1200s spawn.
+
+    Three implementations are separated here. Charging the delegated interval
+    to the orchestrator gives a model time of 1266s or a command time of
+    1204s. Dropping the spawn call out of the list handed to the analysis
+    gives a model time of 7s, because the gap either side of it collapses
+    into one. What is right is the third: the call stays in the walk that
+    bounds the gaps and its duration leaves the command time."""
+    cycles = [row for row in spawns_of(orchestrator)["rows"] if row["kind"] == "cycle"]
+    second = cycles[1]["numbers"]
+    assert second["delegated_s"] == 1200, second
+    assert second["command_s"] == 4, second  # 3 + 1, the two checks
+    assert second["model_s"] == 16, second  # 7s and 9s, neither swallowed
+    assert second["calls"] == 3, second  # the spawn is still a call it made
+
+
+def test_a_delegated_call_is_kept_out_of_the_slowest_and_the_repeats(orchestrator):
+    """A prompt is not a check.
+
+    A spawn's `command` is the JSON dump of its input, so the prompt arrives
+    at the classifier as a command line — the fixture's prompt names `pytest`
+    on purpose. Left in, two spawns carrying the same prompt read as a check
+    re-run for a result already in hand, and a twenty-minute wait sits at the
+    top of `slowest` telling the reader what they already knew."""
+    cycles = [row for row in spawns_of(orchestrator)["rows"] if row["kind"] == "cycle"]
+    second = cycles[1]["numbers"]
+    assert second["repeat_same_work_s"] == 0, second
+    assert all("subagent_type" not in row["command"] for row in second["slowest"]), (
+        second["slowest"]
+    )
+    assert max(row["seconds"] for row in second["slowest"]) == 3, second["slowest"]
+
+
+def test_a_cycle_is_divided_by_its_own_turns_and_not_the_runs(orchestrator):
+    """`tools_per_turn` is the one number in the row with a denominator, and
+    handing `analyse` the whole run's turn list is the way to get it wrong
+    without getting anything else wrong.
+
+    Cycle 2 sent three calls over three turns, so its ratio is 1.00. Divided
+    by the run's seven turns it reads 0.43 — under every threshold the
+    printed advisory has — and every other number in the row stays right,
+    which is what would make it survive a reading."""
+    cycles = [row for row in spawns_of(orchestrator)["rows"] if row["kind"] == "cycle"]
+    second = cycles[1]["numbers"]
+    assert second["call_turns"] == 3, second
+    assert second["tools_per_turn"] == 1.0, second
+    head = spawns_of(orchestrator)["rows"][0]["numbers"]
+    assert head["call_turns"] == 2, head
+
+
+def test_a_report_stamped_before_its_call_does_not_move_a_call_out_of_its_row(
+    tmp_path,
+):
+    """The running maximum on the cuts, with the guarantee removed.
+
+    A harness writing a result before the call it answers gives that spawn a
+    negative duration, which is the one shape that can make a later cut
+    earlier than the one before it. Cuts that go backwards are not a sorted
+    list, so the search that assigns calls to windows answers from a binary
+    search over an assumption that no longer holds — and the call at 55s,
+    which belongs to the framing before any spawn, is charged to a cycle
+    instead. The count still partitions, so only the assignment shows it.
+
+    `share` and `report` already answer the non-positive span for the printed
+    report. This is the same harness one reader over, and until this case the
+    defence against it had never been tried."""
+    lines = call("a", 55, 60, "git status --short")
+    lines += [
+        turn(
+            100,
+            {
+                "type": "tool_use",
+                "id": "A",
+                "name": "Agent",
+                "input": {"subagent_type": "specseal:smith", "prompt": "x"},
+            },
+        ),
+        result(50, "A"),
+    ]
+    lines += spawn("B", 200, 300, "specseal:warden")
+    path = tmp_path / "backwards.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    data = json.loads(run(["--json", str(path)]).stdout)
+    rows = data["spawns"]["rows"]
+    head = rows[0]["numbers"]
+    assert head is not None and head["calls"] == 1, rows
+    counted = sum(row["numbers"]["calls"] for row in rows if row["numbers"])
+    assert counted == data["calls"] == 3, (counted, data["calls"])
+
+
+def test_an_unparseable_turn_stamp_does_not_end_the_slicing(tmp_path):
+    """The file's own rule — one odd row must not end the report — reaching
+    the one reader that orders a turn against a time.
+
+    `parse_time` already drops the unpairable CALL on such a row, and the
+    turn is appended with the stamp as written. A turn with no time has no
+    window to fall in, and asking which window it falls in compares `None`
+    with a `datetime`: `TypeError`, out of the slice, with stdout empty —
+    which is `count`'s failure one reader over and the shape `report`'s own
+    docstrings say this file refuses. Dropped from the denominator instead,
+    the direction every funnel here takes."""
+    bad = json.dumps(
+        {
+            "timestamp": "yesterday",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "z",
+                        "name": "Bash",
+                        "input": {"command": "ls"},
+                    }
+                ],
+                "usage": {"input_tokens": 500},
+            },
+        }
+    )
+    lines = [bad, *spawn("A", 10, 70, "specseal:smith"), *call("a", 80, 85, "ls")]
+    path = tmp_path / "odd-turn.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    proc = run(["--json", str(path)])
+    assert proc.returncode == 0, proc.stderr
+    rows = json.loads(proc.stdout)["spawns"]["rows"]
+    assert [row["kind"] for row in rows] == ["head", "cycle", "tail"], rows
+
+
+def test_two_prompts_that_differ_after_a_pipe_are_not_a_check_re_run(tmp_path):
+    """The repeat groups, with the shape a real orchestrator's prompts have.
+
+    A spawn's `command` is the JSON dump of its whole input, and the repeat
+    groups key on that string with everything after the first `|` cut off —
+    plumbing, on a command line. A spawn prompt carries markdown tables, so
+    two prompts that share a sentence and then differ inside a table collapse
+    into one group, and the two spawns read as 290 seconds of work re-run for
+    a result already in hand. Nothing was re-run: they are two different
+    agents doing two different things."""
+    lines = [
+        message(
+            0,
+            [
+                {
+                    "type": "tool_use",
+                    "id": "A",
+                    "name": "Agent",
+                    "input": {
+                        "subagent_type": "specseal:warden",
+                        "prompt": "run pytest, then review round 1 | file | verdict | 1",
+                    },
+                }
+            ],
+            message_id="pair",
+        ),
+        message(
+            10,
+            [
+                {
+                    "type": "tool_use",
+                    "id": "B",
+                    "name": "Agent",
+                    "input": {
+                        "subagent_type": "specseal:warden",
+                        "prompt": "run pytest, then review round 1 | file | verdict | 2",
+                    },
+                }
+            ],
+            message_id="pair",
+        ),
+        result(300, "B"),
+        result(900, "A"),
+    ]
+    path = tmp_path / "pipes.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    first = spawns_of(path)["rows"][1]["numbers"]
+    assert first["calls"] == 2, first
+    assert first["repeat_same_work_s"] == 0, first
+    assert first["repeat_exact_s"] == 0, first
+
+
+def test_a_cycle_carries_the_same_numbers_the_whole_run_does(orchestrator):
+    """The acceptance row: the cycle row's keys ARE the whole run's keys.
+
+    What it stops is a second meter hand-rolled for cycles. The labels are
+    named rather than subtracted loosely, so adding one is a decision
+    somebody makes here rather than a key that appears in a published
+    reading."""
+    data = json.loads(run(["--json", str(orchestrator)]).stdout)
+    whole = set(data) - {"tokens", "spawns"}
+    for row in data["spawns"]["rows"]:
+        assert set(row) == {"kind", "cycle", "subagent_type", "description", "numbers"}
+        if row["numbers"]:
+            assert set(row["numbers"]) == whole, (row["kind"], set(row["numbers"]))
+    for key in (
+        "span_s",
+        "command_s",
+        "model_s",
+        "calls",
+        "tools_per_turn",
+        "gap_mean_s",
+    ):
+        assert key in whole, key
+
+
+def test_the_plain_reading_is_the_number_it_was_before_the_mode_existed(orchestrator):
+    """Every reading this repository has published was taken without the
+    mode, and a value that quietly moves makes those incomparable with
+    nothing on the page saying so — which is what #200 and #202 were.
+
+    So the whole-run row still charges the delegated 1800s to command time,
+    and its `delegated_s` is 0.0 because nothing was removed from it. The
+    `Agent` row of the family table is where the delegated time stays
+    visible in that reading."""
+    data = json.loads(run(["--json", str(orchestrator)]).stdout)
+    assert data["command_s"] == 1827, data["command_s"]  # 600 + 1200 included
+    assert data["delegated_s"] == 0.0, data["delegated_s"]
+    assert data["by_family"]["Agent"] == {"calls": 2, "seconds": 1800}, data[
+        "by_family"
+    ]
+
+
+def test_a_run_with_no_spawn_names_the_count_rather_than_printing_a_table(transcript):
+    """#200's failure shape, repaid the way #200 was.
+
+    An empty cycle table reads as *this run spawned nothing* — and a run that
+    DID spawn reads exactly the same way the moment a harness stops writing a
+    spawn as an `Agent` call. So the count and the transcript path are printed
+    and the table is not."""
+    spawns = spawns_of(transcript)
+    assert spawns == {"found": 0, "rows": []}, spawns
+    out = run(["--spawns", str(transcript)]).stdout
+    assert "0 spawns found" in out, out
+    assert str(transcript) in out, out
+    assert "t/turn" not in out and "cycle 1" not in out, out
+
+
+def test_the_printed_table_names_each_cycle_and_what_it_spawned(orchestrator):
+    """The rendered text, because that is what a person posts to the log.
+
+    The partition line is printed even when it agrees: the rows resting on it
+    is the reason a reader gets to see it hold rather than taking the file's
+    word for it."""
+    out = run(["--spawns", str(orchestrator)]).stdout
+    assert "2 spawns found" in out, out
+    assert "cycle 1  specseal:smith" in out, out
+    assert "cycle 2  specseal:warden" in out, out
+    assert re.search(r"^  head\s", out, re.M), out
+    assert re.search(r"^  tail\s", out, re.M), out
+    assert "7 calls over the rows above, of 7 calls in the transcript" in out, out
+    assert "Build phase 1" in out and "Review round 1" in out, out
+    # 20.0m delegated in cycle 2, and a dash where nothing was delegated.
+    assert "20.0m" in out, out
+    assert "—" in out, out
+
+
+def test_a_delegated_column_of_seconds_says_which_of_two_things_it_is(
+    orchestrator, tmp_path
+):
+    """Measured on this harness: an `Agent` call pairs in 1.5-3.7 seconds
+    because its result is written when the spawn is ACCEPTED, and each
+    subagent's transcript opens at that same stamp — 61 of 67 spawns across
+    three runs, within one second. The agent then runs for a median of about
+    1,000 seconds, in NO column of any row —
+    `test_the_delegated_wait_is_in_no_column_of_any_row` is where that is
+    pinned.
+
+    So a `delegated` column of near-zeroes is not the reading it looks like,
+    and a reader taking it for *nothing was delegated* is #200's failure
+    shape one column over. Both arms, because a line that always prints is
+    furniture: absent where a spawn's own interval really does cover its run,
+    present where none of them can."""
+    quick = spawn("A", 0, 3, "specseal:smith") + call("a", 20, 25, "git status")
+    path = tmp_path / "quick.jsonl"
+    path.write_text("\n".join(quick) + "\n")
+    out = run(["--spawns", str(path)]).stdout
+    assert "`delegated` never reaches a minute here — 3s at most" in out, out
+    # Whitespace-collapsed, so the wording is what this pins rather than
+    # which column the line happens to wrap at.
+    assert "result is written when the spawn is ACCEPTED" in " ".join(out.split()), out
+
+    covered = run(["--spawns", str(orchestrator)]).stdout
+    assert "never reaches a minute" not in covered, covered
+
+
+def test_the_delegated_wait_is_in_no_column_of_any_row(tmp_path):
+    """Where the agent's wall clock actually goes, on the ACCEPTED harness.
+
+    A window's `span_s` starts at its own first call and the model walk never
+    counts the gap before that call, so the wait after a spawn's result is in
+    no column of the row that follows it — under the 900s ceiling as much as
+    above it. Nine pages said it was in the next row's `model` while it
+    stayed under fifteen minutes; this is the case that would have caught
+    that, and it is the number a reader of the band table needs."""
+    lines = call("z", 0, 1, "git status --short")
+    lines += spawn("A", 5, 7, "specseal:smith")
+    # 300s of silence: the agent running, well under the 900s ceiling.
+    lines += call("b", 307, 310, "git log --oneline -5")
+    lines += call("c", 315, 317, "cat seal/specs/x/spec.md")
+    path = tmp_path / "accepted.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    rows = spawns_of(path)["rows"]
+    tail = rows[-1]["numbers"]
+    assert tail["span_s"] == 10, tail  # 307 to 317, not 7 to 317
+    assert tail["model_s"] == 5, tail  # 315-310 alone; the 300s is not here
+    assert tail["command_s"] == 5, tail
+    assert tail["delegated_s"] == 0.0, tail
+    data = json.loads(run(["--json", str(path)]).stdout)
+    outside = data["span_s"] - sum(
+        row["numbers"]["span_s"] for row in rows if row["numbers"]
+    )
+    # 304 and not 300, which is why the printed line says MOSTLY the wait:
+    # 300s of it is the wait after the spawn's result, and 4s is the head's
+    # own last call to the cut. On the three measured runs that second part
+    # is 0.6-0.8m of a 42-168m total, and here it is deliberately visible.
+    assert outside == 304, outside
+    out = " ".join(run(["--spawns", str(path)]).stdout.split())
+    assert "in NONE of the columns above" in out, out
+    assert "5.1m of the run's 5.3m is BETWEEN the rows" in out, out
+
+
+def test_a_call_that_outlives_a_cut_prints_no_between_the_rows_figure(tmp_path):
+    """The rows partition the CALLS, and the difference can go the other way.
+
+    `in_windows` assigns a call by its start, which is what makes the calls
+    partition and is not enough to make the spans partition: a call that
+    outlives the cut its row ends at stays in the row it began in while the
+    next row's calls have already started, so two rows' spans cover the same
+    seconds and their sum can pass the run's own span. The line above then
+    subtracts to a negative and printed `-16.5m of the run's 16.6m is
+    BETWEEN the rows -- mostly the wait`: a negative interval, named as the
+    delegated wait, in the one report this work item exists to make honest.
+
+    A background `Bash` command is the ordinary way to reach it, which is
+    what this transcript is."""
+    lines = call("bg", 0, 1000, "npm run dev")
+    lines += spawn("A", 5, 7, "specseal:smith")
+    lines += call("b", 10, 12, "git status --short")
+    lines += call("c", 990, 995, "git log --oneline -5")
+    path = tmp_path / "outlives.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    rows = spawns_of(path)["rows"]
+    spans = sum(row["numbers"]["span_s"] for row in rows if row["numbers"])
+    data = json.loads(run(["--json", str(path)]).stdout)
+    # The premise: the spans overlap, so they sum past the run's own span.
+    assert spans > data["span_s"], (spans, data["span_s"])
+    out = " ".join(run(["--spawns", str(path)]).stdout.split())
+    # What the reader gets is the two SUMS, not their difference and not "the
+    # rows overlap by 16.4m". `minutes` is one decimal, so a difference under
+    # three seconds rounds to `by 0.0m` and reads as nothing having happened
+    # beside a refusal; two figures the reader subtracts never round one away.
+    #
+    # And the difference is not the overlap. After #300 every row's interval
+    # is a subinterval of the run's, so what the subtraction gives is the
+    # gaps between the rows MINUS their overlap. Here the head row covers the
+    # whole run, so there are no gaps and the 987s happens to equal the
+    # overlap — which is why naming it the overlap would be a claim that
+    # holds on this fixture and fails in general.
+    assert "the rows' spans sum to 33.1m against the run's own 16.7m" in out, out
+    assert "no between-the-rows figure" in out, out
+    # The whole point: no negative is stated, and nothing is called the wait.
+    assert "is BETWEEN the rows" not in out, out
+    assert "-16.4m" not in out, out
+    # The cut a row ends at, never a spawn's result: the head row's cut is
+    # the first spawn's START.
+    assert "outlived the cut its row ends at" in out, out
+    assert "outlived a spawn's result" not in out, out
+
+
+def test_the_printed_report_calls_a_cycle_row_a_band(orchestrator):
+    """The row covers the wait, the verifying and the framing at once, and
+    posting it as an attribution to one of those overstates it. The caveat is
+    on the page rather than only in `plan.md`, because the page is what gets
+    pasted into the log."""
+    out = run(["--spawns", str(orchestrator)]).stdout
+    assert "band over several acts and never an attribution" in out, out
+    assert "spawn N-1's result arriving until spawn N's arrives" in out, out
+    assert "the `Agent` call's own tool_use-to-tool_result span" in out, out
+
+
+def test_a_spawn_that_names_no_subagent_type_still_gets_a_row(tmp_path):
+    """A label this file cannot print is a label that was never there. The
+    row is what the reading needs; the name on it is what makes it easy to
+    read, and a blank label would leave a reader unable to tell one row from
+    the next."""
+    lines = [
+        turn(0, {"type": "tool_use", "id": "A", "name": "Agent", "input": {}}),
+        result(60, "A"),
+    ]
+    path = tmp_path / "unnamed.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    rows = spawns_of(path)["rows"]
+    assert rows[1]["subagent_type"] == "", rows[1]
+    assert "cycle 1  ?" in run(["--spawns", str(path)]).stdout
+
+
+# --- #300: a window's span ends at the last call to END ---------------------
+
+
+def test_a_span_covers_every_call_it_counts(tmp_path):
+    """A window's span ends at the last call to END, not the last to BEGIN.
+
+    `analyse` took the span as `calls[-1]["end"] - calls[0]["start"]` over a
+    list `load` sorts by START, so a call that outlived every later call
+    ended after the window it was counted in. A background command running
+    0-1000s beside calls at 10-12s and 990-995s gave a span of 995s — five
+    seconds shorter than the single call the window holds — and `command_s`
+    counted that call in full, so the printed share was taken against a
+    whole that did not contain its own part.
+
+    The invariant this pins is the one that makes a span a span: no call it
+    counted ends after it."""
+    lines = call("bg", 0, 1000, "npm run dev")
+    lines += call("b", 10, 12, "git status --short")
+    lines += call("c", 990, 995, "git log --oneline -5")
+    path = tmp_path / "outlives-the-span.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["span_s"] == 1000, data["span_s"]
+    # `slowest` is sorted by duration, so its head is the longest single
+    # call. A span shorter than that is a window that does not contain one
+    # of its own calls, which is what 995 against 1000 was.
+    longest = data["slowest"][0]["seconds"]
+    assert longest == 1000, data["slowest"][0]
+    assert data["span_s"] >= longest, (data["span_s"], longest)
+    out = run([str(path)]).stdout
+    assert "span          16.7m" in out, out
+
+
+def test_a_head_call_outlives_the_cut_without_outliving_a_spawns_result(tmp_path):
+    """The head row's cut is the first spawn's START, not a spawn's result.
+
+    `spawn_cuts` opens its cut list at the first spawn's start, so a head
+    call can outlive its own row's cut and still end before that spawn's
+    result arrives. The refusal must not name a cause this transcript does
+    not carry, and it must not print a magnitude that rounds to nothing.
+
+    The two sums are what removes the magnitude. `minutes` is one decimal, so
+    a difference under three seconds printed `by 0.0m` as the grounds for
+    withholding a figure: #145's round 3 measured that on a one-second
+    overlap. The difference here is three seconds and printed `by 0.1m`; what
+    this fixture pins is item 1, the cut rather than the result. Note that
+    both sums round to 0.2m on it, so the reader's own subtraction gives 0.0m
+    — the two figures stop the line ASSERTING a magnitude of zero, and they
+    do not recover one."""
+    lines = call("bg", 0, 8, "npm run dev")
+    lines += spawn("A", 5, 9, "specseal:smith")
+    lines += call("b", 6, 9, "pytest -q")
+    lines += call("c", 9, 10, "git status --short")
+    path = tmp_path / "head-cut.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    out = " ".join(run(["--spawns", str(path)]).stdout.split())
+    assert "no between-the-rows figure" in out, out
+    assert "outlived the cut its row ends at" in out, out
+    # No call in this transcript ends after the spawn's result at 9s.
+    assert "outlived a spawn's result" not in out, out
+    # The two sums, so nothing rounds to `by 0.0m`.
+    assert "sum to 0.2m against the run's own 0.2m" in out, out
+    assert "by 0.0m" not in out, out
+
+
+def test_an_exact_cover_reads_as_the_partition_agreeing(tmp_path):
+    """`outside == 0` takes the between-the-rows line, not the refusal.
+
+    The guard is `>= 0` and not `> 0`, and until now nothing pinned that
+    choice: the rows summing to exactly the run's span is the partition
+    agreeing, and the tally above it is printed when it agrees for the same
+    reason. Under `> 0` this transcript would print a refusal — *no
+    between-the-rows figure* — for a run whose rows cover it exactly, which
+    is the one shape where the reader can see the arithmetic work.
+
+    Head 0-8s, spawn 5-7s, call 10-12s: run span 12s against row spans of 8s,
+    2s and 2s. The figure is 0.0m and it is a real reading."""
+    lines = call("bg", 0, 8, "npm run dev")
+    lines += spawn("A", 5, 7, "specseal:smith")
+    lines += call("c", 10, 12, "git status --short")
+    path = tmp_path / "exact-cover.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    rows = spawns_of(path)["rows"]
+    spans = sum(row["numbers"]["span_s"] for row in rows if row["numbers"])
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["span_s"] == 12, data["span_s"]
+    assert spans == 12, spans
+    out = " ".join(run(["--spawns", str(path)]).stdout.split())
+    assert "0.0m of the run's 0.2m is BETWEEN the rows — mostly the wait" in out, out
+    assert "no between-the-rows figure" not in out, out
