@@ -37,12 +37,16 @@
   removal changes no behaviour, belongs in that list. It is report-only —
   exit 0 either way.
 
-  **One branch's command is bounded and the run survives a failed one.**
-  `--timeout` defaults to 900 seconds and 0 removes the bound; a command that
-  does not return in time, and one that cannot be started at all, is recorded
-  as a branch nothing measured rather than as a verdict — so a virtual
-  environment that stops being buildable partway through costs one branch
-  instead of the whole run.
+  **The wait for one command is bounded and the run survives a failed one.**
+  `--timeout` defaults to 900 seconds and 0 removes the bound; a negative is
+  refused. A command that does not return in time, and one that cannot be
+  started at all, is recorded as a branch nothing measured rather than as a
+  verdict — so a virtual environment that stops being buildable partway
+  through costs one branch instead of the whole run. **It bounds the wait and
+  not the work**: only the command's own process is killed, so a command that
+  spawns something — a wrapper script running the suite one process down —
+  leaves that running. Each branch asks two questions, so a branch can take
+  twice the bound.
 
   **The total says which rule narrowed it.** `assert` and `for`/`else` are not
   counted, by #262's rule rather than because they hold no test, and the

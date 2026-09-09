@@ -1103,6 +1103,41 @@ def test_the_report_does_not_call_a_mutated_arm_unmutated(
     assert sum("no verdict" in line for line in loop) == 2
 
 
+def test_the_help_says_the_bound_reaches_the_command_and_not_its_children(capsys):
+    """Round 2's finding 16. §14 — the help text is what a person reads
+    before they type the command the skill documents.
+
+    `subprocess.run` sends the kill to the direct child and to nothing below
+    it. `bin/test` is `exec python3 .github/scripts/run_tests.py`, and that
+    script runs pytest through `subprocess.run`, so the documented
+    `--tests "bin/test ..."` form puts the suite one process below the one the
+    bound reaches: a timed-out pair leaves a whole suite running, unbounded
+    and unreported, competing with every arm after it.
+
+    Two claims, both of which the help got wrong. The bound is per operator
+    command, not per arm — an arm asks two, so it can take twice it — and it
+    bounds the wait rather than the work.
+
+    Pinned here rather than in the docstring: this text is output, and a
+    reader acts on it without opening the source. Whether the bound SHOULD
+    reach a process group is #313, not this case.
+
+    Red how: either claim removed from the help. Executed."""
+    with pytest.raises(SystemExit):
+        ARM.main(["--help"])
+    text = " ".join(capsys.readouterr().out.split()).lower()
+    assert (
+        "only the command's own process is killed, not anything it spawned" in text
+    ), (
+        "a bound that reads as bounding the command sends a reader to type "
+        "the wrapper form the skill documents and leaves a suite behind"
+    )
+    assert "an arm asks two operators, so it can take twice this" in text, (
+        "and the bound is per operator command, measured at 2.0s for one arm "
+        "against a 1-second bound"
+    )
+
+
 def test_a_negative_bound_is_refused_rather_than_measured(two_arms, capsys):
     """Round 2's finding 17, and it is finding 15's cause through a door no
     label can close.

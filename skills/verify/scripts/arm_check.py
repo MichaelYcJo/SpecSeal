@@ -785,11 +785,20 @@ def run_arms(
     mutation as killed while never having applied it — the pattern had missed
     by two spaces of indentation.
 
-    `timeout` bounds ONE arm's command, and `None` removes the bound. While a
-    command runs the module on disk holds the mutation and `capture_output`
-    means nothing is printed, so an unbounded hang is indistinguishable from
-    a slow suite — and the longer the process lives mutated, the more likely
-    it is ended by something no `finally` sees.
+    `timeout` bounds how long ONE operator's command is WAITED for, and
+    `None` removes the bound. An arm asks each operator in turn, so an arm can
+    take twice it. While a command runs the module on disk holds the mutation
+    and `capture_output` means nothing is printed, so an unbounded hang is
+    indistinguishable from a slow suite — and the longer the process lives
+    mutated, the more likely it is ended by something no `finally` sees.
+
+    It bounds the WAIT and not the work: `subprocess.run` kills the direct
+    child and nothing below it, and the documented `--tests "bin/test ..."`
+    puts pytest one process further down (`bin/test` execs
+    `.github/scripts/run_tests.py`, which runs pytest through
+    `subprocess.run`). So a timed-out pair leaves that suite running,
+    unbounded and unreported, competing with every arm after it. The module is
+    restored either way, which is the half the paragraph above is about.
     """
     with open(path, "rb") as f:
         original = f.read()
@@ -1021,8 +1030,10 @@ def main(argv=None):
         type=float,
         default=900.0,
         help=(
-            "seconds one arm's command may take before it is recorded as "
-            "unmeasured rather than waited on. 0 removes the bound"
+            "seconds ONE operator's command is waited for before the pair is "
+            "recorded as unmeasured. An arm asks two operators, so it can "
+            "take twice this. Only the command's own process is killed, not "
+            "anything it spawned. 0 removes the bound"
         ),
     )
     args = parser.parse_args(argv)
