@@ -5,7 +5,7 @@
 | Target SHA | 090bbd0 |
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | #302 |
-| Broad gate | not yet |
+| Broad gate | 8abf13c against 86dd599 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
