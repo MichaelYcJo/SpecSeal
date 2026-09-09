@@ -544,6 +544,104 @@ def test_a_baseline_json_lends_its_ratios_and_the_delta_names_what_moved(
     assert "skills/gamma/SKILL.md" in text and "added" in text
 
 
+def _before_and_a_changed_tree(meter, tmp_path):
+    """A calibrated run, then the tree changes and NO new spawn is taken —
+    the shape #292's own after-number had: the transcript's smallest probe
+    spawn read `alpha` as it stood before the cut."""
+    root, home = a_tree(tmp_path)
+    transcript = a_transcript(
+        tmp_path,
+        [("general-purpose", "aaaa1"), ("plugin:probe", "bbbb2")],
+        {"aaaa1": (20000, 10000), "bbbb2": (30002, 10000)},
+    )
+    before = meter.measure(str(root), str(home), calibrate=transcript)
+    before_path = tmp_path / "before.json"
+    with open(before_path, "w", encoding="utf-8") as handle:
+        json.dump(before, handle)
+    write(str(root / "skills" / "alpha" / "SKILL.md"), "# alpha\n\nintro\n")
+    return root, home, transcript, before, str(before_path)
+
+
+def test_calibrating_the_same_spawn_over_a_changed_tree_keeps_the_ratio_it_read(
+    meter, tmp_path
+):
+    """The measured token count belongs to the bytes that spawn READ. Divided
+    by the bytes the tree holds now it is a ratio nobody measured, and the
+    first after-run of #292 printed exactly that: smith at 2.49 B/token
+    against the 2.87 its spawn paid, and +979 tokens on a file whose bytes
+    had not moved. When the baseline names the same spawn over other bytes,
+    the baseline's ratio is kept, the row says so, and nothing in the run
+    claims to be measured."""
+    root, home, transcript, before, before_path = _before_and_a_changed_tree(
+        meter, tmp_path
+    )
+    after = meter.measure(
+        str(root), str(home), calibrate=transcript, baseline=before_path
+    )
+    kept = before["ratios"]["probe"]
+    ratio = after["ratios"]["probe"]
+    assert ratio["bytes_per_token"] == kept["bytes_per_token"]
+    assert "tokens" not in ratio, "a lent ratio has no measurement of its own"
+    assert ratio["over_bytes"] == kept["over_bytes"]
+    assert "before.json" in ratio["from"] and "same spawn" in ratio["from"]
+    probe = after["agents"]["probe"]
+    note = probe["prefix"]["note"]
+    assert "agent-bbbb2.jsonl" in note and "before.json" in note
+    assert f"{kept['over_bytes']:,}" in note, "the bytes the spawn read are named"
+    assert "take a spawn after the change" in note
+    assert probe["total"]["basis"].startswith("estimated ("), probe["total"]
+    assert probe["total"]["tokens"] == sum(f["tokens"] for f in probe["files"])
+    alpha = probe["files"][1]
+    assert alpha["path"] == "skills/alpha/SKILL.md"
+    assert alpha["tokens"] == round(alpha["bytes"] / kept["bytes_per_token"])
+    assert alpha["basis"] == (
+        f"estimated ({kept['bytes_per_token']} B/token, from probe in before.json)"
+    )
+    text = meter.render(after)
+    assert note in text
+    assert "bytes the spawn read over" not in text.split("## probe")[1], (
+        "the ratio line would claim the spawn read this tree's bytes"
+    )
+
+
+def test_a_delta_between_a_measured_total_and_an_estimated_one_sums_the_files(
+    meter, tmp_path
+):
+    """Subtracting an estimated total from a measured one reports the gap
+    between two bases as if it were a change in the tree: -6,773 tokens on
+    #292's after-run, where the files summed to -4,691. Where the two totals
+    rest on different bases the token delta is the sum over the files and
+    the basis says so; bytes are exact either way and are still subtracted."""
+    root, home, _transcript, before, before_path = _before_and_a_changed_tree(
+        meter, tmp_path
+    )
+    write(str(root / "skills" / "gamma" / "SKILL.md"), "# gamma\n\nnew\n")
+    write(
+        str(root / "agents" / "probe.md"),
+        "---\nname: probe\nskills:\n  - alpha\n  - gamma\n---\n# probe\n",
+    )
+    after = meter.measure(str(root), str(home), baseline=before_path)
+    delta = after["delta"]["probe"]
+    assert delta["added"] == ["skills/gamma/SKILL.md"]
+    assert delta["removed"] == ["skills/beta/SKILL.md"]
+    now = {f["path"]: f for f in after["agents"]["probe"]["files"]}
+    then = {f["path"]: f for f in before["agents"]["probe"]["files"]}
+    summed = (
+        sum(d["tokens"] for d in delta["files"].values())
+        + now["skills/gamma/SKILL.md"]["tokens"]
+        - then["skills/beta/SKILL.md"]["tokens"]
+    )
+    assert delta["total"]["tokens"] == summed
+    assert delta["total"]["bytes"] == (
+        after["agents"]["probe"]["total"]["bytes"]
+        - before["agents"]["probe"]["total"]["bytes"]
+    )
+    assert "summed over the files" in delta["total"]["basis"]
+    assert "measured" in delta["total"]["basis"]
+    assert "estimated" in delta["total"]["basis"]
+    assert "summed over the files" in meter.render(after)
+
+
 def test_the_delta_lists_an_agent_the_baseline_has_and_the_tree_lost(meter, tmp_path):
     root, home = a_tree(tmp_path, extra_agent=True)
     before = meter.measure(str(root), str(home))

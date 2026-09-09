@@ -49,6 +49,16 @@ shadow, and the calibration divides by the bytes the spawn actually read.
 And a spawn's first message carries its prompt as well as the payload, so
 of several spawns of one agent the SMALLEST prefix is taken and the count
 is reported.
+
+And one thing the ratio has to know about the TREE: a spawn read the files
+as they stood when it was made. Calibrating against a transcript after the
+tree changed divides that spawn's token count by bytes it never read — the
+first after-run of #292 put smith at 2.49 B/token against the 2.87 its spawn
+paid, and +979 tokens on a file whose bytes had not moved. So with
+`--baseline` given, an agent whose smallest spawn is the one the baseline was
+calibrated from, over a different byte count, keeps the baseline's ratio, is
+labelled estimated throughout, and the row says to take a spawn after the
+change for a measured after-number. Without `--baseline` nothing can tell.
 """
 
 import argparse
@@ -369,6 +379,19 @@ def _ratio_from_baseline(baseline_data, name):
     return None
 
 
+def _same_spawn_over_other_bytes(baseline_data, name, spawn_file, seen_bytes):
+    """The bytes the baseline's ratio was measured over, when this run's
+    smallest spawn for `name` is that very spawn and the tree's bytes differ
+    from them — or None when the two agree or the baseline knows nothing."""
+    entry = ((baseline_data or {}).get("ratios") or {}).get(name)
+    if not isinstance(entry, dict) or entry.get("from") != spawn_file:
+        return None
+    over = entry.get("over_bytes")
+    if isinstance(over, int) and over != seen_bytes:
+        return over
+    return None
+
+
 def measure(
     root,
     home,
@@ -422,7 +445,28 @@ def measure(
             delta = entry["measured"] - base
             seen_bytes = sum(f.get("shadow", {}).get("bytes", f["bytes"]) for f in own)
             shadowed = [f["path"] for f in own if "shadow" in f]
-            if delta > 0:
+            read_over = _same_spawn_over_other_bytes(
+                baseline_data, name, entry["from"], seen_bytes
+            )
+            if read_over is not None:
+                lent = _ratio_from_baseline(baseline_data, name)
+                base_name = os.path.basename(baseline)
+                prefix["note"] = (
+                    f"the smallest {name} spawn, {entry['from']}, is the one "
+                    f"{base_name} was calibrated from, over {read_over:,} bytes "
+                    f"this tree no longer holds ({seen_bytes:,} now); its ratio "
+                    f"is kept and nothing here is measured — take a spawn after "
+                    f"the change for a measured after-number"
+                )
+                if lent is not None:
+                    ratio, origin = lent, f"{name} in {base_name}"
+                    out["ratios"][name] = {
+                        "bytes_per_token": ratio,
+                        "from": f"{base_name} (lent — the same spawn, over other bytes)",
+                        "over_bytes": read_over,
+                        "shadowed": shadowed,
+                    }
+            elif delta > 0:
                 ratio = round(seen_bytes / delta, 2)
                 origin = name
                 out["ratios"][name] = {
@@ -502,15 +546,34 @@ def delta_against(now, before):
                 "basis": row["basis"],
             }
         old_total = old.get("total", {})
+        total = {
+            "bytes": agent["total"]["bytes"] - old_total.get("bytes", 0),
+            "tokens": agent["total"]["tokens"] - old_total.get("tokens", 0),
+            "basis": agent["total"]["basis"],
+        }
+        now_measured = agent["total"]["basis"].startswith("measured")
+        then_measured = str(old_total.get("basis", "")).startswith("measured")
+        if now_measured != then_measured:
+            # A measured total minus an estimated one reports the gap between
+            # two bases as a change in the tree (-6,773 on #292's after-run,
+            # where the files summed to -4,691). Bytes are exact either way.
+            now_rows = {f["path"]: f for f in agent["files"] if "path" in f}
+            total["tokens"] = (
+                sum(d["tokens"] for d in files.values())
+                + sum(now_rows[p]["tokens"] for p in added)
+                - sum(old_files[p].get("tokens", 0) for p in old_files)
+            )
+            total["basis"] = (
+                "summed over the files — the earlier total was "
+                f"{'measured' if then_measured else 'estimated'} and this one is "
+                f"{'measured' if now_measured else 'estimated'}, so the two "
+                "cannot be subtracted"
+            )
         out[name] = {
             "files": files,
             "added": added,
             "removed": sorted(old_files),
-            "total": {
-                "bytes": agent["total"]["bytes"] - old_total.get("bytes", 0),
-                "tokens": agent["total"]["tokens"] - old_total.get("tokens", 0),
-                "basis": agent["total"]["basis"],
-            },
+            "total": total,
         }
     for name in before_agents:
         if name not in now["agents"]:
