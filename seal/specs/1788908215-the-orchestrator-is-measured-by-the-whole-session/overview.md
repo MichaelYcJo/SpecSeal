@@ -43,9 +43,18 @@ wrong about where it is:
 > subagent's row; charging it to the orchestrator too is the double count that
 > makes a cumulative reading look like a slow orchestrator."
 
-The double count is real and it is in the **model** column, or past the 900
-seconds `analyse` stops counting a gap at, in no column — which is why one
-cycle reads a 116-minute span against 11.5 minutes of parts.
+The double count is real and it is in **no column of any row**. It falls
+between two rows: `analyse` starts a window's `span_s` at that window's own
+first call and its model walk never counts the gap before that call, so the
+wait after a spawn's result is outside every column of the row that follows
+it — under the 900-second ceiling as much as above it. Measured over the three
+runs, that interval is 12 to 31 per cent of each run's wall clock.
+
+A row whose span exceeds its own parts is a **separate** thing, and round 1
+found four pages conflating the two. The cycle that reads 116 minutes against
+11.5 minutes of parts owes the difference to one gap of 104.8 minutes *inside*
+the cycle, above the ceiling — the orchestrator issuing nothing between two of
+its own calls. That row's delegated wait is 580 seconds.
 
 **What was NOT done about it, deliberately.** The code was built to `plan.md`
 and left that way: the exclusion is right and nearly free on this harness, and
@@ -74,7 +83,7 @@ nothing*.
 |---|---|
 | The full suite, the repository-wide lint and the typecheck | the orchestrator — `skills/agent-contract/SKILL.md` §2 makes the broad gate theirs, run once after the rounds settle |
 | Whether the reading actually reaches the durable log | the orchestrator — phase 5's posting is theirs, and `gh issue comment` was not run |
-| `Ran by` on all five phase records | the orchestrator — `templates/sdd-phase.md` makes that row the spawning session's and forbids a segment sourcing it from its own idea of what it is |
+| ✅ `Ran by` on all five phase records | filled at `e389fc1`, a commit that touches those five rows and nothing else — the reach-back `templates/sdd-phase.md` names beside the spawn-prompt route. All five read `specseal:smith on claude-opus-5`. Read at the coordinates in round 1's fix pass; what the template forbids is a segment sourcing the value from its own idea of what it is, and a standalone later commit is the other route it permits |
 | The whole-run reading charges a spawn's prompt to a command family, so a prompt naming `pytest` outside a heredoc classifies as a test run and two prompts differing only after a `\|` read as a check re-run | the owner — it is fixed inside cycle rows and deliberately left in the whole-run path, which must not move; it wants a work item of its own |
 | Windows | nobody has run this on it — #103's standing gap, not this branch's |
 

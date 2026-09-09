@@ -38,12 +38,21 @@
   61 of the 67 within a second, the six misses being subagents of subagents,
   which have no call in the main transcript at all. So the result is written
   when the spawn is **accepted**, the agent then runs for a median of about
-  1,000 seconds, and that wall clock lands in the next row's model time — or,
-  past the fifteen minutes model time stops counting at, in none of the
-  columns, which is where a row's span exceeds its own parts by an hour. A
-  `delegated` column of seconds is the tell, and the report prints the
-  sentence saying so rather than leaving a reader to take zeroes for *nothing
-  was delegated*.
+  1,000 seconds, and that wall clock is in none of the columns of any row: it
+  falls between two rows, because a row's span starts at its own first call
+  and its model time never counts the gap before it. So the rows partition
+  the run's calls and not its wall clock, and the table now prints how much
+  time sits between them — 12 to 31 per cent of the three runs measured, of
+  which the wait after a spawn's result is 98 per cent. A `delegated` column
+  of seconds is the tell, and the report prints the sentence saying so rather
+  than leaving a reader to take zeroes for *nothing was delegated*.
+
+  **A row whose span exceeds its own parts by an hour is a different thing,
+  and it is not the agent.** That hour is one gap INSIDE the row, above the
+  fifteen minutes model time stops counting at — the orchestrator issuing
+  nothing between two of its own calls. Every row over 5,000 seconds in the
+  three runs measured decomposes that way, with delegated waits of 6 to 580
+  seconds beside internal gaps of 1,038 to 6,285.
 
   **A cycle row is a band and not an attribution**, and the printed report
   says so above the table. Inside one window the orchestrator waits on the

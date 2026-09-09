@@ -36,9 +36,16 @@ implied; #145's own *Not this* refuses both.
 
 ### The bands
 
-A row's `span` is wall clock; `command` is tools running; `model` is the gap
-between one turn's last result and the next turn's first call. Medians, with
-the full range beside the span.
+A row's `span` runs from its own first call to its own last, which is not the
+whole window: the wait after each spawn's result is between two rows and in no
+column. `command` is tools running; `model` is the gap between one turn's last
+result and the next turn's first call, inside a row only. Medians, with the
+full range beside the span.
+
+**So the spans below do not add up to a run**, and they are not meant to. On
+these three runs the rows' spans are short of the run by 167.6m of 546.2m,
+53.7m of 448.0m and 41.9m of 164.0m — 12 to 31 per cent, sitting between the
+rows, and 98 per cent of it is the wait after a spawn's result.
 
 | Row kind | n | span median | span range | command | model | calls | mean gap |
 |---|---|---|---|---|---|---|---|
@@ -68,19 +75,33 @@ of subagents, which have no call in the main transcript at all. The agent then
 runs for a median of about 1,000 seconds while the orchestrator issues
 nothing.
 
-So the delegated wall clock is **not** in the column named for it. It is in
-the next row's `model`, until the wait passes the 900 seconds `analyse` stops
-counting a gap at — beyond which it is in **no column**, which is what the *in
-no column* figures above are and why one smith cycle reads a 116-minute span
-against 11.5 minutes of parts. The exclusion `--spawns` performs is therefore
-correct and nearly free here rather than wrong, and it is the whole answer on
-a harness that writes the result at completion. What `delegated` should
-measure instead has three costed answers in the work item's `questions.md` Q4
-and is the owner's call; the join a future answer needs is already exact,
-since a subagent transcript's first stamp **is** its spawn's result stamp.
+So the delegated wall clock is **not** in the column named for it, and it is
+not in any other column either. It falls **between** two rows: a row's `span`
+starts at its own first call, and its `model` never counts the gap before that
+call, so the wait after a spawn's result belongs to no row at all — under the
+900 seconds `analyse` stops counting a gap at as much as above it. On these
+three runs that is 167.6m of 546.2m, 53.7m of 448.0m and 41.9m of 164.0m — 12
+to 31 per cent of each run's wall clock. The exclusion `--spawns` performs is
+therefore correct and nearly free here rather than wrong, and it is the whole
+answer on a harness that writes the result at completion. What `delegated`
+should measure instead has three costed answers in the work item's
+`questions.md` Q4 and is the owner's call; the join a future answer needs is
+already exact, since a subagent transcript's first stamp **is** its spawn's
+result stamp.
 
-Read the bands with that in mind: a cycle's `model` is mostly the orchestrator
-**waiting**, not the orchestrator thinking.
+Read the bands with that in mind: a cycle's `model` is the orchestrator's own
+gaps and **not** the wait, which is outside the table entirely.
+
+**The whole-run *in no column* column above is a different quantity, and one
+smith cycle shows what it is made of.** That cycle reads a 116-minute span
+against 11.5 minutes of parts, and the 104.8 minutes between them is a
+**single gap inside the cycle** — the orchestrator issuing nothing between two
+of its own calls, above the 900 seconds `analyse` stops counting a gap at.
+That row's delegated wait is 580 seconds, under the ceiling. Every row over
+5,000 seconds in these three runs decomposes the same way: four such rows,
+with opening gaps of 6 to 580 seconds beside internal gaps of 1,038 to 6,285.
+So a long cycle span is a reading about the orchestrator's own idle time and
+never about a subagent's run.
 
 **2. Not one batched call, in 953.** Counted from the raw transcripts rather
 than through the meter, because 1.00 tools per turn is exactly the shape of a
@@ -105,5 +126,10 @@ way to be comparable.
 ### What is not claimed
 
 No target, and no comparison. The one thing to check against this is the next
-reading of the same kind: whether a cycle's span moves, and whether the *in no
-column* share shrinks once it is known what it is made of.
+reading of the same kind: whether a cycle's span moves, and whether the two
+uncounted intervals move — the time **between** the rows, which is the
+delegated wait, and the whole-run *in no column* share, which is the
+orchestrator's own idle gaps above the ceiling. They are different quantities
+and a later reading that adds them together, or reads one for the other, will
+find the delegated question answered when what moved was how long somebody was
+away from the keyboard.

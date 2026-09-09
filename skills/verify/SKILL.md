@@ -410,12 +410,19 @@ finished, not as a follow-up someone might do later:
    writes the result when the agent FINISHES, the column is the delegated
    wall clock and it is out of the row's other columns, which is the double
    count gone. Where a harness writes it when the spawn is ACCEPTED, the
-   column reads seconds, the agent's own wall clock lands in the next row's
-   model time, and past the fifteen minutes model time stops counting it
-   lands in none of the columns at all — so that row's span exceeds its own
-   parts by however long the agent ran. The report says which of the two it
-   is looking at, and the agent's own transcript is where its wall clock is
-   either way.
+   column reads seconds and the agent's own wall clock is in **none** of the
+   row's columns and none of any other row's. It is the gap between one
+   row's last call and the next row's first, and a row's span starts at its
+   own first call while its model time never counts the gap before it. So
+   the rows partition the run's calls and not its wall clock — measured at
+   12 to 31 per cent of a run — and the agent's own transcript is where its
+   number is, either way.
+
+   **So a long cycle span is not a long agent run.** Where a row's span
+   exceeds its own parts by an hour, that hour is a gap INSIDE the row,
+   above the fifteen minutes model time stops counting at — the orchestrator
+   issuing nothing between two of its own calls. Read it as idle time in the
+   orchestrator, never as the agent it spawned.
 2. Post what the numbers say with `gh issue comment <n> --body-file
    <file>`, where `<n>` is the issue number the lookup above returned — the
    rolling log's for the segment's own numbers, the durable one's for a

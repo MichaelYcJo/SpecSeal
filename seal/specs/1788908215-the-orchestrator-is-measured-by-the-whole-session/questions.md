@@ -29,23 +29,31 @@ transcripts of the 0.9.x line, that is false on this harness:
 | An `Agent` call's own `tool_use` → `tool_result` span, 67 spawns | 1.5–3.7 seconds |
 | Subagent transcripts whose FIRST stamp equals a spawn's result stamp within 1s | 61 of 67 — the six misses are subagents of subagents, which have no call in the main transcript |
 | Subagent span, median | about 1,000 seconds |
-| Orchestrator gap after three consecutive spawn results | 351s · 768s · 962s |
+| The three largest opening gaps of one 18-gap run — cycle 10, cycle 14, the tail — none of them in any column | 351s · 768s · 962s |
+| That run's 17 gaps under the 900s ceiling, in `model_s` for none of them | 1,507s of 2,469s |
 
 So the result is written when the spawn is **accepted**. `spec.md`'s reason
 for `delegated_s` — *"A subagent's thinking is already counted in that
 subagent's row; charging it to the orchestrator too is the double count that
 makes a cumulative reading look like a slow orchestrator"* — is a real double
-count, and it is in the **model** column rather than in the interval
-`delegated_s` excludes. Past 900 seconds `analyse` drops the gap, so it is in
-no column at all and a cycle's span exceeds its own parts by however long the
-agent ran: one row read a 116-minute span against 11.5 minutes of columns.
+count, and it is in **no column of any row** rather than in the interval
+`delegated_s` excludes. `analyse` starts a window's `span_s` at that window's
+own first call and its model walk never counts the gap before that call, so
+the wait after a spawn's result is outside every column of the row that
+follows it — under the 900-second ceiling as much as above it. Over the three
+runs it is 12 to 31 per cent of each run's wall clock.
+
+A cycle whose span exceeds its own parts is a **different** finding: the row
+reading a 116-minute span against 11.5 minutes of columns owes 104.8 of those
+minutes to one gap *inside* the cycle, above the ceiling, with a delegated
+wait of 580 seconds. Round 1 found the two conflated on four pages.
 
 Three answers, and the third is the cheap one:
 
 | Answer | What it costs | What it gives up |
 |---|---|---|
-| Leave it. `delegated_s` is the call's own interval, the report says which of the two kinds of harness it is reading, and the agent's wall clock is quoted from the agent's own transcript | nothing — it is what is built | every cycle row's model time still carries the wait, so a band is read as an orchestrator that thinks for forty minutes |
-| Charge the wait: the gap from a spawn's result to the orchestrator's next call becomes `delegated_s`, out of `model_s` | one arm in `analyse`, and every published cycle reading moves | it is a guess where the agent really finished — the orchestrator's next call may come minutes after the report landed, and the gap includes that |
+| Leave it. `delegated_s` is the call's own interval, the report says which of the two kinds of harness it is reading, and the agent's wall clock is quoted from the agent's own transcript | nothing — it is what is built | the wait is in no column at all, so the rows' spans do not add up to the run and every reader has to be told the total is short by 12 to 31 per cent. The printed report now tells them |
+| Charge the wait: the gap from a spawn's result to the orchestrator's next call becomes `delegated_s`. It comes out of no other column, because no column holds it today — it is added to the row, and the row's `span_s` has to start at the cut for the columns to sum | one arm in `analyse` and a second in `spawn_cycles`, since the window's own start becomes load-bearing; every published cycle span moves | it is a guess where the agent really finished — the orchestrator's next call may come minutes after the report landed, and the gap includes that |
 | Join the subagent transcript: `subagent_transcripts` already walks them, and a transcript's first stamp IS its spawn's result stamp, so the join key is exact and measured. `delegated_s` becomes the agent's own span | a walk per cycle, and a row that reads nothing where the transcripts were pruned | nothing about the numbers already published, since it is additive |
 
 Whichever it is, it is a change to what a number means and it belongs to a

@@ -239,8 +239,9 @@ def message_key(message, row, number):
 # The exclusion below is therefore right and nearly free here, and it is the
 # whole answer on a harness that writes the result at completion. What it is
 # NOT is the removal of the double count #145 set out to remove -- that one is
-# in the model column, and moving it is a decision about what `delegated_s`
-# measures rather than a defect in what it measures now. `questions.md` Q4.
+# in no column of any row, between two of them, and moving it into
+# `delegated_s` is a decision about what that column measures rather than a
+# defect in what it measures now. `questions.md` Q4.
 #
 # **A name, and `plan.md` chose disclosure over a second signal.** A spawn's
 # `input` also carries `subagent_type`, so a harness renaming the tool could
