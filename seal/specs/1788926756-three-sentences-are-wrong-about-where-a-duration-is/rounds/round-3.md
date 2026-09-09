@@ -5,7 +5,7 @@
 | Target SHA | bcaba67 |
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | #306 |
-| Broad gate | not yet |
+| Broad gate | 58e013a against 78d2c12 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
