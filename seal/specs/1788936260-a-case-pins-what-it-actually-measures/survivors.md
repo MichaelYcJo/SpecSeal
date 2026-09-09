@@ -26,3 +26,30 @@ scope filter, not a stale copy of a corrected claim.
 **What would make this exemption stop holding.** If `run_arms` comes to print
 or return a total of its own, its filter starts stating a denominator and the
 correction above reaches it.
+
+## Round 2's fix pass
+
+`survivor-check --range 0c93614..970e2e0` reports five places, and they are
+one group. Round 2's finding 15 relabelled a list that had come to hold **two**
+outcomes — an arm `mutate` refused before anything was written, and an arm
+whose command timed out or could not be spawned after the mutation was applied
+and restored. The wording the range removed (*the truth is this was never
+tried*, *an operator that could not be asked of an arm*) was true of the whole
+list when it held only the first outcome, and it is **still true of every one
+of these five places, because each one's subject is that first outcome**: a
+match pattern, a bare `except:`, a `SyntaxError` from a mis-spliced mutation.
+None of them is a stale copy of a corrected claim; correcting them would make
+them vaguer than the thing they describe.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `skills/verify/scripts/arm_check.py` | An unmutated arm reported as `survived` reads as *no case watches this* when the truth is *this was never tried*. | `mutate`'s docstring, about `mutate` raising rather than returning the source unchanged. On that path nothing has been written to disk, so *never tried* is exactly right — it is the outcome round 2 kept sayable by moving the distinction into the reason beside each arm |
+| `tests/test_arm_check.py` | An arm the checker enumerates and cannot mutate must not come back as `survived` — that reads as *no case watches this* when the truth is *this was never tried*. | `test_an_arm_with_no_defined_mutation_is_refused_not_reported_unwatched`, whose arms are a match pattern and a bare `except:`. Both are refused by `mutate`, so nothing was tried and nothing was written. The case that pins the *other* door asserts the absence of *not mutated* instead |
+| `seal/specs/1788936260-a-case-pins-what-it-actually-measures/phases/phase-3.md` | `survived` on either would read as *no case watches this* when the truth is *this was never tried*, so the report counts and names them separately. | The sentence's *either* is the match pattern and the bare `except:` named in the two clauses before it, so it is the same true statement about the same door. A phase record is a past-state account besides; the label round 2 changed is named in a dated addendum under this file's own §*What this phase found* rather than by rewriting what the phase measured |
+| `seal/specs/1788936260-a-case-pins-what-it-actually-measures/phases/phase-3.md` | **An operator that could not be asked of an arm was invisible, and only the report's own arithmetic gave it away.** | The arm was `gh_segments:176`, whose `remove` mutation was a `SyntaxError` — an operator that genuinely could not be asked. What round 2 widened is the SECTION, which now also lists pairs that were asked and answered nothing; this passage is about the pair that could not be asked, and it stays that |
+| `tests/test_arm_check.py` | def test_an_operator_that_could_not_be_asked_of_an_arm_is_named | The case's arm is a match-case pattern that has no mutation for either operator, so *could not be asked* is its subject and its name is accurate. The section header it reads is asserted through `operator/arm pairs with no verdict`, and a sibling case asserts that the header does NOT say *not asked* — the two together are what keep the wider list honest |
+
+**What would make these exemptions stop holding.** Each quote is the anchor. If
+one of them comes to describe the timeout or spawn-failure door — an arm whose
+mutation was written, run and restored — then *never tried* and *could not be
+asked* are false of it and it is a genuine survivor.

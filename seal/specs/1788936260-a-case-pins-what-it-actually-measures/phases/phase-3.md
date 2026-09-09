@@ -89,6 +89,16 @@ the reason, and the report names every operator/arm pair it could not ask.
 The arm was `gh_segments:176`, and the parenthesising fix above means the
 current run asks all 32.
 
+**Round 2 widened that list and relabelled it, so the report's words are no
+longer these.** Round 1's timeout and `OSError` fixes put a second outcome
+into it — a pair whose command WAS asked and answered nothing — so *not
+asked* became false of the section as a whole and *enumerated and not mutated*
+became false of the arms. Since round 2's finding 15 the report reads *N
+operator/arm pairs with no verdict*, *N arms with no verdict from any
+operator* and *N arms measured*, and the reason beside each arm is what says
+whether it was ever mutated. Everything this phase says above is about the
+pair that could not be asked, which is still that.
+
 **A third way for a verdict to be measured against the wrong module, which
 no hash catches.** Building the fixture, the arm that no case reaches came
 back `killed`, with a traceback pointing at an assertion the unmutated module
