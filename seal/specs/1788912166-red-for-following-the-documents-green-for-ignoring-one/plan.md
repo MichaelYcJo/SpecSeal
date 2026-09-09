@@ -59,7 +59,7 @@ have to pin that, or the fix for one ticket becomes a way past another.
 | 1 | #296 — the record-count arm reads the draft state; the message on a draft names what is missing without failing | cases: draft + no record passes · ready + no record still fails with the message unchanged · `unknown` is strict | `178fd44` |
 | 2 | #295 — the `Broad gate` cell is read at a ready pull request, behind the eighth cutoff; `not yet` and a SHA older than the record's `Target SHA` each fail with their own sentence | cases: `not yet` fails · premature SHA fails · settled SHA passes · draft + `not yet` passes · an id below the cutoff is untouched | `7df4e69` |
 | 3 | #297 — `survivors.md` takes a whole-range row with grounds; `survivor_check` honours it | cases built from #293's own range: declared passes, undeclared fails | `4558c21` |
-| 4 | The fragments, and the four `CONTRIBUTING.md` answers written where the pull request will carry them | `evidence-check`, and the narrow modules | |
+| 4 | The fragments, and the four `CONTRIBUTING.md` answers written where the pull request will carry them | `evidence-check`, and the narrow modules | `13fbc4d` |
 
 Each phase states its own failure direction in its phase record, because
 `CONTRIBUTING.md` asks it per gate change and this branch changes three.
