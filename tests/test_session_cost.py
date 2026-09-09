@@ -1126,7 +1126,14 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     sentence under a dash exists to prevent.
 
     The share itself is unchanged: neither shape gets a percentage, because
-    a share of a non-positive span is not a number anybody can read."""
+    a share of a non-positive span is not a number anybody can read.
+
+    **#300 narrowed what a negative span means, and one arm below flipped
+    with it.** The span ends at the last call to END, so it goes negative
+    only when EVERY call ended before the first call began — not merely when
+    the last call to begin did. A transcript holding one call that ran for
+    two hours is no longer read as negative, which is the shape the third arm
+    now pins."""
     lines = [
         at("2026-08-24T10:00:00Z", [use("a", "pytest -q")], "ma", {"output_tokens": 1}),
         at("2026-08-24T09:00:00Z", [{"type": "tool_result", "tool_use_id": "a"}]),
@@ -1144,9 +1151,7 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     proc = run([str(path)])
     assert proc.returncode == 0, proc.stderr
     assert re.search(r"^span\s+-\d", proc.stdout, re.M), proc.stdout
-    assert "the last call to begin ended before the first call began" in proc.stdout, (
-        proc.stdout
-    )
+    assert "no call ended after the first call began" in proc.stdout, proc.stdout
     # The zero-span sentence must NOT be the one a negative span gets.
     assert "every call shares one timestamp" not in proc.stdout, proc.stdout
     assert re.search(r"^  command\s+\S+\s+—$", proc.stdout, re.M), proc.stdout
@@ -1157,9 +1162,13 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     assert "idle" not in proc.stdout, proc.stdout
 
     # The sentence has to hold for EVERY negative span, not for the one shape
-    # it was written against. The span is taken from the last call to BEGIN,
-    # because `load` sorts by start — so the last RESULT can arrive hours
-    # after the first call and the span still be negative.
+    # it was written against — and after #300 this shape is not one of them.
+    # The span ends at the last call to END, so a call running 10:00 to 12:00
+    # gives a run of two hours however early the OTHER call's result was
+    # written. Under the old rule the span was `calls[-1]["end"]` over a list
+    # sorted by start, so this transcript read minus sixty minutes for a run
+    # that plainly lasted two, and the sentence below was the true statement
+    # about a number that should never have been negative.
     later = [
         at("2026-08-24T10:00:00Z", [use("a", "pytest -q")], "ma", {"output_tokens": 1}),
         at("2026-08-24T12:00:00Z", [{"type": "tool_result", "tool_use_id": "a"}]),
@@ -1175,13 +1184,12 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     out_of_order.write_text("\n".join(later) + "\n")
     third = run([str(out_of_order)])
     assert third.returncode == 0, third.stderr
-    assert re.search(r"^span\s+-\d", third.stdout, re.M), third.stdout
-    # The last result here arrived at 12:00, two hours AFTER the first call
-    # began, so a sentence about the last result would be false.
-    assert "the last call to begin ended before the first call began" in third.stdout, (
-        third.stdout
-    )
-    assert "idle" not in third.stdout, third.stdout
+    # 120 minutes, and neither non-positive sentence: call `a` really did run
+    # from 10:00 to 12:00, and that is the run's wall clock whatever order
+    # the results were written in.
+    assert re.search(r"^span\s+120\.0m", third.stdout, re.M), third.stdout
+    assert "no call ended after the first call began" not in third.stdout, third.stdout
+    assert "every call shares one timestamp" not in third.stdout, third.stdout
 
     # A negative span makes every duration derived from it negative, and the
     # lines that INTERPRET a duration must not fire on one. `repeats` is
@@ -1234,7 +1242,7 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     other = run([str(zero)])
     assert other.returncode == 0, other.stderr
     assert "every call shares one timestamp" in other.stdout, other.stdout
-    assert "the last call to begin" not in other.stdout, other.stdout
+    assert "no call ended after the first call began" not in other.stdout, other.stdout
 
 
 # --- #193: a third the file could not compute is not a baseline -------------
@@ -2135,7 +2143,7 @@ def test_a_call_that_outlives_a_cut_prints_no_between_the_rows_figure(tmp_path):
     # the outliving call shortens the run's own span too and the difference
     # carries both errors. Naming it the overlap would be a smaller version
     # of the defect this case exists for.
-    assert "the rows' spans SUM PAST the run's own 16.6m by 16.5m" in out, out
+    assert "the rows' spans SUM PAST the run's own 16.7m by 16.4m" in out, out
     assert "no between-the-rows figure" in out, out
     # The whole point: no negative is stated, and nothing is called the wait.
     assert "is BETWEEN the rows" not in out, out
@@ -2167,3 +2175,36 @@ def test_a_spawn_that_names_no_subagent_type_still_gets_a_row(tmp_path):
     rows = spawns_of(path)["rows"]
     assert rows[1]["subagent_type"] == "", rows[1]
     assert "cycle 1  ?" in run(["--spawns", str(path)]).stdout
+
+
+# --- #300: a window's span ends at the last call to END ---------------------
+
+
+def test_a_span_covers_every_call_it_counts(tmp_path):
+    """A window's span ends at the last call to END, not the last to BEGIN.
+
+    `analyse` took the span as `calls[-1]["end"] - calls[0]["start"]` over a
+    list `load` sorts by START, so a call that outlived every later call
+    ended after the window it was counted in. A background command running
+    0-1000s beside calls at 10-12s and 990-995s gave a span of 995s — five
+    seconds shorter than the single call the window holds — and `command_s`
+    counted that call in full, so the printed share was taken against a
+    whole that did not contain its own part.
+
+    The invariant this pins is the one that makes a span a span: no call it
+    counted ends after it."""
+    lines = call("bg", 0, 1000, "npm run dev")
+    lines += call("b", 10, 12, "git status --short")
+    lines += call("c", 990, 995, "git log --oneline -5")
+    path = tmp_path / "outlives-the-span.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["span_s"] == 1000, data["span_s"]
+    # `slowest` is sorted by duration, so its head is the longest single
+    # call. A span shorter than that is a window that does not contain one
+    # of its own calls, which is what 995 against 1000 was.
+    longest = data["slowest"][0]["seconds"]
+    assert longest == 1000, data["slowest"][0]
+    assert data["span_s"] >= longest, (data["span_s"], longest)
+    out = run([str(path)]).stdout
+    assert "span          16.7m" in out, out

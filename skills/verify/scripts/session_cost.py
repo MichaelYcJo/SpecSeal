@@ -434,6 +434,15 @@ def analyse(calls, turns, delegated=()):
     nothing on the page saying so — which is what #200 and #202 were, and
     what `plan.md`'s *no existing output changes shape* is protecting.
 
+    **`span_s` is the one exception and it is a measured one, not a licence.**
+    Its rule moved at #300, from the end of the last call to BEGIN to the end
+    of the last call to END, because the old one could return a window
+    shorter than a single call inside it. The comment at the arithmetic
+    carries the measurement that says no published figure moves;
+    `skills/verify/SKILL.md` carries it where a person taking a reading meets
+    it. Every other number here is untouched, `command_s` and `model_s`
+    included.
+
     So `delegated_s` is 0.0 for the whole-run call, and it means exactly
     *how much of this window's command time was removed because it ran
     somewhere else* — nothing was, so it is zero. It is NOT a claim that the
@@ -448,7 +457,22 @@ def analyse(calls, turns, delegated=()):
     the top of `slowest` tells a reader something they already know."""
     if not calls:
         return None
-    span = (calls[-1]["end"] - calls[0]["start"]).total_seconds()
+    # The last call to END, and not the last to BEGIN. `load` sorts by start,
+    # so `calls[-1]` is whichever call went out last, and a long-lived one --
+    # a background command, a suite spanning the whole window -- ends after
+    # it. Reading that element's end gave a window shorter than a single call
+    # the window holds: 995s against a `Bash` call of 1000s, while
+    # `command_s` counted that call in full, so the share was taken against a
+    # whole that did not contain its own part.
+    #
+    # This is the one number in this function whose RULE changed after the
+    # readings above it were published (#300). Measured before it was changed:
+    # over the 169 transcripts on the machine it was measured on, one span
+    # moves, by 0.006s, and no printed figure moves at all -- `minutes` is one
+    # decimal and `share` is whole percent. So nothing already posted needs a
+    # marking line, and a transcript with a genuinely long-lived call is where
+    # the two rules would part.
+    span = (max(c["end"] for c in calls) - calls[0]["start"]).total_seconds()
     command_time = delegated_time = 0.0
     for call in calls:
         seconds = (call["end"] - call["start"]).total_seconds()
@@ -985,10 +1009,17 @@ def report(data):
         # MEANS for a percentage, and one dash covers both; what it cannot do
         # is say which shape the reader is looking at, because it is handed
         # the numbers and not the transcript.
+        #
+        # The sentence says what the arithmetic computes, and the arithmetic
+        # moved at #300: the span is now the LAST call to end minus the first
+        # to begin, so a negative one means no call ended after the first
+        # call began -- every one of them, not just the last to begin. The
+        # rule change also made this branch rarer on purpose. A call running
+        # 10:00-12:00 beside a result written before its own call used to
+        # print a negative span for a run that plainly lasted two hours.
         print(
-            "              the last call to begin ended before the first "
-            "call began, so the span is negative and there is no share to "
-            "take of it"
+            "              no call ended after the first call began, so the "
+            "span is negative and there is no share to take of it"
         )
     print(
         f"  command     {minutes(data['command_s'])}"
