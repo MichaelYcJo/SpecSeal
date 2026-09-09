@@ -55,9 +55,9 @@ refusal rather than skipping them silently.
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | #310 — the four assertions replaced by the verified whole-clause version | the five mutation arms re-run here, all red; the case green as shipped | `be3e80c` |
-| 2 | The arm enumeration: an AST walk with #262's counting rule, refusing node types it does not know | a fixture module whose arms are known by construction, plus the real module's 31 with the per-function split | |
-| 3 | The mutation and the report: each arm mutated, the suite run, the unkilled arms named with function, arm and line; the module restored and hash-verified after each | a fixture with one watched and one unwatched arm | |
-| 4 | The run over `hooks/review-history-guard.py`, its count recorded, and the fragments | executed, with the number in the changelog fragment and a ledger row | |
+| 2 | The arm enumeration: an AST walk with #262's counting rule, refusing node types it does not know | a fixture module whose arms are known by construction, plus the real module's 31 with the per-function split | `8d53ca4` |
+| 3 | The mutation and the report: each arm mutated, the suite run, the unkilled arms named with function, arm and line; the module restored and hash-verified after each | a fixture with one watched and one unwatched arm | `8d53ca4` |
+| 4 | The run over `hooks/review-history-guard.py`, its count recorded, and the fragments | executed, with the number in the changelog fragment and a ledger row | `8d53ca4` |
 
 ## Operational impact
 

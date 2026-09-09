@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 2 |
-| Commit | <pending> |
+| Commit | `8d53ca4` |
 | Ran by | unknown — the spawn prompt carried no `Ran by` value, and this row is the spawning session's rather than the segment's own; the orchestrator fills it |
 
 ## What this phase was asked
