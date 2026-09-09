@@ -40,7 +40,12 @@ else
         echo "(non-interactive: installing globally — use --project for project scope)"
     fi
 fi
-SOURCE="$REPO_DIR/CLAUDE.md"
+# The block's one source. The repository's own CLAUDE.md carries a generated
+# copy (`.github/scripts/claude_block.py --write`, checked in CI); this used
+# to read that copy, and #292 measured it against an installed block and
+# found `## Git` 95 % identical — one sentence had moved in one and not the
+# other, and nothing read both.
+SOURCE="$REPO_DIR/templates/claude-md-block.md"
 START='<!-- specseal:start -->'
 END='<!-- specseal:end -->'
 
@@ -49,8 +54,8 @@ info()  { echo -e "${GREEN}[info]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[warn]${NC} $1"; }
 error() { echo -e "${RED}[error]${NC} $1"; exit 1; }
 
-[ -f "$SOURCE" ] || error "Run this script from the specseal directory (CLAUDE.md not found)."
-grep -qF "$START" "$SOURCE" || error "Source CLAUDE.md has no preset markers."
+[ -f "$SOURCE" ] || error "Run this script from the specseal directory (templates/claude-md-block.md not found)."
+grep -qF "$START" "$SOURCE" || error "templates/claude-md-block.md has no preset markers."
 
 # Extract the managed block (markers included) from the repo file.
 BLOCK="$(awk -v s="$START" -v e="$END" '
