@@ -18,6 +18,32 @@ standing text is **true**. `survivor-check` matched them because `plan.md`'s
 phase-3 cell was reworded in the same range, not because anything false
 survived.
 
+**Writing the two rows below did not excuse those survivors — it hid them,
+and that is a defect in the checker rather than in the rows.** Executed:
+`examine` scores both candidates at **1.626** at `9d9e717`, above the 1.6
+floor, and below 1.0 at `6a22d56`, the commit that changed this file and
+nothing else. The mechanism is document frequency. `weights` is
+`log2(F / df) / log2(F)`, so a phrase's weight falls as more files carry it,
+and `corpus` excludes a work item's `rounds/` records from the pool but not
+its `survivors.md`. An exemption quote is by definition the survivor's own
+wording, so writing one adds a third carrier of those phrases and dilutes the
+very score that found them.
+
+What it costs is the guarantee this file's own header states. An exempted
+survivor is supposed to stay printed under `exempt`, and the quote is
+supposed to be an anchor that reports again the moment the standing text
+changes. Neither holds once the score is suppressed: the rows below print
+nothing, and a later edit to either standing sentence would be reported by
+nobody. The two rows are still correct and still required by convention —
+what is broken is that they are now also load-bearing in a way nobody
+intended.
+
+**It is not fixed here.** Excluding `survivors.md` from `corpus` the way
+round records are excluded is a one-line change to a gate, which is mechanism
+a fix pass may not add (`skills/code-review/orchestration.md` §*A fix pass
+adds the unit that pins it*). It is handed to the orchestrator as an issue,
+separate from #307.
+
 **Round 1's fix pass swept the CI range, `78d2c12..HEAD`, which is wider than
 the `7ca5008..HEAD` the build swept.** The wider range reports two more
 places, both below, and both are **shipped release notes**. Correcting them is
