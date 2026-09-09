@@ -384,6 +384,55 @@ finished, not as a follow-up someone might do later:
    a resumed smith's transcript holds several segments in one file — split
    it at the user lines where the coordinator sent it a new message, and
    measure only the slice that belongs to the segment just watched.
+
+   **An orchestrator's segments sit inside one file too, and its boundary is
+   not a user line — `session_cost.py --spawns` is what takes it.** Every
+   other segment of a chain is a transcript of its own, so its row is the
+   whole file; the orchestrator's is not, and the whole file was the only row
+   it ever had. That is how three segment kinds came to have bands a later
+   run can be read against while the most expensive one had none. A **spawn
+   cycle** is not the review chain's cycle, which
+   `docs/review-chain-spec.md` owns: it ends when a spawn call's result
+   arrives and begins where the row before it ended, so the head is the
+   framing before the first spawn, cycle N runs from spawn N-1's result to
+   spawn N's, and the tail is the closing work after the last one.
+
+   **Post a cycle row as a band, and never as an attribution.** Inside one
+   window the orchestrator waits on the previous agent, verifies the report
+   it hands over, and frames the next prompt, and no transcript field marks
+   where any of those ends. Cycle 1 is the one row without that window: the
+   run's own start is a boundary a script can take, so its framing goes to
+   the head row instead, and the two are read together.
+
+   **Read `delegated` before quoting a cycle's model time, because what a
+   spawn's result MEANS is the harness's and not this skill's.** That column
+   is the spawn call's own tool_use-to-tool_result span. Where a harness
+   writes the result when the agent FINISHES, the column is the delegated
+   wall clock and it is out of the row's other columns, which is the double
+   count gone. Where a harness writes it when the spawn is ACCEPTED, the
+   column reads seconds and the agent's own wall clock is in **none** of the
+   row's columns and none of any other row's. It is the gap between one
+   row's last call and the next row's first, and a row's span starts at its
+   own first call while its model time never counts the gap before it. So
+   the rows partition the run's calls and not its wall clock — measured at
+   12 to 31 per cent of a run — and the agent's own transcript is where its
+   number is, either way.
+
+   **Where the report gives no between-the-rows figure and says the spans
+   summed past the run, a call outlived a spawn's result.** Assigning a call
+   by its start is what makes the calls partition, and it leaves a
+   long-running one — a background command, a suite spanning a cut — in the
+   row it began in while the next row has already started, so two rows'
+   spans cover the same seconds. The subtraction is then a negative rather
+   than an interval, so it is refused instead of printed. Quote that run's
+   span and its rows' columns, and leave the between-the-rows share out of
+   the reading rather than substituting the sum.
+
+   **So a long cycle span is not a long agent run.** Where a row's span
+   exceeds its own parts by an hour, that hour is a gap INSIDE the row,
+   above the fifteen minutes model time stops counting at — the orchestrator
+   issuing nothing between two of its own calls. Read it as idle time in the
+   orchestrator, never as the agent it spawned.
 2. Post what the numbers say with `gh issue comment <n> --body-file
    <file>`, where `<n>` is the issue number the lookup above returned — the
    rolling log's for the segment's own numbers, the durable one's for a
