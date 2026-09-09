@@ -254,6 +254,34 @@ jobs:
         run: |
           python3 skills/implement/scripts/seal.py mode --check
 
+      # The block between `<!-- specseal:start -->` and `<!-- specseal:end -->`
+      # is what `install.sh` ships into a user's CLAUDE.md, and it used to be
+      # cut out of this repository's own CLAUDE.md — the file every session
+      # here loads, which carries the house rules below the same markers.
+      # #292 measured that copy against an installed block and found `## Git`
+      # 95 % identical: one sentence had moved in one and not the other, and
+      # nothing read both. So the block lives in `templates/claude-md-block.md`
+      # and the repository's copy is generated from it, and this is what keeps
+      # the copy a copy rather than a second source.
+      #
+      # It fails only for a disagreement, which is always the author's and
+      # one command from fixed (`claude_block.py --write`). Every pull
+      # request, not release only: the copy is read by every session in this
+      # repository, so a drift that waits for the release is one every branch
+      # in between builds on. A CLAUDE.md with no markers exits 2 and fails
+      # too, because the step would then be measuring nothing.
+      #
+      # What it found at birth: nothing, because the copy was generated in
+      # the commit that added it. The drift it was written against is between
+      # the repository's copy and an installed one, which sits on a user's
+      # machine where no step here can read it; what this reaches is the copy
+      # the installer used to read, and holding that to the template is what
+      # makes the next installed block the template's.
+      - name: the CLAUDE.md block is the template's, line for line
+        shell: bash
+        run: |
+          python3 .github/scripts/claude_block.py --check
+
       # A reminder, not a gate: the language policy keeps the Korean README a
       # human-facing mirror, and mirrors drift one edit at a time.
       - name: both READMEs move together
