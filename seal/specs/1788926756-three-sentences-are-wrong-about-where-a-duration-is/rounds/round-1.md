@@ -7,12 +7,12 @@
 | PR | #306 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — findings 1 and 7 ship reader-facing sentences that are |
 | Loses a record or crashes | no — every defect is a sentence, the arithmetic is |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -26,17 +26,17 @@ at or where a duration is, by construction rather than by grep.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | The span disclosure tells a reader to read a share above 100% as a background command; 100% of the measured overlap is batched calls in one message and 0% crosses a turn | `skills/verify/SKILL.md:429-433` | open | executed — 8,332.1s of 8,332.0s intra-turn over 169 transcripts; the 115.7% run is 99 calls in 94 turns, largest batch 3 |
-| 2 | Q3 repeats that cause and triggers its answers on the share passing 100%, which is 1 of 169 readings against 72 of 169 carrying overlap; option 2's cost column carries no number | `questions.md` §Q3 | open | executed — 23 of 169 shares and 58 of 169 minutes move under the union, largest 116% → 80% |
-| 3 | *No printed figure moves* is flat in two documents and false machine-wide; the between-the-rows figure moves on 3 transcripts and was never swept | `spec.md:76`, `questions.md` Q1, `seal/ledger/1788926756-*.md` row 4 | open | executed — full printed-surface sweep; every move is in another project, so the conclusion stands and the grounds do not |
-| 4 | Three documents say the pinned fixture printed `by 0.0m` beside `0.1m/0.0m/0.0m`; `minutes(3)` is `0.1m` and the column is `0.1m/0.1m/0.0m` | `seal/ledger/1788926756-*.md` row 5, `tests/test_session_cost.py` head-cut docstring, #145 `questions.md:100` | open | executed — fixture re-run with the old span rule restored; two fixtures merged into one sentence |
-| 5 | *The refusal fires strictly less often* is false; both sides of the subtraction grow and the rows can grow by more | `plan.md:20-24`, `phases/phase-2.md:44-49` | open | executed — a shape that printed the figure under the old rule prints the refusal under the new one |
-| 6 | Four unprinted sentences still name a spawn's result or a report as the cause, one twelve lines above the comment forbidding it | `#in_windows`, `#report_spawns`, two `tests/test_session_cost.py` docstrings | open | read |
-| 7 | #145's changelog fragment is ungathered and ships beside the correction, still saying the report names a spawn's result and prints the sum passing the run | `seal/specs/1788908215-*/changelog.md:59-66` | open | executed — `gather_changelog.py --check` exit 1 lists it |
-| 8 | Row 8 quotes the deleted expression in a Verified cell; row 11 opens with 992s where the new difference is 987s | `seal/ledger/1788908215-*.md` rows 8 and 11 | open | read, arithmetic checked — rows 1987s against a run of 1000s |
-| 9 | F5's appended note narrows *no tracker state* to two words after `#300` entered the anchored section | `seal/ledger.md:873` | open | read — `(#272)` already at `SKILL.md:188` at the base, so the clause was already false at file scope |
-| 10 | The old expression restated in the present tense in four live documents, one an evidence table phase 1 half-rewrote | `spec.md:75`, `plan.md:12`, `seal/specs/1788700685-*/plan.md:16` and `overview.md:19` | open | read |
-| 11 | The proof line says 68 passed; the module passes 69 at the target SHA | `overview.md` §verified | open | executed |
+| 1 | The span disclosure tells a reader to read a share above 100% as a background command; 100% of the measured overlap is batched calls in one message and 0% crosses a turn | `skills/verify/SKILL.md:429-433` | **fixed** `af44065` | fixed at af44065 — ``; executed — 8,332.1s of 8,332.0s intra-turn over 169 transcripts; the 115.7% run is 99 calls in 94 turns, largest batch 3 |
+| 2 | Q3 repeats that cause and triggers its answers on the share passing 100%, which is 1 of 169 readings against 72 of 169 carrying overlap; option 2's cost column carries no number | `questions.md` §Q3 | answered | corrected at `8f3d12a` — Q3 keeps its three answers and gains the trigger it was missing; the fourth row is the trigger correction, not a replacement, and the decision stays the owner's |
+| 3 | *No printed figure moves* is flat in two documents and false machine-wide; the between-the-rows figure moves on 3 transcripts and was never swept | `spec.md:76`, `questions.md` Q1, `seal/ledger/1788926756-*.md` row 4 | answered | corrected at `8f3d12a` (`spec.md` fact row, `questions.md` Q1, ledger fragment row 4) and `af44065` (the same flat claim in this work item's changelog fragment, which is the surface a reader outside the work item meets) |
+| 4 | Three documents say the pinned fixture printed `by 0.0m` beside `0.1m/0.0m/0.0m`; `minutes(3)` is `0.1m` and the column is `0.1m/0.1m/0.0m` | `seal/ledger/1788926756-*.md` row 5, `tests/test_session_cost.py` head-cut docstring, #145 `questions.md:100` | **fixed** `af44065` | fixed at af44065 — `` for the case docstring, `8f3d12a` for the ledger row and `spec.md`'s acceptance row, `9d9e717` for #145's `questions.md`. Executed: the head-cut fixture's span column is 0.1m/0.1m/0.0m and its difference is three seconds, so the old line read `by 0.1m`; `by 0.0m` beside 0.1m/0.0m/0.0m is #145's round-3 one-second fixture. A fourth instance the report did not name — `spec.md`'s row said *Given a one-second overlap* while citing the three-second case — is corrected with it; executed — fixture re-run with the old span rule restored; two fixtures merged into one sentence |
+| 5 | *The refusal fires strictly less often* is false; both sides of the subtraction grow and the rows can grow by more | `plan.md:20-24`, `phases/phase-2.md:44-49` | answered | corrected at `8f3d12a` in `phases/phase-2.md`. `plan.md` is the approved contract and a fix pass does not edit it, so the divergence is recorded in `overview.md` instead. Executed — head `Bash` 0-100s with a call at 1-2s, spawn 3-4s, calls at 10-11s and 12-13s prints the figure under the old rule and the refusal under the new one, and the new reading is the correct one |
+| 6 | Four unprinted sentences still name a spawn's result or a report as the cause, one twelve lines above the comment forbidding it | `#in_windows`, `#report_spawns`, two `tests/test_session_cost.py` docstrings | **fixed** `af44065` | fixed at af44065 — ``; read |
+| 7 | #145's changelog fragment is ungathered and ships beside the correction, still saying the report names a spawn's result and prints the sum passing the run | `seal/specs/1788908215-*/changelog.md:59-66` | answered | corrected at `af44065` |
+| 8 | Row 8 quotes the deleted expression in a Verified cell; row 11 opens with 992s where the new difference is 987s | `seal/ledger/1788908215-*.md` rows 8 and 11 | answered | corrected at `9d9e717`. Row 11's Verified cell carried the same stale pair two clauses above the sentence the report named — *a run span of 995s* and *`outside` is -992s* — and moves with it. Executed on the pinned fixture: the run span is 1000s and the difference is 987s |
+| 9 | F5's appended note narrows *no tracker state* to two words after `#300` entered the anchored section | `seal/ledger.md:873` | answered | corrected at `9d9e717`. The note now says the absence is not whole rather than asserting it is; the decision it turns on — narrow F5's clause or widen its case — is `questions.md` Q4 with the owner. Executed: `(#272)` is in the shipped skill's `## Scope` section, outside the anchor, so the clause was already false at file scope at the base |
+| 10 | The old expression restated in the present tense in four live documents, one an evidence table phase 1 half-rewrote | `spec.md:75`, `plan.md:12`, `seal/specs/1788700685-*/plan.md:16` and `overview.md:19` | answered | corrected at `8f3d12a` for `spec.md:75`, which sits in an evidence table two of whose rows phase 1 rewrote to post-change values; it now says which state it is. `plan.md:12` and `1788700685`'s `plan.md:16` and `overview.md:19` are left standing: a plan's §Technical context states the code as it stood when the plan was written, which is what all three do, and they are correct at their own SHA |
+| 11 | The proof line says 68 passed; the module passes 69 at the target SHA | `overview.md` §verified | answered | corrected at `8f3d12a` — executed, `bin/test tests/test_session_cost.py -q` gives 69 passed |
 
 ## Paste-ready fixes
 
