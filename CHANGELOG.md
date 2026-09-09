@@ -1,5 +1,388 @@
 # Changelog
 
+## 0.9.5 — 2026-09-09
+
+<!-- specs/1788908215-the-orchestrator-is-measured-by-the-whole-session -->
+<!-- specs/1788908215-the-orchestrator-is-measured-by-the-whole-session -->
+
+### Added
+
+- **The orchestrator was the one segment nobody could measure, because the
+  only row it had was the whole session.** Every other segment of a chain —
+  a smith, a warden, a scribe — is a transcript of its own, so measuring it
+  is measuring one file. An orchestrator's segments are spawn cycles inside
+  one file, and there was no way to ask for one of them. So three segment
+  kinds accumulated bands a later run can be read against and the most
+  expensive one accumulated a single cumulative number that answered nothing.
+
+  `session_cost.py --spawns` slices a transcript at its spawn cycles and runs
+  the same analysis over each slice, so a cycle carries the numbers a smith
+  row carries — span, command time, model time, calls, tools per turn, mean
+  turn gap — and the two can sit side by side. A cycle ends when a spawn
+  call's result arrives and begins where the row before it ended: the
+  **head** is the framing before the first spawn, **cycle N** runs from spawn
+  N-1's result to spawn N's, and the **tail** is the closing work after the
+  last one. Every paired call in the transcript lands in exactly one of those
+  rows, and the printed table says so by putting its own total beside the
+  transcript's.
+
+  **The interval the spawn call itself spans leaves the orchestrator's
+  numbers**, because whatever ran in it ran in another transcript and is
+  already counted there. It is reported beside the row as `delegated`
+  instead. The call stays in the count and in the walk that bounds the model
+  gaps, because the orchestrator did make it: on a twenty-minute spawn
+  between two checks the row reads four seconds of command time, sixteen
+  seconds of model time and twenty minutes delegated, where charging the
+  interval reads twenty-one minutes of command time and dropping the call
+  outright swallows one of the two gaps.
+
+  **How much of an agent's run that interval covers is the harness's answer,
+  and the report now says which answer it is looking at.** Measured on this
+  one across 67 spawns of three runs: an `Agent` call pairs in 1.5 to 3.7
+  seconds, and each subagent's transcript opens at its spawn's result stamp —
+  61 of the 67 within a second, the six misses being subagents of subagents,
+  which have no call in the main transcript at all. So the result is written
+  when the spawn is **accepted**, the agent then runs for a median of about
+  1,000 seconds, and that wall clock is in none of the columns of any row: it
+  falls between two rows, because a row's span starts at its own first call
+  and its model time never counts the gap before it. So the rows partition
+  the run's calls and not its wall clock, and the table now prints how much
+  time sits between them — 12 to 31 per cent of the three runs measured, of
+  which the wait after a spawn's result is 98 per cent. A `delegated` column
+  of seconds is the tell, and the report prints the sentence saying so rather
+  than leaving a reader to take zeroes for *nothing was delegated*.
+
+  **A row whose span exceeds its own parts by an hour is a different thing,
+  and it is not the agent.** That hour is one gap INSIDE the row, above the
+  fifteen minutes model time stops counting at — the orchestrator issuing
+  nothing between two of its own calls. Every row over 5,000 seconds in the
+  three runs measured decomposes that way, with opening gaps of 6 to 580
+  seconds beside internal gaps of 1,038 to 6,285. The `delegated` column
+  reads 0 to 3 seconds on those same four rows, which is the point: the
+  agent's wall clock is the opening gap and never the column named for it.
+
+  **And where a call outlives the cut its row ends at, the between-the-rows
+  figure is refused rather than printed.** Assigning a call by its start is
+  what makes the calls partition, and it leaves a long-running one — a
+  background command, a suite spanning a cut — in the row it began in while
+  the next row has already started, so two rows' spans cover the same
+  seconds and sum past the run. The subtraction is then a negative, and a
+  negative printed as *the wait* is the one thing this change exists to
+  stop; the report prints the two sums and refuses the figure instead. No
+  run measured here reaches it.
+
+  **A cycle row is a band and not an attribution**, and the printed report
+  says so above the table. Inside one window the orchestrator waits on the
+  previous agent, verifies the report it hands over and frames the next
+  prompt, and no transcript field marks where any of those ends. Cycle 1 is
+  the one row without that window, because the run's own start is a boundary
+  a script can take and the framing goes to the head row instead. Splitting
+  the acts apart needs a person to label them, which is why it is not what
+  this does.
+
+  **Where no spawn is found, the count and the transcript path are printed
+  and no table is.** An empty cycle table reads as *this run spawned
+  nothing* — and a run that did spawn reads exactly the same way the moment a
+  harness stops writing a spawn as an `Agent` block. That is the failure
+  shape a wrong family row had for four releases, and it is repaired the same
+  way here rather than being discovered the same way twice. (#145)
+
+- `skills/verify/SKILL.md` states the boundary where a session measuring a
+  segment reads it, beside the split it already prescribed for a resumed
+  agent. That one splits at the user lines the coordinator wrote; an
+  orchestrator's boundary is not a user line, and nothing said what it was.
+  The paragraph says **spawn cycle** rather than *cycle*, because the review
+  chain owns that word for the mark's own unit. (#145)
+
+### Changed
+
+- **Nothing in a reading taken without the new mode moves**, value for value.
+  The exclusion of the delegated interval is an argument the plain path does
+  not pass, so `--json` and the printed report answer exactly what they
+  answered before — the fourth release in a row where a meter change had to
+  be weighed against every reading already published. `--json` gains a
+  `spawns` key carrying the cycle rows, and a `delegated_s` of 0.0 whose
+  meaning is *nothing was removed from the numbers beside it*, never *this
+  run delegated nothing*; the `Agent` row of the family table is where that
+  second question is answered. (#145)
+
+<!-- specs/1788912166-red-for-following-the-documents-green-for-ignoring-one -->
+<!-- specs/1788912166-red-for-following-the-documents-green-for-ignoring-one -->
+
+### Fixed
+
+- **A draft pull request was failed for doing exactly what a document told it
+  to do.** `skills/code-review/orchestration.md` opens the draft pull request
+  at the end of the build, before round 1, because a reviewer needs a pull
+  request to review. So the first thing that happened after the draft opened
+  was `chain-check` running against a `rounds/` directory that is empty by
+  design — and the arm counting round records failed it. That window was
+  documented as *the window's expected state, not a failure to chase*, which
+  is a check teaching people to route around it.
+
+  The `Pass` arm a hundred lines down the same walk had been draft-aware since
+  the draft state was first read, and its own message says *"Open it as a
+  draft while the rounds run"*. The record-count arm now reads the same value:
+  on a draft the missing record is printed and the run exits 0, and the notice
+  names `ready_for_review` as what re-arms the check. Nothing that can reach
+  `main` is exempt — pressing *Ready for review* re-runs the workflow and the
+  arm applies.
+
+  **`unknown` stays strict**, and that is the fix's whole safety property.
+  `pull_request_state` has three answers, not two: no payload, a payload that
+  will not parse, one naming no pull request, and one whose `draft` is a
+  string all land on `unknown`, which is judged as ready. A parametrised case
+  pins all four, because a harness that stopped writing the flag would
+  otherwise turn this fix into a way past the round-record requirement itself.
+
+- **A documented deletion cost 153 written sentences, so nobody was ever going
+  to write them.** `survivor-check` reports every place still carrying wording
+  a range removed, and a branch that DELETES a shipped section leaves every
+  sentence of it standing in the durable copies that are supposed to survive a
+  deletion. Measured on one release's own range: **153 places at similarity
+  1.60–1.62**, every one correct as a report and not one of them a defect. The
+  escape was one row per survivor, which at that size is not an escape — the
+  branch turns the step off instead, which is the outcome the escape exists to
+  prevent.
+
+  `seal/specs/<work-item-id>/survivors.md` now takes a second row shape,
+  `| Range | Grounds |`, alongside the per-survivor `| Path | Quote | Grounds |`.
+  The first cell tells them apart, and a path can never be read as a range
+  because the dots need a non-space word on both sides. The spec is resolved
+  rather than compared as text, because CI spells the range
+  `origin/<base>...HEAD` and a person spells it as two commits — those are one
+  range.
+
+  **The row is anchored on the range and on the work item it lives in, and the
+  second anchor is why the first is not enough.** `origin/<base>...HEAD` is not
+  a range, it is a relation, and it resolves to whatever range the checkout it
+  is read on is over. Every work item's `survivors.md` in the tree is handed to
+  every run, and one lives until the release that ships it, so a single merged
+  row in that spelling excused every later branch cut from the same base and
+  turned the step off for the rest of the release — the outcome the escape
+  exists to prevent, arriving through the escape. A declaration now holds only
+  over a range that touches its own work item's directory, which a work item's
+  own range always does.
+
+  Both anchors fail loudly. A spec that no longer resolves prints under
+  `unresolved`, one refused for belonging to another work item prints under
+  `not yours` with that work item named, and neither refuses the run — a
+  deleted release branch in an old declaration cannot turn every later check
+  into a refusal. Grounds are not optional, and every excused survivor is
+  still printed with them: what this removes is the cost of writing 153 rows,
+  never the cost of reading 153 lines.
+
+### Added
+
+- **The `Broad gate` cell is read now, and until this release nothing read
+  it.** Every round record carries the row and `grep -n broad` over the
+  checker matched no line at all, so the one full-suite run this whole design
+  turns on could be skipped, or spent before the round it was meant to seal,
+  and no gate in the repository had an opinion about either.
+
+  At a **ready** pull request `chain-check` reads the cell on the last round
+  record, and it tells four states apart. `not yet` — or no row at all — is
+  the run that never happened. A SHA the record's own `Target SHA` descends
+  from is the run spent before the round it was meant to seal, and the refusal
+  names both commits; that is the more expensive of the two, because the cell
+  claims a run happened. A cell with no SHA-shaped word in it names no run and
+  fails too: above the cutoff `round_record.py new` writes the row on every
+  record and `close --broad-gate` is the only thing that changes the value, so
+  such a cell is a choice — and left as a notice, writing `skipped` was a
+  shorter way past the arm than deleting the row. Below the cutoff it is still
+  reported rather than failed, because records written before it hold free
+  text.
+
+  Equal is not premature — `git merge-base --is-ancestor X X` succeeds — so
+  the resolved commits are compared before any ancestry question. The passing
+  condition is asked directly, *the gate ran at the reviewed commit or after
+  it*, rather than as the complement of *premature*: written the other way it
+  admitted a gate commit on an unrelated line of history in silence. That case
+  is reported now, and a gate SHA this repository cannot see makes no claim at
+  all, which is the ordinary state after a squash.
+
+  **A draft is excused it**, for the reason the rounds are still running: the
+  broad gate runs once, after they settle.
+
+  **It is bounded by a cutoff, and that is not optional.** Every round record
+  ever written defaults to `not yet`, so an arm reading the cell without one
+  would be red on every work item in the tree and every one in flight. The
+  cutoff is keyed on a work item's id the way the seven before it are, and the
+  reasoning is the one they share: a check whose first production act is red
+  on history nobody can fix is a check people learn to skip.
+
+### Changed
+
+- **`Broad gate`'s label and its `not yet` sentinel moved** from the script
+  that writes the row to the one that now reads it, and the writer imports
+  both. Two copies drift silently in the direction that matters — rename the
+  row in the writer alone and it keeps writing a row the reader no longer
+  finds, which the new arm reads as *no run was named*.
+
+<!-- specs/1788926756-three-sentences-are-wrong-about-where-a-duration-is -->
+<!-- specs/1788926756-three-sentences-are-wrong-about-where-a-duration-is -->
+
+### Fixed
+
+- **A run's span could be shorter than one of its own calls.** `session_cost.py`
+  took a window's span as the last element's end minus the first element's
+  start, over a list sorted by START — so the span ended at the last call to
+  *begin*, and a call that outlived every later one ended after the window
+  counting it. A background command running 0–1000s beside calls at 10–12s
+  and 990–995s gave a span of **995 seconds** for a window holding a single
+  1000-second call. The span now ends at the last call to **end**.
+
+  **Nothing this repository has published moves, and elsewhere on the machine
+  five printed figures do.** Both rules were computed over every transcript
+  under `~/.claude/projects`, on every printed surface the span feeds rather
+  than on two of them. Run level: 169 transcripts with calls, one span moves,
+  by six thousandths of a second, with its printed span 10.3m either way.
+  Row level — which a run-level sweep does not cover, and which is what the
+  per-cycle readings publish — 599 spawn-cycle rows, 8 move at all and 2 move
+  far enough to change a printed figure. The between-the-rows figure, which is
+  what the refusal below is about, moves on 3 transcripts. `idle`, the `model`
+  share and the whole-run `command` share move nowhere, and no run switches
+  between printing the figure and refusing it. Every move on every axis is in
+  another project's transcript; this repository's own directory has 16
+  transcripts and not one moving figure. So what makes the published readings
+  safe is that per-project measurement and not the rule being harmless, and
+  `skills/verify/SKILL.md` now says what a span ends at where a person taking
+  a reading meets it.
+
+  **What it does not close, said plainly rather than left to be found:**
+  `command` can still print above 100% of the span. `command_s` sums call
+  durations and calls can run at once — on that same shape, 1007 seconds of
+  command time inside 1000 seconds of wall clock — and one real transcript on
+  this machine prints **115.7%** from 5,761 seconds of genuine overlap. The
+  old span rule was the smaller of two causes. The larger one is a decision
+  about what the number should mean and is with the owner.
+
+- **A negative span claimed less than the arithmetic knew, and claimed it
+  about runs that were not negative.** The line under a negative span said
+  *the last call to begin ended before the first call began*. That was exactly
+  what the old arithmetic computed; under the new rule a negative span means
+  **no call** ended after the first call began, and the line says that. The
+  narrowing also removes a false reading: a transcript holding one call that
+  ran from 10:00 to 12:00, beside a result written before its own call, used
+  to report minus sixty minutes for a run that plainly lasted two hours. It
+  now reports 120.0m.
+
+- **The between-the-rows refusal named a cause the head row need not carry.**
+  Where the rows' spans sum past the run's own, the report withholds the
+  figure and says why — and it said *a call outlived a spawn's result*. The
+  head row's cut is not a spawn's result: the cut list opens at the first
+  spawn's **start**, so a head call can outlive its own row's cut and still
+  end before that spawn's result arrives, and the sentence then named
+  something the transcript does not carry. It now names *the cut its row ends
+  at*.
+
+- **The same refusal printed `by 0.0m` as its grounds for withholding a
+  figure.** The magnitude went through a one-decimal formatter, so any overlap
+  under three seconds read as the spans having summed past the run by nothing,
+  beside a span column whose own figures did not add up to it. The line now
+  prints **both sums** — *the rows' spans sum to 33.1m
+  against the run's own 16.7m* — and leaves the subtraction to the reader,
+  which carries the same fact and never rounds one of the two away.
+
+  Neither printed figure is the rows' overlap, and the reason changed with the
+  span rule. Every row's interval now sits inside the run's, so the difference
+  is the gaps between the rows *minus* their overlap; where the head row
+  covers the whole run there are no gaps and the two coincide, which is
+  precisely why naming it the overlap would be a claim that holds on one shape
+  and fails in general.
+
+### Added
+
+- **A case for the exact-cover boundary, which nothing pinned.** Where the
+  rows' spans sum to exactly the run's own, the report prints the
+  between-the-rows figure rather than the refusal — the partition agreeing,
+  and the one shape where a reader can watch the arithmetic work. The `>= 0`
+  guard that decides it had been probed and never planted; tightening it to
+  `> 0` now turns a case red.
+
+<!-- specs/1788936260-a-case-pins-what-it-actually-measures -->
+<!-- specs/1788936260-a-case-pins-what-it-actually-measures -->
+
+### Added
+
+- **`arm-check` asks *would any case notice if this were wrong* of a whole
+  module, one branch at a time.** A module's branches were counted by hand
+  once, and #262's own table says 33 where
+  `hooks/review-history-guard.py` now has 31 — the file changed twice after
+  the count was taken. The new checker derives the list from the module's own
+  syntax tree instead, makes each branch wrong, runs a command you name, and
+  reports the branches nothing notices.
+
+  **There are two ways to be wrong and the answers differ by a lot.**
+  Inverting a test asks whether a case would notice it running backwards;
+  removing the branch asks whether one would notice it not being there.
+  Measured 2026-09-09 on `hooks/review-history-guard.py`, against
+  `tests/test_chain_hooks.py`: **12 of 32 branches survive removal, and none
+  of the 29 that inversion can be asked of survives it.** A branch counts
+  watched when either is noticed. The report prints both rows, says which one
+  #262's table of nine compares with — every sentence in that table is about
+  taking something out, so a single merged number invites exactly the wrong
+  comparison — and names every branch it asked one operator and not the
+  other, which is why the two denominators differ: for a handler with one
+  type left, inverting it and removing it are the same edit, so it is asked
+  once.
+
+  **The walk refuses a syntax it does not recognise instead of skipping it.**
+  A checker whose own enumeration goes short prints a shorter count that still
+  reads like a total, which is the defect it replaces one level up. So every
+  one of this interpreter's 122 syntax-tree constructors is classified — a
+  branch-carrying shape, or a non-branch with the grounds written beside it —
+  and a Python release that adds one turns a test red rather than quietly
+  narrowing the walk.
+
+  **A branch nothing notices is not automatically a defect**, and the report
+  says so where it prints them: a branch that cannot be reached, or one whose
+  removal changes no behaviour, belongs in that list. It is report-only —
+  exit 0 either way.
+
+  **The wait for one command is bounded and the run survives a failed one.**
+  `--timeout` defaults to 900 seconds and 0 removes the bound; a negative is
+  refused. A command that does not return in time, and one that cannot be
+  started at all, is recorded as a branch nothing measured rather than as a
+  verdict — so a virtual environment that stops being buildable partway
+  through costs one branch instead of the whole run. **It bounds the wait and
+  not the work**: only the command's own process is killed, so a command that
+  spawns something — a wrapper script running the suite one process down —
+  leaves that running. Each branch asks two questions, so a branch can take
+  twice the bound.
+
+  **The total says which rule narrowed it.** `assert` and `for`/`else` are not
+  counted, by #262's rule rather than because they hold no test, and the
+  report names them where it prints the total. A run narrowed with `--only`
+  says what it was narrowed out of, so a number pasted into a record does not
+  read as the module's.
+
+  Run it as `arm-check <module>` to list the branches, or with
+  `--tests "<command>"` to get the verdict. `skills/verify/SKILL.md` §2
+  carries the details.
+
+### Fixed
+
+- **A test that pinned a paragraph's wording let three rearrangements of its
+  claim through.** `skills/verify/SKILL.md` explains why a command-time share
+  can read above 100% — concurrent calls, ordinarily from batching rather than
+  from a background command — and the test guarding that paragraph asserted
+  four short phrases. Measured one edit at a time: swapping the two causes,
+  inverting the measured direction, and putting the old wording back at the
+  start of a sentence all **passed**. Each of the three is exactly the
+  regression the test was written to stop.
+
+  Every regression it was written against is a *rearrangement of true words*,
+  and no substring assertion sees a rearrangement. The two load-bearing
+  clauses are now asserted whole and the negative assertion is
+  case-insensitive. Verified over five edits, one at a time, with the file
+  restored and hash-compared after each: all five now fail, and the three
+  above used to pass.
+
+  **Where a paragraph carries a ranking (*this is the ordinary cause, that the
+  rarer one*) or a direction (*it came from A and not from B*), the assertion
+  has to carry the ranking or the direction.**
+
 ## 0.9.4 — 2026-09-08
 
 <!-- specs/1788846800-an-exited-session-reads-as-live-for-five-minutes -->
