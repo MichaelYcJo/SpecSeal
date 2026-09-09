@@ -97,7 +97,8 @@ smith cycle shows what it is made of.** That cycle reads a 116-minute span
 against 11.5 minutes of parts, and the 104.8 minutes between them is a
 **single gap inside the cycle** — the orchestrator issuing nothing between two
 of its own calls, above the 900 seconds `analyse` stops counting a gap at.
-That row's delegated wait is 580 seconds, under the ceiling. Every row over
+That row's opening gap is 580 seconds, under the ceiling, against a
+`delegated` column reading 2 seconds. Every row over
 5,000 seconds in these three runs decomposes the same way: four such rows,
 with opening gaps of 6 to 580 seconds beside internal gaps of 1,038 to 6,285.
 So a long cycle span is a reading about the orchestrator's own idle time and
@@ -127,9 +128,11 @@ way to be comparable.
 
 No target, and no comparison. The one thing to check against this is the next
 reading of the same kind: whether a cycle's span moves, and whether the two
-uncounted intervals move — the time **between** the rows, which is the
-delegated wait, and the whole-run *in no column* share, which is the
-orchestrator's own idle gaps above the ceiling. They are different quantities
+uncounted intervals move — the time **between** the rows, which is where the
+agent's own wall clock is, and the whole-run *in no column* share, which is
+the orchestrator's own idle gaps above the ceiling. Neither of them is the
+`delegated` column, which reads seconds on this harness. They are different
+quantities
 and a later reading that adds them together, or reads one for the other, will
 find the delegated question answered when what moved was how long somebody was
 away from the keyboard.

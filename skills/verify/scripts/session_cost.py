@@ -1203,15 +1203,41 @@ def report_spawns(spawns, path, total_calls, run_span=0.0):
     # 12-31% of a measured run, and a reader adding the span column has no
     # other way to learn the total is short. `mostly` is measured: the wait
     # is 98% of the interval and the rest is each row's last call to the cut.
+    #
+    # And the subtraction can come out NEGATIVE, which is not an interval and
+    # must not be printed as one. `in_windows` assigns a call by its START,
+    # which is what makes the CALLS partition and is not enough to make the
+    # spans partition: a call that outlives a spawn's result stays in the row
+    # it began in while the next row's calls have already started, so two
+    # rows' spans cover the same seconds and their sum can pass the run's own
+    # span. A background `Bash` command in the head row printed `-16.5m of the
+    # run's 16.6m is BETWEEN the rows — mostly the wait`, exit 0 — the class of
+    # false printed line #145 exists to close, reintroduced by the fix for it.
+    #
+    # The refusal says the SUM PASSED THE SPAN, and not `the rows overlap by
+    # N`: N is not the overlap. `analyse` takes a span as the last call TO
+    # BEGIN's end minus the first call's start, so an outliving call shortens
+    # the RUN's span too and the difference carries both errors. Naming it the
+    # overlap would be a smaller version of the defect being fixed here.
     if run_span > 0:
         outside = run_span - sum(
             row["numbers"]["span_s"] for row in rows if row["numbers"]
         )
-        print(
-            f"  {minutes(outside)} of the run's {minutes(run_span)} is BETWEEN "
-            f"the rows — mostly the wait\n  after each spawn's result, in no "
-            "column above"
-        )
+        # `>= 0` and not `> 0`: an exact cover is the partition agreeing, and
+        # the tally above is printed even when it agrees for the same reason.
+        if outside >= 0:
+            print(
+                f"  {minutes(outside)} of the run's {minutes(run_span)} is BETWEEN "
+                f"the rows — mostly the wait\n  after each spawn's result, in no "
+                "column above"
+            )
+        else:
+            print(
+                f"  the rows' spans SUM PAST the run's own {minutes(run_span)} by "
+                f"{minutes(-outside)}, so\n  this run has no between-the-rows "
+                "figure: a call outlived a spawn's\n  result, and the row it "
+                "began in covers seconds the next row's does too"
+            )
     described = [r for r in rows if r["kind"] == "cycle" and r["description"]]
     if described:
         print("\nwhat each cycle spawned")

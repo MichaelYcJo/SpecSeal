@@ -45,8 +45,10 @@ runs it is 12 to 31 per cent of each run's wall clock.
 
 A cycle whose span exceeds its own parts is a **different** finding: the row
 reading a 116-minute span against 11.5 minutes of columns owes 104.8 of those
-minutes to one gap *inside* the cycle, above the ceiling, with a delegated
-wait of 580 seconds. Round 1 found the two conflated on four pages.
+minutes to one gap *inside* the cycle, above the ceiling, with an opening gap
+of 580 seconds against a `delegated` column reading 2 seconds. Round 1 found
+the two conflated on four pages, and round 2 found the correction naming the
+opening gap *the delegated wait* on the same four.
 
 Three answers, and the third is the cheap one:
 
@@ -59,6 +61,37 @@ Three answers, and the third is the cheap one:
 Whichever it is, it is a change to what a number means and it belongs to a
 work item of its own — #149 is the next row of this release and this is the
 same kind of question about the same rows.
+
+## Q5 — a run's own `span_s` understates it when a call outlives every call started after it
+
+Found by round 2's finding 1 and left standing by its fix. `analyse` takes a
+window's span as `calls[-1]["end"] - calls[0]["start"]` with `calls` ordered
+by **start**, so it reads the end of the last call *to begin* rather than the
+last call to *end*. A background `Bash`, or any command still running when a
+later one has finished, therefore ends after the span does.
+
+Executed on a synthetic run: one call at 0–1000s with later calls at 10–12s
+and 990–995s reads a span of **995s**, five seconds short of its own last
+call. It is also half of why the between-the-rows subtraction had to be
+refused rather than repaired — the difference there carries this error as
+well as the rows' overlap, which is why the printed refusal names the sum
+passing the span and not an overlap of that size.
+
+**It is not fixed here, and the reason is the same one Q4 has.** `span_s` is
+in every reading this repository has published, and moving it moves them all
+— the marking decision #200 needed. A guard against a false printed sentence
+is this run's business; redefining a published number is not.
+
+| Answer | What it costs | What it gives up |
+|---|---|---|
+| Leave it, and say so where a reader meets it | nothing | a run with a long-lived call reads a span shorter than its own last call, with only the refusal line hinting at it |
+| Take the span to `max(end)` over the calls | one line in `analyse`, and every published span with an outliving call moves — with the same marking `#200` needed | comparability with every reading taken before the change, unless each is re-marked |
+| Take it to `max(end)` for the RUN and leave the window spans alone | the run's span stops being derived the same way as a row's, so two numbers on one page come from two rules | one rule, which is what makes the printed partition checkable |
+
+The middle one would also make the between-the-rows refusal fire less often
+without removing the need for it: the rows' spans can still overlap on their
+own. So this question is separable from the guard, which is why the guard did
+not wait for it.
 
 ## Undecidable from a transcript, and therefore not asked
 

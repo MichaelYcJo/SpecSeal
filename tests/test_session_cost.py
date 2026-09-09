@@ -2103,6 +2103,45 @@ def test_the_delegated_wait_is_in_no_column_of_any_row(tmp_path):
     assert "5.1m of the run's 5.3m is BETWEEN the rows" in out, out
 
 
+def test_a_call_that_outlives_a_cut_prints_no_between_the_rows_figure(tmp_path):
+    """The rows partition the CALLS, and the difference can go the other way.
+
+    `in_windows` assigns a call by its start, which is what makes the calls
+    partition and is not enough to make the spans partition: a call that
+    outlives a spawn's result stays in the row it began in while the next
+    row's calls have already started, so two rows' spans cover the same
+    seconds and their sum can pass the run's own span. The line above then
+    subtracts to a negative and printed `-16.5m of the run's 16.6m is
+    BETWEEN the rows -- mostly the wait`: a negative interval, named as the
+    delegated wait, in the one report this work item exists to make honest.
+
+    A background `Bash` command is the ordinary way to reach it, which is
+    what this transcript is."""
+    lines = call("bg", 0, 1000, "npm run dev")
+    lines += spawn("A", 5, 7, "specseal:smith")
+    lines += call("b", 10, 12, "git status --short")
+    lines += call("c", 990, 995, "git log --oneline -5")
+    path = tmp_path / "outlives.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    rows = spawns_of(path)["rows"]
+    spans = sum(row["numbers"]["span_s"] for row in rows if row["numbers"])
+    data = json.loads(run(["--json", str(path)]).stdout)
+    # The premise: the spans overlap, so they sum past the run's own span.
+    assert spans > data["span_s"], (spans, data["span_s"])
+    out = " ".join(run(["--spawns", str(path)]).stdout.split())
+    # What the reader gets is the sum passing the span, and NOT "the rows
+    # overlap by 16.5m" -- that figure is not the overlap. `analyse` takes a
+    # span as the last call TO BEGIN's end minus the first call's start, so
+    # the outliving call shortens the run's own span too and the difference
+    # carries both errors. Naming it the overlap would be a smaller version
+    # of the defect this case exists for.
+    assert "the rows' spans SUM PAST the run's own 16.6m by 16.5m" in out, out
+    assert "no between-the-rows figure" in out, out
+    # The whole point: no negative is stated, and nothing is called the wait.
+    assert "is BETWEEN the rows" not in out, out
+    assert "-16.5m" not in out, out
+
+
 def test_the_printed_report_calls_a_cycle_row_a_band(orchestrator):
     """The row covers the wait, the verifying and the framing at once, and
     posting it as an attribution to one of those overstates it. The caveat is

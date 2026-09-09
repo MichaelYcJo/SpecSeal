@@ -54,7 +54,8 @@ A row whose span exceeds its own parts is a **separate** thing, and round 1
 found four pages conflating the two. The cycle that reads 116 minutes against
 11.5 minutes of parts owes the difference to one gap of 104.8 minutes *inside*
 the cycle, above the ceiling — the orchestrator issuing nothing between two of
-its own calls. That row's delegated wait is 580 seconds.
+its own calls. That row's opening gap is 580 seconds, against a `delegated`
+column reading 2 seconds — the two quantities the pages had conflated.
 
 **What was NOT done about it, deliberately.** The code was built to `plan.md`
 and left that way: the exclusion is right and nearly free on this harness, and

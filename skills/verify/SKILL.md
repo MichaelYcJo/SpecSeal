@@ -418,6 +418,16 @@ finished, not as a follow-up someone might do later:
    12 to 31 per cent of a run — and the agent's own transcript is where its
    number is, either way.
 
+   **Where the report gives no between-the-rows figure and says the spans
+   summed past the run, a call outlived a spawn's result.** Assigning a call
+   by its start is what makes the calls partition, and it leaves a
+   long-running one — a background command, a suite spanning a cut — in the
+   row it began in while the next row has already started, so two rows'
+   spans cover the same seconds. The subtraction is then a negative rather
+   than an interval, so it is refused instead of printed. Quote that run's
+   span and its rows' columns, and leave the between-the-rows share out of
+   the reading rather than substituting the sum.
+
    **So a long cycle span is not a long agent run.** Where a row's span
    exceeds its own parts by an hour, that hour is a gap INSIDE the row,
    above the fifteen minutes model time stops counting at — the orchestrator
