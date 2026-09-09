@@ -89,9 +89,10 @@ and round 2 relabelled the first line, so a run today prints *arms measured*
 rather than *arms mutated*. The paragraph's *`invert` alone gives 1 survivor*
 is that pre-fix run; the argument it makes is unchanged, because 0 beside the
 ticket's nine reads as a refutation just as 1 did. The case count above is
-likewise the pre-round-1 one: 47 cases and 58 collected after round 2's
-fixes. Annotated rather than frozen, so that this record and the two phase
-records carry one treatment between them.
+likewise the pre-round-1 one: 47 `^def test_` and 58 collected, measured
+2026-09-09 at `984d585` with `grep -c` and `pytest --collect-only`. Annotated
+rather than frozen, so that this record and the two phase records carry one
+treatment between them.
 
 Ten of the twelve are in `main`, where #262 put eight of its nine, and
 `gh_segments` has none — which matches the four the ticket says were closed on

@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 311 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | NO_VERDICT_COMMANDS (depth 1); test_the_report_does_not_call_a_mutated_arm_unmutated (depth 1); test_the_help_says_the_bound_reaches_the_command_and_not_its_children (depth 1); test_a_negative_bound_is_refused_rather_than_measured (depth 1); test_a_pair_whose_command_ran_and_answered_nothing_is_not_called_unasked (depth 1) |
 | Needs a fix | yes — findings 15, 16 and 17. Two printed lines that are false on the paths this fix pass created (`skills/verify/scripts/arm_check.py:913` and `:961`), a docstring and a help text claiming a bound the code does not deliver for the documented `--tests` form (`:786` and `:995`), and a negative `--timeout` that prints a survivor count of zero it never measured (`:995`). Findings 18 and 19 are record corrections under `seal/specs/` and count here for nothing. |
