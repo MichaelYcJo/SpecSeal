@@ -123,12 +123,14 @@ above it — `round_record.py new` writes the row on every record it generates,
 and `close --broad-gate` is the only thing that changes the value. Above the
 cutoff a cell this arm cannot parse is a cell somebody chose.
 
-`test_a_broad_gate_cell_nobody_can_parse_is_reported_rather_than_failed`
+`test_a_broad_gate_cell_nobody_can_parse_is_reported_rather_than_failed` — NAME NOT IN TREE, renamed by this round's fix pass
 (`tests/test_chain_check_at_the_pull_request.py:1535`) runs at `GATE_FROM` and
 asserts exit 0, so the case pins the bypass at the one id where the arm is
 supposed to apply. Its real subject — the record in this tree reading *"due
 after this record — see the row below"* — is a record from below the cutoff,
-which is where the case belongs.
+which is where the case belongs. It is
+`test_a_broad_gate_cell_nobody_can_parse_is_reported_below_the_cutoff` now,
+running at `GATE_FROM - 1`, which is where the finding sent it.
 
 This is adjacent to `questions.md` Q4 and is not Q4. Q4 asks whether the cell
 should be validated where it is **written**, and it is the owner's. This asks

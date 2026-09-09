@@ -29,9 +29,9 @@ shape: declared passes, undeclared fails.
   a stricter check, it is no check — 153 rows is not an escape anybody takes,
   and the branch turns the step off instead. What bounds the allowance is that
   the declaration is a written sentence in the tree with a reviewer reading it,
-  and that the **range is the anchor**: run the check over a different range
+  and that ~~the **range is the anchor**: run the check over a different range
   and the row does not hold, so a declaration cannot outlive the deletion it
-  was written for.
+  was written for~~.
 
   **Corrected after round 1's 🔴 1: that bound did not hold as written, and
   the phase shipped believing it did.** `origin/<base>...HEAD` — the spelling
