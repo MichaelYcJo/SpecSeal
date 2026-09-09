@@ -541,21 +541,41 @@ def test_the_section_names_batching_as_the_way_a_share_passes_one_hundred():
     overlap above a second is calls batched into one assistant message and
     none of it crosses a turn. Nothing else in the tree reads this clause, so
     without this case an edit can put the rarer cause back as the ordinary
-    one and no check says anything."""
+    one and no check says anything.
+
+    **The clauses are asserted WHOLE, not by their vocabulary** (#310). This
+    case shipped as four substring assertions and three rearrangements of the
+    paragraph walked past all of them: the two causes swapped, the
+    measurement inverted, and the old phrase re-added at the start of a
+    sentence — each one exit 0. Every regression the case exists against is a
+    rearrangement of true words, and no substring sees a rearrangement. Where
+    a paragraph carries a ranking (*this is the ordinary cause, that the
+    rarer one*) or a direction (*it came from A and not from B*), the
+    assertion has to carry the ranking or the direction. `section_body()`
+    collapses whitespace, so a whole-clause assertion survives a re-wrap and
+    only a change to the wording turns it red."""
     body = section_body()
     assert "calls running at once" in body, (
         "the paragraph must name concurrent calls as what puts a share over "
         "100%, not something running in the background"
     )
-    assert "batched into one message" in body, (
-        "batching is the ordinary way a share passes 100% and the paragraph "
-        "has to say so — a reader sent to look for a background command "
-        "finds nothing and reads the share as broken arithmetic"
+    assert (
+        "Batching is the ordinary way in and a background command is the "
+        "rarer one" in body
+    ), (
+        "batching is the ordinary way a share passes 100% and the background "
+        "command the rarer one; naming the two separately passes with the "
+        "ranking reversed, which is the edit this case exists to stop"
     )
-    assert "crossed a turn" in body, (
-        "the measured claim is that none of the overlap crosses a turn; "
-        "without it the paragraph asserts a cause it does not bound"
+    assert (
+        "every second of overlap above a second came from calls batched into "
+        "one message and none of it from a call that crossed a turn" in body
+    ), (
+        "the measured claim has a direction, and the vocabulary of both "
+        "halves survives inverting it — so the clause is asserted whole"
     )
-    assert "something running in the background" not in body, (
-        "the old wording named the rarer cause as the ordinary one"
+    assert "something running in the background" not in body.lower(), (
+        "the old wording named the rarer cause as the ordinary one. Lowered "
+        "because the same phrase returning at the start of a sentence is the "
+        "same regression"
     )
