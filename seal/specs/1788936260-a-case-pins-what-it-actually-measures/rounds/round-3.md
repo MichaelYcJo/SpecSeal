@@ -5,7 +5,7 @@
 | Target SHA | 0cfc5e6 |
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | 311 |
-| Broad gate | not yet |
+| Broad gate | 2cc1a18 against 0df9508 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
