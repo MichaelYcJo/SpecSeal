@@ -71,7 +71,7 @@ incorporation. This file only adds what the skill does not carry.
         example -- so the standing instruction above is still right and its
         stated consequence is not. Why it is silenced is unanswered and is
         nobody's finding yet.
-        Verified 2026-09-09 against "## Phases"@9b196034. -->
+        Verified 2026-09-09 against "## Phases"@466f9948. -->
 
    Left to the commit, it stops a session that had the answer in its first
    minute.
@@ -161,6 +161,14 @@ incorporation. This file only adds what the skill does not carry.
    quote from the standing text and your grounds — the quote is the anchor, so
    the exemption stops holding as soon as that text changes. Then say in the
    hand-back what it reported and what you did with each one.
+
+   **A range that DELETES a shipped section takes one row for the whole
+   range** instead, `| Range | Grounds |` in the same file. Every sentence of
+   the section stands in the durable copies that are supposed to survive a
+   deletion, so #293's range reported 153 places, all correct as reports and
+   none of them a defect — and 153 written rows is not an escape anybody
+   takes. There the RANGE is the anchor, so the row stops holding the moment
+   the check runs over a different one.
 4. **Verify** — run the actual checks and read their output before any
    completion claim. Fresh output only; a previous run proves nothing. §2
    bounds what you run and §3 answers a prompt that orders more.

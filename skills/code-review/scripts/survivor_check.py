@@ -116,7 +116,7 @@ So the same file takes a second row shape, with the range in the first cell:
 
     | Range | Grounds |
     |---|---|
-    | `origin/release/v0.9.5...HEAD` | the deleted section's sentences stand
+    | `origin/release/vX.Y.Z...HEAD` | the deleted section's sentences stand
       in the durable copies by design |
 
 **The range is the anchor**, exactly as the quote is above, and it degrades the

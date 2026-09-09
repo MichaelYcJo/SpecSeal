@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | <filled at the phase's commit> |
+| Commit | `4558c21` |
 | Ran by | unknown — the spawn prompt named no runner, and the value is the spawning session's rather than a value this segment decides about itself |
 
 ## What this phase was asked
@@ -81,9 +81,9 @@ names both, and `test_an_exemption_file_with_no_rows_is_refused` was updated
 to pin the new text in the same commit — §14, and the case is the reason the
 next edit cannot quietly take it back.
 
-**A ledger anchor drifts and it is phase 4's to settle.** Row S5 cites
-`survivor_check.py#read_exemptions@cd6ee247`, and this phase changed that
-function's body and signature. The claim S5 makes — an exemption is anchored
+**A ledger anchor drifts and it is phase 4's to settle.** Row S5 anchors on
+`read_exemptions` in this script, and this phase changed that function's body
+and signature. The claim S5 makes — an exemption is anchored
 on a contiguous run of the standing text's own words, and neither an empty
 quote nor a scattered one silences anything — still holds: this phase adds a
 second row shape beside the quote anchor rather than changing it. So it is a

@@ -68,6 +68,14 @@ Each report is corrected, or answered in `survivors.md` with a quote from the
 standing text and the grounds. The quote is the anchor, so an exemption stops
 holding the moment the text changes.
 
+**A range that DELETES a shipped section gets one row for the whole range
+(#297)**, `| Range | Grounds |`, because per-survivor rows do not scale to
+that case: every sentence of the section stands in the durable copies that
+are supposed to survive a deletion, and #293's range reported 153 of them,
+all correct as reports and none a defect. The range is the anchor there, so
+the row stops holding the moment the check runs over a different range, and
+the grounds are still a written sentence somebody reads.
+
 **The half of a prompt that does not change between rounds is not yours to
 type.** `skills/agent-contract/SKILL.md` reaches every agent you spawn at
 startup, through the `skills:` list in its definition, and each agent's own
@@ -408,12 +416,32 @@ only at the pull request, so a chain that opens it at the end reviews for a
 dozen rounds on one platform and meets the others afterwards. Measured on the
 last branch: three Windows-only defects arrived after round 12. Open it as a
 draft when the build's last phase closes, and the legs run beside the chain
-from round 1. The `release` leg is red from the draft's opening until round
-1's record commits — the declaration names the chain and `rounds/` holds no
-record yet — and that is the window's expected state, not a failure to
-chase. It is red once more from `close` ticking `Pass` until the verifying
+from round 1.
+
+**That window used to be red and is not any more (#296).** The `release` leg
+failed from the draft's opening until round 1's record committed — the
+declaration named the chain and `rounds/` held no record yet — and this
+paragraph said so, as *the window's expected state, not a failure to chase*.
+A check that is red for following the document beside it is a check people
+learn to skip, so `chain_check` reads the draft state on that arm now: on a
+draft the missing record prints and the run exits 0, and pressing *Ready for
+review* fires `ready_for_review`, re-runs the check and fails the pull
+request if the record is still missing. Nothing that can reach `main` is
+exempt.
+
+It is red once more from `close` ticking `Pass` until the verifying
 round's record commits, for the reason the check prints — `Pass` beside
-`nobody` on the last record — and that window is expected too.
+`nobody` on the last record — and that window is expected.
+
+**The last record's `Broad gate` cell is read at a READY pull request
+(#295).** So the sequence has one more step before the draft goes ready: run
+the one full-suite pass now that the rounds have settled, and write the SHA
+it ran at and the base it was compared against into the last record's cell
+with `round_record.py close --broad-gate '<sha> against <base>'`. A cell
+still reading `not yet` fails the pull request, and so does a SHA the
+record's own `Target SHA` descends from — a run spent before the round it was
+meant to seal. Work items begun before `chain_check.GATE_FROM` print instead
+of failing.
 
 **A session that has compacted hands the next round to a fresh one, and the
 generated record is the handoff.** A compacted context holds a summary of what
