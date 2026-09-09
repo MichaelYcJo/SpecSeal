@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 4 |
 | Commit | `13fbc4d` |
-| Ran by | unknown — the spawn prompt named no runner, and the value is the spawning session's rather than a value this segment decides about itself |
+| Ran by | `specseal:smith on claude-opus-5` — filled by the spawning session, which is the only participant that knows what it spawned |
 
 ## What this phase was asked
 
