@@ -41,6 +41,17 @@ changing; the original phrasing is restored rather than the case updated. A
 case going red is not automatically a case to edit — the question is which of
 the two the change was entitled to move.
 
+**Corrected after round 1's ⬜ 5: it was put back one word short, so this was
+an edit and not a restoration.** The original ended *"and that window is
+expected too"* and it now ends *"and that window is expected."* The dropped
+`too` pointed at the FIRST red window, which #296 closes, so with that window
+gone the word refers to nothing and dropping it is right. What was wrong is
+this paragraph calling the result a restoration. The sentence stands as
+edited, deliberately, and
+`test_the_release_leg_is_red_again_until_the_verifying_rounds_record_commits`
+now asserts the clause through its final word. It reached only as far as
+*record commits* before, which is why nothing caught the missing one.
+
 **The fixture class from phase 2 was larger than the static enumeration
 found, and the extra member is a different shape.** Phase 2 enumerated every
 `specs/<id>` literal in `tests/` and fixed six modules' hand-built records.

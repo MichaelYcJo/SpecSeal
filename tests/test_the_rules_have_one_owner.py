@@ -250,10 +250,19 @@ def test_the_release_leg_is_no_longer_red_until_round_ones_record_commits():
 def test_the_release_leg_is_red_again_until_the_verifying_rounds_record_commits():
     """Round 2's ⬜ 12: the leg has a second red window, from `close`
     ticking `Pass` until the verifying round's record commits, and the
-    ⬜ 8 sentence named one. The owner names both."""
+    ⬜ 8 sentence named one. The owner names both.
+
+    Asserted through the sentence's LAST WORD since round 1's ⬜ 5 of work
+    item 1788912166. It ended `expected too` — the `too` pointing at the
+    first red window — and #296 closed that window, so the word was dropped.
+    Dropping it is right and it is an EDIT, which is what the phase record
+    that called it a restoration got wrong. The clause stopped at `record
+    commits` here, so nothing was watching the half where the word lived.
+    """
     assert (
         "It is red once more from `close` ticking `Pass` until the verifying "
-        "round's record commits"
+        "round's record commits, for the reason the check prints — `Pass` "
+        "beside `nobody` on the last record — and that window is expected."
     ) in flat(*ORCH)
 
 

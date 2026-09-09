@@ -2856,13 +2856,17 @@ def broad_gate(reader, root, rel, strict):
     the rounds settle -- so reading them all would fail every work item that
     ran more than one round.
 
-    THREE STATES, and each has to be told apart from the others.
+    FOUR STATES, and each has to be told apart from the others.
 
       `not yet`, or no row at all   the run never happened. An absent row is
           the same state and must read as it: `round_record.py new` writes
           this row on every record it generates, so above the cutoff an
           absent row cannot arise honestly, and reading it as "nothing to
           check" would make deleting one line the way past the whole arm.
+          **That last clause was false when it was written**, and the state
+          below is why: a cell holding one unparseable word was a notice, so
+          writing `skipped` was already a shorter way past the arm than
+          deleting anything. Closing that one is what makes this reason true.
 
       a SHA the record's own `Target SHA` DESCENDS from   the run was spent
           before the round it was meant to seal. `CLAUDE.md` §*Verification
@@ -2870,12 +2874,26 @@ def broad_gate(reader, root, rel, strict):
           was spent, not banked -- and a round's fixes are edits after it by
           definition. This is worse than no run, because the cell claims one.
 
-      anything else                 reported, never failed. Nothing validates
-          this cell where it is WRITTEN (`questions.md` Q4, the owner's), so
-          records in the tree hold free text -- one reads `due after this
-          record -- see the row below`. Failing on a cell this arm cannot
-          parse would be the retroactive red the cutoff exists to avoid,
-          arriving through the reader instead of through the date.
+      a cell with no SHA-shaped word in it   the run is unnamed, and above the
+          cutoff that FAILS. `questions.md` assumption 3 argued for reporting
+          it, because nothing validates the cell where it is WRITTEN
+          (`questions.md` Q4, the owner's) and records in the tree hold free
+          text -- one reads `due after this record -- see the row below`. That
+          reason is the retroactive red the cutoff already answers: the tail
+          of this function grandfathers every work item begun before
+          `GATE_FROM`, and above it `round_record.py new` writes the row on
+          every record and `close --broad-gate` is the only thing that changes
+          the value. So above the cutoff this cell is a choice. Left as a
+          notice it was the CHEAPEST way past this arm there is -- `skipped`
+          is one word, where the absent row the state above refuses costs a
+          deleted line.
+
+      a SHA on a DIVERGENT line   reported, never failed. Neither the reviewed
+          commit nor a descendant of it, so it makes no claim about this round
+          in either direction. The passing condition is asked directly for
+          this reason: written as the complement of *premature*, it admitted
+          every commit that was merely unrelated, and did it in silence --
+          quieter than the notice an unresolvable SHA below already gets.
 
     EQUAL IS NOT PREMATURE, and `merge-base --is-ancestor X X` exits 0, so
     ancestry alone would fail the exactly-correct case: the round reviewed a
@@ -2920,13 +2938,24 @@ def broad_gate(reader, root, rel, strict):
             "over"
         )
     elif not named:
-        fatal = False
+        # NOT excused above the cutoff, and the tail of this function is what
+        # excuses it below one. `questions.md` assumption 3 argued for
+        # reporting an unparseable cell because records in the tree hold free
+        # text -- true of records written before `GATE_FROM`, which the tail
+        # already grandfathers. Above it there is no such history:
+        # `round_record.py new` writes this row on every record it generates
+        # and `close --broad-gate` is the only thing that changes the value,
+        # so a cell this arm cannot parse there is a cell somebody chose.
+        # Left as a notice, `pending`, `skipped` or `n/a` was a shorter way
+        # past this arm than deleting the row -- which is the very edit the
+        # absent-row judgment above was taken to close.
         message = (
             f"`{BROAD_GATE}` is `{written}` — no SHA-shaped word in it, so "
             "this arm cannot tell a run that happened from one that did not. "
-            "Reported rather than failed: nothing validates this cell where "
-            "it is written, so a cell it cannot parse is not evidence of "
-            "anything either way"
+            "Write the SHA the one full-suite run happened at and the base it "
+            "was compared against (`round_record.py close --broad-gate "
+            f"'<sha> against <base>'`), or `{GATE_NOT_YET}` while it has not "
+            "run"
         )
     else:
         ran_at = resolves_to(root, named[0])
@@ -2938,9 +2967,20 @@ def broad_gate(reader, root, rel, strict):
                 "is made about when the run happened"
             )
         else:
+            # THE HONEST SHAPE, ASKED DIRECTLY: the gate ran AT the commit the
+            # round reviewed, or after it. Asked as the complement -- *is the
+            # gate an ancestor of the target?* -- this answered the premature
+            # case alone and let a commit on a DIVERGENT line through in
+            # silence, which is quieter than the notice an unresolvable SHA
+            # gets. `spec.md`'s three shapes are `not yet`, premature, and at
+            # or after; a commit on a line the branch never descended from is
+            # none of them, and it makes no claim about this round either way.
+            divergent = None
             for sha in SHA_RE.findall(field(rows, TARGET) or ""):
                 reviewed = resolves_to(root, sha)
                 if reviewed is None or reviewed == ran_at:
+                    continue
+                if is_ancestor(root, reviewed, ran_at):
                     continue
                 if is_ancestor(root, ran_at, reviewed):
                     message = (
@@ -2955,8 +2995,19 @@ def broad_gate(reader, root, rel, strict):
                         "the new SHA into the cell"
                     )
                     break
+                divergent = sha
             else:
-                return [], []
+                if divergent is None:
+                    return [], []
+                fatal = False
+                message = (
+                    f"`{BROAD_GATE}` names `{named[0]}`, and this round's "
+                    f"`{TARGET}` names `{divergent}` — the gate commit is "
+                    "neither that commit nor a descendant of it, so it sits "
+                    "on a different line of history and makes no claim about "
+                    "this round. Reported rather than failed: a divergent "
+                    "commit is not evidence either way"
+                )
 
     if message is None:
         return [], []

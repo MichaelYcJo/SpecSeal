@@ -39,17 +39,29 @@
   `seal/specs/<work-item-id>/survivors.md` now takes a second row shape,
   `| Range | Grounds |`, alongside the per-survivor `| Path | Quote | Grounds |`.
   The first cell tells them apart, and a path can never be read as a range
-  because the dots need a non-space word on both sides. **The range is the
-  anchor**, exactly as the quote is for a per-survivor row, so the row stops
-  holding the moment the check runs over a different range and a declaration
-  cannot outlive the deletion it was written for. The spec is resolved rather
-  than compared as text, because CI spells the range `origin/<base>...HEAD`
-  and a person spells it as two commits — those are one range. A spec that no
-  longer resolves silences nothing and prints under `unresolved` rather than
-  refusing the run, so a deleted release branch in an old declaration cannot
-  turn every later check into a refusal. Grounds are not optional, and every
-  excused survivor is still printed with them: what this removes is the cost
-  of writing 153 rows, never the cost of reading 153 lines.
+  because the dots need a non-space word on both sides. The spec is resolved
+  rather than compared as text, because CI spells the range
+  `origin/<base>...HEAD` and a person spells it as two commits — those are one
+  range.
+
+  **The row is anchored on the range and on the work item it lives in, and the
+  second anchor is why the first is not enough.** `origin/<base>...HEAD` is not
+  a range, it is a relation, and it resolves to whatever range the checkout it
+  is read on is over. Every work item's `survivors.md` in the tree is handed to
+  every run, and one lives until the release that ships it, so a single merged
+  row in that spelling excused every later branch cut from the same base and
+  turned the step off for the rest of the release — the outcome the escape
+  exists to prevent, arriving through the escape. A declaration now holds only
+  over a range that touches its own work item's directory, which a work item's
+  own range always does.
+
+  Both anchors fail loudly. A spec that no longer resolves prints under
+  `unresolved`, one refused for belonging to another work item prints under
+  `not yours` with that work item named, and neither refuses the run — a
+  deleted release branch in an old declaration cannot turn every later check
+  into a refusal. Grounds are not optional, and every excused survivor is
+  still printed with them: what this removes is the cost of writing 153 rows,
+  never the cost of reading 153 lines.
 
 ### Added
 
@@ -60,16 +72,25 @@
   and no gate in the repository had an opinion about either.
 
   At a **ready** pull request `chain-check` reads the cell on the last round
-  record, and it tells three states apart. `not yet` — or no row at all — is
+  record, and it tells four states apart. `not yet` — or no row at all — is
   the run that never happened. A SHA the record's own `Target SHA` descends
   from is the run spent before the round it was meant to seal, and the refusal
   names both commits; that is the more expensive of the two, because the cell
-  claims a run happened. Anything else is reported rather than failed, since
-  nothing validates this cell where it is written and records in the tree hold
-  free text. Equal is not premature — `git merge-base --is-ancestor X X`
-  succeeds — so the resolved commits are compared before any ancestry
-  question, and a gate SHA this repository cannot see makes no claim at all,
-  which is the ordinary state after a squash.
+  claims a run happened. A cell with no SHA-shaped word in it names no run and
+  fails too: above the cutoff `round_record.py new` writes the row on every
+  record and `close --broad-gate` is the only thing that changes the value, so
+  such a cell is a choice — and left as a notice, writing `skipped` was a
+  shorter way past the arm than deleting the row. Below the cutoff it is still
+  reported rather than failed, because records written before it hold free
+  text.
+
+  Equal is not premature — `git merge-base --is-ancestor X X` succeeds — so
+  the resolved commits are compared before any ancestry question. The passing
+  condition is asked directly, *the gate ran at the reviewed commit or after
+  it*, rather than as the complement of *premature*: written the other way it
+  admitted a gate commit on an unrelated line of history in silence. That case
+  is reported now, and a gate SHA this repository cannot see makes no claim at
+  all, which is the ordinary state after a squash.
 
   **A draft is excused it**, for the reason the rounds are still running: the
   broad gate runs once, after they settle.

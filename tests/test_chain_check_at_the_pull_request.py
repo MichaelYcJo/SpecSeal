@@ -227,16 +227,28 @@ def test_a_ready_pull_request_still_has_no_way_past_the_record(repo):
     assert "holds no `round-N.md`" in out
 
 
-@pytest.mark.parametrize(
-    "kwargs",
-    [
-        {},
-        {"payload": "{not json"},
-        {"payload": json.dumps({"repository": {}})},
-        {"payload": json.dumps({"pull_request": {"draft": "true"}})},
-    ],
-    ids=["no payload", "unparseable", "no pull request", "a string draft"],
-)
+# The four shapes of `unknown`, in ONE place because both arms that `strict`
+# excuses are held to them and a second literal is how the two drift apart.
+# `pull_request_state` has three answers, and `unknown` is judged as READY —
+# otherwise `no pull-request context` becomes the quietest way past this check
+# that exists. The string case is the one where a truthy read would have
+# inverted the answer, and `"draft": "false"` inverting it is a defect this
+# function has already had once.
+#
+# Round 1's 🟡 4: the gate arm carried two of the four, and the two it was
+# missing are the two `phases/phase-1.md` calls dangerous. Both arms consume
+# one `strict` today, which is what kept that from being a 🔴 — and the arms
+# stopping to share it is exactly what this work item did to the other one.
+UNKNOWN_SHAPES = [
+    {},
+    {"payload": "{not json"},
+    {"payload": json.dumps({"repository": {}})},
+    {"payload": json.dumps({"pull_request": {"draft": "true"}})},
+]
+UNKNOWN_IDS = ["no payload", "unparseable", "no pull request", "a string draft"]
+
+
+@pytest.mark.parametrize("kwargs", UNKNOWN_SHAPES, ids=UNKNOWN_IDS)
 def test_an_unknown_state_is_not_a_draft_at_this_arm_either(repo, kwargs):
     """The trap #296 opens, and the one thing that must not follow from it.
 
@@ -1420,6 +1432,12 @@ def test_a_broad_gate_row_that_is_absent_names_no_run_either(repo):
     `not yet` when nothing has run — so above the cutoff an absent row cannot
     arise honestly. Reading it as "nothing to check" would make deleting one
     line the way past the whole arm.
+
+    That last reason was false when this case was written, and round 1's 🔴 2
+    is where it was measured: a cell holding one word this arm cannot parse
+    was a notice, so `skipped` was a shorter way past than deleting the row.
+    `test_a_one_word_cell_is_not_a_way_past_the_arm` is what closed the
+    shorter way, and it is what makes this case's own grounds true.
     """
     gated(repo, GATE_FROM, gate=None)
     code, out = run(repo, draft=False)
@@ -1475,13 +1493,16 @@ def test_a_draft_may_still_have_no_broad_gate_run(repo):
     assert code == 0, out
 
 
-@pytest.mark.parametrize("kwargs", [{}, {"payload": "{not json"}])
+@pytest.mark.parametrize("kwargs", UNKNOWN_SHAPES, ids=UNKNOWN_IDS)
 def test_an_unknown_state_is_held_to_the_broad_gate_too(repo, kwargs):
     """The same trap #296 opens, at the arm that would pay for it.
 
     If `unknown` were read as a draft, then `no pull-request context` would
     excuse the record's existence AND the broad gate AND the checked `Pass`
-    all at once — which is the whole check.
+    all at once — which is the whole check. All four shapes, from the list
+    above: the two this arm was missing are the string draft and the payload
+    naming no pull request, which are the two the build's own record calls
+    dangerous.
     """
     gated(repo, GATE_FROM, gate="not yet")
     code, out = run(repo, **kwargs)
@@ -1532,21 +1553,82 @@ def test_a_work_item_whose_id_is_not_a_date_is_grandfathered(repo):
     assert code == 0, out
 
 
-def test_a_broad_gate_cell_nobody_can_parse_is_reported_rather_than_failed(repo):
-    """`questions.md` assumption 3, and the direction the cutoff argues for.
+def test_a_broad_gate_cell_nobody_can_parse_is_reported_below_the_cutoff(repo):
+    """`questions.md` assumption 3, bounded by the cutoff it rests on.
 
     Nothing validates this cell where it is WRITTEN — that is Q4, and it is
-    the owner's. Until it is answered, records in the tree may hold anything,
-    and a real one reads `due after this record — see the row below`. Failing
-    on a cell this arm cannot parse would be the retroactive red the cutoff
-    exists to avoid, arriving through the reader instead of through the date.
+    the owner's — so records written before `GATE_FROM` hold free text, and a
+    real one in this tree reads `due after this record — see the row below`.
+    Failing THOSE would be the retroactive red the cutoff exists to avoid,
+    arriving through the reader instead of through the date.
+
+    This case used to run AT the cutoff, which pinned the leniency at the one
+    id where the arm is meant to apply — round 1's 🔴 2. Its real subject is a
+    record from below the cutoff, which is where it now runs; the case beneath
+    it is the other half.
     """
-    gated(repo, GATE_FROM, gate="due after this record — see the row below")
+    gated(repo, GATE_FROM - 1, gate="due after this record — see the row below")
     code, out = run(repo, draft=False)
     assert code == 0, out
     assert "Broad gate" in out, (
         "reported, which is the half that is not optional. A cell nobody can "
         "parse and a cell nobody wrote must not look the same"
+    )
+
+
+@pytest.mark.parametrize(
+    "cell", ["pending", "skipped", "n/a", "TBD", "not run", "-", "due later"]
+)
+def test_a_one_word_cell_is_not_a_way_past_the_arm(repo, cell):
+    """Round 1's 🔴 2. Above the cutoff, a cell with no SHA in it is a choice.
+
+    An absent row fails and `not yet` fails, so leaving every OTHER word a
+    notice made writing one the cheapest way past this arm there is — cheaper
+    than deleting the row, which is the edit the absent-row judgment was taken
+    to close. `skipped` is not an exotic value: it is the word a session that
+    skipped the run would write.
+
+    Above the cutoff there is no free-text history to grandfather.
+    `round_record.py new` writes this row on every record it generates and
+    `close --broad-gate` is the only thing that changes the value, so a cell
+    this arm cannot parse above `GATE_FROM` is a cell somebody chose. Below it
+    the tail of the same function still grandfathers, which is the case above.
+    """
+    gated(repo, GATE_FROM, gate=cell)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "Broad gate" in out and cell in out, (
+        "and it quotes the cell back, so nobody goes looking for a different row"
+    )
+
+
+def test_a_gate_sha_on_a_divergent_line_makes_no_claim_and_says_so(repo):
+    """Round 1's 🟡 3. The arm asked one question — is the gate an ancestor of
+    the target — which is the PREMATURE direction, so everything that is
+    neither equal to the target nor descended from it passed, and passed in
+    silence. That is quieter than the notice an unresolvable SHA already gets:
+    the arm said nothing about the case it could check and something about the
+    case it could not.
+
+    `spec.md` names three shapes — `not yet`, premature, at-or-after — and a
+    commit on a line the branch never descended from is none of them.
+    """
+    item = gated_item(GATE_FROM)
+    write(repo, f"{item}/routing.md", declaration())
+    first = commit(repo, "declare")
+    git(repo, "checkout", "-q", "-b", "side", first)
+    write(repo, "side.py", "s = 1\n")
+    side = commit(repo, "a commit on a line the branch never descended from")
+    git(repo, "checkout", "-q", "feature")
+    write(repo, "another.py", "z = 3\n")
+    second = commit(repo, "the commit the round reviewed")
+    write(repo, f"{item}/rounds/round-1.md", gated_record(second, gate=side))
+    commit(repo, "round 1")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert "different line of history" in out, (
+        "a resolvable gate SHA the arm cannot relate to the target must not "
+        f"be quieter than one it cannot resolve at all\n{out}"
     )
 
 

@@ -72,6 +72,17 @@ that had to be decided rather than discovered later:
   assumption 3 taken literally. A real record in this tree reads `due after
   this record — see the row below`.
 
+  **Round 1's 🔴 2 overturned this, and it takes the grounds of the row above
+  with it.** Assumption 3's reason is free text in records that already exist,
+  and the cutoff at the tail of the same function grandfathers every one of
+  them — above `GATE_FROM` there is no such history, so an unparseable cell is
+  a choice somebody made. Reported, it was the cheapest way past this arm
+  there is: one word, `skipped`, against the deleted line the absent-row
+  judgment above was taken to close. So the grounds this phase gave that
+  judgment were false at the moment it wrote them, and became true only when
+  the shorter way was closed. Above the cutoff the cell fails now; below it,
+  it still prints.
+
 **Equal is not premature, and `merge-base --is-ancestor X X` exits 0.** So an
 arm resting on ancestry alone fails the exactly-correct case: the round
 reviewed a commit and the gate ran at that commit. The resolved oids are
