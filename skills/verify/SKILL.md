@@ -418,15 +418,23 @@ finished, not as a follow-up someone might do later:
    12 to 31 per cent of a run — and the agent's own transcript is where its
    number is, either way.
 
-   **Where the report gives no between-the-rows figure and says the spans
-   summed past the run, a call outlived a spawn's result.** Assigning a call
-   by its start is what makes the calls partition, and it leaves a
-   long-running one — a background command, a suite spanning a cut — in the
-   row it began in while the next row has already started, so two rows'
-   spans cover the same seconds. The subtraction is then a negative rather
-   than an interval, so it is refused instead of printed. Quote that run's
-   span and its rows' columns, and leave the between-the-rows share out of
-   the reading rather than substituting the sum.
+   **Where the report gives no between-the-rows figure and prints the rows'
+   spans against the run's own, a call outlived the cut its row ends at.**
+   Assigning a call by its start is what makes the calls partition, and it
+   leaves a long-running one — a background command, a suite spanning a cut
+   — in the row it began in while the next row has already started, so two
+   rows' spans cover the same seconds. The head row's cut is the first
+   spawn's START and every other row's is a spawn's RESULT, which is why the
+   line names the cut and not the result: a head call can outlive its own
+   row's cut and still end before any spawn's result arrives.
+
+   **The two figures it prints are not the rows' overlap, so do not subtract
+   them and post the difference as one.** A row's span ends at its own last
+   call to end and so does the run's, so every row's interval sits inside
+   the run's and the difference is the gaps between the rows minus their
+   overlap. Quote that run's span and its rows' columns, and leave the
+   between-the-rows share out of the reading rather than substituting either
+   sum.
 
    **So a long cycle span is not a long agent run.** Where a row's span
    exceeds its own parts by an hour, that hour is a gap INSIDE the row,

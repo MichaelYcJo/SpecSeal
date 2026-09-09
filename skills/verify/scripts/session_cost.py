@@ -1252,17 +1252,42 @@ def report_spawns(spawns, path, total_calls, run_span=0.0):
     # run's 16.6m is BETWEEN the rows — mostly the wait`, exit 0 — the class of
     # false printed line #145 exists to close, reintroduced by the fix for it.
     #
-    # The refusal says the SUM PASSED THE SPAN, and not `the rows overlap by
-    # N`: N is not the overlap. `analyse` takes a span as the last call TO
-    # BEGIN's end minus the first call's start, so an outliving call shortens
-    # the RUN's span too and the difference carries both errors. Naming it the
-    # overlap would be a smaller version of the defect being fixed here.
+    # The refusal prints the two SUMS and not their difference. `minutes` is
+    # one decimal, so an overlap under three seconds printed `by 0.0m` beside
+    # a refusal and read as nothing having happened; two figures the reader
+    # subtracts carry the same fact and never round one of them away.
+    #
+    # And it names the cut a row ENDS at, never a spawn's result.
+    # `spawn_cuts` opens its cut list at the first spawn's START, so the head
+    # row's cut is not a result at all: a head call can outlive its own row's
+    # cut and still end before that spawn's result arrives, and naming the
+    # result then names a cause the transcript does not carry.
+    #
+    # Neither printed figure is the rows' OVERLAP, and after #300 that holds
+    # for a new reason. A row's span now ends at its own last call to END,
+    # and so does the run's, so every row's interval is a SUBINTERVAL of the
+    # run's. The difference is therefore the gaps between the rows minus
+    # their overlap, and a negative one is the overlap net of the gaps. Where
+    # the head row covers the whole run there are no gaps and the two
+    # coincide -- which is exactly why naming it the overlap would be a claim
+    # that holds on the pinned fixture and fails in general. Before #300 the
+    # grounds were different: the span read the last call TO BEGIN's end, so
+    # an outliving call shortened the RUN's span too and the difference
+    # carried both errors.
+    #
+    # That subinterval property is also why this can no longer fire on ONE
+    # row. It used to: the head row's span reached 1000s against a run of
+    # 995s, so a single row passed the whole run. Now a sum past the run's
+    # span requires two rows covering the same seconds.
     if run_span > 0:
-        outside = run_span - sum(
-            row["numbers"]["span_s"] for row in rows if row["numbers"]
-        )
+        spans = sum(row["numbers"]["span_s"] for row in rows if row["numbers"])
+        outside = run_span - spans
         # `>= 0` and not `> 0`: an exact cover is the partition agreeing, and
         # the tally above is printed even when it agrees for the same reason.
+        # `mostly` covers the other direction too: where a small overlap is
+        # netted off against larger gaps, what prints is the gaps minus the
+        # overlap, so the figure is a floor on what is between the rows and
+        # never an overstatement of it.
         if outside >= 0:
             print(
                 f"  {minutes(outside)} of the run's {minutes(run_span)} is BETWEEN "
@@ -1271,10 +1296,10 @@ def report_spawns(spawns, path, total_calls, run_span=0.0):
             )
         else:
             print(
-                f"  the rows' spans SUM PAST the run's own {minutes(run_span)} by "
-                f"{minutes(-outside)}, so\n  this run has no between-the-rows "
-                "figure: a call outlived a spawn's\n  result, and the row it "
-                "began in covers seconds the next row's does too"
+                f"  the rows' spans sum to {minutes(spans)} against the run's own "
+                f"{minutes(run_span)}, so\n  this run has no between-the-rows "
+                "figure: a call outlived the cut\n  its row ends at, and the row "
+                "it began in covers seconds the\n  next row's does too"
             )
     described = [r for r in rows if r["kind"] == "cycle" and r["description"]]
     if described:

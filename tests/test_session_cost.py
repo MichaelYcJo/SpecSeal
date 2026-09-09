@@ -2137,17 +2137,26 @@ def test_a_call_that_outlives_a_cut_prints_no_between_the_rows_figure(tmp_path):
     # The premise: the spans overlap, so they sum past the run's own span.
     assert spans > data["span_s"], (spans, data["span_s"])
     out = " ".join(run(["--spawns", str(path)]).stdout.split())
-    # What the reader gets is the sum passing the span, and NOT "the rows
-    # overlap by 16.5m" -- that figure is not the overlap. `analyse` takes a
-    # span as the last call TO BEGIN's end minus the first call's start, so
-    # the outliving call shortens the run's own span too and the difference
-    # carries both errors. Naming it the overlap would be a smaller version
-    # of the defect this case exists for.
-    assert "the rows' spans SUM PAST the run's own 16.7m by 16.4m" in out, out
+    # What the reader gets is the two SUMS, not their difference and not "the
+    # rows overlap by 16.4m". `minutes` is one decimal, so a difference under
+    # three seconds rounds to `by 0.0m` and reads as nothing having happened
+    # beside a refusal; two figures the reader subtracts never round one away.
+    #
+    # And the difference is not the overlap. After #300 every row's interval
+    # is a subinterval of the run's, so what the subtraction gives is the
+    # gaps between the rows MINUS their overlap. Here the head row covers the
+    # whole run, so there are no gaps and the 987s happens to equal the
+    # overlap — which is why naming it the overlap would be a claim that
+    # holds on this fixture and fails in general.
+    assert "the rows' spans sum to 33.1m against the run's own 16.7m" in out, out
     assert "no between-the-rows figure" in out, out
     # The whole point: no negative is stated, and nothing is called the wait.
     assert "is BETWEEN the rows" not in out, out
-    assert "-16.5m" not in out, out
+    assert "-16.4m" not in out, out
+    # The cut a row ends at, never a spawn's result: the head row's cut is
+    # the first spawn's START.
+    assert "outlived the cut its row ends at" in out, out
+    assert "outlived a spawn's result" not in out, out
 
 
 def test_the_printed_report_calls_a_cycle_row_a_band(orchestrator):
@@ -2208,3 +2217,58 @@ def test_a_span_covers_every_call_it_counts(tmp_path):
     assert data["span_s"] >= longest, (data["span_s"], longest)
     out = run([str(path)]).stdout
     assert "span          16.7m" in out, out
+
+
+def test_a_head_call_outlives_the_cut_without_outliving_a_spawns_result(tmp_path):
+    """The head row's cut is the first spawn's START, not a spawn's result.
+
+    `spawn_cuts` opens its cut list at the first spawn's start, so a head
+    call can outlive its own row's cut and still end before that spawn's
+    result arrives. The refusal must not name a cause this transcript does
+    not carry, and it must not print a magnitude that rounds to nothing.
+
+    The two sums are what removes the rounding. `minutes` is one decimal, so
+    the difference here — three seconds — printed `by 0.0m` as the grounds
+    for withholding a figure, beside a span column that read 0.1m, 0.0m,
+    0.0m and could not be reconciled with it."""
+    lines = call("bg", 0, 8, "npm run dev")
+    lines += spawn("A", 5, 9, "specseal:smith")
+    lines += call("b", 6, 9, "pytest -q")
+    lines += call("c", 9, 10, "git status --short")
+    path = tmp_path / "head-cut.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    out = " ".join(run(["--spawns", str(path)]).stdout.split())
+    assert "no between-the-rows figure" in out, out
+    assert "outlived the cut its row ends at" in out, out
+    # No call in this transcript ends after the spawn's result at 9s.
+    assert "outlived a spawn's result" not in out, out
+    # The two sums, so nothing rounds to `by 0.0m`.
+    assert "sum to 0.2m against the run's own 0.2m" in out, out
+    assert "by 0.0m" not in out, out
+
+
+def test_an_exact_cover_reads_as_the_partition_agreeing(tmp_path):
+    """`outside == 0` takes the between-the-rows line, not the refusal.
+
+    The guard is `>= 0` and not `> 0`, and until now nothing pinned that
+    choice: the rows summing to exactly the run's span is the partition
+    agreeing, and the tally above it is printed when it agrees for the same
+    reason. Under `> 0` this transcript would print a refusal — *no
+    between-the-rows figure* — for a run whose rows cover it exactly, which
+    is the one shape where the reader can see the arithmetic work.
+
+    Head 0-8s, spawn 5-7s, call 10-12s: run span 12s against row spans of 8s,
+    2s and 2s. The figure is 0.0m and it is a real reading."""
+    lines = call("bg", 0, 8, "npm run dev")
+    lines += spawn("A", 5, 7, "specseal:smith")
+    lines += call("c", 10, 12, "git status --short")
+    path = tmp_path / "exact-cover.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    rows = spawns_of(path)["rows"]
+    spans = sum(row["numbers"]["span_s"] for row in rows if row["numbers"])
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["span_s"] == 12, data["span_s"]
+    assert spans == 12, spans
+    out = " ".join(run(["--spawns", str(path)]).stdout.split())
+    assert "0.0m of the run's 0.2m is BETWEEN the rows — mostly the wait" in out, out
+    assert "no between-the-rows figure" not in out, out
