@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | #302 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | whole_range → round-1-report.md, round-1.md, main; report → report, main, round-3.md, round-1.md, round-1-report.md, round-3-report.md, pytest |
 | New units | OWNER_DIR (depth 1); CLAIM_A (depth 1); CLAIM_B (depth 1); ITEM_A (depth 1); probe_git (depth 1); base_and_item_a (depth 1); declaration_of_a (depth 1); test_a_work_items_own_declaration_still_holds_in_the_ci_spelling (depth 1); test_a_declaration_does_not_reach_a_work_item_that_did_not_write_it (depth 1); BROAD_GATE_ROW (depth 1); UNKNOWN_SHAPES (depth 1); UNKNOWN_IDS (depth 1); test_a_broad_gate_cell_nobody_can_parse_is_reported_below_the_cutoff (depth 1); test_a_one_word_cell_is_not_a_way_past_the_arm (depth 1); test_a_gate_sha_on_a_divergent_line_makes_no_claim_and_says_so (depth 1) |
 | Needs a fix | yes — 🔴 1, 🔴 2 and 🟡 3 (🟡 4 is a thin pin the smith may answer |
