@@ -180,6 +180,78 @@ def test_a_chain_declaration_with_no_round_record_fails(repo):
     )
 
 
+def test_a_draft_pull_request_has_not_had_its_rounds_yet(repo):
+    """#296. The arm above used to fail the very sequence a document orders.
+
+    `skills/code-review/orchestration.md` says the draft pull request opens at
+    the end of the build, BEFORE round 1 — a reviewer needs a pull request to
+    review. So the first thing that happens after the draft opens is this
+    check running against a `rounds/` that is empty by design, and the session
+    that obeyed the document got a red build for it.
+
+    The record is still owed and the message says so. `ready_for_review` is in
+    the workflow's trigger list, so pressing the button re-runs this and the
+    arm applies — nothing that can reach `main` is exempt.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    commit(repo, "declare")
+    code, out = run(repo, draft=True)
+    assert code == 0, out
+    assert "holds no `round-N.md`" in out, (
+        "the state is printed rather than swallowed. A draft that is excused "
+        "in silence reads exactly like a work item whose rounds are done"
+    )
+    assert "ready_for_review" in out, (
+        "the notice has to name what re-arms the check, or a reader takes the "
+        "exemption for a permanent one"
+    )
+
+
+def test_a_ready_pull_request_still_has_no_way_past_the_record(repo):
+    """The other half of #296, stated as its own case.
+
+    The arm's whole safety property is that the draft is a stage and not an
+    escape. Pressing *Ready for review* is what this pins, with the message
+    unchanged from before the draft path existed.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    commit(repo, "declare")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "holds no `round-N.md`" in out
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {"payload": "{not json"},
+        {"payload": json.dumps({"repository": {}})},
+        {"payload": json.dumps({"pull_request": {"draft": "true"}})},
+    ],
+    ids=["no payload", "unparseable", "no pull request", "a string draft"],
+)
+def test_an_unknown_state_is_not_a_draft_at_this_arm_either(repo, kwargs):
+    """The trap #296 opens, and the one thing that must not follow from it.
+
+    `pull_request_state` has three answers, not two, and `unknown` is judged
+    as READY — otherwise `no pull-request context` becomes the quietest way
+    past this check that exists. The draft path above must inherit that
+    direction rather than re-deciding it: a harness that stops writing
+    `draft` into the payload would otherwise turn the fix for #296 into a way
+    past the round record itself.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    commit(repo, "declare")
+    code, out = run(repo, **kwargs)
+    assert code == 1, out
+    assert "holds no `round-N.md`" in out
+    assert "judged as a ready pull request" in out, (
+        "and it says which state it assumed. Passing — or failing — in "
+        "silence is the one outcome `pull_request_state` rules out"
+    )
+
+
 def test_a_chain_declaration_with_a_record_passes(repo):
     """S7."""
     write(repo, f"{ITEM}/routing.md", declaration())

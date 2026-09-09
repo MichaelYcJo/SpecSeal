@@ -17,7 +17,11 @@ What it reads, for every routing declaration this pull request adds or changes:
                              a blocking finding it left open, and whose
                              `Fixes checked by` names a checker this repository
                              can confirm (below). A draft pull request is
-                             excused the checked `Pass`, and nothing else
+                             excused the checked `Pass`, the round record's
+                             EXISTENCE, and the `Broad gate` cell -- the three
+                             things the rounds themselves produce, and nothing
+                             else. What excuses them is `strict`, so the
+                             `unknown` state below is excused none of them
   straight to the PR         nothing required — the declaration is printed,
                              because a decision nobody sees is not a record
   an unreadable declaration  FAIL. A tolerant read reports "no declaration",
@@ -3070,6 +3074,42 @@ def main(argv=None):
         records = round_records(routing, root, item)
         if not records:
             if strays:
+                continue
+            # DRAFT, and this is the arm that used to fail the sequence a
+            # document orders (#296). `orchestration.md` opens the draft pull
+            # request at the end of the build, BEFORE round 1, because a
+            # reviewer needs a pull request to review -- so the first thing
+            # that happens after the draft opens is this check running
+            # against a `rounds/` that is empty by design.
+            #
+            # The `Pass` arm below has been draft-aware since `strict` was
+            # added and this one never was, a hundred lines apart in the same
+            # walk. Both excuse the same thing for the same reason: a review
+            # still running has not reached its verdict, and a draft pull
+            # request is not a request to merge.
+            #
+            # What keeps it a stage rather than an escape is `strict` itself.
+            # `pull_request_state` has THREE answers, and `unknown` -- no
+            # payload, one that will not parse, one whose `draft` is a string
+            # -- is judged as ready, so a harness that stops writing the flag
+            # cannot turn this into a way past the record. The record is still
+            # owed either way, and the notice names what re-arms the check
+            # rather than reading as a permanent exemption.
+            if not strict:
+                notices.append(
+                    (
+                        rel,
+                        0,
+                        f"declares `{routing.CHAIN}` and "
+                        f"{item}/{routing.ROUNDS_DIR}/ holds no `round-N.md` "
+                        "— which is the state a draft pull request opens in: "
+                        "the rounds run against it, so the record cannot "
+                        "exist yet. It is still owed, and pressing *Ready "
+                        "for review* fires `ready_for_review`, re-runs this "
+                        "check, and fails the pull request if it is still "
+                        "missing",
+                    )
+                )
                 continue
             errors.append(
                 (
