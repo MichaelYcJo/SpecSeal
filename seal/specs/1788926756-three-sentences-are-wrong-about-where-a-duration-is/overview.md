@@ -55,6 +55,7 @@ than a single call inside it, in the path every published segment reading uses.
 | What the report should print where `command` exceeds 100% of the span — `questions.md` Q3, measured and costed, not built. Round 1 corrected its trigger: a share above 100% is 1 of 169 readings, overlap that moves a printed figure is in 23 | the owner |
 | Whether `seal/ledger.md`'s F5 clause narrows to the three literals its case reads, or the case widens to any issue number in the shipped skill — `questions.md` Q4 | the owner |
 | Whether the span's disclosure belongs in the report's own output as well as in `skills/verify/SKILL.md` — `questions.md` §*Open, and it is small* | the owner |
+| **The corrected disclosure sentence is pinned by nothing.** No case in `tests/test_a_segment_feeds_the_flow_log.py` reads the span paragraph's cause clause, so a later edit can put *something running in the background* back silently. Pinning it means adding a unit to pin a unit this branch created, which `skills/code-review/orchestration.md` §*A fix pass adds the unit that pins it* refuses at depth 2 — so it takes that section's exit rather than being built here. It wants an issue | the orchestrator, after the run |
 | Windows | nobody has run it — #103's standing gap |
 
 ## Not done
