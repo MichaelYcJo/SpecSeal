@@ -597,6 +597,32 @@ NOT_YET = "the fixes are not yet written"
 # fifteen rounds on the branch before this one, with the exception used by
 # every verifying round of it.
 REOPEN_FROM = 1788597030
+# The row that records the ONE full-suite run, and the value meaning it has
+# not happened. Both used to live in `round_record.py` under a comment
+# reading *"Field labels the checker has no constant for, because it never
+# reads them"* -- true when it was written, and `grep -n broad
+# chain_check.py` matched no line at all until #295. They live here now
+# because the reader is what needs a name to be stable: two copies drift the
+# moment either script renames the row, and the drift is SILENT in the
+# direction that matters -- the writer keeps writing a row the reader no
+# longer finds, and this arm reads a missing row as `no run was named`.
+BROAD_GATE = "Broad gate"
+GATE_NOT_YET = "not yet"
+# Where the cell becomes readable, as the unix second in a work item's
+# directory name -- the id of the work item that added it, so the first
+# records held to the rule are the ones written under it. The eighth cutoff
+# of the shape `STRICT_FROM` through `REOPEN_FROM` carry, and the reasoning
+# lives at `STRICT_FROM` rather than being written an eighth time.
+#
+# **This one is not optional in the way the others were, and the arithmetic
+# says so.** The seven above grandfather records that could not have met a
+# rule that did not exist yet. This one grandfathers records that MET the
+# rule and could not say so: `round_record.py` has written `not yet` into
+# every record it ever generated, so an arm reading the cell without a cutoff
+# is red on every work item in the tree and on every one currently in flight
+# -- including, when this was built, one whose rounds were running in another
+# checkout of the same clone.
+GATE_FROM = 1788912166
 # The exit the refusal names, in one spelling. A refusal that names no exit
 # is a wall, and this one's exit is four cells and a pull-request line.
 CAPPED_EXIT = (
@@ -2798,6 +2824,159 @@ def stopping_floor(reader, root, rel, later):
     return errors, notices
 
 
+def says_gate_not_yet(value):
+    """True when a `Broad gate` cell says the one full-suite run has not run.
+
+    The prefix rule `says_none` and `says_not_yet` already use, for the same
+    cause: the reason after the separator is allowed, because it is the
+    honest mid-run value and refusing it would refuse the truth. Every `not
+    yet` cell written in this repository so far carries one -- `not yet -- a
+    🔴 was open`, `not yet -- round 5 verifies these fixes` -- so an arm
+    matching the bare two words would have passed all of them.
+
+    The boundary is a separator, so `not yetx` is not a `not yet`; it falls
+    through to the cell nobody can parse, which is REPORTED rather than
+    failed.
+    """
+    s = EMPHASIS.sub("", value or "").lower().strip().rstrip(".;").strip()
+    if s == GATE_NOT_YET:
+        return True
+    if not s.startswith(GATE_NOT_YET):
+        return False
+    rest = s[len(GATE_NOT_YET) :]
+    return bool(rest) and rest[0] in SEPARATORS
+
+
+def broad_gate(reader, root, rel, strict):
+    """(errors, notices) for the one full-suite run this record claims.
+
+    Asked of the LAST record alone, and for the reason `Pass` is: whether the
+    broad gate ran is a claim about the whole review, not about one round.
+    Every round but the last honestly reads `not yet` -- the run comes after
+    the rounds settle -- so reading them all would fail every work item that
+    ran more than one round.
+
+    THREE STATES, and each has to be told apart from the others.
+
+      `not yet`, or no row at all   the run never happened. An absent row is
+          the same state and must read as it: `round_record.py new` writes
+          this row on every record it generates, so above the cutoff an
+          absent row cannot arise honestly, and reading it as "nothing to
+          check" would make deleting one line the way past the whole arm.
+
+      a SHA the record's own `Target SHA` DESCENDS from   the run was spent
+          before the round it was meant to seal. `CLAUDE.md` §*Verification
+          Scope* is the rule that breaks: a broad run with an edit after it
+          was spent, not banked -- and a round's fixes are edits after it by
+          definition. This is worse than no run, because the cell claims one.
+
+      anything else                 reported, never failed. Nothing validates
+          this cell where it is WRITTEN (`questions.md` Q4, the owner's), so
+          records in the tree hold free text -- one reads `due after this
+          record -- see the row below`. Failing on a cell this arm cannot
+          parse would be the retroactive red the cutoff exists to avoid,
+          arriving through the reader instead of through the date.
+
+    EQUAL IS NOT PREMATURE, and `merge-base --is-ancestor X X` exits 0, so
+    ancestry alone would fail the exactly-correct case: the round reviewed a
+    commit and the gate ran at that commit. The resolved oids are compared
+    first, which is also what makes an abbreviated cell and a full-length
+    `Target SHA` comparable at all.
+
+    A gate SHA this repository cannot see makes NO CLAIM. A squash discards
+    the commits a round reviewed and the gate ran at one of them, so
+    `resolves_to` returning None is the ordinary state after a merge -- the
+    same "no claim" `check_round` makes for a record the pull request does
+    not touch.
+
+    `strict` is false only for a draft pull request, and this is the third
+    thing it excuses. The reason is the one the other two have: the broad
+    gate runs once, AFTER the rounds settle, so a draft whose cell reads `not
+    yet` is telling the truth.
+    """
+    if not strict:
+        return [], []
+    text = read_record(root, rel)
+    if text is None:
+        return [], []
+    rows = table_rows(reader, reader.readable(text))
+    cell = field(rows, BROAD_GATE)
+    written = (cell or "").strip()
+    named = SHA_RE.findall(written)
+
+    fatal, message = True, None
+    if not written or says_gate_not_yet(written):
+        message = (
+            f"`{BROAD_GATE}` is "
+            + (f"`{written}`" if written else "absent")
+            + " on the last round record, and this is a ready pull request. "
+            "The one full-suite run this design turns on has not happened, "
+            "and the row is the only place it is recorded — nothing else in "
+            "the repository knows whether it ran. Run it once now that the "
+            "rounds have settled, then write the SHA it ran at and the base "
+            "it was compared against into the cell (`round_record.py close "
+            "--broad-gate '<sha> against <base>'`). Until then, this pull "
+            "request is a request to merge a branch nobody has run the suite "
+            "over"
+        )
+    elif not named:
+        fatal = False
+        message = (
+            f"`{BROAD_GATE}` is `{written}` — no SHA-shaped word in it, so "
+            "this arm cannot tell a run that happened from one that did not. "
+            "Reported rather than failed: nothing validates this cell where "
+            "it is written, so a cell it cannot parse is not evidence of "
+            "anything either way"
+        )
+    else:
+        ran_at = resolves_to(root, named[0])
+        if ran_at is None:
+            fatal = False
+            message = (
+                f"`{BROAD_GATE}` names `{named[0]}`, which this repository "
+                "cannot see — the ordinary state after a squash, so no claim "
+                "is made about when the run happened"
+            )
+        else:
+            for sha in SHA_RE.findall(field(rows, TARGET) or ""):
+                reviewed = resolves_to(root, sha)
+                if reviewed is None or reviewed == ran_at:
+                    continue
+                if is_ancestor(root, ran_at, reviewed):
+                    message = (
+                        f"`{BROAD_GATE}` names `{named[0]}`, and this "
+                        f"round's `{TARGET}` names `{sha}`, which descends "
+                        "from it. The full-suite run was spent BEFORE the "
+                        "round it was meant to seal, so everything the round "
+                        "reviewed after that commit — its own fixes included "
+                        "— went through no broad gate at all. A broad run "
+                        "with an edit after it was spent, not banked. Run it "
+                        "again now that the rounds have settled and write "
+                        "the new SHA into the cell"
+                    )
+                    break
+            else:
+                return [], []
+
+    if message is None:
+        return [], []
+    if not fatal:
+        return [], [(rel, 0, message)]
+    began = item_began(rel)
+    if began is None or began < GATE_FROM:
+        return [], [
+            (
+                rel,
+                0,
+                message + f". Work items begun before {GATE_FROM} are excused this "
+                "and print instead — every record ever written defaults to "
+                f"`{GATE_NOT_YET}`, so failing them would be red on history "
+                "nobody can fix",
+            )
+        ]
+    return [(rel, 0, message)], []
+
+
 def check_round(reader, root, rel, strict=True, refs=None):
     """(errors,) for one round record — the reachability and the Pass claim.
 
@@ -3141,6 +3320,14 @@ def main(argv=None):
             )
         )
         errors.extend(check_round(reader, root, last, strict, refs))
+
+        # The LAST record alone too, and for the reason `Pass` is read there:
+        # whether the one full-suite run happened is a claim about the whole
+        # review, not about one round. Every round but the last honestly
+        # reads `not yet`, because the run comes after the rounds settle.
+        gate_errors, gate_notices = broad_gate(reader, root, last, strict)
+        errors.extend(gate_errors)
+        notices.extend(gate_notices)
 
         # EVERY record, where the block above reads the last one alone. Who
         # opened a round's fixes is a fact about that round, and each has its

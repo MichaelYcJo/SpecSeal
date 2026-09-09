@@ -26,6 +26,12 @@ CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
 CHAIN = "through the review chain"
 DIRECT = "straight to the PR"
 ITEM = "seal/specs/1787700000-a-work-item"
+# The eighth cutoff, as a literal rather than read from the script, so the
+# boundary cases below are one second apart on a number this module states and
+# `test_the_broad_gate_label_has_one_spelling_both_scripts_read` pins the
+# script's own constant against it. Reading it from the script would make
+# every case here agree with whatever the script says, including a typo.
+GATE_FROM = 1788912166
 # One level down, because `round-N` is the only member of the SDD set that is
 # plural and unbounded. A record left at `ITEM` itself is a stray and fails.
 ROUNDS = f"{ITEM}/rounds"
@@ -1302,6 +1308,311 @@ def test_the_failure_says_which_fetch_is_missing(repo):
     code, out = run(repo)
     assert code == 1, out
     assert "refs/pull/*/head" in out, out
+
+
+# --- the broad gate, which nothing read until #295 --------------------------
+#
+# `Broad gate` was written on every record and read by nothing:
+# `grep -n broad chain_check.py` matched no line at all before this work item.
+# So the one full-suite run the whole design turns on could be skipped, or
+# spent before the round it was meant to seal, and every gate in the
+# repository was silent about it.
+#
+# Every case here needs a record carrying all seven of the earlier cutoffs'
+# rows, because `GATE_FROM` is later than every one of them: a work item held
+# to this rule is held to those too. `gated_record` is that record, and the
+# item id is what each case varies.
+
+
+def gated_item(began, slug="a-work-item"):
+    """A work item directory whose id decides which cutoffs reach it."""
+    return f"seal/specs/{began}-{slug}"
+
+
+def gated_record(sha, gate=None, passed=True, verdict="answered"):
+    """A record that passes every other check, so the gate arm is what fails.
+
+    `gate=None` leaves the `| Broad gate |` row out, which is a state of its
+    own: the cell names no run, and it is indistinguishable from `not yet`
+    for the one question this arm asks.
+    """
+    box = "x" if passed else " "
+    gate_row = f"| Broad gate | {gate} |\n" if gate is not None else ""
+    return (
+        "# a round\n\n"
+        f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n"
+        f"{gate_row}"
+        "| Fixes checked by | no fixes to check |\n"
+        "| Contract changes | none |\n"
+        "| New units | none |\n"
+        "| Ran by | specseal:warden on a model |\n"
+        "| Needs a fix | no |\n"
+        "| Loses a record or crashes | no |\n\n"
+        f"- [{box}] Pass\n\n"
+        "## Verdicts\n\n"
+        "| # | Finding | Location | Verdict | Grounds |\n"
+        "|---|---|---|---|---|\n"
+        f"| 🔴 1 | something | `f.py:1` | {verdict} | grounds |\n"
+    )
+
+
+def gated(repo, began, gate=None, target="first", **kwargs):
+    """Three commits, a declaration, and a record. Returns the run's args.
+
+    `target` picks which commit the record says it reviewed, and that is the
+    whole comparison this arm makes:
+
+      `first`   the record reviewed c1 and the gate ran at c2 — after it
+      `second`  the record reviewed c2 and the gate ran at c1 — BEFORE it,
+                which is the run spent before the round it was meant to seal
+    """
+    item = gated_item(began)
+    write(repo, f"{item}/routing.md", declaration())
+    first = commit(repo, "declare")
+    write(repo, "another.py", "z = 3\n")
+    second = commit(repo, "a commit the round could have reviewed")
+    named = first if target == "first" else second
+    resolved = {"first": first, "second": second}.get(gate, gate)
+    write(
+        repo,
+        f"{item}/rounds/round-1.md",
+        gated_record(named, gate=resolved, **kwargs),
+    )
+    commit(repo, "round 1")
+    return first, second
+
+
+def test_a_broad_gate_that_never_ran_fails_a_ready_pull_request(repo):
+    """#295's first half. `not yet` is the run that never happened.
+
+    The cell was written on every record and read by nothing, so a work item
+    could open a ready pull request having never run the one full-suite pass
+    the design turns on — and no gate in the repository had an opinion.
+    """
+    gated(repo, GATE_FROM, gate="not yet")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "Broad gate" in out, "the failure names the row it read"
+    assert "not yet" in out, (
+        "and quotes the cell back. A refusal that does not say what it read "
+        "sends somebody to look for a different cell"
+    )
+
+
+def test_a_not_yet_carrying_its_reason_is_still_a_run_that_never_happened(repo):
+    """The spelling records in this tree actually use.
+
+    Every `not yet` cell written so far carries a reason after a separator —
+    `not yet — a 🔴 was open`, `not yet — round 5 verifies these fixes`. An
+    arm matching the bare two words would have passed every one of them, and
+    the cell means the same thing with the reason as without it.
+    """
+    gated(repo, GATE_FROM, gate="not yet — a 🔴 was open")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "Broad gate" in out
+
+
+def test_a_broad_gate_row_that_is_absent_names_no_run_either(repo):
+    """An absent row is the same state as `not yet`, and must read that way.
+
+    `round_record.py new` writes this row on every record it generates, with
+    `not yet` when nothing has run — so above the cutoff an absent row cannot
+    arise honestly. Reading it as "nothing to check" would make deleting one
+    line the way past the whole arm.
+    """
+    gated(repo, GATE_FROM, gate=None)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "Broad gate" in out
+
+
+def test_a_broad_gate_spent_before_the_round_it_was_meant_to_seal_fails(repo):
+    """#295's second half, and the more expensive of the two.
+
+    A run taken before the round finished is worse than no run at all,
+    because the record claims one happened. `CLAUDE.md` §*Verification Scope*
+    is the rule it breaks: a broad run with an edit after it was spent, not
+    banked — and the round's own fixes are edits after it by definition.
+    """
+    first, second = gated(repo, GATE_FROM, gate="first", target="second")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert first[:7] in out and second[:7] in out, (
+        "both SHAs, or the reader cannot tell which run was spent and which "
+        "commit it failed to cover"
+    )
+
+
+def test_a_broad_gate_taken_after_the_rounds_settled_passes(repo):
+    """The state the whole arm exists to let through."""
+    gated(repo, GATE_FROM, gate="second", target="first")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+
+
+def test_a_broad_gate_at_the_very_commit_the_round_reviewed_passes(repo):
+    """Equal is not premature, and `--is-ancestor` says a commit is its own.
+
+    So the comparison cannot be ancestry alone: `merge-base --is-ancestor X X`
+    exits 0, and an arm resting on it would fail the exactly-correct case —
+    the round reviewed a commit and the gate ran at that commit.
+    """
+    gated(repo, GATE_FROM, gate="first", target="first")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+
+
+def test_a_draft_may_still_have_no_broad_gate_run(repo):
+    """The rounds are allowed to still be running.
+
+    This is the third thing `strict` excuses, and the reason is the one the
+    other two have: the broad gate runs once, AFTER the rounds settle, so a
+    draft whose cell reads `not yet` is telling the truth.
+    """
+    gated(repo, GATE_FROM, gate="not yet")
+    code, out = run(repo, draft=True)
+    assert code == 0, out
+
+
+@pytest.mark.parametrize("kwargs", [{}, {"payload": "{not json"}])
+def test_an_unknown_state_is_held_to_the_broad_gate_too(repo, kwargs):
+    """The same trap #296 opens, at the arm that would pay for it.
+
+    If `unknown` were read as a draft, then `no pull-request context` would
+    excuse the record's existence AND the broad gate AND the checked `Pass`
+    all at once — which is the whole check.
+    """
+    gated(repo, GATE_FROM, gate="not yet")
+    code, out = run(repo, **kwargs)
+    assert code == 1, out
+    assert "Broad gate" in out
+
+
+def test_a_work_item_one_second_below_the_cutoff_is_not_failed_for_it(repo):
+    """The eighth cutoff, and why it is not optional.
+
+    Every round record ever written defaults to `Broad gate: not yet`, so an
+    arm reading the cell without a cutoff fails every work item in flight —
+    including one whose rounds were running while this was built. The
+    reasoning is `chain_check.py`'s own, at `STRICT_FROM`: a check whose first
+    production act is red on history nobody can fix is a check people learn
+    to skip.
+    """
+    gated(repo, GATE_FROM - 1, gate="not yet")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert "Broad gate" in out, (
+        "excused is not the same as unread. The state prints, the way every "
+        "other cutoff in this file prints for a record it excuses"
+    )
+
+
+def test_a_work_item_at_the_cutoff_is_held_to_it(repo):
+    """`>=`, the way the seven before it are keyed.
+
+    Each of those constants is the id of the work item that ADDED its rule,
+    so the first records held to a rule are the ones written under it. This
+    case and the one above it are one second apart and are the whole boundary.
+    """
+    gated(repo, GATE_FROM, gate="not yet")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+
+
+def test_a_work_item_whose_id_is_not_a_date_is_grandfathered(repo):
+    """A repository that names its work items some other way has no date to
+    compare, and failing it would be failing it for a naming convention."""
+    item = "seal/specs/a-work-item-with-no-date"
+    write(repo, f"{item}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(repo, f"{item}/rounds/round-1.md", gated_record(sha, gate="not yet"))
+    commit(repo, "round 1")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+
+
+def test_a_broad_gate_cell_nobody_can_parse_is_reported_rather_than_failed(repo):
+    """`questions.md` assumption 3, and the direction the cutoff argues for.
+
+    Nothing validates this cell where it is WRITTEN — that is Q4, and it is
+    the owner's. Until it is answered, records in the tree may hold anything,
+    and a real one reads `due after this record — see the row below`. Failing
+    on a cell this arm cannot parse would be the retroactive red the cutoff
+    exists to avoid, arriving through the reader instead of through the date.
+    """
+    gated(repo, GATE_FROM, gate="due after this record — see the row below")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert "Broad gate" in out, (
+        "reported, which is the half that is not optional. A cell nobody can "
+        "parse and a cell nobody wrote must not look the same"
+    )
+
+
+def test_a_gate_sha_this_repository_cannot_see_makes_no_claim(repo):
+    """A squash discards the commits a round reviewed, and the gate ran at one
+    of them. `resolves_to` returning None is the ordinary state after a merge,
+    not a fault — the same "no claim" `check_round` already makes for a record
+    the pull request does not touch."""
+    gated(repo, GATE_FROM, gate="9f9f9f9")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert "9f9f9f9" in out, "and it says which SHA it could not resolve"
+
+
+def test_the_broad_gate_label_has_one_spelling_both_scripts_read():
+    """The cell's name and its sentinel moved to the reader that now needs
+    them, and the writer imports them from there.
+
+    Two copies of `Broad gate` would drift the moment either script renamed
+    the row, and the failure would be silent in the direction that matters:
+    the writer would keep writing a row the reader no longer finds, which
+    this arm reads as *no run was named*.
+    """
+    chain = _module(
+        "specseal_chain_check_labels",
+        os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py"),
+    )
+    record_mod = _module(
+        "specseal_round_record_labels",
+        os.path.join(ROOT, "skills", "code-review", "scripts", "round_record.py"),
+    )
+    assert chain.BROAD_GATE == "Broad gate"
+    assert chain.GATE_NOT_YET == "not yet"
+    assert chain.GATE_FROM == GATE_FROM, (
+        "the cutoff this module's boundary cases are written around. They sit "
+        "one second either side of it, which measures nothing if the number "
+        "is read from the thing under test"
+    )
+    assert record_mod.BROAD_GATE == chain.BROAD_GATE
+    assert record_mod.GATE_NOT_YET == chain.GATE_NOT_YET
+
+    # The values agreeing proves nothing — two copies of a literal agree
+    # until one of them is edited, which is the whole failure. What is
+    # asserted is that there is ONE spelling: the reader defines it and the
+    # writer names the reader. An `is` comparison cannot say this either,
+    # because the two scripts load `chain_check.py` as separate module
+    # objects and `"Broad gate"` is not an identifier, so it is not interned.
+    reader_src = open(
+        os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py"),
+        encoding="utf-8",
+    ).read()
+    writer_src = open(
+        os.path.join(ROOT, "skills", "code-review", "scripts", "round_record.py"),
+        encoding="utf-8",
+    ).read()
+    assert reader_src.count('"Broad gate"') == 1, (
+        "the label is defined once, in the script that reads it"
+    )
+    assert '"Broad gate"' not in writer_src, (
+        "and the script that WRITES the row takes the label from the reader. "
+        "Rename it here alone and `round_record.py` keeps writing a row "
+        "`chain_check.py` no longer finds, which that arm reads as `no run "
+        "was named` — a silent pass where the state is unknown"
+    )
+    assert "BROAD_GATE = chain.BROAD_GATE" in writer_src
+    assert "GATE_NOT_YET = chain.GATE_NOT_YET" in writer_src
 
 
 # --- the real records, which no test and no local run ever read -------------
