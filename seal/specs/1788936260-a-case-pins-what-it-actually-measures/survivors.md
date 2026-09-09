@@ -13,3 +13,16 @@ the assertion that changed.
 that sentence changes — in particular if it comes to name a background command
 as the ordinary cause, or to reverse the *from A and not from B* direction —
 the exemption no longer covers it and the docstring is a genuine survivor.
+
+## Round 1's fix pass
+
+`survivor-check --range d07ccbb..5b55671` reports one place. It is a second
+scope filter, not a stale copy of a corrected claim.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `skills/verify/scripts/arm_check.py` | `if only:` / `found = [a for a in found if a.scope == only]` | **Two filters in two places, both correct, and only one of them was corrected.** Finding 8's fix rewrote the LISTING branch of `main` — `found = [a for a in every if a.scope == args.only] if args.only else every` — so that the unfiltered total is taken before `--only` narrows anything and the header can say `N of M arms (--only)`. What the check matched are two code phrases the two filters share, *"only found a"* and *"a in found if a"*, scoring 1.90; there is no claim in either. `run_arms`'s filter is the run's own scope narrowing, it returns verdicts rather than a total, and `main` computes `every` from `arms_of_file` before calling it — so nothing there states a denominator for the corrected line to have falsified. Enumerated: `git grep -n "scope == \|args.only\|if only"` over the module gives these two filter sites and no third |
+
+**What would make this exemption stop holding.** If `run_arms` comes to print
+or return a total of its own, its filter starts stating a denominator and the
+correction above reaches it.
