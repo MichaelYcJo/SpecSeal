@@ -53,3 +53,32 @@ a CHANGELOG section is ever rewritten to describe the tree as it stands rather
 than the release it shipped, the first two stop being history and become
 present-tense claims; and if `phases/phase-3.md` comes to assert what the case
 is called TODAY rather than what phase 3 read and deferred, the third does.
+
+### Over the whole branch — what CI reads
+
+The phase ranges above each end at 0. `survivor-check --range
+origin/release/v0.10.0...HEAD`, which is the spelling the pull-request check
+uses, reports four more, and all four share one cause.
+
+**What this branch removed from `chain_check.py` is an INSTRUCTION**: *write
+the SHA the one full-suite run happened at and the base it was compared
+against (`round_record.py close --broad-gate …`)*, replaced by the sealer's
+spawn. **What the four places below share with it is the cell's VALUE
+FORMAT** — *the SHA the one full-suite run happened at and the base it was
+compared against* — which the correction kept word for word, because the
+format did not change and nothing about it was ever the orchestrator's act.
+Correcting them would edit four true descriptions of a cell in order to erase
+a wording the correction itself preserved.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `templates/sdd-round.md` | `not yet`, or the SHA the one full-suite run happened at and the base it was compared against. | **This is the row this branch edited, and the edit is one sentence further along.** The quoted half describes what the cell may hold; the sentence added immediately after it names `round_record.py seal`, the sealer's route through `broad-gate --record <item>`, and `close --broad-gate` for the one pass where fixes and the gate land together. A reader who reaches the quoted words reaches the new sentence in the same breath |
+| `seal/specs/1788912166-red-for-following-the-documents-green-for-ignoring-one/spec.md` | The `Broad gate` cell — `not yet`, or the SHA the one full-suite run happened at and the base it was compared against | **A shipped work item's specification of the cell's value, and #30 did not change that value.** #295 gave the cell a reader; #30 gives it a writer with a name. Neither moved what goes in it |
+| `tests/test_chain_check_at_the_pull_request.py` | The cell was written on every record and read by nothing, so a work item could open a ready pull request having never run the one full-suite pass | **The docstring says why that arm exists, and it is a statement about the state before #295.** The shared phrases are *full suite pass* and *run the one* — the thing both sentences name, rather than the act one of them moved. The same case gained an assertion in this range that the refusal names the `sealer`, so the file is corrected where the correction was owed |
+| `skills/code-review/SKILL.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results** | **A list of what a reviewer's report carries, which names no broad run at all.** The overlap is on `SHA` and on words any sentence about a commit uses; nothing in the line is about who takes the gate |
+
+**What would make these four stop holding.** Each quote is its own anchor. Any
+of them coming to say who WRITES the cell, or who takes the run, is asserting
+the act this branch moved to the sealer, and becomes a genuine survivor — the
+template's row is the one to watch, because it is the one that already names a
+writer one sentence later and could easily come to name the wrong one.
