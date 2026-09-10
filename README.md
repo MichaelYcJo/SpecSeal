@@ -39,6 +39,7 @@ works outside the context entirely (hooks).
 | **smith** (Claude Code subagent) | `agent-contract` · `implement` · `writing-style` | Implements against the spec, then prints a three-line proof block: which policy files it opened, which ledger rows it touched, what it executed versus merely read. The block is a disclosure the skill requires, not something a hook verifies — but `none — <reason>` in a row is visible to you |
 | **warden** (subagent) | `agent-contract` · `code-review` · `writing-style` | Reviews spec compliance first, then quality. Once its report is verified the orchestrator writes the reviewed HEAD sha to `.git/specseal-reviewed`, which is what the commit gate looks for — the reviewer never writes its own mark |
 | **scribe** (subagent) | `agent-contract` · `legacy-parity` | Records what the original code does as `path#anchor` coordinates and returns facts, not verdicts. Appears only in repos that declare `seal/parity.md` |
+| **sealer** (subagent) | `agent-contract` | Runs the one broad gate — `broad-gate`, once, after the rounds settle — and writes the last round record's `Broad gate` cell. It reads no spec and no diff, and judges nothing: a failing check comes back with its own lines and the word `new` or `failing on base too`, and what that means is the reader's call |
 | Skills | — | Twenty-three, in three groups. The five the agents follow are in the column to the left. Eleven more a session loads on its own when the work calls for them — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. Seven you invoke by name; they are in the cheat sheet below |
 | Hooks | — | The gates themselves — auto-registered by the plugin, no settings wiring |
 | CLAUDE.md block | — | 12 always-on lines — four section headings (`Tooling`, `Safety`, `Session cost`, `Git`) over eight rules: one on tooling, three on safety, one on session cost, three on git. No response-language rule — that stays yours. Its one source is `templates/claude-md-block.md`; the repository's own `CLAUDE.md` carries a generated copy, and CI fails a pull request where the two differ |
@@ -51,7 +52,7 @@ smith forges → verify (scoped) → warden reviews → report to the user
       └──── reforge ↔ re-review, rounds 1..n ──────────┘
                           │ rounds settle
                           ▼
-             broad gate — full suite, lint, typecheck, ONCE
+     sealer → broad gate — full suite, lint, typecheck, ONCE
                           │
         new breakage → back to the loop (three returns, then stop)
         failing on base too → named as a follow-up, does not block
@@ -592,7 +593,7 @@ What this does not do is as load-bearing as what it does.
   value is that a `none — <reason>` row is visible to you in the transcript.
 - **"Broad and once" is a rule the agents follow, not a gate.** Nothing stops
   a session from running the full suite mid-round; what exists is the
-  instruction, the warden's audit of the seal, and the `round-N.md` field that
+  instruction, the warden's audit of the smith's seal, and the `round-N.md` field that
   makes a repeat visible. A hook could not tell the difference anyway —
   whether the rounds have settled is not a property of the command being run.
 - **`Fixes checked by: nobody` prints everywhere and fails in one place.** On

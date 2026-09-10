@@ -51,6 +51,12 @@ COVERED = [
     # for the sweep that would otherwise be needed to bring it under.
     "SECURITY.md",
     "agents/warden.md",
+    # Wrapped from its first line, so it goes in at birth rather than waiting
+    # for the sweep that would otherwise be needed to bring it under. It is
+    # also the one `agents/*.md` file with no sweep behind it: `smith.md` and
+    # `scribe.md` sit at 148 and 160, which is why the docstring lists them
+    # instead of this list holding them.
+    "agents/sealer.md",
     "skills/code-review/SKILL.md",
     # The orchestrator's half of the same file (#265). It arrives
     # already wrapped, because it was wrapped as part of the file it

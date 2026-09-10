@@ -70,6 +70,20 @@ domains, `/Users/x/` for user paths. Enforced by
 never make a test pass by inlining a real domain, path, or org name.
 (Both incidents that forced a history rewrite entered exactly this way.)
 
+## Repo rule — a thing more than one party can have is named with whose
+
+`skills/writing-style/SKILL.md` §*여럿이 가질 수 있는 것은 누구 것인지
+밝힌다* states this rule and holds the reasoning; this row is the link, and
+it is here because a session rewording an agent definition or a skill has no
+other reason to open that file. The concept and its format names stay bare —
+the Seal Test, a seal block — and a reference to one instance says whose.
+
+The word that bought it is `seal`: it named the warden's review mark, the
+sealer's stamp and the smith's proof block at once, two of them in files a
+reader opens together. `tests/test_one_word_one_meaning.py` is the check, and
+it holds one word per conversation somebody had — writing the rule down is
+not the repair, the check is.
+
 ## Repo rule — commit early; on a declared branch it costs nothing
 
 A feature branch squashes into its release branch, so every commit it writes

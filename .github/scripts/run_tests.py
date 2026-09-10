@@ -39,9 +39,10 @@ pytest runs with the repository root as its working directory, so a path
 argument is read relative to the root from whichever directory the command
 was typed in.
 
-The full suite takes about five minutes and is the orchestrator's, run once
-after the review rounds settle: `skills/agent-contract/SKILL.md` forbids it
-to smith and warden, which is why naming one module is the ordinary use.
+The full suite takes about five minutes and is the sealer's, run once after
+the review rounds settle: `skills/agent-contract/SKILL.md` forbids it to smith
+and warden, and `agents/sealer.md` is the agent it is assigned to, which is
+why naming one module is the ordinary use.
 """
 
 import os
