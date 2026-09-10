@@ -615,6 +615,28 @@ def test_a_failure_the_base_shares_is_labelled_failing_on_base_too(tmp_path):
     assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
 
 
+def test_the_gate_names_the_row_it_sealed_over(repo, tmp_path):
+    """Round 1's 🟡 9. `verify`'s first condition is to name the proving
+    command BEFORE running it, and the row is the only part of this run the
+    gate did not choose.
+
+    `agents/sealer.md` tells the sealer to quote the row's command and let
+    the reader judge it — and the sealer opens no repository file by its own
+    rule, so the command has to arrive in the gate's own output. `run` wrote
+    it into the kept file and nothing reached the report, which left the one
+    thing the Seal Test asks for first as the one thing the sealer could not
+    honestly supply."""
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    printed = out.stdout + out.stderr
+    assert f"`{gate.ROW}` says:" in printed, printed
+    assert "-m pytest" in printed, (
+        "the gate does not name the command it sealed over, so the sealer "
+        f"cannot quote it:\n{printed}"
+    )
+
+
 def test_the_suite_row_reads_pytests_counts_and_not_a_linters(tmp_path):
     """Round 1's 🟡 5. `suite_counts` walked the lines backwards and took the
     first `COUNTS_RE` match, and a `Broad gate` row is a test runner joined to

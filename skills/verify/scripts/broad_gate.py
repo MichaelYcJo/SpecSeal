@@ -506,6 +506,13 @@ def gate(args, console_wants_letters):
     py = sys.executable
     specs = os.path.join(home, SPECS)
     checks = {}
+    # The first of `verify`'s four conditions is to name the command before
+    # running it, and the row is the only part of this run the gate did not
+    # choose. `agents/sealer.md` asks the sealer to quote it and let the
+    # reader judge it — and the sealer opens no repository file, by its own
+    # rule, so it has to arrive here (round 1's 🟡 9). `run` wrote it to the
+    # kept output file and nothing reached the report.
+    sys.stderr.write(f"broad-gate: `{ROW}` says: {command}\n")
     checks[SUITE] = run(SUITE, command, root, keep, shell=True)
     checks[LEDGER] = run(LEDGER, [py, EVIDENCE, "--strict", root], root, keep)
     checks[UNVERIFIED_NAME] = run(
