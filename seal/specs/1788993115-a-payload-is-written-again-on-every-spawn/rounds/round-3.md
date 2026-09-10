@@ -5,7 +5,7 @@
 | Target SHA | d096e62 |
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 329 |
-| Broad gate | 71920e7 against 401ccc4 |
+| Broad gate | 01d7c36 against 401ccc4 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
