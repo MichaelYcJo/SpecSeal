@@ -16,8 +16,9 @@ evidence ledger, not here. -->
 · evidence: `seal/ledger/1788993115-a-payload-is-written-again-on-every-spawn.md`,
              eight rows — the eight `seal/ledger.md` rows anchored on the
              Bootstrap section, removed there and re-stated at
-             `skills/implement/orchestration.md`'s coordinate; six rows left in
-             `seal/ledger.md` re-read and re-verified. Unscoped read at
+             `skills/implement/orchestration.md`'s coordinate; five rows left in
+             `seal/ledger.md` — over six anchors, the README row carrying two —
+             re-read and re-verified. Unscoped read at
              `26e4236`: 1,059 ok · 0 drifted · 0 broken, records arm 0 refused
 · verified: executed — the meter's module 17 passed with three mutations each
              turning its own case red; the plan's narrow set plus every module
