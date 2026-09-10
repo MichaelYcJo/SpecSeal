@@ -34,7 +34,12 @@
   worktree, a branch, a checkout, a scratch clone, a virtual environment — and
   that those are examples rather than a list, because the next leaving is a
   kind nobody has met and an enumeration that predates it reads as permission.
-  (#120)
+  The rule says whose leaving it is, too: what the probe made for itself is
+  what goes, and a thing the repository's own tooling builds to be reused is
+  not your probe's leaving even when your probe's run created it. And the
+  procedure a reviewer actually follows says the same — `code-review`'s
+  Probes row used to state deleting one named file as the whole obligation,
+  which is the row the reviewer in the story above was following. (#120)
 - **The routing declaration's `Implementation` row now says how to answer
   it.** The row has asked `smith` · `the session` since it was added and has
   never carried a criterion, so it is answered by habit — and the other two
