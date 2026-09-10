@@ -169,6 +169,20 @@ Probe only what reading cannot settle. A probe is one file named
 stays behind after that is a case nobody planted, which the next session
 either trusts or spends a round discovering.
 
+**The rule is about leavings, not about files.** A probe leaves nothing
+behind, whatever kind of thing it made — a worktree, a branch, a checkout, a
+scratch clone, a virtual environment — and it is not over until every one of
+them is gone. Those are examples and not the list: the shapes are deliberately
+not enumerated, because every enumeration in this repository has rotted, and
+the next leaving is a kind nobody here has met. A list that predates it reads
+as permission.
+
+The file half is what a reviewer did follow, to the letter, during #30's
+review chain — and the probe still left a git worktree behind. Its probe files
+were deleted, its report said so, and the worktree outlived the round. It
+surfaced two work items later, when `git switch` refused a branch a worktree
+already held. Nothing in §7 as it stood had been broken.
+
 Every agent writes probes — the reviewer to reproduce a finding, the
 implementer to settle a judgment, the fact-finder where reading cannot — and
 until this file the rule was written for two of them and assumed for the
