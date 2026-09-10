@@ -42,7 +42,7 @@ works outside the context entirely (hooks).
 | **sealer** (subagent) | `agent-contract` | Runs the one broad gate — `broad-gate`, once, after the rounds settle — and writes the last round record's `Broad gate` cell. It reads no spec and no diff, and judges nothing: a failing check comes back with its own lines and the word `new` or `failing on base too`, and what that means is the reader's call |
 | Skills | — | Twenty-three, in three groups. The five the agents follow are in the column to the left. Eleven more a session loads on its own when the work calls for them — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. Seven you invoke by name; they are in the cheat sheet below |
 | Hooks | — | The gates themselves — auto-registered by the plugin, no settings wiring |
-| CLAUDE.md block | — | 12 always-on lines — four section headings (`Tooling`, `Safety`, `Session cost`, `Git`) over eight rules: one on tooling, three on safety, one on session cost, three on git. No response-language rule — that stays yours |
+| CLAUDE.md block | — | 12 always-on lines — four section headings (`Tooling`, `Safety`, `Session cost`, `Git`) over eight rules: one on tooling, three on safety, one on session cost, three on git. No response-language rule — that stays yours. Its one source is `templates/claude-md-block.md`; the repository's own `CLAUDE.md` carries a generated copy, and CI fails a pull request where the two differ |
 
 ## The chain
 
@@ -260,6 +260,7 @@ wrong for every other machine.
 | `deferral-check . [--kind all]` | resolve the answerer an `unverified` row names — does anything here actually run the check you are deferring? Separates *answers on pull requests* from *answers too late*, *local hook only*, and *nothing* |
 | `unverified-check . [--baseline <ref>]` | read the rows those `unverified` labels left behind — what is still open, in which work item, and who was named to answer it. Fails on a section it cannot read, because a tolerant reader reports zero and zero reads as *all closed*. With `--baseline`, it compares counts against the point where this branch forked from that ref (`git merge-base`), so a work item that landed on the base afterwards is not this branch's removal: a table with fewer rows than at the fork point fails, as does an `overview.md` that was there and is gone. Replacing one row with another keeps the count and passes |
 | `session-cost --latest` | where a session's minutes went — command time, model time between calls, checks re-run for a result already produced, and how many tools went out per turn. Fills the seal's `cost` row, which nothing inside a session can measure |
+| `payload-meter [--calibrate <main transcript>] [--baseline <run.json>]` | what each agent's startup payload is made of — its definition, every skill its `skills:` list injects, and the two `CLAUDE.md` files — in bytes, chars and tokens, with a basis on every token figure: `measured` where it came from a transcript's spawns, `estimated` from a per-agent ratio otherwise. `--baseline` prints the delta against an earlier `--json` run, which is how a trimmed payload is shown to have shrunk |
 | `/specseal:preset-setup` | approval-gated semantic merge of the CLAUDE.md block |
 | `/specseal:evidence-ci` | wire the drift check into CI — vendors the checker and writes the workflow |
 | `/specseal:parity-setup` | declare that this repo ports from another codebase — finds the original, records the baseline |
@@ -333,9 +334,10 @@ latest version* against whatever the clone last knew. Updates are keyed to the
 version in `plugin.json`, not to commits — a change that ships without a
 version bump reaches nobody.
 
-`install.sh` backs up to `CLAUDE.md.bak`, merges only its marker block
-(idempotent — rerun to update), and never edits your own content: overlaps
-are warned about, not resolved. For a reviewed, deduplicating merge run
+`install.sh` backs up to `CLAUDE.md.bak`, merges only its marker block — read
+from `templates/claude-md-block.md`, the block's one source — (idempotent —
+rerun to update), and never edits your own content: overlaps are warned
+about, not resolved. For a reviewed, deduplicating merge run
 `/specseal:preset-setup` inside Claude Code instead — every deletion goes through an
 approval diff.
 

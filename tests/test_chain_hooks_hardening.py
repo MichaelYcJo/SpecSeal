@@ -322,8 +322,12 @@ def test_parity_declaration_is_bootstrappable_not_hand_written():
         assert field in body, f"template lost the {field!r} field"
     assert "parity-paths.md" in body, "template must say where the local path goes"
 
+    # The bootstrap and the parity setup are the orchestrator's half of the
+    # skill since #292, so the file that has to point at the template is
+    # `orchestration.md`, not the `SKILL.md` every smith spawn preloads.
     implement = open(
-        os.path.join(ROOT, "skills", "implement", "SKILL.md"), encoding="utf-8"
+        os.path.join(ROOT, "skills", "implement", "orchestration.md"),
+        encoding="utf-8",
     ).read()
     assert "templates/parity.md" in implement, "bootstrap never points at the template"
     assert "seal/README.md" in implement
