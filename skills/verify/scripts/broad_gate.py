@@ -401,25 +401,32 @@ def compare_at_base(root, base, command, files, keep):
 # --- what the panel reads --------------------------------------------------
 
 
-# pytest's summary line is the counts followed by the wall clock — `768
-# passed, 1 skipped in 12.34s`, decorated or not. A linter's line has counts
-# and no clock, and it stands AFTER pytest's summary in a row joined with
-# `&&`, so a backwards walk that takes the first COUNTS_RE match takes the
-# linter's number and prints it as the suite's.
-#
-# Matching on WORDS closed round 1's 🟡 5 on its instance and not on its
-# class: `warnings` left the list and `errors` stayed in it, so `Found 2
-# errors.` from a linter run with `--exit-zero` still landed on the suite
-# row; and a run where every test was SKIPPED matched no word at all and came
-# back None, which the panel prints as `exit 0` — the seal's most trusted row
-# saying nothing about a run in which nothing executed (round 2's 🟡 13).
-SUMMARY_TAIL = re.compile(r"\bin \d+(?:\.\d+)?s\b")
-
-
 def suite_counts(text):
+    """pytest's own counts off the row's output, or None.
+
+    pytest's summary line is the counts followed by the WALL CLOCK — `768
+    passed, 1 skipped in 12.34s`, decorated or not. A linter's line has counts
+    and no clock, and it stands AFTER pytest's summary in a row joined with
+    `&&`, so a backwards walk that takes the first `COUNTS_RE` match takes the
+    linter's number and prints it as the suite's.
+
+    Matching on WORDS closed round 1's 🟡 5 on its instance and not on its
+    class: `warnings` left the list and `errors` stayed in it, so `Found 2
+    errors.` from a linter run with `--exit-zero` still landed on the suite
+    row; and a run where every test was SKIPPED matched no word at all and
+    came back None, which the panel prints as `exit 0` — the seal's most
+    trusted row saying nothing about a run in which nothing executed (round
+    2's 🟡 13).
+
+    The clock pattern is written here rather than hoisted to a module
+    constant, and the reason is a rule rather than taste: this function
+    answers a finding inside a unit `round-1.md`'s `New units` names, so a
+    top-level name added beside it is at depth 2 and a fix pass may not add
+    one. `re` caches compiled patterns, so the inline form costs nothing.
+    """
     for line in reversed(text.splitlines()):
         m = COUNTS_RE.search(line)
-        if m and SUMMARY_TAIL.search(line[m.end() :]):
+        if m and re.search(r"\bin \d+(?:\.\d+)?s\b", line[m.end() :]):
             return m.group(1)
     return None
 
