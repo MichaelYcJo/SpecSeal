@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 332 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | seal_record → round-1-report.md, round-1.md, gate |
 | New units | quote (depth 1); SUMMARY_WORDS (depth 1); SEAL_VOCABULARY (depth 1); SEAL_VOCABULARY_SPAN (depth 1); test_a_scale_that_is_not_a_number_is_refused_before_anything_runs (depth 1); test_the_failure_form_lines_up_the_widest_check_name (depth 1); test_the_disc_draws_the_same_bytes_in_every_process (depth 1); CHECKED_BY (depth 1); test_the_gate_names_the_row_it_sealed_over (depth 1); test_the_suite_row_reads_pytests_counts_and_not_a_linters (depth 1); test_a_failing_file_the_base_lacks_does_not_cost_the_others_their_verdict (depth 1); fixed_but_unread_item (depth 1); test_seal_refuses_while_the_fixes_have_been_read_by_nobody (depth 1); test_the_capped_run_still_seals_beside_the_third_refusal (depth 1); test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter (depth 1); test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed (depth 1); test_the_runner_behind_the_wrapper_says_the_same_thing (depth 1) |
 | Needs a fix | yes — 🔴 1 and 🔴 2, and 🟡 3 through 🟡 10 |
