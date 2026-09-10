@@ -139,3 +139,18 @@ run — rather than whether the run reopened, or what the reviewer wrote — is
 asserting the condition this phase removed, and becomes a genuine survivor.
 The two `round_record.py` rows are the ones to watch, because they sit in the
 file the removal happened in.
+
+## Round 2's fix pass
+
+`survivor-check --range cd7ea2f..HEAD` reports one place. It is not a stale
+copy of a corrected claim — it is the function the correction was modelled on,
+using the same helper for the opposite question.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `skills/code-review/scripts/round_record.py` | A record that says which round read its | **`reach_back`'s own reading of the same cell, and it is where 🟡 12's fix came from.** What the range removed is `seal`'s `nobody_reason(...) is not None`, which refused only `nobody`; what stands here is `nobody_reason(...) is None`, which refuses everything OUTSIDE the vocabulary — the complement, and the correct one. The round-2 report cites this function by name as the precedent: *`reach_back` already refuses this and says why*. The overlap is the helper's name and the `raise Refused` that follows it, which is what any two readers of one cell share |
+
+**What would make this exemption stop holding.** The quote is the anchor. If
+`reach_back` comes to refuse only `nobody` — the reading `seal` shipped and
+round 2 reopened — it is the same defect in the other subcommand, and it is a
+finding rather than an exemption.
