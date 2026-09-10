@@ -40,8 +40,8 @@ a probe whose leavings are not a file.
 3. **§7 says a probe is one file, run once, deleted.** A probe that creates a
    git worktree satisfies every word of that and still leaves something
    behind. One did, during #30's review chain: the worktree outlived the
-   round and surfaced two work items later, when `git switch` refused a branch
-   it still held. The reviewer had followed §7 to the letter.
+   round and surfaced two work items later, when `git switch` refused a
+   branch a worktree already held. The reviewer had followed §7 to the letter.
 
 ## Scope
 

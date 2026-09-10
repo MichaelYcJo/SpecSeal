@@ -148,8 +148,8 @@ a worktree, a branch, a checkout, a scratch clone is the same act and the
 probe is not over until it is gone. The story is the one the ticket's second
 comment records: a review round's probe added a worktree to check that the
 broad gate's base comparison cleans up after itself, the worktree outlived the
-round, and it surfaced two work items later when `git switch` refused a branch
-it still held — by a reviewer that had followed §7 to the letter and whose
+round, and it surfaced two work items later when `git switch` refused a branch a
+worktree already held — by a reviewer that had followed §7 to the letter and whose
 report said so.
 
 The alternative the owner refused is worth one clause in the section, because
