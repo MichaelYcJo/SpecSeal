@@ -71,7 +71,7 @@ incorporation. This file only adds what the skill does not carry.
         example -- so the standing instruction above is still right and its
         stated consequence is not. Why it is silenced is unanswered and is
         nobody's finding yet.
-        Verified 2026-09-09 against "## Phases"@7d41769f. -->
+        Verified 2026-09-10 against "## Phases"@7930d4c8. -->
 
    Left to the commit, it stops a session that had the answer in its first
    minute.

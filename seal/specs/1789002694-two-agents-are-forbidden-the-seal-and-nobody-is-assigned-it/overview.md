@@ -63,6 +63,17 @@ reads `no`. `seal` already refuses anything else, so the mechanism is right
 and only the words are vague. Phase 5's, with the coordinates in
 `phases/phase-4.md`.
 
+**The word `seal` names three things in this tree and nothing says which one
+is final.** A review mark, a smith's verification claim, and now the broad
+gate's stamp. The owner's rule settles it — every agent seals what it
+verified, and the one seal over the whole project is the sealer's — and it is
+unwritten: `skills/verify/SKILL.md` should state it, `agents/sealer.md` and
+`agents/warden.md` link to it, the warden's opening should stop calling its
+review mark a seal, and `tests/test_one_word_one_meaning.py` should take
+`seal` as its sixth word. Three phase-5 items, listed with the other two in
+`phases/phase-4.md`, which carries the coordinates and the two facts measured
+for them here.
+
 ## Fed back into the spec
 
 Three clauses, all inferred during implementation and all open to a planner
