@@ -67,13 +67,13 @@ those are different measurements and only the second answers #292's question.
 same class.** `spec.md` §Scope 6 names *three sentences two test modules pin
 (`tests/test_the_suite_has_a_command_that_is_cheap_twice.py:153, :764`)* — the
 count is three and the coordinates are two. The third is `:733`,
-`test_the_section_says_the_full_run_is_the_orchestrators`, which reads
+`test_the_section_says_the_full_run_is_the_orchestrators`, which reads <!-- NAME NOT IN TREE: phase 4 renamed it to `..._the_sealers`, which is what this paragraph hands over; the old name is what phase 3 actually read -->
 `CONTRIBUTING.md` §*Running the checks* the way `:153` reads `bin/test`. All
 three were seen red against the file each left, in one run, before any of them
 was re-pointed.
 
 **Two of the three cases keep their names, and one of them now says why.**
-`test_the_section_says_the_full_run_is_the_orchestrators` is cited as a
+`test_the_section_says_the_full_run_is_the_orchestrators` is cited as a <!-- NAME NOT IN TREE: the name as it stood when phase 3 read it; phase 4 carried out the rename this paragraph asks for -->
 coordinate by `seal/ledger.md`'s R4 row. Renaming it removes an anchor rather
 than drifting one, and a removed anchor is BROKEN where a changed body is
 DRIFTED — so the rename belongs to the phase that touches the ledger, beside

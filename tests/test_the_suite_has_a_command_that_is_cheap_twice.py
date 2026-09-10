@@ -729,17 +729,19 @@ def test_the_section_keeps_the_broad_once_rule():
     assert "Run the broad ones once" in section
 
 
-def test_the_section_says_the_full_run_is_the_orchestrators():
+def test_the_section_says_the_full_run_is_the_sealers():
     """`bin/test` with no arguments runs a five-minute suite that
     §2 forbids to smith and warden. The section that makes it cheap is the
     section that has to say who it is for, and name the form a segment
     types.
 
-    Re-pointed by #30: who it is for is the `sealer` now. The case keeps its
-    name because `seal/ledger.md`'s R4 row cites it as a coordinate, and a
-    renamed unit is a BROKEN anchor rather than a drifted one — the rename
-    and the ledger row it forces belong to the phase that touches the ledger,
-    and this phase's record hands it over."""
+    Re-pointed by #30: who it is for is the `sealer` now, and phase 3 left the
+    case under its old name on purpose. `seal/ledger.md`'s R4 row cited it as
+    a coordinate, and renaming a unit REMOVES an anchor where changing its
+    body only drifts one — so the rename waited for the phase that touches
+    the ledger. That phase removed the coordinate from R4 and wrote the new
+    claim into this work item's own fragment, which is where a claim goes
+    when the code it cited stops existing under that name."""
     section = running_the_checks()
     assert "agent-contract" in section and "sealer" in section, (
         "the section makes the full suite cheap and says nothing about the "
