@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 329 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | yes — 🟡 12, the case above, unless answered with grounds |
