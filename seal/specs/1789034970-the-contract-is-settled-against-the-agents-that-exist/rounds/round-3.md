@@ -5,7 +5,7 @@
 | Target SHA | ce0f9fe |
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 338 |
-| Broad gate | not yet |
+| Broad gate | 8310982 against release/v0.10.0 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
