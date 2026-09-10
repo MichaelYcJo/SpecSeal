@@ -6,13 +6,13 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 338 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | round-2 |
+| Contract changes | none |
+| New units | test_the_procedure_a_reviewer_follows_carries_the_leavings_rule_too (depth 1); read_at (depth 1); COUNT_WORD (depth 1); ASSIGNS_THE_GATE (depth 1); test_only_one_definition_assigns_the_broad_gate (depth 1); test_no_definition_promises_the_suite_once_the_rounds_settle (depth 1); test_the_reviewer_carries_the_gate_state_into_a_section_its_report_has (depth 1); BOUNDS (depth 1); test_every_definition_bounds_what_it_writes (depth 1); test_the_leavings_rule_says_whose_leaving_it_is (depth 1); test_the_sealer_recites_the_four_acts_s6_actually_withholds (depth 1) |
 | Needs a fix | yes — findings 1 through 8. Finding 1 is the one that reopens the |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -22,18 +22,18 @@ Round 1 of #120 at `5aa83af`, the whole branch `docs/120-the-contract-is-settled
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | §7's file-only half survives in the procedure a reviewer follows | `skills/code-review/SKILL.md:141` | open | The row states deleting one named file as the whole obligation. §7's own story is a reviewer who followed exactly that and left a worktree. No case pins the row; the branch's records never name the file |
-| 2 | *until the rounds settle* releases the suite to the warden | `agents/warden.md:157` | open | New §2 has no temporal release. This file assigns none of the three; `agents/sealer.md:110` says it is the only one that does. `841ef4a` re-pointed `:187` and `:199` in this file and missed `:157` |
-| 3 | A third write against the *no third* this branch wrote | `agents/warden.md:238` | open | The report format has no field for broad-gate state, and `agents/sealer.md:92` now owns the `Broad gate` cell. Two definitions naming one cell |
-| 4 | §6's new default makes a persona line an unbounded grant | `agents/smith.md:22` | open | *stamp it with your mark* and *leave durable evidence* name two things §6 lists as durable records. No closing sentence bounds them, where `agents/sealer.md:88` has one |
-| 5 | Six rows re-anchored, none had `Checked` moved | `seal/ledger.md` (L7, L8, W1 and three orchestration rows) | open | `templates/ledger.md:48` states the rule. The branch's own fragment rows all carry 2026-09-10; the shared file's six carry dates from before the content moved. `--reverify` never writes `Checked`, so nothing catches it |
-| 6 | §2 asserts *One definition* and nothing counts | `skills/agent-contract/SKILL.md:64` | open | §5 of the same file says an aggregate is not a coordinate. `tests/test_broad_gate_rule.py:248` pins the phrase present, not the number true. The framer arrives in 0.11.0 per `questions.md` Q2 |
-| 7 | The widened §7 names a venv this repository reuses on purpose | `skills/agent-contract/SKILL.md:174` | open | `bin/test` builds `.venv` once for #156's 55-58 seconds per call. A probe's run creates it; §7 says every leaving goes. No clause separates the probe's own leavings from the tooling's |
-| 8 | A three-way criterion for a two-valued row | `templates/sdd-routing.md:29` | open | `IMPLEMENTATION_ANSWERS` is `smith` and `the session`; the criterion routes finding-out to `scribe` and never says what to type. Line 27 permits deleting the row, which is the wrong recovery |
-| 9 | Old-§6 vocabulary the re-point missed | `agents/warden.md:180`, `:283` | open | `:283` back-references a section that no longer contains *exception* |
-| 10 | §6's withheld four recited as a different four | `agents/sealer.md:104` | open | Drops `post`, adds `commit`. §6 binds regardless, so nothing ships broken |
-| 11 | The canary is silent at its own boundary | `tests/test_a_moved_rule_leaves_its_definition.py:206` | open | `<=` against a maximum, not per pair. Measured 10 at both `d35c874` and `5aa83af`; this branch moved nothing |
-| 12 | *a branch it still held* was not corrected | `spec.md:44`, `plan.md:152` | open | Agrees in substance with the contract at `:183`; the contract's wording is the one that ships |
+| 1 | §7's file-only half survives in the procedure a reviewer follows | `skills/code-review/SKILL.md:141` | **fixed** `6788894` | fixed at 6788894 — ``; The row states deleting one named file as the whole obligation. §7's own story is a reviewer who followed exactly that and left a worktree. No case pins the row; the branch's records never name the file |
+| 2 | *until the rounds settle* releases the suite to the warden | `agents/warden.md:157` | **fixed** `d137aeb` | fixed at d137aeb — ``; New §2 has no temporal release. This file assigns none of the three; `agents/sealer.md:110` says it is the only one that does. `841ef4a` re-pointed `:187` and `:199` in this file and missed `:157` |
+| 3 | A third write against the *no third* this branch wrote | `agents/warden.md:238` | **fixed** `d137aeb` | fixed at d137aeb — ``; The report format has no field for broad-gate state, and `agents/sealer.md:92` now owns the `Broad gate` cell. Two definitions naming one cell |
+| 4 | §6's new default makes a persona line an unbounded grant | `agents/smith.md:22` | **fixed** `1f2e9fc` | fixed at 1f2e9fc — ``; *stamp it with your mark* and *leave durable evidence* name two things §6 lists as durable records. No closing sentence bounds them, where `agents/sealer.md:88` has one |
+| 5 | Six rows re-anchored, none had `Checked` moved | `seal/ledger.md` (L7, L8, W1 and three orchestration rows) | **fixed** `054c58f` | fixed at 054c58f — ``; `templates/ledger.md:48` states the rule. The branch's own fragment rows all carry 2026-09-10; the shared file's six carry dates from before the content moved. `--reverify` never writes `Checked`, so nothing catches it |
+| 6 | §2 asserts *One definition* and nothing counts | `skills/agent-contract/SKILL.md:64` | **fixed** `d5146a3` | fixed at d5146a3 — ``; §5 of the same file says an aggregate is not a coordinate. `tests/test_broad_gate_rule.py:248` pins the phrase present, not the number true. The framer arrives in 0.11.0 per `questions.md` Q2 |
+| 7 | The widened §7 names a venv this repository reuses on purpose | `skills/agent-contract/SKILL.md:174` | **fixed** `d5146a3` | fixed at d5146a3 — ``; `bin/test` builds `.venv` once for #156's 55-58 seconds per call. A probe's run creates it; §7 says every leaving goes. No clause separates the probe's own leavings from the tooling's |
+| 8 | A three-way criterion for a two-valued row | `templates/sdd-routing.md:29` | **fixed** `81669e1` | fixed at 81669e1 — ``; `IMPLEMENTATION_ANSWERS` is `smith` and `the session`; the criterion routes finding-out to `scribe` and never says what to type. Line 27 permits deleting the row, which is the wrong recovery |
+| 9 | Old-§6 vocabulary the re-point missed | `agents/warden.md:180`, `:283` | **fixed** `d137aeb` | fixed at d137aeb — ``; `:283` back-references a section that no longer contains *exception* |
+| 10 | §6's withheld four recited as a different four | `agents/sealer.md:104` | **fixed** `1f2e9fc` | fixed at 1f2e9fc — ``; Drops `post`, adds `commit`. §6 binds regardless, so nothing ships broken |
+| 11 | The canary is silent at its own boundary | `tests/test_a_moved_rule_leaves_its_definition.py:206` | answered | The reviewer measured 10 at `d35c874` and 10 at `5aa83af`, same pair, and states it is not asking for the assertion to change. It does not change. What the finding found that the account did not is that the bound is on the MAXIMUM rather than per pair, so a second definition newly reaching 10 leaves the case silent — that is recorded as a `# RIDER:` at the assertion, stamped and checked, because a per-pair bound is a walk and a fix pass may not add mechanism (`skills/code-review/orchestration.md` §*A fix pass adds the unit that pins it*). Corrected at `054c58f` |
+| 12 | *a branch it still held* was not corrected | `spec.md:44`, `plan.md:152` | answered | Both records now read *a branch a worktree already held*, following #120's comment and the contract. A finding located in a record is a correction: corrected at `054c58f` |
 
 ## Paste-ready fixes
 
