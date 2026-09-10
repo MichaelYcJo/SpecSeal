@@ -106,7 +106,7 @@
   both the `bin/test` wrapper and the module it runs, which are one command
   and were two owners until round 1 found the second. All of them now say
   the sealer's and name the definition that assigns it.
-  Two of the places were not documents at all but the failure messages the
+  Two more places were not documents at all but the failure messages the
   chain check prints at a refused pull request — the one place a person
   actually reads the instruction — and both now say to spawn the sealer
   instead of telling the reader to take the run by hand. Both agent
