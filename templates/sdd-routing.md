@@ -25,6 +25,21 @@ this file is for people. -->
      `smith` subagent, or this session itself. OPTIONAL — a declaration
      without this row is still a declaration, and it reads as "not answered".
      Delete the row rather than inventing a third answer.
+     HOW TO ANSWER IT — the criterion, so the row is not answered by habit.
+     Ask whether this work is FINDING OUT or WRITING DOWN. Finding out — what
+     an unfamiliar codebase does, where a behaviour lives, what an original
+     actually did — goes to `scribe`: a large input and a small output is what
+     a subagent boundary is for. Writing down stays with the session, because
+     a delegate re-buys the context the session already holds. The one case
+     `smith` answers is a diff large enough to threaten what the orchestrator
+     still has to hold.
+     The threshold in that last clause is a number nobody has, and this
+     comment does not invent one. What it can say is which axis it is on:
+     the case for a delegate there is REPLACEABILITY, not cost — the
+     orchestrator is the single participant a release cannot replace mid-run.
+     A cheaper delegate is not a reason, and #263 is where answering this row
+     by habit was measured against the same class of change done in the
+     parent session.
      This one ships as a PLACEHOLDER while the other two ship answered,
      and the difference is deliberate: a wrong answer in the other two is
      caught at the next commit, because the gate stops recognising the file

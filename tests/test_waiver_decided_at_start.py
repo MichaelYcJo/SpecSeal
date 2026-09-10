@@ -104,6 +104,41 @@ def test_every_document_shows_the_third_axis_ROW_not_only_the_count():
     )
 
 
+def test_the_optional_row_ships_the_criterion_that_decides_it():
+    """#120: the row asked `smith` · `the session` and never said how to
+    answer, so it was answered by habit — and #263 is where that habit was
+    measured against the same class of change done in the parent session.
+
+    The other two axes need no criterion: a wrong answer in either is
+    contradicted at the next commit, because the gate stops recognising the
+    file and goes back to asking. This one is contradicted by nothing, which
+    is why the guidance has to travel with the row rather than sit in a skill
+    a session may not have loaded.
+
+    Written as a criterion and NOT as a default, which is the half a check can
+    hold: a sentence naming one answer as what to do absent a reason makes the
+    other the exception, and the row is optional precisely so that neither
+    reads as the silent one. `test_the_template_PARSES_into_the_three_answers
+    _it_ships` below holds the placeholder itself unanswered."""
+    tpl = " ".join(read("templates", "sdd-routing.md").split())
+    assert "FINDING OUT or WRITING DOWN" in tpl, (
+        "the criterion went. The row is back to being answered by habit, "
+        "which is the state #263 measured"
+    )
+    assert "goes to `scribe`" in tpl, (
+        "the criterion names no destination for discovery, so the axis it "
+        "draws collapses back into `smith` or nothing"
+    )
+    assert "REPLACEABILITY, not cost" in tpl, (
+        "the axis the last clause sits on went. Without it the threshold "
+        "reads as a cost question, which is the one thing #263 says it is not"
+    )
+    assert "a number nobody has" in tpl, (
+        "the threshold stopped saying it is unmeasured. An invented number "
+        "here is a default wearing a criterion's clothes"
+    )
+
+
 def test_the_template_PARSES_into_the_three_answers_it_ships():
     """Round 1, M4: `| Implementor | Smith the agent |` shipped green.
 
