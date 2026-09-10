@@ -14,9 +14,10 @@ reported one is a sentence with a shebang.
              in `tests/test_the_rules_have_one_owner.py` pinning the sentence
              it replaced. That module was red from this commit through two
              review rounds and two broad gates (#269), because contract §2
-             reserves the broad gate for the orchestrator. The pin is one
-             sentence split across two adjacent string literals, so no LINE
-             holds it and nothing line-oriented finds it.
+             leaves the broad gate to whichever agent definition assigns it
+             and no reviewer's does. The pin is one sentence split across two
+             adjacent string literals, so no LINE holds it and nothing
+             line-oriented finds it.
 
   `ad6f81a`  corrected a docstring that called a join's receiver *an argument
              ... never a leaf* and left the identical claim in the work item's
@@ -1125,6 +1126,34 @@ def test_the_fix_pass_is_told_to_run_it_over_the_range_close_already_takes():
         "can run it is not told to"
     )
     assert "close" in block and "--range" in block
+
+
+def test_the_reason_no_round_can_run_it_survives_the_rewrite_of_s2():
+    """#120 rewrote §2, and this paragraph's grounds were a quotation of it.
+
+    It read *§2 reserves the broad gate for you*, addressed to the
+    orchestrator. §2 no longer reserves anything for the orchestrator -- it
+    makes the gate one act and leaves each definition to say whether it is its
+    agent's -- so the sentence had to be re-derived rather than re-pointed.
+    The conclusion is unchanged and it is what this case holds: the reviewer
+    is the one party structurally unable to see what its own fix pass leaves
+    behind, which is why the step belongs to the fix pass.
+
+    Pinned because a reason nothing checks is the first thing a later edit
+    drops, and what is left then is a step with a rule number beside it and no
+    argument -- which is the shape somebody deletes."""
+    skill = " ".join(read("skills", "code-review", "orchestration.md").split())
+    assert "no reviewer's does" in skill, (
+        "the grounds for `No round can run it` went. Without them the step "
+        "reads as a preference about who types the command"
+    )
+    assert "structurally unable" in skill, (
+        "the paragraph stopped saying that a round CANNOT see this rather "
+        "than that it is not asked to, which is the whole of the argument"
+    )
+    assert "§2 reserves the broad gate for you" not in skill, (
+        "the pre-#120 quotation is back, and §2 does not say it any more"
+    )
 
 
 def test_the_windows_wrapper_points_at_the_same_script():

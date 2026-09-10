@@ -189,8 +189,9 @@ jobs:
       # check rather than an eighth sentence.
       #
       # It runs here as well as at the fix pass because a review round cannot
-      # run it at all: contract §2 reserves the broad gate for the
-      # orchestrator, and #269 is one reworded sentence whose pin stayed behind
+      # run it at all: contract §2 leaves the broad gate to whichever agent
+      # definition assigns it and no reviewer's does, and #269 is one reworded
+      # sentence whose pin stayed behind
       # in a test module that was red from that commit through two rounds and
       # past two gates.
       #

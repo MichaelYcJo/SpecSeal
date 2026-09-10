@@ -196,6 +196,19 @@ def test_the_window_sits_between_what_was_measured():
         "prose has drifted into a copy, or it needs rewording -- do not "
         "raise the window, which is what makes the copy invisible"
     )
+    # RIDER: this assertion is on the MAXIMUM, not per pair, and it is `<=`,
+    # so it fires only at 11. Round 1 of #120 measured what that costs: a
+    # SECOND definition newly reaching 10 leaves the maximum at 10 and says
+    # nothing, and a new near-copy has appeared with the case green. The
+    # docstring above records the 10 as one NAMED pair, which is the shape a
+    # per-pair check would keep. Nothing shipped broken -- the primary guard
+    # at `WINDOW` 15 is intact -- so this is a canary one word less sensitive
+    # than its own docstring claims. Measured at both ends of that branch:
+    # 10 at the base and 10 at the tip, same pair, so it moved no number and
+    # the reviewer did not ask for the assertion to change. If you open this
+    # case, decide whether the bound belongs per pair; a fix pass may not add
+    # the walk that would answer it.
+    # Verified 2026-09-10 against test_the_window_sits_between_what_was_measured@412468cc.
     assert widest[0] <= LONGEST_KEPT_APPLICATION, (
         f"the longest kept application is now {widest[0]} words "
         f"({widest[1]}, §{widest[2]}), where {LONGEST_KEPT_APPLICATION} was "

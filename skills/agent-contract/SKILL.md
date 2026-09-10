@@ -54,21 +54,35 @@ form has to be as easy to copy as the wrong one. An orchestrator that had put
 this line into every prompt it wrote then broke it itself and committed the
 wrong value.
 
-## §2 Do not run the full suite, repository-wide lint or a typecheck
+## §2 Narrow and often; the broad gate is one act with one owner
 
 Narrow and often, broad once. Run the tests for the slice you touched while
-you work, and your module and the ones it touches at a phase boundary. The
-broad gate — the full suite, the repository-wide lint, the typecheck — is the
-orchestrator's, run once, after the review rounds settle. A round is edits
-already scheduled, so a broad run taken before it is spent by the first fix
-rather than banked.
+you work, and your module and the ones it touches at a phase boundary.
 
-Hand over with the suite labelled `unverified` and the orchestrator named as
-its answerer. Labelled, never omitted: a suite that is simply not mentioned
-reads as a suite that passed.
+The broad gate — the full suite, the repository-wide lint, the typecheck — is
+a single act, taken once, after the review rounds settle. Whether it is yours
+is what your own definition says, and a definition that is silent about it
+has not assigned it: run none of the three unless your own file hands them to
+you. One definition in this plugin does hand them over — the sealer's, whose
+whole procedure is that run — and that assignment lives there rather than
+here, which is where the next one will live too. A round is edits already
+scheduled, so a broad run taken before it is spent by the first fix rather
+than banked.
+
+Hand over with the suite labelled `unverified` and its answerer named.
+Labelled, never omitted: a suite that is simply not mentioned reads as a suite
+that passed. Where the act is yours, the same handover carries the result
+instead of the label.
 
 This rule sat in two agent definitions in near-identical words, and a third
 agent inherited neither copy. That is the failure this file exists to end.
+
+The same sentence then produced a second failure, which is why the section now
+points at an owner at all. It forbade the run and assigned it to a holder that
+was not an agent, so every reader met a prohibition with nobody in the room to
+perform it — and both readers reasoned past it. When an agent was finally
+built for the act, the file it received before its first tool call was still
+telling it the act was somebody else's.
 
 ## §3 A spawn prompt cannot widen the verification scope
 
@@ -125,15 +139,28 @@ The general form is the one a fourth agent inherits.
 
 ## §6 You return a report
 
-You write no durable record, post nothing, push nothing, open no pull
-request, and spawn no agent. Your final output is the report, and what is
-done with it is the caller's act — publishing is the user's call, a record
-is written by the session that verified the findings, and a review that
-certifies itself is what the commit gate exists to catch. Parallel workers
-writing the same record is how records get corrupted.
+What you write is named in your own definition and nothing else. A durable
+record — a file that outlives the round, a cell inside one, a mark on the
+tree — is yours only where your own file names it, and four acts are withheld
+from every agent whatever its file says: post nothing, push nothing, open no
+pull request, and spawn no agent.
 
-An exception is one agent's, and it is named in that agent's definition —
-never here. The general form has none.
+Your final output is the report, and what is done with it is the caller's act
+— publishing is the user's call, a record is written by the session that
+verified the findings, and a review that certifies itself is what the commit
+gate exists to catch. Parallel workers writing the same record is how records
+get corrupted.
+
+A definition that names no write names none, so an agent whose file is silent
+writes no durable record at all. That is where every agent starts and what the
+next one inherits, and it is why nothing here has to be kept in step: a write
+is granted by being written into the definition of the agent that takes it,
+and one file answers what any agent writes.
+
+This section used to carve the exceptions instead — each one named in the
+definition that held it, and this paragraph pointing at the mechanism. Two
+agents of three already had one. Five agents would have four, and a rule with
+four exceptions is a rule nobody finishes reading.
 
 ## §7 A probe is named `test_tmp_*`, one file, run once, deleted
 
@@ -141,6 +168,27 @@ Probe only what reading cannot settle. A probe is one file named
 `test_tmp_*`, it runs once, and it is deleted before you hand over. What
 stays behind after that is a case nobody planted, which the next session
 either trusts or spends a round discovering.
+
+**The rule is about leavings, not about files.** A probe leaves nothing
+behind, whatever kind of thing it made — a worktree, a branch, a checkout, a
+scratch clone, a virtual environment — and it is not over until every one of
+them is gone. Those are examples and not the list: the shapes are deliberately
+not enumerated, because every enumeration in this repository has rotted, and
+the next leaving is a kind nobody here has met. A list that predates it reads
+as permission.
+
+**What the probe made for ITSELF is what goes.** A thing the repository's own
+tooling builds to be reused is not your probe's leaving, even when your
+probe's run is what created it: a test runner that builds one virtual
+environment and reuses it for every later call has not left anything behind,
+and deleting it because a probe ran first makes the next caller pay the setup
+again. The question is whose the thing is, never who happened to trigger it.
+
+The file half is what a reviewer did follow, to the letter, during #30's
+review chain — and the probe still left a git worktree behind. Its probe files
+were deleted, its report said so, and the worktree outlived the round. It
+surfaced two work items later, when `git switch` refused a branch a worktree
+already held. Nothing in §7 as it stood had been broken.
 
 Every agent writes probes — the reviewer to reproduce a finding, the
 implementer to settle a judgment, the fact-finder where reading cannot — and

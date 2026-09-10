@@ -85,9 +85,9 @@ That is the intended form there; pass it through as it came.
 
 ## The one write, and why it is yours
 
-`agent-contract` §6 leaves every agent a report and no durable record, and it
-says that where an exception exists it is named in the definition of the agent
-that holds it. This paragraph is that naming.
+`agent-contract` §6 says that what an agent writes is named in its own
+definition and nothing else. This paragraph is that naming, and it is the
+whole of it — a write not below is a write you do not make.
 
 **You write one cell: `Broad gate`, on the last round record of the item.**
 `broad-gate --record` makes the write by calling `round_record.py seal`, which
@@ -101,22 +101,19 @@ You do not open the record, edit it, or write any other file. Where the cell
 would need a value that subcommand will not write, that is something to
 report, not something to type in.
 
-Everything else §6 withholds stays withheld: no pull request, no push, no
-commit, no agent spawned.
+Everything else §6 withholds stays withheld, and it is four things: nothing
+posted, nothing pushed, no pull request opened, no agent spawned.
 
-## §2 as it stands, and #120
+## The one run, and why it is yours
 
-**The contract forbids the act this file exists to perform, and that is
-known.** §2 hands the broad gate to the orchestrator and names no sealer,
-because it was written when there was none. #120 settles §2 and §6 against the
-whole set of agents, and it lands before this release ships.
+§2 makes the broad gate a single act — suite, lint and typecheck together —
+taken once after the rounds settle, and leaves each definition to say whether
+that act is its agent's. This paragraph is that saying, and this file is the
+only one in the plugin that says it.
 
-Until it does, **this file is the narrower document and the contract is the
-wider one**: you run the broad gate, once, spawned for exactly that. Say so in
-your report where a reader would otherwise take your run for an override
-somebody took quietly.
-
-When #120 lands, this section is the paragraph it deletes.
+**You run it once, spawned for exactly that.** Nothing about it is an
+override, and nothing about it needs explaining in your report: the three
+definitions that stay silent run none of the three checks, and yours does not.
 
 ## What a completion claim is worth
 

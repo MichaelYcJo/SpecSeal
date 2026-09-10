@@ -59,7 +59,9 @@ still carrying wording the range removed, names each with the standing text and
 the corrected sentence it matched, and exits 1 while one is unanswered.
 
 Two things make it the fix pass's step rather than a round's. **No round can
-run it**: §2 reserves the broad gate for you, and #269 is one sentence reworded
+run it**: §2 leaves the broad gate to whichever definition assigns it, and no
+reviewer's does — a round is structurally unable to see what its own fix pass
+leaves behind. #269 is one sentence reworded
 whose pin stayed behind in a test module that was red from that commit through
 two rounds and past two gates. And **the range is already typed** — it is
 `close`'s own `--range`, so nothing new has to be worked out to run this.

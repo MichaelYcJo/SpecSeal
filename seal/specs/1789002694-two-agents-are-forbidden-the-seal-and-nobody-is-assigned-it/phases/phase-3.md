@@ -131,7 +131,7 @@ before this release ships, and that until then the definition is the narrower
 document and the contract the wider one. Its last line says so in the file:
 *When #120 lands, this section is the paragraph it deletes.* `#120` and
 `narrower document` are both pinned by
-`test_the_sealer_states_the_contradiction_and_the_ticket_that_settles_it`, so
+`test_the_sealer_states_the_contradiction_and_the_ticket_that_settles_it` <!-- NAME NOT IN TREE -->, so
 #120's frame has to remove the case in the same commit as the section.
 
 **Seen red, then mutated.** All 16 part-3 cases ran with `agents/sealer.md`
