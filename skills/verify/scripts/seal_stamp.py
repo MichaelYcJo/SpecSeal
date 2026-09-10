@@ -314,10 +314,10 @@ PANEL_WIDTH = 36
 
 
 def letter(rows, width=PANEL_WIDTH):
-    """A parchment panel carrying the seal's numbers, set beside the disc.
+    """A parchment panel carrying the stamp's numbers, set beside the disc.
 
     `rows` is a list of `(label, value)` pairs with `None` for a blank line,
-    so what the seal reports is data the gate fills rather than a string it
+    so what the stamp reports is data the gate fills rather than a string it
     formats. A value longer than the panel is cut at the frame."""
     inner = width - 2
     out = ["." + "-" * inner + ".", "|" + " " * inner + "|"]
@@ -420,7 +420,8 @@ def main(argv=None, console_wants_letters=None):
     `reconfigure` changes the one object `sys.stdout` and `sys.__stdout__`
     both name; a direct call may leave it to be asked here."""
     parser = argparse.ArgumentParser(
-        prog="seal-stamp", description="Print the seal the broad gate stamps."
+        prog="seal-stamp",
+        description="Print the sealer's seal — the disc the broad gate stamps.",
     )
     parser.add_argument(
         "--shape", action="store_true", help="the letter twin, whatever the console"

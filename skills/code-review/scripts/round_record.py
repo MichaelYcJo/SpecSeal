@@ -2926,7 +2926,7 @@ def seal(args):
           findings were opened by nobody and the verifying round is still
           owed. `Pass` says the TABLE is closed, and `close` ticks it the
           moment a fix table applies, which is one row earlier than the run
-          ending -- so the seal lands in the window
+          ending -- so the broad seal lands in the window
           `skills/code-review/orchestration.md` §*Orchestrator: the pull
           request opens before round 1* calls red, on a record the verifying
           round is about to stop being the last one of. A capped run reads

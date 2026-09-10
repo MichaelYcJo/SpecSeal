@@ -163,7 +163,23 @@ SEAL_SWEPT = (
     ("docs", "review-handoff-protocol.md"),
     ("CONTRIBUTING.md",),
     ("README.md",),
+    # Added by round 1's 🟡 10, which found a FOURTH referent here — the
+    # evidence ledger called `the seal itself`. The list was closed where
+    # somebody had looked, which is the same shape as that round's 🟡 7 and
+    # 🟡 8. The three below are what a sweep of the shipped tree turned up
+    # once the list stopped being the boundary of the search.
+    ("docs", "one-root-by-lifetime.md"),
+    ("skills", "verify", "scripts", "seal_stamp.py"),
+    ("skills", "code-review", "scripts", "round_record.py"),
 )
+
+# The two places that DISCUSS the word rather than use it: the rule's own
+# section quotes the loose shape in order to forbid it, and the naming table
+# quotes `"the seal"` as the product's vocabulary. Both are excluded by the
+# sweep below, and each exclusion names the span it removes rather than the
+# file, so a bare instance elsewhere in either file is still caught.
+SEAL_VOCABULARY = ("docs", "one-root-by-lifetime.md")
+SEAL_VOCABULARY_SPAN = "## Naming"
 
 # What may follow a bare `the seal`: the concept, its formats, and the one
 # sentence that names the referent in the same clause. Everything else is an
@@ -239,6 +255,9 @@ def test_no_instructing_document_leaves_an_instance_anonymous():
         text = flat(*parts)
         if parts == SEAL_OWNER:
             head, _, rest = text.partition(SEAL_RULE)
+            text = head + rest.partition(" ## ")[2]
+        if parts == SEAL_VOCABULARY:
+            head, _, rest = text.partition(SEAL_VOCABULARY_SPAN)
             text = head + rest.partition(" ## ")[2]
         lowered = text.lower()
         start = 0
