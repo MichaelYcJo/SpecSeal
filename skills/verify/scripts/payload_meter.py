@@ -121,7 +121,7 @@ ASSUMED_RATIO = 3.2
 BASELINE_AGENT = "general-purpose"
 
 HEADING = re.compile(r"^#{2,3} ")
-FENCE = re.compile(r"^\s*(```|~~~)")
+FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 AGENT_ID = re.compile(r"\bagentId:\s*([0-9a-f]+)")
 
 
@@ -194,12 +194,22 @@ def heading_starts(text):
     quotes headings as examples, and an example is not a section — the rule
     `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py`
     applies before it reads a marker, applied here before a byte count is
-    put beside a heading somebody may trim."""
-    starts, offset, fenced = [], 0, False
+    put beside a heading somebody may trim. A fence closes only on a fence
+    of the same character at least as long — the rule that keeps a ``` inside
+    a ```` block, or a ~~~ inside a ``` block, from ending the outer one
+    (#292 round 2)."""
+    starts, offset, fence = [], 0, None
     for line in text.splitlines(keepends=True):
-        if FENCE.match(line):
-            fenced = not fenced
-        elif not fenced and HEADING.match(line):
+        opened = FENCE.match(line)
+        if opened and fence is None:
+            fence = opened.group(1)
+        elif (
+            opened
+            and opened.group(1)[0] == fence[0]
+            and len(opened.group(1)) >= len(fence)
+        ):
+            fence = None
+        elif fence is None and HEADING.match(line):
             starts.append(offset)
         offset += len(line)
     return starts

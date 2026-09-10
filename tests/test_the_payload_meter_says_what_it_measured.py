@@ -724,10 +724,18 @@ def test_sections_do_not_split_at_a_heading_inside_a_fence(meter, tmp_path):
     template headings as sections with real byte counts — a number that
     sends #120 to cut an example. The check one file over already reads a
     fence as a quotation; the meter reads it the same way, and the pieces
-    still sum to the file."""
+    still sum to the file.
+
+    Round 2, finding 13: a fence closes only on a fence of the same character
+    at least as long, so a heading inside a ``` block nested in a ```` block,
+    or between ~~~ inside a ``` block, is fenced too — a plain toggle counted
+    each of those as a section."""
     text = (
         "# alpha\n\nintro\n\n## First\n\nreal\n\n```markdown\n## Example\n"
-        "### Nested example\n```\n\n~~~\n## Tilde example\n~~~\n\n## Second\n\nlast\n"
+        "### Nested example\n```\n\n~~~\n## Tilde example\n~~~\n\n"
+        "````markdown\n```\n## Inner example\n```\n## Still fenced\n````\n\n"
+        "```\n~~~\n## Tilde inside backticks\n~~~\n## Also fenced\n```\n\n"
+        "## Second\n\nlast\n"
     )
     pieces = meter.sections_of(text)
     assert [p["heading"] for p in pieces] == [

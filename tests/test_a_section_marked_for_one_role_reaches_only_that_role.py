@@ -45,7 +45,7 @@ SCRIPT = os.path.join(ROOT, "skills", "verify", "scripts", "payload_meter.py")
 
 MARKER = "Orchestrator:"
 HEADING = re.compile(r"^(#{2,3}) (.*)$")
-FENCE = re.compile(r"^\s*(```|~~~)")
+FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 
 
 def _meter():
@@ -63,13 +63,24 @@ def _read(path):
 def marked_headings(text):
     """Every `##` / `###` heading whose text starts with the marker, outside
     fenced code. A fence is tracked because a skill quotes headings as
-    examples, and an example is not a section."""
-    found, fenced = [], False
+    examples, and an example is not a section. A fence closes only on a
+    fence of the same character at least as long, so a ``` inside a ````
+    block, or a ~~~ inside a ``` block, does not end the outer one — the
+    same rule `payload_meter.py#heading_starts` applies (#292 round 2)."""
+    found, fence = [], None
     for line in text.splitlines():
-        if FENCE.match(line):
-            fenced = not fenced
+        opened = FENCE.match(line)
+        if opened and fence is None:
+            fence = opened.group(1)
             continue
-        if fenced:
+        if (
+            opened
+            and opened.group(1)[0] == fence[0]
+            and len(opened.group(1)) >= len(fence)
+        ):
+            fence = None
+            continue
+        if fence is not None:
             continue
         match = HEADING.match(line)
         if match and match.group(2).lstrip().startswith(MARKER):
@@ -171,12 +182,19 @@ def test_both_heading_levels_are_read(tmp_path):
 
 
 def test_a_marker_quoted_inside_a_code_fence_is_not_a_section(tmp_path):
+    """Round 2, finding 13 added the nested shapes: a ``` block inside a
+    ```` block, and a ~~~ pair inside a ``` block. A plain toggle read the
+    inner fence as the outer one's close and counted what followed."""
     root = _tree(
         tmp_path,
         {"a": ["foo"]},
         {
             "skills/foo/SKILL.md": PLAIN
             + "\n```markdown\n## Orchestrator: an example\n```\n\nProse.\n"
+            + "\n````\n```\n## Orchestrator: nested example\n```\n"
+            + "## Orchestrator: still fenced\n````\n\n"
+            + "```\n~~~\n## Orchestrator: tildes inside backticks\n~~~\n"
+            + "## Orchestrator: also fenced\n```\n\nProse.\n"
         },
     )
     assert findings(root) == []
