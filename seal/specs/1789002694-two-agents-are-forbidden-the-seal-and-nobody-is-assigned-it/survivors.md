@@ -115,7 +115,14 @@ things, is the state this phase arrived at deliberately.
 | `tests/test_the_record_is_held_to_the_floor_and_the_depth.py` | declared(repo, OLD_ITEM, lambda sha: record(sha, needs=value)) code, out = run(repo) | **The floor bound's own cases**, asserting `chain_check`'s message rather than `seal`'s. `seal` is not in this module |
 | `tests/test_the_record_is_held_to_the_floor_and_the_depth.py` | began = check_module().NEEDS_FROM | **The grandfathering cutoff for the same row**, which is about which work items the floor bound applies to at all |
 
-**What would make these six stop holding.** Each quote is its own anchor. Any
+**A seventh appeared once the ledger row was corrected**, because correcting
+S6 put its old sentence into the range's removed set.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/phases/phase-2.md` | a third subparser setting the LAST record's `Broad gate` cell alone, refusing while `Needs a fix` reads `yes`, while `Pass` is unchecked | **This work item's own record of what phase 2 built, and it built three refusals.** A phase record states what that phase was asked and what building it found; it is dated by the phase it sits in, the way a shipped changelog section is dated by its release. Correcting it would make phase 2's record describe a decision phase 5 took, and the reader comparing the two phases would lose the fact that the third refusal existed and was removed — which is what `phases/phase-5.md` exists to say |
+
+**What would make these seven stop holding.** Each quote is its own anchor. Any
 of them coming to say that `Needs a fix` decides whether the BROAD GATE may
 run — rather than whether the run reopened, or what the reviewer wrote — is
 asserting the condition this phase removed, and becomes a genuine survivor.
