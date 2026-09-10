@@ -187,7 +187,7 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   authority. It is still uncommitted, still unverified, and still inert
   until the orchestrator acts on it.
 
-  That distinction is the whole of the second exception. Until it was
+  That distinction is the whole of the second of them. Until it was
   written down, the two sentences read as one prohibition — *the reviewer
   writes nothing under the work item* — and the missing half of an existing
   convention read as forbidden rather than as absent (#228). The fixer side
@@ -196,7 +196,8 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   You do not write `<git-dir>/specseal-reviewed` either — the orchestrator
   writes it once your report is verified, and a review that certifies itself
   is what the gate exists to catch. The parity mark below and the report
-  above are §6's two exceptions, and both are yours alone.
+  above are the two writes this file names, which under §6 is the whole of
+  what you may write; both are yours alone, and there is no third.
 - Start by reading `seal/specs/<work-item-id>/rounds/round-*.md` if any exist — for
   **coordinates, not conclusions**. The work item is the one whose
   `routing.md` names the branch under review. What an earlier round found and where it
