@@ -5,14 +5,14 @@
 | Target SHA | d096e62 |
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 329 |
-| Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Broad gate | 71920e7 against 401ccc4 |
+| Fixes checked by | no fixes to check |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -27,8 +27,8 @@ Round 3 of #292 is the verifying round after the one reopening the run allows, a
 | ⬜ 14 | `Contract changes` listed two records as reach | `seal/specs/1788993115-a-payload-is-written-again-on-every-spawn/rounds/round-1.md:10` | answered | read — the row reads `_baseline_name → render` at `108c33f`; one call site, `payload_meter.py:793` |
 | ⬜ 15 | `frontmatter` reads a trailing `#` comment or a broken flow list into the skill name | `skills/verify/scripts/payload_meter.py:169-181` | answered | executed — the four shapes each render a `missing — named by skills:, not in the tree` row; the three `agents/*.md` use the indented block form |
 | ⬜ 16 | the floor module's pattern cannot see `itertools.pairwise` or `int \| float` | `tests/test_a_script_says_which_interpreter_it_needs.py:466` | answered | read — the pattern is `zip\(.*strict=\|\b\w+\.UTC\b`, its comment names the blind spot; the meter's guard is pinned by `test_a_floor_above_this_interpreter_refuses_before_anything_is_read` |
-| 🟡 2 (round 1) | `--sections` splits at headings inside fences | `skills/verify/scripts/payload_meter.py:193-215` | answered | re-derived because `0bf34f6` rewrote the unit it rested on — executed: fence tracking removed, the case is red on the round-1 shapes |
-| ⬜ 17 | a closing fence carrying an info string closes the block, where CommonMark reads it as content, in the meter and in the check | `skills/verify/scripts/payload_meter.py:207-212`; `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py:71-77` | open | executed — synthetic shape diverges; the 31 files the meter and check read: zero diverge; no defect ships, no issue owed |
+| 🟡 2 | `--sections` splits at headings inside fences | `skills/verify/scripts/payload_meter.py:193-215` | answered | re-derived because `0bf34f6` rewrote the unit it rested on — executed: fence tracking removed, the case is red on the round-1 shapes |
+| ⬜ 17 | a closing fence carrying an info string closes the block, where CommonMark reads it as content, in the meter and in the check | `skills/verify/scripts/payload_meter.py:207-212`; `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py:71-77` | answered | a closing fence carrying an info string is read as a closer where CommonMark reads it as content; executed over the 31 files the meter and the check read, zero diverge, so no number in the tree is wrong and no defect ships — recorded as the third condition the next widening of the fence rule has to carry, and owed no issue |
 | ❓ 11 | whether `general-purpose`'s built-in prompt sits inside the harness constant | `skills/verify/scripts/payload_meter.py:35-42` | deferred questions.md Q4 | already deferred in round 1; not re-opened |
 
 ## Paste-ready fixes
