@@ -1150,7 +1150,15 @@ def test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed(
     assert reached, f"the checks failed before `seal` was reached\n{out.out}{out.err}"
     assert code == 2, f"exit {code}\n{out.out}{out.err}"
     assert crown_of() not in out.out, "a stamp printed over a failing chain check"
+    # Round 2's 🟡 11. The stub's text is a `round-record: sealed …` line,
+    # which is what the real subcommand prints when the cell WAS written.
+    # The message has to read it that way round, or the reader is told the
+    # record is untouched while the cell stands on it — and the pointer it
+    # shipped with, *a `round-record:` line above*, is printed by both
+    # endings of `seal`.
     assert "exited 1" in out.err, out.err
+    assert "the cell WAS written" in out.err, out.err
+    assert "no cell was written" not in out.err, out.err
 
 
 def test_the_gate_with_record_prints_no_stamp_when_the_record_refuses(repo, tmp_path):
@@ -1164,6 +1172,13 @@ def test_the_gate_with_record_prints_no_stamp_when_the_record_refuses(repo, tmp_
     assert out.returncode == 2, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     assert crown_of() not in out.stdout, "a stamp printed over a refused record"
     assert "`Pass` is unchecked" in out.stdout + out.stderr
+    # The other half of round 2's 🟡 11, and the one that makes the
+    # discriminator worth having: this is the refusal side, so the gate has
+    # to say the opposite. A discriminator that read the bare
+    # `round-record:` prefix would tell a reader here that the cell was
+    # written, which is the mutation this pair exists to kill.
+    assert "no cell was written" in out.stdout + out.stderr, out.stderr
+    assert "the cell WAS written" not in out.stdout + out.stderr, out.stderr
     assert read_bytes(path) == before
 
 

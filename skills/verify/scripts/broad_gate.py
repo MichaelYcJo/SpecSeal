@@ -49,8 +49,12 @@ checks green AND the cell written. `seal` ends non-zero two ways and BOTH are
 exit 2 here with no stamp: a refusal raised before the write — the last
 record's `Pass` unchecked, its `Fixes checked by` still reading `nobody`, or
 a premature SHA — and the chain check `seal` runs after the write, which
-comes back as 1. A seal over a record that says the run came too early, or
-over a tree the chain check refuses, is a stamp over a contradiction.
+comes back as 1 for errors and 2 for a check that could not run. **The exit
+code cannot tell the two apart and neither can the presence of a
+`round-record:` line, which both endings print**; the word `sealed` is the
+discriminator, and the gate's message says which of the two happened. A seal
+over a record that says the run came too early, or over a tree the chain
+check refuses, is a stamp over a contradiction.
 
 Usage:
   broad-gate --base <ref> [--root DIR] [--record <item>] [--shape]
@@ -569,16 +573,33 @@ def gate(args, console_wants_letters):
         sys.stdout.write(text)
         if code != 0:
             # `seal` exits 2 on a refusal raised BEFORE the write, and it
-            # returns whatever `chain_check` returned — 1 for errors — from
-            # AFTER it. Only the first of those means no cell was written,
-            # and neither of them is a seal. Reading `== 2` let the second
-            # fall through to the drawing and to `return 0`.
+            # returns whatever `chain_check` returned from AFTER it — 1 for
+            # errors, 2 for a check that could not run. Only the first means
+            # no cell was written, and neither of them is a seal. Reading
+            # `== 2` let the second fall through to the drawing.
+            #
+            # The exit code cannot tell the two apart, because both sides
+            # can be 2 — and NEITHER can the presence of a `round-record:`
+            # line, which is what this message used to point at: a refusal
+            # prints `round-record: <why>` and a write prints
+            # `round-record: sealed <path> — …`, and `run` merges both of
+            # the child's streams into the text above. The word is `sealed`.
+            wrote = any(
+                line.startswith("round-record: sealed") for line in text.splitlines()
+            )
             sys.stderr.write(
                 f"broad-gate: every check passed and `round_record.py seal` "
-                f"exited {code}, so nothing is sealed. A `round-record:` line "
-                "above is a refusal and no cell was written; anything else is "
-                "the chain check `seal` runs after the write, and the cell may "
-                "be written over a record that check still fails\n"
+                f"exited {code}, so nothing is sealed. "
+                + (
+                    "The `round-record: sealed` line above says the cell WAS "
+                    "written, and what stands under it is the chain check "
+                    "`seal` runs after the write — the cell is now on a "
+                    "record that check still fails"
+                    if wrote
+                    else "The `round-record:` line above is a refusal raised "
+                    "before the write, and no cell was written"
+                )
+                + "\n"
             )
             return 2
     shape = args.shape or console_wants_letters
