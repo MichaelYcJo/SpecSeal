@@ -700,6 +700,35 @@ def test_the_suite_row_reads_pytests_counts_and_not_a_linters(tmp_path):
     assert gate.suite_counts("768 passed in 63.21s (0:01:03)\n") == "768 passed"
 
 
+@pytest.mark.parametrize(
+    "path, posix, windows",
+    [
+        ("tests/test_one.py", "tests/test_one.py", '"tests/test_one.py"'),
+        ("tests/a b.py", "'tests/a b.py'", '"tests/a b.py"'),
+        ("tests/x&y.py", "'tests/x&y.py'", '"tests/x&y.py"'),
+    ],
+)
+def test_a_path_is_quoted_for_the_shell_of_either_platform(path, posix, windows):
+    """Round 2's 🟡 14. The unit read `os.name` inside its body, so the half
+    written for Windows could not be driven from the machine the branch was
+    written on — and no case asserted the other half either: replacing the
+    whole body with `return path` left every case green.
+
+    The disclosure that reached round 2 said the platform was what was
+    missing. It was not. CI runs `windows-latest` on every push and
+    `compare_at_base` is driven there; what was missing is an assertion, and
+    a unit handed the platform can be turned red from either machine.
+
+    `&` is the one that matters. `subprocess.list2cmdline` builds the argv
+    quoting `CreateProcess` reads, not `cmd.exe` quoting — it wraps a path
+    holding a space and leaves a metacharacter bare — and
+    `run(..., shell=True)` on Windows goes through `cmd.exe`, where an
+    unquoted `&` ends the command."""
+    gate = gate_module()
+    assert gate.quote(path, windows=False) == posix
+    assert gate.quote(path, windows=True) == windows
+
+
 def test_a_failing_file_the_base_lacks_does_not_cost_the_others_their_verdict(tmp_path):
     """Round 1's 🟡 4. `compare_at_base` claims its verdicts are measured and
     never inferred, and one absent file turned every one of them into a guess.

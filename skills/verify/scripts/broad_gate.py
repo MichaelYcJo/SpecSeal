@@ -314,15 +314,33 @@ def failing_files(text):
     return list(dict.fromkeys(FAILED_RE.findall(text)))
 
 
-def quote(path):
-    """One path, quoted for the shell `run(..., shell=True)` will hand it to.
+def quote(path, windows=None):
+    """One path, quoted for the shell `run(..., shell=True)` hands it to.
 
-    `shlex.quote` builds POSIX quoting, and on Windows that string reaches
-    `cmd.exe`, which reads `'` as an ordinary character. Unreachable while
-    pytest node ids carry no spaces and wrong the moment one does, which is
-    the defect shape only Windows has ever caught here (`docs/flow.md` #103).
+    `windows` is the platform, defaulting to this one, so BOTH branches can
+    be driven from a case on either machine. Reading `os.name` inside the
+    body left the branch that exists for Windows undrivable from the machine
+    this was written on, and the whole unit could be replaced by `return
+    path` with every case still green -- `docs/flow.md` #103's class made out
+    of the fix for it. The platform is not what was missing; CI runs
+    `windows-latest` on every push and `compare_at_base` is driven there. An
+    assertion was.
+
+    On Windows `run(..., shell=True)` goes through `cmd.exe`, and
+    `subprocess.list2cmdline` builds the argv quoting `CreateProcess` reads,
+    which Python's own documentation says is NOT `cmd.exe` quoting: it wraps
+    a path holding a space and leaves `& | ^ < > ( )` for the shell to act
+    on. Double quotes carry both -- inside them `cmd.exe` treats none of
+    those as syntax -- and a `"` cannot appear in a Windows path at all.
+
+    What double quotes do NOT stop is `%VAR%` expansion, which `cmd.exe`
+    performs inside them. A test path holding percent signs would still be
+    mangled; it is named here rather than claimed closed, because the fix for
+    it is not quoting and this unit should not pretend otherwise.
     """
-    return subprocess.list2cmdline([path]) if os.name == "nt" else shlex.quote(path)
+    if windows is None:
+        windows = os.name == "nt"
+    return f'"{path}"' if windows else shlex.quote(path)
 
 
 def first_command(command):
