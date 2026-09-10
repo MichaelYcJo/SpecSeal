@@ -126,6 +126,26 @@ a green is the right answer to it. The mutation that changes the meaning,
 `never back to` → `or back to`, is red. Recorded because the next reader
 should know which of the two was tried.
 
+**Editing `## Phases` drifts three stamps, and they move each other.** Two
+ledger rows anchor on `agents/smith.md#"## Phases"` — L5's claim about a rule
+with one written home, R8's about what a fix pass hands over — and a third
+row anchors on `agents/sealer.md#"## The one run, and why it is yours"`. The
+design-gate `# RIDER:` comment sits *inside* `## Phases` and carries its own
+stamp over the same heading, so re-stamping it moves the section a second
+time and the two ledger rows drift again. The order that costs one pass each:
+re-stamp the rider first, then `evidence-check --reverify`. This phase did it
+in the other order and paid the second re-verify, which is what the two rows'
+own notes had already predicted in so many words.
+
+All three claims were re-read rather than re-pointed. Step 3's fix-pass
+paragraph and step 4's mutation rule are untouched by this phase's diff, and
+`spawned for exactly that` survives the sealer's count edit verbatim — which
+is the marker `test_only_one_definition_assigns_the_broad_gate` reads, and
+now the one the new S11 case reads too. Hashes: `## Phases` `2d1d8e44` →
+`f5dee3bc`, the sealer's section `6b10c171` → `1fd9352f`, the rider
+`2c743b7b` → `9c750aa3` (the rider's stamp was green at `02c5b90`, so the
+drift is this phase's).
+
 ## What this phase removes
 
 | Removed item | Where it must land |
