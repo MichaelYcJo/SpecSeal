@@ -24,6 +24,7 @@ builds them.
 import argparse
 import importlib.util
 import io
+import json
 import os
 import re
 import shutil
@@ -518,6 +519,67 @@ def build_repo(d, row=True, base_failing=False):
     write(d, "README.md", "# a fixture\n")
     commit(d, "feature")
     return d
+
+
+# --- the runner's environment must not reach a fixture repository ---------
+#
+# `chain_check` decides draft against ready by reading `GITHUB_EVENT_PATH`,
+# and matches a routing declaration against `GITHUB_HEAD_REF`. On a runner
+# both are set and both describe the REAL pull request, so a gate run over a
+# fixture repository here was judged with #332's own event: the fixture's
+# `Broad gate: not yet` failed the arm, the checks failed before `seal` was
+# reached, and the case that drives `gate` IN PROCESS went red on all three
+# legs while every local run stayed green.
+#
+# `env_without_a_pull_request` already pops both for the subprocess runs. It
+# cannot reach an in-process one, and nothing said which kind a case was.
+#
+# `phases/phase-2.md` decided the other half of this: *`chain_check` is
+# judged as a draft… If `GITHUB_EVENT_PATH` is already set, leave it.* That
+# is right for a real run and wrong for a fixture, and this is the fixture's
+# side of it.
+GITHUB_VARS = ("GITHUB_EVENT_PATH", "GITHUB_HEAD_REF")
+
+
+def ready_payload(directory):
+    """A pull-request event payload that `chain_check` judges READY."""
+    path = os.path.join(str(directory), "event.json")
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump({"pull_request": {"draft": False}}, handle)
+    return path
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _a_runner_like_environment(tmp_path_factory):
+    """This module runs as though it were on a runner, on every machine.
+
+    Without it, removing the clearing below is red only where the variables
+    happen to be set — which is CI, after a pull request has already gone
+    red. Setting them here makes the guard's removal red on a laptop, which
+    is the whole lesson this branch has now landed twice.
+
+    Module-scoped and restored at teardown, so the simulation is bounded to
+    the module that needs it."""
+    was = {name: os.environ.get(name) for name in GITHUB_VARS}
+    os.environ["GITHUB_EVENT_PATH"] = ready_payload(
+        tmp_path_factory.mktemp("runner-event")
+    )
+    os.environ["GITHUB_HEAD_REF"] = "feat/some-other-pull-request"
+    yield
+    for name, value in was.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_pull_request(monkeypatch):
+    """The guard. Every case in this module runs with the runner's idea of
+    which pull request is open removed, so a fixture repository is judged on
+    what the fixture holds. A case that wants one sets it back itself."""
+    for name in GITHUB_VARS:
+        monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture(scope="session")
@@ -1280,6 +1342,46 @@ def test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter(repo, tmp_pa
     assert "clean" not in out.stdout, (
         "the seal still asserts a linter over a row that has none in it"
     )
+
+
+def test_a_runners_event_payload_judges_the_fixture_and_fails_its_gate(
+    repo, tmp_path, monkeypatch, capsys
+):
+    """What the leak did, reproduced deliberately so it is not only CI's to
+    find. `1 failed, 3168 passed` on ubuntu, macOS and windows alike, and
+    green on every laptop.
+
+    With `GITHUB_EVENT_PATH` pointing at a REAL pull request's payload, the
+    gate's own chain check judges this fixture repository a ready pull
+    request and fails it on the fixture record's `Broad gate: not yet` —
+    which is #332's state, read into a repository that has nothing to do with
+    it. The gate then never reaches `seal` at all.
+
+    This is the case that gives the clearing fixture above its teeth on a
+    machine that sets nothing: it puts the variable back on purpose and
+    asserts the consequence, so a reader who removes the guard can see what
+    the guard was for without waiting for a pull request to go red."""
+    settled_item(repo)
+    monkeypatch.setenv("GITHUB_EVENT_PATH", ready_payload(tmp_path))
+    mod = gate_module()
+    code = mod.gate(
+        argparse.Namespace(
+            root=str(repo),
+            base="base",
+            record=str(repo / ITEM),
+            shape=True,
+            scale=1.0,
+            keep_output=str(tmp_path / "out"),
+        ),
+        False,
+    )
+    out = capsys.readouterr()
+    assert code == 1, f"exit {code}\n{out.out}{out.err}"
+    assert "NOT SEALED" in out.out, out.out
+    assert re.search(r"^\s+chain\s+exit 1", out.out, re.M), (
+        f"the chain check is not what failed:\n{out.out}"
+    )
+    assert "ready pull request" in out.out, out.out
 
 
 def test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed(
