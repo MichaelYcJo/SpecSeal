@@ -37,17 +37,20 @@ base too`. It decides nothing about either word: both go in the report and
 the reader acts.
 
 **Printed on success only.** The stamp — the disc and a panel carrying the
-tree, the base, the suite's counts, the lint, the ledger's counts, the
-chain's exit, and the round count when `--record` names a work item — is
+tree, the base, the suite's counts, the exit code the repository's row came
+back with, the ledger's counts, the chain's exit, and the round count when
+`--record` names a work item — is
 `seal_stamp.stamp`'s. The failure form is `NOT SEALED <tree> against <base>`
 and the failing checks with their first lines, no drawing.
 
 `--record <item>` runs `round_record.py seal` on success, which sets the LAST
 record's `Broad gate` cell and nothing else. With `--record`, success is the
-checks green AND the cell written: a refusal from `seal` (the last record's
-`Pass` is unchecked, so a finding is still open; or the SHA is premature) is
-exit 2 and no stamp, because a seal over a record that says the run came too
-early is a stamp over a contradiction.
+checks green AND the cell written. `seal` ends non-zero two ways and BOTH are
+exit 2 here with no stamp: a refusal raised before the write — the last
+record's `Pass` unchecked, its `Fixes checked by` still reading `nobody`, or
+a premature SHA — and the chain check `seal` runs after the write, which
+comes back as 1. A seal over a record that says the run came too early, or
+over a tree the chain check refuses, is a stamp over a contradiction.
 
 Usage:
   broad-gate --base <ref> [--root DIR] [--record <item>] [--shape]
@@ -307,6 +310,17 @@ def failing_files(text):
     return list(dict.fromkeys(FAILED_RE.findall(text)))
 
 
+def quote(path):
+    """One path, quoted for the shell `run(..., shell=True)` will hand it to.
+
+    `shlex.quote` builds POSIX quoting, and on Windows that string reaches
+    `cmd.exe`, which reads `'` as an ordinary character. Unreachable while
+    pytest node ids carry no spaces and wrong the moment one does, which is
+    the defect shape only Windows has ever caught here (`docs/flow.md` #103).
+    """
+    return subprocess.list2cmdline([path]) if os.name == "nt" else shlex.quote(path)
+
+
 def first_command(command):
     """The row's first `&&`-joined command — the suite runner, by the shape
     every row this plugin has seen takes (`bin/test -q && uvx ruff …`)."""
@@ -350,9 +364,7 @@ def compare_at_base(root, base, command, files, keep):
         present = [f for f in files if f not in absent]
         verdicts = {f: NEW for f in absent}
         if present:
-            runner = (
-                f"{first_command(command)} {' '.join(shlex.quote(f) for f in present)}"
-            )
+            runner = f"{first_command(command)} {' '.join(quote(f) for f in present)}"
             check = run("suite-at-base", runner, scratch, keep, shell=True)
             at_base = set(failing_files(check.text))
             verdicts.update({f: (ON_BASE if f in at_base else NEW) for f in present})
@@ -437,8 +449,12 @@ def failure_lines(check, verdicts=None):
 # --- the command -------------------------------------------------------------
 
 
-def seal_record(item, tree, base_ref, root, base, keep):
-    """`round_record.py seal` on the item; returns (exit code, output)."""
+def seal_record(item, tree, root, base, keep):
+    """`round_record.py seal` on the item; returns (exit code, output).
+
+    One `base`, not two. It took `base_ref` and `base` and its one caller
+    passed `args.base` to both, which is a signature inviting whoever writes
+    the second caller to give the two different values."""
     check = run(
         "seal",
         [
@@ -448,7 +464,7 @@ def seal_record(item, tree, base_ref, root, base, keep):
             "--item",
             item,
             "--broad-gate",
-            f"{tree} against {base_ref}",
+            f"{tree} against {base}",
             "--root",
             root,
             "--baseline",
@@ -549,7 +565,7 @@ def gate(args, console_wants_letters):
         return 1
 
     if item is not None:
-        code, text = seal_record(item, tree, args.base, root, args.base, keep)
+        code, text = seal_record(item, tree, root, args.base, keep)
         sys.stdout.write(text)
         if code != 0:
             # `seal` exits 2 on a refusal raised BEFORE the write, and it

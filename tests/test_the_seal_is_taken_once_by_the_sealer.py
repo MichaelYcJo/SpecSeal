@@ -124,6 +124,36 @@ def test_the_twin_and_the_block_form_have_equal_width_and_height(scale):
     )
 
 
+def test_a_scale_that_is_not_a_number_is_refused_before_anything_runs():
+    """A round 1 record correction. `check_scale` compared with `<` and `>`,
+    and NaN compares False with both — so `--scale nan` passed the band, every
+    check ran, the cell was written, and `stamp` then raised `ValueError:
+    cannot convert float NaN to integer`. `broad_gate.main` catches `Refused`
+    alone, so that arrived as a traceback after the write."""
+    mod = module()
+    assert mod.check_scale(float("nan")) is not None, (
+        "a scale that is not a number passes the band and fails after the "
+        "cell is written"
+    )
+    assert mod.check_scale(1.0) is None and mod.check_scale(0.75) is None
+    assert mod.check_scale(0.5) is not None and mod.check_scale(1.5) is not None
+
+
+def test_the_failure_form_lines_up_the_widest_check_name():
+    """A round 1 record correction. The name column was padded to a literal
+    8 and `survivors` is nine characters, so that one check's first line sat
+    a column out from every other check's — on the form a reader scans to
+    find which check failed."""
+    mod = module()
+    out = mod.not_sealed(
+        "aaa1111", "bbb2222", [("suite", ["one"]), ("survivors", ["two"])]
+    )
+    columns = {
+        line.index(word) for line, word in zip(out[2:], ("one", "two"), strict=True)
+    }
+    assert len(columns) == 1, f"the first lines do not share a column:\n{out}"
+
+
 @pytest.mark.parametrize("scale", [0.75, 0.8, 0.9])
 def test_the_disc_draws_the_same_bytes_in_every_process(scale):
     """Round 1's 🟡 6. `shrink` resolved a tie between two chart colours with
@@ -1097,7 +1127,7 @@ def test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed(
     mod = gate_module()
     reached = []
 
-    def sealed_then_the_chain_failed(item, tree, base_ref, root, base, keep):
+    def sealed_then_the_chain_failed(item, tree, root, base, keep):
         reached.append(item)
         return (
             1,

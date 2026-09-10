@@ -156,9 +156,14 @@ SCALE_TOO_LARGE = (
 
 def check_scale(scale):
     """The refusal for a scale outside the band, or None inside it."""
-    if scale < SCALE_FLOOR:
-        return SCALE_REFUSED.format(scale=scale, floor=SCALE_FLOOR)
-    if scale > SCALE_CEILING:
+    # `not (floor <= scale <= ceiling)` rather than two `<`/`>` tests: NaN
+    # compares False with everything, so the pair let it through and it
+    # failed later inside `stamp` with `cannot convert float NaN to integer`
+    # — after every check had run and the cell had been written, and
+    # `broad_gate.main` catches `Refused` alone.
+    if not (SCALE_FLOOR <= scale <= SCALE_CEILING):
+        if not scale > SCALE_CEILING:
+            return SCALE_REFUSED.format(scale=scale, floor=SCALE_FLOOR)
         return SCALE_TOO_LARGE.format(scale=scale, ceiling=SCALE_CEILING)
     return None
 
@@ -371,10 +376,14 @@ def not_sealed(tree, base, failures):
     `failures` is a list of `(name, lines)` — the check that failed and the
     first lines of what it printed, as the gate kept them."""
     out = [f"NOT SEALED   {tree} against {base}", ""]
+    # The widest name present, not a literal 8: `survivors` is nine
+    # characters, so that one check's first line sat a column out from every
+    # other check's.
+    pad = max([len(name) for name, _ in failures] + [8])
     for name, lines in failures:
         lines = list(lines) or ["(no output)"]
-        out.append(f"  {name:<8} {lines[0]}")
-        out.extend(f"  {'':<8} {line}" for line in lines[1:])
+        out.append(f"  {name:<{pad}} {lines[0]}")
+        out.extend(f"  {'':<{pad}} {line}" for line in lines[1:])
     return out
 
 
