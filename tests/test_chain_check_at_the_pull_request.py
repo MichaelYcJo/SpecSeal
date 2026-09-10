@@ -1470,6 +1470,15 @@ def test_a_broad_gate_spent_before_the_round_it_was_meant_to_seal_fails(repo):
         "both SHAs, or the reader cannot tell which run was spent and which "
         "commit it failed to cover"
     )
+    # Round 1's 🟡 8. This arm prints three fatal refusals; #30 re-pointed
+    # two of them to the sealer's spawn and left this one telling the reader
+    # to take the run by hand — in the same function, reached by the same
+    # person at the same moment. The enumeration was one short, in the one
+    # function the branch had opened.
+    assert "sealer" in out and "broad-gate --base" in out, (
+        "the premature refusal names no agent and no command, so the reader "
+        f"is told to take the run themselves:\n{out}"
+    )
 
 
 def test_a_broad_gate_taken_after_the_rounds_settled_passes(repo):

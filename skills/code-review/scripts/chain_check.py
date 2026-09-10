@@ -2992,9 +2992,11 @@ def broad_gate(reader, root, rel, strict):
                         "round it was meant to seal, so everything the round "
                         "reviewed after that commit — its own fixes included "
                         "— went through no broad gate at all. A broad run "
-                        "with an edit after it was spent, not banked. Run it "
-                        "again now that the rounds have settled and write "
-                        "the new SHA into the cell"
+                        "with an edit after it was spent, not banked. Spawn "
+                        "the `sealer` again now that the rounds have settled: "
+                        "`broad-gate --base <base> --record <item>` re-takes "
+                        "the run at the tree as it stands and writes the new "
+                        "SHA into this cell"
                     )
                     break
                 divergent = sha
