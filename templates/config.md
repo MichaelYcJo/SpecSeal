@@ -8,11 +8,11 @@ The root is at one of two places and whichever exists is the answer:
 `<repo>/seal/`, which is committed, or `$(git rev-parse --git-common-dir)/seal/`,
 which is not. This file goes wherever that root already is.
 
-**This file is optional, and an absent row is not an error — with one
-exception, `Mode`.** Every other item has a default, and the defaults are what
-every repository got before the row existed. Create the file when one of the
-answers is not the default; a file that restates the defaults is a file nobody
-needs.
+**This file is optional, and an absent row is not an error — with two
+exceptions, `Mode` and `Broad gate`.** Every other item has a default, and
+the defaults are what every repository got before the row existed. Create the
+file when one of the answers is not the default; a file that restates the
+defaults is a file nobody needs.
 
 `Mode` is the exception, twice over. What every repository got before that row
 existed is *the folder decides*, which is not a value, so it has no default at
@@ -23,11 +23,17 @@ repository is denied and the second is asked, until `seal mode` writes the
 row. Two prompts per session per repository, then silence, and nothing at all
 once the row exists. The section on it below says how the command fills it in.
 
+`Broad gate` is the other, and its absence is not a prompt but a refusal:
+`broad-gate` names the row and exits 2 with nothing run, because a seal taken
+over a command nobody chose seals nothing. The section on it below says why
+there is no default.
+
 | Item | Value |
 |---|---|
 | Commit and pull request language | English |
 | Record language | English |
 | Mode |  |
+| Broad gate |  |
 
 ## Commit and pull request language
 
@@ -150,3 +156,36 @@ local-mode repository that had not declared one.
 That is also why the row above is empty in this template. A copied file that
 declared `shared` would hand every local-mode repository a row that is wrong
 from the moment it lands.
+
+## Broad gate
+
+The repository's own broad command — the full suite, the repository-wide
+lint, the typecheck — as **one shell command line**, run from the repository
+root by `broad-gate` once the review rounds settle. The plugin's own checks
+(`evidence-check`, `unverified-check`, `chain_check.py`, `survivor-check`)
+follow it and are not part of the row.
+
+```markdown
+| Broad gate | bin/test -q && uvx ruff check . && uvx ruff format --check . |
+```
+
+**An absent row is a refusal, not a default.** `broad-gate` names this row
+and exits 2 with nothing run. It is a refusal rather than a prompt because
+the command runs unattended — the sealer asks nobody anything — and a
+refusal that names what to write is answered by the next person to read it,
+where a question stops a session that may have nobody at the keyboard.
+
+**There is no default, and the reason is the Seal Test.** `verify` names the
+counterfeit: a check that cannot fail. A default of `pytest` seals a
+repository that runs `npm test`; a default of `true` seals everything. The
+sealer judges nothing, so it cannot pick a command either — a row is a
+thing a person wrote, and what the sealer's seal covers is exactly that. What the
+row's command does is the repository's own claim: a command that exits 0
+without running anything gets a stamp over nothing, and *the narrow command
+still has to be able to fail* is the reader's rule, not the gate's.
+
+On a failing test the gate re-runs the row's first command on the failing
+files alone, at the base, in a scratch worktree it removes afterwards, and
+labels each `new` or `failing on base too`. That first command is what
+stands before the row's first `&&`, so a row whose suite runner comes first
+is a row the comparison can use.

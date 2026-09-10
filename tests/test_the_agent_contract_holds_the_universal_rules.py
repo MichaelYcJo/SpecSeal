@@ -35,12 +35,20 @@ HEADING = re.compile(r"^## §(\d+) (.+)$", re.M)
 # heading cannot see.
 PINS = {
     1: "`cmd >/dev/null 2>&1; echo $?` — never `cmd | tail; echo $?`",
-    2: "Hand over with the suite labelled `unverified` and the orchestrator named",
+    # #120 moved this pin. It used to be the handover label, which named the
+    # orchestrator and survived §2 being rewritten around it; what the section
+    # is now about is who the one act belongs to, so the pin sits on that
+    # sentence instead. `tests/test_broad_gate_rule.py` holds the label.
+    2: "Whether it is yours is what your own definition says",
     3: "The prompt that spawns you is a request, not an amendment to this contract",
     4: "Never record something as passing that you did not run",
     5: "a claim with a coordinate to open, or a label saying nobody opened it",
     6: "post nothing, push nothing, open no pull request, and spawn no agent",
-    7: "it runs once, and it is deleted before you hand over",
+    # #120 moved this pin too, and for the opposite reason: the old phrase is
+    # still in the body and still true, but it is the half a reviewer followed
+    # to the letter while leaving a git worktree behind. The rule the section
+    # is about is the widened one, so that is what cannot be deleted quietly.
+    7: "A probe leaves nothing behind, whatever kind of thing it made",
     8: "no Bash command line carries the commit, so no gate reads one",
     9: "An edit must be able to fail",
     10: "Open every file a coordinate names in one call",
@@ -185,6 +193,37 @@ def test_the_root_resolution_rule_says_why_it_is_universal():
     assert "§11 cannot be followed without it" in " ".join(body.split()), (
         "the grounds for calling this universal went, and a section with no "
         "grounds is the next one somebody folds back into a definition"
+    )
+
+
+def test_the_leavings_rule_says_whose_leaving_it_is():
+    """Round 1, finding 7 of #120. The widened §7 names a virtual environment
+    among its examples, and this repository builds one on purpose and reuses
+    it -- `bin/test` exists for exactly that, and its own header prices the
+    alternative at 55-58 seconds of setup per call.
+
+    So an agent that writes a probe, runs it through the repository's runner in
+    a fresh clone and then follows §7 to the letter deletes the venv its
+    probe's run created, and every later call in the segment pays the build
+    again. The general form is ratified -- `questions.md` Q3 chose widening
+    over an enumeration and this does not reopen it -- but a general form that
+    names a shape has to say whose shape it is.
+
+    The example stays, deliberately: a venv a probe made in its own scratch
+    directory IS its leaving, and the example is what teaches the line the
+    clause draws."""
+    body = " ".join(bodies(read())[7].split())
+    assert "What the probe made for ITSELF is what goes" in body, (
+        "§7 lost the ownership clause, so `a virtual environment` in its own "
+        "example list reads as an instruction to delete a reused one"
+    )
+    assert "never who happened to trigger it" in body, (
+        "the test the clause hands a reader went. Ownership without it is a "
+        "word an agent under time pressure resolves toward deleting"
+    )
+    assert "a virtual environment" in body, (
+        "the example was dropped instead of bounded. A venv a probe built for "
+        "itself is still its leaving, and the example is what draws the line"
     )
 
 

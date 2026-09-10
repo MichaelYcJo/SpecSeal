@@ -144,13 +144,41 @@ def test_every_posix_wrapper_resolves_its_own_directory(entry):
     assert '"$@"' in text, f"bin/{entry} does not pass its arguments through"
 
 
+def test_the_runner_behind_the_wrapper_says_the_same_thing():
+    """Round 1's 🟡 7. `bin/test` is five lines and one `exec` into
+    `.github/scripts/run_tests.py`.
+
+    #30 re-pointed the wrapper's comment from `orchestrator` to `sealer` and
+    left the module it runs saying the other thing — one command, two files,
+    two owners, which is the §12 class this branch already knows
+    `survivor-check` cannot reach. The changelog claimed *the runner's own
+    comment … all of them now say the sealer's*, true of the wrapper and
+    false of the runner.
+
+    Nothing pinned this docstring: the case above reads `bin/test`, and the
+    negative pin in `tests/test_the_seal_is_taken_once_by_the_sealer.py` is
+    applied to the two agent definitions only."""
+    runner = read(os.path.join(ROOT, ".github", "scripts", "run_tests.py"))
+    assert "is the sealer's, run once after" in runner, (
+        "the file `bin/test` execs no longer says whose the full suite is"
+    )
+    assert "is the orchestrator's" not in runner, (
+        "the wrapper and the module it runs name two different owners for one command"
+    )
+
+
 def test_the_wrapper_points_at_the_contract_rather_than_inviting_a_full_run():
     """`bin/test` with no arguments runs a five-minute suite that
     `skills/agent-contract/SKILL.md` §2 forbids to smith and warden. The file
-    a session reads before typing it says so, and names where the rule is."""
+    a session reads before typing it says so, and names where the rule is.
+
+    Re-pointed by #30 from `orchestrator` to `sealer`. The rule forbade the
+    run to two agents and assigned it to none, so the comment named the
+    participant that happened to take it; naming the agent is what makes the
+    sentence readable without knowing who is driving."""
     text = read(os.path.join(BIN, "test"))
-    assert "agent-contract" in text and "orchestrator" in text, (
-        "bin/test no longer says the full suite is the orchestrator's, so a "
+    assert "agent-contract" in text and "sealer" in text, (
+        "bin/test no longer says the full suite is the sealer's, so a "
         "segment reading it has nothing telling it not to"
     )
 
@@ -724,13 +752,21 @@ def test_the_section_keeps_the_broad_once_rule():
     assert "Run the broad ones once" in section
 
 
-def test_the_section_says_the_full_run_is_the_orchestrators():
+def test_the_section_says_the_full_run_is_the_sealers():
     """`bin/test` with no arguments runs a five-minute suite that
     §2 forbids to smith and warden. The section that makes it cheap is the
     section that has to say who it is for, and name the form a segment
-    types."""
+    types.
+
+    Re-pointed by #30: who it is for is the `sealer` now, and phase 3 left the
+    case under its old name on purpose. `seal/ledger.md`'s R4 row cited it as
+    a coordinate, and renaming a unit REMOVES an anchor where changing its
+    body only drifts one — so the rename waited for the phase that touches
+    the ledger. That phase removed the coordinate from R4 and wrote the new
+    claim into this work item's own fragment, which is where a claim goes
+    when the code it cited stops existing under that name."""
     section = running_the_checks()
-    assert "agent-contract" in section and "orchestrator" in section, (
+    assert "agent-contract" in section and "sealer" in section, (
         "the section makes the full suite cheap and says nothing about the "
         "rule that forbids it to a segment"
     )
@@ -761,7 +797,7 @@ def test_the_protocol_hands_over_the_narrow_form():
     document that never mentions it."""
     protocol = flat("docs", "review-handoff-protocol.md")
     assert "The form a segment is handed is the narrow one" in protocol
-    assert "the full suite is the orchestrator's, run once after the rounds" in protocol
+    assert "the full suite is the sealer's, run once after the rounds" in protocol
 
 
 def test_the_protocol_carries_the_measurement_that_bought_it():

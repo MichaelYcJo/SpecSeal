@@ -37,9 +37,10 @@ git 이 있는 곳이면 어디서든 동작합니다.
 | **smith** (Claude Code 서브에이전트) | `agent-contract` · `implement` · `writing-style` | 스펙에 맞춰 구현한 뒤 증명 블록 세 줄을 적는다. 어떤 정책서를 열었는지, 어떤 대조표 행을 고쳤는지, 무엇을 실행하고 무엇을 읽기만 했는지. 훅이 검사하는 것이 아니라 스킬이 요구하는 공개이며, `none — <이유>` 로 채워진 줄은 사용자 눈에 그대로 보인다 |
 | **warden** (서브에이전트) | `agent-contract` · `code-review` · `writing-style` | 스펙 준수를 먼저 보고 그다음 품질을 본다. 보고서가 검증되면 오케스트레이터가 리뷰 시점의 HEAD sha 를 `.git/specseal-reviewed` 에 적고, 커밋 게이트는 그 파일을 확인한다. 리뷰어가 자기 표시를 직접 쓰지는 않는다 |
 | **scribe** (서브에이전트) | `agent-contract` · `legacy-parity` | 원본 코드가 실제로 하는 일을 `경로#앵커` 좌표로 기록하고, 판정이 아니라 사실만 돌려준다. `seal/parity.md` 를 선언한 레포에서만 등장한다 |
+| **sealer** (서브에이전트) | `agent-contract` | 광역 관문을 한 번 돈다 — 회차가 끝난 뒤 `broad-gate` 한 번 — 그리고 마지막 라운드 기록의 `Broad gate` 칸을 쓴다. 스펙도 diff 도 읽지 않고 아무것도 판정하지 않는다. 실패한 검사는 그 출력 그대로, `new` 인지 `failing on base too` 인지와 함께 돌아오며, 그것이 무슨 뜻인지는 읽는 사람이 정한다 |
 | 스킬 | — | 스물세 개이고 세 묶음이다. 에이전트가 따르는 다섯 개는 왼쪽 열에 있다. 열한 개는 작업이 그것을 요구할 때 세션이 알아서 로드한다 — `audit`, `build-fix`, `checkpoint`, `commit-pr-convention`, `confidence-check`, `debug`, `evidence-check`, `feature-planner`, `gap-analysis`, `learn`, `verify`. 나머지 일곱은 사용자가 이름을 불러야 움직이며 아래 치트시트에 있다 |
 | 훅 | — | 게이트 그 자체. 플러그인이 자동으로 등록하므로 설정을 따로 만질 필요가 없다 |
-| CLAUDE.md 블록 | — | 늘 로드되는 12줄 — 절 제목 넷(`Tooling`·`Safety`·`Session cost`·`Git`)에 규칙 여덟이다. 툴링 하나, 안전 셋, 세션 비용 하나, git 셋. 응답 언어 규칙은 없다. 그것은 사용자 몫이다 |
+| CLAUDE.md 블록 | — | 늘 로드되는 12줄 — 절 제목 넷(`Tooling`·`Safety`·`Session cost`·`Git`)에 규칙 여덟이다. 툴링 하나, 안전 셋, 세션 비용 하나, git 셋. 응답 언어 규칙은 없다. 그것은 사용자 몫이다. 정본은 `templates/claude-md-block.md` 하나이고, 저장소의 `CLAUDE.md` 에는 거기서 생성한 사본이 들어 있으며, 둘이 다르면 CI 가 PR 을 막는다 |
 
 ## 체인
 
@@ -49,7 +50,7 @@ smith 가 만든다 → verify (좁게) → warden 이 리뷰한다 → 사용�
       └──── 다시 만들기 ↔ 재리뷰, 1~n 회차 ───────────────┘
                           │ 회차 종결
                           ▼
-             광역 관문 — 전 스위트·lint·타입체크, 한 번
+    sealer → 광역 관문 — 전 스위트·lint·타입체크, 한 번
                           │
         새로 깨진 것 → 순환으로 복귀 (세 번까지, 그다음은 멈춘다)
         base 에서도 실패 → follow-up 으로 이름 붙이고 막지 않는다
@@ -250,6 +251,7 @@ origin remote 를 키로 저장됩니다. 다른 기계에서는 틀린 값이�
 | `deferral-check . [--kind all]` | `unverified` 로 미룰 때 적은 "누가 답하는가" 가 실재하는지 확인한다. PR 에서 도는 것 · 너무 늦게 도는 것 · 커밋하는 사람 기계에서만 도는 것 · 아무도 안 도는 것을 갈라 준다 |
 | `unverified-check . [--baseline <ref>]` | 그렇게 `unverified` 로 적어 둔 행을 다시 읽어 준다. 무엇이 어느 작업 항목에서 몇 건 열려 있고 누구에게 물어야 하는지를 찍는다. 절을 읽지 못하면 실패한다 — 너그럽게 읽으면 0건이 나오고, 0건은 "다 닫혔다"로 읽히기 때문이다. `--baseline` 을 주면 그 참조에서 이 브랜치가 갈라진 지점(`git merge-base`)과 행 수를 견준다. 갈라진 뒤에 base 쪽에 들어온 작업 항목은 이 브랜치가 지운 것이 아니기 때문이다. 갈라진 지점보다 행이 줄었거나 `overview.md` 파일 자체가 없어졌으면 실패한다. 행 하나를 지우고 하나를 넣으면 수가 같아 통과한다 |
 | `session-cost --latest` | 세션의 시간이 어디로 갔는지 — 명령 실행, 호출 사이 모델 대기, 이미 나온 결과를 다시 보려고 재실행한 검사, 한 턴에 나간 도구 수. seal 의 `cost` 행을 채우는 값이며 세션 안에서는 잴 수 없습니다 |
+| `payload-meter [--calibrate <메인 트랜스크립트>] [--baseline <run.json>]` | 에이전트마다 시작 페이로드가 무엇으로 이루어졌는지를 보여 줍니다 — 정의 파일, `skills:` 목록이 주입하는 스킬 파일 전부, `CLAUDE.md` 두 파일을 바이트·문자·토큰으로 셉니다. 토큰 수치에는 근거가 붙습니다. 트랜스크립트의 스폰에서 읽은 값은 `measured`, 에이전트별 비율로 추정한 값은 `estimated` 입니다. `--baseline` 을 주면 이전 `--json` 실행과의 차이를 찍어 주므로, 줄인 페이로드가 실제로 줄었는지는 이것으로 봅니다 |
 | `/specseal:preset-setup` | CLAUDE.md 블록을 승인받아 뜻 단위로 병합한다 |
 | `/specseal:evidence-ci` | 드리프트 검사를 CI 에 건다. 검사기를 레포에 복사하고 워크플로 파일을 써 준다 |
 | `/specseal:parity-setup` | 이 레포가 다른 코드베이스를 옮겨 온 것임을 선언한다. 원본을 찾아 기준 커밋을 기록한다 |
@@ -323,8 +325,9 @@ claude plugin update specseal@specseal   # 그다음 적용 — 위 문단 참�
 최신*이라고 답합니다. 업데이트는 커밋이 아니라 `plugin.json` 의 버전을
 기준으로 하므로, 버전을 올리지 않고 내보낸 변경은 아무에게도 도달하지 않습니다.
 
-`install.sh` 는 기존 파일을 `CLAUDE.md.bak` 으로 백업한 뒤 자기 마커 블록만
-병합합니다. 여러 번 실행해도 결과가 같고, 다시 실행하면 블록만 갱신됩니다.
+`install.sh` 는 기존 파일을 `CLAUDE.md.bak` 으로 백업한 뒤 마커 블록만
+병합합니다. 블록은 `templates/claude-md-block.md` 에서 읽습니다. 여러 번
+실행해도 결과가 같고, 다시 실행하면 블록만 갱신됩니다.
 사용자가 직접 쓴 내용은 고치지 않으며, 겹치는 부분이 있으면 경고만 남긴 채
 그대로 둡니다. 중복까지 정리하려면 Claude Code 안에서
 `/specseal:preset-setup` 을 실행하세요. 무엇을 지우든 diff 를 보여 주고

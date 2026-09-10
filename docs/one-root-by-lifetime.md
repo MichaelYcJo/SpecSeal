@@ -132,8 +132,10 @@ the sections below carry them: the mode choice at first setup, and an
 export/import pair.
 
 **What the names say.** `seal/specs/<id>/` holds the spec and its process
-record. `seal/ledger*` is the seal itself: the binding of spec to code that
-breaks on drift.
+record. `seal/ledger*` is the binding of spec to code that breaks on drift —
+what the product name seals, rather than one of the seals an agent takes
+(`skills/verify/SKILL.md` §*Every agent seals what it verified, and one of
+them is final*).
 
 ## What happens at a release
 

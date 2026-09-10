@@ -129,6 +129,57 @@ def test_the_glob_finds_the_definitions():
 # --- the line --------------------------------------------------------------
 
 
+# The ways a definition is allowed to CLOSE its own list of durable writes.
+# A vocabulary rather than a list of files: a fifth agent has to pick one of
+# these or add a fourth deliberately, and either way somebody wrote the bound.
+#
+# Round 1, finding 4 of #120. Old §6 was a blanket prohibition with deliberate
+# carve-outs named elsewhere, so a definition's prose about what it produces
+# was decorative -- a reader looking for permission was looking for an
+# exception and would not find one here. New §6 asks a weaker question, *is
+# this write named in your own definition*, which turns any loose sentence
+# about leaving durable evidence into a grant. The bound is what closes it.
+# Round 2, finding 1: the fourth entry used to read `you don't write them
+# anywhere`, and in `agents/scribe.md` that matched a PARENTHETICAL whose
+# subject is worker findings being pre-verification — a sentence about whose
+# judgment a verdict is, not a bound on a list of writes. That file states no
+# list of writes at all, so the case passed on it for a reason unrelated to
+# what it checks, and a fifth definition copying the parenthetical into
+# unrelated prose passed with no bound either. Rewording the parenthetical
+# alone turned the case red, which is what showed the pass rested on it.
+#
+# Every entry here now names WRITING as its subject, so a phrase can only be
+# matched by a sentence that is about what the file's agent writes.
+BOUNDS = (
+    "a write not below is a write you do not make",
+    "a write not named here is a write you do not make",
+    "is the whole of what you may write",
+    "You write nothing durable anywhere, and that is the whole of it",
+)
+
+
+@pytest.mark.parametrize("path", AGENTS, ids=name)
+def test_every_definition_bounds_what_it_writes(path):
+    """Under §6 a definition's named writes ARE its permission, so every
+    definition has to say where that list stops.
+
+    Enumerated by construction over the glob rather than over the file the
+    finding named: `agents/sealer.md` and `agents/warden.md` already closed
+    theirs, `agents/scribe.md` says it writes nothing anywhere, and
+    `agents/smith.md` -- whose opening claims it leaves durable evidence and
+    stamps a mark, two things §6 itself lists as durable records -- had no
+    closing sentence at all. A definition that names writes and never says
+    `and no others` reads its own examples as a floor."""
+    text = flat(read(path))
+    assert any(bound in text for bound in BOUNDS), (
+        f"{name(path)} never says where its list of durable writes stops. "
+        "Under §6 what a definition names IS what its agent may write, so a "
+        "file with no bound turns every sentence about producing something "
+        "into a grant. Close it the way the others do, or add the form this "
+        "one uses to BOUNDS with the reason"
+    )
+
+
 @pytest.mark.parametrize("path", AGENTS, ids=name)
 def test_every_definition_opens_with_the_contract_line(path):
     absent = missing_pins(read(path))

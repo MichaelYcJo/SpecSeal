@@ -13,11 +13,14 @@
 ## Git
 - Run lint/format/typecheck before committing.
 - Worktrees only for concurrent sessions on the same tree — single-session work uses `git switch` (worktree-guard hook enforces this).
-- **Routing, decided at the start** — **first, if this repository has `seal/` at neither `<repo>/seal/` nor `$(git rev-parse --git-common-dir)/seal/`: stop and load the `implement` skill, and follow its Bootstrap section.** Writing the file below is what CREATES that directory, creating it is what opts the repository in, and WHERE it lands — committed with the repository, or under the git directory and on this machine only — is the user's decision and not yours. Then, before the first edit, write `seal/specs/<work-item-id>/routing.md` from `templates/sdd-routing.md` and commit it — the write **in a command of its own**, never batched with the commit. The gate reads that file from the working tree, so a declaration on disk silences the very commit that adds it and no first-commit waiver is needed; but the gate is a `PreToolUse` hook that denies the WHOLE Bash call, so `write && git add && git commit` in one call writes nothing and the declaration the gate then reports missing is the file that was lost. This is the one place the batching rule above misleads. **Ask all three axes as one `multiSelect` question with three checkboxes**, never one at a time: implementation (`smith` · `the session` — an optional row), review (`through the review chain` · `straight to the PR`) and destination (`open the pull request` · `stop before the pull request`). What is checked is the answer, and each box is a row of that file — asking the reviewer in the middle and the pull request at the end is three waits for one decision. The commit gate reads that file, so a declared work item commits silently for either review answer, and CI reads the same file at the pull request. For a change belonging to no work item, `[no-review]` still waives one command (`[no-parity]` too where a migration config is declared) — in front of the command, quotes included, `: '[no-review]'; git commit …`, because after `git commit` a bare word is a pathspec and git rejects it. Deciding at the commit is what stops a release mid-run.
+- **Routing, decided at the start** — **first, if this repository has `seal/` at neither `<repo>/seal/` nor `$(git rev-parse --git-common-dir)/seal/`: stop and follow the Bootstrap section of `skills/implement/orchestration.md`, the `implement` skill's orchestrator half.** Writing the file below is what CREATES that directory, creating it is what opts the repository in, and WHERE it lands — committed with the repository, or under the git directory and on this machine only — is the user's decision and not yours. Then, before the first edit, write `seal/specs/<work-item-id>/routing.md` from `templates/sdd-routing.md` and commit it — the write **in a command of its own**, never batched with the commit. The gate reads that file from the working tree, so a declaration on disk silences the very commit that adds it and no first-commit waiver is needed; but the gate is a `PreToolUse` hook that denies the WHOLE Bash call, so `write && git add && git commit` in one call writes nothing and the declaration the gate then reports missing is the file that was lost. This is the one place the batching rule above misleads. **Ask all three axes as one `multiSelect` question with three checkboxes**, never one at a time: implementation (`smith` · `the session` — an optional row), review (`through the review chain` · `straight to the PR`) and destination (`open the pull request` · `stop before the pull request`). What is checked is the answer, and each box is a row of that file — asking the reviewer in the middle and the pull request at the end is three waits for one decision. The commit gate reads that file, so a declared work item commits silently for either review answer, and CI reads the same file at the pull request. For a change belonging to no work item, `[no-review]` still waives one command (`[no-parity]` too where a migration config is declared) — in front of the command, quotes included, `: '[no-review]'; git commit …`, because after `git commit` a bare word is a pathspec and git rejects it. Deciding at the commit is what stops a release mid-run.
 <!-- specseal:end -->
 
-<!-- Below: repo-local development rules for SpecSeal itself.
-     install.sh distributes only the marker block above. -->
+<!-- Above: a generated copy of templates/claude-md-block.md, the block
+     install.sh distributes. Edit the template, then
+     `python3 .github/scripts/claude_block.py --write` regenerates this copy;
+     the hygiene workflow fails a pull request where the two differ.
+     Below: repo-local development rules for SpecSeal itself. -->
 
 ## The goal a design is chosen against — verification that runs unattended
 
@@ -66,6 +69,20 @@ domains, `/Users/x/` for user paths. Enforced by
 `tests/test_no_real_identifiers.py` in CI — extend its allowlist consciously;
 never make a test pass by inlining a real domain, path, or org name.
 (Both incidents that forced a history rewrite entered exactly this way.)
+
+## Repo rule — a thing more than one party can have is named with whose
+
+`skills/writing-style/SKILL.md` §*여럿이 가질 수 있는 것은 누구 것인지
+밝힌다* states this rule and holds the reasoning; this row is the link, and
+it is here because a session rewording an agent definition or a skill has no
+other reason to open that file. The concept and its format names stay bare —
+the Seal Test, a seal block — and a reference to one instance says whose.
+
+The word that bought it is `seal`: it named the warden's review mark, the
+sealer's stamp and the smith's proof block at once, two of them in files a
+reader opens together. `tests/test_one_word_one_meaning.py` is the check, and
+it holds one word per conversation somebody had — writing the rule down is
+not the repair, the check is.
 
 ## Repo rule — commit early; on a declared branch it costs nothing
 

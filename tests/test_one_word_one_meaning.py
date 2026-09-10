@@ -1,4 +1,4 @@
-"""Five words read more than one way across these documents.
+"""Six words read more than one way across these documents.
 
 Each was found at a coordinate where the reader cannot tell which meaning is
 intended, and a rewrite that leaves the ambiguity is not a fix. So each word
@@ -127,8 +127,162 @@ def test_the_smith_calls_the_whole_thing_a_review_run():
 def test_the_row_that_could_not_be_true_is_corrected_not_reworded():
     """It was true only after the first review mark landed, and false for
     every commit before it — the defect in #52 stated as a sentence."""
+    # The routing section is the orchestrator's half since #292, so the
+    # correction lives in `orchestration.md`; the old row must be in neither.
     skill = read("skills", "implement", "SKILL.md")
-    assert "| Through the review chain | it needs no marker at all" not in skill
-    assert 'used to carry "no marker at all"' in skill, (
+    orchestration = read("skills", "implement", "orchestration.md")
+    for text in (skill, orchestration):
+        assert "| Through the review chain | it needs no marker at all" not in text
+    assert 'used to carry "no marker at all"' in orchestration, (
         "dropping the row leaves the next reader unable to tell it was wrong"
     )
+
+
+# --- "the seal" — an instance names whose; the concept stays bare -----------
+
+# The word reached three referents at once. `agents/warden.md` opened *You
+# keep the seal* about `<git-dir>/specseal-reviewed`, `agents/sealer.md`
+# opens *You take the seal* about the broad gate's stamp, and `README.md`
+# said *the warden's audit of the seal* about a third thing again, the
+# smith's proof block — two of them in files a reader opens together.
+#
+# The rule that resolves it is that more than one seal is CORRECT: every
+# agent seals what it verified, and one of them is final. So the fix is not
+# fewer seals, it is that a reference to an instance names whose.
+SEAL_OWNER = ("skills", "verify", "SKILL.md")
+SEAL_RULE = "## Every agent seals what it verified, and one of them is final"
+
+# Files that instruct somebody, swept below. A record of what was true when
+# it was written is not brought to a new wording, so `seal/` is not here.
+SEAL_SWEPT = (
+    ("agents", "sealer.md"),
+    ("agents", "warden.md"),
+    ("agents", "smith.md"),
+    ("skills", "verify", "SKILL.md"),
+    ("skills", "code-review", "orchestration.md"),
+    ("skills", "code-review", "SKILL.md"),
+    ("skills", "implement", "SKILL.md"),
+    ("templates", "config.md"),
+    ("docs", "review-chain-spec.md"),
+    ("docs", "review-handoff-protocol.md"),
+    ("CONTRIBUTING.md",),
+    ("README.md",),
+    # Added by round 1's 🟡 10, which found a FOURTH referent here — the
+    # evidence ledger called `the seal itself`. The list was closed where
+    # somebody had looked, which is the same shape as that round's 🟡 7 and
+    # 🟡 8. The three below are what a sweep of the shipped tree turned up
+    # once the list stopped being the boundary of the search.
+    ("docs", "one-root-by-lifetime.md"),
+    ("skills", "verify", "scripts", "seal_stamp.py"),
+    ("skills", "code-review", "scripts", "round_record.py"),
+)
+
+# The two places that DISCUSS the word rather than use it: the rule's own
+# section quotes the loose shape in order to forbid it, and the naming table
+# quotes `"the seal"` as the product's vocabulary. Both are excluded by the
+# sweep below, and each exclusion names the span it removes rather than the
+# file, so a bare instance elsewhere in either file is still caught.
+SEAL_EXCLUDED = (
+    (SEAL_OWNER, SEAL_RULE),
+    (("docs", "one-root-by-lifetime.md"), "## Naming"),
+)
+
+# What may follow a bare `the seal`: the concept, its formats, and the one
+# sentence that names the referent in the same clause. Everything else is an
+# instance with nobody's name on it.
+SEAL_BARE_IS_THE_CONCEPT = (
+    " Test",  # the Seal Test
+    " block",  # the seal block
+    "'s `cost` row",  # a field of that block
+    " is a different mark and a different agent's",  # the warden's link
+)
+
+
+def test_the_owner_states_that_one_seal_is_final():
+    """The rule the three referents were missing. It is stated once, by the
+    file that holds the Seal Test and the seal block, and the two agent
+    definitions link to it rather than restating it —
+    `tests/test_the_rules_have_one_owner.py` is what holds that pairing."""
+    owner = flat(*SEAL_OWNER)
+    assert (
+        "Every agent seals what it verified, and the one seal over the whole "
+        "project is the sealer's."
+    ) in owner
+    assert "every reference to an INSTANCE names whose" in owner
+    assert "The concept and its formats stay bare" in owner
+
+
+def test_the_two_definitions_name_what_they_actually_keep():
+    """`agents/warden.md` kept `<git-dir>/specseal-reviewed`, which is the
+    mark that a review happened, and called it the seal. The rest of that
+    paragraph is unchanged — a record and not a barrier, waivable without
+    one, worth whatever is put behind it."""
+    warden = flat("agents", "warden.md")
+    assert "You keep the review mark" in warden
+    assert "You keep the seal:" not in warden, (
+        "the opening claims a word the sealer's definition claims two files "
+        "over, and a reader opens them together"
+    )
+    assert "the commit gate can be waived without one" in warden, (
+        "the rewrite took the paragraph's meaning with the word"
+    )
+    sealer = flat("agents", "sealer.md")
+    assert "You take the last seal" in sealer
+    assert "You take the seal." not in sealer
+
+
+def test_the_readme_says_whose_seal_the_warden_audits():
+    """The shape to look for: a sentence naming one party and leaving the
+    audited seal anonymous. The answer there is the smith's proof block,
+    three bullets from one describing the `Broad gate` cell — so a reader of
+    that list met the word twice on one screen meaning two things."""
+    readme = flat("README.md")
+    assert "the warden's audit of the smith's seal" in readme
+    assert "the warden's audit of the seal," not in readme
+
+
+def test_no_instructing_document_leaves_an_instance_anonymous():
+    """The absence half, swept rather than listed.
+
+    A document can gain the corrected sentence and keep the old one two
+    paragraphs down, and a rule about a word that appears this often cannot
+    be held by naming the coordinates a reader happened to find. So every
+    bare `the seal` in a file that instructs somebody has to be the concept
+    or one of its formats; anything else names an instance and has to say
+    whose.
+
+    The owner's own rule section is excluded, and that exclusion is the
+    reason this sweep is possible at all: that section quotes the loose
+    shape in order to forbid it, which is the one place the bare phrase is
+    doing its job."""
+    for parts in SEAL_SWEPT:
+        # Flattened, so a suffix that happens to straddle a line wrap is
+        # still read as the phrase it is.
+        text = flat(*parts)
+        for excluded, span in SEAL_EXCLUDED:
+            if parts != excluded:
+                continue
+            head, _, rest = text.partition(span)
+            # `partition(" ## ")[2]` is "" when the named section is the LAST
+            # `##` in its file, which silently drops everything from that
+            # heading to the end of the file out of the sweep. Asserted
+            # rather than relied on, so the day a span moves to the end of a
+            # file the case says so instead of going quietly green.
+            _before, marker, after = rest.partition(" ## ")
+            assert marker, (
+                f"{'/'.join(parts)}: the excluded span `{span}` is the last "
+                "`##` in the file, so this exclusion now removes everything "
+                "after it from the sweep"
+            )
+            text = head + marker + after
+        lowered = text.lower()
+        start = 0
+        while (hit := lowered.find("the seal", start)) != -1:
+            start = hit + 1
+            after = text[hit + len("the seal") :]
+            if after[:1].isalpha():  # the sealer, the sealed tree
+                continue
+            assert after.startswith(SEAL_BARE_IS_THE_CONCEPT), (
+                f"{'/'.join(parts)} says `the seal` and leaves the instance "
+                f"anonymous: ...{' '.join(text[hit - 60 : hit + 60].split())}..."
+            )

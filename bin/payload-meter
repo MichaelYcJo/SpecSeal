@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+# Runs the payload meter as `payload-meter` instead of a long path into the
+# plugin directory. Claude Code puts a plugin's bin/ on the Bash tool's PATH
+# while the plugin is enabled, so the README can print a command a reader can
+# actually type.
+#
+# Resolves the script relative to this file, not the caller's cwd, so it works
+# from any directory. Arguments pass straight through:
+#   payload-meter                       payload-meter --sections --json
+#   payload-meter --calibrate <main transcript.jsonl>
+#   payload-meter --baseline payload-before.json
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec python3 "$here/../skills/verify/scripts/payload_meter.py" "$@"

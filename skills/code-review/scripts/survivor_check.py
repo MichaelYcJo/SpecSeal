@@ -41,8 +41,9 @@ pinning the sentence it replaced. That pin is one sentence split across two
 adjacent string literals -- `"... from this report once the "` then
 `"orchestrator has verified its findings"` -- so no LINE holds the sentence and
 nothing line-oriented finds it. The module was red from that commit through two
-review rounds and two broad gates, because contract §2 reserves the broad gate
-for the orchestrator and no round could see it.
+review rounds and two broad gates, because contract §2 leaves the broad gate
+to whichever agent definition assigns it and no reviewer's does, so no round
+could see it.
 
 **A longest-common-phrase floor fails #267.** `ad6f81a` corrected a docstring
 that called a join's receiver *an argument ... never a leaf*, and the same

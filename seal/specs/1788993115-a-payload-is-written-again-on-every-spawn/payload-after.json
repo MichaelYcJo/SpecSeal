@@ -1,0 +1,379 @@
+{
+  "measured_at": "2026-09-10",
+  "root": ".",
+  "ratios": {
+    "scribe": {
+      "bytes_per_token": 3.44,
+      "from": "agent-ab9d641281139d57d.jsonl",
+      "spawn": "agent-ab9d641281139d57d.jsonl",
+      "tokens": 6568,
+      "over_bytes": 22598,
+      "shadowed": []
+    },
+    "smith": {
+      "bytes_per_token": 2.87,
+      "from": "payload-before.json (lent — the same spawn, over other bytes)",
+      "spawn": "agent-ad1be2f4984b727e5.jsonl",
+      "over_bytes": 104261,
+      "shadowed": [
+        "skills/writing-style/SKILL.md"
+      ]
+    },
+    "warden": {
+      "bytes_per_token": 3.41,
+      "from": "agent-a27ca4ab0314365f6.jsonl",
+      "spawn": "agent-a27ca4ab0314365f6.jsonl",
+      "tokens": 24702,
+      "over_bytes": 84181,
+      "shadowed": [
+        "skills/writing-style/SKILL.md"
+      ]
+    }
+  },
+  "agents": {
+    "scribe": {
+      "files": [
+        {
+          "path": "agents/scribe.md",
+          "share": "agent",
+          "bytes": 3469,
+          "chars": 3441,
+          "tokens": 1008,
+          "basis": "estimated (3.44 B/token, from scribe)"
+        },
+        {
+          "path": "skills/agent-contract/SKILL.md",
+          "share": "agent",
+          "bytes": 13765,
+          "chars": 13666,
+          "tokens": 4001,
+          "basis": "estimated (3.44 B/token, from scribe)"
+        },
+        {
+          "path": "skills/legacy-parity/SKILL.md",
+          "share": "agent",
+          "bytes": 5364,
+          "chars": 5307,
+          "tokens": 1559,
+          "basis": "estimated (3.44 B/token, from scribe)"
+        },
+        {
+          "path": "CLAUDE.md",
+          "share": "harness",
+          "bytes": 10482,
+          "chars": 10419,
+          "tokens": 3047,
+          "basis": "estimated (3.44 B/token, from scribe)"
+        },
+        {
+          "path": "~/.claude/CLAUDE.md",
+          "share": "harness",
+          "bytes": 6244,
+          "chars": 5048,
+          "tokens": 1815,
+          "basis": "estimated (3.44 B/token, from scribe)"
+        }
+      ],
+      "total": {
+        "bytes": 39324,
+        "chars": 37881,
+        "tokens": 11430,
+        "basis": "measured (agent-ab9d641281139d57d.jsonl) for the agent's own files, 46,056 - 39,488 of general-purpose; + estimated CLAUDE.md pair"
+      },
+      "prefix": {
+        "measured": 46056,
+        "baseline": 39488,
+        "baseline_agent": "general-purpose",
+        "from": "agent-ab9d641281139d57d.jsonl",
+        "spawns": 2,
+        "subagent_type": "specseal:scribe"
+      }
+    },
+    "smith": {
+      "files": [
+        {
+          "path": "agents/smith.md",
+          "share": "agent",
+          "bytes": 18413,
+          "chars": 18281,
+          "tokens": 6416,
+          "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+        },
+        {
+          "path": "skills/agent-contract/SKILL.md",
+          "share": "agent",
+          "bytes": 13765,
+          "chars": 13666,
+          "tokens": 4796,
+          "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+        },
+        {
+          "path": "skills/implement/SKILL.md",
+          "share": "agent",
+          "bytes": 32522,
+          "chars": 32236,
+          "tokens": 11332,
+          "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+        },
+        {
+          "path": "skills/writing-style/SKILL.md",
+          "share": "agent",
+          "bytes": 19762,
+          "chars": 10726,
+          "shadow": {
+            "path": "~/.claude/skills/writing-style/SKILL.md",
+            "bytes": 25834
+          },
+          "tokens": 6886,
+          "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+        },
+        {
+          "path": "CLAUDE.md",
+          "share": "harness",
+          "bytes": 10482,
+          "chars": 10419,
+          "tokens": 3652,
+          "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+        },
+        {
+          "path": "~/.claude/CLAUDE.md",
+          "share": "harness",
+          "bytes": 6244,
+          "chars": 5048,
+          "tokens": 2176,
+          "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+        }
+      ],
+      "total": {
+        "bytes": 101188,
+        "chars": 90376,
+        "tokens": 35258,
+        "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+      },
+      "prefix": {
+        "measured": 75783,
+        "baseline": 39488,
+        "baseline_agent": "general-purpose",
+        "from": "agent-ad1be2f4984b727e5.jsonl",
+        "spawns": 7,
+        "subagent_type": "specseal:smith",
+        "note": "the smallest smith spawn, agent-ad1be2f4984b727e5.jsonl, is the one payload-before.json was calibrated from, over 104,261 bytes this tree no longer holds (90,534 now); its ratio is kept and nothing here is measured — take a spawn after the change for a measured after-number"
+      }
+    },
+    "warden": {
+      "files": [
+        {
+          "path": "agents/warden.md",
+          "share": "agent",
+          "bytes": 21367,
+          "chars": 21169,
+          "tokens": 6266,
+          "basis": "estimated (3.41 B/token, from warden)"
+        },
+        {
+          "path": "skills/agent-contract/SKILL.md",
+          "share": "agent",
+          "bytes": 13765,
+          "chars": 13666,
+          "tokens": 4037,
+          "basis": "estimated (3.41 B/token, from warden)"
+        },
+        {
+          "path": "skills/code-review/SKILL.md",
+          "share": "agent",
+          "bytes": 23215,
+          "chars": 23011,
+          "tokens": 6808,
+          "basis": "estimated (3.41 B/token, from warden)"
+        },
+        {
+          "path": "skills/writing-style/SKILL.md",
+          "share": "agent",
+          "bytes": 19762,
+          "chars": 10726,
+          "shadow": {
+            "path": "~/.claude/skills/writing-style/SKILL.md",
+            "bytes": 25834
+          },
+          "tokens": 5795,
+          "basis": "estimated (3.41 B/token, from warden)"
+        },
+        {
+          "path": "CLAUDE.md",
+          "share": "harness",
+          "bytes": 10482,
+          "chars": 10419,
+          "tokens": 3074,
+          "basis": "estimated (3.41 B/token, from warden)"
+        },
+        {
+          "path": "~/.claude/CLAUDE.md",
+          "share": "harness",
+          "bytes": 6244,
+          "chars": 5048,
+          "tokens": 1831,
+          "basis": "estimated (3.41 B/token, from warden)"
+        }
+      ],
+      "total": {
+        "bytes": 94835,
+        "chars": 84039,
+        "tokens": 29607,
+        "basis": "measured (agent-a27ca4ab0314365f6.jsonl) for the agent's own files, 64,190 - 39,488 of general-purpose; + estimated CLAUDE.md pair"
+      },
+      "prefix": {
+        "measured": 64190,
+        "baseline": 39488,
+        "baseline_agent": "general-purpose",
+        "from": "agent-a27ca4ab0314365f6.jsonl",
+        "spawns": 2,
+        "subagent_type": "specseal:warden"
+      }
+    }
+  },
+  "baseline": "payload-before.json",
+  "calibrated_from": "3b2ff2ca-e9c7-4f54-9c5e-258886c6a08f.jsonl",
+  "calibration": {
+    "baseline_agent": "general-purpose",
+    "baseline": {
+      "measured": 39488,
+      "from": "agent-ad141d961a3f130ce.jsonl",
+      "spawns": 1,
+      "subagent_type": "general-purpose"
+    },
+    "unread": [
+      {
+        "subagent_type": "tmp-probe-bare",
+        "why": "no agentId in the tool result"
+      },
+      {
+        "subagent_type": "tmp-probe-implement",
+        "why": "no agentId in the tool result"
+      },
+      {
+        "subagent_type": "tmp-probe-style",
+        "why": "no agentId in the tool result"
+      }
+    ]
+  },
+  "delta": {
+    "scribe": {
+      "files": {
+        "agents/scribe.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (3.44 B/token, from scribe)"
+        },
+        "skills/agent-contract/SKILL.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (3.44 B/token, from scribe)"
+        },
+        "skills/legacy-parity/SKILL.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (3.44 B/token, from scribe)"
+        },
+        "CLAUDE.md": {
+          "bytes": 265,
+          "tokens": 77,
+          "basis": "estimated (3.44 B/token, from scribe)"
+        },
+        "~/.claude/CLAUDE.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (3.44 B/token, from scribe)"
+        }
+      },
+      "added": [],
+      "removed": [],
+      "total": {
+        "bytes": 265,
+        "tokens": 77,
+        "basis": "measured (agent-ab9d641281139d57d.jsonl) for the agent's own files, 46,056 - 39,488 of general-purpose; + estimated CLAUDE.md pair"
+      }
+    },
+    "smith": {
+      "files": {
+        "agents/smith.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+        },
+        "skills/agent-contract/SKILL.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+        },
+        "skills/implement/SKILL.md": {
+          "bytes": -13727,
+          "tokens": -4783,
+          "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+        },
+        "skills/writing-style/SKILL.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+        },
+        "CLAUDE.md": {
+          "bytes": 265,
+          "tokens": 92,
+          "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+        },
+        "~/.claude/CLAUDE.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (2.87 B/token, from smith in payload-before.json)"
+        }
+      },
+      "added": [],
+      "removed": [],
+      "total": {
+        "bytes": -13462,
+        "tokens": -4691,
+        "basis": "summed over the files — the earlier total was measured and this one is estimated, so the two cannot be subtracted"
+      }
+    },
+    "warden": {
+      "files": {
+        "agents/warden.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (3.41 B/token, from warden)"
+        },
+        "skills/agent-contract/SKILL.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (3.41 B/token, from warden)"
+        },
+        "skills/code-review/SKILL.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (3.41 B/token, from warden)"
+        },
+        "skills/writing-style/SKILL.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (3.41 B/token, from warden)"
+        },
+        "CLAUDE.md": {
+          "bytes": 265,
+          "tokens": 78,
+          "basis": "estimated (3.41 B/token, from warden)"
+        },
+        "~/.claude/CLAUDE.md": {
+          "bytes": 0,
+          "tokens": 0,
+          "basis": "estimated (3.41 B/token, from warden)"
+        }
+      },
+      "added": [],
+      "removed": [],
+      "total": {
+        "bytes": 265,
+        "tokens": 78,
+        "basis": "measured (agent-a27ca4ab0314365f6.jsonl) for the agent's own files, 64,190 - 39,488 of general-purpose; + estimated CLAUDE.md pair"
+      }
+    }
+  }
+}

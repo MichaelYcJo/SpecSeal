@@ -20,9 +20,10 @@
 # too -- what keeps a plugin user out is the shell builtin above, not the
 # path. The sentence below is for a copy of bin/ taken on its own.
 #
-# The full suite takes about five minutes and is the orchestrator's, run once
-# after the review rounds settle -- skills/agent-contract/SKILL.md forbids it
-# to smith and warden. Name a module to run one.
+# The full suite takes about five minutes and is the sealer's, run once after
+# the review rounds settle -- skills/agent-contract/SKILL.md forbids it to
+# smith and warden, and agents/sealer.md is the agent it is assigned to. Name
+# a module to run one.
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 script="$here/../.github/scripts/run_tests.py"
 if [ ! -f "$script" ]; then

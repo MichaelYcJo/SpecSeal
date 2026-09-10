@@ -1,6 +1,6 @@
 ---
 name: config
-description: Show what this repository decided for itself and change any of it — the languages it writes in, and where its records live. Reads seal/config.md, and routes a change to whatever owns that row.
+description: Show what this repository decided for itself and change any of it — the languages it writes in, where its records live, and the command its broad gate runs. Reads seal/config.md, and routes a change to whatever owns that row.
 disable-model-invocation: true
 ---
 
@@ -28,7 +28,7 @@ ran to look.
 
 ## Procedure
 
-**1. Show every row, present or not.** Read the file, and print all three with
+**1. Show every row, present or not.** Read the file, and print all four with
 their current values — including the ones the file does not carry, with the
 default and where it comes from. A row a repository never set is the most
 likely one somebody wants to change, and showing only what is present hides
@@ -39,10 +39,14 @@ exactly those.
 | `Commit and pull request language` | English | the commit subject and body, the pull request title and body, and a review report posted as a pull-request comment |
 | `Record language` | English | the prose in `spec.md`, `plan.md`, `overview.md`, `questions.md`, `changelog.md`, a round record's cells, and a ledger row's claim and grounds |
 | `Mode` | *the folder decides* | which of the two places the root should live at |
+| `Broad gate` | *none — `broad-gate` refuses without it* | the one shell command line `broad-gate` runs once the review rounds settle: the full suite, the repository-wide lint, the typecheck |
 
 **Every way of not naming a language lands on English** — no file, no such
 row, an empty value, a file that does not parse. Say the default and the
-reason rather than showing a blank.
+reason rather than showing a blank. **The `Broad gate` row has no default
+at all**: absent, `broad-gate` names the row and exits 2 with nothing run,
+because a seal over a command nobody chose seals nothing. Show it as absent
+and say what happens without it.
 
 **2. For the mode, show what is true as well as what is written.** That row is
 what the repository *wants*; the folder's location is what it *has*, and the
@@ -53,13 +57,16 @@ second answer.
 
 **3. Take a change, and route it.**
 
-- **A language row** is only a row. Edit the value in place, leaving the rest
-  of the file as it is. Where the file carries no language row at all — the
-  stub `seal mode` writes has only `Mode`, and that is every repository that
-  has set its mode — take the row *and its section* from
-  `$CLAUDE_PLUGIN_ROOT/templates/config.md` rather than writing a bare row.
-  The documentation beside it is the half a person reads, and a repository
-  that reached this file through `seal mode` has none of it.
+- **A language row, or the `Broad gate` row,** is only a row. Edit the value
+  in place, leaving the rest of the file as it is. Where the file carries no
+  such row at all — the stub `seal mode` writes has only `Mode`, and that is
+  every repository that has set its mode — take the row *and its section*
+  from `$CLAUDE_PLUGIN_ROOT/templates/config.md` rather than writing a bare
+  row. The documentation beside it is the half a person reads, and a
+  repository that reached this file through `seal mode` has none of it. The
+  `Broad gate` value is one shell command line, run from the repository
+  root; put the suite runner first, because the base comparison re-runs
+  what stands before the first `&&`.
 - **The mode row moves files.** Run `seal mode local` or `seal mode shared`.
   It moves the root, stages the change, carries
   `.github/workflows/hygiene.yml` in or out, and writes the row, so the file
