@@ -2917,17 +2917,34 @@ def seal(args):
     a name: it takes neither `--fixes` nor `--range`, reads no verdict row,
     and writes one cell.
 
-    Two refusals, each before the write:
+    Three refusals, each before the write:
 
       `Pass` is unchecked          a finding is still OPEN in the verdict
           table, so the round has not ended and the run this cell records
           would be a run over findings still open
+      `Fixes checked by` reads `nobody`   the fixes that closed those
+          findings were opened by nobody and the verifying round is still
+          owed. `Pass` says the TABLE is closed, and `close` ticks it the
+          moment a fix table applies, which is one row earlier than the run
+          ending -- so the seal lands in the window
+          `skills/code-review/orchestration.md` §*Orchestrator: the pull
+          request opens before round 1* calls red, on a record the verifying
+          round is about to stop being the last one of. A capped run reads
+          `no fixes to check` here, so this costs it nothing
       a `--broad-gate` SHA the record's `Target SHA` descends from   the
           run was spent before the round it seals -- the same test
           `chain_check.broad_gate` applies at the pull request, asked here
           so the cell is never written in a state the check would fail
 
-    A third refusal stood first and was removed in phase 5: `Needs a fix`
+    The first two are not one refusal said twice, and phase 5 plus round 1
+    of #30 are the two halves of one question answered wrongly twice before
+    it settled. `Needs a fix` is the reviewer's prose and refuses a run that
+    ended at the cap; `Pass` is the verdict table and says nothing about
+    whether a fix was read; `Fixes checked by` is the row that answers *has
+    this run ended*, and its starting value is exactly the state that must
+    refuse. All three were tried in that order.
+
+    A fourth refusal stood first and was removed in phase 5: `Needs a fix`
     reading `yes` refused before either of the above, and it made a CAPPED
     run unsealable. `docs/review-chain-spec.md` bounds a run at three
     rounds, five while a red finding is open, and a run that ends at the cap
@@ -2970,6 +2987,25 @@ def seal(args):
             f"ended. `{chain.NEEDS}` is not read here: it is the reviewer's "
             "answer from while the round ran, and a capped run leaves it "
             "`yes` over a table with nothing open in it; no cell was written"
+        )
+
+    # `Pass` says nothing in the verdict table is open. It does NOT say the
+    # run ended: `close` ticks the box the moment a fix table applies, and
+    # the verifying round that reads those fixes has not run yet.
+    # `skills/code-review/orchestration.md` §*Orchestrator: the pull request
+    # opens before round 1* calls that window red, and it is the window a
+    # seal is spent in — the verifying round's record becomes the last one,
+    # its cell reads `not yet`, and the run has to be taken again.
+    # A capped run reads `no fixes to check` here, so this costs it nothing.
+    checker = reader.visible(chain.field(rows, chain.CHECKED_BY) or "").strip()
+    if chain.nobody_reason(checker.strip("`").rstrip(".").lower()) is not None:
+        raise Refused(
+            f"round-{n}.md's `{chain.CHECKED_BY}` reads `{checker}`, so the "
+            "fixes that closed its findings were opened by nobody and the "
+            "verifying round is still owed. `Pass` was ticked by `close` when "
+            "the fix table applied, which is one row earlier than the run "
+            "ending. Spawn the verifying round first; its record is the one "
+            "this cell belongs on; no cell was written"
         )
 
     named = chain.SHA_RE.findall(args.broad_gate)

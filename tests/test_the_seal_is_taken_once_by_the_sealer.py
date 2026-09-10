@@ -282,6 +282,10 @@ ROW = "Broad gate"
 # `yes` over a verdict table with nothing open in it, and the field that
 # answers *is a finding still open* is the `Pass` box one row down.
 NEEDS = "Needs a fix"
+# The row that answers *has this run ended*: `close` leaves it at its
+# landing value for the next round to set, and its starting value is the
+# state the seal must refuse.
+CHECKED_BY = "Fixes checked by"
 
 PASSING_TEST = "def test_one():\n    assert True\n"
 FAILING_TEST = "def test_two():\n    assert False, 'planted'\n"
@@ -705,6 +709,24 @@ def settled_item(repo):
     return one, two
 
 
+def fixed_but_unread_item(repo):
+    """Round 1 closed on a FIX and no round 2 has run — the window between a
+    fix pass and the verifying round that reads it.
+
+    `close` ticks `Pass` from the verdict table alone, so the box is checked;
+    it writes `Fixes checked by` only when the answer is `no fixes to check`,
+    so a record whose findings closed on fixes keeps the landing value
+    `nobody — the fixes are not yet written` for the NEXT round's `new` to
+    set. Returns the record."""
+    declared(repo)
+    one = generate(repo, 1, OPEN_ROW, "yes — 🔴 1")
+    a = git(repo, "rev-parse", "HEAD").stdout.strip()
+    write(repo, "f.py", "x = 2\n")
+    b = commit(repo, "fix")
+    close_round(repo, 1, f"| 1 | fixed | {b[:7]} |\n", f"{a}..{b}")
+    return one
+
+
 def capped_item(repo):
     """The state a CAPPED run ends in, and the one the seal could not reach.
 
@@ -835,6 +857,52 @@ def test_seal_refuses_while_pass_is_unchecked(repo):
     assert "`Pass` is unchecked" in out and "no cell was written" in out, out
     assert f"`{NEEDS}` is not read here" in out, out
     assert read_bytes(path) == before
+
+
+def test_seal_refuses_while_the_fixes_have_been_read_by_nobody(repo):
+    """Round 1's 🔴 2. The third refusal, and the third answer to one question.
+
+    `Pass` says the verdict TABLE is closed. It does not say the run ended:
+    `close` ticks the box the moment a fix table applies, and the verifying
+    round that reads those fixes has not run yet. Sealing there spends the run
+    in the window `skills/code-review/orchestration.md` calls red — the
+    verifying round's record becomes the last one, its own cell reads `not
+    yet`, and the whole broad run is taken again.
+
+    The row that answers *has this run ended* is `Fixes checked by`, and its
+    starting value is exactly the state that must refuse. `Needs a fix` was
+    the first answer and refused a capped run; `Pass` was the second and lets
+    this through; this is the third and it is not a replacement for the
+    second — the case below asserts both refusals still exist by asserting
+    that a capped record, whose cell reads `no fixes to check`, still seals.
+    """
+    path = fixed_but_unread_item(repo)
+    text = path.read_text(encoding="utf-8")
+    assert "- [x] Pass" in text, "the fixture is not the window this is about"
+    assert fields(text)[CHECKED_BY].startswith("nobody"), text
+    before = read_bytes(path)
+    code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
+    assert code == 2, out
+    assert CHECKED_BY in out and "no cell was written" in out, out
+    assert "verifying round is still owed" in out, out
+    assert read_bytes(path) == before, "the record was written under a refusal"
+
+
+def test_the_capped_run_still_seals_beside_the_third_refusal(repo):
+    """The other half of 🔴 2, and what keeps it from undoing phase 5.
+
+    A capped run closes every finding `deferred <home>`, so `close`
+    re-derives `Fixes checked by` to `no fixes to check` — nothing here
+    commissioned a fix, so nobody owes it a reading. `nobody_reason` returns
+    None for that value and the new refusal does not fire. Asserted rather
+    than argued, because the two rows look alike and a reader who conflates
+    them takes the capped run's seal away again."""
+    path = capped_item(repo)
+    assert fields(path.read_text(encoding="utf-8"))[CHECKED_BY] == "no fixes to check"
+    head = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{head} against base")
+    assert code == 0, out
+    assert fields(path.read_text(encoding="utf-8"))[ROW] == f"{head} against base"
 
 
 def test_seal_refuses_a_sha_the_target_descends_from(repo):
