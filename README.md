@@ -591,7 +591,7 @@ What this does not do is as load-bearing as what it does.
   value is that a `none — <reason>` row is visible to you in the transcript.
 - **"Broad and once" is a rule the agents follow, not a gate.** Nothing stops
   a session from running the full suite mid-round; what exists is the
-  instruction, the warden's audit of the seal, and the `round-N.md` field that
+  instruction, the warden's audit of the smith's seal, and the `round-N.md` field that
   makes a repeat visible. A hook could not tell the difference anyway —
   whether the rounds have settled is not a property of the command being run.
 - **`Fixes checked by: nobody` prints everywhere and fails in one place.** On

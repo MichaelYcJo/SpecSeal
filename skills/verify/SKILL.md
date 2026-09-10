@@ -117,7 +117,7 @@ decision, not an omission.
 
 Evidence attaches to a tree state, not to a session. Note the state the
 proof ran against (commit + dirty files); **any edit after the run breaks
-the seal** — re-run, don't re-tell. Same drift logic the evidence ledger
+your seal** — re-run, don't re-tell. Same drift logic the evidence ledger
 applies to spec coordinates, applied to your own claims.
 
 ### 4. Executed, read, or unverified — labeled
@@ -134,8 +134,34 @@ is the lie this whole skill exists to prevent.
    label `read` or `unverified`, never "should work".
 3. Run fresh; read the FULL output; record exit code and the line that
    proves or refutes (conditions 2–3).
-4. Any claim red or unproven → report the actual state. The seal is
+4. Any claim red or unproven → report the actual state. Your seal is
    withheld, not negotiated.
+
+## Every agent seals what it verified, and one of them is final
+
+**Every agent seals what it verified, and the one seal over the whole project
+is the sealer's.** A smith's proof block is that smith's seal over its own
+slice and is legitimate; a warden's report seals what its review looked at.
+So the word is not overloaded by having many instances. What was missing is
+that one of them is final, and nothing anywhere said so.
+
+Two properties already in the design tell the final one apart, which is why
+they are the two to name rather than some new mark invented for it.
+
+- **Scope.** Every other seal covers what that agent touched. The sealer's
+  covers a tree nobody is still editing — which is why *nothing edits between
+  the broad seal and the PR* is a rule about that one seal and about no other.
+- **Form.** Every other seal is text. The sealer's is the only one drawn, and
+  `broad-gate` prints the disc on success alone, so seeing the drawing means
+  the last seal was earned.
+
+**A bare "the seal" is ambiguous the moment more than one exists, so every
+reference to an INSTANCE names whose** — the smith's seal, the sealer's seal,
+the warden's review mark. The concept and its formats stay bare: the Seal
+Test, a seal block, a counterfeit seal, SpecSeal itself. The shape to watch
+for is a sentence that names one party and leaves the seal anonymous —
+*the warden's audit of the seal* names an auditor and not what is audited,
+and the answer there is the smith's.
 
 ## Scope — cheap and often, broad and once
 
@@ -205,7 +231,7 @@ to CI. That repository's workflows assigned reviewers, deployed on push to the
 default branch, and validated a migration graph. None of them ran the suite,
 the default branch had no protection, and the pre-commit hooks were lint and
 typecheck — on the committer's machine. The deferred suite had no answerer at
-all, and the seal read as though it did.
+all, and the smith's seal read as though it did.
 
 Resolve the answerer before writing the row:
 
@@ -393,7 +419,7 @@ ships assuming somebody else made it. It belongs in `round-N.md` too, where
 the next session actually looks.
 
 The block feeds forward: the smith ends reports with it, the warden audits
-the seal instead of re-deriving it, and the round records carry it across
+the smith's seal instead of re-deriving it, and the round records carry it across
 sessions. A seal the warden cannot audit from the block alone was not a
 seal.
 
@@ -642,7 +668,7 @@ never in a column of it.
 - Satisfaction vocabulary before the run: should, probably, seems, likely.
 - A new test that passed on first run and was never seen red (condition 2).
 - Partial evidence generalized — one endpoint checked, "API works" claimed.
-- A broad run reported as the seal when edits followed it — including the
+- A broad run reported as the sealer's seal when edits followed it — including the
   one small fix made after it.
 - A pre-existing failure counted as this work's, or waved past without
   being named. Both need the base comparison; neither survives it.
