@@ -17,6 +17,7 @@ contract was written to end. That duplication has its own module now,
 nothing in the tree noticed a moved rule being pasted back.
 """
 
+import glob
 import os
 import re
 
@@ -267,6 +268,31 @@ def test_the_prohibition_itself_has_one_home_and_it_is_the_contract():
     )
 
 
+def test_no_definition_promises_the_suite_once_the_rounds_settle():
+    """Round 1, finding 2 of #120. `agents/warden.md` read *§2 keeps the suite
+    out of your hands UNTIL the rounds settle*, which says it becomes the
+    warden's afterwards.
+
+    Under the old §2 that was a harmless imprecision about a prohibition with
+    a holder who was not an agent. Under the new one it is false in a way a
+    reader can act on: the gate goes to whichever definition assigns it, this
+    file assigns none of the three, and `agents/sealer.md` says its file is the
+    only one that does. The hazard is live rather than theoretical --
+    `agents/warden.md`'s own bullet on the broad-gate state puts a reviewer in
+    exactly the moment the sentence appears to release.
+
+    Asserted over the whole glob, not over the one file the finding named,
+    because a temporal release is the shape any definition can pick up while
+    describing a rule it does not hold."""
+    for path in sorted(glob.glob(os.path.join(ROOT, "agents", "*.md"))):
+        text = flat(*os.path.split(os.path.relpath(path, ROOT)))
+        assert "until the rounds settle" not in text.lower(), (
+            f"{os.path.basename(path)} promises the suite once the rounds "
+            "settle. §2 has no such release for anyone: an agent takes the "
+            "broad gate when its own definition assigns it, and never later"
+        )
+
+
 def test_the_warden_audits_the_scope_of_a_seal():
     """What stayed with the reviewer: the audit, which is nobody else's.
 
@@ -340,6 +366,47 @@ def test_the_broad_gate_state_survives_a_handoff():
     )
     assert "broad gate:" in read("skills", "verify", "SKILL.md"), (
         "the seal block stopped carrying the state the record needs"
+    )
+
+
+def test_the_reviewer_carries_the_gate_state_into_a_section_its_report_has():
+    """Round 1, finding 3 of #120, and it is two defects in one sentence.
+
+    `agents/warden.md` told the reviewer to carry the broad-gate state into
+    `round-N.md`, which is a record §6 forbids it to write -- forty lines after
+    the same file says the report and the parity mark are the two writes it
+    names and there is no third. And the destination it did name has no field:
+    the report's tables are `## Verdicts`, `## Executed probes` and
+    `## Deferred`, and the file's own rule is that an answer the report format
+    has no field for is a decision that lives in a transcript.
+
+    `## Executed probes` is the section that has a row for it, and it is one
+    `round_record.py new` parses and copies into the record, so the state
+    reaches the record by the route §6 already permits.
+
+    The second half is newer than the finding's first: the `Broad gate` cell
+    now has a named owner one file over, and two definitions naming one cell is
+    exactly the state §6's rewrite exists to make impossible."""
+    warden = flat("agents", "warden.md")
+    assert "Carry the broad-gate state into your report" in warden, (
+        "the reviewer is told to write the state into a record again, which "
+        "§6 does not name among its writes"
+    )
+    assert "under `## Executed probes`" in warden, (
+        "the destination lost the section that has a row for it, and an "
+        "answer with no field is a decision that lives in a transcript"
+    )
+    assert "`Broad gate` cell itself is not yours" in warden, (
+        "the reviewer stopped being told the cell has another owner, so two "
+        "definitions name one cell"
+    )
+    # The named section has to be one the generator actually reads, or the
+    # redirect moves the answer somewhere the record never sees.
+    assert 'PROBES = "## Executed probes"' in read(
+        "skills", "code-review", "scripts", "round_record.py"
+    ), (
+        "the generator no longer parses the section the definition sends the "
+        "state to, so the state stops at the report"
     )
 
 

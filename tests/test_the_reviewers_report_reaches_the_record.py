@@ -287,6 +287,22 @@ def test_the_warden_counts_its_writes_rather_than_its_exceptions():
         "the pre-#120 wording is back. §6 carves no exceptions now, so a "
         "definition citing one points at a paragraph that does not exist"
     )
+    # Round 1, finding 9: the branch corrected the two coordinates a reader
+    # would land on and left the bullet's own TITLE and its closing
+    # back-reference speaking the old vocabulary. The back-reference is the
+    # sharper of the two -- it sends a reader to a section for a word that
+    # section no longer contains.
+    assert "§6's writes are yours by name" in warden, (
+        "the bullet's title still calls them §6's instances, which is the "
+        "word for a rule that carves cases out of a prohibition"
+    )
+    assert "one of the two writes this file names and not a general" in warden, (
+        "the closing back-reference points at §Role for the word `exception`, "
+        "and §Role no longer contains it"
+    )
+    assert "is one exception" not in warden, (
+        "the old back-reference is back, and it names a mechanism §6 dropped"
+    )
 
 
 def test_the_warden_is_told_its_report_is_now_scanned_like_any_tracked_file():
