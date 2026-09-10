@@ -30,6 +30,9 @@ import shutil
 import subprocess
 import sys
 
+import pytest
+from conftest import shell_probe
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, ".github", "scripts", "claude_block.py")
 TEMPLATE = os.path.join(ROOT, "templates", "claude-md-block.md")
@@ -328,7 +331,17 @@ def test_install_sh_reads_the_template():
 
 def test_install_sh_puts_the_template_block_into_a_fresh_target(tmp_path):
     """S7, executed: `bash install.sh <scratch target>` and the file read
-    afterwards. The block in the target is the template's block."""
+    afterwards. The block in the target is the template's block.
+
+    `install.sh` is a POSIX installer a person runs from a clone, and a
+    `windows-latest` runner has no shell to run it: `bash` on its PATH is
+    the WSL launcher with no distribution installed (PR #329, run
+    34426711135). Asked of the shell rather than of the platform name --
+    `shell_probe` runs it -- so the case still runs wherever somebody has
+    a real bash, Windows included."""
+    why = shell_probe("bash")
+    if why:
+        pytest.skip(f"bash: {why} -- `install.sh` is a shell script")
     target = tmp_path / "probe-CLAUDE.md"
     out = subprocess.run(
         ["bash", INSTALL, str(target)],
@@ -343,7 +356,13 @@ def test_install_sh_puts_the_template_block_into_a_fresh_target(tmp_path):
 
 def test_install_sh_replaces_an_older_block_from_the_template(tmp_path):
     """The update path: a target already holding a block gets the template's
-    block in its place, and its own text on either side stays."""
+    block in its place, and its own text on either side stays.
+
+    Skipped where no working shell answers, for the reason the case above
+    gives."""
+    why = shell_probe("bash")
+    if why:
+        pytest.skip(f"bash: {why} -- `install.sh` is a shell script")
     target = tmp_path / "CLAUDE.md"
     stale = read(TEMPLATE).replace("## Tooling", "## Tooling (old)")
     assert stale != read(TEMPLATE)
