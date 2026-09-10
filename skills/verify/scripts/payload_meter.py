@@ -83,7 +83,8 @@ ASSUMED_RATIO = 3.2
 
 BASELINE_AGENT = "general-purpose"
 
-HEADING = re.compile(r"^#{2,3} ", re.MULTILINE)
+HEADING = re.compile(r"^#{2,3} ")
+FENCE = re.compile(r"^\s*(```|~~~)")
 AGENT_ID = re.compile(r"\bagentId:\s*([0-9a-f]+)")
 
 
@@ -137,10 +138,26 @@ def read(path):
     return raw, raw.decode("utf-8", errors="replace")
 
 
+def heading_starts(text):
+    """Offsets of every `##` / `###` heading outside a code fence. A skill
+    quotes headings as examples, and an example is not a section — the rule
+    `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py`
+    applies before it reads a marker, applied here before a byte count is
+    put beside a heading somebody may trim."""
+    starts, offset, fenced = [], 0, False
+    for line in text.splitlines(keepends=True):
+        if FENCE.match(line):
+            fenced = not fenced
+        elif not fenced and HEADING.match(line):
+            starts.append(offset)
+        offset += len(line)
+    return starts
+
+
 def sections_of(text):
     """The file split at its `##` / `###` headings, each piece's own size.
     The pieces sum to the file: every byte belongs to exactly one."""
-    starts = [m.start() for m in HEADING.finditer(text)]
+    starts = heading_starts(text)
     bounds = [0, *starts, len(text)]
     out = []
     for begin, end in itertools.pairwise(bounds):

@@ -690,6 +690,27 @@ def test_a_lent_ratio_keeps_the_spawn_it_was_measured_from(meter, tmp_path):
     assert "## Delta against after.json" in meter.render(again)
 
 
+def test_sections_do_not_split_at_a_heading_inside_a_fence(meter, tmp_path):
+    """Round 1, finding 2. A skill quotes headings as examples inside a
+    fence, and `--sections` listed four of `agents/warden.md`'s fenced
+    template headings as sections with real byte counts — a number that
+    sends #120 to cut an example. The check one file over already reads a
+    fence as a quotation; the meter reads it the same way, and the pieces
+    still sum to the file."""
+    text = (
+        "# alpha\n\nintro\n\n## First\n\nreal\n\n```markdown\n## Example\n"
+        "### Nested example\n```\n\n~~~\n## Tilde example\n~~~\n\n## Second\n\nlast\n"
+    )
+    pieces = meter.sections_of(text)
+    assert [p["heading"] for p in pieces] == [
+        "(before the first heading)",
+        "## First",
+        "## Second",
+    ], [p["heading"] for p in pieces]
+    assert sum(p["bytes"] for p in pieces) == len(text.encode("utf-8"))
+    assert sum(p["chars"] for p in pieces) == len(text)
+
+
 def test_the_delta_lists_an_agent_the_baseline_has_and_the_tree_lost(meter, tmp_path):
     root, home = a_tree(tmp_path, extra_agent=True)
     before = meter.measure(str(root), str(home))
