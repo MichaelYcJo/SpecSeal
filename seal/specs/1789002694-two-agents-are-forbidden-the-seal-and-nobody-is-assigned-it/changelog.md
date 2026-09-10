@@ -102,8 +102,10 @@
   places saying the run was the orchestrator's, or saying only who was
   forbidden it: two agent definitions, `CONTRIBUTING.md`, the review-chain
   specification, the handoff protocol, the review orchestration skill, the
-  `verify` skill, the round-record template and the runner's own comment.
-  All of them now say the sealer's and name the definition that assigns it.
+  `verify` skill, the round-record template, and the suite runner —
+  both the `bin/test` wrapper and the module it runs, which are one command
+  and were two owners until round 1 found the second. All of them now say
+  the sealer's and name the definition that assigns it.
   Two of the places were not documents at all but the failure messages the
   chain check prints at a refused pull request — the one place a person
   actually reads the instruction — and both now say to spawn the sealer

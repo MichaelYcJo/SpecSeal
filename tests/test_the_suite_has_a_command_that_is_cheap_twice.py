@@ -144,6 +144,29 @@ def test_every_posix_wrapper_resolves_its_own_directory(entry):
     assert '"$@"' in text, f"bin/{entry} does not pass its arguments through"
 
 
+def test_the_runner_behind_the_wrapper_says_the_same_thing():
+    """Round 1's 🟡 7. `bin/test` is five lines and one `exec` into
+    `.github/scripts/run_tests.py`.
+
+    #30 re-pointed the wrapper's comment from `orchestrator` to `sealer` and
+    left the module it runs saying the other thing — one command, two files,
+    two owners, which is the §12 class this branch already knows
+    `survivor-check` cannot reach. The changelog claimed *the runner's own
+    comment … all of them now say the sealer's*, true of the wrapper and
+    false of the runner.
+
+    Nothing pinned this docstring: the case above reads `bin/test`, and the
+    negative pin in `tests/test_the_seal_is_taken_once_by_the_sealer.py` is
+    applied to the two agent definitions only."""
+    runner = read(os.path.join(ROOT, ".github", "scripts", "run_tests.py"))
+    assert "is the sealer's, run once after" in runner, (
+        "the file `bin/test` execs no longer says whose the full suite is"
+    )
+    assert "is the orchestrator's" not in runner, (
+        "the wrapper and the module it runs name two different owners for one command"
+    )
+
+
 def test_the_wrapper_points_at_the_contract_rather_than_inviting_a_full_run():
     """`bin/test` with no arguments runs a five-minute suite that
     `skills/agent-contract/SKILL.md` §2 forbids to smith and warden. The file
