@@ -40,6 +40,29 @@ releases' worth of work. 0.8.3 shipped three of eight, and carrying five
 forward was the call rather than the failure. The sections below group a
 ticket set that will be one branch as one row.
 
+## 0.11.0 — the framer
+
+**Moved out of 0.10.0 on 2026-09-10, on the owner's call, once #30 had merged
+and #120 was the release's last item.** A release is sized in work items and
+three is the size; 0.10.0's two were large — 43 files and 48 files — and this
+one adds a fifth agent, a channel a phase hands the next one, and a `Planning`
+row in `routing.md`. It earns its own release rather than a fourth slot.
+
+**What the move costs is that the contract is settled at four agents and not
+five**, and 0.10.0's section says why that holds. What it buys is that the
+framer arrives against a contract whose §6 already reads *what you write is
+named in your own definition* — so the agent that writes three durable records
+meets a rule that permits them, instead of arriving as the fourth exception to
+a sentence that forbids them.
+
+- [ ] **#84 — `framer` writes the frame the smith fills**, so the writer of the contract is not its executor. Needs #121's phase channel — a framer that draws the plan and never authors the half of a phase prompt only building can teach is a partial answer.
+
+**And the owner's decision of 2026-09-10 goes with it**: `routing.md` gains a
+`Planning` row, `framer` · `the session`, the shape the `Implementation` row
+already has. #88 is the near neighbour to read first — it asks how the routing
+question says *all of them* — because a fourth checkbox and a preset over the
+three are answers to the same question.
+
 ## 0.10.1 — the three 0.9.5 planned and did not reach
 
 Moved here on 2026-09-10, when 0.9.5 was cut at five: eight was over the size,
@@ -52,7 +75,10 @@ rather than a detour from it. What the order costs is written down rather than
 left to be discovered: #103 makes the two defect shapes only Windows catches
 visible without Windows, and 0.10.0 widens exactly that surface — five agent
 definitions and new record paths are all path-spelling candidates — so 0.10.0
-will learn about them at its own pull request. #198 protects the measurement
+will learn about them at its own pull request. **It did, three times, and the
+local gate found none of them**: a path helper that raises across drives, two
+`bin/` wrappers a shebang makes unrunnable there, and a `skipif` standing in
+front of a third. The row below is what stops the fourth release paying it. #198 protects the measurement
 of a cycle, and the cycle that changes the agent set from three to five is the
 one with most to measure.
 
@@ -64,6 +90,9 @@ first release that can read them rather than the first that could have.
 - [ ] #198 — a release closes its flow-measurement log with nothing written in it, and nothing notices. It sits with these because #145 and #149 are the two tickets that eat the data it protects, and this is the release they land in.
 - [ ] #330 — every rule an agent follows arrives by mechanism, and every rule the orchestrator follows arrives as a sentence it has to remember. The repository has already run the experiment on itself: three acts that were sentences were given a command and stopped being forgotten, and the three still written as sentences each have a measured miss — the broad gate, the flow-log posting, and the routing question, which was broken by a session that had the one-batch rule loaded. Opened during 0.10.0's first two work items, and it sits here because #30 closes the first instance and is the template: what is left is whether the shape generalises to acts that need a person, which a command can print a question for but cannot ask.
 - [ ] #331 — every ambiguous word this repository has fixed was found by a person reading, one at a time. `tests/test_one_word_one_meaning.py` holds five of them, and `seal` is the sixth: it named the warden's review mark, the sealer's stamp and the smith's proof block at once, and it turned up in conversation rather than through anything in the tree. Nothing enumerates the seventh. The census in the ticket reads 968 twelve-word runs shared across two or more of `skills/`, `agents/` and `docs/` — an upper bound and not a defect count, because this repository's own rule has one carrier state a rule and every other quote enough of it to name the owner, so a link is right and a restatement is the defect, and the sweep has to tell them apart. **It sits here rather than in 0.10.0 because the census has to be taken after the agent set settles**: a sweep run while two of the five definitions do not exist and #120 is about to re-home a third of the contract decides every word twice. The fifth agent is also what made the sixth word visible — `seal` read one way while the warden was the only agent keeping one.
+- [ ] #333 — a depth-2 refusal names the finding and the unit by file alone. It stopped the right commit for the wrong reasons: the message sent a reader to a unit it must keep. Opened by #30's round-2 fix pass, which measured the cause in `depth_two`'s own walk.
+- [ ] #334 — the gate reads a literal another package prints, and changing that print turns nothing red. Measured at 130 passed with the two ends disagreeing. Nothing is wrong today; what is missing is the thing that would notice.
+- [ ] #335 — `seal` accepts a `round-N` checker whose shape is right and whose position on a last record makes it false, and writes the cell before the chain check refuses it. The three of these are what 0.10.0's own review chain opened, which is the rate this list should be read at.
 - [ ] #149 — a record says what a segment cost and not what its output cost the next reader. #137's second half. Five candidate signals and no evidence which of them survive contact: surviving mutations, defects the next round found inside this segment's output, `New units` depth, fix passes needed, and divergences from the plan.
 
 ## 0.10.0 — the agent set
@@ -85,7 +114,17 @@ Both are true at once, and only one reading makes them so: **#120 lands before
 either of the two above is RELEASED, not before either is BUILT.** So the
 sequence inside the release is
 
-> #292's meter · #30 · #84 · then #120 settled against all five agents.
+> #292's meter · #30 · then #120 settled against the four agents that exist.
+
+**#84 left this release on 2026-09-10, after #30 merged, and #120 is what
+made that safe.** The sequence above read *all five agents* while the framer
+was still in it. What #120 settles is §2 and §6, and its own proposal for §6
+— *what you write is named in your own definition and nothing else* — is true
+of any agent, including one that does not exist yet. §2's contradiction is
+the sealer's alone. So settling against four costs the framer nothing when it
+arrives, and holding #120 back until it did would ship a release whose
+contract forbids an agent's one act. `agents/sealer.md` names that ticket in
+a section of its own, which is the debt this release has to discharge.
 
 The meter first because a before-and-after number is the only thing that says
 whether #120's trimming worked, and #120 last because a contract scoped
@@ -95,8 +134,7 @@ once — it specified `docs/agent-contract.md`, and
 that the location cannot work.
 
 - [x] **#30 — `sealer` owns the one full-suite run.** Today the smith and the warden are both forbidden it and nobody is assigned it.
-- [ ] **#84 — `framer` writes the frame the smith fills**, so the writer of the contract is not its executor. Needs #121's phase channel — a framer that draws the plan and never authors the half of a phase prompt only building can teach is a partial answer.
-- [ ] **#120 — the agent contract is settled against five agents rather than three, and it lands before either of the two above is released.** Three of its sixteen sections apply to all five; §2 forbids the broad gate the sealer exists to run, and §6 forbids the durable record the framer and the sealer both write. A release that ships five agents under a contract contradicting two of them is the release that teaches readers the contract has exceptions.
+- [ ] **#120 — the agent contract is settled against the four agents that exist rather than three, and it lands before the two above are released.** Three of its sixteen sections apply to all five; §2 forbids the broad gate the sealer exists to run, and §6 forbids the durable record the framer and the sealer both write. A release that ships five agents under a contract contradicting two of them is the release that teaches readers the contract has exceptions.
 - [x] **#292 — a payload is written again on every spawn, and nothing measures which of it the agent acts on.** Measured 2026-09-09 over 49 subagent spawns: `cache_creation` of 40,259–75,737 tokens on every one of them, with `cache_read` a constant that covers only the harness prefix — so an agent's own payload, its definition and the skill bodies its `skills:` list injects, is not amortised across spawns. **It is fourth and its meter comes before the third's trimming**, because #120 removes sections from a payload and a before-and-after number is what says whether that worked. `implement` is the largest payload now — 46,249 B of `smith`'s 113,633, where #265 measured `code-review` and left it at 78,109 for the warden. **Built, and two things #120 reads before it trims.** The payload IS cached across spawns of one agent, for five minutes, and re-written on every spawn further apart than that — which in a chain is every one, so the sentence above is narrower than it reads (`seal/specs/1788993115-a-payload-is-written-again-on-every-spawn/spec.md` §*Measured before the first edit*). And every per-file token figure the meter prints is an estimate from a per-agent ratio — 2.87, 3.41 and 3.44 B/token for smith, warden and scribe — until that work item's `questions.md` Q4 probe, one agent definition per file spawned once, replaces it; a measured after-number needs a spawn taken after the trim, and given none the meter keeps the before-ratio and says so.
 
 **Which delegate a step goes to, and the one question that decides it.**
