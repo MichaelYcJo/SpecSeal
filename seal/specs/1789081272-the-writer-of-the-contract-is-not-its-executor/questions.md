@@ -1,0 +1,17 @@
+# the writer of the contract is not its executor — questions for the planner
+
+<!-- Written in the shape phase 3 gives `templates/sdd-questions.md`, one
+column ahead of the template. That is a deliberate divergence and it is the
+work item's own dogfood: the ticket's second correction says the file holds
+three kinds of question and cannot tell them apart, and this frame's own rows
+are two kinds. Phase 3 brings the template here; nothing has to bring this
+file to the template. -->
+
+| # | Question | Who can answer | Options & what each implies | Default until answered | Status |
+|---|---|---|---|---|---|
+| Q1 | Does the `Planning` axis get a mark under the git dir, the parallel of `hooks/implementer.py`, or is a `spec.md` in the tree trace enough? | **a person** — it is a decision about how much mechanism an axis is worth, and both answers are defensible | **No mark** (the default): the ladder decides when the framer runs, so a declared `framer` that never ran is a session that also wrote no `spec.md`, which the ladder already makes visible. **A mark**: the `Implementation` row earned one because a session can declare `smith` and build the work itself; if a session can declare `framer` and frame the work itself, the same gap is open and the same one line after a commit closes it | No mark. `spec.md` §Scope/Out states the grounds, and adding one later is additive — a hook, a module and a case, with no change to the declaration | ⬜ |
+| Q2 | Does the framer's report to the orchestrator name the questions it opened, or does the orchestrator read `questions.md`? | **a measurement** — one spawn answers it, and a person's opinion is the wrong instrument. #263 measured the dominant cost of a delegate as re-reading what the frame should already contain; whether a report that restates its own file is that cost or a saving is a token count, not a preference | **In the report**: the orchestrator asks the person without opening a file. **A pointer**: the report names the path and the count, and the orchestrator opens it | The report names the path and the count. It is the shape `agents/sealer.md`'s report already has, and §5 says an aggregate is not a coordinate — so a count with a path beside it is the honest form of both | ⬜ |
+| Q3 | Where does a *no* go when the smith reads the frame and the frame does not hold? | **the work** — unknowable at framing time, met by the phase that meets it. #107's phase 1 met it twice and declined it as the spec's to settle; phase 3 decided it and recorded a divergence row | Back to the framer · into `questions.md` · a divergence row in the phase record · straight into the hand-back | The phase record's `## What this phase found`, plus the hand-back. `templates/sdd-phase.md` already exists for exactly this and #121 built it; a route back to the framer is a second interruption the ticket's own flow forbids | ⬜ |
+
+Answered rows feed back into docs/ (policy clause or open-questions section)
+before this directory's work merges.
