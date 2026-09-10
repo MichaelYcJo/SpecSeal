@@ -30,6 +30,13 @@ The region is cut the way `install.sh`'s `awk` cuts it: from the line holding
 the start marker through the line holding the end marker, inclusive. Both
 files go through the same cut, so a template that someday carries a comment
 above its markers still names the same bytes the installer ships.
+
+Line endings are the target's. A checkout with `autocrlf=true` holds
+`CLAUDE.md` with CRLF endings; the two blocks are compared without their
+endings, and `--write` gives the template's lines the ending the target
+already has, so nothing outside the region moves -- reading and writing with
+newline translation used to turn every line of the file into the platform's
+ending, the block and the owner's rules below it alike (#292 round 1).
 """
 
 import argparse
@@ -101,11 +108,24 @@ def region(lines):
 
 
 def read_lines(path, what):
+    """The file's lines with the endings they have on disk: `newline=""`
+    turns nothing into `\\n`, so a CRLF target is read as CRLF."""
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8", newline="") as f:
             return f.read().splitlines(keepends=True)
     except OSError as exc:
         raise NoBlock(f"cannot read the {what} at {shown(path)}: {exc}") from exc
+
+
+def bare(line):
+    """The line without its ending, which is what two copies are compared
+    on: a CRLF checkout carries the same block as an LF one."""
+    return line.rstrip("\r\n")
+
+
+def ending_of(lines):
+    """The ending a file uses -- CRLF when any line has one, else LF."""
+    return "\r\n" if any(line.endswith("\r\n") for line in lines) else "\n"
 
 
 def block(lines):
@@ -124,7 +144,7 @@ def first_difference(wanted, found):
     shape, and a mutation sweep found it dead.
     """
     for i in range(min(len(wanted), len(found))):
-        if wanted[i] != found[i]:
+        if bare(wanted[i]) != bare(found[i]):
             return i, wanted[i], found[i]
     return None
 
@@ -137,7 +157,7 @@ def shown(path):
 
 
 def quote(line):
-    return line.rstrip("\n")
+    return bare(line)
 
 
 def check(template_path, target_path, out):
@@ -167,10 +187,11 @@ def write(template_path, target_path, out):
     target = read_lines(target_path, "target")
     first, last = region(target)
     template, copy = shown(template_path), shown(target_path)
+    wanted = [bare(line) + ending_of(target) for line in wanted]
     if target[first : last + 1] == wanted:
         out.write(f"{NAME}: {copy} already carries the block; nothing written\n")
         return 0
-    with open(target_path, "w", encoding="utf-8") as f:
+    with open(target_path, "w", encoding="utf-8", newline="") as f:
         f.write("".join(target[:first] + wanted + target[last + 1 :]))
     out.write(f"{NAME}: wrote the block from {template} into {copy}\n")
     return 0

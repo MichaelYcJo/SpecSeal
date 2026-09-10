@@ -165,6 +165,49 @@ def test_write_restores_the_copy_and_touches_nothing_outside_the_markers(tmp_pat
     assert outside == before.split(END, 1)[1]
 
 
+def test_write_keeps_the_targets_line_endings(tmp_path):
+    """Round 1, finding 6. A checkout with `autocrlf=true` holds `CLAUDE.md`
+    with CRLF endings. The script read with newline translation and wrote
+    with it, so `--write` turned every line of the file into the platform's
+    ending, outside the block included -- 153 CRLF lines to 0 on macOS, and
+    an LF file to CRLF on Windows, a whole-file diff from the one command the
+    check's message names. The case above compares through universal
+    newlines and cannot see this; this one compares bytes."""
+    template, target = copies(tmp_path)
+    with open(target, "rb") as f:
+        lf = f.read()
+    assert b"\r\n" not in lf, "the fixture is CRLF already; the case needs an LF copy"
+    crlf = lf.replace(b"\n", b"\r\n")
+    with open(target, "wb") as f:
+        f.write(crlf)
+    assert run("--check", "--template", template, "--target", target).returncode == 0, (
+        "a CRLF copy of the same block is a disagreement"
+    )
+    # One byte flipped inside the block, in binary so the endings stay: the
+    # last character of the first heading after the start marker.
+    heading = crlf.index(b"\r\n## ", crlf.index(START.encode())) + 2
+    stop = crlf.index(b"\r\n", heading)
+    flipped = crlf[: stop - 1] + bytes([crlf[stop - 1] + 1]) + crlf[stop:]
+    assert flipped != crlf and flipped.count(b"\r\n") == crlf.count(b"\r\n")
+    with open(target, "wb") as f:
+        f.write(flipped)
+    assert run("--check", "--template", template, "--target", target).returncode == 1
+    out = run("--write", "--template", template, "--target", target)
+    assert out.returncode == 0, out.stdout + out.stderr
+    with open(target, "rb") as f:
+        after = f.read()
+    before_count, after_count = crlf.count(b"\r\n"), after.count(b"\r\n")
+    assert after_count == before_count, (
+        f"`--write` rewrote the endings: {before_count} CRLF lines before, "
+        f"{after_count} after"
+    )
+    assert after.split(END.encode(), 1)[1] == crlf.split(END.encode(), 1)[1], (
+        "bytes after the end marker changed"
+    )
+    assert after == crlf, "`--write` did not restore the CRLF file byte for byte"
+    assert run("--check", "--template", template, "--target", target).returncode == 0
+
+
 def test_an_edit_outside_the_markers_is_not_a_disagreement(tmp_path):
     """The rules below the block are the repository's own. The check reads
     the marker region and nothing else, or every edit to a house rule would
