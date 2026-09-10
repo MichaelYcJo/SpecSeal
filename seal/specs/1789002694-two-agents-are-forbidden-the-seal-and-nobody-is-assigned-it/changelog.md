@@ -53,10 +53,48 @@
   `close` a fix table with a header and no rows — which nobody would think to
   do. `seal` is that path with a name. It takes no fix table, reads no verdict
   row, changes the last record's `Broad gate` cell and nothing else, and
-  refuses before writing anything when the rounds have not settled, when a
-  finding is still open, or when the run was taken before the round it would
+  refuses before writing anything when a finding is still open in the last
+  record's verdict table, or when the run was taken before the round it would
   seal. `close --broad-gate` still works for the one pass where fixes and the
   gate land together. (#30)
+- **A review run that ends at its cap can now be sealed, and could not
+  before.** The review chain is bounded — three rounds, five while a red
+  finding is open — and a run that reaches the bound closes what is left by
+  deferring it, to an issue or to the follow-up list. That produced a state
+  with no way out: the record's `Pass` box came out checked, because deferring
+  a finding closes it, while the reviewer's own `Needs a fix` line still read
+  `yes` from when the round was running, and nothing rewrites what the
+  reviewer wrote. The seal refused on that line, so the cell recording the
+  broad run could not be written, and the pull-request check then failed the
+  branch for a missing cell nothing was able to write. Two rules of the
+  workflow contradicted each other, over exactly the case the cap exists for.
+  **The seal now asks the verdict table instead of the reviewer's line**: a
+  record with nothing still open has ended its run, however the round felt
+  while it was running. The other two refusals are unchanged, and the message
+  a person sees when a finding really is open now says which of the two rows
+  was read. (#30)
+- **"After the rounds settle" now names the row a machine already reads.** A
+  work item has build phases with a progression of their own and a review
+  chain with its own rounds, so the phrase named neither and every reader had
+  to guess which. The condition is the last round record's `Pass` box, checked
+  — nothing in its verdict table still open — and the `verify` skill states it
+  with the reason the box is the row rather than `Needs a fix`. The two agent
+  definitions that act on it, the sealer's own definition and the review
+  orchestration skill each name the row and point at that section. The proof
+  block's `broad gate` line asks for the same thing. (#30)
+- **One word named three different things, and now every reference says
+  whose.** `seal` meant the mark recording that a review happened, the stamp
+  the broad gate prints, and a smith's own proof block — the first two in the
+  two agent definitions a reader opens side by side. The rule that resolves it
+  is not fewer seals: **every agent seals what it verified, and the one seal
+  over the whole project is the sealer's.** The `verify` skill states that and
+  names the two things that already tell the final one apart — it covers a
+  tree nobody is still editing, and it is the only seal that is drawn, which
+  is why the picture prints on success alone. The warden's definition now
+  names what it actually keeps, the review mark, and the rule that a document
+  naming a thing more than one party can have says whose is written down in
+  the `writing-style` skill, so the next such word does not need its own
+  conversation. (#30)
 - **The rule now names its owner everywhere it is stated.** It stood in nine
   places saying the run was the orchestrator's, or saying only who was
   forbidden it: two agent definitions, `CONTRIBUTING.md`, the review-chain

@@ -44,10 +44,10 @@ and the failing checks with their first lines, no drawing.
 
 `--record <item>` runs `round_record.py seal` on success, which sets the LAST
 record's `Broad gate` cell and nothing else. With `--record`, success is the
-checks green AND the cell written: a refusal from `seal` (the rounds have not
-settled, `Pass` is unchecked, the SHA is premature) is exit 2 and no stamp,
-because a seal over a record that says the run came too early is a stamp
-over a contradiction.
+checks green AND the cell written: a refusal from `seal` (the last record's
+`Pass` is unchecked, so a finding is still open; or the SHA is premature) is
+exit 2 and no stamp, because a seal over a record that says the run came too
+early is a stamp over a contradiction.
 
 Usage:
   broad-gate --base <ref> [--root DIR] [--record <item>] [--shape]

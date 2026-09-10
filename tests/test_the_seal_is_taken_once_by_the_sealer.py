@@ -15,7 +15,7 @@ its absence is a refusal with nothing run; every check runs in order and its
 exit code is read directly; a failing test is compared against the base in a
 scratch worktree, reactively, and reported as `new` or `failing on base
 too`; the stamp prints on success only; and the one write sets the last
-record's cell and nothing else, refusing while the rounds have not settled.
+record's cell and nothing else, refusing while its `Pass` box is unchecked.
 
 Part 3 — the agent and the owner sentences — arrives with the phase that
 builds them.

@@ -64,8 +64,8 @@ Three outcomes, and they are not two:
   a word saying *not* is two things disagreeing where one answer is needed.
 - **Exit 2, refused, and nothing ran** — the repository declares no `Broad
   gate` row and the gate names the row to write; or the base does not
-  resolve; or, with `--record`, the record refused the cell because the
-  rounds have not settled.
+  resolve; or, with `--record`, the record refused the cell because its
+  `Pass` box is unchecked and a finding is still open.
 
 **"After the rounds settle" is a row rather than a moment, and you are spawned
 against the row.** It is the last `rounds/round-N.md`'s `Pass` box, checked —
@@ -92,10 +92,10 @@ that holds it. This paragraph is that naming.
 **You write one cell: `Broad gate`, on the last round record of the item.**
 `broad-gate --record` makes the write by calling `round_record.py seal`, which
 sets that cell and leaves every other line of the file byte for byte as it
-was, and which refuses outright while the rounds are still open — the last
-record asking for a fix, its `Pass` box unticked, or a commit the record's own
-target already descends from, which would be a run spent before the round it
-claims to seal.
+was, and which refuses outright on two things — the last record's `Pass` box
+unticked, which is a finding still open in its verdict table, or a commit the
+record's own target already descends from, which would be a run spent before
+the round it claims to seal.
 
 You do not open the record, edit it, or write any other file. Where the cell
 would need a value that subcommand will not write, that is something to
