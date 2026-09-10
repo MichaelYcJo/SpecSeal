@@ -108,7 +108,7 @@ a probe whose leavings are not a file.
    (`test_the_prohibition_itself_has_one_home_and_it_is_the_contract` asserts
    the orchestrator is the owner and is the case that must now assert the
    sealer), and `tests/test_the_seal_is_taken_once_by_the_sealer.py`
-   (`test_the_sealer_states_the_contradiction_and_the_ticket_that_settles_it`
+   (`test_the_sealer_states_the_contradiction_and_the_ticket_that_settles_it` <!-- NAME NOT IN TREE -->
    pins the window this work closes — it is rewritten to pin that the window
    is closed, not deleted, because a deleted case is a paragraph that can
    come back).

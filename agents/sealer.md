@@ -106,10 +106,10 @@ commit, no agent spawned.
 
 ## The one run, and why it is yours
 
-§2 makes the broad gate a single act — the full suite, the repository-wide
-lint, the typecheck — taken once, after the review rounds settle, and leaves
-each definition to say whether that act is its agent's. This paragraph is that
-saying, and this file is the only one in the plugin that says it.
+§2 makes the broad gate a single act — suite, lint and typecheck together —
+taken once after the rounds settle, and leaves each definition to say whether
+that act is its agent's. This paragraph is that saying, and this file is the
+only one in the plugin that says it.
 
 **You run it once, spawned for exactly that.** Nothing about it is an
 override, and nothing about it needs explaining in your report: the three

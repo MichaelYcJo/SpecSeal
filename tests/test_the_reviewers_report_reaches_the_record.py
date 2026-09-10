@@ -260,6 +260,35 @@ def test_the_warden_is_told_where_to_leave_the_report():
     assert "return that path" in warden or "returns that path" in warden
 
 
+def test_the_warden_counts_its_writes_rather_than_its_exceptions():
+    """§14 again, on the same bullet, after #120 rewrote §6.
+
+    §6 used to say an agent writes no durable record and carve the exceptions
+    into the definitions that held them; it now says what an agent writes is
+    named in its own definition and nothing else. Under that sentence the
+    report and the parity mark are not exceptions to anything -- they are the
+    two writes this file names -- and a definition still calling them
+    exceptions sends a reviewer looking in the contract for a permission that
+    is only ever in its own file.
+
+    The bound is what the word `exceptions` used to carry and the reason this
+    is pinned rather than left to reading: a list of two invites a third, and
+    the only thing that refuses one is the definition saying there is none."""
+    warden = " ".join(read(*WARDEN).split())
+    assert "the two writes this file names" in warden, (
+        "the reviewer's two durable writes stopped being named as its own, "
+        "so §6 grants them from nowhere"
+    )
+    assert "there is no third" in warden, (
+        "the bound went. Two writes named with no bound reads as a list a "
+        "later edit may extend, which is what §6 stopped permitting"
+    )
+    assert "two exceptions" not in warden, (
+        "the pre-#120 wording is back. §6 carves no exceptions now, so a "
+        "definition citing one points at a paragraph that does not exist"
+    )
+
+
 def test_the_warden_is_told_its_report_is_now_scanned_like_any_tracked_file():
     """§14: the cost this convention added, stated where the reviewer reads it.
 

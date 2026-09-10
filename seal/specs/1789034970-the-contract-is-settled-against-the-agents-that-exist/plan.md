@@ -54,7 +54,7 @@ a coordinate, not evidence.
   state `test_the_definition_names_the_sealer_as_the_suites_owner` already
   refuses one file over.
 - `tests/test_the_seal_is_taken_once_by_the_sealer.py:1626` —
-  `test_the_sealer_states_the_contradiction_and_the_ticket_that_settles_it`
+  `test_the_sealer_states_the_contradiction_and_the_ticket_that_settles_it` <!-- NAME NOT IN TREE -->
   pins the window paragraph. `section(number)` at `:1505` reads §2 and §6
   from the contract rather than typing them, so
   `test_the_sealer_cites_the_section_without_carrying_it` (`:1661`) checks
