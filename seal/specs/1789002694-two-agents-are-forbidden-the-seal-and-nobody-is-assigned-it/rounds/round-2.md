@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 332 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | quote → main, round-1-report.md, round-1.md, round-2-asked.md, round-2-report.md, round-2.md, quote, compare_at_base, pytest |
 | New units | SCALE_NOT_A_NUMBER (depth 1); SEAL_EXCLUDED (depth 1); test_a_path_is_quoted_for_the_shell_of_either_platform (depth 1); set_checked_by (depth 1); test_seal_refuses_a_fixes_checked_by_that_is_outside_the_vocabulary (depth 1); test_the_refusal_names_the_three_values_the_row_holds (depth 1) |
 | Needs a fix | yes — 🟡 11, 🟡 12, 🟡 13 and 🟡 14 |
