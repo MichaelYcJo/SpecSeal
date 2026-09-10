@@ -1628,6 +1628,42 @@ def test_the_sealer_names_the_one_write_its_definition_is_allowed():
     )
 
 
+def test_the_sealer_recites_the_four_acts_s6_actually_withholds():
+    """Round 1, finding 10 of #120. The definition recited §6's withheld acts
+    as *no pull request, no push, no commit, no agent spawned* -- it dropped
+    `post` and added `commit`, which §6 withholds from nobody.
+
+    Nothing shipped broken, and that is why it is a correction rather than a
+    fix: §6 now binds its four `whatever its file says`, so the sealer could
+    not have granted itself posting either way. What the branch changed is
+    that §6's list became explicit and countable, and a loose recitation
+    beside a countable list is a second source that disagrees with the first.
+
+    The four words are checked against §6's own sentence before they are
+    checked against the definition, so the two cannot drift apart silently:
+    change §6's list and this case names the word that left."""
+    withheld = next(part for part in section(6).split(". ") if "post nothing" in part)
+    recital = next(
+        part
+        for part in " ".join(sealer_text().split()).split(". ")
+        if "§6 withholds stays withheld" in part
+    )
+    for act in ("post", "push", "pull request", "spawn"):
+        assert act in withheld, (
+            f"§6's own list no longer withholds `{act}`, so this case is "
+            "measuring the definition against a sentence that moved"
+        )
+        assert act in recital, (
+            f"the sealer's recitation of §6 drops `{act}`. The list is "
+            "countable now, and a recitation one short reads as permission"
+        )
+    assert "commit" not in recital, (
+        "the recitation adds an act §6 withholds from nobody. A definition "
+        "that over-recites teaches the next reader a rule the contract does "
+        "not have, which is the same defect as under-reciting"
+    )
+
+
 def test_the_window_the_sealer_shipped_under_is_closed():
     """#120 closed it, and this case is the one that says so.
 

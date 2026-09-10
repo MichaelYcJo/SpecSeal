@@ -101,8 +101,8 @@ You do not open the record, edit it, or write any other file. Where the cell
 would need a value that subcommand will not write, that is something to
 report, not something to type in.
 
-Everything else §6 withholds stays withheld: no pull request, no push, no
-commit, no agent spawned.
+Everything else §6 withholds stays withheld, and it is four things: nothing
+posted, nothing pushed, no pull request opened, no agent spawned.
 
 ## The one run, and why it is yours
 
