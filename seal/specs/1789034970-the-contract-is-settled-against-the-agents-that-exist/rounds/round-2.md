@@ -6,13 +6,13 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 338 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | round-3 |
+| Contract changes | none |
+| New units | BLOCK_START (depth 1); test_a_terminal_line_that_wraps_is_one_value (depth 1); test_a_wrapped_terminal_line_and_its_unwrapped_twin_produce_one_cell (depth 1); test_prose_below_the_terminal_block_is_not_swallowed (depth 1) |
 | Needs a fix | yes — findings 1 and 3; findings 2 and 4 can be answered with grounds, and 5 through 8 are corrections. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -22,14 +22,14 @@ Round 2 of #120 at `b8aa637`, the verifying round, on `docs/120-the-contract-is-
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | The new bound case passes on a sentence about worker findings, and a fifth definition passes free | `tests/test_every_agent_reads_the_contract.py:146` | open | The fourth `BOUNDS` entry is matched in `agents/scribe.md:26` by a parenthetical whose subject is verdicts, not writes; that file states no list of writes. Rewording the parenthetical alone turns the case red, and a new definition carrying it in unrelated prose passes |
-| 2 | The fix wrote a 16-word verbatim run out of §7 into a second document, over the tree's own 15-word window | `skills/code-review/SKILL.md:154` | open | Measured with `longest_shared` against `SECTIONS[7]`: 16 words, `WINDOW` 15, `LONGEST_KEPT_APPLICATION` 10. The sentence was in §7 at `e972b5f`. The guard globs `agents/*.md`, so no skill is held to it |
-| 3 | A wrapped terminal line loses everything after the wrap, and round 1's record is already truncated | `skills/code-review/scripts/round_record.py:1225` | open | `round-1.md:12` ends at *the one that reopens the*; `round-1-report.md:503-504` continues *defect this work item was filed against*. `terminal_value` matches one physical line and refuses nothing |
-| 4 | The release case's docstring claims it catches the shape; it matches one spelling | `tests/test_broad_gate_rule.py:339` | open | A definition reworded to *yours once they have settled* leaves it green. Finding 6's case states this same trade in its docstring; this one states the opposite |
-| 5 | `round-1.md` still reads *the fixes are not yet written* in three cells with twelve verdicts open | `seal/specs/1789034970-the-contract-is-settled-against-the-agents-that-exist/rounds/round-1.md:9` | open | `close` has not been applied at `b8aa637`. The eleven units the fix pass created reach no `New units` row, so the surface this round judges as new is invisible to the next reader |
-| 6 | The fix table states its range as eight commits | `seal/specs/1789034970-the-contract-is-settled-against-the-agents-that-exist/rounds/round-1-fixes.md:3` | open | `e972b5f..054c58f` holds six; the range this round was given, `e972b5f..b8aa637`, holds seven |
-| 7 | The broad-gate state is routed into a table whose column reads `What was run` | `agents/warden.md:240` | open | The destination is one the generator parses and copies, which is the point of the fix. The usual value is `not yet`, and §4 is about not letting run and not-run share a label. The `Broad gate` cell is written elsewhere, so nothing ships broken |
-| 8 | The count case's first failure message points at §2 when two literals in the case are what moved | `tests/test_broad_gate_rule.py:281` | open | Rewording §2's sentence reports *the number and the sentence have come apart*. At 0.11.0 the framer moves §2's prose, `COUNT_WORD` and the `["sealer.md"]` comparison together, and the first assertion masks the other two |
+| 1 | The new bound case passes on a sentence about worker findings, and a fifth definition passes free | `tests/test_every_agent_reads_the_contract.py:146` | **fixed** `54e31b2` | fixed at 54e31b2 — ``; The fourth `BOUNDS` entry is matched in `agents/scribe.md:26` by a parenthetical whose subject is verdicts, not writes; that file states no list of writes. Rewording the parenthetical alone turns the case red, and a new definition carrying it in unrelated prose passes |
+| 2 | The fix wrote a 16-word verbatim run out of §7 into a second document, over the tree's own 15-word window | `skills/code-review/SKILL.md:154` | **fixed** `60c352e` | fixed at 60c352e — ``; Measured with `longest_shared` against `SECTIONS[7]`: 16 words, `WINDOW` 15, `LONGEST_KEPT_APPLICATION` 10. The sentence was in §7 at `e972b5f`. The guard globs `agents/*.md`, so no skill is held to it |
+| 3 | A wrapped terminal line loses everything after the wrap, and round 1's record is already truncated | `skills/code-review/scripts/round_record.py:1225` | **fixed** `463a6f6` | fixed at 463a6f6 — ``; `round-1.md:12` ends at *the one that reopens the*; `round-1-report.md:503-504` continues *defect this work item was filed against*. `terminal_value` matches one physical line and refuses nothing |
+| 4 | The release case's docstring claims it catches the shape; it matches one spelling | `tests/test_broad_gate_rule.py:339` | **fixed** `60c352e` | fixed at 60c352e — ``; A definition reworded to *yours once they have settled* leaves it green. Finding 6's case states this same trade in its docstring; this one states the opposite |
+| 5 | `round-1.md` still reads *the fixes are not yet written* in three cells with twelve verdicts open | `seal/specs/1789034970-the-contract-is-settled-against-the-agents-that-exist/rounds/round-1.md:9` | answered | Discharged by the orchestrator before this pass began: `close` was applied to `rounds/round-1.md`, which now carries `round-2` in `Fixes checked by`, `none` in `Contract changes` and the eleven units in `New units`. Nothing here redid it |
+| 6 | The fix table states its range as eight commits | `seal/specs/1789034970-the-contract-is-settled-against-the-agents-that-exist/rounds/round-1-fixes.md:3` | **fixed** `60c352e` | fixed at 60c352e — ``; `e972b5f..054c58f` holds six; the range this round was given, `e972b5f..b8aa637`, holds seven |
+| 7 | The broad-gate state is routed into a table whose column reads `What was run` | `agents/warden.md:240` | **fixed** `60c352e` | fixed at 60c352e — ``; The destination is one the generator parses and copies, which is the point of the fix. The usual value is `not yet`, and §4 is about not letting run and not-run share a label. The `Broad gate` cell is written elsewhere, so nothing ships broken |
+| 8 | The count case's first failure message points at §2 when two literals in the case are what moved | `tests/test_broad_gate_rule.py:281` | **fixed** `60c352e` | fixed at 60c352e — ``; Rewording §2's sentence reports *the number and the sentence have come apart*. At 0.11.0 the framer moves §2's prose, `COUNT_WORD` and the `["sealer.md"]` comparison together, and the first assertion masks the other two |
 
 ## Paste-ready fixes
 

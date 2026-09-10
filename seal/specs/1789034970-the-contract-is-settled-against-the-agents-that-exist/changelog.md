@@ -57,3 +57,17 @@
   has written still means what it meant. Splitting it was weighed and refused:
   the defect was contradiction rather than irrelevance, and a line drawn at
   four agents would be redrawn when the fifth arrives. (#120)
+- **A round record's terminal lines may wrap, and the generator no longer
+  drops what comes after the wrap.** `Needs a fix:` and `Loses a record or
+  crashes:` are the two lines that say whether a review run continues, and the
+  generator matched one physical line — so a reviewer whose sentence reached
+  the margin had the rest of it silently cut, and the cell still read as a
+  finished sentence. It happened to this work item's own round 1, which
+  shipped ending mid-clause at *the one that reopens the*. The value is now
+  joined across the wrap and stops at a blank line, at the other terminal
+  label, or at a line opening a new markdown block, and `agents/warden.md`
+  says so where it shows the two lines: **leave a blank line under the pair**,
+  which markdown wants anyway. **That last stop is known to be incomplete in
+  both directions** — it passes plain prose and stops a continuation beginning
+  with an issue number — which #339 carries with the verified fix; the blank
+  line is the stop that covers every shape. (#120)

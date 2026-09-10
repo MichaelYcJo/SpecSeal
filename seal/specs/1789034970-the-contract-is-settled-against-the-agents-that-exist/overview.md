@@ -60,6 +60,35 @@ checks it, and nothing could without deciding what a conditional is; what is
 pinned instead is the universal sentence's presence and the old owner's
 absence. The review round is the reader.
 
+## How the run ended, and what left with it
+
+**The review chain capped at round 3, and three findings left as issues rather
+than as fixes.** `chain_check`'s rule: after the record that met the floor, at
+most one later record may close on a fix — round 2 was that one — and the
+record that reads its fixes ends the run whatever it finds. Round 3 was that
+record. Its three findings are `deferred #339`, `#340` and `#344`.
+
+**The fixes for all three were written and verified before the cap was read,
+and were then reverted.** They are on `backup/120-before-rewrite` at `3b228f4`
+and `8fd2f59`: the join's guard pinned (103 cases green before the pin, 4 red
+after), the protocol's §14 half, and a corrected count. Each issue carries the
+fix in full so that nothing is re-derived. Reverting good work is the cost the
+bound charges, and it is charged on purpose — a run that keeps fixing past its
+bound is the state the bound exists to end, and this one had already produced
+one regression while closing another.
+
+**A fourth round ran and has no record**, which is why
+`rounds/round-4-report.md` sits beside three records rather than four. It was
+spawned before the cap was read, it reviewed the reverted fixes, and its
+findings are in #339, #341, #342, #343, #344 and #345. Its report is kept
+because the work is real and the issues cite it; a fourth `round-N.md` is not
+written because the run ended at the third.
+
+**What this branch therefore ships is `ce0f9fe`** — the contract's three
+sections, the four documents that read them, the routing criterion, and rounds
+1 and 2 with their fixes. What it does not ship is the parser repair that
+round 3 asked for, and #339 is where that lives.
+
 ## Fed back into the spec
 
 None. Every clause this work item executed against was written before the
