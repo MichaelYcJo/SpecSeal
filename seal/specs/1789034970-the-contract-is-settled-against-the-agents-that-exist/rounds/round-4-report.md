@@ -214,8 +214,10 @@ and an HTML tag: `round_record.py:1223` and `:1250`, `agents/warden.md:400`,
 `tests/test_the_record_is_generated.py:460` and `:506`, and the deferral row at
 `overview.md:33`.
 
-And the direction nothing pins, added to `UNDER_THE_PAIR`'s neighbourhood in
-`tests/test_the_record_is_generated.py`. It is the mirror of the case beside
+And the direction nothing pins, added to `UNDER_THE_PAIR`'s neighbourhood in `tests/test_the_record_is_generated.py`. NAME NOT IN TREE
+The constant on the line above was added by `3b228f4`, which this branch
+reverted when the run capped. It survives on `backup/120-before-rewrite` and
+in #339, and this round read the tree before the revert. It is the mirror of the case beside
 it: that one proves a block opener stops the join, this one proves a
 continuation does not.
 
