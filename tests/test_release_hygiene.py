@@ -932,10 +932,20 @@ def test_the_release_target_is_asked_before_the_work_starts():
     Left to the end it arrives after the branch exists and the changelog entry
     is already written under the wrong heading -- the same late-question
     failure the commit gate was moved forward to avoid."""
-    for parts in (("skills", "implement", "SKILL.md"), ("agents", "smith.md")):
+    # The branch question is part of the routing section, which is the
+    # orchestrator's half of `implement` since #292; the yes/no tell it
+    # answers to stays in the implementer's half. The skill is read as both.
+    for parts, text in (
+        (
+            ("skills", "implement", "orchestration.md"),
+            read_text("skills", "implement", "SKILL.md")
+            + read_text("skills", "implement", "orchestration.md"),
+        ),
+        (("agents", "smith.md"), read_text("agents", "smith.md")),
+    ):
         # Collapsed, because both files wrap these sentences at different
         # columns and a literal match would be asserting the line breaks.
-        text = " ".join(read_text(*parts).split())
+        text = " ".join(text.split())
         assert "a PR into `main` is a release" in text, (
             f"{parts[-1]} stopped saying which base branch means a release"
         )

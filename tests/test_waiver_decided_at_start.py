@@ -43,6 +43,15 @@ AXES = (
 )
 
 
+# The routing section — the axes, the checkbox, the file, the four
+# combinations, the wake/quiet table — is `implement`'s orchestrator half
+# since #292: the session that asks reads `orchestration.md`, and no smith
+# spawn preloads it. The per-command waiver stays in `SKILL.md`, because
+# the implementer is who types the command.
+ORCH = ("skills", "implement", "orchestration.md")
+SKILL = ("skills", "implement", "SKILL.md")
+
+
 def read(*parts):
     with open(os.path.join(ROOT, *parts), encoding="utf-8") as f:
         return f.read()
@@ -57,11 +66,13 @@ def flat(text):
 
 
 def test_the_skill_asks_every_axis_in_the_first_batch():
-    skill = flat(read("skills", "implement", "SKILL.md"))
+    skill = flat(read(*ORCH))
     assert "three axes" in skill, (
         "the skill still names two, so a session asks two and the template offers three"
     )
-    assert "two axes" not in skill, "the old count survived beside the new one"
+    assert "two axes" not in skill + flat(read(*SKILL)), (
+        "the old count survived beside the new one"
+    )
     for answer in AXES:
         assert answer in skill, f"the skill lost the answer `{answer}`"
     assert "before the first edit" in skill
@@ -76,9 +87,7 @@ def test_every_document_shows_the_third_axis_ROW_not_only_the_count():
     reason `smith` was left out of that tuple, applied to the answer that WAS
     put in it."""
     rows = [
-        ln
-        for ln in read("skills", "implement", "SKILL.md").splitlines()
-        if ln.startswith("| Implementation |")
+        ln for ln in read(*ORCH).splitlines() if ln.startswith("| Implementation |")
     ]
     assert len(rows) == 1, (
         f"the axes table has {len(rows)} `Implementation` rows; the count "
@@ -176,7 +185,7 @@ def test_no_committed_declaration_still_carries_a_template_placeholder():
 def test_the_skill_states_all_four_combinations():
     """Four rows, because two of them are the ones that surprise people: a
     chain declaration that never opens a pull request is checked by nothing."""
-    skill = read("skills", "implement", "SKILL.md")
+    skill = read(*ORCH)
     rows = [
         ln
         for ln in skill.splitlines()
@@ -189,7 +198,7 @@ def test_the_skill_states_all_four_combinations():
 
 
 def test_the_skill_names_where_the_answer_is_written():
-    skill = flat(read("skills", "implement", "SKILL.md"))
+    skill = flat(read(*ORCH))
     assert "seal/specs/<work-item-id>/routing.md" in skill
     assert "templates/sdd-routing.md" in skill
     assert "Committed" in skill or "committed" in skill
@@ -206,18 +215,19 @@ def test_the_skill_keeps_the_token_as_a_per_command_waiver():
 def test_the_row_that_said_no_marker_at_all_is_gone():
     """It is the defect stated as a sentence, and rewording it would have left
     the same claim in place."""
-    skill = read("skills", "implement", "SKILL.md")
+    skill = read(*ORCH)
     assert 'used to carry "no marker at all"' in skill, (
         "the skill dropped the correction rather than making it — the next "
         "reader cannot tell the old row was wrong"
     )
-    assert "| Through the review chain | it needs no marker at all" not in skill
+    for text in (skill, read(*SKILL)):
+        assert "| Through the review chain | it needs no marker at all" not in text
 
 
 def test_the_skill_refuses_a_standing_waiver_and_says_why_this_is_not_one():
     """The cheap way to stop the interruptions is to switch the gate off for a
     session, and it is the one way that costs the gate its reason to exist."""
-    skill = flat(read("skills", "implement", "SKILL.md"))
+    skill = flat(read(*ORCH))
     assert "What must not happen instead is a standing waiver" in skill
     assert "moves the check rather than removing it" in skill, (
         "without this the declaration reads as exactly the switch the sentence "

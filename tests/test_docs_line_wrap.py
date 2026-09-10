@@ -57,6 +57,10 @@ COVERED = [
     # was cut from — dropping it here would lose coverage 418 lines
     # of prose already had.
     "skills/code-review/orchestration.md",
+    # The orchestrator's half of `implement` (#292), the same way: its prose
+    # fits at birth (83 columns, measured when it was cut), where the file it
+    # was cut from does not, so covering it here loses nothing and keeps it.
+    "skills/implement/orchestration.md",
     # Wrapped from its first line, so it goes in at birth rather than waiting
     # for the sweep that would otherwise be needed to bring it under.
     "skills/commit-pr-convention/SKILL.md",
