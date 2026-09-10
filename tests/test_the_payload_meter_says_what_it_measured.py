@@ -739,6 +739,29 @@ def test_an_inline_skills_list_is_read(meter, tmp_path):
     assert "skills/alpha/SKILL.md" in paths and "skills/beta/SKILL.md" in paths
 
 
+def test_the_baseline_agent_may_be_named_with_its_namespace(meter, tmp_path):
+    """Round 1, finding 4. The refusal listed `specseal:scribe` among the
+    agents the transcript spawned and refused `--baseline-agent
+    specseal:scribe` in the same breath, because `seen` is keyed by the
+    short name and the argument was compared raw."""
+    root, home = a_tree(tmp_path)
+    transcript = a_transcript(
+        tmp_path,
+        [("general-purpose", "aaaa1"), ("plugin:probe", "bbbb2")],
+        {"aaaa1": (20000, 10000), "bbbb2": (30002, 10000)},
+    )
+    spelled = meter.calibration_of(transcript, "plugin:probe")
+    assert spelled["baseline"]["measured"] == 40004
+    assert spelled["baseline_agent"] == "probe"
+    data = meter.measure(
+        str(root), str(home), calibrate=transcript, baseline_agent="plugin:probe"
+    )
+    assert data["calibration"]["baseline_agent"] == "probe"
+    assert "probe" not in data["ratios"], (
+        "the baseline agent is not measured against itself"
+    )
+
+
 def test_the_delta_lists_an_agent_the_baseline_has_and_the_tree_lost(meter, tmp_path):
     root, home = a_tree(tmp_path, extra_agent=True)
     before = meter.measure(str(root), str(home))

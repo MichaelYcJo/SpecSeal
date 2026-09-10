@@ -348,7 +348,11 @@ def calibration_of(transcript, baseline_agent):
     """Measured prefixes per agent from one main transcript's spawns.
 
     Several spawns of one agent take the SMALLEST prefix: a first message
-    holds the payload plus the spawn prompt, and the prompt only adds."""
+    holds the payload plus the spawn prompt, and the prompt only adds.
+    `baseline_agent` may be spelled with or without its namespace: `seen`
+    is keyed by the short name, and the refusal below lists the spawned
+    types with theirs, so the spelling it prints has to be one it takes."""
+    baseline_agent = short_name(baseline_agent)
     helpers = _session_cost()
     spawned, unread = spawns_in(transcript, helpers)
     by_id = {
@@ -470,6 +474,7 @@ def measure(
     """The whole reading as data. `calibrate` is a main transcript path;
     `baseline` an earlier run's JSON path, whose ratios are lent to agents
     this run did not measure and whose numbers the delta is taken against."""
+    baseline_agent = short_name(baseline_agent)
     baseline_data = None
     if baseline:
         with open(baseline, encoding="utf-8") as handle:
