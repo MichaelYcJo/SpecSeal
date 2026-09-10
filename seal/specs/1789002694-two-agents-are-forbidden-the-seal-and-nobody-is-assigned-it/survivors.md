@@ -82,3 +82,42 @@ of them coming to say who WRITES the cell, or who takes the run, is asserting
 the act this branch moved to the sealer, and becomes a genuine survivor — the
 template's row is the one to watch, because it is the one that already names a
 writer one sentence later and could easily come to name the wrong one.
+
+## Phase 5
+
+`survivor-check --range 0eae75b..HEAD` reports seven places. **One was
+corrected rather than exempted** — `skills/verify/scripts/broad_gate.py`'s
+docstring listed the three refusals `round_record.py seal` used to have, and
+this phase left it two. Enumerating that class by hand found four more the
+checker could not see, because they share no wording with the lines the range
+removed: `agents/sealer.md` twice, the seal module's own docstring, and this
+work item's changelog fragment. All five are corrected in the range.
+
+The six below are not stale copies of a corrected claim. Every one of them
+overlaps the deleted code on **identifier n-grams** — `chain.FLOOR_NO`,
+`chain.FLOOR_YES`, `chain.yes_or_no`, `chain.field(rows, chain.NEEDS)`, and
+assertions on another checker's `Needs a fix` output — and each is a
+different reader of that row, doing a job this phase did not touch.
+
+**The one worth stating rather than dismissing is the floor bound.** It still
+reads `Needs a fix`, on purpose: it asks whether the run REOPENED, which is
+the reviewer's own answer and stays the reviewer's. `seal` asked a different
+question of the same row — has the run ended — and that is the question the
+`Pass` box answers from the verdict table. Two readers of one row, asking two
+things, is the state this phase arrived at deliberately.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `skills/code-review/scripts/round_record.py` | What stands after the colon in the report's `<label>: …` line. | **The reader that puts the reviewer's line INTO the record.** `new` copies `Needs a fix` from the report; nothing about which row `seal` refuses on reaches it. The overlap is `chain.FLOOR_NO` and `chain.FLOOR_YES`, the vocabulary constants both functions name |
+| `skills/code-review/scripts/round_record.py` | seen = [] for _k, path in earlier: try: with open(path, encoding="utf-8") as handle: | **The floor bound's walk over earlier records**, which reads `Needs a fix` to find the first later record saying the run reopened. That is the question above, and it is not the one `seal` stopped asking |
+| `tests/test_the_pull_request_language_is_the_repositorys.py` | chain = _checker( "chain_check", "skills", "code-review", "scripts", "chain_check.py" ) | **A loader for two checker modules.** The overlap is the module and constant names, in a file about which language a pull request is written in |
+| `tests/test_the_record_is_held_to_the_floor_and_the_depth.py` | Before round 1 the row was read by no check at all — `grep -rn "Needs a fix"` over the checkers returned nothing | **The record of when that row first got a reader**, which is the floor bound. The shared phrases are `out assert needs` and `a fix in out` — the shape of an assertion on a checker's output, not a claim about the seal |
+| `tests/test_the_record_is_held_to_the_floor_and_the_depth.py` | declared(repo, OLD_ITEM, lambda sha: record(sha, needs=value)) code, out = run(repo) | **The floor bound's own cases**, asserting `chain_check`'s message rather than `seal`'s. `seal` is not in this module |
+| `tests/test_the_record_is_held_to_the_floor_and_the_depth.py` | began = check_module().NEEDS_FROM | **The grandfathering cutoff for the same row**, which is about which work items the floor bound applies to at all |
+
+**What would make these six stop holding.** Each quote is its own anchor. Any
+of them coming to say that `Needs a fix` decides whether the BROAD GATE may
+run — rather than whether the run reopened, or what the reviewer wrote — is
+asserting the condition this phase removed, and becomes a genuine survivor.
+The two `round_record.py` rows are the ones to watch, because they sit in the
+file the removal happened in.
