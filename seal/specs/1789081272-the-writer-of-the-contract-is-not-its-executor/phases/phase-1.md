@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 1 |
-| Commit | `77e0ae5` |
+| Commit | `51ff098` — the phase is `77e0ae5` (the definition), `57bc82e` (these records) and `51ff098` (the survivor correction) |
 | Ran by | smith on Opus 5 (1M context) |
 
 ## What this phase was asked
@@ -112,6 +112,28 @@ sits on it while `plan.md` gives the memo to phase 6. `overview.md` is opened
 in this phase's second commit instead, which is what `skills/implement/
 SKILL.md` §4 asks anyway — the memo opens at the first divergence, and this
 phase has one.
+
+**The survivor check found a repeated comment, and the answer was to stop
+repeating it differently.** Over `d870992..57bc82e` it reported five places
+still carrying *Wrapped from its first line, so it goes in at birth* — four
+other `COVERED` entries and a `seal/ledger.md` row. Every report was correct
+and none was a defect: that sentence is a per-entry idiom in `COVERED`, one
+copy per file that arrived already wrapped, and pluralising the sealer's copy
+to cover two files is what turned the four singular copies into survivors of
+a removal. So the sealer's entry keeps its own singular comment with only the
+false half corrected — it is no longer *the one* unswept `agents/*.md` file —
+and `framer.md` takes a comment of its own. The range then reports nothing
+standing, and no `survivors.md` was needed. An exemption file with no rows is
+refused outright, which is the right refusal: five written rows would have
+been the escape rather than the fix.
+
+**Any edit to `COVERED` drifts a ledger row, and this one did.**
+`tests/test_docs_line_wrap.py#COVERED@5409898a` anchors the claim that the
+eleven modules pinning the review skill's path are not the modules its split
+breaks. Re-read rather than re-pointed: a list entry and two comments move
+neither the eleven modules nor the wrap-coverage loss that goes silent when
+material leaves a listed file. Hash now `f06c858f`, `Checked` at the day it
+was read, and `evidence-check` back to 1100 ok · 0 drifted.
 
 **One process slip, since a hand-back that hides it teaches nothing.** The
 mutation script restored `tests/test_one_word_one_meaning.py` with
