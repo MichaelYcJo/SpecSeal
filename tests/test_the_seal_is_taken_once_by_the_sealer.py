@@ -1030,8 +1030,71 @@ def test_seal_refuses_while_the_fixes_have_been_read_by_nobody(repo):
     code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
     assert code == 2, out
     assert CHECKED_BY in out and "no cell was written" in out, out
-    assert "verifying round is still owed" in out, out
+    assert "read by no LATER round" in out, out
+    assert "Spawn the verifying round first" in out, out
     assert read_bytes(path) == before, "the record was written under a refusal"
+
+
+def set_checked_by(path, value):
+    """Rewrite one record's `Fixes checked by` cell and return its bytes."""
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        "\n".join(
+            f"| {CHECKED_BY} | {value} |"
+            if line.startswith(f"| {CHECKED_BY} |")
+            else line
+            for line in text.splitlines()
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return path.read_bytes()
+
+
+@pytest.mark.parametrize("value", ["the smith", "pending", ""])
+def test_seal_refuses_a_fixes_checked_by_that_is_outside_the_vocabulary(repo, value):
+    """Round 2's 🟡 12. The refusal added for round 1's 🔴 2 asked
+    `nobody_reason(...) is not None`, which is true for `nobody` and false for
+    everything else — including everything else the row must not hold.
+
+    So the other two thirds of what the cell can carry reached the write: the
+    cell was written, `round-record: sealed …` printed, and the chain check
+    this subcommand runs AFTER the write then refused on that very row. The
+    subcommand wrote onto a record its own check will not accept, which is the
+    state 🔴 2 exists to prevent, reached through the value it did not read.
+
+    `reach_back` in this file already refuses an unreadable cell rather than
+    acting on it, and says why. This is the same cell one subcommand over."""
+    path = fixed_but_unread_item(repo)
+    before = set_checked_by(path, value)
+    code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
+    assert code == 2, out
+    assert "no cell was written" in out, out
+    assert read_bytes(path) == before, "the record was written under a refusal"
+
+
+def test_the_refusal_names_the_three_values_the_row_holds(repo):
+    """The other side of 🟡 12: what the person who hits it is told.
+
+    The refusal is the one place a reader learns the row's vocabulary, and
+    the value that tripped it is by definition outside that vocabulary — so
+    naming the three is the difference between a refusal somebody can act on
+    and one they work around by guessing.
+
+    **`round-N` is permitted here and cannot be reached on a LAST record**,
+    and that is deliberate rather than an oversight nothing catches. A named
+    checker must be a round LATER than the record carrying it, and `seal`
+    reads the highest-numbered record on disk, so no case can build a last
+    record whose cell legitimately names one. Refusing everything but `no
+    fixes to check` would be equivalent today and would hard-code a
+    conclusion that belongs to `chain_check.checked_by` — which confirms a
+    named checker against the repository — into a subcommand that has no
+    business deriving it."""
+    path = fixed_but_unread_item(repo)
+    set_checked_by(path, "pending")
+    _code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
+    for value in ("round-N", "no fixes to check", "nobody"):
+        assert value in out, f"the refusal does not name `{value}`:\n{out}"
 
 
 def test_the_capped_run_still_seals_beside_the_third_refusal(repo):

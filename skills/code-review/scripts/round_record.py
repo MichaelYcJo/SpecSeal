@@ -2917,20 +2917,30 @@ def seal(args):
     a name: it takes neither `--fixes` nor `--range`, reads no verdict row,
     and writes one cell.
 
-    Three refusals, each before the write:
+    Six refusals, each before the write. Counted rather than described --
+    the number is the `raise Refused` sites in this function, and both times
+    a document put a smaller number on them it was wrong inside one round.
 
+      the record has no `Pass` box, or more than one   nothing here can be
+          read, so nothing is written
       `Pass` is unchecked          a finding is still OPEN in the verdict
           table, so the round has not ended and the run this cell records
           would be a run over findings still open
-      `Fixes checked by` reads `nobody`   the fixes that closed those
-          findings were opened by nobody and the verifying round is still
-          owed. `Pass` says the TABLE is closed, and `close` ticks it the
-          moment a fix table applies, which is one row earlier than the run
-          ending -- so the broad seal lands in the window
-          `skills/code-review/orchestration.md` §*Orchestrator: the pull
-          request opens before round 1* calls red, on a record the verifying
-          round is about to stop being the last one of. A capped run reads
-          `no fixes to check` here, so this costs it nothing
+      `Fixes checked by` is neither a LATER round nor `no fixes to check`
+          the fixes that closed those findings were read by nobody, and the
+          verifying round is still owed. `Pass` says the TABLE is closed,
+          and `close` ticks it the moment a fix table applies, which is one
+          row earlier than the run ending -- so the broad seal lands in the
+          window `skills/code-review/orchestration.md` §*Orchestrator: the
+          pull request opens before round 1* calls red, on a record the
+          verifying round is about to stop being the last one of. A capped
+          run reads `no fixes to check` here, so this costs it nothing.
+          Everything outside those two values is refused rather than
+          `nobody` alone, because the chain check this subcommand runs AFTER
+          the write refuses on that same row, and a cell written there is a
+          cell standing on a record its own check will not accept
+      `--broad-gate` carries no SHA-shaped word   the cell records a commit
+      the SHA it carries does not resolve in this repository
       a `--broad-gate` SHA the record's `Target SHA` descends from   the
           run was spent before the round it seals -- the same test
           `chain_check.broad_gate` applies at the pull request, asked here
@@ -2997,13 +3007,25 @@ def seal(args):
     # seal is spent in — the verifying round's record becomes the last one,
     # its cell reads `not yet`, and the run has to be taken again.
     # A capped run reads `no fixes to check` here, so this costs it nothing.
+    #
+    # Every value that is NOT a later round and NOT `no fixes to check` is
+    # refused, rather than `nobody` alone (round 2's 🟡 12). The row has a
+    # three-word vocabulary, and reading only `nobody` let the other two
+    # thirds of what it can hold -- a name, a word outside the vocabulary, an
+    # empty cell -- reach the write: the cell was written, `round-record:
+    # sealed …` was printed, and the chain check this subcommand runs AFTER
+    # the write then refused on that very row. `reach_back` two hundred lines
+    # up already refuses an unreadable cell rather than acting on it, and
+    # says why -- this is the same cell, one subcommand over.
     checker = reader.visible(chain.field(rows, chain.CHECKED_BY) or "").strip()
-    if chain.nobody_reason(checker.strip("`").rstrip(".").lower()) is not None:
+    plain = checker.strip("`").rstrip(".").lower()
+    if not chain.CHECKER_RE.match(plain) and plain != chain.NO_FIXES:
         raise Refused(
             f"round-{n}.md's `{chain.CHECKED_BY}` reads `{checker}`, so the "
-            "fixes that closed its findings were opened by nobody and the "
-            "verifying round is still owed. `Pass` was ticked by `close` when "
-            "the fix table applied, which is one row earlier than the run "
+            "fixes that closed its findings have been read by no LATER round. "
+            f"The row holds one of three values: `round-N`, `{chain.NO_FIXES}`, "
+            f"or `{chain.NOBODY} {DASH} <why>`. `Pass` was ticked by `close` "
+            "when the fix table applied, which is one row earlier than the run "
             "ending. Spawn the verifying round first; its record is the one "
             "this cell belongs on; no cell was written"
         )
