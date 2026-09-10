@@ -126,6 +126,17 @@ a green is the right answer to it. The mutation that changes the meaning,
 `never back to` → `or back to`, is red. Recorded because the next reader
 should know which of the two was tried.
 
+**The survivor check reported one place, and the range it reports over is
+part of the reading.** Over `02c5b90..5571996` it found
+`tests/test_the_root_migrates_itself.py:437` carrying `for name in` and a
+`utf-8` read followed by an assertion — the shape of the loop that left
+`test_the_design_gate_belongs_to_the_smith`, scoring 1.89, and about the root
+migration rather than about who calls a skill. It is exempted in
+`survivors.md` with the loop quoted. Run again over the phase's whole range,
+`02c5b90..dfe9d6f`, it reports nothing at all: the later commits changed the
+removed set and the pairing fell back under the floor. The exemption row is
+kept, and says so.
+
 **Editing `## Phases` drifts three stamps, and they move each other.** Two
 ledger rows anchor on `agents/smith.md#"## Phases"` — L5's claim about a rule
 with one written home, R8's about what a fix pass hands over — and a third

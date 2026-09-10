@@ -26,3 +26,12 @@ coincidence.
 The exemption is anchored on this range as well as on this quote. A different
 range re-runs the check from scratch, and a row written for
 `02c5b90..5571996` does not answer for it.
+
+**Over the phase's whole range the report is gone, and the row is kept
+anyway.** `survivor-check --range 02c5b90..dfe9d6f` examines 844 files against
+twenty-four removed sentences and reports nothing standing: the phase's later
+commits changed what the range removed, and the 1.89 that put this pairing
+over the floor did not survive the recount. The row stays because it records a
+judgment somebody made and can check — deleting it would leave the phase
+record naming a survivor with nothing behind it — and because it costs
+nothing: an exemption that matches no candidate silences nothing.
