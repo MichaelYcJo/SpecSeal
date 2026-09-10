@@ -72,6 +72,25 @@ a reader judges, and this is the reading.
 | `tests/test_the_seal_is_taken_once_by_the_sealer.py` | dropping `verify` from the spawn is only correct | **About which skills the sealer's spawn carries**, which is #30's Q5 and not this work item's subject at all |
 | `seal/ledger.md` | both tools measured rather than inherited from prose | **A ledger row about `uv` and the virtualenv `bin/test` builds.** The overlap is a date and a phase number — *2026 09 06 in phase* and *phase 3 both* |
 
+## Round 2's fix pass
+
+`survivor-check --range de7d693..HEAD` reports two places, both inside the file
+the range edited and both for the same reason: finding 3 replaced a one-line
+list comprehension in `terminal_value` with a loop, so the comprehension's
+**shape** went into the range's removed set. Two other functions in the same
+module read lines the same way, which is what any two comprehensions over
+`lines` share. Neither is a stale copy of a corrected claim — the claim was
+about wrapping, and neither of these is about wrapping at all.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `skills/code-review/scripts/round_record.py` | round-{n}.md has {len(boxes)} `Pass` boxes | **The `Pass` box reader**, counting checkboxes in a record. The overlap is `for ln in lines for m in` and `match ln if m if len` — the idiom for *collect every line a pattern matches, then refuse unless there is exactly one*, which `terminal_value` still uses in its own refusal one function over |
+| `skills/code-review/scripts/round_record.py` | hidden = [(i, s.strip()) for i, (s, ln) in pairs if s.strip() and not ln] | **The reader that finds text hidden by a comment**, walking stripped and raw lines in step. The overlap is `pattern match ln` and `for ln in lines`, which is every walk over the same list |
+
+**What would make these two stop holding.** Each quote is its own anchor. If
+either function comes to read a value across a line wrap — the thing finding 3
+was about — it is the same subject and the exemption is a finding instead.
+
 ## What would make these exemptions stop holding
 
 Each quote is its own anchor, and the three groups fail differently.
