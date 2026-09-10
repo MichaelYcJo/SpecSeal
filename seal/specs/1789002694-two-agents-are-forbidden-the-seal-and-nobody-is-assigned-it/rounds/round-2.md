@@ -7,12 +7,12 @@
 | PR | 332 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | quote → main, round-1-report.md, round-1.md, round-2-asked.md, round-2-report.md, round-2.md, quote, compare_at_base, pytest |
+| New units | SCALE_NOT_A_NUMBER (depth 1); SEAL_EXCLUDED (depth 1); test_a_path_is_quoted_for_the_shell_of_either_platform (depth 1); set_checked_by (depth 1); test_seal_refuses_a_fixes_checked_by_that_is_outside_the_vocabulary (depth 1); test_the_refusal_names_the_three_values_the_row_holds (depth 1) |
 | Needs a fix | yes — 🟡 11, 🟡 12, 🟡 13 and 🟡 14 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -32,10 +32,10 @@ Round 2 of #30 is the verifying round, at the diff of round 1's fixes, `7575a1a.
 | 🟡 8 | the third refusal in the corrected function tells the reader to run it by hand | `skills/code-review/scripts/chain_check.py:2992-2999` | answered | executed — reverting `6bd1681` fails the new arm of `test_a_broad_gate_spent_before_the_round_it_was_meant_to_seal_fails` on `'sealer' in out` |
 | 🟡 9 | the gate never prints the row's command it sealed over | `skills/verify/scripts/broad_gate.py:525-531` | answered | executed — reverting `3dcfcdd` fails `test_the_gate_names_the_row_it_sealed_over` on the missing `` `Broad gate` says: `` |
 | 🟡 10 | a fourth referent of `seal`, in a file the sweep's list omits | `docs/one-root-by-lifetime.md:135`, `tests/test_one_word_one_meaning.py:166-182` | answered | executed — reverting `bce4ece` fails `test_no_instructing_document_leaves_an_instance_anonymous` on the ledger sentence; the fixed line sits outside the `## Naming` span the new exclusion removes, so the case reaches it |
-| 🟡 11 | the gate tells the reader no cell was written, under a line saying `sealed` | `skills/verify/scripts/broad_gate.py:570-583` | open | executed — driving `gate` with the branch's own stub prints `round-record: sealed …` and then a message calling a `round-record:` line a refusal with no cell written |
-| 🟡 12 | a `Fixes checked by` nobody can read reaches the write | `skills/code-review/scripts/round_record.py:3000-3010` | open | executed — `the smith`, `pending` and an empty cell each exit 1 with the cell written and the post-write chain check refusing that row; `nobody` and `Nobody` exit 2 with nothing written |
-| 🟡 13 | a linter's error count still lands on the suite row, and an all-skipped run reports `exit 0` | `skills/verify/scripts/broad_gate.py:386-395` | open | executed — `suite_counts("1 passed in 1s\nFound 2 errors.\n")` is `'2 errors'`; `suite_counts("3 skipped in 0.10s\n")` is `None`, which the panel renders `exit 0` |
-| 🟡 14 | `quote` has no case behind either branch, and the Windows branch does not quote for `cmd.exe` | `skills/verify/scripts/broad_gate.py:313-322` | open | executed — the body replaced by `return path` leaves 54 passed; `quote("tests/x&y.py")` under `os.name == "nt"` returns the path unescaped. The `cmd.exe` half is read, not executed |
+| 🟡 11 | the gate tells the reader no cell was written, under a line saying `sealed` | `skills/verify/scripts/broad_gate.py:570-583` | **fixed** `5a20202` | fixed at 5a20202 — the two states are told apart by a discriminator the message carries, not by the exit code, and the refusal names which side it is on; executed — driving `gate` with the branch's own stub prints `round-record: sealed …` and then a message calling a `round-record:` line a refusal with no cell written |
+| 🟡 12 | a `Fixes checked by` nobody can read reaches the write | `skills/code-review/scripts/round_record.py:3000-3010` | **fixed** `0cbd6ad` | fixed at 0cbd6ad — the third refusal reads the row's whole vocabulary rather than `nobody` alone, and names all three values in its message; executed — `the smith`, `pending` and an empty cell each exit 1 with the cell written and the post-write chain check refusing that row; `nobody` and `Nobody` exit 2 with nothing written |
+| 🟡 13 | a linter's error count still lands on the suite row, and an all-skipped run reports `exit 0` | `skills/verify/scripts/broad_gate.py:386-395` | **fixed** `bd08f52` | fixed at bd08f52 — the suite row is read on an axis that is not a word list, so a linter's error count and an all-skipped run both stop landing on it; executed — `suite_counts("1 passed in 1s\nFound 2 errors.\n")` is `'2 errors'`; `suite_counts("3 skipped in 0.10s\n")` is `None`, which the panel renders `exit 0` |
+| 🟡 14 | `quote` has no case behind either branch, and the Windows branch does not quote for `cmd.exe` | `skills/verify/scripts/broad_gate.py:313-322` | **fixed** `67cdbda` | fixed at 67cdbda — the unit takes the platform as an argument so a case can turn it red on any machine, the quoting is `cmd.exe`'s rather than `CreateProcess`'s, and the residual it does not close is named in the docstring; executed — the body replaced by `return path` leaves 54 passed; `quote("tests/x&y.py")` under `os.name == "nt"` returns the path unescaped. The `cmd.exe` half is read, not executed |
 
 ## Paste-ready fixes
 
