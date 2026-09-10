@@ -99,6 +99,36 @@ def test_the_reviewer_still_says_why_the_rule_reaches_its_own_edits():
     )
 
 
+def test_the_procedure_a_reviewer_follows_carries_the_leavings_rule_too():
+    """Round 1, finding 1 of #120: §7 was widened in the contract and the skill
+    a warden actually loads still stated the named file as the whole obligation.
+
+    That is §12 applied to this work item's own headline fix -- the rule was
+    corrected at its coordinate and the class was not closed. The class is
+    enumerable by construction rather than by sweeping: `test_tmp_*` appears in
+    exactly two shipped documents, §7 itself and this skill, and every other
+    file that mentions probes either points at §7 (`agents/scribe.md`) or does
+    not state the rule at all.
+
+    The skill is the closer document to the act, and §7's own story is a
+    reviewer who followed the file half to the letter, deleted its probe files,
+    said so in its report, and left a git worktree behind. The document that
+    reviewer follows is this one."""
+    skill = " ".join(read("skills", "code-review", "SKILL.md").split())
+    assert "everything else it made goes with it" in skill, (
+        "the Probes row states deleting the named file as the whole "
+        "obligation again, which is the reading §7 was rewritten to end"
+    )
+    assert "Contract §7 is about leavings, not files" in skill, (
+        "the row's qualifier has no rule behind it, so a reviewer who reads "
+        "`everything else it made` has nothing saying what that covers"
+    )
+    assert "left a git worktree behind" in skill, (
+        "the cost went. A rule with no incident behind it is the one a "
+        "session under pressure drops first, which is how this one was left"
+    )
+
+
 def test_the_fact_finder_points_at_the_rule_it_no_longer_restates():
     """`agents/scribe.md` step 4 carried the three shapes verbatim. It now
     says what reading settles for an original, and points at §7 and §8."""

@@ -15,10 +15,11 @@ uvx ruff check . && uvx ruff format .    # the linter this plugin runs on your c
 python3 skills/evidence-check/scripts/evidence_check.py .
 ```
 
-**Name a module.** The full suite is the orchestrator's, run once after the
-review rounds settle — `skills/agent-contract/SKILL.md` §2 forbids it to smith
-and warden. A cheap runner does not widen that rule. What it makes cheap is
-`bin/test tests/<file> -q`, and that is the form a segment types.
+**Name a module.** The full suite is the sealer's, run once after the review
+rounds settle — `skills/agent-contract/SKILL.md` §2 forbids it to smith and
+warden, and `agents/sealer.md` is the agent it is assigned to. A cheap runner
+does not widen that rule. What it makes cheap is `bin/test tests/<file> -q`,
+and that is the form a segment types.
 
 **Python 3.12 is the supported floor**, held as `FLOOR` in
 `.github/scripts/run_tests.py` so this sentence and the code state one number.

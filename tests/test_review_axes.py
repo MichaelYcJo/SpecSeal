@@ -95,8 +95,12 @@ def test_the_handoff_protocol_inherits_no_verdict_anywhere():
 
 
 def test_implement_and_the_preset_block_do_not_drift():
-    """Both state the same decision; only one of them is always loaded."""
-    implement = " ".join(read("skills", "implement", "SKILL.md").split())
+    """Both state the same decision; only one of them is always loaded.
+
+    The routing section is `implement`'s orchestrator half since #292, so
+    the skill side of the pair is `orchestration.md` — the file the session
+    that asks the question reads, and no smith spawn preloads."""
+    implement = " ".join(read("skills", "implement", "orchestration.md").split())
     preset = " ".join(read("CLAUDE.md").split("<!-- specseal:end -->")[0].split())
     for both in (
         "seal/specs/<work-item-id>/routing.md",

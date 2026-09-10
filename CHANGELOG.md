@@ -1,5 +1,258 @@
 # Changelog
 
+## 0.10.0 — 2026-09-10
+
+<!-- specs/1788993115-a-payload-is-written-again-on-every-spawn -->
+<!-- seal/specs/1788993115-a-payload-is-written-again-on-every-spawn/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **A meter says what each agent's startup payload is made of, and what it
+  costs.** `payload-meter`, on PATH beside `session-cost`, reads every
+  `agents/*.md`, resolves its `skills:` list to files, and reports the
+  definition, each injected `SKILL.md` and the two `CLAUDE.md` files the
+  harness adds, in bytes, characters and tokens, per file and in total;
+  `--sections` splits each file at its headings, `--json` writes the same as
+  data, `--baseline <run.json>` prints the delta against an earlier run, and
+  `--calibrate <main transcript>` reads the measured prefix of every agent
+  that transcript spawned. **Every token figure carries a basis** —
+  `measured (<transcript>)` where it came from a spawn's first `usage`
+  block, `estimated (<ratio> B/token, from <agent>)` otherwise — because
+  bytes do not track tokens at one ratio: the three agents measured at 2.87,
+  3.41 and 3.44 B/token over the bytes their spawns read. Two things the
+  measuring found that the issue had not. A payload IS cached across spawns
+  of one agent for five minutes, and is re-written on every spawn further
+  apart than that — which in a review chain is every one, so the cost stands
+  and the sentence is narrower than it was. And a skill name resolves to
+  `~/.claude/skills/<name>/SKILL.md` when the user has one, shadowing the
+  plugin's; the meter reports the tree's file and says on the row what the
+  spawn read instead. A spawn read the tree as it stood when it was made, so
+  calibrating against a transcript after the tree changed keeps the earlier
+  run's ratio, labels the agent estimated and says to take a spawn after the
+  change. (#292)
+- **A section written for the orchestrator no longer rides every `smith`
+  spawn, and a test keeps it out.** A heading prefixed `Orchestrator:` marks
+  a section addressed to the session that spawns agents, and
+  `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py` fails
+  when such a heading sits in any file an agent's `skills:` list injects, or
+  when an `orchestration.md` is itself listed. The `implement` skill splits
+  the way `code-review` already had: its Bootstrap, its parity setup and the
+  whole routing question — three axes, one `multiSelect` question, one
+  `routing.md` — move to `skills/implement/orchestration.md`, headings and
+  text unchanged, and `skills/implement/SKILL.md` opens with the pointer
+  that sends an orchestrator there. What stays in the implementer's half is
+  the per-command waiver, because the implementer is who types the
+  command. Measured on this tree with no new spawn: 13,727 bytes left the
+  smith's payload, an estimated 4,783 tokens at the 2.87 B/token its spawn
+  paid; the `CLAUDE.md` pair grew 265 bytes (an estimated 92) for the
+  Bootstrap pointer and a comment, so the smith's payload is 13,462 bytes
+  and an estimated 4,691 tokens smaller, summed over its files. The rider
+  that asked for an arm to be named in one sentence is answered — the
+  sentence names the PARITY arm and a migration repository — and deleted.
+  (#292)
+- **The `CLAUDE.md` block has one source, and what `/specseal:update`
+  shows you is a diff against it.** `templates/claude-md-block.md` is the
+  block; `install.sh` reads it from there, `.github/scripts/claude_block.py
+  --write` regenerates the copy inside this repository's `CLAUDE.md` and
+  `--check` fails a pull request where the two differ, so the copy the
+  installer used to read and the copy a contributor sees cannot drift again
+  (they had, by one sentence). One sentence of the block changed with it —
+  a fresh repository is sent to *the Bootstrap section of
+  `skills/implement/orchestration.md`* — so every installed block shows
+  that one-line diff at the next `/specseal:update`, against the template
+  rather than against a `CLAUDE.md`. (#292)
+
+<!-- specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it -->
+<!-- seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **A fourth agent, `sealer`, takes the one broad run that two agents were
+  forbidden and nobody was assigned.** The rule that the full suite runs once,
+  after the review rounds settle, has been in this plugin since the beginning,
+  and it named who must not run it without ever naming who must: `smith` and
+  `warden` are both refused it by the contract's §2, and the act fell to
+  whoever happened to be orchestrating. The sealer's whole procedure is one
+  command. It reads nothing of the work item — not the specification, not the
+  code — runs the checks in order, reads the full output, reports it under the
+  three labels, and writes one cell. It judges nothing: a failing check comes
+  back with its own lines and no cause and no suggested fix. Its only
+  preloaded skill is `agent-contract`, which makes it the smallest payload of
+  the four agents at 20 KB, against `smith`'s 99 KB. (#30)
+- **A green run prints a seal, and the numbers you need are printed beside
+  it.** On success `broad-gate` draws a wax seal — a lily on a disc inside a
+  twisted rope — with a panel of readings next to it: the tree and the base the
+  run was taken against, the suite's own counts, the exit code your `Broad
+  gate` row came back with, the evidence ledger as `N ok · 0 broken`, the
+  chain check, and how many review rounds the work item ran. **It never says
+  a linter was clean**, because the row is one shell line and nothing in it
+  says which part is a linter — a seal that asserted one over a row with none
+  in it would be the counterfeit the `verify` skill exists to refuse. The disc is computed from a counted-stitch chart rather than
+  drawn as text, so it cannot come out lopsided, and it is emitted with colour
+  only where a colour changes. **Where the terminal cannot draw half-blocks —
+  a Windows console on a legacy codepage, or any pipe, which is what an agent
+  reads through — the same disc prints as letters** at the same width and
+  height, so nothing is lost and nothing arrives as question marks. `--shape`
+  asks for the letters anywhere, and `bin/seal-stamp` draws one so you can see
+  it. **A failing run prints no picture at all** — the words `NOT SEALED`, the
+  tree and base, and each failing check with its first lines. (#30)
+- **`broad-gate` is a command, where the broad run used to be a command
+  assembled from memory each time.** It runs your repository's own broad
+  command first, then the four checks every opted-in repository carries —
+  the evidence ledger, the unverified-row tally, the review-chain check and
+  the survivor check — reading each exit code directly and keeping each
+  output in a file. **When a test fails it re-runs only the failing files at
+  the base commit**, in a scratch worktree it removes afterwards, and labels
+  each failure `new` or `failing on base too`, so a failure that predates the
+  work is named as one rather than chased. **Your broad command comes from a
+  new `Broad gate` row in `seal/config.md`**, one shell command line, and its
+  absence is a refusal rather than a default: `broad-gate` names the row to
+  write and exits without running anything. A default would seal a repository
+  that runs something else, which is exactly the counterfeit the `verify`
+  skill exists to refuse. Put your suite runner first in the row — that is
+  what the base comparison re-runs. (#30)
+- **`round_record.py seal` writes the broad gate's cell, and it exists because
+  `close` could not write it twice.** The cell recording the run has always
+  been set by `close --broad-gate`, which also applies a round's fix table —
+  and once that table has been applied, `close` correctly refuses to take it
+  again, because a second pass would overwrite verdicts the reviewer had
+  closed. That left one real situation with no route through it: CI found
+  three failures after the gate had already run, the gate had to be re-taken
+  at a later commit, and the only way to write the new value was to hand
+  `close` a fix table with a header and no rows — which nobody would think to
+  do. `seal` is that path with a name. It takes no fix table, reads no verdict
+  row, changes the last record's `Broad gate` cell and nothing else, and
+  refuses before writing anything when a finding is still open in the last
+  record's verdict table, or when the run was taken before the round it would
+  seal. `close --broad-gate` still works for the one pass where fixes and the
+  gate land together. (#30)
+- **A review run that ends at its cap can now be sealed, and could not
+  before.** The review chain is bounded — three rounds, five while a red
+  finding is open — and a run that reaches the bound closes what is left by
+  deferring it, to an issue or to the follow-up list. That produced a state
+  with no way out: the record's `Pass` box came out checked, because deferring
+  a finding closes it, while the reviewer's own `Needs a fix` line still read
+  `yes` from when the round was running, and nothing rewrites what the
+  reviewer wrote. The seal refused on that line, so the cell recording the
+  broad run could not be written, and the pull-request check then failed the
+  branch for a missing cell nothing was able to write. Two rules of the
+  workflow contradicted each other, over exactly the case the cap exists for.
+  **The seal now asks the verdict table instead of the reviewer's line**: a
+  record with nothing still open has ended its run, however the round felt
+  while it was running. The other two refusals are unchanged, and the message
+  a person sees when a finding really is open now says which of the two rows
+  was read. (#30)
+- **"After the rounds settle" now names the row a machine already reads.** A
+  work item has build phases with a progression of their own and a review
+  chain with its own rounds, so the phrase named neither and every reader had
+  to guess which. The condition is the last round record's `Pass` box, checked
+  — nothing in its verdict table still open — and the `verify` skill states it
+  with the reason the box is the row rather than `Needs a fix`. The two agent
+  definitions that act on it, the sealer's own definition and the review
+  orchestration skill each name the row and point at that section. The proof
+  block's `broad gate` line asks for the same thing. (#30)
+- **One word named three different things, and now every reference says
+  whose.** `seal` meant the mark recording that a review happened, the stamp
+  the broad gate prints, and a smith's own proof block — the first two in the
+  two agent definitions a reader opens side by side. The rule that resolves it
+  is not fewer seals: **every agent seals what it verified, and the one seal
+  over the whole project is the sealer's.** The `verify` skill states that and
+  names the two things that already tell the final one apart — it covers a
+  tree nobody is still editing, and it is the only seal that is drawn, which
+  is why the picture prints on success alone. The warden's definition now
+  names what it actually keeps, the review mark, and the rule that a document
+  naming a thing more than one party can have says whose is written down in
+  the `writing-style` skill, so the next such word does not need its own
+  conversation. (#30)
+- **The rule now names its owner everywhere it is stated.** It stood in nine
+  places saying the run was the orchestrator's, or saying only who was
+  forbidden it: two agent definitions, `CONTRIBUTING.md`, the review-chain
+  specification, the handoff protocol, the review orchestration skill, the
+  `verify` skill, the round-record template, and the suite runner —
+  both the `bin/test` wrapper and the module it runs, which are one command
+  and were two owners until round 1 found the second. All of them now say
+  the sealer's and name the definition that assigns it.
+  Two more places were not documents at all but the failure messages the
+  chain check prints at a refused pull request — the one place a person
+  actually reads the instruction — and both now say to spawn the sealer
+  instead of telling the reader to take the run by hand. Both agent
+  definitions also gained the distinction the rule needed: **asking whether
+  anything already covers a case is a coverage probe, not a seal.** Run it,
+  and report it as a probe. (#30)
+
+<!-- specs/1789034970-the-contract-is-settled-against-the-agents-that-exist -->
+<!-- seal/specs/1789034970-the-contract-is-settled-against-the-agents-that-exist/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **The agent contract no longer contradicts the agent it ships beside.** §2
+  forbade the full suite, the repository-wide lint and the typecheck to every
+  agent and handed them to the orchestrator, which is not an agent at all —
+  and `sealer`, whose entire procedure is that run, received that sentence
+  before its first tool call. It shipped with a paragraph in its own
+  definition saying so, and that paragraph carried its own expiry. §2 now says
+  the broad gate is a single act taken once after the rounds settle, that
+  whether it is yours is what your own definition says, and that one
+  definition in this plugin hands it over. Nothing about narrow-and-often
+  changed, and the three agents whose files stay silent still run none of the
+  three checks. (#120)
+- **§6 stopped carving exceptions and started naming writes.** It used to say
+  an agent writes no durable record, with each real write excepted in the
+  definition that held it — two of four agents already had one, and the same
+  shape gives five agents four exceptions. It now says *what you write is
+  named in your own definition and nothing else*. A definition that names no
+  write names none, which is where every agent starts and what the next one
+  inherits. The four acts withheld from every agent whatever its file says are
+  unchanged: post nothing, push nothing, open no pull request, spawn no agent.
+  `warden`'s report and parity mark are the same two writes under a different
+  rule, and its definition says so with a bound the old word carried
+  implicitly — there is no third. (#120)
+- **A probe leaves nothing behind, whatever kind of thing it made.** §7
+  defined a probe as one file named `test_tmp_*`, run once, deleted — and a
+  probe that creates a git worktree satisfies every word of that while leaving
+  something behind. One did, during a review round: its probe files were
+  deleted, its report said so, and the worktree surfaced two work items later
+  when `git switch` refused a branch a worktree already held. The file rule
+  stays, because it is right for the common case and it is what that reviewer
+  correctly followed. What is added is that the rule is about leavings — a
+  worktree, a branch, a checkout, a scratch clone, a virtual environment — and
+  that those are examples rather than a list, because the next leaving is a
+  kind nobody has met and an enumeration that predates it reads as permission.
+  The rule says whose leaving it is, too: what the probe made for itself is
+  what goes, and a thing the repository's own tooling builds to be reused is
+  not your probe's leaving even when your probe's run created it. And the
+  procedure a reviewer actually follows says the same — `code-review`'s
+  Probes row used to state deleting one named file as the whole obligation,
+  which is the row the reviewer in the story above was following. (#120)
+- **The routing declaration's `Implementation` row now says how to answer
+  it.** The row has asked `smith` · `the session` since it was added and has
+  never carried a criterion, so it is answered by habit — and the other two
+  axes need none, because a wrong answer in either is contradicted at the next
+  commit when the gate stops recognising the file. The criterion: is this work
+  finding out or writing down? Finding out goes to `scribe`, because a large
+  input and a small output is what a subagent boundary is for; writing down
+  stays with the session, which already holds the context a delegate would
+  re-buy. The one case `smith` answers is a diff large enough to threaten what
+  the orchestrator still has to hold — and the threshold there is a number
+  nobody has, which the template says rather than inventing one. What it does
+  name is the axis: replaceability, not cost. (#120)
+- **No section was added, retired or renumbered.** The contract stays one
+  file, sixteen sections, so every `§N` in every round record this repository
+  has written still means what it meant. Splitting it was weighed and refused:
+  the defect was contradiction rather than irrelevance, and a line drawn at
+  four agents would be redrawn when the fifth arrives. (#120)
+- **A round record's terminal lines may wrap, and the generator no longer
+  drops what comes after the wrap.** `Needs a fix:` and `Loses a record or
+  crashes:` are the two lines that say whether a review run continues, and the
+  generator matched one physical line — so a reviewer whose sentence reached
+  the margin had the rest of it silently cut, and the cell still read as a
+  finished sentence. It happened to this work item's own round 1, which
+  shipped ending mid-clause at *the one that reopens the*. The value is now
+  joined across the wrap and stops at a blank line, at the other terminal
+  label, or at a line opening a new markdown block, and `agents/warden.md`
+  says so where it shows the two lines: **leave a blank line under the pair**,
+  which markdown wants anyway. **That last stop is known to be incomplete in
+  both directions** — it passes plain prose and stops a continuation beginning
+  with an issue number — which #339 carries with the verified fix; the blank
+  line is the stop that covers every shape. (#120)
+
 ## 0.9.5 — 2026-09-09
 
 <!-- specs/1788908215-the-orchestrator-is-measured-by-the-whole-session -->

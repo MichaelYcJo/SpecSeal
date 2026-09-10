@@ -32,6 +32,13 @@ the linking carriers that said the orchestrator writes the record now name
 the generator too — the sentences about the reviewed-HEAD mark, which the
 orchestrator does write, are not among them.
 
+A tenth rule joined from #30 rather than from #161, and it is here because
+its shape is the table's exactly: one owner, two carriers whose sentences
+must stay links rather than becoming restatements. It says which of the
+seals a project accumulates is the final one -- the word reached three
+referents at once, and the missing sentence was not *fewer seals* but
+*one of them is final*.
+
 Every sentence here was seen red with the sentence stashed (§15).
 """
 
@@ -53,6 +60,8 @@ WARDEN = ("agents", "warden.md")
 IMPLEMENT = ("skills", "implement", "SKILL.md")
 FLOW = ("docs", "flow.md")
 PHASE_TEMPLATE = ("templates", "sdd-phase.md")
+VERIFY = ("skills", "verify", "SKILL.md")
+SEALER = ("agents", "sealer.md")
 
 # The directories the count rule was swept across.
 TREE = ("docs", "skills", "agents", "templates")
@@ -61,6 +70,10 @@ REOPENING = "§*The reopening — one, and then the run is capped*"
 NO_MECHANISM = (
     "`skills/code-review/orchestration.md` §*A fix pass adds the unit that "
     "pins it, and that unit ships unreviewed* owns that rule"
+)
+ONE_SEAL_IS_FINAL = (
+    "`skills/verify/SKILL.md` §*Every agent seals what it verified, and "
+    "one of them is final* owns that rule"
 )
 BEFORE_ROUND_ONE = (
     "`skills/code-review/orchestration.md` §*Orchestrator: the pull request "
@@ -135,6 +148,12 @@ RULES = {
         SPEC,
         "no new parsed field in `round-N.md` and no new row the ledger must carry",
         {},
+    ),
+    "10 every agent seals what it verified, and one seal is final": (
+        VERIFY,
+        "Every agent seals what it verified, and the one seal over the whole "
+        "project is the sealer's.",
+        {SEALER: ONE_SEAL_IS_FINAL, WARDEN: ONE_SEAL_IS_FINAL},
     ),
     "9 a hand-back's verification claim is a claim": (
         ORCH,
