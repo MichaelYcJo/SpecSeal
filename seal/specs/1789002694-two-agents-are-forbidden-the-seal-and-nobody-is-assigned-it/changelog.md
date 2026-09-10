@@ -16,9 +16,12 @@
 - **A green run prints a seal, and the numbers you need are printed beside
   it.** On success `broad-gate` draws a wax seal — a lily on a disc inside a
   twisted rope — with a panel of readings next to it: the tree and the base the
-  run was taken against, the suite's own counts, the linter, the evidence
-  ledger as `N ok · 0 broken`, the chain check, and how many review rounds the
-  work item ran. The disc is computed from a counted-stitch chart rather than
+  run was taken against, the suite's own counts, the exit code your `Broad
+  gate` row came back with, the evidence ledger as `N ok · 0 broken`, the
+  chain check, and how many review rounds the work item ran. **It never says
+  a linter was clean**, because the row is one shell line and nothing in it
+  says which part is a linter — a seal that asserted one over a row with none
+  in it would be the counterfeit the `verify` skill exists to refuse. The disc is computed from a counted-stitch chart rather than
   drawn as text, so it cannot come out lopsided, and it is emitted with colour
   only where a colour changes. **Where the terminal cannot draw half-blocks —
   a Windows console on a legacy codepage, or any pipe, which is what an agent

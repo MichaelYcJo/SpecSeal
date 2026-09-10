@@ -370,7 +370,14 @@ def panel(tree, base, checks, item):
         ("base", base),
         None,
         (SUITE, suite_counts(checks[SUITE].text) or "exit 0"),
-        ("lint", "clean"),
+        # NOT `("lint", "clean")`. The row is one shell command line and
+        # nothing in it says which part is a linter (`templates/config.md`
+        # §*Broad gate*), so `clean` over a row with no linter in it is the
+        # seal asserting a check that never ran — the counterfeit `verify`
+        # names, printed on the artifact a reader trusts BECAUSE it is drawn
+        # on success alone. What the gate actually measured is the row's
+        # exit code.
+        ("row", f"exit {checks[SUITE].code}"),
         (LEDGER, ledger_counts(checks[LEDGER].text) or "exit 0"),
         (CHAIN_NAME, f"exit {checks[CHAIN_NAME].code}"),
     ]

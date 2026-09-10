@@ -483,7 +483,10 @@ def test_a_base_that_does_not_resolve_is_refused_with_nothing_run(repo, tmp_path
 def test_a_green_tree_is_sealed_with_every_check_run_in_order(repo, tmp_path):
     """S1. Every check runs, its exit code is read off the process and kept
     with its output, and the stamp prints with the panel: tree, base, the
-    suite's counts, lint, ledger, chain. No `rounds` row without `--record`."""
+    suite's counts, the row's exit code, ledger, chain. No `rounds` row
+    without `--record`. The `row` label replaced a literal `lint  clean` in
+    round 1's 🟡 3 — the gate cannot tell which part of a shell line is a
+    linter, so it reports what it measured."""
     keep = tmp_path / "out"
     out = run_gate(repo, keep=keep)
     assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
@@ -493,7 +496,7 @@ def test_a_green_tree_is_sealed_with_every_check_run_in_order(repo, tmp_path):
         ("tree", short(repo, "HEAD")),
         ("base", short(repo, "base")),
         ("suite", "1 passed"),
-        ("lint", "clean"),
+        ("row", "exit 0"),
         ("ledger", "0 broken"),
         ("chain", "exit 0"),
     ):
@@ -938,6 +941,26 @@ def test_the_gate_with_record_seals_the_item_and_counts_its_rounds(repo, tmp_pat
     assert re.search(r"\brounds\s+2\b", out.stdout), out.stdout
     cell = fields(two.read_text(encoding="utf-8"))[ROW]
     assert cell == f"{short(repo, 'HEAD')} against base", cell
+
+
+def test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter(repo, tmp_path):
+    """Round 1's 🟡 3. The panel carried `lint  clean` as a literal, beside
+    four rows read from what the checks printed.
+
+    The `Broad gate` row is one shell command line and nothing in it says
+    which part is a linter — `templates/config.md` says so itself, which is
+    why the base comparison re-runs whatever stands before the first `&&`
+    rather than a linter it identified. A repository whose row is only a test
+    runner got a seal asserting a check that never ran, on the artifact a
+    reader trusts BECAUSE it is drawn on success alone.
+
+    The fixture's row is a bare pytest call, with no linter in it at all."""
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert re.search(r"\brow\s+exit 0\b", out.stdout), out.stdout
+    assert "clean" not in out.stdout, (
+        "the seal still asserts a linter over a row that has none in it"
+    )
 
 
 def test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed(
