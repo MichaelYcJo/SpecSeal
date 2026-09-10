@@ -361,6 +361,20 @@ def test_a_skill_the_list_names_and_the_tree_lacks_is_a_row_not_a_crash(
 def test_without_calibration_every_token_figure_reads_estimated_and_names_its_origin(
     meter, tmp_path
 ):
+    """Every figure is an estimate at the assumed ratio; each FILE row is that
+    row's bytes divided by it, and the total is the SUM of the rows.
+
+    The two are not one number. Rounding each row and adding is not adding and
+    rounding once, and PR #329's Windows leg found the gap: the fixture's lines
+    are CRLF there, the sizes move, and the total read 81 tokens over 257 bytes
+    where `round(257 / 3.2)` is 80. Nothing is measured twice -- every row's
+    bytes are the file's bytes on disk, and 30 + 33 + 6 + 6 + 6 is 81. What the
+    total may not be is a second division of the sum, or the column a reader
+    adds up stops adding up to the total under it.
+
+    The CRLF block below writes those endings explicitly, so the divergence is
+    exercised on every platform rather than on the one whose fixture happens to
+    round the other way."""
     root, home = a_tree(tmp_path)
     data = meter.measure(str(root), str(home))
     probe = data["agents"]["probe"]
@@ -371,7 +385,33 @@ def test_without_calibration_every_token_figure_reads_estimated_and_names_its_or
             "no ratio was measured, so the label has to say the figure rests on "
             f"an assumption: {row['basis']}"
         )
+    for row in probe["files"]:
         assert row["tokens"] == round(row["bytes"] / meter.ASSUMED_RATIO), row
+    assert probe["total"]["tokens"] == sum(f["tokens"] for f in probe["files"])
+    for base in (root, home):
+        for folder, _subs, names in os.walk(base):
+            for name in names:
+                path = os.path.join(folder, name)
+                with open(path, "rb") as handle:
+                    raw = handle.read()
+                with open(path, "wb") as handle:
+                    handle.write(raw.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+    crlf = meter.measure(str(root), str(home))["agents"]["probe"]
+    for row in crlf["files"]:
+        on_disk = (
+            os.path.join(str(home), ".claude", "CLAUDE.md")
+            if row["path"].startswith("~/")
+            else os.path.join(str(root), row["path"])
+        )
+        assert row["bytes"] == os.path.getsize(on_disk), row
+        assert row["tokens"] == round(row["bytes"] / meter.ASSUMED_RATIO), row
+    summed = sum(f["tokens"] for f in crlf["files"])
+    assert crlf["total"]["tokens"] == summed, crlf["total"]
+    assert summed != round(crlf["total"]["bytes"] / meter.ASSUMED_RATIO), (
+        "the CRLF fixture no longer exercises the divergence: adding the "
+        "rounded rows and dividing the total agree here, so this block would "
+        "pass whichever number the total was built from"
+    )
     text = meter.render(data)
     for cells in rows_of(text):
         if cells and cells[0] in ("File", "Section"):
