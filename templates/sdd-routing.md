@@ -28,11 +28,16 @@ this file is for people. -->
      HOW TO ANSWER IT — the criterion, so the row is not answered by habit.
      Ask whether this work is FINDING OUT or WRITING DOWN. Finding out — what
      an unfamiliar codebase does, where a behaviour lives, what an original
-     actually did — goes to `scribe`: a large input and a small output is what
-     a subagent boundary is for. Writing down stays with the session, because
-     a delegate re-buys the context the session already holds. The one case
-     `smith` answers is a diff large enough to threaten what the orchestrator
-     still has to hold.
+     actually did — is a STEP to send to `scribe`: a large input and a small
+     output is what a subagent boundary is for. That is a step and not an
+     answer to this row, which has two values and no third: the session that
+     reads those facts back and writes the code still answers `the session`.
+     Writing down stays with the session too, because a delegate re-buys the
+     context the session already holds. The one case `smith` answers is a diff
+     large enough to threaten what the orchestrator still has to hold.
+     So the row is never deleted because the work is discovery — `the session`
+     is the answer there, and the sentence above about deleting the row is for
+     a work item that genuinely has no answer to give.
      The threshold in that last clause is a number nobody has, and this
      comment does not invent one. What it can say is which axis it is on:
      the case for a delegate there is REPLACEABILITY, not cost — the

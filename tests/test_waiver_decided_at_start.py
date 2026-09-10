@@ -125,9 +125,30 @@ def test_the_optional_row_ships_the_criterion_that_decides_it():
         "the criterion went. The row is back to being answered by habit, "
         "which is the state #263 measured"
     )
-    assert "goes to `scribe`" in tpl, (
+    assert "is a STEP to send to `scribe`" in tpl, (
         "the criterion names no destination for discovery, so the axis it "
         "draws collapses back into `smith` or nothing"
+    )
+    # Round 1, finding 8. The criterion named three destinations for a row
+    # that accepts two values -- `hooks/routing.py`'s IMPLEMENTATION_ANSWERS
+    # is `smith` and `the session` -- and never said what to TYPE. A session
+    # whose work is finding-out had two readings and the wrong one is
+    # permitted by the same comment: line 27 says to delete the row rather
+    # than invent a third answer. Deleting it there loses an answer that
+    # exists. This row is the one axis nothing contradicts, so a session that
+    # guesses gets no correction from anywhere.
+    assert "That is a step and not an answer to this row" in tpl, (
+        "the criterion routes discovery to `scribe` and stops, so a session "
+        "reading it has a destination and no value to write in the row"
+    )
+    assert "still answers `the session`" in tpl, (
+        "the comment stopped saying what to type for a discovery work item, "
+        "which is the half `questions.md` Q4 did not have to answer"
+    )
+    assert "never deleted because the work is discovery" in tpl, (
+        "the wrong recovery is permitted again: `Delete the row rather than "
+        "inventing a third answer` reads as licence to delete a row whose "
+        "answer exists, and the result is a record that says `not answered`"
     )
     assert "REPLACEABILITY, not cost" in tpl, (
         "the axis the last clause sits on went. Without it the threshold "
