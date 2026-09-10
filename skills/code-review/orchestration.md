@@ -468,7 +468,11 @@ built on that report is built on prose. The section below already says this
 of the reviewer's report; nothing said it of the implementer's until
 2026-09-05. The broad gate still runs once, after the rounds settle
 (`agent-contract` §2) — this is the narrow run at each phase boundary, and it
-is yours rather than the phase's.
+is yours rather than the phase's. A phase boundary is never that moment, and
+the row is what says so: the gate comes due when the last
+`rounds/round-N.md`'s `Pass` box is checked, which is a record no phase
+writes. `skills/verify/SKILL.md` §*The broad gate — after the rounds, then
+compare against the base* says which row and why not `Needs a fix`.
 
 ## Orchestrator: verify before posting
 

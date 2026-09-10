@@ -74,6 +74,66 @@ def test_the_broad_gate_section_states_its_own_timing():
     )
 
 
+# The row that says the rounds settled, and the one sentence every carrier
+# points at instead of restating it.
+ROW = "`rounds/round-N.md`'s `Pass` box"
+POINTS_AT_THE_OWNER = (
+    "`skills/verify/SKILL.md` §*The broad gate — after the rounds, then "
+    "compare against the base* says which row and why not `Needs a fix`"
+)
+CARRIERS = (
+    ("agents", "warden.md"),
+    ("agents", "smith.md"),
+    ("agents", "sealer.md"),
+    ("skills", "code-review", "orchestration.md"),
+)
+
+
+def test_the_owner_names_the_row_the_phrase_stood_for():
+    """*After the rounds settle* names no particular rounds. A work item has
+    build phases with a progression of their own and a review chain with its
+    own, and a reader deciding whether the gate is due has to pick one.
+
+    The condition is a row a machine already reads, and phase 5 of #30 made
+    it the `Pass` box rather than `Needs a fix`: a capped run closes its last
+    finding `deferred <home>`, which checks the box, while the reviewer's own
+    row keeps the `yes` it had while the round ran. Both halves are asserted
+    — the row, and why the other row is not it — because the row alone would
+    go green over a document that had quietly gone back to reading the
+    reviewer's answer."""
+    owner = flat("skills", "verify", "SKILL.md")
+    assert f"the last {ROW} is checked" in owner, (
+        "the broad gate's own section stopped naming the row, and the phrase "
+        "it leaves behind names no particular rounds"
+    )
+    assert "`Needs a fix: no` is the ordinary way a run arrives at a checked" in owner
+    assert "the box is what says the run ended" in owner
+
+
+def test_every_carrier_names_the_row_and_links_rather_than_restating_it():
+    """Four documents tell an agent when the gate is due. Each names the row
+    — a reader who has only that file still knows what to look at — and each
+    points at the one section that says why that row and not the other,
+    rather than carrying the reasoning a fifth time."""
+    for parts in CARRIERS:
+        text = flat(*parts)
+        assert ROW in text, f"{'/'.join(parts)} names the moment and not the row"
+        assert POINTS_AT_THE_OWNER in text, (
+            f"{'/'.join(parts)} states the condition without naming the "
+            "section that owns it, which is a second statement of the rule "
+            "rather than a link to the one that owns it"
+        )
+
+
+def test_the_seal_block_asks_for_the_row_too():
+    """The `broad gate` row of the proof block is filled by a session that
+    may load nothing else. It used to read `due after the rounds settle`,
+    which is the phrase this change exists to replace."""
+    block = flat("skills", "verify", "SKILL.md")
+    assert "due when the last round record's `Pass` is checked" in block
+    assert "not yet — due after the rounds settle" not in block
+
+
 def test_verify_prices_the_run_that_repeats():
     """Scope decides how often; it says nothing about what each run costs, and
     the narrow run is the one that multiplies."""

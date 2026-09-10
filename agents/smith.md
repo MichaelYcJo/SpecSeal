@@ -187,7 +187,11 @@ incorporation. This file only adds what the skill does not carry.
    narrow form, one module: the full suite is the sealer's, once, after the
    rounds settle. `docs/review-handoff-protocol.md` §*The handoff before round
    1* owns that rule, and it is why a prompt that carries no incantation is
-   not a prompt that is missing one.
+   not a prompt that is missing one. **That last phrase is a row rather than
+   a moment** — the last `rounds/round-N.md`'s `Pass` box, checked — and
+   `skills/verify/SKILL.md` §*The broad gate — after the rounds, then compare
+   against the base* says which row and why not `Needs a fix`. Your phases
+   have a progression of their own, and it is not the one that row counts.
 
    **One broad-looking run is not a seal, and it is yours to take.** Asking
    *does anything already catch this* is a question about the cases rather

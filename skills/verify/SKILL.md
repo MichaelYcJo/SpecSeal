@@ -256,6 +256,22 @@ by the first finding. Findings are the expected case rather than the
 exception: the review chain runs up to three rounds, and five while a 🔴 is
 open (`docs/review-chain-spec.md`).
 
+**"After the rounds settle" is a row, not a moment, and this is the row: the
+last `rounds/round-N.md`'s `Pass` box is checked.** Nothing in that record's
+verdict table is still open. The phrase alone names no particular rounds — a
+work item has build phases with a progression of their own and a review chain
+with its own — so a reader who reaches for the moment has to guess, and one
+who reaches for the box does not.
+
+`Needs a fix: no` is the ordinary way a run arrives at a checked box, and it
+is the reviewer's own answer rather than a reading of the table. The two part
+on one case: a run that ends at the round cap closes its last finding
+`deferred <home>`, which is a closing word, so the box is checked while the
+reviewer's row keeps the `yes` it had while the round was running. Nothing
+rewrites that row afterwards, and nothing should — it is what the reviewer
+concluded. So the box is what says the run ended, and
+`round_record.py seal` refuses on the box for that reason.
+
 **It belongs to the `sealer`, and the four conditions above are its whole
 procedure.** The rule used to say when the gate fires and which agents may not
 take it, and named nobody who may — so it was assembled from these sentences
@@ -358,7 +374,7 @@ End with this block. Values that cannot be filled honestly stay `none —
 · <claim> — <command> → <key output line> (exit <n>)  [executed]
 · <claim> — <where read, file:line>                   [read]
 · <claim> — unverified; <who/what answers>            [unverified]
-· broad gate: <not yet — due after the rounds settle | ran at <sha> vs base <sha>>
+· broad gate: <not yet — due when the last round record's `Pass` is checked | ran at <sha> vs base <sha>>
 · cost: <n> check runs, <m> minutes of command time
 · red proven: <how the check was seen failing, or none — <reason>>
 ```

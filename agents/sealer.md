@@ -63,6 +63,14 @@ Three outcomes, and they are not two:
   resolve; or, with `--record`, the record refused the cell because the
   rounds have not settled.
 
+**"After the rounds settle" is a row rather than a moment, and you are spawned
+against the row.** It is the last `rounds/round-N.md`'s `Pass` box, checked —
+nothing in that record's verdict table still open. `skills/verify/SKILL.md`
+§*The broad gate — after the rounds, then compare against the base* says which
+row and why not `Needs a fix`, which a capped run leaves reading `yes` over a
+table with nothing open in it. You do not judge the row: the record refuses
+the cell if the box is unchecked, and that refusal is the exit 2 above.
+
 **A refusal is not a failure, and neither is a seal.** Say which of the three
 you got and quote the sentence the gate printed for it. A refusal delivered
 as *it did not pass* sends somebody hunting a defect that is not there, and a

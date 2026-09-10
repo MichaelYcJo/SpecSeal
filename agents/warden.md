@@ -51,7 +51,12 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   once, after the rounds settle.
   `docs/review-handoff-protocol.md` §*The handoff before round 1* owns that
   rule, and it is why a prompt that carries no incantation is not a prompt
-  that is missing one.
+  that is missing one. **That last phrase is a row rather than a moment** —
+  the last `rounds/round-N.md`'s `Pass` box, checked — and
+  `skills/verify/SKILL.md` §*The broad gate — after the rounds, then compare
+  against the base* says which row and why not `Needs a fix`. Your own round
+  is one of the rounds it counts, so the box you leave unchecked is the one
+  holding the gate.
 - **A coverage probe is not the run above.** Reproducing a finding by asking
   whether the existing cases catch it is a question about the cases, so a
   coverage probe — nothing in the suite catches this — is a different act:
