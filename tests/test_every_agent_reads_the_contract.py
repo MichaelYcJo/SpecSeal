@@ -139,11 +139,22 @@ def test_the_glob_finds_the_definitions():
 # exception and would not find one here. New §6 asks a weaker question, *is
 # this write named in your own definition*, which turns any loose sentence
 # about leaving durable evidence into a grant. The bound is what closes it.
+# Round 2, finding 1: the fourth entry used to read `you don't write them
+# anywhere`, and in `agents/scribe.md` that matched a PARENTHETICAL whose
+# subject is worker findings being pre-verification — a sentence about whose
+# judgment a verdict is, not a bound on a list of writes. That file states no
+# list of writes at all, so the case passed on it for a reason unrelated to
+# what it checks, and a fifth definition copying the parenthetical into
+# unrelated prose passed with no bound either. Rewording the parenthetical
+# alone turned the case red, which is what showed the pass rested on it.
+#
+# Every entry here now names WRITING as its subject, so a phrase can only be
+# matched by a sentence that is about what the file's agent writes.
 BOUNDS = (
     "a write not below is a write you do not make",
     "a write not named here is a write you do not make",
     "is the whole of what you may write",
-    "you don't write them anywhere",
+    "You write nothing durable anywhere, and that is the whole of it",
 )
 
 
