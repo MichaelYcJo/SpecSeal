@@ -289,14 +289,34 @@ def test_sections_split_each_file_at_its_headings_and_sum_to_the_file(meter, tmp
 
 
 def test_json_carries_the_same_numbers_as_the_text_and_no_machine_path(tmp_path):
+    """Each agent row's bytes and chars sit on its own table line, and the
+    `CLAUDE.md` pair's on the pair line as a sum -- the text never prints a
+    pair file alone. The first spelling of this case looked each row's byte
+    count up as a substring of the whole report, and passed on POSIX because
+    the 17-byte `CLAUDE.md` fixture matched the 17-byte `beta` row's cell;
+    on Windows, where the fixture writes CRLF and the counts move, it failed
+    on `CLAUDE.md` (PR #329's Windows leg, run 34424160836)."""
     root, home = a_tree(tmp_path)
     as_json = run(["--root", str(root), "--json"], home, cwd=str(tmp_path))
     assert as_json.returncode == 0, as_json.stderr
     data = json.loads(as_json.stdout)
     as_text = run(["--root", str(root)], home, cwd=str(tmp_path))
     assert as_text.returncode == 0, as_text.stderr
-    for row in data["agents"]["probe"]["files"]:
-        assert f"{row['bytes']:,}" in as_text.stdout, row["path"]
+    rows = rows_of(as_text.stdout)
+    by_first = {cells[0]: cells for cells in rows}
+    files = data["agents"]["probe"]["files"]
+    for row in files:
+        if row["share"] == "harness":
+            continue
+        cells = by_first[f"`{row['path']}`"]
+        assert cells[1:3] == [f"{row['bytes']:,}", f"{row['chars']:,}"], row["path"]
+    pair = [r for r in files if r["share"] == "harness"]
+    assert len(pair) == 2
+    pair_line = next(c for c in rows if c[0].startswith("CLAUDE.md pair"))
+    assert pair_line[1:3] == [
+        f"{sum(r['bytes'] for r in pair):,}",
+        f"{sum(r['chars'] for r in pair):,}",
+    ], pair_line
     assert str(home) not in as_json.stdout
     assert str(tmp_path) not in as_json.stdout, "an absolute path reached the JSON"
     assert data["root"] == "plugin"
