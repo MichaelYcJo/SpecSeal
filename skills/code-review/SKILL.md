@@ -151,9 +151,8 @@ a worktree, a branch, a checkout, a scratch clone or a virtual environment your
 probe made for itself is a leaving too, and the probe is not over until every
 one of them is gone. Deleting the named file and stopping there is what left a
 git worktree behind through a whole review chain — the report said the probe
-files were deleted, and there was nothing wrong with that sentence. It surfaced
-two work items later, when `git switch` refused a branch a worktree already
-held.
+files were deleted, and there was nothing wrong with that sentence. §7 carries
+the incident that cost this rule.
 
 **A fixture chain is `&&`, never `|`.** A pipe between two commands does not
 sequence them, it feeds the first one's output to the second, and a chain

@@ -306,20 +306,29 @@ def test_only_one_definition_assigns_the_broad_gate():
     quietly stop being the thing this counts."""
     agents = sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
     assert len(agents) >= 4, f"agents/*.md matched {len(agents)} files"
-    assert COUNT_WORD in flat("skills", "agent-contract", "SKILL.md"), (
-        "§2 no longer states the count this case checks, so the number and "
-        "the sentence have come apart"
-    )
     assigning = [
         os.path.basename(path)
         for path in agents
         if ASSIGNS_THE_GATE in " ".join(read_at(path).split())
     ]
+    # The tree fact first, and §2's sentence after it. Round 2, finding 8:
+    # with the order reversed, the document assertion fired first and named
+    # only itself, where the 0.11.0 arrival moves THREE things together --
+    # §2's prose, `COUNT_WORD`, and the list this compares against. Whichever
+    # of the two fails now, the reader is told about all three.
     assert assigning == ["sealer.md"], (
         f"{len(assigning)} definitions assign the broad gate ({assigning}) "
         "and §2 says `One definition in this plugin does hand them over`. "
         "Either that sentence needs the new count, or a definition took the "
-        "gate and the contract's sentence did not follow it"
+        "gate and the contract's sentence did not follow it. Three things "
+        "move together when it does: §2's prose, `COUNT_WORD` here, and this "
+        "comparison"
+    )
+    assert COUNT_WORD in flat("skills", "agent-contract", "SKILL.md"), (
+        "§2 no longer states the count this case checks, so the number and "
+        "the sentence have come apart. If the count changed, `COUNT_WORD` and "
+        f"the comparison against {assigning} move with it; if it did not, §2 "
+        "lost the sentence that makes this case worth running"
     )
 
 
@@ -338,7 +347,18 @@ def test_no_definition_promises_the_suite_once_the_rounds_settle():
 
     Asserted over the whole glob, not over the one file the finding named,
     because a temporal release is the shape any definition can pick up while
-    describing a rule it does not hold."""
+    describing a rule it does not hold.
+
+    **The direction this can still miss, stated rather than left to be found.**
+    It matches one spelling. A definition that promises the suite in other
+    words -- *yours once the rounds have settled* -- is invisible here, which
+    round 2 of #120 measured by rewording the corrected sentence and watching
+    this case stay green. That is the same verbatim-versus-semantic trade
+    `test_only_one_definition_assigns_the_broad_gate` states above, for the
+    same reason: no constant decides when two sentences say the same thing.
+    What narrows it is that the wrong sentence had exactly one idiom in this
+    tree, and the glob is what catches that idiom arriving in a second file --
+    which is the copy this shape actually spreads by."""
     for path in sorted(glob.glob(os.path.join(ROOT, "agents", "*.md"))):
         text = " ".join(read_at(path).split())
         assert "until the rounds settle" not in text.lower(), (
@@ -454,6 +474,22 @@ def test_the_reviewer_carries_the_gate_state_into_a_section_its_report_has():
     assert "`Broad gate` cell itself is not yours" in warden, (
         "the reviewer stopped being told the cell has another owner, so two "
         "definitions name one cell"
+    )
+    # Round 2, finding 7: the destination is right and its columns read
+    # `What was run | Result`, while the value the reviewer most often has is
+    # `not yet`. Nothing ships broken -- the cell is written by
+    # `broad-gate --record` and never from this table -- but §4 is about not
+    # letting what ran and what did not share a label, so the definition says
+    # how to spell the row rather than leaving a not-run item under a heading
+    # that claims one.
+    assert "spell it so the row cannot be read as a run" in warden, (
+        "the reviewer is sent to a table headed `What was run` with no word "
+        "about how to write a `not yet` into it, which is the label §4 says "
+        "must not be shared"
+    )
+    assert "§4 is the rule under it" in warden, (
+        "the grounds went, and a spelling rule with no rule behind it is the "
+        "first thing a later edit tidies away"
     )
     # The named section has to be one the generator actually reads, or the
     # redirect moves the answer somewhere the record never sees.

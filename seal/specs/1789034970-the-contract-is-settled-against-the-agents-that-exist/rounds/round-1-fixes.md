@@ -1,6 +1,6 @@
 # Round 1's fix pass — the contract is settled against the agents that exist
 
-Range `e972b5f..054c58f`, eight commits, on
+Range `e972b5f..b8aa637`, seven commits, on
 `docs/120-the-contract-is-settled-against-the-agents-that-exist`. Every finding
 of round 1 has a row. Read by `round_record.py close`, which applies it to
 `rounds/round-1.md`.
@@ -76,7 +76,7 @@ alone against the tree as it stood.
 | Two routing modules after | 0 — 41 passed |
 | `bin/evidence-check .` | 0 — 1111 ok · 0 drifted · 0 broken |
 | `.github/scripts/rider_check.py` | 0 — 25 ok · 0 drifted · 0 broken |
-| `bin/survivor-check --range e972b5f..HEAD --exempt …` | 0 — no removed wording is still standing |
+| `bin/survivor-check --range e972b5f..HEAD --exempt …`, taken at `054c58f` | 0 — no removed wording is still standing |
 | `bin/survivor-check --range origin/release/v0.10.0...HEAD --exempt …` | 0 — three exempt, all rows already written |
 
 ## What is still `unverified`

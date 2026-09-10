@@ -237,7 +237,13 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   Every finding from an earlier round needs an answer this round: fixed, still
   open, or no longer applicable, each with your own grounds.
 - **Carry the broad-gate state into your report** the way you carry probe
-  results, under `## Executed probes`, where it has a row to sit in. Whether
+  results, under `## Executed probes`, where it has a row to sit in — and
+  spell it so the row cannot be read as a run. That table's columns are
+  `What was run | Result`, and the value you most often have is `not yet`:
+  name the check in the first cell and let the second say `not yet` in as
+  many words, never a figure or a word that reads as an outcome. §4 is the
+  rule under it — what was executed and what was not must not share a label.
+  Whether
   the one full-suite run has happened — `not yet`, or the SHA it ran at and
   the base it was compared against — is invisible in the code, and the next
   session either repeats a sealed run or ships assuming someone else made it.
