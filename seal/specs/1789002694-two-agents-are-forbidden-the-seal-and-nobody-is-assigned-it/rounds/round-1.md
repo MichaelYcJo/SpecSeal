@@ -7,12 +7,12 @@
 | PR | 332 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | seal_record → round-1-report.md, round-1.md, gate |
+| New units | quote (depth 1); SUMMARY_WORDS (depth 1); SEAL_VOCABULARY (depth 1); SEAL_VOCABULARY_SPAN (depth 1); test_a_scale_that_is_not_a_number_is_refused_before_anything_runs (depth 1); test_the_failure_form_lines_up_the_widest_check_name (depth 1); test_the_disc_draws_the_same_bytes_in_every_process (depth 1); CHECKED_BY (depth 1); test_the_gate_names_the_row_it_sealed_over (depth 1); test_the_suite_row_reads_pytests_counts_and_not_a_linters (depth 1); test_a_failing_file_the_base_lacks_does_not_cost_the_others_their_verdict (depth 1); fixed_but_unread_item (depth 1); test_seal_refuses_while_the_fixes_have_been_read_by_nobody (depth 1); test_the_capped_run_still_seals_beside_the_third_refusal (depth 1); test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter (depth 1); test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed (depth 1); test_the_runner_behind_the_wrapper_says_the_same_thing (depth 1) |
 | Needs a fix | yes — 🔴 1 and 🔴 2, and 🟡 3 through 🟡 10 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -22,16 +22,16 @@ Round 1 of #30 at `610eb7d`, the whole branch `feat/30-two-agents-are-forbidden-
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | a `seal` exit that is not 2 prints the disc and returns 0 | `skills/verify/scripts/broad_gate.py:504-516` | open | executed — `chain_check.main` returns `1 if errors else 0` at `chain_check.py:3436`; the branch reads only `2`. Fixture probe returned exit 2 with the cell already written |
-| 🔴 2 | `Pass` is checked in the window before the verifying round, and `seal` writes there | `skills/code-review/scripts/round_record.py:2960-2971` | open | executed — fixture: `Pass` `[x]`, `Fixes checked by` `nobody — the fixes are not yet written`, one record on disk, cell written. `skills/code-review/orchestration.md:436` calls that window red |
-| 🟡 3 | the panel asserts `lint  clean` whether or not a linter ran | `skills/verify/scripts/broad_gate.py:373` | open | read — the row is a literal beside four rows read from output |
-| 🟡 4 | one failing file absent at base labels every other one `new` | `skills/verify/scripts/broad_gate.py:315-338` | open | executed — pytest exits 4 with no `FAILED` line, so `failing_files` returns `[]` |
-| 🟡 5 | a linter's warning count displaces pytest's counts on the seal | `skills/verify/scripts/broad_gate.py:344-349` | open | executed — `suite_counts` returned `'2 warnings'` over a combined output |
-| 🟡 6 | the disc is not reproducible below scale 1.0 | `skills/verify/scripts/seal_stamp.py:186` | open | executed — two distinct renderings at `--scale 0.75` across five `PYTHONHASHSEED` values |
-| 🟡 7 | the runner behind `bin/test` still names the orchestrator | `.github/scripts/run_tests.py:42-44` | open | read — `bin/test:23` converted, the file it execs not; no case pins the docstring |
-| 🟡 8 | the third refusal in the corrected function tells the reader to run it by hand | `skills/code-review/scripts/chain_check.py:2988-2997` | open | read — three fatal refusals in `broad_gate`, two re-pointed |
-| 🟡 9 | the gate never prints the row's command it sealed over | `skills/verify/scripts/broad_gate.py:469`, `agents/sealer.md:132` | open | read — `run` writes it to the kept file only |
-| 🟡 10 | a fourth referent of `seal`, in a file the sweep's list omits | `docs/one-root-by-lifetime.md:135` | open | read — `tests/test_one_word_one_meaning.py:151-166` lists twelve files, not this one |
+| 🔴 1 | a `seal` exit that is not 2 prints the disc and returns 0 | `skills/verify/scripts/broad_gate.py:504-516` | **fixed** `1f5d0c4` | fixed at 1f5d0c4 — the gate reads every non-zero exit from `seal`, not only 2, and tells a refusal before the write from a check that failed after it; executed — `chain_check.main` returns `1 if errors else 0` at `chain_check.py:3436`; the branch reads only `2`. Fixture probe returned exit 2 with the cell already written |
+| 🔴 2 | `Pass` is checked in the window before the verifying round, and `seal` writes there | `skills/code-review/scripts/round_record.py:2960-2971` | **fixed** `000ec8f` | fixed at 000ec8f — a third refusal reads `Fixes checked by`; the `Pass` refusal stays, and a capped run reading `no fixes to check` is untouched; executed — fixture: `Pass` `[x]`, `Fixes checked by` `nobody — the fixes are not yet written`, one record on disk, cell written. `skills/code-review/orchestration.md:436` calls that window red |
+| 🟡 3 | the panel asserts `lint  clean` whether or not a linter ran | `skills/verify/scripts/broad_gate.py:373` | **fixed** `04a672f` | fixed at 04a672f — the panel's `lint` row states what ran rather than asserting clean; read — the row is a literal beside four rows read from output |
+| 🟡 4 | one failing file absent at base labels every other one `new` | `skills/verify/scripts/broad_gate.py:315-338` | **fixed** `221b7ba` | fixed at 221b7ba — a file the base does not carry no longer makes every other one read `new`; executed — pytest exits 4 with no `FAILED` line, so `failing_files` returns `[]` |
+| 🟡 5 | a linter's warning count displaces pytest's counts on the seal | `skills/verify/scripts/broad_gate.py:344-349` | **fixed** `4b9ffb7` | fixed at 4b9ffb7 — a linter's warning count no longer displaces pytest's counts; executed — `suite_counts` returned `'2 warnings'` over a combined output |
+| 🟡 6 | the disc is not reproducible below scale 1.0 | `skills/verify/scripts/seal_stamp.py:186` | **fixed** `18b8e8f` | fixed at 18b8e8f — the same scale draws the same disc in every process; executed — two distinct renderings at `--scale 0.75` across five `PYTHONHASHSEED` values |
+| 🟡 7 | the runner behind `bin/test` still names the orchestrator | `.github/scripts/run_tests.py:42-44` | **fixed** `29eeae7` | fixed at 29eeae7 — the runner behind `bin/test` names the sealer; read — `bin/test:23` converted, the file it execs not; no case pins the docstring |
+| 🟡 8 | the third refusal in the corrected function tells the reader to run it by hand | `skills/code-review/scripts/chain_check.py:2988-2997` | **fixed** `6bd1681` | fixed at 6bd1681 — the third refusal names the spawn rather than telling the reader to run it by hand; read — three fatal refusals in `broad_gate`, two re-pointed |
+| 🟡 9 | the gate never prints the row's command it sealed over | `skills/verify/scripts/broad_gate.py:469`, `agents/sealer.md:132` | **fixed** `3dcfcdd` | fixed at 3dcfcdd — the gate names the command it sealed over; read — `run` writes it to the kept file only |
+| 🟡 10 | a fourth referent of `seal`, in a file the sweep's list omits | `docs/one-root-by-lifetime.md:135` | **fixed** `bce4ece` | fixed at bce4ece — a fourth referent of `seal`, and three more the hand enumeration found that the check could not; read — `tests/test_one_word_one_meaning.py:151-166` lists twelve files, not this one |
 
 ## Paste-ready fixes
 
