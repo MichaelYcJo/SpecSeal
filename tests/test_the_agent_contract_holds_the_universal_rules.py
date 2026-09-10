@@ -196,6 +196,37 @@ def test_the_root_resolution_rule_says_why_it_is_universal():
     )
 
 
+def test_the_leavings_rule_says_whose_leaving_it_is():
+    """Round 1, finding 7 of #120. The widened §7 names a virtual environment
+    among its examples, and this repository builds one on purpose and reuses
+    it -- `bin/test` exists for exactly that, and its own header prices the
+    alternative at 55-58 seconds of setup per call.
+
+    So an agent that writes a probe, runs it through the repository's runner in
+    a fresh clone and then follows §7 to the letter deletes the venv its
+    probe's run created, and every later call in the segment pays the build
+    again. The general form is ratified -- `questions.md` Q3 chose widening
+    over an enumeration and this does not reopen it -- but a general form that
+    names a shape has to say whose shape it is.
+
+    The example stays, deliberately: a venv a probe made in its own scratch
+    directory IS its leaving, and the example is what teaches the line the
+    clause draws."""
+    body = " ".join(bodies(read())[7].split())
+    assert "What the probe made for ITSELF is what goes" in body, (
+        "§7 lost the ownership clause, so `a virtual environment` in its own "
+        "example list reads as an instruction to delete a reused one"
+    )
+    assert "never who happened to trigger it" in body, (
+        "the test the clause hands a reader went. Ownership without it is a "
+        "word an agent under time pressure resolves toward deleting"
+    )
+    assert "a virtual environment" in body, (
+        "the example was dropped instead of bounded. A venv a probe built for "
+        "itself is still its leaving, and the example is what draws the line"
+    )
+
+
 def test_the_method_lessons_moved_in():
     """Q3 answered A: the four lessons from `docs/review-handoff-protocol.md`
     are sections here. Their stories came with them."""

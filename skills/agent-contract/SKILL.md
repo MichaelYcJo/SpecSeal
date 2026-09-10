@@ -177,6 +177,13 @@ not enumerated, because every enumeration in this repository has rotted, and
 the next leaving is a kind nobody here has met. A list that predates it reads
 as permission.
 
+**What the probe made for ITSELF is what goes.** A thing the repository's own
+tooling builds to be reused is not your probe's leaving, even when your
+probe's run is what created it: a test runner that builds one virtual
+environment and reuses it for every later call has not left anything behind,
+and deleting it because a probe ran first makes the next caller pay the setup
+again. The question is whose the thing is, never who happened to trigger it.
+
 The file half is what a reviewer did follow, to the letter, during #30's
 review chain — and the probe still left a git worktree behind. Its probe files
 were deleted, its report said so, and the worktree outlived the round. It

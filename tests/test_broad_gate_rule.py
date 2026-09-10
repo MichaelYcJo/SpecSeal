@@ -34,6 +34,12 @@ def flat(*parts):
     return " ".join(read(*parts).split())
 
 
+def read_at(path):
+    """One file by absolute path, for the cases that walk a glob."""
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
 # U+2013 EN DASH, built rather than typed. The definitions spell every ratio
 # range with one, so a hyphen would match nothing; a typed one is what the
 # linter reads as an ambiguous character.
@@ -268,6 +274,55 @@ def test_the_prohibition_itself_has_one_home_and_it_is_the_contract():
     )
 
 
+# §2's own count, and the marker a definition carries when it takes the act.
+# Both are read out of the tree below rather than trusted here: the word is
+# checked against §2's sentence, and the marker against the definition the
+# sentence points at, so neither can be edited without the other going red.
+COUNT_WORD = "One definition in this plugin does hand them over"
+ASSIGNS_THE_GATE = "spawned for exactly that"
+
+
+def test_only_one_definition_assigns_the_broad_gate():
+    """Round 1, finding 6 of #120. §2 says `One definition in this plugin does
+    hand them over`, and `One` is an aggregate -- which §5 of the same file
+    says is not a coordinate: the number can be checked while the claim it
+    stands for cannot.
+
+    So it is checked, from the glob rather than from a list.
+    `test_the_prohibition_itself_has_one_home_and_it_is_the_contract` pins the
+    sentence PRESENT; nothing counted the definitions to confirm the number is
+    still true. `questions.md` Q2 names the framer as arriving in 0.11.0, and
+    if its file assigns any of the three checks, §2 says `One` and is false
+    with nothing red.
+
+    **The direction this can still miss, stated rather than left to be
+    found.** It counts definitions carrying the marker below. A definition that
+    takes the broad gate in different words is invisible here -- the same
+    verbatim-versus-semantic trade
+    `tests/test_a_moved_rule_leaves_its_definition.py` makes and states, for
+    the same reason: no constant can decide when two sentences say the same
+    thing. What closes that direction is the other assertion, which fails if
+    the marker leaves the one definition that has it -- so the marker cannot
+    quietly stop being the thing this counts."""
+    agents = sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
+    assert len(agents) >= 4, f"agents/*.md matched {len(agents)} files"
+    assert COUNT_WORD in flat("skills", "agent-contract", "SKILL.md"), (
+        "§2 no longer states the count this case checks, so the number and "
+        "the sentence have come apart"
+    )
+    assigning = [
+        os.path.basename(path)
+        for path in agents
+        if ASSIGNS_THE_GATE in " ".join(read_at(path).split())
+    ]
+    assert assigning == ["sealer.md"], (
+        f"{len(assigning)} definitions assign the broad gate ({assigning}) "
+        "and §2 says `One definition in this plugin does hand them over`. "
+        "Either that sentence needs the new count, or a definition took the "
+        "gate and the contract's sentence did not follow it"
+    )
+
+
 def test_no_definition_promises_the_suite_once_the_rounds_settle():
     """Round 1, finding 2 of #120. `agents/warden.md` read *§2 keeps the suite
     out of your hands UNTIL the rounds settle*, which says it becomes the
@@ -285,7 +340,7 @@ def test_no_definition_promises_the_suite_once_the_rounds_settle():
     because a temporal release is the shape any definition can pick up while
     describing a rule it does not hold."""
     for path in sorted(glob.glob(os.path.join(ROOT, "agents", "*.md"))):
-        text = flat(*os.path.split(os.path.relpath(path, ROOT)))
+        text = " ".join(read_at(path).split())
         assert "until the rounds settle" not in text.lower(), (
             f"{os.path.basename(path)} promises the suite once the rounds "
             "settle. §2 has no such release for anyone: an agent takes the "
