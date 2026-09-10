@@ -54,8 +54,19 @@ def flat(text):
     return re.sub(r"\s+", " ", text)
 
 
+SKILL = ("skills", "implement", "SKILL.md")
+# The bootstrap is the orchestrator's half since #292: it asks a person, which
+# a smith spawn may not, so it lives in the file no `skills:` list injects.
+ORCH = ("skills", "implement", "orchestration.md")
+
+
 def bootstrap():
-    return section(read("skills", "implement", "SKILL.md"), "### Bootstrap", 3)
+    return section(read(*ORCH), "## Orchestrator: Bootstrap", 2)
+
+
+def both_halves():
+    """An absence has to hold in both files, or the move re-admits it."""
+    return read(*SKILL) + read(*ORCH)
 
 
 # --- S4: one question, two options, shared first --------------------------
@@ -85,9 +96,8 @@ def test_each_option_says_what_it_creates_and_what_it_installs():
 
 def test_the_root_is_spelled_through_the_common_dir_never_the_literal():
     """`.git` is a FILE in a linked worktree, so the literal path lands nowhere."""
-    skill = read("skills", "implement", "SKILL.md")
     assert "git rev-parse --git-common-dir" in bootstrap()
-    assert "`.git/seal/`" not in skill
+    assert "`.git/seal/`" not in both_halves()
 
 
 def test_a_repository_with_the_root_at_either_place_is_never_asked():
@@ -108,7 +118,7 @@ def test_the_parity_question_follows_the_mode_question():
 def test_the_sentence_that_said_nowhere_else_is_gone():
     """The 0.4.0 sentence wraps as "and\nnowhere else", so the words are
     matched one at a time rather than as a phrase a line break can hide."""
-    assert "nowhere else" not in read("skills", "implement", "SKILL.md")
+    assert "nowhere else" not in both_halves()
 
 
 def test_an_unmoved_old_layout_is_not_asked_but_told():
@@ -153,8 +163,14 @@ def test_no_definition_carries_its_own_copy_of_the_root_rule(agent):
 
 
 def test_the_session_rule_sits_in_the_layout_section_of_the_skill():
-    skill = read("skills", "implement", "SKILL.md")
-    assert skill.index(SESSION_RULE) < skill.index("### Bootstrap")
+    """The layout section runs from its heading to `## Procedure`; the
+    bootstrap that used to close it is in `orchestration.md` now (#292)."""
+    skill = read(*SKILL)
+    assert (
+        skill.index("## Document layout")
+        < skill.index(SESSION_RULE)
+        < skill.index("## Procedure")
+    )
 
 
 # --- S5 and S7: what shared mode installs, and why local mode has none ------
@@ -455,8 +471,10 @@ def test_the_decided_table_carries_this_work_items_rows(parts, decided):
 # The bootstrap above is where the mode question lives, and the cases in this
 # file all reach it by reading the skill. That is not how a session gets
 # there. `install.sh` copies the block between `<!-- specseal:start -->` and
-# `<!-- specseal:end -->` into `~/.claude/CLAUDE.md`, so the block loads in
-# EVERY project on the machine — including one that has never seen SpecSeal —
+# `<!-- specseal:end -->` — `templates/claude-md-block.md`, of which this
+# repository's `CLAUDE.md` carries a generated copy — into
+# `~/.claude/CLAUDE.md`, so the block loads in EVERY project on the machine —
+# including one that has never seen SpecSeal —
 # and it tells a session to write `seal/specs/<id>/routing.md` before the
 # first edit. That write creates `seal/`. Creating `seal/` opts the repository
 # in. Every case above passed while that route existed, because none of them
@@ -472,10 +490,13 @@ START, END = "<!-- specseal:start -->", "<!-- specseal:end -->"
 def preset():
     """Exactly the text `install.sh` copies, markers included.
 
-    Extracted the way the installer extracts it rather than by reading the
-    whole file: a sentence added BELOW `specseal:end` reaches this repository
-    and reaches no user, and a case that read the whole file could not tell
-    the two apart.
+    Read from the generated copy in `CLAUDE.md`, which
+    `.github/scripts/claude_block.py --check` holds identical to
+    `templates/claude-md-block.md`, the installer's source. Extracted the way
+    the installer extracts it rather than by reading the whole file: a
+    sentence added BELOW `specseal:end` reaches this repository and reaches
+    no user, and a case that read the whole file could not tell the two
+    apart.
     """
     text = read("CLAUDE.md")
     assert START in text and END in text, "the preset markers moved"
@@ -539,9 +560,9 @@ def test_the_bootstrap_records_the_answer_it_was_given():
     that records nothing gets the person it just asked asked again."""
     boot = flat(bootstrap())
     assert "seal mode" in boot
-    assert "Do **not** write that config row here" not in read(
-        "skills", "implement", "SKILL.md"
-    ), "the skill still forbids recording the answer it just collected"
+    assert "Do **not** write that config row here" not in both_halves(), (
+        "the skill still forbids recording the answer it just collected"
+    )
 
 
 def test_the_gate_that_reads_the_absence_exists_and_is_wired():
