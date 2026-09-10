@@ -7,12 +7,12 @@
 | PR | 329 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 12, the case above, unless answered with grounds |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -32,11 +32,11 @@ Round 2 of #292 is the verifying round: its target is the diff of round 1's fixe
 | ⬜ 8 | the delta heading did not name the file | `skills/verify/scripts/payload_meter.py:529-530`, `:815-819` | answered | closed at `c75915b` — executed: both file names render; `{}` and `""` fall back to `the baseline` |
 | ⬜ 9 | *six rows* is five over six anchors | `seal/specs/1788993115-a-payload-is-written-again-on-every-spawn/overview.md:19-21` | answered | corrected at `b4a9a1d`; count carried from round 1 |
 | ⬜ 10 | docstring named `CLAUDE.md` as the installer's source | `hooks/mode-gate.py:16-19` | answered | closed at `b4a9a1d` — read: `install.sh:48` reads the template |
-| 🟡 12 | `_spawn_of`'s `from`-and-`tokens` arm — the one `payload-before.json` depends on — is pinned by no case; with it deleted the meter module stays green and the before-file re-derives 2.49 B/token, +982 tokens, total `measured` | `skills/verify/scripts/payload_meter.py:468-469`; `tests/test_the_payload_meter_says_what_it_measured.py:645-690` | open | executed — arm deleted: 22 passed; real transcript against `payload-before.json`: 2.49 with `tokens`, total 43,013 `measured (agent-ad1be2f4984b727e5.jsonl)`, delta −13,462 B / +982; the proposed case 1 passed at HEAD, 1 failed under the deletion |
-| ⬜ 13 | the fence toggle does not know which fence it is in: a `##` inside ```` ``` ```` nested in ```` ```` ````, or between `~~~` inside a backtick fence, counts as a section, in the meter and in the check's copy of `FENCE` | `skills/verify/scripts/payload_meter.py:124`, `:198-205`; `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py:48`, `:63-78` | open | executed on six shapes — `~~~`, four-space and list-item fences correct; the three nested shapes wrong in both modules; the corpus holds no four-backtick and no `~~~` line, so no number in the tree is wrong today |
-| ⬜ 14 | `Contract changes` lists two records as reach; the one call site is `render` at `payload_meter.py:783`, the records are prose and fenced code | `seal/specs/1788993115-a-payload-is-written-again-on-every-spawn/rounds/round-1.md:10` | open | read — `grep` over the tree; correction to the record, out of `Needs a fix` |
-| ⬜ 15 | `frontmatter` reads a trailing `#` comment or a flow list broken over two lines into the skill name | `skills/verify/scripts/payload_meter.py:169-180` | open | executed on four shapes; each surfaces as a `missing` row, not silently; no `agents/*.md` writes either |
-| ⬜ 16 | the floor module's pattern cannot see `itertools.pairwise` or `int \| float`, so it neither demands nor records the meter's guard | `tests/test_a_script_says_which_interpreter_it_needs.py:466-480` | open | read; the module's own comment names the blind spot; the meter's guard is pinned by its own case |
+| 🟡 12 | `_spawn_of`'s `from`-and-`tokens` arm — the one `payload-before.json` depends on — is pinned by no case; with it deleted the meter module stays green and the before-file re-derives 2.49 B/token, +982 tokens, total `measured` | `skills/verify/scripts/payload_meter.py:468-469`; `tests/test_the_payload_meter_says_what_it_measured.py:645-690` | **fixed** `dd539af` | fixed at dd539af — no new case; `test_a_lent_ratio_keeps_the_spawn_it_was_measured_from` gains a block that strips `spawn` from the derived entry before lending it and asserts the ratio kept, `tokens` absent, `spawn` and `over_bytes` restored, total estimated; executed — arm deleted: 22 passed; real transcript against `payload-before.json`: 2.49 with `tokens`, total 43,013 `measured (agent-ad1be2f4984b727e5.jsonl)`, delta −13,462 B / +982; the proposed case 1 passed at HEAD, 1 failed under the deletion |
+| ⬜ 13 | the fence toggle does not know which fence it is in: a `##` inside ```` ``` ```` nested in ```` ```` ````, or between `~~~` inside a backtick fence, counts as a section, in the meter and in the check's copy of `FENCE` | `skills/verify/scripts/payload_meter.py:124`, `:198-205`; `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py:48`, `:63-78` | **fixed** `0bf34f6` | fixed at 0bf34f6 — a fence closes only on a fence of the same character at least as long, in `payload_meter.py#heading_starts` and in the check's `marked_headings`; the two existing fence cases gain the nested shapes, no unit added; executed on six shapes — `~~~`, four-space and list-item fences correct; the three nested shapes wrong in both modules; the corpus holds no four-backtick and no `~~~` line, so no number in the tree is wrong today |
+| ⬜ 14 | `Contract changes` lists two records as reach; the one call site is `render` at `payload_meter.py:783`, the records are prose and fenced code | `seal/specs/1788993115-a-payload-is-written-again-on-every-spawn/rounds/round-1.md:10` | answered | corrected at 108c33f — `rounds/round-1.md:10` reads `_baseline_name → render`; the two record paths were prose and fenced code |
+| ⬜ 15 | `frontmatter` reads a trailing `#` comment or a flow list broken over two lines into the skill name | `skills/verify/scripts/payload_meter.py:169-180` | answered | each of the four `frontmatter` edge shapes surfaces as a `missing — named by skills:, not in the tree` row rather than silently, and no `agents/*.md` in the tree writes a comment or a broken flow list |
+| ⬜ 16 | the floor module's pattern cannot see `itertools.pairwise` or `int \| float`, so it neither demands nor records the meter's guard | `tests/test_a_script_says_which_interpreter_it_needs.py:466-480` | answered | the floor module's pattern names `zip(…strict=` and `.UTC` only and its own comment names the blind spot; the meter's guard is pinned by its own case, and a pattern change is mechanism a fix pass may not add |
 | ❓ 11 | whether `general-purpose`'s built-in prompt sits inside the harness constant | `skills/verify/scripts/payload_meter.py:35-42` | deferred questions.md Q4 | already deferred in round 1; not re-opened |
 
 ## Paste-ready fixes
