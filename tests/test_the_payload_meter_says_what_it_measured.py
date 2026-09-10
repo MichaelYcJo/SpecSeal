@@ -711,6 +711,34 @@ def test_sections_do_not_split_at_a_heading_inside_a_fence(meter, tmp_path):
     assert sum(p["chars"] for p in pieces) == len(text)
 
 
+def test_an_inline_skills_list_is_read(meter, tmp_path):
+    """Round 1, finding 3. `skills: [a, b]` is the same field in YAML's
+    flow form, and the meter read it as no skills — the definition then
+    measured as its whole payload, and the check that shares the parser had
+    nothing to check. Q6 ships the meter for users' own definitions, which is
+    where the other spelling arrives."""
+    assert meter.frontmatter("---\nname: p\nskills: [alpha, beta]\n---\n") == (
+        "p",
+        ["alpha", "beta"],
+    )
+    assert meter.frontmatter("---\nname: p\nskills: alpha, 'beta'\n---\n") == (
+        "p",
+        ["alpha", "beta"],
+    )
+    assert meter.frontmatter("---\nname: p\nskills:\n- alpha\n- beta\n---\n") == (
+        "p",
+        ["alpha", "beta"],
+    ), "an unindented block list is a list too"
+    root, home = a_tree(tmp_path)
+    write(
+        str(root / "agents" / "probe.md"),
+        "---\nname: probe\nskills: [alpha, beta]\n---\n# probe\n",
+    )
+    data = meter.measure(str(root), str(home))
+    paths = [f["path"] for f in data["agents"]["probe"]["files"]]
+    assert "skills/alpha/SKILL.md" in paths and "skills/beta/SKILL.md" in paths
+
+
 def test_the_delta_lists_an_agent_the_baseline_has_and_the_tree_lost(meter, tmp_path):
     root, home = a_tree(tmp_path, extra_agent=True)
     before = meter.measure(str(root), str(home))

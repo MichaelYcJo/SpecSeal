@@ -112,7 +112,13 @@ def plugin_root():
 
 
 def frontmatter(text):
-    """The `name:` and `skills:` an agent definition's frontmatter declares."""
+    """The `name:` and `skills:` an agent definition's frontmatter declares.
+
+    `skills:` is read in every spelling YAML gives the same list: a block
+    sequence, indented or not, and the flow form on one line — `[a, b]` or
+    `a, b`. The one-line form used to read as no skills at all, silently, so
+    the meter measured such a definition as its whole payload and the check
+    that shares this parser had nothing to check (#292 round 1)."""
     name, skills = None, []
     if not text.startswith("---"):
         return name, skills
@@ -123,10 +129,18 @@ def frontmatter(text):
         if re.match(r"^name:\s*\S", line):
             name = line.split(":", 1)[1].strip()
             in_skills = False
+        elif re.match(r"^skills:\s*\S", line):
+            inline = line.split(":", 1)[1].strip()
+            if inline.startswith("[") and inline.endswith("]"):
+                inline = inline[1:-1]
+            skills.extend(
+                s.strip().strip("'\"") for s in inline.split(",") if s.strip()
+            )
+            in_skills = False
         elif re.match(r"^skills:\s*$", line):
             in_skills = True
-        elif in_skills and re.match(r"^\s+-\s*\S", line):
-            skills.append(line.split("-", 1)[1].strip())
+        elif in_skills and re.match(r"^\s*-\s*\S", line):
+            skills.append(line.split("-", 1)[1].strip().strip("'\""))
         elif re.match(r"^\S", line):
             in_skills = False
     return name, skills
