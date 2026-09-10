@@ -648,7 +648,16 @@ def test_a_lent_ratio_keeps_the_spawn_it_was_measured_from(meter, tmp_path):
     behind it: one hop later the meter re-derived 2.49 B/token over bytes
     the spawn never read, +5,381 tokens over 0 bytes, and called the total
     measured. `spawn` and `over_bytes` ride every entry shape a baseline can
-    carry, and the same-spawn rule reads `spawn` first."""
+    carry, and the same-spawn rule reads `spawn` first.
+
+    Round 2, finding 12. `payload-before.json` was written before a ratio
+    entry carried `spawn`: a derived entry names its spawn in `from` and
+    marks itself a measurement with `tokens`. `_spawn_of` reads that shape
+    too, and nothing pinned it — with that arm deleted every case here
+    stayed green while the committed before-file re-derived 2.49 B/token
+    over bytes its spawn never read, +982 tokens, and called the total
+    measured. The last block strips `spawn` from the derived entry before
+    lending it."""
     root, home, transcript, before, before_path = _before_and_a_changed_tree(
         meter, tmp_path
     )
@@ -688,6 +697,25 @@ def test_a_lent_ratio_keeps_the_spawn_it_was_measured_from(meter, tmp_path):
     assert after["baseline"] == "before.json"
     assert "## Delta against before.json" in meter.render(after)
     assert "## Delta against after.json" in meter.render(again)
+    # Round 2, finding 12: the shape the committed before-file has — a
+    # derived entry with `from` and `tokens` and no `spawn` — is recognised
+    # as the same spawn, and the lent entry restores both facts.
+    old_shape = json.loads(json.dumps(before))
+    assert "tokens" in old_shape["ratios"]["probe"]
+    assert old_shape["ratios"]["probe"]["from"] == "agent-bbbb2.jsonl"
+    del old_shape["ratios"]["probe"]["spawn"]
+    old_path = tmp_path / "before-without-spawn.json"
+    with open(old_path, "w", encoding="utf-8") as handle:
+        json.dump(old_shape, handle)
+    hop = meter.measure(
+        str(root), str(home), calibrate=transcript, baseline=str(old_path)
+    )
+    ratio = hop["ratios"]["probe"]
+    assert ratio["bytes_per_token"] == kept["bytes_per_token"], ratio
+    assert "tokens" not in ratio, "the old shape went unrecognised; re-derived"
+    assert ratio["spawn"] == "agent-bbbb2.jsonl"
+    assert ratio["over_bytes"] == kept["over_bytes"]
+    assert hop["agents"]["probe"]["total"]["basis"].startswith("estimated (")
 
 
 def test_sections_do_not_split_at_a_heading_inside_a_fence(meter, tmp_path):
