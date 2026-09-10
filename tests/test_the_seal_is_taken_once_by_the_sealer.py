@@ -575,6 +575,34 @@ def test_a_failure_the_base_shares_is_labelled_failing_on_base_too(tmp_path):
     assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
 
 
+def test_a_failing_file_the_base_lacks_does_not_cost_the_others_their_verdict(tmp_path):
+    """Round 1's 🟡 4. `compare_at_base` claims its verdicts are measured and
+    never inferred, and one absent file turned every one of them into a guess.
+
+    pytest handed a path that does not exist exits 4 with `no tests ran` and
+    prints no `FAILED` line at all, so a single run over every failing file
+    loses the measurement for ALL of them and each comes back `new`. This
+    branch is exactly that shape: it adds a test module the base does not
+    carry.
+
+    Here the base already fails `tests/test_two.py`, and the branch adds
+    `tests/test_three.py` failing too. The base-carried one has to keep
+    `failing on base too`, which is what a reader acts on at
+    `agents/smith.md`'s three-returns rule."""
+    repo = build_repo(tmp_path / "repo", base_failing=True)
+    write(repo, "tests/test_three.py", FAILING_TEST.replace("test_two", "test_three"))
+    commit(repo, "a failing file the base does not carry")
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert re.search(rf"tests/test_two\.py\s+{gate.ON_BASE}", out.stdout), (
+        "one absent file cost the base-carried file its measured verdict:\n"
+        f"{out.stdout}"
+    )
+    assert re.search(rf"tests/test_three\.py\s+{gate.NEW}\b", out.stdout), out.stdout
+    assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
+
+
 def test_a_plugin_check_that_fails_is_named_and_the_suite_is_not_compared(repo):
     """The comparison is reactive: it exists for a failing TEST. A failing
     plugin check — here an overview whose `## Not verified` row was deleted,

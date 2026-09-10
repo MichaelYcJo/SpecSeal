@@ -65,6 +65,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -316,26 +317,51 @@ def compare_at_base(root, base, command, files, keep):
     """{file: `new` | `failing on base too`}, measured — never inferred.
 
     A scratch worktree at `base`, the row's first command run there on the
-    failing files alone, the worktree removed whatever happened. A file the
-    base does not carry cannot fail there, so it reads `new`, which is the
-    truth: the test arrived with this branch.
+    failing files the base actually carries, the worktree removed whatever
+    happened. A file the base does not carry cannot fail there, so it reads
+    `new` without a run -- which is the truth: the test arrived with this
+    branch.
+
+    **The absent ones are separated before the run rather than after it**
+    (round 1's 🟡 4). pytest handed a path that does not exist exits 4 with
+    `no tests ran` and prints no `FAILED` line at all, so one run over every
+    failing file loses the measurement for ALL of them and each comes back
+    `new`. Every branch that adds a test module is that shape.
     """
     scratch = tempfile.mkdtemp(prefix="broad-gate-base-")
     added = git(root, "worktree", "add", "--detach", scratch, base)
     if added is None:
+        # The worktree that was not added still leaves the directory
+        # `mkdtemp` made, and nothing below runs to remove it.
+        shutil.rmtree(scratch, ignore_errors=True)
         return {
             f: f"{NEW}? the base could not be checked out for comparison" for f in files
         }
     try:
-        runner = f"{first_command(command)} {' '.join(shlex.quote(f) for f in files)}"
-        check = run("suite-at-base", runner, scratch, keep, shell=True)
+        # A file the base does not carry makes pytest exit 4 with `no tests
+        # ran` and print no FAILED line at all, so passing it alongside the
+        # others loses the measurement for ALL of them and every one comes
+        # back `new`. Asked of the base tree first, and the absent ones are
+        # `new` without a run — which is the truth: they arrived with this
+        # branch.
+        absent = [
+            f for f in files if git(scratch, "cat-file", "-e", f"HEAD:{f}") is None
+        ]
+        present = [f for f in files if f not in absent]
+        verdicts = {f: NEW for f in absent}
+        if present:
+            runner = (
+                f"{first_command(command)} {' '.join(shlex.quote(f) for f in present)}"
+            )
+            check = run("suite-at-base", runner, scratch, keep, shell=True)
+            at_base = set(failing_files(check.text))
+            verdicts.update({f: (ON_BASE if f in at_base else NEW) for f in present})
+        return verdicts
     finally:
         subprocess.run(
             ["git", "-C", root, "worktree", "remove", "--force", scratch],
             capture_output=True,
         )
-    at_base = set(failing_files(check.text))
-    return {f: (ON_BASE if f in at_base else NEW) for f in files}
 
 
 # --- what the panel reads --------------------------------------------------
