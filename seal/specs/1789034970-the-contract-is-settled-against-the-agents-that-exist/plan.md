@@ -86,7 +86,7 @@ a coordinate, not evidence.
 | # | What it delivers | Verified by | Status |
 |---|---|---|---|
 | 1 | §2 and §6 rewritten, with their pins re-measured and seen red | `bin/test tests/test_the_agent_contract_holds_the_universal_rules.py tests/test_broad_gate_rule.py tests/test_a_moved_rule_leaves_its_definition.py -q`; both moved pins seen red against the contract as it stood; the 15-word margin re-measured | `63d013d` |
-| 2 | §7 widened, with its pin | `bin/test tests/test_the_agent_contract_holds_the_universal_rules.py tests/test_a_probe_that_commits_says_so.py -q`; the widened pin seen red against the old §7 | |
+| 2 | §7 widened, with its pin | `bin/test tests/test_the_agent_contract_holds_the_universal_rules.py tests/test_a_probe_that_commits_says_so.py -q`; the widened pin seen red against the old §7 | `94a2451` |
 | 3 | The four documents that read those sections follow | `bin/test tests/test_the_seal_is_taken_once_by_the_sealer.py tests/test_a_moved_rule_leaves_its_definition.py tests/test_every_agent_reads_the_contract.py tests/test_docs_line_wrap.py -q`; each re-pointed case seen red first; the ledger anchors this phase removes re-verified | |
 | 4 | The routing template's criterion | `bin/test tests/test_waiver_decided_at_start.py tests/test_routing_is_recorded.py -q` | |
 
