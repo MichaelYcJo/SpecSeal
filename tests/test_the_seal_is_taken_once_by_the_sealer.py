@@ -173,6 +173,12 @@ def test_the_floor_scale_is_accepted_and_below_it_is_refused_with_a_sentence():
     assert "0.75" in sentence and "0.5" in sentence, (
         f"the refusal names neither the floor nor the scale asked for: {sentence!r}"
     )
+    with pytest.raises(ValueError, match=r"1\.0") as too_large:
+        mod.stamp(ROWS, scale=1.5)
+    assert "1.5" in str(too_large.value), (
+        "the chart is one cell per stitch and does not enlarge; a scale above "
+        "1.0 is refused with a sentence naming the scale asked for"
+    )
     out = run_wrapper("--shape", "--scale", "0.5")
     assert out.returncode == 2, f"exit {out.returncode}; stderr {out.stderr!r}"
     assert "0.75" in out.stderr, f"the command's refusal names no floor: {out.stderr!r}"
