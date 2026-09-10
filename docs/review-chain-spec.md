@@ -178,7 +178,9 @@ each kind of leftover has a home that outlives the session:
 | A decision only a person can make | `seal/specs/<item>/questions.md`, and named in the PR body |
 | An original whose behavior is plainly wrong | both texts side by side per `legacy-parity`, and named in the PR body |
 
-Then the broad gate runs once, and the change opens as a pull request.
+Then the `sealer` takes the broad gate once — spawned with the base and the
+work item, running `broad-gate` and writing the last record's `Broad gate`
+cell — and the change opens as a pull request.
 
 **The chain ends at a PR, never at a merge.** Those are two mistakes at the
 same spot. A run that stops at a report leaves finished work where nobody

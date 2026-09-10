@@ -147,10 +147,15 @@ def test_every_posix_wrapper_resolves_its_own_directory(entry):
 def test_the_wrapper_points_at_the_contract_rather_than_inviting_a_full_run():
     """`bin/test` with no arguments runs a five-minute suite that
     `skills/agent-contract/SKILL.md` §2 forbids to smith and warden. The file
-    a session reads before typing it says so, and names where the rule is."""
+    a session reads before typing it says so, and names where the rule is.
+
+    Re-pointed by #30 from `orchestrator` to `sealer`. The rule forbade the
+    run to two agents and assigned it to none, so the comment named the
+    participant that happened to take it; naming the agent is what makes the
+    sentence readable without knowing who is driving."""
     text = read(os.path.join(BIN, "test"))
-    assert "agent-contract" in text and "orchestrator" in text, (
-        "bin/test no longer says the full suite is the orchestrator's, so a "
+    assert "agent-contract" in text and "sealer" in text, (
+        "bin/test no longer says the full suite is the sealer's, so a "
         "segment reading it has nothing telling it not to"
     )
 
@@ -728,9 +733,15 @@ def test_the_section_says_the_full_run_is_the_orchestrators():
     """`bin/test` with no arguments runs a five-minute suite that
     §2 forbids to smith and warden. The section that makes it cheap is the
     section that has to say who it is for, and name the form a segment
-    types."""
+    types.
+
+    Re-pointed by #30: who it is for is the `sealer` now. The case keeps its
+    name because `seal/ledger.md`'s R4 row cites it as a coordinate, and a
+    renamed unit is a BROKEN anchor rather than a drifted one — the rename
+    and the ledger row it forces belong to the phase that touches the ledger,
+    and this phase's record hands it over."""
     section = running_the_checks()
-    assert "agent-contract" in section and "orchestrator" in section, (
+    assert "agent-contract" in section and "sealer" in section, (
         "the section makes the full suite cheap and says nothing about the "
         "rule that forbids it to a segment"
     )
@@ -761,7 +772,7 @@ def test_the_protocol_hands_over_the_narrow_form():
     document that never mentions it."""
     protocol = flat("docs", "review-handoff-protocol.md")
     assert "The form a segment is handed is the narrow one" in protocol
-    assert "the full suite is the orchestrator's, run once after the rounds" in protocol
+    assert "the full suite is the sealer's, run once after the rounds" in protocol
 
 
 def test_the_protocol_carries_the_measurement_that_bought_it():

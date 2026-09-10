@@ -500,9 +500,10 @@ Five requirements, each bought by a measured failure:
   it once and the segment finds it where the contribution guide names it
   first; where the repository ships none, the prompt carries the incantation
   as above. The form a segment is handed is the narrow one — one module —
-  because the full suite is the orchestrator's, run once after the rounds
-  settle (`skills/agent-contract/SKILL.md` §2), and a runner that is cheap to
-  call does not move that line. The failure that bought this: four build
+  because the full suite is the sealer's, run once after the rounds settle
+  (`skills/agent-contract/SKILL.md` §2 is what forbids it to a segment;
+  `agents/sealer.md` is what assigns it), and a runner that is cheap to call
+  does not move that line. The failure that bought this: four build
   segments of one work item read repeats of **17 s, 2 s, 0 s and 0 s**, and
   the only thing that differed between them was whether the orchestrator had
   typed the runner into the spawn prompt. A requirement met by hand, once per

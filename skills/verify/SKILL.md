@@ -256,6 +256,15 @@ by the first finding. Findings are the expected case rather than the
 exception: the review chain runs up to three rounds, and five while a 🔴 is
 open (`docs/review-chain-spec.md`).
 
+**It belongs to the `sealer`, and the four conditions above are its whole
+procedure.** The rule used to say when the gate fires and which agents may not
+take it, and named nobody who may — so it was assembled from these sentences
+by whichever session remembered them, differently each time. `agents/sealer.md`
+is the agent, `broad-gate --base <base> --record <item>` is the command, and
+`skills/code-review/orchestration.md` §*The last record's `Broad gate` cell is
+read at a READY pull request* owns when it is spawned. What the sealer returns
+is a report; it judges no failure and fixes none.
+
 **An expensive suite argues for this placement, not against it.** A run that
 takes fifteen minutes is a finding about the run and deserves its own ticket.
 Moving it ahead of the rounds means paying it twice.
