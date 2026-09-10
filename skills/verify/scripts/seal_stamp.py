@@ -148,6 +148,13 @@ SCALE_REFUSED = (
     "lily is not legible (#30 measured 0.6 closing the band and 0.5 reading as "
     "a cross). Nothing was drawn."
 )
+# NaN is not under the floor and not above the ceiling; it is not on the line
+# at all, and telling a reader it is "under the floor of 0.75" sends them to
+# raise a number that will fail the same way.
+SCALE_NOT_A_NUMBER = (
+    "seal-stamp: scale {scale} is not a number, so it is neither inside the "
+    "band {floor}-{ceiling} nor outside it. Nothing was drawn."
+)
 SCALE_TOO_LARGE = (
     "seal-stamp: scale {scale} is above {ceiling}; the chart is one cell per "
     "stitch and does not enlarge. Nothing was drawn."
@@ -162,7 +169,11 @@ def check_scale(scale):
     # — after every check had run and the cell had been written, and
     # `broad_gate.main` catches `Refused` alone.
     if not (SCALE_FLOOR <= scale <= SCALE_CEILING):
-        if not scale > SCALE_CEILING:
+        if scale != scale:  # NaN, and no comparison against it is true
+            return SCALE_NOT_A_NUMBER.format(
+                scale=scale, floor=SCALE_FLOOR, ceiling=SCALE_CEILING
+            )
+        if scale < SCALE_FLOOR:
             return SCALE_REFUSED.format(scale=scale, floor=SCALE_FLOOR)
         return SCALE_TOO_LARGE.format(scale=scale, ceiling=SCALE_CEILING)
     return None

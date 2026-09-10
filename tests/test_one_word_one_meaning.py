@@ -178,8 +178,10 @@ SEAL_SWEPT = (
 # quotes `"the seal"` as the product's vocabulary. Both are excluded by the
 # sweep below, and each exclusion names the span it removes rather than the
 # file, so a bare instance elsewhere in either file is still caught.
-SEAL_VOCABULARY = ("docs", "one-root-by-lifetime.md")
-SEAL_VOCABULARY_SPAN = "## Naming"
+SEAL_EXCLUDED = (
+    (SEAL_OWNER, SEAL_RULE),
+    (("docs", "one-root-by-lifetime.md"), "## Naming"),
+)
 
 # What may follow a bare `the seal`: the concept, its formats, and the one
 # sentence that names the referent in the same clause. Everything else is an
@@ -253,12 +255,22 @@ def test_no_instructing_document_leaves_an_instance_anonymous():
         # Flattened, so a suffix that happens to straddle a line wrap is
         # still read as the phrase it is.
         text = flat(*parts)
-        if parts == SEAL_OWNER:
-            head, _, rest = text.partition(SEAL_RULE)
-            text = head + rest.partition(" ## ")[2]
-        if parts == SEAL_VOCABULARY:
-            head, _, rest = text.partition(SEAL_VOCABULARY_SPAN)
-            text = head + rest.partition(" ## ")[2]
+        for excluded, span in SEAL_EXCLUDED:
+            if parts != excluded:
+                continue
+            head, _, rest = text.partition(span)
+            # `partition(" ## ")[2]` is "" when the named section is the LAST
+            # `##` in its file, which silently drops everything from that
+            # heading to the end of the file out of the sweep. Asserted
+            # rather than relied on, so the day a span moves to the end of a
+            # file the case says so instead of going quietly green.
+            _before, marker, after = rest.partition(" ## ")
+            assert marker, (
+                f"{'/'.join(parts)}: the excluded span `{span}` is the last "
+                "`##` in the file, so this exclusion now removes everything "
+                "after it from the sweep"
+            )
+            text = head + marker + after
         lowered = text.lower()
         start = 0
         while (hit := lowered.find("the seal", start)) != -1:

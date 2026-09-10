@@ -131,10 +131,17 @@ def test_a_scale_that_is_not_a_number_is_refused_before_anything_runs():
     cannot convert float NaN to integer`. `broad_gate.main` catches `Refused`
     alone, so that arrived as a traceback after the write."""
     mod = module()
-    assert mod.check_scale(float("nan")) is not None, (
+    refusal = mod.check_scale(float("nan"))
+    assert refusal is not None, (
         "a scale that is not a number passes the band and fails after the "
         "cell is written"
     )
+    # A round 2 correction. The first repair sent NaN down the below-the-floor
+    # branch, so the sentence read *scale nan is under the floor of 0.75*.
+    # NaN is not under the floor; it is not on the line at all, and a reader
+    # told to raise it raises a number that fails the same way.
+    assert "is not a number" in refusal, refusal
+    assert "under the floor" not in refusal, refusal
     assert mod.check_scale(1.0) is None and mod.check_scale(0.75) is None
     assert mod.check_scale(0.5) is not None and mod.check_scale(1.5) is not None
 

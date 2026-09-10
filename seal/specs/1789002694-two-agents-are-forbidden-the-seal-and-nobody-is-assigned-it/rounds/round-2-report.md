@@ -29,7 +29,7 @@ Those two are the same shape as each other and as the branch's own subject: a
 guard placed correctly and closed on the instance rather than the class.
 
 **The two new units nobody had reviewed carry the same shape a third time.**
-`SUMMARY_WORDS` dropped `warnings` from the list and left `errors` in it, so a
+`SUMMARY_WORDS` dropped `warnings` from the list and left `errors` in it, so a <!-- NAME NOT IN TREE: round 2's own finding is what removed these. `SUMMARY_WORDS` became `SUMMARY_TAIL` (🟡 13) and `SEAL_VOCABULARY` / `SEAL_VOCABULARY_SPAN` became the `SEAL_EXCLUDED` pairs (a round 2 correction). The names are kept as the round read them. -->
 linter's count still lands on the suite row; and it now returns nothing for a
 run in which every test was skipped, which the panel prints as `suite exit 0`.
 `quote` can be replaced by `return path` with all 54 cases in its module still
@@ -137,7 +137,7 @@ fourth state none of the three rows sees is the one in the table above.
 
 `skills/verify/scripts/broad_gate.py:386-395`.
 
-`SUMMARY_WORDS` is `("passed", "failed", "error")`, and the membership test is
+`SUMMARY_WORDS` is `("passed", "failed", "error")`, and the membership test is <!-- NAME NOT IN TREE: round 2's own finding is what removed these. `SUMMARY_WORDS` became `SUMMARY_TAIL` (🟡 13) and `SEAL_VOCABULARY` / `SEAL_VOCABULARY_SPAN` became the `SEAL_EXCLUDED` pairs (a round 2 correction). The names are kept as the round read them. -->
 substring containment over the matched counts. Two things follow, both
 executed:
 
@@ -148,7 +148,7 @@ suite_counts("3 skipped in 0.10s\n")               -> None
 
 The first is round 1's 🟡 5 with a different linter. `warnings` left the list
 and `errors` stayed in it, and `Found 2 errors.` is what `ruff` and `mypy`
-print — matched by `COUNTS_RE` and admitted by `SUMMARY_WORDS`. It needs a row
+print — matched by `COUNTS_RE` and admitted by `SUMMARY_WORDS`. It needs a row <!-- NAME NOT IN TREE: round 2's own finding is what removed these. `SUMMARY_WORDS` became `SUMMARY_TAIL` (🟡 13) and `SEAL_VOCABULARY` / `SEAL_VOCABULARY_SPAN` became the `SEAL_EXCLUDED` pairs (a round 2 correction). The names are kept as the round read them. -->
 whose linter prints a count and still exits 0, which is what `--exit-zero` is
 for; it is narrower than the shape round 1 measured and it is the same defect.
 
@@ -207,7 +207,7 @@ false. Read, not executed — there is no Windows here.
 | `seal/ledger/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it.md:37`, row S6 | The row now claims *"every `raise Refused` in it is enumerated here"* and enumerates five. `seal` has six: the fix added the `Fixes checked by` refusal and the enumeration still omits *"round-N.md has N `Pass` boxes and needs one"*. Round 1 raised this row for counting three over five; the correction raised the claim from *refusing while …* to *every*, which turns an incomplete list into a false one |
 | the same file:43, row S12 | Verified behavior states *"the gate's message tells the two apart by whether a `round-record:` line stands above it"*. Both states print one — 🟡 11 above, executed. The row records as verified the thing that is wrong |
 | `skills/verify/scripts/seal_stamp.py:164-170` | `check_scale(float("nan"))` returns *"scale nan is under the floor of 0.75; below it the lily is not legible"*. NaN is not under the floor; it is not on the line at all. The new case asserts only `is not None`, so the sentence a person reads is unpinned |
-| `tests/test_one_word_one_meaning.py:255-262` | The span exclusion is now written twice, once for `SEAL_OWNER` and once for `SEAL_VOCABULARY`, in four identical lines. A list of `(file, span)` pairs walked once would carry a third without a third copy |
+| `tests/test_one_word_one_meaning.py:255-262` | The span exclusion is now written twice, once for `SEAL_OWNER` and once for `SEAL_VOCABULARY`, in four identical lines. A list of `(file, span)` pairs walked once would carry a third without a third copy | <!-- NAME NOT IN TREE: round 2's own finding is what removed these. `SUMMARY_WORDS` became `SUMMARY_TAIL` (🟡 13) and `SEAL_VOCABULARY` / `SEAL_VOCABULARY_SPAN` became the `SEAL_EXCLUDED` pairs (a round 2 correction). The names are kept as the round read them. -->
 | the same file:259-261 | `rest.partition(" ## ")[2]` returns `""` when the named section is the last `##` in its file, which silently drops everything from that heading to the end of the file out of the sweep. Bounded today — `## Naming` is lines 441 to 479 of 601 — and it now has two users, so nothing announces the day it stops being bounded |
 
 ---
@@ -359,7 +359,7 @@ def test_seal_refuses_a_fixes_checked_by_that_is_outside_the_vocabulary(repo, va
     assert read_bytes(path) == before, "the record was written under a refusal"
 ```
 
-**🟡 13** — `skills/verify/scripts/broad_gate.py`, replacing `SUMMARY_WORDS`
+**🟡 13** — `skills/verify/scripts/broad_gate.py`, replacing `SUMMARY_WORDS` <!-- NAME NOT IN TREE: round 2's own finding is what removed these. `SUMMARY_WORDS` became `SUMMARY_TAIL` (🟡 13) and `SEAL_VOCABULARY` / `SEAL_VOCABULARY_SPAN` became the `SEAL_EXCLUDED` pairs (a round 2 correction). The names are kept as the round read them. -->
 and `suite_counts`:
 
 ```python
