@@ -1414,6 +1414,11 @@ def test_a_broad_gate_that_never_ran_fails_a_ready_pull_request(repo):
         "and quotes the cell back. A refusal that does not say what it read "
         "sends somebody to look for a different cell"
     )
+    assert "sealer" in out and "broad-gate" in out, (
+        "#30: the refusal tells a reader to run the pass by hand, where the "
+        "route is now a spawn. A message naming no agent is where the act "
+        "goes back to whoever is reading it"
+    )
 
 
 def test_a_not_yet_carrying_its_reason_is_still_a_run_that_never_happened(repo):
@@ -1611,16 +1616,21 @@ def test_a_one_word_cell_is_not_a_way_past_the_arm(repo, cell):
     skipped the run would write.
 
     Above the cutoff there is no free-text history to grandfather.
-    `round_record.py new` writes this row on every record it generates and
-    `close --broad-gate` is the only thing that changes the value, so a cell
-    this arm cannot parse above `GATE_FROM` is a cell somebody chose. Below it
-    the tail of the same function still grandfathers, which is the case above.
+    `round_record.py new` writes this row on every record it generates, and
+    `seal` and `close --broad-gate` are the only things that change the value
+    (#30 added the first), so a cell this arm cannot parse above `GATE_FROM`
+    is a cell somebody chose. Below it the tail of the same function still
+    grandfathers, which is the case above.
     """
     gated(repo, GATE_FROM, gate=cell)
     code, out = run(repo, draft=False)
     assert code == 1, out
     assert "Broad gate" in out and cell in out, (
         "and it quotes the cell back, so nobody goes looking for a different row"
+    )
+    assert "sealer" in out and "close --broad-gate" in out, (
+        "#30: this arm's message names one route where there are two, and the "
+        "one it named is the exception rather than the ordinary path"
     )
 
 
