@@ -5,7 +5,7 @@
 | Target SHA | 50520de |
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 332 |
-| Broad gate | 93ea3b4 against origin/release/v0.10.0 |
+| Broad gate | 6f224ba against origin/release/v0.10.0 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
