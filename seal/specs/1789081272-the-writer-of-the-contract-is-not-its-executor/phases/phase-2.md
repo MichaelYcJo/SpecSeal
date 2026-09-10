@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 2 |
-| Commit | `dcfd693` — the moves and their five cases; the records follow it |
+| Commit | `18708a0` — the phase is `dcfd693` (the moves and their five cases), `5571996` (these records) and `18708a0` (the survivor exemption, the ledger re-verification and the rider re-stamp) |
 | Ran by | smith on Opus 5 (1M context) |
 
 ## What this phase was asked
