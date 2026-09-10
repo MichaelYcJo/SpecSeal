@@ -1607,12 +1607,17 @@ def test_the_sealer_names_the_command_it_runs():
     )
 
 
-def test_the_sealer_names_its_one_write_as_its_own_exception():
-    """§6's last paragraph prescribes the shape: an exception is one agent's,
-    and it is named in that agent's definition. A write nobody named is a
-    review that certifies itself."""
+def test_the_sealer_names_the_one_write_its_definition_is_allowed():
+    """§6 says what an agent writes is named in its own definition and nothing
+    else, so this file is the whole of the sealer's permission. A write nobody
+    named is a review that certifies itself.
+
+    Before #120 the same case read `as its own exception`, because §6 carved
+    exceptions and pointed at the definition holding each one. The mechanism
+    did not move -- it stopped being the exception and became the rule -- so
+    every assertion below is unchanged and only the name and the grounds are."""
     text = " ".join(sealer_text().split())
-    assert "§6" in text, "the sealer cannot reach the rule its one write excepts"
+    assert "§6" in text, "the sealer cannot reach the rule that names its one write"
     assert "round_record.py seal" in text, (
         "the sealer's one write does not name the subcommand that makes it, "
         "so the write is described rather than bounded"
@@ -1623,19 +1628,82 @@ def test_the_sealer_names_its_one_write_as_its_own_exception():
     )
 
 
-def test_the_sealer_states_the_contradiction_and_the_ticket_that_settles_it():
-    """Q4: the sealer ships under a contract that forbids its one act, for a
-    window inside one release branch. A window nobody wrote down is a
-    contradiction the next reader resolves by guessing which document wins."""
-    text = " ".join(sealer_text().split())
-    assert "§2" in text, "the definition does not name the section it stands against"
-    assert "#120" in text, (
-        "the definition does not name the ticket that rewrites §2, so the "
-        "contradiction has no end written into it"
+def test_the_sealer_recites_the_four_acts_s6_actually_withholds():
+    """Round 1, finding 10 of #120. The definition recited §6's withheld acts
+    as *no pull request, no push, no commit, no agent spawned* -- it dropped
+    `post` and added `commit`, which §6 withholds from nobody.
+
+    Nothing shipped broken, and that is why it is a correction rather than a
+    fix: §6 now binds its four `whatever its file says`, so the sealer could
+    not have granted itself posting either way. What the branch changed is
+    that §6's list became explicit and countable, and a loose recitation
+    beside a countable list is a second source that disagrees with the first.
+
+    The four words are checked against §6's own sentence before they are
+    checked against the definition, so the two cannot drift apart silently:
+    change §6's list and this case names the word that left."""
+    withheld = next(part for part in section(6).split(". ") if "post nothing" in part)
+    recital = next(
+        part
+        for part in " ".join(sealer_text().split()).split(". ")
+        if "§6 withholds stays withheld" in part
     )
-    assert "narrower document" in text, (
-        "the definition does not say which of the two wins in the window, "
-        "which is the one thing a reader in that window needs"
+    for act in ("post", "push", "pull request", "spawn"):
+        assert act in withheld, (
+            f"§6's own list no longer withholds `{act}`, so this case is "
+            "measuring the definition against a sentence that moved"
+        )
+        assert act in recital, (
+            f"the sealer's recitation of §6 drops `{act}`. The list is "
+            "countable now, and a recitation one short reads as permission"
+        )
+    assert "commit" not in recital, (
+        "the recitation adds an act §6 withholds from nobody. A definition "
+        "that over-recites teaches the next reader a rule the contract does "
+        "not have, which is the same defect as under-reciting"
+    )
+
+
+def test_the_window_the_sealer_shipped_under_is_closed():
+    """#120 closed it, and this case is the one that says so.
+
+    The sealer shipped under a §2 that forbade its one act, for a window
+    inside one release branch, and its definition wrote the contradiction down
+    rather than leaving the next reader to guess which document wins. That
+    paragraph carried its own expiry -- *when #120 lands, this section is the
+    paragraph it deletes* -- and #120 deleted it.
+
+    Rewritten rather than deleted, and that is the point of it. A case removed
+    with the paragraph it pinned leaves nothing to notice the paragraph coming
+    back, and this one came with a ticket number in it, which is exactly the
+    prose a later session restores while tidying. So the assertions invert:
+    the window's own words are absent, and what the section was standing
+    against is now a positive assignment.
+
+    The two facts `spec.md` requires the definition to keep -- §6 and the one
+    cell -- are asserted by
+    `test_the_sealer_names_the_one_write_its_definition_is_allowed` above, which
+    is where they belong; repeating them here would make two cases fail for one
+    edit and neither of them say which."""
+    text = " ".join(sealer_text().split())
+    assert "narrower document" not in text, (
+        "the window paragraph is back. It says the definition wins over the "
+        "contract, which was true only while §2 forbade the sealer's one act"
+    )
+    assert "#120" not in text, (
+        "the definition still names the ticket that was to settle §2. #120 "
+        "has landed, so a reader following it finds a closed issue and no "
+        "contradiction to match it against"
+    )
+    assert "§2 as it stands" not in text, "the section heading survived"
+    assert "§2" in text, (
+        "the definition stopped citing §2 altogether. §2 now says the "
+        "assignment lives in the definition rather than in the contract, so a "
+        "silent definition makes that pointer name a file that does not answer"
+    )
+    assert "spawned for exactly that" in text, (
+        "the positive assignment went with the apology. Deleting the window "
+        "without it leaves the one act nobody's again, which is #30's opening"
     )
 
 

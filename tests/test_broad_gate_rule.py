@@ -17,7 +17,9 @@ contract was written to end. That duplication has its own module now,
 nothing in the tree noticed a moved rule being pasted back.
 """
 
+import glob
 import os
+import re
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -30,6 +32,12 @@ def read(*parts):
 def flat(*parts):
     """The file as one line, so an assertion is not pinning where it wraps."""
     return " ".join(read(*parts).split())
+
+
+def read_at(path):
+    """One file by absolute path, for the cases that walk a glob."""
+    with open(path, encoding="utf-8") as f:
+        return f.read()
 
 
 # U+2013 EN DASH, built rather than typed. The definitions spell every ratio
@@ -208,6 +216,23 @@ def test_the_smith_puts_both_answers_in_the_hand_back():
     )
 
 
+def contract_section(number):
+    """The body of `## §N` in the contract, heading excluded.
+
+    Scoped rather than whole-file, because the thing #120 has to keep out is
+    a WORD -- `orchestrator` -- that the contract says legitimately elsewhere
+    (its opening paragraph, about the prompt a round arrives in). A whole-file
+    absence check would either fail on that sentence or be dropped."""
+    text = read("skills", "agent-contract", "SKILL.md")
+    heads = list(re.finditer(r"^## §(\d+) (.+)$", text, re.M))
+    for index, match in enumerate(heads):
+        if int(match.group(1)) != number:
+            continue
+        end = heads[index + 1].start() if index + 1 < len(heads) else len(text)
+        return " ".join(text[match.end() : end].split())
+    raise AssertionError(f"the contract has no §{number}")
+
+
 def test_the_prohibition_itself_has_one_home_and_it_is_the_contract():
     """Phase 3 of #107 re-pointed this case; it used to read `agents/warden.md`.
 
@@ -215,15 +240,132 @@ def test_the_prohibition_itself_has_one_home_and_it_is_the_contract():
     a third agent inherited neither, which is the duplication the contract
     exists to end. The rule moved; the case moved with it rather than being
     deleted, because a moved rule with no case is a rule that can be moved
-    again into nothing."""
+    again into nothing.
+
+    #120 re-pointed it a second time. §2 named the orchestrator, which is not
+    an agent, so the section forbade the run and assigned it to nobody in the
+    room -- and when `agents/sealer.md` arrived to take it, the contract every
+    agent reads first still said the act was somebody else's. Both halves are
+    asserted: the owner the section now names, and the sentence that named the
+    old one, absent. A contract carrying both owners is the state
+    `test_the_definition_names_the_sealer_as_the_suites_owner` already refuses
+    one file over, and presence alone cannot see it."""
     contract = " ".join(read("skills", "agent-contract", "SKILL.md").split())
-    assert "is the orchestrator's, run once, after the review rounds settle" in (
+    body = contract_section(2)
+    assert "the sealer's, whose whole procedure is that run" in body, (
+        "§2 stopped naming the agent the one broad act is assigned to, which "
+        "is the prohibition-with-no-owner #30 opens on"
+    )
+    assert "Whether it is yours is what your own definition says" in body, (
+        "the universal form went. Naming the sealer without it makes §2 a "
+        "rule about one agent, which is what this file's opening refuses"
+    )
+    assert "is the orchestrator's, run once, after the review rounds settle" not in (
         contract
-    ), "the contract stopped saying whose the broad gate is and when it fires"
+    ), "the old owner is still in the contract, so §2 now names two of them"
+    assert "orchestrator" not in body, (
+        "§2 names the orchestrator again. It is not an agent, so it cannot "
+        "hold an act this file assigns; the answerer of a handover is the "
+        "caller and belongs in the definition that hands over"
+    )
     assert "Hand over with the suite labelled `unverified`" in contract, (
         "the label went, and a suite that is simply not mentioned reads as a "
         "suite that passed"
     )
+
+
+# §2's own count, and the marker a definition carries when it takes the act.
+# Both are read out of the tree below rather than trusted here: the word is
+# checked against §2's sentence, and the marker against the definition the
+# sentence points at, so neither can be edited without the other going red.
+COUNT_WORD = "One definition in this plugin does hand them over"
+ASSIGNS_THE_GATE = "spawned for exactly that"
+
+
+def test_only_one_definition_assigns_the_broad_gate():
+    """Round 1, finding 6 of #120. §2 says `One definition in this plugin does
+    hand them over`, and `One` is an aggregate -- which §5 of the same file
+    says is not a coordinate: the number can be checked while the claim it
+    stands for cannot.
+
+    So it is checked, from the glob rather than from a list.
+    `test_the_prohibition_itself_has_one_home_and_it_is_the_contract` pins the
+    sentence PRESENT; nothing counted the definitions to confirm the number is
+    still true. `questions.md` Q2 names the framer as arriving in 0.11.0, and
+    if its file assigns any of the three checks, §2 says `One` and is false
+    with nothing red.
+
+    **The direction this can still miss, stated rather than left to be
+    found.** It counts definitions carrying the marker below. A definition that
+    takes the broad gate in different words is invisible here -- the same
+    verbatim-versus-semantic trade
+    `tests/test_a_moved_rule_leaves_its_definition.py` makes and states, for
+    the same reason: no constant can decide when two sentences say the same
+    thing. What closes that direction is the other assertion, which fails if
+    the marker leaves the one definition that has it -- so the marker cannot
+    quietly stop being the thing this counts."""
+    agents = sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
+    assert len(agents) >= 4, f"agents/*.md matched {len(agents)} files"
+    assigning = [
+        os.path.basename(path)
+        for path in agents
+        if ASSIGNS_THE_GATE in " ".join(read_at(path).split())
+    ]
+    # The tree fact first, and §2's sentence after it. Round 2, finding 8:
+    # with the order reversed, the document assertion fired first and named
+    # only itself, where the 0.11.0 arrival moves THREE things together --
+    # §2's prose, `COUNT_WORD`, and the list this compares against. Whichever
+    # of the two fails now, the reader is told about all three.
+    assert assigning == ["sealer.md"], (
+        f"{len(assigning)} definitions assign the broad gate ({assigning}) "
+        "and §2 says `One definition in this plugin does hand them over`. "
+        "Either that sentence needs the new count, or a definition took the "
+        "gate and the contract's sentence did not follow it. Three things "
+        "move together when it does: §2's prose, `COUNT_WORD` here, and this "
+        "comparison"
+    )
+    assert COUNT_WORD in flat("skills", "agent-contract", "SKILL.md"), (
+        "§2 no longer states the count this case checks, so the number and "
+        "the sentence have come apart. If the count changed, `COUNT_WORD` and "
+        f"the comparison against {assigning} move with it; if it did not, §2 "
+        "lost the sentence that makes this case worth running"
+    )
+
+
+def test_no_definition_promises_the_suite_once_the_rounds_settle():
+    """Round 1, finding 2 of #120. `agents/warden.md` read *§2 keeps the suite
+    out of your hands UNTIL the rounds settle*, which says it becomes the
+    warden's afterwards.
+
+    Under the old §2 that was a harmless imprecision about a prohibition with
+    a holder who was not an agent. Under the new one it is false in a way a
+    reader can act on: the gate goes to whichever definition assigns it, this
+    file assigns none of the three, and `agents/sealer.md` says its file is the
+    only one that does. The hazard is live rather than theoretical --
+    `agents/warden.md`'s own bullet on the broad-gate state puts a reviewer in
+    exactly the moment the sentence appears to release.
+
+    Asserted over the whole glob, not over the one file the finding named,
+    because a temporal release is the shape any definition can pick up while
+    describing a rule it does not hold.
+
+    **The direction this can still miss, stated rather than left to be found.**
+    It matches one spelling. A definition that promises the suite in other
+    words -- *yours once the rounds have settled* -- is invisible here, which
+    round 2 of #120 measured by rewording the corrected sentence and watching
+    this case stay green. That is the same verbatim-versus-semantic trade
+    `test_only_one_definition_assigns_the_broad_gate` states above, for the
+    same reason: no constant decides when two sentences say the same thing.
+    What narrows it is that the wrong sentence had exactly one idiom in this
+    tree, and the glob is what catches that idiom arriving in a second file --
+    which is the copy this shape actually spreads by."""
+    for path in sorted(glob.glob(os.path.join(ROOT, "agents", "*.md"))):
+        text = " ".join(read_at(path).split())
+        assert "until the rounds settle" not in text.lower(), (
+            f"{os.path.basename(path)} promises the suite once the rounds "
+            "settle. §2 has no such release for anyone: an agent takes the "
+            "broad gate when its own definition assigns it, and never later"
+        )
 
 
 def test_the_warden_audits_the_scope_of_a_seal():
@@ -299,6 +441,63 @@ def test_the_broad_gate_state_survives_a_handoff():
     )
     assert "broad gate:" in read("skills", "verify", "SKILL.md"), (
         "the seal block stopped carrying the state the record needs"
+    )
+
+
+def test_the_reviewer_carries_the_gate_state_into_a_section_its_report_has():
+    """Round 1, finding 3 of #120, and it is two defects in one sentence.
+
+    `agents/warden.md` told the reviewer to carry the broad-gate state into
+    `round-N.md`, which is a record §6 forbids it to write -- forty lines after
+    the same file says the report and the parity mark are the two writes it
+    names and there is no third. And the destination it did name has no field:
+    the report's tables are `## Verdicts`, `## Executed probes` and
+    `## Deferred`, and the file's own rule is that an answer the report format
+    has no field for is a decision that lives in a transcript.
+
+    `## Executed probes` is the section that has a row for it, and it is one
+    `round_record.py new` parses and copies into the record, so the state
+    reaches the record by the route §6 already permits.
+
+    The second half is newer than the finding's first: the `Broad gate` cell
+    now has a named owner one file over, and two definitions naming one cell is
+    exactly the state §6's rewrite exists to make impossible."""
+    warden = flat("agents", "warden.md")
+    assert "Carry the broad-gate state into your report" in warden, (
+        "the reviewer is told to write the state into a record again, which "
+        "§6 does not name among its writes"
+    )
+    assert "under `## Executed probes`" in warden, (
+        "the destination lost the section that has a row for it, and an "
+        "answer with no field is a decision that lives in a transcript"
+    )
+    assert "`Broad gate` cell itself is not yours" in warden, (
+        "the reviewer stopped being told the cell has another owner, so two "
+        "definitions name one cell"
+    )
+    # Round 2, finding 7: the destination is right and its columns read
+    # `What was run | Result`, while the value the reviewer most often has is
+    # `not yet`. Nothing ships broken -- the cell is written by
+    # `broad-gate --record` and never from this table -- but §4 is about not
+    # letting what ran and what did not share a label, so the definition says
+    # how to spell the row rather than leaving a not-run item under a heading
+    # that claims one.
+    assert "spell it so the row cannot be read as a run" in warden, (
+        "the reviewer is sent to a table headed `What was run` with no word "
+        "about how to write a `not yet` into it, which is the label §4 says "
+        "must not be shared"
+    )
+    assert "§4 is the rule under it" in warden, (
+        "the grounds went, and a spelling rule with no rule behind it is the "
+        "first thing a later edit tidies away"
+    )
+    # The named section has to be one the generator actually reads, or the
+    # redirect moves the answer somewhere the record never sees.
+    assert 'PROBES = "## Executed probes"' in read(
+        "skills", "code-review", "scripts", "round_record.py"
+    ), (
+        "the generator no longer parses the section the definition sends the "
+        "state to, so the state stops at the report"
     )
 
 

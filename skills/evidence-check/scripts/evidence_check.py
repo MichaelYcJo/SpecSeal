@@ -1574,6 +1574,20 @@ def reverify(ledgers, root, maps, default_repo=None):
     re-read the code. It is deliberately a separate command: a check that
     silently refreshed what it was checking would report OK forever.
     """
+    # RIDER: this rewrites the hash and never the `Checked` column, so the
+    # claim that somebody re-read the code is made by a person and recorded by
+    # nobody. Round 1 of #120 measured the gap: six rows of `seal/ledger.md`
+    # got new hashes on one branch and all six kept dates from before the
+    # content moved -- one of them anchored on the very section that branch
+    # rewrote, so the ledger recorded a claim about it as last read a week
+    # before the rewrite. `templates/ledger.md` states the rule the other way
+    # round: re-verifying IS re-reading and then running this. Nothing here
+    # reads the column, so nothing can report the half that was skipped. If
+    # you open this function, decide whether it should refuse a row whose
+    # `Checked` still predates the hash it is about to replace, or print the
+    # ones it left; the fix pass that found this could add neither without
+    # adding mechanism.
+    # Verified 2026-09-10 against reverify@ed9d3079.
     changed = 0
     unreadable = []
     scan_cache = {}

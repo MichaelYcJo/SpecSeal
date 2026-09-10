@@ -404,6 +404,74 @@ def test_the_two_terminal_lines_are_copied_after_the_colon(repo):
     assert "Needs a fix: " not in cells["Needs a fix"]
 
 
+def test_a_terminal_line_that_wraps_is_one_value(repo):
+    """Round 2, finding 3 of #120, and the record it damaged is in this tree.
+
+    `agents/warden.md` shows the two terminal lines in a fence and says nothing
+    about wrapping, the prose around them is hand-wrapped, and a
+    `yes — <what>` worth writing is long enough to reach the margin. Reading
+    the physical line alone kept the first line's remainder and dropped the
+    rest with no refusal, so `rounds/round-1.md` of that work item shipped
+    ending mid-clause at *the one that reopens the* while the report it was
+    generated from carried *defect this work item was filed against* on the
+    following line.
+
+    Truncation is the dangerous direction of the two: a value cut at a wrap
+    still reads as a finished sentence, where a value that swallowed a line
+    reads as wrong at a glance."""
+    declared(repo)
+    code, out, text = generate(
+        repo,
+        report_text=report(
+            needs="yes — findings 1 through 8. Finding 1 is the one that reopens the\n"
+            "defect this work item was filed against"
+        ),
+    )
+    assert code == 0, out
+    cells = fields(text)
+    assert cells["Needs a fix"] == (
+        "yes — findings 1 through 8. Finding 1 is the one that reopens the "
+        "defect this work item was filed against"
+    ), "the wrapped remainder was dropped, which is how round 1's record shipped"
+
+
+def test_a_wrapped_terminal_line_and_its_unwrapped_twin_produce_one_cell(repo):
+    """The join has to be invisible: the same value written on one line and
+    across two lands in the same cell, or the record depends on where a
+    reviewer's editor happened to break the sentence."""
+    declared(repo)
+    whole = "yes — 🔴 1, and the reason it matters is stated at some length"
+    _, _, one_line = generate(repo, report_text=report(needs=whole))
+    _, _, wrapped = generate(
+        repo,
+        n=2,
+        report_text=report(
+            needs="yes — 🔴 1, and the reason it matters\nis stated at some length"
+        ),
+    )
+    assert fields(one_line)["Needs a fix"] == fields(wrapped)["Needs a fix"] == whole
+
+
+def test_prose_below_the_terminal_block_is_not_swallowed(repo):
+    """The other direction of the same change, and the one it could break.
+
+    ` ` is in `chain.SEPARATORS`, so a swallowed prose line parses as a `no`
+    with a reason and lands in the cell as though the reviewer wrote it. The
+    block therefore ends at a blank line, at the other terminal label, or at a
+    line that opens a new markdown block — which is what every report in this
+    repository already does, because markdown needs the blank line anyway."""
+    declared(repo)
+    code, out, text = generate(
+        repo,
+        report_text=report(floor="no")
+        + "\nBoth lines above are one physical line each on purpose.\n",
+    )
+    assert code == 0, out
+    assert fields(text)["Loses a record or crashes"] == "no", (
+        "prose below the terminal block was joined into the cell"
+    )
+
+
 @pytest.mark.parametrize("missing", ["Needs a fix", "Loses a record or crashes"])
 def test_a_report_without_one_of_the_two_lines_is_refused(repo, missing):
     declared(repo)

@@ -154,10 +154,11 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   reading rather than a finding. Yours is the one that counts, because you are
   the one who went looking.
 
-  §2 keeps the suite out of your hands until the rounds settle, and the part
-  of it that is yours is the audit. The smith hands over with the suite
-  labeled `unverified` on purpose, so what you check is whether that label is
-  honest — not whether the number is green.
+  §2 never puts the suite in your hands, before the rounds or after them: the
+  broad gate goes to whichever definition assigns it and this file assigns
+  none of the three. The part of it that is yours is the audit. The smith
+  hands over with the suite labeled `unverified` on purpose, so what you check
+  is whether that label is honest — not whether the number is green.
 
   §3 tells you to decline a prompt that orders one anyway and to name the
   instruction in your handover. Where that sentence goes is yours, because
@@ -177,7 +178,7 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   just wrote it. Being spawned from a session that never saw the
   implementation removes the channel entirely; the round history is files, so
   nothing is lost by working that way.
-- **§6's instances are yours by name, and the record is not the report.**
+- **§6's writes are yours by name, and the record is not the report.**
   You do not write the work item's round **records**: `round_record.py new`
   writes `round-N.md` from your report once the orchestrator has verified
   your findings, and parallel workers overwriting each other is how records
@@ -187,7 +188,7 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   authority. It is still uncommitted, still unverified, and still inert
   until the orchestrator acts on it.
 
-  That distinction is the whole of the second exception. Until it was
+  That distinction is the whole of the second of them. Until it was
   written down, the two sentences read as one prohibition — *the reviewer
   writes nothing under the work item* — and the missing half of an existing
   convention read as forbidden rather than as absent (#228). The fixer side
@@ -196,7 +197,8 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   You do not write `<git-dir>/specseal-reviewed` either — the orchestrator
   writes it once your report is verified, and a review that certifies itself
   is what the gate exists to catch. The parity mark below and the report
-  above are §6's two exceptions, and both are yours alone.
+  above are the two writes this file names, which under §6 is the whole of
+  what you may write; both are yours alone, and there is no third.
 - Start by reading `seal/specs/<work-item-id>/rounds/round-*.md` if any exist — for
   **coordinates, not conclusions**. The work item is the one whose
   `routing.md` names the branch under review. What an earlier round found and where it
@@ -234,11 +236,21 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   Its verdicts are still worth having — as the list of what to report on.
   Every finding from an earlier round needs an answer this round: fixed, still
   open, or no longer applicable, each with your own grounds.
-- **Carry the broad-gate state into `round-N.md`** the way you carry probe
-  results. Whether the one full-suite run has happened — `not yet`, or the SHA
-  it ran at and the base it was compared against — is invisible in the code,
-  and the next session either repeats a sealed run or ships assuming someone
-  else made it. You are also what can say the gate has come due: when your
+- **Carry the broad-gate state into your report** the way you carry probe
+  results, under `## Executed probes`, where it has a row to sit in — and
+  spell it so the row cannot be read as a run. That table's columns are
+  `What was run | Result`, and the value you most often have is `not yet`:
+  name the check in the first cell and let the second say `not yet` in as
+  many words, never a figure or a word that reads as an outcome. §4 is the
+  rule under it — what was executed and what was not must not share a label.
+  Whether
+  the one full-suite run has happened — `not yet`, or the SHA it ran at and
+  the base it was compared against — is invisible in the code, and the next
+  session either repeats a sealed run or ships assuming someone else made it.
+  The `Broad gate` cell itself is not yours: `agents/sealer.md` names it as
+  that agent's one write, and two definitions naming one cell is the state §6
+  exists to make impossible. What you produce is the sentence it and the
+  orchestrator read. You are also what can say the gate has come due: when your
   report leaves nothing open, say so, and name it — what comes due is the
   sealer's spawn, not a run for the session reading you to assemble.
 - If the project declares a migration config (`seal/parity.md`), the commit
@@ -279,8 +291,8 @@ the next round, and `Fixes checked by` names a round whose report is not the
 report you wrote (#228).
 
 The file is yours and the record is not. You write it, you do not commit it,
-and you write no `round-N.md` — §Role above says why that is one exception
-and not a general permission.
+and you write no `round-N.md` — §Role above says why the report is one of the
+two writes this file names and not a general permission.
 
 **Once the orchestrator commits it the report is tracked content, so the
 rules a repository applies to its own tree apply to your prose.** Two of them
@@ -382,6 +394,13 @@ Needs a fix: yes — <the findings that do>
 Loses a record or crashes: no
 Loses a record or crashes: yes — <what does>
 ```
+
+**Either line may wrap, and a wrapped line is one value.** The generator
+joins it across the wrap and stops at a blank line, at the other terminal
+label, or at a line opening a new markdown block — so leave a blank line
+under the pair, which markdown wants anyway. It used to keep the first
+physical line and drop the rest without saying so, and a round record shipped
+ending mid-clause.
 
 They are the run's terminal conditions, and what the orchestrator moves into
 `round-N.md` is what stands **after the colon** — the row already names the
