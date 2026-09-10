@@ -148,6 +148,18 @@ def plugin_root():
     return os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 
 
+def _shown(path):
+    """The path relative to the working directory where that spelling
+    exists, else as given. A relative spelling is a courtesy: on Windows
+    `relpath` raises `ValueError` for a path on another drive than the
+    working directory (#329's Windows leg — the pytest temp dir on `C:`, the
+    checkout on `D:`), and a meter that dies there has measured nothing."""
+    try:
+        return os.path.relpath(path)
+    except ValueError:
+        return path
+
+
 def frontmatter(text):
     """The `name:` and `skills:` an agent definition's frontmatter declares.
 
@@ -532,7 +544,7 @@ def measure(
         measured = calibrate_data["agents"]
     out = {
         "measured_at": dt.date.today().isoformat(),
-        "root": os.path.relpath(root),
+        "root": _shown(root),
         "ratios": {},
         "agents": {},
     }

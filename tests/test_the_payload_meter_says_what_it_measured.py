@@ -303,6 +303,27 @@ def test_json_carries_the_same_numbers_as_the_text_and_no_machine_path(tmp_path)
     assert "measured_at" in data
 
 
+def test_a_root_on_another_drive_than_the_cwd_is_named_as_given(
+    meter, monkeypatch, tmp_path
+):
+    """PR #329's Windows leg, run 34424160836: `"root": os.path.relpath(root)`
+    raised `ValueError: path is on mount 'C:', start on mount 'D:'` for every
+    fixture root under pytest's temp dir -- sixteen cases -- because the
+    checkout sits on `D:`. A relative root is a courtesy. `relpath` is
+    monkeypatched to raise the way `ntpath` does, so the case is red on every
+    platform against a `measure` that lets the error through; the run then
+    finishes and names the root as given."""
+    root, home = a_tree(tmp_path)
+
+    def across_drives(path, start=os.curdir):
+        raise ValueError("path is on mount 'C:', start on mount 'D:'")
+
+    monkeypatch.setattr(os.path, "relpath", across_drives)
+    data = meter.measure(str(root), str(home))
+    assert data["root"] == str(root)
+    assert data["agents"]["probe"]["total"]["bytes"] > 0
+
+
 def test_a_skill_the_list_names_and_the_tree_lacks_is_a_row_not_a_crash(
     meter, tmp_path
 ):
