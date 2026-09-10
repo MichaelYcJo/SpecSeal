@@ -229,6 +229,12 @@ def test_a_listed_skill_the_tree_does_not_ship_is_named(tmp_path):
 
 def test_no_agent_preloads_a_section_marked_for_the_orchestrator():
     """Red between the commit that marked `implement`'s three sections and
-    the one that moved them (`phases/phase-2.md` names both)."""
+    the one that moved them (`phases/phase-2.md` names both). The agents are
+    asserted first: `findings` derives them from `agents/*.md`, so a tree
+    with no such file has nothing to check, and a check over nothing is
+    green over nothing (round 1, finding 5). The two shapes that gave `[]` --
+    no `agents/` at all, and one holding no `.md` -- fail here instead."""
+    agents = _meter().agents_in(ROOT)
+    assert agents, "no agents/*.md was read — the check would pass over nothing"
     found = findings(ROOT)
     assert found == [], "\n".join(found)
