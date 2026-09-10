@@ -14,9 +14,10 @@ reported one is a sentence with a shebang.
              in `tests/test_the_rules_have_one_owner.py` pinning the sentence
              it replaced. That module was red from this commit through two
              review rounds and two broad gates (#269), because contract §2
-             reserves the broad gate for the orchestrator. The pin is one
-             sentence split across two adjacent string literals, so no LINE
-             holds it and nothing line-oriented finds it.
+             leaves the broad gate to whichever agent definition assigns it
+             and no reviewer's does. The pin is one sentence split across two
+             adjacent string literals, so no LINE holds it and nothing
+             line-oriented finds it.
 
   `ad6f81a`  corrected a docstring that called a join's receiver *an argument
              ... never a leaf* and left the identical claim in the work item's

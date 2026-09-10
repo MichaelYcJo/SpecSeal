@@ -1617,7 +1617,7 @@ def test_the_sealer_names_the_one_write_its_definition_is_allowed():
     did not move -- it stopped being the exception and became the rule -- so
     every assertion below is unchanged and only the name and the grounds are."""
     text = " ".join(sealer_text().split())
-    assert "§6" in text, "the sealer cannot reach the rule its one write excepts"
+    assert "§6" in text, "the sealer cannot reach the rule that names its one write"
     assert "round_record.py seal" in text, (
         "the sealer's one write does not name the subcommand that makes it, "
         "so the write is described rather than bounded"
