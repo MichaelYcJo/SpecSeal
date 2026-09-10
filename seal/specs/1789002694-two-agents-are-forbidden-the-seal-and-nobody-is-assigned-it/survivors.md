@@ -122,7 +122,18 @@ S6 put its old sentence into the range's removed set.
 |---|---|---|
 | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/phases/phase-2.md` | a third subparser setting the LAST record's `Broad gate` cell alone, refusing while `Needs a fix` reads `yes`, while `Pass` is unchecked | **This work item's own record of what phase 2 built, and it built three refusals.** A phase record states what that phase was asked and what building it found; it is dated by the phase it sits in, the way a shipped changelog section is dated by its release. Correcting it would make phase 2's record describe a decision phase 5 took, and the reader comparing the two phases would lose the fact that the third refusal existed and was removed — which is what `phases/phase-5.md` exists to say |
 
-**What would make these seven stop holding.** Each quote is its own anchor. Any
+**Three more appeared once `overview.md` closed its three Not-done
+paragraphs**, for the same reason the seventh did: replacing a sentence puts
+the old one into the range's removed set, and a record that said the same
+thing is then reported.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/phases/phase-4.md` | A capped run has no path to a sealed pull request, and it was measured rather than read. | **Phase 4's own finding, and it was true when phase 4 measured it.** The sentence names what that phase established with a fixture, and phase 5 is what repaired it. A phase record is dated by the phase it sits in; rewriting this one would erase the measurement that bought the repair, which is the one thing `phases/phase-5.md` points back at |
+| `docs/flow.md` | A run that reaches the reopening bound turns every finding still open into an issue, which is right | **A statement about the review chain, in the paragraph that sizes a release**, and it is still true — the cap's behaviour did not change. What phase 5 changed is whether a record in that state can be sealed. The overlap is the two phrases both sentences need to describe the same bound |
+| `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/phases/phase-4.md` | the warden's opening stops calling its review mark a seal, and its link sentence is what says which seal is which | **Phase 4's hand-over to phase 5, describing work phase 5 then did.** It is a record of what was asked, which is exactly what `## Five items carried to phase 5` is for, and `phases/phase-5.md`'s own `## What this phase was asked` is the other half of the pair a reader compares |
+
+**What would make these ten stop holding.** Each quote is its own anchor. Any
 of them coming to say that `Needs a fix` decides whether the BROAD GATE may
 run — rather than whether the run reopened, or what the reviewer wrote — is
 asserting the condition this phase removed, and becomes a genuine survivor.
