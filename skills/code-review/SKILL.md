@@ -138,13 +138,22 @@ Something you did not run is never reported as passing.
 
 | | What | Handling |
 |---|---|---|
-| Probe | Temporary test to settle what reading can't | You write it, run it, **delete it** (name `test_tmp_*`). The verified fact goes into the report |
+| Probe | Temporary test to settle what reading can't | You write it, run it, **delete it** (name `test_tmp_*`) — and everything else it made goes with it. The verified fact goes into the report |
 | Regression test | Test that should exist but doesn't | **You don't write it.** Hand it over as a list with the target file per row |
 
 Batch probe cases into one file and run once. Never probe what reading answers
 — schema constraints, enums, defaults settle "can this state even exist"
 claims without running anything. Don't touch `test_tmp_*` files another
 session created.
+
+**The file is not the whole of it.** Contract §7 is about leavings, not files:
+a worktree, a branch, a checkout, a scratch clone or a virtual environment your
+probe made for itself is a leaving too, and the probe is not over until every
+one of them is gone. Deleting the named file and stopping there is what left a
+git worktree behind through a whole review chain — the report said the probe
+files were deleted, and there was nothing wrong with that sentence. It surfaced
+two work items later, when `git switch` refused a branch a worktree already
+held.
 
 **A fixture chain is `&&`, never `|`.** A pipe between two commands does not
 sequence them, it feeds the first one's output to the second, and a chain
