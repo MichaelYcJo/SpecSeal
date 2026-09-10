@@ -22,6 +22,8 @@ target with no markers -- which is not a disagreement but a file it cannot
 place a block in.
 """
 
+import importlib.util
+import io
 import os
 import re
 import shutil
@@ -251,6 +253,37 @@ def test_exactly_one_mode_is_required():
     assert out.returncode == 2, out.stdout + out.stderr
     out = run("--check", "--write")
     assert out.returncode == 2, out.stdout + out.stderr
+
+
+def test_a_path_on_another_drive_is_shown_as_given(monkeypatch, tmp_path):
+    """PR #329's Windows leg, run 34424160836: pytest's temp dir on `C:`, the
+    checkout on `D:`, and `os.path.relpath` raised `ValueError: path is on
+    mount 'C:', start on mount 'D:'` out of `shown`, so every run of the
+    script ended in a traceback instead of exit 0, 1 or 2 -- eight cases of
+    this module. `relpath` is monkeypatched to raise the way `ntpath` does,
+    so the case is red on every platform against a `shown` that lets the
+    error through; the path is then shown as given and the check still
+    answers."""
+    spec = importlib.util.spec_from_file_location("claude_block_for_drives", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    def across_drives(path, start=os.curdir):
+        raise ValueError("path is on mount 'C:', start on mount 'D:'")
+
+    monkeypatch.setattr(os.path, "relpath", across_drives)
+    given = str(tmp_path / "CLAUDE.md")
+    assert module.shown(given) == given
+    template, target = copies(tmp_path)
+    report = io.StringIO()
+    assert module.check(template, target, report) == 0, report.getvalue()
+    assert target in report.getvalue()
+    line = flip_one_byte_inside_the_block(target)
+    report = io.StringIO()
+    assert module.check(template, target, report) == 1
+    assert f"line {line}" in report.getvalue()
+    assert module.write(template, target, io.StringIO()) == 0
+    assert module.check(template, target, io.StringIO()) == 0
 
 
 def test_a_floor_above_this_interpreter_refuses_before_anything_is_read(tmp_path):

@@ -151,8 +151,16 @@ def first_difference(wanted, found):
 
 def shown(path):
     """The path as the reader will look for it: relative to the working
-    directory when it is under it, which in CI is the repository root."""
-    rel = os.path.relpath(path)
+    directory when it is under it, which in CI is the repository root.
+
+    A relative spelling is a courtesy, never a requirement: on Windows
+    `relpath` raises `ValueError` for a path on another drive than the
+    working directory (#329's Windows leg -- the pytest temp dir on `C:`,
+    the checkout on `D:`), and the path is then shown as given."""
+    try:
+        rel = os.path.relpath(path)
+    except ValueError:
+        return path
     return path if rel.startswith("..") else rel
 
 
