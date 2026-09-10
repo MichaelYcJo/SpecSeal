@@ -367,10 +367,17 @@ def compare_at_base(root, base, command, files, keep):
 # --- what the panel reads --------------------------------------------------
 
 
+# pytest's summary always names one of these. A linter's `2 warnings
+# emitted` matches COUNTS_RE too and stands AFTER pytest's summary in a row
+# joined with `&&`, so a backwards walk that takes the first match takes the
+# linter's number and prints it as the suite's (round 1's 🟡 5).
+SUMMARY_WORDS = ("passed", "failed", "error")
+
+
 def suite_counts(text):
     for line in reversed(text.splitlines()):
         m = COUNTS_RE.search(line)
-        if m:
+        if m and any(word in m.group(1) for word in SUMMARY_WORDS):
             return m.group(1)
     return None
 

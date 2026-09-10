@@ -575,6 +575,29 @@ def test_a_failure_the_base_shares_is_labelled_failing_on_base_too(tmp_path):
     assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
 
 
+def test_the_suite_row_reads_pytests_counts_and_not_a_linters(tmp_path):
+    """Round 1's 🟡 5. `suite_counts` walked the lines backwards and took the
+    first `COUNTS_RE` match, and a `Broad gate` row is a test runner joined to
+    a linter with `&&` — so the linter's output stands after pytest's summary
+    and `2 warnings emitted` matched first.
+
+    The panel's `suite` row is what a reader takes as how many tests ran, so
+    a warning count printed there is the seal reporting a number that did not
+    come from the run it claims."""
+    gate = gate_module()
+    assert (
+        gate.suite_counts("768 passed, 1 skipped in 30s\nwarning: 2 warnings emitted\n")
+        == "768 passed, 1 skipped"
+    )
+    assert (
+        gate.suite_counts("3 failed, 2 passed in 1s\n4 warnings\n")
+        == "3 failed, 2 passed"
+    )
+    assert gate.suite_counts("2 warnings emitted\n") is None, (
+        "a run with no pytest summary in it reports a count anyway"
+    )
+
+
 def test_a_failing_file_the_base_lacks_does_not_cost_the_others_their_verdict(tmp_path):
     """Round 1's 🟡 4. `compare_at_base` claims its verdicts are measured and
     never inferred, and one absent file turned every one of them into a guess.
