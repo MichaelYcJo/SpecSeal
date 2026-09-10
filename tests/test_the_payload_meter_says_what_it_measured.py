@@ -777,6 +777,37 @@ def test_the_delta_lists_an_agent_the_baseline_has_and_the_tree_lost(meter, tmp_
 # --- the wrapper pair ----------------------------------------------------------
 
 
+def test_a_floor_above_this_interpreter_refuses_before_anything_is_read(tmp_path):
+    """Round 1, finding 7. `bin/payload-meter` runs `python3`, which on macOS
+    is 3.9, and there `--sections` and `--baseline` ended in a traceback
+    (`itertools.pairwise`, `int | float`) after the plain run had worked. The
+    guard `round_record.py` says to copy, copied the way `claude_block.py`
+    copied it, and shown live: the real script with `FLOOR` raised above any
+    interpreter exits 2 with a sentence naming the floor and no traceback,
+    and reads nothing -- a root that does not exist is never complained
+    about. The substitution asserts it matched, so this is not a case run
+    against an unmodified copy."""
+    with open(SCRIPT, encoding="utf-8") as handle:
+        text = handle.read()
+    old = "FLOOR = (3, 12)"
+    assert old in text, f"the script no longer spells the floor as `{old}`"
+    copy = tmp_path / "payload_meter.py"
+    copy.write_text(text.replace(old, "FLOOR = (99, 0)"), encoding="utf-8")
+    missing = str(tmp_path / "no-such-root")
+    result = subprocess.run(
+        [sys.executable, str(copy), "--root", missing, "--sections"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "99.0" in result.stderr and "Traceback" not in result.stderr, result.stderr
+    assert "payload-meter:" in result.stderr
+    assert "no-such-root" not in result.stderr + result.stdout, (
+        "the run got as far as the root, so the guard is not at entry"
+    )
+
+
 def test_both_wrappers_ship_and_point_at_the_meter():
     """`bin/` is on the Bash tool's PATH while the plugin is enabled, and
     cmd.exe resolves the `.cmd` twin through PATHEXT.
