@@ -1,5 +1,13 @@
 # Implementation Plan: the writer of the contract is not its executor
 
+Approved 2026-09-11 by the repository owner, when `smith` was spawned.
+
+<!-- One line ahead of `templates/sdd-plan.md`, the same deliberate divergence
+`questions.md` carries: phase 3 is what brings the template to this shape, and
+the line is written in the spelling `templates/sdd-routing.md`'s `Answered`
+line already has. Nothing else tells a later session or CI that a person saw
+this plan. -->
+
 ## Summary
 
 Five phases. The definition first, because every case parametrised on
@@ -63,6 +71,7 @@ convenience.
 | The framer writes a prompt per phase | #107's orchestrator wrote five prompts of about a page each and every one was assembled from `plan.md`'s row plus the previous phase's handback — both already written down. Commissioning a document per storey from whoever drew the building | Rejected, and the ticket's own correction says so: the framer draws well enough that a spawn prompt is a pointer at the row |
 | The previous phase writes the next one's prompt | Phases 3 and 4 of #107 did exactly this unasked, which is evidence it is natural — but it makes the drawing's author and the build order's author different parties again, one level down | Rejected as the mechanism, kept as the content: `phases/phase-N.md` is where a phase hands forward, and #121 already shipped it |
 | A fourth checkbox in the routing question | Eight combinations become sixteen, and the box asks a person something the ladder already decided. #88 states the rule this would break: *the question grows only when a decision is genuinely a person's* | Rejected. `Planning` is a record |
+| A second module beside `hooks/implementer.py` for the second mark | Two files whose `git_dir`, `write` and `stands` differ by a constant. This repository has paid for that shape twice already and written both down — contract §11 and §16 each record a rule that *sat in two definitions in near-identical words* while a third carried none | Rejected. One module, two constants, one reader — which is what `implementer.py`'s own docstring argues for |
 | Leave `session-cost` alone and ship the framer on the separation argument | The one clause of #84's reasoning that was measurable was measured and pointed the other way — phases 1–2 came in at the baseline, 1.30 tools/turn against 1.27. Shipping a fifth agent with no way to read its cost is how the next argument gets made from taste | Rejected. The owner's answer of 2026-09-11 keeps it in |
 
 ## Phases
@@ -73,6 +82,7 @@ convenience.
 | 2 | The two moves. `feature-planner` and `confidence-check` leave `agents/smith.md`'s design gate for `agents/framer.md`; the smith's first act on a frame becomes *say whether it holds*, with `phases/phase-N.md` named as where a *no* goes (Q3's default). `agents/sealer.md`'s *three definitions* reads four | a new case asserting the two skills are callable in exactly one `agents/*.md`, counted from the glob · a new case pinning the drawing-holds sentence and its home · a case counting the silent definitions from the glob rather than from a list | |
 | 3 | `templates/sdd-plan.md` gains `Approved <date> by <who>`, written when `smith` is spawned. `templates/sdd-questions.md` gains the answerer column — *a person* · *a measurement* · *the work* — and the sentence that the framer opens rows rather than answering them. `skills/implement/SKILL.md` §3's file table gains the two facts and names who writes each file | a case comparing the approval line's spelling against `templates/sdd-routing.md`'s `Answered` line · a case pinning the three answerer values and the opens-rather-than-answers sentence · both shown red first | |
 | 4 | The fourth axis. `templates/sdd-routing.md` gains the `Planning` row; `hooks/routing.py` gains `PLANNING`, `BY_FRAMER`, `PLANNING_ANSWERS` and the `planning` key, read on the third axis's terms; `skills/implement/orchestration.md` gains the row as a record with #88 cited for why it is not a box | S8 and S9 · `test_every_declaration_in_this_repository_still_parses` over every declaration in the tree, none of which has the row · a case per answer · a case that the commit gate decides identically with the row and without it · the vocabulary parsed out of `templates/sdd-routing.md` so it cannot drift | |
+| 4b | **The mark, Q1's answer against its own default.** `hooks/implementer.py` holds a SECOND mark rather than a second module beside it — the file is *named for the axis rather than for the agent* by its own docstring, and one reader for two axes is the whole reason it is a module. `hooks/implementer-notice.py` prints for either axis whose declared agent left no mark, still once per repository per session. The `pre-agent` gate that writes the mark learns `framer` beside `smith` | a case per axis for `write`/`stands`, each shown red first · a case that a mark for one axis does not answer for the other, the shape `stands`'s branch-scoping already has · a case that the notice fires once for two unfulfilled axes rather than twice · the notice's PostToolUse standing unchanged: it never blocks | |
 | 5 | `session_cost.py` reports time per agent from the subagent transcripts: one row per segment, named by its spawn's `subagent_type`, with its own span, calls, tools-per-turn, gap and tokens; the segments it could not name counted and printed rather than dropped | a case over a built transcript tree with a named segment, an unnamed one and a nested one · the join asserted on the measured stamp rather than assumed · a case that a missing `subagents/` directory prints a reading rather than raising · executed, with the mutation per new unit | |
 | 6 | `docs/flow.md` — step 2 loses *once #84 exists*, 0.11.0's section ticks its box. The fragments: `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md`. The closing memo | S12 executed · `fold_ledger.py --check` · the release-hygiene case | |
 

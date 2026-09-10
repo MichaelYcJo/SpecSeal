@@ -46,12 +46,16 @@ with it so it arrives against documents that permit what it does.
   runs where the ladder calls for a `spec.md`, so the ladder decides and not a
   person. The `Planning` row is a record. #88 stays unscheduled and this work
   item does not answer its *all three* half.
-- **A `framer` mark under the git dir**, the parallel of
-  `hooks/implementer.py`. The `Implementation` row earns a mark because a
-  session can declare `smith` and then build the work itself, which is a
-  session forgetting its own answer. `Planning` has no such gap: the ladder
-  decides, and a `spec.md` in the tree is already the trace. `questions.md`
-  Q1 is where that is put to the owner rather than assumed.
+- ~~**A `framer` mark under the git dir**~~ — **in scope after all.**
+  `questions.md` Q1 was put to the owner as this file's *out*, with *no mark*
+  as the default, and was answered **a mark** on 2026-09-11 against that
+  default: a session can declare `framer` and frame the work itself exactly
+  as it can declare `smith` and build it, so the gap is the same gap and it
+  closes the same way. The mark is a **second constant inside
+  `hooks/implementer.py`**, not a second module — that file is named for the
+  axis rather than for the agent, and its docstring's own reason for being a
+  module is that two spellings of one path is a mark written and never found.
+  `plan.md` phase 4b carries it.
 - **Retiring `feature-planner`'s task decomposition into `plan.md`'s Phases
   table.** §3 already states what that gives up and why; moving the skill is
   not re-opening it.
@@ -72,6 +76,8 @@ with it so it arrives against documents that permit what it does.
 | S9 a wrong answer in the fourth axis decides no commit | Given a declaration whose `Planning` cell is backticked, capitalised or absent · When the commit gate runs · Then it decides exactly what it decides without the row | a new case in the shape `test_the_commit_gate_decides_the_same_with_the_row_and_without_it` already has |
 | S10 an agent's own wall clock is a number | Given a transcript with subagent transcripts beside it · When `session-cost` runs in the new mode · Then one row per segment, named by the spawn's `subagent_type`, with its own span, calls and tokens — and the count of segments it could not name is printed rather than hidden | a new case over a built transcript tree, executed |
 | S11 the documents stop saying four | Given the agent set is five · When the tree is swept for the count | `agents/sealer.md`'s *three definitions that stay silent* reads four, and `docs/flow.md` step 2 no longer says *once #84 exists* | a case counting from the glob, never from a list |
+| S13 a declared framer that never ran earns one line | Given a declaration answering `Planning` with `framer` · When a commit lands on that branch and no framer mark stands for it · Then one line says so, once per repository per session, and nothing is blocked. Given the mark stands · Then nothing is said at all | new cases beside the `Implementation` ones, plus a case that a mark for one axis does not answer for the other |
+| S14 one notice, not two | Given a declaration whose `Planning` and `Implementation` are both unfulfilled · When a commit lands · Then the session is told once, naming both axes, not once per axis | a new case; the once-per-session grain is `hooks/implementer-notice.py`'s existing marker and does not change |
 | S12 the flow's order survives the edit | Given `docs/flow.md` step 2 is rewritten · When the rules-have-one-owner case runs · Then `) → warden rounds → sealer → the pull request is marked ready.` is still in it and the draft PR still precedes the rounds | `tests/test_the_rules_have_one_owner.py#test_the_flow_opens_the_draft_between_the_build_and_the_rounds`, executed |
 
 ## Data & interfaces
