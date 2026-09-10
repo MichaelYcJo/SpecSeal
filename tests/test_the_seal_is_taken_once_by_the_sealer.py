@@ -75,9 +75,33 @@ def ink(line):
     return len(SGR.sub("", line).rstrip())
 
 
+def wrapper_command(wrapper, args, windows=None):
+    """The argv that runs one of `bin/`'s wrapper pairs on this platform.
+
+    `windows` is the platform, defaulting to this one, so BOTH branches can
+    be driven from a case on either machine — the lesson round 2's 🟡 14
+    landed, applied to the thing that failed CI instead of to a unit.
+
+    `bin/seal-stamp` and `bin/broad-gate` open `#!/usr/bin/env sh`, and a
+    shebang is a POSIX kernel's convention: `CreateProcess` reads the file as
+    an image and answers *[WinError 193] %1 is not a valid Win32
+    application*. Both files ship with a `.cmd` twin for exactly this, and
+    `tests/test_the_suite_has_a_command_that_is_cheap_twice.py` says why —
+    *a new command means both files or it means one platform*. Running the
+    twin through `%COMSPEC% /c` is what a person typing the bare name gets,
+    so the cases below exercise the file that ships rather than stepping
+    around it.
+    """
+    if windows is None:
+        windows = os.name == "nt"
+    if not windows:
+        return [wrapper, *args]
+    return [os.environ.get("COMSPEC", "cmd.exe"), "/c", f"{wrapper}.cmd", *args]
+
+
 def run_wrapper(*args, env=None):
     return subprocess.run(
-        [WRAPPER, *args],
+        wrapper_command(WRAPPER, args),
         capture_output=True,
         encoding="utf-8",
         errors="replace",
@@ -331,6 +355,41 @@ def test_pick_shape_is_blocks_on_a_utf8_terminal():
     assert module().pick_shape(Stream("UTF-8", tty=True)) is False
 
 
+@pytest.mark.parametrize("wrapper", ["seal-stamp", "broad-gate"])
+def test_a_wrapper_pair_is_run_through_the_twin_the_platform_can_execute(wrapper):
+    """CI's `windows-latest` leg, red on two cases of this module: `OSError:
+    [WinError 193] %1 is not a valid Win32 application`.
+
+    Both go through a `bin/` wrapper that opens `#!/usr/bin/env sh`. A
+    shebang is a POSIX kernel's convention; `CreateProcess` reads the file as
+    an image and refuses it. The repair is not a skip — both files ship with
+    a `.cmd` twin for exactly this, and
+    `tests/test_the_suite_has_a_command_that_is_cheap_twice.py` states the
+    rule: *a new command means both files or it means one platform*.
+
+    Pinned on both branches from either machine, which is the point: a wrong
+    wrapper chosen for a platform fails HERE rather than only on the runner.
+    That is round 2's 🟡 14 lesson applied to the case rather than the unit —
+    the platform is an argument, so the branch the build machine cannot run
+    is still one a reviewer can turn red."""
+    path = os.path.join(ROOT, "bin", wrapper)
+    assert os.path.isfile(path), f"bin/{wrapper} missing"
+    assert os.path.isfile(path + ".cmd"), f"bin/{wrapper}.cmd missing"
+
+    assert wrapper_command(path, ["--shape"], windows=False) == [path, "--shape"], (
+        "a POSIX machine no longer runs the extensionless file"
+    )
+    win = wrapper_command(path, ["--shape"], windows=True)
+    assert win[0].lower().endswith("cmd.exe"), (
+        "Windows runs the wrapper as an image rather than through the command "
+        f"interpreter, which is `[WinError 193]` on a `#!` file: {win}"
+    )
+    assert win[1:] == ["/c", path + ".cmd", "--shape"], (
+        "Windows does not reach the `.cmd` twin, which is the file it can "
+        f"actually execute: {win}"
+    )
+
+
 def test_the_command_piped_prints_the_twin():
     """The wrapper, run the way an agent runs it — stdout a pipe. Letters, no
     colour, exit 0, and the panel beside the disc."""
@@ -477,19 +536,23 @@ def run_gate(repo, *extra, keep=None, wrapper=False):
     """`broad_gate.py --base base --root <repo> --shape`, its outputs kept
     under `keep`; returns the completed process."""
     keep = keep or repo.parent / "out"
-    command = [GATE_WRAPPER] if wrapper else [sys.executable, GATE]
+    tail = [
+        "--base",
+        "base",
+        "--root",
+        str(repo),
+        "--shape",
+        "--keep-output",
+        str(keep),
+        *extra,
+    ]
+    command = (
+        wrapper_command(GATE_WRAPPER, tail)
+        if wrapper
+        else [sys.executable, GATE, *tail]
+    )
     return subprocess.run(
-        [
-            *command,
-            "--base",
-            "base",
-            "--root",
-            str(repo),
-            "--shape",
-            "--keep-output",
-            str(keep),
-            *extra,
-        ],
+        command,
         capture_output=True,
         encoding="utf-8",
         errors="replace",
@@ -599,11 +662,15 @@ def test_a_green_tree_is_sealed_with_every_check_run_in_order(repo, tmp_path):
     assert times == sorted(times), f"the checks did not run in order: {times}"
 
 
-@pytest.mark.skipif(os.name == "nt", reason="the POSIX wrapper needs a POSIX shell")
 def test_the_wrapper_runs_the_same_gate(repo):
     """`bin/broad-gate` resolves the script relative to itself and passes
-    every argument through; the wrapper pair is pinned by the bin twin
-    case."""
+    every argument through; the wrapper pair is pinned by the bin twin case.
+
+    This carried `skipif(os.name == "nt")` — *the POSIX wrapper needs a POSIX
+    shell* — which is true of the POSIX file and was the reason to reach for
+    the twin rather than to step around it. `bin/broad-gate.cmd` ships and
+    had never been run by anything; `run_gate` picks it on Windows now, and
+    this is the first case that exercises it."""
     out = run_gate(repo, wrapper=True)
     assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
     assert "SEALED" in out.stdout

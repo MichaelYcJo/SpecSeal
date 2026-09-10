@@ -154,3 +154,22 @@ using the same helper for the opposite question.
 `reach_back` comes to refuse only `nobody` — the reading `seal` shipped and
 round 2 reopened — it is the same defect in the other subcommand, and it is a
 finding rather than an exemption.
+
+## CI's Windows leg
+
+`survivor-check --range cd7ea2f..HEAD` reports two places once the gate
+case's `skipif(os.name == "nt")` is removed. Both are other Windows skips and
+neither is the defect that removal fixed.
+
+**The first shares the reason string word for word and is still a different
+case**, which is why it was opened rather than exempted by shape.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `tests/test_the_suite_has_a_command_that_is_cheap_twice.py` | A copy of `bin/` taken on its own | **The class is already answered here, deliberately, by the case directly below it.** This one copies `bin/test` alone into a temporary directory WITHOUT its twin and executes it, so its subject is what `sh` prints when the runner is missing — there is no twin in that copy to reach for. `test_both_wrappers_say_the_same_thing_when_the_runner_is_missing` covers the `.cmd` sentence by READING both files and says so in its own docstring: *on the one platform the `.cmd` twin runs, nothing reads its sentence*. What this branch removed is a skip that stepped around a twin that WAS there; this skip steps around nothing |
+| `tests/test_the_printed_ledger_name_is_the_file_that_was_read.py` | Win32 folds `..` before the filesystem | **Platform semantics, not a wrapper.** The skip is about how Win32 resolves a path through a symlink, which has no twin to run instead. The overlap is the decorator's own words — `pytest mark skipif os`, `name nt reason` — which any two Windows skips share |
+
+**What would make these two stop holding.** Each quote is its own anchor. If
+the first ever copies the `.cmd` twin into that directory, it has a file
+Windows can execute and the skip becomes the one this branch removed. If the
+second comes to name a wrapper rather than path resolution, the same.
