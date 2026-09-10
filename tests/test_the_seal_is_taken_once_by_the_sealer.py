@@ -124,6 +124,46 @@ def test_the_twin_and_the_block_form_have_equal_width_and_height(scale):
     )
 
 
+@pytest.mark.parametrize("scale", [0.75, 0.8, 0.9])
+def test_the_disc_draws_the_same_bytes_in_every_process(scale):
+    """Round 1's 🟡 6. `shrink` resolved a tie between two chart colours with
+    `max(set(ink), key=ink.count)`, and a set of strings iterates in an order
+    that moves with PYTHONHASHSEED — so the same scale drew differently from
+    one process to the next. Measured over five seeds at 0.75: two distinct
+    renderings.
+
+    This module's opening argument is that four hand-typed discs were
+    lopsided and a circle that is calculated cannot be off centre. A
+    calculated circle that is not reproducible gives that argument back at
+    every scale but 1.0, and any case that ever pins bytes below 1.0 flakes.
+
+    Run in child processes, because the seed is fixed before the interpreter
+    starts and cannot be changed from inside one."""
+    script = (
+        "import importlib.util, sys\n"
+        f"spec = importlib.util.spec_from_file_location('s', {SCRIPT!r})\n"
+        "mod = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(mod)\n"
+        f"sys.stdout.write(chr(10).join(mod.stamp({ROWS!r}, {scale!r}, True)))\n"
+    )
+    seen = set()
+    for seed in ("0", "1", "2", "12345", "99999"):
+        env = dict(os.environ, PYTHONHASHSEED=seed)
+        r = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+            timeout=120,
+        )
+        assert r.returncode == 0, r.stderr
+        seen.add(r.stdout)
+    assert len(seen) == 1, (
+        f"scale {scale} drew {len(seen)} distinct discs across five hash seeds"
+    )
+
+
 def test_the_disc_is_symmetric_because_it_is_computed():
     """#30 §*How it is drawn*: four hand-typed discs were lopsided; a computed
     one cannot be. Every twin row has the same left and right margin."""

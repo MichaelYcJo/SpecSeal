@@ -183,7 +183,18 @@ def shrink(art, f):
                 for a in range(x0, x1)
                 if b < h and a < w and art[b][a] != "."
             ]
-            row.append(max(set(ink), key=ink.count) if ink else ".")
+            # `max(set(ink), …)` iterated a set of strings, whose order moves
+            # with PYTHONHASHSEED, so a tie between two chart colours drew
+            # differently from one process to the next (round 1's 🟡 6). This
+            # module's argument is that a circle that is CALCULATED cannot be
+            # off centre, and a calculated circle that is not reproducible
+            # gives it back at every scale but 1.0. Highest count, then
+            # earliest in the chart — both stable.
+            row.append(
+                max(dict.fromkeys(ink), key=lambda c: (ink.count(c), -ink.index(c)))
+                if ink
+                else "."
+            )
         out.append("".join(row))
     return out
 
