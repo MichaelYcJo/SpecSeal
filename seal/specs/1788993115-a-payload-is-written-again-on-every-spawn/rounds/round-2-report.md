@@ -82,7 +82,7 @@ neither it returns `{}` and the lent row is written as before.
 one level down (⬜ 13).** Executed: a `~~~` fence, a fence indented four
 spaces, and a fence inside a list item each hide the heading between them.
 The toggle does not know which fence it is in, so a heading inside a
-```` ``` ```` block that is itself inside a ```` ```` ```` block, or a `## `
+three-backtick block that is itself inside a four-backtick block, or a `## `
 line between `~~~` inside a backtick fence (and the reverse), is counted as
 a section. `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py:48`
 holds the same regex and `marked_headings` gives the same answer on the

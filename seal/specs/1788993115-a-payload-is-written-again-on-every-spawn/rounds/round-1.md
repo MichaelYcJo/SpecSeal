@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 329 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | _baseline_name → round-1-report.md, round-1.md, render |
 | New units | bare (depth 1); ending_of (depth 1); FLOOR (depth 1); FLOOR_TEXT (depth 1); BELOW_FLOOR (depth 1); below_floor (depth 1); _refusal (depth 1); FENCE (depth 1); heading_starts (depth 1); _spawn_of (depth 1); _carried (depth 1); test_write_keeps_the_targets_line_endings (depth 1); test_a_lent_ratio_keeps_the_spawn_it_was_measured_from (depth 1); test_sections_do_not_split_at_a_heading_inside_a_fence (depth 1); test_an_inline_skills_list_is_read (depth 1); test_the_baseline_agent_may_be_named_with_its_namespace (depth 1); test_a_floor_above_this_interpreter_refuses_before_anything_is_read (depth 1) |
 | Needs a fix | yes — 🔴 1 (the chained baseline re-derives a ratio over bytes the spawn never read and labels the total measured), and 🟡 2–7 unless answered with grounds |
