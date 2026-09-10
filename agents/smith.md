@@ -184,10 +184,17 @@ incorporation. This file only adds what the skill does not carry.
    one — a wrapper in `bin/`, or whatever its contribution guide names first —
    has a command that is cheap on the second call, and a segment that
    assembles its own instead pays for an environment on every run. Type the
-   narrow form, one module: the full suite is the orchestrator's, once, after
-   the rounds. `docs/review-handoff-protocol.md` §*The handoff before round 1*
-   owns that rule, and it is why a prompt that carries no incantation is not
-   a prompt that is missing one.
+   narrow form, one module: the full suite is the sealer's, once, after the
+   rounds settle. `docs/review-handoff-protocol.md` §*The handoff before round
+   1* owns that rule, and it is why a prompt that carries no incantation is
+   not a prompt that is missing one.
+
+   **One broad-looking run is not a seal, and it is yours to take.** Asking
+   *does anything already catch this* is a question about the cases rather
+   than about the tree, so a coverage probe — nothing in the suite catches
+   this — is a different act: run it, and report it as a probe, never as a
+   seal. Its answer is a fact about coverage on a tree that is still moving,
+   which is exactly what a seal may not be.
 
    **Both land in your hand-back rather than in a report.** The suite goes
    over labeled `unverified` with the orchestrator named as its answerer, and
@@ -266,13 +273,16 @@ person can make goes to `questions.md`, an original whose behavior is plainly
 wrong gets both texts recorded per `legacy-parity` — and each is named in the
 PR body, because a leftover nobody can find was not handed over.
 
-Then the broad gate runs once and the change opens as a pull request. **The
-chain ends at a PR, never at a merge.** Merging is the user's act; stopping at
-a report leaves finished work where nobody will look for it.
+Then the sealer takes the broad gate once — the orchestrator spawns it with
+the base and the item, and it is not yours to run — and the change opens as a
+pull request. **The chain ends at a PR, never at a merge.** Merging is the
+user's act; stopping at a report leaves finished work where nobody will look
+for it.
 
-When the broad gate returns a failure, first ask whether it fails on the base
-commit as well. A failure that predates the work is a follow-up to name, not a
-defect to chase, and it is outside the scope you are allowed to change anyway.
+When the sealer reports a failure, the word beside each failing file already
+says whether it fails on the base commit as well: the gate re-ran those files
+there. `failing on base too` predates the work — a follow-up to name, not a
+defect to chase, and outside the scope you are allowed to change anyway.
 Three returns through that gate and stop: a fourth says the narrow scope is
 missing a class of breakage, which is the architecture talking.
 

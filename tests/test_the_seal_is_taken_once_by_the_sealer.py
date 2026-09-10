@@ -837,3 +837,216 @@ def test_the_gate_with_record_prints_no_stamp_when_the_record_refuses(repo, tmp_
     assert crown_of() not in out.stdout, "a stamp printed over a refused record"
     assert "Needs a fix" in out.stdout + out.stderr
     assert read_bytes(path) == before
+
+
+# =============================================================================
+# Part 3 — the owner, and the fourth definition
+# =============================================================================
+
+# `agents/smith.md` and `agents/warden.md` each carried the rule with no owner
+# in it: *the full suite is the orchestrator's*. #30's opening argument is that
+# a rule forbidding two agents an act and assigning it to nobody is assigned to
+# whoever remembers. The sentence names the sealer in both, and the definitions
+# are where it has to be named — a document a session loads on demand reaches
+# the session that already knew.
+SEALER = os.path.join(ROOT, "agents", "sealer.md")
+OWNED = "the full suite is the sealer's, once, after the rounds settle"
+UNOWNED = "the full suite is the orchestrator's"
+PROBE = (
+    "a coverage probe — nothing in the suite catches this — is a different "
+    "act: run it, and report it as a probe, never as a seal"
+)
+DEFINITIONS = ("smith.md", "warden.md")
+
+# The contract's own §2 and §6, read from the contract rather than typed, so a
+# section that is rewritten (#120) is compared as it then stands.
+CONTRACT = os.path.join(ROOT, "skills", "agent-contract", "SKILL.md")
+
+# `tests/test_a_moved_rule_leaves_its_definition.py` measured this: 15 words is
+# longer than any phrase a kept application shares with a section, and shorter
+# than the smallest real paste. Imported as a number rather than a rule — the
+# case below applies it to ONE definition, the one that talks about §2 by name
+# and is therefore the one at risk of quoting it.
+WINDOW = 15
+
+
+def agent(name):
+    with open(os.path.join(ROOT, "agents", name), encoding="utf-8") as handle:
+        return " ".join(handle.read().split())
+
+
+def sealer_text():
+    with open(SEALER, encoding="utf-8") as handle:
+        return handle.read()
+
+
+def section(number):
+    """The body of `## §N` in the contract, heading excluded."""
+    with open(CONTRACT, encoding="utf-8") as handle:
+        text = handle.read()
+    heads = list(re.finditer(r"^## §(\d+) (.+)$", text, re.M))
+    for index, match in enumerate(heads):
+        if int(match.group(1)) != number:
+            continue
+        end = heads[index + 1].start() if index + 1 < len(heads) else len(text)
+        return " ".join(text[match.end() : end].split())
+    raise AssertionError(f"the contract has no §{number}")
+
+
+# --- S6 the owner ------------------------------------------------------------
+
+
+@pytest.mark.parametrize("definition", DEFINITIONS)
+def test_the_definition_names_the_sealer_as_the_suites_owner(definition):
+    """The rule reached both definitions with no owner in it. Naming the
+    sealer in the skill alone would leave both agents reading a sentence that
+    forbids without assigning, which is the state #30 opens with."""
+    text = agent(definition)
+    assert OWNED in text, (
+        f"agents/{definition} no longer says whose the full suite is, so the "
+        "rule forbids it to this agent and assigns it to nobody"
+    )
+    assert UNOWNED not in text, (
+        f"agents/{definition} still names the orchestrator as the suite's "
+        "owner beside the sealer, which is two owners for one act"
+    )
+
+
+@pytest.mark.parametrize("definition", DEFINITIONS)
+def test_the_owner_is_named_once_in_each_definition(definition):
+    """Twice is how the two copies drift apart — which is the failure the
+    contract exists to end, one file down."""
+    assert agent(definition).count(OWNED) == 1, (
+        f"agents/{definition} states the owner sentence "
+        f"{agent(definition).count(OWNED)} times"
+    )
+
+
+@pytest.mark.parametrize("definition", DEFINITIONS)
+def test_the_definition_separates_a_coverage_probe_from_a_seal(definition):
+    """The near miss the owner sentence creates. *Does anything in the suite
+    catch this* is answered by running the suite, and an agent that reads only
+    *the full suite is the sealer's* either does not ask it or reports the
+    answer as a seal. It is a probe: run it, and label it one."""
+    assert PROBE in agent(definition), (
+        f"agents/{definition} does not separate a coverage probe from a seal, "
+        "so the one run that is not a seal has no name"
+    )
+
+
+def test_the_warden_says_what_comes_due():
+    """The warden's report is what ends the rounds, so it is the one segment
+    positioned to say the gate is next. Saying so without naming what is
+    spawned leaves the orchestrator to remember the sealer exists."""
+    warden = agent("warden.md")
+    assert "what comes due is the sealer's spawn" in warden, (
+        "the warden says the broad run is next and does not say who takes it"
+    )
+
+
+def test_the_smith_says_who_takes_the_gate_it_hands_to():
+    """`Then the broad gate runs once` named no runner, in the file the
+    implementer reads at the end of every chain."""
+    smith = agent("smith.md")
+    assert "Then the sealer takes the broad gate once" in smith, (
+        "the smith's closing paragraph still leaves the broad run unassigned"
+    )
+
+
+# --- S7 the fourth definition ------------------------------------------------
+#
+# The contract paragraph this file opens with is held to byte identity by
+# `tests/test_every_agent_reads_the_contract.py`, over a glob this file joins
+# on the day it lands. Re-pinning it here would be the duplication that module
+# and `tests/test_a_moved_rule_leaves_its_definition.py` exist to refuse, so
+# what part 3 pins is what no existing module reads.
+
+
+def test_the_fourth_definition_exists():
+    assert os.path.exists(SEALER), "agents/sealer.md is not in the tree"
+
+
+def test_the_sealer_preloads_the_contract_and_nothing_else():
+    """Q5: its whole procedure is one command, and #292 measured every
+    preloaded body as a cost paid again on every spawn. `verify` is 35 KB for
+    four conditions the definition states in four lines."""
+    head = sealer_text().split("\n---\n", 1)[0]
+    assert re.findall(r"^  - (\S+)", head, re.M) == ["agent-contract"], (
+        "the sealer's `skills:` list is not `agent-contract` alone, so a body "
+        "rides every spawn for a procedure that is one command"
+    )
+
+
+def test_the_sealer_names_the_command_it_runs():
+    """The procedure is the command; a definition that describes the checks
+    instead is a second source that drifts from `broad_gate.py`."""
+    text = " ".join(sealer_text().split())
+    assert "broad-gate --base <base> --record <item>" in text, (
+        "the sealer's definition does not name the command that is its whole procedure"
+    )
+
+
+def test_the_sealer_names_its_one_write_as_its_own_exception():
+    """§6's last paragraph prescribes the shape: an exception is one agent's,
+    and it is named in that agent's definition. A write nobody named is a
+    review that certifies itself."""
+    text = " ".join(sealer_text().split())
+    assert "§6" in text, "the sealer cannot reach the rule its one write excepts"
+    assert "round_record.py seal" in text, (
+        "the sealer's one write does not name the subcommand that makes it, "
+        "so the write is described rather than bounded"
+    )
+    assert "`Broad gate`" in text, (
+        "the exception does not say WHICH cell, and an exception without a "
+        "boundary is a general permission"
+    )
+
+
+def test_the_sealer_states_the_contradiction_and_the_ticket_that_settles_it():
+    """Q4: the sealer ships under a contract that forbids its one act, for a
+    window inside one release branch. A window nobody wrote down is a
+    contradiction the next reader resolves by guessing which document wins."""
+    text = " ".join(sealer_text().split())
+    assert "§2" in text, "the definition does not name the section it stands against"
+    assert "#120" in text, (
+        "the definition does not name the ticket that rewrites §2, so the "
+        "contradiction has no end written into it"
+    )
+    assert "narrower document" in text, (
+        "the definition does not say which of the two wins in the window, "
+        "which is the one thing a reader in that window needs"
+    )
+
+
+def test_the_sealer_carries_the_four_conditions_in_its_own_words():
+    """Q5 again, from the other side: dropping `verify` from the spawn is only
+    correct if the conditions arrive some other way."""
+    text = " ".join(sealer_text().split())
+    for condition in (
+        "Name the command before you run it",
+        "show the check can fail",
+        "Bind the result to a tree state",
+        "`executed`",
+        "`unverified`",
+    ):
+        assert condition in text, (
+            f"the sealer's definition does not carry `{condition}`, and "
+            "`verify` is not in its `skills:` list to carry it instead"
+        )
+
+
+@pytest.mark.parametrize("number", (2, 6))
+def test_the_sealer_cites_the_section_without_carrying_it(number):
+    """The sealer is the one definition that talks about §2 and §6 by name, so
+    it is the one at risk of quoting them. Citing a number and saying what it
+    means for this role is the application form; a run of the section's own
+    words is the paste `tests/test_a_moved_rule_leaves_its_definition.py`
+    measured, and that module holds the whole glob to it."""
+    body = section(number).split()
+    text = " ".join(sealer_text().split())
+    copied = [
+        " ".join(body[i : i + WINDOW])
+        for i in range(len(body) - WINDOW + 1)
+        if " ".join(body[i : i + WINDOW]) in text
+    ]
+    assert not copied, f"agents/sealer.md carries §{number}'s own words: {copied}"

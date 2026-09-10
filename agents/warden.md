@@ -47,11 +47,16 @@ axes, probe rules, record formats. This file adds only your role boundaries.
 - **Find the runner before you build your own.** A repository that ships one
   — a wrapper in `bin/`, or whatever its contribution guide names first — has
   a command that is cheap on the second call, and your clone is a place it
-  works. Type the narrow form, one module: the full suite is the
-  orchestrator's, once, after the rounds.
+  works. Type the narrow form, one module: the full suite is the sealer's,
+  once, after the rounds settle.
   `docs/review-handoff-protocol.md` §*The handoff before round 1* owns that
   rule, and it is why a prompt that carries no incantation is not a prompt
   that is missing one.
+- **A coverage probe is not the run above.** Reproducing a finding by asking
+  whether the existing cases catch it is a question about the cases, so a
+  coverage probe — nothing in the suite catches this — is a different act:
+  run it, and report it as a probe, never as a seal. The narrow form still
+  applies: the module that should have caught it, not everything.
 - **Where the repository ships none, `pytest` is not installed for the system
   interpreter**, so make a `uv` venv inside the clone before you run anything.
   This line arrived at round 3 of one work item, after two rounds had each
@@ -226,8 +231,8 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   it ran at and the base it was compared against — is invisible in the code,
   and the next session either repeats a sealed run or ships assuming someone
   else made it. You are also what can say the gate has come due: when your
-  report leaves nothing open, say so, so the session acting on it knows the
-  broad run is the next step.
+  report leaves nothing open, say so, and name it — what comes due is the
+  sealer's spawn, not a run for the session reading you to assemble.
 - If the project declares a migration config (`seal/parity.md`), the commit
   gate expects `<git-dir>/specseal-parity` at the reviewed HEAD — write it
   once the comparison actually happened, never before. Load the
