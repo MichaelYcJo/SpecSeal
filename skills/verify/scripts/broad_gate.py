@@ -504,10 +504,18 @@ def gate(args, console_wants_letters):
     if item is not None:
         code, text = seal_record(item, tree, args.base, root, args.base, keep)
         sys.stdout.write(text)
-        if code == 2:
+        if code != 0:
+            # `seal` exits 2 on a refusal raised BEFORE the write, and it
+            # returns whatever `chain_check` returned — 1 for errors — from
+            # AFTER it. Only the first of those means no cell was written,
+            # and neither of them is a seal. Reading `== 2` let the second
+            # fall through to the drawing and to `return 0`.
             sys.stderr.write(
-                "broad-gate: every check passed and the record refused the "
-                "cell, so nothing is sealed — the refusal above says why\n"
+                f"broad-gate: every check passed and `round_record.py seal` "
+                f"exited {code}, so nothing is sealed. A `round-record:` line "
+                "above is a refusal and no cell was written; anything else is "
+                "the chain check `seal` runs after the write, and the cell may "
+                "be written over a record that check still fails\n"
             )
             return 2
     shape = args.shape or console_wants_letters

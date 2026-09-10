@@ -21,6 +21,7 @@ Part 3 — the agent and the owner sentences — arrives with the phase that
 builds them.
 """
 
+import argparse
 import importlib.util
 import io
 import os
@@ -869,6 +870,53 @@ def test_the_gate_with_record_seals_the_item_and_counts_its_rounds(repo, tmp_pat
     assert re.search(r"\brounds\s+2\b", out.stdout), out.stdout
     cell = fields(two.read_text(encoding="utf-8"))[ROW]
     assert cell == f"{short(repo, 'HEAD')} against base", cell
+
+
+def test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed(
+    repo, tmp_path, monkeypatch, capsys
+):
+    """Round 1's 🔴 1. `seal` has two ways to end non-zero and the gate read
+    one of them.
+
+    A refusal raised BEFORE the write exits 2. What `seal` returns AFTER the
+    write is `run_check`, which is `chain_check.main`'s `1 if errors else 0`
+    — so a chain check that fails once the cell is on disk comes back as 1,
+    fell past a branch reading `== 2`, and the gate printed the disc and
+    returned 0. A seal over a tree its own chain check refuses is the
+    counterfeit `verify` names.
+
+    Driven in process with `seal_record` stubbed, because the exit code is
+    the whole subject: a fixture that makes the real chain check fail after
+    the write would be testing which state trips `chain_check`, not which
+    codes the gate reads."""
+    settled_item(repo)
+    mod = gate_module()
+    reached = []
+
+    def sealed_then_the_chain_failed(item, tree, base_ref, root, base, keep):
+        reached.append(item)
+        return (
+            1,
+            "round-record: sealed round-2.md — `Broad gate` | abc123 against base\n",
+        )
+
+    monkeypatch.setattr(mod, "seal_record", sealed_then_the_chain_failed)
+    code = mod.gate(
+        argparse.Namespace(
+            root=str(repo),
+            base="base",
+            record=str(repo / ITEM),
+            shape=True,
+            scale=1.0,
+            keep_output=str(tmp_path / "out"),
+        ),
+        False,
+    )
+    out = capsys.readouterr()
+    assert reached, f"the checks failed before `seal` was reached\n{out.out}{out.err}"
+    assert code == 2, f"exit {code}\n{out.out}{out.err}"
+    assert crown_of() not in out.out, "a stamp printed over a failing chain check"
+    assert "exited 1" in out.err, out.err
 
 
 def test_the_gate_with_record_prints_no_stamp_when_the_record_refuses(repo, tmp_path):
