@@ -1219,10 +1219,53 @@ def fenced_after(reader, raw, lines, heading):
     return out
 
 
+# A line that opens a new markdown block, so the terminal value stops before
+# it. The blank line is the ordinary end and markdown needs one anyway; these
+# are the shapes a report puts next to a terminal line without one.
+BLOCK_START = re.compile(r"^\s*(#|\||>|[-*+]\s|\d+\.\s|```|~~~)")
+
+
 def terminal_value(reader, lines, label):
-    """What stands after the colon in the report's `<label>: …` line."""
+    """What stands after the colon in the report's `<label>: …` line.
+
+    **A wrapped line is one value.** `agents/warden.md` shows the two terminal
+    lines in a fence and says nothing about wrapping, the prose around them is
+    hand-wrapped, and a `yes — <what>` worth writing is long enough to reach
+    the margin. Matching the physical line alone kept its remainder and
+    dropped everything after the wrap with no refusal: `rounds/round-1.md` of
+    #120 shipped ending mid-clause at *the one that reopens the*, where the
+    report it was generated from carried *defect this work item was filed
+    against* on the next line.
+
+    Truncation is the dangerous direction of the two. A value cut at a wrap
+    still reads as a finished sentence, so nobody looks; a value that swallowed
+    a following line reads as wrong at a glance. So the value is joined across
+    the wrap, and the run stops at a blank line, at the other terminal label,
+    or at a line opening a new markdown block. That last guard is not
+    decoration: ` ` is in `chain.SEPARATORS`, so a swallowed prose line parses
+    as a `no` with a reason and lands in the cell looking deliberate.
+    """
     pattern = re.compile(r"^\s*" + re.escape(label) + r"\s*:\s*(.*?)\s*$")
-    found = [m.group(1) for ln in lines for m in [pattern.match(ln)] if m]
+    others = tuple(
+        re.compile(r"^\s*" + re.escape(other) + r"\s*:")
+        for other in TERMINAL_LINES
+        if other != label
+    )
+    found = []
+    for index, line in enumerate(lines):
+        match = pattern.match(line)
+        if match is None:
+            continue
+        parts = [match.group(1)]
+        for following in lines[index + 1 :]:
+            if not following.strip():
+                break
+            if BLOCK_START.match(following):
+                break
+            if any(other.match(following) for other in others):
+                break
+            parts.append(following.strip())
+        found.append(" ".join(part for part in parts if part))
     if len(found) != 1:
         raise Refused(
             f"the report has {len(found)} `{label}:` lines and the record "

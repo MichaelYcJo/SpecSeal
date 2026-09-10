@@ -389,6 +389,13 @@ Loses a record or crashes: no
 Loses a record or crashes: yes — <what does>
 ```
 
+**Either line may wrap, and a wrapped line is one value.** The generator
+joins it across the wrap and stops at a blank line, at the other terminal
+label, or at a line opening a new markdown block — so leave a blank line
+under the pair, which markdown wants anyway. It used to keep the first
+physical line and drop the rest without saying so, and a round record shipped
+ending mid-clause.
+
 They are the run's terminal conditions, and what the orchestrator moves into
 `round-N.md` is what stands **after the colon** — the row already names the
 field, so a straight copy writes it twice:

@@ -9,7 +9,7 @@
 | Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | test_the_procedure_a_reviewer_follows_carries_the_leavings_rule_too (depth 1); read_at (depth 1); COUNT_WORD (depth 1); ASSIGNS_THE_GATE (depth 1); test_only_one_definition_assigns_the_broad_gate (depth 1); test_no_definition_promises_the_suite_once_the_rounds_settle (depth 1); test_the_reviewer_carries_the_gate_state_into_a_section_its_report_has (depth 1); BOUNDS (depth 1); test_every_definition_bounds_what_it_writes (depth 1); test_the_leavings_rule_says_whose_leaving_it_is (depth 1); test_the_sealer_recites_the_four_acts_s6_actually_withholds (depth 1) |
-| Needs a fix | yes — findings 1 through 8. Finding 1 is the one that reopens the |
+| Needs a fix | yes — findings 1 through 8. Finding 1 is the one that reopens the defect this work item was filed against. <!-- The tail after `reopens the` was dropped when this record was generated: `terminal_value` matched one physical line and the report's line wrapped. Repaired by hand in round 2's fix pass, from `rounds/round-1-report.md:503-504`, and the parser is fixed in the same range (round 2, finding 3). --> |
 | Loses a record or crashes | no |
 
 - [x] Pass
