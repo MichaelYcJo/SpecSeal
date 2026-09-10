@@ -36,10 +36,12 @@ phrase carried over from the paragraph that went — is what the case holds it
 to. **This is the one thing built here that the frame did not settle.**
 
 **Both cases were renamed, and one of them passed against both trees.**
-`test_the_sealer_states_the_contradiction_and_the_ticket_that_settles_it` →
-`test_the_window_the_sealer_shipped_under_is_closed`, assertions inverted, red
-at `8204533`. `test_the_sealer_names_its_one_write_as_its_own_exception` →
-`test_the_sealer_names_the_one_write_its_definition_is_allowed`, assertions
+`test_the_sealer_states_the_contradiction_and_the_ticket_that_settles_it` <!-- NAME NOT IN TREE -->
+became `test_the_window_the_sealer_shipped_under_is_closed`, assertions
+inverted, red at `8204533`.
+`test_the_sealer_names_its_one_write_as_its_own_exception` <!-- NAME NOT IN TREE -->
+became `test_the_sealer_names_the_one_write_its_definition_is_allowed`,
+assertions
 untouched: §6 stopped calling the mechanism an exception and started calling it
 the rule, so the grounds moved and nothing the case checks did. It passed
 against both trees, and it is recorded that way rather than counted as a case
@@ -80,8 +82,8 @@ files rather than into a new one.
 | Removed item | Where it must land |
 |---|---|
 | `agents/sealer.md` §*§2 as it stands, and #120*, the whole section | Nowhere as a contradiction — it does not exist any more. Its positive half, that the sealer runs the broad gate once spawned for exactly that, lands in the new §*The one run, and why it is yours* in the same file |
-| The name `test_the_sealer_states_the_contradiction_and_the_ticket_that_settles_it` | `test_the_window_the_sealer_shipped_under_is_closed`, same module. Three records that name the old one carry `<!-- NAME NOT IN TREE -->` |
-| The name `test_the_sealer_names_its_one_write_as_its_own_exception` | `test_the_sealer_names_the_one_write_its_definition_is_allowed`, same module, same assertions |
+| The name `test_the_sealer_states_the_contradiction_and_the_ticket_that_settles_it` <!-- NAME NOT IN TREE --> | `test_the_window_the_sealer_shipped_under_is_closed`, same module. Three records that name the old one carry `<!-- NAME NOT IN TREE -->` |
+| The name `test_the_sealer_names_its_one_write_as_its_own_exception` <!-- NAME NOT IN TREE --> | `test_the_sealer_names_the_one_write_its_definition_is_allowed`, same module, same assertions |
 | Row S8 of `seal/ledger/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it.md` | R1 of `seal/ledger/1789034970-the-contract-is-settled-against-the-agents-that-exist.md`, and a note in the fragment it left saying which work item removed it and why |
 | `agents/warden.md`'s phrase *§6's two exceptions*, and *the whole of the second exception* | Nowhere — §6 carves none. The two writes are named in the same bullet, now with a bound (`there is no third`) that the word `exceptions` used to carry, pinned by `test_the_warden_counts_its_writes_rather_than_its_exceptions` |
 | `skills/code-review/orchestration.md`'s grounds *§2 reserves the broad gate for you* | The same paragraph, re-derived: the gate goes to whichever definition assigns it and no reviewer's does. Pinned by `test_the_reason_no_round_can_run_it_survives_the_rewrite_of_s2` |

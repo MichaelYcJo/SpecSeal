@@ -2,9 +2,11 @@
 
 ## Over the whole branch — what CI reads
 
-`survivor-check --range origin/release/v0.10.0...HEAD` reports fifteen places
-against forty-three sentences this range removed. None of them is a stale copy
-of a corrected claim standing where a reader would act on it.
+`survivor-check --range origin/release/v0.10.0...HEAD` reports sixteen places
+across this branch — fifteen at the head it was first run against, and a
+sixteenth once the note explaining a removed ledger row landed, which put the
+sentence that row carried into the range's removed set. None of the sixteen is
+a stale copy of a corrected claim standing where a reader would act on it.
 
 **Four were corrected rather than exempted, and not one of the four was
 reported.** They were found by enumerating the class instead — every live place
@@ -29,7 +31,7 @@ docstring states, and the enumeration is what covers it.
 
 ### The records of the work item that created the contradiction
 
-Seven of the fifteen. #30's `questions.md` Q4 weighed editing §2 inside a work
+Eight of the sixteen. #30's `questions.md` Q4 weighed editing §2 inside a work
 item that is not its own and chose instead to ship under a window with an
 expiry written into it. This work item is that expiry arriving. Each of these
 is a statement about a decision rather than about the tree, and rewriting one
@@ -40,6 +42,7 @@ would erase the reasoning that produced the paragraph #120 was filed to delete
 |---|---|---|
 | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/overview.md` | chose to ship under the contradiction rather than edit §2 here | **The closing memo's account of Q4.** It says what that work item decided and why, in the past tense of a decision, and the decision happened |
 | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/questions.md` | with the definition stating the exception and naming #120 | **The option list the owner was given.** Option (a) is the one that was taken; a question record that no longer shows the options is a record of an answer with nothing behind it |
+| `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/questions.md` | the contradiction is confined to a window inside one release branch | **The answer's own grounds, in the same Q4.** It appeared only once the note explaining S8's removal went into the fragment, which put the sentence S8 carried into the range's removed set — the reported overlap is between two records of the same decision, and the decision is what both are for |
 | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/spec.md` | named in the definition as its own exception to §6 | **That work item's specification of what it built**, and it is an accurate description of `agents/sealer.md` as #30 shipped it. This is the one to watch: it is a statement about a definition rather than about a decision, and it stands only because the sentences around it are explicitly about what that work item delivered |
 | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/plan.md` | the phase-4 record names that paragraph as the one #120 deletes | **The plan's hand-over to this work item**, naming where the paragraph to delete would be recorded. It was recorded there, and this work item found it there |
 | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/phases/phase-3.md` | name in this record the paragraph #120 deletes | **What phase 3 was asked**, which is what that section of a phase record is for |
