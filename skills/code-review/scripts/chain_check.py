@@ -2882,8 +2882,9 @@ def broad_gate(reader, root, rel, strict):
           reason is the retroactive red the cutoff already answers: the tail
           of this function grandfathers every work item begun before
           `GATE_FROM`, and above it `round_record.py new` writes the row on
-          every record and `close --broad-gate` is the only thing that changes
-          the value. So above the cutoff this cell is a choice. Left as a
+          every record while `seal` and `close --broad-gate` are the only
+          things that change the value (#30 added the first, and it is the
+          route the sealer takes). So above the cutoff this cell is a choice. Left as a
           notice it was the CHEAPEST way past this arm there is -- `skipped`
           is one word, where the absent row the state above refuses costs a
           deleted line.
@@ -2943,8 +2944,10 @@ def broad_gate(reader, root, rel, strict):
         # text -- true of records written before `GATE_FROM`, which the tail
         # already grandfathers. Above it there is no such history:
         # `round_record.py new` writes this row on every record it generates
-        # and `close --broad-gate` is the only thing that changes the value,
-        # so a cell this arm cannot parse there is a cell somebody chose.
+        # while `seal` and `close --broad-gate` are the only things that
+        # change the value (#30 added the first, which is the sealer's own
+        # write), so a cell this arm cannot parse there is a cell somebody
+        # chose.
         # Left as a notice, `pending`, `skipped` or `n/a` was a shorter way
         # past this arm than deleting the row -- which is the very edit the
         # absent-row judgment above was taken to close.
