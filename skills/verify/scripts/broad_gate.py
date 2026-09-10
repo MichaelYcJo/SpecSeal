@@ -383,17 +383,25 @@ def compare_at_base(root, base, command, files, keep):
 # --- what the panel reads --------------------------------------------------
 
 
-# pytest's summary always names one of these. A linter's `2 warnings
-# emitted` matches COUNTS_RE too and stands AFTER pytest's summary in a row
-# joined with `&&`, so a backwards walk that takes the first match takes the
-# linter's number and prints it as the suite's (round 1's 🟡 5).
-SUMMARY_WORDS = ("passed", "failed", "error")
+# pytest's summary line is the counts followed by the wall clock — `768
+# passed, 1 skipped in 12.34s`, decorated or not. A linter's line has counts
+# and no clock, and it stands AFTER pytest's summary in a row joined with
+# `&&`, so a backwards walk that takes the first COUNTS_RE match takes the
+# linter's number and prints it as the suite's.
+#
+# Matching on WORDS closed round 1's 🟡 5 on its instance and not on its
+# class: `warnings` left the list and `errors` stayed in it, so `Found 2
+# errors.` from a linter run with `--exit-zero` still landed on the suite
+# row; and a run where every test was SKIPPED matched no word at all and came
+# back None, which the panel prints as `exit 0` — the seal's most trusted row
+# saying nothing about a run in which nothing executed (round 2's 🟡 13).
+SUMMARY_TAIL = re.compile(r"\bin \d+(?:\.\d+)?s\b")
 
 
 def suite_counts(text):
     for line in reversed(text.splitlines()):
         m = COUNTS_RE.search(line)
-        if m and any(word in m.group(1) for word in SUMMARY_WORDS):
+        if m and SUMMARY_TAIL.search(line[m.end() :]):
             return m.group(1)
     return None
 

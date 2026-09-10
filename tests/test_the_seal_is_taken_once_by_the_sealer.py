@@ -688,6 +688,16 @@ def test_the_suite_row_reads_pytests_counts_and_not_a_linters(tmp_path):
     assert gate.suite_counts("2 warnings emitted\n") is None, (
         "a run with no pytest summary in it reports a count anyway"
     )
+    # Round 2's 🟡 13: the CLASS, not the instance. `warnings` was the word
+    # round 1 measured and `errors` is the same defect one linter over —
+    # `Found 2 errors.` is what `ruff` and `mypy` print, and a row whose
+    # linter runs with `--exit-zero` reaches the panel with it. A
+    # skipped-only run is the shape that matched no word at all and came
+    # back None, which the panel renders `suite exit 0`: the seal's most
+    # trusted row saying nothing about a run in which nothing executed.
+    assert gate.suite_counts("1 passed in 1s\nFound 2 errors.\n") == "1 passed"
+    assert gate.suite_counts("3 skipped in 0.10s\n") == "3 skipped"
+    assert gate.suite_counts("768 passed in 63.21s (0:01:03)\n") == "768 passed"
 
 
 def test_a_failing_file_the_base_lacks_does_not_cost_the_others_their_verdict(tmp_path):
