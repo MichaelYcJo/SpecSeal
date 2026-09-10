@@ -5,6 +5,7 @@
     "scribe": {
       "bytes_per_token": 3.44,
       "from": "agent-ab9d641281139d57d.jsonl",
+      "spawn": "agent-ab9d641281139d57d.jsonl",
       "tokens": 6568,
       "over_bytes": 22598,
       "shadowed": []
@@ -12,6 +13,7 @@
     "smith": {
       "bytes_per_token": 2.87,
       "from": "payload-before.json (lent — the same spawn, over other bytes)",
+      "spawn": "agent-ad1be2f4984b727e5.jsonl",
       "over_bytes": 104261,
       "shadowed": [
         "skills/writing-style/SKILL.md"
@@ -20,6 +22,7 @@
     "warden": {
       "bytes_per_token": 3.41,
       "from": "agent-a27ca4ab0314365f6.jsonl",
+      "spawn": "agent-a27ca4ab0314365f6.jsonl",
       "tokens": 24702,
       "over_bytes": 84181,
       "shadowed": [
@@ -152,7 +155,7 @@
         "baseline": 39488,
         "baseline_agent": "general-purpose",
         "from": "agent-ad1be2f4984b727e5.jsonl",
-        "spawns": 6,
+        "spawns": 7,
         "subagent_type": "specseal:smith",
         "note": "the smallest smith spawn, agent-ad1be2f4984b727e5.jsonl, is the one payload-before.json was calibrated from, over 104,261 bytes this tree no longer holds (90,534 now); its ratio is kept and nothing here is measured — take a spawn after the change for a measured after-number"
       }
@@ -223,11 +226,12 @@
         "baseline": 39488,
         "baseline_agent": "general-purpose",
         "from": "agent-a27ca4ab0314365f6.jsonl",
-        "spawns": 1,
+        "spawns": 2,
         "subagent_type": "specseal:warden"
       }
     }
   },
+  "baseline": "payload-before.json",
   "calibrated_from": "3b2ff2ca-e9c7-4f54-9c5e-258886c6a08f.jsonl",
   "calibration": {
     "baseline_agent": "general-purpose",

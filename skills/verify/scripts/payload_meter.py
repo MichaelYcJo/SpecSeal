@@ -59,6 +59,9 @@ paid, and +979 tokens on a file whose bytes had not moved. So with
 calibrated from, over a different byte count, keeps the baseline's ratio, is
 labelled estimated throughout, and the row says to take a spawn after the
 change for a measured after-number. Without `--baseline` nothing can tell.
+Every ratio entry a run writes — derived, lent, lent from the same spawn —
+carries `spawn` and `over_bytes`, so the rule holds however many runs are
+chained: the after-number of one work item is the before-number of the next.
 """
 
 import argparse
@@ -379,12 +382,44 @@ def _ratio_from_baseline(baseline_data, name):
     return None
 
 
+def _spawn_of(entry):
+    """The subagent transcript a ratio entry was measured from, whichever
+    shape the entry has. `spawn` is read first; a derived entry written before
+    that key existed names the spawn in `from`, and a lent entry's `from` is
+    the file it was lent from — so `from` counts only where `tokens` says the
+    entry is a measurement."""
+    if not isinstance(entry, dict):
+        return None
+    spawn = entry.get("spawn")
+    if isinstance(spawn, str):
+        return spawn
+    if "tokens" in entry and isinstance(entry.get("from"), str):
+        return entry["from"]
+    return None
+
+
+def _carried(entry):
+    """The two facts every ratio entry carries forward, whatever else it
+    holds: the spawn it was measured from and the bytes it was measured
+    over. A lent entry that drops them loses the spawn one hop later, and
+    the run after that re-derives the ratio over bytes the spawn never read
+    (#292 round 1: 2.49 B/token and +5,381 tokens over 0 bytes changed)."""
+    out = {}
+    spawn = _spawn_of(entry)
+    if spawn is not None:
+        out["spawn"] = spawn
+    over = (entry or {}).get("over_bytes")
+    if isinstance(over, int):
+        out["over_bytes"] = over
+    return out
+
+
 def _same_spawn_over_other_bytes(baseline_data, name, spawn_file, seen_bytes):
     """The bytes the baseline's ratio was measured over, when this run's
     smallest spawn for `name` is that very spawn and the tree's bytes differ
     from them — or None when the two agree or the baseline knows nothing."""
     entry = ((baseline_data or {}).get("ratios") or {}).get(name)
-    if not isinstance(entry, dict) or entry.get("from") != spawn_file:
+    if _spawn_of(entry) != spawn_file:
         return None
     over = entry.get("over_bytes")
     if isinstance(over, int) and over != seen_bytes:
@@ -418,6 +453,8 @@ def measure(
         "ratios": {},
         "agents": {},
     }
+    if baseline:
+        out["baseline"] = os.path.basename(baseline)
     if calibrate_data:
         out["calibrated_from"] = calibrate_data["transcript"]
         out["calibration"] = {
@@ -463,6 +500,7 @@ def measure(
                     out["ratios"][name] = {
                         "bytes_per_token": ratio,
                         "from": f"{base_name} (lent — the same spawn, over other bytes)",
+                        "spawn": entry["from"],
                         "over_bytes": read_over,
                         "shadowed": shadowed,
                     }
@@ -472,6 +510,7 @@ def measure(
                 out["ratios"][name] = {
                     "bytes_per_token": ratio,
                     "from": entry["from"],
+                    "spawn": entry["from"],
                     "tokens": delta,
                     "over_bytes": seen_bytes,
                     "shadowed": shadowed,
@@ -489,6 +528,7 @@ def measure(
                 out["ratios"][name] = {
                     "bytes_per_token": ratio,
                     "from": f"{os.path.basename(baseline)} (lent)",
+                    **_carried((baseline_data.get("ratios") or {}).get(name)),
                 }
         if ratio is None:
             ratio, origin = ASSUMED_RATIO, "assumed — nothing calibrated"
@@ -700,10 +740,10 @@ def render(data):
 
 
 def _baseline_name(data):
-    for entry in data.get("ratios", {}).values():
-        if isinstance(entry.get("from"), str) and entry["from"].endswith(" (lent)"):
-            return entry["from"][: -len(" (lent)")]
-    return "the baseline"
+    """The file the delta was taken against, recorded once by `measure`
+    rather than read back off a `(lent)` suffix only one entry shape had."""
+    name = data.get("baseline")
+    return name if isinstance(name, str) and name else "the baseline"
 
 
 def _file_line(row):

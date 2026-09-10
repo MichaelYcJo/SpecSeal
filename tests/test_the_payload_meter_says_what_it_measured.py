@@ -642,6 +642,54 @@ def test_a_delta_between_a_measured_total_and_an_estimated_one_sums_the_files(
     assert "summed over the files" in meter.render(after)
 
 
+def test_a_lent_ratio_keeps_the_spawn_it_was_measured_from(meter, tmp_path):
+    """Round 1, finding 1. The after-run of #292 is #120's before-run, and a
+    lent entry that names only the file it was lent from loses the spawn
+    behind it: one hop later the meter re-derived 2.49 B/token over bytes
+    the spawn never read, +5,381 tokens over 0 bytes, and called the total
+    measured. `spawn` and `over_bytes` ride every entry shape a baseline can
+    carry, and the same-spawn rule reads `spawn` first."""
+    root, home, transcript, before, before_path = _before_and_a_changed_tree(
+        meter, tmp_path
+    )
+    kept = before["ratios"]["probe"]
+    assert kept["spawn"] == "agent-bbbb2.jsonl", "the derived entry names its spawn"
+    after = meter.measure(
+        str(root), str(home), calibrate=transcript, baseline=before_path
+    )
+    assert after["ratios"]["probe"]["spawn"] == "agent-bbbb2.jsonl"
+    assert after["ratios"]["probe"]["over_bytes"] == kept["over_bytes"]
+    after_path = tmp_path / "after.json"
+    with open(after_path, "w", encoding="utf-8") as handle:
+        json.dump(after, handle)
+    again = meter.measure(
+        str(root), str(home), calibrate=transcript, baseline=str(after_path)
+    )
+    ratio = again["ratios"]["probe"]
+    assert ratio["bytes_per_token"] == kept["bytes_per_token"], ratio
+    assert "tokens" not in ratio, "a second hop re-derived a measurement"
+    assert ratio["spawn"] == "agent-bbbb2.jsonl"
+    probe = again["agents"]["probe"]
+    assert "note" in probe["prefix"], probe["prefix"]
+    assert probe["total"]["basis"].startswith("estimated ("), probe["total"]
+    delta = again["delta"]["probe"]
+    assert delta["total"] == {
+        "bytes": 0,
+        "tokens": 0,
+        "basis": delta["total"]["basis"],
+    }, delta["total"]
+    # The plain lent shape carries the same two facts, so a third hop that
+    # starts from a run with no --calibrate still knows the spawn.
+    plain = meter.measure(str(root), str(home), baseline=before_path)
+    assert plain["ratios"]["probe"]["spawn"] == "agent-bbbb2.jsonl"
+    assert plain["ratios"]["probe"]["over_bytes"] == kept["over_bytes"]
+    # Finding 8, folded in: the delta heading names the file it was taken
+    # against, whichever entry shape the ratio has.
+    assert after["baseline"] == "before.json"
+    assert "## Delta against before.json" in meter.render(after)
+    assert "## Delta against after.json" in meter.render(again)
+
+
 def test_the_delta_lists_an_agent_the_baseline_has_and_the_tree_lost(meter, tmp_path):
     root, home = a_tree(tmp_path, extra_agent=True)
     before = meter.measure(str(root), str(home))
