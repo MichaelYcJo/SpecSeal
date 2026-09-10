@@ -437,14 +437,21 @@ round's record commits, for the reason the check prints — `Pass` beside
 `nobody` on the last record — and that window is expected.
 
 **The last record's `Broad gate` cell is read at a READY pull request
-(#295).** So the sequence has one more step before the draft goes ready: run
-the one full-suite pass now that the rounds have settled, and write the SHA
-it ran at and the base it was compared against into the last record's cell
-with `round_record.py close --broad-gate '<sha> against <base>'`. A cell
-still reading `not yet` fails the pull request, and so does a SHA the
-record's own `Target SHA` descends from — a run spent before the round it was
-meant to seal. Work items begun before `chain_check.GATE_FROM` print instead
-of failing.
+(#295).** So the sequence has one more step before the draft goes ready, and
+it is a spawn rather than a run: **spawn `sealer`, with the base and the work
+item's directory.** It runs `broad-gate --base <base> --record <item>`, which
+takes the one broad pass now that the rounds have settled and, on a green
+run, writes the SHA it ran at and the base it was compared against into that
+cell through `round_record.py seal`. You read what it returns; you do not
+take the run yourself. A cell still reading `not yet` fails the pull request,
+and so does a SHA the record's own `Target SHA` descends from — a run spent
+before the round it was meant to seal. Work items begun before
+`chain_check.GATE_FROM` print instead of failing.
+
+`close --broad-gate` still writes the same cell, and it is for the one case
+`seal` refuses by design: fixes and the gate landing in the same pass, where
+the fix table and the cell are one write. Where the rounds have settled and
+nothing is being fixed, the sealer's spawn is the route.
 
 **A session that has compacted hands the next round to a fresh one, and the
 generated record is the handoff.** A compacted context holds a summary of what
@@ -461,7 +468,11 @@ built on that report is built on prose. The section below already says this
 of the reviewer's report; nothing said it of the implementer's until
 2026-09-05. The broad gate still runs once, after the rounds settle
 (`agent-contract` §2) — this is the narrow run at each phase boundary, and it
-is yours rather than the phase's.
+is yours rather than the phase's. A phase boundary is never that moment, and
+the row is what says so: the gate comes due when the last
+`rounds/round-N.md`'s `Pass` box is checked, which is a record no phase
+writes. `skills/verify/SKILL.md` §*The broad gate — after the rounds, then
+compare against the base* says which row and why not `Needs a fix`.
 
 ## Orchestrator: verify before posting
 

@@ -19,9 +19,12 @@ every agent this plugin spawns is bound by: how to read an exit code, what
 you must not run, what you must not write, and how a probe is written. This
 file adds only what is yours.
 
-You keep the seal: what a mark records is that your review happened. It is a
-record, not a barrier — the commit gate can be waived without one — so what
-the record is worth is whatever you put behind it. You review; you never fix.
+You keep the review mark: what it records is that your review happened. It is
+a record, not a barrier — the commit gate can be waived without one — so what
+the record is worth is whatever you put behind it. **The seal is a different
+mark and a different agent's**, and which of the many is final is not this
+file's to say: `skills/verify/SKILL.md` §*Every agent seals what it verified,
+and one of them is final* owns that rule. You review; you never fix.
 The `code-review` skill (preloaded) is your procedure — two stages, comparison
 axes, probe rules, record formats. This file adds only your role boundaries.
 
@@ -47,11 +50,21 @@ axes, probe rules, record formats. This file adds only your role boundaries.
 - **Find the runner before you build your own.** A repository that ships one
   — a wrapper in `bin/`, or whatever its contribution guide names first — has
   a command that is cheap on the second call, and your clone is a place it
-  works. Type the narrow form, one module: the full suite is the
-  orchestrator's, once, after the rounds.
+  works. Type the narrow form, one module: the full suite is the sealer's,
+  once, after the rounds settle.
   `docs/review-handoff-protocol.md` §*The handoff before round 1* owns that
   rule, and it is why a prompt that carries no incantation is not a prompt
-  that is missing one.
+  that is missing one. **That last phrase is a row rather than a moment** —
+  the last `rounds/round-N.md`'s `Pass` box, checked — and
+  `skills/verify/SKILL.md` §*The broad gate — after the rounds, then compare
+  against the base* says which row and why not `Needs a fix`. Your own round
+  is one of the rounds it counts, so the box you leave unchecked is the one
+  holding the gate.
+- **A coverage probe is not the run above.** Reproducing a finding by asking
+  whether the existing cases catch it is a question about the cases, so a
+  coverage probe — nothing in the suite catches this — is a different act:
+  run it, and report it as a probe, never as a seal. The narrow form still
+  applies: the module that should have caught it, not everything.
 - **Where the repository ships none, `pytest` is not installed for the system
   interpreter**, so make a `uv` venv inside the clone before you run anything.
   This line arrived at round 3 of one work item, after two rounds had each
@@ -226,8 +239,8 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   it ran at and the base it was compared against — is invisible in the code,
   and the next session either repeats a sealed run or ships assuming someone
   else made it. You are also what can say the gate has come due: when your
-  report leaves nothing open, say so, so the session acting on it knows the
-  broad run is the next step.
+  report leaves nothing open, say so, and name it — what comes due is the
+  sealer's spawn, not a run for the session reading you to assemble.
 - If the project declares a migration config (`seal/parity.md`), the commit
   gate expects `<git-dir>/specseal-parity` at the reviewed HEAD — write it
   once the comparison actually happened, never before. Load the

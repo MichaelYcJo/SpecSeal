@@ -2882,8 +2882,9 @@ def broad_gate(reader, root, rel, strict):
           reason is the retroactive red the cutoff already answers: the tail
           of this function grandfathers every work item begun before
           `GATE_FROM`, and above it `round_record.py new` writes the row on
-          every record and `close --broad-gate` is the only thing that changes
-          the value. So above the cutoff this cell is a choice. Left as a
+          every record while `seal` and `close --broad-gate` are the only
+          things that change the value (#30 added the first, and it is the
+          route the sealer takes). So above the cutoff this cell is a choice. Left as a
           notice it was the CHEAPEST way past this arm there is -- `skipped`
           is one word, where the absent row the state above refuses costs a
           deleted line.
@@ -2930,12 +2931,11 @@ def broad_gate(reader, root, rel, strict):
             + " on the last round record, and this is a ready pull request. "
             "The one full-suite run this design turns on has not happened, "
             "and the row is the only place it is recorded — nothing else in "
-            "the repository knows whether it ran. Run it once now that the "
-            "rounds have settled, then write the SHA it ran at and the base "
-            "it was compared against into the cell (`round_record.py close "
-            "--broad-gate '<sha> against <base>'`). Until then, this pull "
-            "request is a request to merge a branch nobody has run the suite "
-            "over"
+            "the repository knows whether it ran. The rounds have settled, so "
+            "spawn the `sealer` with the base and the work item: it runs "
+            "`broad-gate --base <base> --record <item>`, and on a green run "
+            "that fills this cell for you. Until then, this pull request is a "
+            "request to merge a branch nobody has run the suite over"
         )
     elif not named:
         # NOT excused above the cutoff, and the tail of this function is what
@@ -2944,18 +2944,20 @@ def broad_gate(reader, root, rel, strict):
         # text -- true of records written before `GATE_FROM`, which the tail
         # already grandfathers. Above it there is no such history:
         # `round_record.py new` writes this row on every record it generates
-        # and `close --broad-gate` is the only thing that changes the value,
-        # so a cell this arm cannot parse there is a cell somebody chose.
+        # while `seal` and `close --broad-gate` are the only things that
+        # change the value (#30 added the first, which is the sealer's own
+        # write), so a cell this arm cannot parse there is a cell somebody
+        # chose.
         # Left as a notice, `pending`, `skipped` or `n/a` was a shorter way
         # past this arm than deleting the row -- which is the very edit the
         # absent-row judgment above was taken to close.
         message = (
             f"`{BROAD_GATE}` is `{written}` — no SHA-shaped word in it, so "
             "this arm cannot tell a run that happened from one that did not. "
-            "Write the SHA the one full-suite run happened at and the base it "
-            "was compared against (`round_record.py close --broad-gate "
-            f"'<sha> against <base>'`), or `{GATE_NOT_YET}` while it has not "
-            "run"
+            "Spawn the `sealer` and let `broad-gate --record <item>` write "
+            "this cell, or `round_record.py close --broad-gate '<sha> against "
+            "<base>'` where fixes and the gate land in one pass — or "
+            f"`{GATE_NOT_YET}` while it has not run"
         )
     else:
         ran_at = resolves_to(root, named[0])
@@ -2990,9 +2992,11 @@ def broad_gate(reader, root, rel, strict):
                         "round it was meant to seal, so everything the round "
                         "reviewed after that commit — its own fixes included "
                         "— went through no broad gate at all. A broad run "
-                        "with an edit after it was spent, not banked. Run it "
-                        "again now that the rounds have settled and write "
-                        "the new SHA into the cell"
+                        "with an edit after it was spent, not banked. Spawn "
+                        "the `sealer` again now that the rounds have settled: "
+                        "`broad-gate --base <base> --record <item>` re-takes "
+                        "the run at the tree as it stands and writes the new "
+                        "SHA into this cell"
                     )
                     break
                 divergent = sha

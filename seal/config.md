@@ -7,3 +7,4 @@ row and what an absent one means. -->
 | Item | Value |
 |---|---|
 | Mode | shared |
+| Broad gate | bin/test -q && uvx ruff check . && uvx ruff format --check . |
