@@ -2917,17 +2917,36 @@ def seal(args):
     a name: it takes neither `--fixes` nor `--range`, reads no verdict row,
     and writes one cell.
 
-    Three refusals, each before the write:
+    Two refusals, each before the write:
 
-      `Needs a fix` reads `yes`   the rounds have not settled; the run this
-          cell records comes AFTER them, so a seal here is a seal over
-          findings still open
-      `Pass` is unchecked          the same state one row down: a finding is
-          still open in the verdict table
+      `Pass` is unchecked          a finding is still OPEN in the verdict
+          table, so the round has not ended and the run this cell records
+          would be a run over findings still open
       a `--broad-gate` SHA the record's `Target SHA` descends from   the
           run was spent before the round it seals -- the same test
           `chain_check.broad_gate` applies at the pull request, asked here
           so the cell is never written in a state the check would fail
+
+    A third refusal stood first and was removed in phase 5: `Needs a fix`
+    reading `yes` refused before either of the above, and it made a CAPPED
+    run unsealable. `docs/review-chain-spec.md` bounds a run at three
+    rounds, five while a red finding is open, and a run that ends at the cap
+    ends with findings closed `deferred <home>` rather than fixed. `Needs a
+    fix` is the REVIEWER's answer, written while the round ran, and nothing
+    rewrites it afterwards -- so it still read `yes` over a verdict table
+    with nothing open in it. Measured on a fixture in phase 4 of #30:
+    `close` applied a fix table closing the one finding `deferred #999`, the
+    `Pass` box came out checked because `deferred <home>` is a closing word,
+    `Needs a fix` stayed `yes`, this refusal fired, and `chain_check` then
+    failed the ready pull request on a `Broad gate` cell nothing could
+    write. Two rules of the repository contradicted each other, and the cap
+    exists for exactly the case that hit it.
+
+    What the refusal was reaching for is *a finding is still open*, and
+    `Pass` answers that one row down, from the verdict table rather than
+    from prose. A record whose every verdict is closed -- on a fix, on
+    grounds, or `deferred <home>` -- has ended its run whatever the reviewer
+    concluded while it was running.
 
     Then `chain_check --worktree` runs, as `new` and `close` do. Commits
     nothing.
@@ -2938,23 +2957,6 @@ def seal(args):
     raw, lines = text.splitlines(), reader.readable(text)
     rows = chain.table_rows(reader, lines)
 
-    needs = chain.field(rows, chain.NEEDS)
-    word, _what = chain.yes_or_no(needs or "")
-    if word != chain.FLOOR_NO:
-        raise Refused(
-            f"round-{n}.md's `{chain.NEEDS}` reads `{needs}`, and the broad gate "
-            "runs after the rounds settle. "
-            + (
-                "A record that still needs a fix is a round that has not "
-                "ended, and the cell it would take records a run over "
-                "findings still open"
-                if word == chain.FLOOR_YES
-                else f"That is not `{chain.FLOOR_NO}` or `{chain.FLOOR_YES} "
-                f"{DASH} <what>`, the vocabulary the checker reads the row "
-                "in, so whether the rounds settled cannot be read off it"
-            )
-            + "; no cell was written"
-        )
     boxes = [m for ln in lines for m in [chain.PASS_RE.match(ln)] if m]
     if len(boxes) != 1:
         raise Refused(
@@ -2965,7 +2967,9 @@ def seal(args):
         raise Refused(
             f"round-{n}.md's `Pass` is unchecked — a finding in its verdict "
             "table is still open, and the broad gate seals a review that has "
-            "ended; no cell was written"
+            f"ended. `{chain.NEEDS}` is not read here: it is the reviewer's "
+            "answer from while the round ran, and a capped run leaves it "
+            "`yes` over a table with nothing open in it; no cell was written"
         )
 
     named = chain.SHA_RE.findall(args.broad_gate)

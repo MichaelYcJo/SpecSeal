@@ -277,6 +277,10 @@ def test_the_command_piped_prints_the_twin():
 ITEM = "seal/specs/1799000000-a-sealed-work-item"
 ROUNDS = f"{ITEM}/rounds"
 ROW = "Broad gate"
+# The reviewer's own row. `seal` reads it nowhere: a capped run leaves it
+# `yes` over a verdict table with nothing open in it, and the field that
+# answers *is a finding still open* is the `Pass` box one row down.
+NEEDS = "Needs a fix"
 
 PASSING_TEST = "def test_one():\n    assert True\n"
 FAILING_TEST = "def test_two():\n    assert False, 'planted'\n"
@@ -286,7 +290,6 @@ VERDICT_HEADER = (
     "| # | Finding | Location | Verdict | Grounds |\n|---|---|---|---|---|\n"
 )
 OPEN_ROW = "| 🔴 1 | the parser drops a row | `f.py:1` | open | executed |\n"
-CLOSED_ROW = "| 🟢 2 | round 0's finding | `f.py:1` | answered | read |\n"
 
 
 def _load(name, path):
@@ -701,6 +704,24 @@ def settled_item(repo):
     return one, two
 
 
+def capped_item(repo):
+    """The state a CAPPED run ends in, and the one the seal could not reach.
+
+    `docs/review-chain-spec.md` bounds a run at three rounds. A run that
+    reaches the cap with a finding still live closes it `deferred <home>`
+    rather than fixed — which is a closing word, so `Pass` comes out checked
+    — while `Needs a fix` keeps the `yes` the reviewer wrote while the round
+    was running, because nothing rewrites the reviewer's own row. Returns
+    the record."""
+    declared(repo)
+    one = generate(repo, 1, OPEN_ROW, "yes — 🔴 1")
+    a = git(repo, "rev-parse", "HEAD").stdout.strip()
+    write(repo, "f.py", "x = 2\n")
+    b = commit(repo, "carry the finding to an issue")
+    close_round(repo, 1, "| 1 | deferred #999 | #999 |\n", f"{a}..{b}")
+    return one
+
+
 def run_seal(repo, value, extra=()):
     r = subprocess.run(
         [
@@ -765,21 +786,45 @@ def test_seal_writes_the_last_records_cell_and_nothing_else(repo):
     assert "- [x] Pass" in after.decode("utf-8")
 
 
-def test_seal_refuses_while_the_last_record_still_needs_a_fix(repo):
-    """S4. `Needs a fix: yes` is a round that has not ended; the seal comes
-    after the rounds settle. Refused, naming the row, and no byte written."""
-    declared(repo)
-    path = generate(repo, 1, CLOSED_ROW, "yes — 🔴 1")
-    before = read_bytes(path)
-    code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
-    assert code == 2, out
-    assert "Needs a fix" in out and "no cell was written" in out, out
-    assert read_bytes(path) == before, "the record was written under a refusal"
+def test_seal_writes_over_a_capped_runs_needs_a_fix(repo):
+    """S5. A capped run seals, and until phase 5 it could not.
+
+    `Needs a fix: yes` used to refuse before anything else was read. Phase 4
+    of #30 measured what that cost on a fixture built exactly like this one:
+    `close` applied a fix table closing the finding `deferred #999`, `Pass`
+    came out checked because `deferred <home>` is a closing word, `Needs a
+    fix` stayed `yes` because it is the reviewer's row and nothing rewrites
+    it, `seal` refused — and `chain_check` then failed the ready pull
+    request on a `Broad gate` cell nothing could write. Two rules of this
+    repository contradicted each other over the case the cap exists for.
+
+    So the cell is written, `Needs a fix` is left exactly as the reviewer
+    wrote it, and the run of `chain_check` that `seal` ends with passes —
+    which is the whole chain the measurement found broken, end to end. The
+    other two refusals are untouched and are asserted below.
+    """
+    path = capped_item(repo)
+    text = path.read_text(encoding="utf-8")
+    assert "- [x] Pass" in text, "the fixture is not the capped state"
+    assert fields(text)[NEEDS].startswith("yes"), text
+    head = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{head} against base")
+    assert code == 0, out
+    after = path.read_text(encoding="utf-8")
+    assert fields(after)[ROW] == f"{head} against base", after
+    assert fields(after)[NEEDS].startswith("yes"), (
+        "the reviewer's own row was rewritten to make the seal reachable"
+    )
 
 
 def test_seal_refuses_while_pass_is_unchecked(repo):
     """S4. An open finding leaves `Pass` unchecked even where the reviewer
-    wrote `no`; the seal is refused naming the box, and no byte is written."""
+    wrote `no`; the seal is refused naming the box, and no byte is written.
+
+    Since phase 5 this is the ONLY refusal that answers *has the run
+    ended*, so the message says what it does not read: a reader who has
+    just watched a `Needs a fix: yes` seal needs the two rows told apart at
+    the one moment the difference bites."""
     declared(repo)
     path = generate(repo, 1, OPEN_ROW, "no")
     assert "- [ ] Pass" in path.read_text(encoding="utf-8")
@@ -787,6 +832,7 @@ def test_seal_refuses_while_pass_is_unchecked(repo):
     code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
     assert code == 2, out
     assert "`Pass` is unchecked" in out and "no cell was written" in out, out
+    assert f"`{NEEDS}` is not read here" in out, out
     assert read_bytes(path) == before
 
 
@@ -827,15 +873,15 @@ def test_the_gate_with_record_seals_the_item_and_counts_its_rounds(repo, tmp_pat
 
 def test_the_gate_with_record_prints_no_stamp_when_the_record_refuses(repo, tmp_path):
     """With `--record`, success is the checks green AND the cell written. A
-    record that refuses — the rounds have not settled — leaves the tree
-    unsealed: the refusal, exit 2, no disc."""
+    record that refuses — a finding still open in its verdict table — leaves
+    the tree unsealed: the refusal, exit 2, no disc."""
     declared(repo)
     path = generate(repo, 1, OPEN_ROW, "yes — 🔴 1")
     before = read_bytes(path)
     out = run_gate(repo, "--record", str(repo / ITEM), keep=tmp_path / "out")
     assert out.returncode == 2, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     assert crown_of() not in out.stdout, "a stamp printed over a refused record"
-    assert "Needs a fix" in out.stdout + out.stderr
+    assert "`Pass` is unchecked" in out.stdout + out.stderr
     assert read_bytes(path) == before
 
 
