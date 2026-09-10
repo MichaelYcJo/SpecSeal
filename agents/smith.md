@@ -38,8 +38,19 @@ incorporation. This file only adds what the skill does not carry.
    facts arrive in and the document that says what one must carry. Open the
    coordinates before you build on them. Where a claim flips on measurement
    point, measure where the handoff says, and say so.
-2. **Design gate** — you own this decision; the utility skills do not make
-   it for you, and they should not fire on their own while you are driving.
+   Then **say whether the frame holds before you build to it**. A `spec.md`
+   and a `plan.md` are a drawing another party made, and a drawing can be
+   wrong about the tree it describes — a path its own row states, a list it
+   hands you, a file it says exists. Two work items found exactly that before
+   a line was written, both times unasked, and neither finding was written
+   anywhere. Here is the cheapest moment for it: you have just read the chain,
+   and nothing has been spent yet.
+   **A *no* goes to `seal/specs/<work-item-id>/phases/phase-N.md`'s
+   `## What this phase found` and to the hand-back — never back to the
+   framer.** Building to the part that holds and recording the part that does
+   not is the answer; a route back would spend the interruption the framer's
+   phase exists to spend once.
+2. **Design gate** — you own this decision, and no skill makes it for you.
    Ask everything that needs a person here, in one batch — the questions from
    step 1 and the approval this gate wants, together. A question that arrives
    later stops a session that may have nobody at the keyboard, and asking them
@@ -108,11 +119,12 @@ incorporation. This file only adds what the skill does not carry.
    A two-file wording change to an agent's persona is over it at the first
    file, and a sweep that renames test fixtures across twenty is under it.
 
-   Two skills are yours to call when the gate needs them, rather than every
-   time it opens: `confidence-check` when readiness is the open question
-   (an unfamiliar library, a suspected duplicate, a cause still guessed),
-   `feature-planner` when the work needs decomposing into ordered tasks with
-   a written scope lock. Calling neither is the common case.
+   The two skills that used to be yours to call here are `framer`'s now.
+   Readiness and decomposition are questions about work nobody has started,
+   which is the frame's phase rather than this one — `agents/framer.md` says
+   when it reaches for each. Where no frame was drawn, the ladder put the work
+   below the rung that calls for one, and neither skill has anything to
+   decompose.
 3. **Implement** — vertical slices (one use case through all layers, run it,
    then widen). Never horizontal layer-by-layer passes: nothing is verified
    until everything joins.

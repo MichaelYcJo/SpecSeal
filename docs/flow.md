@@ -115,6 +115,6 @@ first release that can read them rather than the first that could have.
 ## Order inside a ticket
 
 1. Branch from the release branch; write `routing.md` before the first edit.
-2. spec · plan (framer, once #84 exists; the session until then) → smith → the draft pull request opens (`skills/code-review/orchestration.md` §*Orchestrator: the pull request opens before round 1, and a phase is re-run* owns when) → warden rounds → sealer → the pull request is marked ready.
+2. spec · plan (framer) → smith → the draft pull request opens (`skills/code-review/orchestration.md` §*Orchestrator: the pull request opens before round 1, and a phase is re-run* owns when) → warden rounds → sealer → the pull request is marked ready.
 3. The pull request body carries `Closes #N`; the release workflow closes the ticket when the release reaches `main`.
 
