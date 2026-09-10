@@ -6,13 +6,13 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 332 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -26,18 +26,18 @@ Round 3 of #30 is the verifying round after the run's one reopening, at the diff
 | 🟡 12 | a `Fixes checked by` nobody can read reaches the write | `skills/code-review/scripts/round_record.py:3022` | answered | executed — `0cbd6ad` reverse-applied; all three parametrisations of `test_seal_refuses_a_fixes_checked_by_that_is_outside_the_vocabulary` red on `assert 1 == 2`, each printing `round-record: sealed …` and then the chain check refusing that row. Closed for values outside the shape; the shape itself is B below |
 | 🟡 13 | a linter's error count still lands on the suite row, and an all-skipped run reports `exit 0` | `skills/verify/scripts/broad_gate.py:429` | answered | executed — `bd08f52` then `c0a139b` reverse-applied; `test_the_suite_row_reads_pytests_counts_and_not_a_linters` red on `assert '2 errors' == '1 passed'`, and the reverted unit returns `None` for `3 skipped in 0.10s` where `'3 skipped'` is asserted. The rebuild inside the function did not cost either red |
 | 🟡 14 | `quote` has no case behind either branch, and the Windows branch does not quote for `cmd.exe` | `skills/verify/scripts/broad_gate.py:317` | answered | executed — `67cdbda` reverse-applied; all three parametrisations of `test_a_path_is_quoted_for_the_shell_of_either_platform` red on `TypeError: quote() got an unexpected keyword argument 'windows'`. The `%VAR%` residual is named rather than closed, and naming it is right for this unit — the close is `shell=True` one level up, which is D's neighbour and its own issue |
-| 🟡 A | the gate's `sealed` discriminator is a literal whose other end is a `print` in another package, and nothing pins them | `skills/verify/scripts/broad_gate.py:620`, `skills/code-review/scripts/round_record.py:3066` | open | executed — the print changed from `sealed` to `wrote`; three modules 130 passed, exit 0, nothing red. With that in the tree the gate tells a reader `no cell was written` on the ending 🟡 11 exists for. The only case driving the discriminator stubs `seal_record` and supplies the literal itself (`tests/…:1243`), and ledger row S12 anchors only `broad_gate.py` |
-| 🟡 B | `seal` accepts any `round-N` shaped checker, and on a last record every one of them is a lie | `skills/code-review/scripts/round_record.py:3022` | open | executed — `round-1`, `round-9`, `round-2.md` and `ROUND-1` each exit 1 with the cell written and `round-record: sealed …` printed, the post-write chain check then refusing on that same row. Same class as 🟡 12, one value over |
-| ⬜ C | the sweep's exclusion guard reports an absent span as a last-`##` span | `tests/test_one_word_one_meaning.py:268` | open | executed — the exclusion pointed at a heading `skills/verify/SKILL.md` does not carry; the assert fires with *is the last `##` in the file*. `partition` returns `""` for both states and the guard reads only one of them |
-| ⬜ D | the suite row's clock axis narrows the class rather than closing it, and an all-skipped run still seals | `skills/verify/scripts/broad_gate.py:429` | open | executed — `suite_counts("1 passed in 1s\nsomething took 2 errors in 3s\n")` is `'2 errors'`; no tool in this repository's row prints that shape. The second half is read: `3 skipped` now renders truthfully and nothing refuses the seal over it |
-| ⬜ E | the vocabulary refusal names `nobody — <why>` as a permitted value and then refuses it | `skills/code-review/scripts/round_record.py:3026` | open | read — the sentence is true of the row and false of this subcommand. The instruction that follows is correct, so a reader who finishes the message is not stuck |
-| ⬜ F | `rounds/round-2.md` carries the superseded module-level block for 🟡 13 beside a verdict row naming `bd08f52` | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/rounds/round-2.md` §Paste-ready fixes | open | read — correction, out of `Needs a fix`. The trail is in `bd08f52`'s message and `survivors.md`, not in the record |
-| ⬜ G | `rounds/round-2.md`'s 🟡 12 block shows a `removesuffix` the shipped predicate does not have | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/rounds/round-2.md` §Paste-ready fixes | open | read — correction, harmless: `CHECKER_RE` accepts the `.md` suffix, so the two agree on every input |
-| ⬜ H | the handoff's `three modules → 78 passed` does not match the module list the record names | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/rounds/round-3-asked.md` | open | executed — the three modules `round-2.md`'s probe row names give 130 passed in 25.33s at the fix head, which is 123 at `a46e642` plus round 2's seven new cases |
-| ⬜ I | `rounds/round-3-asked.md:1` names a unit the tree does not carry, without the marker that exempts the line | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/rounds/round-3-asked.md:1` | open | executed — `evidence-check .` in the clone at `50520de` reports `1103 ok · 0 drifted · 0 broken` and one `NOT-IN-TREE` refusal, on that line. `round_record.py new` copies the paragraph into `round-3.md` verbatim, so the record inherits it. Correction, out of `Needs a fix` |
-| 🟢 J | `SCALE_NOT_A_NUMBER` and the branch order in `check_scale` | `skills/verify/scripts/seal_stamp.py:154` | answered | executed — `nan` gets the not-a-number sentence, `-inf` the floor sentence, `inf` the ceiling sentence, `0.5` and `1.5` their own. The case pins the message it says and the message it must not say |
-| 🟢 K | `SEAL_EXCLUDED` carries both units it replaced | `tests/test_one_word_one_meaning.py:181` | answered | read — each exclusion keeps its own file and span, so neither widened to a file; the rewrite also stops dropping the `" ## "` separator, which the old form could use to glue two words into a phrase. C is its diagnostic, not its logic |
-| 🟢 L | `set_checked_by` | `tests/test_the_seal_is_taken_once_by_the_sealer.py:1084` | answered | read — it returns what the module's own `read_bytes` returns, so the `before` it hands back compares cleanly, and nothing else in the module duplicates it |
+| 🟡 15 | the gate's `sealed` discriminator is a literal whose other end is a `print` in another package, and nothing pins them | `skills/verify/scripts/broad_gate.py:620`, `skills/code-review/scripts/round_record.py:3066` | deferred #334 | #334 |
+| 🟡 16 | `seal` accepts any `round-N` shaped checker, and on a last record every one of them is a lie | `skills/code-review/scripts/round_record.py:3022` | deferred #335 | #335 |
+| ⬜ 17 | the sweep's exclusion guard reports an absent span as a last-`##` span | `tests/test_one_word_one_meaning.py:268` | answered | ⬜ — the sweep's guard names an absent span and a last-heading span alike, both being what `partition` returns for a section with nothing after it. It misnames a state and refuses neither wrongly, so the release ships nothing on it |
+| ⬜ 18 | the suite row's clock axis narrows the class rather than closing it, and an all-skipped run still seals | `skills/verify/scripts/broad_gate.py:429` | answered | ⬜ — the wall-clock axis narrowed the class rather than closing it, and an all-skipped run now reads honestly while the gate still seals over it. Whether a run that skipped everything should seal is the gate's judgment and not this row's; recorded rather than decided |
+| ⬜ 19 | the vocabulary refusal names `nobody — <why>` as a permitted value and then refuses it | `skills/code-review/scripts/round_record.py:3026` | answered | ⬜ — the refusal lists `nobody — <why>` among the row's three values and then refuses it, which reads as a contradiction and is not one: the row may hold it and a record being sealed may not |
+| ⬜ 20 | `rounds/round-2.md` carries the superseded module-level block for 🟡 13 beside a verdict row naming `bd08f52` | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/rounds/round-2.md` §Paste-ready fixes | answered | ⬜, located in a record — `rounds/round-2.md`'s paste-ready block for 🟡 13 is the superseded module-level form, and nothing beside it says so. It is what the reviewer proposed, kept as written; the verdict row above it names the commit that shipped instead |
+| ⬜ 21 | `rounds/round-2.md`'s 🟡 12 block shows a `removesuffix` the shipped predicate does not have | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/rounds/round-2.md` §Paste-ready fixes | answered | ⬜, located in a record — the same block's `removesuffix` is not in the shipped predicate, and is harmless because `CHECKER_RE` already accepts the suffix. A reviewer's proposal is not rewritten after the fact |
+| ⬜ 22 | the handoff's `three modules → 78 passed` does not match the module list the record names | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/rounds/round-3-asked.md` | answered | ⬜, located in a record — the orchestrator's handoff said `three modules → 78 passed` where the three the record names give 130. The number was taken from a narrower run; the record's own probe row is the one that counts |
+| ⬜ 23 | `rounds/round-3-asked.md:1` names a unit the tree does not carry, without the marker that exempts the line | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/rounds/round-3-asked.md:1` | answered | corrected at 50520de — `rounds/round-3-asked.md` named a unit the fix had removed, and the marker now stands on that line. `evidence-check` reads 0 refused |
+| 🟢 24 | `SCALE_NOT_A_NUMBER` and the branch order in `check_scale` | `skills/verify/scripts/seal_stamp.py:154` | answered | executed — `nan` gets the not-a-number sentence, `-inf` the floor sentence, `inf` the ceiling sentence, `0.5` and `1.5` their own. The case pins the message it says and the message it must not say |
+| 🟢 25 | `SEAL_EXCLUDED` carries both units it replaced | `tests/test_one_word_one_meaning.py:181` | answered | read — each exclusion keeps its own file and span, so neither widened to a file; the rewrite also stops dropping the `" ## "` separator, which the old form could use to glue two words into a phrase. C is its diagnostic, not its logic |
+| 🟢 26 | `set_checked_by` | `tests/test_the_seal_is_taken_once_by_the_sealer.py:1084` | answered | read — it returns what the module's own `read_bytes` returns, so the `before` it hands back compares cleanly, and nothing else in the module duplicates it |
 
 ## Paste-ready fixes
 
@@ -94,12 +94,12 @@ no paste-ready fix in the report
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| 🟡 A — the gate's `sealed` discriminator has no case tying it to the line `round_record.py seal` prints | `deferred #N` candidate, a new issue | the sealer, at the release — the run's one reopening is spent |
-| 🟡 B — `seal` accepts any `round-N` shaped checker, including this round and one git does not carry | `deferred #N` candidate, a new issue | the sealer, at the release |
-| ⬜ C — the sweep's exclusion guard reports an absent span as a last-`##` span | `deferred #N` candidate, a new issue | the sealer, at the release |
-| ⬜ D — the broad gate seals over a suite in which nothing ran, and the clock axis leaves one displacing shape | `deferred #N` candidate, a new issue | the sealer, at the release |
-| ⬜ E — `seal`'s vocabulary refusal lists a value it refuses | `deferred #N` candidate, a new issue | the sealer, at the release |
+| 🟡 15 — the gate's `sealed` discriminator has no case tying it to the line `round_record.py seal` prints | `deferred #N` candidate, a new issue | the sealer, at the release — the run's one reopening is spent |
+| 🟡 16 — `seal` accepts any `round-N` shaped checker, including this round and one git does not carry | `deferred #N` candidate, a new issue | the sealer, at the release |
+| ⬜ 17 — the sweep's exclusion guard reports an absent span as a last-`##` span | `deferred #N` candidate, a new issue | the sealer, at the release |
+| ⬜ 18 — the broad gate seals over a suite in which nothing ran, and the clock axis leaves one displacing shape | `deferred #N` candidate, a new issue | the sealer, at the release |
+| ⬜ 19 — `seal`'s vocabulary refusal lists a value it refuses | `deferred #N` candidate, a new issue | the sealer, at the release |
 | the `%VAR%` residual in `quote`, closed only by removing `shell=True` from `compare_at_base` | ledger row S15's second tidy-up, labelled read | unowned — a candidate for the same issue as D |
-| ⬜ F, ⬜ G — corrections in `rounds/round-2.md` | the record, not the tool | the orchestrator |
-| ⬜ H — the handoff's suite count | this report | the orchestrator |
-| ⬜ I — the missing marker in `rounds/round-3-asked.md` | the paragraph, before `round_record.py new` copies it | the orchestrator |
+| ⬜ F, ⬜ 21 — corrections in `rounds/round-2.md` | the record, not the tool | the orchestrator |
+| ⬜ 22 — the handoff's suite count | this report | the orchestrator |
+| ⬜ 23 — the missing marker in `rounds/round-3-asked.md` | the paragraph, before `round_record.py new` copies it | the orchestrator |
