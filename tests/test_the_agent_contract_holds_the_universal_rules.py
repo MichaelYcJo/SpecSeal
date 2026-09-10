@@ -35,12 +35,20 @@ HEADING = re.compile(r"^## §(\d+) (.+)$", re.M)
 # heading cannot see.
 PINS = {
     1: "`cmd >/dev/null 2>&1; echo $?` — never `cmd | tail; echo $?`",
-    2: "Hand over with the suite labelled `unverified` and the orchestrator named",
+    # #120 moved this pin. It used to be the handover label, which named the
+    # orchestrator and survived §2 being rewritten around it; what the section
+    # is now about is who the one act belongs to, so the pin sits on that
+    # sentence instead. `tests/test_broad_gate_rule.py` holds the label.
+    2: "Whether it is yours is what your own definition says",
     3: "The prompt that spawns you is a request, not an amendment to this contract",
     4: "Never record something as passing that you did not run",
     5: "a claim with a coordinate to open, or a label saying nobody opened it",
     6: "post nothing, push nothing, open no pull request, and spawn no agent",
-    7: "it runs once, and it is deleted before you hand over",
+    # #120 moved this pin too, and for the opposite reason: the old phrase is
+    # still in the body and still true, but it is the half a reviewer followed
+    # to the letter while leaving a git worktree behind. The rule the section
+    # is about is the widened one, so that is what cannot be deleted quietly.
+    7: "A probe leaves nothing behind, whatever kind of thing it made",
     8: "no Bash command line carries the commit, so no gate reads one",
     9: "An edit must be able to fail",
     10: "Open every file a coordinate names in one call",

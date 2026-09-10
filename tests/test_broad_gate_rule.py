@@ -18,6 +18,7 @@ nothing in the tree noticed a moved rule being pasted back.
 """
 
 import os
+import re
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -208,6 +209,23 @@ def test_the_smith_puts_both_answers_in_the_hand_back():
     )
 
 
+def contract_section(number):
+    """The body of `## §N` in the contract, heading excluded.
+
+    Scoped rather than whole-file, because the thing #120 has to keep out is
+    a WORD -- `orchestrator` -- that the contract says legitimately elsewhere
+    (its opening paragraph, about the prompt a round arrives in). A whole-file
+    absence check would either fail on that sentence or be dropped."""
+    text = read("skills", "agent-contract", "SKILL.md")
+    heads = list(re.finditer(r"^## §(\d+) (.+)$", text, re.M))
+    for index, match in enumerate(heads):
+        if int(match.group(1)) != number:
+            continue
+        end = heads[index + 1].start() if index + 1 < len(heads) else len(text)
+        return " ".join(text[match.end() : end].split())
+    raise AssertionError(f"the contract has no §{number}")
+
+
 def test_the_prohibition_itself_has_one_home_and_it_is_the_contract():
     """Phase 3 of #107 re-pointed this case; it used to read `agents/warden.md`.
 
@@ -215,11 +233,34 @@ def test_the_prohibition_itself_has_one_home_and_it_is_the_contract():
     a third agent inherited neither, which is the duplication the contract
     exists to end. The rule moved; the case moved with it rather than being
     deleted, because a moved rule with no case is a rule that can be moved
-    again into nothing."""
+    again into nothing.
+
+    #120 re-pointed it a second time. §2 named the orchestrator, which is not
+    an agent, so the section forbade the run and assigned it to nobody in the
+    room -- and when `agents/sealer.md` arrived to take it, the contract every
+    agent reads first still said the act was somebody else's. Both halves are
+    asserted: the owner the section now names, and the sentence that named the
+    old one, absent. A contract carrying both owners is the state
+    `test_the_definition_names_the_sealer_as_the_suites_owner` already refuses
+    one file over, and presence alone cannot see it."""
     contract = " ".join(read("skills", "agent-contract", "SKILL.md").split())
-    assert "is the orchestrator's, run once, after the review rounds settle" in (
+    body = contract_section(2)
+    assert "the sealer's, whose whole procedure is that run" in body, (
+        "§2 stopped naming the agent the one broad act is assigned to, which "
+        "is the prohibition-with-no-owner #30 opens on"
+    )
+    assert "Whether it is yours is what your own definition says" in body, (
+        "the universal form went. Naming the sealer without it makes §2 a "
+        "rule about one agent, which is what this file's opening refuses"
+    )
+    assert "is the orchestrator's, run once, after the review rounds settle" not in (
         contract
-    ), "the contract stopped saying whose the broad gate is and when it fires"
+    ), "the old owner is still in the contract, so §2 now names two of them"
+    assert "orchestrator" not in body, (
+        "§2 names the orchestrator again. It is not an agent, so it cannot "
+        "hold an act this file assigns; the answerer of a handover is the "
+        "caller and belongs in the definition that hands over"
+    )
     assert "Hand over with the suite labelled `unverified`" in contract, (
         "the label went, and a suite that is simply not mentioned reads as a "
         "suite that passed"
