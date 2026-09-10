@@ -1,0 +1,21 @@
+# two agents are forbidden the seal and nobody is assigned it — questions for the planner
+
+<!-- seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/questions.md
+— decisions only a human can make, extracted so nothing ships on a silent
+assumption. The owner's one batch before the first edit answered the routing
+for all four work items; every row below was decided by its default, in
+writing, because a different answer would not change what the release ships
+and asking would stop a session that already had the answer. -->
+
+| # | Question | Options & what each implies | Default until answered | Status |
+|---|---|---|---|---|
+| Q1 | Which drawing: the issue body carries two *What it prints* sections, a 43×22 fleur-de-lis with a panel beside it and an older seven-row crown | (a) the fleur — the later section, the one whose checklist items (the chart into the repository, the panel as rows, colour at transitions, 75 % floor) are the issue's own · (b) the crown — smaller, but the section that describes it precedes the one that supersedes it | (a) | ✅ decided by the default: the checklist at the end of the issue names the fleur's chart, panel and floor and nothing of the crown |
+| Q2 | Where the repository's broad command comes from — the sealer judges nothing, so it cannot pick one | (a) a `Broad gate` row in `seal/config.md`, refused when absent · (b) read `CONTRIBUTING.md` — prose the sealer would have to judge · (c) a fixed guess (`pytest`) — a seal over a command nobody chose | (a) | ✅ decided by the default: a row is a thing a person wrote, and a refusal names it |
+| Q3 | Whether the sealer writes the `Broad gate` cell itself or returns the value for the orchestrator to write | (a) writes it, through a `seal` subcommand that changes nothing else — its one named write, the shape §6's last paragraph already prescribes and the shape #120 settles §6 into · (b) returns it — the orchestrator writes, and the sealer has no durable trace at all, which is #30's *nobody is assigned it* one step later | (a) | ✅ decided by the default: #30's table says *Writes: `round-N.md`'s `Broad gate` row* |
+| Q4 | Contract §2 forbids the sealer's one act until #120 rewrites it. Ship the sealer under the contradiction, or wait | (a) ship, with the definition stating the exception and naming #120, which lands before the release (`docs/flow.md`'s order) · (b) edit §2 here — that is #120's work and its pin phrase would move in a work item that is not its own · (c) hold #30 until #120 — #120 needs the sealer to exist to draw its line against | (a) | ✅ decided by the default: the flow's order is the release's contract, and the contradiction is confined to a window inside one release branch |
+| Q5 | Which skills the sealer preloads | (a) `agent-contract` only — its procedure is one command, and #292 measured every preloaded body as a per-spawn cost · (b) `agent-contract` and `verify` — 35 KB whose Seal Test the sealer's definition restates in four lines | (a) | ✅ decided by the default: the definition carries the four conditions in its own words; `verify` stays the orchestrator's and the smith's |
+| Q6 | How the base comparison is taken | (a) reactively and mechanically: only when a test fails, only the failing files, at the base in a scratch worktree the gate removes — `skills/verify/SKILL.md` §*The broad gate*'s own rule · (b) always run the suite at base too — the 19,000-test serial baseline that skill measured as waste | (a) | ✅ decided by the default: the skill already decided it |
+| Q7 | Whether `broad-gate` runs the plugin's own checks (`evidence-check`, `unverified-check`, `chain_check`, `survivor-check`) or only the row | (a) both, the row first — every opted-in repository carries the plugin checks and CI runs them, so a seal that skipped them seals less than CI reads · (b) the row only — the plugin checks stay CI's | (a) | ✅ decided by the default: the panel's `ledger` and `chain` rows are the issue's, and they come from those checks |
+
+Answered rows feed back into docs/ (policy clause or open-questions section)
+before this directory's work merges.
