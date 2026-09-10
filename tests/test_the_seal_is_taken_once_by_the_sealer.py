@@ -8,21 +8,37 @@ the disc is data; the chart has a floor; and the failure form carries no
 drawing at all, because a picture that says *sealed* beside a word that says
 *not* is the two-things-disagreeing defect this repository keeps paying for.
 
-Parts 2 and 3 — the gate command, the `seal` subcommand, the agent and the
-owner sentences — arrive with the phases that build them.
+Part 2 pins the gate command, `skills/verify/scripts/broad_gate.py`, and the
+`seal` subcommand of `round_record.py`, on fixture repositories built and
+driven from Python (`agent-contract` §8): the `Broad gate` row is read and
+its absence is a refusal with nothing run; every check runs in order and its
+exit code is read directly; a failing test is compared against the base in a
+scratch worktree, reactively, and reported as `new` or `failing on base
+too`; the stamp prints on success only; and the one write sets the last
+record's cell and nothing else, refusing while the rounds have not settled.
+
+Part 3 — the agent and the owner sentences — arrives with the phase that
+builds them.
 """
 
 import importlib.util
 import io
 import os
 import re
+import shutil
 import subprocess
+import sys
 
 import pytest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, "skills", "verify", "scripts", "seal_stamp.py")
 WRAPPER = os.path.join(ROOT, "bin", "seal-stamp")
+GATE = os.path.join(ROOT, "skills", "verify", "scripts", "broad_gate.py")
+GATE_WRAPPER = os.path.join(ROOT, "bin", "broad-gate")
+GENERATOR = os.path.join(ROOT, "skills", "code-review", "scripts", "round_record.py")
+CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
+READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
 
 # The shape `spec.md` §*Data & interfaces* draws: a heading row, blanks between
 # groups, and `(label, value)` pairs. Values are neutral.
@@ -250,3 +266,574 @@ def test_the_command_piped_prints_the_twin():
     assert out.stdout == run_wrapper("--shape").stdout, (
         "a pipe and `--shape` disagree about the twin"
     )
+
+
+# =============================================================================
+# Part 2 — the gate command and the one write
+# =============================================================================
+
+# Begun after every cutoff `chain_check.py` carries, so every rule it has
+# applies to the records written here.
+ITEM = "seal/specs/1799000000-a-sealed-work-item"
+ROUNDS = f"{ITEM}/rounds"
+ROW = "Broad gate"
+
+PASSING_TEST = "def test_one():\n    assert True\n"
+FAILING_TEST = "def test_two():\n    assert False, 'planted'\n"
+OVERVIEW = "# overview\n\n## Not verified\n\nnone — the fixture verifies nothing\n"
+
+VERDICT_HEADER = (
+    "| # | Finding | Location | Verdict | Grounds |\n|---|---|---|---|---|\n"
+)
+OPEN_ROW = "| 🔴 1 | the parser drops a row | `f.py:1` | open | executed |\n"
+CLOSED_ROW = "| 🟢 2 | round 0's finding | `f.py:1` | answered | read |\n"
+
+
+def _load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def gate_module():
+    return _load("specseal_broad_gate_for_tests", GATE)
+
+
+def reader_module():
+    return _load("specseal_reader_for_sealed_records", READER)
+
+
+def check_module():
+    return _load("specseal_chain_check_for_sealed_records", CHECK)
+
+
+def git(repo, *args):
+    return subprocess.run(
+        ["git", "-C", str(repo), *args],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        check=True,
+    )
+
+
+def write(repo, rel, text):
+    path = repo / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def commit(repo, message):
+    git(repo, "add", "-A")
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "commit",
+        "-qm",
+        message,
+    )
+    return git(repo, "rev-parse", "HEAD").stdout.strip()
+
+
+def config(row=True):
+    text = "# Repository config\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n"
+    if row:
+        # The suite runner first, so the base comparison can re-run it on
+        # the failing files alone. `-p no:cacheprovider` keeps pytest from
+        # writing `.pytest_cache` into a tree the gate later diffs.
+        runner = f"{sys.executable} -m pytest -q -p no:cacheprovider tests"
+        text += f"| {ROW} | {runner} |\n"
+    return text
+
+
+def env_without_a_pull_request():
+    env = dict(os.environ)
+    env.pop("GITHUB_EVENT_PATH", None)
+    env.pop("GITHUB_HEAD_REF", None)
+    env["GH_PROMPT_DISABLED"] = "1"
+    env["GH_NO_UPDATE_NOTIFIER"] = "1"
+    return env
+
+
+def build_repo(d, row=True, base_failing=False):
+    """A repository on branch `base` with a one-test suite, the config row
+    and an overview, then a `feature` branch one commit ahead."""
+    d.mkdir()
+    git(d, "init", "-q", "-b", "base")
+    write(d, "tests/test_one.py", PASSING_TEST)
+    if base_failing:
+        write(d, "tests/test_two.py", FAILING_TEST)
+    write(d, "seal/config.md", config(row))
+    write(d, f"{ITEM}/overview.md", OVERVIEW)
+    commit(d, "base")
+    git(d, "switch", "-qc", "feature")
+    write(d, "README.md", "# a fixture\n")
+    commit(d, "feature")
+    return d
+
+
+@pytest.fixture(scope="session")
+def _template(tmp_path_factory):
+    return build_repo(tmp_path_factory.mktemp("gate-template") / "repo")
+
+
+@pytest.fixture
+def repo(tmp_path, _template):
+    d = tmp_path / "repo"
+    shutil.copytree(_template, d)
+    return d
+
+
+def run_gate(repo, *extra, keep=None, wrapper=False):
+    """`broad_gate.py --base base --root <repo> --shape`, its outputs kept
+    under `keep`; returns the completed process."""
+    keep = keep or repo.parent / "out"
+    command = [GATE_WRAPPER] if wrapper else [sys.executable, GATE]
+    return subprocess.run(
+        [
+            *command,
+            "--base",
+            "base",
+            "--root",
+            str(repo),
+            "--shape",
+            "--keep-output",
+            str(keep),
+            *extra,
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=300,
+        env=env_without_a_pull_request(),
+    )
+
+
+def short(repo, ref):
+    return git(repo, "rev-parse", "--short", ref).stdout.strip()
+
+
+def crown_of():
+    """The first non-blank line of the letter twin — present in a stamp and
+    in nothing else the gate prints."""
+    twin = module().stamp(ROWS, shape=True)
+    return next(line.strip() for line in twin if line.strip())
+
+
+# --- S3 no row ---------------------------------------------------------------
+
+
+def test_without_the_row_the_gate_names_it_and_runs_nothing(tmp_path):
+    """S3. A seal taken over a command nobody chose is the counterfeit
+    `verify` names, so an absent row is a refusal rather than a default: the
+    row is named, exit 2, and no check ran — the output directory holds
+    nothing."""
+    repo = build_repo(tmp_path / "repo", row=False)
+    keep = tmp_path / "out"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 2, f"exit {out.returncode}; {out.stdout!r} {out.stderr!r}"
+    assert ROW in out.stderr, f"the refusal does not name the row: {out.stderr!r}"
+    assert "seal/config.md" in out.stderr.replace(os.sep, "/"), out.stderr
+    assert not out.stdout, f"something printed under a refusal: {out.stdout!r}"
+    assert not keep.exists() or not os.listdir(keep), (
+        f"a check ran under a refusal: {os.listdir(keep)}"
+    )
+
+
+def test_a_base_that_does_not_resolve_is_refused_with_nothing_run(repo, tmp_path):
+    """The other exit-2 the interface names: a base nothing can be compared
+    against. Nothing ran."""
+    keep = tmp_path / "out"
+    out = subprocess.run(
+        [
+            sys.executable,
+            GATE,
+            "--base",
+            "no-such-ref",
+            "--root",
+            str(repo),
+            "--keep-output",
+            str(keep),
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env_without_a_pull_request(),
+    )
+    assert out.returncode == 2, out.stderr
+    assert "no-such-ref" in out.stderr
+    assert not keep.exists() or not os.listdir(keep)
+
+
+# --- S1 sealed ---------------------------------------------------------------
+
+
+def test_a_green_tree_is_sealed_with_every_check_run_in_order(repo, tmp_path):
+    """S1. Every check runs, its exit code is read off the process and kept
+    with its output, and the stamp prints with the panel: tree, base, the
+    suite's counts, lint, ledger, chain. No `rounds` row without `--record`."""
+    keep = tmp_path / "out"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert "SEALED" in out.stdout and "NOT SEALED" not in out.stdout
+    assert crown_of() in out.stdout, "the disc is missing from a sealed run"
+    for label, value in (
+        ("tree", short(repo, "HEAD")),
+        ("base", short(repo, "base")),
+        ("suite", "1 passed"),
+        ("lint", "clean"),
+        ("ledger", "0 broken"),
+        ("chain", "exit 0"),
+    ):
+        assert re.search(rf"\b{label}\s+[^\n|]*{re.escape(value)}", out.stdout), (
+            f"the panel does not carry `{label} {value}`:\n{out.stdout}"
+        )
+    assert not re.search(r"\brounds\b", out.stdout), "a rounds row without --record"
+    gate = gate_module()
+    order = [
+        gate.SUITE,
+        gate.LEDGER,
+        gate.UNVERIFIED_NAME,
+        gate.CHAIN_NAME,
+        gate.SURVIVORS_NAME,
+    ]
+    kept = sorted(os.listdir(keep))
+    for name in order:
+        assert f"{name}.txt" in kept, f"{name}'s output was not kept: {kept}"
+        text = (keep / f"{name}.txt").read_text(encoding="utf-8")
+        assert text.startswith("$ "), f"{name}.txt does not open with its command"
+        assert "\nexit 0\n" in text, f"{name}.txt does not carry its exit code"
+    times = [os.stat(keep / f"{n}.txt").st_mtime_ns for n in order]
+    assert times == sorted(times), f"the checks did not run in order: {times}"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the POSIX wrapper needs a POSIX shell")
+def test_the_wrapper_runs_the_same_gate(repo):
+    """`bin/broad-gate` resolves the script relative to itself and passes
+    every argument through; the wrapper pair is pinned by the bin twin
+    case."""
+    out = run_gate(repo, wrapper=True)
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert "SEALED" in out.stdout
+
+
+# --- S2 not sealed -----------------------------------------------------------
+
+
+def test_a_failing_test_is_not_sealed_and_is_new_when_the_base_passes(repo):
+    """S2. One planted failure: `NOT SEALED <tree> against <base>`, the
+    failing check named with its first lines, the failing file labelled
+    `new` because the base does not fail it, no disc, exit 1. The scratch
+    worktree the comparison used is gone afterwards."""
+    write(repo, "tests/test_two.py", FAILING_TEST)
+    commit(repo, "plant a failure")
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    first = out.stdout.strip().splitlines()[0]
+    assert first.startswith("NOT SEALED"), first
+    assert short(repo, "HEAD") in first and short(repo, "base") in first, first
+    assert crown_of() not in out.stdout, "the failure form drew the disc"
+    assert not any(c in out.stdout for c in HALF_BLOCKS)
+    assert re.search(r"^\s+suite\s", out.stdout, re.M), "the failing check is unnamed"
+    gate = gate_module()
+    assert re.search(rf"tests/test_two\.py\s+{gate.NEW}\b", out.stdout), (
+        f"the failing file is not labelled `{gate.NEW}`:\n{out.stdout}"
+    )
+    assert gate.ON_BASE not in out.stdout
+    assert "1 failed, 1 passed" in out.stdout, "the suite's counts are missing"
+    worktrees = git(repo, "worktree", "list").stdout.strip().splitlines()
+    assert len(worktrees) == 1, f"the scratch worktree was left behind: {worktrees}"
+
+
+def test_a_failure_the_base_shares_is_labelled_failing_on_base_too(tmp_path):
+    """S2, the other word. The base already fails the same file, so the
+    comparison — taken reactively, in a scratch worktree at the base — says
+    so. The gate decides nothing about it: still `NOT SEALED`, exit 1."""
+    repo = build_repo(tmp_path / "repo", base_failing=True)
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert re.search(rf"tests/test_two\.py\s+{gate.ON_BASE}", out.stdout), (
+        f"the failing file is not labelled `{gate.ON_BASE}`:\n{out.stdout}"
+    )
+    assert not re.search(rf"tests/test_two\.py\s+{gate.NEW}\b", out.stdout)
+    assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
+
+
+def test_a_plugin_check_that_fails_is_named_and_the_suite_is_not_compared(repo):
+    """The comparison is reactive: it exists for a failing TEST. A failing
+    plugin check — here an overview whose `## Not verified` row was deleted,
+    which `unverified-check --baseline` refuses — is named with its exit and
+    its first lines, and no worktree is added for it."""
+    write(repo, f"{ITEM}/overview.md", "# overview\n\n## Not verified\n\n")
+    commit(repo, "delete the row")
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert re.search(r"^\s+unverified\s+exit [12]", out.stdout, re.M), out.stdout
+    gate = gate_module()
+    assert gate.NEW not in out.stdout and gate.ON_BASE not in out.stdout
+    assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
+
+
+# --- S4 one write: the fixture item --------------------------------------------
+
+
+def declaration():
+    return (
+        f"# {os.path.basename(ITEM)} — routing\n\n"
+        "| Axis | Answer |\n|---|---|\n"
+        "| Review | through the review chain |\n"
+        "| Destination | open the pull request |\n"
+        "| Branch | feature |\n"
+    )
+
+
+def report(verdicts, needs):
+    return (
+        "# what the round found\n\nProse.\n\n"
+        f"## Verdicts\n\n{VERDICT_HEADER}{verdicts}\n"
+        "## Executed probes\n\n| What was run | Result |\n|---|---|\n"
+        "| `pytest tests/test_one.py -q` | 1 passed |\n\n"
+        "## Deferred\n\n| Finding | Where it went | Who answers it |\n|---|---|---|\n\n"
+        f"Needs a fix: {needs}\nLoses a record or crashes: no\n"
+    )
+
+
+def generate(repo, n, verdicts, needs, target=None):
+    """`round_record.py new` for round `n`, then the record committed."""
+    scratch = repo.parent
+    (scratch / f"report-{n}.md").write_text(report(verdicts, needs), encoding="utf-8")
+    (scratch / f"asked-{n}.md").write_text("Attack the gate.\n", encoding="utf-8")
+    target = target or git(repo, "rev-parse", "HEAD").stdout.strip()
+    r = subprocess.run(
+        [
+            sys.executable,
+            GENERATOR,
+            "new",
+            "--item",
+            str(repo / ITEM),
+            "--round",
+            str(n),
+            "--target",
+            target,
+            "--report",
+            str(scratch / f"report-{n}.md"),
+            "--asked",
+            str(scratch / f"asked-{n}.md"),
+            "--ran-by",
+            "specseal:warden on a model",
+            "--baseline",
+            "base",
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=env_without_a_pull_request(),
+    )
+    path = repo / ROUNDS / f"round-{n}.md"
+    assert path.exists(), r.stdout + r.stderr
+    commit(repo, f"round {n}")
+    return path
+
+
+def declared(repo):
+    write(repo, f"{ITEM}/routing.md", declaration())
+    return commit(repo, "declare")
+
+
+def close_round(repo, n, rows, rng):
+    """`round_record.py close` with a fix table of `rows`, then committed."""
+    generator = _load("specseal_round_record_for_sealed_records", GENERATOR)
+    table = (
+        f"{generator.FIXES}\n\n{generator.row(generator.FIXES_HEADER)}\n"
+        f"{generator.separator(len(generator.FIXES_HEADER))}\n{rows}"
+    )
+    path = repo.parent / f"fixes-{n}.md"
+    path.write_text(table, encoding="utf-8")
+    subprocess.run(
+        [
+            sys.executable,
+            GENERATOR,
+            "close",
+            "--item",
+            str(repo / ITEM),
+            "--round",
+            str(n),
+            "--fixes",
+            str(path),
+            "--range",
+            rng,
+            "--baseline",
+            "base",
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=env_without_a_pull_request(),
+    )
+    commit(repo, f"close round {n}")
+
+
+def settled_item(repo):
+    """The state the broad gate runs in: round 1 opened a finding, a fix
+    landed and `close` applied its table, round 2 verified the fix and
+    closed everything with `Needs a fix: no`. Every verdict in both records
+    is closed, so `close` would refuse a fix table for either — which is the
+    state the `seal` subcommand exists for. Returns (round-1, round-2)."""
+    declared(repo)
+    one = generate(repo, 1, OPEN_ROW, "yes — 🔴 1")
+    a = git(repo, "rev-parse", "HEAD").stdout.strip()
+    write(repo, "f.py", "x = 2\n")
+    b = commit(repo, "fix")
+    close_round(repo, 1, f"| 1 | fixed | {b[:7]} |\n", f"{a}..{b}")
+    two = generate(
+        repo,
+        2,
+        "| 🟢 1 | round 1's fix holds | `f.py:1` | answered | read |\n",
+        "no",
+    )
+    return one, two
+
+
+def run_seal(repo, value, extra=()):
+    r = subprocess.run(
+        [
+            sys.executable,
+            GENERATOR,
+            "seal",
+            "--item",
+            str(repo / ITEM),
+            "--broad-gate",
+            value,
+            "--baseline",
+            "base",
+            *extra,
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=env_without_a_pull_request(),
+    )
+    return r.returncode, r.stdout + r.stderr
+
+
+def fields(text):
+    reader, chain = reader_module(), check_module()
+    rows = chain.table_rows(reader, reader.readable(text))
+    return {cells[0].strip(): cells[1].strip() for cells in rows if len(cells) == 2}
+
+
+def read_bytes(path):
+    return path.read_bytes()
+
+
+# --- S4 the one write ----------------------------------------------------------
+
+
+def test_seal_writes_the_last_records_cell_and_nothing_else(repo):
+    """S4. Two records; `seal` changes the last one's `Broad gate` cell and
+    touches no other line of it — byte for byte — and the earlier record not
+    at all. Every verdict of the last record is already closed, which is the
+    state `close` refuses a fix table for: the write `close` cannot make is
+    the one this subcommand exists for."""
+    one, two = settled_item(repo)
+    before_one, before_two = read_bytes(one), read_bytes(two)
+    assert fields(two.read_text(encoding="utf-8"))[ROW] == "not yet"
+    head = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{head} against base")
+    assert code == 0, out
+    assert "sealed" in out and "round-2.md" in out, out
+    assert read_bytes(one) == before_one, "the earlier record was touched"
+    after = read_bytes(two)
+    assert after != before_two, "the last record did not change"
+    old, new = (
+        before_two.decode("utf-8").splitlines(),
+        after.decode("utf-8").splitlines(),
+    )
+    assert len(old) == len(new), "a line was added or removed"
+    changed = [(a, b) for a, b in zip(old, new, strict=True) if a != b]
+    assert len(changed) == 1, f"{len(changed)} lines changed: {changed}"
+    assert changed[0][0].startswith(f"| {ROW} |"), changed
+    assert fields(after.decode("utf-8"))[ROW] == f"{head} against base"
+    assert "- [x] Pass" in after.decode("utf-8")
+
+
+def test_seal_refuses_while_the_last_record_still_needs_a_fix(repo):
+    """S4. `Needs a fix: yes` is a round that has not ended; the seal comes
+    after the rounds settle. Refused, naming the row, and no byte written."""
+    declared(repo)
+    path = generate(repo, 1, CLOSED_ROW, "yes — 🔴 1")
+    before = read_bytes(path)
+    code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
+    assert code == 2, out
+    assert "Needs a fix" in out and "no cell was written" in out, out
+    assert read_bytes(path) == before, "the record was written under a refusal"
+
+
+def test_seal_refuses_while_pass_is_unchecked(repo):
+    """S4. An open finding leaves `Pass` unchecked even where the reviewer
+    wrote `no`; the seal is refused naming the box, and no byte is written."""
+    declared(repo)
+    path = generate(repo, 1, OPEN_ROW, "no")
+    assert "- [ ] Pass" in path.read_text(encoding="utf-8")
+    before = read_bytes(path)
+    code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
+    assert code == 2, out
+    assert "`Pass` is unchecked" in out and "no cell was written" in out, out
+    assert read_bytes(path) == before
+
+
+def test_seal_refuses_a_sha_the_target_descends_from(repo):
+    """S4. The gate ran at the base and the round reviewed a commit after
+    it: the run was spent before the round it seals — the test
+    `chain_check.broad_gate` applies at the pull request, asked before the
+    cell is written. Refused, naming both commits, and no byte written."""
+    _one, two = settled_item(repo)
+    before = read_bytes(two)
+    premature = short(repo, "base")
+    code, out = run_seal(repo, f"{premature} against base")
+    assert code == 2, out
+    assert "descends from" in out and premature in out and "no cell was written" in out
+    assert read_bytes(two) == before
+
+
+def test_seal_refuses_a_cell_with_no_sha_in_it(repo):
+    """The cell records a commit; a value the pull-request check could not
+    read as one is refused here rather than failed there."""
+    _one, two = settled_item(repo)
+    before = read_bytes(two)
+    code, out = run_seal(repo, "passed, trust me")
+    assert code == 2, out
+    assert "SHA-shaped" in out and read_bytes(two) == before
+
+
+def test_the_gate_with_record_seals_the_item_and_counts_its_rounds(repo, tmp_path):
+    """S1 with `--record`: the checks pass, `seal` writes the last record's
+    cell with the tree and the base, and the panel carries `rounds 2`."""
+    _one, two = settled_item(repo)
+    out = run_gate(repo, "--record", str(repo / ITEM), keep=tmp_path / "out")
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert re.search(r"\brounds\s+2\b", out.stdout), out.stdout
+    cell = fields(two.read_text(encoding="utf-8"))[ROW]
+    assert cell == f"{short(repo, 'HEAD')} against base", cell
+
+
+def test_the_gate_with_record_prints_no_stamp_when_the_record_refuses(repo, tmp_path):
+    """With `--record`, success is the checks green AND the cell written. A
+    record that refuses — the rounds have not settled — leaves the tree
+    unsealed: the refusal, exit 2, no disc."""
+    declared(repo)
+    path = generate(repo, 1, OPEN_ROW, "yes — 🔴 1")
+    before = read_bytes(path)
+    out = run_gate(repo, "--record", str(repo / ITEM), keep=tmp_path / "out")
+    assert out.returncode == 2, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert crown_of() not in out.stdout, "a stamp printed over a refused record"
+    assert "Needs a fix" in out.stdout + out.stderr
+    assert read_bytes(path) == before

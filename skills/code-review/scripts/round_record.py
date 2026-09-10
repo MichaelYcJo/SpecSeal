@@ -1898,7 +1898,8 @@ def where(args):
             "repository directly."
         )
     root = os.path.abspath(root)
-    if args.round < 1:
+    # `seal` names no round — it finds the last one — so it has no `--round`.
+    if getattr(args, "round", 1) < 1:
         raise Refused(f"--round {args.round} — rounds are numbered from 1")
     rounds = os.path.join(item, routing.ROUNDS_DIR)
     return reader, routing, root, item, rounds
@@ -2882,6 +2883,130 @@ def close(args):
     return run_check(root, args.baseline or default_baseline(root))
 
 
+# --- seal: the one cell the broad gate writes ---------------------------------
+
+
+def last_record(routing, rounds):
+    """(N, path) of the highest-numbered `round-N.md` on disk, or `Refused`."""
+    found = earlier_records(routing, rounds, sys.maxsize)
+    if not found:
+        raise Refused(
+            f"{rounds} holds no round-N.md — there is no last record to seal. "
+            "The broad gate runs after the rounds settle, and no round has run"
+        )
+    return found[-1]
+
+
+def seal(args):
+    """Set the LAST record's `Broad gate` cell, and touch nothing else.
+
+    This is the sealer's one write (issue #30, `questions.md` Q3), and it is a
+    subcommand of its own because `close` cannot make it. `close` applies a
+    fix table, and it refuses a row for a finding the reviewer already closed
+    -- correctly, since that row would overwrite the reviewer's verdict. So
+    once a record's fix table has been applied, every finding in it is
+    closed, and `close --broad-gate` on that record is refused for the table
+    it needs to be handed. Measured on the other work item of this release:
+    CI found three Windows failures after the gate had run, the gate had to
+    be re-taken at a later commit, and `close --round 3 --fixes <the same
+    table> --broad-gate '<new sha> against <base>'` refused with *the fix
+    table has a row for finding 17 (`answered`), which the reviewer already
+    closed … no cell was written*. The only way through was a fix table with
+    a header and no rows -- which wrote the cell and nothing else, exit 0,
+    and which nobody would think to write. This subcommand is that path with
+    a name: it takes neither `--fixes` nor `--range`, reads no verdict row,
+    and writes one cell.
+
+    Three refusals, each before the write:
+
+      `Needs a fix` reads `yes`   the rounds have not settled; the run this
+          cell records comes AFTER them, so a seal here is a seal over
+          findings still open
+      `Pass` is unchecked          the same state one row down: a finding is
+          still open in the verdict table
+      a `--broad-gate` SHA the record's `Target SHA` descends from   the
+          run was spent before the round it seals -- the same test
+          `chain_check.broad_gate` applies at the pull request, asked here
+          so the cell is never written in a state the check would fail
+
+    Then `chain_check --worktree` runs, as `new` and `close` do. Commits
+    nothing.
+    """
+    reader, routing, root, _item, rounds = where(args)
+    n, path = last_record(routing, rounds)
+    text = read_text(path, f"last record round-{n}.md")
+    raw, lines = text.splitlines(), reader.readable(text)
+    rows = chain.table_rows(reader, lines)
+
+    needs = chain.field(rows, chain.NEEDS)
+    word, _what = chain.yes_or_no(needs or "")
+    if word != chain.FLOOR_NO:
+        raise Refused(
+            f"round-{n}.md's `{chain.NEEDS}` reads `{needs}`, and the broad gate "
+            "runs after the rounds settle. "
+            + (
+                "A record that still needs a fix is a round that has not "
+                "ended, and the cell it would take records a run over "
+                "findings still open"
+                if word == chain.FLOOR_YES
+                else f"That is not `{chain.FLOOR_NO}` or `{chain.FLOOR_YES} "
+                f"{DASH} <what>`, the vocabulary the checker reads the row "
+                "in, so whether the rounds settled cannot be read off it"
+            )
+            + "; no cell was written"
+        )
+    boxes = [m for ln in lines for m in [chain.PASS_RE.match(ln)] if m]
+    if len(boxes) != 1:
+        raise Refused(
+            f"round-{n}.md has {len(boxes)} `Pass` boxes and needs one; no cell "
+            "was written"
+        )
+    if boxes[0].group(1) == " ":
+        raise Refused(
+            f"round-{n}.md's `Pass` is unchecked — a finding in its verdict "
+            "table is still open, and the broad gate seals a review that has "
+            "ended; no cell was written"
+        )
+
+    named = chain.SHA_RE.findall(args.broad_gate)
+    if not named:
+        raise Refused(
+            f"--broad-gate {args.broad_gate!r} carries no SHA-shaped word. The "
+            "cell records the commit the run happened at and the base it was "
+            "compared against, `<sha> against <base>`; no cell was written"
+        )
+    ran_at = chain.resolves_to(root, named[0])
+    if ran_at is None:
+        raise Refused(
+            f"--broad-gate names `{named[0]}`, which {root} cannot see. The "
+            "seal names a commit this repository holds — the tree the run "
+            "was taken over; no cell was written"
+        )
+    for sha in chain.SHA_RE.findall(chain.field(rows, chain.TARGET) or ""):
+        reviewed = chain.resolves_to(root, sha)
+        if reviewed is None or reviewed == ran_at:
+            continue
+        if chain.is_ancestor(root, ran_at, reviewed):
+            raise Refused(
+                f"--broad-gate names `{named[0]}`, and round-{n}.md's "
+                f"`{chain.TARGET}` names `{sha}`, which descends from it. The "
+                "run was spent BEFORE the round it is meant to seal — "
+                "everything that round reviewed after that commit went "
+                "through no broad gate (`CLAUDE.md` §*Verification Scope*). "
+                "Run it again at the tree as it stands; no cell was written"
+            )
+
+    i = field_index(reader, lines, BROAD_GATE)
+    raw[i] = cell(BROAD_GATE, args.broad_gate)
+    ending = "\n" if text.endswith("\n") else ""
+    write_record(reader, path, "\n".join(raw) + ending)
+    print(
+        f"round-record: sealed {os.path.relpath(path, root)} {DASH} "
+        f"`{BROAD_GATE}` | {args.broad_gate}"
+    )
+    return run_check(root, args.baseline or default_baseline(root))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="round-record",
@@ -2923,9 +3048,24 @@ def main(argv=None):
         default=None,
         help="the base for chain_check (default: the upstream, else origin/main)",
     )
+    s = sub.add_parser("seal", help="set the LAST record's Broad gate cell alone")
+    s.add_argument("--item", required=True, help="the work item directory")
+    s.add_argument(
+        "--broad-gate",
+        required=True,
+        help="the cell: `<sha> against <base>` — the commit the one broad run "
+        "happened at, and the base it was compared against",
+    )
+    s.add_argument("--root", default=None, help="the repository (default: the item's)")
+    s.add_argument(
+        "--baseline",
+        default=None,
+        help="the base for chain_check (default: the upstream, else origin/main)",
+    )
     args = ap.parse_args(argv)
     try:
-        return close(args) if args.command == "close" else new(args)
+        commands = {"new": new, "close": close, "seal": seal}
+        return commands[args.command](args)
     except Refused as exc:
         print(f"round-record: {exc}", file=sys.stderr)
         return 2
