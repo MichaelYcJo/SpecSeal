@@ -111,7 +111,7 @@ Vertical slices — each phase ends with something runnable and verified.
 | 2 | The gate: `.github/scripts/release_completeness_check.py`, refusing on `M \ D`, reporting `L ≠ D` by direction and `D \ M` without failing. Range from `git merge-base` | S4 **seen red first** against a fixture whose milestone claims an item the branch does not carry, then S5, S6, S7, S8. Q4 and Q5 are answered here | `a20c02c` |
 | 3 | The step in `hygiene.yml`, release-only and head-shape guarded, with the comment block the file's other steps carry | S7 against each non-release head shape; `tests/test_ci_gives_the_checks_what_they_need.py` still green | `a20c02c` — phases 2 and 3 close together; `phases/phase-3.md` says why |
 | 4 | The three documents: `docs/release-checklist.md` step 0's new line and §6's corrected sentence, `docs/issues-and-milestones.md` §*Nothing automated reads a milestone* rewritten | S9, S10, S11; `tests/test_one_word_one_meaning.py` and `tests/test_docs_line_wrap.py` | `db029b1` |
-| 5 | `seal/specs/<id>/changelog.md`, any ledger rows in `seal/ledger/<id>.md`, and the closing memo | The fragment conventions in `CLAUDE.md`; `unverified_check` on the memo's `## Not verified` table | |
+| 5 | `seal/specs/<id>/changelog.md`, any ledger rows in `seal/ledger/<id>.md`, and the closing memo | The fragment conventions in `CLAUDE.md`; `unverified_check` on the memo's `## Not verified` table | `d18aa20` |
 
 Phase 1 and phase 2 are separable and phase 2 does not depend on phase 1
 having run: the gate derives `D` itself, which is the whole point of the set
