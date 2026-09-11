@@ -124,8 +124,9 @@ branch does not carry, and names each one. So a milestone left holding next
 quarter's work does not produce a wrong answer any more, it produces a red
 release pull request — at the moment the release is being cut, which is the
 worst moment to do the scheduling it is asking for.
-`docs/release-checklist.md` step 0 is where that act belongs, and it is the
-first box on the list.
+`docs/release-checklist.md` step 0 is where that act belongs — the box asking
+whether the milestone holds what the release is carrying, which is inside
+step 0 and so is ticked before any of the release's cost is paid.
 
 What the gate compares the milestone against is still the pull request body.
 It reads the release branch's own commit subjects, takes the `(#N)` a squash

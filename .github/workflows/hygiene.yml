@@ -270,6 +270,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_BRANCH: ${{ github.head_ref }}
+          # The checkout above has no `ref:`, so on a `pull_request` event
+          # this job holds the MERGE ref — the head already merged into the
+          # base. `git merge-base origin/main HEAD` then answers the base tip
+          # instead of the fork point, and the range the script documents
+          # collapses to the one `questions.md` Q8 rejected. Naming the head
+          # commit is what keeps the fork point real (#359, round 1).
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE: origin/${{ github.base_ref }}
           REPO: ${{ github.repository }}
         shell: bash

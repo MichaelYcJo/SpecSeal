@@ -12,6 +12,14 @@ at the right party.
     M   open issues whose milestone is `release: X.Y.Z`
     D   issues the release branch actually carries: its commit subjects ->
         `(#N)` -> those pull request bodies -> closing keywords
+
+        **A reverted squash stays in D**, and round 1 named it so nobody
+        rediscovers it. The revert's own subject carries the revert pull
+        request's `(#N)` and its body carries no closing keyword, so nothing
+        subtracts the original claim — "actually carries" is read over the
+        range rather than over the tree at its tip. No release here has
+        reverted a squash; if one does, the issue is in D, out of `M \\ D`,
+        and the release ships claiming work it no longer has.
     L   issues carrying the label `merged: X.Y.Z`
 
 **D is the source of truth and L is a cache of it.** The signal
@@ -76,6 +84,18 @@ def merge_base(base, head="HEAD"):
     (`docs/branch-and-release.md` has the hotfix row). What the release
     carries is what it accumulated since it was cut, and that is measured
     from the fork point.
+
+    **`head` is not `HEAD` in CI, and round 1 found that this docstring was
+    describing a protection the job did not have.** On a `pull_request` event
+    `actions/checkout` checks out the merge ref GitHub builds — the head
+    merged into the base — so `HEAD` in the job already contains
+    `origin/main`, `git merge-base origin/main HEAD` returns the base tip
+    rather than the fork point, and the range collapses to exactly the
+    `base..HEAD` spelling `questions.md` Q8 rejected. It arrived through the
+    checkout rather than through the code, which is why every case here
+    passed. The caller passes the head commit the pull request names, so the
+    fork point survives the merge ref; a session running this by hand has no
+    such commit and gets `HEAD`, which is its own branch tip.
     """
     return closer.run("git", "merge-base", base, head).strip()
 
@@ -96,8 +116,26 @@ def milestone_titles(repo):
     mistyped or absent milestone would make the whole check pass while
     verifying nothing, which is the one direction a checker of claims must
     not fail in.
+
+    `--paginate` closes that same fail-open one level down, and round 1 found
+    it open. `per_page` caps at 100, so an unpaginated read of a repository
+    with more milestones than that leaves the title off the page and this
+    function reports it absent — the hole it exists to close, arriving
+    through it. 33 here today, so it is reachable by growth rather than now.
+
+    **No `--jq`, and the reason is measured rather than assumed.** The fix
+    round 1 offered added `--jq .[].title` on the grounds that `--paginate`
+    over an array endpoint concatenates arrays into something `json.loads`
+    refuses. On gh 2.92 it does not: `--paginate` MERGES the pages into one
+    array, and `per_page=2` — seventeen pages — comes back as a single list
+    of 33 that `json.loads` accepts. So the flag would have been added on a
+    false premise. A gh old enough to concatenate would make `json.loads`
+    raise, which is loud and is the direction this function is for; what it
+    would never do is quietly return a short list.
     """
-    out = closer.run("gh", "api", f"repos/{repo}/milestones?state=all&per_page=100")
+    out = closer.run(
+        "gh", "api", "--paginate", f"repos/{repo}/milestones?state=all&per_page=100"
+    )
     return {entry["title"] for entry in json.loads(out)}
 
 
@@ -221,6 +259,11 @@ def main():
 
     repo = os.environ["REPO"]
     base = os.environ.get("BASE", "origin/main")
+    # The commit the range is measured to. `HEAD` is the merge ref in CI and
+    # already contains the base, which collapses the fork point — `merge_base`
+    # carries the whole reading. The pull request names its own head and the
+    # step passes it; by hand there is none and `HEAD` is the branch tip.
+    point = os.environ.get("HEAD_SHA") or "HEAD"
     milestone = signal.milestone_title(version)
 
     if milestone not in milestone_titles(repo):
@@ -233,7 +276,9 @@ def main():
         )
         return 0
 
-    carried = set(signal.issues_in(repo, subjects_since(merge_base(base))))
+    carried = set(
+        signal.issues_in(repo, subjects_since(merge_base(base, point), point))
+    )
     lines, failed = judge(
         open_in_milestone(repo, milestone),
         carried,

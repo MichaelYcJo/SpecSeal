@@ -263,6 +263,7 @@ def wire(monkeypatch, m, tracker, pulls):
     monkeypatch.setenv("HEAD_BRANCH", BRANCH)
     monkeypatch.setenv("REPO", REPO)
     monkeypatch.delenv("BASE", raising=False)
+    monkeypatch.delenv("HEAD_SHA", raising=False)
 
 
 def test_the_range_is_measured_from_where_the_branch_left_main(monkeypatch):
@@ -282,6 +283,77 @@ def test_the_range_is_measured_from_where_the_branch_left_main(monkeypatch):
     log = tracker.call_with("git", "log")
     assert log[-1] == "f" * 40 + "..HEAD", (
         f"D was read over {log[-1]!r}, not over the fork point"
+    )
+
+
+def test_the_range_is_measured_to_the_head_the_pull_request_names(monkeypatch):
+    """Round 1, finding 2. The script did what its docstring said and the
+    checkout undid it.
+
+    `actions/checkout` takes the MERGE ref on a `pull_request` event, so
+    `HEAD` in the job already contains the base and the fork point collapses
+    to the base tip — the `base..HEAD` spelling `questions.md` Q8 rejected,
+    arriving through the workflow rather than through the code. Every case in
+    this module passed while that was true, because none of them could see
+    the shape of the commit the two commands were handed.
+
+    So the head is an input now, and this is the case that has it.
+    """
+    m = gate()
+    tracker = Tracker(m=[88], label=[88], subjects=["feat: a thing (#100)"])
+    wire(monkeypatch, m, tracker, {100: "Closes #88"})
+    monkeypatch.setenv("HEAD_SHA", "c" * 40)
+    assert m.main() == 0
+    assert tracker.call_with("merge-base") == (
+        "git",
+        "merge-base",
+        "origin/main",
+        "c" * 40,
+    ), "the fork point is still measured against the merge ref"
+    log = tracker.call_with("git", "log")
+    assert log[-1] == "f" * 40 + ".." + "c" * 40, (
+        f"D was read over {log[-1]!r}, which does not end at the head the "
+        "pull request names"
+    )
+
+
+def test_without_a_named_head_the_range_ends_at_HEAD(monkeypatch):
+    """The control for the case above, and the by-hand path.
+
+    A session running this outside CI has no pull request and no head commit
+    to name; its own `HEAD` is the branch tip, which is the thing CI's `HEAD`
+    is not. Without this, setting `HEAD_SHA` to a constant would pass every
+    assertion above.
+    """
+    m = gate()
+    tracker = Tracker(m=[88], label=[88], subjects=["feat: a thing (#100)"])
+    wire(monkeypatch, m, tracker, {100: "Closes #88"})
+    assert m.main() == 0
+    assert tracker.call_with("merge-base")[3] == "HEAD"
+    assert tracker.call_with("git", "log")[-1].endswith("..HEAD")
+
+
+def test_the_milestone_list_is_read_past_the_first_page(monkeypatch):
+    """Round 1, finding 1. `per_page` caps at 100, and the read took one page.
+
+    A repository with more milestones than that leaves the title off the page,
+    and the gate then prints `verified NOTHING` and passes — through the very
+    function written to stop it passing on an empty set. The round's probe
+    gutted the whole query and all 25 cases here stayed green, which is why
+    this exists: the guard's PRESENCE was pinned and the query behind it was
+    not.
+
+    Executed while writing this: 33 milestones here, so the hole is reachable
+    by growth rather than now.
+    """
+    m = gate()
+    tracker = Tracker(m=[88], label=[88], subjects=["feat: a thing (#100)"])
+    wire(monkeypatch, m, tracker, {100: "Closes #88"})
+    assert m.main() == 0
+    call = tracker.call_with("gh", "api")
+    assert "--paginate" in call, f"the milestone list is read one page deep: {call}"
+    assert any("per_page=100" in arg for arg in call), (
+        f"the read asks for fewer than the maximum page size: {call}"
     )
 
 
@@ -398,6 +470,34 @@ def test_the_head_shape_reaches_the_script_rather_than_the_guard():
     assert "HEAD_BRANCH: ${{ github.head_ref }}" in step, (
         "the head branch does not reach the script, so the skip it is "
         "supposed to make is unreachable"
+    )
+
+
+def test_every_input_the_script_reads_is_handed_to_it_by_the_step():
+    """Round 1, finding 6, and the fix for finding 2 is what earns it.
+
+    The round judged this a note rather than a fix: deleting `REPO` from the
+    step is a loud `KeyError` at the release pull request, and deleting `BASE`
+    is harmless because the script's default is what a release pull request
+    wants anyway. Both true.
+
+    `HEAD_SHA` is neither. Losing it falls back to `HEAD`, which in CI is the
+    merge ref — so the step goes green, the range silently collapses to the
+    spelling `questions.md` Q8 rejected, and finding 2 is back with nothing
+    saying so. One silent entry in the block is what turns the note into a
+    case, and the case covers all four rather than one, because a reader
+    deleting a line does not first ask which kind it is.
+    """
+    env = hygiene_step().split("shell:")[0]
+    for name in ("GH_TOKEN", "HEAD_BRANCH", "HEAD_SHA", "BASE", "REPO"):
+        assert f"{name}:" in env, (
+            f"the gate step no longer passes {name}. Every one of these is "
+            "read by `release_completeness_check.py`, and HEAD_SHA's absence "
+            "is the only one that is silent"
+        )
+    assert "github.event.pull_request.head.sha" in env, (
+        "HEAD_SHA no longer names the pull request's own head commit, so the "
+        "fork point is measured against whatever the checkout left at HEAD"
     )
 
 
