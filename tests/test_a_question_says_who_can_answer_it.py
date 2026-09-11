@@ -133,8 +133,11 @@ def test_a_person_answerable_row_reaches_the_report_in_full():
         "cannot answer a question they were handed a count of, so a frame "
         "obeying that rule ships an approval given against nothing"
     )
-    assert "in full" in report, (
-        "the report no longer carries a person-answerable row's own text"
+    assert "A row only a person can answer is reproduced in full" in report, (
+        "the report no longer sends a person-answerable row's own text. "
+        "Nobody can answer a question they were handed a count of, so a "
+        "frame obeying the shorter rule ships an approval given against "
+        "nothing"
     )
     assert "handed a count of" in report, (
         "the reason the split exists is gone, which is how the shorter rule "
@@ -161,10 +164,10 @@ def test_the_report_does_not_reduce_the_frame_to_counts():
         "the report gives the phase count instead of the phases. Whoever "
         "approves the plan is approving the order the work comes in"
     )
-    assert "out of scope" in report, (
-        "nothing in the report says what the frame excluded. That is where a "
-        "framing error hides: what was decided is visible and what was left "
-        "out is not"
+    assert "What you put out of scope, and why, one line each" in report, (
+        "the report gives a count of what was excluded instead of the "
+        "exclusions. That is where a framing error hides: what was decided "
+        "is visible and what was left out is not"
     )
     assert not re.search(r"the phase count", report), (
         "`the phase count` survives beside the line-each rule, so a framer "
