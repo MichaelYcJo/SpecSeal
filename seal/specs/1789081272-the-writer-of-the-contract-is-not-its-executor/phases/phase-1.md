@@ -128,7 +128,8 @@ refused outright, which is the right refusal: five written rows would have
 been the escape rather than the fix.
 
 **Any edit to `COVERED` drifts a ledger row, and this one did.**
-`tests/test_docs_line_wrap.py#COVERED@5409898a` anchors the claim that the
+`tests/test_docs_line_wrap.py#COVERED`, at the hash `5409898a` it carried
+before this phase, anchors the claim that the
 eleven modules pinning the review skill's path are not the modules its split
 breaks. Re-read rather than re-pointed: a list entry and two comments move
 neither the eleven modules nor the wrap-coverage loss that goes silent when
