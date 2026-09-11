@@ -321,8 +321,8 @@ def quote(path, windows=None):
     be driven from a case on either machine. Reading `os.name` inside the
     body left the branch that exists for Windows undrivable from the machine
     this was written on, and the whole unit could be replaced by `return
-    path` with every case still green -- `docs/flow.md` #103's class made out
-    of the fix for it. The platform is not what was missing; CI runs
+    path` with every case still green -- #103's class, made out of the fix
+    for it. The platform is not what was missing; CI runs
     `windows-latest` on every push and `compare_at_base` is driven there. An
     assertion was.
 
