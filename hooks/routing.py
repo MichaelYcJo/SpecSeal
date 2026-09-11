@@ -26,9 +26,9 @@ not an answer somebody gave, so the gate goes back to asking. Silence would
 make a corrupt file into the standing waiver `docs/review-chain-spec.md`
 refuses to build.
 
-The third axis, `Implementation`, is the one exception and it is not a
-loophole. Nothing decides a commit on it -- see `parse()` for why an absent or
-unreadable answer there reads as unanswered instead of taking the whole
+Two of the axes are exceptions and neither is a loophole. Nothing decides a
+commit on `Implementation` or on `Planning` -- see `parse()` for why an absent
+or unreadable answer in either reads as unanswered instead of taking the whole
 declaration down with it.
 """
 
@@ -44,6 +44,7 @@ REVIEW = "Review"
 DESTINATION = "Destination"
 BRANCH = "Branch"
 IMPLEMENTATION = "Implementation"
+PLANNING = "Planning"
 
 CHAIN = "through the review chain"
 DIRECT = "straight to the PR"
@@ -56,6 +57,12 @@ DESTINATION_ANSWERS = (OPEN_PR, STOP_BEFORE_PR)
 BY_SMITH = "smith"
 BY_SESSION = "the session"
 IMPLEMENTATION_ANSWERS = (BY_SMITH, BY_SESSION)
+
+# The fourth axis. `BY_SESSION` is reused rather than aliased under a second
+# name: one string, one vocabulary, and a second spelling of it is the shape
+# that lets the two drift a release later.
+BY_FRAMER = "framer"
+PLANNING_ANSWERS = (BY_FRAMER, BY_SESSION)
 
 # Repository-relative, `/`-joined, for the readers that classify paths as git
 # prints them — `chain_check.py` lists a tree under it. The hooks below never
@@ -71,6 +78,11 @@ def table_rows(text):
     Unknown labels are left in rather than filtered: a reader that drops what
     it does not recognise cannot gain a third axis later without the older
     readers silently ignoring it. The caller decides what it needs.
+
+    The FOURTH axis arrived on that promise and is what tested it. `Planning`
+    was added when seventy-two declarations had already been written, none of
+    them carrying the row and none of them needing an edit -- and the only
+    change this function needed was none.
     """
     rows = []
     for line in text.splitlines():
@@ -94,29 +106,35 @@ def parse(text):
     into a waiver -- the same failure `has_marker` avoids by refusing to read a
     marker out of a commit message.
 
-    `Implementation` is the third axis and it is read on DIFFERENT terms: it is
-    optional, and an answer outside its vocabulary reads as unanswered rather
-    than as "this file is not a declaration". Both halves of that are forced by
-    what already exists. Every declaration written before the axis was added
-    has no such row, and a required row would turn each of them back into an
-    unanswered gate -- the review question would be asked again on branches
-    whose answer is committed in the tree. The strict spelling below is
-    deliberate for the first two, because a wrong answer there decides whether
-    a reviewer sees the work. The only reader of this one is
-    `hooks/implementer-notice.py`, which prints one line after a commit where
-    the answer is `smith` and no mark stands, and decides nothing -- so a
-    wrong answer here is recorded and at most reminded about, where a wrong
-    answer above stops a commit. That is why the row is optional rather than
-    lenient, and it is also the asymmetry to know about: a backticked or
-    capitalised answer is rejected loudly in the first two, because the gate
-    goes back to asking, and silently here. `templates/sdd-routing.md` is the only spelling a
+    `Implementation` and `Planning` are the third and fourth axes and they are
+    read on DIFFERENT terms: both are optional, and an answer outside either
+    vocabulary reads as unanswered rather than as "this file is not a
+    declaration". Both halves of that are forced by what already exists. Every
+    declaration written before an axis was added has no such row, and a
+    required row would turn each of them back into an unanswered gate -- the
+    review question would be asked again on branches whose answer is committed
+    in the tree. The strict spelling below is deliberate for the first two,
+    because a wrong answer there decides whether a reviewer sees the work. The
+    only reader of these two is `hooks/implementer-notice.py`, which prints one
+    line after a commit where a declared agent left no mark, and decides
+    nothing -- so a wrong answer here is recorded and at most reminded about,
+    where a wrong answer above stops a commit. That is why the rows are
+    optional rather than lenient, and it is also the asymmetry to know about: a
+    backticked or capitalised answer is rejected loudly in the first two,
+    because the gate goes back to asking, and silently here.
+    `templates/sdd-routing.md` is the only spelling a
     session should copy, and a test parses that file so it cannot drift.
+
+    The two optional rows are read independently of each other. One answered
+    and one absent is a common state -- a session that framed the work itself
+    and spawned `smith` to build it -- so neither may stand in for the other.
     """
     found = dict(table_rows(text))
     review = found.get(REVIEW)
     destination = found.get(DESTINATION)
     branch = found.get(BRANCH)
     implementation = found.get(IMPLEMENTATION)
+    planning = found.get(PLANNING)
     if review not in REVIEW_ANSWERS:
         return None
     if destination not in DESTINATION_ANSWERS:
@@ -134,6 +152,7 @@ def parse(text):
         "implementation": (
             implementation if implementation in IMPLEMENTATION_ANSWERS else None
         ),
+        "planning": planning if planning in PLANNING_ANSWERS else None,
     }
 
 

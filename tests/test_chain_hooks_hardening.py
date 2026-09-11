@@ -848,19 +848,122 @@ def test_the_five_round_exception_is_pinned_where_it_is_stated():
     )
 
 
-def test_the_design_gate_belongs_to_the_smith():
-    # confidence-check and feature-planner used to fire on their own keywords
-    # while the smith's design gate decided the same thing, so one request
-    # could open three scope conversations.
-    smith = open(os.path.join(ROOT, "agents", "smith.md"), encoding="utf-8").read()
-    assert "confidence-check" in smith and "feature-planner" in smith, (
-        "the gate must name the skills it calls, or they self-trigger again"
+# The two skills a definition calls rather than preloads. Neither is in any
+# `skills:` list: a preloaded body is paid for on every spawn (#292), and a
+# skill two frames in ten want is cheaper called than carried.
+UTILITY_SKILLS = ("confidence-check", "feature-planner")
+
+
+def definitions_naming(skill):
+    """The `agents/*.md` files that name `skill`, read out of the glob.
+
+    Which definition calls these is a fact about the tree, and a case that
+    types the answer instead of reading it asserts an owner rather than
+    checking one. That is what made the pair below go stale together when the
+    gate moved: the name `smith` was in the case, so the tree could change
+    under it and only the half that pinned a literal noticed.
+    """
+    import glob
+
+    return [
+        os.path.basename(path)
+        for path in sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
+        if skill in open(path, encoding="utf-8").read()
+    ]
+
+
+def test_each_utility_skill_is_callable_from_exactly_one_definition():
+    """S4 of #84. `confidence-check` and `feature-planner` were named in
+    `agents/smith.md`'s design gate; 0.11.0 moves the judgment they serve to
+    `agents/framer.md`, and a skill named in two definitions is two agents
+    each believing the call is theirs.
+
+    Counted from the glob rather than from a pair of filenames, so a sixth
+    definition picking one of them up is red here on the day it lands."""
+    for skill in UTILITY_SKILLS:
+        homes = definitions_naming(skill)
+        assert homes == ["framer.md"], (
+            f"`{skill}` is named in {homes}. It belongs to exactly one "
+            "definition -- the one whose phase decides what it answers -- and "
+            "a second home is where the two agents start calling it over each "
+            "other. If the home moved, `agents/framer.md`, the losing "
+            "definition and the skill's own stand-down clause move together"
+        )
+
+
+def test_the_skills_stand_down_for_whichever_definition_calls_them():
+    """Both skills used to fire on their own keywords while a design gate was
+    deciding the same thing, so one request could open three scope
+    conversations. The `NOT for` clause is what stopped that, and it names the
+    agent it stands down for.
+
+    This case used to read that name as the literal `smith`, which is why the
+    clause and the gate could come apart: 0.11.0 moved the gate to the framer
+    and the two SKILL.md files went on naming an agent that no longer calls
+    them, with nothing red. The name is read out of the glob now, so the
+    clause has to follow whichever definition actually holds the skill."""
+    for skill in UTILITY_SKILLS:
+        homes = definitions_naming(skill)
+        assert len(homes) == 1, (
+            f"`{skill}` is named in {homes}, so there is no single agent for "
+            "its stand-down clause to name"
+        )
+        owner = os.path.splitext(homes[0])[0]
+        head = (
+            open(os.path.join(ROOT, "skills", skill, "SKILL.md"), encoding="utf-8")
+            .read()
+            .split("\n---\n", 1)[0]
+        )
+        assert f"{owner} is driving" in head, (
+            f"`{skill}` stands down for somebody other than `{owner}`, which "
+            f"is the definition that names it. The clause is what keeps it "
+            "from firing on its own beside the phase that already calls it"
+        )
+
+
+def test_the_smith_says_whether_the_frame_holds_before_building_to_it():
+    """S5 of #84. A `spec.md` and a `plan.md` are a drawing another party
+    made, and a drawing can be wrong about the tree it describes. #107's
+    phase 1 established that its own stated path could not work before a line
+    was written; phase 1 of #84 did it again on a `skills:` list it was
+    handed. Twice in two work items, unprompted, and written into no
+    document -- which makes it a habit, and a habit is what the next spawn
+    does not inherit.
+
+    The home is pinned as well as the sentence, and it is the Requirements
+    phase. There the check runs on what was just read and a `no` costs the
+    reading; below the design gate it arrives after the question batch has
+    already been spent on a frame that does not hold.
+
+    A `no` needs a destination or it becomes a second interruption. The one
+    the sentence names is the phase record and the hand-back -- never a route
+    back to the framer, which is the trip the framer's own phase exists to
+    spend once."""
+    smith = " ".join(
+        open(os.path.join(ROOT, "agents", "smith.md"), encoding="utf-8").read().split()
     )
-    for name in ("confidence-check", "feature-planner"):
-        head = open(
-            os.path.join(ROOT, "skills", name, "SKILL.md"), encoding="utf-8"
-        ).read()
-        assert "smith is driving" in head, f"{name} lost its stand-down clause"
+    holds = "say whether the frame holds before you build to it"
+    assert holds in smith, (
+        "`agents/smith.md` no longer tells the builder to judge the frame "
+        "before building to it. It happened twice unprompted and was recorded "
+        "nowhere, which is exactly what a written instruction is for"
+    )
+    start = smith.index("1. **Requirements**")
+    requirements = smith[start : smith.index("2. **Design gate**")]
+    assert holds in requirements, (
+        "the drawing-holds check moved out of the Requirements phase. Below "
+        "the design gate it fires after the question batch, so a frame that "
+        "does not hold has already cost the one interruption"
+    )
+    for named in ("phases/phase-N.md", "## What this phase found", "the hand-back"):
+        assert named in requirements, (
+            f"the sentence no longer names `{named}` as where a `no` goes. A "
+            "`no` with no destination is a finding that reaches nobody"
+        )
+    assert "never back to the framer" in requirements, (
+        "the sentence stopped ruling out the route back to the framer, which "
+        "is the second interruption that phase exists to spend once"
+    )
 
 
 def test_spec_directories_carry_the_timestamp_prefix():

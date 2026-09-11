@@ -112,7 +112,7 @@ that act is its agent's. This paragraph is that saying, and this file is the
 only one in the plugin that says it.
 
 **You run it once, spawned for exactly that.** Nothing about it is an
-override, and nothing about it needs explaining in your report: the three
+override, and nothing about it needs explaining in your report: the four
 definitions that stay silent run none of the three checks, and yours does not.
 
 ## What a completion claim is worth
