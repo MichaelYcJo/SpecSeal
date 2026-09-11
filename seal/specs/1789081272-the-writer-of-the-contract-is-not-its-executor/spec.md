@@ -33,9 +33,19 @@ with it so it arrives against documents that permit what it does.
 6. `templates/sdd-routing.md` gains a `Planning` row, `framer` · `the session`,
    on the terms the `Implementation` row already has, and `hooks/routing.py`
    reads it on those terms.
-7. `skills/verify/scripts/session_cost.py` reports **time per agent from the
+7. ~~`skills/verify/scripts/session_cost.py` reports **time per agent from the
    subagent transcripts**, so the framer's cost is a number rather than the
-   34-second orchestrator turns nobody can see.
+   34-second orchestrator turns nobody can see.~~ — **deferred to #350**,
+   milestone 0.11.1, by the repository owner on 2026-09-11. It is the one
+   scope item that is not the framer itself, and the framer ships without it.
+   What the deferral costs is written down rather than left to be found: S10
+   is the scenario nothing in this work item now answers, and the falsifiable
+   test #84's own last comment states — *if the frame is complete, `smith`
+   reads it instead of the repository and its token count drops* — has no
+   command behind it for another release. 0.11.0's own four segments were
+   measured by opening each transcript by hand, one `session-cost` call per
+   file, and #350 carries those readings. `plan.md` row 5's Status is
+   `deferred #350`.
 8. The documents that describe the agent set as four: `agents/sealer.md`'s
    *the three definitions that stay silent*, `skills/implement/SKILL.md` §3's
    file table, `skills/implement/orchestration.md`, `docs/flow.md`.

@@ -87,11 +87,21 @@ convenience.
 | 3 | `templates/sdd-plan.md` gains `Approved <date> by <who>`, written when `smith` is spawned. `templates/sdd-questions.md` gains the answerer column — *a person* · *a measurement* · *the work* — and the sentence that the framer opens rows rather than answering them. `skills/implement/SKILL.md` §3's file table gains the two facts and names who writes each file | a case comparing the approval line's spelling against `templates/sdd-routing.md`'s `Answered` line · a case pinning the three answerer values and the opens-rather-than-answers sentence · both shown red first | `e542161` |
 | 4 | The fourth axis. `templates/sdd-routing.md` gains the `Planning` row; `hooks/routing.py` gains `PLANNING`, `BY_FRAMER`, `PLANNING_ANSWERS` and the `planning` key, read on the third axis's terms; `skills/implement/orchestration.md` gains the row as a record with #88 cited for why it is not a box | S8 and S9 · `test_every_declaration_in_this_repository_still_parses` over every declaration in the tree, none of which has the row · a case per answer · a case that the commit gate decides identically with the row and without it · the vocabulary parsed out of `templates/sdd-routing.md` so it cannot drift | `6c0f5fc` |
 | 4b | **The mark, Q1's answer against its own default.** `hooks/implementer.py` holds a SECOND mark rather than a second module beside it — the file is *named for the axis rather than for the agent* by its own docstring, and one reader for two axes is the whole reason it is a module. `hooks/implementer-notice.py` prints for either axis whose declared agent left no mark, still once per repository per session. The `pre-agent` gate that writes the mark learns `framer` beside `smith` | a case per axis for `write`/`stands`, each shown red first · a case that a mark for one axis does not answer for the other, the shape `stands`'s branch-scoping already has · a case that the notice fires once for two unfulfilled axes rather than twice · the notice's PostToolUse standing unchanged: it never blocks | `cb00b24` |
-| 5 | `session_cost.py` reports time per agent from the subagent transcripts: one row per segment, named by its spawn's `subagent_type`, with its own span, calls, tools-per-turn, gap and tokens; the segments it could not name counted and printed rather than dropped | a case over a built transcript tree with a named segment, an unnamed one and a nested one · the join asserted on the measured stamp rather than assumed · a case that a missing `subagents/` directory prints a reading rather than raising · executed, with the mutation per new unit | |
+| 5 | `session_cost.py` reports time per agent from the subagent transcripts: one row per segment, named by its spawn's `subagent_type`, with its own span, calls, tools-per-turn, gap and tokens; the segments it could not name counted and printed rather than dropped | a case over a built transcript tree with a named segment, an unnamed one and a nested one · the join asserted on the measured stamp rather than assumed · a case that a missing `subagents/` directory prints a reading rather than raising · executed, with the mutation per new unit | deferred #350 |
 | 6 | `docs/flow.md` — step 2 loses *once #84 exists*, 0.11.0's section ticks its box. The fragments: `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md`. The closing memo | S12 executed · `fold_ledger.py --check` · the release-hygiene case | |
 
 **Status is empty, or the commit that closed the phase.** Re-read the column
 after any rebase.
+
+**Row 5 reads `deferred #350`, which is a third value and satisfies the rule
+rather than bending it.** What the rule refuses is a tick and the word `done`,
+because both can be typed without anything having happened and both assert a
+present state nobody can check. An issue number asserts a past one the same way
+a commit does — somebody can open #350 and read what was moved and why — and
+`deferred #N` is already this repository's word for it, in every round record's
+fix table. The phase was moved out of 0.11.0 by the repository owner on
+2026-09-11; `spec.md` §Scope item 7 carries the same deferral where a reader
+meets the promise.
 
 What a phase discovers while building goes to
 `seal/specs/1789081272-the-writer-of-the-contract-is-not-its-executor/phases/phase-N.md`,
