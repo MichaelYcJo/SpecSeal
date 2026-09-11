@@ -106,12 +106,11 @@ ILLUSTRATIVE_VERSION = "1.2.3"
 RECORDS_OF_A_MOMENT = (
     "docs/one-root-by-lifetime.md",
     "docs/one-root-by-lifetime.ko.md",
-    "docs/flow.md",
     # A trailing slash is a PREFIX, not a path. `docs/experiments/` holds
     # dated records of what was measured on a particular day, on a particular
     # build of a particular tool — the file name carries the date. Rewriting
     # the version an experiment ran against would falsify the record, which is
-    # the same argument the three exact paths above already carry, applied to
+    # the same argument the two exact paths above already carry, applied to
     # a directory whose every future file has it too. That is what makes a
     # prefix defensible here where `docs/issues-and-milestones.md` — a
     # standing document edited every release — is not (#179).
@@ -480,9 +479,8 @@ def test_no_loaded_file_names_a_version_at_or_above_the_running_one():
     - `RECORDS_OF_A_MOMENT` — files whose whole job is to name a moment.
       `seal/specs/` and `CHANGELOG.md` are outside the scanned set entirely.
       `docs/one-root-by-lifetime.md` is the 0.4.0 design and says so in every
-      other paragraph, `docs/flow.md` is a list headed by the version it
-      tracks, and `docs/experiments/` holds dated measurements whose numbers
-      are the reading.
+      other paragraph, and `docs/experiments/` holds dated measurements whose
+      numbers are the reading.
     - `ILLUSTRATIVE_VERSION` — the value the repository already tells authors
       to write, with its own case above asserting it is not a real one.
     - `VERSIONS_OF_ANOTHER_PRODUCT` — a number that belongs to somebody
@@ -571,7 +569,9 @@ def test_a_record_of_a_moment_keeps_every_version_it_names():
     """Both shapes of entry: an exact path, and `docs/experiments/` as a
     prefix covering every dated record written under it, now and later."""
     text = "measured on 2.1.259, which is above anything this plugin ships"
-    assert timers_in("docs/flow.md", text, RUNNING_IN_THE_FIXTURES) == []
+    assert (
+        timers_in("docs/one-root-by-lifetime.md", text, RUNNING_IN_THE_FIXTURES) == []
+    )
     assert (
         timers_in(
             "docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.md",
