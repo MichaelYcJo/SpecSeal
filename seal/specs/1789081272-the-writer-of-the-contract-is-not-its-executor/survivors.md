@@ -129,3 +129,46 @@ the two past-work-item records below it are exempted. Every row here is kept
 whether or not the run at hand reports it, for the reason phase 2's row gives:
 an exemption matching no candidate silences nothing, and deleting one would
 leave this record naming a survivor with nothing behind it.
+
+## Round 1 fix pass — the deferral written on the acceptance row
+
+`survivor-check --range 1d1b6e9..029e4fe` examines 851 files against the
+thirty-one sentences the range removed and reports two places, both the same
+line of `plan.md` and both from the same correction.
+
+Finding 8 struck through `spec.md`'s S10 acceptance row, which was the only
+place of eight where the #350 deferral was not written. That put S10's whole
+scenario on the removed side, and `plan.md` row 5 — phase 5's `Delivers`
+cell — says the same thing in almost the same words, because the acceptance
+row and the phase row were written from each other.
+
+**The phase row is not a survivor, because the deferral is on it.** Its
+`Status` cell reads `deferred #350`, which round 1 examined as its own
+finding and withdrew: an issue number asserts a past state somebody can open,
+exactly as a commit hash does. A reader meeting the promise in the `Delivers`
+cell meets the deferral in the same row, which is the state finding 8 was
+asking for and not the state it was correcting.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `seal/specs/1789081272-the-writer-of-the-contract-is-not-its-executor/plan.md` | "one row per segment, named by its spawn's `subagent_type`, with its own span" | **A plan row that states what its phase was going to build, with the deferral in its own `Status` cell.** Striking it through would contradict round 1's withdrawal of finding 13, which read `deferred #350` as the correct treatment for this row. What finding 8 corrected was an acceptance row carrying NO marker anywhere on it; this row carries one in the column that exists for it |
+| `seal/specs/1789081272-the-writer-of-the-contract-is-not-its-executor/plan.md` | "the segments it could not name counted and printed rather than dropped" | **The same cell and the same grounds**, reported a second time because the correction removed two separate sentences of S10's scenario and both have a counterpart here. A plan states what its phases were going to build; rewriting it to match the deferral makes it a record of nothing, which is the reading phase 4's rows already give a past work item's plan |
+
+**What would make these exemptions stop holding.** The quote is the anchor in
+each, and the `Status` cell is the condition. If phase 5's row ever loses
+`deferred #350` — if the deferral is taken back, or the row is edited to read
+as live again — the `Delivers` cell is a promise with nothing beside it and
+the report is a finding rather than a coincidence of two documents written
+from each other.
+
+Anchored on this range as well as on these quotes, the same way every row
+above is.
+
+**Over the range CI reads the two reports are gone, and the rows are kept
+anyway.** `survivor-check --range origin/release/v0.11.0...HEAD` examines 851
+files against 144 removed sentences and reports two places, both of them
+phase 4's already-exempted changelog pair. The wider range counts S10's
+scenario differently, so the pairing that scored 2.00 and 1.69 over the fix
+range does not survive the recount. The rows stay for the reason phase 2's
+row gives: an exemption matching no candidate silences nothing, and deleting
+one would leave this record naming a survivor with nothing behind it.
