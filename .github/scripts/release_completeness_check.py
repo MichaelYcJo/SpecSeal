@@ -45,8 +45,11 @@ reporting:
 It writes nothing anywhere. Exit 0 or 1, and a shape it cannot judge exits 0
 with the reason printed.
 
-Environment: `REPO`, `HEAD_BRANCH` (`github.head_ref`), and `BASE` for the
-ref the range is measured from (default `origin/main`).
+Environment: `REPO`, `HEAD_BRANCH` (`github.head_ref`), `BASE` for the ref
+the range is measured from (default `origin/main`), and `HEAD_SHA` for the
+commit it is measured TO (default `HEAD`). `HEAD_SHA` is the one entry whose
+absence is silent rather than loud, and `merge_base` below carries what
+falling back to `HEAD` costs on a `pull_request` event.
 """
 
 import importlib.util
