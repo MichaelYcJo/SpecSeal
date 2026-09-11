@@ -5,7 +5,7 @@
 | Target SHA | 64d830b |
 | Ran by | specseal:warden on Opus 5 |
 | PR | #360 |
-| Broad gate | not yet |
+| Broad gate | f689a1b against origin/release/v0.11.1 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
