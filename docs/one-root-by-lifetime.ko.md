@@ -106,6 +106,7 @@ GitHub 의 것인 것과 같습니다. 기본 모드에서는 커밋합니다. �
 ├── CHANGELOG.md                   그대로
 └── .git/                          커밋하지 않는다
     ├── seal/                      local 모드에서만. 위의 루트 전체가 <repo>/seal/ 대신 여기 산다
+    ├── specseal-planner          framer 표시(mark. framer 에이전트를 띄우면 남는 파일). 세션 상태
     ├── specseal-implementer       smith 표시(mark. smith 에이전트를 띄우면 남는 파일). 세션 상태, 그대로
     └── specseal-worktree-choice/  워크트리 질문의 답. 세션 상태, 그대로
 ```

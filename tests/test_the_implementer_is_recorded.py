@@ -1,10 +1,18 @@
-"""Who implemented the work is declared, marked when it happens, and noticed.
+"""Who framed and who implemented is declared, marked when it happens, noticed.
 
-The routing declaration answers three axes and only two of them were ever
-looked at again. `Implementation` says who writes the code — the `smith`
-subagent, or the session itself — and a session can declare `smith` and then
-implement the whole work item on its own with nobody the wiser. Issue #26
-records that nothing watched the axis, and why that was left so.
+The routing declaration answers four axes and only two of them decide anything.
+`Implementation` says who writes the code — the `smith` subagent, or the
+session itself — and a session can declare `smith` and then implement the whole
+work item on its own with nobody the wiser. Issue #26 records that nothing
+watched the axis, and why that was left so.
+
+`Planning` is the same gap one storey up: a session can declare `framer` and
+draw the frame itself. #84's `questions.md` Q1 put the two answers to the
+repository owner with *no mark* as the frame's own default, and the answer on
+2026-09-11 was **a mark**, on the grounds that the gap is the same gap. Both
+marks live in one module and one hook reads both, because two files whose
+`git_dir`, `write` and `stands` differ by a constant is the near-identical
+copy contract §11 and §16 each record having already been paid for.
 
 Three parts, and each is a different failure if it goes missing:
 
@@ -41,6 +49,11 @@ implementer = load_hook_module("implementer.py", "specseal_implementer")
 
 CHAIN = "through the review chain"
 NOTICE = "answers `Implementation` with `smith`"
+PLANNING_NOTICE = "answers `Planning` with `framer`"
+BOTH = "`Planning` with `framer` and `Implementation` with `smith`"
+# The sentence every notice ends with, whichever axes it names. Counting it is
+# how S14 tells one line naming two axes from two lines naming one each.
+ONCE = "Nothing was blocked, and this is said once per session."
 ITEM = "1788137177-a-work-item"
 
 
@@ -78,20 +91,24 @@ def git_dir(repo):
     ).stdout.strip()
 
 
-def mark_path(repo):
-    return os.path.join(git_dir(repo), implementer.MARK)
+def mark_path(repo, mark):
+    """Where one axis's mark lives. The axis is named at every call site, so a
+    case cannot assert about the implementation mark while meaning the other."""
+    return os.path.join(git_dir(repo), mark)
 
 
-def declare(repo, implementation="smith", item=ITEM):
-    """A declaration for this repo's branch; `implementation=None` omits the row."""
+def declare(repo, implementation="smith", item=ITEM, planning=None):
+    """A declaration for this repo's branch; a `None` answer omits its row."""
     d = repo / "seal" / "specs" / item
     d.mkdir(parents=True, exist_ok=True)
     third = f"| Implementation | {implementation} |\n" if implementation else ""
+    fourth = f"| Planning | {planning} |\n" if planning else ""
     (d / "routing.md").write_text(
         f"# {item} -- routing\n\n"
         "| Axis | Answer |\n|---|---|\n"
         f"| Review | {CHAIN} |\n"
         "| Destination | open the pull request |\n"
+        f"{fourth}"
         f"{third}"
         f"| Branch | {branch_of(repo)} |\n",
         encoding="utf-8",
@@ -123,26 +140,56 @@ def bash(repo, cmd="git commit -m x", session="s1"):
 def test_spawning_smith_leaves_a_mark(repo):
     """S1, through the group the harness actually runs, not the gate alone."""
     opt_in(repo)
-    assert not os.path.exists(mark_path(repo))
+    assert not os.path.exists(mark_path(repo, implementer.IMPLEMENTATION_MARK))
     assert run_dispatch("pre-agent", spawn(repo)).strip() == "", (
         "the mark gate must decide nothing; output here would be a fourth prompt"
     )
-    assert os.path.isfile(mark_path(repo))
-    assert implementer.stands(str(repo), branch_of(repo))
+    assert os.path.isfile(mark_path(repo, implementer.IMPLEMENTATION_MARK))
+    assert implementer.stands(
+        str(repo), branch_of(repo), implementer.IMPLEMENTATION_MARK
+    )
+
+
+def test_spawning_the_framer_leaves_the_planning_mark(repo):
+    """S13. The second axis arrives on the first's mechanism: same gate, same
+    group, same silence, a different file under the git dir."""
+    opt_in(repo)
+    assert run_dispatch("pre-agent", spawn(repo, agent="specseal:framer")).strip() == ""
+    assert os.path.isfile(mark_path(repo, implementer.PLANNING_MARK))
+    assert implementer.stands(str(repo), branch_of(repo), implementer.PLANNING_MARK)
+
+
+def test_a_mark_for_one_axis_does_not_answer_for_the_other(repo):
+    """S13's other half, and the shape `stands`'s branch scoping already has.
+
+    Two axes share one directory, so the axis is part of the address exactly as
+    the branch is. A `smith` spawned on this branch answering for a `framer`
+    that never ran is the false silence the module refuses — and it is the
+    likelier direction, because `smith` is spawned on nearly every work item.
+    """
+    opt_in(repo)
+    run_dispatch("pre-agent", spawn(repo))
+    branch = branch_of(repo)
+    assert implementer.stands(str(repo), branch, implementer.IMPLEMENTATION_MARK)
+    assert not implementer.stands(str(repo), branch, implementer.PLANNING_MARK)
+    assert not os.path.exists(mark_path(repo, implementer.PLANNING_MARK))
 
 
 def test_spawning_any_other_agent_leaves_none(repo):
-    """S2. `smith-helper` is in the list because a substring test would read
-    it as the agent itself."""
+    """S2. `smith-helper` and `framer-helper` are in the list because a
+    substring test would read either as the agent itself."""
     opt_in(repo)
     for agent in (
         "specseal:warden",
         "specseal:scribe",
+        "specseal:sealer",
         "general-purpose",
         "smith-helper",
+        "framer-helper",
     ):
         run_dispatch("pre-agent", spawn(repo, agent=agent))
-        assert not os.path.exists(mark_path(repo)), agent
+        for mark in (implementer.IMPLEMENTATION_MARK, implementer.PLANNING_MARK):
+            assert not os.path.exists(mark_path(repo, mark)), f"{agent} -> {mark}"
 
 
 def test_the_project_local_spelling_of_the_agent_counts_too(repo):
@@ -151,14 +198,18 @@ def test_the_project_local_spelling_of_the_agent_counts_too(repo):
     firing forever in a repository that defines its own."""
     opt_in(repo)
     run_dispatch("pre-agent", spawn(repo, agent="smith"))
-    assert os.path.isfile(mark_path(repo))
+    assert os.path.isfile(mark_path(repo, implementer.IMPLEMENTATION_MARK))
+    run_dispatch("pre-agent", spawn(repo, agent="framer"))
+    assert os.path.isfile(mark_path(repo, implementer.PLANNING_MARK))
 
 
 def test_a_repository_that_never_opted_in_gets_no_files_written(repo):
     """S4. A globally installed plugin must not write into repositories that
     never asked for the workflow."""
-    run_dispatch("pre-agent", spawn(repo))
-    assert not os.path.exists(mark_path(repo))
+    for agent in ("specseal:smith", "specseal:framer"):
+        run_dispatch("pre-agent", spawn(repo, agent=agent))
+    for mark in (implementer.IMPLEMENTATION_MARK, implementer.PLANNING_MARK):
+        assert not os.path.exists(mark_path(repo, mark)), mark
 
 
 def test_the_mark_does_not_answer_for_another_branch(repo):
@@ -166,8 +217,10 @@ def test_the_mark_does_not_answer_for_another_branch(repo):
     every work item in that repository, forever."""
     opt_in(repo)
     run_dispatch("pre-agent", spawn(repo))
-    assert implementer.stands(str(repo), branch_of(repo))
-    assert not implementer.stands(str(repo), "feature/somewhere-else")
+    run_dispatch("pre-agent", spawn(repo, agent="specseal:framer"))
+    for mark in (implementer.IMPLEMENTATION_MARK, implementer.PLANNING_MARK):
+        assert implementer.stands(str(repo), branch_of(repo), mark), mark
+        assert not implementer.stands(str(repo), "feature/somewhere-else", mark), mark
 
 
 def test_a_broken_mark_gate_leaves_the_worktree_guards_verdict_alone(repo, tmp_path):
@@ -192,7 +245,9 @@ def test_a_broken_mark_gate_leaves_the_worktree_guards_verdict_alone(repo, tmp_p
 
     intact = run_dispatch("pre-agent", isolated, hooks=str(hooks))
     assert fired(intact), "the guard did not fire, so there is nothing to protect"
-    assert os.path.isfile(mark_path(repo)), "Q2: written before the group decides"
+    assert os.path.isfile(mark_path(repo, implementer.IMPLEMENTATION_MARK)), (
+        "Q2: written before the group decides"
+    )
 
     for n, broken in enumerate(("def broken(:\n", None)):
         if broken is None:
@@ -273,6 +328,71 @@ def test_a_command_that_does_not_commit_says_nothing(repo):
     declare(repo, implementation="smith")
     for cmd in ("ls -la", "echo 'remember to git commit'", "git status"):
         assert NOTICE not in run_dispatch("post-bash", bash(repo, cmd=cmd)), cmd
+
+
+def test_a_declared_framer_with_no_mark_is_noticed_after_a_commit(repo):
+    """S13. The fourth axis earns the same one line the third does."""
+    opt_in(repo)
+    declare(repo, implementation=None, planning="framer")
+    out = run_dispatch("post-bash", bash(repo))
+    assert PLANNING_NOTICE in out, out
+    assert ITEM in out, "the notice does not say which file"
+    assert NOTICE not in out, "the notice named an axis the declaration did not answer"
+
+
+def test_with_the_planning_mark_present_nothing_is_said(repo):
+    """S13. Spawning the framer is the whole of what the row asked for."""
+    opt_in(repo)
+    declare(repo, implementation=None, planning="framer")
+    run_dispatch("pre-agent", spawn(repo, agent="specseal:framer"))
+    assert PLANNING_NOTICE not in run_dispatch("post-bash", bash(repo))
+
+
+def test_a_mark_for_one_axis_does_not_silence_the_other_at_the_notice(repo):
+    """S13. The cross-axis case at the reader rather than at `stands`.
+
+    Both rows answered and only `smith` spawned: the framer never ran, and the
+    line has to say so. A notice that read one mark for both axes would go
+    quiet here, which is the state this whole mechanism exists to report.
+    """
+    opt_in(repo)
+    declare(repo, implementation="smith", planning="framer")
+    run_dispatch("pre-agent", spawn(repo))
+    out = run_dispatch("post-bash", bash(repo))
+    assert PLANNING_NOTICE in out, out
+    assert NOTICE not in out, "the fulfilled axis was named as unfulfilled"
+
+
+def test_two_unfulfilled_axes_produce_one_line_not_two(repo):
+    """S14. The grain is once per repository per session, and two lines in one
+    session is that grain broken in the commonest state of all — a declaration
+    copied from the template and answered on both optional rows, by a session
+    that then framed and built the work itself."""
+    opt_in(repo)
+    declare(repo, implementation="smith", planning="framer")
+    out = run_dispatch("post-bash", bash(repo))
+    assert out.count(ONCE) == 1, (
+        f"two unfulfilled axes produced {out.count(ONCE)} notices:\n{out}"
+    )
+    assert BOTH in out, (
+        f"one line was printed and it names only one of the two axes:\n{out}"
+    )
+    assert "neither was spawned" in out, (
+        "the line names two axes and then says `no smith was spawned`, which "
+        "reads as one of them"
+    )
+
+
+def test_the_fourth_axis_other_answers_are_not_a_defect(repo):
+    """S13's silences. `the session` framed it, which is what the row said; an
+    absent row is every declaration written before the axis existed; and an
+    unreadable one is unanswered, which is not a finding."""
+    opt_in(repo)
+    for answer in ("the session", None, "whoever gets to it", "`framer`"):
+        declare(repo, implementation=None, planning=answer)
+        out = run_dispatch("post-bash", bash(repo, session=f"s-{answer}"))
+        assert PLANNING_NOTICE not in out, answer
+        assert ONCE not in out, answer
 
 
 def test_an_unrelated_repository_is_not_reminded(repo):

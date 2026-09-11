@@ -108,6 +108,7 @@ round records must reach CI and other clones.
 ├── CHANGELOG.md                   unchanged
 └── .git/                          never committed
     ├── seal/                      local mode only: the whole root above lives here instead of <repo>/seal/
+    ├── specseal-planner          the framer mark (the file a spawned framer agent leaves behind). Session state
     ├── specseal-implementer       the smith mark (the file a spawned smith agent leaves behind). Session state, unchanged
     └── specseal-worktree-choice/  the worktree question's record. Session state, unchanged
 ```
