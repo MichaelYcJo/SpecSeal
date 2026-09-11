@@ -248,6 +248,16 @@ request bodies, and closes what their keywords name. The answer was always
 written down — by the session that knew which issue it was answering — and
 nothing acted on it.
 
+**A second workflow reads the same keywords earlier, and writes no close.**
+`.github/workflows/label-merged-on-release-branch.yml` runs on a push to
+`release/*` and puts `merged: X.Y.Z` on the issues those same bodies name, so
+that a ticket already in the release stops looking like one nobody has
+started (#359). It is the answer to *is this in yet*, which the paragraph
+above leaves open for the length of a release; the answer to *is this done*
+is still the close, still when `main` moves.
+`docs/issues-and-milestones.md` owns both mechanisms and the reason the two
+moments are different.
+
 Collecting the numbers into the release pull request's own body works too, and
 it is a step somebody has to remember. Three releases show what remembering is
 worth. The workflow is the same act with nobody to forget it, and it needs no
