@@ -7,12 +7,12 @@
 | PR | #352 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — findings 2, 3 and 4, all three in `tests/`. Findings 1 and 5 through 10 are corrections owed at the closing commit rather than a fix pass, and finding 1 is the one that must land before the pull request is read, because the `ledger` job is red without it. |
 | Loses a record or crashes | no — nothing found leaves the root or crashes. Finding 1 fails a CI job; it does not lose or corrupt anything. |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -28,21 +28,21 @@ The ledger check was named in the UNSCOPED form, with the reason: three rounds o
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | `bin/evidence-check` exits 2 at this SHA on seven `NOT-IN-TREE` refusals, and `test.yml`'s `ledger` job fails on any exit ≥ 2. Base exits 0 | `seal/specs/1789081272-the-writer-of-the-contract-is-not-its-executor/survivors.md:11`; `phases/phase-2.md:77`, `:133`, `:166`; `phases/phase-4.md:35`, `:36`, `:82` | open | Executed at base and at HEAD, exit codes read directly. Marking the seven lines in the clone took the run to exit 1 / `0 refused`, which CI renders as a warning. A record location, so a correction per `docs/review-chain-spec.md:155` — but the CI failure is live |
-| 2 | `test_a_person_answerable_row_reaches_the_report_in_full` cannot fail: inverting the rule it exists for leaves it green | `tests/test_a_question_says_who_can_answer_it.py:121` | open | Executed. `agents/framer.md:223` inverted to its opposite, module run: 6 passed. Each of the four assertions is satisfied by text the inversion did not touch |
-| 3 | `test_the_report_does_not_reduce_the_frame_to_counts` pins the phases half and not the out-of-scope half | `tests/test_a_question_says_who_can_answer_it.py:150` | open | Executed. `agents/framer.md:217` changed to a count, `-k` run: 1 passed, 5 deselected. `"out of scope"` is a heading fragment that survives the change |
-| 4 | `BESIDE_THE_ROOT` does not carry `specseal-planner`, so the case its comment describes builds five of six | `tests/test_the_records_can_be_carried_out_and_in.py:55` | open | Executed. Adding the entry gives 96 passed, so the exclusion is structural and the list is merely stale. Two sibling enumerations were swept on this branch and this one was not |
-| 5 | The new follow-up row sits outside its table and renders as literal text | `seal/follow-up.md:65-66` | open | Read, then checked against `tests/test_a_rider_reaches_its_file.py:52`: the parser still sees it, so no check is bypassed; only a human reader loses it |
-| 6 | Five ledger rows were re-hashed with `Checked` left stale; two contradict their own `Notes` | `seal/ledger.md:275`, `:276`, `:277`, `:283`, `:284` | open | Executed against the diff: ten rows re-hashed, five moved 2026-09-10 → 2026-09-11, these five did not. `:275` and `:283` say **Re-read 2026-09-11** beside `Checked` cells of 2026-09-08 and 2026-09-02 |
-| 7 | `the other two ship answered` is now a miscount, in the paragraph the new `Planning` comment redirects readers to | `templates/sdd-routing.md:59` | open | Read. Three other axes now, and `Planning` also ships as a placeholder |
-| 8 | S10's acceptance row is the only place the #350 deferral is not written | `spec.md:87` | open | Read against seven places that do record it |
-| 9 | The `specseal-planner` tree-diagram line is one column out in both editions | `docs/one-root-by-lifetime.md:111`, `docs/one-root-by-lifetime.ko.md:109` | open | Read |
-| 10 | `plan.md`'s third `Status` value is argued only inside this work item; `templates/sdd-plan.md` still states two, and no follow-up row carries it | `plan.md:96-104`, `templates/sdd-plan.md:93` | open | Read. The argument is sound; it has no home the next work item reads |
+| 1 | `bin/evidence-check` exits 2 at this SHA on seven `NOT-IN-TREE` refusals, and `test.yml`'s `ledger` job fails on any exit ≥ 2. Base exits 0 | `seal/specs/1789081272-the-writer-of-the-contract-is-not-its-executor/survivors.md:11`; `phases/phase-2.md:77`, `:133`, `:166`; `phases/phase-4.md:35`, `:36`, `:82` | **fixed** `2a8fd44` | fixed at 2a8fd44; Executed at base and at HEAD, exit codes read directly. Marking the seven lines in the clone took the run to exit 1 / `0 refused`, which CI renders as a warning. A record location, so a correction per `docs/review-chain-spec.md:155` — but the CI failure is live |
+| 2 | `test_a_person_answerable_row_reaches_the_report_in_full` cannot fail: inverting the rule it exists for leaves it green | `tests/test_a_question_says_who_can_answer_it.py:121` | **fixed** `7ae60be` | fixed at 7ae60be; Executed. `agents/framer.md:223` inverted to its opposite, module run: 6 passed. Each of the four assertions is satisfied by text the inversion did not touch |
+| 3 | `test_the_report_does_not_reduce_the_frame_to_counts` pins the phases half and not the out-of-scope half | `tests/test_a_question_says_who_can_answer_it.py:150` | **fixed** `7ae60be` | fixed at 7ae60be; Executed. `agents/framer.md:217` changed to a count, `-k` run: 1 passed, 5 deselected. `"out of scope"` is a heading fragment that survives the change |
+| 4 | `BESIDE_THE_ROOT` does not carry `specseal-planner`, so the case its comment describes builds five of six | `tests/test_the_records_can_be_carried_out_and_in.py:55` | **fixed** `7ae60be` | fixed at 7ae60be; Executed. Adding the entry gives 96 passed, so the exclusion is structural and the list is merely stale. Two sibling enumerations were swept on this branch and this one was not |
+| 5 | The new follow-up row sits outside its table and renders as literal text | `seal/follow-up.md:65-66` | answered | corrected at 029e4fe |
+| 6 | Five ledger rows were re-hashed with `Checked` left stale; two contradict their own `Notes` | `seal/ledger.md:275`, `:276`, `:277`, `:283`, `:284` | answered | corrected at 029e4fe |
+| 7 | `the other two ship answered` is now a miscount, in the paragraph the new `Planning` comment redirects readers to | `templates/sdd-routing.md:59` | answered | corrected at 029e4fe |
+| 8 | S10's acceptance row is the only place the #350 deferral is not written | `spec.md:87` | answered | corrected at 029e4fe |
+| 9 | The `specseal-planner` tree-diagram line is one column out in both editions | `docs/one-root-by-lifetime.md:111`, `docs/one-root-by-lifetime.ko.md:109` | answered | corrected at 029e4fe |
+| 10 | `plan.md`'s third `Status` value is argued only inside this work item; `templates/sdd-plan.md` still states two, and no follow-up row carries it | `plan.md:96-104`, `templates/sdd-plan.md:93` | deferred seal/follow-up.md | seal/follow-up.md |
 | 11 | Named item 1 — the ledger row re-pointed rather than removed | `seal/ledger.md:275`, `CONTRIBUTING.md:105-119` | withdrawn | `CONTRIBUTING.md:116` names the rename case and sanctions `--reverify` re-anchoring. Phase 4b took the branch the rule assigns |
 | 12 | Named item 2 — three constants where `spec.md` names four | `hooks/routing.py:61-66` | withdrawn | The fourth was an alias; `PLANNING_ANSWERS` says the thing by using `BY_SESSION`. Recorded as a divergence |
 | 13 | Named item 3 — `deferred #350` as a `Status` value | `plan.md:90` | withdrawn | Satisfies the rule's stated reason; see finding 10 for the part still owed |
 | 14 | Named item 4 — `fold_ledger.py --check` exit 1 on this branch | `plan.md` row 6, `.github/workflows/hygiene.yml:115` | withdrawn | Reproduced; the hygiene steps gate on `base_ref == main` and exit 0 early otherwise |
-| 15 | The broad gate — full suite, repository-wide lint, typecheck | `seal/config.md` `Broad gate` row | ❓ out of verified scope | Contract §2 makes it one act with one owner and `agents/sealer.md` is the owner. Not run. Answerer: the orchestrator, through the sealer spawn |
+| 15 | The broad gate — full suite, repository-wide lint, typecheck | `seal/config.md` `Broad gate` row | answered | contract §2 makes it one act with one owner and `agents/sealer.md` is that owner; the orchestrator spawns the sealer once this round settles, and the `Broad gate` cell is where the answer lands |
 
 ## Paste-ready fixes
 
