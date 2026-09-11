@@ -118,6 +118,14 @@ construction: §Scope item 7 and the README gap paragraph both survive as
 struck-through or answered text in place, which is the shape that leaves
 nothing to strand.
 
+**Over the phase's whole range the reading is the same and the count is not.**
+`survivor-check --range efed273..68b9877` — the range including this record's
+own commit — examines 850 files against **twelve** removed sentences and still
+reports nothing standing. The nine extra come from this record and the memo,
+which reword what the earlier commits left; both readings are recorded because
+a reviewer re-running the check will get the wider one, and a record naming
+only the narrower count reads as a different result rather than the same one.
+
 ## What this phase removes
 
 | Removed item | Where it must land |
