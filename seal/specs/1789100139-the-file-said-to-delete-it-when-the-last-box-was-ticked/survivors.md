@@ -40,3 +40,23 @@ against the exempted output. Round 1 found it (finding 5).
 | Range | Grounds |
 |---|---|
 | `origin/release/v0.11.1...HEAD` | The range deletes `docs/flow.md`, a 120-line shipped checklist whose every row described a ticket, a release's order, or a rule owned elsewhere. Its sentences stand in the durable copies a deletion is supposed to leave behind — the tickets, `CHANGELOG.md`, and the records under `seal/specs/` — which is the case §*A deletion is one row* names. All 32 reported places were opened; the three outside the records are listed above and each states the fact where it belongs |
+
+## Round 1's fix range — five per-survivor rows
+
+`bfe8cdb..62c22ca` reported five places, which is few enough for a row each.
+The range row above does not reach them: its spec resolves to a different
+range, so it excuses nothing here, and the check said so with exit 1.
+
+**Two of the five are the class contract §12 warns about, and both were
+opened.** One is a second file making the same heading claim finding 2
+corrected; one is a second case asserting `parsed["planning"] is None`. Both
+are true where they stand, for reasons that are not the same reason, and each
+is written out below rather than summarised.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `skills/code-review/orchestration.md` | `The headings keep the` `Orchestrator:` `prefix they were written with` | **The twin of finding 2, and it is true here.** #265 moved five sections into this file and every one of them was already prefixed; none gained the prefix and none changed name, which is what was false of the section #351 added to `skills/implement/orchestration.md`. The wording differs in the load-bearing word too — *written with* covers a section authored in place with the prefix, where *marked with* claimed a marking that predated the move. Correcting this sentence would make a true statement vaguer in order to match a file whose defect it does not share |
+| `tests/test_waiver_decided_at_start.py` | `assert parsed["planning"] is None` | **A second case asserts the same expression and its premise is sound.** It reads `templates/sdd-routing.md`, not the committed declarations: the claim is that the shipped placeholder `\| Planning \| <framer, or: the session> \|` must parse as unanswered, so copy-and-never-revisit lands on *not answered* rather than on a wrong record. A template is not a declaration somebody answered, so no legal answer can ever make this fire. Executed 2026-09-11: 17 passed, exit 0 |
+| `seal/specs/1789100139-the-file-said-to-delete-it-when-the-last-box-was-ticked/phases/phase-4.md` | `the exemption count R1 states is three MECHANISMS rather than four entries` | The sentence attributes the mechanism count to **R1**, which is where it is correct and where it still stands after finding 6 moved it off R3. A build phase record states what that phase found on the day it ran; this one found the right thing |
+| `seal/specs/1789100139-the-file-said-to-delete-it-when-the-last-box-was-ticked/changelog.md` | `seven offending lines remained and all seven were in the file being deleted` | The measurement is stated in the release note and in R1's ledger note on purpose — one is what ships to a reader, the other is the row a checker anchors. Two audiences, one fact, and neither is a restatement of the other's rule |
+| `hooks/routing.py` | `as f:` | Incidental idiom, not a shared claim. The overlap the check scored is `with open(path, encoding="utf-8") as f:` followed by a `routing.parse` call — the shape of every reader of a declaration in this repository. There is no sentence here to correct |
