@@ -7,9 +7,9 @@ description: |
   unsatisfied — no score, since any single miss is the whole answer.
   Use when: about to build something non-trivial against an unfamiliar
   library, a suspected duplicate, or a bug whose cause is still a hypothesis.
-  NOT for: firing on your own while the smith is driving — its design gate
-  invokes this when readiness is the open question. Not for typo, config, or
-  one-line changes.
+  NOT for: firing on your own while the framer is driving — it calls this
+  from inside the frame when readiness is the open question. Not for typo,
+  config, or one-line changes.
 ---
 
 # confidence-check — is the ground under this actually known?

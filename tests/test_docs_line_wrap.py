@@ -52,11 +52,14 @@ COVERED = [
     "SECURITY.md",
     "agents/warden.md",
     # Wrapped from its first line, so it goes in at birth rather than waiting
-    # for the sweep that would otherwise be needed to bring it under. It is
-    # also the one `agents/*.md` file with no sweep behind it: `smith.md` and
-    # `scribe.md` sit at 148 and 160, which is why the docstring lists them
-    # instead of this list holding them.
+    # for the sweep that would otherwise be needed to bring it under. It was
+    # the first `agents/*.md` file to arrive that way; `framer.md` below is
+    # the second, and `smith.md` and `scribe.md` sit at 148 and 160, which is
+    # why the docstring lists those two instead of this list holding them.
     "agents/sealer.md",
+    # The fifth definition (#84), on the sealer's terms exactly: a file
+    # written wrapped has no sweep to owe, so it goes in at birth.
+    "agents/framer.md",
     "skills/code-review/SKILL.md",
     # The orchestrator's half of the same file (#265). It arrives
     # already wrapped, because it was wrapped as part of the file it

@@ -507,6 +507,25 @@ def test_the_flow_opens_the_draft_between_the_build_and_the_rounds():
     assert step.index("the draft pull request opens") < step.index("warden rounds")
 
 
+def test_the_flow_no_longer_defers_the_framer_to_a_ticket():
+    """The other half of S11 of #84. Step 2 read `spec · plan (framer, once
+    #84 exists; the session until then)` -- a step written before the agent
+    it names, carrying its own escape clause for the interval.
+
+    The interval closed when `agents/framer.md` landed, and a clause saying
+    the session frames the work `until then` is now an instruction to do the
+    thing this work item exists to stop. It reads as current, because nothing
+    in the sentence says which side of the arrival a reader is on."""
+    step = flat(*FLOW)
+    step = step[step.index("2. spec · plan") : step.index("3. The pull request body")]
+    assert "framer" in step, "step 2 stopped naming who draws the frame"
+    for gone in ("once #84 exists", "the session until then"):
+        assert gone not in step, (
+            f"step 2 still carries `{gone}`. The framer ships, so the interval "
+            "that clause covered is over and the escape reads as the rule"
+        )
+
+
 # carrier → the sentence that names the generator where the orchestrator's
 # hand used to be named.
 GENERATOR_NAMED = {

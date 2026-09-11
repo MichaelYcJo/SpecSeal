@@ -158,6 +158,12 @@ SEAL_SWEPT = (
     ("agents", "sealer.md"),
     ("agents", "warden.md"),
     ("agents", "smith.md"),
+    # The fifth definition (#84). It instructs somebody, which is the whole
+    # membership test for this list, and it lands in a release that puts a
+    # new agent name beside four others, two of which own a seal of their
+    # own. A definition joining the tree with no entry here is round 1's
+    # 🟡 10 again: the list closed where somebody had already looked.
+    ("agents", "framer.md"),
     ("skills", "verify", "SKILL.md"),
     ("skills", "code-review", "orchestration.md"),
     ("skills", "code-review", "SKILL.md"),

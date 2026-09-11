@@ -1448,22 +1448,27 @@ Reminder-only (PostToolUse cannot block). Same `seal/` opt-in as the gate.
 
 ## implementer-mark · implementer-notice (PreToolUse Agent|Task · PostToolUse Bash)
 
-The routing declaration's third axis, `Implementation`, names who builds the
-work item — `smith` or `the session` — and until these two existed the answer
-was written down and read by nothing. Two hooks, sharing one address module
-(`hooks/implementer.py`), so the writer and the reader cannot spell the path
-two ways:
+The routing declaration has two axes that name an agent — `Planning`, who
+draws the frame, and `Implementation`, who builds the work item — each
+answered by that agent's name or by `the session`, and until these two hooks
+existed the answers were written down and read by nothing. Two hooks, sharing
+one address module (`hooks/implementer.py`), so the writer and the reader
+cannot spell the path two ways — and one module for both axes, because a
+second one beside it would differ by a constant:
 
 | | Fires | Does | Prompt budget |
 |---|---|---|---|
-| `implementer-mark` (`pre-agent`) | an Agent/Task spawn whose `subagent_type` is `smith` | writes the checked-out branch name to `<git-dir>/specseal-implementer`. Prints nothing | zero — it cannot deny or ask |
-| `implementer-notice` (`post-bash`) | a command that actually invokes `git commit` | where the declaration for this branch answers `smith` and no mark stands for this branch, prints one line naming the file; silent when the mark stands, when the row is absent or outside its vocabulary, or when it answers `the session` | zero — a reminder, once per session per repository, never a decision |
+| `implementer-mark` (`pre-agent`) | an Agent/Task spawn whose `subagent_type` is `framer` or `smith` | writes the checked-out branch name to `<git-dir>/specseal-planner` or `<git-dir>/specseal-implementer`, one per axis. Prints nothing | zero — it cannot deny or ask |
+| `implementer-notice` (`post-bash`) | a command that actually invokes `git commit` | where the declaration for this branch names an agent on either axis and no mark of that axis stands for this branch, prints one line naming the file — one line naming both axes where both are unfulfilled, never one line each; silent for an axis whose mark stands, whose row is absent or outside its vocabulary, or which answers `the session` | zero — a reminder, once per session per repository, never a decision |
 
-The mark is keyed on the **branch**, not on HEAD as `specseal-reviewed` is: a
-work item commits many times and the implementer does not change when it does.
+A mark is keyed on the **branch**, not on HEAD as `specseal-reviewed` is: a
+work item commits many times and neither the framer nor the implementer
+changes when it does. It is keyed on the **axis** too, because the two marks
+share a directory and `smith` is spawned on nearly every work item — one mark
+answering for both would go silent in exactly the state the notice reports.
 It lives in the git dir and CI never sees it, which is why nothing at the pull
-request reads this axis — `smith` produces no committed artifact a session
-could not also write. Everything fails toward "no mark", which is toward a
+request reads either axis — neither agent produces a committed artifact a
+session could not also write. Everything fails toward "no mark", which is toward a
 reminder: a mark gate that quietly stops running turns the notice on, not off,
 so a dead gate produces a line somebody reads rather than a silence nobody
 does. The commit gate's decision is byte-identical with the row and without it.

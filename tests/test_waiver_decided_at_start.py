@@ -213,6 +213,127 @@ def test_the_template_PARSES_into_the_three_answers_it_ships():
         )
 
 
+def test_the_template_PARSES_into_the_FOURTH_axis_it_ships():
+    """The fourth axis's vocabulary is read out of the template, never retyped.
+
+    `hooks/routing.py`'s `parse()` docstring promises that
+    `templates/sdd-routing.md` is the only spelling a session should copy and
+    that a test parses the file so the two cannot drift. This is that test for
+    the `Planning` row: every constant the parser accepts is substituted into
+    the template's own row and parsed back, so a row labelled `Planner` or a
+    vocabulary that moved in one file only is red here rather than silent in
+    every work item that copies the file.
+
+    Shipped as a placeholder for the reason the third axis is: nothing
+    contradicts a wrong answer in either, so copy-and-never-revisit has to land
+    on "not answered".
+    """
+    import sys
+
+    sys.path.insert(0, os.path.join(ROOT, "hooks"))
+    import routing
+
+    template = read("templates", "sdd-routing.md")
+    parsed = routing.parse(template)
+    assert parsed is not None, "the template no longer parses as a declaration"
+    assert parsed["planning"] is None, (
+        "the template pre-answers the fourth axis, which makes the commonest "
+        "mistake produce a WRONG record instead of no record"
+    )
+    assert "| Planning | <framer, or: the session> |" in template, (
+        "the placeholder TEXT is the half a person reads, and a blank cell or "
+        "`TBD` parses identically while reading as answered"
+    )
+
+    rows = [ln for ln in template.splitlines() if ln.startswith("| Planning |")]
+    assert len(rows) == 1, "the template has no single `Planning` row"
+    for answer in routing.PLANNING_ANSWERS:
+        filled = template.replace(rows[0], f"| Planning | {answer} |")
+        assert routing.parse(filled)["planning"] == answer, (
+            f"the template's row does not accept `{answer}`, so a session "
+            "filling it in as instructed still records nothing"
+        )
+    # The vocabulary is READ OUT of the template and compared, rather than
+    # each constant being looked for inside it. Substituting the constants
+    # into the row above is self-consistent by construction -- rename
+    # `BY_FRAMER` and the substitution renames with it -- so on its own it
+    # cannot see the two files drift apart. This direction can: the answers
+    # the comment offers a person have to BE the answers the parser accepts.
+    import re
+
+    stated = re.search(r"Planning — `([^`]+)` or `([^`]+)`\.", template)
+    assert stated, (
+        "the comment no longer states the fourth axis's two answers, so the "
+        "only thing a person reads is the placeholder"
+    )
+    assert tuple(stated.groups()) == routing.PLANNING_ANSWERS, (
+        f"the template offers {stated.groups()} and the parser accepts "
+        f"{routing.PLANNING_ANSWERS}; a session filling the row in as "
+        "instructed would record nothing"
+    )
+
+    # The row inherits the third axis's terms rather than restating them, so
+    # the comment has to SEND a reader there. Without this the row ships with
+    # no account of why an absent answer is not a defect.
+    tpl = flat(template)
+    assert "on exactly the terms the `Implementation` row" in tpl, (
+        "the fourth axis stopped pointing at the row whose terms it borrows, "
+        "so its own optionality is unexplained"
+    )
+
+
+def test_the_fourth_axis_is_a_record_and_not_a_fourth_checkbox():
+    """#88, cited rather than re-argued: the question grows only where a
+    decision is genuinely a person's, and `agents/framer.md`'s `## When you
+    run` says the SDD ladder decides this one.
+
+    Both halves are asserted, because either alone passes over the state that
+    matters. The row has to be IN the orchestrator's routing section — a fourth
+    axis nobody documents is a template row a session meets with no account of
+    it — and the checkbox table has to stay at three, which is the half a
+    session reading "one question" would break first.
+    """
+    skill = read(*ORCH)
+    rows = [ln for ln in skill.splitlines() if ln.startswith("| Planning |")]
+    assert len(rows) == 1, (
+        f"the routing section has {len(rows)} `Planning` rows; the declaration "
+        "has exactly one"
+    )
+    assert "framer · the session" in rows[0], (
+        "the row lost the vocabulary, so a session reads a fourth axis with no answers"
+    )
+    assert "OPTIONAL" in rows[0], "the row stopped saying an absent answer is fine"
+
+    lines = skill.splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.startswith("| Checkbox |"))
+    boxes = []
+    for line in lines[start + 2 :]:
+        if not line.startswith("|"):
+            break
+        boxes.append(line)
+    assert len(boxes) == 3, (
+        f"the routing question has {len(boxes)} checkboxes. It grows only where "
+        "a decision is genuinely a person's (#88), and the ladder decides this "
+        "one — a fourth box doubles eight combinations to sixteen to ask "
+        "something nobody answers"
+    )
+    assert not any("framer" in b for b in boxes), (
+        "the fourth axis reached the checkbox table, which is the one place "
+        "#88 says it must not be"
+    )
+    assert "#88" in skill, (
+        "the section asserts the rule without citing where it is stated, so a "
+        "reader who disagrees has nothing to open"
+    )
+    # The count in the heading measures the QUESTION, so it stays at three
+    # while the declaration carries four rows. A section that starts saying
+    # `four axes` has moved the fourth into the question.
+    assert "four axes" not in flat(skill), (
+        "the heading counts the axes a person is asked about; four means the "
+        "record became a question"
+    )
+
+
 def test_no_committed_declaration_still_carries_a_template_placeholder():
     """Round 2: nothing reads the third axis, so nothing reports a work item
     that copied the template and never filled the row in.
