@@ -52,7 +52,7 @@ pins the sentence.
 default.** What token `hygiene.yml` gets with no `permissions:` block comes
 from an enterprise, organisation or repository setting nobody here has read,
 and GitHub's own documentation says only that "the permissions for the
-`GITHUB_TOKEN` are initially set to the default setting for the enterprise,
+`GITHUB_TOKEN` are initially set to the default setting for the enterprise, <!-- NAME NOT IN TREE: GitHub's own name for the token a workflow run is given, quoted verbatim from their reference. Nothing in this tree spells it — the workflows here pass `${{ github.token }}` into `GH_TOKEN`, which is what `gh` reads. Paraphrasing the quote to remove the name would make it a claim about GitHub's documentation rather than a reading of it. -->
 organization, or repository" (read, fetched 2026-09-11). So the block is
 stated: `contents: read` and `issues: read`. Every step in that job reads and
 none writes, so the block is **narrower** than any default it could have been
