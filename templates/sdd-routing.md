@@ -56,10 +56,10 @@ this file is for people. -->
      A cheaper delegate is not a reason, and #263 is where answering this row
      by habit was measured against the same class of change done in the
      parent session.
-     This one ships as a PLACEHOLDER while the other two ship answered,
-     and the difference is deliberate: a wrong answer in the other two is
-     caught at the next commit, because the gate stops recognising the file
-     and goes back to asking. A wrong answer here is never contradicted by
+     This one and the `Planning` row above ship as PLACEHOLDERS while
+     `Review` and `Destination` ship answered, and the difference is
+     deliberate: a wrong answer in those two is caught at the next commit,
+     because the gate stops recognising the file and goes back to asking. A wrong answer here is never contradicted by
      anything that can stop a commit: a confident `smith` nobody performed
      earns one printed line after a commit, and a confident `the session`
      earns nothing at all. So the commonest mistake — copy the file, never
