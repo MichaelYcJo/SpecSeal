@@ -91,8 +91,16 @@ fifth row preloads nothing the first four did not, so the 5 / 11 / 7 split is
 unmoved. A Q4 answered *preload* edits this one cell alongside the two skills
 rows and the test constant that answer already costs.
 
-**One advisory finding has no correct edit, and it is handed over rather than
-patched.** `bin/evidence-check .`'s records arm reports
+**Corrected at the seal, and the correction is the point.** This phase wrote
+that the finding below had no correct edit and was advisory in every reader.
+Both halves were wrong and `broad-gate` found them on the first seal: it runs
+the checker WITH `--strict`, where drift is exit 2 and the run comes back NOT
+SEALED, and the correct edit was to write the superseded hash beside the
+coordinate instead of inside it. `overview.md` §Not verified carries the
+repair. What this phase got right is why the line stood through two rounds,
+and the original text follows unchanged.
+
+`bin/evidence-check .`'s records arm reports
 `phases/phase-1.md:131` DRIFTED. That line quotes the coordinate `COVERED`
 held BEFORE phase 1's own last commit changed it, and names the new hash in
 the very next sentence — which is the record doing its job. The arm reads any
