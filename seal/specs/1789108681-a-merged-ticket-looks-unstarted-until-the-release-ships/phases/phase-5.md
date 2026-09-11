@@ -18,7 +18,7 @@ the closing memo. Verified by the fragment conventions in `CLAUDE.md` and by
 
 **The record checker refused a record, and it was right.**
 `evidence_check.py --strict .` exited **2** on
-`phases/phase-2.md:55`: the record spells `GITHUB_TOKEN`, and nothing outside
+`phases/phase-2.md:55`: the record spells `GITHUB_TOKEN`, <!-- NAME NOT IN TREE: the same name phase 2 quotes from GitHub's reference, named here because this is the record OF that refusal and it cannot describe it without spelling it. The second instance is the class §12 asks for: one marker per line, because the checker reads lines. --> and nothing outside
 `seal/` carries that name — the workflows here pass `${{ github.token }}` into
 `GH_TOKEN`, which is what `gh` reads. It is GitHub's own name for the token a
 workflow run is given, quoted verbatim from their reference, so the line
