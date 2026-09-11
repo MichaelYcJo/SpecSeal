@@ -11,6 +11,16 @@ on:
     # that SHA through the merge. Two clicks, no commit.
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
 
+# Stated rather than inherited, since #359. Before it this file declared no
+# block and used no `gh`, so its token was whatever an enterprise,
+# organisation or repository default happened to be — a setting nobody here
+# has read. Every step in the job reads and none of them writes, so both
+# scopes are `read`: narrower than any default, and now a fact of the file
+# rather than of an account setting.
+permissions:
+  contents: read
+  issues: read
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -232,6 +242,42 @@ jobs:
           done
           python3 skills/code-review/scripts/survivor_check.py \
             --range "origin/${{ github.base_ref }}...HEAD" ${exempt[@]+"${exempt[@]}"}
+
+      # `docs/flow.md` used to ask *is everything in* as a checklist bullet a
+      # person ticked, and #351 deleted the file. Nothing replaced it, and
+      # nothing had ever checked it: `docs/issues-and-milestones.md` says a
+      # milestone answers *what is in 1.2.3*, and until this step a wrong one
+      # cost a person a wrong answer and cost no automation anything.
+      #
+      # It refuses on `M \ D` — the milestone claims an open issue this
+      # release branch does not carry — computed from the branch's own
+      # commits rather than from the labels the signal wrote. Computing it
+      # from the labels would give the same answer by transitivity and blame
+      # the wrong party: a release blocked because a label write failed is
+      # repaired by a person adding a label by hand, which is the act #359
+      # exists to remove.
+      #
+      # Release only, like the three steps above it. The head must ALSO be a
+      # `release/v*` branch, and that half is the script's rather than this
+      # guard's: `docs/branch-and-release.md` lists a hotfix branch as the
+      # other thing that reaches `main`, a hotfix carries no release
+      # milestone, and what the script does about a shape it cannot judge is
+      # a case (S7) where a shell condition would be untestable.
+      #
+      # This is the first step in this file to use `gh`, which is why the job
+      # gained the `permissions:` block above.
+      - name: the milestone this release claims is the work it carries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+          BASE: origin/${{ github.base_ref }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          if [ "${{ github.base_ref }}" != "main" ]; then
+            echo "base is ${{ github.base_ref }} — the milestone is judged when the release reaches main"; exit 0
+          fi
+          python3 .github/scripts/release_completeness_check.py
 
       # `seal/config.md`'s `Mode` row says which of the two places the root
       # should live at; the folder's location says where it is. Nothing at
