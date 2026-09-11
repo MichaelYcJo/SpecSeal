@@ -349,3 +349,118 @@ def test_the_two_todo_files_sit_where_the_release_guard_looks():
         "above covers both names, so both need a live specimen or half of it "
         "is unexercised"
     )
+
+
+# --- the approval, and who writes each member of the set --------------------
+
+# The shared core of the two lines. `routing.md` has recorded who answered the
+# routing batch since it shipped; `plan.md` recorded nothing, and approval of
+# `plan.md` IS the design gate. Two records of the same kind of fact spelled
+# two ways is how one of them stops being written, so the spelling is pinned
+# ACROSS the pair rather than in either file.
+STAMP_CORE = " <date> by <who>, "
+
+
+def stamp_line(verb, *parts):
+    lines = [line for line in read(*parts).splitlines() if line.startswith(verb + " ")]
+    assert len(lines) == 1, (
+        f"{'/'.join(parts)} has {len(lines)} lines starting `{verb} `, and "
+        "this pair is only comparable while each file has exactly one"
+    )
+    return lines[0]
+
+
+def test_the_plan_template_records_who_approved_it_and_when():
+    """S6 of #84. Approval of `plan.md` is the gate, and nothing recorded it.
+
+    A later session, a reviewer and CI all read the tree and not the
+    transcript, so a plan with nobody's name on it is indistinguishable from
+    one nobody approved. The line names the moment as well as the person,
+    because the moment is what makes the approval checkable: the spawn of the
+    builder IS the approval, so a line dated after the first commit is a
+    record of something that did not happen at the gate.
+    """
+    line = stamp_line("Approved", "templates", "sdd-plan.md")
+    assert line.startswith("Approved" + STAMP_CORE), (
+        f"the approval line reads `{line}`, which is not the shape the "
+        "routing declaration already uses for the same kind of fact"
+    )
+    moment = line[len("Approved" + STAMP_CORE) :]
+    assert moment.endswith("."), "the line lost its full stop"
+    assert "smith" in moment, (
+        "the approval line no longer names WHEN it is written. Without the "
+        "moment it is a signature with no gate behind it -- anybody can add "
+        "it after the work is done"
+    )
+
+
+def test_the_approval_line_is_spelled_like_the_routing_answer():
+    """The two cannot drift apart, because they are one convention.
+
+    `templates/sdd-routing.md` closes with `Answered <date> by <who>, before
+    the first edit.` — verb, date, who, the moment it was given. The plan's
+    approval line is the same record for the other batch. Pinned as a shared
+    core rather than as two literals, so a change to either spelling has to
+    be made in both or it is red here.
+    """
+    approved = stamp_line("Approved", "templates", "sdd-plan.md")
+    answered = stamp_line("Answered", "templates", "sdd-routing.md")
+    for verb, line in (("Approved", approved), ("Answered", answered)):
+        assert line.startswith(verb + STAMP_CORE), (
+            f"`{line}` no longer carries `{STAMP_CORE.strip()}` in the shape "
+            f"its sibling does. The two record the same kind of fact and a "
+            "reader who learns one spelling reads the other by it"
+        )
+        assert len(line) > len(verb + STAMP_CORE) + 1, (
+            f"`{line}` names no moment, so it says a person acted and not "
+            "when -- which is the half that makes it a gate"
+        )
+
+
+def test_the_file_set_names_who_writes_each_file():
+    """The table listed what each member holds and never whose it is.
+
+    That was true while one agent wrote all of them. With the frame drawn by
+    `framer` and the records written by the builder, a table with no author
+    column reads as a list one session works through, which is the shape the
+    split exists to end.
+    """
+    skill = read("skills", "implement", "SKILL.md")
+    header = [
+        line for line in skill.splitlines() if line.startswith("| File | Starts from |")
+    ]
+    assert len(header) == 1, "the SDD file-set table changed shape -- re-read §3"
+    assert "| Written by |" in header[0], (
+        "§3's file table does not say who writes each member of the set. "
+        "`spec.md` written by whoever then builds to it is an account of "
+        "what got built, and the table is where a session learns otherwise"
+    )
+
+    def cells_of(line):
+        return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+    columns = cells_of(header[0])
+    rows = {}
+    for line in skill[skill.index(header[0]) :].splitlines()[2:]:
+        if not line.startswith("| `"):
+            break
+        # `strict=True`: a row with a cell too few renders with its columns
+        # shifted, and a dict built from a short zip would silently read the
+        # wrong cell rather than say the table is malformed.
+        cells = cells_of(line)
+        rows[cells[0]] = dict(zip(columns, cells, strict=True))
+    for name in ("`spec.md`", "`plan.md`", "`questions.md`"):
+        assert "framer" in rows[name]["Written by"], (
+            f"{name} is no longer the framer's in §3's table, which is the "
+            "one place a session reads the set as a whole"
+        )
+    for name in ("`overview.md`", "`phases/phase-N.md`"):
+        assert "builder" in rows[name]["Written by"], (
+            f"{name} is what the building found, so its author is whoever "
+            "built it. A table that hands it to the framer asks for a memo "
+            "written before the work it is about"
+        )
+    assert "Approved <date> by <who>" in rows["`plan.md`"]["Holds"], (
+        "§3's table stops naming the approval line, so the only document "
+        "that describes the whole set never mentions the record of the gate"
+    )

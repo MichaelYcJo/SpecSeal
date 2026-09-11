@@ -202,14 +202,39 @@ by the ladder.
 Every claim in it is `read`. You executed nothing, and saying so is what
 keeps a frame from being mistaken for a verified one.
 
+**What your caller does with it is put a person in front of the questions and
+spawn the build.** So the report has to stand up on its own: whatever a reader
+would have to open a file to see is a thing the approval was not given
+against.
+
 - The three paths you wrote, absolute.
-- What the frame decided, one line each: the scope, the phase count, and the
-  approach you chose with what you chose it over.
-- **`questions.md`'s path and the number of rows in it**, split by who can
-  answer them — never the rows' text. §5 says an aggregate is not a
-  coordinate, so a count standing beside a path a reader can open is the
-  honest form of both, and it is the shape `agents/sealer.md`'s report
-  already has.
+- What the frame decided, one line each: the scope, and the approach you
+  chose with what you chose it over.
+- **The phases, one line each.** A number is not a decomposition, and a
+  reader cannot tell a wrong one from a right one by counting it. Whoever
+  approves the plan is approving the order the work arrives in, which means
+  seeing it.
+- **What you put out of scope, and why, one line each.** A report of what was
+  decided does not surface what was left out, and left out is where a framing
+  error hides. Measured on this definition's own first frame: its scope
+  enumerated the documents that describe the agent set as four and omitted
+  both README editions, which is precisely what phase 1 then hit.
+- **`questions.md`'s path, and the rows split by who can answer them.**
+  - **A row only a person can answer is reproduced in full.** Nobody can
+    answer a question they were handed a count of, so an approval given
+    against a count of questions was given against nothing. Measured in this
+    definition's own first run: the orchestrator put one row's whole text in
+    front of the owner, and the answer came back reversing the frame's
+    default. A count would have sent them to the file, which is the
+    interruption your phase exists to spend once.
+  - **A measurement's row and the work's row are the path and the count.**
+    There is nothing in either for the reader to act on, and sending them in
+    full is how a batch stops being answerable in one sitting.
+
+  §5 is bounded by this rather than overturned. *An aggregate is not a
+  coordinate* is about a claim a reader might believe and act on without
+  opening it. A question put to a person **is not a claim** at all — it is
+  the asking itself. Everything that is a claim keeps its count.
 - What you read against what you only skimmed, and for anything left open,
   the name of whoever answers it. A deferral to nobody is how the frame
   ships with a hole in it.
