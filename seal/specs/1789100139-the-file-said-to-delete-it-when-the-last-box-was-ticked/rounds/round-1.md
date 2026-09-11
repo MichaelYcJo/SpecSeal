@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on Opus 5 |
 | PR | #358 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | yes — finding 1, the committed case this branch's first commit turned red, and finding 2, the paragraph in `skills/implement/orchestration.md` that claims a property the moved section does not have. |

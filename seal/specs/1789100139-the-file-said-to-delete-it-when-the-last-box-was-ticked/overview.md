@@ -34,7 +34,9 @@
             exit 0, over the thirteen together. `bin/evidence-check --strict`
             1121 ok · 0 drifted · 0 broken, exit 0; `bin/survivor-check
             --range origin/release/v0.11.1...HEAD` 32 places, all 32 excused,
-            exit 0; `uvx ruff check .` and `uvx ruff format --check .` exit 0;
+            exit 0 — **at `ae2d0ac`, the tree this line describes**; the
+            figure moves with the range and with what the exemption file
+            quotes (#308), and it reads 36 at the branch tip; `uvx ruff check .` and `uvx ruff format --check .` exit 0;
             Q5's enumeration over every tracked loaded file. **Read** — the
             milestone/tracker divergence below, from the handoff.
             **Unverified** — the full suite, the orchestrator answers (see
@@ -64,6 +66,7 @@ puts the release plan where the tracker already held it.
 |---|---|
 | The full suite, the repository-wide lint and the typecheck — `bin/broad-gate`. The thirteen modules named in `· verified` above and a repository-wide `ruff check` / `ruff format --check` were run and are green; the suite as a whole was not | the orchestrator, by spawning `sealer` after the rounds settle (contract §2) |
 | `docs/flow.md`'s `## 0.11.1` section listed #331, #335, #339 and #149 as this release's, and the milestones put #331 and #335 in 0.11.3, #339 and #149 in 0.11.2. The file was already stale against the tracker when it was deleted, so nothing was lost by deleting it — but nothing here re-checked the milestones either | the repository owner; the handoff states the milestones are the authority and phase 5 wrote the descriptions from them |
+| Whether `spec.md` may narrow issue #351 by ending the second of the two standing rules the ticket sends to `docs/issues-and-milestones.md` — `questions.md` Q6. Opened as review round 1's finding 3 and still open; what shipped is the narrowing | the repository owner |
 | Whether the four release milestone descriptions and the two ticket comments phase 5 wrote actually read back as stated (S5). Writing to the tracker is outward-facing and outside a subagent's reach | the orchestrating session, which made those writes on 2026-09-11 |
 
 ## Not done

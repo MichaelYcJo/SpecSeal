@@ -13,10 +13,16 @@ where it is enforced — so the sentences the deletion removes stand by design
 in the durable copies: the tickets on GitHub, `CHANGELOG.md`, and the design
 records under `seal/specs/`.
 
-**The 32 were opened rather than waved through, and the three that are not
-records are named here.** 29 of the 32 sit in `CHANGELOG.md`, `seal/ledger.md`
-or `seal/specs/`. The other three are loaded files, and each one states, about
-the code it is written in, the fact the deleted row only pointed at:
+**Every reported place was opened rather than waved through, and the ones
+that are not records are named here.** The count moves, so it is written with
+the tree it was taken in: **32 at `ae2d0ac`** — 29 records, 3 loaded files —
+and **36 at the branch tip**, 31 records and 5 loaded files. Two things move
+it. The range: `origin/<base>...HEAD` re-resolves, so each commit measures a
+wider one. And what this file quotes: an exemption's quote joins the written
+side and leaves the search set (#308), so withdrawing the fourth bullet below
+returned its place to the reported set. The gate is exit 0 at every one of
+them. The loaded-file places, each stating about the code it is written in
+the fact the deleted row only pointed at:
 
 - `CLAUDE.md:81` — the repo rule that `seal` named three things at once.
   `docs/flow.md`'s #331 row said the same thing as scheduling rationale, and
@@ -30,18 +36,25 @@ the code it is written in, the fact the deleted row only pointed at:
 Correcting any of the three would delete a true sentence from the file that
 owns it, in order to remove a resemblance to a row that no longer exists.
 
-**A fourth bullet stood here and named a place the check never reported.**
-`tests/test_the_suite_has_a_command_that_is_cheap_twice.py:602` is not among
-the 32, and the docstring at that line is about pytest-xdist being installed
-by the workflow rather than by the virtualenv — not the deadlock the bullet
-described. It was written from the first run's reading and not re-checked
-against the exempted output. Round 1 found it (finding 5).
+**A fourth bullet stood here and described a place wrongly.**
+`tests/test_the_suite_has_a_command_that_is_cheap_twice.py:602` carries a
+docstring about pytest-xdist being installed by the workflow rather than by
+the virtualenv — not the deadlock the bullet described. It was written from
+the first run's reading and not re-checked. Round 1 found it (finding 5).
+
+**Withdrawing it is what put that place back in the reported set**, which is
+the same #308 behaviour: while the bullet stood, its quote was on the written
+side and the place was invisible to the check. So round 1's *not among them*
+was true of a tree the bullet itself had made, and round 2 found that
+(finding 11). The withdrawal still stands — the sentence was wrong about what
+is written there — and the place is excused by the range row like the
+others.
 
 | Range | Grounds |
 |---|---|
 | `origin/release/v0.11.1...HEAD` | The range deletes `docs/flow.md`, a 120-line shipped checklist whose every row described a ticket, a release's order, or a rule owned elsewhere. Its sentences stand in the durable copies a deletion is supposed to leave behind — the tickets, `CHANGELOG.md`, and the records under `seal/specs/` — which is the case §*A deletion is one row* names. All 32 reported places were opened; the three outside the records are listed above and each states the fact where it belongs |
 
-## Round 1's fix range — five per-survivor rows
+## Round 1's fix range — six per-survivor rows
 
 `bfe8cdb..62c22ca` reported five places, which is few enough for a row each.
 The range row above does not reach them: its spec resolves to a different
