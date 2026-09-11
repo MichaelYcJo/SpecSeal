@@ -34,6 +34,7 @@ git 이 있는 곳이면 어디서든 동작합니다.
 
 | 누구/무엇 | 따르는 스킬 | 실제로 무엇인가 |
 |---|---|---|
+| **framer** (서브에이전트) | `agent-contract` · `implement` · `writing-style` | 아무도 만들기 시작하기 전에 그 작업 항목의 `spec.md` · `plan.md` · `questions.md` 를 쓴다. SDD 사다리가 이미 `spec.md` 를 요구하는 자리에서 띄운다. 저장소를 넓게 읽고 사람이 답해야 하는 것을 한 묶음으로 모으므로, `plan.md` 승인이 그 작업에서 사람을 부르는 유일한 지점이 된다. 코드는 쓰지 않는다. 계약서를 쓴 쪽과 그것을 실행하는 쪽이 달라야 warden 의 "스펙 준수 먼저" 가 대조할 문서를 갖는다 |
 | **smith** (Claude Code 서브에이전트) | `agent-contract` · `implement` · `writing-style` | 스펙에 맞춰 구현한 뒤 증명 블록 세 줄을 적는다. 어떤 정책서를 열었는지, 어떤 대조표 행을 고쳤는지, 무엇을 실행하고 무엇을 읽기만 했는지. 훅이 검사하는 것이 아니라 스킬이 요구하는 공개이며, `none — <이유>` 로 채워진 줄은 사용자 눈에 그대로 보인다 |
 | **warden** (서브에이전트) | `agent-contract` · `code-review` · `writing-style` | 스펙 준수를 먼저 보고 그다음 품질을 본다. 보고서가 검증되면 오케스트레이터가 리뷰 시점의 HEAD sha 를 `.git/specseal-reviewed` 에 적고, 커밋 게이트는 그 파일을 확인한다. 리뷰어가 자기 표시를 직접 쓰지는 않는다 |
 | **scribe** (서브에이전트) | `agent-contract` · `legacy-parity` | 원본 코드가 실제로 하는 일을 `경로#앵커` 좌표로 기록하고, 판정이 아니라 사실만 돌려준다. `seal/parity.md` 를 선언한 레포에서만 등장한다 |
