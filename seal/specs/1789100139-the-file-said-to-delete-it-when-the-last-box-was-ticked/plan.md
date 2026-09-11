@@ -78,7 +78,7 @@ release's. The milestones — re-classified on 2026-09-11 under #223 — put
 written from the milestones, not from the file, and the divergence belongs
 in the closing memo.
 
-| 6 | `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md` fragments; the closing memo. **The changelog entry is the record of the removal** (Q3): it names all four parts of `docs/flow.md` and where each went, the clause dropped from the 0.4.0 record included, so nothing has to be left behind as a marker | the fragments exist and `fold_ledger.py --check` is clean | |
+| 6 | `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md` fragments; the closing memo. **The changelog entry is the record of the removal** (Q3): it names all four parts of `docs/flow.md` and where each went, the clause dropped from the 0.4.0 record included, so nothing has to be left behind as a marker | the fragments exist and `fold_ledger.py --check` names them and nothing else (exit 1 is the correct pre-release state — see `overview.md`) | `90f2f9d` |
 
 Phase 5 is the session's, not the builder's: writing to GitHub is outward-facing
 and a subagent does not make that call. Phases 1–4 and 6 are the builder's.
