@@ -253,6 +253,25 @@ def test_the_template_PARSES_into_the_FOURTH_axis_it_ships():
             f"the template's row does not accept `{answer}`, so a session "
             "filling it in as instructed still records nothing"
         )
+    # The vocabulary is READ OUT of the template and compared, rather than
+    # each constant being looked for inside it. Substituting the constants
+    # into the row above is self-consistent by construction -- rename
+    # `BY_FRAMER` and the substitution renames with it -- so on its own it
+    # cannot see the two files drift apart. This direction can: the answers
+    # the comment offers a person have to BE the answers the parser accepts.
+    import re
+
+    stated = re.search(r"Planning — `([^`]+)` or `([^`]+)`\.", template)
+    assert stated, (
+        "the comment no longer states the fourth axis's two answers, so the "
+        "only thing a person reads is the placeholder"
+    )
+    assert tuple(stated.groups()) == routing.PLANNING_ANSWERS, (
+        f"the template offers {stated.groups()} and the parser accepts "
+        f"{routing.PLANNING_ANSWERS}; a session filling the row in as "
+        "instructed would record nothing"
+    )
+
     # The row inherits the third axis's terms rather than restating them, so
     # the comment has to SEND a reader there. Without this the row ships with
     # no account of why an absent answer is not a defect.
