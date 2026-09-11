@@ -57,11 +57,12 @@ protect, and what the changelog entry has to say plainly.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `## Order inside a ticket` lands in `skills/implement/orchestration.md` as an `Orchestrator:`-prefixed section; `tests/test_the_rules_have_one_owner.py`'s `FLOW` and its two cases move to it | the two cases seen red against the pre-move text, green after; `bin/test -q tests/test_the_rules_have_one_owner.py` |`7ed455b` |
-| 2 | `docs/issues-and-milestones.md` gains the sizing rule and loses the second scheduling act; `docs/release-checklist.md` loses its four steps | read; `grep -c "flow\.md"` is 0 in both; the module that scans them stays green |`75fb4ae` |
+| 1 | `## Order inside a ticket` lands in `skills/implement/orchestration.md` as an `Orchestrator:`-prefixed section; `tests/test_the_rules_have_one_owner.py`'s `FLOW` and its two cases move to it | the two cases seen red against the pre-move text, green after; `bin/test -q tests/test_the_rules_have_one_owner.py` | `7ed455b` |
+| 2 | `docs/issues-and-milestones.md` gains the sizing rule and loses the second scheduling act; `docs/release-checklist.md` loses its four steps | read; `grep -c "flow\.md"` is 0 in both; the module that scans them stays green | `75fb4ae` |
 | 3 | The live citations are repaired — and the two 0.4.0 records lose the clause naming the file (Q3 (c)) — `test_release_hygiene.py`'s exemption entry and two fixtures, `test_a_corrected_sentence_survives_elsewhere.py`'s comment, both `survivor_check.py` docstring citations, `broad_gate.py`'s | each touched module run on its own, exit code read | `2206a0c` |
 | 4 | `docs/flow.md` is deleted; `seal/ledger.md` is checked for a row this removes and the row is marked REMOVED if one exists | `grep -rn "flow\.md"` over the tracked tree returns only `CHANGELOG.md` and `seal/specs/`; `bin/evidence-check` | `89f4f8a` |
 | 5 | The tracker carries what the file carried — every scheduled milestone's description states purpose and order, and a ticket whose position has grounds not in its body gains a comment (Q1 (a)) | `gh api repos/:owner/:repo/milestones` read back; the comment urls | **closed 2026-09-11 by the session, before the spawn** |
+| 6 | `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md` fragments; the closing memo. **The changelog entry is the record of the removal** (Q3): it names all four parts of `docs/flow.md` and where each went, the clause dropped from the 0.4.0 record included, so nothing has to be left behind as a marker | the fragments exist and `fold_ledger.py --check` names them and nothing else (exit 1 is the correct pre-release state — see `overview.md`) | `90f2f9d` |
 
 Phase 5, as executed. The four scheduled release milestones (40 · 42 · 43 ·
 44) each carry purpose and order grounds; #103 and #330 gained the two
@@ -77,8 +78,6 @@ release's. The milestones — re-classified on 2026-09-11 under #223 — put
 #331 and #335 in 0.11.3 and #339 and #149 in 0.11.2. The descriptions were
 written from the milestones, not from the file, and the divergence belongs
 in the closing memo.
-
-| 6 | `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md` fragments; the closing memo. **The changelog entry is the record of the removal** (Q3): it names all four parts of `docs/flow.md` and where each went, the clause dropped from the 0.4.0 record included, so nothing has to be left behind as a marker | the fragments exist and `fold_ledger.py --check` names them and nothing else (exit 1 is the correct pre-release state — see `overview.md`) | `90f2f9d` |
 
 Phase 5 is the session's, not the builder's: writing to GitHub is outward-facing
 and a subagent does not make that call. Phases 1–4 and 6 are the builder's.

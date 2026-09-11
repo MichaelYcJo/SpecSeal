@@ -32,11 +32,11 @@ rather than the failure.
 `backlog:` is the unscheduled pool, and an issue leaves it in one act: the
 milestone changes. It used to be two, the second being a line in a checklist
 every branch appended to; that file is gone and what it carried is here and
-on the tracker (#351). **A scheduled release milestone's
-description states the release's purpose and the grounds for the order its
-issues sit in**, and grounds belonging to one ticket sit on that ticket. So
-"what is in 1.2.3, and why in that order" is answered without opening a
-file. The number is illustrative, for the reason
+on the tracker (#351). **A scheduled release milestone's description states
+the release's purpose and the grounds for the order its issues sit in**, and
+grounds belonging to one ticket sit on that ticket. So "what is in 1.2.3, and
+why in that order" is answered without opening a file. The number is
+illustrative, for the reason
 **A rolling log is titled after the version it rolled from** gives below.
 It named a real unshipped release here for three of them (#179).
 

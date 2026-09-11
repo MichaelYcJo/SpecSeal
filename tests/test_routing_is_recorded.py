@@ -466,29 +466,51 @@ def test_the_commit_gate_decides_the_same_with_the_row_and_without_it(repo):
 
 
 def test_every_declaration_in_this_repository_still_parses():
-    """Executed against the real files, not a fixture: the twelve committed here
-    are the population the optional row exists for.
+    """Executed against the real files, not a fixture: the declarations
+    committed here are the population the optional rows exist for.
 
-    S8 of #84 extends it rather than opening a second case beside it. Seventy-two
-    declarations are committed here and not one has a `Planning` row, so the
-    fourth axis has the same population the third had: a required row, or a row
-    whose absence took the declaration down, would un-silence the commit gate on
-    every one of them.
+    S8 of #84 extends it rather than opening a second case beside it. What an
+    optional row has to survive is a declaration that does not carry it -- a
+    required row, or a row whose absence took the declaration down, would
+    un-silence the commit gate on every one of those. So the assertion is over
+    the declarations that OMIT each row, and never over how many answer it:
+    #351 wrote the first `Planning` answer, and a case premised on nobody
+    answering goes red on the commit that writes one rather than on a defect.
+
+    The vacuity guard is over the two axes together, not per axis. Every
+    committed declaration answers `Implementation`, so a per-axis guard would
+    be red the day it was written.
+
+    No count is written down here either. The docstring this replaced carried
+    two -- `the twelve committed here` and `Seventy-two declarations` -- for a
+    tree that held 73, and a number in a docstring is a claim nothing reads.
     """
     import glob
 
     root = os.path.join(os.path.dirname(__file__), "..")
     found = sorted(glob.glob(os.path.join(root, "seal", "specs", "*", "routing.md")))
     assert found, "no declarations found -- the check would pass vacuously"
+    omitted = {routing.PLANNING: 0, routing.IMPLEMENTATION: 0}
     for path in found:
         with open(path, encoding="utf-8") as f:
-            parsed = routing.parse(f.read())
+            text = f.read()
+        parsed = routing.parse(text)
         assert parsed is not None, path
-        assert parsed["planning"] is None, (
-            f"{path} answers the fourth axis; this case's premise is that none "
-            "of the committed declarations does, so it no longer measures the "
-            "population the optional row exists for"
-        )
+        for row, key in (
+            (routing.PLANNING, "planning"),
+            (routing.IMPLEMENTATION, "implementation"),
+        ):
+            if f"| {row} |" in text:
+                continue
+            omitted[row] += 1
+            assert parsed[key] is None, (
+                f"{path} has no `{row}` row and did not read as unanswered on "
+                f"that axis -- an absent optional row has to read as nothing, "
+                f"or the commit gate un-silences on every declaration like it"
+            )
+    assert sum(omitted.values()), (
+        "every declaration answers both optional rows -- the case is vacuous"
+    )
 
 
 # --- the fourth axis: the third's terms, its own vocabulary ------------------

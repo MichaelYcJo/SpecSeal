@@ -19,15 +19,26 @@
             and re-verified — R1 and R3 of the release-hygiene item, S15 of
             the sealer's — with their Checked dates moved to 2026-09-11
 · verified: **executed** — the two moved cases seen red (3 failed, exit 1)
-            and green (45 passed, exit 0); 264 passed across the nine
-            doc-scanning and rule-owner modules, exit 0; `bin/evidence-check
-            --strict` 1121 ok · 0 drifted · 0 broken, exit 0;
-            `bin/survivor-check --range origin/release/v0.11.1...HEAD`
-            33 survivors then all 33 excused, exit 0; `uvx ruff check .` and
-            `uvx ruff format --check .` exit 0; Q5's enumeration over every
-            tracked loaded file. **Read** — the milestone/tracker divergence
-            below, from the handoff. **Unverified** — the full suite, the
-            orchestrator answers (see `## Not verified`)
+            and green (45 passed, exit 0); then the modules that read a file
+            this branch changed, **named rather than counted**, each run on
+            its own and exit 0 — `test_the_rules_have_one_owner` 45,
+            `test_release_hygiene` 32, `test_docs_line_wrap` 23,
+            `test_a_corrected_sentence_survives_elsewhere` 43,
+            `test_one_word_one_meaning` 13,
+            `test_no_document_names_the_old_roots` 11,
+            `test_no_real_identifiers` 2, `test_unverified_rows_close` 86,
+            `test_a_section_marked_for_one_role_reaches_only_that_role` 9,
+            `test_a_record_states_what_the_tree_has` 58,
+            `test_a_rider_reaches_its_file` 29, `test_routing_is_recorded` 31,
+            `test_the_seal_is_taken_once_by_the_sealer` 65 — and 447 passed,
+            exit 0, over the thirteen together. `bin/evidence-check --strict`
+            1121 ok · 0 drifted · 0 broken, exit 0; `bin/survivor-check
+            --range origin/release/v0.11.1...HEAD` 32 places, all 32 excused,
+            exit 0; `uvx ruff check .` and `uvx ruff format --check .` exit 0;
+            Q5's enumeration over every tracked loaded file. **Read** — the
+            milestone/tracker divergence below, from the handoff.
+            **Unverified** — the full suite, the orchestrator answers (see
+            `## Not verified`)
 
 ## Why this work exists
 
@@ -51,7 +62,7 @@ puts the release plan where the tracker already held it.
 
 | Item | Who must answer |
 |---|---|
-| The full suite, the repository-wide lint and the typecheck — `bin/broad-gate`. Nine modules and a repository-wide `ruff check` / `ruff format --check` were run and are green; the suite as a whole was not | the orchestrator, by spawning `sealer` after the rounds settle (contract §2) |
+| The full suite, the repository-wide lint and the typecheck — `bin/broad-gate`. The thirteen modules named in `· verified` above and a repository-wide `ruff check` / `ruff format --check` were run and are green; the suite as a whole was not | the orchestrator, by spawning `sealer` after the rounds settle (contract §2) |
 | `docs/flow.md`'s `## 0.11.1` section listed #331, #335, #339 and #149 as this release's, and the milestones put #331 and #335 in 0.11.3, #339 and #149 in 0.11.2. The file was already stale against the tracker when it was deleted, so nothing was lost by deleting it — but nothing here re-checked the milestones either | the repository owner; the handoff states the milestones are the authority and phase 5 wrote the descriptions from them |
 | Whether the four release milestone descriptions and the two ticket comments phase 5 wrote actually read back as stated (S5). Writing to the tracker is outward-facing and outside a subagent's reach | the orchestrating session, which made those writes on 2026-09-11 |
 
@@ -84,6 +95,6 @@ place*, with what each of the three repairs did, and Q5 *remove the entry*
 with the seven-line enumeration behind it. Both were the work's and a
 measurement's rather than a person's, so neither blocked.
 
-Nothing was added to `spec.md`. The five divergences above are recorded here
+Nothing was added to `spec.md`. The six divergences above are recorded here
 rather than written back into it, because a scope row edited to match what
 was built stops being a contract.

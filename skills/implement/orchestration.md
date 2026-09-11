@@ -20,11 +20,14 @@ incorporation. An orchestrator reads both; a `smith` spawn preloads that one
 and never this, because asking a person and writing `routing.md` are acts
 `agents/smith.md` leaves to the session that spawned it.
 
-Nothing here changed when it moved, except one sentence a `# RIDER:` had
-asked to name its arm. The headings keep the `Orchestrator:` prefix they were
-marked with, so a reference to one of these sections names the section it
-always named and only the file it names changed (#292, the shape #265 gave
-`code-review`). Every `seal/…` path here means what it means in the other
+Nothing changed in the three sections #292 moved out of
+`skills/implement/SKILL.md`, except one sentence a `# RIDER:` had asked to
+name its arm; their headings keep the `Orchestrator:` prefix they were marked
+with, so a reference to one of those names the section it always named and
+only the file it names changed (#292, the shape #265 gave `code-review`).
+**The order below is the exception**: it gained the prefix when it moved, so
+it is cited by its new name and not by the one the shared checklist gave it.
+Every `seal/…` path here means what it means in the other
 half: `<repo>/seal/` where that directory exists, and
 `$(git rev-parse --git-common-dir)/seal/` otherwise (contract §16).
 
