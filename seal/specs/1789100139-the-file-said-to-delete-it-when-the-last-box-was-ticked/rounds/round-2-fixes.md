@@ -6,7 +6,7 @@ rounds/round-1.md. One row per finding round 1 left OPEN. -->
 | Field | Value |
 |---|---|
 | Answers | round 1, target `ae2d0ac` |
-| Fix commits | `62c22ca` — the whole pass, plus `<this commit>` for `survivors.md` and this table |
+| Fix commits | `bfe8cdb..a3b4fc3` — `62c22ca` the whole pass, `b1b4f58` this table and the fix range's survivor rows, `a3b4fc3` the sixth of those rows |
 | Ran by | unknown — the resume message named no model for this segment; the orchestrator fills this row |
 
 ## Fixes
