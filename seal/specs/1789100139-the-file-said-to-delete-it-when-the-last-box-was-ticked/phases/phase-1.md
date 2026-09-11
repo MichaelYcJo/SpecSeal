@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Phase | 1 |
-| Commit | `6dfc40f` |
+| Commit | `7ed455b` |
 | Ran by | unknown — the spawn prompt named no model for this segment; the orchestrator fills this row |
 
 ## What this phase was asked

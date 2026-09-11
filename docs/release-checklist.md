@@ -15,8 +15,6 @@ running.
       and its pull request's CI was green **at the commit that merged**. A
       merge pressed while a later push was still on its way takes the earlier
       commit; the corrections then need a pull request of their own.
-- [ ] `docs/flow.md` has every item of the release ticked except the release
-      line itself.
 - [ ] **Squash the work items back to back. A squash no longer makes the
       others red.** `unverified_check` resolves its baseline to
       `git merge-base <the base ref> HEAD`, so a work item squashed into the
@@ -34,17 +32,11 @@ running.
       standing rule.
       What the old footing cost, so the paragraph is not simply gone: on the
       release that found it, three of four branches each paid a release-branch
-      merge, a re-run broad gate, a re-pushed pull request and a
-      `docs/flow.md` conflict, and the cost was roughly quadratic in the items
-      a release carries.
-- [ ] **`docs/flow.md` conflicts even when the branches touch different
-      lines.** The rule that a branch writes only its own row is what keeps
-      the file mergeable, and it is not enough: the boxes sit on adjacent
-      lines, so the diff context overlaps and git stops. Resolve by keeping
-      **every** box that is ticked on either side — and check the release
-      branch afterwards, because the release that added this line lost one
-      tick to a squash that auto-merged the other side of that hunk, and
-      nothing noticed until step 0 was read again.
+      merge, a re-run broad gate, a re-pushed pull request and a conflict in
+      the release checklist every branch ticked a box in, and the cost was
+      roughly quadratic in the items a release carries. That last cost is not
+      payable any more — the shared checklist is gone (#351), the third file
+      cured of being written by every branch.
 - [ ] No other Claude session is working in this checkout, and the editor is
       not about to pull. An IDE pull once switched the checkout to the release
       branch between two commands, and the preparation commit landed there.
@@ -61,7 +53,7 @@ git status -sb          # the branch you asked for, tracking the release
 The `release/*` ruleset takes no direct push, so the preparation commit needs
 this branch and a squash merge like any other work.
 
-## 2. Gather, fold, bump, tick
+## 2. Gather, fold, bump
 
 ```bash
 python3 .github/scripts/gather_changelog.py --dry-run --version X.Y.Z
@@ -76,10 +68,9 @@ python3 .github/scripts/fold_ledger.py --version X.Y.Z
 sed -i '' 's/"version": "A.B.C"/"version": "X.Y.Z"/' .claude-plugin/plugin.json
 ```
 
-and tick the release's last box in `docs/flow.md`. The fold refuses while any
-`seal/specs/<id>/evidence-todo.md` has an open row; that is a review that
-never drained, not a release problem, and the row's work item is where it is
-closed.
+The fold refuses while any `seal/specs/<id>/evidence-todo.md` has an open
+row; that is a review that never drained, not a release problem, and the
+row's work item is where it is closed.
 
 ## 3. Verify before committing — all of it, here
 

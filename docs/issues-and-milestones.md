@@ -21,12 +21,22 @@ are closed when the release reaches `main`. An open milestone with a past due
 date reads as overdue, which is the tracker's way of saying a release shipped
 and nobody closed its milestone.
 
-`backlog:` is the unscheduled pool. An issue leaves it when it is scheduled,
-and scheduling is two acts rather than one: the milestone changes, and the
-issue gains a line in `docs/flow.md` under the release that will carry it.
-Neither act alone is a schedule — `flow.md` is what a person reads at the
-start of a ticket, and the milestone is what answers "what is in 1.2.3"
-without opening a file. The number is illustrative, for the reason
+**A release is sized in work items rather than in ticket numbers, and three
+or four is the size.** A run that reaches the reopening bound turns every
+finding still open into an issue, which is right — and it means one branch's
+leftovers arrive as four ticket numbers, which a reader counts as four
+releases' worth of work. Size a ticket set that will be one branch as one
+item. 0.8.3 shipped three of eight, and carrying five forward was the call
+rather than the failure.
+
+`backlog:` is the unscheduled pool, and an issue leaves it in one act: the
+milestone changes. It used to be two, the second being a line in a checklist
+every branch appended to; that file is gone and what it carried is here and
+on the tracker (#351). **A scheduled release milestone's
+description states the release's purpose and the grounds for the order its
+issues sit in**, and grounds belonging to one ticket sit on that ticket. So
+"what is in 1.2.3, and why in that order" is answered without opening a
+file. The number is illustrative, for the reason
 **A rolling log is titled after the version it rolled from** gives below.
 It named a real unshipped release here for three of them (#179).
 
@@ -107,7 +117,8 @@ script or workflow in this repository reads a milestone; the only writer is a
 person. What closes an issue is the pull request body:
 `.github/scripts/close_issues_on_release.py` reads `Closes #N` from the pull
 requests a release carries, and closes what they name when the release
-reaches `main`. `docs/flow.md` says the same thing from the ticket's side.
+reaches `main`. `skills/implement/orchestration.md` §*Orchestrator: the order
+inside a ticket* says the same thing from the ticket's side.
 
 So a milestone that is wrong costs a person a wrong answer to "what is in
 this version" and costs no automation anything. A missing `Closes #N` costs

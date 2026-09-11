@@ -57,7 +57,7 @@ protect, and what the changelog entry has to say plainly.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `## Order inside a ticket` lands in `skills/implement/orchestration.md` as an `Orchestrator:`-prefixed section; `tests/test_the_rules_have_one_owner.py`'s `FLOW` and its two cases move to it | the two cases seen red against the pre-move text, green after; `bin/test -q tests/test_the_rules_have_one_owner.py` |`6dfc40f` |
+| 1 | `## Order inside a ticket` lands in `skills/implement/orchestration.md` as an `Orchestrator:`-prefixed section; `tests/test_the_rules_have_one_owner.py`'s `FLOW` and its two cases move to it | the two cases seen red against the pre-move text, green after; `bin/test -q tests/test_the_rules_have_one_owner.py` |`7ed455b` |
 | 2 | `docs/issues-and-milestones.md` gains the sizing rule and loses the second scheduling act; `docs/release-checklist.md` loses its four steps | read; `grep -c "flow\.md"` is 0 in both; the module that scans them stays green | |
 | 3 | The live citations are repaired — and the two 0.4.0 records lose the clause naming the file (Q3 (c)) — `test_release_hygiene.py`'s exemption entry and two fixtures, `test_a_corrected_sentence_survives_elsewhere.py`'s comment, both `survivor_check.py` docstring citations, `broad_gate.py`'s | each touched module run on its own, exit code read | |
 | 4 | `docs/flow.md` is deleted; `seal/ledger.md` is checked for a row this removes and the row is marked REMOVED if one exists | `grep -rn "flow\.md"` over the tracked tree returns only `CHANGELOG.md` and `seal/specs/`; `bin/evidence-check` | |
