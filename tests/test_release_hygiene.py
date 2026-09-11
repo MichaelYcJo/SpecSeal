@@ -106,12 +106,11 @@ ILLUSTRATIVE_VERSION = "1.2.3"
 RECORDS_OF_A_MOMENT = (
     "docs/one-root-by-lifetime.md",
     "docs/one-root-by-lifetime.ko.md",
-    "docs/flow.md",
     # A trailing slash is a PREFIX, not a path. `docs/experiments/` holds
     # dated records of what was measured on a particular day, on a particular
     # build of a particular tool — the file name carries the date. Rewriting
     # the version an experiment ran against would falsify the record, which is
-    # the same argument the three exact paths above already carry, applied to
+    # the same argument the two exact paths above already carry, applied to
     # a directory whose every future file has it too. That is what makes a
     # prefix defensible here where `docs/issues-and-milestones.md` — a
     # standing document edited every release — is not (#179).
