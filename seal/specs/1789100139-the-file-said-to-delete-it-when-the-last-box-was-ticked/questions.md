@@ -1,0 +1,24 @@
+# 1789100139-the-file-said-to-delete-it-when-the-last-box-was-ticked — questions for the planner
+
+<!-- decisions only a human can make, extracted so nothing ships on a silent
+assumption. Before adding a row, check the inheritance rule: if policy is
+silent but existing behavior answers it, inherit and record — only genuinely
+NEW rules belong here. -->
+
+| # | Question | Who can answer | Options & what each implies | Default until answered | Status |
+|---|---|---|---|---|---|
+| Q1 | `docs/flow.md` lines 22–114 carry the grounds for where each ticket sits — the renumbering history, why #149 is last, why #331 waits for the agent set to settle, the third Windows defect shape #103 gained in 0.9.0. Where do those grounds live once the file is gone? | a person | **(a)** milestone description carries purpose and order, and a ticket whose position has grounds not already in its body gains a comment carrying them — the grounds stay next to the thing they are about, at the cost of ~10 tracker writes · **(b)** one per-release planning issue per scheduled release holds its section close to verbatim — one write per release, but re-creates a second place to read · **(c)** milestone descriptions only, and the rest is left to git history — cheapest, and the grounds stop being reachable without `git log` | (a) | ✅ **(a)** — 2026-09-11, the repository owner |
+| Q2 | The tracker writes Q1 implies are outward-facing and cannot be made by a subagent. Who makes them? | a person | **(a)** this session makes them now, before spawning the builder, so the `Done when` bullet is satisfied inside this work item · **(b)** the owner makes them, and this work item ships the file deletions only | (a) | ✅ **(a)** — 2026-09-11, the repository owner; phase 5 is this session's |
+| Q3 | `docs/one-root-by-lifetime.md` and its Korean edition say *`docs/flow.md` is the checklist that tracks them* in the present tense. Both are in `RECORDS_OF_A_MOMENT` — the 0.4.0 design record, which the repository's own doctrine says must not be rewritten. | a person | **(a)** leave both alone; a record of a moment names what was true then · **(b)** mark the path as removed in both editions · **(c)** delete the clause from both editions, leaving the rest of the sentence | (a) | ✅ **(c)** — 2026-09-11, the repository owner. **Measured before the call**: the clause deleted from both editions leaves `test_one_word_one_meaning`, `test_docs_line_wrap`, `test_release_hygiene`, `test_no_document_names_the_old_roots`, `test_no_real_identifiers` and `test_the_rules_have_one_owner` at 126 passed, exit 0 — no case reads that file's `## Order`, and no ledger row anchors it. (b) was declined because a 0.4.0 record would gain a `0.11.1`, and that file is in `RECORDS_OF_A_MOMENT` precisely to exempt version tokens. **The owner's grounds, given 2026-09-11**: the changelog is where a removal is recorded, so a document that is actually referenced can be deleted outright and the record of the deletion lives in the entry rather than in a marker left inside the deleted-from file. That makes the changelog fragment load-bearing here — it has to name every part of `docs/flow.md` and where it went, the clause in the 0.4.0 record included |
+| Q4 | `skills/verify/scripts/broad_gate.py` and `skills/code-review/scripts/survivor_check.py` cite `docs/flow.md` in module docstrings. These are loaded files a session reads, not records. | the work | Repair them: state what the cited sentence said rather than pointing at a file that is gone. `survivor_check.py`'s second citation names the durable copies a deletion leaves behind, which is the sentence that has to survive | repair in place | ⬜ |
+| Q5 | Does `tests/test_release_hygiene.py` lose the `docs/flow.md` exemption entry, or keep an entry pointing somewhere else? | a measurement | Run the case with the entry removed and see whether any loaded file still needs it. Both fixture usages need an exact-path entry that exists, and `docs/one-root-by-lifetime.md` is one | remove the entry, repoint the two fixtures | ⬜ |
+
+**`Who can answer` takes one of three values and nothing else.**
+
+- **a person** — what the product should be, or a value somebody has to be
+  accountable for. The only kind of row that blocks the build.
+- **a measurement** — a probe, a command or a count settles it.
+- **the work** — unknowable at framing time; the phase that meets it decides
+  it there and records a divergence row.
+
+Answered rows feed back into docs/ before this directory's work merges.
