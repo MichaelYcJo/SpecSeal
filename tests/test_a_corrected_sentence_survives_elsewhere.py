@@ -609,8 +609,8 @@ def test_a_quote_whose_words_are_scattered_does_not_exempt():
 #
 # #297. A branch that DELETES a shipped section leaves every sentence of it
 # standing in the durable copies that are supposed to survive a deletion --
-# `docs/flow.md` §*A shipped version's section is deleted, not kept* names
-# them. Measured on #293's own range: **153** survivors at 1.60-1.62, every
+# the design records under `seal/specs/`, `CHANGELOG.md` and the tickets
+# themselves. Measured on #293's own range: **153** survivors at 1.60-1.62, every
 # one of them correct as a report and none of them a defect. Per-survivor
 # rows would have cost 153 written sentences, which is not an escape anybody
 # takes; the branch turns the check off instead, which is the outcome the

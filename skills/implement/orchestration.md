@@ -7,9 +7,10 @@ its own. They are the procedure for **starting** a work item: creating the
 a project ports an original, and asking the one routing question — three axes,
 one question, one file — before the first edit.
 
-The sequence those sections sit inside arrived later, from `docs/flow.md`,
-when that file was deleted (#351). It is the first section below, because a
-session starting a work item needs the order before it needs any step of it.
+The sequence those sections sit inside arrived later, from the shared
+checklist that was deleted for being written by every branch (#351). It is
+the first section below, because a session starting a work item needs the
+order before it needs any step of it.
 
 **Read this if you are orchestrating a work item.**
 `skills/implement/SKILL.md` is the other half and holds the implementation

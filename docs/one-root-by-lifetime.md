@@ -527,8 +527,7 @@ The CI paths change in step 3 of the order below, together with the root.
 
 ## Order
 
-The tickets are grouped into releases on GitHub milestones, and
-`docs/flow.md` is the checklist that tracks them until the last one merges.
+The tickets are grouped into releases on GitHub milestones.
 0.4.0 carries #78, #30 and #79 only; everything a person can live without
 for one release moved to 0.5.0, because even that set is large.
 

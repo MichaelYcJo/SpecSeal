@@ -58,9 +58,9 @@ SMITH = ("agents", "smith.md")
 PROTOCOL = ("docs", "review-handoff-protocol.md")
 WARDEN = ("agents", "warden.md")
 IMPLEMENT = ("skills", "implement", "SKILL.md")
-# The orchestrator's half of the implement skill (#292). `docs/flow.md` used
-# to hold the order a ticket runs in; it was deleted (#351) and the three
-# numbered steps landed here, beside the routing question they open.
+# The orchestrator's half of the implement skill (#292). The order a ticket
+# runs in landed here in #351, when the shared checklist that used to hold it
+# was deleted -- beside the routing question its first step opens.
 ORCH_IMPL = ("skills", "implement", "orchestration.md")
 PHASE_TEMPLATE = ("templates", "sdd-phase.md")
 VERIFY = ("skills", "verify", "SKILL.md")
@@ -505,7 +505,7 @@ def test_the_order_opens_the_draft_between_the_build_and_the_rounds():
     pull request listed last there is the dozen-rounds-on-one-platform shape
     the owner's section measured.
 
-    The section lived in `docs/flow.md` until that file was deleted. The
+    The section lived in the shared checklist until #351 deleted it. The
     case moved rather than going with it, because what it pins is an ordering
     claim about the chain and not a fact about the checklist."""
     text = flat(*ORCH_IMPL)
