@@ -485,7 +485,7 @@ def test_every_input_the_script_reads_is_handed_to_it_by_the_step():
     merge ref — so the step goes green, the range silently collapses to the
     spelling `questions.md` Q8 rejected, and finding 2 is back with nothing
     saying so. One silent entry in the block is what turns the note into a
-    case, and the case covers all four rather than one, because a reader
+    case, and the case covers every entry rather than one, because a reader
     deleting a line does not first ask which kind it is.
     """
     env = hygiene_step().split("shell:")[0]
