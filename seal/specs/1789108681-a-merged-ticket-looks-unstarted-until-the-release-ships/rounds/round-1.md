@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on Opus 5 |
 | PR | #360 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | test_the_range_is_measured_to_the_head_the_pull_request_names (depth 1); test_without_a_named_head_the_range_ends_at_HEAD (depth 1); test_the_milestone_list_is_read_past_the_first_page (depth 1); test_every_input_the_script_reads_is_handed_to_it_by_the_step (depth 1) |
 | Needs a fix | yes — findings 1, 2, 3 and 4. One is a fail-open a probe left standing, one is a range guarantee the CI checkout undoes, one is a shipped sentence pointing at the wrong box, and one is an unverified row sent to a run that cannot answer it. |
