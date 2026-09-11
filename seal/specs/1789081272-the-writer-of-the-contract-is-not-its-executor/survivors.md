@@ -71,3 +71,46 @@ range-anchoring above is a statement about what this row is FOR, not about
 what the checker enforces: a `| Path | Quote | Grounds |` row is matched on
 its path and its quote, and only a `| Range | Grounds |` row is scoped to a
 range by the checker itself.
+
+## Phase 4 / 4b — the fourth axis, and the mark it leaves
+
+`survivor-check --range e82403f..d950e8b` examines 846 files against the
+eighty-five sentences the range removed and reports six places. One was a live
+claim of this phase's own and was corrected rather than exempted; the five
+below are records, and each records something that was true of a past release
+or a past work item.
+
+**What the range removed, and what the five still carry.** The notice used to
+speak for one axis, so every sentence describing it said `smith` and `the mark`
+in the singular. Phase 4b widened the code and rewrote those sentences in
+`README.md`, `docs/review-chain-spec.md` and this work item's own test module.
+What the checker then finds standing is the singular wording in places whose
+job is to say what shipped at the time — which is the same reading phase 3's
+row gives its one place, one level over: the sentence survives where its job is
+to record, not to instruct.
+
+The corrected one, for the record rather than as an exemption:
+`tests/test_the_implementer_is_recorded.py`'s module docstring still described
+the silence as *nothing is said when the mark stands*, which with two axes is a
+claim about the wrong grain. It now reads *about an axis whose mark stands*.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `CHANGELOG.md` | "a reminder in the `post-bash` group prints one line naming the declaration where it answers `smith`" | **A released section.** It says what 0.7.0 shipped, and 0.7.0 shipped a notice that spoke for one axis. Editing it would make the changelog claim that release did something it did not do, which is the one thing a changelog may not say |
+| `seal/specs/1788310269-the-implementer-leaves-a-mark/changelog.md` | "a reminder in the `post-bash` group prints one line naming the declaration where it answers `smith`" | **The fragment the released section above was gathered from**, and a record of the same fact for the same reason. `gather_changelog.py` moves a fragment's text verbatim, so a fragment that disagreed with the section built from it would be a record of nothing |
+| `seal/specs/1788310269-the-implementer-leaves-a-mark/spec.md` | "`smith-helper` is there because a substring test would read it as the agent" | **A past work item's frame**, describing the case list as that work item shipped it. The live copy is the test's own docstring, which this phase widened — `framer-helper` sits beside `smith-helper` there now, and the spec of a work item that closed in 0.7.0 does not follow it |
+| `seal/ledger.md` | "where the declaration for this branch answers `smith` and no mark stands, one line names `seal/specs/<item>/routing.md`" | **A live ledger claim that is narrower than the code and still true of it.** Every word holds for the axis it names; what it does not state is the `Planning` half, which is this work item's own claim and goes in its fragment rather than being appended here. The row's Notes now carry the 2026-09-11 re-read saying exactly that, so a reader meeting the narrow clause finds the reason beside it |
+| `seal/ledger.md` | "Rows for the work item that gave the routing declaration's third axis its reader: a mark written when `smith` is spawned" | **A section heading naming which work item the rows below belong to.** It is a label on a past work item, not a claim about the tree, and the work item it labels is the one that gave the THIRD axis its reader. The fourth axis's rows go under this work item's own heading |
+
+**What would make these exemptions stop holding.** The quote is the anchor in
+each. The four records stop being records the moment their sentence is read as
+a live instruction — a changelog section rewritten as current behaviour, a past
+spec cited as the rule. The ledger row stops holding the moment its clause is
+false rather than narrow: if the notice ever stops saying that line for a
+declaration answering `smith`, the row is a survivor and the report is a
+finding.
+
+Anchored on this range as well as on these quotes, the same way the rows above
+are, and with the same caveat phase 3's row records: that anchoring says what
+these rows are FOR, and the checker itself matches a `| Path | Quote | Grounds |`
+row on its path and its quote alone.

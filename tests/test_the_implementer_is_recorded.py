@@ -16,16 +16,18 @@ copy contract §11 and §16 each record having already been paid for.
 
 Three parts, and each is a different failure if it goes missing:
 
-  the mark    spawning `smith` leaves a trace in the repository's git dir.
-              Missing, the notice fires for work that was done correctly.
+  the mark    spawning either agent leaves that axis's trace in the
+              repository's git dir. Missing, the notice fires for work that was
+              done correctly.
 
-  the notice  a declaration saying `smith` with no mark says so, once, after a
-              commit. Missing, the axis is a note nobody reads.
+  the notice  a declaration naming an agent no mark answers for says so, once,
+              after a commit — one line for both axes where both are
+              unfulfilled. Missing, the axes are notes nobody reads.
 
-  the silence nothing is said when the mark stands, when the axis was not
-              answered, or when the repository never opted in. Missing, this is
-              a fourth prompt in a plugin whose first goal is verification that
-              runs unattended.
+  the silence nothing is said about an axis whose mark stands, whose row was
+              not answered, or in a repository that never opted in. Missing,
+              this is a fourth prompt in a plugin whose first goal is
+              verification that runs unattended.
 
 The notice never blocks. The commit gate's decision has to be byte-identical
 with the row and without it, which is the case that would catch this axis
