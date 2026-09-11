@@ -370,7 +370,24 @@ def test_the_gate_runs_only_for_a_release_pull_request():
     assert 'github.base_ref }}" != "main" ]' in step, (
         "the step is missing the base guard the other release-only steps use"
     )
-    assert "release_completeness_check.py" in step
+    # The whole guard, in order, not only its condition. A mutation that
+    # deleted the `exit 0` and the `fi` — leaving `if …; then` with the run
+    # below it — passed a check that asserted the condition alone, and that
+    # step both runs on every pull request and is malformed shell.
+    guard = re.search(
+        r'if \[ "\$\{\{ github\.base_ref \}\}" != "main" \]; then\n'
+        r"(.*?)\n\s*fi\n\s*python3 \.github/scripts/release_completeness_check\.py",
+        step,
+        re.S,
+    )
+    assert guard, (
+        "the guard is not a closed `if … fi` with the script after it, so "
+        f"either it does not skip or it does not run:\n{step}"
+    )
+    assert "exit 0" in guard.group(1), (
+        "the guard's body does not exit, so a feature pull request falls "
+        "through into the check"
+    )
 
 
 def test_the_head_shape_reaches_the_script_rather_than_the_guard():
