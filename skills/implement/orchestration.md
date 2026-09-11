@@ -1,11 +1,16 @@
 # implement — the orchestrator's half
 
-The three sections `skills/implement/SKILL.md` used to carry for the session
-that spawns agents, under the `Orchestrator:` prefix `code-review` already
-used for its own. They are the procedure for **starting** a work item:
-creating the `seal/` root the first time a repository opts in, setting up
-parity mode where a project ports an original, and asking the one routing
-question — three axes, one question, one file — before the first edit.
+The sections `skills/implement/SKILL.md` used to carry for the session that
+spawns agents, under the `Orchestrator:` prefix `code-review` already used for
+its own. They are the procedure for **starting** a work item: creating the
+`seal/` root the first time a repository opts in, setting up parity mode where
+a project ports an original, and asking the one routing question — three axes,
+one question, one file — before the first edit.
+
+The sequence those sections sit inside arrived later, from `docs/flow.md`
+when 0.11.1 deleted that file (#351). It is the first section below, because
+a session starting a work item needs the order before it needs any step of
+it.
 
 **Read this if you are orchestrating a work item.**
 `skills/implement/SKILL.md` is the other half and holds the implementation
@@ -22,6 +27,16 @@ always named and only the file it names changed (#292, the shape #265 gave
 `code-review`). Every `seal/…` path here means what it means in the other
 half: `<repo>/seal/` where that directory exists, and
 `$(git rev-parse --git-common-dir)/seal/` otherwise (contract §16).
+
+## Orchestrator: the order inside a ticket
+
+1. Branch from the release branch; write `routing.md` before the first edit.
+2. spec · plan (framer) → smith → the draft pull request opens
+   (`skills/code-review/orchestration.md` §*Orchestrator: the pull request
+   opens before round 1, and a phase is re-run* owns when) → warden rounds →
+   sealer → the pull request is marked ready.
+3. The pull request body carries `Closes #N`; the release workflow closes the
+   ticket when the release reaches `main`.
 
 ## Orchestrator: Bootstrap — create what's missing
 

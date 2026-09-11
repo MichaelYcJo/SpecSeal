@@ -58,7 +58,10 @@ SMITH = ("agents", "smith.md")
 PROTOCOL = ("docs", "review-handoff-protocol.md")
 WARDEN = ("agents", "warden.md")
 IMPLEMENT = ("skills", "implement", "SKILL.md")
-FLOW = ("docs", "flow.md")
+# The orchestrator's half of the implement skill (#292). `docs/flow.md` used
+# to hold the order a ticket runs in; it was deleted in 0.11.1 (#351) and the
+# three numbered steps landed here, beside the routing question they open.
+ORCH_IMPL = ("skills", "implement", "orchestration.md")
 PHASE_TEMPLATE = ("templates", "sdd-phase.md")
 VERIFY = ("skills", "verify", "SKILL.md")
 SEALER = ("agents", "sealer.md")
@@ -135,7 +138,7 @@ RULES = {
         "The draft pull request opens at the end of the build, before round 1.",
         {
             PROTOCOL: f"opened when the build's last phase closes, because {BEFORE_ROUND_ONE}",
-            FLOW: f"the draft pull request opens ({BEFORE_ROUND_ONE} when)",
+            ORCH_IMPL: f"the draft pull request opens ({BEFORE_ROUND_ONE} when)",
         },
     ),
     "7 a compacted session hands the next round to a fresh one": (
@@ -496,18 +499,23 @@ def test_the_protocol_re_runs_a_closed_phase_under_its_own_heading():
     )
 
 
-def test_the_flow_opens_the_draft_between_the_build_and_the_rounds():
-    """`docs/flow.md`'s order inside a ticket is what a session reads to
-    know what comes after the smith; a pull request listed last there is the
-    dozen-rounds-on-one-platform shape the owner's section measured."""
-    text = flat(*FLOW)
+def test_the_order_opens_the_draft_between_the_build_and_the_rounds():
+    """`skills/implement/orchestration.md` §*Orchestrator: the order inside a
+    ticket* is what a session reads to know what comes after the smith; a
+    pull request listed last there is the dozen-rounds-on-one-platform shape
+    the owner's section measured.
+
+    The section lived in `docs/flow.md` until 0.11.1 deleted that file. The
+    case moved rather than going with it, because what it pins is an ordering
+    claim about the chain and not a fact about the checklist."""
+    text = flat(*ORCH_IMPL)
     step = text[text.index("2. spec · plan") : text.index("3. The pull request body")]
     assert "smith → the draft pull request opens (" in step
     assert ") → warden rounds → sealer → the pull request is marked ready." in step
     assert step.index("the draft pull request opens") < step.index("warden rounds")
 
 
-def test_the_flow_no_longer_defers_the_framer_to_a_ticket():
+def test_the_order_no_longer_defers_the_framer_to_a_ticket():
     """The other half of S11 of #84. Step 2 read `spec · plan (framer, once
     #84 exists; the session until then)` -- a step written before the agent
     it names, carrying its own escape clause for the interval.
@@ -516,7 +524,7 @@ def test_the_flow_no_longer_defers_the_framer_to_a_ticket():
     the session frames the work `until then` is now an instruction to do the
     thing this work item exists to stop. It reads as current, because nothing
     in the sentence says which side of the arrival a reader is on."""
-    step = flat(*FLOW)
+    step = flat(*ORCH_IMPL)
     step = step[step.index("2. spec · plan") : step.index("3. The pull request body")]
     assert "framer" in step, "step 2 stopped naming who draws the frame"
     for gone in ("once #84 exists", "the session until then"):
