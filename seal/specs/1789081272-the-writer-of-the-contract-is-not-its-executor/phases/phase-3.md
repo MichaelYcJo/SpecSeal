@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | `de0291b` — the phase is `de0291b` (the four deliveries and their nine cases) and the record commit below it |
+| Commit | `e542161` — the phase is `de0291b` (the four deliveries and their nine cases) and `e542161` (these records, Q2's answer, the survivor row and the ledger re-stamp) |
 | Ran by | smith on Opus 5 (1M context) |
 
 ## What this phase was asked
