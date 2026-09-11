@@ -6,7 +6,7 @@
 | Ran by | warden on Opus 5 (1M context) |
 | PR | #352 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | yes — findings 2, 3 and 4, all three in `tests/`. Findings 1 and 5 through 10 are corrections owed at the closing commit rather than a fix pass, and finding 1 is the one that must land before the pull request is read, because the `ledger` job is red without it. |
@@ -42,7 +42,7 @@ The ledger check was named in the UNSCOPED form, with the reason: three rounds o
 | 12 | Named item 2 — three constants where `spec.md` names four | `hooks/routing.py:61-66` | withdrawn | The fourth was an alias; `PLANNING_ANSWERS` says the thing by using `BY_SESSION`. Recorded as a divergence |
 | 13 | Named item 3 — `deferred #350` as a `Status` value | `plan.md:90` | withdrawn | Satisfies the rule's stated reason; see finding 10 for the part still owed |
 | 14 | Named item 4 — `fold_ledger.py --check` exit 1 on this branch | `plan.md` row 6, `.github/workflows/hygiene.yml:115` | withdrawn | Reproduced; the hygiene steps gate on `base_ref == main` and exit 0 early otherwise |
-| 15 | The broad gate — full suite, repository-wide lint, typecheck | `seal/config.md` `Broad gate` row | answered | contract §2 makes it one act with one owner and `agents/sealer.md` is that owner; the orchestrator spawns the sealer once this round settles, and the `Broad gate` cell is where the answer lands |
+| 15 | The broad gate — full suite, repository-wide lint, typecheck | `seal/config.md` `Broad gate` row | ❓ out of verified scope | contract §2 makes it one act with one owner and `agents/sealer.md` is that owner; the orchestrator spawns the sealer once this round settles, and the `Broad gate` cell is where the answer lands |
 
 ## Paste-ready fixes
 

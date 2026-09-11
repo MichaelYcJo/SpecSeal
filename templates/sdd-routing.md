@@ -59,7 +59,8 @@ this file is for people. -->
      This one and the `Planning` row above ship as PLACEHOLDERS while
      `Review` and `Destination` ship answered, and the difference is
      deliberate: a wrong answer in those two is caught at the next commit,
-     because the gate stops recognising the file and goes back to asking. A wrong answer here is never contradicted by
+     because the gate stops recognising the file and goes back to asking.
+     A wrong answer here is never contradicted by
      anything that can stop a commit: a confident `smith` nobody performed
      earns one printed line after a commit, and a confident `the session`
      earns nothing at all. So the commonest mistake — copy the file, never
