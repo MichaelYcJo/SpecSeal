@@ -101,6 +101,8 @@ claim about the wrong grain. It now reads *about an axis whose mark stands*.
 | `seal/specs/1788310269-the-implementer-leaves-a-mark/spec.md` | "`smith-helper` is there because a substring test would read it as the agent" | **A past work item's frame**, describing the case list as that work item shipped it. The live copy is the test's own docstring, which this phase widened — `framer-helper` sits beside `smith-helper` there now, and the spec of a work item that closed in 0.7.0 does not follow it |
 | `seal/ledger.md` | "where the declaration for this branch answers `smith` and no mark stands, one line names `seal/specs/<item>/routing.md`" | **A live ledger claim that is narrower than the code and still true of it.** Every word holds for the axis it names; what it does not state is the `Planning` half, which is this work item's own claim and goes in its fragment rather than being appended here. The row's Notes now carry the 2026-09-11 re-read saying exactly that, so a reader meeting the narrow clause finds the reason beside it |
 | `seal/ledger.md` | "Rows for the work item that gave the routing declaration's third axis its reader: a mark written when `smith` is spawned" | **A section heading naming which work item the rows below belong to.** It is a label on a past work item, not a claim about the tree, and the work item it labels is the one that gave the THIRD axis its reader. The fourth axis's rows go under this work item's own heading |
+| `seal/specs/1788310269-the-implementer-leaves-a-mark/overview.md` | "A work item commits many times and the implementer does not change when it does" | **A past work item's closing memo**, giving the reason the mark is keyed on the branch as that work item gave it. The live copy is `docs/review-chain-spec.md`'s paragraph, which this phase widened to *neither the framer nor the implementer*, and the ledger Notes cell that carried the same sentence, which now says *whoever does its work*. A memo written when there was one axis is not wrong about the release it closed |
+| `seal/specs/1788310269-the-implementer-leaves-a-mark/plan.md` | "A work item commits many times and the implementer does not change when it does" | **The same sentence in the same past work item's plan**, and a record for the same reason. A plan states what its own phases were going to build; rewriting it to match a later release makes it a record of nothing |
 
 **What would make these exemptions stop holding.** The quote is the anchor in
 each. The four records stop being records the moment their sentence is read as
@@ -114,3 +116,16 @@ Anchored on this range as well as on these quotes, the same way the rows above
 are, and with the same caveat phase 3's row records: that anchoring says what
 these rows are FOR, and the checker itself matches a `| Path | Quote | Grounds |`
 row on its path and its quote alone.
+
+**The range was widened twice and the report changed both times, which is why
+the rows outnumber what any one run says.** Over `e82403f..d950e8b` the check
+reports six places; over `e82403f..553afb1`, two; over `e82403f..1601614`,
+five — three of them new, because the later commits reworded
+`docs/review-chain-spec.md`'s *the implementer does not change when it does*
+and that put a fresh sentence on the removed side. The ledger Notes cell
+carrying it was corrected rather than exempted — it now says *whoever does its
+work*, which is true of both axes and states no new claim about either — and
+the two past-work-item records below it are exempted. Every row here is kept
+whether or not the run at hand reports it, for the reason phase 2's row gives:
+an exemption matching no candidate silences nothing, and deleting one would
+leave this record naming a survivor with nothing behind it.
