@@ -59,22 +59,25 @@ def declare(
     item="1787708604-a-work-item",
     body=None,
     implementation=None,
+    planning=None,
 ):
     """Write a routing declaration, or arbitrary `body` when given.
 
-    `implementation` is left out by default, which is what every declaration
-    written before that axis existed looks like.
+    `implementation` and `planning` are both left out by default, which is
+    what every declaration written before those axes existed looks like.
     """
     d = repo / "seal" / "specs" / item
     d.mkdir(parents=True, exist_ok=True)
     if body is None:
         third = f"| Implementation | {implementation} |\n" if implementation else ""
+        fourth = f"| Planning | {planning} |\n" if planning else ""
         body = (
             f"# {item} -- routing\n\n"
             "| Axis | Answer |\n"
             "|---|---|\n"
             f"| Review | {review} |\n"
             f"| Destination | {destination} |\n"
+            f"{fourth}"
             f"{third}"
             f"| Branch | {branch or branch_of(repo)} |\n"
         )
@@ -464,7 +467,14 @@ def test_the_commit_gate_decides_the_same_with_the_row_and_without_it(repo):
 
 def test_every_declaration_in_this_repository_still_parses():
     """Executed against the real files, not a fixture: the twelve committed here
-    are the population the optional row exists for."""
+    are the population the optional row exists for.
+
+    S8 of #84 extends it rather than opening a second case beside it. Seventy-two
+    declarations are committed here and not one has a `Planning` row, so the
+    fourth axis has the same population the third had: a required row, or a row
+    whose absence took the declaration down, would un-silence the commit gate on
+    every one of them.
+    """
     import glob
 
     root = os.path.join(os.path.dirname(__file__), "..")
@@ -472,4 +482,72 @@ def test_every_declaration_in_this_repository_still_parses():
     assert found, "no declarations found -- the check would pass vacuously"
     for path in found:
         with open(path, encoding="utf-8") as f:
-            assert routing.parse(f.read()) is not None, path
+            parsed = routing.parse(f.read())
+        assert parsed is not None, path
+        assert parsed["planning"] is None, (
+            f"{path} answers the fourth axis; this case's premise is that none "
+            "of the committed declarations does, so it no longer measures the "
+            "population the optional row exists for"
+        )
+
+
+# --- the fourth axis: the third's terms, its own vocabulary ------------------
+
+
+def with_planning(answer):
+    """`two_axis_text()` with a `Planning` row in front of `Branch`."""
+    return two_axis_text().replace("| Branch |", f"| Planning | {answer} |\n| Branch |")
+
+
+def test_a_declaration_without_a_planning_row_is_still_a_declaration():
+    """S8 at the parser."""
+    parsed = routing.parse(two_axis_text())
+    assert parsed is not None
+    assert parsed["planning"] is None
+
+
+def test_the_fourth_axis_is_read_when_it_is_there():
+    """The vocabulary is `framer` and `the session`, and the second is the same
+    string the third axis uses -- one vocabulary, not two spellings of one."""
+    for answer in routing.PLANNING_ANSWERS:
+        assert routing.parse(with_planning(answer))["planning"] == answer, answer
+    assert routing.BY_SESSION in routing.PLANNING_ANSWERS
+
+
+def test_an_unreadable_fourth_axis_reads_as_unanswered_not_as_no_declaration():
+    """S9 at the parser. The failure direction is the third axis's: "this axis
+    was not answered", never "this file is not a declaration"."""
+    for spelling in ("whoever gets to it", "`framer`", "Framer", "FRAMER", ""):
+        parsed = routing.parse(with_planning(spelling))
+        assert parsed is not None, f"`{spelling}` rejected the whole declaration"
+        assert parsed["planning"] is None, spelling
+        assert parsed["review"] == CHAIN, spelling
+
+
+def test_neither_optional_axis_answers_for_the_other():
+    """Two optional rows read from one table is where a fold-together would
+    hide: `Planning` answered and `Implementation` absent must not read as both
+    answered, and the reverse must not either."""
+    text = two_axis_text().replace("| Branch |", "| Planning | framer |\n| Branch |")
+    parsed = routing.parse(text)
+    assert parsed["planning"] == routing.BY_FRAMER
+    assert parsed["implementation"] is None
+
+    text = two_axis_text().replace(
+        "| Branch |", "| Implementation | smith |\n| Branch |"
+    )
+    parsed = routing.parse(text)
+    assert parsed["implementation"] == routing.BY_SMITH
+    assert parsed["planning"] is None
+
+
+def test_the_commit_gate_decides_the_same_with_the_planning_row_and_without(repo):
+    """S9 at the gate rather than at the parser, the shape the third axis's own
+    case has. A backticked, capitalised or absent answer decides exactly what
+    the declaration without the row decides."""
+    opt_in(repo)
+    declare(repo, review=CHAIN)
+    assert decision_of(gate(repo)) == "silent"
+    for answer in ("framer", "the session", "`framer`", "Framer", "whoever"):
+        declare(repo, review=CHAIN, planning=answer)
+        assert decision_of(gate(repo)) == "silent", answer

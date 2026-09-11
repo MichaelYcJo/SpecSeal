@@ -173,6 +173,26 @@ checked is the answer, and each box is a row of the declaration:
 | Review with `warden` | run the rounds · `Review` = `through the review chain` | `Review` = `straight to the PR` |
 | Open the pull request | push it and open one · `Destination` = `open the pull request` | `Destination` = `stop before the pull request` |
 
+**The declaration has a fourth row, and nobody is asked about it.**
+
+| Axis | Answers |
+|---|---|
+| Planning | framer · the session — OPTIONAL; absent reads as unanswered |
+
+It is a record, not a checkbox. #88 holds the rule the fourth box would break
+— the question grows only where a decision is genuinely a person's — and this
+one is not a person's: `agents/framer.md`'s `## When you run` says the SDD
+ladder decides, so the framer runs where §3 calls for a `spec.md` and nowhere
+else. A fourth box would also take eight combinations to sixteen to ask
+something already answered.
+
+So fill the row from what happened. `framer` where the frame was drawn by the
+subagent, `the session` where this session drew it, and no row at all where
+the ladder called for no frame. A wrong answer here is contradicted by
+nothing, which is why `hooks/implementer-notice.py` says one line after a
+commit when a declared agent left no mark — for this row and for
+`Implementation` together, in one line rather than one each.
+
 **Asking one of the three later is the failure, not a lesser version of it.**
 Measured here: routing at the start, the reviewer in the middle, the pull
 request at the end — three interruptions, in the session that had the

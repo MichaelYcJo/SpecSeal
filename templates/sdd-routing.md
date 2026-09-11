@@ -16,11 +16,22 @@ this file is for people. -->
 |---|---|
 | Review | through the review chain |
 | Destination | open the pull request |
+| Planning | <framer, or: the session> |
 | Implementation | <smith, or: the session> |
 | Branch | <the branch this work item is being built on> |
 
 <!-- Review — `through the review chain` or `straight to the PR`.
      Destination — `open the pull request` or `stop before the pull request`.
+     Planning — `framer` or `the session`. Who draws the frame — `spec.md`,
+     `plan.md` and the questions: the `framer` subagent, or this session
+     itself. OPTIONAL, on exactly the terms the `Implementation` row below
+     has, and for the same reasons — read them there. A second copy of that
+     reasoning here is how the two rows drift apart, which is the failure the
+     contract records under §11 and §16.
+     HOW TO ANSWER IT — nobody is asked. `skills/implement/SKILL.md` §3's
+     ladder decides whether a frame is drawn at all, so this row RECORDS which
+     way it went rather than putting a fourth box in the routing question
+     (#88). Write the answer WITHOUT backticks, the same as below.
      Implementation — `smith` or `the session`. Who writes the code: the
      `smith` subagent, or this session itself. OPTIONAL — a declaration
      without this row is still a declaration, and it reads as "not answered".
