@@ -74,7 +74,7 @@ than carried.**
   is a skill with no stand-down at all.
 
 **The case that pinned the old owner was pinning a typed name, and that is
-why it went stale silently.** `test_the_design_gate_belongs_to_the_smith`
+why it went stale silently.** `test_the_design_gate_belongs_to_the_smith` <!-- NAME NOT IN TREE: this phase is what split it into two cases; the name is what the phase read before the split -->
 read `smith` out of its own source in both directions — the definition it
 opened by name, and the literal `smith is driving` it looked for. Nothing in
 it could notice the gate moving. It is now two cases, and neither types an
@@ -130,7 +130,7 @@ should know which of the two was tried.
 part of the reading.** Over `02c5b90..5571996` it found
 `tests/test_the_root_migrates_itself.py:437` carrying `for name in` and a
 `utf-8` read followed by an assertion — the shape of the loop that left
-`test_the_design_gate_belongs_to_the_smith`, scoring 1.89, and about the root
+`test_the_design_gate_belongs_to_the_smith`, scoring 1.89, and about the root <!-- NAME NOT IN TREE: the name the removed sentences came from, quoted as the survivor run reported it -->
 migration rather than about who calls a skill. It is exempted in
 `survivors.md` with the loop quoted. Run again over the phase's whole range,
 `02c5b90..dfe9d6f`, it reports nothing at all: the later commits changed the
@@ -163,6 +163,6 @@ drift is this phase's).
 |---|---|
 | `agents/smith.md`'s design-gate paragraph naming `confidence-check` and `feature-planner` as the smith's to call | `agents/framer.md` §*What you are*, the paragraph beginning *Two more skills are yours to call* — written in phase 1, which is what made this a move. `agents/smith.md` keeps a three-sentence pointer at it in the same place, so a smith reading the gate learns where the skills went rather than that they vanished |
 | `agents/smith.md`'s design-gate opening clause *the utility skills do not make it for you, and they should not fire on their own while you are driving* | nowhere, and nothing needs it. The stand-down it asserted is stated in each skill's own `NOT for` clause, which is the copy the skill loader reads and the copy `test_the_skills_stand_down_for_whichever_definition_calls_them` pins. The half worth keeping — that the gate is a judgment no skill makes — stays in the rewritten sentence |
-| `tests/test_chain_hooks_hardening.py`'s `test_the_design_gate_belongs_to_the_smith` | split into the two cases above, both reading the owner out of the glob. What it was written to prevent — the two skills self-triggering beside the phase that already calls them — is asserted by the second of them, and by the first that there is a single phase to be beside |
+| `tests/test_chain_hooks_hardening.py`'s `test_the_design_gate_belongs_to_the_smith` | split into the two cases above, both reading the owner out of the glob. What it was written to prevent — the two skills self-triggering beside the phase that already calls them — is asserted by the second of them, and by the first that there is a single phase to be beside | <!-- NAME NOT IN TREE: the removed case named in this phase's own removal table; the two that replaced it are named in the cell -->
 | `docs/flow.md` step 2's clause `once #84 exists; the session until then` | nowhere. It described the interval before `agents/framer.md` existed, and that interval closed with `77e0ae5`. Nothing in the sentence said which side of the arrival a reader was on, which is what made it read as a standing permission for the session to frame its own work |
 | `agents/sealer.md`'s word `three` in *the three definitions that stay silent* | `four`, and the count is now derived — `test_the_sealer_counts_the_silent_definitions_from_the_glob` computes it from the same glob and marker rather than from a list of names |

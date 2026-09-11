@@ -8,7 +8,7 @@ coincidence of ordinary Python, scoring 1.89 on three shared phrases — two of
 them the same fragment counted twice — and it is not a copy of anything this
 phase corrected.
 
-The removal that produced it is `test_the_design_gate_belongs_to_the_smith`,
+The removal that produced it is `test_the_design_gate_belongs_to_the_smith`, <!-- NAME NOT IN TREE: the case phase 2 split into two; the name is what this row read when it judged the report -->
 whose body opened `agents/smith.md` and looped `for name in
 ("confidence-check", "feature-planner")`. What the check found standing is a
 different loop over a different directory, in a module about the root

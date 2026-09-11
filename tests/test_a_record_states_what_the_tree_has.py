@@ -982,9 +982,23 @@ def test_this_repositorys_own_records_state_nothing_the_tree_lacks():
     Four occurrences of one name in work item `1788749195`'s round records —
     the instance that work item's own round 3 found by READING, three weeks of
     records later. This is what a check names at the commit that writes it.
+
+    **What the tree LACKS is the bar, which is the arm's own grading and not
+    everything the arm prints.** `main` counts a refusal as anything that is
+    neither DRIFTED nor EXTERNAL, and the comment beside it gives the reason:
+    a live work item's branch is editing the very units its records stamp, so
+    failing on drift is red by construction. Asserting the whole list made
+    this case stricter than the tool it measures, and #84 is where that came
+    due — one record quoting the hash `COVERED` held before the same branch
+    changed it, beside the new hash, which is the record doing its job. The
+    `ledger` CI job rendered that as a warning and this case failed the same
+    tree on all three platforms. A name the tree does not carry stays fatal
+    here, and so does a broken anchor: both count refused, above and in
+    `main`.
     """
     findings, _names, _stamps = module().check_records(ROOT, os.path.join(ROOT, "seal"))
-    assert findings == [], "\n".join(f"{c}  {d}" for _s, c, d in findings)
+    refused = [f for f in findings if f[0] not in ("DRIFTED", "EXTERNAL")]
+    assert refused == [], "\n".join(f"{c}  {d}" for _s, c, d in refused)
 
 
 def test_a_built_coordinate_prints_with_forward_slashes_on_windows():

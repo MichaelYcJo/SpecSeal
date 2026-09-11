@@ -32,8 +32,8 @@ and build it. The mark is a **second constant inside `hooks/implementer.py`**,
 never a second module beside it — `plan.md`'s Alternatives table records the
 rejection and the grounds, contract §11 and §16 each recording a rule that sat
 in two definitions in near-identical words while a third carried none. `write`,
-`stands` and `is_smith` each generalise; `git_dir` does not change at all, and
-`is_smith` was the one to look hardest at, because its docstring's reason for
+`stands` and `is_smith` each generalise; `git_dir` does not change at all, and <!-- NAME NOT IN TREE: 4b renamed it `mark_for`; the name is the predicate as this phase found it, before the generalisation -->
+`is_smith` was the one to look hardest at, because its docstring's reason for <!-- NAME NOT IN TREE: the same predicate under the same pre-rename name -->
 `rsplit(":", 1)[-1]` over a substring test has to survive whatever shape it
 takes for two agents. `hooks/implementer-mark.py` writes for either agent;
 `hooks/implementer-notice.py` prints for either axis whose declared agent left
@@ -79,7 +79,7 @@ written.**
   this phase's five rows quick to write.
 
 **The mark's ledger row went BROKEN rather than DRIFTED, and re-pointing it
-was the right act rather than the forbidden one.** `is_smith` became
+was the right act rather than the forbidden one.** `is_smith` became <!-- NAME NOT IN TREE: the pre-rename name, which this sentence is about; `mark_for` on the next line is the name the tree carries -->
 `mark_for`, so `hooks/implementer.py#is_smith` names nothing. `CLAUDE.md` says
 a row whose anchor a change removes is REMOVED and its new claim goes in the
 fragment — and the rationale it gives is *its claim went with the code*, which
