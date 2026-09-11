@@ -6,7 +6,11 @@ Approved 2026-09-11 by the repository owner, when `smith` was spawned.
 `questions.md` carries: phase 3 is what brings the template to this shape, and
 the line is written in the spelling `templates/sdd-routing.md`'s `Answered`
 line already has. Nothing else tells a later session or CI that a person saw
-this plan. -->
+this plan.
+
+Phase 3 did, at `de0291b`. The template's line is this line with `<date>` and
+`<who>` in place of the values, and a case now compares its spelling against
+the routing template's, so neither can drift into a second convention. -->
 
 ## Summary
 

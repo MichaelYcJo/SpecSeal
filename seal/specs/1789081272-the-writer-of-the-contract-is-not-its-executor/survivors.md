@@ -35,3 +35,31 @@ over the floor did not survive the recount. The row stays because it records a
 judgment somebody made and can check — deleting it would leave the phase
 record naming a survivor with nothing behind it — and because it costs
 nothing: an exemption that matches no candidate silences nothing.
+
+## Phase 3 — the report splits on who can answer the row
+
+`survivor-check --range fe823dc..de0291b` examines 845 files against the five
+sentences the range removed and reports one place. The report is correct and
+the standing text is correct too, which is the whole of this row: the sentence
+survives in a cell whose job is to record what the default WAS.
+
+The removal is `agents/framer.md`'s old report rule — *the path and the count,
+never the rows' text*, resting on §5. Q2 of this work item's own
+`questions.md` proposed that rule as its default, and the owner refined it on
+2026-09-11. Q1 is the precedent for what happens next: the `Default until
+answered` cell keeps the default it stood on, and the `Status` cell records
+the answer against it.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `seal/specs/1789081272-the-writer-of-the-contract-is-not-its-executor/questions.md` | "It is the shape agents/sealer.md's report already has, and §5 says an aggregate is not a coordinate" | **It is the Default column of the row that was answered**, and this file's shape requires it to stand: a row whose default is edited to match its answer no longer records that an answer was given against anything. Q1 above it does the same thing with the same two cells. The live claim — what a framer actually reports — moved with the removal, and `agents/framer.md` carries it in the answered form |
+
+**What would make this exemption stop holding.** The quote is the anchor, and
+it is quoted from the Default cell. If that sentence ever appears anywhere it
+is read as a live instruction — the `Status` cell, the framer's definition,
+the template — it is a survivor rather than a record, and the report is a
+finding.
+
+Anchored on this range as well as on this quote, the same way the phase 2 row
+is. A different range re-runs the check from scratch and this row does not
+answer for it.
