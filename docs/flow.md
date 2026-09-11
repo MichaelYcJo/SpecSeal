@@ -56,7 +56,7 @@ named in your own definition* — so the agent that writes three durable records
 meets a rule that permits them, instead of arriving as the fourth exception to
 a sentence that forbids them.
 
-- [ ] **#84 — `framer` writes the frame the smith fills**, so the writer of the contract is not its executor. Needs #121's phase channel — a framer that draws the plan and never authors the half of a phase prompt only building can teach is a partial answer.
+- [x] **#84 — `framer` writes the frame the smith fills**, so the writer of the contract is not its executor. Needs #121's phase channel — a framer that draws the plan and never authors the half of a phase prompt only building can teach is a partial answer.
 
 **And the owner's decision of 2026-09-10 goes with it**: `routing.md` gains a
 `Planning` row, `framer` · `the session`, the shape the `Implementation` row
@@ -99,6 +99,7 @@ first release that can read them rather than the first that could have.
 - [ ] #334 — the gate reads a literal another package prints, and changing that print turns nothing red. Measured at 130 passed with the two ends disagreeing. Nothing is wrong today; what is missing is the thing that would notice.
 - [ ] #335 — `seal` accepts a `round-N` checker whose shape is right and whose position on a last record makes it false, and writes the cell before the chain check refuses it. The three of these are what 0.10.0's own review chain opened, which is the rate this list should be read at.
 - [ ] #339 — the guard that makes a round record's terminal-line join safe passes the prose it was written to stop and truncates a continuation beginning with an issue number, which this repository writes at the head of a line constantly. **A regression 0.10.0 shipped**, in a parser that release changed twice in opposite directions, and the corrected pattern was already in the tree at `.github/scripts/issue_claims_check.py:116` with a comment naming the trap. It sits here rather than in the list below because it is this release's own regression and because #335 is already here and is the same module. **#340 travels with it** — the protocol that defines a conforming tool never learned that a wrapped terminal line is one value, so a second implementation truncates where this one no longer does.
+- [ ] #350 — an agent's own wall clock is in no column of any report, and 0.11.0's four spawned segments were measured by opening each transcript by hand, one `session-cost` call per file. **Deferred out of #84 on 2026-09-11, on the owner's call**: it is the last of that ticket's five `Done when` bullets and the only one that is not the framer itself, so the framer ships in 0.11.0 without it. It sits here because #198 guards the same log one artifact over and #330 is its class — a rule that is a sentence becomes a command — and because the number it would print is what decides #84's own falsifiable test, whether a complete frame makes the smith read it instead of the repository.
 - [ ] #149 — a record says what a segment cost and not what its output cost the next reader. #137's second half. Five candidate signals and no evidence which of them survive contact: surviving mutations, defects the next round found inside this segment's output, `New units` depth, fix passes needed, and divergences from the plan.
 
 ## Later — not scheduled
@@ -115,6 +116,6 @@ first release that can read them rather than the first that could have.
 ## Order inside a ticket
 
 1. Branch from the release branch; write `routing.md` before the first edit.
-2. spec · plan (framer, once #84 exists; the session until then) → smith → the draft pull request opens (`skills/code-review/orchestration.md` §*Orchestrator: the pull request opens before round 1, and a phase is re-run* owns when) → warden rounds → sealer → the pull request is marked ready.
+2. spec · plan (framer) → smith → the draft pull request opens (`skills/code-review/orchestration.md` §*Orchestrator: the pull request opens before round 1, and a phase is re-run* owns when) → warden rounds → sealer → the pull request is marked ready.
 3. The pull request body carries `Closes #N`; the release workflow closes the ticket when the release reaches `main`.
 

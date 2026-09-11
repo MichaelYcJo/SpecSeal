@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""PreToolUse side effect: record that `smith` was actually spawned.
+"""PreToolUse side effect: record that a declared agent was actually spawned.
 
-The routing declaration says who implements the work — the `smith` subagent or
-the session itself — and until this gate existed that answer was written down
-and never looked at again. This is the half that makes it checkable: when a
-spawn names `smith`, a mark goes into the repository's git dir, and
-`implementer-notice.py` reads it after a commit.
+The routing declaration says who draws the frame and who implements the work —
+the `framer` and `smith` subagents, or the session itself — and until this gate
+existed those answers were written down and never looked at again. This is the
+half that makes them checkable: when a spawn names either agent, that axis's
+mark goes into the repository's git dir, and `implementer-notice.py` reads both
+after a commit.
+
+**One gate for both axes**, because the two differ by which constant gets
+written. `hooks/implementer.py#mark_for` is where a spawn is matched to a mark,
+so this file never names an agent at all.
 
 **Decides nothing.** It prints no decision, and prints nothing at all, so it
 cannot deny, ask, or delay a spawn. `dispatch.py` merges an empty output as
@@ -48,17 +53,19 @@ def main():
     if event.get("tool_name") not in ("Agent", "Task"):
         return
     tool_input = event.get("tool_input") or {}
-    if not implementer.is_smith(tool_input.get("subagent_type")):
+    mark = implementer.mark_for(tool_input.get("subagent_type"))
+    if not mark:
         return
 
     cwd = event.get("cwd") or ""
     if not cwd or not os.path.isdir(cwd) or not optin.opted_in(cwd):
         return
 
-    # The branch, not the HEAD sha: a work item commits many times and the
-    # implementer does not change when it does. A sha would go stale at the
-    # first commit and turn the notice into a line printed after every one.
-    implementer.write(cwd, routing.current_branch(cwd))
+    # The branch, not the HEAD sha: a work item commits many times and neither
+    # the framer nor the implementer changes when it does. A sha would go stale
+    # at the first commit and turn the notice into a line printed after every
+    # one.
+    implementer.write(cwd, routing.current_branch(cwd), mark)
 
 
 if __name__ == "__main__":

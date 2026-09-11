@@ -332,6 +332,60 @@ def test_only_one_definition_assigns_the_broad_gate():
     )
 
 
+# The sealer's own sentence counts the definitions that say nothing about the
+# broad gate, and a count written as a word is the same aggregate §5 refuses
+# to take on trust. Spelled out to the sizes an agent set can plausibly reach;
+# a set larger than this has outgrown one sentence naming a number at all.
+SILENT_IN_WORDS = {
+    1: "one",
+    2: "two",
+    3: "three",
+    4: "four",
+    5: "five",
+    6: "six",
+    7: "seven",
+}
+STAY_SILENT = "definitions that stay silent"
+
+
+def test_the_sealer_counts_the_silent_definitions_from_the_glob():
+    """S11 of #84. `agents/sealer.md` read *the three definitions that stay
+    silent run none of the three checks, and yours does not* -- true while the
+    set was four, false the moment `agents/framer.md` landed, and nothing in
+    the tree was red about it.
+
+    The failure is the one `test_only_one_definition_assigns_the_broad_gate`
+    names one sentence over: a count is an aggregate, so §5 says it is a
+    number a reader can check standing in for a claim they cannot. This counts
+    it, from the same glob and the same marker, so the number and the agent
+    set cannot come apart again.
+
+    It never counts from a list. A list of four names here would be a second
+    copy of the agent set, going stale on the same day the sentence does --
+    which is the failure with the extra step of looking correct."""
+    agents = sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
+    assert len(agents) >= 4, f"agents/*.md matched {len(agents)} files"
+    assigning = [
+        os.path.basename(path)
+        for path in agents
+        if ASSIGNS_THE_GATE in " ".join(read_at(path).split())
+    ]
+    silent = len(agents) - len(assigning)
+    assert silent in SILENT_IN_WORDS, (
+        f"{len(agents)} definitions, {len(assigning)} of which assign the "
+        "gate. A set this size has outgrown a sentence that names the count "
+        "in words -- change the sentence rather than extending `SILENT_IN_WORDS`"
+    )
+    sealer = flat("agents", "sealer.md")
+    assert f"the {SILENT_IN_WORDS[silent]} {STAY_SILENT}" in sealer, (
+        f"`agents/sealer.md` does not say `the {SILENT_IN_WORDS[silent]} "
+        f"{STAY_SILENT}`, and the glob holds {len(agents)} definitions of "
+        f"which {len(assigning)} assign the gate ({assigning}). Either the "
+        "agent set grew and the sentence did not follow it, or the sentence "
+        "was reworded and this is the case that reads it"
+    )
+
+
 def test_no_definition_promises_the_suite_once_the_rounds_settle():
     """Round 1, finding 2 of #120. `agents/warden.md` read *§2 keeps the suite
     out of your hands UNTIL the rounds settle*, which says it becomes the

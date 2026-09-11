@@ -49,11 +49,21 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, "skills", "implement", "scripts", "seal.py")
 
 # Session state that sits BESIDE the root under the common git directory.
-# `docs/one-root-by-lifetime.md` names the first four; the lease and this
-# command's own state are the two that arrived later. None may ever be in a
-# zip, and the case that asserts it builds every one of them.
+# `docs/one-root-by-lifetime.md`'s tree diagram names the two agent marks and
+# the opt-out; the review and parity marks, the export state and the lease are
+# named where each is written. None may ever be in a zip, and the case that
+# asserts it builds every one of them.
+#
+# The comment here used to group them by arrival — four from the document,
+# then the two that came later — and #84's second mark made that count wrong
+# without making anything red, because the exclusion is structural and a
+# missing entry costs coverage rather than a failure. Two sibling
+# enumerations were swept on that branch and this one was not. So the list
+# carries no count: what it is FOR is the sentence above, and a new file
+# beside the root joins it.
 BESIDE_THE_ROOT = (
     "specseal-implementer",
+    "specseal-planner",
     "specseal-reviewed",
     "specseal-parity",
     "specseal-scratch",
@@ -205,9 +215,10 @@ def test_a_second_export_on_the_same_day_does_not_overwrite_the_first(
 
 
 def test_no_session_state_beside_the_root_is_in_the_zip(seal, repo, local, capsys):
-    """S2. The mark, the choices, the two review marks, the opt-out and the
-    lease all sit beside the root, and none of them belongs to another
-    machine."""
+    """S2. Everything `BESIDE_THE_ROOT` names sits beside the root — the two
+    agent marks, the two review marks, the opt-out, the export state and the
+    lease — and the worktree choices directory is built beside them here.
+    None of them belongs to another machine."""
     common = repo / ".git"
     for name in BESIDE_THE_ROOT:
         if name == "specseal-scratch":

@@ -393,19 +393,35 @@ A work item's directory is `seal/specs/<unix-epoch-seconds>-<slug>/` (e.g.
 timestamp prefix keeps directories in creation order and collision-free
 without a registry — take it from `date +%s` when creating the directory.
 
-| File | Starts from | Holds | When |
-|---|---|---|---|
-| `spec.md` | `templates/sdd-spec.md` | WHAT — scope, mandatory user scenarios & acceptance, grounding clauses | before implementing |
-| `plan.md` | `templates/sdd-plan.md` | HOW — phases as vertical slices, alternatives with failure scenarios; this is the Design Gate's artifact | before implementing (gated work) |
-| `questions.md` | `templates/sdd-questions.md` | decisions only a human can make — extracted so nothing ships on a silent assumption | one batch before the first edit, then as they arise |
-| `overview.md` | `templates/sdd-overview.md` | the closing memo — one line of purpose, then what the diff cannot show (below) | opened at the first divergence, unverified item, or fed-back clause; closed when implementation ends |
-| `phases/phase-N.md` | `templates/sdd-phase.md` | what this phase was asked, what building it found, what it removed from the tree — never the commit or the one-line delivery description `plan.md`'s Status/Delivers cells already own | written when the phase closes |
+| File | Starts from | Written by | Holds | When |
+|---|---|---|---|---|
+| `spec.md` | `templates/sdd-spec.md` | the framer | WHAT — scope, mandatory user scenarios & acceptance, grounding clauses | before implementing |
+| `plan.md` | `templates/sdd-plan.md` | the framer | HOW — phases as vertical slices, alternatives with failure scenarios; this is the Design Gate's artifact, and its `Approved <date> by <who>` line is the record that the gate happened | before implementing (gated work) |
+| `questions.md` | `templates/sdd-questions.md` | the framer opens the rows; each row's `Who can answer` cell names who closes it | decisions only a human can make — extracted so nothing ships on a silent assumption | one batch before the first edit, then as they arise |
+| `overview.md` | `templates/sdd-overview.md` | the builder | the closing memo — one line of purpose, then what the diff cannot show (below) | opened at the first divergence, unverified item, or fed-back clause; closed when implementation ends |
+| `phases/phase-N.md` | `templates/sdd-phase.md` | the builder | what this phase was asked, what building it found, what it removed from the tree — never the commit or the one-line delivery description `plan.md`'s Status/Delivers cells already own | written when the phase closes |
 
-The middle column is not decoration. A template that no shipped document
-names is a template a session cannot find: it reads *bootstrapped from
-`templates/`*, cannot tell which file that means, and writes one from
+The `Starts from` column is not decoration. A template that no shipped
+document names is a template a session cannot find: it reads *bootstrapped
+from `templates/`*, cannot tell which file that means, and writes one from
 scratch. Two of the original four — before `phases/phase-N.md` joined the
 table — were in exactly that state.
+
+`Written by` is the same kind of column, for the same kind of reason. The
+split it records is what `agents/framer.md` exists for: a `spec.md` written by
+whoever then builds against it stops being a contract and becomes an account
+of what got built, which leaves the review's first stage comparing the work
+with its own description of itself. A table that lists the set without naming
+an author reads as a list one session works through — which is what every work
+item here did before the framer shipped, and what nothing in the set could say
+was wrong. Below the ladder's top rung there is no framer and no `spec.md`;
+the session that builds writes whatever that rung asks for, and the column is
+about who holds the pen when both parties exist.
+
+Where a work item records the approval is the `plan.md` line above, and it is
+the only durable trace of the gate. `routing.md` records who answered the
+routing batch, the review chain records what it read, and neither of them says
+a person saw the plan.
 
 **What goes into `phases/phase-N.md`'s `## What this phase was asked`
 section is the phase-specific content of the spawn or task that started

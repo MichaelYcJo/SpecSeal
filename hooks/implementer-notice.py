@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-"""PostToolUse reminder: the declaration said `smith`, and `smith` never ran.
+"""PostToolUse reminder: the declaration named an agent, and it never ran.
 
-The third routing axis records who implements the work. This is what makes the
-record worth writing: after a commit, where the declaration in force says
-`smith` and no mark stands for this branch, the session is told once. Where the
-mark stands, nothing is said at all.
+Two routing axes record who does the work — `Planning` who draws the frame,
+`Implementation` who writes the code. This is what makes those records worth
+writing: after a commit, where the declaration in force names an agent and no
+mark of that axis stands for this branch, the session is told once. Where the
+mark stands, nothing is said about that axis at all.
+
+**One line for two axes, never one line each.** The grain below is once per
+repository per session, and two lines in one session is that grain broken in
+the commonest state there is — a declaration copied from the template and
+answered on both optional rows, by a session that then framed and built the
+work itself.
 
 **Why here and not at the commit gate.** A `PreToolUse` gate that allows
 produces no output — allowing IS silence, and there is no spelling for "let
@@ -40,6 +47,57 @@ import routing
 from cmdline import drop_comments, drop_heredoc_bodies, parse_git, split_segments
 
 NOTICE_DIR = "specseal-implementer-notice"
+
+# The axes this notice speaks for, in the order the declaration lists them:
+# the key `routing.parse()` returns, the label a person reads in the file, the
+# answer that names an agent, and the mark that agent leaves. Adding a fifth
+# axis with an agent behind it is a row here and nothing else.
+AXES = (
+    ("planning", routing.PLANNING, routing.BY_FRAMER, implementer.PLANNING_MARK),
+    (
+        "implementation",
+        routing.IMPLEMENTATION,
+        routing.BY_SMITH,
+        implementer.IMPLEMENTATION_MARK,
+    ),
+)
+
+
+def unfulfilled(cwd, branch, declared):
+    """The axes this declaration named an agent for and no mark answers.
+
+    Both coordinates are asked of `stands` — the branch and the axis — because
+    `smith` is spawned on nearly every work item, so a reader that took one
+    mark for both axes would go quiet in exactly the state this notice exists
+    to report.
+    """
+    return [
+        (label, agent)
+        for key, label, agent, mark in AXES
+        if declared.get(key) == agent and not implementer.stands(cwd, branch, mark)
+    ]
+
+
+def line(where, missing):
+    """The one line, naming every axis whose declared agent left no mark.
+
+    `missing` holds one or two pairs — `AXES` has two entries, so there is no
+    third case to write — and the singular wording is kept byte-for-byte,
+    because it is what nearly every notice will say and what its own test pins.
+    """
+    named = " and ".join(f"`{label}` with `{agent}`" for label, agent in missing)
+    if len(missing) == 1:
+        gone = f"no {missing[0][1]} was spawned on this branch"
+        spawn, row = "spawn it", "the row"
+    else:
+        gone = "neither was spawned on this branch"
+        spawn, row = "spawn them", "the rows"
+    return (
+        f"[specseal] {where} answers {named}, and {gone}. Either {spawn} for "
+        f"the rest of the work, or change {row} to `the session` so the "
+        f"declaration says what actually happened. Nothing was blocked, and "
+        f"this is said once per session."
+    )
 
 
 def commits(command):
@@ -101,9 +159,10 @@ def main():
 
     branch = routing.current_branch(cwd)
     declared = routing.for_branch(top, branch)
-    if not declared or declared.get("implementation") != routing.BY_SMITH:
+    if not declared:
         return
-    if implementer.stands(cwd, branch):
+    missing = unfulfilled(cwd, branch, declared)
+    if not missing:
         return
     if already_told(cwd, payload.get("session_id")):
         return
@@ -117,13 +176,7 @@ def main():
         if item
         else "the routing declaration"
     )
-    print(
-        f"[specseal] {where} answers `Implementation` with `smith`, and no "
-        f"smith was spawned on this branch. Either spawn it for the rest of the "
-        f"work, or change the row to `the session` so the declaration says "
-        f"what actually happened. Nothing was blocked, and this is said once "
-        f"per session."
-    )
+    print(line(where, missing))
 
 
 if __name__ == "__main__":
