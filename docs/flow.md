@@ -49,13 +49,14 @@ one adds a fifth agent, a channel a phase hands the next one, and a `Planning`
 row in `routing.md`. It earns its own release rather than a fourth slot.
 
 **What the move costs is that the contract is settled at four agents and not
-five**, and 0.10.0's section says why that holds. What it buys is that the
+five**, and #120 is where the grounds are — its `questions.md` Q2, and the
+section that stated them here went with the shipped release. What it buys is that the
 framer arrives against a contract whose §6 already reads *what you write is
 named in your own definition* — so the agent that writes three durable records
 meets a rule that permits them, instead of arriving as the fourth exception to
 a sentence that forbids them.
 
-- [ ] **#84 — `framer` writes the frame the smith fills**, so the writer of the contract is not its executor. Needs #121's phase channel — a framer that draws the plan and never authors the half of a phase prompt only building can teach is a partial answer.
+- [x] **#84 — `framer` writes the frame the smith fills**, so the writer of the contract is not its executor. Needs #121's phase channel — a framer that draws the plan and never authors the half of a phase prompt only building can teach is a partial answer.
 
 **And the owner's decision of 2026-09-10 goes with it**: `routing.md` gains a
 `Planning` row, `framer` · `the session`, the shape the `Implementation` row
@@ -63,15 +64,19 @@ already has. #88 is the near neighbour to read first — it asks how the routing
 question says *all of them* — because a fourth checkbox and a preset over the
 three are answers to the same question.
 
-## 0.10.1 — the three 0.9.5 planned and did not reach
+## 0.11.1 — the three 0.9.5 planned and did not reach
 
 Moved here on 2026-09-10, when 0.9.5 was cut at five: eight was over the size,
 the five that shipped were the ones the release's own run produced, and these
 three were the ones it was planned around.
 
-**Renumbered from 0.9.6 the same day, and the agent set goes first.** That was
-the owner's call and the reason is that 0.10.0 is the main line of the work
-rather than a detour from it. What the order costs is written down rather than
+**Renumbered twice, and the second time was the order correcting the number.**
+It was 0.9.6 until 2026-09-10, when the agent set took 0.10.0 and this became
+0.10.1 — the owner's call, because the agent set was the main line of the work
+rather than a detour from it. It became **0.11.1** on 2026-09-11, when 0.10.0
+shipped and the framer's release was cut: this section sits BELOW 0.11.0 in
+the order these ship, and a 0.10.1 released after a 0.11.0 is a number going
+backwards. The content did not move; only the number it will carry did. What the order costs is written down rather than
 left to be discovered: #103 makes the two defect shapes only Windows catches
 visible without Windows, and 0.10.0 widens exactly that surface — five agent
 definitions and new record paths are all path-spelling candidates — so 0.10.0
@@ -93,115 +98,9 @@ first release that can read them rather than the first that could have.
 - [ ] #333 — a depth-2 refusal names the finding and the unit by file alone. It stopped the right commit for the wrong reasons: the message sent a reader to a unit it must keep. Opened by #30's round-2 fix pass, which measured the cause in `depth_two`'s own walk.
 - [ ] #334 — the gate reads a literal another package prints, and changing that print turns nothing red. Measured at 130 passed with the two ends disagreeing. Nothing is wrong today; what is missing is the thing that would notice.
 - [ ] #335 — `seal` accepts a `round-N` checker whose shape is right and whose position on a last record makes it false, and writes the cell before the chain check refuses it. The three of these are what 0.10.0's own review chain opened, which is the rate this list should be read at.
+- [ ] #339 — the guard that makes a round record's terminal-line join safe passes the prose it was written to stop and truncates a continuation beginning with an issue number, which this repository writes at the head of a line constantly. **A regression 0.10.0 shipped**, in a parser that release changed twice in opposite directions, and the corrected pattern was already in the tree at `.github/scripts/issue_claims_check.py:116` with a comment naming the trap. It sits here rather than in the list below because it is this release's own regression and because #335 is already here and is the same module. **#340 travels with it** — the protocol that defines a conforming tool never learned that a wrapped terminal line is one value, so a second implementation truncates where this one no longer does.
+- [ ] #350 — an agent's own wall clock is in no column of any report, and 0.11.0's four spawned segments were measured by opening each transcript by hand, one `session-cost` call per file. **Deferred out of #84 on 2026-09-11, on the owner's call**: it is the last of that ticket's five `Done when` bullets and the only one that is not the framer itself, so the framer ships in 0.11.0 without it. It sits here because #198 guards the same log one artifact over and #330 is its class — a rule that is a sentence becomes a command — and because the number it would print is what decides #84's own falsifiable test, whether a complete frame makes the smith read it instead of the repository.
 - [ ] #149 — a record says what a segment cost and not what its output cost the next reader. #137's second half. Five candidate signals and no evidence which of them survive contact: surviving mutations, defects the next round found inside this segment's output, `New units` depth, fix passes needed, and divergences from the plan.
-
-## 0.10.0 — the agent set
-
-**Next, on the owner's call of 2026-09-10: this is the main line of the work.**
-0.9.6's three moved to 0.10.1 for it, and what that costs is written in that
-section rather than left to be discovered.
-
-In this order, and the third is not optional.
-
-**The order has one constraint that is not the list's order, and it is worth
-stating because two documents look like they disagree.** #292's row below says
-its meter comes before #120's trimming, and #120's own body says the opposite
-of what this section's third bullet says — *"Not a request to split the
-contract now. The two agents do not exist... The line gets drawn when there is
-something to draw it against."*
-
-Both are true at once, and only one reading makes them so: **#120 lands before
-either of the two above is RELEASED, not before either is BUILT.** So the
-sequence inside the release is
-
-> #292's meter · #30 · then #120 settled against the four agents that exist.
-
-**#84 left this release on 2026-09-10, after #30 merged, and #120 is what
-made that safe.** The sequence above read *all five agents* while the framer
-was still in it. What #120 settles is §2 and §6, and its own proposal for §6
-— *what you write is named in your own definition and nothing else* — is true
-of any agent, including one that does not exist yet. §2's contradiction is
-the sealer's alone. So settling against four costs the framer nothing when it
-arrives, and holding #120 back until it did would ship a release whose
-contract forbids an agent's one act. `agents/sealer.md` names that ticket in
-a section of its own, which is the debt this release has to discharge.
-
-The meter first because a before-and-after number is the only thing that says
-whether #120's trimming worked, and #120 last because a contract scoped
-against a design rather than against a file is the mistake #107 already made
-once — it specified `docs/agent-contract.md`, and
-`docs/experiments/2026-09-03-skill-preload-and-the-copy-in-force.md` measured
-that the location cannot work.
-
-- [x] **#30 — `sealer` owns the one full-suite run.** Today the smith and the warden are both forbidden it and nobody is assigned it.
-- [x] **#120 — the agent contract is settled against the four agents that exist rather than three, and it lands before the two above are released.** Three of its sixteen sections apply to all five; §2 forbids the broad gate the sealer exists to run, and §6 forbids the durable record the framer and the sealer both write. A release that ships five agents under a contract contradicting two of them is the release that teaches readers the contract has exceptions. **Built. §2, §6 and §7 rewritten in place; the contract is still one file of sixteen sections, so no `§N` in any round record changed meaning.** The split was refused in the question batch — the defect is contradiction, not irrelevance — and `smith`'s §-by-§ scoping was deferred with the criterion for the `Implementation` row landing in `templates/sdd-routing.md` instead. **It did not trim.** The contract went from 13,765 B to 16,238 B, because every rewritten section gained the story that bought its rule; `spec.md` §Out records that trimming was never this ticket's job, which is the reading the paragraph above corrects.
-- [x] **#292 — a payload is written again on every spawn, and nothing measures which of it the agent acts on.** Measured 2026-09-09 over 49 subagent spawns: `cache_creation` of 40,259–75,737 tokens on every one of them, with `cache_read` a constant that covers only the harness prefix — so an agent's own payload, its definition and the skill bodies its `skills:` list injects, is not amortised across spawns. **It is fourth and its meter comes before the third's trimming**, because #120 removes sections from a payload and a before-and-after number is what says whether that worked. `implement` is the largest payload now — 46,249 B of `smith`'s 113,633, where #265 measured `code-review` and left it at 78,109 for the warden. **Built, and two things #120 reads before it trims.** The payload IS cached across spawns of one agent, for five minutes, and re-written on every spawn further apart than that — which in a chain is every one, so the sentence above is narrower than it reads (`seal/specs/1788993115-a-payload-is-written-again-on-every-spawn/spec.md` §*Measured before the first edit*). And every per-file token figure the meter prints is an estimate from a per-agent ratio — 2.87, 3.41 and 3.44 B/token for smith, warden and scribe — until that work item's `questions.md` Q4 probe, one agent definition per file spawned once, replaces it; a measured after-number needs a spawn taken after the trim, and given none the meter keeps the before-ratio and says so.
-
-**Which delegate a step goes to, and the one question that decides it.**
-Written after 0.9.2, off #263's side-by-side and the comments on it, because
-this set is where the answer stops being academic — three agents become five
-and #120 settles a contract against all of them.
-
-The axis is **not** *delegate or do it myself*. It is **is this work finding
-out, or writing down**, and the two sit on opposite sides of a subagent
-boundary for a structural reason:
-
-
-| Kind of work  | Shape                      | Why the boundary helps or hurts                                                                                                              |
-| ------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| discovery     | large input → small output | the delegate pays the reading and the parent receives coordinates. A subagent boundary IS a compression boundary, and this is what it is for |
-| transcription | small input → large output | the parent already holds the input. A prompt can be handed over; a context cannot — so the delegate buys the discovery a second time         |
-
-
-#263 measured the second row without naming it: `smith` #1 · #2 · #3 spent
-378k · 474k · 555k tokens and 141 · 43 · 35 tool calls against a parent doing
-the same class of change in 8–14 calls, and that issue's own reading is *the
-files were already read — that, not reasoning speed, is the dominant cost*.
-Neither of the two things it credits to delegation was `smith` writing code:
-the only genuine security finding was `warden`, in twelve minutes, and the
-third-repository field mapping was discovery by a run that was killed before
-it implemented anything.
-
-**So `smith` is the role this set empties out**, because after the split its
-whole remit is the transcription step. Three answers are live — keep it as the
-default, retire it, or re-scope it as a **conditional** executor — and the
-recommendation is the third, with the criterion written into `routing.md`
-first, where the axis already exists and has no stated criterion:
-
-> Finding out goes to `scribe`. Writing down stays with the session — unless
-> the expected diff is large enough to threaten what the orchestrator still
-> has to hold, which is the one case `smith` answers.
-
-That last clause is the only number nobody has, and it is not a cost question:
-the orchestrator is the single participant a release cannot replace mid-run, so
-the case for a delegate there is **replaceability**, on a different axis from
-everything measured above.
-
-**#84 has a falsifiable success test and it is `smith`'s token count.** The
-documents a frame needs already exist — `spec.md`, `plan.md`, `phases/`, and
-whatever a `scribe` wrote — so the cost is not intrinsic to delegation but to
-spawning with a prompt instead of a dossier. If the frame is complete, `smith`
-reads the frame rather than the repository and 378k / 141 falls; if it does not
-fall, the frame was not complete. What a frame cannot remove is the fixed part
-`#265` measured, ~30k tokens before the first tool call, so the gap narrows
-toward that floor and never to zero.
-
-**And the ordering `#120` states is right for `sealer` and `framer` and wrong
-for `smith`.** A contract that scopes a role whose scope is unsettled is the
-most expensive place to be wrong, because it is paid on every spawn of every
-agent. Settle §2 and §6 here; let `smith`'s sections be the one thing that
-waits.
-
-**Why last, and why the number moved.** #84 needs the channel 0.7.0 builds and
-the attribution #137 builds. These three were 0.9.0 until 2026-09-04, when the
-work above took that number and the three after it; nothing about the set
-changed. They are designed and #120's table is already counted, which is why
-they have a release
-at all while the rest of what the measurements ask for does not yet: what is
-not written down cannot be scheduled, and arrives as its own ticket sized when
-it exists. Three arrived that way in one afternoon — #136, #137 and #134, out
-of the segments of 0.8.0's own first work item — which is the rate this
-paragraph should be read at.
 
 ## Later — not scheduled
 
@@ -209,11 +108,14 @@ paragraph should be read at.
 - [ ] #88 — the routing question asks three boxes and has no way to say "all three".
 - [ ] #135 — `user-invocable: false` sits in the copy that loads and the skill is listed as a command anyway. One measurement decides whether it has a fix or only a correction to the record.
 - [ ] #264 — three review rounds each found an arithmetic error inside the previous round's fix, and the cause was two unlabelled denominators. Opened by 0.9.2's #209 · #210 run; all five findings are corrected there. It carries no release because its own body leaves the shape open — whether a declared counting basis is worth building, or only the narrower refusal of a Notes cell whose subtraction does not reconcile.
+- [ ] #337 — the runner will not install `xdist` because it does not pass `-n auto`, and does not pass `-n auto` because `xdist` is not installed. Opened from use during 0.10.0.
+- [ ] #341 · #342 · #344 — three ways a round record and the tree disagree, all opened by 0.10.0's own chain: the reviewer is told to put an earlier round's closures in a table the generator cannot accept and two work items have paid a hand-edit for it; `inherited_rows` is never revisited, so two records committed together state the same eight findings `open` and `fixed`; and five places where a record says something the tree does not, with nothing that reads a record against the tree the way `evidence-check` reads the ledger.
+- [ ] #343 · #345 — **#330's near neighbours, and whoever takes #330 should read them first.** One is that two review rounds spawned agents against §6 and nothing noticed either time, in the work item that rewrote §6 — the rule arrived by mechanism and the act went the other way, so the missing half is not delivery. The other is that the record-before-the-fix sequence is an orchestrator's habit, performed correctly twice and wrongly once in one session, where the check that knows the sequence only speaks at the pull request.
 - [ ] #97 — the three pin levers left after #117 took the fourth. Each changes pins that already exist, so each needs a question batch, which is why it carries no release rather than a late one.
 
 ## Order inside a ticket
 
 1. Branch from the release branch; write `routing.md` before the first edit.
-2. spec · plan (framer, once #84 exists; the session until then) → smith → the draft pull request opens (`skills/code-review/orchestration.md` §*Orchestrator: the pull request opens before round 1, and a phase is re-run* owns when) → warden rounds → sealer → the pull request is marked ready.
+2. spec · plan (framer) → smith → the draft pull request opens (`skills/code-review/orchestration.md` §*Orchestrator: the pull request opens before round 1, and a phase is re-run* owns when) → warden rounds → sealer → the pull request is marked ready.
 3. The pull request body carries `Closes #N`; the release workflow closes the ticket when the release reaches `main`.
 

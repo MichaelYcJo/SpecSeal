@@ -16,11 +16,22 @@ this file is for people. -->
 |---|---|
 | Review | through the review chain |
 | Destination | open the pull request |
+| Planning | <framer, or: the session> |
 | Implementation | <smith, or: the session> |
 | Branch | <the branch this work item is being built on> |
 
 <!-- Review — `through the review chain` or `straight to the PR`.
      Destination — `open the pull request` or `stop before the pull request`.
+     Planning — `framer` or `the session`. Who draws the frame — `spec.md`,
+     `plan.md` and the questions: the `framer` subagent, or this session
+     itself. OPTIONAL, on exactly the terms the `Implementation` row below
+     has, and for the same reasons — read them there. A second copy of that
+     reasoning here is how the two rows drift apart, which is the failure the
+     contract records under §11 and §16.
+     HOW TO ANSWER IT — nobody is asked. `skills/implement/SKILL.md` §3's
+     ladder decides whether a frame is drawn at all, so this row RECORDS which
+     way it went rather than putting a fourth box in the routing question
+     (#88). Write the answer WITHOUT backticks, the same as below.
      Implementation — `smith` or `the session`. Who writes the code: the
      `smith` subagent, or this session itself. OPTIONAL — a declaration
      without this row is still a declaration, and it reads as "not answered".
@@ -45,10 +56,11 @@ this file is for people. -->
      A cheaper delegate is not a reason, and #263 is where answering this row
      by habit was measured against the same class of change done in the
      parent session.
-     This one ships as a PLACEHOLDER while the other two ship answered,
-     and the difference is deliberate: a wrong answer in the other two is
-     caught at the next commit, because the gate stops recognising the file
-     and goes back to asking. A wrong answer here is never contradicted by
+     This one and the `Planning` row above ship as PLACEHOLDERS while
+     `Review` and `Destination` ship answered, and the difference is
+     deliberate: a wrong answer in those two is caught at the next commit,
+     because the gate stops recognising the file and goes back to asking.
+     A wrong answer here is never contradicted by
      anything that can stop a commit: a confident `smith` nobody performed
      earns one printed line after a commit, and a confident `the session`
      earns nothing at all. So the commonest mistake — copy the file, never
