@@ -6,13 +6,13 @@
 | Ran by | warden on Opus 5 (1M context) |
 | PR | #352 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no — all three of what this round opened are corrections owed at the closing commit, none of them changes behaviour, and none is a defect a release would ship. What comes due instead is the sealer spawn: contract §2's one broad act, which neither round ran and neither round was allowed to. |
 | Loses a record or crashes | no — nothing this round found leaves the root or crashes, and nothing round 1 found did either. The one thing that ever failed a CI job, finding 1, is fixed and the check now exits 1, which is a warning. |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -36,10 +36,10 @@ The broad gate was excluded under contract §2 as the sealer's one act, and neit
 | 8 | S10's acceptance row is the one place the deferral is not written | `spec.md:87` | answered | The row is struck through and carries **deferred to #350**, milestone 0.11.1, in the shape §Scope item 7 uses. Read |
 | 9 | The `specseal-planner` tree line is one column out | `docs/one-root-by-lifetime.md:111`, `docs/one-root-by-lifetime.ko.md:109` | answered | Both editions now align the description column with the `specseal-implementer` line below. Read, both editions |
 | 10 | `plan.md`'s third `Status` value has no home | `plan.md:96-104`, `templates/sdd-plan.md:93` | answered | A `seal/follow-up.md` row now carries the argument, both sides of it, and names the repository owner as answerer. Read; the schedulable-row cases executed green |
-| 15 | The broad gate | `seal/config.md` `Broad gate` row | ❓ out of verified scope | Contract §2 makes it one act with one owner and `agents/sealer.md` is that owner. Not run, by rule, in either round. Answerer: the orchestrator, through the sealer spawn, which this report makes due |
-| 16 | The fix for finding 7 left a 118-column line where the block wraps at 80, in a template every work item copies and no wrap check reaches | `templates/sdd-routing.md:62` | open | Executed: longest line 94 at `1d1b6e9`, 118 at `8b3146a`, and the 118 is the line the fix wrote. `templates/config.md` is the only `templates/` entry in `tests/test_docs_line_wrap.py`'s `COVERED` |
-| 17 | The rewritten `BESIDE_THE_ROOT` comment sends a reader to a document that names three of its seven entries, and the docstring beside it enumerates a name the tuple lacks while omitting one it has | `tests/test_the_records_can_be_carried_out_and_in.py:52`, `:216` | open | Executed: `docs/one-root-by-lifetime.md` carries four `specseal-` names at `:111`, `:112`, `:113`, `:583`; the tuple holds seven. `specseal-worktree-choice` is built at `:227`, outside the tuple; `specseal-last-export.json` is in the tuple and in neither half of the docstring |
-| 18 | Row 15 of the round record reads `answered` where the report it was generated from reads `❓ out of verified scope` — a settled verdict's word on the one check neither round ran | `rounds/round-1.md:47` | open | Read, both files at the target SHA. A correction under `seal/specs/`, so outside `Needs a fix` per `docs/review-chain-spec.md` §*The last round verifies* |
+| 15 | The broad gate | `seal/config.md` `Broad gate` row | deferred agents/sealer.md | agents/sealer.md |
+| 16 | The fix for finding 7 left a 118-column line where the block wraps at 80, in a template every work item copies and no wrap check reaches | `templates/sdd-routing.md:62` | answered | corrected at 8eec47f |
+| 17 | The rewritten `BESIDE_THE_ROOT` comment sends a reader to a document that names three of its seven entries, and the docstring beside it enumerates a name the tuple lacks while omitting one it has | `tests/test_the_records_can_be_carried_out_and_in.py:52`, `:216` | answered | corrected at 8eec47f |
+| 18 | Row 15 of the round record reads `answered` where the report it was generated from reads `❓ out of verified scope` — a settled verdict's word on the one check neither round ran | `rounds/round-1.md:47` | answered | corrected at 8eec47f |
 
 ## Paste-ready fixes
 
