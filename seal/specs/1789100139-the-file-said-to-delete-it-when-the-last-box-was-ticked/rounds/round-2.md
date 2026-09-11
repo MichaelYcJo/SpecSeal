@@ -5,7 +5,7 @@
 | Target SHA | 17a4737d1c565e6ed1474b46fc6c58f698e20b08 |
 | Ran by | specseal:warden on Opus 5 |
 | PR | #358 |
-| Broad gate | not yet |
+| Broad gate | af37b37 against origin/release/v0.11.1 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
