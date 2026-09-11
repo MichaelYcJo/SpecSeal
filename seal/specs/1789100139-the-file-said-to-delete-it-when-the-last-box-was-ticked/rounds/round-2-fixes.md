@@ -52,4 +52,5 @@ is what finding 6 was.
 | `bin/unverified-check --baseline origin/release/v0.11.1 seal/specs/` | exit 0 |
 | `uvx ruff check .` · `uvx ruff format --check .` | exit 0 each |
 | `bin/survivor-check --range bfe8cdb..62c22ca --exempt .../survivors.md` | 5 places, exit 1 → each opened and given a row → all 5 excused, exit 0 |
+| the same over the handed-over range, `bfe8cdb..HEAD` | 1 new place, exit 1 — `seal/ledger.md:1366`, R1's own note, a survivor **by construction**: finding 6's fix was to delete a duplicate, so the original reads as wording the range removed. Given a sixth row → `every survivor is excused by a row above (2)`, exit 0. **The reported set is range- and quote-dependent**, which is #308's known behaviour: an exemption quote joins the written side and leaves the search set, so widening the range by one commit changed which of the six printed |
 | broad gate | **not run.** The `sealer`'s, once these findings close (contract §2) |
