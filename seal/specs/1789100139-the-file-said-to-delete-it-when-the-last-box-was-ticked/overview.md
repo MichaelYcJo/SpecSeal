@@ -67,7 +67,15 @@ puts the release plan where the tracker already held it.
 | The full suite, the repository-wide lint and the typecheck — `bin/broad-gate`. The thirteen modules named in `· verified` above and a repository-wide `ruff check` / `ruff format --check` were run and are green; the suite as a whole was not | the orchestrator, by spawning `sealer` after the rounds settle (contract §2) |
 | `docs/flow.md`'s `## 0.11.1` section listed #331, #335, #339 and #149 as this release's, and the milestones put #331 and #335 in 0.11.3, #339 and #149 in 0.11.2. The file was already stale against the tracker when it was deleted, so nothing was lost by deleting it — but nothing here re-checked the milestones either | the repository owner; the handoff states the milestones are the authority and phase 5 wrote the descriptions from them |
 | Whether `spec.md` may narrow issue #351 by ending the second of the two standing rules the ticket sends to `docs/issues-and-milestones.md` — `questions.md` Q6. Opened as review round 1's finding 3 and still open; what shipped is the narrowing | the repository owner |
-| Whether the four release milestone descriptions and the two ticket comments phase 5 wrote actually read back as stated (S5). Writing to the tracker is outward-facing and outside a subagent's reach | the orchestrating session, which made those writes on 2026-09-11 |
+
+## What phase 5's tracker writes read back as
+
+**S5 is closed, executed 2026-09-11 by the orchestrating session.** The four
+scheduled release milestones were read back through `gh api
+repos/:owner/:repo/milestones/<n>` and each opens with the purpose sentence
+phase 5 wrote — 40 `release: 0.11.1`, 42 `0.11.2`, 43 `0.11.3`, 44 `0.12.0`.
+The two comments were read back by id and both open *Carried over from
+`docs/flow.md`, which #351 deletes*.
 
 ## Not done
 

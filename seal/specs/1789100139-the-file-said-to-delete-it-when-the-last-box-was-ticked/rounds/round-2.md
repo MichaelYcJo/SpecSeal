@@ -6,13 +6,13 @@
 | Ran by | specseal:warden on Opus 5 |
 | PR | #358 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -114,11 +114,11 @@ own fixes get one more verifying round and a second is refused.
 | 7 | ⬜ A live ledger row's first reason names a file this branch deleted | `seal/ledger.md:1646` | answered | Corrected at `62c22ca`, Read. Past tense with the #351 clause added, word for word as round 1 proposed |
 | 8 | ⬜ *The five divergences above* over six rows, and phase 6's row falls outside the table | `seal/specs/…/overview.md:87`, `plan.md:81` | answered | Corrected at `62c22ca`, measured. The phase table parses to contiguous data rows `1 2 3 4 5 6`; `overview.md:95` reads *six* |
 | 9 | ⬜ Three `Checked` cells doubled, three Notes cells run on, two milestone lines short | `seal/ledger.md:1366`, `:1367`, `:1953`; `docs/issues-and-milestones.md:35`, `:39` | answered | Corrected at `62c22ca`, measured. Doubled cells 3 → 0; run-on form 57 → 54 and sentence-break form 163 → 166; `test_docs_line_wrap` 23 passed exit 0. Its denominator is finding 13 |
-| 10 | ⬜ Finding 5's replacement figure is attributed to `62c22ca`, where it is 35 and 30 + 5 rather than 32 and 29 + 3 | `seal/specs/…/rounds/round-2-fixes.md:20`, `rounds/round-1.md:88` | open | Executed at five commits with the exemption row's own range spec: 32 at `90f2f9d` and `ae2d0ac`, 35 at `62c22ca`, 36 at `a3b4fc3` and `17a4737`, exit 0 each. The 29 + 3 split holds only at the first two |
-| 11 | ⬜ Withdrawing the bullet returned its place to the reported set, so the counts in `survivors.md` no longer describe the tree they are committed in | `seal/specs/…/survivors.md:16`, `:17`, `:33`, `:42` | open | Executed at `62c22ca` with no exemption file: five loaded-file places, `tests/test_the_suite_has_a_command_that_is_cheap_twice.py:602` among them. #308's quote-dependence, which the fix table names. The gate is exit 0 regardless |
-| 12 | ⬜ The heading the fix pass added counts five per-survivor rows over a table of six | `seal/specs/…/survivors.md:44` | open | Read, and counted: six rows. `a3b4fc3` added the sixth and left the heading. `:46`'s *reported five places* is executed and true for the range it names |
-| 13 | ⬜ Finding 9's corrected denominator reproduces at no commit | `seal/specs/…/rounds/round-2-fixes.md:24`, `rounds/round-1.md:92` | open | Executed: 473 single-spaced date cells and 3 doubled at both `ae2d0ac` and `bfe8cdb`, 476 and 0 at `17a4737`. Neither 468 nor 467 |
-| 14 | ⬜ The deferred decision reached neither `questions.md`, nor `## Not verified`, nor `seal/follow-up.md` | `seal/specs/…/questions.md`, `overview.md:61`, `rounds/round-1.md:86` | open | Read, and checked in all three: no row anywhere. `bin/unverified-check` exit 0 and blind to it. The record's Grounds cell repeats the home instead of the question, because `fix_table` discards a `deferred` row's third cell |
+| 10 | ⬜ Finding 5's replacement figure is attributed to `62c22ca`, where it is 35 and 30 + 5 rather than 32 and 29 + 3 | `seal/specs/…/rounds/round-2-fixes.md:20`, `rounds/round-1.md:88` | answered | Corrected. `overview.md`'s `· verified` line now says the figure is 32 **at `ae2d0ac`, the tree that line describes**, and that it reads 36 at the branch tip because the range re-resolves and the exemption file's quotes move what is searched (#308). A count with no tree beside it was the whole of round 1's finding 4, and this is that class inside its own fix |
+| 11 | ⬜ Withdrawing the bullet returned its place to the reported set, so the counts in `survivors.md` no longer describe the tree they are committed in | `seal/specs/…/survivors.md:16`, `:17`, `:33`, `:42` | answered | Corrected. `survivors.md` states both figures with their trees — 32 at `ae2d0ac`, 29 records and 3 loaded files; 36 at the tip, 31 and 5 — and names the two things that move them. The withdrawn bullet's paragraph now says that withdrawing it is what returned its place to the reported set, so round 1's *not among them* was true of a tree the bullet itself had made. The withdrawal still stands: the sentence was wrong about what is written at that line |
+| 12 | ⬜ The heading the fix pass added counts five per-survivor rows over a table of six | `seal/specs/…/survivors.md:44` | answered | Corrected. The heading reads *six per-survivor rows* over the six that are there |
+| 13 | ⬜ Finding 9's corrected denominator reproduces at no commit | `seal/specs/…/rounds/round-2-fixes.md:24`, `rounds/round-1.md:92` | answered | No edit, and the grounds are that nothing live carries the number. `467` and `468` appear only inside `rounds/`, which are records of what a party measured at a moment. Round 2's verdict row is where the correction belongs and it names what reproduces — 473 single-spaced date cells at `ae2d0ac` and `bfe8cdb`, 476 and 0 doubled at `17a4737`; re-derived here at the tip, 476 and 0 |
+| 14 | ⬜ The deferred decision reached neither `questions.md`, nor `## Not verified`, nor `seal/follow-up.md` | `seal/specs/…/questions.md`, `overview.md:61`, `rounds/round-1.md:86` | answered | Corrected, and it is the one of the five that was a gap rather than a wrong number. The deferred decision is now `questions.md` Q6, with both answers spelled out and what shipped named as the default, and a `## Not verified` row carries it so `bin/unverified-check` reports it — exit 0, the row printed as `open` against the repository owner. It stood only in `rounds/round-1.md`'s Verdict and Grounds cells, both reading *the repository owner*, because `fix_table` discards a `deferred` row's third cell |
 
 ## Paste-ready fixes
 
