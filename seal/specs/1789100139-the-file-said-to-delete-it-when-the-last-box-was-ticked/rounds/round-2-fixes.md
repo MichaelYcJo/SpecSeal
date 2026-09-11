@@ -7,7 +7,7 @@ rounds/round-1.md. One row per finding round 1 left OPEN. -->
 |---|---|
 | Answers | round 1, target `ae2d0ac` |
 | Fix commits | `bfe8cdb..a3b4fc3` — `62c22ca` the whole pass, `b1b4f58` this table and the fix range's survivor rows, `a3b4fc3` the sixth of those rows |
-| Ran by | unknown — the resume message named no model for this segment; the orchestrator fills this row |
+| Ran by | specseal:smith on Opus 5 — the model the orchestrator chose at the resume, filled in by the orchestrating session as the template requires |
 
 ## Fixes
 
