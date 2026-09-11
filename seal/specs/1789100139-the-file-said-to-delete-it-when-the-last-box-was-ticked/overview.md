@@ -66,9 +66,16 @@ puts the release plan where the tracker already held it.
 |---|---|
 | The full suite, the repository-wide lint and the typecheck — `bin/broad-gate`. The thirteen modules named in `· verified` above and a repository-wide `ruff check` / `ruff format --check` were run and are green; the suite as a whole was not | the orchestrator, by spawning `sealer` after the rounds settle (contract §2) |
 | `docs/flow.md`'s `## 0.11.1` section listed #331, #335, #339 and #149 as this release's, and the milestones put #331 and #335 in 0.11.3, #339 and #149 in 0.11.2. The file was already stale against the tracker when it was deleted, so nothing was lost by deleting it — but nothing here re-checked the milestones either | the repository owner; the handoff states the milestones are the authority and phase 5 wrote the descriptions from them |
-| Whether `spec.md` may narrow issue #351 by ending the second of the two standing rules the ticket sends to `docs/issues-and-milestones.md` — `questions.md` Q6. Opened as review round 1's finding 3 and still open; what shipped is the narrowing | the repository owner |
 
 ## What phase 5's tracker writes read back as
+
+**Q6 is closed, answered 2026-09-11 by the repository owner: (a), the
+narrowing stands.** Issue #351's table sends two standing rules to
+`docs/issues-and-milestones.md`; this work item moves the sizing rule and ends
+*a branch writes its own rows*, because that one was about keeping
+`docs/flow.md` mergeable while every branch appended to it and has no subject
+once the file is gone. It reached review as round 1's finding 3, and round 2's
+finding 14 was that the deferral had reached no file at all.
 
 **S5 is closed, executed 2026-09-11 by the orchestrating session.** The four
 scheduled release milestones were read back through `gh api
