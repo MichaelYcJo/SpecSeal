@@ -63,3 +63,11 @@ finding.
 Anchored on this range as well as on this quote, the same way the phase 2 row
 is. A different range re-runs the check from scratch and this row does not
 answer for it.
+
+**Over the phase's whole range it is the same one place.**
+`survivor-check --range fe823dc..fe7430a` examines 846 files against nine
+removed sentences and reports this row and nothing else. Recorded because the
+range-anchoring above is a statement about what this row is FOR, not about
+what the checker enforces: a `| Path | Quote | Grounds |` row is matched on
+its path and its quote, and only a `| Range | Grounds |` row is scoped to a
+range by the checker itself.
