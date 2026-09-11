@@ -6,7 +6,7 @@
 |---|---|
 | Phase | 3 |
 | Commit | `a20c02c` |
-| Ran by | unknown — the spawn prompt named no model for this segment; the orchestrator fills this row |
+| Ran by | specseal:smith on Opus 5 — the model the orchestrator chose at the spawn, filled in by the orchestrating session as the template requires |
 
 ## What this phase was asked
 
