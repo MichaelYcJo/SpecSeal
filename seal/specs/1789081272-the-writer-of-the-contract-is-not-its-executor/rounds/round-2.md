@@ -5,7 +5,7 @@
 | Target SHA | 8b3146a |
 | Ran by | warden on Opus 5 (1M context) |
 | PR | #352 |
-| Broad gate | not yet |
+| Broad gate | d6da437 against release/v0.11.0 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
