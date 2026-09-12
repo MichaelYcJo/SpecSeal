@@ -21,13 +21,38 @@ are closed when the release reaches `main`. An open milestone with a past due
 date reads as overdue, which is the tracker's way of saying a release shipped
 and nobody closed its milestone.
 
-**A release is sized in work items rather than in ticket numbers, and three
-or four is the size.** A run that reaches the reopening bound turns every
-finding still open into an issue, which is right — and it means one branch's
-leftovers arrive as four ticket numbers, which a reader counts as four
+**A release is sized by what has to be in effect before the next work item
+starts, and not by a count.** One change that decides how the next ticket runs
+is a release on its own. The release that shipped the framer carried a single
+work item, because the agent that writes a frame had to exist before anything
+was framed; the release that replaced the deleted checklist with a gate carried
+two, because the next work item had to start with the replacement already in
+effect. Neither of them was cut short of a target.
+
+**Three or four is a ceiling, not a target.** It is as much as one section can
+describe while a reader still comes away knowing what the release is about, and
+it says nothing about when to stop under it. The count is in work items rather
+than in ticket numbers because a run that reaches the reopening bound turns
+every finding still open into an issue, which is right — and it means one
+branch's leftovers arrive as four ticket numbers, which a reader counts as four
 releases' worth of work. Size a ticket set that will be one branch as one
 item. 0.8.3 shipped three of eight, and carrying five forward was the call
 rather than the failure.
+
+**The two releases above are named rather than numbered on purpose.** Both sit
+at or above the running version, and
+`test_no_loaded_file_names_a_version_at_or_above_the_running_one` refuses a
+loaded file that names one — the same rule that keeps the number illustrative
+in **A rolling log is titled after the version it rolled from** below.
+`CHANGELOG.md` turns either description back into a number in one grep. One of
+the two has already shipped, so for one release's length the refusal outlives
+its own reason; #363 is where that is repaired, and not here.
+
+**What the criterion does not change.** It decides a release's size and nothing
+else. A `release:` milestone is still the pool a release is cut from rather than
+the release itself, `backlog:` below is still the unscheduled pool, and nothing
+schedules from either — the one thing that reads a milestone checks a cut
+release against its pool and never decides what goes into one.
 
 `backlog:` is the unscheduled pool, and an issue leaves it in one act: the
 milestone changes. It used to be two, the second being a line in a checklist
@@ -98,6 +123,43 @@ above. They are **not rewritten**: a retitle would falsify every comment
 that cites them. A title the roll
 cannot read as its own is due rather than silent, so the first release after
 each one rolls it and the older convention retires itself.
+
+**`size: now` says this ticket has to be in effect before the next work item
+starts.** It is where the sizing judgment above is written down, so the next
+release is cut without re-reading every open issue body. Two states and no
+more: a ticket carries it or it does not, and not carrying it means the ticket
+rides the next release that happens to carry it. There is no second level and
+no scale, because the sizing question has two answers and a taxonomy with four
+levels is one nobody maintains.
+
+**The prefix is what keeps it inside the rule this section opens with.** A
+label answers *what it is about*, and this one is about sizing — a concern that
+outlives every schedule, since every release is sized. What the release spends
+is the value, `now`, and not the subject. Two states means the subject never
+appears on the tracker carrying a second value, so a spent label is removed
+whole rather than re-valued — what outlives the schedule is the question the
+prefix names, not a label anybody is holding. So the subject sits in the prefix and
+the verdict in the value, which is the shape `chain: capped` already has here,
+and the section needs no second exception: `flow-measurement` above stays the
+one label that is not a topic at all. A bare `now` was the name proposed, and
+it is not the name — standing alone it is a schedule answer with no subject,
+and it reads as the ordinary adverb this document itself uses.
+
+**Nothing reads this label** — no workflow, no check, no script — so a stale
+one costs a reader a wrong answer about what has to go next and costs no
+automation anything. It comes off when the release that carried the ticket
+reaches `main` and the issue closes, and nothing enforces that.
+**`merged: X.Y.Z` goes on earlier inside that same release**, at the squash
+onto the release branch — §*A label says a ticket is already in, before the
+release ships* is that mechanism, and the gap between the two moments is
+exactly the interval that section exists to fill. It answers *is this in yet*
+while the release is being assembled; this one is spent only once the work is
+out. A label is the right home for the judgment for exactly that reason: it
+makes the answer durable without making it a gate anybody has to satisfy.
+
+**What it does not decide is which release the ticket lands in.** The criterion
+answers *now or not now*; ordinary scheduling answers the rest, and a ticket
+without the label can still be the next thing somebody picks up.
 
 ## Closing one of these by hand breaks the next release
 
