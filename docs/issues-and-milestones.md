@@ -21,13 +21,38 @@ are closed when the release reaches `main`. An open milestone with a past due
 date reads as overdue, which is the tracker's way of saying a release shipped
 and nobody closed its milestone.
 
-**A release is sized in work items rather than in ticket numbers, and three
-or four is the size.** A run that reaches the reopening bound turns every
-finding still open into an issue, which is right — and it means one branch's
-leftovers arrive as four ticket numbers, which a reader counts as four
+**A release is sized by what has to be in effect before the next work item
+starts, and not by a count.** One change that decides how the next ticket runs
+is a release on its own. The release that shipped the framer carried a single
+work item, because the agent that writes a frame had to exist before anything
+was framed; the release that replaced the deleted checklist with a gate carried
+two, because the next work item had to start with the replacement already in
+effect. Neither of them was cut short of a target.
+
+**Three or four is a ceiling, not a target.** It is as much as one section can
+describe while a reader still comes away knowing what the release is about, and
+it says nothing about when to stop under it. The count is in work items rather
+than in ticket numbers because a run that reaches the reopening bound turns
+every finding still open into an issue, which is right — and it means one
+branch's leftovers arrive as four ticket numbers, which a reader counts as four
 releases' worth of work. Size a ticket set that will be one branch as one
 item. 0.8.3 shipped three of eight, and carrying five forward was the call
 rather than the failure.
+
+**The two releases above are named rather than numbered on purpose.** Both sit
+at or above the running version, and
+`test_no_loaded_file_names_a_version_at_or_above_the_running_one` refuses a
+loaded file that names one — the same rule that keeps the number illustrative
+in **A rolling log is titled after the version it rolled from** below.
+`CHANGELOG.md` turns either description back into a number in one grep. One of
+the two has already shipped, so for one release's length the refusal outlives
+its own reason; #363 is where that is repaired, and not here.
+
+**What the criterion does not change.** It decides a release's size and nothing
+else. A `release:` milestone is still the pool a release is cut from rather than
+the release itself, `backlog:` below is still the unscheduled pool, and nothing
+schedules from either — the one thing that reads a milestone checks a cut
+release against its pool and never decides what goes into one.
 
 `backlog:` is the unscheduled pool, and an issue leaves it in one act: the
 milestone changes. It used to be two, the second being a line in a checklist
