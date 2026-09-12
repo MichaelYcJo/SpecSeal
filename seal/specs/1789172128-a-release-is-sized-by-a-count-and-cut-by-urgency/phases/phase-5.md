@@ -48,8 +48,7 @@ range wrote, so the range subtracts what the round reported. Measured at
 wording is still standing* both times. So **the exit 0 in the table below is
 not evidence that four survivors were excused**; it was evidence at the moment
 this phase ran, at `5da403c`, and the reading has not been reproducible since
-`a0f0e9a`. The checker is **#365**, and the four rows are kept because they are
-armed again when it lands.
+`a0f0e9a`. The checker is **#365**, and the four rows are kept because #365 is necessary to arm them and **not sufficient**: round 3 applied #365's own drafted fix -- the `rounds/` filter in `corrected` -- and the rows still came back unused, because `seal/specs/*/survivors.md` has to be excluded on the ADDED side too, a second silencing path `seal/follow-up.md` already holds as its own row. Both have to land.
 
 **`questions.md`'s five work-and-measurement rows are closed in this phase**,
 each with what was executed rather than with a letter. Two of them changed

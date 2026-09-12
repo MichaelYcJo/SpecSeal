@@ -258,13 +258,20 @@ def test_the_sweep_can_fail():
     )
 
 
-# --- the sweep's reach, pinned rather than left to the green answer ----------
+# --- the sweep's reach is NOT pinned, and that is recorded rather than implied -
 
 # **A sweep that answers *no offender* cannot pin its own reach.** No file in
-# the tree carries any of the shapes below, so deleting the reach that finds
-# them changes the sweep's answer not at all: round 2 measured each of round 1's
-# three widenings reverting with this module still green. The two cases below
-# are what stands between the reach and a later edit that trims it as unused.
+# the tree carries any of the shapes this module looks for, so deleting the
+# reach that finds them changes the sweep's answer not at all: round 2 measured
+# each of round 1's three widenings -- the pattern's noun alternatives,
+# `CLAUDE.md` in the scanned set, and `hits()`'s joined-line branch -- reverting
+# with this module still green.
 #
-# Kept as data rather than as prose, so the sentences round 1 measured escaping
-# are the ones asserted.
+# Two cases pinning the first two were written and measured red under exactly
+# their own mutation, and then reverted: `round_record.py close` refused them at
+# depth 2 because round 2's finding named `hits()` among its coordinates, and
+# the repository owner's answer was to take that gate's exit rather than route
+# around it. **#366** holds the drafted cases, the measurement, and the open
+# question about a finding whose Location spans two depths. Until it lands, a
+# later edit trimming any of the three widenings as unused is caught by nothing
+# here.

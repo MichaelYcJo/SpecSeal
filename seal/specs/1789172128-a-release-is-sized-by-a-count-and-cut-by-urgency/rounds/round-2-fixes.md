@@ -46,8 +46,7 @@ verbatim quotation of the defective wording as wording the range wrote, so from
 reporting the survivor it had reported at `b46ff77`. Re-measured at `95b3d83`
 with `--exempt` and without it: exit 0 and the identical *no removed wording is
 still standing* both times. Neither reading below is evidence that anything was
-excused, and `survivors.md`'s four rows are consulted by nothing until **#365**
-lands.
+excused, and `survivors.md`'s four rows are consulted by nothing, and #365 alone does not change it -- round 3 applied its drafted fix and the rows stayed unused, because the added side needs excluding too.
 
 **Re-run by the orchestrating session at `941dab5`**, because a hand-back's
 verification claim is a claim: eight modules one per call — the new module 7,

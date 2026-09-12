@@ -44,7 +44,7 @@ sequence matters and the record carries it:
    phase 4 and depth 1 by what they pin.
 3. The repository owner's answer was to **take the gate's exit** rather than
    route around it (a non-`fixed` verdict skips the check) or widen it.
-4. So the two cases and `NOUN_FORMS` were reverted, two now-dead coordinates
+4. So the two cases and `NOUN_FORMS` were reverted (NAME NOT IN TREE), two now-dead coordinates
    left ledger row R1, and the work went to **#366**.
 
 **What to judge here.** That the revert is clean and complete — the three
