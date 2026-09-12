@@ -1,0 +1,49 @@
+name: label merged on release branch
+
+# A work item squashes into `release/vX.Y.Z` and its issue stays open, because
+# an issue's state does not move until `main` moves and `main` moves once per
+# release. For the length of a release a finished ticket and an unstarted one
+# look identical on the tracker. The line that used to tell them apart was a
+# bullet in a checklist every branch edited, and it was deleted with that file
+# (#351); this is the half of #359 that puts the answer back where a person
+# already looks.
+#
+# A push to `release/*` is a different event from the push to `main` that
+# `close-issues-on-release.yml` runs on, which is why this is its own file
+# rather than a job in that one: adding the trigger there would make every
+# step in it conditional on which branch moved.
+#
+# Nothing here closes an issue. An issue closed at the release-branch merge is
+# closed for something nobody has received; the close stays where it is, on
+# `main`. `docs/issues-and-milestones.md` carries the rule and the reasoning.
+
+on:
+  push:
+    branches: ['release/*']
+
+# The smallest set that can add a label. `issues: write` is what the Issues
+# API asks for, and it is what the neighbouring workflow already holds for a
+# close. `contents: read` is the checkout and the `git log` range.
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `arrived()` reads `git log before..after`. At depth 1 neither end
+          # of that range is in the clone.
+          fetch-depth: 0
+
+      - name: label every issue this push's pull requests answered
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: python3 .github/scripts/label_merged_on_release_branch.py
