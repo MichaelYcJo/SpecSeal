@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on Opus 5 |
 | PR | #364 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | yes — findings 1, 2, 3 and 4. Finding 1 is the same document making a new false claim about its own two labels in the commit that answered the first one; finding 2 is all three code-side fixes reverting with the module green; finding 3 is a gate on every pull request that the review chain's own records disarm; finding 4 is the one sentence of round 1's docstring patch that was not applied, now copied into the ledger row that folds into the shared file. |
