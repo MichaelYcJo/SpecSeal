@@ -32,6 +32,7 @@ case that FAILS rather than skips, so their disappearance is reported once
 rather than turning this whole module green by vacancy.
 """
 
+import ast
 import importlib.util
 import os
 import re
@@ -580,6 +581,144 @@ def test_the_docstring_names_both_sides_of_the_round_record_exclusion():
         "`rounds/` is out.` states the intent and names neither function it "
         f"has to be true of:\n{flat}"
     )
+
+
+# The predicate, and every function in the module that turns a git-derived
+# path list into a judgment about prose. Declared here and CHECKED against the
+# source below, rather than grepped for: the defect this case exists for was a
+# call site the predicate had never reached, standing beside two it had, and
+# what hid it is that the pool and the range are computed by different
+# functions. A fourth one -- a `--since` flag, a second range, a cache of
+# changed files -- is the same defect one function over, so it turns this red
+# until somebody classifies it.
+PREDICATE = "records_a_past_round"
+FILTERS_ITS_OWN_LIST = {"corrected"}
+FILTERED_BY_ITS_ONLY_CALLER = {"tracked": "corpus"}
+NAMED_EXCEPTION = {
+    "whole_range": (
+        "asks whether the range belongs to the work item that WROTE a "
+        "declaration, and a round record committed under "
+        "seal/specs/<id>/rounds/ is evidence of that ownership rather than "
+        "wording the fix wrote. Filtering here makes the ownership test "
+        "stricter and can turn a legitimate declaration into `foreign` -- a "
+        "row that quietly stops applying, which is the one failure a rotting "
+        "anchor must not have and the direction this function's own docstring "
+        "says it must not move in"
+    ),
+}
+# Anything that lists paths, however it is spelled. Kept wider than the two
+# forms the module uses today, so a fourth call site written as a direct
+# `subprocess.run(["git", ...])` is found too.
+LISTS_PATHS = {"--name-only", "ls-files", "ls-tree"}
+
+
+def _derives_a_path_list(tree):
+    """`{function name: the path-listing words it asks git for}`."""
+    found = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for call in ast.walk(node):
+            if not isinstance(call, ast.Call):
+                continue
+            words = {
+                const.value
+                for const in ast.walk(call)
+                if isinstance(const, ast.Constant) and isinstance(const.value, str)
+            }
+            if words & LISTS_PATHS:
+                found.setdefault(node.name, set()).update(words & LISTS_PATHS)
+    return found
+
+
+def _mentions(tree, function, name):
+    """True when `function`'s body names `name` anywhere."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == function:
+            return any(
+                isinstance(inner, ast.Name) and inner.id == name
+                for inner in ast.walk(node)
+            )
+    raise AssertionError(f"{function} is no longer a function in this module")
+
+
+def _callers_of(tree, name):
+    """The functions that call `name`."""
+    out = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for call in ast.walk(node):
+            if (
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Name)
+                and call.func.id == name
+            ):
+                out.add(node.name)
+    return out
+
+
+def test_every_path_list_this_module_derives_from_git_is_filtered_or_named():
+    """The reason #365 existed was that a docstring asserted the intent and
+    nothing measured it.
+
+    So this case measures it: every function that asks git for a list of
+    paths is either filtered by the predicate, filtered by its only caller,
+    or named above with grounds a reader can weigh. Add a fourth and it goes
+    red until it is classified -- which is the only thing that stops the same
+    defect happening one function over."""
+    source = open(SCRIPT, encoding="utf-8").read()
+    tree = ast.parse(source)
+    derivers = _derives_a_path_list(tree)
+    declared = (
+        FILTERS_ITS_OWN_LIST | set(FILTERED_BY_ITS_ONLY_CALLER) | set(NAMED_EXCEPTION)
+    )
+    assert set(derivers) == declared, (
+        f"the module derives a path list from git in {sorted(derivers)} and "
+        f"this case accounts for {sorted(declared)}. Classify the difference "
+        f"{sorted(set(derivers) ^ declared)}: it either applies "
+        f"`{PREDICATE}`, or it is named here with the grounds for why a round "
+        "record belongs in its list"
+    )
+    for name in FILTERS_ITS_OWN_LIST:
+        assert _mentions(tree, name, PREDICATE), (
+            f"{name} derives a path list and no longer applies `{PREDICATE}`. "
+            "A round record quotes the wording a round found, so left in this "
+            "list it counts as wording the fix wrote and subtracts the "
+            "survivor it quotes -- on exactly the branches that went through "
+            "review"
+        )
+    for name, caller in FILTERED_BY_ITS_ONLY_CALLER.items():
+        assert _mentions(tree, caller, PREDICATE), (
+            f"{name}'s list is declared filtered by {caller}, and {caller} no "
+            f"longer applies `{PREDICATE}`"
+        )
+        assert _callers_of(tree, name) == {caller}, (
+            f"{name} is reached from {sorted(_callers_of(tree, name))} and "
+            f"only {caller} filters its result, so the list now leaves this "
+            "module unfiltered by one of those paths"
+        )
+    for name, grounds in NAMED_EXCEPTION.items():
+        assert not _mentions(tree, name, PREDICATE), (
+            f"{name} now applies `{PREDICATE}` and this case still carries "
+            "the grounds for why it must not. One of the two is wrong: if the "
+            f"filter is right, move {name} into FILTERS_ITS_OWN_LIST and "
+            "delete the grounds rather than leaving both standing"
+        )
+        body = ast.get_source_segment(source, _function(tree, name))
+        assert "foreign" in grounds and "foreign" in body, (
+            f"the grounds for leaving {name} unfiltered rest on `foreign` -- "
+            "a declaration refused and PRINTED rather than silently dropped. "
+            "That mechanism is not in the function any more, so the grounds "
+            "are an argument about code that is gone"
+        )
+
+
+def _function(tree, name):
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return node
+    raise AssertionError(f"{name} is no longer a function in this module")
 
 
 # --- the escape ------------------------------------------------------------
