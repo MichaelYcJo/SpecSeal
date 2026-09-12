@@ -37,6 +37,16 @@ running.
       roughly quadratic in the items a release carries. That last cost is not
       payable any more — the shared checklist is gone (#351), the third file
       cured of being written by every branch.
+- [ ] **The milestone `release: X.Y.Z` holds what this release is actually
+      carrying, and nothing else.** Every open issue in it that is not
+      shipping moves to another milestone now — a release-planning act that
+      needs no code and costs a handful of edits. Leave it and the release
+      pull request goes red at step 5: `release_completeness_check.py`
+      refuses while the milestone claims an open issue the release branch does
+      not carry, and names each one. That is the check working, and the moment
+      it fires is the worst moment to do the planning. This is what
+      `docs/flow.md` used to ask as *is everything in*; the file is gone
+      (#351) and the question is the machine's now.
 - [ ] No other Claude session is working in this checkout, and the editor is
       not about to pull. An IDE pull once switched the checkout to the release
       branch between two commands, and the preparation commit landed there.
@@ -141,8 +151,21 @@ git describe --tags     # names the release, not "<tag>-N-g<sha>"
 ```
 
 The version hook reads tags and nothing else; an untagged release is one no
-installed session is ever told about. The close-issues workflow runs on the
-tag and closes every issue the changelog section names.
+installed session is ever told about.
+
+The close-issues workflow has already run by now. It fires when `main` moves,
+which is the merge above rather than anything you do here, and it reads the
+**pull request bodies** the release carries — every `Closes #N` a feature
+pull request wrote, acted on at last, because GitHub reads a closing keyword
+only for a pull request whose base is the default branch. It does not read
+the changelog section. This paragraph said the opposite of both halves until
+#359, which is how a sentence nobody could act on survived for several
+releases.
+
+Leave the `merged: X.Y.Z` labels where they are. They accumulate, one per
+release, and that is deliberate: deleting a label deletes it from every issue
+that ever carried it, which falsifies the record the label was created to
+leave.
 
 - [ ] Local `release/vX.Y.Z` and `main` fast-forwarded; the preparation
       branch deleted or left, either is fine.
