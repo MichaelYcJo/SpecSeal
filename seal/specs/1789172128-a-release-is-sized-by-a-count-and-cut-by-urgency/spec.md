@@ -155,8 +155,16 @@ and the closing memo.
 `seal/ledger/1789100139-the-file-said-to-delete-it-when-the-last-box-was-ticked.md`
 row **S3** claims *the rule that a release is sized in work items, three or
 four, is stated in exactly one document, and it is the one that owns tracker
-conventions*, anchored at
-`docs/issues-and-milestones.md#"## A milestone answers *when*, and takes three shapes"@95e3a483`.
+conventions*, anchored at the coordinate below. **It is fenced because it is
+a quotation of S3's anchor as S3 wrote it, not a claim this spec makes about
+the tree** — `evidence_check.py`'s `claim_lines` says a stamp in a fence is a
+quoted anchor exactly as a name in one is a quoted name, and unfenced it drifts
+the moment this work item edits the unit, which is the very thing the paragraph
+below goes on to explain.
+
+```
+docs/issues-and-milestones.md#"## A milestone answers *when*, and takes three shapes"@95e3a483
+```
 
 This work item edits that unit, so the hash moves. Two facts bound what has to
 be done about it, and both were read rather than assumed:
