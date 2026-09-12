@@ -39,6 +39,18 @@ Each is a row in `survivors.md` anchored on a quote, so the exemption stops
 holding the moment that text changes. Re-run with `--exempt`: exit 0, *every
 survivor is excused by a row above (4)*.
 
+**Round 2's finding 3 took the standing of that last sentence away, and it is
+corrected here rather than left.** From the commit that posts round 1's own
+record the check stops reporting the survivor at all: `corrected` counts a
+review report's verbatim quotation of the defective wording as wording the
+range wrote, so the range subtracts what the round reported. Measured at
+`95b3d83` with `--exempt` and without it — exit 0 and the same *no removed
+wording is still standing* both times. So **the exit 0 in the table below is
+not evidence that four survivors were excused**; it was evidence at the moment
+this phase ran, at `5da403c`, and the reading has not been reproducible since
+`a0f0e9a`. The checker is **#365**, and the four rows are kept because they are
+armed again when it lands.
+
 **`questions.md`'s five work-and-measurement rows are closed in this phase**,
 each with what was executed rather than with a letter. Two of them changed
 something: Q6 found the frame's absence check green before the edit, and Q7
@@ -54,7 +66,7 @@ the document shapes the entry.
 |---|---|---|
 | `bin/unverified-check <the memo>` | 0 | `4 open · 0 closed` |
 | `bin/survivor-check --range 7e17f5e..HEAD` | 1 | four places still carrying removed wording |
-| `bin/survivor-check --range … --exempt <survivors.md>` | 0 | all four excused |
+| `bin/survivor-check --range … --exempt <survivors.md>` | 0 | all four excused **at `5da403c`, and not reproducible after `a0f0e9a` — see above, and #365** |
 
 ## What this phase removes
 

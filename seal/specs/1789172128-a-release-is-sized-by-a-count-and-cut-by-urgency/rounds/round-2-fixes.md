@@ -25,7 +25,7 @@ content.
 | 4 | fixed | `ea4fc64`. The label paragraph now says what two states mean for the argument it makes: the subject never carries a second value, so a spent label is removed whole rather than re-valued. This is the clause `spec.md` expected as an exception and the build had argued was unnecessary; it lands as an argument rather than a carve-out |
 | 5 | fixed | `941dab5`. The false execution claim, and the one that mattered most because the row folds into `seal/ledger.md` at the release. R1 said `git grep -n "is the size"` exits 1 after the edit; it exits **0**. Confirmed by the orchestrating session both unscoped and scoped to exactly the set the row names, and again after the fix: `git grep -c` reports four hits, all inside `tests/test_a_release_is_sized_by_a_criterion.py`, the module the same phase planted. The row now records what the command answers and which reading was recorded as permanent. `phases/phase-2.md` keeps its `1` — true when taken — and gains the clause naming the commit from which it stops being true, which is the right treatment for a phase record rather than a rewrite |
 | 6 | fixed | `941dab5`. `phases/phase-4.md` and `questions.md` Q8 said the `1789100139` fragment is now three rows; it is two — S1 and S5b. The third was the table header, counted by `grep -c "^| "` |
-| 7 | fixed | `941dab5`. #351's `changelog.md:22` is **marked rather than excused**, which is what the round decided after measuring half the original exemption away: `CHANGELOG.md`'s top section is still the previous release, the `1789100139` fragment is ungathered, and `gather_changelog.py` concatenates in work-item id order, so that fragment lands above this one and the released section would state the replaced sentence in the present tense before correcting it far below. The bullet now says that wording is what this work moved and not what the document says today, pointing at the entry that replaces it. `survivors.md`'s row quotes the marking clause, so the exemption dies the moment the marking changes, and it records that the original second ground was withdrawn on the reviewer's measurement. The memo's matching `## Not verified` row is closed rather than deleted |
+| 7 | fixed | `941dab5`. #351's `changelog.md:22` is **marked rather than excused**, which is what the round decided after measuring half the original exemption away: `CHANGELOG.md`'s top section is still the previous release, the `1789100139` fragment is ungathered, and `gather_changelog.py` concatenates in work-item id order, so that fragment lands above this one and the released section would state the replaced sentence in the present tense before correcting it far below. The bullet now says that wording is what this work moved and not what the document says today, pointing at the entry that replaces it. `survivors.md`'s row quotes the marking clause, so the exemption dies the moment the marking changes, and it records that the original second ground was withdrawn on the reviewer's measurement. The memo's matching `## Not verified` row is closed rather than deleted. **Round 2 corrected the anchor**: a marking clause is a later sentence than the candidate it marks, so that spelling exempts nothing, and the row is anchored on the surviving sentence instead |
 | 9 | fixed | `941dab5`. `CLAUDE.md` added to `SCANNED`, with the reason — `tests/test_one_word_one_meaning.py:39`, the module this sweep was modelled on, reads it. 170 files scanned, no offender. Reach rather than a live defect, and closed because the gap was in the model it copied |
 
 ## What was run over the fix range
@@ -38,6 +38,16 @@ a wrapped restatement, a double-report case and `tracked()`;
 before, `--reverify`, and after; `bin/unverified-check` on the memo (3 open ·
 1 closed); `bin/survivor-check` over `7e17f5e..HEAD`; and seven further record
 modules (328 passed).
+
+**The `survivor-check` exit 0 in both paragraphs of this record measures
+nothing, and round 2's finding 3 is why.** `corrected` counts a review report's
+verbatim quotation of the defective wording as wording the range wrote, so from
+`a0f0e9a` — the commit that posts round 1's own record — the check stops
+reporting the survivor it had reported at `b46ff77`. Re-measured at `95b3d83`
+with `--exempt` and without it: exit 0 and the identical *no removed wording is
+still standing* both times. Neither reading below is evidence that anything was
+excused, and `survivors.md`'s four rows are consulted by nothing until **#365**
+lands.
 
 **Re-run by the orchestrating session at `941dab5`**, because a hand-back's
 verification claim is a claim: eight modules one per call — the new module 7,
