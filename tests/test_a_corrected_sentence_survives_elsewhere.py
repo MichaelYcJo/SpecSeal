@@ -540,6 +540,48 @@ def test_a_round_record_the_range_edited_does_not_become_a_source(tmp_path):
     )
 
 
+def test_the_docstring_names_both_sides_of_the_round_record_exclusion():
+    """`agent-contract` §14 -- a fix that changes a verdict pins the sentence.
+
+    What this replaces read *Everything under a work item's `rounds/` is
+    out.* and named no side, so a reader could not tell the pool from the
+    range in it. That is the sentence which was true of the design and false
+    of the code for five releases: the module's own account of itself was not
+    wrong while only one of the two functions filtered, because it never said
+    which one."""
+    source = open(SCRIPT, encoding="utf-8").read()
+    heading = "## What is excluded, by construction rather than by list"
+    assert heading in source, (
+        "the module docstring lost the section that states the exclusions, so "
+        "the exclusions are now carried by code alone and a reader has no "
+        "account of them to check the code against"
+    )
+    section = source[source.index(heading) + len(heading) :]
+    section = section[: section.index("\n## ")]
+    opener = "**A record of a past round.**"
+    assert opener in section, f"{opener} is no longer the first exclusion stated"
+    paragraph = section[section.index(opener) :]
+    paragraph = paragraph.split("\n\n")[0]
+    flat = " ".join(paragraph.split())
+    for side in ("pool", "range"):
+        assert side in flat, (
+            f"the paragraph does not say the exclusion applies to the {side}. "
+            "Naming one side is exactly how this defect survived -- the "
+            "intent was stated here and carried in one of the two "
+            f"functions:\n{flat}"
+        )
+    assert "both sides" in flat, (
+        "the paragraph names the pool and the range without saying the "
+        "exclusion holds on both, which leaves the reading that was already "
+        f"true and already wrong:\n{flat}"
+    )
+    assert "`rounds/` is out." not in flat, (
+        "the one-sided sentence is back: `Everything under a work item's "
+        "`rounds/` is out.` states the intent and names neither function it "
+        f"has to be true of:\n{flat}"
+    )
+
+
 # --- the escape ------------------------------------------------------------
 
 
