@@ -26,7 +26,7 @@ A hand-written list of the sentences that appear twice would rot exactly the
 way #210's list of guard arms did, and it would have to be extended by whoever
 writes the next shared sentence -- the party that has just demonstrated seven
 times that it will not. The diff is the one input nobody has to remember to
-update, and `docs/flow.md`'s row for #180 names it: *grep the changed
+update. The shape was written down when #180 was scheduled: *grep the changed
 sentences' distinguishing terms across the rest of the corpus and report the
 survivors.*
 
@@ -107,8 +107,8 @@ nothing*.
 
 A branch that DELETES a shipped section is the case per-survivor rows cannot
 serve. Every sentence of the section stands in the durable copies that are
-supposed to survive a deletion -- `docs/flow.md` §*A shipped version's section
-is deleted, not kept* names them -- so #293's own range reported **153**
+supposed to survive a deletion -- the design records under `seal/specs/`,
+`CHANGELOG.md` and the tickets themselves -- so #293's own range reported **153**
 survivors at 1.60-1.62, every one correct as a report and none of them a
 defect. Writing 153 rows is not an escape anybody takes; the branch turns the
 check off instead, which is the outcome the escape exists to prevent.
