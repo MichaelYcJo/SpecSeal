@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 4 |
 | Commit | `7578e25` |
-| Ran by | unknown — the spawn prompt named no model, and the template gives this row to the spawning session rather than to the segment. The orchestrating session fills it |
+| Ran by | specseal:smith on Opus 5 |
 
 ## What this phase was asked
 
