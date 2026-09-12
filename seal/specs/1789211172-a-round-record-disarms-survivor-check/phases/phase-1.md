@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | `392da83` |
-| Ran by | `specseal:smith` on `unknown` — the spawn prompt named no model, and this template reserves the value for the spawning session rather than letting a segment source it from its own idea of what it is |
+| Ran by | `specseal:smith` on `claude-opus-5` — filled by the orchestrating session, which chose the spawn-time argument, from the segment's own transcript |
 
 ## What this phase was asked
 
