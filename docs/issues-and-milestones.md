@@ -21,12 +21,47 @@ are closed when the release reaches `main`. An open milestone with a past due
 date reads as overdue, which is the tracker's way of saying a release shipped
 and nobody closed its milestone.
 
-`backlog:` is the unscheduled pool. An issue leaves it when it is scheduled,
-and scheduling is two acts rather than one: the milestone changes, and the
-issue gains a line in `docs/flow.md` under the release that will carry it.
-Neither act alone is a schedule — `flow.md` is what a person reads at the
-start of a ticket, and the milestone is what answers "what is in 1.2.3"
-without opening a file. The number is illustrative, for the reason
+**A release is sized by what has to be in effect before the next work item
+starts, and not by a count.** One change that decides how the next ticket runs
+is a release on its own. The release that shipped the framer carried a single
+work item, because the agent that writes a frame had to exist before anything
+was framed; the release that replaced the deleted checklist with a gate carried
+two, because the next work item had to start with the replacement already in
+effect. Neither of them was cut short of a target.
+
+**Three or four is a ceiling, not a target.** It is as much as one section can
+describe while a reader still comes away knowing what the release is about, and
+it says nothing about when to stop under it. The count is in work items rather
+than in ticket numbers because a run that reaches the reopening bound turns
+every finding still open into an issue, which is right — and it means one
+branch's leftovers arrive as four ticket numbers, which a reader counts as four
+releases' worth of work. Size a ticket set that will be one branch as one
+item. 0.8.3 shipped three of eight, and carrying five forward was the call
+rather than the failure.
+
+**The two releases above are named rather than numbered on purpose.** Both sit
+at or above the running version, and
+`test_no_loaded_file_names_a_version_at_or_above_the_running_one` refuses a
+loaded file that names one — the same rule that keeps the number illustrative
+in **A rolling log is titled after the version it rolled from** below.
+`CHANGELOG.md` turns either description back into a number in one grep. One of
+the two has already shipped, so for one release's length the refusal outlives
+its own reason; #363 is where that is repaired, and not here.
+
+**What the criterion does not change.** It decides a release's size and nothing
+else. A `release:` milestone is still the pool a release is cut from rather than
+the release itself, `backlog:` below is still the unscheduled pool, and nothing
+schedules from either — the one thing that reads a milestone checks a cut
+release against its pool and never decides what goes into one.
+
+`backlog:` is the unscheduled pool, and an issue leaves it in one act: the
+milestone changes. It used to be two, the second being a line in a checklist
+every branch appended to; that file is gone and what it carried is here and
+on the tracker (#351). **A scheduled release milestone's description states
+the release's purpose and the grounds for the order its issues sit in**, and
+grounds belonging to one ticket sit on that ticket. So "what is in 1.2.3, and
+why in that order" is answered without opening a file. The number is
+illustrative, for the reason
 **A rolling log is titled after the version it rolled from** gives below.
 It named a real unshipped release here for three of them (#179).
 
@@ -89,6 +124,43 @@ that cites them. A title the roll
 cannot read as its own is due rather than silent, so the first release after
 each one rolls it and the older convention retires itself.
 
+**`size: now` says this ticket has to be in effect before the next work item
+starts.** It is where the sizing judgment above is written down, so the next
+release is cut without re-reading every open issue body. Two states and no
+more: a ticket carries it or it does not, and not carrying it means the ticket
+rides the next release that happens to carry it. There is no second level and
+no scale, because the sizing question has two answers and a taxonomy with four
+levels is one nobody maintains.
+
+**The prefix is what keeps it inside the rule this section opens with.** A
+label answers *what it is about*, and this one is about sizing — a concern that
+outlives every schedule, since every release is sized. What the release spends
+is the value, `now`, and not the subject. Two states means the subject never
+appears on the tracker carrying a second value, so a spent label is removed
+whole rather than re-valued — what outlives the schedule is the question the
+prefix names, not a label anybody is holding. So the subject sits in the prefix and
+the verdict in the value, which is the shape `chain: capped` already has here,
+and the section needs no second exception: `flow-measurement` above stays the
+one label that is not a topic at all. A bare `now` was the name proposed, and
+it is not the name — standing alone it is a schedule answer with no subject,
+and it reads as the ordinary adverb this document itself uses.
+
+**Nothing reads this label** — no workflow, no check, no script — so a stale
+one costs a reader a wrong answer about what has to go next and costs no
+automation anything. It comes off when the release that carried the ticket
+reaches `main` and the issue closes, and nothing enforces that.
+**`merged: X.Y.Z` goes on earlier inside that same release**, at the squash
+onto the release branch — §*A label says a ticket is already in, before the
+release ships* is that mechanism, and the gap between the two moments is
+exactly the interval that section exists to fill. It answers *is this in yet*
+while the release is being assembled; this one is spent only once the work is
+out. A label is the right home for the judgment for exactly that reason: it
+makes the answer durable without making it a gate anybody has to satisfy.
+
+**What it does not decide is which release the ticket lands in.** The criterion
+answers *now or not now*; ordinary scheduling answers the rest, and a ticket
+without the label can still be the next thing somebody picks up.
+
 ## Closing one of these by hand breaks the next release
 
 The invariant above is what makes `log: measurement` dangerous to tidy. A
@@ -100,18 +172,69 @@ as designed, at the worst possible moment.
 If a `log:` issue has been closed, reopen it rather than opening a new one:
 two open ones fail the same check from the other side.
 
-## Nothing automated reads a milestone
+## One thing reads a milestone, and it can stop a release
 
-Worth stating because it is the opposite of what the fields suggest. No hook,
-script or workflow in this repository reads a milestone; the only writer is a
-person. What closes an issue is the pull request body:
-`.github/scripts/close_issues_on_release.py` reads `Closes #N` from the pull
-requests a release carries, and closes what they name when the release
-reaches `main`. `docs/flow.md` says the same thing from the ticket's side.
+This section said *nothing automated reads a milestone* until #359, and for
+as long as that was true a wrong milestone cost a person a wrong answer to
+"what is in this version" and cost no automation anything. It is not true any
+more, and the cost moved.
 
-So a milestone that is wrong costs a person a wrong answer to "what is in
-this version" and costs no automation anything. A missing `Closes #N` costs
-an issue that stays open forever.
+`.github/scripts/release_completeness_check.py` runs on a pull request from
+`release/vX.Y.Z` into `main` and reads the milestone `release: X.Y.Z`. It
+**refuses the release** while that milestone holds an open issue the release
+branch does not carry, and names each one. So a milestone left holding next
+quarter's work does not produce a wrong answer any more, it produces a red
+release pull request — at the moment the release is being cut, which is the
+worst moment to do the scheduling it is asking for.
+`docs/release-checklist.md` step 0 is where that act belongs — the box asking
+whether the milestone holds what the release is carrying, which is inside
+step 0 and so is ticked before any of the release's cost is paid.
+
+What the gate compares the milestone against is still the pull request body.
+It reads the release branch's own commit subjects, takes the `(#N)` a squash
+writes, fetches those bodies, and collects what their closing keywords name —
+the same readers `.github/scripts/close_issues_on_release.py` uses to close
+them when the release reaches `main`, imported rather than copied.
+`skills/implement/orchestration.md` §*Orchestrator: the order inside a
+ticket* says the same thing from the ticket's side.
+
+**A missing `Closes #N` still costs an issue that stays open forever, and now
+something reports it.** An issue nobody claimed is in the milestone and never
+enters what the release carries, so it is indistinguishable from work that
+was never built — and the release is refused until somebody either writes the
+keyword, or moves the issue, or builds it. That is a louder failure than the
+silence it replaces, and it lands on the release rather than on the work item
+that caused it.
+
+## A label says a ticket is already in, before the release ships
+
+An issue's state does not move until `main` moves, and `main` moves once per
+release. So for the length of a release a finished work item and one nobody
+has started look identical on the tracker, and for a while the only thing
+that told them apart was a bullet in a checklist that has since been deleted
+(#351).
+
+`.github/scripts/label_merged_on_release_branch.py` runs on a push to
+`release/*` and puts `merged: X.Y.Z` on every issue the arriving pull
+requests claimed, creating the label the first time. One query answers *what
+is already in* — `gh issue list --milestone "release: X.Y.Z"`, and the merged
+ones carry the label.
+
+Three things about it are worth knowing before anyone tidies it.
+
+- **It never closes anything.** An issue closed at the release-branch merge
+  is closed for something nobody has received; the close stays on `main`.
+- **The labels accumulate and are never removed**, one per release. Deleting
+  one deletes it from every issue that ever carried it, which falsifies the
+  record it was created to leave.
+- **A label is a cache and the commits are the truth.** The gate above
+  recomputes what the release carries from the branch itself and never asks
+  the labels, so a label write that failed cannot block a release. It does
+  compare the two and says which way they disagree: a label naming a release
+  the issue is not in **fails**, because that is always a hand-edit or a
+  squash subject that lost its `(#N)` and one command repairs it, while a
+  missing label only **reports**, because a release must not be held for a
+  failure of the signal rather than of its contents.
 
 ## A keyword claims the one number after it
 
