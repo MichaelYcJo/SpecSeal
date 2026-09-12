@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 5 |
-| Commit | `<this record's own commit — the sweep that fills the other four cells is in it>` |
+| Commit | `aa24fbe` |
 | Ran by | `specseal:smith` on `unknown` — the spawn prompt named no model, and this template reserves the value for the spawning session rather than letting a segment source it from its own idea of what it is |
 
 ## What this phase was asked
