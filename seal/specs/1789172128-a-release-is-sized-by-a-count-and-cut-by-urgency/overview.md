@@ -28,7 +28,7 @@ so it is not made again from scratch.
 |---|---|
 | the full suite, the repository-wide lint and the typecheck | the orchestrating session — `agent-contract` §2 assigns the broad gate to the sealer, once, after the review rounds settle |
 | whether `size: now` is the spelling the owner creates | the repository owner. Q2 chose the prefix form and left the string to whoever creates the label; Q3 leaves creation and application to the owner after this merges. Nothing pins the document against the tracker, and no check can see a label that was never created or created under a different spelling |
-| whether #351's changelog fragment should keep quoting the replaced sentence | the reviewer, then the repository owner. `survivors.md` excuses it on the ground that the fragment's own claim is still true and this work item's entry sits in the same released section; the alternative reading is that a released section should not quote a sentence the same section replaces |
+| ✅ whether #351's changelog fragment should keep quoting the replaced sentence | round 1, finding 7, 2026-09-12: measured, not judged — `gather_changelog.py` concatenates in work-item id order, so that fragment lands **above** this one and the released section would state the replaced sentence in the present tense before correcting it. The bullet is marked rather than excused, and `survivors.md`'s row now quotes the marking clause |
 | `release: 0.11.1`'s milestone description, stale well past its `Size.` line | the repository owner. Q4 put milestone descriptions out of scope; its `Order, and why` paragraph still names #330, #343, #345, #350, #198, #103 and #354, all of which left for `release: 0.11.2` |
 
 ## Not done

@@ -23,7 +23,10 @@
     is sized in work items rather than in ticket numbers, and three or four
     is the size*, in the paragraph that already says what a `release:`
     milestone holds, with the measurement behind it. It is the only standing
-    rule the file carried, and exactly one document states it now.
+    rule the file carried, and exactly one document states it now. **That
+    wording is what this work moved and not what the document says today**:
+    the entry below replaces it in this same release with a criterion, and
+    names the count as a ceiling.
   - **The 18 checkbox rows and the grounds for their order are on the
     tracker.** Each scheduled release milestone's description states the
     release's purpose and why its issues sit in that order, and a ticket

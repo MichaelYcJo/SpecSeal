@@ -59,7 +59,7 @@ a hash and cannot correct a claim. `CONTRIBUTING.md` §*Changing cited code is
 the case the rule has to answer* gives exactly two answers and this is the
 second one. So the row is removed from
 `seal/ledger/1789100139-the-file-said-to-delete-it-when-the-last-box-was-ticked.md`,
-which now carries three rows, and its substance comes back as R1 of this work
+which now carries two rows — S1 and S5b — and its substance comes back as R1 of this work
 item's fragment. Editing another work item's fragment is what Q8 flagged as
 unsettled; both fragments already sit in `release/v0.11.1`, the fragment rule is
 about two concurrent branches not queueing at one file, and the alternative was

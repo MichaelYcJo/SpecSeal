@@ -70,7 +70,7 @@ not through a pipe:
 | `bin/test -q tests/test_docs_line_wrap.py tests/test_release_hygiene.py` | 0 | 55 passed — S8 and S9 |
 | `git grep -n "in effect before the next work item" -- docs skills agents templates tests` | 0 | one line, `docs/issues-and-milestones.md:24` — S1 |
 | `git grep -n "ceiling, not a target" -- docs` | 0 | two lines, this file at 32 and `docs/review-chain-spec.md:53` — S2 |
-| `git grep -n "is the size" -- <the loaded set>` | 1 | the replaced wording survives nowhere — S3's absence half |
+| `git grep -n "is the size" -- <the loaded set>` | 1 | the replaced wording survives nowhere — S3's absence half. **True at this phase and not afterwards**: phase 4's own module names the replaced wording in its docstring and constants, so the same command exits 0 from `7578e25` on, with every hit inside the file the sweep excludes. Round 1's finding 5 was that reading recorded as permanent in a ledger row |
 | `bin/test -q` over the eight modules that read this document | 0 | 235 passed |
 
 ## What this phase removes
