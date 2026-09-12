@@ -124,6 +124,35 @@ that cites them. A title the roll
 cannot read as its own is due rather than silent, so the first release after
 each one rolls it and the older convention retires itself.
 
+**`size: now` says this ticket has to be in effect before the next work item
+starts.** It is where the sizing judgment above is written down, so the next
+release is cut without re-reading every open issue body. Two states and no
+more: a ticket carries it or it does not, and not carrying it means the ticket
+rides the next release that happens to carry it. There is no second level and
+no scale, because the sizing question has two answers and a taxonomy with four
+levels is one nobody maintains.
+
+**The prefix is what keeps it inside the rule this section opens with.** A
+label answers *what it is about*, and this one is about sizing — a concern that
+outlives every schedule, since every release is sized. What the release spends
+is the value, `now`, and not the subject. So the subject sits in the prefix and
+the verdict in the value, which is the shape `chain: capped` already has here,
+and the section needs no second exception: `flow-measurement` above stays the
+one label that is not a topic at all. A bare `now` was the name proposed, and
+it is not the name — standing alone it is a schedule answer with no subject,
+and it reads as the ordinary adverb this document itself uses.
+
+**Nothing reads this label** — no workflow, no check, no script — so a stale
+one costs a reader a wrong answer about what has to go next and costs no
+automation anything. It comes off when the release that carried the ticket
+ships, at the same moment `merged: X.Y.Z` goes on, and nothing enforces that.
+A label is the right home for the judgment for exactly that reason: it makes
+the answer durable without making it a gate anybody has to satisfy.
+
+**What it does not decide is which release the ticket lands in.** The criterion
+answers *now or not now*; ordinary scheduling answers the rest, and a ticket
+without the label can still be the next thing somebody picks up.
+
 ## Closing one of these by hand breaks the next release
 
 The invariant above is what makes `log: measurement` dangerous to tidy. A
