@@ -18,8 +18,9 @@ broad gate.
 
 **A `spec.md` spelling defect that no phase before this one could have
 surfaced.** The frame's §*Data & interfaces* table quoted rows S3 and S6's
-anchors as `survivor_check.py#corrected@65b199e3` — the filename alone, which
-does not resolve. Nothing reported it while phases 1 to 3 ran. It appeared the
+anchors with the bare file name — `survivor_check.py` rather than its path
+under `skills/code-review/scripts/` — followed by the row's stamp, which does
+not resolve. Nothing reported it while phases 1 to 3 ran. It appeared the
 moment the ledger fragment was created, at `2 refused` and exit 2, because
 `evidence_check.py`'s `unread_items` reads a work item's records **only once
 that work item has a fragment**: a directory with no fragment is in the set
@@ -39,6 +40,17 @@ quotations of what S3 and S6 wrote rather than claims this spec makes about
 the tree. S3's is the stamp this work item then moves, so fencing is also the
 only spelling that stays true after the re-verify. Both rows' content is
 untouched.
+
+**The class had two more instances, and this record wrote one of them.** The
+first pass at this section and at `overview.md`'s divergence row both quoted
+the bad spelling verbatim in order to say what was wrong with it, and the
+records arm read both as claims — `2 refused`, exit 2, a second time. So the
+class is not *the spec's table*; it is **any stamped anchor a work item's
+records carry outside a fence**, and a record describing the defect is a place
+the defect reproduces. Both were reworded to say what the spelling was — the
+bare file name rather than the path under `skills/code-review/scripts/` —
+without writing a coordinate. A table cell cannot hold a fence, so for
+`overview.md` that was the only repair available.
 
 **A `path:line` spelling inside a ledger fragment is read as a coordinate.**
 The fragment's first draft quoted the report's own output —
