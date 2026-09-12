@@ -173,18 +173,18 @@ anybody has to satisfy.
 # the reach that finds them changes no answer: each of the three fixes round 1
 # commissioned was measured reverting with this module still green. So they are
 # pinned against the reader itself.
-NOUN_FORMS = (
+NOUN_FORMS = (  <!-- NAME NOT IN TREE -->
     "A release's size is three or four work items.",
     "Three or four work items is the size of a release.",
     "The size of a release is three work items.",
 )
 
 
-def test_the_pattern_catches_the_noun_forms_and_not_only_the_verb():
+def test_the_pattern_catches_the_noun_forms_and_not_only_the_verb():  <!-- NAME NOT IN TREE -->
     """Round 1 measured all three escaping, on one line and with no wrap
     involved. `test_the_sweep_can_fail` cannot see them go: the owner matches
     on `release ... sized` alone, which was there before the widening."""
-    for sentence in NOUN_FORMS:
+    for sentence in NOUN_FORMS:  <!-- NAME NOT IN TREE -->
         assert STATES_A_SIZE.search(sentence), (
             "a one-line restatement of a release's size escapes the sweep: "
             f"{sentence!r}"
