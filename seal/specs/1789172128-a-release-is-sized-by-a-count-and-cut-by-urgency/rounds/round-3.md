@@ -5,7 +5,7 @@
 | Target SHA | 3673e46 |
 | Ran by | specseal:warden on Opus 5 |
 | PR | #364 |
-| Broad gate | not yet |
+| Broad gate | 8ce7f70 against origin/release/v0.11.1 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
