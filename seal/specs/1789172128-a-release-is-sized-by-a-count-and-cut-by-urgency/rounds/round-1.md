@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on Opus 5 |
 | PR | #364 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | hits (depth 1) |
 | Needs a fix | yes — findings 1, 2 and 3. Finding 1 is a document contradicting itself about when one of its own labels comes off; findings 2 and 3 are the sweep that carries S3 and S7 missing shapes measured escaping it. |
