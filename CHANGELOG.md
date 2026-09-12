@@ -1,5 +1,176 @@
 # Changelog
 
+## 0.11.1 — 2026-09-12
+
+<!-- specs/1789100139-the-file-said-to-delete-it-when-the-last-box-was-ticked -->
+<!-- seal/specs/1789100139-the-file-said-to-delete-it-when-the-last-box-was-ticked/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **`docs/flow.md` is deleted, and this entry is the record of what it
+  carried.** It was the third file every branch appended to, after
+  `CHANGELOG.md` and `seal/ledger.md`. Those two were cured with per-work-item
+  fragments because checkers read them; nothing read this one, so it is cured
+  by deletion. No marker is left behind in any file it was removed from — the
+  removal is recorded here, in one place, rather than as a trail of notes
+  saying a file used to exist. Its 120 lines went four ways:
+
+  - **The order a ticket runs in is now `skills/implement/orchestration.md`
+    §*Orchestrator: the order inside a ticket*.** This is the one a person
+    has to know: whoever opened `docs/flow.md` each morning for the three
+    numbered steps reads them there. It is the first section of that file,
+    ahead of the three it already had, because those three are steps inside
+    the sequence — step 1 is *write `routing.md` before the first edit*,
+    which the routing section then details. Nothing about the sequence
+    changed: the draft pull request still opens between the smith and the
+    warden rounds, and step 2 still names the framer. The two cases that
+    pinned those claims moved with the section rather than being deleted.
+  - **The sizing rule is now `docs/issues-and-milestones.md`** — *a release
+    is sized in work items rather than in ticket numbers, and three or four
+    is the size*, in the paragraph that already says what a `release:`
+    milestone holds, with the measurement behind it. It is the only standing
+    rule the file carried, and exactly one document states it now. **That
+    wording is what this work moved and not what the document says today**:
+    the entry below replaces it in this same release with a criterion, and
+    names the count as a ceiling.
+  - **The 18 checkbox rows and the grounds for their order are on the
+    tracker.** Each scheduled release milestone's description states the
+    release's purpose and why its issues sit in that order, and a ticket
+    whose position had grounds that were in no ticket body gained a comment
+    carrying them. Scheduling an issue is one act again — the milestone —
+    where it used to be the milestone *and* a line in this file.
+  - **The clause naming the file is gone from the 0.4.0 design record**,
+    `docs/one-root-by-lifetime.md` §*Order* and its Korean edition. The rest
+    of the sentence stands and no version number was added to either, which
+    is what marking the path as removed would have cost: both editions are
+    in `RECORDS_OF_A_MOMENT` precisely to exempt version tokens.
+
+  Two rules end with the file rather than moving: *a branch writes this file
+  for the rows its own work created*, and *a shipped version's section is
+  deleted, not kept*. Both were about maintaining it.
+
+  `docs/release-checklist.md` loses four steps, including the one explaining
+  how to resolve the conflict this file caused on adjacent lines. The
+  quadratic cost that conflict was measured at is still recorded, one bullet
+  up, without naming the file. Six live citations were repaired: two in
+  `skills/code-review/scripts/survivor_check.py`, one in
+  `skills/verify/scripts/broad_gate.py`, one in
+  `tests/test_a_corrected_sentence_survives_elsewhere.py`, and in
+  `tests/test_release_hygiene.py` the `RECORDS_OF_A_MOMENT` entry with its
+  docstring argument and one fixture path. Dropping that entry was measured
+  first: seven offending lines remained and all seven were in the file being
+  deleted. (#351)
+
+<!-- specs/1789108681-a-merged-ticket-looks-unstarted-until-the-release-ships -->
+<!-- seal/specs/1789108681-a-merged-ticket-looks-unstarted-until-the-release-ships/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **A ticket already merged into the release branch now says so on the
+  tracker, and a release can no longer ship a milestone that is not true.**
+  An issue's state does not move until `main` moves, and `main` moves once per
+  release — so for the length of a release a finished work item and one nobody
+  has started looked identical. The line that used to tell them apart was a
+  bullet in a checklist every branch edited, and it was deleted with that file
+  in the release before this one. Two pieces answer two different questions:
+
+  - **A signal, so a person can tell them apart.** A push to `release/*` runs
+    `.github/scripts/label_merged_on_release_branch.py`, which reads the pull
+    request numbers out of the commit subjects that arrived, fetches those
+    bodies, and puts `merged: X.Y.Z` on every issue their closing keywords
+    name. One query answers *what is already in*. It closes nothing: an issue
+    closed at the release-branch merge is closed for something nobody has
+    received, and the close stays where it was, on `main`. It removes nothing
+    either — the labels accumulate, one per release, because deleting a label
+    deletes it from every issue that ever carried it.
+  - **A gate, so a release cannot ship a milestone that claims work it has not
+    got.** A pull request from `release/vX.Y.Z` into `main` runs
+    `.github/scripts/release_completeness_check.py`, which refuses while the
+    milestone holds an open issue the release branch does not carry, and names
+    each one. This is the completeness check the deleted checklist asked as
+    *is everything in*, now asked by the machine at the moment the release is
+    being cut.
+
+  **The commits are the truth and the label is a cache of them.** The gate
+  recomputes what the release carries from the release branch's own range and
+  never asks the labels, so a label write that failed cannot block a release —
+  the remedy for that would be a person adding a label by hand, which is the
+  act the signal exists to remove. The gate does compare the two and says
+  which way they disagree: a label naming a release the issue is not in fails,
+  because that is always a hand-edit or a squash subject that lost its `(#N)`
+  and one command repairs it, while a missing label only reports.
+
+  Neither piece parses anything new. Both read through
+  `close_issues_on_release.py`'s existing readers rather than a second copy of
+  its treatment of a keyword quoted inside a code fence.
+
+  **A shape the gate cannot judge passes and says why.** A hotfix branch is
+  the other thing that reaches `main` and it carries no release milestone. So
+  does a milestone that does not exist, and that one says loudly that it
+  verified nothing: `gh issue list --milestone` answers a title nothing has
+  with an empty list and exit 0, so without a separate existence read a typo
+  would have passed the check by measuring an empty set.
+
+  **What a release has to do differently.** `docs/release-checklist.md` step 0
+  gains the first box on the list: before anything else, every open issue in
+  the milestone that is not shipping moves to another milestone. Leave it and
+  the release pull request goes red at step 5 — which is the check working,
+  at the worst moment to be doing release planning.
+
+  Two sentences that were false are gone with it. The checklist said the
+  close-issues workflow "runs on the tag and closes every issue the changelog
+  section names"; it runs when `main` moves and it reads pull request bodies.
+  And `docs/issues-and-milestones.md` said *nothing automated reads a
+  milestone*, which this change is what makes untrue — that section now says
+  what reads one, and that a wrong one costs a blocked release rather than a
+  person's wrong answer. (#359)
+
+<!-- specs/1789172128-a-release-is-sized-by-a-count-and-cut-by-urgency -->
+<!-- seal/specs/1789172128-a-release-is-sized-by-a-count-and-cut-by-urgency/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **A release's size is decided by what has to be in effect before the next
+  work item starts, and three or four is now named as the ceiling it always
+  was.** The rule used to read *a release is sized in work items rather than in
+  ticket numbers, and three or four is the size*, which reads as a target. A
+  session holding it read it as one twice in a single day: it proposed moving
+  eighteen issues out of the release milestones to bring them "down to size",
+  and read a two-item release as under the rule with room for a third. Neither
+  of the last two releases was cut at three or four, and neither was a failure
+  to reach it — one shipped the agent that writes a frame, because nothing
+  could be framed until it existed, and the next replaced a deleted checklist
+  with a gate, because the work item after it had to start with the
+  replacement already in effect.
+
+  - **The criterion, in `docs/issues-and-milestones.md`.** One change that
+    decides how the next ticket runs is a release on its own. The count
+    survives as a ceiling — as much as one section can describe while a reader
+    still comes away knowing what the release is about — in the wording
+    `docs/review-chain-spec.md` already uses for the review cap, so one idea is
+    not spelled two ways.
+  - **The evidence is cited as prose, not as version numbers, and the document
+    says why.** Both releases sit at or above the running version, and
+    `test_no_loaded_file_names_a_version_at_or_above_the_running_one` refuses a
+    loaded file that names one. Without the note, a later author for whom both
+    numbers have become history would replace the descriptions with numbers and
+    be right to.
+  - **A label, `size: now`, so the judgement is written down once per ticket
+    instead of re-answered from thirty-five issue bodies at every cut.** Two
+    states: a ticket carries it or it does not, and not carrying it means the
+    ticket rides the next release that happens to carry it. No tier list and no
+    scale. The prefix is what keeps it inside the rule the same section opens
+    with — a label answers *what it is about*, and this one is about sizing,
+    which every release has, while only the value is spent when the release
+    ships. It is the shape `chain: capped` already has on this tracker.
+  - **What does not change is stated, so it is not re-argued.** A `release:`
+    milestone is still the pool a release is cut from rather than the release
+    itself, `backlog:` is still the unscheduled pool, and nothing schedules
+    from either. Nothing reads the new label at all, so a stale one costs a
+    reader a wrong answer and costs no automation anything.
+
+  `tests/test_a_release_is_sized_by_a_criterion.py` holds the new wording
+  present and the replaced sentence absent, and sweeps the loaded tree for a
+  second statement of a release's size. Creating the label and applying it are
+  the repository owner's, after this merges.
+
 ## 0.11.0 — 2026-09-11
 
 <!-- specs/1789081272-the-writer-of-the-contract-is-not-its-executor -->
