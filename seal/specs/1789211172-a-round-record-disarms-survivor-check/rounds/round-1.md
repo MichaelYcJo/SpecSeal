@@ -7,12 +7,12 @@
 | PR | #372 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | MODULE_SCOPE (depth 1); PATH_LIST_CALLS (depth 1); _path_list_words (depth 1) |
 | Needs a fix | yes — finding 1, the enumeration case's unit is the function rather than the call site, so two of the three shapes the plan names as its own failure scenario pass it; and finding 2, the pull request body's red count. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -78,15 +78,23 @@ file for the orchestrating session to verify before any of it was posted.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | 🟡 The enumeration case measures function names, so a second unfiltered path list inside an already-declared function, or one at module scope, passes it | `tests/test_a_corrected_sentence_survives_elsewhere.py:615`, `:676` | open | Executed: four module mutations in the clone, restored byte-identical. Two red as recorded, two green. `plan.md:46-50` names *a second range* and *a cache of changed files* as the scenario; neither is caught |
-| 2 | 🟡 The pull request body attributes four red mutations to the enumeration case; `phases/phase-3.md:57` records two | PR #372 body, §*The class, enumerated by construction* | open | Executed: only M1 and M2 turn that case red. A5 is answered in the body alone, and the red evidence is `CONTRIBUTING.md`'s first bullet |
-| 3 | ⬜ The memo's executed line omits the one repository-wide `ruff` run the smith disclosed | `seal/specs/1789211172-…/overview.md:10` | open | Read. `agent-contract` §3 asks the overrun be named in the handover; the memo is the durable one. Nothing was banked as a pass, so the cost is the missing sentence |
-| 4 | ⬜ Phase 5's removal table names one changed clause; the follow-up edit changed two | `seal/follow-up.md:62`, `phases/phase-5.md` removal table | open | Executed word-diff against `bc5248c`: the candidate fix moved from *the ADDED side of `corrected`* to *`corrected`'s path list*, unrecorded |
-| 5 | ⬜ `_mentions` and `_function` accept only `FunctionDef` while `_derives_a_path_list` and `_callers_of` also accept `AsyncFunctionDef` | `tests/test_a_corrected_sentence_survives_elsewhere.py:634`, `:717` | open | Read. An async path-list function would fail with *is no longer a function in this module* |
-| 6 | ⬜ `"foreign" in grounds` is a tautology over a constant in the same file, and its failure message blames the module | `tests/test_a_corrected_sentence_survives_elsewhere.py:709` | open | Read; `whole_range`'s body holds `foreign` five times, executed via AST |
-| 7 | ⬜ The docstring case's message names the pool-and-range pair where the assertion pins the two sides of the path list | `tests/test_a_corrected_sentence_survives_elsewhere.py:574` | open | Read |
-| — | The fix on `corrected` | `skills/code-review/scripts/survivor_check.py:525` | answered | Correct, minimal, filtered before the blobs are read; both callers checked; phase 1's red reproduced verbatim at `392da83` |
-| — | `whole_range` left unfiltered | `skills/code-review/scripts/survivor_check.py:833` | answered | The argument holds on the code: `changed` feeds only the ownership test, and a paperwork-only range under the work item directory would become `foreign` |
+| 1 | 🟡 The enumeration case measures function names, so a second unfiltered path list inside an already-declared function, or one at module scope, passes it | `tests/test_a_corrected_sentence_survives_elsewhere.py:615`, `:676` | **fixed** `b002b3f` | fixed at b002b3f — `` — the unit becomes the call site, so the case rises to meet the frame rather than the frame being narrowed. `_derives_a_path_list` answers `{scope: count}` with module scope spelled `<module>`, and `derivers == PATH_LIST_CALLS` sits beside the existing set equality. Six mutations, six red, module restored byte-identical after each: the filter removed; a fourth unfiltered path-list function; **a second unfiltered list inside `corrected`** (`{'corrected': 2}`); **a path list at module scope** (`['<module>', 'corrected', 'tracked', 'whole_range']`); two path lists in one outer call's arguments; a second unfiltered caller of `tracked`. The third and fourth were green at `dc1e93a`. The paste-ready shape was corrected rather than pasted: `_path_list_words` reads the words a call names itself and stops at a nested call, and measured against a mutation putting `corrected`'s one declared site inside an outer call beside a second, the subtree-reading shape counts `corrected: 1` and **passes** where this one counts 2 and fails; Executed: four module mutations in the clone, restored byte-identical. Two red as recorded, two green. `plan.md:46-50` names *a second range* and *a cache of changed files* as the scenario; neither is caught |
+| 2 | 🟡 The pull request body attributes four red mutations to the enumeration case; `phases/phase-3.md:57` records two | PR #372 body, §*The class, enumerated by construction* | answered | The claim was never in the tree — it was the pull request body, and the error was the orchestrating session's reading of the handover rather than anything the smith wrote. `phases/phase-3.md` records **two** mutations and its table has two rows; four is the total across two cases. #372's body now reads *seen red two ways* and carries a paragraph naming the misattribution and whose it was. No commit, because no commit ever carried the claim |
+| 3 | ⬜ The memo's executed line omits the one repository-wide `ruff` run the smith disclosed | `seal/specs/1789211172-…/overview.md:10` | **fixed** `b002b3f` | fixed at b002b3f — `` — `overview.md`'s `verified: **executed**` line now names the one repository-wide `ruff check .`, that `agent-contract` §2 reserves it for the broad act and §3 asks it be named, and that the run is spent rather than banked; Read. `agent-contract` §3 asks the overrun be named in the handover; the memo is the durable one. Nothing was banked as a pass, so the cost is the missing sentence |
+| 4 | ⬜ Phase 5's removal table names one changed clause; the follow-up edit changed two | `seal/follow-up.md:62`, `phases/phase-5.md` removal table | **fixed** `b002b3f` | fixed at b002b3f — `` — `phases/phase-5.md`'s removal table gains a second row for *out of the ADDED side of `corrected`* → *out of `corrected`'s path list*, with the grounds (Q1's *in* option, #361's round 3) and the limit: the row's own eleven-to-one measurement is of the added side alone, so the evidence for the wider half lives on #371; Executed word-diff against `bc5248c`: the candidate fix moved from *the ADDED side of `corrected`* to *`corrected`'s path list*, unrecorded |
+| 5 | ⬜ `_mentions` and `_function` accept only `FunctionDef` while `_derives_a_path_list` and `_callers_of` also accept `AsyncFunctionDef` | `tests/test_a_corrected_sentence_survives_elsewhere.py:634`, `:717` | **fixed** `b002b3f` | fixed at b002b3f — `` — `_mentions` and `_function` match `(ast.FunctionDef, ast.AsyncFunctionDef)`, as `_derives_a_path_list` and `_callers_of` already did; Read. An async path-list function would fail with *is no longer a function in this module* |
+| 6 | ⬜ `"foreign" in grounds` is a tautology over a constant in the same file, and its failure message blames the module | `tests/test_a_corrected_sentence_survives_elsewhere.py:709` | **fixed** `b002b3f` | fixed at b002b3f — `` — split into two assertions with separate messages. `grounds` is a constant in the test file and `body` comes from the module, so the conjuncts fail for opposite reasons and one message could only blame one party. The left one now says the argument above it was rewritten; the right one keeps the original text about the module; Read; `whole_range`'s body holds `foreign` five times, executed via AST |
+| 7 | ⬜ The docstring case's message names the pool-and-range pair where the assertion pins the two sides of the path list | `tests/test_a_corrected_sentence_survives_elsewhere.py:574` | **fixed** `b002b3f` | fixed at b002b3f — `` — the message names *both SIDES of the range's path list* and *the added-side-only reading*, which is the pair the assertion pins; Read |
+
+## Checked and found clean
+
+Not findings, so they carry no id — a fix table's `#` is a bare integer and a
+row here has nothing for a fix pass to do. The reviewer opened both and said so.
+
+| What was checked | Location | Verdict | Grounds |
+|---|---|---|---|
+| The fix on `corrected` | `skills/code-review/scripts/survivor_check.py:525` | answered | Correct, minimal, filtered before the blobs are read; both callers checked; phase 1's red reproduced verbatim at `392da83` |
+| `whole_range` left unfiltered | `skills/code-review/scripts/survivor_check.py:833` | answered | The argument holds on the code: `changed` feeds only the ownership test, and a paperwork-only range under the work item directory would become `foreign` |
 
 ## Paste-ready fixes
 
@@ -188,6 +196,18 @@ def _function(tree, name):
         f"already wrong:\n{flat}"
     )
 ```
+
+## Found by the fix pass, and not by the round
+
+Two things the smith met while closing the seven above. They carry no finding
+id: the reviewer did not report them, and a fix table may only name findings its
+own round's verdict table holds. They are here because a commit with nothing
+pointing at it is a commit the next reader has to rediscover.
+
+| What it was | Commit |
+|---|---|
+| `08fe497` — not one of the reviewer's seven; found by the fix pass while running the survivor step over this pass's own range, and not one of the seven. #371 (the RANGE half) and #308 (the CORPUS half) are the two halves of one fix and neither ticket names the other; landing either alone leaves a `survivors.md` row silenced by the path the other closes. Recorded as a clause in the `seal/follow-up.md` row that already points at #371, because this pass had no scope to touch either ticket |
+| `b002b3f` — not one of the reviewer's seven; found by the fix pass while fixing, and not one of the seven. `dc1e93a` DELETED the memo's *model each phase ran on* row instead of marking it closed, which `skills/implement/SKILL.md` §4 forbids in as many words. Restored as a ✅ row naming what closed it. `unverified-check --baseline bc5248c` exits 0 either way and cannot see it, because this memo does not exist at the base and there is no earlier row count to compare against |
 
 ## Executed probes
 
