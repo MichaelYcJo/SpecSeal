@@ -90,4 +90,5 @@ this work item re-arms an exemption, which is acceptance row A6.
 | Removed item | Where it must land |
 |---|---|
 | `seal/follow-up.md`'s clause *the way `rounds/` is left out of the corpus by construction* — the comparison it makes stopped being true when phase 2 landed | Replaced in the same row by the corrected comparison, which points at #365 for the completed instance and at #371 for the open question. The row itself is not closed: Q1 answered *out* |
+| `seal/follow-up.md`'s clause *out of **the ADDED side of** `corrected`* — the candidate fix that row proposes. Round 1's finding 4: the same edit changed two clauses and this table named one | Widened in the same row to *out of `corrected`'s path list*, because `questions.md` Q1's *in* option and #361's round 3 both argue for the whole list. **The evidence for the wider half lives on #371 and not in this row**: the row's own executed measurement, eleven places to one over `7355201..a18754c`, is a measurement of the added side alone |
 | `spec.md`'s two unfenced anchor quotations | Moved into a fence in the same section, with the grounds beside them. Nothing left the document |

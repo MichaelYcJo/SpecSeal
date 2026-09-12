@@ -573,8 +573,9 @@ def test_the_docstring_names_both_sides_of_the_round_record_exclusion():
         )
     assert "both sides" in flat, (
         "the paragraph names the pool and the range without saying the "
-        "exclusion holds on both, which leaves the reading that was already "
-        f"true and already wrong:\n{flat}"
+        "exclusion holds on both SIDES of the range's path list, which leaves "
+        "the added-side-only reading that was already true and already "
+        f"wrong:\n{flat}"
     )
     assert "`rounds/` is out." not in flat, (
         "the one-sided sentence is back: `Everything under a work item's "
@@ -583,14 +584,21 @@ def test_the_docstring_names_both_sides_of_the_round_record_exclusion():
     )
 
 
-# The predicate, and every function in the module that turns a git-derived
-# path list into a judgment about prose. Declared here and CHECKED against the
+# The predicate, and every place in the module that turns a git-derived path
+# list into a judgment about prose. Declared here and CHECKED against the
 # source below, rather than grepped for: the defect this case exists for was a
 # call site the predicate had never reached, standing beside two it had, and
 # what hid it is that the pool and the range are computed by different
 # functions. A fourth one -- a `--since` flag, a second range, a cache of
-# changed files -- is the same defect one function over, so it turns this red
-# until somebody classifies it.
+# changed files -- turns this red until somebody classifies it.
+#
+# **The unit is the CALL SITE, and it took round 1 to make that true of the
+# code.** `spec.md`'s class table is headed `Call site` and gives `corrected`
+# and `whole_range` separate rows for the same spelling of the same command;
+# this case keyed its walk by function NAME, so two sites in one scope
+# collapsed to one entry and a list at module scope was not found at all. Two
+# of the three shapes `plan.md:46-50` names as this change's own six-month
+# failure scenario -- a second range, a cache of changed files -- passed it.
 PREDICATE = "records_a_past_round"
 FILTERS_ITS_OWN_LIST = {"corrected"}
 FILTERED_BY_ITS_ONLY_CALLER = {"tracked": "corpus"}
@@ -610,31 +618,63 @@ NAMED_EXCEPTION = {
 # forms the module uses today, so a fourth call site written as a direct
 # `subprocess.run(["git", ...])` is found too.
 LISTS_PATHS = {"--name-only", "ls-files", "ls-tree"}
+# How many path-listing calls each scope is allowed to make. Module scope is a
+# scope, and it is spelled here so a list built at import time is named rather
+# than missed.
+MODULE_SCOPE = "<module>"
+PATH_LIST_CALLS = {"corrected": 1, "tracked": 1, "whole_range": 1}
+
+
+def _path_list_words(call):
+    """The path-listing words `call` names ITSELF, nested calls excluded.
+
+    Excluded because a nested call is its own site. `foo(git(… "ls-tree" …),
+    git(… "diff" …))` holds two path lists, and reading the constants of the
+    whole subtree would see the outer call once and collapse them -- which is
+    round 1's finding again, one level down."""
+    words, stack = set(), list(ast.iter_child_nodes(call))
+    while stack:
+        node = stack.pop()
+        if isinstance(node, ast.Call):
+            continue
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, str):
+                words.add(node.value)
+            continue
+        stack.extend(ast.iter_child_nodes(node))
+    return words & LISTS_PATHS
 
 
 def _derives_a_path_list(tree):
-    """`{function name: the path-listing words it asks git for}`."""
+    """`{scope: how many path-listing calls it makes}`.
+
+    Scopes rather than functions, and counts rather than names, because the
+    unit of the class is the CALL SITE. A second unfiltered list inside a
+    function that already filters one is this defect one LINE over rather than
+    one function over, and a set of function names cannot see it; a list built
+    at module scope is in no function at all."""
     found = {}
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        for call in ast.walk(node):
-            if not isinstance(call, ast.Call):
+
+    def visit(node, scope):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                visit(child, child.name)
                 continue
-            words = {
-                const.value
-                for const in ast.walk(call)
-                if isinstance(const, ast.Constant) and isinstance(const.value, str)
-            }
-            if words & LISTS_PATHS:
-                found.setdefault(node.name, set()).update(words & LISTS_PATHS)
+            if isinstance(child, ast.Call) and _path_list_words(child):
+                found[scope] = found.get(scope, 0) + 1
+            visit(child, scope)
+
+    visit(tree, MODULE_SCOPE)
     return found
 
 
 def _mentions(tree, function, name):
     """True when `function`'s body names `name` anywhere."""
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == function:
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == function
+        ):
             return any(
                 isinstance(inner, ast.Name) and inner.id == name
                 for inner in ast.walk(node)
@@ -680,6 +720,13 @@ def test_every_path_list_this_module_derives_from_git_is_filtered_or_named():
         f"`{PREDICATE}`, or it is named here with the grounds for why a round "
         "record belongs in its list"
     )
+    assert derivers == PATH_LIST_CALLS, (
+        f"the module derives path lists at {derivers} and this case accounts "
+        f"for {PATH_LIST_CALLS}. The unit is the CALL SITE: a second list "
+        "inside a scope that already holds one is classified nowhere, and the "
+        "grounds recorded above are about the call this case counted rather "
+        "than about the one just added"
+    )
     for name in FILTERS_ITS_OWN_LIST:
         assert _mentions(tree, name, PREDICATE), (
             f"{name} derives a path list and no longer applies `{PREDICATE}`. "
@@ -706,7 +753,16 @@ def test_every_path_list_this_module_derives_from_git_is_filtered_or_named():
             "delete the grounds rather than leaving both standing"
         )
         body = ast.get_source_segment(source, _function(tree, name))
-        assert "foreign" in grounds and "foreign" in body, (
+        # Two assertions rather than one conjunction, because they fail for
+        # opposite reasons and a single message can only blame one party.
+        # `grounds` is a constant in THIS file, so the first is about an edit
+        # to the case and the second about an edit to the module.
+        assert "foreign" in grounds, (
+            f"the grounds recorded here for leaving {name} unfiltered no "
+            "longer rest on `foreign`, so this case is about to check the "
+            "module against an argument that has been rewritten above it"
+        )
+        assert "foreign" in body, (
             f"the grounds for leaving {name} unfiltered rest on `foreign` -- "
             "a declaration refused and PRINTED rather than silently dropped. "
             "That mechanism is not in the function any more, so the grounds "
@@ -716,7 +772,10 @@ def test_every_path_list_this_module_derives_from_git_is_filtered_or_named():
 
 def _function(tree, name):
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == name:
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == name
+        ):
             return node
     raise AssertionError(f"{name} is no longer a function in this module")
 
