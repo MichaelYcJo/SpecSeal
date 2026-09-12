@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 2 |
-| Commit | see `plan.md`'s Status cell for phase 2 |
+| Commit | `5b4875f` |
 | Ran by | unknown — the spawn prompt named no model, and the template gives this row to the spawning session rather than to the segment. The orchestrating session fills it |
 
 ## What this phase was asked
