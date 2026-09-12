@@ -135,7 +135,10 @@ levels is one nobody maintains.
 **The prefix is what keeps it inside the rule this section opens with.** A
 label answers *what it is about*, and this one is about sizing — a concern that
 outlives every schedule, since every release is sized. What the release spends
-is the value, `now`, and not the subject. So the subject sits in the prefix and
+is the value, `now`, and not the subject. Two states means the subject never
+appears on the tracker carrying a second value, so a spent label is removed
+whole rather than re-valued — what outlives the schedule is the question the
+prefix names, not a label anybody is holding. So the subject sits in the prefix and
 the verdict in the value, which is the shape `chain: capped` already has here,
 and the section needs no second exception: `flow-measurement` above stays the
 one label that is not a topic at all. A bare `now` was the name proposed, and
@@ -144,10 +147,14 @@ and it reads as the ordinary adverb this document itself uses.
 
 **Nothing reads this label** — no workflow, no check, no script — so a stale
 one costs a reader a wrong answer about what has to go next and costs no
-automation anything. It comes off when the release that carried the ticket
-ships, at the same moment `merged: X.Y.Z` goes on, and nothing enforces that.
-A label is the right home for the judgment for exactly that reason: it makes
-the answer durable without making it a gate anybody has to satisfy.
+automation anything. It comes off when the release that carried the ticket has
+gone out — the moment `main` moves and the issue closes — and nothing enforces
+that. **Not when `merged: X.Y.Z` goes on**, which
+§*A label says a ticket is already in, before the release ships* puts at the
+push to `release/*`, a release earlier: that one answers *is this in yet*,
+where this one is spent only once the work is out. A label is the right home
+for the judgment for exactly that reason: it makes the answer durable without
+making it a gate anybody has to satisfy.
 
 **What it does not decide is which release the ticket lands in.** The criterion
 answers *now or not now*; ordinary scheduling answers the rest, and a ticket
