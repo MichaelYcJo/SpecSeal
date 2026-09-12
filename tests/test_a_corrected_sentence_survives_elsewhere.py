@@ -423,6 +423,123 @@ def test_a_claim_corrected_in_one_place_and_left_in_another_of_the_same_file(tmp
     assert "notes.md" in text, text
 
 
+# --- the range's own review paperwork --------------------------------------
+
+
+# The wording a round finds and a fix corrects. Two stretches of shared text
+# with unshared words between them, which is the shape both real survivors
+# have and the shape the floor is set for -- a single contiguous change shares
+# one run and is correctly not reported.
+FOUND = (
+    "The verdict cell is written by the reviewing round itself and the "
+    "orchestrator never edits it afterwards."
+)
+REPAIRED = (
+    "The verdict cell is written by the generator and the "
+    "orchestrator leaves it untouched afterwards."
+)
+# A work item id of the shape the tree uses, so `records_a_past_round` matches
+# on the path's own shape: a `rounds` directory inside a `specs` directory.
+RECORD = "seal/specs/1700000000-a-claim-stands-in-two-places/rounds/round-1.md"
+
+
+def test_a_round_record_the_range_added_does_not_subtract_the_survivor_it_quotes(
+    tmp_path,
+):
+    """#365 -- the silencing input is produced by the review chain itself.
+
+    A reviewer's report quotes the defective wording verbatim, because that is
+    what a report is for. Left in the range, that quotation lands in
+    `corrected`'s second return, `wanted` subtracts it, and the gate reports
+    success having measured nothing -- on exactly the branches that went
+    through review, which are the branches where a survivor is most likely.
+
+    The POOL has refused round records since this module shipped. The RANGE
+    did not, and the two are computed by different functions, which is why the
+    docstring could state the intent while the code carried it on one side."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {FOUND}\n",
+            "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the claim, stated in two files",
+    )
+    head = build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {REPAIRED}\n",
+            RECORD: (
+                "# Round 1\n\n"
+                "## Findings\n\n"
+                "The wording this round found stands in two files and was "
+                "corrected in one of them.\n\n"
+                f"{FOUND}\n"
+            ),
+        },
+        "corrected notes.md, and posted the round record that quotes it",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "guide.md still carries the wording this range removed from notes.md, "
+        "and the round record quoting that wording is what silenced it -- the "
+        f"quote counted as wording the fix wrote; exit {code}\n{text}"
+    )
+    assert "guide.md" in text, f"the report does not name the survivor:\n{text}"
+    # The filter goes on the path list, and a record the range ADDED removes
+    # nothing, so the number of sentences the range is measured against is the
+    # same number it was before the filter existed.
+    assert re.search(r"against 1 sentence\(s\)", text), (
+        f"the removed-sentence count moved when the filter was applied:\n{text}"
+    )
+    assert "/rounds/" not in text, (
+        "the report names a round record. A record is out of the pool and out "
+        f"of the range, so it is neither a survivor nor a source:\n{text}"
+    )
+
+
+def test_a_round_record_the_range_edited_does_not_become_a_source(tmp_path):
+    """The other side of the same list, which is why the filter goes on `paths`.
+
+    A sentence REMOVED from a round record is not corrected wording either.
+    Filtering the added side alone would leave this range naming the record as
+    the place a claim was corrected, and asking somebody to correct an account
+    of a past state -- which is the one thing the pool has refused to do since
+    this module shipped."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            RECORD: f"# Round 1\n\n## Findings\n\n{FOUND}\n",
+            "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the record quotes the finding, and the guide carries the claim",
+    )
+    head = build(
+        repo,
+        {RECORD: f"# Round 1\n\n## Findings\n\n{REPAIRED}\n"},
+        "reflowed the round record and nothing else",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "this range edited a round record and touched nothing else, and the "
+        "check read that edit as a correction somebody has to chase into "
+        f"guide.md; exit {code}\n{text}"
+    )
+    assert re.search(r"against 0 sentence\(s\)", text), (
+        "wording removed from a round record still counts as wording the "
+        f"range removed, so a range that touched only paperwork is not empty:\n{text}"
+    )
+    assert "/rounds/" not in text, (
+        f"the report names the round record as the source of a correction:\n{text}"
+    )
+
+
 # --- the escape ------------------------------------------------------------
 
 
