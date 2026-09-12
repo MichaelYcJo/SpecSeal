@@ -147,14 +147,15 @@ and it reads as the ordinary adverb this document itself uses.
 
 **Nothing reads this label** — no workflow, no check, no script — so a stale
 one costs a reader a wrong answer about what has to go next and costs no
-automation anything. It comes off when the release that carried the ticket has
-gone out — the moment `main` moves and the issue closes — and nothing enforces
-that. **Not when `merged: X.Y.Z` goes on**, which
-§*A label says a ticket is already in, before the release ships* puts at the
-push to `release/*`, a release earlier: that one answers *is this in yet*,
-where this one is spent only once the work is out. A label is the right home
-for the judgment for exactly that reason: it makes the answer durable without
-making it a gate anybody has to satisfy.
+automation anything. It comes off when the release that carried the ticket
+reaches `main` and the issue closes, and nothing enforces that.
+**`merged: X.Y.Z` goes on earlier inside that same release**, at the squash
+onto the release branch — §*A label says a ticket is already in, before the
+release ships* is that mechanism, and the gap between the two moments is
+exactly the interval that section exists to fill. It answers *is this in yet*
+while the release is being assembled; this one is spent only once the work is
+out. A label is the right home for the judgment for exactly that reason: it
+makes the answer durable without making it a gate anybody has to satisfy.
 
 **What it does not decide is which release the ticket lands in.** The criterion
 answers *now or not now*; ordinary scheduling answers the rest, and a ticket

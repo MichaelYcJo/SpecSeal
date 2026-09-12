@@ -28,10 +28,11 @@ flattened and the two sweep units scanned line by line, so a restatement whose
 wrap fell inside the phrase answered *no offender* in the check written to
 catch it.
 
-The sweep scans `.md` and `.py` alike and excludes only this module by path.
-Scanning one suffix would have been the cheaper way past the self-match, and it
-would have left a comment in any other test module free to state a second
-answer.
+The sweep scans `.md` and `.py` alike and excludes only this module, **by
+basename rather than by path**, so a copy of it anywhere in the scanned set is
+excluded with it. Scanning one suffix would have been the cheaper way past the
+self-match, and it would have left a comment in any other test module free to
+state a second answer.
 """
 
 import os
@@ -254,4 +255,43 @@ def test_the_sweep_can_fail():
     assert found, (
         "the sweep's pattern no longer matches the document that states the "
         "rule, so it would answer 'no offender' for every file in the tree"
+    )
+
+
+# --- the sweep's reach, pinned rather than left to the green answer ----------
+
+# **A sweep that answers *no offender* cannot pin its own reach.** No file in
+# the tree carries any of the shapes below, so deleting the reach that finds
+# them changes the sweep's answer not at all: round 2 measured each of round 1's
+# three widenings reverting with this module still green. The two cases below
+# are what stands between the reach and a later edit that trims it as unused.
+#
+# Kept as data rather than as prose, so the sentences round 1 measured escaping
+# are the ones asserted.
+NOUN_FORMS = (
+    "A release's size is three or four work items.",
+    "Three or four work items is the size of a release.",
+    "The size of a release is three work items.",
+)
+
+
+def test_the_pattern_catches_the_noun_forms_and_not_only_the_verb():
+    """All three escaped the pattern as first written, on one line and with no
+    wrap involved. `test_the_sweep_can_fail` cannot see them go: the owner
+    matches on `release … sized` alone, which was there before the widening."""
+    for sentence in NOUN_FORMS:
+        assert STATES_A_SIZE.search(sentence), (
+            "a one-line restatement of a release's size escapes the sweep: "
+            f"{sentence!r}"
+        )
+
+
+def test_the_scanned_set_reaches_the_file_a_rule_gets_restated_in():
+    """`CLAUDE.md` is where a rule is restated for a session that never opens
+    `docs/`, and `tests/test_one_word_one_meaning.py` — the module this sweep is
+    modelled on — already reads it. Nothing else in the tree says the sweep has
+    to reach it."""
+    assert "CLAUDE.md" in tracked(), (
+        "CLAUDE.md is outside the sweep, so a second answer stated there is "
+        "invisible to it"
     )
