@@ -141,12 +141,21 @@ No schema, no endpoint, no flag. One list comprehension, one docstring
 section, two test cases, and the records.
 
 The evidence ledger coordinates this touches, referenced rather than
-duplicated:
+duplicated. The two stamped anchors are quoted **in a fence** below, because
+they are quotations of what rows S3 and S6 wrote and not claims this spec
+makes about the tree — `evidence_check.py`'s `claim_lines` says a stamp in a
+fence is a quoted anchor exactly as a name in one is a quoted name, and S3's
+is the stamp this work item is about to move:
+
+```
+skills/code-review/scripts/survivor_check.py#corrected@65b199e3
+skills/code-review/scripts/survivor_check.py#records_a_past_round@356dd3ce
+```
 
 | Row | Anchor | What happens to it |
 |---|---|---|
-| `seal/ledger.md` S3 | `survivor_check.py#corrected@65b199e3`, `#score@0b214b20` | **DRIFTED** by the edit. The claim — a sentence is corrected where the file holds it fewer times at `b` than at `a`, counted rather than tested for membership — is untouched by adding a filter to the path list. Re-read, dated, and `bin/evidence-check --reverify .` |
-| `seal/ledger.md` S6 | `survivor_check.py#records_a_past_round@356dd3ce`, `#corpus@cfdd6a91` | Neither body changes, so no drift. Its claim stays true and becomes narrower than the behaviour. Not widened in place — the wider claim is a new row in this work item's fragment |
+| `seal/ledger.md` S3 | `#corrected` above, and `#score@0b214b20` | **DRIFTED** by the edit. The claim — a sentence is corrected where the file holds it fewer times at `b` than at `a`, counted rather than tested for membership — is untouched by adding a filter to the path list. Re-read, dated, and `bin/evidence-check --reverify .` |
+| `seal/ledger.md` S6 | `#records_a_past_round` above, and `#corpus@cfdd6a91` | Neither body changes, so no drift. Its claim stays true and becomes narrower than the behaviour. Not widened in place — the wider claim is a new row in this work item's fragment |
 | `seal/ledger/1789211172-….md` | new | Rows for the range-side exclusion and for the enumeration case. The directory does not exist and is created here |
 
 ## Open questions → questions.md

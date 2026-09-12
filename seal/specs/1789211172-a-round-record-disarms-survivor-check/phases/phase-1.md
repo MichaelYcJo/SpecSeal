@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 1 |
-| Commit | `<filled by the sweep that closes the build, the way `f2c1f52` filled #361's five>` |
+| Commit | `392da83` |
 | Ran by | `specseal:smith` on `unknown` — the spawn prompt named no model, and this template reserves the value for the spawning session rather than letting a segment source it from its own idea of what it is |
 
 ## What this phase was asked
