@@ -32,6 +32,7 @@ case that FAILS rather than skips, so their disappearance is reported once
 rather than turning this whole module green by vacancy.
 """
 
+import ast
 import importlib.util
 import os
 import re
@@ -421,6 +422,362 @@ def test_a_claim_corrected_in_one_place_and_left_in_another_of_the_same_file(tmp
         f"in the same file, and the check called the range clean; exit {code}\n{text}"
     )
     assert "notes.md" in text, text
+
+
+# --- the range's own review paperwork --------------------------------------
+
+
+# The wording a round finds and a fix corrects. Two stretches of shared text
+# with unshared words between them, which is the shape both real survivors
+# have and the shape the floor is set for -- a single contiguous change shares
+# one run and is correctly not reported.
+FOUND = (
+    "The verdict cell is written by the reviewing round itself and the "
+    "orchestrator never edits it afterwards."
+)
+REPAIRED = (
+    "The verdict cell is written by the generator and the "
+    "orchestrator leaves it untouched afterwards."
+)
+# A work item id of the shape the tree uses, so `records_a_past_round` matches
+# on the path's own shape: a `rounds` directory inside a `specs` directory.
+RECORD = "seal/specs/1700000000-a-claim-stands-in-two-places/rounds/round-1.md"
+
+
+def test_a_round_record_the_range_added_does_not_subtract_the_survivor_it_quotes(
+    tmp_path,
+):
+    """#365 -- the silencing input is produced by the review chain itself.
+
+    A reviewer's report quotes the defective wording verbatim, because that is
+    what a report is for. Left in the range, that quotation lands in
+    `corrected`'s second return, `wanted` subtracts it, and the gate reports
+    success having measured nothing -- on exactly the branches that went
+    through review, which are the branches where a survivor is most likely.
+
+    The POOL has refused round records since this module shipped. The RANGE
+    did not, and the two are computed by different functions, which is why the
+    docstring could state the intent while the code carried it on one side."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {FOUND}\n",
+            "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the claim, stated in two files",
+    )
+    head = build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {REPAIRED}\n",
+            RECORD: (
+                "# Round 1\n\n"
+                "## Findings\n\n"
+                "The wording this round found stands in two files and was "
+                "corrected in one of them.\n\n"
+                f"{FOUND}\n"
+            ),
+        },
+        "corrected notes.md, and posted the round record that quotes it",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "guide.md still carries the wording this range removed from notes.md, "
+        "and the round record quoting that wording is what silenced it -- the "
+        f"quote counted as wording the fix wrote; exit {code}\n{text}"
+    )
+    assert "guide.md" in text, f"the report does not name the survivor:\n{text}"
+    # The filter goes on the path list, and a record the range ADDED removes
+    # nothing, so the number of sentences the range is measured against is the
+    # same number it was before the filter existed.
+    assert re.search(r"against 1 sentence\(s\)", text), (
+        f"the removed-sentence count moved when the filter was applied:\n{text}"
+    )
+    assert "/rounds/" not in text, (
+        "the report names a round record. A record is out of the pool and out "
+        f"of the range, so it is neither a survivor nor a source:\n{text}"
+    )
+
+
+def test_a_round_record_the_range_edited_does_not_become_a_source(tmp_path):
+    """The other side of the same list, which is why the filter goes on `paths`.
+
+    A sentence REMOVED from a round record is not corrected wording either.
+    Filtering the added side alone would leave this range naming the record as
+    the place a claim was corrected, and asking somebody to correct an account
+    of a past state -- which is the one thing the pool has refused to do since
+    this module shipped."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            RECORD: f"# Round 1\n\n## Findings\n\n{FOUND}\n",
+            "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the record quotes the finding, and the guide carries the claim",
+    )
+    head = build(
+        repo,
+        {RECORD: f"# Round 1\n\n## Findings\n\n{REPAIRED}\n"},
+        "reflowed the round record and nothing else",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "this range edited a round record and touched nothing else, and the "
+        "check read that edit as a correction somebody has to chase into "
+        f"guide.md; exit {code}\n{text}"
+    )
+    assert re.search(r"against 0 sentence\(s\)", text), (
+        "wording removed from a round record still counts as wording the "
+        f"range removed, so a range that touched only paperwork is not empty:\n{text}"
+    )
+    assert "/rounds/" not in text, (
+        f"the report names the round record as the source of a correction:\n{text}"
+    )
+
+
+def test_the_docstring_names_both_sides_of_the_round_record_exclusion():
+    """`agent-contract` §14 -- a fix that changes a verdict pins the sentence.
+
+    What this replaces read *Everything under a work item's `rounds/` is
+    out.* and named no side, so a reader could not tell the pool from the
+    range in it. That is the sentence which was true of the design and false
+    of the code for five releases: the module's own account of itself was not
+    wrong while only one of the two functions filtered, because it never said
+    which one."""
+    source = open(SCRIPT, encoding="utf-8").read()
+    heading = "## What is excluded, by construction rather than by list"
+    assert heading in source, (
+        "the module docstring lost the section that states the exclusions, so "
+        "the exclusions are now carried by code alone and a reader has no "
+        "account of them to check the code against"
+    )
+    section = source[source.index(heading) + len(heading) :]
+    section = section[: section.index("\n## ")]
+    opener = "**A record of a past round.**"
+    assert opener in section, f"{opener} is no longer the first exclusion stated"
+    paragraph = section[section.index(opener) :]
+    paragraph = paragraph.split("\n\n")[0]
+    flat = " ".join(paragraph.split())
+    for side in ("pool", "range"):
+        assert side in flat, (
+            f"the paragraph does not say the exclusion applies to the {side}. "
+            "Naming one side is exactly how this defect survived -- the "
+            "intent was stated here and carried in one of the two "
+            f"functions:\n{flat}"
+        )
+    assert "both sides" in flat, (
+        "the paragraph names the pool and the range without saying the "
+        "exclusion holds on both SIDES of the range's path list, which leaves "
+        "the added-side-only reading that was already true and already "
+        f"wrong:\n{flat}"
+    )
+    assert "`rounds/` is out." not in flat, (
+        "the one-sided sentence is back: `Everything under a work item's "
+        "`rounds/` is out.` states the intent and names neither function it "
+        f"has to be true of:\n{flat}"
+    )
+
+
+# The predicate, and every place in the module that turns a git-derived path
+# list into a judgment about prose. Declared here and CHECKED against the
+# source below, rather than grepped for: the defect this case exists for was a
+# call site the predicate had never reached, standing beside two it had, and
+# what hid it is that the pool and the range are computed by different
+# functions. A fourth one -- a `--since` flag, a second range, a cache of
+# changed files -- turns this red until somebody classifies it.
+#
+# **The unit is the CALL SITE, and it took round 1 to make that true of the
+# code.** `spec.md`'s class table is headed `Call site` and gives `corrected`
+# and `whole_range` separate rows for the same spelling of the same command;
+# this case keyed its walk by function NAME, so two sites in one scope
+# collapsed to one entry and a list at module scope was not found at all. Two
+# of the three shapes `plan.md:46-50` names as this change's own six-month
+# failure scenario -- a second range, a cache of changed files -- passed it.
+PREDICATE = "records_a_past_round"
+FILTERS_ITS_OWN_LIST = {"corrected"}
+FILTERED_BY_ITS_ONLY_CALLER = {"tracked": "corpus"}
+NAMED_EXCEPTION = {
+    "whole_range": (
+        "asks whether the range belongs to the work item that WROTE a "
+        "declaration, and a round record committed under "
+        "seal/specs/<id>/rounds/ is evidence of that ownership rather than "
+        "wording the fix wrote. Filtering here makes the ownership test "
+        "stricter and can turn a legitimate declaration into `foreign` -- a "
+        "row that quietly stops applying, which is the one failure a rotting "
+        "anchor must not have and the direction this function's own docstring "
+        "says it must not move in"
+    ),
+}
+# Anything that lists paths, however it is spelled. Kept wider than the two
+# forms the module uses today, so a fourth call site written as a direct
+# `subprocess.run(["git", ...])` is found too.
+LISTS_PATHS = {"--name-only", "ls-files", "ls-tree"}
+# How many path-listing calls each scope is allowed to make. Module scope is a
+# scope, and it is spelled here so a list built at import time is named rather
+# than missed.
+MODULE_SCOPE = "<module>"
+PATH_LIST_CALLS = {"corrected": 1, "tracked": 1, "whole_range": 1}
+
+
+def _path_list_words(call):
+    """The path-listing words `call` names ITSELF, nested calls excluded.
+
+    Excluded because a nested call is its own site. `foo(git(… "ls-tree" …),
+    git(… "diff" …))` holds two path lists, and reading the constants of the
+    whole subtree would see the outer call once and collapse them -- which is
+    round 1's finding again, one level down."""
+    words, stack = set(), list(ast.iter_child_nodes(call))
+    while stack:
+        node = stack.pop()
+        if isinstance(node, ast.Call):
+            continue
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, str):
+                words.add(node.value)
+            continue
+        stack.extend(ast.iter_child_nodes(node))
+    return words & LISTS_PATHS
+
+
+def _derives_a_path_list(tree):
+    """`{scope: how many path-listing calls it makes}`.
+
+    Scopes rather than functions, and counts rather than names, because the
+    unit of the class is the CALL SITE. A second unfiltered list inside a
+    function that already filters one is this defect one LINE over rather than
+    one function over, and a set of function names cannot see it; a list built
+    at module scope is in no function at all."""
+    found = {}
+
+    def visit(node, scope):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                visit(child, child.name)
+                continue
+            if isinstance(child, ast.Call) and _path_list_words(child):
+                found[scope] = found.get(scope, 0) + 1
+            visit(child, scope)
+
+    visit(tree, MODULE_SCOPE)
+    return found
+
+
+def _mentions(tree, function, name):
+    """True when `function`'s body names `name` anywhere."""
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == function
+        ):
+            return any(
+                isinstance(inner, ast.Name) and inner.id == name
+                for inner in ast.walk(node)
+            )
+    raise AssertionError(f"{function} is no longer a function in this module")
+
+
+def _callers_of(tree, name):
+    """The functions that call `name`."""
+    out = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for call in ast.walk(node):
+            if (
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Name)
+                and call.func.id == name
+            ):
+                out.add(node.name)
+    return out
+
+
+def test_every_path_list_this_module_derives_from_git_is_filtered_or_named():
+    """The reason #365 existed was that a docstring asserted the intent and
+    nothing measured it.
+
+    So this case measures it: every function that asks git for a list of
+    paths is either filtered by the predicate, filtered by its only caller,
+    or named above with grounds a reader can weigh. Add a fourth and it goes
+    red until it is classified -- which is the only thing that stops the same
+    defect happening one function over."""
+    source = open(SCRIPT, encoding="utf-8").read()
+    tree = ast.parse(source)
+    derivers = _derives_a_path_list(tree)
+    declared = (
+        FILTERS_ITS_OWN_LIST | set(FILTERED_BY_ITS_ONLY_CALLER) | set(NAMED_EXCEPTION)
+    )
+    assert set(derivers) == declared, (
+        f"the module derives a path list from git in {sorted(derivers)} and "
+        f"this case accounts for {sorted(declared)}. Classify the difference "
+        f"{sorted(set(derivers) ^ declared)}: it either applies "
+        f"`{PREDICATE}`, or it is named here with the grounds for why a round "
+        "record belongs in its list"
+    )
+    assert derivers == PATH_LIST_CALLS, (
+        f"the module derives path lists at {derivers} and this case accounts "
+        f"for {PATH_LIST_CALLS}. The unit is the CALL SITE: a second list "
+        "inside a scope that already holds one is classified nowhere, and the "
+        "grounds recorded above are about the call this case counted rather "
+        "than about the one just added"
+    )
+    for name in FILTERS_ITS_OWN_LIST:
+        assert _mentions(tree, name, PREDICATE), (
+            f"{name} derives a path list and no longer applies `{PREDICATE}`. "
+            "A round record quotes the wording a round found, so left in this "
+            "list it counts as wording the fix wrote and subtracts the "
+            "survivor it quotes -- on exactly the branches that went through "
+            "review"
+        )
+    for name, caller in FILTERED_BY_ITS_ONLY_CALLER.items():
+        assert _mentions(tree, caller, PREDICATE), (
+            f"{name}'s list is declared filtered by {caller}, and {caller} no "
+            f"longer applies `{PREDICATE}`"
+        )
+        assert _callers_of(tree, name) == {caller}, (
+            f"{name} is reached from {sorted(_callers_of(tree, name))} and "
+            f"only {caller} filters its result, so the list now leaves this "
+            "module unfiltered by one of those paths"
+        )
+    for name, grounds in NAMED_EXCEPTION.items():
+        assert not _mentions(tree, name, PREDICATE), (
+            f"{name} now applies `{PREDICATE}` and this case still carries "
+            "the grounds for why it must not. One of the two is wrong: if the "
+            f"filter is right, move {name} into FILTERS_ITS_OWN_LIST and "
+            "delete the grounds rather than leaving both standing"
+        )
+        body = ast.get_source_segment(source, _function(tree, name))
+        # Two assertions rather than one conjunction, because they fail for
+        # opposite reasons and a single message can only blame one party.
+        # `grounds` is a constant in THIS file, so the first is about an edit
+        # to the case and the second about an edit to the module.
+        assert "foreign" in grounds, (
+            f"the grounds recorded here for leaving {name} unfiltered no "
+            "longer rest on `foreign`, so this case is about to check the "
+            "module against an argument that has been rewritten above it"
+        )
+        assert "foreign" in body, (
+            f"the grounds for leaving {name} unfiltered rest on `foreign` -- "
+            "a declaration refused and PRINTED rather than silently dropped. "
+            "That mechanism is not in the function any more, so the grounds "
+            "are an argument about code that is gone"
+        )
+
+
+def _function(tree, name):
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == name
+        ):
+            return node
+    raise AssertionError(f"{name} is no longer a function in this module")
 
 
 # --- the escape ------------------------------------------------------------
