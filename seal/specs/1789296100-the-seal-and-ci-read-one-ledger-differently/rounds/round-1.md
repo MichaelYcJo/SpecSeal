@@ -6,7 +6,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 378 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | failure_loop (depth 1); test_a_failing_ledger_check_is_what_reaches_the_failure_form (depth 1) |
 | Needs a fix | yes — 1, the notice's `NOT SEALED` limb is pinned by no case and a mutation proves it; 2, the third shape of the deferred silence and its five live instances are not in the row that tracks it; 3, the framer's contradiction with the overview case reaches a sibling branch of this release and has no durable home. |
