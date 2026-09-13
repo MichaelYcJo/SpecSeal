@@ -292,3 +292,65 @@ def test_no_instructing_document_leaves_an_instance_anonymous():
                 f"{'/'.join(parts)} says `the seal` and leaves the instance "
                 f"anonymous: ...{' '.join(text[hit - 60 : hit + 60].split())}..."
             )
+
+
+# --- "segment" — one agent's stretch of a chain, never a spawn cycle -------
+
+# The seventh word, and the one this repository's own measurement vocabulary
+# rests on: the per-segment bars in `docs/review-handoff-protocol.md`,
+# `skills/verify/SKILL.md` §*Measure the segment*, and the flow log all read
+# `segment` as one agent's own stretch of a chain.
+#
+# Naming a report mode `--segments` beside `--spawns` is what put a second
+# job within reach of it (#350). The two answer different questions:
+# `--spawns` slices the orchestrator's OWN transcript into bands over its own
+# minutes, and `--segments` opens the OTHER transcripts, one row per agent
+# the run spawned. Three shipped files said *an orchestrator's segments are
+# spawn cycles*, which under the new flag reads as the first mode printing
+# what the second one prints.
+#
+# The word was load-bearing before this work started, which is why the mode's
+# name is paid for here rather than assumed.
+SEGMENT_OWNER = ("skills", "verify", "SKILL.md")
+
+# The files that carried the loose sentence, all three of them shipped and
+# all three read together by anyone working on the meter. Records are not
+# brought to a new wording — `seal/` and `CHANGELOG.md` hold what was true
+# when they were written — which is the same boundary the seal sweep draws.
+SEGMENT_SWEPT = (
+    ("skills", "verify", "SKILL.md"),
+    ("skills", "verify", "scripts", "session_cost.py"),
+    ("tests", "test_session_cost.py"),
+)
+
+
+def test_the_owner_states_what_a_segment_is_and_what_it_is_not():
+    """Stated once, by the section whose own name is the word, and the other
+    two files are brought to it rather than each carrying a copy."""
+    owner = flat(*SEGMENT_OWNER)
+    assert (
+        "A segment is one agent's own stretch of a chain, and a spawn cycle "
+        "is not one." in owner
+    )
+    assert "never segments in their own right" in owner, (
+        "the rule says what a segment IS and leaves the cycle's status to be "
+        "inferred, which is the half that was being read wrong"
+    )
+
+
+def test_no_shipped_document_calls_a_spawn_cycle_a_segment():
+    """The absence half, which is what makes these cases worth having.
+
+    A document can gain the corrected sentence and keep the old one two
+    paragraphs down. Both spellings are swept: the possessive that made the
+    cycles the orchestrator's segments, and the bare equation."""
+    for parts in SEGMENT_SWEPT:
+        text = flat(*parts)
+        assert "segments are spawn cycles" not in text, (
+            f"{'/'.join(parts)} equates a spawn cycle with a segment, which "
+            "is what `--segments` beside `--spawns` makes unreadable"
+        )
+        assert "orchestrator's segments" not in text, (
+            f"{'/'.join(parts)} gives the orchestrator several segments. It "
+            "has one — its own transcript — and spawn cycles inside it"
+        )

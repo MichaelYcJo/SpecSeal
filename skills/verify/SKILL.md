@@ -493,13 +493,22 @@ finished, not as a follow-up someone might do later:
    it at the user lines where the coordinator sent it a new message, and
    measure only the slice that belongs to the segment just watched.
 
-   **An orchestrator's segments sit inside one file too, and its boundary is
-   not a user line — `session_cost.py --spawns` is what takes it.** Every
-   other segment of a chain is a transcript of its own, so its row is the
-   whole file; the orchestrator's is not, and the whole file was the only row
-   it ever had. That is how three segment kinds came to have bands a later
-   run can be read against while the most expensive one had none. A **spawn
-   cycle** is not the review chain's cycle, which
+   **A segment is one agent's own stretch of a chain, and a spawn cycle is
+   not one.** Every segment has a transcript of its own: a smith's, a
+   warden's, and the orchestrator's, which is one file however many agents
+   the run spawned. The spawn cycles inside that file are bands over the
+   orchestrator's own minutes, never segments in their own right — and a
+   cycle counted as a segment is how three segment kinds came to have bands a
+   later run can be read against while the most expensive one had none. The
+   two modes follow the distinction: `--spawns` slices this transcript into
+   those bands, and `--segments` opens the transcripts of the agents this run
+   spawned, one row each.
+
+   **The orchestrator's own boundary is not a user line — `session_cost.py
+   --spawns` is what takes it.** Every other segment is measured whole,
+   because its transcript holds nothing but itself; the orchestrator's holds
+   every cycle of the run, so the whole file was the only row it ever had. A
+   **spawn cycle** is not the review chain's cycle, which
    `docs/review-chain-spec.md` owns: it ends when a spawn call's result
    arrives and begins where the row before it ended, so the head is the
    framing before the first spawn, cycle N runs from spawn N-1's result to

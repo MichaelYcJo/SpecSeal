@@ -1612,10 +1612,14 @@ def test_the_report_names_the_command_the_table_could_not(tmp_path):
 
 # --- #145: the orchestrator's row is a spawn cycle, not the whole session ---
 #
-# Every other segment of a chain is a transcript of its own, so its row is the
-# whole file. An orchestrator's segments are spawn cycles INSIDE one file, so
-# until `--spawns` the whole file was the only row it had — which is why #51's
-# observation 1 has bands for three segment kinds and none for this one.
+# Every segment of a chain has a transcript of its own, so its row is the
+# whole file. The orchestrator's holds every spawn cycle of the run INSIDE it,
+# so until `--spawns` the whole file was the only row it had — which is why
+# #51's observation 1 has bands for three segment kinds and none for this one.
+#
+# A spawn cycle is not a segment. The cases below are `--spawns`', over bands
+# inside one transcript; the per-segment cases at the end of this file are
+# `--segments`', over the transcripts of the agents a run spawned.
 
 
 def spawn(uid, start, end, subagent_type, description="a spawn"):
@@ -2314,10 +2318,12 @@ def run_with_segments(tmp_path):
         main,
         {
             "agent-smith.jsonl": [
-                *worked(625, "s1", "./bin/test tests/test_x.py -q"),
-                *worked(640, "s2", "ruff check ."),
+                *worked(625, "s1", "./bin/test tests/test_x.py -q", output=700),
+                *worked(640, "s2", "ruff check .", cache_write=300),
             ],
-            "agent-warden.jsonl": [*worked(1860, "w1", "cat docs/spec.md")],
+            "agent-warden.jsonl": [
+                *worked(1860, "w1", "cat docs/spec.md", cache_read=40)
+            ],
         },
     )
 
@@ -2446,3 +2452,131 @@ def test_a_run_with_no_segments_reads_rather_than_raising(transcript):
         "unclaimed": 0,
         "rows": [],
     }
+
+
+def segment_report(path, args=()):
+    proc = run(["--segments", *args, str(path)])
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout
+
+
+def test_the_printed_segment_table_names_each_agent_and_its_own_span(
+    run_with_segments,
+):
+    """The rendered text, because that is what a person posts to the flow log.
+
+    The two spans are the whole point of the mode: 16s and 1s, read from each
+    segment's own file. Neither number is in any column of any `--spawns` row
+    — there the same two agents read as 600s and 1200s of `delegated`, which
+    is the interval until the spawn was ACCEPTED."""
+    out = segment_report(run_with_segments)
+    assert "specseal:smith" in out, out
+    assert "specseal:warden" in out, out
+    for header in ("span", "calls", "t/turn", "gap", "tokens"):
+        assert header in out, (header, out)
+    # 16s and 1s, printed by `minutes` at one decimal, and each segment's own
+    # token spend: 700 output + 300 cache write for the smith, 40 cache read
+    # for the warden. A column pinned only at zero is a column that could be
+    # printing anything.
+    assert re.search(
+        r"^  specseal:smith\s+0\.3m\s+2\s+[\d.]+\s+\d+s\s+1,000$", out, re.M
+    ), out
+    assert re.search(
+        r"^  specseal:warden\s+0\.0m\s+1\s+[\d.]+\s+\d+s\s+40$", out, re.M
+    ), out
+
+
+def test_the_segment_report_names_the_tolerance_it_joined_within(run_with_segments):
+    """A join is a reading about a harness, not a fact this file asserts. The
+    tolerance is on the page so a reader can tell a segment that matched
+    nothing from a window that was too tight."""
+    assert "1.0s" in segment_report(run_with_segments), segment_report(
+        run_with_segments
+    )
+
+
+def test_the_segment_report_states_its_counts_even_when_they_agree(run_with_segments):
+    """`report_spawns` prints its partition tally even when it agrees, and
+    for the same reason: a join that silently matched nothing reads exactly
+    like a run that spawned nothing. Two transcripts, two spawns, nothing
+    unmatched on either side — and all four numbers print."""
+    out = " ".join(segment_report(run_with_segments).split())
+    assert "2 segment transcripts" in out, out
+    assert "2 spawns" in out, out
+    assert "0 segments named by nobody" in out, out
+    assert "0 spawns that claimed none" in out, out
+
+
+def test_a_segment_named_by_nobody_carries_its_transcript_instead(tmp_path):
+    """A name it cannot print is a name that was never there — and a path is
+    what the reader can actually open. The count says how many there were."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": worked(625, "s1"),
+            "inner/agent-deep.jsonl": worked(700, "d1"),
+        },
+    )
+    out = segment_report(path)
+    assert "1 segment named by nobody" in " ".join(out.split()), out
+    assert "agent-deep.jsonl" in out, out
+    assert "no `Agent` call" in out, out
+
+
+def test_a_run_with_no_segment_names_the_count_rather_than_printing_a_table(
+    transcript,
+):
+    """#200's failure shape, repaid the way `report_spawns` repays it: an
+    empty table reads as a run that spawned nothing, and a run that DID spawn
+    reads the same way the moment a harness moves the directory."""
+    out = segment_report(transcript)
+    assert "0 segments found" in out, out
+    assert str(transcript) in out, out
+    assert "t/turn" not in out, out
+    assert "subagents/" in out, out
+
+
+def test_the_token_column_says_it_is_not_the_runs_own(run_with_segments):
+    """A column that looks summable and is not is #200's failure shape in a
+    new place, so the page says which of the two it is rather than leaving a
+    reader to add it to the run's own total."""
+    out = " ".join(segment_report(run_with_segments).split())
+    assert "own file" in out, out
+    assert "counting the same tokens twice" in out, out
+
+
+def test_the_reading_names_the_release_it_is_comparable_from(run_with_segments):
+    """#200 and #202 both moved what a token and a family row MEAN, and both
+    were fixed in 0.9.4. A reading that does not say so is a number a reader
+    will compare with one taken before the repair."""
+    out = " ".join(segment_report(run_with_segments).split())
+    assert "0.9.4" in out, out
+
+
+def test_the_mode_exits_zero_whether_it_finds_a_segment_or_not(
+    run_with_segments, transcript
+):
+    """A measurement command that fails on a finding is a gate wearing a
+    report's shape. Nothing reads this exit code today, and the orchestrator's
+    own posting step would break on exactly the discovery it was posting."""
+    for path in (run_with_segments, transcript):
+        proc = run(["--segments", str(path)])
+        assert proc.returncode == 0, (path, proc.returncode, proc.stderr)
+
+
+def test_no_existing_printed_line_moves_when_the_mode_is_not_asked_for(
+    run_with_segments,
+):
+    """`analyse`'s docstring sets the condition and #200 and #202 are what
+    breaking it cost. The plain reading and `--spawns` are byte-identical to
+    what they printed before this mode existed."""
+    plain = run([str(run_with_segments)]).stdout
+    assert "segment transcripts beside this one" not in plain, plain
+    assert "named by nobody" not in plain, plain
+    spawns = run(["--spawns", str(run_with_segments)]).stdout
+    assert "named by nobody" not in spawns, spawns
+    assert "2 spawns found" in spawns, spawns
