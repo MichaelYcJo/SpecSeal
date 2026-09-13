@@ -23,20 +23,36 @@ Usage:
   session_cost.py <transcript.jsonl>     one transcript
   session_cost.py --latest [DIR]         newest transcript for a repo (default: cwd)
   session_cost.py --spawns <transcript>  one row per spawn cycle, not one per run
+  session_cost.py --segments <transcript>  one row per segment this run spawned
   session_cost.py --json <transcript>    the same numbers, machine-readable
 
 Transcripts live under ~/.claude/projects/<path-with-slashes-as-dashes>/,
 with subagent runs in <session-id>/subagents/. `--latest` searches both.
 
-**Why `--spawns` exists, in one sentence.** Every other segment of a chain is
-a transcript of its own, so its row is the whole file; an orchestrator's
-segments are spawn cycles inside one file, so the whole file is the only row
-it ever had — three segment kinds have bands and this one has none (#145).
+**Why `--spawns` exists, in one sentence.** Every segment of a chain has a
+transcript of its own, so its row is the whole file; the orchestrator's holds
+every spawn cycle of the run inside it, so the whole file was the only row it
+ever had — three segment kinds have bands and this one had none (#145).
+
+**Why `--segments` exists, in one sentence.** An agent's own wall clock is in
+no column of any row `--spawns` prints: on this harness the `Agent` result is
+written when the spawn is ACCEPTED, so `delegated` reads seconds while the
+agent goes on working for a median of about 700 seconds (#350). That figure is
+this mode's own reading and `measure_segments` says what it was taken over.
+The number is in the segment's own transcript, and this is the reader that
+opens it.
+
+**A spawn cycle is not a segment**, which is the one thing to keep straight
+between the two modes. `--spawns` slices THIS transcript into bands over the
+orchestrator's own minutes; `--segments` opens the OTHER transcripts, one row
+per agent this run spawned. `skills/verify/SKILL.md` §*Measure the segment*
+owns that distinction and `tests/test_one_word_one_meaning.py` holds it.
 """
 
 import argparse
 import bisect
 import datetime as dt
+import itertools
 import json
 import math
 import os
@@ -252,6 +268,24 @@ def message_key(message, row, number):
 # has not happened is a defence nothing can test; a count of zero beside the
 # transcript path is a reading somebody can act on.
 DELEGATING = ("Agent",)
+
+# How far a segment transcript's OPENING stamp may sit from a spawn's result
+# stamp and still be read as that spawn's segment.
+#
+# The measurement the block above carries was taken over 67 spawns of three
+# runs of the 0.9.x line, 61 of them within one second. Re-measured for this
+# mode over the 43 runs on the machine that built it, with the one-to-one
+# rule `join_segments` actually uses: 296 of 349 segment transcripts are
+# named at 1.0s and 301 at 2.0s. So widening to two seconds buys five
+# segments of 349 and doubles the window a batch of two spawns can match the
+# wrong one in, and the remainder it does not buy is structural -- those 43
+# runs hold 349 segment transcripts against 305 `Agent` calls, so 44 of them
+# have no call in the parent to be named by at ANY tolerance.
+#
+# Which is why the report prints this number and the count on each side that
+# went unmatched, rather than treating the join as a fact. A tolerance is a
+# reading about a harness, and the harness is not this file's.
+JOIN_TOLERANCE_S = 1.0
 
 
 def spawn_labels(payload):
@@ -836,6 +870,360 @@ def subagent_transcripts(path):
     return sorted(found)
 
 
+def opening_stamp(path):
+    """A transcript's first parseable `timestamp`, or None.
+
+    **The one thing this file could not already read.** `load` returns PAIRED
+    tool calls only, so a transcript's opening row is in nothing any other
+    reader here produces — and the opening is exactly what the join needs,
+    because the measurement above `DELEGATING` was taken against it: a
+    subagent's transcript OPENS at its spawn's result stamp.
+
+    Joining on the segment's first tool CALL instead would be late by however
+    long the agent read and thought before calling anything — #265 measured
+    about 110,000 characters of payload arriving before an agent's first call
+    — so the tolerance would have to widen from a second to minutes, and a
+    window that wide matches the wrong spawn in a batch of two.
+
+    Stops at the first usable stamp rather than reading the file. A file that
+    cannot be opened, holds no parseable line, or carries no stamp at all
+    returns None and is named by nobody: the same direction `tool_name` and
+    `count` take one reader over, a smaller answer rather than none."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(row, dict):
+                    continue
+                when = parse_time(row.get("timestamp"))
+                if when:
+                    return when
+    except OSError:
+        return None
+    return None
+
+
+# What a harness writes into a running agent's own transcript when the
+# coordinator sends it a new message. `skills/verify/SKILL.md` §*Measure the
+# segment* prescribes the hand split at exactly these rows, in exactly these
+# words, and until now nothing asserted it against a file.
+#
+# **Measured over the 350 segment transcripts on one machine before this was
+# written.** 41 of them hold an idle gap at or above `analyse`'s 900-second
+# ceiling, 82 such gaps in all, and the row after a gap is a `type=user` row
+# carrying `isMeta` and a bare string in 61 of the 82. Of those, the ones
+# beginning with the sentence below are the coordinator's; the rest are the
+# harness talking to the agent about itself -- a response cut off mid-stream,
+# a background-task notification -- and splitting at those would cut one
+# stretch of work in half.
+#
+# **So the marker is the sentence and not the row shape**, and the cost is
+# that a harness rewording it stops every split. That failure is loud rather
+# than silent: a file that can no longer be cut falls to the floor below,
+# which prints one row AND names the idle gap the span now covers. A reader
+# sees a segment that worked for 37 seconds reported over two hours with a
+# line saying why. The alternative -- splitting on `isMeta` alone -- fails
+# the other way, cutting a working stretch in two with nothing on the page.
+COORDINATOR_MESSAGE = "The coordinator sent a message while you were working:"
+
+
+def resume_cuts(path):
+    """The stamps at which a coordinator's new message restarted this segment.
+
+    A resumed agent's transcript holds several stretches of work in one file,
+    and read whole it reports a span covering every idle gap between them —
+    a segment that worked for 37 seconds reading as two hours. The hand
+    method was to split the file by eye and measure one slice; these are the
+    cuts that does by hand.
+
+    Run through a running maximum, the way `spawn_cuts` runs its own: cuts
+    that go backwards would overlap the windows they exist to partition.
+
+    A file that cannot be opened or holds no marker returns nothing, and the
+    segment is one row — with `widest_idle_gap` naming what that row's span
+    then covers."""
+    cuts = []
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(row, dict) or row.get("type") != "user":
+                    continue
+                if not row.get("isMeta"):
+                    continue
+                message = row.get("message")
+                if not isinstance(message, dict):
+                    continue
+                content = message.get("content")
+                if not isinstance(content, str):
+                    continue
+                if not content.lstrip().startswith(COORDINATOR_MESSAGE):
+                    continue
+                when = parse_time(row.get("timestamp"))
+                if when:
+                    cuts.append(max(when, cuts[-1]) if cuts else when)
+    except OSError:
+        return []
+    return cuts
+
+
+def widest_idle_gap(calls):
+    """The longest stretch inside these calls in which the agent issued
+    nothing, or 0.0 where there is none worth naming.
+
+    Only gaps at or above `analyse`'s 900-second ceiling count, because that
+    is the gap the model walk already drops: below it the wait is in
+    `model_s` and a reader can see it, and at or above it the time is in the
+    span and in no other column. Naming it is the floor for a file that has
+    an idle gap and no marker to cut it at."""
+    widest = 0.0
+    for before, after in itertools.pairwise(calls):
+        gap = (after["start"] - before["end"]).total_seconds()
+        if gap >= 900:
+            widest = max(widest, gap)
+    return widest
+
+
+def join_segments(openings, spawns):
+    """Each segment paired with the spawn whose result it opened at, or None.
+
+    `openings` is `[(path, opened)]` and `spawns` the `Agent` calls. A
+    segment takes the nearest UNCLAIMED spawn result within
+    `JOIN_TOLERANCE_S`, segments considered in opening order, and each spawn
+    is claimed at most once.
+
+    **The claim is what keeps a batch of two from naming one agent twice.**
+    Two segments opening at the same instant and one spawn between them is a
+    real shape — a nested transcript opens whenever its own parent spawned
+    it, which can be the same second — and without the claim both rows carry
+    the same name and a reader adding a column counts one segment twice.
+
+    **A segment that matches nothing is named by nobody rather than by its
+    nearest spawn.** The unnamed count is the reading: on the machine this
+    was measured on, 44 of 349 segment transcripts had no `Agent` call in
+    their parent at all, because a subagent of a subagent is spawned from a
+    transcript the parent never sees. Naming those by proximity would put a
+    confident wrong name on every one of them.
+
+    Returns the pairs in opening order and how many spawns went unclaimed.
+    Both counts are returned even when they agree, for the reason
+    `report_spawns` prints its own: a join that silently matched nothing
+    reads exactly like a run that spawned nothing."""
+    claimed = [False] * len(spawns)
+    paired = []
+    for path, opened in sorted(openings, key=lambda pair: pair[1]):
+        best = None
+        for index, call in enumerate(spawns):
+            if claimed[index]:
+                continue
+            distance = abs((opened - call["end"]).total_seconds())
+            if distance <= JOIN_TOLERANCE_S and (best is None or distance < best[1]):
+                best = (index, distance)
+        if best is None:
+            paired.append((path, None))
+        else:
+            claimed[best[0]] = True
+            paired.append((path, spawns[best[0]]))
+    return paired, claimed.count(False)
+
+
+def segment_slices(transcript, labels):
+    """One transcript's rows — one per stretch of work, not one per file.
+
+    **One row is one segment, and a resumed agent's file holds several.** The
+    coordinator sends a running agent a new message, the agent goes on in the
+    same transcript, and the idle gap between the two stretches belongs to
+    neither. Read whole, the file reports a span covering that gap: measured
+    on this repository's own fixture, 140.1 minutes for an agent that worked
+    for 37 seconds.
+
+    **Every slice carries the file's name, because only the file's opening
+    can be joined.** A resume has no `Agent` call of its own in any
+    transcript — the coordinator sent a message, it did not spawn — so the
+    second slice would otherwise read as a segment nobody spawned, and the
+    unnamed count, which is a reading about the harness, would climb with
+    every resume.
+
+    **The token figure stays the file's and rides its first slice.**
+    `token_totals` keys a streamed message by its id and keeps the largest
+    count each field reached (#202); re-deriving that per slice would
+    duplicate the rule, and a message whose rows straddled a boundary would
+    be counted in both — #202's own failure shape rebuilt one reader over.
+    So later slices carry `None` and the table prints a dash, which is a
+    reader seeing there is nothing to add rather than adding a number twice.
+    What that gives up is a per-slice token column, stated here rather than
+    left to be found.
+
+    **A cut is a marker and not a stretch of work, so a window with no call
+    in it is not a row.** The coordinator can send one message and then
+    another before the agent acts; the empty window between them would print
+    as a slice the agent never worked, push every later `N/of` up by one, and
+    borrow `no paired call` from the whole-transcript case below. The file
+    that paired no call anywhere still owes its one row.
+
+    Where there is no marker and an idle gap anyway, the file is one row and
+    `idle_gap_s` says what that row's span covers."""
+    calls, turns = load(transcript)
+    cuts = resume_cuts(transcript)
+    if not cuts:
+        return [
+            {
+                **labels,
+                "slice": 1,
+                "slices": 1,
+                "idle_gap_s": widest_idle_gap(calls),
+                "spawns": sum(1 for c in calls if c["tool"] in DELEGATING),
+                "numbers": analyse(calls, turns),
+                "tokens": token_totals([transcript]),
+            }
+        ]
+    call_windows = in_windows(cuts, calls, lambda c: c["start"])
+    stamped = [(parse_time(stamp), value) for stamp, value in turns]
+    turn_windows = in_windows(
+        cuts,
+        # A stamp that will not parse has no window to fall in, and is
+        # dropped rather than charged to a guess — `spawn_cycles` takes the
+        # same direction for the same reason.
+        [t for t in stamped if t[0] is not None],
+        lambda t: t[0],
+    )
+    # A window with no call in it is not a stretch of work. The coordinator
+    # can send one message and then another before the agent acts, and the
+    # empty window between them was printed as a slice the agent never worked
+    # -- which also pushed every later `N/of` up by one, so the second of two
+    # stretches read as `3/3`. It also re-used `no paired call`, which means a
+    # whole transcript that read and thought and spent tokens, for a slice
+    # that spent nothing. Reachable and not observed: zero call-less slices
+    # across the 43 runs on the machine this was written on.
+    #
+    # The `or [0]` is the file that paired no call at all. It still owes its
+    # row, for the reason `measure_segments`' docstring gives.
+    kept = [i for i in range(len(cuts) + 1) if call_windows[i]] or [0]
+    rows = []
+    for position, index in enumerate(kept):
+        window = call_windows[index]
+        rows.append(
+            {
+                **labels,
+                "slice": position + 1,
+                "slices": len(kept),
+                # Within a slice the gap is named too: a coordinator can send
+                # a message to an agent that then idles again for its own
+                # reasons, and one marker does not answer for the whole file.
+                "idle_gap_s": widest_idle_gap(window),
+                # Per SLICE and not per file: a resumed agent's breach
+                # belongs to the stretch it happened in, and #343's line has
+                # to name which agent — and which of its stretches — did it.
+                "spawns": sum(1 for c in window if c["tool"] in DELEGATING),
+                "numbers": analyse(window, turn_windows[index]),
+                # The first KEPT slice, not window 0, which may have been
+                # dropped as empty. The figure is the file's and rides one row.
+                "tokens": token_totals([transcript]) if position == 0 else None,
+            }
+        )
+    return rows
+
+
+def measure_segments(path, calls):
+    """One row per spawned segment of this run, read from that segment's own
+    transcript rather than from the parent's columns.
+
+    **This is the number that is in no other column.** A cycle row's
+    `delegated` is the `Agent` call's own tool_use-to-tool_result interval,
+    which on the measured harness is seconds because the result is written
+    when the spawn is ACCEPTED; the agent then goes on working for a median
+    of about 700 seconds, and that interval is in none of `--spawns`'
+    columns, in any row. It is in the segment's own file, and this opens it.
+
+    **The 700 is this mode's own reading and it corrects an inherited one.**
+    #145 published *a median of about 1,000 seconds* and `spawn_cycles` still
+    carries it. Measured here with this mode over every segment row of the 43
+    runs with a `subagents/` directory on the machine it was built on: the
+    median is 716 s over 381 named rows and 664 s over all 433. 1,000 is the
+    MEAN (1,018), which is a different statistic wearing the same word. The
+    population grows with every run this machine takes, so re-derive rather
+    than quote — an aggregate is not a coordinate, and this mode is the first
+    instrument that could check this one.
+
+    A row's numbers come from `analyse` with no `delegated`, which is the
+    PLAIN reading — exactly what a person running this script against that
+    one transcript gets today. That is the point: the mode replaces the hand
+    method named in `skills/verify/SKILL.md`, so a row has to be the same
+    number that method produced, not a second meter with its own rules.
+
+    A row's tokens cover that segment's OWN file only. The run total sums the
+    whole tree, so the two are different numbers on purpose and the column is
+    summable only with the parent's own row — `report_segments` says so,
+    because a column that looks summable and is not is #200's failure shape
+    in a new place.
+
+    A transcript with no paired tool call keeps its row with `numbers` at
+    null. A segment that read and thought and called nothing is a real
+    reading and it spent tokens the run paid for, which is the same case
+    `report_tokens` was split out for."""
+    found = subagent_transcripts(path)
+    spawns = sorted(
+        (c for c in calls if c["tool"] in DELEGATING),
+        key=lambda c: (c["end"], c["start"]),
+    )
+    beside = os.path.dirname(os.path.abspath(path))
+    openings = []
+    unreadable = []
+    for transcript in found:
+        opened = opening_stamp(transcript)
+        if opened is None:
+            # No stamp to join on. The row is still owed — the file is part
+            # of the run — and it is named by nobody, which is what the
+            # unnamed count is for.
+            unreadable.append(transcript)
+        else:
+            openings.append((transcript, opened))
+    paired, unclaimed = join_segments(openings, spawns)
+    rows = []
+    for transcript, spawn in [*paired, *((t, None) for t in unreadable)]:
+        labels = (spawn or {}).get("spawn") or {}
+        rows += segment_slices(
+            transcript,
+            {
+                "agent": labels.get("subagent_type", "") if spawn else "",
+                "description": labels.get("description", "") if spawn else "",
+                "named": spawn is not None,
+                "transcript": os.path.relpath(transcript, beside),
+            },
+        )
+    return {
+        "tolerance_s": JOIN_TOLERANCE_S,
+        "transcripts": len(found),
+        "spawns": len(spawns),
+        # Over TRANSCRIPTS, never over rows. A resumed file is several rows
+        # carrying one name, so counting rows makes this climb with every
+        # resume -- which is the failure `segment_slices` gives every slice
+        # the file's name to avoid, undone one function later. `report_breaches`
+        # reconciles the §6 count against this number, so a row count makes a
+        # run whose counts agree print that they do not, and sends a reader
+        # looking for a child transcript that was never missing. Measured on
+        # the machine this was written on: one of 43 runs already reads 3 for
+        # two unnamable files. The resumed count in `report_segments`
+        # de-duplicates the same way, which is what this line was missing
+        # rather than a new rule.
+        "unnamed": len({row["transcript"] for row in rows if not row["named"]}),
+        "unclaimed": unclaimed,
+        "rows": rows,
+    }
+
+
 def token_totals(paths):
     """Summed `usage` over every transcript given, and how many were read.
 
@@ -1308,6 +1696,278 @@ def report_spawns(spawns, path, total_calls, run_span=0.0):
             print(f"  {cycle_label(row):<30}{row['description'][:70]}")
 
 
+# The label column of the per-segment table, named once because
+# `segment_label` cuts to it and `report_segments` pads to it. Two literals
+# that have to agree is a column that goes ragged the day one of them moves.
+LABEL_WIDTH = 30
+
+
+def segment_label(row):
+    """A segment's name in the printed table.
+
+    A named row is its agent. A row named by nobody is its transcript's path
+    relative to the file it was measured beside, because that is the thing a
+    reader can actually open — `cycle_label`'s `?` says a name is missing,
+    and here there is somewhere to go and look instead.
+
+    **A path too long for the column is cut from the LEFT.** A path is read
+    from the right: the file name is what gets opened, and the directories
+    above it are already known — they are beside the transcript that was
+    named. Cutting from the right the way every other label here is cut left
+    `main/subagents/inner/agent-dee`, which is the one part of the path a
+    reader cannot use."""
+    # A resumed file's slices all carry one agent's name, so without this a
+    # reader cannot tell a segment that was resumed from two agents of the
+    # same kind — and the two mean completely different things about a run.
+    suffix = f"  {row['slice']}/{row['slices']}" if row["slices"] > 1 else ""
+    width = LABEL_WIDTH - len(suffix)
+    if row["named"]:
+        return row["agent"][:width] + suffix
+    transcript = row["transcript"]
+    if len(transcript) <= width:
+        return transcript + suffix
+    return "…" + transcript[-(width - 1) :] + suffix
+
+
+def report_breaches(segments):
+    """#343: an `Agent` call made INSIDE a segment, named where it happened.
+
+    `skills/agent-contract/SKILL.md` §6 withholds four acts from every agent
+    whatever its own definition says, and one of them is spawning. Delivery
+    is not what failed: round 1 of #120 spawned two agents and disclosed
+    neither, with the rule already in that agent's payload, in a section the
+    same agent was reviewing a diff of. So this is not a second place to put
+    the rule — it is a place the act shows up whether or not anybody says so.
+
+    **It notices and stops nothing, and that is the claim the evidence's
+    location permits rather than a softer one chosen on taste.** The
+    transcript is under the home directory of the machine that ran the agent:
+    it is in no commit, reaches no CI runner, and a checker that read one
+    would run exactly where a person already is. A line in a report a person
+    already runs at every segment boundary is what that leaves. Making it an
+    exit code is a later work item's, and it will be choosing against
+    readings rather than against a guess.
+
+    **It says who §6 reaches, because the walk cannot tell.** §6 binds the
+    agents this plugin spawns. An `Agent` call in a segment's transcript is
+    all this file can see, and a `subagent_type` from somewhere else — one
+    whose own procedure instructs the fan-out — looks exactly the same.
+    Measured over the 43 runs on the machine this was written on: 13 carry
+    the line, 12 of them name an agent this plugin spawns, and the thirteenth
+    names `claude-preset:code-reviewer`, which no definition here governs.
+    The row is still worth printing — a spawn made inside a segment is worth
+    seeing whoever made it — so the scope is stated rather than the row
+    filtered, which is the same direction the two counts below take. A line
+    that cries a rule at an agent the rule does not reach is one a reader
+    learns to discount.
+
+    **The two counts of one breach are printed rather than reconciled.** A
+    spawn made inside a segment arrives twice — as an `Agent` call in that
+    segment's own file, and as a transcript with no call in the PARENT to
+    name it. Where they disagree, either a child's transcript is missing or a
+    segment is unnamed for the other reason, its opening outside the
+    tolerance, and nothing in this file can tell which. Saying so is worth
+    more than picking one."""
+    rows = segments["rows"]
+    breaches = [row for row in rows if row["spawns"]]
+    calls = sum(row["spawns"] for row in rows)
+    unnamed = segments["unnamed"]
+    if not calls and not unnamed:
+        return
+    if breaches:
+        print("\n  §6 — an agent spawned another agent")
+        for row in breaches:
+            print(
+                f"    {segment_label(row).strip()} made "
+                f"{plural(row['spawns'], '`Agent` call')} in its own transcript"
+            )
+        print(
+            "\n  `skills/agent-contract/SKILL.md` §6 withholds four acts from "
+            "every agent\n  whatever its own definition says: post nothing, "
+            "push nothing, open no pull\n  request, and spawn no agent. This "
+            "line notices and stops nothing — the\n  transcript it read is on "
+            "the machine that ran the agent, in no commit and on\n  no CI "
+            "runner, and a report a person already runs at every segment "
+            "boundary is\n  what that leaves."
+        )
+        print(
+            "\n  §6 binds the agents this plugin spawns. A row above naming "
+            "an agent from\n  somewhere else is still a spawn made inside a "
+            "segment and still worth\n  seeing, but which rule it answers to "
+            "is for that agent's own definition\n  to say."
+        )
+    print(
+        f"\n  {plural(calls, '`Agent` call')} inside a segment, against "
+        f"{plural(unnamed, 'segment')} the parent\n  could not name"
+        + (
+            ", and the two agree."
+            if calls == unnamed
+            else ", and the two do not agree."
+        )
+    )
+    print(
+        "  One spawn arrives twice — as a call in the spawning segment's own "
+        "file, and as\n  a transcript with no `Agent` call in this one to name "
+        "it. Where the counts\n  part, a child's transcript is missing or a "
+        "segment is unnamed for the other\n  reason, and nothing here can tell "
+        "which; both numbers print so a reader can."
+    )
+
+
+def report_segments(segments, path):
+    """One row per spawned segment, or the count and no table.
+
+    **This is the reading the hand method produced one transcript at a
+    time.** `skills/verify/SKILL.md` §*Measure the segment* put a
+    `session_cost.py` run at the end of every smith and warden segment, which
+    means opening each segment's file by hand and, for a resumed one,
+    splitting it by eye. The rows below are that, for every segment of a run,
+    in one command.
+
+    **A segment is one agent's own stretch of a chain, and a spawn cycle is
+    not one.** `--spawns` slices THIS transcript into bands over the
+    orchestrator's own minutes; this opens the OTHER transcripts, one row
+    each. The two modes answer different questions and sit beside each other.
+
+    The refusal is `report_spawns`' and it is here for the same reason: a
+    harness that moves `<session-id>/subagents/`, or stops opening a segment
+    at its spawn's result, would leave this printing an empty table on a run
+    that spawned six — and an empty table reads as a run that spawned
+    nothing, which is #200's failure shape exactly. So the count and the path
+    are printed and the table is not.
+
+    Every count prints even when they agree, which is `report_spawns`'
+    partition tally one reader over: a join that silently matched nothing
+    reads exactly like a run whose segments were all named."""
+    rows = segments["rows"]
+    if not rows:
+        print(f"0 segments found beside {path}\n")
+        print(
+            "No transcript under this run's `<session-id>/subagents/`, so there "
+            "is no segment\nto open. That is the ordinary case for a segment "
+            "measured on its own rather\nthan a failure, and the exit code says "
+            "so."
+        )
+        print(
+            "\nThe count is printed and the table is not: an empty table reads "
+            "as a run that\nspawned nothing, and a run that DID spawn reads "
+            "exactly the same way the moment\na harness moves that directory or "
+            "stops opening a segment at its spawn's result."
+        )
+        return
+    print(
+        f"{plural(segments['transcripts'], 'segment transcript')} beside this "
+        f"one, {plural(segments['spawns'], 'spawn')} in it, joined within "
+        f"{segments['tolerance_s']:.1f}s"
+    )
+    print(
+        f"  {plural(segments['unnamed'], 'segment')} named by nobody, and "
+        f"{plural(segments['unclaimed'], 'spawn')} that claimed none"
+    )
+    print(
+        "\n  agent       the `subagent_type` of the spawn whose result this "
+        "segment opened at\n  span        this segment's OWN wall clock — the "
+        "number in no column of any\n              `--spawns` row, because "
+        "that mode's `delegated` is the interval\n              until the spawn "
+        "was ACCEPTED\n  tokens      output + cache write + cache read, over "
+        "this segment's own file"
+    )
+    if segments["unnamed"]:
+        print(
+            "\n  A segment named by nobody carries its transcript's path "
+            "instead. Either the\n  parent made no `Agent` call for it — a "
+            "subagent of a subagent is spawned from\n  a transcript the parent "
+            "never sees — or its opening sits outside the tolerance\n  above. "
+            "The row is printed either way: a file this mode cannot name is "
+            "still\n  part of the run, and dropping it would take its numbers "
+            "out of the reading too."
+        )
+    resumed = [row for row in rows if row["slices"] > 1]
+    if resumed:
+        print(
+            "\n  Slices marked `N/of` above come from "
+            f"{plural(len(set(row['transcript'] for row in resumed)), 'segment')} "
+            "the coordinator\n  restarted. It sent the agent a new message and "
+            "the agent went on in the same\n  transcript, so the idle gap "
+            "between two stretches belongs to neither and no\n  slice's span "
+            "covers it. Every slice carries "
+            "the file's name: a resume has no `Agent` call of its\n  own "
+            "anywhere, so only the file's opening could be joined. The token "
+            "figure is\n  the file's and rides its first slice, which is why "
+            "the others print a dash."
+        )
+    # The floor. A file with an idle gap and no marker to cut it at is one
+    # row whose span covers the wait, and that is a true reading nobody can
+    # see in the columns -- `analyse`'s model walk drops any gap of 900s or
+    # more, so it is in `span` and in nothing else. Named rather than left,
+    # because the alternative is a segment that worked for half a minute
+    # reported over two hours with nothing on the page.
+    stuck = [row for row in rows if row["idle_gap_s"]]
+    if stuck:
+        widest = max(row["idle_gap_s"] for row in stuck)
+        print(
+            "\n  An idle gap with no coordinator message in it to cut at sits "
+            f"inside\n  {plural(len(stuck), 'row')} above — the widest is "
+            f"{minutes(widest)}. That time is inside the row's span and "
+            "in no\n  other column, because the model walk drops any gap of "
+            "fifteen minutes or more.\n  Read such a span as a stretch of work "
+            "plus a wait, never as work."
+        )
+    print(
+        f"\n  {'agent':<{LABEL_WIDTH}}{'span':>8}{'calls':>7}{'t/turn':>8}{'gap':>7}{'tokens':>14}"
+    )
+    for row in rows:
+        numbers, tokens = row["numbers"], row["tokens"]
+        # A dash, not a zero. A later slice of a resumed file has no token
+        # figure of its own -- the file's rides its first slice -- and a zero
+        # there reads as a stretch that spent nothing.
+        spent = (
+            f"{tokens['output'] + tokens['cache_write'] + tokens['cache_read']:,}"
+            if tokens
+            else "—"
+        )
+        if not numbers:
+            # A real reading, not a gap in the table: a segment that read and
+            # thought and called nothing has no span and still spent what the
+            # run paid for. `report_tokens` was split out for the same shape.
+            print(
+                f"  {segment_label(row):<{LABEL_WIDTH}}"
+                f"{'no paired call':>30}{spent:>14}"
+            )
+            continue
+        print(
+            f"  {segment_label(row):<{LABEL_WIDTH}}"
+            f"{minutes(numbers['span_s']):>8}"
+            f"{numbers['calls']:>7}"
+            f"{numbers['tools_per_turn']:>8.2f}"
+            f"{numbers['gap_mean_s']:>6.0f}s"
+            f"{spent:>14}"
+        )
+    report_breaches(segments)
+    # A column that looks summable and is not is #200's failure shape in a
+    # new place, so the page says which of the two it is rather than leaving
+    # the reader to find out by comparing two numbers that should have
+    # agreed. `token_totals` already sums the whole tree for the run's own
+    # reading, so the rows here and that total overlap completely.
+    print(
+        "\n  The token column covers each segment's OWN file. The run's own "
+        "reading already\n  sums the whole tree, so adding this column to it "
+        "is counting the same tokens\n  twice."
+    )
+    # #200 left this repository's own runner in the `other` family and #202
+    # counted a streamed message at its first partial row, so a token figure
+    # and a family row both meant something different before they were
+    # repaired. Both are fixed in the code above; a reading that does not say
+    # from when it is comparable is a number somebody will hold against one
+    # taken before the repair.
+    print(
+        "\n  Comparable with readings taken since 0.9.4 and not with ones "
+        "taken before it:\n  #200 charged this repository's own test runner to "
+        "`other`, and #202 counted a\n  streamed message at its first partial "
+        "row. Both are repaired in the numbers\n  above."
+    )
+
+
 def newest(directory):
     # `~/.claude/projects` encodes a cwd by replacing every non-alphanumeric
     # character, not just the separator. Replacing `os.sep` alone is right on
@@ -1333,6 +1993,7 @@ def main():
     parser.add_argument("--latest", nargs="?", const=".", metavar="DIR")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--spawns", action="store_true")
+    parser.add_argument("--segments", action="store_true")
     args = parser.parse_args()
 
     path = args.transcript
@@ -1367,6 +2028,37 @@ def main():
         # token column would be summing the wrong file.
         report_spawns(spawns, path, len(calls), timings["span_s"] if timings else 0.0)
         return 0
+    # The other transcripts of this run, one row each. Gated the way `spawns`
+    # is — behind its own flag, and in `--json` regardless, so a
+    # machine-readable reading is never missing it.
+    #
+    # **The GATING is the same and the cost is not, which is worth saying
+    # because the sentence above used to say `on the same terms` and a reader
+    # could carry the cost argument across with it.** `measure_cycles` is
+    # arithmetic over a list already in memory, measured at half again
+    # `analyse`'s own cost. This opens every transcript under the run:
+    # `opening_stamp`, `load`, `resume_cuts` and `token_totals` per file, and
+    # the last of those covers the same file the run-level `token_totals`
+    # below walks again. Measured over the three widest runs on the machine
+    # this was written on — 18, 30 and 35 segments — `measure_segments` takes
+    # 257ms, 698ms and 926ms against `analyse`'s 28-36ms on the same
+    # transcripts: nine to thirty-three times the reading being printed,
+    # where `spawns` was half again.
+    #
+    # It stays in `--json` on the same ground `spawns` is there for — a
+    # machine-readable reading missing the one thing the mode exists to
+    # produce is the failure that ground was written against — and the cost
+    # is now on the page rather than assumed away. Whether the duplicate
+    # token walk is worth removing is a question about `--json`'s defaults
+    # and not about this line.
+    #
+    # Before the no-tool-calls guard below, the way `--spawns` is: a run whose
+    # own transcript paired no call can still have spawned six segments, and
+    # the six rows are a reading somebody asked for by name.
+    segments = measure_segments(path, calls) if args.segments or args.json else None
+    if args.segments and not args.json:
+        report_segments(segments, path)
+        return 0
     # The whole run, not the transcript that was named: a token count covering
     # one segment is not comparable with one that covered a run, and #170 asks
     # for the row to be one command rather than one command per transcript.
@@ -1379,7 +2071,12 @@ def main():
     tokens = token_totals([path, *subagent_transcripts(path)])
     if timings is None and not tokens["turns"]:
         sys.exit("no tool calls in this transcript")
-    data = {**(timings or {}), "tokens": tokens, "spawns": spawns}
+    data = {
+        **(timings or {}),
+        "tokens": tokens,
+        "spawns": spawns,
+        "segments": segments,
+    }
     if args.json:
         print(json.dumps(data, indent=2))
     elif timings:

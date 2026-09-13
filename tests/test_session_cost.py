@@ -1612,10 +1612,14 @@ def test_the_report_names_the_command_the_table_could_not(tmp_path):
 
 # --- #145: the orchestrator's row is a spawn cycle, not the whole session ---
 #
-# Every other segment of a chain is a transcript of its own, so its row is the
-# whole file. An orchestrator's segments are spawn cycles INSIDE one file, so
-# until `--spawns` the whole file was the only row it had — which is why #51's
-# observation 1 has bands for three segment kinds and none for this one.
+# Every segment of a chain has a transcript of its own, so its row is the
+# whole file. The orchestrator's holds every spawn cycle of the run INSIDE it,
+# so until `--spawns` the whole file was the only row it had — which is why
+# #51's observation 1 has bands for three segment kinds and none for this one.
+#
+# A spawn cycle is not a segment. The cases below are `--spawns`', over bands
+# inside one transcript; the per-segment cases at the end of this file are
+# `--segments`', over the transcripts of the agents a run spawned.
 
 
 def spawn(uid, start, end, subagent_type, description="a spawn"):
@@ -1977,9 +1981,15 @@ def test_a_cycle_carries_the_same_numbers_the_whole_run_does(orchestrator):
     What it stops is a second meter hand-rolled for cycles. The labels are
     named rather than subtracted loosely, so adding one is a decision
     somebody makes here rather than a key that appears in a published
-    reading."""
+    reading.
+
+    `segments` is the second such decision, taken when #350 landed: it is a
+    reading of the transcripts BESIDE this one, so like `tokens` and `spawns`
+    it is not one of `analyse`'s keys and does not belong in a cycle row's
+    numbers. The case caught it on the commit that added it, which is the
+    whole reason the exclusion is a literal list."""
     data = json.loads(run(["--json", str(orchestrator)]).stdout)
-    whole = set(data) - {"tokens", "spawns"}
+    whole = set(data) - {"tokens", "spawns", "segments"}
     for row in data["spawns"]["rows"]:
         assert set(row) == {"kind", "cycle", "subagent_type", "description", "numbers"}
         if row["numbers"]:
@@ -2276,3 +2286,843 @@ def test_an_exact_cover_reads_as_the_partition_agreeing(tmp_path):
     out = " ".join(run(["--spawns", str(path)]).stdout.split())
     assert "0.0m of the run's 0.2m is BETWEEN the rows — mostly the wait" in out, out
     assert "no between-the-rows figure" not in out, out
+
+
+# --- the per-segment reading (#350) ----------------------------------------
+#
+# Every other mode in this file reads the transcript it was given. This one
+# opens the transcripts BESIDE it — one row per spawned segment, read from
+# that segment's own file — because the agent's own wall clock is in none of
+# the columns any other row has. `--spawns` says so in prose and points at
+# `<session-id>/subagents/`; this is the reader that goes there.
+
+
+@pytest.fixture
+def run_with_segments(tmp_path):
+    """Two spawns and a transcript for each, opening at its own spawn's
+    result stamp — the join's measured shape.
+
+    smith  spawned at 25, accepted at 625; its file holds two calls, 625-641
+    warden spawned at 660, accepted at 1860; its file holds one call
+
+    The two segments hold different call counts on purpose: a reading taken
+    from the PARENT's columns cannot tell them apart, and one taken from each
+    segment's own file can."""
+    main = []
+    main += call("a", 0, 10, "git status --short")
+    main += spawn("A", 25, 625, "specseal:smith", "Build phase 1")
+    main += call("b", 640, 643, "git log --oneline -5")
+    main += spawn("B", 660, 1860, "specseal:warden", "Review round 1")
+    return write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1", "./bin/test tests/test_x.py -q", output=700),
+                *worked(640, "s2", "ruff check .", cache_write=300),
+            ],
+            "agent-warden.jsonl": [
+                *worked(1860, "w1", "cat docs/spec.md", cache_read=40)
+            ],
+        },
+    )
+
+
+def segments_of(path, args=()):
+    proc = run(["--json", *args, str(path)])
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout)["segments"]
+
+
+def test_each_spawned_segment_is_named_by_the_spawn_it_opened_at(run_with_segments):
+    """The acceptance row. Two segments, each named by the spawn whose result
+    its transcript opens at, and each carrying numbers read from its own
+    file rather than from the parent's columns."""
+    segments = segments_of(run_with_segments)
+    assert (segments["transcripts"], segments["spawns"]) == (2, 2), segments
+    assert (segments["unnamed"], segments["unclaimed"]) == (0, 0), segments
+    assert segments["tolerance_s"] == 1.0, segments
+    assert [row["agent"] for row in segments["rows"]] == [
+        "specseal:smith",
+        "specseal:warden",
+    ], segments["rows"]
+    assert all(row["named"] for row in segments["rows"]), segments["rows"]
+    # Read from each segment's own file: the smith's holds two calls over
+    # 625-641, the warden's one. Neither number is in the parent transcript.
+    smith, warden = segments["rows"]
+    assert (smith["numbers"]["calls"], smith["numbers"]["span_s"]) == (2, 16), smith
+    assert (warden["numbers"]["calls"], warden["numbers"]["span_s"]) == (1, 1), warden
+
+
+def test_a_segments_tokens_are_its_own_file_and_not_the_runs(run_with_segments):
+    """A column that looks summable and is not is #200's failure shape in a
+    new place. Each row's tokens cover that segment's own transcript, so the
+    run total — which sums the whole tree — is the larger number."""
+    data = json.loads(run(["--json", str(run_with_segments)]).stdout)
+    rows = data["segments"]["rows"]
+    assert all("tokens" in row for row in rows), rows
+    assert sum(row["tokens"]["transcripts"] for row in rows) == 2, rows
+    assert data["tokens"]["transcripts"] == 3, data["tokens"]
+
+
+def test_a_segment_opening_outside_the_tolerance_is_named_by_nobody(tmp_path):
+    """Both directions, because a join that cannot fail names everything.
+
+    The same fixture is built twice and only the segment's opening stamp
+    moves: on the spawn's result it is named, three seconds off it is not."""
+
+    def built(opening, name):
+        main = call("a", 0, 10, "git status --short") + spawn(
+            "A", 25, 625, "specseal:smith", "Build phase 1"
+        )
+        root = tmp_path / name
+        root.mkdir()
+        return write_run(root, main, {"agent-one.jsonl": worked(opening, "s1")})
+
+    on_time = segments_of(built(625, "on-time"))
+    assert on_time["unnamed"] == 0, on_time
+    assert on_time["rows"][0]["agent"] == "specseal:smith", on_time["rows"]
+
+    late = segments_of(built(628, "late"))
+    assert late["unnamed"] == 1, late
+    assert late["rows"][0]["named"] is False, late["rows"]
+    assert late["rows"][0]["agent"] == "", late["rows"]
+    # The spawn is still there and still counted — it simply claimed nothing.
+    assert (late["spawns"], late["unclaimed"]) == (1, 1), late
+
+
+def test_a_segment_the_parent_cannot_name_is_counted_rather_than_dropped(tmp_path):
+    """A subagent of a subagent has no `Agent` call in the parent at all, so
+    no stamp can name it. `spec.md`: it gets a row and the count says how
+    many there were — a smaller answer rather than none, which is the
+    direction `tool_name` and `count` already take."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": worked(625, "s1"),
+            "inner/agent-deep.jsonl": worked(700, "d1"),
+        },
+    )
+    segments = segments_of(path)
+    assert (segments["transcripts"], segments["spawns"]) == (2, 1), segments
+    assert segments["unnamed"] == 1, segments
+    named = [row for row in segments["rows"] if row["named"]]
+    anonymous = [row for row in segments["rows"] if not row["named"]]
+    assert [row["agent"] for row in named] == ["specseal:smith"], named
+    assert len(anonymous) == 1, anonymous
+    # Dropped rather than counted, the row would be invisible AND its numbers
+    # would be missing from every reading of the run.
+    assert anonymous[0]["numbers"]["calls"] == 1, anonymous
+
+
+def test_one_spawn_is_claimed_by_one_segment(tmp_path):
+    """Two transcripts opening at the same instant and one spawn between
+    them. Without the claim, both rows carry the same agent's name and a
+    reader adding the column counts one segment twice."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {"agent-one.jsonl": worked(625, "s1"), "agent-two.jsonl": worked(625, "s2")},
+    )
+    segments = segments_of(path)
+    assert segments["transcripts"] == 2, segments
+    assert [row["named"] for row in segments["rows"]].count(True) == 1, segments["rows"]
+    assert segments["unnamed"] == 1, segments
+    assert segments["unclaimed"] == 0, segments
+
+
+def test_a_run_with_no_segments_reads_rather_than_raising(transcript):
+    """A segment measured on its own has no `subagents/` directory beside it.
+    That is the ordinary case for this mode, not a failure — the reading is
+    empty and the exit code is 0."""
+    proc = run(["--json", str(transcript)])
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout)["segments"] == {
+        "tolerance_s": 1.0,
+        "transcripts": 0,
+        "spawns": 0,
+        "unnamed": 0,
+        "unclaimed": 0,
+        "rows": [],
+    }
+
+
+def segment_report(path, args=()):
+    proc = run(["--segments", *args, str(path)])
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout
+
+
+def test_the_printed_segment_table_names_each_agent_and_its_own_span(
+    run_with_segments,
+):
+    """The rendered text, because that is what a person posts to the flow log.
+
+    The two spans are the whole point of the mode: 16s and 1s, read from each
+    segment's own file. Neither number is in any column of any `--spawns` row
+    — there the same two agents read as 600s and 1200s of `delegated`, which
+    is the interval until the spawn was ACCEPTED."""
+    out = segment_report(run_with_segments)
+    assert "specseal:smith" in out, out
+    assert "specseal:warden" in out, out
+    for header in ("span", "calls", "t/turn", "gap", "tokens"):
+        assert header in out, (header, out)
+    # 16s and 1s, printed by `minutes` at one decimal, and each segment's own
+    # token spend: 700 output + 300 cache write for the smith, 40 cache read
+    # for the warden. A column pinned only at zero is a column that could be
+    # printing anything.
+    assert re.search(
+        r"^  specseal:smith\s+0\.3m\s+2\s+[\d.]+\s+\d+s\s+1,000$", out, re.M
+    ), out
+    assert re.search(
+        r"^  specseal:warden\s+0\.0m\s+1\s+[\d.]+\s+\d+s\s+40$", out, re.M
+    ), out
+
+
+def test_the_segment_report_names_the_tolerance_it_joined_within(run_with_segments):
+    """A join is a reading about a harness, not a fact this file asserts. The
+    tolerance is on the page so a reader can tell a segment that matched
+    nothing from a window that was too tight."""
+    assert "1.0s" in segment_report(run_with_segments), segment_report(
+        run_with_segments
+    )
+
+
+def test_the_segment_report_states_its_counts_even_when_they_agree(run_with_segments):
+    """`report_spawns` prints its partition tally even when it agrees, and
+    for the same reason: a join that silently matched nothing reads exactly
+    like a run that spawned nothing. Two transcripts, two spawns, nothing
+    unmatched on either side — and all four numbers print."""
+    out = " ".join(segment_report(run_with_segments).split())
+    assert "2 segment transcripts" in out, out
+    assert "2 spawns" in out, out
+    assert "0 segments named by nobody" in out, out
+    assert "0 spawns that claimed none" in out, out
+
+
+def test_a_segment_named_by_nobody_carries_its_transcript_instead(tmp_path):
+    """A name it cannot print is a name that was never there — and a path is
+    what the reader can actually open. The count says how many there were."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": worked(625, "s1"),
+            "inner/agent-deep.jsonl": worked(700, "d1"),
+        },
+    )
+    out = segment_report(path)
+    assert "1 segment named by nobody" in " ".join(out.split()), out
+    assert "agent-deep.jsonl" in out, out
+    assert "no `Agent` call" in out, out
+
+
+def test_a_run_with_no_segment_names_the_count_rather_than_printing_a_table(
+    transcript,
+):
+    """#200's failure shape, repaid the way `report_spawns` repays it: an
+    empty table reads as a run that spawned nothing, and a run that DID spawn
+    reads the same way the moment a harness moves the directory."""
+    out = segment_report(transcript)
+    assert "0 segments found" in out, out
+    assert str(transcript) in out, out
+    assert "t/turn" not in out, out
+    assert "subagents/" in out, out
+
+
+def test_the_token_column_says_it_is_not_the_runs_own(run_with_segments):
+    """A column that looks summable and is not is #200's failure shape in a
+    new place, so the page says which of the two it is rather than leaving a
+    reader to add it to the run's own total."""
+    out = " ".join(segment_report(run_with_segments).split())
+    assert "own file" in out, out
+    assert "counting the same tokens twice" in out, out
+
+
+def test_the_reading_names_the_release_it_is_comparable_from(run_with_segments):
+    """#200 and #202 both moved what a token and a family row MEAN, and both
+    were fixed in 0.9.4. A reading that does not say so is a number a reader
+    will compare with one taken before the repair."""
+    out = " ".join(segment_report(run_with_segments).split())
+    assert "0.9.4" in out, out
+
+
+def test_the_mode_exits_zero_whether_it_finds_a_segment_or_not(
+    run_with_segments, transcript
+):
+    """A measurement command that fails on a finding is a gate wearing a
+    report's shape. Nothing reads this exit code today, and the orchestrator's
+    own posting step would break on exactly the discovery it was posting."""
+    for path in (run_with_segments, transcript):
+        proc = run(["--segments", str(path)])
+        assert proc.returncode == 0, (path, proc.returncode, proc.stderr)
+
+
+def test_no_existing_printed_line_moves_when_the_mode_is_not_asked_for(
+    run_with_segments,
+):
+    """`analyse`'s docstring sets the condition and #200 and #202 are what
+    breaking it cost. The plain reading and `--spawns` are byte-identical to
+    what they printed before this mode existed."""
+    plain = run([str(run_with_segments)]).stdout
+    assert "segment transcripts beside this one" not in plain, plain
+    assert "named by nobody" not in plain, plain
+    spawns = run(["--spawns", str(run_with_segments)]).stdout
+    assert "named by nobody" not in spawns, spawns
+    assert "2 spawns found" in spawns, spawns
+
+
+# --- the resume slice: one row is one segment, not one file ----------------
+
+
+def coordinator_message(second, text="Round 1's record is committed. Fix three."):
+    """The row a harness writes when the coordinator sends a running agent a
+    new message.
+
+    `skills/verify/SKILL.md` prescribes the hand split *at the user lines
+    where the coordinator sent it a new message*, and this is that line in
+    the harness's own words. Measured over the 350 segment transcripts on one
+    machine: 41 hold an idle gap at or above `analyse`'s 900-second ceiling,
+    82 such gaps in all, and the row after a gap is a `type=user` row with
+    `isMeta` set and a bare-string content far more often than anything
+    else."""
+    return json.dumps(
+        {
+            "timestamp": stamp_at(second),
+            "type": "user",
+            "isMeta": True,
+            "message": {
+                "role": "user",
+                "content": (
+                    "The coordinator sent a message while you were working: " + text
+                ),
+            },
+        }
+    )
+
+
+@pytest.fixture
+def resumed_segment(tmp_path):
+    """One segment transcript holding two stretches of work separated by an
+    idle gap and a coordinator message.
+
+    slice 1  two calls, 625-641
+    (idle)   8,359 seconds in which the agent issued nothing
+    slice 2  two calls, 9010-9031
+
+    The file's own span is 8,406 seconds. Read whole — which is what the mode
+    does before this phase — one row covers the idle gap and reports a span
+    over two hours for an agent that worked for 37 seconds."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    return write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1", "./bin/test tests/test_x.py -q", output=500),
+                *worked(640, "s2", "ruff check ."),
+                coordinator_message(9000),
+                *worked(9010, "s3", "./bin/test tests/test_y.py -q"),
+                *worked(9030, "s4", "git commit -m x"),
+            ]
+        },
+    )
+
+
+def test_a_resumed_segment_is_one_row_per_slice_not_one_per_file(resumed_segment):
+    """The acceptance row, and the assertion the whole-file reading fails.
+
+    Two slices, each with its own span, and their sum well under the file's
+    own — because the idle gap between them belongs to neither. A mode that
+    inherits the whole-file reading has not solved the problem it was built
+    for."""
+    segments = segments_of(resumed_segment)
+    assert len(segments["rows"]) == 2, segments["rows"]
+    spans = [row["numbers"]["span_s"] for row in segments["rows"]]
+    assert spans == [16, 21], spans
+    # The file's own span, which is what one row would have reported.
+    assert sum(spans) < 8406, spans
+    assert [row["slice"] for row in segments["rows"]] == [1, 2], segments["rows"]
+    assert all(row["slices"] == 2 for row in segments["rows"]), segments["rows"]
+
+
+def test_a_later_slice_inherits_the_name_from_the_files_first(resumed_segment):
+    """Only the file's opening stamp can be joined to a spawn's result — a
+    resume has no `Agent` call of its own anywhere. So the name is the file's
+    and every slice carries it, rather than the second slice reading as a
+    segment nobody spawned."""
+    rows = segments_of(resumed_segment)["rows"]
+    assert [row["agent"] for row in rows] == ["specseal:smith"] * 2, rows
+    assert all(row["named"] for row in rows), rows
+    assert segments_of(resumed_segment)["unnamed"] == 0, rows
+
+
+def test_an_unnamed_file_that_was_resumed_is_counted_once(tmp_path):
+    """The count is a reading about the harness — how many files this run
+    holds that no `Agent` call in the parent can name. A resumed file is
+    several rows carrying one name, so counting rows makes the number climb
+    with every resume, which is exactly what giving each slice the file's
+    name exists to prevent.
+
+    Red before the fix: `unnamed` reads 2 for one unnamable file, and the
+    reconciliation below prints a disagreement that is not there."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                *spawn("N", 700, 701, "general-purpose", "search the tree"),
+            ],
+            # The child of that spawn: no `Agent` call in the parent can name
+            # it, and the coordinator resumed it.
+            "inner/agent-deep.jsonl": [
+                *worked(701, "d1"),
+                coordinator_message(9000),
+                *worked(9010, "d2"),
+            ],
+        },
+    )
+    segments = segments_of(path)
+    assert segments["transcripts"] == 2, segments
+    assert len(segments["rows"]) == 3, segments["rows"]
+    assert segments["unnamed"] == 1, segments
+    out = " ".join(segment_report(path).split())
+    assert "1 segment named by nobody" in out, out
+    # One call inside a segment against one file the parent cannot name: the
+    # two agree, and the sentence that fires on a disagreement must not.
+    assert "1 `Agent` call inside a segment, against 1 segment" in out, out
+    assert "the two agree" in out, out
+    assert "do not agree" not in out, out
+
+
+def test_a_files_tokens_are_carried_by_its_first_slice_only(resumed_segment):
+    """`token_totals` dedups a streamed message by its id and keeps the
+    largest count each field reached (#202). Re-deriving that per slice would
+    duplicate the rule, and a message whose rows straddled a slice boundary
+    would be counted in both — #202's failure shape rebuilt in a new place.
+    So the figure stays the file's, and every later slice prints a dash
+    rather than a number a reader would add up."""
+    rows = segments_of(resumed_segment)["rows"]
+    assert rows[0]["tokens"]["output"] == 500, rows[0]
+    assert rows[1]["tokens"] is None, rows[1]
+
+
+def test_a_segment_with_no_marker_names_the_gap_it_could_not_split(tmp_path):
+    """The floor `plan.md` names. Where the marker is absent and an idle gap
+    above the 900-second ceiling is present, one row prints and the report
+    says what that does to the span — rather than a span quietly covering a
+    wait nobody can see in the columns."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1", "./bin/test tests/test_x.py -q"),
+                *worked(2000, "s2", "ruff check ."),
+            ]
+        },
+    )
+    rows = segments_of(path)["rows"]
+    assert len(rows) == 1, rows
+    assert rows[0]["slices"] == 1, rows[0]
+    # 626 to 2000 — the gap `analyse`'s model walk already drops and no
+    # column has ever named.
+    assert rows[0]["idle_gap_s"] == 1374, rows[0]
+    out = " ".join(segment_report(path).split())
+    assert "no coordinator message" in out, out
+    assert "22.9m" in out, out
+
+
+def test_a_segment_that_was_not_resumed_reports_one_slice_and_no_gap(
+    run_with_segments,
+):
+    """The negative half. A segment that ran straight through is one slice
+    with nothing to name, and a report that says otherwise is reading a
+    marker into a file that has none."""
+    rows = segments_of(run_with_segments)["rows"]
+    assert all(row["slices"] == 1 and row["slice"] == 1 for row in rows), rows
+    assert all(row["idle_gap_s"] == 0 for row in rows), rows
+    out = " ".join(segment_report(run_with_segments).split())
+    assert "no coordinator message" not in out, out
+    assert "resumed" not in out, out
+
+
+def test_two_coordinator_messages_in_a_row_do_not_invent_a_slice(tmp_path):
+    """A cut is a marker, not a stretch of work. The coordinator can send one
+    message and then another before the agent acts, and the empty window
+    between them is not a slice — printing it gives the file a stretch the
+    agent never worked and reports the second of two as `3/3`.
+
+    Red before the fix: three rows, the middle one `no paired call`."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                coordinator_message(9005),
+                *worked(9010, "s2"),
+            ]
+        },
+    )
+    rows = segments_of(path)["rows"]
+    assert len(rows) == 2, rows
+    assert [(row["slice"], row["slices"]) for row in rows] == [(1, 2), (2, 2)], rows
+    assert all(row["numbers"] for row in rows), rows
+    # The file's token figure still rides one row, and it is the first kept.
+    assert rows[1]["tokens"] is None, rows[1]
+    out = segment_report(path)
+    assert "no paired call" not in out, out
+    assert "specseal:smith  2/2" in out, out
+
+
+def test_a_file_whose_first_window_is_empty_still_carries_its_tokens(tmp_path):
+    """The token figure rides the first KEPT slice, not window 0 — which may
+    have been dropped for holding no call. An agent resumed before it issued
+    anything has exactly that shape: the marker arrives, and every call it
+    made is on the far side of it.
+
+    Found by mutating `position == 0` back to `index == 0`, which the two
+    cases above leave green because their window 0 holds calls. Red under
+    that mutation: no slice carries the figure at all and the file's tokens
+    vanish from the table."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                coordinator_message(625),
+                *worked(626, "s1", "./bin/test tests/test_x.py -q", output=500),
+                *worked(640, "s2", "ruff check ."),
+            ]
+        },
+    )
+    rows = segments_of(path)["rows"]
+    assert len(rows) == 1, rows
+    assert rows[0]["named"] and (rows[0]["slice"], rows[0]["slices"]) == (1, 1), rows
+    assert rows[0]["tokens"]["output"] == 500, rows[0]
+
+
+def test_a_resumed_file_that_called_nothing_at_all_still_gets_its_row(tmp_path):
+    """The other arm of the same branch, and the reason it is not a bare
+    filter. Dropping every call-less window would drop a transcript that
+    paired no call anywhere — which `measure_segments`' docstring keeps a row
+    for, because a segment that read and thought and called nothing is a real
+    reading and it spent tokens the run paid for.
+
+    Red before the fix for a different number: the file prints two rows, one
+    per window, where it owes exactly one."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                spend(625, message_id="thought", output=100),
+                coordinator_message(9000),
+                spend(9010, message_id="thought-2", output=200),
+            ]
+        },
+    )
+    rows = segments_of(path)["rows"]
+    assert len(rows) == 1, rows
+    assert (rows[0]["slice"], rows[0]["slices"]) == (1, 1), rows
+    assert rows[0]["numbers"] is None, rows
+    assert rows[0]["tokens"] is not None, rows
+    assert "no paired call" in segment_report(path), segment_report(path)
+
+
+def test_the_printed_table_says_which_slice_of_its_file_a_row_is(resumed_segment):
+    """Two rows carrying one agent's name is unreadable without it — a reader
+    cannot tell a resumed segment from two agents of the same kind."""
+    out = segment_report(resumed_segment)
+    assert "specseal:smith  1/2" in out, out
+    assert "specseal:smith  2/2" in out, out
+    assert "coordinator" in out, out
+
+
+def test_the_two_count_sentences_agree_with_their_own_number(tmp_path, resumed_segment):
+    """`1 segment was resumed` and `2 segments was resumed` — the second is
+    what a first draft printed, and it is the failure
+    `test_the_token_line_says_one_transcript_rather_than_1_transcripts`
+    already polices one line over. Read off a real run before it was caught:
+    `6 segments was resumed` and `2 rows above covers an idle gap`.
+
+    Both sentences are built so no verb has to agree with a count, which is
+    the repair rather than two branches that can drift apart. This pins each
+    at one and at more than one."""
+    one = " ".join(segment_report(resumed_segment).split())
+    assert "come from 1 segment the coordinator restarted" in one, one
+
+    # Two resumed files in one run, so the same sentence has to carry a
+    # plural subject.
+    main = (
+        call("a", 0, 10, "git status --short")
+        + spawn("A", 25, 625, "specseal:smith", "Build phase 1")
+        + spawn("B", 700, 1200, "specseal:warden", "Review round 1")
+    )
+    both = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                *worked(9010, "s2"),
+            ],
+            "agent-warden.jsonl": [
+                *worked(1200, "w1"),
+                coordinator_message(9500),
+                *worked(9510, "w2"),
+            ],
+        },
+    )
+    many = " ".join(segment_report(both).split())
+    assert "come from 2 segments the coordinator restarted" in many, many
+
+
+def test_the_idle_gap_sentence_agrees_with_its_own_number(tmp_path):
+    """The other half of the same class: `2 rows above covers`. The sentence
+    puts the count in an object rather than a subject, so one row and two
+    read the same way."""
+    main = (
+        call("a", 0, 10, "git status --short")
+        + spawn("A", 25, 625, "specseal:smith", "Build phase 1")
+        + spawn("B", 700, 1200, "specseal:warden", "Review round 1")
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [*worked(625, "s1"), *worked(2000, "s2")],
+            "agent-warden.jsonl": [*worked(1200, "w1"), *worked(4000, "w2")],
+        },
+    )
+    out = " ".join(segment_report(path).split())
+    assert "sits inside 2 rows above" in out, out
+
+
+# --- #343: an agent that spawned another agent -----------------------------
+#
+# `skills/agent-contract/SKILL.md` §6 withholds four acts from every agent
+# whatever its definition says, and one of them is spawning. Round 1 of #120
+# spawned two agents and disclosed neither, with the rule already in the
+# agent's payload — so delivery worked and the act still went the other way.
+# What notices it is the walk this mode already does.
+
+
+@pytest.fixture
+def segment_that_spawned(tmp_path):
+    """A named segment whose own transcript holds an `Agent` call, and the
+    nested transcript that call produced.
+
+    The same breach arrives twice: as a call inside the segment, and as a
+    transcript the parent cannot name — its opening is 275 seconds from the
+    only spawn the parent made, so no stamp can claim it. The mode prints
+    both, because the two counts disagreeing is itself a reading."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    return write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                *spawn("N", 700, 900, "general-purpose", "search the tree"),
+                *worked(910, "s2"),
+            ],
+            "agent-nested.jsonl": worked(900, "n1"),
+        },
+    )
+
+
+def test_a_segment_row_carries_its_own_spawn_count(segment_that_spawned):
+    """Per segment and not per run, because the line has to name which agent
+    did it — and after phase 3, per SLICE, so a resumed agent's breach is
+    attributed to the stretch it happened in."""
+    rows = segments_of(segment_that_spawned)["rows"]
+    by_name = {row["agent"] or row["transcript"]: row for row in rows}
+    assert by_name["specseal:smith"]["spawns"] == 1, rows
+    nested = [row for row in rows if not row["named"]]
+    assert len(nested) == 1 and nested[0]["spawns"] == 0, rows
+
+
+def test_a_spawn_inside_a_segment_prints_a_line_naming_agent_count_and_section(
+    segment_that_spawned,
+):
+    """#343's whole answer. It notices and stops nothing — a report is read by
+    a person who can skip it — and that is the claim the evidence's location
+    permits, because a transcript never leaves the machine that produced it."""
+    out = " ".join(segment_report(segment_that_spawned).split())
+    assert "§6" in out, out
+    assert "specseal:smith" in out, out
+    assert "1 `Agent` call" in out, out
+    assert "spawn no agent" in out, out
+
+
+def test_a_clean_run_prints_no_such_line(run_with_segments):
+    """The negative half, planted in the same commit. A breach line nobody
+    has seen fail is a counterfeit seal: these two segments made no `Agent`
+    call, and the section is not mentioned at all."""
+    out = segment_report(run_with_segments)
+    assert "§6" not in out, out
+    assert "spawn no agent" not in out, out
+    rows = segments_of(run_with_segments)["rows"]
+    assert all(row["spawns"] == 0 for row in rows), rows
+
+
+def test_the_breach_line_says_which_agents_the_section_binds(segment_that_spawned):
+    """The line fires on any `Agent` call in any segment's transcript, and
+    the walk cannot tell an agent this plugin spawns from one whose own
+    procedure instructs the fan-out. Measured over the 43 runs on this
+    machine: 13 carry the line and 12 of those name an agent this plugin
+    spawns — the thirteenth names `claude-preset:code-reviewer`, which no
+    definition here governs.
+
+    The absence half is `test_a_clean_run_prints_no_such_line`, which asserts
+    `§6` appears nowhere in a clean run and so covers this sentence too.
+
+    Red before the fix: the report cites the section and never says who it
+    reaches."""
+    out = " ".join(segment_report(segment_that_spawned).split())
+    assert "§6 binds the agents this plugin spawns" in out, out
+    assert "for that agent's own definition to say" in out, out
+
+
+def test_the_two_counts_of_one_breach_are_reconciled_and_printed(
+    segment_that_spawned,
+):
+    """A spawn inside a segment shows up twice — as a call in that segment's
+    file and as a transcript the parent cannot name. Both numbers print, so a
+    reader can see them agree rather than taking this file's word for it,
+    which is `report_spawns`' partition tally one mode over."""
+    out = " ".join(segment_report(segment_that_spawned).split())
+    assert "1 `Agent` call inside a segment" in out, out
+    assert "1 segment the parent could not name" in out, out
+    # The discriminating half: this fixture's two counts DO agree, so the
+    # sentence that fires on a disagreement must not.
+    assert "the two agree" in out, out
+    assert "do not agree" not in out, out
+
+
+def test_a_disagreement_between_the_two_counts_is_printed_not_resolved(tmp_path):
+    """An agent can spawn and have its child's transcript go missing, or a
+    segment can be unnamable for the other reason — its opening outside the
+    tolerance. The mode has no way to tell which, so it says the two
+    disagree instead of picking one."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                *spawn("N", 700, 900, "general-purpose", "search the tree"),
+            ]
+        },
+    )
+    out = " ".join(segment_report(path).split())
+    assert "1 `Agent` call inside a segment" in out, out
+    assert "0 segments the parent could not name" in out, out
+    assert "do not agree" in out, out
+
+
+def test_the_mode_still_exits_zero_when_it_finds_a_breach(segment_that_spawned):
+    """It notices; it is not a gate. Nothing reads this exit code today, and
+    the orchestrator's own posting step would break on exactly the discovery
+    it was posting."""
+    assert run(["--segments", str(segment_that_spawned)]).returncode == 0
+
+
+def test_a_transcript_with_no_stamp_to_join_on_still_gets_a_row(tmp_path):
+    """Found by the mutation pass: dropping the unjoinable file kept every
+    case green.
+
+    A transcript that cannot be opened, holds no parseable line, or carries
+    no `timestamp` has nothing to join on. It is still part of the run, and
+    dropping it would take its numbers out of the reading while the
+    transcripts-walked count went on including it — two numbers disagreeing
+    with nothing on the page saying so, which is the failure every other
+    count in this mode prints to avoid."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    stampless = json.dumps(
+        {"message": {"role": "user", "content": [{"type": "text", "text": "."}]}}
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": worked(625, "s1"),
+            "agent-stampless.jsonl": [stampless, "{ not json", ""],
+        },
+    )
+    segments = segments_of(path)
+    assert segments["transcripts"] == 2, segments
+    # The row count and the transcripts-walked count agree, which is the
+    # whole property dropping it would break.
+    assert len(segments["rows"]) == 2, segments["rows"]
+    assert segments["unnamed"] == 1, segments
+    anonymous = [row for row in segments["rows"] if not row["named"]]
+    assert anonymous[0]["numbers"] is None, anonymous
+    assert "agent-stampless.jsonl" in segment_report(path), segment_report(path)
+
+
+def test_a_spawn_in_a_later_slice_is_named_by_that_slice(tmp_path):
+    """Found by the mutation pass: zeroing the SLICED branch's spawn count
+    kept every case green, because the breach fixture was never resumed.
+
+    A resumed agent that spawns in its second stretch must be named as that
+    stretch — `specseal:smith  2/2` — or the line points at work the agent
+    was doing an hour earlier."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                *worked(9010, "s2"),
+                *spawn("N", 9100, 9200, "general-purpose", "search the tree"),
+            ]
+        },
+    )
+    rows = segments_of(path)["rows"]
+    assert [row["spawns"] for row in rows] == [0, 1], rows
+    out = " ".join(segment_report(path).split())
+    assert "specseal:smith 2/2 made 1 `Agent` call" in out, out
