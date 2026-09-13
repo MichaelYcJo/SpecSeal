@@ -518,6 +518,9 @@ A session fixing review feedback starts at `seal/specs/<work-item-id>/`,
 Inline comments may not contain these lists at all. Fixing only the comments
 ships the code change and silently drops the tests and the evidence.
 
+The generator both rows name is `skills/code-review/scripts/round_record.py`,
+and the review orchestrator types it as `round-record`.
+
 A finding is a claim too, and it arrives from someone who did not write the
 code. Open the coordinate and judge it yourself: fix what holds, and where it
 does not, answer it in `round-N.md` with the grounds — the policy clause, the

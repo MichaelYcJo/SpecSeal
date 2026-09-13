@@ -7,6 +7,11 @@ round posts, and `round_record.py close` applies the implementer's fix table
 and the fix range's measured surface when the fixes land. The comments in this
 file document the fields; a generated record does not carry them.
 
+The generator is `skills/code-review/scripts/round_record.py`, and the review
+orchestrator types it as `round-record`. It ships — this file used to name it
+without saying where it is, and four agent segments read that as absence and
+hand-wrote the record it writes.
+
 It lives here rather than under a pull request number because the number does
 not exist while the rounds that fill this file are running. `docs/review-handoff-protocol.md`
 carries the format; this is the shape it takes in this repository.
