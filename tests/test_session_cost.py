@@ -2799,6 +2799,36 @@ def test_two_coordinator_messages_in_a_row_do_not_invent_a_slice(tmp_path):
     assert "specseal:smith  2/2" in out, out
 
 
+def test_a_file_whose_first_window_is_empty_still_carries_its_tokens(tmp_path):
+    """The token figure rides the first KEPT slice, not window 0 — which may
+    have been dropped for holding no call. An agent resumed before it issued
+    anything has exactly that shape: the marker arrives, and every call it
+    made is on the far side of it.
+
+    Found by mutating `position == 0` back to `index == 0`, which the two
+    cases above leave green because their window 0 holds calls. Red under
+    that mutation: no slice carries the figure at all and the file's tokens
+    vanish from the table."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                coordinator_message(625),
+                *worked(626, "s1", "./bin/test tests/test_x.py -q", output=500),
+                *worked(640, "s2", "ruff check ."),
+            ]
+        },
+    )
+    rows = segments_of(path)["rows"]
+    assert len(rows) == 1, rows
+    assert rows[0]["named"] and (rows[0]["slice"], rows[0]["slices"]) == (1, 1), rows
+    assert rows[0]["tokens"]["output"] == 500, rows[0]
+
+
 def test_a_resumed_file_that_called_nothing_at_all_still_gets_its_row(tmp_path):
     """The other arm of the same branch, and the reason it is not a bare
     filter. Dropping every call-less window would drop a transcript that
