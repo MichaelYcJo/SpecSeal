@@ -65,12 +65,17 @@ SHIPPED_ROOTS = ("agents", "skills", "templates")
 # a gap somebody notices while writing something up.
 NO_WRAPPER = {
     "chain_check.py": (
-        "Named in four shipped documents and invoked in none of them -- the "
-        "property `test_an_unwrapped_script_is_shown_in_no_command_form` "
-        "asserts below. All three places that DO invoke it "
-        "(`.github/workflows/hygiene.yml`, `templates/hygiene.yml` and "
-        "`docs/release-checklist.md`) carry its full path, so it is reachable "
-        "everywhere it is reached. A wrapper would also change the row in "
+        "Named in four shipped documents and shown with a flag in none of "
+        "them -- which is what `test_an_unwrapped_script_is_shown_in_no_"
+        "command_form` asserts, and the whole of it. A flag is the only "
+        "sound tell in prose, so a bare mention in a list of checks is not "
+        "caught: `templates/config.md` names it beside three commands. "
+        "Every place that invokes it carries its full path -- "
+        "`.github/workflows/hygiene.yml`, `templates/hygiene.yml` and "
+        "`docs/release-checklist.md` by hand, and "
+        "`skills/verify/scripts/broad_gate.py` and this skill's own "
+        "`round_record.py` in code -- so it is reachable everywhere it is "
+        "reached. A wrapper would also change the row in "
         "`templates/config.md` that spells the broad gate to a user, which is "
         "a user-facing change with no defect behind it (#318)."
     ),
@@ -131,6 +136,12 @@ def reachable(text, script):
     a clone with the plugin disabled can open.
     """
     command = command_name(script)
+    # A command name with no hyphen in it is an ordinary English word --
+    # `seal.py` answers to `seal` -- and this repository's prose is full of
+    # it, so the bare-word form cannot tell a locator from a sentence. Those
+    # scripts are reachable by path only, which is a reader that can fail.
+    if "-" not in command:
+        return script in text
     typed = re.search(rf"(?<![\w-]){re.escape(command)}(?![\w-])", text) is not None
     return typed or script in text
 
@@ -217,6 +228,12 @@ def test_every_script_a_shipped_document_names_is_wrapped_or_classified(script):
         f"`bin/{command}` ships without its `.cmd` twin, so Windows loses the "
         "command: a new command means both files or it means one platform"
     )
+    assert os.access(posix, os.X_OK), (
+        f"`bin/{command}` ships without its executable bit, so the command "
+        "resolves on PATH and then refuses. The form this generalises -- "
+        "`tests/test_unverified_rows_close.py::test_the_wrapper_is_present_"
+        "and_executable` -- asks for file, twin, exec bit and target"
+    )
 
 
 def test_nothing_classified_has_grown_a_wrapper():
@@ -294,6 +311,16 @@ def test_a_document_with_no_locator_is_caught():
         "It lives at `skills/x/scripts/round_record.py`.",
         "skills/x/scripts/round_record.py",
     )
+
+
+def test_a_one_word_command_name_is_not_a_locator():
+    """`seal.py` answers to `seal`, and every document in this repository
+    contains that word. Read as a locator it makes the rule unfalsifiable for
+    that script, which is the one thing Q1's general form was chosen to
+    prevent."""
+    seal = "skills/implement/scripts/seal.py"
+    assert not reachable("The sealer takes the seal after the rounds.", seal)
+    assert reachable("It lives at `skills/implement/scripts/seal.py`.", seal)
 
 
 def test_a_locator_inside_a_longer_word_does_not_count():

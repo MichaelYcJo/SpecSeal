@@ -136,7 +136,9 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   with grounds is still nothing needing a fix. It goes in your report as a
   line of its own — `Needs a fix: no` or `Needs a fix: yes — <what>` — and
   `round_record.py new` copies it into the row of the same name in
-  `round-N.md`. An answer the report format has no field for is a decision
+  `round-N.md` — that generator is
+  `skills/code-review/scripts/round_record.py`, typed as `round-record`. An
+  answer the report format has no field for is a decision
   that lives in a transcript, which is the failure this whole round exists to
   close.
 

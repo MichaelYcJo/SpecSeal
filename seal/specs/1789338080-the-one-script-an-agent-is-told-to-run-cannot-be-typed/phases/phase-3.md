@@ -30,6 +30,21 @@ pinned phrase to satisfy a new pin is quieting one check with another, so the
 phrases were restored whole and the locators moved one sentence down. No
 constant of that module was touched.
 
+<!-- Corrected in round 1's fix pass (🟡 4). *One sentence down* was true of
+`skills/implement/SKILL.md` and `templates/sdd-phase.md` and NOT of
+`agents/warden.md`, where it was 48 lines and two further mentions later — in
+the file three of the incident's four segments were reading, which is the one
+document where the distance costs most. The pinned substring ends before the
+word *in*, so a clause appended after `round-N.md` leaves it whole; the
+locator now sits at the first mention, at line 138. This paragraph is left as
+it was written and corrected here rather than rewritten, because a record
+says what was true when it was written. -->
+
+**Round 1 also measured what this paragraph did not say.** The reviewer read
+`GENERATOR_NAMED`'s substring for `agents/warden.md` closely enough to find
+that it ends before *in* — which the build had not, and which is why the build
+concluded the locator could not go at the first mention at all.
+
 **The pin went red twice, as the plan asked, and the second red was cheap.**
 Against the tree as it stood: ten failures, one per document for all nine plus
 `chain_check.py` unclassified, each naming its own coordinate. By mutation
