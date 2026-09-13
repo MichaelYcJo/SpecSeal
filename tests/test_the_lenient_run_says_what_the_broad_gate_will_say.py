@@ -26,6 +26,7 @@ without this module going red, which is what keeps the next edit from
 quietly taking the fact back.
 """
 
+import ast
 import importlib.util
 import os
 import re
@@ -214,6 +215,29 @@ def ledger_call_site():
     raise AssertionError("broad_gate.py has no checks[LEDGER] call site")
 
 
+def failure_loop():
+    """`gate()` and the loop inside it that collects every failing check.
+
+    Read as a syntax tree rather than as text: the claim is about which
+    checks the loop lets through, and a substring search cannot tell an
+    exemption (`if name == LEDGER: continue`) from the enrichment already
+    there (`if name == SUITE:`), which is not a skip at all."""
+    parsed = ast.parse(read(BROAD_GATE))
+    gates = [
+        n
+        for n in ast.walk(parsed)
+        if isinstance(n, ast.FunctionDef) and n.name == "gate"
+    ]
+    assert len(gates) == 1, f"broad_gate.py has {len(gates)} functions named gate"
+    loops = [
+        n
+        for n in ast.walk(gates[0])
+        if isinstance(n, ast.For) and ast.unparse(n.iter) == "checks.items()"
+    ]
+    assert len(loops) == 1, f"gate() has {len(loops)} loops over checks.items()"
+    return gates[0], loops[0]
+
+
 def flag_the_notice_names():
     flags = re.findall(r"`(--[a-z-]+)`", ec.LENIENT_NOTICE)
     assert flags == ["--strict"], f"the notice names {flags}"
@@ -251,6 +275,53 @@ def test_the_notice_borrows_the_word_the_failing_gate_prints():
     assert "NOT SEALED" in read(SEAL_STAMP), "seal_stamp no longer prints it"
     assert "broad-gate" in ec.LENIENT_NOTICE, "the notice names no reader"
     assert "exit 2" in ec.LENIENT_NOTICE, "the notice names no grading"
+
+
+def test_a_failing_ledger_check_is_what_reaches_the_failure_form():
+    """S4's third limb, and the one the case above does not reach.
+
+    `test_the_notice_borrows_the_word_the_failing_gate_prints` shows that
+    `seal_stamp` still says `NOT SEALED`. It does not show that a drifted
+    tree gets there. Two steps carry it and neither is read anywhere else:
+    `gate()` skips a check on its own exit code and on nothing else -- no
+    exemption by name -- and a non-empty `failures` is what takes the
+    failure form.
+
+    Exempting the ledger check here is *make the broad gate lenient*, the
+    one change `spec.md` §Scope puts out of bounds, and it would leave the
+    checker printing a false sentence on every lenient run with the whole
+    suite green. Round 1 measured exactly that: the mutation
+    `if name == LEDGER or not check.failed: continue` left this module at 13
+    passed."""
+    gate, loop = failure_loop()
+    skips = [
+        ast.unparse(node.test)
+        for node in ast.walk(loop)
+        if isinstance(node, ast.If)
+        and any(isinstance(stmt, ast.Continue) for stmt in node.body)
+    ]
+    assert skips == ["not check.failed"], (
+        f"the failure loop skips a check on something other than that "
+        f"check's own result: {skips}"
+    )
+    last = loop.body[-1]
+    collected = (
+        isinstance(last, ast.Expr)
+        and isinstance(last.value, ast.Call)
+        and ast.unparse(last.value.func) == "failures.append"
+    )
+    assert collected, (
+        f"the loop no longer ends by collecting every check it let through: "
+        f"{ast.unparse(last)}"
+    )
+    taken = [
+        node
+        for node in ast.walk(gate)
+        if isinstance(node, ast.If) and ast.unparse(node.test) == "failures"
+    ]
+    assert len(taken) == 1, "gate() no longer branches on a non-empty `failures`"
+    body = ast.unparse(taken[0])
+    assert "stamp.not_sealed(" in body, f"the failure form is no longer taken:\n{body}"
 
 
 DESCRIBES_THE_CHECK = (
