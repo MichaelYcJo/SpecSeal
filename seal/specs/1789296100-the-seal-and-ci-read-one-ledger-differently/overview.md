@@ -2,7 +2,7 @@
 
 📋 implement applied
 · spec:     `spec.md`, `plan.md`, `questions.md` and `routing.md` in this directory · `CLAUDE.md` §*The goal a design is chosen against*, §*a change writes fragments, never the shared file*, §*a thing more than one party can have is named with whose* · `CONTRIBUTING.md` §*What a change to a gate must carry* · `skills/agent-contract/SKILL.md` §§1, 2, 4, 9, 12, 14, 15 · `skills/implement/SKILL.md` §§2–4 · `agents/sealer.md` §*The one run*
-· evidence: three rows in `seal/ledger/1789296100-the-seal-and-ci-read-one-ledger-differently.md` — the checker's notice, the grading unit, and the gate's ledger call site
+· evidence: four rows in `seal/ledger/1789296100-the-seal-and-ci-read-one-ledger-differently.md` — the notice, the grading unit, the gate's ledger call site, and the five documents. Seven existing `seal/ledger.md` rows re-read and re-verified, their claims unchanged
 · verified: executed — the new module, the three ledger modules, the wrapper-pair and document modules, three mutations, and the CI `ledger` step's own shell body over a drifted fixture. Read, not executed — `hooks/evidence-advisor.py`'s silence on drift. Unverified — the full suite, the repository-wide lint and the typecheck; see *Not verified*
 
 ## Why this work exists
