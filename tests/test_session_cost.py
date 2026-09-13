@@ -2580,3 +2580,215 @@ def test_no_existing_printed_line_moves_when_the_mode_is_not_asked_for(
     spawns = run(["--spawns", str(run_with_segments)]).stdout
     assert "named by nobody" not in spawns, spawns
     assert "2 spawns found" in spawns, spawns
+
+
+# --- the resume slice: one row is one segment, not one file ----------------
+
+
+def coordinator_message(second, text="Round 1's record is committed. Fix three."):
+    """The row a harness writes when the coordinator sends a running agent a
+    new message.
+
+    `skills/verify/SKILL.md` prescribes the hand split *at the user lines
+    where the coordinator sent it a new message*, and this is that line in
+    the harness's own words. Measured over the 350 segment transcripts on one
+    machine: 41 hold an idle gap at or above `analyse`'s 900-second ceiling,
+    82 such gaps in all, and the row after a gap is a `type=user` row with
+    `isMeta` set and a bare-string content far more often than anything
+    else."""
+    return json.dumps(
+        {
+            "timestamp": stamp_at(second),
+            "type": "user",
+            "isMeta": True,
+            "message": {
+                "role": "user",
+                "content": (
+                    "The coordinator sent a message while you were working: " + text
+                ),
+            },
+        }
+    )
+
+
+@pytest.fixture
+def resumed_segment(tmp_path):
+    """One segment transcript holding two stretches of work separated by an
+    idle gap and a coordinator message.
+
+    slice 1  two calls, 625-641
+    (idle)   8,359 seconds in which the agent issued nothing
+    slice 2  two calls, 9010-9031
+
+    The file's own span is 8,406 seconds. Read whole — which is what the mode
+    does before this phase — one row covers the idle gap and reports a span
+    over two hours for an agent that worked for 37 seconds."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    return write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1", "./bin/test tests/test_x.py -q", output=500),
+                *worked(640, "s2", "ruff check ."),
+                coordinator_message(9000),
+                *worked(9010, "s3", "./bin/test tests/test_y.py -q"),
+                *worked(9030, "s4", "git commit -m x"),
+            ]
+        },
+    )
+
+
+def test_a_resumed_segment_is_one_row_per_slice_not_one_per_file(resumed_segment):
+    """The acceptance row, and the assertion the whole-file reading fails.
+
+    Two slices, each with its own span, and their sum well under the file's
+    own — because the idle gap between them belongs to neither. A mode that
+    inherits the whole-file reading has not solved the problem it was built
+    for."""
+    segments = segments_of(resumed_segment)
+    assert len(segments["rows"]) == 2, segments["rows"]
+    spans = [row["numbers"]["span_s"] for row in segments["rows"]]
+    assert spans == [16, 21], spans
+    # The file's own span, which is what one row would have reported.
+    assert sum(spans) < 8406, spans
+    assert [row["slice"] for row in segments["rows"]] == [1, 2], segments["rows"]
+    assert all(row["slices"] == 2 for row in segments["rows"]), segments["rows"]
+
+
+def test_a_later_slice_inherits_the_name_from_the_files_first(resumed_segment):
+    """Only the file's opening stamp can be joined to a spawn's result — a
+    resume has no `Agent` call of its own anywhere. So the name is the file's
+    and every slice carries it, rather than the second slice reading as a
+    segment nobody spawned."""
+    rows = segments_of(resumed_segment)["rows"]
+    assert [row["agent"] for row in rows] == ["specseal:smith"] * 2, rows
+    assert all(row["named"] for row in rows), rows
+    assert segments_of(resumed_segment)["unnamed"] == 0, rows
+
+
+def test_a_files_tokens_are_carried_by_its_first_slice_only(resumed_segment):
+    """`token_totals` dedups a streamed message by its id and keeps the
+    largest count each field reached (#202). Re-deriving that per slice would
+    duplicate the rule, and a message whose rows straddled a slice boundary
+    would be counted in both — #202's failure shape rebuilt in a new place.
+    So the figure stays the file's, and every later slice prints a dash
+    rather than a number a reader would add up."""
+    rows = segments_of(resumed_segment)["rows"]
+    assert rows[0]["tokens"]["output"] == 500, rows[0]
+    assert rows[1]["tokens"] is None, rows[1]
+
+
+def test_a_segment_with_no_marker_names_the_gap_it_could_not_split(tmp_path):
+    """The floor `plan.md` names. Where the marker is absent and an idle gap
+    above the 900-second ceiling is present, one row prints and the report
+    says what that does to the span — rather than a span quietly covering a
+    wait nobody can see in the columns."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1", "./bin/test tests/test_x.py -q"),
+                *worked(2000, "s2", "ruff check ."),
+            ]
+        },
+    )
+    rows = segments_of(path)["rows"]
+    assert len(rows) == 1, rows
+    assert rows[0]["slices"] == 1, rows[0]
+    # 626 to 2000 — the gap `analyse`'s model walk already drops and no
+    # column has ever named.
+    assert rows[0]["idle_gap_s"] == 1374, rows[0]
+    out = " ".join(segment_report(path).split())
+    assert "no coordinator message" in out, out
+    assert "22.9m" in out, out
+
+
+def test_a_segment_that_was_not_resumed_reports_one_slice_and_no_gap(
+    run_with_segments,
+):
+    """The negative half. A segment that ran straight through is one slice
+    with nothing to name, and a report that says otherwise is reading a
+    marker into a file that has none."""
+    rows = segments_of(run_with_segments)["rows"]
+    assert all(row["slices"] == 1 and row["slice"] == 1 for row in rows), rows
+    assert all(row["idle_gap_s"] == 0 for row in rows), rows
+    out = " ".join(segment_report(run_with_segments).split())
+    assert "no coordinator message" not in out, out
+    assert "resumed" not in out, out
+
+
+def test_the_printed_table_says_which_slice_of_its_file_a_row_is(resumed_segment):
+    """Two rows carrying one agent's name is unreadable without it — a reader
+    cannot tell a resumed segment from two agents of the same kind."""
+    out = segment_report(resumed_segment)
+    assert "specseal:smith  1/2" in out, out
+    assert "specseal:smith  2/2" in out, out
+    assert "coordinator" in out, out
+
+
+def test_the_two_count_sentences_agree_with_their_own_number(tmp_path, resumed_segment):
+    """`1 segment was resumed` and `2 segments was resumed` — the second is
+    what a first draft printed, and it is the failure
+    `test_the_token_line_says_one_transcript_rather_than_1_transcripts`
+    already polices one line over. Read off a real run before it was caught:
+    `6 segments was resumed` and `2 rows above covers an idle gap`.
+
+    Both sentences are built so no verb has to agree with a count, which is
+    the repair rather than two branches that can drift apart. This pins each
+    at one and at more than one."""
+    one = " ".join(segment_report(resumed_segment).split())
+    assert "come from 1 segment the coordinator restarted" in one, one
+
+    # Two resumed files in one run, so the same sentence has to carry a
+    # plural subject.
+    main = (
+        call("a", 0, 10, "git status --short")
+        + spawn("A", 25, 625, "specseal:smith", "Build phase 1")
+        + spawn("B", 700, 1200, "specseal:warden", "Review round 1")
+    )
+    both = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                *worked(9010, "s2"),
+            ],
+            "agent-warden.jsonl": [
+                *worked(1200, "w1"),
+                coordinator_message(9500),
+                *worked(9510, "w2"),
+            ],
+        },
+    )
+    many = " ".join(segment_report(both).split())
+    assert "come from 2 segments the coordinator restarted" in many, many
+
+
+def test_the_idle_gap_sentence_agrees_with_its_own_number(tmp_path):
+    """The other half of the same class: `2 rows above covers`. The sentence
+    puts the count in an object rather than a subject, so one row and two
+    read the same way."""
+    main = (
+        call("a", 0, 10, "git status --short")
+        + spawn("A", 25, 625, "specseal:smith", "Build phase 1")
+        + spawn("B", 700, 1200, "specseal:warden", "Review round 1")
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [*worked(625, "s1"), *worked(2000, "s2")],
+            "agent-warden.jsonl": [*worked(1200, "w1"), *worked(4000, "w2")],
+        },
+    )
+    out = " ".join(segment_report(path).split())
+    assert "sits inside 2 rows above" in out, out

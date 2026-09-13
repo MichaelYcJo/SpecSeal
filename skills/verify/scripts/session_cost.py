@@ -49,6 +49,7 @@ owns that distinction and `tests/test_one_word_one_meaning.py` holds it.
 import argparse
 import bisect
 import datetime as dt
+import itertools
 import json
 import math
 import os
@@ -905,6 +906,93 @@ def opening_stamp(path):
     return None
 
 
+# What a harness writes into a running agent's own transcript when the
+# coordinator sends it a new message. `skills/verify/SKILL.md` §*Measure the
+# segment* prescribes the hand split at exactly these rows, in exactly these
+# words, and until now nothing asserted it against a file.
+#
+# **Measured over the 350 segment transcripts on one machine before this was
+# written.** 41 of them hold an idle gap at or above `analyse`'s 900-second
+# ceiling, 82 such gaps in all, and the row after a gap is a `type=user` row
+# carrying `isMeta` and a bare string in 61 of the 82. Of those, the ones
+# beginning with the sentence below are the coordinator's; the rest are the
+# harness talking to the agent about itself -- a response cut off mid-stream,
+# a background-task notification -- and splitting at those would cut one
+# stretch of work in half.
+#
+# **So the marker is the sentence and not the row shape**, and the cost is
+# that a harness rewording it stops every split. That failure is loud rather
+# than silent: a file that can no longer be cut falls to the floor below,
+# which prints one row AND names the idle gap the span now covers. A reader
+# sees a segment that worked for 37 seconds reported over two hours with a
+# line saying why. The alternative -- splitting on `isMeta` alone -- fails
+# the other way, cutting a working stretch in two with nothing on the page.
+COORDINATOR_MESSAGE = "The coordinator sent a message while you were working:"
+
+
+def resume_cuts(path):
+    """The stamps at which a coordinator's new message restarted this segment.
+
+    A resumed agent's transcript holds several stretches of work in one file,
+    and read whole it reports a span covering every idle gap between them —
+    a segment that worked for 37 seconds reading as two hours. The hand
+    method was to split the file by eye and measure one slice; these are the
+    cuts that does by hand.
+
+    Run through a running maximum, the way `spawn_cuts` runs its own: cuts
+    that go backwards would overlap the windows they exist to partition.
+
+    A file that cannot be opened or holds no marker returns nothing, and the
+    segment is one row — with `widest_idle_gap` naming what that row's span
+    then covers."""
+    cuts = []
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(row, dict) or row.get("type") != "user":
+                    continue
+                if not row.get("isMeta"):
+                    continue
+                message = row.get("message")
+                if not isinstance(message, dict):
+                    continue
+                content = message.get("content")
+                if not isinstance(content, str):
+                    continue
+                if not content.lstrip().startswith(COORDINATOR_MESSAGE):
+                    continue
+                when = parse_time(row.get("timestamp"))
+                if when:
+                    cuts.append(max(when, cuts[-1]) if cuts else when)
+    except OSError:
+        return []
+    return cuts
+
+
+def widest_idle_gap(calls):
+    """The longest stretch inside these calls in which the agent issued
+    nothing, or 0.0 where there is none worth naming.
+
+    Only gaps at or above `analyse`'s 900-second ceiling count, because that
+    is the gap the model walk already drops: below it the wait is in
+    `model_s` and a reader can see it, and at or above it the time is in the
+    span and in no other column. Naming it is the floor for a file that has
+    an idle gap and no marker to cut it at."""
+    widest = 0.0
+    for before, after in itertools.pairwise(calls):
+        gap = (after["start"] - before["end"]).total_seconds()
+        if gap >= 900:
+            widest = max(widest, gap)
+    return widest
+
+
 def join_segments(openings, spawns):
     """Each segment paired with the spawn whose result it opened at, or None.
 
@@ -946,6 +1034,77 @@ def join_segments(openings, spawns):
             claimed[best[0]] = True
             paired.append((path, spawns[best[0]]))
     return paired, claimed.count(False)
+
+
+def segment_slices(transcript, labels):
+    """One transcript's rows — one per stretch of work, not one per file.
+
+    **One row is one segment, and a resumed agent's file holds several.** The
+    coordinator sends a running agent a new message, the agent goes on in the
+    same transcript, and the idle gap between the two stretches belongs to
+    neither. Read whole, the file reports a span covering that gap: measured
+    on this repository's own fixture, 140.1 minutes for an agent that worked
+    for 37 seconds.
+
+    **Every slice carries the file's name, because only the file's opening
+    can be joined.** A resume has no `Agent` call of its own in any
+    transcript — the coordinator sent a message, it did not spawn — so the
+    second slice would otherwise read as a segment nobody spawned, and the
+    unnamed count, which is a reading about the harness, would climb with
+    every resume.
+
+    **The token figure stays the file's and rides its first slice.**
+    `token_totals` keys a streamed message by its id and keeps the largest
+    count each field reached (#202); re-deriving that per slice would
+    duplicate the rule, and a message whose rows straddled a boundary would
+    be counted in both — #202's own failure shape rebuilt one reader over.
+    So later slices carry `None` and the table prints a dash, which is a
+    reader seeing there is nothing to add rather than adding a number twice.
+    What that gives up is a per-slice token column, stated here rather than
+    left to be found.
+
+    Where there is no marker and an idle gap anyway, the file is one row and
+    `idle_gap_s` says what that row's span covers."""
+    calls, turns = load(transcript)
+    cuts = resume_cuts(transcript)
+    if not cuts:
+        return [
+            {
+                **labels,
+                "slice": 1,
+                "slices": 1,
+                "idle_gap_s": widest_idle_gap(calls),
+                "numbers": analyse(calls, turns),
+                "tokens": token_totals([transcript]),
+            }
+        ]
+    call_windows = in_windows(cuts, calls, lambda c: c["start"])
+    stamped = [(parse_time(stamp), value) for stamp, value in turns]
+    turn_windows = in_windows(
+        cuts,
+        # A stamp that will not parse has no window to fall in, and is
+        # dropped rather than charged to a guess — `spawn_cycles` takes the
+        # same direction for the same reason.
+        [t for t in stamped if t[0] is not None],
+        lambda t: t[0],
+    )
+    rows = []
+    for index in range(len(cuts) + 1):
+        window = call_windows[index]
+        rows.append(
+            {
+                **labels,
+                "slice": index + 1,
+                "slices": len(cuts) + 1,
+                # Within a slice the gap is named too: a coordinator can send
+                # a message to an agent that then idles again for its own
+                # reasons, and one marker does not answer for the whole file.
+                "idle_gap_s": widest_idle_gap(window),
+                "numbers": analyse(window, turn_windows[index]),
+                "tokens": token_totals([transcript]) if index == 0 else None,
+            }
+        )
+    return rows
 
 
 def measure_segments(path, calls):
@@ -995,17 +1154,15 @@ def measure_segments(path, calls):
     paired, unclaimed = join_segments(openings, spawns)
     rows = []
     for transcript, spawn in [*paired, *((t, None) for t in unreadable)]:
-        segment_calls, segment_turns = load(transcript)
         labels = (spawn or {}).get("spawn") or {}
-        rows.append(
+        rows += segment_slices(
+            transcript,
             {
                 "agent": labels.get("subagent_type", "") if spawn else "",
                 "description": labels.get("description", "") if spawn else "",
                 "named": spawn is not None,
                 "transcript": os.path.relpath(transcript, beside),
-                "numbers": analyse(segment_calls, segment_turns),
-                "tokens": token_totals([transcript]),
-            }
+            },
         )
     return {
         "tolerance_s": JOIN_TOLERANCE_S,
@@ -1509,12 +1666,17 @@ def segment_label(row):
     named. Cutting from the right the way every other label here is cut left
     `main/subagents/inner/agent-dee`, which is the one part of the path a
     reader cannot use."""
+    # A resumed file's slices all carry one agent's name, so without this a
+    # reader cannot tell a segment that was resumed from two agents of the
+    # same kind — and the two mean completely different things about a run.
+    suffix = f"  {row['slice']}/{row['slices']}" if row["slices"] > 1 else ""
+    width = LABEL_WIDTH - len(suffix)
     if row["named"]:
-        return row["agent"][:LABEL_WIDTH]
+        return row["agent"][:width] + suffix
     transcript = row["transcript"]
-    if len(transcript) <= LABEL_WIDTH:
-        return transcript
-    return "…" + transcript[-(LABEL_WIDTH - 1) :]
+    if len(transcript) <= width:
+        return transcript + suffix
+    return "…" + transcript[-(width - 1) :] + suffix
 
 
 def report_segments(segments, path):
@@ -1585,19 +1747,57 @@ def report_segments(segments, path):
             "still\n  part of the run, and dropping it would take its numbers "
             "out of the reading too."
         )
+    resumed = [row for row in rows if row["slices"] > 1]
+    if resumed:
+        print(
+            "\n  Slices marked `N/of` above come from "
+            f"{plural(len(set(row['transcript'] for row in resumed)), 'segment')} "
+            "the coordinator\n  restarted. It sent the agent a new message and "
+            "the agent went on in the same\n  transcript, so the idle gap "
+            "between two stretches belongs to neither and no\n  slice's span "
+            "covers it. Every slice carries "
+            "the file's name: a resume has no `Agent` call of its\n  own "
+            "anywhere, so only the file's opening could be joined. The token "
+            "figure is\n  the file's and rides its first slice, which is why "
+            "the others print a dash."
+        )
+    # The floor. A file with an idle gap and no marker to cut it at is one
+    # row whose span covers the wait, and that is a true reading nobody can
+    # see in the columns -- `analyse`'s model walk drops any gap of 900s or
+    # more, so it is in `span` and in nothing else. Named rather than left,
+    # because the alternative is a segment that worked for half a minute
+    # reported over two hours with nothing on the page.
+    stuck = [row for row in rows if row["idle_gap_s"]]
+    if stuck:
+        widest = max(row["idle_gap_s"] for row in stuck)
+        print(
+            "\n  An idle gap with no coordinator message in it to cut at sits "
+            f"inside\n  {plural(len(stuck), 'row')} above — the widest is "
+            f"{minutes(widest)}. That time is inside the row's span and "
+            "in no\n  other column, because the model walk drops any gap of "
+            "fifteen minutes or more.\n  Read such a span as a stretch of work "
+            "plus a wait, never as work."
+        )
     print(
         f"\n  {'agent':<{LABEL_WIDTH}}{'span':>8}{'calls':>7}{'t/turn':>8}{'gap':>7}{'tokens':>14}"
     )
     for row in rows:
         numbers, tokens = row["numbers"], row["tokens"]
-        spent = tokens["output"] + tokens["cache_write"] + tokens["cache_read"]
+        # A dash, not a zero. A later slice of a resumed file has no token
+        # figure of its own -- the file's rides its first slice -- and a zero
+        # there reads as a stretch that spent nothing.
+        spent = (
+            f"{tokens['output'] + tokens['cache_write'] + tokens['cache_read']:,}"
+            if tokens
+            else "—"
+        )
         if not numbers:
             # A real reading, not a gap in the table: a segment that read and
             # thought and called nothing has no span and still spent what the
             # run paid for. `report_tokens` was split out for the same shape.
             print(
                 f"  {segment_label(row):<{LABEL_WIDTH}}"
-                f"{'no paired call':>30}{spent:>14,}"
+                f"{'no paired call':>30}{spent:>14}"
             )
             continue
         print(
@@ -1606,7 +1806,7 @@ def report_segments(segments, path):
             f"{numbers['calls']:>7}"
             f"{numbers['tools_per_turn']:>8.2f}"
             f"{numbers['gap_mean_s']:>6.0f}s"
-            f"{spent:>14,}"
+            f"{spent:>14}"
         )
     # A column that looks summable and is not is #200's failure shape in a
     # new place, so the page says which of the two it is rather than leaving
