@@ -145,9 +145,12 @@ and a heading for a document, and the hash covers the region under it. The
 `evidence-check` skill ships a CI-ready script that
 exits 2 when an anchor is gone or ambiguous and 1 when the content under it
 changed; both fail a default CI step, and `--strict` makes drift exit 2 too.
-What it proves is narrow and worth stating: that the citation still points at
-what it claimed, not that the claim it supports is still true. Specs rot
-silently everywhere else — here the rot shows up in CI.
+**`broad-gate` is the reader that passes `--strict`**, so drift you were shown
+as exit 1 locally is what refuses the branch when the sealer runs that gate —
+and a lenient run says so on the exit code where the two readings part. What it
+proves is narrow and worth stating: that the citation still points at what it
+claimed, not that the claim it supports is still true. Specs rot silently
+everywhere else — here the rot shows up in CI.
 
 **A row carries no line number and no commit.** A line number moves for edits
 that have nothing to do with the claim, so inserting a line above a cited

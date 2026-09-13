@@ -169,9 +169,32 @@ evidence-check --reverify .    # after re-reading: rewrite each row's hash
 | `--ledger GLOB` | ledgers to scan (default `seal/ledger.md` and `seal/ledger/*.md`). A run given this prints which ledgers it did not read, and how to read them |
 | `--default-repo PATH` | migration ledgers cite the ORIGINAL repo with unprefixed paths — resolve them against this checkout |
 | `--map NAME=PATH` | resolve `NAME/...` prefixed coordinates against another checkout |
-| `--strict` | drift exits 2, the broken-coordinate code, instead of 1 |
+| `--strict` | drift exits 2, the broken-coordinate code, instead of 1. This is the form `broad-gate` runs |
 | `--reverify` | rewrite every resolvable row's hash to what its anchor holds now — and re-anchor every BROKEN row that exactly one unit reconstructs, path and locator both |
 | `--migrate` | rewrite old `path:line` rows to `path#unit@hash`; what it cannot prove is left and named |
+
+### Which reader graded your tree
+
+Three readers run this script over one tree and grade drift differently, and
+the command above is the most lenient of them.
+
+| Reader | Drift is |
+|---|---|
+| `evidence-check .`, and CI's `ledger` job | exit 1. CI renders it as a `::warning::` and the job still passes |
+| `broad-gate` | exit 2. It runs this same check with `--strict`, and the branch comes back `NOT SEALED` |
+| `hooks/evidence-advisor.py` | not reported at all. A line that prints on every commit is a line people learn to skip |
+
+All three are right about the tree they are looking at. A branch mid-flight
+legitimately drifts, and the gate runs once at the end over a tree nobody is
+still editing — so the disagreement is the design and not a defect. What was
+the defect is that nobody said so: a session that ran the documented command
+and read exit 1 had no way to learn that the run which decides reads the same
+tree as a refusal.
+
+**So a lenient run says it.** Where the answer is exit 1 and only there, the
+check prints which reading you took and what `broad-gate` would say instead.
+Exit 0 and exit 2 print nothing extra, because every reader grades those alike
+(#354).
 
 ### A narrowed run says what it did not read
 
@@ -226,7 +249,7 @@ branch had touched.
 |---|---|---|
 | `BROKEN` (exit 2) | the MAJOR unit — or its whole file — is not there, or the unit is there more than once | fix the coordinate now. Where the content still exists the line names the destination, graded by proof: `identical content at <where> (renamed?/moved?)` is content identity across a repo-wide scan and `--reverify` acts on it; `same name at <path> (content differs)` is a labelled fact only; several matches are counted, never named |
 | `OLD-FORMAT` (exit 2, `--strict` or not) | an old `path:line` row from before content anchoring, which nothing measures any more | run `evidence-check --migrate .` — a red build naming the migrator beats a green build checking nothing |
-| `DRIFTED` (exit 1; 2 under `--strict`) | the content changed, or a minor anchor's place is gone | re-open it, re-read the claim, then `--reverify` |
+| `DRIFTED` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | the content changed, or a minor anchor's place is gone | re-open it, re-read the claim, then `--reverify`. This is the one verdict the readers grade differently — see *Which reader graded your tree* |
 | `EXTERNAL` (exit 0) | the path resolves in no known checkout, in a repository that has DECLARED cross-repo intent — a parity config, `--map`, or `--default-repo` | pass `--map`/`--default-repo`, or accept as out of scope. Without such a declaration a missing path is `BROKEN` instead: a deleted or renamed directory must fail the build, not read as somebody else's repo |
 | `NOT-IN-TREE` (exit 2, records arm) | a record of a work item that has not shipped names a compound backticked identifier that nothing git carries outside `seal/specs/` and `seal/ledger/` | correct the record, or write `NAME NOT IN TREE` on the line where the record means a name the tree does not have. The marker exempts the LINE, not the name |
 | `UNREADABLE` (exit 2, records arm) | a record under a live work item that could not be opened, or a directory the walk could not LIST — a work item's own folder, or `seal/ledger/` itself | a record nobody can read is indistinguishable from a record with nothing in it, which is the green build this refuses. The same holds a directory up, where it is worse: an unlistable `seal/ledger/` used to read as a repository with no live work item and take the whole arm quiet at exit 0. A directory that is ABSENT is still an empty answer — a repository that has not started is not a broken one |
