@@ -104,14 +104,32 @@ shipped, for which no file was ever written.
 ### Out, and why
 
 - **A `bin/chain-check` wrapper.** `chain_check.py` is named 23 times in
-  shipped documents and **never as a command**; the three places that invoke it
-  — `.github/workflows/hygiene.yml`, `templates/hygiene.yml` and
-  `docs/release-checklist.md:100` — all carry its full path, so it is reachable
-  everywhere it is reached. Wrapping it would widen this branch into a file no
+  shipped documents and **never with a flag**; the five places that invoke it
+  — `.github/workflows/hygiene.yml`, `templates/hygiene.yml`,
+  `docs/release-checklist.md:100`, `skills/verify/scripts/broad_gate.py` and
+  `skills/code-review/scripts/round_record.py` — all reach it by full path, so
+  it is reachable everywhere it is reached. Wrapping it would widen this branch into a file no
   other work item in 0.11.4 opens, and `templates/config.md` spells
   `chain_check.py` to users in the row that configures the broad gate, which is
   a user-facing change with no defect behind it. It is classified in the pin
   instead, which leaves a written decision where there is currently nothing.
+
+  <!-- Corrected in round 1's fix pass (⬜ 6, and 🟡 3's narrowing with it).
+  The frame wrote *never as a command* and *the three places*; both were
+  measured again and neither held. What the frame's own grep establishes is
+  narrower than *never as a command* — no shipped document shows the script
+  followed by a FLAG, and `templates/config.md:165` names it beside three bare
+  commands where that detector cannot see it. And two further places invoke
+  it, `broad_gate.py` running it as a subprocess and `round_record.py` loading
+  it as a module, both by full path. Corrected rather than annotated because
+  this is the contract a later round grounds against, not a record of a
+  moment, and because this file's own Grounding table cites
+  `skills/agent-contract/SKILL.md` §5 for exactly this: an aggregate is not a
+  coordinate, and a count carried rather than re-measured is how the ticket's
+  own numbers came in wrong. The decision the bullet grounds does not move —
+  five places reaching it by full path is a stronger case for classifying than
+  three. -->
+
 - **`docs/`.** `docs/review-chain-spec.md` and `docs/review-handoff-protocol.md`
   name the script freely. They stay home under
   `tests/test_the_release_check_watches_what_ships.py`'s own classification,

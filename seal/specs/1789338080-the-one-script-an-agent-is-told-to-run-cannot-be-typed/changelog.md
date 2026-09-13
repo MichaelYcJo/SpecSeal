@@ -31,8 +31,10 @@
   both accepted forms.
 
   **A script may also keep no wrapper, and then it says why.** `chain_check.py`
-  is named in four shipped documents and invoked in none of them, and all
-  three places that do invoke it carry its full path — so it keeps no command
+  is named in four shipped documents and shown with a flag in none of them,
+  and every place that actually invokes it reaches it by full path — the
+  hygiene workflow, the workflow template it ships, the release checklist,
+  `broad-gate`, and the round-record generator itself. So it keeps no command
   and is classified with that reason instead. The classification is not a note:
   the check asserts the property it rests on, so the moment a document shows
   `chain_check.py` being invoked, the classification goes red rather than

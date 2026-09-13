@@ -34,11 +34,14 @@ reader of this file alone does not take silence for an open question.
   so the wrapper alone would not have reached them. `plan.md` §*Alternatives
   considered* holds both rejections.
 - **`chain_check.py` is classified rather than wrapped.** It is named 23 times
-  in shipped documents and never as a command — **executed**, `grep -rn
+  in shipped documents and never with a flag — **executed**, `grep -rn
   'chain_check\.py -' --include='*.md' agents/ skills/ templates/` returns
-  nothing — and all three places that invoke it carry its full path. Wrapping
-  it would change `templates/config.md`'s user-facing broad-gate row for a
-  defect that does not exist. The pin asserts the property the classification
+  nothing, which is what that grep measures and the whole of it. Separately
+  **executed** in round 1's fix pass, by `git grep`: the five places that
+  invoke it all reach it by full path — the hygiene workflow, its shipped
+  template, the release checklist, `broad_gate.py` and `round_record.py`.
+  Wrapping it would change `templates/config.md`'s user-facing broad-gate row
+  for a defect that does not exist. The pin asserts the property the classification
   rests on, so it degrades to red rather than standing as a note.
 - **`docs/` is out of the sweep.** It stays home under
   `tests/test_the_release_check_watches_what_ships.py`'s own classification,
