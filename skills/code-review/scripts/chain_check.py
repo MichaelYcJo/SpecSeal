@@ -2522,6 +2522,15 @@ def written_late(reader, root, base, rel):
         if full in late:
             late[full].append((line_no, what))
 
+    # Nothing is late, which is what every correct record that closed a
+    # finding with a fix looks like. Returning here rather than falling
+    # through to an empty loop is not tidiness: `written_late_reason` below
+    # calls `read_record`, which is an uncached `git show HEAD:<rel>`, so
+    # without this guard the ordinary record pays a subprocess for an answer
+    # nothing reads.
+    if not late:
+        return [], []
+
     began = item_began(rel)
     # The fourth exit. Until this row, a record refused here had three
     # repairs and not one of them was honest: rewrite history so the adding
