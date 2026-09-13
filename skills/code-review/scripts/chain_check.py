@@ -331,6 +331,26 @@ VERDICTS = "## Verdicts"
 # because there was no constant to derive it from.
 VERDICT_COLUMN = "Verdict"
 TARGET = "Target SHA"
+# Where a record says it was committed after the fixes it commissioned, and
+# WHY. `written_late` below refuses exactly that record, on the strength of
+# git rather than of anything written in the file -- and until this row there
+# was no fourth exit from that refusal. Work item 1789034970 found the other
+# three: rewrite history so the adding commit moves, merge over a red line, or
+# invent an undocumented waiver. It ended red on a line no later commit could
+# clear.
+#
+# The vocabulary is `Needs a fix`'s and `Loses a record or crashes`'s, read by
+# the same `yes_or_no`: `no`, or `yes {DASH} <why>`. A THIRD spelling of one
+# vocabulary is the drift this file closes everywhere else, and the shape is
+# already the right one -- a bare `yes` names nothing, which is what
+# `nobody {DASH} <why>` and `unknown {DASH} <why>` are refused for.
+#
+# Absent, unreadable, or `no`, a late record is judged exactly as it was
+# before this row existed. The relaxation is one state wide and it is a
+# RELAXATION, which is why it owes no cutoff of the `ORDER_FROM` kind: no
+# record that exists is judged more harshly for lacking a row nobody asked
+# its author for.
+WRITTEN_LATE = "Written late"
 PASS_RE = re.compile(r"^\s*-\s*\[( |x|X)\]\s*Pass\b")
 BLOCKING = "🔴"
 # What a verdict cell may say for the finding to count as dealt with. Anything

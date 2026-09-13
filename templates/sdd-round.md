@@ -28,6 +28,7 @@ before the rule landed print instead of failing. -->
 | Field | Value |
 |---|---|
 | Target SHA | <the commit this round actually reviewed — both, if HEAD moved mid-review> |
+| Written late | <`no` · `yes — <why>`, where WHY this record was committed after the fixes it commissions is what a reader needs. WRITTEN by `round_record.py new --written-late "<why>"`; the row reads `no` without the flag. READ by `chain_check.written_late`, which prints instead of failing for a record that carries a reason — the fourth exit a record refused on a line no later commit can clear never had> |
 | Ran by | <what ran this round — the agent and the model, as `agent on model` · `unknown — <why>` when the session that spawned it cannot name one> |
 | PR | <the pull request, once one exists. A field, not the key> |
 | Broad gate | <`not yet`, or the SHA the one full-suite run happened at and the base it was compared against. WRITTEN by `round_record.py seal`, which the `sealer` reaches through `broad-gate --record <item>` on a green run — `close --broad-gate` writes the same cell where fixes and the gate land in one pass. READ by `chain_check.py` on the LAST record at a ready pull request: `not yet` — or no row at all — fails as the run that never happened, and a SHA this record's own `Target SHA` descends from fails as the run spent before the round it was meant to seal. A value it cannot parse is reported rather than failed, and work items begun before `chain_check.GATE_FROM` print instead of failing> |

@@ -331,6 +331,11 @@ INHERITED_HEADER = ("From", "Coordinate", "Why it is still worth opening")
 # longer finds, which the checker reads as `no run was named`.
 BROAD_GATE = chain.BROAD_GATE
 GATE_NOT_YET = chain.GATE_NOT_YET
+# The row this script writes and `chain_check.written_late` reads, imported
+# from the reader for the same reason `BROAD_GATE` is: rename it in one file
+# alone and this one keeps writing a row the checker no longer finds, which
+# the checker reads as a record that said nothing.
+WRITTEN_LATE = chain.WRITTEN_LATE
 # The honest value while nothing has happened yet. `not yet opened` is what
 # `chain_check.declared_pull_head` documents as the pre-pull-request value;
 # `nothing to drain` is `templates/sdd-round.md`'s required answer for a
@@ -1478,6 +1483,37 @@ def reach_back(reader, path, n):
 HEAD_MOVED = "the commit this round read is not the branch's HEAD"
 
 
+def written_late_cell(given):
+    """The `Written late` cell: `no`, or `yes {DASH} <why>` from the flag.
+
+    `--written-late` carries the REASON and not the cell, so the vocabulary
+    belongs here and a caller cannot half-write it. The value is stripped of
+    the separators `yes` would be joined by, so a reason typed with the dash
+    already in front of it does not land with two.
+
+    An empty reason is refused, in the shape `nobody {DASH} <why>` and
+    `unknown {DASH} <why>` are already refused in: a bare `yes` says a record
+    was written late and says nothing a reader can act on, and this row's whole
+    purpose is that the pull request stops refusing the record on the strength
+    of it. A relaxation bought with an empty cell is a waiver with no author.
+    """
+    if given is None:
+        return chain.FLOOR_NO
+    reason = given.strip().strip(chain.SEPARATORS).strip()
+    if not reason:
+        raise Refused(
+            f"--written-late {given!r} carries no reason. The cell is what "
+            f"makes the pull request print `{WRITTEN_LATE}` instead of "
+            "refusing this record, so a reader has to be told WHY it was "
+            "committed after the fixes it commissions — the fix pass was "
+            "spawned before the record was committed, HEAD moved mid-review, "
+            f"whatever happened. The shape is `{chain.FLOOR_YES} {DASH} <why>` "
+            f"and the flag carries the `<why>`, the way `{chain.NOBODY} "
+            f"{DASH} <why>` already asks for one"
+        )
+    return f"{chain.FLOOR_YES} {DASH} {reason}"
+
+
 def head_moved(root, target):
     """(reviewed, head, [`<abbrev> <subject>`]) when HEAD is not `target`.
 
@@ -1528,7 +1564,11 @@ def head_moved_line(reviewed, head, between):
         "pre-squash branches, 40 records of 152 differ this way, and the "
         "commonest cause by far is the round's own paperwork committed "
         "between the review and the record. Read the subjects above and "
-        "decide."
+        "decide.\n"
+        f'  Where the first reading is the true one, `--written-late "<why>"` '
+        f"writes the reason into the record's `{WRITTEN_LATE}` row, and the "
+        "pull request prints it instead of refusing the record on a line no "
+        "later commit can clear."
     )
 
 
@@ -1822,6 +1862,7 @@ def build(reader, routing, args, root, item, rounds):
         row(("Field", "Value")),
         separator(2),
         cell(chain.TARGET, args.target),
+        cell(WRITTEN_LATE, written_late_cell(args.written_late)),
         cell(chain.RAN_BY, args.ran_by),
         cell(chain.PR_FIELD, pull_request_cell(root, args.pr)),
         cell(BROAD_GATE, args.broad_gate if args.broad_gate else GATE_NOT_YET),
@@ -3216,6 +3257,14 @@ def main(argv=None):
     )
     p.add_argument("--asked", required=True, help="the round paragraph, a file")
     p.add_argument("--ran-by", required=True, help="`<agent> on <model>`")
+    p.add_argument(
+        "--written-late",
+        default=None,
+        help=f"WHY this record is being committed after the fixes it "
+        f"commissions. Writes `{WRITTEN_LATE} | yes {DASH} <why>`, which "
+        "`chain_check` prints instead of failing on. Absent, the row reads "
+        "`no` and a late record is refused exactly as before",
+    )
     p.add_argument("--broad-gate", default=None, help="the Broad gate cell")
     p.add_argument("--pr", default=None, help="the PR cell")
     p.add_argument("--root", default=None, help="the repository (default: the item's)")
