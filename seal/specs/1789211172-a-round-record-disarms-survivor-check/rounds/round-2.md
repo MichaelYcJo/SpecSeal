@@ -168,3 +168,36 @@ Nothing else in the report was contradicted. The reviewer's own caveat about the
 stale `.pyc` is recorded here rather than only in its report, because a false red
 that a second run corrected is exactly the kind of thing a later reader needs to
 know was looked at.
+
+## What moved after the gate, and why the cell still holds
+
+The gate was taken at `9a1246d`. Three commits follow it, and a reader is owed
+the reason none of them re-opens it.
+
+| Commit | What it changed | Why it cannot move what the gate measured |
+|---|---|---|
+| `5b09bf5` | this record's `Broad gate` cell, one line | the seal's own write — the cell cannot exist before the run that fills it |
+| `6c11e9f` | two `## Not verified` rows in `overview.md`, marked ✅ | they record answers the gate and CI produced; no code, no test, no ledger row |
+| this one | this section | the same |
+
+**None of the three touches a Python file, a ledger anchor or a fixture**, so
+the suite, `ruff`, `evidence-check` and `survivor-check` are all measuring the
+same tree they measured at `9a1246d`. The one thing they do touch is prose the
+document guards read, so those were re-run narrowly at `6c11e9f` rather than
+assumed: `test_docs_line_wrap`, `test_the_set_a_work_item_always_has`,
+`test_a_question_says_who_can_answer_it`, `test_no_real_identifiers`,
+`test_one_word_one_meaning` and `test_a_row_points_by_content` — **162 passed**,
+one command. `bin/unverified-check` on the memo: exit 0, 3 open, 3 closed.
+
+**This is the narrow run a boundary owes, not a second broad one.** The rule the
+repository states is that a broad run with an edit after it was spent rather
+than banked; the answer to that is either a re-run or an argument, and the
+argument has to name what the edit could have reached. It reached six document
+guards, and they were run.
+
+**CI at `5b09bf5` was green on all six checks** —
+[run 34749466344](https://github.com/MichaelYcJo/SpecSeal/actions/runs/34749466344)
+and [34749466057](https://github.com/MichaelYcJo/SpecSeal/actions/runs/34749466057):
+lint, release, ledger, and `pytest` on ubuntu, macos and **windows** (7m10s).
+The Windows leg is what closed the memo's platform row, which no run of mine
+could have.
