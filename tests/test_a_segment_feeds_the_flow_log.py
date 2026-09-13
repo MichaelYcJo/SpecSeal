@@ -596,3 +596,59 @@ def test_the_section_names_batching_as_the_way_a_share_passes_one_hundred():
         "because the same phrase returning at the start of a sentence is the "
         "same regression"
     )
+
+
+# --- the sentence becomes a command (#350) ---------------------------------
+#
+# The step used to prescribe one `session_cost.py` per transcript and, for a
+# resumed agent, a split done by eye: *split it at the user lines where the
+# coordinator sent it a new message, and measure only the slice that belongs
+# to the segment just watched*. Both are now `--segments`, which walks the
+# run's segments, joins each to the spawn that opened it, and takes the
+# resume split itself.
+
+
+def test_the_section_names_the_per_segment_mode():
+    body = section_body()
+    assert "--segments" in body, (
+        "the section never names `--segments`, so a session measuring a "
+        "segment goes on opening one transcript at a time by hand"
+    )
+
+
+def test_the_section_no_longer_asks_for_the_split_by_hand():
+    """The whole-clause form (#310): what this case exists against is the
+    instruction to do it by eye, and a substring of it survives every
+    rearrangement of the same words."""
+    body = section_body()
+    assert (
+        "split it at the user lines where the coordinator sent it a new" not in body
+    ), (
+        "the section still tells a session to split a resumed transcript by "
+        "hand, which is the work `--segments` now does — and a document that "
+        "asks for both leaves the reader to pick"
+    )
+    assert "measure only the slice that belongs to the segment just watched" not in body
+
+
+def test_the_section_says_the_mode_takes_the_resume_split():
+    """Removing the hand method is not enough: a reader who knows a resumed
+    transcript needs splitting has to be told the mode does it, or they will
+    do it anyway."""
+    body = section_body().lower()
+    assert "resumed" in body and "slice" in body, body[:200]
+    assert "one row per slice" in body, (
+        "the section drops the hand split without saying the mode takes it, "
+        "so a reader with a resumed transcript has no answer at all"
+    )
+
+
+def test_the_section_says_the_mode_notices_a_spawn_inside_a_segment():
+    """#343's half of the same command. A session that runs `--segments` at
+    every segment boundary meets the §6 line there, and the section is where
+    it learns that is what the line means."""
+    body = section_body()
+    assert "§6" in body, (
+        "the section names the mode and not the one finding it can print "
+        "that is about the agent's own conduct rather than its cost"
+    )
