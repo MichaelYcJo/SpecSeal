@@ -19,7 +19,7 @@ three seconds.
 | # | Question | Who can answer | Options & what each implies | Default until answered | Status |
 |---|---|---|---|---|---|
 | Q1 | Now that the join exists, should `delegated_s` in the existing `--spawns` cycle table become the agent's own joined span? | **a person** — the repository owner. It changes what an already-published column means, and #145's `questions.md` §Q4 already assigned it to them | **Leave it** — `delegated_s` stays the `Agent` call's own tool_use-to-tool_result interval, which on this harness is seconds, and the agent's wall clock is read from the new per-segment table instead. Costs nothing and is what this plan builds. **Change it** — one arm in `#measure_cycles` once the join is a function, and every `--spawns` cycle reading published so far means something different with nothing on the page saying so; #200's repair is the precedent for what that then owes. The third answer in Q4's own table, *charge the wait*, is a guess at where the agent finished and is not improved by this work | **Leave it.** The number this work item produces is additive, so the owner can answer this after seeing one | ✅ |
-| Q2 | What marks a resume inside a segment transcript, and does the first slice still open at the spawn's result stamp? | **a measurement** — a probe over the transcripts already on this machine, at the top of phase 3 | `skills/verify/SKILL.md` §*Measure the segment* prescribes the hand split *at the user lines where the coordinator sent it a new message*, so the marker is named in the tree but has never been asserted against a file in code. The probe reads a resumed segment's transcript and reports what those rows actually look like — the row shape, whether a tool_result row is distinguishable from a coordinator message, and whether the file's first slice still matches its spawn | Split at coordinator message rows. Where the probe finds no reliable marker, phase 3's floor applies: one row, with the idle gap above the 900-second ceiling named in the report | ⬜ |
+| Q2 | What marks a resume inside a segment transcript, and does the first slice still open at the spawn's result stamp? | **a measurement** — a probe over the transcripts already on this machine, at the top of phase 3 | `skills/verify/SKILL.md` §*Measure the segment* prescribes the hand split *at the user lines where the coordinator sent it a new message*, so the marker is named in the tree but has never been asserted against a file in code. The probe reads a resumed segment's transcript and reports what those rows actually look like — the row shape, whether a tool_result row is distinguishable from a coordinator message, and whether the file's first slice still matches its spawn | Split at coordinator message rows. Where the probe finds no reliable marker, phase 3's floor applies: one row, with the idle gap above the 900-second ceiling named in the report | ✅ |
 | Q3 | Is one second still the right join tolerance, on the current harness and for `specseal:*` agents? | **a measurement** — a probe over this machine's transcripts, at the top of phase 1 | The tolerance in the tree comes from 61 of 67 spawns across three runs of the 0.9.x line. The probe recomputes the opening-stamp-to-result-stamp distance over current transcripts and reports the distribution. A tolerance too tight loses a segment to the unnamed count; too loose and a batch of two spawns matches the wrong one. Either way the report prints the tolerance it used and the count on each side that went unmatched | 1.0 second, matched to the nearest spawn result, each spawn claimed at most once | ✅ |
 
 ## Decided here rather than asked, with what each was chosen over
@@ -83,3 +83,26 @@ The probe also found that the frame's picture of an unnamable segment is
 wrong about the directory: this harness writes every segment **flat** under
 `subagents/`, subagents of subagents included. `phases/phase-1.md` holds what
 that does and does not change.
+
+**Q2 answered 2026-09-13 by measurement, at the top of phase 3: the marker is
+a literal sentence, and the first slice still opens at the spawn's result.**
+The probe read all 350 segment transcripts on this machine. 41 hold an idle
+gap at or above `analyse`'s 900-second ceiling, 82 such gaps in all, and 61 of
+the 82 are followed by a `type=user` row carrying `isMeta` and a bare-string
+content. Those rows begin with the harness's own sentence, `The coordinator
+sent a message while you were working:`, which is what
+`skills/verify/SKILL.md` describes in prose.
+
+**The row shape alone is the wrong marker.** The same shape also carries a
+notice that the agent's response was cut off mid-stream, and an automated
+background-task notification. Splitting at those cuts one stretch of work in
+half, which is worse than not splitting: it invents a boundary rather than
+missing one.
+
+The first slice is untouched by any of this. The probe found exactly 350
+bare-string user rows with no `isMeta` across 350 files — one per file, the
+spawn prompt — so `opening_stamp` reads the same row it always did and the
+join is unaffected.
+
+`phases/phase-3.md` holds what the choice costs and how the floor makes that
+cost visible.
