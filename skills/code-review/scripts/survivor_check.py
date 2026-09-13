@@ -62,10 +62,23 @@ means the same thing in a repository of twenty files and one of a thousand.
 
 ## What is excluded, by construction rather than by list
 
-**A record of a past round.** Everything under a work item's `rounds/` is out.
-A round record and a reviewer's report carry the SHA they were written against
-and quote the defective wording verbatim -- that is what they are for, and
+**A record of a past round.** Everything under a work item's `rounds/` is out
+of the **pool** that is searched and out of the **range** that is measured --
+both sides of the range's path list, not its added side alone. A round record
+and a reviewer's report carry the SHA they were written against and quote the
+defective wording verbatim -- that is what they are for, and
 `skills/implement/SKILL.md` says a round record never asserts a present state.
+
+**Which of the two was the defect, and it was the range** (#365). The
+exclusion shipped on the pool alone and read as complete, because this section
+stated the intent and one of the two functions carried it. A report quoting
+the removed sentence counted as wording the fix wrote, `wanted` subtracted the
+survivor that quotation was about, and the check reported success having
+measured nothing -- on exactly the branches that went through review, since
+the review chain is what produces the disarming input. Measured at three tips
+of one branch: with round 1's paragraph the range reported its survivor, and
+the next commit, which added only round 1's record and report, turned the same
+range green.
 
 **What it is worth was measured, and it is not what it looks like.** On #267's
 range the corrected clause does stand in `round-2.md` and `round-2-report.md`,
@@ -489,11 +502,28 @@ def corrected(root, a, b):
     are the wording the fix wrote, and subtracting them is what makes the score
     mean *removed*: a phrase the fix kept is not a phrase the fix corrected.
     Only the added sentences, never the whole after-file, or a same-file
-    survivor would cancel itself out."""
+    survivor would cancel itself out.
+
+    **A work item's round records are out of this list, as they are out of the
+    pool** (#365). The pool refuses them because a record quoting a defective
+    sentence is not a place that still instructs anybody; the range refuses
+    them for the mirror reason. A reviewer's report quotes that sentence
+    verbatim, so a record left in the range counts as wording the fix wrote
+    and `wanted` subtracts the very survivor the quotation is about -- which
+    made every branch that went through review report success having measured
+    nothing.
+
+    **The filter goes on `paths`, so it holds on both sides of the range.** A
+    sentence REMOVED from a record is not corrected wording either, and
+    filtering the added side alone would leave this function naming a
+    coordinate inside a record of a past state as the place a claim was
+    corrected."""
     names = git(root, "diff", "--name-only", "-z", a, b)
     if names is None:
         raise Refused(f"cannot diff {a[:7]}..{b[:7]} in {root}")
-    paths = [path for path in names.split("\0") if path]
+    paths = [
+        path for path in names.split("\0") if path and not records_a_past_round(path)
+    ]
     before = read_blobs(root, a, paths)
     after = read_blobs(root, b, paths)
     gone, written = [], set()
