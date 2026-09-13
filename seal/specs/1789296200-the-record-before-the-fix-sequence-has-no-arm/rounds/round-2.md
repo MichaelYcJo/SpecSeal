@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | warden on claude-opus-5 |
 | PR | 381 |
-| Broad gate | not yet |
+| Broad gate | 3207f42 against origin/release/v0.11.3 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
