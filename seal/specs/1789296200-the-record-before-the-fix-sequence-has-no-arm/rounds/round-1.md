@@ -8,12 +8,12 @@
 | PR | 381 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | test_the_failure_names_the_fourth_exit (depth 1); BEHIND (depth 1); test_one_commit_between_reads_as_one_commit (depth 1); test_a_tree_behind_the_reviewed_commit_gets_neither_false_reading (depth 1) |
 | Needs a fix | yes — 🟡 1 and 🟡 2 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -37,20 +37,31 @@ One ⬜ was taken out of the round's hands before the fix pass ran, because it w
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | the refusal at the pull request never names the fourth exit, so the record that needs it is sent back to the three repairs this branch replaced | `skills/code-review/scripts/chain_check.py:2585` | open | executed — the shipped refusal captured and searched: `Written late`, `--written-late` and *fourth* all absent |
-| 🟡 2 | `head_moved_line` prints *0 commits stand between them* with an empty listing and two readings that are both false, when HEAD is behind the reviewed commit | `skills/code-review/scripts/round_record.py:1548` | open | executed — scratch repository, HEAD detached one commit back, line captured verbatim |
-| ⬜ 3 | *1 commit stand between them* — the singular arm is written for the noun and not the verb, and no case exercises it | `skills/code-review/scripts/round_record.py:1556` | open | executed — same probe, diverged-branch scenario |
-| ⬜ 4 | the forty differing records are named in no committed file, and `overview.md` says `phase-1.md` names them | `seal/specs/1789296200-the-record-before-the-fix-sequence-has-no-arm/overview.md:29` | open | read, with phase 1's first named example re-derived by execution against this tree |
-| ⬜ 5 | `written_late_reason` is called on every record whether or not anything is late, costing one uncached `git show` each | `skills/code-review/scripts/chain_check.py:2537` | open | read |
-| 🟢 | hostile `--written-late` values cannot corrupt a record — a pipe, a newline and an unclosed HTML comment are each refused before the write | `skills/code-review/scripts/round_record.py:829`, `skills/code-review/scripts/round_record.py:593` | answered | executed — all three refused, exit 2, no record written. `write_record` asks the hider question of the composed artefact, so the new flag inherits the guard without a guard of its own |
-| 🟢 | A6's pin is the existing case, genuinely unmodified and it still fires | `tests/test_a_record_precedes_the_fixes_it_commissions.py` | answered | executed — the case body is absent from the diff; only the `record` and `late_run` helpers gained a defaulted parameter it does not pass. Turning the error branch into a notice reddens it |
-| 🟢 | the four new units each die alone | `skills/code-review/scripts/round_record.py:1486`, `skills/code-review/scripts/round_record.py:1517`, `skills/code-review/scripts/round_record.py:1548`, `skills/code-review/scripts/chain_check.py:2435` | answered | executed — five mutations in a throwaway clone, every one killed, each reddening the cases its own phase record claims |
-| 🟢 | no red window between `templates/sdd-round.md` and the generator | `templates/sdd-round.md`, `skills/code-review/scripts/round_record.py:1865` | answered | executed — both land in `6d4f30f`, and five further modules that generate or read a record are green at 302 passed |
-| 🟢 | `close` and `seal` keep the new row | `skills/code-review/scripts/round_record.py:2892` | answered | read — both assign into rows they find by `field_index` and never rebuild the block, which is what A7's probe found and what its case now holds |
-| 🟢 | the ten re-stamped `seal/ledger.md` rows are honest, and the new claims went to the fragment | `seal/ledger.md`, `seal/ledger/1789296200-the-record-before-the-fix-sequence-has-no-arm.md` | answered | executed — `evidence-check .` exit 0, 1161 ok · 0 drifted · 0 broken. Re-verification is neither the appending `CLAUDE.md` forbids nor the removal it carves out: the three new claims are in the branch's own fragment and `seal/ledger.md` gained no row |
-| 🟢 | neither spent word was coined with | `seal/specs/1789296200-the-record-before-the-fix-sequence-has-no-arm/spec.md:150` | answered | executed — no added line in `skills/`, `templates/`, `docs/` or `tests/` uses *arm* in any sense, and the one use of *declaration* is `routing.md`'s established meaning in a docstring; `tests/test_one_word_one_meaning.py` green |
-| 🟢 | the A7 probe and its scratch repository really are gone | `seal/specs/1789296200-the-record-before-the-fix-sequence-has-no-arm/phases/phase-3.md` | answered | executed — nothing named for it survives in the repository, in the session scratchpad, or as a worktree or branch. The one `test_tmp_*` file still in the scratchpad belongs to a sibling work item's session and reads that item's own measurements, not this one's |
-| ❓ | the run's only new arm is one the orchestrator holds, and nothing counts how often it is reached for | `skills/code-review/orchestration.md:415` | open | read — the guard against *reaching for it every round* is a sentence, not a check. `plan.md` names that as its own six-month failure scenario, and the gate-change disclosure states the direction honestly, so this is a question for the repository owner rather than a defect |
+| 🟡 1 | the refusal at the pull request never names the fourth exit, so the record that needs it is sent back to the three repairs this branch replaced | `skills/code-review/scripts/chain_check.py:2585` | **fixed** `1468e48` | fixed at 1468e48 — ``; executed — the shipped refusal captured and searched: `Written late`, `--written-late` and *fourth* all absent |
+| 🟡 2 | `head_moved_line` prints *0 commits stand between them* with an empty listing and two readings that are both false, when HEAD is behind the reviewed commit | `skills/code-review/scripts/round_record.py:1548` | **fixed** `eceedfd` | fixed at eceedfd — ``; executed — scratch repository, HEAD detached one commit back, line captured verbatim |
+| ⬜ 3 | *1 commit stand between them* — the singular arm is written for the noun and not the verb, and no case exercises it | `skills/code-review/scripts/round_record.py:1556` | **fixed** `89ecf36` | fixed at 89ecf36 — ``; executed — same probe, diverged-branch scenario |
+| ⬜ 4 | the forty differing records are named in no committed file, and `overview.md` says `phase-1.md` names them | `seal/specs/1789296200-the-record-before-the-fix-sequence-has-no-arm/overview.md:29` | answered | Corrected at `9127c94`. `overview.md` and `phases/phase-1.md` now point at `phases/phase-1-measurement.txt` for all forty, and the rescued file is byte-identical to the original with its header counts intact — 310 / 158 / 152 / 112 / 40. **The finding's grounds were false and are corrected rather than repeated.** It said the population is gone because `git for-each-ref 'refs/remotes/pull/*'` returns nothing; that pattern is one path component short and `for-each-ref` matches components, not substrings. The orchestrator re-ran it: the starred form returns 0, `refs/remotes/pull` returns 138, `'refs/remotes/pull/*/head'` returns 138, and `a0f0e9a` — the adding commit `phase-1.md` names first — is an ancestor of `refs/remotes/pull/364/head`. The number can be retaken in this clone. What is true is narrower and is what the record now says: those refs reach no clone that has not fetched `refs/pull/*`, and the named list is what makes the forty checkable either way |
+| ⬜ 5 | `written_late_reason` is called on every record whether or not anything is late, costing one uncached `git show` each | `skills/code-review/scripts/chain_check.py:2537` | **fixed** `0d4bbaf` | fixed at 0d4bbaf — ``; read |
+| ❓ 6 | the run's only new arm is one the orchestrator holds, and nothing counts how often it is reached for | `skills/code-review/orchestration.md:415` | deferred seal/specs/1789296200-the-record-before-the-fix-sequence-has-no-arm/questions.md | seal/specs/1789296200-the-record-before-the-fix-sequence-has-no-arm/questions.md |
+
+
+## Checked and found clean
+
+Axes the round opened, measured, and closed with nothing to fix. They
+carry no finding number because they are not findings — `round_record.py`
+refuses a `#` column that is not a bare integer, and a round-prefixed or
+marker-only id is how eight findings once collapsed into one.
+
+| What was checked | Location | Grounds |
+|---|---|---|
+| hostile `--written-late` values cannot corrupt a record — a pipe, a newline and an unclosed HTML comment are each refused before the write | `skills/code-review/scripts/round_record.py:829`, `skills/code-review/scripts/round_record.py:593` | executed — all three refused, exit 2, no record written. `write_record` asks the hider question of the composed artefact, so the new flag inherits the guard without a guard of its own |
+| A6's pin is the existing case, genuinely unmodified and it still fires | `tests/test_a_record_precedes_the_fixes_it_commissions.py` | executed — the case body is absent from the diff; only the `record` and `late_run` helpers gained a defaulted parameter it does not pass. Turning the error branch into a notice reddens it |
+| the four new units each die alone | `skills/code-review/scripts/round_record.py:1486`, `skills/code-review/scripts/round_record.py:1517`, `skills/code-review/scripts/round_record.py:1548`, `skills/code-review/scripts/chain_check.py:2435` | executed — five mutations in a throwaway clone, every one killed, each reddening the cases its own phase record claims |
+| no red window between `templates/sdd-round.md` and the generator | `templates/sdd-round.md`, `skills/code-review/scripts/round_record.py:1865` | executed — both land in `6d4f30f`, and five further modules that generate or read a record are green at 302 passed |
+| `close` and `seal` keep the new row | `skills/code-review/scripts/round_record.py:2892` | read — both assign into rows they find by `field_index` and never rebuild the block, which is what A7's probe found and what its case now holds |
+| the ten re-stamped `seal/ledger.md` rows are honest, and the new claims went to the fragment | `seal/ledger.md`, `seal/ledger/1789296200-the-record-before-the-fix-sequence-has-no-arm.md` | executed — `evidence-check .` exit 0, 1161 ok · 0 drifted · 0 broken. Re-verification is neither the appending `CLAUDE.md` forbids nor the removal it carves out: the three new claims are in the branch's own fragment and `seal/ledger.md` gained no row |
+| neither spent word was coined with | `seal/specs/1789296200-the-record-before-the-fix-sequence-has-no-arm/spec.md:150` | executed — no added line in `skills/`, `templates/`, `docs/` or `tests/` uses *arm* in any sense, and the one use of *declaration* is `routing.md`'s established meaning in a docstring; `tests/test_one_word_one_meaning.py` green |
+| the A7 probe and its scratch repository really are gone | `seal/specs/1789296200-the-record-before-the-fix-sequence-has-no-arm/phases/phase-3.md` | executed — nothing named for it survives in the repository, in the session scratchpad, or as a worktree or branch. The one `test_tmp_*` file still in the scratchpad belongs to a sibling work item's session and reads that item's own measurements, not this one's |
 
 ## Paste-ready fixes
 
