@@ -5,7 +5,7 @@
 | Target SHA | a5fa14bac2ea877864a5ad54363ddd51a3056447 |
 | Ran by | warden on claude-opus-5 |
 | PR | 378 |
-| Broad gate | not yet |
+| Broad gate | 2bef0d6 against origin/release/v0.11.3 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
