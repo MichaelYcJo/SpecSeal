@@ -1977,9 +1977,15 @@ def test_a_cycle_carries_the_same_numbers_the_whole_run_does(orchestrator):
     What it stops is a second meter hand-rolled for cycles. The labels are
     named rather than subtracted loosely, so adding one is a decision
     somebody makes here rather than a key that appears in a published
-    reading."""
+    reading.
+
+    `segments` is the second such decision, taken when #350 landed: it is a
+    reading of the transcripts BESIDE this one, so like `tokens` and `spawns`
+    it is not one of `analyse`'s keys and does not belong in a cycle row's
+    numbers. The case caught it on the commit that added it, which is the
+    whole reason the exclusion is a literal list."""
     data = json.loads(run(["--json", str(orchestrator)]).stdout)
-    whole = set(data) - {"tokens", "spawns"}
+    whole = set(data) - {"tokens", "spawns", "segments"}
     for row in data["spawns"]["rows"]:
         assert set(row) == {"kind", "cycle", "subagent_type", "description", "numbers"}
         if row["numbers"]:
@@ -2276,3 +2282,167 @@ def test_an_exact_cover_reads_as_the_partition_agreeing(tmp_path):
     out = " ".join(run(["--spawns", str(path)]).stdout.split())
     assert "0.0m of the run's 0.2m is BETWEEN the rows — mostly the wait" in out, out
     assert "no between-the-rows figure" not in out, out
+
+
+# --- the per-segment reading (#350) ----------------------------------------
+#
+# Every other mode in this file reads the transcript it was given. This one
+# opens the transcripts BESIDE it — one row per spawned segment, read from
+# that segment's own file — because the agent's own wall clock is in none of
+# the columns any other row has. `--spawns` says so in prose and points at
+# `<session-id>/subagents/`; this is the reader that goes there.
+
+
+@pytest.fixture
+def run_with_segments(tmp_path):
+    """Two spawns and a transcript for each, opening at its own spawn's
+    result stamp — the join's measured shape.
+
+    smith  spawned at 25, accepted at 625; its file holds two calls, 625-641
+    warden spawned at 660, accepted at 1860; its file holds one call
+
+    The two segments hold different call counts on purpose: a reading taken
+    from the PARENT's columns cannot tell them apart, and one taken from each
+    segment's own file can."""
+    main = []
+    main += call("a", 0, 10, "git status --short")
+    main += spawn("A", 25, 625, "specseal:smith", "Build phase 1")
+    main += call("b", 640, 643, "git log --oneline -5")
+    main += spawn("B", 660, 1860, "specseal:warden", "Review round 1")
+    return write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1", "./bin/test tests/test_x.py -q"),
+                *worked(640, "s2", "ruff check ."),
+            ],
+            "agent-warden.jsonl": [*worked(1860, "w1", "cat docs/spec.md")],
+        },
+    )
+
+
+def segments_of(path, args=()):
+    proc = run(["--json", *args, str(path)])
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout)["segments"]
+
+
+def test_each_spawned_segment_is_named_by_the_spawn_it_opened_at(run_with_segments):
+    """The acceptance row. Two segments, each named by the spawn whose result
+    its transcript opens at, and each carrying numbers read from its own
+    file rather than from the parent's columns."""
+    segments = segments_of(run_with_segments)
+    assert (segments["transcripts"], segments["spawns"]) == (2, 2), segments
+    assert (segments["unnamed"], segments["unclaimed"]) == (0, 0), segments
+    assert segments["tolerance_s"] == 1.0, segments
+    assert [row["agent"] for row in segments["rows"]] == [
+        "specseal:smith",
+        "specseal:warden",
+    ], segments["rows"]
+    assert all(row["named"] for row in segments["rows"]), segments["rows"]
+    # Read from each segment's own file: the smith's holds two calls over
+    # 625-641, the warden's one. Neither number is in the parent transcript.
+    smith, warden = segments["rows"]
+    assert (smith["numbers"]["calls"], smith["numbers"]["span_s"]) == (2, 16), smith
+    assert (warden["numbers"]["calls"], warden["numbers"]["span_s"]) == (1, 1), warden
+
+
+def test_a_segments_tokens_are_its_own_file_and_not_the_runs(run_with_segments):
+    """A column that looks summable and is not is #200's failure shape in a
+    new place. Each row's tokens cover that segment's own transcript, so the
+    run total — which sums the whole tree — is the larger number."""
+    data = json.loads(run(["--json", str(run_with_segments)]).stdout)
+    rows = data["segments"]["rows"]
+    assert all("tokens" in row for row in rows), rows
+    assert sum(row["tokens"]["transcripts"] for row in rows) == 2, rows
+    assert data["tokens"]["transcripts"] == 3, data["tokens"]
+
+
+def test_a_segment_opening_outside_the_tolerance_is_named_by_nobody(tmp_path):
+    """Both directions, because a join that cannot fail names everything.
+
+    The same fixture is built twice and only the segment's opening stamp
+    moves: on the spawn's result it is named, three seconds off it is not."""
+
+    def built(opening, name):
+        main = call("a", 0, 10, "git status --short") + spawn(
+            "A", 25, 625, "specseal:smith", "Build phase 1"
+        )
+        root = tmp_path / name
+        root.mkdir()
+        return write_run(root, main, {"agent-one.jsonl": worked(opening, "s1")})
+
+    on_time = segments_of(built(625, "on-time"))
+    assert on_time["unnamed"] == 0, on_time
+    assert on_time["rows"][0]["agent"] == "specseal:smith", on_time["rows"]
+
+    late = segments_of(built(628, "late"))
+    assert late["unnamed"] == 1, late
+    assert late["rows"][0]["named"] is False, late["rows"]
+    assert late["rows"][0]["agent"] == "", late["rows"]
+    # The spawn is still there and still counted — it simply claimed nothing.
+    assert (late["spawns"], late["unclaimed"]) == (1, 1), late
+
+
+def test_a_segment_the_parent_cannot_name_is_counted_rather_than_dropped(tmp_path):
+    """A subagent of a subagent has no `Agent` call in the parent at all, so
+    no stamp can name it. `spec.md`: it gets a row and the count says how
+    many there were — a smaller answer rather than none, which is the
+    direction `tool_name` and `count` already take."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": worked(625, "s1"),
+            "inner/agent-deep.jsonl": worked(700, "d1"),
+        },
+    )
+    segments = segments_of(path)
+    assert (segments["transcripts"], segments["spawns"]) == (2, 1), segments
+    assert segments["unnamed"] == 1, segments
+    named = [row for row in segments["rows"] if row["named"]]
+    anonymous = [row for row in segments["rows"] if not row["named"]]
+    assert [row["agent"] for row in named] == ["specseal:smith"], named
+    assert len(anonymous) == 1, anonymous
+    # Dropped rather than counted, the row would be invisible AND its numbers
+    # would be missing from every reading of the run.
+    assert anonymous[0]["numbers"]["calls"] == 1, anonymous
+
+
+def test_one_spawn_is_claimed_by_one_segment(tmp_path):
+    """Two transcripts opening at the same instant and one spawn between
+    them. Without the claim, both rows carry the same agent's name and a
+    reader adding the column counts one segment twice."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {"agent-one.jsonl": worked(625, "s1"), "agent-two.jsonl": worked(625, "s2")},
+    )
+    segments = segments_of(path)
+    assert segments["transcripts"] == 2, segments
+    assert [row["named"] for row in segments["rows"]].count(True) == 1, segments["rows"]
+    assert segments["unnamed"] == 1, segments
+    assert segments["unclaimed"] == 0, segments
+
+
+def test_a_run_with_no_segments_reads_rather_than_raising(transcript):
+    """A segment measured on its own has no `subagents/` directory beside it.
+    That is the ordinary case for this mode, not a failure — the reading is
+    empty and the exit code is 0."""
+    proc = run(["--json", str(transcript)])
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout)["segments"] == {
+        "tolerance_s": 1.0,
+        "transcripts": 0,
+        "spawns": 0,
+        "unnamed": 0,
+        "unclaimed": 0,
+        "rows": [],
+    }

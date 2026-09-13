@@ -253,6 +253,24 @@ def message_key(message, row, number):
 # transcript path is a reading somebody can act on.
 DELEGATING = ("Agent",)
 
+# How far a segment transcript's OPENING stamp may sit from a spawn's result
+# stamp and still be read as that spawn's segment.
+#
+# The measurement the block above carries was taken over 67 spawns of three
+# runs of the 0.9.x line, 61 of them within one second. Re-measured for this
+# mode over the 43 runs on the machine that built it, with the one-to-one
+# rule `join_segments` actually uses: 296 of 349 segment transcripts are
+# named at 1.0s and 301 at 2.0s. So widening to two seconds buys five
+# segments of 349 and doubles the window a batch of two spawns can match the
+# wrong one in, and the remainder it does not buy is structural -- those 43
+# runs hold 349 segment transcripts against 305 `Agent` calls, so 44 of them
+# have no call in the parent to be named by at ANY tolerance.
+#
+# Which is why the report prints this number and the count on each side that
+# went unmatched, rather than treating the join as a fact. A tolerance is a
+# reading about a harness, and the harness is not this file's.
+JOIN_TOLERANCE_S = 1.0
+
 
 def spawn_labels(payload):
     """What a delegating call says it spawned, as strings.
@@ -836,6 +854,157 @@ def subagent_transcripts(path):
     return sorted(found)
 
 
+def opening_stamp(path):
+    """A transcript's first parseable `timestamp`, or None.
+
+    **The one thing this file could not already read.** `load` returns PAIRED
+    tool calls only, so a transcript's opening row is in nothing any other
+    reader here produces — and the opening is exactly what the join needs,
+    because the measurement above `DELEGATING` was taken against it: a
+    subagent's transcript OPENS at its spawn's result stamp.
+
+    Joining on the segment's first tool CALL instead would be late by however
+    long the agent read and thought before calling anything — #265 measured
+    about 110,000 characters of payload arriving before an agent's first call
+    — so the tolerance would have to widen from a second to minutes, and a
+    window that wide matches the wrong spawn in a batch of two.
+
+    Stops at the first usable stamp rather than reading the file. A file that
+    cannot be opened, holds no parseable line, or carries no stamp at all
+    returns None and is named by nobody: the same direction `tool_name` and
+    `count` take one reader over, a smaller answer rather than none."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(row, dict):
+                    continue
+                when = parse_time(row.get("timestamp"))
+                if when:
+                    return when
+    except OSError:
+        return None
+    return None
+
+
+def join_segments(openings, spawns):
+    """Each segment paired with the spawn whose result it opened at, or None.
+
+    `openings` is `[(path, opened)]` and `spawns` the `Agent` calls. A
+    segment takes the nearest UNCLAIMED spawn result within
+    `JOIN_TOLERANCE_S`, segments considered in opening order, and each spawn
+    is claimed at most once.
+
+    **The claim is what keeps a batch of two from naming one agent twice.**
+    Two segments opening at the same instant and one spawn between them is a
+    real shape — a nested transcript opens whenever its own parent spawned
+    it, which can be the same second — and without the claim both rows carry
+    the same name and a reader adding a column counts one segment twice.
+
+    **A segment that matches nothing is named by nobody rather than by its
+    nearest spawn.** The unnamed count is the reading: on the machine this
+    was measured on, 44 of 349 segment transcripts had no `Agent` call in
+    their parent at all, because a subagent of a subagent is spawned from a
+    transcript the parent never sees. Naming those by proximity would put a
+    confident wrong name on every one of them.
+
+    Returns the pairs in opening order and how many spawns went unclaimed.
+    Both counts are returned even when they agree, for the reason
+    `report_spawns` prints its own: a join that silently matched nothing
+    reads exactly like a run that spawned nothing."""
+    claimed = [False] * len(spawns)
+    paired = []
+    for path, opened in sorted(openings, key=lambda pair: pair[1]):
+        best = None
+        for index, call in enumerate(spawns):
+            if claimed[index]:
+                continue
+            distance = abs((opened - call["end"]).total_seconds())
+            if distance <= JOIN_TOLERANCE_S and (best is None or distance < best[1]):
+                best = (index, distance)
+        if best is None:
+            paired.append((path, None))
+        else:
+            claimed[best[0]] = True
+            paired.append((path, spawns[best[0]]))
+    return paired, claimed.count(False)
+
+
+def measure_segments(path, calls):
+    """One row per spawned segment of this run, read from that segment's own
+    transcript rather than from the parent's columns.
+
+    **This is the number that is in no other column.** A cycle row's
+    `delegated` is the `Agent` call's own tool_use-to-tool_result interval,
+    which on the measured harness is seconds because the result is written
+    when the spawn is ACCEPTED; the agent then runs for a median of about
+    1,000 seconds, and that interval is in none of `--spawns`' columns, in
+    any row. It is in the segment's own file, and this opens it.
+
+    A row's numbers come from `analyse` with no `delegated`, which is the
+    PLAIN reading — exactly what a person running this script against that
+    one transcript gets today. That is the point: the mode replaces the hand
+    method named in `skills/verify/SKILL.md`, so a row has to be the same
+    number that method produced, not a second meter with its own rules.
+
+    A row's tokens cover that segment's OWN file only. The run total sums the
+    whole tree, so the two are different numbers on purpose and the column is
+    summable only with the parent's own row — `report_segments` says so,
+    because a column that looks summable and is not is #200's failure shape
+    in a new place.
+
+    A transcript with no paired tool call keeps its row with `numbers` at
+    null. A segment that read and thought and called nothing is a real
+    reading and it spent tokens the run paid for, which is the same case
+    `report_tokens` was split out for."""
+    found = subagent_transcripts(path)
+    spawns = sorted(
+        (c for c in calls if c["tool"] in DELEGATING),
+        key=lambda c: (c["end"], c["start"]),
+    )
+    beside = os.path.dirname(os.path.abspath(path))
+    openings = []
+    unreadable = []
+    for transcript in found:
+        opened = opening_stamp(transcript)
+        if opened is None:
+            # No stamp to join on. The row is still owed — the file is part
+            # of the run — and it is named by nobody, which is what the
+            # unnamed count is for.
+            unreadable.append(transcript)
+        else:
+            openings.append((transcript, opened))
+    paired, unclaimed = join_segments(openings, spawns)
+    rows = []
+    for transcript, spawn in [*paired, *((t, None) for t in unreadable)]:
+        segment_calls, segment_turns = load(transcript)
+        labels = (spawn or {}).get("spawn") or {}
+        rows.append(
+            {
+                "agent": labels.get("subagent_type", "") if spawn else "",
+                "description": labels.get("description", "") if spawn else "",
+                "named": spawn is not None,
+                "transcript": os.path.relpath(transcript, beside),
+                "numbers": analyse(segment_calls, segment_turns),
+                "tokens": token_totals([transcript]),
+            }
+        )
+    return {
+        "tolerance_s": JOIN_TOLERANCE_S,
+        "transcripts": len(found),
+        "spawns": len(spawns),
+        "unnamed": sum(1 for row in rows if not row["named"]),
+        "unclaimed": unclaimed,
+        "rows": rows,
+    }
+
+
 def token_totals(paths):
     """Summed `usage` over every transcript given, and how many were read.
 
@@ -1379,7 +1548,19 @@ def main():
     tokens = token_totals([path, *subagent_transcripts(path)])
     if timings is None and not tokens["turns"]:
         sys.exit("no tool calls in this transcript")
-    data = {**(timings or {}), "tokens": tokens, "spawns": spawns}
+    # The per-segment rows, beside `spawns` and on the same terms: a reading
+    # taken with `--json` and no mode flag would otherwise be missing the one
+    # number this work item exists to produce. Not computed for the plain
+    # printed report, which does not read the key — it opens and parses every
+    # transcript under the run a second time, and the plain report shows none
+    # of it.
+    segments = measure_segments(path, calls) if args.json else None
+    data = {
+        **(timings or {}),
+        "tokens": tokens,
+        "spawns": spawns,
+        "segments": segments,
+    }
     if args.json:
         print(json.dumps(data, indent=2))
     elif timings:
