@@ -37,8 +37,10 @@ ever had — three segment kinds have bands and this one had none (#145).
 **Why `--segments` exists, in one sentence.** An agent's own wall clock is in
 no column of any row `--spawns` prints: on this harness the `Agent` result is
 written when the spawn is ACCEPTED, so `delegated` reads seconds while the
-agent runs for a median of about 1,000 (#350). That number is in the segment's
-own transcript, and this is the reader that opens it.
+agent goes on working for a median of about 700 seconds (#350). That figure is
+this mode's own reading and `measure_segments` says what it was taken over.
+The number is in the segment's own transcript, and this is the reader that
+opens it.
 
 **A spawn cycle is not a segment**, which is the one thing to keep straight
 between the two modes. `--spawns` slices THIS transcript into bands over the
@@ -1141,9 +1143,19 @@ def measure_segments(path, calls):
     **This is the number that is in no other column.** A cycle row's
     `delegated` is the `Agent` call's own tool_use-to-tool_result interval,
     which on the measured harness is seconds because the result is written
-    when the spawn is ACCEPTED; the agent then runs for a median of about
-    1,000 seconds, and that interval is in none of `--spawns`' columns, in
-    any row. It is in the segment's own file, and this opens it.
+    when the spawn is ACCEPTED; the agent then goes on working for a median
+    of about 700 seconds, and that interval is in none of `--spawns`'
+    columns, in any row. It is in the segment's own file, and this opens it.
+
+    **The 700 is this mode's own reading and it corrects an inherited one.**
+    #145 published *a median of about 1,000 seconds* and `spawn_cycles` still
+    carries it. Measured here with this mode over every segment row of the 43
+    runs with a `subagents/` directory on the machine it was built on: the
+    median is 716 s over 381 named rows and 664 s over all 433. 1,000 is the
+    MEAN (1,018), which is a different statistic wearing the same word. The
+    population grows with every run this machine takes, so re-derive rather
+    than quote — an aggregate is not a coordinate, and this mode is the first
+    instrument that could check this one.
 
     A row's numbers come from `analyse` with no `delegated`, which is the
     PLAIN reading — exactly what a person running this script against that

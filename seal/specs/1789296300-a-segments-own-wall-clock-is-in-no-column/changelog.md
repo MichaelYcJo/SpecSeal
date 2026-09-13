@@ -7,7 +7,10 @@
   spawn cycles — and the one number nobody could print was how long a spawned
   agent actually ran. On this harness the `Agent` tool result is written when
   the spawn is **accepted**, so the `--spawns` table's `delegated` reads a few
-  seconds while the agent goes on working for a median of about a thousand.
+  seconds while the agent goes on working for a median of about seven hundred
+  — measured with this mode over every segment row of the 43 runs on the
+  machine that built it, which also puts the figure #145 published at about a
+  thousand where it belongs: that is the mean, not the median.
   That interval sat between two rows and inside none of them. It was always in
   the agent's own transcript; nothing opened it.
 
@@ -96,8 +99,16 @@
     segment is unnamed for the other reason, and nothing in the reader can
     tell which.
   - **It is not hypothetical.** Run across all 43 runs with a `subagents/`
-    directory on the machine that built it: 13 of the 43 carry a finding, one
-    of them a `specseal:warden`.
+    directory on the machine that built it: 13 carry the line, and **12 of
+    those name an agent this plugin spawns** — 40 `Agent` calls by wardens
+    and 4 by smiths. The thirteenth names an agent from somewhere else, whose
+    own procedure instructs the fan-out.
+  - **So the line says who §6 reaches.** The walk sees an `Agent` call in a
+    segment's transcript and cannot tell which agent's rules that agent
+    answers to. The row still prints — a spawn made inside a segment is worth
+    seeing whoever made it — and the scope is stated beside it, because a
+    line that cries a rule at an agent the rule does not reach is one a
+    reader learns to discount.
 
 - **`segment` is brought to one meaning, and checked.** Naming the mode
   `--segments` beside `--spawns` put a second job within reach of a word this

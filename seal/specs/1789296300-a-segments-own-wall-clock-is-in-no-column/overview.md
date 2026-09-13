@@ -41,8 +41,10 @@ is in that file too.
 notices and stops nothing, because the evidence is a transcript under the home
 directory of the machine that ran the agent — in no commit, on no CI runner.
 A later work item can turn the line into an exit code, and it will then be
-choosing against readings rather than against a guess. 13 of the 43 runs on
-this machine already carry a finding, so those readings now exist.
+choosing against readings rather than against a guess. Of the 43 runs on this
+machine 13 already carry the line, and 12 of those name an agent this plugin
+spawns, so those readings now exist — and the thirteenth is the reading that
+says an exit code would have to tell the two apart.
 
 **`delegated_s` is untouched.** The owner answered `questions.md` Q1
 deliberately: it keeps the `Agent` call's own tool_use-to-tool_result
