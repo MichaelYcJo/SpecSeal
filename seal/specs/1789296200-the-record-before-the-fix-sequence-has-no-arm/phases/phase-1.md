@@ -76,7 +76,22 @@ this magnitude: the criterion's threshold is 2.
 
 ### The differing records are innocuous, which is the finding
 
-Two recent ones were opened by hand rather than counted:
+**All forty are named in `phases/phase-1-measurement.txt`**, the measurement's
+own output committed verbatim beside this record. One entry per differing
+record: its path, the `Target SHA` cell as that record wrote it, the adding
+commit with its subject, that commit's first parent, and the ref it was seen
+on. The header carries the four counts this section states — 310 pairs, 158
+excluded, 152 counted, 112 same, 40 differ — so the number and the records it
+stands for are checkable in one file.
+
+The phase was asked to name them individually and this record named two. That
+was the ⬜ round 1 found: the sentence in `overview.md` said the list was here
+and the list was in a session scratchpad, in a work item about a fact that
+survived only in a session that had ended. The list was rescued into the file
+above before this branch's fix pass ran.
+
+Two of the forty were opened by hand rather than counted, and both are in that
+file — at lines 121 and 115, with the same SHAs:
 
 - `seal/specs/1789172128-a-release-is-sized-by-a-count-and-cut-by-urgency/rounds/round-1.md`
   — `Target SHA` `5ce162e`, added by `a0f0e9a`, whose parent is `b46ff77`. The
@@ -118,9 +133,35 @@ would be wrong about one run in four.
   is now the party that decides. A count alone would not let anybody tell
   `b46ff77 docs: round 1's paragraph` from a fix commit.
 
-The measurement script is not committed: it is a probe under
-`agent-contract` §7, and its inputs — `refs/remotes/pull/*` — exist only in a
-clone that has fetched them.
+### The population, and what it takes to stand where the number can be retaken
+
+**The population is `refs/remotes/pull/<N>/head` — one ref per pull request
+ever opened, each holding a feature branch in its pre-squash form — plus the
+local feature branches.** The measurement was taken over 102 of them. Nothing
+else carries the moment: a feature branch squashes into its release branch and
+the commit the reviewer read goes with it.
+
+**Those refs are not part of a clone.** They arrive only where somebody has
+fetched `refs/pull/*` explicitly; a default `git clone` has none, and
+`remote.origin.fetch` in this repository is `+refs/heads/*:refs/remotes/origin/*`
+and does not bring them. Where they have been fetched they are shared with
+every worktree of that clone, because refs are not per-worktree. So the number
+can be retaken in this clone and cannot be retaken in a fresh one — and what
+makes the 40 checkable in either is the named list in
+`phases/phase-1-measurement.txt`, record by record, rather than a command
+everybody can run.
+
+**One trap, because round 1 fell into it and concluded the refs were gone.**
+`git for-each-ref 'refs/remotes/pull/*'` returns nothing even where all of
+them are present: the pattern is one path component short of `<N>/head`, and
+for-each-ref matches components rather than substrings. `git for-each-ref
+refs/remotes/pull` is the form that answers — 138 refs in this clone on
+2026-09-13, with `a0f0e9a`, the adding commit this record names first, an
+ancestor of `refs/remotes/pull/364/head`.
+
+The measurement script itself is not committed: it is a probe under
+`agent-contract` §7. Its output is, which is the half that outlives the
+session.
 
 ## What this phase removes
 

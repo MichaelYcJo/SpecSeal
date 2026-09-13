@@ -25,8 +25,11 @@ frequency the refusal shape would have fired at and the criterion set in
 refuse; 2 or more → print and continue* — resolved to **print**.
 
 **The number: 40 differing records out of 152 measurable ones — 26% of correct
-runs.** `phases/phase-1.md` holds the method, the exclusions, the stated bias,
-and the 40 named individually. The two opened by hand both differ because the
+runs.** `phases/phase-1.md` holds the method, the exclusions, the stated bias
+and the population, and `phases/phase-1-measurement.txt` beside it names all
+40 individually — one entry per record with its `Target SHA` cell, the adding
+commit and its subject, that commit's first parent, and the ref it was seen
+on. The two opened by hand both differ because the
 round's own paperwork landed between the review and the record (`docs: round
 1's paragraph is recorded before the round runs`), not because a fix pass ran
 early. A refusal would have fired on one correct run in four.
