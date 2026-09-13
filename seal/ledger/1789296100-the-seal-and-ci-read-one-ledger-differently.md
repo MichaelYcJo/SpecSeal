@@ -1,5 +1,9 @@
-<!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at the
-release and moves this file into `seal/ledger.md`.
+<!-- One work item's rows. No `# <id>` title — `fold_ledger.py` writes the `###`
+at the release and moves this file into `seal/ledger.md`; the `####` below is a
+heading inside the body, and `demote` moves it two levels to `######` under that
+`###`. `CLAUDE.md` says a fragment needs no header of its own, which is not the
+same as forbidding one: what the fold drops is the title, and what it demotes is
+everything else.
 
 Four rows over a change that adds one printed line and moves no exit code. The
 first two are the line and the condition it prints on; the third is the claim
