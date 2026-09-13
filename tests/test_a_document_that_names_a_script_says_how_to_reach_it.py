@@ -315,6 +315,54 @@ def test_a_planted_invocation_turns_the_classification_red():
     assert not command_forms("what `chain_check.py new` would say\n", script)
 
 
+def test_a_half_shipped_pair_is_not_a_wrapped_script(monkeypatch):
+    """`is_wrapped` asks for BOTH files, and no half-shipped pair exists in the
+    tree to ask it with -- so the twin is taken away here instead.
+
+    It matters because the two enumerations below split on this answer. A
+    POSIX wrapper whose `.cmd` twin was never written is one platform's
+    command, not the repository's; reading it as wrapped would put its
+    documents under the locator rule, pointing every reader at a command
+    Windows cannot run, and would take the script out of the classification
+    rule that would otherwise have caught the missing twin.
+    """
+    script = "skills/code-review/scripts/round_record.py"
+    _, windows = wrapper_pair(script)
+    assert is_wrapped(script), "the fixture is stale: this pair should be whole"
+    real = os.path.isfile
+    monkeypatch.setattr(os.path, "isfile", lambda p: real(p) and p != windows)
+    assert not is_wrapped(script), (
+        "a POSIX wrapper whose `.cmd` twin is missing reads as wrapped, so its "
+        "documents fall under the locator rule while Windows cannot run the "
+        "command and the classification rule never sees the script"
+    )
+
+
+def test_every_mention_lands_in_exactly_one_enumeration():
+    """The two parametrisations partition the mentions between them.
+
+    Without this, an enumeration that returned nothing would be a GREEN suite:
+    an empty parametrisation runs no case and reports success. That is how the
+    classification defence would go silent -- `unwrapped_pairs` answering with
+    an empty list means `chain_check.py` is invoked nowhere, checked nowhere.
+    """
+    texts = {d: read(os.path.join(ROOT, d)) for d in shipped_documents()}
+    every = {(d, s) for s in scripts() for d, t in texts.items() if names(t, s)}
+    wrapped, unwrapped = set(named_pairs()), set(unwrapped_pairs())
+    assert wrapped | unwrapped == every, (
+        "a document naming a script reaches neither enumeration, so no case "
+        f"runs over it: {sorted(every - wrapped - unwrapped)}"
+    )
+    assert not wrapped & unwrapped, (
+        f"a script is enumerated as both wrapped and not: {sorted(wrapped & unwrapped)}"
+    )
+    if NO_WRAPPER:
+        assert unwrapped, (
+            "a script is classified as keeping no wrapper and no document "
+            "reaches the case defending that classification"
+        )
+
+
 def test_the_enumeration_is_not_empty():
     """Every case above is parametrised off the tree. An enumeration that
     silently returned nothing would be a green suite that checks nothing --

@@ -22,6 +22,31 @@ rather than this instance.
 | Where the locator goes in three of the nine documents | `questions.md` Q4 assumes *one reachable form per document, attached to or beside its first mention* | at the first mention in six documents, one sentence later in `agents/warden.md`, `skills/implement/SKILL.md` and `templates/sdd-phase.md` | `tests/test_the_rules_have_one_owner.py`'s `GENERATOR_NAMED` pins one exact phrase per carrier, and the first drafts inserted a parenthetical into the middle of three of them. Splitting a pinned phrase to satisfy a new pin is quieting one check with another, so the phrases were restored whole and the locators moved. No constant of that module was touched |
 | `seal/ledger.md` is touched by a branch that removes nothing | `CLAUDE.md` §*a change writes fragments, never the shared file* — *appended is the word, and a removal is not one* | eleven hashes re-stamped in `seal/ledger.md`, no row appended and none removed | The rule forbids appending rows there, and its own next paragraph makes the shared file writable where leaving it true requires it. Seven anchors are whole sections, one of them `skills/code-review/orchestration.md#"# code-review — the orchestrator's half"` at lines 1–552, so no edit to that file could have avoided drifting them. The branch's own five rows went to `seal/ledger/1789338080-….md`, which is what the rule is about |
 
+## What the mutation sweep found, after the phases closed
+
+Every unit this work added was mutated one at a time before the hand-over, and
+**two survived** — a unit that stays green while broken has nothing behind it,
+whatever the suite total says.
+
+- **`is_wrapped` read `all` and `any` alike**, because no half-shipped pair
+  exists in the tree for the two spellings to disagree over. The answer decides
+  which enumeration a script lands in, so a POSIX wrapper with no `.cmd` twin
+  would have put its documents under the locator rule — pointing every reader
+  at a command Windows cannot run — and taken the script out of the
+  classification rule that would otherwise have caught the missing twin.
+  `test_a_half_shipped_pair_is_not_a_wrapped_script` takes the twin away with
+  `monkeypatch`, which is the only way to ask the question at all.
+- **`unwrapped_pairs` returning nothing was a green suite.** An empty
+  parametrisation runs no case and reports success, so the classification
+  defence would have gone silent rather than red — the one failure mode that
+  matters for a check whose whole job is to notice.
+  `test_every_mention_lands_in_exactly_one_enumeration` asserts the two
+  enumerations partition the mentions, which catches an empty one from either
+  side.
+
+Both were shown red by re-running the same mutation, and all twelve units die
+under mutation now.
+
 ## What the pin's own message could not prevent
 
 `plan.md` §*Failure scenario of the chosen approach* names it: a new document
