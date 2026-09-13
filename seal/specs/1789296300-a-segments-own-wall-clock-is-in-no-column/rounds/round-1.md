@@ -6,7 +6,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 380 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | test_an_unnamed_file_that_was_resumed_is_counted_once (depth 1); test_two_coordinator_messages_in_a_row_do_not_invent_a_slice (depth 1); test_a_file_whose_first_window_is_empty_still_carries_its_tokens (depth 1); test_a_resumed_file_that_called_nothing_at_all_still_gets_its_row (depth 1); test_the_breach_line_says_which_agents_the_section_binds (depth 1) |
 | Needs a fix | yes — findings 1, 2, 3 and 4. |
