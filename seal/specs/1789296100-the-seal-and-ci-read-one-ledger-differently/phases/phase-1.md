@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | `eb0189d` |
-| Ran by | unknown — the spawn prompt named no model, and the value is the spawning session's to fill |
+| Ran by | specseal:smith on claude-opus-5 |
 
 ## What this phase was asked
 

@@ -7,12 +7,12 @@
 | PR | 378 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | failure_loop (depth 1); test_a_failing_ledger_check_is_what_reaches_the_failure_form (depth 1) |
 | Needs a fix | yes — 1, the notice's `NOT SEALED` limb is pinned by no case and a mutation proves it; 2, the third shape of the deferred silence and its five live instances are not in the row that tracks it; 3, the framer's contradiction with the overview case reaches a sibling branch of this release and has no durable home. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -28,15 +28,15 @@ The orchestrator verified findings 1, 2 and 3 independently before this record w
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | The notice's `NOT SEALED` limb is pinned by nothing — exempting the ledger check from the gate's failure form leaves the module 13 passed | `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py:251` · `skills/verify/scripts/broad_gate.py:590` | open | executed — mutation run, file restored byte for byte, tree clean |
-| 2 | A third trigger of the deferred silence stands in the shared ledger: five coordinates with bare inner quotes are dropped whole while the run prints `1148 ok` | `skills/evidence-check/scripts/evidence_check.py:65` · `seal/ledger.md:63,71,81,143` | open | executed — the module's own `ANCHOR_RE` applied per ledger file; strict counts 1148 + 5 reproduce phase 4's 1153 |
-| 3 | The `overview.md` scheduling divergence is a class: `agents/framer.md` forbids the memo the case demands, and a sibling 0.11.3 branch is red on it at its tip | `agents/framer.md:91` · `tests/test_chain_hooks_hardening.py:1014` | open | executed — `git ls-tree` over `feat/350-a-segments-own-wall-clock-is-in-no-column` |
-| 4 | S8 says `seal/ledger.md` untouched and the branch touches it; the act is correct and the divergence table does not carry it | `seal/specs/1789296100-the-seal-and-ci-read-one-ledger-differently/overview.md` | open | read — S8, phase 4's narrowed verification row, and the two-row divergence table |
-| 5 | `spec.md` still names `broad_gate.py#main`; the correction lives in two other files and *Fed back into the spec* reads None | `seal/specs/1789296100-the-seal-and-ci-read-one-ledger-differently/spec.md:138` | open | read |
-| 6 | Three documents state three different reader counts for a work item about who the readers are | `spec.md:83` · `skills/evidence-check/SKILL.md:178` · `CONTRIBUTING.md:21` | open | read |
-| 7 | Four phase records carry `Ran by \| unknown` while every `Commit` cell was filled | `seal/specs/1789296100-the-seal-and-ci-read-one-ledger-differently/phases/phase-1.md` | open | read |
-| 8 | `--reverify` and `--migrate` also return 1 and print nothing; two documents say exit 1 always prints | `skills/evidence-check/scripts/evidence_check.py:1723` · `:2423` · `CONTRIBUTING.md:21` | open | read |
-| 9 | The first ledger fragment says *No header* and carries a `####` heading | `seal/ledger/1789296100-the-seal-and-ci-read-one-ledger-differently.md` | open | read |
+| 1 | The notice's `NOT SEALED` limb is pinned by nothing — exempting the ledger check from the gate's failure form leaves the module 13 passed | `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py:251` · `skills/verify/scripts/broad_gate.py:590` | **fixed** `fc6695f` | fixed at fc6695f — ``; executed — mutation run, file restored byte for byte, tree clean |
+| 2 | A third trigger of the deferred silence stands in the shared ledger: five coordinates with bare inner quotes are dropped whole while the run prints `1148 ok` | `skills/evidence-check/scripts/evidence_check.py:65` · `seal/ledger.md:63,71,81,143` | **fixed** `617edb0` | fixed at 617edb0 — ``; executed — the module's own `ANCHOR_RE` applied per ledger file; strict counts 1148 + 5 reproduce phase 4's 1153 |
+| 3 | The `overview.md` scheduling divergence is a class: `agents/framer.md` forbids the memo the case demands, and a sibling 0.11.3 branch is red on it at its tip | `agents/framer.md:91` · `tests/test_chain_hooks_hardening.py:1014` | deferred #379 | #379 |
+| 4 | S8 says `seal/ledger.md` untouched and the branch touches it; the act is correct and the divergence table does not carry it | `seal/specs/1789296100-the-seal-and-ci-read-one-ledger-differently/overview.md` | **fixed** `f4560a2` | fixed at f4560a2 — ``; read — S8, phase 4's narrowed verification row, and the two-row divergence table |
+| 5 | `spec.md` still names `broad_gate.py#main`; the correction lives in two other files and *Fed back into the spec* reads None | `seal/specs/1789296100-the-seal-and-ci-read-one-ledger-differently/spec.md:138` | **fixed** `f4560a2` | fixed at f4560a2 — ``; read |
+| 6 | Three documents state three different reader counts for a work item about who the readers are | `spec.md:83` · `skills/evidence-check/SKILL.md:178` · `CONTRIBUTING.md:21` | **fixed** `631b61c` | fixed at 631b61c — ``, with the four drifted ledger rows re-verified in `17ebf41`; read |
+| 7 | Four phase records carry `Ran by \| unknown` while every `Commit` cell was filled | `seal/specs/1789296100-the-seal-and-ci-read-one-ledger-differently/phases/phase-1.md` | answered | `Ran by` is the orchestrator's cell, filled when the round is closed. The fix pass left all four phase records untouched |
+| 8 | `--reverify` and `--migrate` also return 1 and print nothing; two documents say exit 1 always prints | `skills/evidence-check/scripts/evidence_check.py:1723` · `:2423` · `CONTRIBUTING.md:21` | **fixed** `631b61c` | fixed at 631b61c — ``; read |
+| 9 | The first ledger fragment says *No header* and carries a `####` heading | `seal/ledger/1789296100-the-seal-and-ci-read-one-ledger-differently.md` | **fixed** `4fe94c0` | fixed at 4fe94c0 — ``; read |
 
 ## Paste-ready fixes
 
