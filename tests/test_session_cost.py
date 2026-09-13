@@ -2669,6 +2669,48 @@ def test_a_later_slice_inherits_the_name_from_the_files_first(resumed_segment):
     assert segments_of(resumed_segment)["unnamed"] == 0, rows
 
 
+def test_an_unnamed_file_that_was_resumed_is_counted_once(tmp_path):
+    """The count is a reading about the harness — how many files this run
+    holds that no `Agent` call in the parent can name. A resumed file is
+    several rows carrying one name, so counting rows makes the number climb
+    with every resume, which is exactly what giving each slice the file's
+    name exists to prevent.
+
+    Red before the fix: `unnamed` reads 2 for one unnamable file, and the
+    reconciliation below prints a disagreement that is not there."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                *spawn("N", 700, 701, "general-purpose", "search the tree"),
+            ],
+            # The child of that spawn: no `Agent` call in the parent can name
+            # it, and the coordinator resumed it.
+            "inner/agent-deep.jsonl": [
+                *worked(701, "d1"),
+                coordinator_message(9000),
+                *worked(9010, "d2"),
+            ],
+        },
+    )
+    segments = segments_of(path)
+    assert segments["transcripts"] == 2, segments
+    assert len(segments["rows"]) == 3, segments["rows"]
+    assert segments["unnamed"] == 1, segments
+    out = " ".join(segment_report(path).split())
+    assert "1 segment named by nobody" in out, out
+    # One call inside a segment against one file the parent cannot name: the
+    # two agree, and the sentence that fires on a disagreement must not.
+    assert "1 `Agent` call inside a segment, against 1 segment" in out, out
+    assert "the two agree" in out, out
+    assert "do not agree" not in out, out
+
+
 def test_a_files_tokens_are_carried_by_its_first_slice_only(resumed_segment):
     """`token_totals` dedups a streamed message by its id and keeps the
     largest count each field reached (#202). Re-deriving that per slice would

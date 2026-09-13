@@ -1174,7 +1174,18 @@ def measure_segments(path, calls):
         "tolerance_s": JOIN_TOLERANCE_S,
         "transcripts": len(found),
         "spawns": len(spawns),
-        "unnamed": sum(1 for row in rows if not row["named"]),
+        # Over TRANSCRIPTS, never over rows. A resumed file is several rows
+        # carrying one name, so counting rows makes this climb with every
+        # resume -- which is the failure `segment_slices` gives every slice
+        # the file's name to avoid, undone one function later. `report_breaches`
+        # reconciles the §6 count against this number, so a row count makes a
+        # run whose counts agree print that they do not, and sends a reader
+        # looking for a child transcript that was never missing. Measured on
+        # the machine this was written on: one of 43 runs already reads 3 for
+        # two unnamable files. The resumed count in `report_segments`
+        # de-duplicates the same way, which is what this line was missing
+        # rather than a new rule.
+        "unnamed": len({row["transcript"] for row in rows if not row["named"]}),
         "unclaimed": unclaimed,
         "rows": rows,
     }
