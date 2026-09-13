@@ -412,6 +412,13 @@ A bare `yes` is refused: the reason is the whole of what the row buys, and a
 relaxation with an empty cell is a waiver with no author. Without the flag the
 row reads `no` and the refusal stands exactly as it did.
 
+**Where the record is already committed, add the row by hand.** The flag
+writes it as `new` writes the record, and that moment is gone for a record on
+the branch — which is the record anybody meeting the refusal at the pull
+request has. `chain_check.py` reads the cell and never asks who wrote it, so
+the row lands in one edit and one commit, like any other correction to a
+record already committed.
+
 **It is an answer, not a way around the sequence.** Reaching for it every round
 is the failure the row's own design anticipates, and the repair is one command
 earlier: commit the record when `new` writes it.

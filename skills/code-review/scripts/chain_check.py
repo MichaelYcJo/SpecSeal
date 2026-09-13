@@ -2582,7 +2582,29 @@ def written_late(reader, root, base, rel):
                 )
             )
         else:
-            errors.append((rel, line_no, message))
+            # The fourth exit, named where it is needed. Every other place
+            # this state is documented -- the template, the spec, the
+            # orchestration half, the notice above -- is read by somebody who
+            # is NOT in it. This message is the one text the person in it
+            # reads, and it used to end at `commit the record when the round
+            # posts`, which is advice their already-committed record cannot
+            # take. The hand-edit half is the half that matters: by the time
+            # anybody reads this the record is on the branch, so the flag
+            # alone names an exit that has gone.
+            errors.append(
+                (
+                    rel,
+                    line_no,
+                    message + ". Where the fix pass really did run before this "
+                    "record reached a commit, the record may SAY so and this "
+                    f"prints instead of failing: a `| {WRITTEN_LATE} | "
+                    f"{FLOOR_YES} — <why> |` row in its field table, written by "
+                    '`round_record.py new --written-late "<why>"`, or added by '
+                    "hand and committed like any other correction to a record "
+                    "already on the branch. A bare `yes` buys nothing — the "
+                    "reason is the whole of what the row is for",
+                )
+            )
     return errors, notices
 
 

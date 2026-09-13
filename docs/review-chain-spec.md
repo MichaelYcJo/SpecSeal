@@ -1307,6 +1307,15 @@ absent — which is every record written before this — the cell `no`, a bare
 of writing too: a relaxation bought with an empty cell is a waiver with no
 author, which is the third of the three bad exits under a flag.
 
+**The flag is not the only way the row gets there, and at the refusal it is
+the wrong one.** `new` writes the row as it writes the record, which is a
+moment that has already passed for anybody reading the refusal — their record
+is committed, or the refusal would not be theirs to read. The check reads the
+cell and never asks who wrote it, so the row may be added by hand and
+committed like any other correction to a record already on the branch. The
+refusal itself says so, because the person standing in that state reads it
+there and nowhere else.
+
 **It prints rather than passing in silence,** the same shape the grandfathering
 row takes and for the same reason. The state is what the check exists to
 surface, and what the reason buys is that the run can end and that the fact

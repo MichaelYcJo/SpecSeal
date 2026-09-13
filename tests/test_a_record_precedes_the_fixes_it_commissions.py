@@ -274,6 +274,34 @@ def test_the_failure_says_what_to_do_instead(repo):
     assert "open" in out and "update" in out, out
 
 
+def test_the_failure_names_the_fourth_exit(repo):
+    """`agent-contract` §14. The record refused here is the only one that
+    needs the row, and it is refused for not having it — so this refusal is
+    the one text where naming the row changes what anybody does.
+
+    The record a reader meets this line over is ALREADY COMMITTED, which is
+    what makes the flag insufficient on its own: `new --written-late` writes
+    the row at a moment that has gone. A session met this exact refusal on
+    2026-09-13 with round 2's record batched into the fix commit, escaped only
+    because the commit was unpushed and could be split in three, and learned
+    nothing here about the exit it was standing next to. The advice it did get
+    — commit the record when the round posts — is advice nobody meeting this
+    line can act on.
+    """
+    late_run(repo, NEW_ITEM)
+    code, out = run(repo)
+    assert code == 1, out
+    assert check_module().WRITTEN_LATE in out, (
+        "the record that needs the fourth exit is not told the row exists"
+    )
+    assert "--written-late" in out, (
+        "the row is named and the command that writes it is not"
+    )
+    assert "added by hand" in out, (
+        "the flag alone names an exit a committed record can no longer take"
+    )
+
+
 def test_a_late_record_only_prints_before_the_cutoff(repo):
     """A merged record has no honest repair — nobody can commit it earlier
     now — and a check whose first production act is red on history nobody
