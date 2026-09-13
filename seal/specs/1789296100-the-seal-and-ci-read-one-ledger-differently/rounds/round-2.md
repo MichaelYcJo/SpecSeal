@@ -7,8 +7,8 @@
 | PR | 378 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
@@ -41,7 +41,7 @@ One ⬜ was opened and is not a fix-list item: the reader-count edit did not re-
 | 7 | Round 1's finding 7 is closed: the four `Ran by` cells are the orchestrator's and were filled | `seal/specs/1789296100-the-seal-and-ci-read-one-ledger-differently/phases/` | answered | read — the fix pass left the phase records untouched, which is correct |
 | 8 | Round 1's finding 8 is fixed: both writers are named as writers, and both return 1 | `skills/evidence-check/SKILL.md` · `CONTRIBUTING.md` | answered | read |
 | 9 | Round 1's finding 9 is fixed: the header comment and the `####` under it now say the same thing | `seal/ledger/1789296100-the-seal-and-ci-read-one-ledger-differently.md` | answered | read |
-| 10 | The reader-count reword left one unreflowed line in each of three files; the changelog one ships into `CHANGELOG.md` at the release | `spec.md:8` · `overview.md:11` · `changelog.md:7` | open | read — measured column widths against each file's own prose; no covered path, `tests/test_docs_line_wrap.py` is 23 passed |
+| 10 | The reader-count reword left one unreflowed line in each of three files; the changelog one ships into `CHANGELOG.md` at the release | `spec.md:8` · `overview.md:11` · `changelog.md:7` | **fixed** `6730690` | fixed at 6730690 — ``; read — measured column widths against each file's own prose; no covered path, `tests/test_docs_line_wrap.py` is 23 passed |
 
 ## Paste-ready fixes
 
