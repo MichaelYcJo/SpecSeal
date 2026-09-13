@@ -19,6 +19,16 @@ rather than this instance.
 |---|---|---|---|
 | How many `tests/test_docs_line_wrap.py`-covered files phase 3 edits | `plan.md` phase 3's `Verified by` cell said *the five covered files this phase edits* and then listed four | four, and the four it listed | **Executed** 2026-09-14: the nine documents intersected with that module's own `COVERED` list gives `agents/warden.md`, `agents/sealer.md`, `skills/code-review/SKILL.md` and `skills/code-review/orchestration.md`. The other five — `templates/sdd-round.md`, `agents/smith.md`, `skills/implement/SKILL.md`, `skills/verify/SKILL.md`, `templates/sdd-phase.md` — are in none of it; the module's own docstring records `agents/smith.md` at 148 columns as a reason it is not covered. The number was wrong and the list was right, so the cell now reads *four* and keeps its four names |
 | The platform case's shape | `plan.md` names `tests/test_the_seal_is_taken_once_by_the_sealer.py::test_a_wrapper_pair_is_run_through_the_twin_the_platform_can_execute` as the form to follow, and that case opens with two `isfile` assertions | the same two assertions, kept | Written without them the case was green against a `bin/` holding neither file, because constructing an argv touches no filesystem. `skills/agent-contract/SKILL.md` §15 — *a new case is not planted until it has been seen red* — and it could not be. Recorded in `phases/phase-2.md` |
+| Where the locator goes in three of the nine documents | `questions.md` Q4 assumes *one reachable form per document, attached to or beside its first mention* | at the first mention in six documents, one sentence later in `agents/warden.md`, `skills/implement/SKILL.md` and `templates/sdd-phase.md` | `tests/test_the_rules_have_one_owner.py`'s `GENERATOR_NAMED` pins one exact phrase per carrier, and the first drafts inserted a parenthetical into the middle of three of them. Splitting a pinned phrase to satisfy a new pin is quieting one check with another, so the phrases were restored whole and the locators moved. No constant of that module was touched |
+| `seal/ledger.md` is touched by a branch that removes nothing | `CLAUDE.md` §*a change writes fragments, never the shared file* — *appended is the word, and a removal is not one* | eleven hashes re-stamped in `seal/ledger.md`, no row appended and none removed | The rule forbids appending rows there, and its own next paragraph makes the shared file writable where leaving it true requires it. Seven anchors are whole sections, one of them `skills/code-review/orchestration.md#"# code-review — the orchestrator's half"` at lines 1–552, so no edit to that file could have avoided drifting them. The branch's own five rows went to `seal/ledger/1789338080-….md`, which is what the rule is about |
+
+## What the pin's own message could not prevent
+
+`plan.md` §*Failure scenario of the chosen approach* names it: a new document
+names a script in passing, the pin goes red, and the cheapest green is to
+delete the mention rather than add the locator. Nothing here closes that, and
+the two things aimed at it shipped as planned — the failure names both accepted
+forms and the document, and one mention per document satisfies the rule.
 
 ## Not verified
 
@@ -29,8 +39,29 @@ rather than this instance.
 
 ## Not done
 
-Nothing yet.
+**`evidence-check --reverify` moves a row's hash and leaves its `Checked` date
+alone, and `CLAUDE.md` says re-verifying is re-reading followed by that
+command.** So after this branch re-read eleven claims and re-stamped them, the
+`Checked` column understates when each was last read by up to a year. Measured
+**executed** 2026-09-14: the diff of `seal/ledger.md` is eleven rows, and
+nothing outside the eight hex characters of each hash changed. Not taken here —
+it is a change to `evidence_check.py`'s behaviour, which no part of #318 is
+about, and hand-editing eleven dates in the shared file is the appending this
+repository's fragment rule exists to stop. It is named in the report for the
+orchestrator to file, because this repository has a tracker and
+`seal/follow-up.md` says a schedulable item belongs there instead.
+
+**`round-record` gets no README row.** Q2, answered **Out** by the repository
+owner on 2026-09-14. Neither edition names `round_record.py` today, so the rule
+that both READMEs move together is not reached, and adding the rows is additive
+whenever the owner wants them.
+
+**No `bin/chain-check`.** Argued in `spec.md` §Out and `plan.md`
+§*Alternatives considered*, and now asserted rather than assumed: the pin
+carries the classification and the property it rests on.
 
 ## Fed back into the spec
 
-none
+none — the pin states a convention the repository already kept everywhere it
+could (`plan.md` §*The existing practice this makes checkable*), so nothing was
+inferred during implementation that a planner should know they may overturn.

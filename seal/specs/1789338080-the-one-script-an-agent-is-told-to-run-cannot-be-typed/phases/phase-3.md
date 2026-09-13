@@ -1,0 +1,82 @@
+# 1789338080-the-one-script-an-agent-is-told-to-run-cannot-be-typed — phase 3
+
+| Field | Value |
+|---|---|
+| Phase | 3 |
+| Commit | 432af98 |
+| Ran by | unknown — the spawn prompt named no model, and `templates/sdd-phase.md` refuses a value a segment sources from its own idea of what it is. The orchestrator fills this row |
+
+## What this phase was asked
+
+Write the class pin and see it red against all nine documents and both
+unwrapped scripts. Then respell the two typed command forms in
+`skills/code-review/orchestration.md` as `round-record`, add one locator to
+each of the nine documents, and classify `chain_check.py` with its reason.
+Q1 is answered **General**: the pin enumerates `skills/*/scripts/*.py` and
+every `.md` under `agents/`, `skills/` and `templates/` rather than naming
+`round_record.py` in the assertion. Q4 is decided by the edit itself.
+
+## What this phase found
+
+**Q4 is answered, and the plan's single-sentence assumption held for all nine
+— but not at the first mention in three of them.** The locator sits at or
+beside the first mention in six documents. In `agents/warden.md`,
+`skills/implement/SKILL.md` and `templates/sdd-phase.md` it had to move to the
+sentence *after*, because `tests/test_the_rules_have_one_owner.py` pins the
+exact phrase each of those files uses to name the generator —
+`GENERATOR_NAMED`, five carriers, one literal string each — and the first
+drafts inserted a parenthetical into the middle of three of them. Splitting a
+pinned phrase to satisfy a new pin is quieting one check with another, so the
+phrases were restored whole and the locators moved one sentence down. No
+constant of that module was touched.
+
+**The pin went red twice, as the plan asked, and the second red was cheap.**
+Against the tree as it stood: ten failures, one per document for all nine plus
+`chain_check.py` unclassified, each naming its own coordinate. By mutation
+after green: the locator deleted from `templates/sdd-round.md` failed on that
+document alone.
+
+**The classification-defence case was driven red against a real document, not
+only a fixture.** `chain_check.py --worktree` planted at
+`skills/code-review/SKILL.md:48` failed naming the file, the line and both
+repairs; the plant was reverted and the file is byte for byte as it was.
+
+**Two `can_fail` cases were shown red by mutation, one at a time.**
+`command_forms` made to match nothing turned its fixture case red;
+`reachable` made to answer yes to everything turned both of its cases red —
+which is the case that matters, because a `reachable` answering yes would make
+every one of the nine document cases pass vacuously. Both restored from a byte
+copy kept before the mutation, never from HEAD, and `tests/__pycache__`
+cleared between them.
+
+**A detector for *invoked* rather than *described* has one sound tell in
+prose, and it is a flag.** A subcommand cannot be told from the sentence
+around it — *`round_record.py new` writes the record* names a subcommand and
+is a description — so `command_forms` reads the script name followed by
+whitespace and a dash. That is the same operationalisation the frame measured
+`chain_check.py` with, so the classification and the check that defends it
+rest on one definition rather than two.
+
+**The phase-boundary run caught two consequences the plan did not anticipate,
+and both were repairs owed to this branch.** Beyond the three pinned phrases
+above: `agents/smith.md`'s `# RIDER:` stamp drifted, because the locator
+landed inside `## Phases` and the stamp anchors on that whole section. The
+rider's subject — the `: '[no-review]'; git commit …` waiver example — is byte
+for byte unchanged and 138 lines above the edit, so it was re-stamped with
+`rider_check.py --reverify --only agents/smith.md` rather than repaired.
+
+**Eleven ledger rows across seven anchors drifted for the same reason, and
+re-stamping them is the only reading that leaves the ledger true.** The
+anchors are whole sections — one of them, `skills/code-review/orchestration.md#"# code-review — the orchestrator's half"`,
+spans lines 1–552, which is the file. There is nowhere in that file an edit
+could have gone without drifting it. Each of the eleven claims was re-read
+against its section and holds; none is about a command's spelling or about
+where a locator sits. `evidence-check --reverify` then moved eleven hashes and
+nothing else — the `Checked` dates did not move, which is recorded in
+`overview.md` as a finding about the tool rather than about these rows.
+
+## What this phase removes
+
+| Removed item | Where it must land |
+|---|---|
+| `round_record.py close …` and `round_record.py new …` as the typed forms in `skills/code-review/orchestration.md` | Nowhere — they are respellings of the same two commands, not a rule leaving the tree. `round_record.py` is still named in seven other places in that file, all descriptive |
