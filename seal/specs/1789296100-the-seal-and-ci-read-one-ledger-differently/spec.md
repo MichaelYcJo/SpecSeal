@@ -135,7 +135,10 @@ stdout and CI captures stdout into the job log.
 
 Coordinates this builds on, to be cited by the ledger fragment rather than
 duplicated here: `skills/evidence-check/scripts/evidence_check.py#main`,
-`skills/verify/scripts/broad_gate.py#main`.
+`skills/verify/scripts/broad_gate.py#gate` — the ledger call site is in `gate`
+(lines 516-641) and not in `main` (644-678), which phase 4 found and the
+fragment records. Corrected here in round 1's fix pass, because a reader who
+opens the contract should not have to open two other files to get the unit.
 
 ## Open questions → questions.md
 

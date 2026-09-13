@@ -7,7 +7,8 @@
 
 ## Why this work exists
 
-Three readers ran one checker over one tree and graded it differently, and
+Three readers of one exit code ran one checker over one tree and graded it
+differently, and
 nothing said so — a session that ran the documented command and read exit 1
 had no way to learn that `broad-gate` reads the same tree as a refusal. Now
 the run that is lenient says which reading you took.
@@ -17,7 +18,8 @@ the run that is lenient says which reading you took.
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | The structural case's coordinate for the gate's ledger call | `spec.md` and `plan.md` both cite `skills/verify/scripts/broad_gate.py:570` | the case walks from `checks[LEDGER]` until the parentheses balance and never reads a line number | `CLAUDE.md` §*commit early*: *a ledger coordinate names content, never a position*. A case pinned to line 570 would go red for a reformatting that has nothing to do with the flag. The documents keep the line number, which is what a reader opens; the case does not, which is what a checker measures |
-| Where `overview.md` is opened | `plan.md` phase 4 lists it among the closing records | opened in phase 3 | `tests/test_chain_hooks_hardening.py::test_every_spec_directory_that_reached_the_ladder_has_an_overview` was already red on this branch from the framer's own commit (`17164d7`), which wrote `spec.md` with no memo beside it. Waiting until phase 4 would have left an existing case red across the review rounds |
+| Where `overview.md` is opened | `plan.md` phase 4 lists it among the closing records | opened in phase 3 | `tests/test_chain_hooks_hardening.py::test_every_spec_directory_that_reached_the_ladder_has_an_overview` was already red on this branch from the framer's own commit (`17164d7`), which wrote `spec.md` with no memo beside it. Waiting until phase 4 would have left an existing case red across the review rounds. **This is not this work item's scheduling, which is how the row read until round 1 corrected it — it is a class, and it is now #379.** `agents/framer.md` tells the framer to write `spec.md`, `plan.md` and `questions.md` and *nothing else — not `overview.md`*, while that case fails the moment a directory holds a spec or a plan without a memo beside it. The two cannot both be satisfied, so every framed work item is red from its framer commit until whichever phase opens the memo. Executed: all three framer commits of this release wrote exactly the three files and no memo — `17164d7` (#354), `81be6ac` (#345), `332c656` (#350) — and `feat/350-a-segments-own-wall-clock-is-in-no-column` was still red on it at its tip during round 1. Which side gives is the owner's call and #379 is where it is asked; moving the memo earlier is a work-around this branch keeps |
+| Whether `seal/ledger.md` is touched | `spec.md` S8 and `plan.md` phase 4 both say the shared ledger is untouched; seven of its rows were re-read, re-stamped and re-dated | touched, and the rows re-verified in place | This work's edits changed content under seven anchors that file cites. `broad-gate` passes `--strict`, so leaving them drifted is exit 2 and a branch that comes back refused. `CLAUDE.md` §*a change writes fragments* forbids APPENDING and carves out removal; re-verification is the third case and it is what leaves the ledger true. Not one row was appended — the new claims are all in this work item's own fragment. Phase 4's verification row reads *`CHANGELOG.md` is not in it*, narrowing `git diff --stat` to one of the two files S8 names without saying it had narrowed, which is where S8's other half went quiet. Added in round 1's fix pass; the grounds were in `phases/phase-4.md` and not in the table a later session opens |
 
 ## Not verified
 
@@ -49,7 +51,15 @@ about a sixth call site that does not exist yet.
 
 ## Fed back into the spec
 
-None. Q1 was answered by the owner before the build started and the wording
-shipped as answered; Q2 and Q3 were closed by measurement inside the phases
-they belonged to, and their answers are in `questions.md` and in the phase
-records rather than being new clauses.
+Two corrections, both made in round 1's fix pass and both *inferred during
+implementation* — a planner may overturn either.
+
+| Clause | What changed |
+|---|---|
+| §*Data & interfaces*, the coordinates this work builds on | `skills/verify/scripts/broad_gate.py#main` → `#gate`. Phase 4 found the ledger call site in `gate` (516-641) and not in `main` (644-678) and recorded it in the fragment's Notes cell; the contract itself went on naming the wrong unit, so a reader who opened it had to open two other files to get the right one |
+| The opening paragraph's reader count | *Three readers* → *three readers of one exit code*. `spec.md` §*The class* already said a session counting readers gets four; the opening said three, which is the same divergence round 1 found across three shipped documents, one file in |
+
+No new clause was added. Q1 was answered by the owner before the build started
+and the wording shipped as answered; Q2 and Q3 were closed by measurement
+inside the phases they belonged to, and their answers are in `questions.md` and
+in the phase records.
