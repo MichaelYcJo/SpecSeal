@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 4 |
-| Commit | <filled by the commit that closes this phase> |
+| Commit | 9693c3a |
 | Ran by | unknown — the spawn prompt named no model, and `templates/sdd-phase.md` refuses a value a segment sources from its own idea of what it is. The orchestrator fills this row |
 
 ## What this phase was asked
