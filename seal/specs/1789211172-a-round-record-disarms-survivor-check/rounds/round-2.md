@@ -5,7 +5,7 @@
 | Target SHA | fb64d06 |
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | #372 |
-| Broad gate | not yet |
+| Broad gate | 9a1246d against bc5248c |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
