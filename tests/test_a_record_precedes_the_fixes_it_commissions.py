@@ -155,6 +155,7 @@ def record(
     severity="🟡",
     contract="none",
     units="none",
+    written_late=None,
 ):
     """A record that passes every check but the one each case is about.
 
@@ -166,11 +167,18 @@ def record(
     `contract` and `units` are the fix-surface cells, so a case can write the
     provisional `none — the fixes are not yet written` that every record now
     starts with.
+
+    `written_late` is the WHOLE cell rather than the reason, so a case can
+    write the four states that buy nothing — the row absent (None, the
+    default, which is every case above this one unchanged), `no`, a bare
+    `yes`, and a value outside the vocabulary — as well as the one that does.
     """
+    late = f"| Written late | {written_late} |\n" if written_late is not None else ""
     return (
         "# a round\n\n"
         "| Field | Value |\n|---|---|\n"
         f"| Target SHA | {target} |\n"
+        f"{late}"
         # The gate ran at the very commit the round reviewed, which is what a
         # settled record says. `chain_check.GATE_FROM` reaches this fixture's
         # work-item id, so this record owes the row like the seven above it.
@@ -214,13 +222,16 @@ def touch(repo, text):
     return commit(repo, "fix")
 
 
-def late_run(repo, item):
+def late_run(repo, item, written_late=None):
     """The defect, as a real run writes it: the fixes land, and only then is
     the record that commissioned them committed.
 
     Two records rather than one, because a verdict closed with a fix cannot
     say `no fixes to check` — the reader that refuses that pair is already
     shipped, and a fixture tripping it would test the wrong refusal.
+
+    `written_late` reaches round 1's record alone — the one this refuses — so
+    that the cases below vary exactly the cell they are about.
     """
     write(repo, f"{item}/routing.md", declaration(item))
     reviewed = commit(repo, "declare")
@@ -228,7 +239,12 @@ def late_run(repo, item):
     write(
         repo,
         f"{item}/rounds/round-1.md",
-        record(reviewed, verdict=f"**fixed** `{fix}`", checked_by="round-2"),
+        record(
+            reviewed,
+            verdict=f"**fixed** `{fix}`",
+            checked_by="round-2",
+            written_late=written_late,
+        ),
     )
     added = commit(repo, "round 1, written after its own fixes")
     write(repo, f"{item}/rounds/round-2.md", record(added))
@@ -301,6 +317,91 @@ def test_the_cutoff_is_this_work_items_own_id():
     assert module.ORDER_FROM == 1788501054
     assert module.ORDER_FROM > module.RUNNER_FROM, (
         "a cutoff added after `Ran by` cannot be earlier than it"
+    )
+
+
+# --- the fourth exit: the record says WHY, and this prints ------------------
+
+# What a record has to carry to buy it, and the four values that buy nothing.
+WHY = "the fix pass was spawned before the record reached a commit"
+SAYS_SO = f"yes — {WHY}"
+
+
+def test_a_late_record_that_says_why_prints_instead_of_failing(repo):
+    """A5, and the whole second half of this work item.
+
+    Until this row a record refused here had three repairs and not one of them
+    was honest: rewrite history so the adding commit moves, merge over the red
+    line, or invent a waiver nobody wrote down. Work item 1789034970 met all
+    three, took none, and ended with a pull request red on a line no later
+    commit could clear.
+
+    `agent-contract` §14 — the verdict a person reads changed, so the sentence
+    they read is pinned here.
+    """
+    fix, added = late_run(repo, NEW_ITEM, written_late=SAYS_SO)
+    code, out = run(repo)
+    assert code == 0, out
+    assert "round-1.md" in out, (
+        "passing in silence would hide the state the check exists to surface"
+    )
+    assert "prints instead of failing" in out, out
+    assert WHY in out, "the reason bought the pass and is not in the output"
+    # And the refusal it relaxes is still the thing being described, with the
+    # two commits that make it checkable.
+    assert fix[:7] in out and added[:7] in out, out
+
+
+@pytest.mark.parametrize(
+    "cell",
+    [
+        "no",
+        "yes",
+        "yes —",
+        "written after the fixes",
+    ],
+)
+def test_a_cell_that_names_no_reason_buys_nothing(repo, cell):
+    """The four states that are judged exactly as they were before the row
+    existed: `no`, a bare `yes`, a `yes` with nothing after the separator, and
+    a value outside the vocabulary.
+
+    The bare `yes` is the one worth a case of its own.
+    `round_record.py#written_late_cell` refuses to WRITE one, and a record
+    hand-edited to carry one must buy nothing here either — a relaxation
+    bought with an empty cell is a waiver with no author, which is the third
+    of the three bad exits this row replaces.
+    """
+    late_run(repo, NEW_ITEM, written_late=cell)
+    code, out = run(repo)
+    assert code == 1, out
+    assert "round-1.md" in out, out
+
+
+def test_the_row_absent_is_judged_exactly_as_before(repo):
+    """A6's other half. Every record that exists today has no such row, so the
+    absent state has to be the one that changes nothing — which is what makes
+    this a relaxation and not a rule needing a cutoff of its own."""
+    late_run(repo, NEW_ITEM, written_late=None)
+    code, out = run(repo)
+    assert code == 1, out
+    assert "round-1.md" in out, out
+
+
+def test_the_row_has_one_spelling_and_the_generator_imports_it():
+    """`round_record.py` writes the cell and this file reads it, and the
+    failure of two hand-kept copies is silent in the direction that matters:
+    rename the row in one file alone and the generator goes on writing a row
+    the checker no longer finds, which the checker reads as a record that said
+    nothing. Equal values would not catch it — they are equal right up to the
+    rename — so what is asserted is that the generator has no literal of its
+    own to rename."""
+    label = check_module().WRITTEN_LATE
+    source = read("skills", "code-review", "scripts", "round_record.py")
+    assert "WRITTEN_LATE = chain.WRITTEN_LATE" in source, source[:200]
+    assert f'"{label}"' not in source, (
+        f"`{label}` is spelled a second time in the generator, so the two "
+        "files can drift"
     )
 
 
@@ -940,6 +1041,64 @@ def test_the_spec_carries_the_subsection():
     assert "the ADDING commit" in spec or "the **adding** commit" in spec, (
         "the subsection does not say which commit is read, which is the "
         "whole distinction between the defect and a correct record"
+    )
+
+
+def test_the_spec_carries_the_fourth_exit_and_its_states():
+    """A8. The verdict a person reads changed, so the states table gains a row
+    and the subsection says what the new pass state lets through
+    (`agent-contract` §14, `CONTRIBUTING.md` §*What a change to a gate must
+    carry*). A relaxation stated nowhere is a waiver by another name."""
+    spec = flat("docs", "review-chain-spec.md")
+    check = check_module()
+    assert f"`{check.WRITTEN_LATE}` row reads" in spec, (
+        "the states table gained no row for the new pass state"
+    )
+    assert "The fourth exit" in spec, "the subsection is not there"
+    assert "rewrite history" in spec and "merge over the red line" in spec, (
+        "the three exits it replaces are what say why the fourth is cheaper"
+    )
+    assert "a bare `yes`" in spec, (
+        "what buys nothing is half of what the relaxation lets through"
+    )
+    assert "owes no cutoff" in spec, (
+        "a reader who has met five `*_FROM` constants will ask why this has "
+        "none, and the answer is that a relaxation cannot be red on history"
+    )
+
+
+def test_the_spec_carries_the_measurement_the_refusal_rests_on():
+    """`new` refuses nothing, and the evidence for that is a number. Stated in
+    the spec rather than in a work item's own record, because the work item
+    directory goes and the spec stays."""
+    spec = flat("docs", "review-chain-spec.md")
+    assert "40 records of 152" in spec, spec[:200]
+
+
+def test_the_orchestration_half_names_the_flag_and_the_shape():
+    """A8's other half. The orchestrator is who runs `new` and who meets the
+    refusal, so the flag has to be where the orchestrator reads — and the
+    section that already tells it when to commit the record is that place."""
+    skill = flat("skills", "code-review", "orchestration.md")
+    assert "--written-late" in skill, "the flag is named nowhere the caller reads"
+    assert "the last moment anybody" in skill, (
+        "the line `new` prints is not described, so a reader meets it cold"
+    )
+    assert "It is an answer, not a way around the sequence" in skill, (
+        "a flag offered with no warning is a flag that becomes the habit, "
+        "which is `plan.md`'s own six-month failure scenario"
+    )
+
+
+def test_the_template_asks_for_the_row_the_generator_writes():
+    """A8's third half — the template is where the person writing a record by
+    hand meets the vocabulary, and where a reader learns the row exists."""
+    template = flat("templates", "sdd-round.md")
+    check = check_module()
+    assert f"| {check.WRITTEN_LATE} |" in template
+    assert "--written-late" in template
+    assert "a waiver with no author" in template, (
+        "the template offers the row and never says what an empty one costs"
     )
 
 

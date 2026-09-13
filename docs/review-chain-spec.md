@@ -1244,6 +1244,7 @@ the one record the defect cannot reach.
 | The state | The check |
 |---|---|
 | the adding commit descends from a commit this record's own verdict names as the fix, work item begun on or after the cutoff | **fails**, naming the adding commit, the fix, and the row — keyed to `chain_check.py`'s `ORDER_FROM`, whose value is the id of the work item that added the rule |
+| **the same, and the record's `Written late` row reads `yes — <why>`** | **prints**, quoting the reason beside the refusal it relaxes. The fourth exit, and the reasoning is the subsection below |
 | the same, work item begun before the cutoff (or with no timestamp prefix) | prints — the grandfathering `Fixes checked by` already uses. A merged record has no honest repair: nobody can commit it earlier now |
 | the record added with `open` cells and updated to `fixed at <sha>` afterwards | passes. This is the correct shape, and the whole reason the ADDING commit is what is read |
 | a verdict closing with `answered`, `withdrawn`, `not a defect` or `deferred <home>` | passes, whatever commit sits in the cell — those close a finding and produce no code, so there is no fix the record could have been written after |
@@ -1289,6 +1290,43 @@ That is the safe direction of the two, and it is taken knowingly. Closing it
 would mean matching rewritten commits by patch id, which is a second mechanism
 for a case nobody has met — where the cost of the other direction is an honest
 record refused for a rebase its author did not connect to the failure.
+
+**The fourth exit — a record that says why it was written late.** The refusal
+above had three repairs and not one of them was honest: rewrite history so the
+adding commit moves, merge over the red line, or invent a waiver nobody wrote
+down. Work item `1789034970` met all three, took none, and ended with a pull
+request red on a line no later commit could clear, its run capped and its
+reverted fixes redistributed across six issues.
+
+So the record can answer. `| Written late | yes — <why> |`, written by
+`round_record.py new --written-late "<why>"`, and the check **prints** the
+refusal with the reason quoted instead of failing on it. Four things buy
+nothing and are judged exactly as they were before the row existed: the row
+absent — which is every record written before this — the cell `no`, a bare
+`yes`, and a value outside the vocabulary. A bare `yes` is refused at the point
+of writing too: a relaxation bought with an empty cell is a waiver with no
+author, which is the third of the three bad exits under a flag.
+
+**It prints rather than passing in silence,** the same shape the grandfathering
+row takes and for the same reason. The state is what the check exists to
+surface, and what the reason buys is that the run can end and that the fact
+survives in the record rather than in a session that has ended.
+
+**It owes no cutoff of the `ORDER_FROM` kind, and the direction is why.** Those
+cutoffs exist because a check whose first production act is red on history
+nobody can fix is a check people learn to skip. This is a **relaxation**: no
+record that already exists is judged more harshly for lacking a row nobody
+asked its author for.
+
+**`round_record.py new` is where a person learns they may need it.** It
+compares the commit the round read against the branch's HEAD and prints the
+commits between with their subjects where they differ — the last moment in the
+sequence when anybody can still act, since the fix pass is a spawn with no
+command for a check to sit on. It refuses nothing there, and that is measured
+rather than chosen: over this repository's own pre-squash branches, 40 records
+of 152 have a `Target SHA` that is not their adding commit's first parent, and
+the commonest cause by far is the round's own paperwork committed between the
+review and the record. A refusal would have fired on one correct run in four.
 
 What no check can see is a record committed on time that carries nothing: the
 file exists before the fixes and says only what the round found. This refusal

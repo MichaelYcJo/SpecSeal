@@ -386,6 +386,36 @@ pass **from the committed record** rather than from the reviewer's report. The
 report is a message in a session that ends; the record is a file the next
 segment opens.
 
+**`new` tells you when you are already late, and it is the last moment anybody
+can act.** It compares the commit the round read against the branch's HEAD, and
+where they differ it lists the commits between with their subjects. Two
+readings, and it can tell them apart for neither: the fix pass for this round
+has already run, or HEAD moved during the review — which
+`templates/sdd-round.md` already asks `Target SHA` to hold, both commits in the
+one cell. **Read the subjects.** It refuses nothing, because over this
+repository's own pre-squash branches 40 records of 152 differ this way and the
+commonest cause by far is the round's own paperwork landing between the review
+and the record.
+
+**Where the fix pass really did run first, say so in the record:**
+
+```
+round_record.py new … --written-late "the fix pass was spawned before the record reached a commit"
+```
+
+That writes `| Written late | yes — <why> |`, and `chain_check.py` prints the
+refusal with the reason quoted instead of failing on it. It is the fourth exit,
+and the three it replaces are rewriting history so the adding commit moves,
+merging over a red line, and inventing a waiver nobody wrote down — work item
+`1789034970` met all three and ended red on a line no later commit could clear.
+A bare `yes` is refused: the reason is the whole of what the row buys, and a
+relaxation with an empty cell is a waiver with no author. Without the flag the
+row reads `no` and the refusal stands exactly as it did.
+
+**It is an answer, not a way around the sequence.** Reaching for it every round
+is the failure the row's own design anticipates, and the repair is one command
+earlier: commit the record when `new` writes it.
+
 ### The check a round runs reads everything, and only a write is narrowed
 
 `evidence-check` takes `--ledger`, and the flag is right for one of its two
