@@ -1453,6 +1453,85 @@ def reach_back(reader, path, n):
     )
 
 
+# --- whether the commit the round read is still the branch's HEAD -----------
+
+# `new` is the last command the orchestrator runs before it dispatches a fix
+# pass. It is handed the commit the reviewer read and it can ask git for the
+# branch's HEAD, and until this it compared the two for nothing -- so a record
+# being written after its own fixes was first said out loud at the pull
+# request, by `chain_check.written_late`, on a line no later commit can clear.
+#
+# It PRINTS and refuses nothing, and that is a measurement rather than a
+# preference. A refusal was the shape this work item carried in, and phase 1
+# measured what it would have cost: over this repository's own pre-squash
+# branches -- the only place the moment survives, since a feature branch
+# squashes into its release branch and takes the reviewed commit with it -- 40
+# records of 152 have a `Target SHA` that is not their adding commit's first
+# parent. Both of the two opened by hand differ because the round's OWN
+# paperwork landed between the review and the record, one of them a commit
+# reading `docs: round 1's paragraph is recorded before the round runs`.
+#
+# So the difference is evidence and not a verdict. `new` cannot tell a fix
+# commit from a round paragraph, the numbers say it would be wrong about one
+# correct run in four, and the orchestrator reading the subjects can tell them
+# apart at a glance. What `new` owes the orchestrator is the list.
+HEAD_MOVED = "the commit this round read is not the branch's HEAD"
+
+
+def head_moved(root, target):
+    """(reviewed, head, [`<abbrev> <subject>`]) when HEAD is not `target`.
+
+    None when they are the same commit. `reviewed` is the RESOLVED target and
+    not the string `--target` carried: the flag legitimately takes a branch
+    name or a `HEAD~1`, and a line reading *the round read HEAD~1* names
+    nothing anybody can open a week later.
+
+    `<target>..HEAD` rather than a count, because the orchestrator's whole
+    judgment here is which KIND of commit landed: a fix pass and a round
+    paragraph are one line apart in this listing and indistinguishable in a
+    number. A target that is not an ancestor of HEAD still answers -- the
+    listing is what HEAD reaches and the target does not -- and that is the
+    honest answer for a branch somebody reset.
+
+    None where git will not answer. `build` has already refused a `--target`
+    that does not resolve, so the only way here is a repository `rev-parse
+    HEAD` fails on, and a line about a tree this cannot read would name a
+    cause that is not the cause.
+    """
+    head = git(root, "rev-parse", "HEAD")
+    reviewed = git(root, "rev-parse", f"{target}^{{commit}}")
+    if head is None or reviewed is None:
+        return None
+    head, reviewed = head.strip(), reviewed.strip()
+    if not head or not reviewed or head == reviewed:
+        return None
+    listed = git(root, "log", "--format=%h %s", f"{reviewed}..{head}") or ""
+    return reviewed, head, [ln.strip() for ln in listed.splitlines() if ln.strip()]
+
+
+def head_moved_line(reviewed, head, between):
+    """The line `new` prints when the two differ. Read by a person, so
+    `agent-contract` §14 pins every sentence of it in a case."""
+    count = len(between)
+    listing = "".join(f"\n    {line}" for line in between)
+    return (
+        f"round-record: {HEAD_MOVED} {DASH} the round read {reviewed[:7]}, HEAD "
+        f"is {head[:7]}, and {count} commit{'' if count == 1 else 's'} "
+        f"stand between them.{listing}\n"
+        "  There are two readings and only you can tell them apart. Either "
+        "the fix pass for this round has already run, in which case this "
+        "record is being written after the work it commissions, and the pull "
+        "request refuses it on a line no later commit can clear. Or HEAD "
+        "moved during the review, which `templates/sdd-round.md` already asks "
+        f"`{chain.TARGET}` to hold {DASH} both commits in that one cell.\n"
+        "  Nothing is refused here. Measured over this repository's own "
+        "pre-squash branches, 40 records of 152 differ this way, and the "
+        "commonest cause by far is the round's own paperwork committed "
+        "between the review and the record. Read the subjects above and "
+        "decide."
+    )
+
+
 # --- the bound the next round is under, said as the record is written -------
 
 ENDS_THE_RUN = "this record ends the run"
@@ -1964,6 +2043,12 @@ def new(args):
     os.makedirs(rounds, exist_ok=True)
     write_record(reader, target, text)
     print(f"round-record: wrote {os.path.relpath(target, root)}")
+    # Beside the `wrote` line, because it is a fact about the record just
+    # written and about the `--target` it was written from. The reach-back and
+    # the bound below are about OTHER records.
+    moved = head_moved(root, args.target)
+    if moved is not None:
+        print(head_moved_line(*moved))
     if reached is not None:
         print(reached)
     # After the record is written and before the check runs — the moment the

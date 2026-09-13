@@ -77,7 +77,19 @@ fourth.
 
 ## Not done
 
-Nothing yet.
+**`new --target <a revision that is not a full SHA>` writes that revision into
+the record's `Target SHA` cell verbatim, and the cell then names no commit.**
+`build` writes `cell(chain.TARGET, args.target)` and `reader.resolves` only
+asks whether the revision resolves, so `--target HEAD~1` produces
+`| Target SHA | HEAD~1 |` and `chain_check` reports *no `| Target SHA | … |`
+row naming a commit*. Executed while reddening phase 2's cases on 2026-09-13.
+
+Not taken, on two grounds. `spec.md` §Data & interfaces says nothing about
+`--target`'s signature moving, so resolving it in `build` is a change to what
+every record contains. And the state is loud rather than silent: `new` ends in
+`run_check`, which is the check that reports it, so the orchestrator is told
+before the record is committed. `tests/test_new_says_when_head_is_not_the_target.py#test_a_target_given_as_a_revision_is_named_by_its_sha`
+carries the same paragraph beside the case that found it.
 
 ## Fed back into the spec
 
