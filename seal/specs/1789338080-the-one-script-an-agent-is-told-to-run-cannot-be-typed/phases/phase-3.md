@@ -41,12 +41,15 @@ only a fixture.** `chain_check.py --worktree` planted at
 `skills/code-review/SKILL.md:48` failed naming the file, the line and both
 repairs; the plant was reverted and the file is byte for byte as it was.
 
-**Two `can_fail` cases were shown red by mutation, one at a time.**
-`command_forms` made to match nothing turned its fixture case red;
-`reachable` made to answer yes to everything turned both of its cases red —
-which is the case that matters, because a `reachable` answering yes would make
-every one of the nine document cases pass vacuously. Both restored from a byte
-copy kept before the mutation, never from HEAD, and `tests/__pycache__`
+**The two readers the whole pin rests on were mutated, one at a time.**
+`command_forms` made to match nothing turned
+`test_a_planted_invocation_turns_the_classification_red` red. `reachable` made
+to answer yes to everything turned both
+`test_a_document_with_no_locator_is_caught` and
+`test_a_locator_inside_a_longer_word_does_not_count` red — which is the pair
+that matters, because a `reachable` answering yes would make every one of the
+nine document cases pass vacuously. Both mutations were restored from a byte
+copy kept before the mutation, never from HEAD, and `tests/__pycache__` was
 cleared between them.
 
 **A detector for *invoked* rather than *described* has one sound tell in
