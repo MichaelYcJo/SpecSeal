@@ -2909,3 +2909,66 @@ def test_the_mode_still_exits_zero_when_it_finds_a_breach(segment_that_spawned):
     the orchestrator's own posting step would break on exactly the discovery
     it was posting."""
     assert run(["--segments", str(segment_that_spawned)]).returncode == 0
+
+
+def test_a_transcript_with_no_stamp_to_join_on_still_gets_a_row(tmp_path):
+    """Found by the mutation pass: dropping the unjoinable file kept every
+    case green.
+
+    A transcript that cannot be opened, holds no parseable line, or carries
+    no `timestamp` has nothing to join on. It is still part of the run, and
+    dropping it would take its numbers out of the reading while the
+    transcripts-walked count went on including it — two numbers disagreeing
+    with nothing on the page saying so, which is the failure every other
+    count in this mode prints to avoid."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    stampless = json.dumps(
+        {"message": {"role": "user", "content": [{"type": "text", "text": "."}]}}
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": worked(625, "s1"),
+            "agent-stampless.jsonl": [stampless, "{ not json", ""],
+        },
+    )
+    segments = segments_of(path)
+    assert segments["transcripts"] == 2, segments
+    # The row count and the transcripts-walked count agree, which is the
+    # whole property dropping it would break.
+    assert len(segments["rows"]) == 2, segments["rows"]
+    assert segments["unnamed"] == 1, segments
+    anonymous = [row for row in segments["rows"] if not row["named"]]
+    assert anonymous[0]["numbers"] is None, anonymous
+    assert "agent-stampless.jsonl" in segment_report(path), segment_report(path)
+
+
+def test_a_spawn_in_a_later_slice_is_named_by_that_slice(tmp_path):
+    """Found by the mutation pass: zeroing the SLICED branch's spawn count
+    kept every case green, because the breach fixture was never resumed.
+
+    A resumed agent that spawns in its second stretch must be named as that
+    stretch — `specseal:smith  2/2` — or the line points at work the agent
+    was doing an hour earlier."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                *worked(9010, "s2"),
+                *spawn("N", 9100, 9200, "general-purpose", "search the tree"),
+            ]
+        },
+    )
+    rows = segments_of(path)["rows"]
+    assert [row["spawns"] for row in rows] == [0, 1], rows
+    out = " ".join(segment_report(path).split())
+    assert "specseal:smith 2/2 made 1 `Agent` call" in out, out
