@@ -1736,6 +1736,19 @@ def report_breaches(segments):
     exit code is a later work item's, and it will be choosing against
     readings rather than against a guess.
 
+    **It says who §6 reaches, because the walk cannot tell.** §6 binds the
+    agents this plugin spawns. An `Agent` call in a segment's transcript is
+    all this file can see, and a `subagent_type` from somewhere else — one
+    whose own procedure instructs the fan-out — looks exactly the same.
+    Measured over the 43 runs on the machine this was written on: 13 carry
+    the line, 12 of them name an agent this plugin spawns, and the thirteenth
+    names `claude-preset:code-reviewer`, which no definition here governs.
+    The row is still worth printing — a spawn made inside a segment is worth
+    seeing whoever made it — so the scope is stated rather than the row
+    filtered, which is the same direction the two counts below take. A line
+    that cries a rule at an agent the rule does not reach is one a reader
+    learns to discount.
+
     **The two counts of one breach are printed rather than reconciled.** A
     spawn made inside a segment arrives twice — as an `Agent` call in that
     segment's own file, and as a transcript with no call in the PARENT to
@@ -1764,6 +1777,12 @@ def report_breaches(segments):
             "the machine that ran the agent, in no commit and on\n  no CI "
             "runner, and a report a person already runs at every segment "
             "boundary is\n  what that leaves."
+        )
+        print(
+            "\n  §6 binds the agents this plugin spawns. A row above naming "
+            "an agent from\n  somewhere else is still a spawn made inside a "
+            "segment and still worth\n  seeing, but which rule it answers to "
+            "is for that agent's own definition\n  to say."
         )
     print(
         f"\n  {plural(calls, '`Agent` call')} inside a segment, against "

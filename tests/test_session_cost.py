@@ -2970,6 +2970,24 @@ def test_a_clean_run_prints_no_such_line(run_with_segments):
     assert all(row["spawns"] == 0 for row in rows), rows
 
 
+def test_the_breach_line_says_which_agents_the_section_binds(segment_that_spawned):
+    """The line fires on any `Agent` call in any segment's transcript, and
+    the walk cannot tell an agent this plugin spawns from one whose own
+    procedure instructs the fan-out. Measured over the 43 runs on this
+    machine: 13 carry the line and 12 of those name an agent this plugin
+    spawns — the thirteenth names `claude-preset:code-reviewer`, which no
+    definition here governs.
+
+    The absence half is `test_a_clean_run_prints_no_such_line`, which asserts
+    `§6` appears nowhere in a clean run and so covers this sentence too.
+
+    Red before the fix: the report cites the section and never says who it
+    reaches."""
+    out = " ".join(segment_report(segment_that_spawned).split())
+    assert "§6 binds the agents this plugin spawns" in out, out
+    assert "for that agent's own definition to say" in out, out
+
+
 def test_the_two_counts_of_one_breach_are_reconciled_and_printed(
     segment_that_spawned,
 ):
