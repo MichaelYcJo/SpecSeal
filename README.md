@@ -145,9 +145,12 @@ and a heading for a document, and the hash covers the region under it. The
 `evidence-check` skill ships a CI-ready script that
 exits 2 when an anchor is gone or ambiguous and 1 when the content under it
 changed; both fail a default CI step, and `--strict` makes drift exit 2 too.
-What it proves is narrow and worth stating: that the citation still points at
-what it claimed, not that the claim it supports is still true. Specs rot
-silently everywhere else — here the rot shows up in CI.
+**`broad-gate` is the reader that passes `--strict`**, so drift you were shown
+as exit 1 locally is what refuses the branch when the sealer runs that gate —
+and a lenient run says so on the exit code where the two readings part. What it
+proves is narrow and worth stating: that the citation still points at what it
+claimed, not that the claim it supports is still true. Specs rot silently
+everywhere else — here the rot shows up in CI.
 
 **A row carries no line number and no commit.** A line number moves for edits
 that have nothing to do with the claim, so inserting a line above a cited
@@ -261,6 +264,7 @@ wrong for every other machine.
 | `deferral-check . [--kind all]` | resolve the answerer an `unverified` row names — does anything here actually run the check you are deferring? Separates *answers on pull requests* from *answers too late*, *local hook only*, and *nothing* |
 | `unverified-check . [--baseline <ref>]` | read the rows those `unverified` labels left behind — what is still open, in which work item, and who was named to answer it. Fails on a section it cannot read, because a tolerant reader reports zero and zero reads as *all closed*. With `--baseline`, it compares counts against the point where this branch forked from that ref (`git merge-base`), so a work item that landed on the base afterwards is not this branch's removal: a table with fewer rows than at the fork point fails, as does an `overview.md` that was there and is gone. Replacing one row with another keeps the count and passes |
 | `session-cost --latest` | where a session's minutes went — command time, model time between calls, checks re-run for a result already produced, and how many tools went out per turn. Fills the seal's `cost` row, which nothing inside a session can measure |
+| `session-cost --segments <transcript>` | one row per agent the run spawned, read from that agent's own transcript: its span, calls, tools per turn, mean gap and tokens. That span is in no other column — where a harness writes a spawn's result on acceptance, the `--spawns` table reads seconds for an agent that ran twenty minutes. A resumed agent is one row per stretch of work, so no span covers the wait between two of them, and a segment that spawned an agent of its own prints a line saying so |
 | `payload-meter [--calibrate <main transcript>] [--baseline <run.json>]` | what each agent's startup payload is made of — its definition, every skill its `skills:` list injects, and the two `CLAUDE.md` files — in bytes, chars and tokens, with a basis on every token figure: `measured` where it came from a transcript's spawns, `estimated` from a per-agent ratio otherwise. `--baseline` prints the delta against an earlier `--json` run, which is how a trimmed payload is shown to have shrunk |
 | `/specseal:preset-setup` | approval-gated semantic merge of the CLAUDE.md block |
 | `/specseal:evidence-ci` | wire the drift check into CI — vendors the checker and writes the workflow |
