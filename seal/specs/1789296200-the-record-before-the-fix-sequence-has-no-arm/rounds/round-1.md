@@ -7,7 +7,7 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 381 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | test_the_failure_names_the_fourth_exit (depth 1); BEHIND (depth 1); test_one_commit_between_reads_as_one_commit (depth 1); test_a_tree_behind_the_reviewed_commit_gets_neither_false_reading (depth 1) |
 | Needs a fix | yes — 🟡 1 and 🟡 2 |
