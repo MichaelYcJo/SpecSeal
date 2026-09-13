@@ -1074,6 +1074,7 @@ def segment_slices(transcript, labels):
                 "slice": 1,
                 "slices": 1,
                 "idle_gap_s": widest_idle_gap(calls),
+                "spawns": sum(1 for c in calls if c["tool"] in DELEGATING),
                 "numbers": analyse(calls, turns),
                 "tokens": token_totals([transcript]),
             }
@@ -1100,6 +1101,10 @@ def segment_slices(transcript, labels):
                 # a message to an agent that then idles again for its own
                 # reasons, and one marker does not answer for the whole file.
                 "idle_gap_s": widest_idle_gap(window),
+                # Per SLICE and not per file: a resumed agent's breach
+                # belongs to the stretch it happened in, and #343's line has
+                # to name which agent — and which of its stretches — did it.
+                "spawns": sum(1 for c in window if c["tool"] in DELEGATING),
                 "numbers": analyse(window, turn_windows[index]),
                 "tokens": token_totals([transcript]) if index == 0 else None,
             }
@@ -1679,6 +1684,72 @@ def segment_label(row):
     return "…" + transcript[-(width - 1) :] + suffix
 
 
+def report_breaches(segments):
+    """#343: an `Agent` call made INSIDE a segment, named where it happened.
+
+    `skills/agent-contract/SKILL.md` §6 withholds four acts from every agent
+    whatever its own definition says, and one of them is spawning. Delivery
+    is not what failed: round 1 of #120 spawned two agents and disclosed
+    neither, with the rule already in that agent's payload, in a section the
+    same agent was reviewing a diff of. So this is not a second place to put
+    the rule — it is a place the act shows up whether or not anybody says so.
+
+    **It notices and stops nothing, and that is the claim the evidence's
+    location permits rather than a softer one chosen on taste.** The
+    transcript is under the home directory of the machine that ran the agent:
+    it is in no commit, reaches no CI runner, and a checker that read one
+    would run exactly where a person already is. A line in a report a person
+    already runs at every segment boundary is what that leaves. Making it an
+    exit code is a later work item's, and it will be choosing against
+    readings rather than against a guess.
+
+    **The two counts of one breach are printed rather than reconciled.** A
+    spawn made inside a segment arrives twice — as an `Agent` call in that
+    segment's own file, and as a transcript with no call in the PARENT to
+    name it. Where they disagree, either a child's transcript is missing or a
+    segment is unnamed for the other reason, its opening outside the
+    tolerance, and nothing in this file can tell which. Saying so is worth
+    more than picking one."""
+    rows = segments["rows"]
+    breaches = [row for row in rows if row["spawns"]]
+    calls = sum(row["spawns"] for row in rows)
+    unnamed = segments["unnamed"]
+    if not calls and not unnamed:
+        return
+    if breaches:
+        print("\n  §6 — an agent spawned another agent")
+        for row in breaches:
+            print(
+                f"    {segment_label(row).strip()} made "
+                f"{plural(row['spawns'], '`Agent` call')} in its own transcript"
+            )
+        print(
+            "\n  `skills/agent-contract/SKILL.md` §6 withholds four acts from "
+            "every agent\n  whatever its own definition says: post nothing, "
+            "push nothing, open no pull\n  request, and spawn no agent. This "
+            "line notices and stops nothing — the\n  transcript it read is on "
+            "the machine that ran the agent, in no commit and on\n  no CI "
+            "runner, and a report a person already runs at every segment "
+            "boundary is\n  what that leaves."
+        )
+    print(
+        f"\n  {plural(calls, '`Agent` call')} inside a segment, against "
+        f"{plural(unnamed, 'segment')} the parent\n  could not name"
+        + (
+            ", and the two agree."
+            if calls == unnamed
+            else ", and the two do not agree."
+        )
+    )
+    print(
+        "  One spawn arrives twice — as a call in the spawning segment's own "
+        "file, and as\n  a transcript with no `Agent` call in this one to name "
+        "it. Where the counts\n  part, a child's transcript is missing or a "
+        "segment is unnamed for the other\n  reason, and nothing here can tell "
+        "which; both numbers print so a reader can."
+    )
+
+
 def report_segments(segments, path):
     """One row per spawned segment, or the count and no table.
 
@@ -1808,6 +1879,7 @@ def report_segments(segments, path):
             f"{numbers['gap_mean_s']:>6.0f}s"
             f"{spent:>14}"
         )
+    report_breaches(segments)
     # A column that looks summable and is not is #200's failure shape in a
     # new place, so the page says which of the two it is rather than leaving
     # the reader to find out by comparing two numbers that should have

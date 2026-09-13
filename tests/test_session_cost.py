@@ -2792,3 +2792,120 @@ def test_the_idle_gap_sentence_agrees_with_its_own_number(tmp_path):
     )
     out = " ".join(segment_report(path).split())
     assert "sits inside 2 rows above" in out, out
+
+
+# --- #343: an agent that spawned another agent -----------------------------
+#
+# `skills/agent-contract/SKILL.md` §6 withholds four acts from every agent
+# whatever its definition says, and one of them is spawning. Round 1 of #120
+# spawned two agents and disclosed neither, with the rule already in the
+# agent's payload — so delivery worked and the act still went the other way.
+# What notices it is the walk this mode already does.
+
+
+@pytest.fixture
+def segment_that_spawned(tmp_path):
+    """A named segment whose own transcript holds an `Agent` call, and the
+    nested transcript that call produced.
+
+    The same breach arrives twice: as a call inside the segment, and as a
+    transcript the parent cannot name — its opening is 275 seconds from the
+    only spawn the parent made, so no stamp can claim it. The mode prints
+    both, because the two counts disagreeing is itself a reading."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    return write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                *spawn("N", 700, 900, "general-purpose", "search the tree"),
+                *worked(910, "s2"),
+            ],
+            "agent-nested.jsonl": worked(900, "n1"),
+        },
+    )
+
+
+def test_a_segment_row_carries_its_own_spawn_count(segment_that_spawned):
+    """Per segment and not per run, because the line has to name which agent
+    did it — and after phase 3, per SLICE, so a resumed agent's breach is
+    attributed to the stretch it happened in."""
+    rows = segments_of(segment_that_spawned)["rows"]
+    by_name = {row["agent"] or row["transcript"]: row for row in rows}
+    assert by_name["specseal:smith"]["spawns"] == 1, rows
+    nested = [row for row in rows if not row["named"]]
+    assert len(nested) == 1 and nested[0]["spawns"] == 0, rows
+
+
+def test_a_spawn_inside_a_segment_prints_a_line_naming_agent_count_and_section(
+    segment_that_spawned,
+):
+    """#343's whole answer. It notices and stops nothing — a report is read by
+    a person who can skip it — and that is the claim the evidence's location
+    permits, because a transcript never leaves the machine that produced it."""
+    out = " ".join(segment_report(segment_that_spawned).split())
+    assert "§6" in out, out
+    assert "specseal:smith" in out, out
+    assert "1 `Agent` call" in out, out
+    assert "spawn no agent" in out, out
+
+
+def test_a_clean_run_prints_no_such_line(run_with_segments):
+    """The negative half, planted in the same commit. A breach line nobody
+    has seen fail is a counterfeit seal: these two segments made no `Agent`
+    call, and the section is not mentioned at all."""
+    out = segment_report(run_with_segments)
+    assert "§6" not in out, out
+    assert "spawn no agent" not in out, out
+    rows = segments_of(run_with_segments)["rows"]
+    assert all(row["spawns"] == 0 for row in rows), rows
+
+
+def test_the_two_counts_of_one_breach_are_reconciled_and_printed(
+    segment_that_spawned,
+):
+    """A spawn inside a segment shows up twice — as a call in that segment's
+    file and as a transcript the parent cannot name. Both numbers print, so a
+    reader can see them agree rather than taking this file's word for it,
+    which is `report_spawns`' partition tally one mode over."""
+    out = " ".join(segment_report(segment_that_spawned).split())
+    assert "1 `Agent` call inside a segment" in out, out
+    assert "1 segment the parent could not name" in out, out
+    # The discriminating half: this fixture's two counts DO agree, so the
+    # sentence that fires on a disagreement must not.
+    assert "the two agree" in out, out
+    assert "do not agree" not in out, out
+
+
+def test_a_disagreement_between_the_two_counts_is_printed_not_resolved(tmp_path):
+    """An agent can spawn and have its child's transcript go missing, or a
+    segment can be unnamable for the other reason — its opening outside the
+    tolerance. The mode has no way to tell which, so it says the two
+    disagree instead of picking one."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                *spawn("N", 700, 900, "general-purpose", "search the tree"),
+            ]
+        },
+    )
+    out = " ".join(segment_report(path).split())
+    assert "1 `Agent` call inside a segment" in out, out
+    assert "0 segments the parent could not name" in out, out
+    assert "do not agree" in out, out
+
+
+def test_the_mode_still_exits_zero_when_it_finds_a_breach(segment_that_spawned):
+    """It notices; it is not a gate. Nothing reads this exit code today, and
+    the orchestrator's own posting step would break on exactly the discovery
+    it was posting."""
+    assert run(["--segments", str(segment_that_spawned)]).returncode == 0
