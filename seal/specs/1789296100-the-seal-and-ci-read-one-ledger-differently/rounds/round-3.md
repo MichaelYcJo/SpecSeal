@@ -6,13 +6,13 @@
 | Ran by | warden on claude-opus-5 |
 | PR | 378 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -35,7 +35,7 @@ What `chain_check` still reports is this record closing round 3's own cell, and 
 | 3 | The `written_late` repair is genuine: the record commit does not contain the fix and does not descend from it | `ae5b935` · `6730690` | answered | executed — `git merge-base --is-ancestor 6730690 ae5b935` exits 1 and the reverse exits 0, read directly; `git show --name-only ae5b935` is three `rounds/` files and no re-wrapped path; `chain_check.py --baseline release/v0.11.3` prints no `written_late` line for `round-2.md` |
 | 4 | The commit message's "nothing went red" is true for the reason it gives | `tests/test_docs_line_wrap.py` `COVERED` | answered | read — the list carries no `seal/specs/` path and no `CHANGELOG.md`; round 2 had already run the module at 23 passed and the fix cannot change the list |
 | 5 | `round-2.md` describes the edit `6730690` actually made, and its `Contract changes` and `New units` cells hold | `…/rounds/round-2.md` | answered | read — the narrative names the same three re-folded paragraphs, row 10 carries `fixed` and the commit, and the commit adds no unit and touches no contract surface |
-| 6 | ⬜ The fold was not cascaded: a 40-column line remains mid-paragraph in `changelog.md` and a 31-column line in `spec.md` | `…/changelog.md:8` · `…/spec.md:10` | open | executed — column widths measured per line at both commits: `overview.md` cascaded to 74/78/76/67, `changelog.md` moved its orphan from 30 columns to 40, `spec.md` replaced a 101-column line with a 31-column one. A correction only; nothing renders differently and no check covers either path |
+| 6 | ⬜ The fold was not cascaded: a 40-column line remains mid-paragraph in `changelog.md` and a 31-column line in `spec.md` | `…/changelog.md:8` · `…/spec.md:10` | answered | The round that found it said not to fix it, and the arithmetic is right: both lines render identically, neither path is in `test_docs_line_wrap.py`'s `COVERED`, and a fix costs one commit and one more verifying round for nothing anybody sees. That is the trade the orchestrator got wrong one round earlier, when fixing round 2's ⬜ is what spent the cap. Left as a note in the round record for whoever next edits those two paragraphs |
 
 ## Paste-ready fixes
 
