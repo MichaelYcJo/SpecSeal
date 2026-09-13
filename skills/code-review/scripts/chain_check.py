@@ -331,6 +331,26 @@ VERDICTS = "## Verdicts"
 # because there was no constant to derive it from.
 VERDICT_COLUMN = "Verdict"
 TARGET = "Target SHA"
+# Where a record says it was committed after the fixes it commissioned, and
+# WHY. `written_late` below refuses exactly that record, on the strength of
+# git rather than of anything written in the file -- and until this row there
+# was no fourth exit from that refusal. Work item 1789034970 found the other
+# three: rewrite history so the adding commit moves, merge over a red line, or
+# invent an undocumented waiver. It ended red on a line no later commit could
+# clear.
+#
+# The vocabulary is `Needs a fix`'s and `Loses a record or crashes`'s, read by
+# the same `yes_or_no`: `no`, or `yes {DASH} <why>`. A THIRD spelling of one
+# vocabulary is the drift this file closes everywhere else, and the shape is
+# already the right one -- a bare `yes` names nothing, which is what
+# `nobody {DASH} <why>` and `unknown {DASH} <why>` are refused for.
+#
+# Absent, unreadable, or `no`, a late record is judged exactly as it was
+# before this row existed. The relaxation is one state wide and it is a
+# RELAXATION, which is why it owes no cutoff of the `ORDER_FROM` kind: no
+# record that exists is judged more harshly for lacking a row nobody asked
+# its author for.
+WRITTEN_LATE = "Written late"
 PASS_RE = re.compile(r"^\s*-\s*\[( |x|X)\]\s*Pass\b")
 BLOCKING = "🔴"
 # What a verdict cell may say for the finding to count as dealt with. Anything
@@ -2412,6 +2432,32 @@ def commissioned_fixes(reader, root, rel):
     return found
 
 
+def written_late_reason(reader, root, rel):
+    """The reason this record gives for having been written late, or None.
+
+    `run_reopened`'s shape, reading `WRITTEN_LATE` instead of `NEEDS` and for
+    the same reason: one vocabulary, one reader. `yes_or_no` is what already
+    reads `no` / `yes -- <what>`, so this row cannot drift from the two rows
+    that spelling came from.
+
+    FOUR states answer None and every one of them is judged exactly as it was
+    before this row existed -- the row absent, the cell unreadable, the cell
+    `no`, and a bare `yes` with nothing after it. The last is the one worth
+    saying out loud: `round_record.py` refuses to WRITE a bare `yes`, and a
+    record hand-edited to carry one buys nothing here either. A relaxation
+    bought with an empty cell is a waiver with no author, which is one of the
+    three bad exits this row exists to replace.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return None
+    cell = field(table_rows(reader, reader.readable(text)), WRITTEN_LATE)
+    if cell is None:
+        return None
+    word, reason = yes_or_no(reader.visible(cell).strip())
+    return reason if word == FLOOR_YES and reason else None
+
+
 def written_late(reader, root, base, rel):
     """(errors, notices) -- was this record committed after its own fixes.
 
@@ -2476,7 +2522,28 @@ def written_late(reader, root, base, rel):
         if full in late:
             late[full].append((line_no, what))
 
+    # Nothing is late, which is what every correct record that closed a
+    # finding with a fix looks like. Returning here rather than falling
+    # through to an empty loop is not tidiness: `written_late_reason` below
+    # calls `read_record`, which is an uncached `git show HEAD:<rel>`, so
+    # without this guard the ordinary record pays a subprocess for an answer
+    # nothing reads.
+    if not late:
+        return [], []
+
     began = item_began(rel)
+    # The fourth exit. Until this row, a record refused here had three
+    # repairs and not one of them was honest: rewrite history so the adding
+    # commit moves, merge over the red line, or invent a waiver nobody wrote
+    # down. Work item 1789034970 met all three and took none, and ended with a
+    # pull request red on a line no later commit could clear.
+    #
+    # It PRINTS rather than falling silent, which is the same shape the
+    # grandfathering above takes and for the same reason: the state is what
+    # the check exists to surface, and a pass in silence would hide it. What
+    # the reason buys is that the run can end, and that the fact survives in
+    # the record instead of in a session that has ended.
+    said = written_late_reason(reader, root, rel)
     errors, notices = [], []
     for full, rows in late.items():
         line_no = rows[0][0]
@@ -2497,7 +2564,22 @@ def written_late(reader, root, base, rel):
             "UPDATE commit may descend from the fix, the adding commit may "
             "not"
         )
-        if began is None or began < ORDER_FROM:
+        if said is not None:
+            notices.append(
+                (
+                    rel,
+                    line_no,
+                    message + ". This record SAYS it was written late, and "
+                    f"why: `{WRITTEN_LATE}` reads `{FLOOR_YES} — {said}`. "
+                    "So this prints instead of failing. The three repairs a "
+                    "record refused here used to have were rewriting history "
+                    "so the adding commit moves, merging over the red line, "
+                    "and inventing a waiver nobody wrote down; this is the "
+                    "fourth, and what it buys is that the fact survives in "
+                    "the record rather than in a session that has ended",
+                )
+            )
+        elif began is None or began < ORDER_FROM:
             notices.append(
                 (
                     rel,
@@ -2509,7 +2591,29 @@ def written_late(reader, root, base, rel):
                 )
             )
         else:
-            errors.append((rel, line_no, message))
+            # The fourth exit, named where it is needed. Every other place
+            # this state is documented -- the template, the spec, the
+            # orchestration half, the notice above -- is read by somebody who
+            # is NOT in it. This message is the one text the person in it
+            # reads, and it used to end at `commit the record when the round
+            # posts`, which is advice their already-committed record cannot
+            # take. The hand-edit half is the half that matters: by the time
+            # anybody reads this the record is on the branch, so the flag
+            # alone names an exit that has gone.
+            errors.append(
+                (
+                    rel,
+                    line_no,
+                    message + ". Where the fix pass really did run before this "
+                    "record reached a commit, the record may SAY so and this "
+                    f"prints instead of failing: a `| {WRITTEN_LATE} | "
+                    f"{FLOOR_YES} — <why> |` row in its field table, written by "
+                    '`round_record.py new --written-late "<why>"`, or added by '
+                    "hand and committed like any other correction to a record "
+                    "already on the branch. A bare `yes` buys nothing — the "
+                    "reason is the whole of what the row is for",
+                )
+            )
     return errors, notices
 
 

@@ -2283,6 +2283,48 @@ def check_records(root, home, maps=None, default_repo=None):
     return findings, names_read, stamps_read
 
 
+# **The one exit code this checker's readers grade differently.** Three of them
+# run this script over one tree: `bin/evidence-check`, the command every
+# document names, takes the answer as it comes; CI's `ledger` job renders exit
+# 1 as a `::warning::`; and `broad-gate` passes `--strict`, where drift is
+# exit 2 and the branch comes back `NOT SEALED`. A session that runs the
+# documented command more often never meets the reading that decides, because
+# the documented command is not the deciding one (#354).
+#
+# Printed on exit 1 and nowhere else. Exit 0 and exit 2 are states every
+# reader grades alike, so there is no disagreement to report — and a line that
+# prints on every run is a line people learn to skip, which is the shape
+# `hooks/evidence-advisor.py` already measured.
+#
+# `NOT SEALED` is `seal_stamp`'s word and this is borrowing it.
+# `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py` holds the
+# sentence against `broad_gate.py`'s ledger call site, against the wrapper's
+# pass-through, and against `seal_stamp.py`, so the assertion cannot go stale
+# in silence.
+LENIENT_NOTICE = (
+    "exit 1 is the lenient reading. `broad-gate` runs this same check with "
+    "`--strict`, where drift is exit 2, and this tree would come back NOT SEALED."
+)
+
+
+def exit_code(totals, refused, drifted, strict):
+    """The run's answer, from the ledger arm's totals and the records arm's
+    two counts.
+
+    Its own function so the notice above can be printed on *this run is about
+    to return 1* rather than on a second spelling of the grading written
+    beside it. A predicate that restates the rule is a predicate that can
+    drift from it.
+    """
+    if totals["OLD-FORMAT"]:
+        return 2
+    if totals["BROKEN"] or refused:
+        return 2
+    if totals["DRIFTED"] or drifted:
+        return 2 if strict else 1
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root", nargs="?", default=".")
@@ -2468,13 +2510,10 @@ def main():
         f"{refused} refused · {drifted} drifted · {external} external"
     )
 
-    if totals["OLD-FORMAT"]:
-        return 2
-    if totals["BROKEN"] or refused:
-        return 2
-    if totals["DRIFTED"] or drifted:
-        return 2 if args.strict else 1
-    return 0
+    code = exit_code(totals, refused, drifted, args.strict)
+    if code == 1:
+        print(f"\n{LENIENT_NOTICE}")
+    return code
 
 
 if __name__ == "__main__":
