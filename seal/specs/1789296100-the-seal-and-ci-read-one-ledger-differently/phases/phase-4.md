@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 4 |
-| Commit | `<filled with this phase's commit>` |
+| Commit | `b07f0d0` |
 | Ran by | unknown — the spawn prompt named no model, and the value is the spawning session's to fill |
 
 ## What this phase was asked
