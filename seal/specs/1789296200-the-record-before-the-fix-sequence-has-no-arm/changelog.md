@@ -14,6 +14,11 @@
     `--written-late "<why>"`, which writes `| Written late | yes — <why> |`
     into the record. `chain_check.py` reads that row and prints the refusal
     with the reason quoted rather than failing on it.
+  - **The refusal itself now names the exit.** A record that meets that line
+    is already committed, so the flag names a moment that has gone — the
+    message says the row may be added by hand and committed like any other
+    correction. It used to end at *commit the record when the round posts*,
+    which is advice nobody meeting it can act on.
   - **What buys nothing**, and is judged exactly as it is today: the row
     absent — which is every record written before this release — the cell
     `no`, a bare `yes`, and a value outside the vocabulary. A bare `yes` is
@@ -43,6 +48,11 @@
     correct run in four.
   - **Nothing changes for a round that read HEAD**, which is the other 112.
     The ordinary record prints exactly what it printed before.
+  - **A tree that is BEHIND the commit the round read gets its own answer.**
+    There is nothing to list there, and neither of the two readings is true —
+    nothing landed after the review. The line says so and tells you what to
+    check instead: that `--target` names the commit this tree's HEAD stood at,
+    and that you are in the tree the round reviewed.
 
 - **Every generated record carries a `Written late` row**, `no` unless the
   flag says otherwise, and `templates/sdd-round.md` documents it beside
