@@ -211,6 +211,25 @@ def test_a_round_whose_fixes_already_landed_is_told_which_commits(repo):
     assert "2 commits stand between them" in out, out
 
 
+def test_one_commit_between_reads_as_one_commit(repo):
+    """The count's noun had a singular arm and its verb did not, so the
+    commonest real difference printed *1 commit stand between them*.
+
+    Commonest because the round's own paragraph is a single commit, which is
+    what phase 1 measured 40 of 152 records differing over — so the arm no
+    case exercised is the arm most readers meet.
+    """
+    reviewed = declared(repo)
+    write(repo, "g.py", "y = 1\n")
+    commit(repo, "docs: round 1's paragraph")
+
+    _code, out = generate(repo, reviewed)
+    assert "1 commit stands between them" in out, out
+    assert "1 commit stand between" not in out, (
+        "the noun has a singular arm and the verb does not"
+    )
+
+
 def test_the_line_lists_the_subjects_and_not_a_count(repo):
     """The orchestrator's whole judgment here is which KIND of commit landed,
     and a fix pass and a round paragraph are indistinguishable in a number.

@@ -1577,7 +1577,7 @@ def head_moved_line(reviewed, head, between):
     return (
         f"round-record: {HEAD_MOVED} {DASH} the round read {reviewed[:7]}, HEAD "
         f"is {head[:7]}, and {count} commit{'' if count == 1 else 's'} "
-        f"stand between them.{listing}\n"
+        f"{'stands' if count == 1 else 'stand'} between them.{listing}\n"
         "  There are two readings and only you can tell them apart. Either "
         "the fix pass for this round has already run, in which case this "
         "record is being written after the work it commissions, and the pull "
