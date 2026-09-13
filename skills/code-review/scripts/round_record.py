@@ -331,6 +331,11 @@ INHERITED_HEADER = ("From", "Coordinate", "Why it is still worth opening")
 # longer finds, which the checker reads as `no run was named`.
 BROAD_GATE = chain.BROAD_GATE
 GATE_NOT_YET = chain.GATE_NOT_YET
+# The row this script writes and `chain_check.written_late` reads, imported
+# from the reader for the same reason `BROAD_GATE` is: rename it in one file
+# alone and this one keeps writing a row the checker no longer finds, which
+# the checker reads as a record that said nothing.
+WRITTEN_LATE = chain.WRITTEN_LATE
 # The honest value while nothing has happened yet. `not yet opened` is what
 # `chain_check.declared_pull_head` documents as the pre-pull-request value;
 # `nothing to drain` is `templates/sdd-round.md`'s required answer for a
@@ -1453,6 +1458,120 @@ def reach_back(reader, path, n):
     )
 
 
+# --- whether the commit the round read is still the branch's HEAD -----------
+
+# `new` is the last command the orchestrator runs before it dispatches a fix
+# pass. It is handed the commit the reviewer read and it can ask git for the
+# branch's HEAD, and until this it compared the two for nothing -- so a record
+# being written after its own fixes was first said out loud at the pull
+# request, by `chain_check.written_late`, on a line no later commit can clear.
+#
+# It PRINTS and refuses nothing, and that is a measurement rather than a
+# preference. A refusal was the shape this work item carried in, and phase 1
+# measured what it would have cost: over this repository's own pre-squash
+# branches -- the only place the moment survives, since a feature branch
+# squashes into its release branch and takes the reviewed commit with it -- 40
+# records of 152 have a `Target SHA` that is not their adding commit's first
+# parent. Both of the two opened by hand differ because the round's OWN
+# paperwork landed between the review and the record, one of them a commit
+# reading `docs: round 1's paragraph is recorded before the round runs`.
+#
+# So the difference is evidence and not a verdict. `new` cannot tell a fix
+# commit from a round paragraph, the numbers say it would be wrong about one
+# correct run in four, and the orchestrator reading the subjects can tell them
+# apart at a glance. What `new` owes the orchestrator is the list.
+HEAD_MOVED = "the commit this round read is not the branch's HEAD"
+
+
+def written_late_cell(given):
+    """The `Written late` cell: `no`, or `yes {DASH} <why>` from the flag.
+
+    `--written-late` carries the REASON and not the cell, so the vocabulary
+    belongs here and a caller cannot half-write it. The value is stripped of
+    the separators `yes` would be joined by, so a reason typed with the dash
+    already in front of it does not land with two.
+
+    An empty reason is refused, in the shape `nobody {DASH} <why>` and
+    `unknown {DASH} <why>` are already refused in: a bare `yes` says a record
+    was written late and says nothing a reader can act on, and this row's whole
+    purpose is that the pull request stops refusing the record on the strength
+    of it. A relaxation bought with an empty cell is a waiver with no author.
+    """
+    if given is None:
+        return chain.FLOOR_NO
+    reason = given.strip().strip(chain.SEPARATORS).strip()
+    if not reason:
+        raise Refused(
+            f"--written-late {given!r} carries no reason. The cell is what "
+            f"makes the pull request print `{WRITTEN_LATE}` instead of "
+            "refusing this record, so a reader has to be told WHY it was "
+            "committed after the fixes it commissions — the fix pass was "
+            "spawned before the record was committed, HEAD moved mid-review, "
+            f"whatever happened. The shape is `{chain.FLOOR_YES} {DASH} <why>` "
+            f"and the flag carries the `<why>`, the way `{chain.NOBODY} "
+            f"{DASH} <why>` already asks for one"
+        )
+    return f"{chain.FLOOR_YES} {DASH} {reason}"
+
+
+def head_moved(root, target):
+    """(reviewed, head, [`<abbrev> <subject>`]) when HEAD is not `target`.
+
+    None when they are the same commit. `reviewed` is the RESOLVED target and
+    not the string `--target` carried: the flag legitimately takes a branch
+    name or a `HEAD~1`, and a line reading *the round read HEAD~1* names
+    nothing anybody can open a week later.
+
+    `<target>..HEAD` rather than a count, because the orchestrator's whole
+    judgment here is which KIND of commit landed: a fix pass and a round
+    paragraph are one line apart in this listing and indistinguishable in a
+    number. A target that is not an ancestor of HEAD still answers -- the
+    listing is what HEAD reaches and the target does not -- and that is the
+    honest answer for a branch somebody reset.
+
+    None where git will not answer. `build` has already refused a `--target`
+    that does not resolve, so the only way here is a repository `rev-parse
+    HEAD` fails on, and a line about a tree this cannot read would name a
+    cause that is not the cause.
+    """
+    head = git(root, "rev-parse", "HEAD")
+    reviewed = git(root, "rev-parse", f"{target}^{{commit}}")
+    if head is None or reviewed is None:
+        return None
+    head, reviewed = head.strip(), reviewed.strip()
+    if not head or not reviewed or head == reviewed:
+        return None
+    listed = git(root, "log", "--format=%h %s", f"{reviewed}..{head}") or ""
+    return reviewed, head, [ln.strip() for ln in listed.splitlines() if ln.strip()]
+
+
+def head_moved_line(reviewed, head, between):
+    """The line `new` prints when the two differ. Read by a person, so
+    `agent-contract` §14 pins every sentence of it in a case."""
+    count = len(between)
+    listing = "".join(f"\n    {line}" for line in between)
+    return (
+        f"round-record: {HEAD_MOVED} {DASH} the round read {reviewed[:7]}, HEAD "
+        f"is {head[:7]}, and {count} commit{'' if count == 1 else 's'} "
+        f"stand between them.{listing}\n"
+        "  There are two readings and only you can tell them apart. Either "
+        "the fix pass for this round has already run, in which case this "
+        "record is being written after the work it commissions, and the pull "
+        "request refuses it on a line no later commit can clear. Or HEAD "
+        "moved during the review, which `templates/sdd-round.md` already asks "
+        f"`{chain.TARGET}` to hold {DASH} both commits in that one cell.\n"
+        "  Nothing is refused here. Measured over this repository's own "
+        "pre-squash branches, 40 records of 152 differ this way, and the "
+        "commonest cause by far is the round's own paperwork committed "
+        "between the review and the record. Read the subjects above and "
+        "decide.\n"
+        f'  Where the first reading is the true one, `--written-late "<why>"` '
+        f"writes the reason into the record's `{WRITTEN_LATE}` row, and the "
+        "pull request prints it instead of refusing the record on a line no "
+        "later commit can clear."
+    )
+
+
 # --- the bound the next round is under, said as the record is written -------
 
 ENDS_THE_RUN = "this record ends the run"
@@ -1743,6 +1862,7 @@ def build(reader, routing, args, root, item, rounds):
         row(("Field", "Value")),
         separator(2),
         cell(chain.TARGET, args.target),
+        cell(WRITTEN_LATE, written_late_cell(args.written_late)),
         cell(chain.RAN_BY, args.ran_by),
         cell(chain.PR_FIELD, pull_request_cell(root, args.pr)),
         cell(BROAD_GATE, args.broad_gate if args.broad_gate else GATE_NOT_YET),
@@ -1964,6 +2084,12 @@ def new(args):
     os.makedirs(rounds, exist_ok=True)
     write_record(reader, target, text)
     print(f"round-record: wrote {os.path.relpath(target, root)}")
+    # Beside the `wrote` line, because it is a fact about the record just
+    # written and about the `--target` it was written from. The reach-back and
+    # the bound below are about OTHER records.
+    moved = head_moved(root, args.target)
+    if moved is not None:
+        print(head_moved_line(*moved))
     if reached is not None:
         print(reached)
     # After the record is written and before the check runs — the moment the
@@ -3131,6 +3257,14 @@ def main(argv=None):
     )
     p.add_argument("--asked", required=True, help="the round paragraph, a file")
     p.add_argument("--ran-by", required=True, help="`<agent> on <model>`")
+    p.add_argument(
+        "--written-late",
+        default=None,
+        help=f"WHY this record is being committed after the fixes it "
+        f"commissions. Writes `{WRITTEN_LATE} | yes {DASH} <why>`, which "
+        "`chain_check` prints instead of failing on. Absent, the row reads "
+        "`no` and a late record is refused exactly as before",
+    )
     p.add_argument("--broad-gate", default=None, help="the Broad gate cell")
     p.add_argument("--pr", default=None, help="the PR cell")
     p.add_argument("--root", default=None, help="the repository (default: the item's)")

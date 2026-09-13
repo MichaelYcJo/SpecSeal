@@ -28,6 +28,7 @@ before the rule landed print instead of failing. -->
 | Field | Value |
 |---|---|
 | Target SHA | <the commit this round actually reviewed — both, if HEAD moved mid-review> |
+| Written late | <`no` · `yes — <why>`, where WHY this record was committed after the fixes it commissions is what a reader needs. WRITTEN by `round_record.py new --written-late "<why>"`; the row reads `no` without the flag. READ by `chain_check.written_late`, which prints instead of failing for a record that carries a reason — the fourth exit a record refused on a line no later commit can clear never had> |
 | Ran by | <what ran this round — the agent and the model, as `agent on model` · `unknown — <why>` when the session that spawned it cannot name one> |
 | PR | <the pull request, once one exists. A field, not the key> |
 | Broad gate | <`not yet`, or the SHA the one full-suite run happened at and the base it was compared against. WRITTEN by `round_record.py seal`, which the `sealer` reaches through `broad-gate --record <item>` on a green run — `close --broad-gate` writes the same cell where fixes and the gate land in one pass. READ by `chain_check.py` on the LAST record at a ready pull request: `not yet` — or no row at all — fails as the run that never happened, and a SHA this record's own `Target SHA` descends from fails as the run spent before the round it was meant to seal. A value it cannot parse is reported rather than failed, and work items begun before `chain_check.GATE_FROM` print instead of failing> |
@@ -220,7 +221,35 @@ nothing else.
 A checked `Pass` beside an unanswered 🔴 is a contradiction inside one file,
 and CI fails the pull request for that too. It fails the same way for a
 verdict table it cannot read — a tolerant reader finds no open findings there,
-and no open findings reads exactly like all of them closed. -->
+and no open findings reads exactly like all of them closed.
+
+**`Written late` is the fourth exit from the refusal above, and it is an
+answer rather than a way around the sequence.** A record refused for having
+been added after its own fix used to have three repairs and not one of them
+was honest: rewrite history so the adding commit moves, merge over the red
+line, or invent a waiver nobody wrote down. Work item `1789034970` met all
+three, took none, and ended with a pull request red on a line no later commit
+could clear.
+
+So the record may answer. `round_record.py new --written-late "<why>"` writes
+`yes — <why>` here and `chain_check.py` prints the refusal with the reason
+quoted instead of failing on it. Four values buy nothing and are judged
+exactly as they were before the row existed — the row absent, `no`, a bare
+`yes`, and anything outside the vocabulary. The bare `yes` is refused at the
+point of writing too: the reason is the whole of what the row buys, and a
+relaxation with an empty cell is a waiver with no author.
+
+The vocabulary is `Needs a fix`'s and `Loses a record or crashes`'s, read by
+the same `chain_check.yes_or_no`. A third spelling of one vocabulary is the
+drift that file closes everywhere else.
+
+**Reaching for it every round is the failure this row's design anticipates**,
+and the repair is one command earlier: commit the record when `new` writes it.
+`round_record.py new` also says when the commit the round read is no longer
+the branch's HEAD, listing the commits between — that is the last moment in
+the sequence where anybody can still act, and it refuses nothing, because 40
+of 152 of this repository's own records differ that way for reasons as
+innocuous as the round's own paragraph being committed first. -->
 
 ## What this round was asked
 
