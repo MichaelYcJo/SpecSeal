@@ -407,7 +407,7 @@ the tree the round reviewed. Nothing is refused and the record is written.
 **Where the fix pass really did run first, say so in the record:**
 
 ```
-round_record.py new … --written-late "the fix pass was spawned before the record reached a commit"
+round_record.py new … --written-late "the fix pass had already run when the record reached a commit"
 ```
 
 That writes `| Written late | yes — <why> |`, and `chain_check.py` prints the
