@@ -397,6 +397,13 @@ repository's own pre-squash branches 40 records of 152 differ this way and the
 commonest cause by far is the round's own paperwork landing between the review
 and the record.
 
+**Where there is nothing to list, both readings are false and it says that
+instead.** HEAD reaches no commit the round did not: the tree is BEHIND the
+commit the record names, or on another branch. Nothing landed after the review
+here, so neither reading above applies. What to check is that `--target` names
+the commit this tree's HEAD stood at when the round ran, and that you are in
+the tree the round reviewed. Nothing is refused and the record is written.
+
 **Where the fix pass really did run first, say so in the record:**
 
 ```

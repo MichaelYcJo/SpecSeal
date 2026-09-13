@@ -1527,7 +1527,13 @@ def head_moved(root, target):
     paragraph are one line apart in this listing and indistinguishable in a
     number. A target that is not an ancestor of HEAD still answers -- the
     listing is what HEAD reaches and the target does not -- and that is the
-    honest answer for a branch somebody reset.
+    honest answer for a branch somebody reset sideways.
+
+    It is NOT the honest answer for a tree that is simply BEHIND the target.
+    The listing is empty there while the two commits still differ, so this
+    returns an empty third element rather than None, and `head_moved_line`
+    answers that state on a branch of its own. Printing the ordinary line
+    would offer a count of nothing and two readings that are both false.
 
     None where git will not answer. `build` has already refused a `--target`
     that does not resolve, so the only way here is a repository `rev-parse
@@ -1548,6 +1554,24 @@ def head_moved(root, target):
 def head_moved_line(reviewed, head, between):
     """The line `new` prints when the two differ. Read by a person, so
     `agent-contract` §14 pins every sentence of it in a case."""
+    if not between:
+        # HEAD reaches nothing the reviewed commit does not, and the two are
+        # still different commits: HEAD is BEHIND the record's own target, or
+        # sits on another branch entirely. Neither reading below describes
+        # that, and printing them would send the reader to a repair for a
+        # state they are not in -- `--written-late` above all, which writes a
+        # reason into a record nothing is late about.
+        return (
+            f"round-record: {HEAD_MOVED} {DASH} the round read {reviewed[:7]}, "
+            f"HEAD is {head[:7]}, and HEAD reaches no commit the round did "
+            "not.\n"
+            "  So nothing landed after the review on THIS tree: HEAD is "
+            "behind the commit this record names, or on another branch. "
+            "Neither of the usual two readings applies.\n"
+            "  Check that `--target` names the commit this tree's HEAD stood "
+            "at when the round ran, and that you are in the tree the round "
+            "reviewed. Nothing is refused here, and the record is written."
+        )
     count = len(between)
     listing = "".join(f"\n    {line}" for line in between)
     return (

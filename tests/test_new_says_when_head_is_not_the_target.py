@@ -54,6 +54,9 @@ ASKED = "Attack the parser first.\n"
 MOVED = "is not the branch's HEAD"
 FIX_PASS_READING = "the fix pass for this round has already run"
 MID_REVIEW_READING = "Or HEAD moved during the review"
+# What a tree that is BEHIND the reviewed commit must be told instead, since
+# neither reading above is true of it.
+BEHIND = "HEAD reaches no commit the round did not"
 
 
 def git(repo, *args):
@@ -284,3 +287,49 @@ def test_a_target_given_as_a_revision_is_named_by_its_sha(repo):
     assert MOVED in out, out
     assert reviewed[:7] in out, out
     assert "read HEAD~1" not in out, out
+
+
+# --- round 1's 🟡 2: HEAD is BEHIND the commit the round read ---------------
+
+
+def test_a_tree_behind_the_reviewed_commit_gets_neither_false_reading(repo):
+    """`head_moved` asks `git log <reviewed>..HEAD`, which is EMPTY when HEAD
+    is an ANCESTOR of the reviewed commit rather than a descendant. The two
+    are still different commits, so the line printed all the same — *0 commits
+    stand between them*, nothing listed under it, and both readings offered to
+    a reader for whom both are false.
+
+    Nothing landed after the review on this tree; the tree is behind the
+    commit the record names. The state is reachable without anybody doing
+    anything strange: `--target` naming the pull request's head ref while the
+    local tree has not fast-forwarded, or a `git switch --detach` onto an
+    earlier commit to re-read something during the round.
+
+    `agent-contract` §14 — a line a person acts on, so what replaces the two
+    false readings is pinned here sentence by sentence.
+    """
+    behind = declared(repo)
+    write(repo, "g.py", "y = 1\n")
+    reviewed = commit(repo, "docs: round 1's paragraph")
+    git(repo, "checkout", "-q", "--detach", behind)
+
+    code, out = generate(repo, reviewed)
+    assert "0 commits" not in out, (
+        "a count of nothing with nothing listed under it describes no state "
+        "anybody is in"
+    )
+    assert FIX_PASS_READING not in out, (
+        "nothing landed after the review on this tree, so the reading that "
+        "sends the reader to `--written-late` is false"
+    )
+    assert MID_REVIEW_READING not in out, (
+        "HEAD did not move forward during the review either"
+    )
+    assert MOVED in out and BEHIND in out, out
+    assert reviewed[:7] in out and behind[:7] in out, (
+        "the line names neither commit, so nobody can tell which way round it is"
+    )
+    assert "Nothing is refused here" in out, out
+    # The record is written, exactly as it is on the listing path.
+    assert (repo / ROUNDS / "round-1.md").exists(), out
+    assert code == 0, out
