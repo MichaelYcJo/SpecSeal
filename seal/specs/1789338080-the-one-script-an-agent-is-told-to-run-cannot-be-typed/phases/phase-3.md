@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 3 |
 | Commit | 432af98 |
-| Ran by | unknown — the spawn prompt named no model, and `templates/sdd-phase.md` refuses a value a segment sources from its own idea of what it is. The orchestrator fills this row |
+| Ran by | specseal:smith on claude-opus-5[1m] |
 
 ## What this phase was asked
 
