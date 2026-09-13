@@ -9,7 +9,7 @@ NEW rules belong here. -->
 | # | Question | Who can answer | Options & what each implies | Default until answered | Status |
 |---|---|---|---|---|---|
 | Q1 | In this repository's own correct runs, how often is the branch's HEAD **not** the `Target SHA` at the moment `new` runs? | **a measurement** — phase 1 takes it | Over every `rounds/round-N.md` under `seal/specs/`, compare the record's `Target SHA` against its adding commit's first parent. **0 or 1 differing → phase 2 refuses. 2 or more → phase 2 prints and continues.** The criterion is written here before the number is taken so the number cannot be read to suit the build | refuse | ⬜ |
-| Q2 | Should a round record that says **why** it was written after its own fixes **pass** the pull request, where today it fails on a line no later commit can clear? | **a person** — the repository owner | **Yes** (plan's phases 3 and 4): the record carries a written reason, `written_late` prints instead of failing, and #120's missing fourth exit exists. It is a documented waiver on a gate, so `CONTRIBUTING.md` §*What a change to a gate must carry* is owed in the pull request. **No**: phase 2 ships alone, the refusal at `new` keeps no way past it, and a late record stays unmergeable without a history rewrite or an owner merging red — which is where work item 1789034970 ended | **yes** — build phases 3 and 4 | ⬜ |
+| Q2 | Should a round record that says **why** it was written after its own fixes **pass** the pull request, where today it fails on a line no later commit can clear? | **a person** — the repository owner | **Yes** (plan's phases 3 and 4): the record carries a written reason, `written_late` prints instead of failing, and #120's missing fourth exit exists. It is a documented waiver on a gate, so `CONTRIBUTING.md` §*What a change to a gate must carry* is owed in the pull request. **No**: phase 2 ships alone, the refusal at `new` keeps no way past it, and a late record stays unmergeable without a history rewrite or an owner merging red — which is where work item 1789034970 ended | **yes** — build phases 3 and 4 | ✅ |
 | Q3 | Where in the record does the reason live — a new `\| … \|` field row, or both SHAs plus the reason in the existing `Target SHA` cell? | **the work** — phase 3 decides against `close`'s field handling | `templates/sdd-round.md` already asks `Target SHA` for *both, if HEAD moved mid-review*, and `check_round` already reads that cell with `SHA_RE.findall`, so the second home half exists. A new row is cleaner to read and has to survive `close`, which acceptance A7 pins either way | the existing `Target SHA` cell, extended | ⬜ |
 | Q4 | What is the flag and the field called? | **the work** — phase 3 | `tests/test_one_word_one_meaning.py` and `CLAUDE.md` §*a thing more than one party can have is named with whose* rule out two obvious candidates: **declaration** already means `routing.md`'s throughout `chain_check.py`, and **arm** already means a branch of a check a mutation should kill (`arm_check.py`) and the commit gate's review arm | none — the constraint is what is settled, not the word | ⬜ |
 
@@ -32,3 +32,14 @@ judges an existing record, and phase 4's new state is a relaxation.
 reader can open — `plan.md`'s alternatives table — and deferred to an issue
 rather than to a person, because the grounds do not turn on anybody's
 preference.
+
+**Q2 answered 2026-09-13 by the owner: yes — build phases 3 and 4.** A round
+record that writes down WHY it was written after its own fixes passes the pull
+request. This is a documented relaxation of a gate, so the pull request body
+owes `CONTRIBUTING.md` §*What a change to a gate must carry* on both halves:
+what the new refusal costs a correct run (phase 1's measurement is the
+evidence), and what the new pass state lets through.
+
+The alternative was to ship phase 2 alone and leave `new`'s refusal with no way
+past it. Work item 1789034970 is where that ends: a pull request red on a line
+no later commit could clear, and three bad exits.
