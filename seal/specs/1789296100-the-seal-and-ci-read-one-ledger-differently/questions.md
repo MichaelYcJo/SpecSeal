@@ -8,7 +8,7 @@ NEW rules belong here. -->
 
 | # | Question | Who can answer | Options & what each implies | Default until answered | Status |
 |---|---|---|---|---|---|
-| Q1 | How much of the broad gate's answer does the new line assert? The tree it prints on is one the gate would refuse, and the line can say that with or without the number | **a person** | (a) **name the grading** — *`broad-gate` runs this check with `--strict`, where drift is exit 2; this tree would come back `NOT SEALED`*. A reader acts on the number and the word without opening a second file, and the assertion is pinned by the case in phase 1 · (b) **name the form only** — *`broad-gate` runs this check with `--strict`*. Weaker, and self-maintaining: nothing in the line can become false if the grading changes · (c) name the form and the exit code but not `NOT SEALED`, which is `seal_stamp`'s word rather than the checker's | **(a)**, with phase 1's structural case holding the line and `broad_gate.py:570` together, so the assertion cannot go stale in silence | ⬜ |
+| Q1 | How much of the broad gate's answer does the new line assert? The tree it prints on is one the gate would refuse, and the line can say that with or without the number | **a person** | (a) **name the grading** — *`broad-gate` runs this check with `--strict`, where drift is exit 2; this tree would come back `NOT SEALED`*. A reader acts on the number and the word without opening a second file, and the assertion is pinned by the case in phase 1 · (b) **name the form only** — *`broad-gate` runs this check with `--strict`*. Weaker, and self-maintaining: nothing in the line can become false if the grading changes · (c) name the form and the exit code but not `NOT SEALED`, which is `seal_stamp`'s word rather than the checker's | **(a)**, with phase 1's structural case holding the line and `broad_gate.py:570` together, so the assertion cannot go stale in silence | ✅ |
 | Q2 | How many existing cases assert on `evidence_check.py`'s stdout in a way one appended line breaks? | **a measurement** | `bin/test tests/test_a_row_points_by_content.py tests/test_a_record_states_what_the_tree_has.py tests/test_a_narrowed_ledger_read_says_what_it_skipped.py -q` before phase 2 and again after. Reading found only substring assertions over the totals lines, which an appended line survives — but that is a read, not a run | run it at the top of phase 2; do not queue it behind Q1 | ⬜ |
 | Q3 | Does the `ledger` job's step in `.github/workflows/test.yml` need an edit of its own, or does the script's line reach the `::warning::` block with the step unchanged? | **the work** | The step reads `$?` and never the text, so reading says the step needs nothing but a comment that stops arguing leniency without naming the reader that disagrees. The phase that opens the workflow will see whether the log ordering makes the warning and the sentence read as one message or as two | the step is unchanged; only its comment is edited, in phase 3 | ⬜ |
 
@@ -28,3 +28,11 @@ asked, because a different answer would not change what gets built:
 - **The line prints on exit 1 and nowhere else.** Exit 0 and exit 2 are states
   every reader grades alike, so there is no disagreement to report and a line
   printed on every run is one people learn to skip.
+
+**Q1 answered 2026-09-13 by the owner: (a), name the grading.** The line reads
+`broad-gate runs this check with --strict, where drift is exit 2; this tree
+would come back NOT SEALED`. The owner took the option whose assertion is
+widest, on the grounds the default already carried: phase 1's structural case
+holds that sentence and `broad_gate.py:570` against each other, so the
+assertion cannot go stale in silence. `NOT SEALED` is `seal_stamp`'s word and
+the checker is borrowing it — phase 1's case is what keeps the loan honest.
