@@ -60,7 +60,7 @@ forms and the document, and one mention per document satisfies the rule.
 | Item | Who must answer |
 |---|---|
 | the full suite, the repository-wide lint and the typecheck | the sealer — `skills/agent-contract/SKILL.md` §2 puts the broad gate after the review rounds settle, and no phase here takes it |
-| `Ran by` in all three phase records | the orchestrator — the spawn prompt named no model, and `templates/sdd-phase.md` refuses a value a segment sources from its own idea of what it is |
+| ✅ `Ran by` in all three phase records | the orchestrator, 2026-09-14 at `fef6aea` — no model override was passed at the spawn, `agents/smith.md` carries no model frontmatter and no default subagent model is configured, so the segment inherited this session's, and all three cells now read `specseal:smith on claude-opus-5[1m]` |
 
 ## Not done
 
@@ -72,9 +72,9 @@ command.** So after this branch re-read eleven claims and re-stamped them, the
 nothing outside the eight hex characters of each hash changed. Not taken here —
 it is a change to `evidence_check.py`'s behaviour, which no part of #318 is
 about, and hand-editing eleven dates in the shared file is the appending this
-repository's fragment rule exists to stop. It is named in the report for the
-orchestrator to file, because this repository has a tracker and
-`seal/follow-up.md` says a schedulable item belongs there instead.
+repository's fragment rule exists to stop. Filed by the orchestrator as #387, because this
+repository has a tracker and `seal/follow-up.md` says a schedulable item
+belongs there instead.
 
 **`round-record` gets no README row.** Q2, answered **Out** by the repository
 owner on 2026-09-14. Neither edition names `round_record.py` today, so the rule
