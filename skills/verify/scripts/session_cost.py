@@ -2028,9 +2028,29 @@ def main():
         # token column would be summing the wrong file.
         report_spawns(spawns, path, len(calls), timings["span_s"] if timings else 0.0)
         return 0
-    # The other transcripts of this run, one row each. Computed on the same
-    # terms as `spawns` — behind its own flag, and in `--json` regardless, so
-    # a machine-readable reading is never missing it.
+    # The other transcripts of this run, one row each. Gated the way `spawns`
+    # is — behind its own flag, and in `--json` regardless, so a
+    # machine-readable reading is never missing it.
+    #
+    # **The GATING is the same and the cost is not, which is worth saying
+    # because the sentence above used to say `on the same terms` and a reader
+    # could carry the cost argument across with it.** `measure_cycles` is
+    # arithmetic over a list already in memory, measured at half again
+    # `analyse`'s own cost. This opens every transcript under the run:
+    # `opening_stamp`, `load`, `resume_cuts` and `token_totals` per file, and
+    # the last of those covers the same file the run-level `token_totals`
+    # below walks again. Measured over the three widest runs on the machine
+    # this was written on — 18, 30 and 35 segments — `measure_segments` takes
+    # 257ms, 698ms and 926ms against `analyse`'s 28-36ms on the same
+    # transcripts: nine to thirty-three times the reading being printed,
+    # where `spawns` was half again.
+    #
+    # It stays in `--json` on the same ground `spawns` is there for — a
+    # machine-readable reading missing the one thing the mode exists to
+    # produce is the failure that ground was written against — and the cost
+    # is now on the page rather than assumed away. Whether the duplicate
+    # token walk is worth removing is a question about `--json`'s defaults
+    # and not about this line.
     #
     # Before the no-tool-calls guard below, the way `--spawns` is: a run whose
     # own transcript paired no call can still have spawned six segments, and
