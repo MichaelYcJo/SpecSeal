@@ -1,5 +1,233 @@
 # Changelog
 
+## 0.11.3 — 2026-09-13
+
+<!-- specs/1789296100-the-seal-and-ci-read-one-ledger-differently -->
+<!-- seal/specs/1789296100-the-seal-and-ci-read-one-ledger-differently/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **A ledger run that comes back exit 1 now says that the run which decides
+  would refuse the tree.** Three readers of one exit code ran
+  `evidence_check.py` over one tree and graded it differently, and nothing
+  said so. `evidence-check` — the command every document names — takes drift
+  as exit 1; CI's `ledger` job runs
+  the same script and renders that as a warning the job passes; `broad-gate`
+  runs it with `--strict`, where drift is exit 2 and the branch comes back
+  `NOT SEALED`. So a session could run the documented command, read exit 1,
+  and have no way to learn that the deciding reader was looking at the same
+  tree as a refusal — and running the documented command more often never
+  found it, because the documented command is not the one that decides. The
+  lenient run now prints which reading it took and what `broad-gate` would say
+  instead. **Exit 0 and exit 2 print nothing new**, because every reader grades
+  those alike, and a line that prints on every run is a line people learn to
+  skip. The three readers stay as they are: a branch mid-flight drifts
+  legitimately, the gate runs once at the end over a tree nobody is still
+  editing, and the disagreement was the design — not saying so was the defect.
+  (#354)
+- **The line's condition is the run's own answer, not a second copy of the
+  grading rule.** The four `return` statements that ended `evidence_check.py`'s
+  `main` are now one `exit_code()` function, and the print fires on `code == 1`.
+  A predicate written beside a rule is a predicate that can drift from it; this
+  one cannot. No exit code moves in any reader, no flag is added, and the
+  `evidence-check` wrapper pair is untouched — the CI step reads the exit code
+  and never the text, so the sentence reaches the job log with the step
+  unchanged.
+- **Five documents stopped describing one reader of three.** The
+  `evidence-check` skill gains a table holding all four readers of the checker
+  side by side, which says of each whether it reaches the exit code at all;
+  both READMEs' ledger paragraphs, `CONTRIBUTING.md`'s check list and the
+  `ledger` job's own comment each name `broad-gate` and `--strict` beside the
+  exit code they describe. A case holds the printed sentence against
+  `broad_gate.py`'s ledger call site, against the wrapper's pass-through and
+  against `seal_stamp`, so the claim the line makes about another file cannot
+  go stale in silence.
+
+<!-- specs/1789296200-the-record-before-the-fix-sequence-has-no-arm -->
+<!-- seal/specs/1789296200-the-record-before-the-fix-sequence-has-no-arm/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **A round record can now say why it was written after the fixes it
+  commissioned, and the pull request prints instead of failing.** Until now a
+  record refused on that line had three repairs and not one of them was
+  honest: rewrite history so the adding commit moves, merge over the red line,
+  or invent a waiver nobody wrote down. One work item met all three, took
+  none, and ended with a pull request red on a line no later commit could
+  clear, its run capped and its reverted fixes redistributed across six
+  issues.
+
+  - **What changes for you.** `round_record.py new` takes
+    `--written-late "<why>"`, which writes `| Written late | yes — <why> |`
+    into the record. `chain_check.py` reads that row and prints the refusal
+    with the reason quoted rather than failing on it.
+  - **The refusal itself now names the exit.** A record that meets that line
+    is already committed, so the flag names a moment that has gone — the
+    message says the row may be added by hand and committed like any other
+    correction. It used to end at *commit the record when the round posts*,
+    which is advice nobody meeting it can act on.
+  - **What buys nothing**, and is judged exactly as it is today: the row
+    absent — which is every record written before this release — the cell
+    `no`, a bare `yes`, and a value outside the vocabulary. A bare `yes` is
+    refused at the point of writing too. The reason is the whole of what the
+    row buys, and a relaxation with an empty cell is a waiver with no author,
+    which is the third of the three bad exits wearing a flag.
+  - **The gate gets one state looser and no state stricter**, so nothing that
+    passes today can start failing. There is no new `*_FROM` cutoff, because a
+    relaxation cannot be red on history nobody can fix.
+  - **The vocabulary is not new.** `no` / `yes — <why>` is what `Needs a fix`
+    and `Loses a record or crashes` already use, read by the same
+    `chain_check.yes_or_no`.
+
+- **`round_record.py new` now says when the commit the round read is no longer
+  the branch's HEAD.** That is the last moment in the sequence where anybody
+  can still act on it — the fix pass is a spawn with no command for a check to
+  sit on, and the pull request is one round too late. The line names both
+  commits and lists what stands between them with their subjects, because the
+  two readings it cannot tell apart are *the fix pass already ran* and *HEAD
+  moved during the review*, and the subject line is what separates them.
+
+  - **It refuses nothing**, and that is measured rather than chosen. Over this
+    repository's own pre-squash branches, **40 records of 152** have a
+    `Target SHA` that is not their adding commit's first parent, and the
+    commonest cause by far is the round's own paragraph being committed
+    between the review and the record. A refusal would have fired on one
+    correct run in four.
+  - **Nothing changes for a round that read HEAD**, which is the other 112.
+    The ordinary record prints exactly what it printed before.
+  - **A tree that is BEHIND the commit the round read gets its own answer.**
+    There is nothing to list there, and neither of the two readings is true —
+    nothing landed after the review. The line says so and tells you what to
+    check instead: that `--target` names the commit this tree's HEAD stood at,
+    and that you are in the tree the round reviewed.
+
+- **Every generated record carries a `Written late` row**, `no` unless the
+  flag says otherwise, and `templates/sdd-round.md` documents it beside
+  `Target SHA`. A record written before this release has no such row and is
+  read exactly as it was.
+
+<!-- specs/1789296300-a-segments-own-wall-clock-is-in-no-column -->
+<!-- seal/specs/1789296300-a-segments-own-wall-clock-is-in-no-column/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **An agent's own wall clock was in no column of any row, and
+  `session-cost --segments` is the column.** Every other kind of chain
+  segment can be measured — the cost of a smith, a warden, an orchestrator's
+  spawn cycles — and the one number nobody could print was how long a spawned
+  agent actually ran. On this harness the `Agent` tool result is written when
+  the spawn is **accepted**, so the `--spawns` table's `delegated` reads a few
+  seconds while the agent goes on working for a median of about seven hundred
+  — measured with this mode over every segment row of the 43 runs on the
+  machine that built it, which also puts the figure #145 published at about a
+  thousand where it belongs: that is the mean, not the median.
+  That interval sat between two rows and inside none of them. It was always in
+  the agent's own transcript; nothing opened it.
+
+  The new mode does. It walks every transcript under the run's
+  `<session-id>/subagents/`, joins each to the spawn whose result it opened
+  at, and prints one row per segment — the agent, its own span, calls, tools
+  per turn, mean gap and tokens. On a real run of this repository that is six
+  rows reading 5.9m to 8.9m, beside a `--spawns` table that reported the same
+  six agents as seconds.
+
+  - **What changes for you.** One command replaces one `session_cost.py` per
+    transcript at every segment boundary, and
+    `skills/verify/SKILL.md` §*Measure the segment, and feed the flow log*
+    now names it instead of prescribing the by-hand method. Both README
+    editions gain the row.
+  - **What does not change — nothing.** No existing printed line, key or
+    number moves. The plain reading and `--spawns` print exactly what they
+    printed, which is the condition `analyse`'s own docstring sets and the
+    reason #200 and #202 were expensive to discover. `delegated_s` keeps the
+    meaning every published `--spawns` reading was taken with; the repository
+    owner answered that deliberately rather than by default, and may revisit
+    it now that there is a reading to look at.
+  - **A resumed agent is one row per stretch of work, not one per file.** The
+    coordinator sends a running agent a new message and the agent goes on in
+    the same transcript, so the idle gap between two stretches belongs to
+    neither. Read whole, such a file reports a span covering the wait — 140.1
+    minutes for an agent that worked for 37 seconds, on this repository's own
+    fixture. The cut is the coordinator's own message row, and it was measured
+    before it was built: across the 350 segment transcripts on one machine, 41
+    hold an idle gap at or above the fifteen-minute ceiling, and the marker is
+    the harness's own sentence rather than the row's shape — the same shape
+    also carries a cut-off-response notice and a background-task
+    notification, and splitting at those would cut one stretch of work in
+    half.
+  - **Where it cannot split, it says so.** A file with an idle gap and no
+    coordinator message prints one row and the report names the gap and what
+    it does to the span. That is also how a harness rewording the marker
+    fails: loudly, on the page, rather than by quietly reporting two hours of
+    waiting as work.
+  - **It refuses to render an empty table.** The mode prints the transcripts
+    it walked, the spawns it found, the tolerance it joined within and the
+    count unmatched on each side — even when they agree — and where it found
+    no segment it prints the count and no table. An empty table reads as *this
+    run spawned nothing*, and a run that did spawn reads exactly the same way
+    the moment a harness moves the directory. That is #200's failure shape,
+    repaid the way #200 was.
+  - **The join tolerance was re-measured rather than inherited.** One second
+    stands: over the 43 runs on the machine that built this, 296 of 349
+    segment transcripts are named at 1.0s and 301 at 2.0s, and the remainder
+    is structural — 44 of them have no `Agent` call in their parent to be
+    named by at any tolerance, because a subagent of a subagent is spawned
+    from a transcript the parent never sees. Those get a row labelled by their
+    file rather than being dropped.
+  - **A reading is comparable with readings taken since 0.9.4 and not before
+    it**, and the report says so on the page. #200 charged this repository's
+    own test runner to the `other` family and #202 counted a streamed message
+    at its first partial row; both are repaired in the code this builds on.
+  - **The token column covers each segment's own file**, and the report says
+    that too, because a column that looks summable and is not is #200's
+    failure shape in a new place.
+
+- **A segment that spawned another agent now says so, with the count and the
+  section it broke.** `skills/agent-contract/SKILL.md` §6 withholds four acts
+  from every agent whatever its own definition says, and one of them is
+  spawning. Delivery was never the problem: one review round spawned two
+  agents and disclosed neither, with the rule already in that agent's startup
+  payload, in a section the same agent was reviewing a diff of. So this is not
+  a second place to put the rule — it is a place the act shows up whether or
+  not anybody mentions it, found by the walk the new mode already does.
+
+  - **What it is, and what it deliberately is not.** It notices and stops
+    nothing. That is the claim the evidence's location permits rather than a
+    softer one chosen on taste: the transcript is under the home directory of
+    the machine that ran the agent, it is in no commit, and it reaches no CI
+    runner, so a check would run exactly where a person already is. Making the
+    line an exit code stays open and is cheap once the number exists — and it
+    will then be chosen against readings rather than against a guess.
+  - **The mode exits 0 whether or not it finds one.** A measurement command
+    that fails on a discovery is a gate wearing a report's shape, nothing
+    consumes its exit code today, and the posting step that would carry the
+    finding is the step that would break on it.
+  - **Both counts of one breach print, and the page says whether they agree.**
+    A spawn made inside a segment arrives twice — as an `Agent` call in that
+    segment's own file, and as a transcript with no call in the parent to name
+    it. Where the two part, either a child's transcript is missing or a
+    segment is unnamed for the other reason, and nothing in the reader can
+    tell which.
+  - **It is not hypothetical.** Run across all 43 runs with a `subagents/`
+    directory on the machine that built it: 13 carry the line, and **12 of
+    those name an agent this plugin spawns** — 40 `Agent` calls by wardens
+    and 4 by smiths. The thirteenth names an agent from somewhere else, whose
+    own procedure instructs the fan-out.
+  - **So the line says who §6 reaches.** The walk sees an `Agent` call in a
+    segment's transcript and cannot tell which agent's rules that agent
+    answers to. The row still prints — a spawn made inside a segment is worth
+    seeing whoever made it — and the scope is stated beside it, because a
+    line that cries a rule at an agent the rule does not reach is one a
+    reader learns to discount.
+
+- **`segment` is brought to one meaning, and checked.** Naming the mode
+  `--segments` beside `--spawns` put a second job within reach of a word this
+  repository's whole measurement vocabulary rests on. Three shipped files said
+  *an orchestrator's segments are spawn cycles*, which under the new flag
+  reads as the first mode printing what the second one prints. A segment is
+  one agent's own stretch of a chain and has a transcript of its own; the
+  spawn cycles inside the orchestrator's file are bands over its own minutes,
+  never segments in their own right. `skills/verify/SKILL.md` states it, the
+  other two files are brought to it, and `tests/test_one_word_one_meaning.py`
+  holds both halves — the pinned phrasing and the absence of the loose one.
+
 ## 0.11.2 — 2026-09-13
 
 <!-- specs/1789211172-a-round-record-disarms-survivor-check -->
