@@ -2766,6 +2766,70 @@ def test_a_segment_that_was_not_resumed_reports_one_slice_and_no_gap(
     assert "resumed" not in out, out
 
 
+def test_two_coordinator_messages_in_a_row_do_not_invent_a_slice(tmp_path):
+    """A cut is a marker, not a stretch of work. The coordinator can send one
+    message and then another before the agent acts, and the empty window
+    between them is not a slice — printing it gives the file a stretch the
+    agent never worked and reports the second of two as `3/3`.
+
+    Red before the fix: three rows, the middle one `no paired call`."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                coordinator_message(9005),
+                *worked(9010, "s2"),
+            ]
+        },
+    )
+    rows = segments_of(path)["rows"]
+    assert len(rows) == 2, rows
+    assert [(row["slice"], row["slices"]) for row in rows] == [(1, 2), (2, 2)], rows
+    assert all(row["numbers"] for row in rows), rows
+    # The file's token figure still rides one row, and it is the first kept.
+    assert rows[1]["tokens"] is None, rows[1]
+    out = segment_report(path)
+    assert "no paired call" not in out, out
+    assert "specseal:smith  2/2" in out, out
+
+
+def test_a_resumed_file_that_called_nothing_at_all_still_gets_its_row(tmp_path):
+    """The other arm of the same branch, and the reason it is not a bare
+    filter. Dropping every call-less window would drop a transcript that
+    paired no call anywhere — which `measure_segments`' docstring keeps a row
+    for, because a segment that read and thought and called nothing is a real
+    reading and it spent tokens the run paid for.
+
+    Red before the fix for a different number: the file prints two rows, one
+    per window, where it owes exactly one."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "A", 25, 625, "specseal:smith", "Build phase 1"
+    )
+    path = write_run(
+        tmp_path,
+        main,
+        {
+            "agent-smith.jsonl": [
+                spend(625, message_id="thought", output=100),
+                coordinator_message(9000),
+                spend(9010, message_id="thought-2", output=200),
+            ]
+        },
+    )
+    rows = segments_of(path)["rows"]
+    assert len(rows) == 1, rows
+    assert (rows[0]["slice"], rows[0]["slices"]) == (1, 1), rows
+    assert rows[0]["numbers"] is None, rows
+    assert rows[0]["tokens"] is not None, rows
+    assert "no paired call" in segment_report(path), segment_report(path)
+
+
 def test_the_printed_table_says_which_slice_of_its_file_a_row_is(resumed_segment):
     """Two rows carrying one agent's name is unreadable without it — a reader
     cannot tell a resumed segment from two agents of the same kind."""

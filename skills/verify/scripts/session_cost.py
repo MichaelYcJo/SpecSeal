@@ -1064,6 +1064,13 @@ def segment_slices(transcript, labels):
     What that gives up is a per-slice token column, stated here rather than
     left to be found.
 
+    **A cut is a marker and not a stretch of work, so a window with no call
+    in it is not a row.** The coordinator can send one message and then
+    another before the agent acts; the empty window between them would print
+    as a slice the agent never worked, push every later `N/of` up by one, and
+    borrow `no paired call` from the whole-transcript case below. The file
+    that paired no call anywhere still owes its one row.
+
     Where there is no marker and an idle gap anyway, the file is one row and
     `idle_gap_s` says what that row's span covers."""
     calls, turns = load(transcript)
@@ -1090,14 +1097,26 @@ def segment_slices(transcript, labels):
         [t for t in stamped if t[0] is not None],
         lambda t: t[0],
     )
+    # A window with no call in it is not a stretch of work. The coordinator
+    # can send one message and then another before the agent acts, and the
+    # empty window between them was printed as a slice the agent never worked
+    # -- which also pushed every later `N/of` up by one, so the second of two
+    # stretches read as `3/3`. It also re-used `no paired call`, which means a
+    # whole transcript that read and thought and spent tokens, for a slice
+    # that spent nothing. Reachable and not observed: zero call-less slices
+    # across the 43 runs on the machine this was written on.
+    #
+    # The `or [0]` is the file that paired no call at all. It still owes its
+    # row, for the reason `measure_segments`' docstring gives.
+    kept = [i for i in range(len(cuts) + 1) if call_windows[i]] or [0]
     rows = []
-    for index in range(len(cuts) + 1):
+    for position, index in enumerate(kept):
         window = call_windows[index]
         rows.append(
             {
                 **labels,
-                "slice": index + 1,
-                "slices": len(cuts) + 1,
+                "slice": position + 1,
+                "slices": len(kept),
                 # Within a slice the gap is named too: a coordinator can send
                 # a message to an agent that then idles again for its own
                 # reasons, and one marker does not answer for the whole file.
@@ -1107,7 +1126,9 @@ def segment_slices(transcript, labels):
                 # to name which agent — and which of its stretches — did it.
                 "spawns": sum(1 for c in window if c["tool"] in DELEGATING),
                 "numbers": analyse(window, turn_windows[index]),
-                "tokens": token_totals([transcript]) if index == 0 else None,
+                # The first KEPT slice, not window 0, which may have been
+                # dropped as empty. The figure is the file's and rides one row.
+                "tokens": token_totals([transcript]) if position == 0 else None,
             }
         )
     return rows
