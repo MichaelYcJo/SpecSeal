@@ -88,7 +88,7 @@ Vertical slices — each phase ends with something runnable and verified.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | SDD set (`spec.md`, `plan.md`, `questions.md`) committed | the three files in the tree at the phase commit | |
+| 1 | SDD set (`spec.md`, `plan.md`, `questions.md`) committed | the three files in the tree at the phase commit | 5f131bb |
 | 2 | `bin/round-record` and `bin/round-record.cmd`, modelled on `bin/survivor-check`; the wrapper-pair case planted with them | the case seen **red** before the two files exist, green after; **executed** `bin/round-record --help` exit 0 printing `usage: round-record`, and `bin/round-record new --help` exit 0; the `.cmd` twin's command construction asserted from this machine for both platforms | |
 | 3 | The class pin seen red against all nine documents and both unwrapped scripts; then the two typed forms in `skills/code-review/orchestration.md` respelled `round-record`, one locator added to each of the nine documents, and `chain_check.py` classified with its reason; pin green | the pin red first, named per document, then green; the classification-defence case red when a `chain_check.py` command form is planted in a fixture; `tests/test_docs_line_wrap.py` green for the five covered files this phase edits (`agents/warden.md`, `agents/sealer.md`, `skills/code-review/SKILL.md`, `skills/code-review/orchestration.md`) | |
 | 4 | `changelog.md` and `seal/ledger/1789338080-….md` fragments, and `overview.md` | the two hygiene-adjacent modules green, `evidence-check --strict .` clean on the fragment, `uvx ruff check` and `ruff format --check` on the one new test file | |
