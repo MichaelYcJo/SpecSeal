@@ -44,10 +44,10 @@ of a resume unstated, and `§6` absent from the section — each quoted back by
 its assertion.
 
 **`evidence-check`'s record arm caught a divergence nothing else would
-have.** Both `plan.md` and `phases/phase-1.md` named `segment_rows()`, the
-function `plan.md` proposed, and the tree has `measure_segments()` — named to
-pair with the `measure_cycles()` this file already had, which is what tells a
-reader the two modes are siblings. The records are corrected, the phase record
+have.** Both `plan.md` and `phases/phase-1.md` named the function `plan.md`
+proposed — `segment_rows()`, NAME NOT IN TREE — where the tree has
+`measure_segments()`, named to pair with the `measure_cycles()` this file
+already had, which is what tells a reader the two modes are siblings. The records are corrected, the phase record
 keeps the proposed name behind a `NAME NOT IN TREE` marker so the rename is
 not silent, and `overview.md` carries the divergence with both sides quoted.
 Correcting a contract to match what was built is the thing a builder should
