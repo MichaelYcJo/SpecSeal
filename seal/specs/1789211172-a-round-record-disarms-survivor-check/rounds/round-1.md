@@ -6,7 +6,7 @@
 | Ran by | specseal:warden on claude-opus-5 |
 | PR | #372 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | MODULE_SCOPE (depth 1); PATH_LIST_CALLS (depth 1); _path_list_words (depth 1) |
 | Needs a fix | yes — finding 1, the enumeration case's unit is the function rather than the call site, so two of the three shapes the plan names as its own failure scenario pass it; and finding 2, the pull request body's red count. |
