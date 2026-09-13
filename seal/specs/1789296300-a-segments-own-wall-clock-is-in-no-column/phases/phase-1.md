@@ -9,10 +9,14 @@
 ## What this phase was asked
 
 Build `plan.md`'s row 1 and nothing past it: the join. A reader for a
-transcript's first stamp, and `segment_rows()` matching each transcript under
+transcript's first stamp, and a function matching each transcript under
 `subagents/` to a spawn result within the tolerance — named where it matches,
 named by nobody where it does not, one spawn claimed at most once. `--json`
-gains a `segments` key beside `spawns`. Verified by cases on a tree built by
+gains a `segments` key beside `spawns`.
+
+`plan.md` proposed the name `segment_rows()` — NAME NOT IN TREE — and it was
+built as `measure_segments()`, beside the `measure_cycles()` this file already
+had. `overview.md` carries the divergence. Verified by cases on a tree built by
 `write_run`: a named segment, an unnamed nested one, a segment moved outside
 the tolerance, and a run with no `subagents/` directory, each red first.
 

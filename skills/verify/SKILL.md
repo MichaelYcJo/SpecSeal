@@ -487,11 +487,45 @@ repository keeps one.
 Where a log is open, do the two steps as part of the segment that just
 finished, not as a follow-up someone might do later:
 
-1. Run `session_cost.py` against the segment's transcript. A subagent's
-   transcript lives under `~/.claude/projects/<project-dir>/<session-id>/subagents/agent-*.jsonl`;
-   a resumed smith's transcript holds several segments in one file — split
-   it at the user lines where the coordinator sent it a new message, and
-   measure only the slice that belongs to the segment just watched.
+1. Run `session_cost.py --segments` against the **run's** transcript. It
+   walks every segment beside it — a subagent's transcript lives under
+   `~/.claude/projects/<project-dir>/<session-id>/subagents/agent-*.jsonl` —
+   joins each to the spawn whose result it opened at, and prints one row per
+   segment: the agent, its own span, calls, tools per turn, mean gap and
+   tokens. One command, where this step used to be one invocation per
+   transcript.
+
+   **A segment's own span is the number no other mode has.** A cycle row's
+   `delegated` is the spawn call's own interval, and where a harness writes
+   that result on acceptance it reads seconds for an agent that ran twenty
+   minutes. The row here is read from the agent's own file instead.
+
+   **A resumed agent is one row per slice, and the mode takes the split
+   that used to be done by eye.** Its transcript holds several stretches of
+   work in one file, and the idle gap between two of them belongs to
+   neither: read whole, a segment that worked for thirty-seven seconds
+   reports a span over two hours. The cut is the coordinator's own message
+   row. Where a file has an idle gap and no such row, the report prints one
+   row and names the gap rather than leaving it inside a span.
+
+   **A §6 line means an agent spawned another agent**, which
+   `skills/agent-contract/SKILL.md` §6 withholds from every agent whatever
+   its own definition says. The mode notices and stops nothing — the
+   evidence is a transcript on the machine that ran the agent, in no commit
+   and on no CI runner, so a report somebody already runs at this boundary
+   is the only place it surfaces. Carry the line into the handover; it is
+   about the agent's conduct rather than its cost, and no other row says it.
+
+   **Read the counts above the table before the table.** The mode prints
+   how many transcripts it walked, how many spawns it found, the tolerance
+   it joined within, and how many went unmatched on each side — even when
+   they agree. A join that silently matched nothing reads exactly like a run
+   that spawned nothing, which is why the numbers are there to be seen
+   holding.
+
+   **One segment measured on its own is still `session_cost.py
+   <transcript>`** with no mode flag. That plain reading is unchanged, and
+   every row of the per-segment table is that same reading of another file.
 
    **A segment is one agent's own stretch of a chain, and a spawn cycle is
    not one.** Every segment has a transcript of its own: a smith's, a

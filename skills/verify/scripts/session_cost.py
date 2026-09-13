@@ -23,6 +23,7 @@ Usage:
   session_cost.py <transcript.jsonl>     one transcript
   session_cost.py --latest [DIR]         newest transcript for a repo (default: cwd)
   session_cost.py --spawns <transcript>  one row per spawn cycle, not one per run
+  session_cost.py --segments <transcript>  one row per segment this run spawned
   session_cost.py --json <transcript>    the same numbers, machine-readable
 
 Transcripts live under ~/.claude/projects/<path-with-slashes-as-dashes>/,
