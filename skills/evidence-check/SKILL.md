@@ -175,26 +175,30 @@ evidence-check --reverify .    # after re-reading: rewrite each row's hash
 
 ### Which reader graded your tree
 
-Three readers run this script over one tree and grade drift differently, and
-the command above is the most lenient of them.
+Four readers run this checker over one tree. **Three of them read its exit
+code** and grade drift differently, and the command above is the most lenient
+of those three; the fourth never reaches the exit code at all.
 
 | Reader | Drift is |
 |---|---|
-| `evidence-check .`, and CI's `ledger` job | exit 1. CI renders it as a `::warning::` and the job still passes |
+| `evidence-check .`, the command this page documents | exit 1, the lenient reading |
+| CI's `ledger` job, which runs the same script and adds no flag of its own | exit 1, rendered as a `::warning::` — the job still passes |
 | `broad-gate` | exit 2. It runs this same check with `--strict`, and the branch comes back `NOT SEALED` |
-| `hooks/evidence-advisor.py` | not reported at all. A line that prints on every commit is a line people learn to skip |
+| `hooks/evidence-advisor.py` | not reported at all. It imports this module in process rather than running the script, so it never reaches the exit code — and a line that prints on every commit is a line people learn to skip |
 
-All three are right about the tree they are looking at. A branch mid-flight
+All four are right about the tree they are looking at. A branch mid-flight
 legitimately drifts, and the gate runs once at the end over a tree nobody is
 still editing — so the disagreement is the design and not a defect. What was
 the defect is that nobody said so: a session that ran the documented command
 and read exit 1 had no way to learn that the run which decides reads the same
 tree as a refusal.
 
-**So a lenient run says it.** Where the answer is exit 1 and only there, the
-check prints which reading you took and what `broad-gate` would say instead.
-Exit 0 and exit 2 print nothing extra, because every reader grades those alike
-(#354).
+**So a lenient run says it.** Where a *check* run's answer is exit 1 and only
+there, the check prints which reading you took and what `broad-gate` would say
+instead. Exit 0 and exit 2 print nothing extra, because every reader grades
+those alike. `--migrate` and `--reverify` are writers, not readings of drift:
+each returns 1 for the rows or ledgers it could not rewrite, names them, and
+carries no notice (#354).
 
 ### A narrowed run says what it did not read
 

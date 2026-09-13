@@ -2,8 +2,9 @@
 — gathered into `CHANGELOG.md` at the release. -->
 
 - **A ledger run that comes back exit 1 now says that the run which decides
-  would refuse the tree.** Three readers ran `evidence_check.py` over one tree
-  and graded it differently, and nothing said so. `evidence-check` — the
+  would refuse the tree.** Three readers of one exit code ran
+  `evidence_check.py` over one tree and graded it differently, and nothing said
+  so. `evidence-check` — the
   command every document names — takes drift as exit 1; CI's `ledger` job runs
   the same script and renders that as a warning the job passes; `broad-gate`
   runs it with `--strict`, where drift is exit 2 and the branch comes back
@@ -27,7 +28,8 @@
   and never the text, so the sentence reaches the job log with the step
   unchanged.
 - **Five documents stopped describing one reader of three.** The
-  `evidence-check` skill gains a table holding all three readers side by side;
+  `evidence-check` skill gains a table holding all four readers of the checker
+  side by side, which says of each whether it reaches the exit code at all;
   both READMEs' ledger paragraphs, `CONTRIBUTING.md`'s check list and the
   `ledger` job's own comment each name `broad-gate` and `--strict` beside the
   exit code they describe. A case holds the printed sentence against

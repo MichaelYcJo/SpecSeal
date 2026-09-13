@@ -18,10 +18,10 @@ python3 skills/evidence-check/scripts/evidence_check.py .
 **The last of those is the lenient reader.** `broad-gate` runs the same script
 with `--strict`, where drift is exit 2 and the branch comes back `NOT SEALED`;
 CI's `ledger` job runs it without the flag and renders drift as a warning.
-Three readers, one tree, and the disagreement is deliberate — a branch
-mid-flight drifts legitimately, and the gate runs once at the end over a tree
-nobody is still editing. A run whose answer is exit 1 prints which reading you
-took, so this is not a fact anyone has to remember.
+Three readers of the exit code, one tree, and the disagreement is deliberate —
+a branch mid-flight drifts legitimately, and the gate runs once at the end over
+a tree nobody is still editing. A check run that comes back exit 1 prints which
+reading you took, so this is not a fact anyone has to remember.
 
 **Name a module.** The full suite is the sealer's, run once after the review
 rounds settle — `skills/agent-contract/SKILL.md` §2 forbids it to smith and
