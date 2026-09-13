@@ -2,8 +2,8 @@
 
 📋 implement applied
 · spec:     `seal/specs/1789296200-…/{spec.md,plan.md,questions.md,routing.md}`; `CONTRIBUTING.md` §*What a change to a gate must carry* and §*House rules*; `CLAUDE.md` §*The goal a design is chosen against*, §*Repo rule — the merge method is fixed per direction*, §*a change writes fragments, never the shared file*, §*a thing more than one party can have is named with whose*; `docs/review-chain-spec.md` §*When the record was written — before the fixes it commissioned*; `skills/code-review/orchestration.md` §*And commit the record before commissioning the fixes*; `skills/agent-contract/SKILL.md` §§2, 4, 5, 7, 8, 9, 12, 14, 15
-· evidence: `seal/ledger/1789296200-the-record-before-the-fix-sequence-has-no-arm.md`
-· verified: see `## Not verified` below, and each phase record's own account
+· evidence: `seal/ledger/1789296200-the-record-before-the-fix-sequence-has-no-arm.md`, three rows; plus ten rows of `seal/ledger.md` re-read and re-stamped, the ones this branch drifted by adding to units they cite
+· verified: **executed** — the five modules this work touches (251 passed over the eight that read what it changed), fourteen mutations across five phases with every one caught, the four units this branch added each broken alone and each seen red, `evidence-check` at 1161 ok · 0 drifted, `survivor-check` over `c7cc842..HEAD` at *no removed wording is still standing*, `unverified-check` exit 0, `ruff check` and `ruff format --check` over every changed file. **unverified** — see `## Not verified` below. Each phase record carries its own account
 
 ## Why this work exists
 

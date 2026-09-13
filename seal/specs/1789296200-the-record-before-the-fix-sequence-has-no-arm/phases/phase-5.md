@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 5 |
-| Commit | <this commit> |
+| Commit | `72c8eb5` |
 | Ran by | specseal:smith on claude-opus-5[1m] — the spawn prompt named no model; the segment's own harness line is the source |
 
 ## What this phase was asked
