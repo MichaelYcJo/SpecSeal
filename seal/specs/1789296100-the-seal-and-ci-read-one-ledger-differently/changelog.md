@@ -3,9 +3,9 @@
 
 - **A ledger run that comes back exit 1 now says that the run which decides
   would refuse the tree.** Three readers of one exit code ran
-  `evidence_check.py` over one tree and graded it differently, and nothing said
-  so. `evidence-check` — the
-  command every document names — takes drift as exit 1; CI's `ledger` job runs
+  `evidence_check.py` over one tree and graded it differently, and nothing
+  said so. `evidence-check` — the command every document names — takes drift
+  as exit 1; CI's `ledger` job runs
   the same script and renders that as a warning the job passes; `broad-gate`
   runs it with `--strict`, where drift is exit 2 and the branch comes back
   `NOT SEALED`. So a session could run the documented command, read exit 1,

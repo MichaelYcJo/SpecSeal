@@ -8,10 +8,9 @@
 ## Why this work exists
 
 Three readers of one exit code ran one checker over one tree and graded it
-differently, and
-nothing said so — a session that ran the documented command and read exit 1
-had no way to learn that `broad-gate` reads the same tree as a refusal. Now
-the run that is lenient says which reading you took.
+differently, and nothing said so — a session that ran the documented command
+and read exit 1 had no way to learn that `broad-gate` reads the same tree as
+a refusal. Now the run that is lenient says which reading you took.
 
 ## Where spec and implementation diverged
 

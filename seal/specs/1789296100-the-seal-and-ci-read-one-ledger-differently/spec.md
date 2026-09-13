@@ -5,8 +5,9 @@ work delivers and how we'll know. The policy documents in docs/ outrank this
 file; cite them, don't restate. -->
 
 Issue #354. Three readers of one exit code run `evidence_check.py` over one
-tree and grade the same ledger differently. The command every document names — `bin/evidence-check`
-— comes back exit 1 on drift; `broad-gate`, the one reader that gates, runs the
+tree and grade the same ledger differently. The command every document
+names — `bin/evidence-check` — comes back exit 1 on drift; `broad-gate`, the
+one reader that gates, runs the
 same script with `--strict` and comes back exit 2, and the branch is `NOT
 SEALED`. A session that runs the documented command more often never finds
 this, because the documented command is not the one that decides.
