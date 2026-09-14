@@ -4,7 +4,7 @@
 — HOW, in phases. This is the Design Gate's artifact: where the work alters
 observable behaviour, approval of this plan is the gate. -->
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-09-15 by the repository owner, when `smith` was spawned.
 
 <!-- Fill this in at the spawn: reading this plan and spawning the builder IS
 the approval. `routing.md` already records the routing batch the same way —
