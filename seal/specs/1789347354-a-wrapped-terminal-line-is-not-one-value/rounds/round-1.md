@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 392 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | test_a_whole_line_of_one_marker_ends_the_segment (depth 1); test_the_two_spellings_differ_only_by_the_fence_openers (depth 1) |
 | Needs a fix | yes — findings 1, 2 and 3. The pin the plan named in place of the shared constant does not exist, an **Executed** count in the ledger row that folds into `seal/ledger.md` is one short of the tree, and the prompt budget is absent from the only place `CONTRIBUTING.md` says it is answered. |
