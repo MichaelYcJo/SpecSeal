@@ -136,7 +136,9 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   with grounds is still nothing needing a fix. It goes in your report as a
   line of its own — `Needs a fix: no` or `Needs a fix: yes — <what>` — and
   `round_record.py new` copies it into the row of the same name in
-  `round-N.md`. An answer the report format has no field for is a decision
+  `round-N.md` — that generator is
+  `skills/code-review/scripts/round_record.py`, typed as `round-record`. An
+  answer the report format has no field for is a decision
   that lives in a transcript, which is the failure this whole round exists to
   close.
 
@@ -182,7 +184,13 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   You do not write the work item's round **records**: `round_record.py new`
   writes `round-N.md` from your report once the orchestrator has verified
   your findings, and parallel workers overwriting each other is how records
-  get corrupted. The **report** is a different artifact with a different
+  get corrupted. That generator ships, at
+  `skills/code-review/scripts/round_record.py`, and the orchestrator types it
+  as `round-record`. Four agent segments went looking for it, found no
+  document naming a path, and hand-wrote the record instead — so nothing
+  here is asking you to write one when you cannot find the file.
+
+  The **report** is a different artifact with a different
   owner — it is yours, it is what §6 says your final output is, and writing
   it to `rounds/round-<n>-report.md` changes its medium and not its
   authority. It is still uncommitted, still unverified, and still inert
