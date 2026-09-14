@@ -316,7 +316,9 @@ durable, committed home instead. -->
      two severities mean somebody owes the row an answer, so the row is not
      one that commissions nothing whatever else the cell says — and because
      such a row is never counted toward `Pass`, the record would otherwise
-     tick `Pass` over an open finding.
+     tick `Pass` over an open finding. **A row whose Verdict cell reads
+     `open` is refused on the same grounds**, whatever its `#` cell says —
+     the record says it is open in as many letters.
 
      An earlier round's number goes in the **Finding** cell, which is prose.
      In the `#` cell it is digits, and digits there are an id.

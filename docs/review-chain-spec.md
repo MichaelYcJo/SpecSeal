@@ -767,16 +767,41 @@ nothing downstream caught it because `chain_check.open_blocking` reads only
 🔴 rows. All 26 no-digit cells carrying 🔴 or 🟡 in the committed records are
 genuine findings.
 
-**The direction this fails in, stated.** A reviewer who writes 🟢, ❓ or ⬜ on
-a row that IS an open finding has written a finding no fix table will be
-asked to close, and `close` exits 0 over it. The severity check catches the
-two markers that mean something is owed; it cannot catch a reviewer who picks
-the wrong marker. The other mistake — numbering a confirmation row — costs an
+**The record is read in two cells, not one.** The `#` cell says a row
+commissions nothing; the Verdict cell can say it is open in as many letters.
+Reading only the first admitted six shapes whose Verdict cell read `open` —
+three of them carrying no severity marker at all — and each was written into a
+record with `Pass` ticked over it. So a row whose Verdict cell reads `open` is
+refused whatever its `#` cell says.
+
+That is a match on the word — ended by a space, a comma, or nothing, the
+boundary `verdict_of` uses for its own vocabulary, so `open — deferred` and
+`open, comment only` are reached and `opened` is not — rather than a
+vocabulary test, and the difference is what makes it free. `verified` is in no
+vocabulary and therefore reads OPEN, so refusing everything outside
+`CLOSED_WORDS` would refuse every confirmation row — one refusal traded for
+another. Refusing the word `open` refuses none of them: of the 25 admitted
+no-digit cells in the committed records, not one reads it.
+
+The boundary is spelled out in `round_record.py` rather than borrowed from
+`chain.SEPARATORS`. The shared constant is six characters wide and has five
+other readers, so borrowing it made `open-ended question` and `open: see 5`
+read as the open verdict — and tied what counts as open to a constant any of
+those readers may widen.
+
+**The direction this fails in, stated.** What is left takes two mistakes in one
+row, in two different cells: a reviewer who writes 🟢, ❓ or ⬜ on a row that IS
+an open finding **and** words its verdict as something other than `open`. That
+row still writes a finding no fix table will be asked to close, and `close`
+exits 0 over it. The other mistake — numbering a confirmation row — costs an
 inflated count in one record, and the change is toward that one.
 
-**The verdict word cannot do this job.** A confirmation row reads `verified`,
-which is in no vocabulary and therefore OPEN, so reading the verdict would
-refuse every confirmation — one refusal traded for another.
+**The verdict word was ruled out once, and the ruling was too wide.** A
+confirmation row reads `verified`, which is in no vocabulary and therefore
+OPEN, so a test of the form *anything not closed* would refuse every
+confirmation — one refusal traded for another. That is an argument against a
+VOCABULARY test and not against reading the cell, which is why the rule above
+reads one word and composes with the `#` cell rather than replacing it.
 
 **`❓ out of verified scope` is a closing verdict**, in `chain_check.py`'s
 `CLOSED_WORDS` and in neither `FIX_WORDS` nor `HOME_WORDS` — it closes without

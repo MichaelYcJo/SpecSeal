@@ -277,6 +277,39 @@ def test_a_correction_row_closes_answered_and_never_fixed():
     assert "§*The last round verifies* owns the rule" in smith
 
 
+def test_the_verdict_ruling_is_against_a_vocabulary_test_not_against_reading():
+    """Round 3's 🟡 2 and 🟡 3. The grounds for not reading the Verdict cell —
+    *a confirmation reads `verified`, which is in no vocabulary and therefore
+    OPEN* — argue against a VOCABULARY test and were written as an argument
+    against reading the cell at all. Two documents were corrected when the
+    verdict arm landed and four carriers were left standing, one of them a
+    bolded section of the owner twenty lines under the paragraph overturning
+    it.
+
+    `survivor-check` is exit 0 on that class and cannot see it: the diff
+    removed the sentence nowhere, so there is nothing for the range check to
+    match. This case is what a grep of the claim leaves behind.
+    """
+    spec = flat(*SPEC)
+    assert "the ruling was too wide" in spec
+    assert "argument against a VOCABULARY test and not against reading" in spec
+    assert "**The verdict word cannot do this job.**" not in spec
+
+
+def test_the_open_verdicts_boundary_is_not_the_shared_separators():
+    """Round 4's 🟡 2, the half `survivor-check` cannot reach either.
+
+    Four live coordinates said the arm borrows the boundary `verdict_of` uses
+    for its vocabulary and then borrowed `chain.SEPARATORS`, which is six
+    characters wide — so `open-ended question` and `open: see 5` read as the
+    open verdict and the refusal named a word the cell does not carry. The
+    boundary is spelled out now, and the owner says which constant it is not.
+    """
+    spec = flat(*SPEC)
+    assert "ended by a space, a comma, or nothing" in spec
+    assert "rather than borrowed from `chain.SEPARATORS`" in spec
+
+
 def test_a_repair_made_outside_the_tree_has_a_verdict_the_owner_names():
     """#321's comment. `fixed` demands a commit in the fix range, and a
     repair made by editing a ticket or a pull request body has none — so the

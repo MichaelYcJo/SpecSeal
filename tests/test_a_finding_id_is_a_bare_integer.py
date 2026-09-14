@@ -395,10 +395,18 @@ def test_every_spelling_of_open_the_records_hold_is_refused(repo, verdict):
     `skills/code-review/SKILL.md` all say a row whose Verdict cell *reads*
     `open` is refused, and the arm tested equality.
 
-    The grounds for not running a VOCABULARY test are untouched: a confirmation
-    reads `verified`, which is in no vocabulary, so *anything not closed* would
-    refuse every confirmation row. What never followed from those grounds is
-    equality.
+    Measured 2026-09-15 over the committed `round-N.md` records that parse —
+    211 of 212, 2,044 verdict rows — read through the generator's own
+    `table_body` and through `chain.verdict_of`: **123 verdict cells begin
+    `open` and 9 of them continue**, so equality reached 114 of 123 while the
+    documents described all of them. A head match ended the way `verdict_of`
+    ends its own vocabulary, on a space or a comma, reaches all 123 and newly
+    refuses **0** of the 25 admitted no-digit rows.
+
+    The grounds for not running a VOCABULARY test are untouched and were
+    re-derived in the same pass: 15 of those 25 carry a verdict outside
+    `CLOSED_WORDS`, so *anything not closed* would refuse them. What never
+    followed from those grounds is equality.
     """
     code, out = a_report(repo, f"| carried | one | `f.py:1` | {verdict} | read |\n")
     assert code == 2, out

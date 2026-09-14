@@ -2393,6 +2393,20 @@ def says_open(word):
     boundary here reaches `open — deferred` and `open, comment only`
     (round 3's 🟡 2).
 
+    **Measured 2026-09-15 over the committed `round-N.md` records that parse**
+    — 211 of the 212 this repository carries, 2,044 verdict rows, none of them
+    short — read through this module's own `table_body` and through
+    `chain.verdict_of`: **123 verdict cells begin `open` and 9 of them
+    continue**, so equality reached 114 of 123. Every one of the 9 continues
+    with a space or a comma, so `says_open` reaches all 123; none of them is in
+    `CLOSED_WORDS`. Of the 25 no-digit cells the `#` rule admits, 15 carry a
+    verdict outside `CLOSED_WORDS` — the grounds against a vocabulary test,
+    re-derived in the same pass — and **0** are newly refused by this arm.
+
+    The population, the date and the reader are stated because the figure that
+    stood here before was none of those things and did not reproduce under any
+    of the six populations round 4 tried.
+
     The boundary is spelled out in `OPEN_BOUNDARY` rather than borrowed from
     `chain.SEPARATORS`. The wider set reaches `open-ended question` and
     `open: see 5`, and the refusal a reviewer then reads names a word the
@@ -3134,7 +3148,17 @@ def verdict_rows(reader, lines):
             # (`test_a_short_row_with_a_comment_pipe_is_not_padded_into_a_full_one`,
             # which the wider test turns red). Refusing exactly what crashes
             # leaves that decision standing. Free either way against the
-            # corpus: zero committed verdict rows are short at all.
+            # corpus: zero of the 2,044 committed verdict rows are short at
+            # all (2026-09-15, through `table_body`).
+            #
+            # This raises on the FIRST offending row where `bad` and `owed`
+            # below collect every one and refuse once -- #303's shape, two
+            # round trips per repair. It is left an immediate raise
+            # deliberately (round 4's ⬜ 5): the guard was already immediate
+            # before the verdict arm and only its condition widened, and with
+            # zero committed rows short the cost falls on a reviewer's first
+            # draft and nowhere else. Making it a list is the repair if
+            # anybody opens this function again for another reason.
             raise Refused(
                 f"a verdict row has {len(seen)} cells, so it has no "
                 f"`{chain.VERDICT_COLUMN}` cell at column {VERDICT_COL + 1}: "
