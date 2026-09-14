@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 394 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Contract changes | finding_number → 1789356180-the-two-halves-of-one-generator-refuse-each-other.md, phase-1.md, round-1-report.md, round-1.md, fix_table, verdict_rows, pytest |
 | New units | OWED_MARKERS (depth 1); test_a_no_digit_cell_whose_severity_owes_an_answer_is_refused (depth 1); test_an_empty_hash_cell_is_refused (depth 1); test_the_row_the_suffixed_refusal_prints_is_a_row_the_table_accepts (depth 1); test_a_deferred_row_whose_third_cell_begins_with_its_home_says_it_once (depth 1); test_the_unknown_finding_refusal_says_so_when_the_table_holds_no_id (depth 1) |
 | Needs a fix | yes — findings 1, 2, 3 and 4 |
