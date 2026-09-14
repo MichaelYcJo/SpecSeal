@@ -81,14 +81,21 @@ Both were re-read on substance and re-stamped in one write; `evidence-check
 
 **A frame defect, found by the gate and not by reading.** Once this work item's
 ledger fragment existed, `evidence-check --strict` began reading the work
-item's own records and refused `spec.md:138`: S11 cites `SUMMARY_WORDS`, and
-**the tree does not hold that name** — #30's own round 2 renamed it to
-`SUMMARY_TAIL` (its 🟡 13). `quote`, the other name on the same line, is real
-(`skills/verify/scripts/broad_gate.py#quote`). The line is annotated
-`NAME NOT IN TREE` with what the name became, which is the convention
-`1789002694`'s own records already use for the same rename; no claim of S11
-changes, and phase 5 builds the case on the shape that round measured. This is
-in the hand-back, not back to the framer.
+item's own records and refused `spec.md:138`: S11 cites `SUMMARY_WORDS`, <!-- NAME NOT IN TREE: the same measurement this paragraph reports. -->
+and **the tree does not hold that name**. `quote`, the other name on the same
+line, is real (`skills/verify/scripts/broad_gate.py#quote`).
+
+The first annotation written for it repeated `1789002694`'s own note — that
+the name *became* `SUMMARY_TAIL` <!-- NAME NOT IN TREE: this paragraph's own finding — `git log -S` over `broad_gate.py` on every branch finds it in no merged commit. --> — without opening the coordinate, which is
+§5's failure made on the spot. Measured instead, at phase 3's boundary: `git
+log -S` over `broad_gate.py` on **every** branch finds neither name in any
+merged commit, and both occur only inside #30's round records. The unit
+existed between that run's round-1 fix and its round-2 fix and the squash into
+`release/v0.11.4` discarded both; `broad_gate.py` reads the summary line
+through `COUNTS_RE` today. The annotation now says that.
+
+No claim of S11 changes, and phase 5 builds the case on the shape round 2
+measured. This is in the hand-back, not back to the framer.
 
 ## What this phase removes
 
