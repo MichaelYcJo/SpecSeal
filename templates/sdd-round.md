@@ -93,6 +93,16 @@ values and nothing else:
                        contradiction-inside-one-file the `Pass` rule refuses
   `nobody — <why>`     the gap, written down. The reason is required
 
+**The reason moves once, and `close` moves it.** `new` lands the cell on
+`nobody — the fixes are not yet written`, which is true while the round runs.
+When `close` applies a fix table that closed something on a fix word, it
+rewrites the reason to say the fixes are written and no round has opened
+them — because by then the commits are in this record's own verdict cells two
+rows below, and *not yet written* is false beside them (#273 part 1).
+`nobody` is unchanged: a checker has to be a LATER round and none exists at
+that moment. A cell already naming a `round-N` is a later round's reading and
+`close` does not touch it.
+
 Only a later round may be named, so the LAST record of a finished run reads
 `no fixes to check` or `nobody — <why>`. That is the rule's shape, not a
 limit on it: a run ends at a round that wrote no code nobody read, or it ends
@@ -286,11 +296,30 @@ durable, committed home instead. -->
 
 <!-- The `#` cell is a bare integer, optionally behind a severity marker:
      `1`, `🔴 2`, `⬜ 13`. `R2-1`, `1-1`, `1b` and `A2` are refused, naming
-     the format and quoting the row. The round is already in this file's own
-     name, so an id does not carry it — a prefixed id used to collapse eight
-     findings toward one key in silence (#227). The fix pass copies these
-     numbers into its `## Fixes` table, so the format is one choice two
-     agents pay for.
+     the format and quoting every row that carries one. The round is already
+     in this file's own name, so an id does not carry it — a prefixed id used
+     to collapse eight findings toward one key in silence (#227). The fix pass
+     copies these numbers into its `## Fixes` table, so the format is one
+     choice two agents pay for.
+
+     **A row that commissions nothing takes no id**, and its `#` cell says
+     so: `carried`, `🟢 fix-surface`. A confirmation this round verified and
+     did not open, an earlier round's closure carried into this table, and a
+     `❓ out of verified scope` marker are all that shape — no fix table can
+     reference them, because there is nothing to commission. `close` copies
+     such a row through, asks no closure for it, writes no verdict word over
+     it, and does not count it toward `Pass`. The `## Fixes` table is the
+     other direction and every row of it needs an id: there the row IS the
+     commission.
+
+     **A 🔴 or 🟡 with no number is refused, and so is an empty cell.** Those
+     two severities mean somebody owes the row an answer, so the row is not
+     one that commissions nothing whatever else the cell says — and because
+     such a row is never counted toward `Pass`, the record would otherwise
+     tick `Pass` over an open finding.
+
+     An earlier round's number goes in the **Finding** cell, which is prose.
+     In the `#` cell it is digits, and digits there are an id.
 
      Severities name what they require, not a rank:
      🔴 blocks merge · 🟡 needs grounds · 🟢 matches · ❓ could not be judged.
