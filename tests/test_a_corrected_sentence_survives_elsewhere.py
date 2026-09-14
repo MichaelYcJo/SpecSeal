@@ -348,6 +348,38 @@ def test_a_whole_line_of_one_marker_ends_the_segment(rule):
     )
 
 
+# The ordered-list alternative, the second of the constant's five that nothing
+# pins — same constant, same retyping, same argument as round 1's 🟡 5. It is
+# the one worth taking for a reason the bullet and heading alternatives do not
+# share: killing either of those widens the pattern, and
+# `test_a_sentence_wrapped_onto_an_issue_number_is_one_sentence` catches a
+# widening from the other side. Killing this one is caught from neither.
+#
+# Only the `)` half can be pinned here. `END` ends a sentence at `.` before
+# whitespace, so an arm written `1.` is green whatever `BLOCK` does — measured,
+# and it is the same trap that made round 1's first attempt at the whole-line
+# case useless. `1)x` is green for the other reason: no space after the
+# delimiter, so it is prose under both spellings and the lookahead that says so
+# is pinned by nothing.
+@pytest.mark.parametrize("opener", ["1)", "12)"])
+def test_an_ordered_list_item_ends_the_segment(opener):
+    """A list item is a block, so the prose above it is a sentence of its own.
+
+    Without this alternative a claim hard-wrapped above a list and the list's
+    first item land in one segment, and an n-gram crosses a boundary that is
+    real — the mis-scoring direction this module's constant exists to avoid,
+    rather than the truncation `round_record.py` guards."""
+    reader = module()
+    # No full stop above the item, on purpose: the block boundary has to be
+    # the only thing that can end this sentence.
+    text = f"the claim above the item\n{opener} an unrelated claim below it"
+    keys = [sentence.key for sentence in reader.sentences("docs/probe.md", text)]
+    assert not any("above the item" in k and "below it" in k for k in keys), (
+        f"{opener!r} opens a list item and the segment ran straight through "
+        f"it: {keys!r}"
+    )
+
+
 def test_a_table_row_is_not_one_sentence():
     """A ledger row is one line and thousands of words.
 

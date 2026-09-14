@@ -101,8 +101,8 @@ What did not come with it is the half of round 1's finding that was written in
 its grounds rather than in its paste-ready — *no case compares any two*. Still
 true. `tests/test_the_rules_have_one_owner.py` pins the warden's half of the
 split and nothing counts the list's carriers, where the same module already
-owns the idiom for it: `occurrences(...)` against a `_CEILING` constant, which
-is how `AT_MOST_ONE_MORE_CEILING` holds a different sentence to its two
+owns the idiom for it: `occurrences(...)` against a `_CEILING` constant. NAME NOT IN TREE
+That is how `AT_MOST_ONE_MORE_CEILING` holds a different sentence to its two
 carriers. The list can grow back to four with nothing red.
 
 **🟡 5's rewrite dies under the mutation it claims.** With `[-*_=]{3,}\s*$`
