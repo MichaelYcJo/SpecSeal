@@ -69,6 +69,34 @@ confirmation row costs an inflated count in one record, where a missed finding
 costs a defect. Phase 1 states that trade in the pull request body as
 `CONTRIBUTING.md`'s **stated failure direction**.
 
+<!-- CORRECTED 2026-09-14 by round 1's 🔴 1 and 🟡 2, after this plan was
+approved. The paragraph above understates the risk by one step and overstates
+what is left of it by two.
+
+**The step it missed.** A row admitted as commissioning nothing is not merely
+one no fix table is asked to close — it is not counted toward `Pass` either, so
+`new` WRITES the record with `Pass` ticked beside the open finding and exits 0
+silently. `chain_check.open_blocking` reads only 🔴 rows, so nothing downstream
+caught the 🟡 or the empty cell. That is a record asserting a review passed
+while its own verdict table says otherwise, which is this work item's title met
+inside its own fix.
+
+**What is left of it.** The repair reads the severity as well as the `#` cell:
+🔴 and 🟡 mean somebody owes the row an answer, so a no-digit cell carrying
+either is refused, and so is an empty cell. What still fails is narrower — a
+reviewer who writes 🟢, ❓ or ⬜ on a row that IS an open finding. The check
+reaches the two markers that owe an answer and cannot reach a wrongly chosen
+one.
+
+**And the grounds beneath it were wrong.** The paragraph's premise — that a
+no-digit cell was never reaching for an id — is false of 44 of the 51 such
+cells in the committed records, which are a severity marker and a single
+letter. The corrected reading is in `docs/review-chain-spec.md` §*A verdict row
+that commissions nothing*.
+
+The plan's own text is left standing rather than rewritten: it records what was
+approved on 2026-09-14, and this note records what building it found. -->
+
 ## Alternatives considered
 
 | Approach | Failure scenario | Verdict |
