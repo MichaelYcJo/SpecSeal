@@ -787,9 +787,12 @@ row still writes a finding no fix table will be asked to close, and `close`
 exits 0 over it. The other mistake — numbering a confirmation row — costs an
 inflated count in one record, and the change is toward that one.
 
-**The verdict word cannot do this job.** A confirmation row reads `verified`,
-which is in no vocabulary and therefore OPEN, so reading the verdict would
-refuse every confirmation — one refusal traded for another.
+**The verdict word was ruled out once, and the ruling was too wide.** A
+confirmation row reads `verified`, which is in no vocabulary and therefore
+OPEN, so a test of the form *anything not closed* would refuse every
+confirmation — one refusal traded for another. That is an argument against a
+VOCABULARY test and not against reading the cell, which is why the rule above
+reads one word and composes with the `#` cell rather than replacing it.
 
 **`❓ out of verified scope` is a closing verdict**, in `chain_check.py`'s
 `CLOSED_WORDS` and in neither `FIX_WORDS` nor `HOME_WORDS` — it closes without

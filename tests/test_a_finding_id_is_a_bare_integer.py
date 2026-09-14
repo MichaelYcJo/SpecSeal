@@ -232,10 +232,12 @@ def test_a_no_digit_cell_whose_severity_owes_an_answer_is_refused(repo, owed):
     is wrong.
 
     The severity marker is what already means *somebody owes this an answer* —
-    🔴 blocks merge and 🟡 needs grounds — so it is what the rule reads. The
-    verdict word cannot serve: a confirmation row reads `verified`, which is in
-    no vocabulary and therefore OPEN, so reading it would trade one refusal for
-    another.
+    🔴 blocks merge and 🟡 needs grounds — so it is what this rule reads. A
+    vocabulary test of the verdict cannot serve in its place: a confirmation row
+    reads `verified`, which is in no vocabulary and therefore OPEN, so it would
+    trade one refusal for another. Reading the single word `open` is a separate
+    arm and composes with this one —
+    `test_a_row_that_commissions_nothing_cannot_read_open` below.
     """
     code, out = a_report(repo, f"| {owed} | one | `f.py:1` | open | read |\n")
     assert code == 2, out
@@ -316,6 +318,92 @@ def test_a_row_failing_both_arms_is_named_once(repo):
     assert code == 2, out
     assert "has 1 row " in out, out
     assert out.count("| 🔴 A | one |") == 1, out
+
+
+def test_a_numbered_short_row_is_refused_rather_than_raising(repo):
+    """Round 3's 🔴 1, and the member round 2's bounds guard did not reach.
+
+    A digit in the `#` cell KEYS the row, so it passes `verdict_rows` and every
+    caller then indexes `VERDICT_COL` on it: `new` at the `words` comprehension,
+    `close` at `open_now`, at the `already` message and at the write pass. Round
+    2's guard sits inside `verdict_rows` and covers only the row that is not
+    keyed.
+
+    Worse than a defect, this is a regression: on `release/v0.11.4` `new`
+    computed `Pass` through `verdict_words`, which raises `a verdict row has N
+    cells` — a refusal naming the row. Round 2's repair replaced that path and
+    carried no width check with it.
+
+    `fix_table` has refused the same shape since it was written, and zero of the
+    committed verdict rows are short, so matching its shape costs nothing.
+    """
+    code, out = a_report(repo, "| 1 | one |\n")
+    assert code == 2, out
+    assert "Traceback" not in out and "IndexError" not in out, out
+    assert "2 cells" in out and "no `Verdict` cell" in out, out
+    assert "- [x] Pass" not in out, "a record was written"
+
+
+def test_a_row_missing_only_its_grounds_is_still_written_short(repo):
+    """The bound is `VERDICT_COL`, not the header width, and this is why.
+
+    Round 3's paste-ready code for finding 1 refused any row narrower than the
+    header. That reaches a four-cell row — one with a Verdict cell and no
+    Grounds — which nothing indexes past and which
+    `test_a_short_row_with_a_comment_pipe_is_not_padded_into_a_full_one`
+    deliberately admits, so the record shows the column the reviewer left out
+    rather than inventing one. The wider test turns that case red.
+
+    Refusing exactly what crashes leaves the older decision standing, and the
+    corpus is silent either way: zero committed verdict rows are short at all.
+    """
+    code, out = a_report(repo, "| 1 | one | `f.py:1` | open |\n")
+    assert "Traceback" not in out and "IndexError" not in out, out
+    assert "no `Verdict` cell" not in out, out
+    # The row IS refused, by the verdict arm — it reads `open` with a `#` cell
+    # that keys it, so `Pass` is decided on it. What matters here is which
+    # refusal it meets: not the width one.
+    assert code in (0, 2), out
+
+
+@pytest.mark.parametrize(
+    "verdict",
+    ["open", "open — deferred", "open, comment only", "**open** — still"],
+)
+def test_every_spelling_of_open_the_records_hold_is_refused(repo, verdict):
+    """Round 3's 🟡 2. `agents/warden.md`, `templates/sdd-round.md` and
+    `skills/code-review/SKILL.md` all say a row whose Verdict cell *reads*
+    `open` is refused, and the arm tested equality.
+
+    Measured over every committed record: 127 verdict cells begin `open` and
+    **9 of them continue** — `open — deferred`, `open, comment only` and seven
+    more — so the equality reached 118 of 127 while the documents described all
+    of them. A head match ended by `chain.SEPARATORS`, the boundary
+    `verdict_of` already uses for its own vocabulary, reaches all 127 and newly
+    refuses **0** of the 25 admitted no-digit rows.
+
+    The grounds for not running a VOCABULARY test are untouched and were
+    re-measured: 15 of those 25 carry a verdict outside `CLOSED_WORDS`, so
+    *anything not closed* would refuse them. What never followed from those
+    grounds is equality.
+    """
+    code, out = a_report(repo, f"| carried | one | `f.py:1` | {verdict} | read |\n")
+    assert code == 2, out
+    assert "`Verdict` cell reads `open`" in out, out
+
+
+@pytest.mark.parametrize("verdict", ["opened in round 2", "openly carried"])
+def test_a_word_that_merely_begins_with_open_is_not_the_open_verdict(repo, verdict):
+    """The boundary is what makes `says_open` match a WORD rather than a
+    prefix of one — the same distinction `verdict_of` states for its own
+    vocabulary, where without it `not a defect` would swallow `not a defective
+    reading`.
+
+    Found by mutation: dropping the separator test left every other case in
+    this module green, because no case fed it a longer word.
+    """
+    _code, out = a_report(repo, f"| carried | one | `f.py:1` | {verdict} | read |\n")
+    assert "`Verdict` cell reads `open`" not in out, out
 
 
 def test_a_row_too_short_to_have_a_verdict_cell_does_not_crash(repo):

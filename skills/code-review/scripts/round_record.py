@@ -2360,9 +2360,10 @@ DIGIT_RE = re.compile(r"\d")
 # rather than a row that commissions nothing, and the corpus says so without a
 # margin: all 26 such rows are genuine findings -- 11 later closed `fixed`, 4
 # `answered`, 11 still `open` -- and none of the 25 carrying 🟢, ❓ or no marker
-# is. The verdict word cannot do this job: a confirmation reads `verified`,
-# which is in no vocabulary and therefore OPEN, so reading it would trade one
-# refusal for another.
+# is. A VOCABULARY test of the verdict cannot do this job: a confirmation
+# reads `verified`, which is in no vocabulary and therefore OPEN, so reading
+# the verdict as OPEN/CLOSED would trade one refusal for another. Reading the
+# one word `open` is the narrower thing `OPEN_WORD` below does.
 OWED_MARKERS = ("\N{LARGE RED CIRCLE}", "\N{LARGE YELLOW CIRCLE}")
 # The one verdict word that says the row is open in as many letters. Read only
 # on a row whose `#` cell has already admitted it, where the two cells then
@@ -2374,6 +2375,31 @@ OWED_MARKERS = ("\N{LARGE RED CIRCLE}", "\N{LARGE YELLOW CIRCLE}")
 # the committed records, not one has a Verdict cell reading `open` (round 2's
 # 🟡 7).
 OPEN_WORD = "open"
+
+
+def says_open(word):
+    """`word` is the open verdict, however the reviewer ended it.
+
+    The grounds for not running a VOCABULARY test hold and are untouched:
+    `verified` is in no vocabulary and would be refused, which costs 15 of the
+    25 admitted no-digit rows in the committed records. What never followed
+    from those grounds is EQUALITY. `verdict_of` already ends a vocabulary word
+    on `chain.SEPARATORS` — that is what makes `fixed d3fe44d` read as `fixed`
+    — and the same boundary here reaches `open — deferred` and `open, comment
+    only`.
+
+    Measured over every committed record: 127 verdict cells begin `open` and 9
+    of them continue, so equality reached 118 of 127 while `agents/warden.md`,
+    `templates/sdd-round.md` and `skills/code-review/SKILL.md` all describe a
+    match on the word. None of the 127 is in `CLOSED_WORDS`, and the boundary
+    match newly refuses 0 of the 25 admitted rows (round 3's 🟡 2).
+    """
+    if not word.startswith(OPEN_WORD):
+        return False
+    rest = word[len(OPEN_WORD) :]
+    return not rest or rest[0] in chain.SEPARATORS
+
+
 BARE_ID = "a bare integer"
 # Which of the two tables a refusal is about. The reviewer writes one and the
 # fixer copies the numbering into the other, so a message naming the format
@@ -2385,71 +2411,72 @@ DEPTH_EXIT = "deferred with a named answerer, or becomes an issue"
 
 def finding_number(label, seen, line, taken, bad, idless, owed):
     """The finding one `#` cell names, `None` for a row that names none, or
-        `Refused` for a duplicate.
+    `Refused` for a duplicate.
 
-        Four readings of the cell, and the third is #321's:
+    Four readings of the cell, and the third is #321's:
 
-          digits behind an optional marker   the finding, keyed
-          no digit, and the cell says the    `None` where `idless` is on — a row
-          row commissions nothing            that commissions nothing, admitted
-                                             and left exactly as it was written
-          no digit, and the cell is empty    appended to `owed`: the caller
-          or its severity owes an answer     refuses
-          anything else                      appended to `bad`, and so is a
-                                             no-digit cell where `idless` is off
+      digits behind an optional marker   the finding, keyed
+      no digit, and the cell says the    `None` where `idless` is on — a row
+      row commissions nothing            that commissions nothing, admitted
+                                         and left exactly as it was written
+      no digit, and the cell is empty    appended to `owed`: the caller
+      or its severity owes an answer     refuses
+      anything else                      appended to `bad`, and so is a
+                                         no-digit cell where `idless` is off
 
-        **A row that commissions nothing is a shape reviewers reach for**, and the
-        evidence for it is seven rows rather than the fifty-one this said for a
-        release. Measured 2026-09-14 over the 207 committed records that parse, 51
-        of 1,989 verdict rows carry a `#` cell with no digit — and 44 of those are
-        a severity marker and a single LETTER, which is a finding id in the wrong
-        alphabet. Seven are the shape this admits: `carried`, `🟢 fix-surface`,
-        `🟢 fragment`, `🟢 grep`, `🟢 overview`. Three tickets are that shape: a
-        confirmation the round verified and did not open (#321), an earlier
-        round's closure carried into this round's table (#341), and a `❓ out of
-        verified scope` marker (#353). None can be referenced by a fix table,
-        because there is nothing to commission.
+    **A row that commissions nothing is a shape reviewers reach for**, and the
+    evidence for it is seven rows rather than the fifty-one this said for a
+    release. Measured 2026-09-14 over the 207 committed records that parse, 51
+    of 1,989 verdict rows carry a `#` cell with no digit — and 44 of those are
+    a severity marker and a single LETTER, which is a finding id in the wrong
+    alphabet. Seven are the shape this admits: `carried`, `🟢 fix-surface`,
+    `🟢 fragment`, `🟢 grep`, `🟢 overview`. Three tickets are that shape: a
+    confirmation the round verified and did not open (#321), an earlier
+    round's closure carried into this round's table (#341), and a `❓ out of
+    verified scope` marker (#353). None can be referenced by a fix table,
+    because there is nothing to commission.
 
-        **Which is why the severity is read as well.** A `#` cell alone cannot say
-        whether anything is owed, and admitting a row on its strength ticked
-        `Pass` over an open finding — the record asserting that a review passed
-        while its own table said otherwise, which is the defect this whole work
-        item is named for, reproduced inside its own fix (round 1's 🔴 1). The
-        marker already carries that meaning: 🔴 blocks merge, 🟡 needs grounds, and
-        all 26 no-digit cells carrying one are genuine findings. An empty cell is
-        refused for the neighbouring reason — it says nothing at all, which is
-        what a reviewer who forgot the id writes, and no committed record has one.
+    **Which is why the severity is read as well.** A `#` cell alone cannot say
+    whether anything is owed, and admitting a row on its strength ticked
+    `Pass` over an open finding — the record asserting that a review passed
+    while its own table said otherwise, which is the defect this whole work
+    item is named for, reproduced inside its own fix (round 1's 🔴 1). The
+    marker already carries that meaning: 🔴 blocks merge, 🟡 needs grounds, and
+    all 26 no-digit cells carrying one are genuine findings. An empty cell is
+    refused for the neighbouring reason — it says nothing at all, which is
+    what a reviewer who forgot the id writes, and no committed record has one.
 
-        The verdict word cannot serve here: a confirmation reads `verified`, which
-        is in no vocabulary and therefore OPEN, so reading it would trade one
-        refusal for another.
+    A vocabulary test of the verdict cannot serve here: a confirmation reads
+    `verified`, which is in no vocabulary and therefore OPEN, so reading the
+    verdict as OPEN/CLOSED would trade one refusal for another. Reading the one
+    word `open` does not, and `says_open` above is that arm.
 
-        `idless` is off for the fix table, where the row IS the commission: a fix
-        row naming no finding has nothing to apply itself to.
+    `idless` is off for the fix table, where the row IS the commission: a fix
+    row naming no finding has nothing to apply itself to.
 
-        **`bad` is a list rather than a raise.** #303, merged into #321, measured
-        five offending rows against a message naming one, at two round trips per
-        repair. The caller refuses once, with all of them. `owed` is a second list
-        for the same reason and refuses separately, because the two say different
-        things to the reviewer. The duplicate refusal stays immediate because it
-        already quotes both of its rows, and `taken` is {number: the row that
-        already claimed it} so that it can.
+    **`bad` is a list rather than a raise.** #303, merged into #321, measured
+    five offending rows against a message naming one, at two round trips per
+    repair. The caller refuses once, with all of them. `owed` is a second list
+    for the same reason and refuses separately, because the two say different
+    things to the reviewer. The duplicate refusal stays immediate because it
+    already quotes both of its rows, and `taken` is {number: the row that
+    already claimed it} so that it can.
 
     **The `#` cell is not the only cell that says a row owes an answer**, which
-        is why `verdict_rows` reads the Verdict cell beside it. Reading the marker
-        alone admitted six shapes whose Verdict cell said `open` — three of them
-        carrying no marker at all, so the residual stated here for a round did not
-        describe them (round 2's 🟡 7). It is the literal word rather than a
-        vocabulary test, and that is what makes it free: `verified` is in no
-        vocabulary and therefore OPEN, so refusing everything outside
-        `CLOSED_WORDS` would refuse every confirmation row.
+    is why `verdict_rows` reads the Verdict cell beside it. Reading the marker
+    alone admitted six shapes whose Verdict cell said `open` — three of them
+    carrying no marker at all, so the residual stated here for a round did not
+    describe them (round 2's 🟡 7). It is the literal word rather than a
+    vocabulary test, and that is what makes it free: `verified` is in no
+    vocabulary and therefore OPEN, so refusing everything outside
+    `CLOSED_WORDS` would refuse every confirmation row.
 
-        What this still gives up, stated rather than left to be found: a row takes
-        TWO mistakes in two cells to slip through now — 🟢, ❓ or ⬜ on a row that
-        IS an open finding, AND a verdict worded as something other than `open`.
-        Such a row writes a finding no fix table will be asked to close, and
-        `close` exits 0 over it. The cheaper mistake is the other one, where
-        numbering a confirmation row costs an inflated count in one record.
+    What this still gives up, stated rather than left to be found: a row takes
+    TWO mistakes in two cells to slip through now — 🟢, ❓ or ⬜ on a row that
+    IS an open finding, AND a verdict worded as something other than `open`.
+    Such a row writes a finding no fix table will be asked to close, and
+    `close` exits 0 over it. The cheaper mistake is the other one, where
+    numbering a confirmation row costs an inflated count in one record.
     """
     text = chain.EMPHASIS.sub("", seen).strip()
     m = FINDING_ID_RE.match(text)
@@ -3081,8 +3108,33 @@ def verdict_rows(reader, lines):
     out, taken, bad, owed = {}, {}, [], []
     for i, cells in table_body(reader, lines, VERDICTS, VERDICT_HEADER, True):
         seen = [reader.visible(c) for c in cells]
-        if len(seen) <= NUMBER_COL:
-            raise Refused(f"a verdict row has no `#` cell: {lines[i].strip()!r}")
+        if len(seen) <= VERDICT_COL:
+            # A digit in the `#` cell KEYS the row, so a row with no Verdict
+            # cell passed here and reached every caller that indexes
+            # `VERDICT_COL` by position -- `build`'s `words`, `close`'s
+            # `open_now`, its `already` message and its write pass -- as an
+            # IndexError rather than a refusal naming the row. A REGRESSION:
+            # before round 2, `new` computed `Pass` through `verdict_words`,
+            # which raised `a verdict row has N cells` (round 3's 🔴 1).
+            #
+            # The bound is `VERDICT_COL` and not the header width, which is
+            # what round 3's paste-ready code proposed. The wider test refuses
+            # a row that is merely missing `Grounds` — four cells, a verdict
+            # present, nothing that crashes — and that shape is deliberately
+            # ADMITTED and written short rather than padded, so the record
+            # shows the column the reviewer left out instead of inventing one
+            # (`test_a_short_row_with_a_comment_pipe_is_not_padded_into_a_full_one`,
+            # which the wider test turns red). Refusing exactly what crashes
+            # leaves that decision standing. Free either way against the
+            # corpus: zero committed verdict rows are short at all.
+            raise Refused(
+                f"a verdict row has {len(seen)} cells, so it has no "
+                f"`{chain.VERDICT_COLUMN}` cell at column {VERDICT_COL + 1}: "
+                f"{lines[i].strip()!r}. Every reader downstream indexes that "
+                "column by position, so a short row carrying a digit is keyed "
+                "here and reaches them as a crash rather than as a refusal "
+                "naming the row"
+            )
         flagged = len(bad) + len(owed)
         number = finding_number(
             RECORD_LABEL, seen[NUMBER_COL], lines[i], taken, bad, True, owed
@@ -3092,7 +3144,7 @@ def verdict_rows(reader, lines):
         elif (
             len(bad) + len(owed) == flagged
             and len(seen) > VERDICT_COL
-            and chain.verdict_of(seen, VERDICT_COL) == OPEN_WORD
+            and says_open(chain.verdict_of(seen, VERDICT_COL))
         ):
             # The `#` cell says this row commissions nothing and the Verdict
             # cell says it is open, in as many letters. The marker arm catches

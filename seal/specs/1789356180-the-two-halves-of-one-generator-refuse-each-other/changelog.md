@@ -13,8 +13,9 @@
   round verified, an earlier round's closure carried forward, and a
   `❓ out of verified scope` marker.
 
-  **A 🔴 or a 🟡 with no number is refused, an empty cell is refused, and so is
-  any row whose Verdict cell reads `open`.** Those two severities mean somebody
+  **A 🔴 or a 🟡 with no number is refused, an empty cell is refused, a row with
+  no Verdict cell at all is refused, and so is any row whose Verdict cell reads
+  `open` — however the reviewer ends the word.** Those two severities mean somebody
   owes the row an answer and the verdict says it in as many letters, so such a
   row is not one that commissions nothing whatever its `#` cell says — and because an admitted
   row is never counted toward `Pass`, the record would otherwise be written
