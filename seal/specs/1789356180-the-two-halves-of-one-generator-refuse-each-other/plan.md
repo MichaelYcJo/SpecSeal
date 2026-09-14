@@ -83,12 +83,10 @@ inside its own fix.
 
 **What is left of it.** The repair reads the severity as well as the `#` cell:
 🔴 and 🟡 mean somebody owes the row an answer, so a no-digit cell carrying
-either is refused, and so is an empty cell. Round 2's 🟡 7 then found a third
-member of the same class — a row whose Verdict cell reads `open` — which the
-marker arm could not see, three of its six shapes carrying no marker at all.
-That is refused too. What still fails after both takes TWO mistakes in one row,
-in two different cells: 🟢, ❓ or ⬜ on a row that IS an open finding, and a
-verdict worded as something other than `open`.
+either is refused, and so is an empty cell. What still fails is narrower — a
+reviewer who writes 🟢, ❓ or ⬜ on a row that IS an open finding. The check
+reaches the two markers that owe an answer and cannot reach a wrongly chosen
+one.
 
 **And the grounds beneath it were wrong.** The paragraph's premise — that a
 no-digit cell was never reaching for an id — is false of 44 of the 51 such

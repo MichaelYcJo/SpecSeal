@@ -297,21 +297,12 @@ commissioning nothing is never counted toward `Pass`, so the record would tick
 `Pass` over an open finding. Write the number, or write the severity the row
 actually has.
 
-**A row whose Verdict cell reads `open` is refused too**, whatever its `#`
-cell says. The record states the answer in the column beside the one the rule
-reads, and a row admitted as commissioning nothing is never counted toward
-`Pass` — so without this the record was written with `Pass` ticked over a row
-its own table calls open. It matches the word, ended by a separator or by
-nothing, rather than a vocabulary test:
-a confirmation reads `verified`, which is in no vocabulary and would refuse if
-the test were *anything not closed*.
-
 **Which way the mistake costs more.** Numbering a confirmation row inflates one
-record's count. What still slips through takes two mistakes in one row: writing
-🟢, ❓ or ⬜ with no number on a row that IS an open finding **and** wording its
-verdict as something other than `open`. That writes a finding no fix table will
-be asked to close, and `close` exits 0 over it. So the id is what says
-*somebody owes this an answer* — put one on every finding and on nothing else.
+record's count; writing 🟢, ❓ or ⬜ with no number on a row that IS an open
+finding writes a finding no fix table will be asked to close, and `close`
+exits 0 over it. Nothing catches that one — the severity check reaches 🔴 and
+🟡 and cannot reach a wrong marker — so the id is what says *somebody owes this
+an answer*. Put one on every finding and on nothing else.
 
 An earlier round's number goes in the **Finding** cell, which is prose:
 `| 🟢 | round 2's finding 1, re-read | … |`. In the `#` cell it is digits, and
