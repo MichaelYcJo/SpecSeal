@@ -312,13 +312,12 @@ durable, committed home instead. -->
      other direction and every row of it needs an id: there the row IS the
      commission.
 
-     **A 🔴 or 🟡 with no number is refused, and so is an empty cell.** Those
-     two severities mean somebody owes the row an answer, so the row is not
-     one that commissions nothing whatever else the cell says — and because
-     such a row is never counted toward `Pass`, the record would otherwise
-     tick `Pass` over an open finding. **A row whose Verdict cell reads
-     `open` is refused on the same grounds**, whatever its `#` cell says —
-     the record says it is open in as many letters.
+     **A 🔴 or 🟡 with no number is refused, an empty cell is refused, and so
+     is any row whose Verdict cell reads `open`.** Those two severities mean
+     somebody owes the row an answer and the verdict says it in as many
+     letters, so such a row is not one that commissions nothing whatever its
+     `#` cell says — and because such a row is never counted toward `Pass`,
+     the record would otherwise tick `Pass` over an open finding.
 
      An earlier round's number goes in the **Finding** cell, which is prose.
      In the `#` cell it is digits, and digits there are an id.

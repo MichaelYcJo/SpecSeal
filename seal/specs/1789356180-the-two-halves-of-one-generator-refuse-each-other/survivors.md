@@ -23,6 +23,12 @@ that text changes. -->
 | `tests/test_a_finding_id_is_a_bare_integer.py` | `want = generator.RECORD_LABEL if on_record else generator.FIX_TABLE_LABEL` | Not prose. The checker matched the code fragment `on record else` against the same fragment in the case's own body, which this branch restructured — a self-match inside one edited function, not a copy that was left behind |
 | `seal/specs/1788817290-the-derivation-misreads-and-the-record-refuses-the-id/spec.md` | `Given a record whose verdict rows carry round-prefixed ids · When `close` runs · Then it refuses naming the format (`a bare integer`) and quoting the` | A shipped work item's acceptance scenario, and it still holds: a round-prefixed id carries digits, so `close` refuses it exactly as written — this branch added a second refusal at `new` without removing that one. `tests/test_a_hand_edited_record_still_meets_the_rule_at_close` is the case that keeps it true |
 
+## Round 2's fix pass — `89e7944..HEAD`
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `seal/specs/1789356180-the-two-halves-of-one-generator-refuse-each-other/survivors.md` | `ONE was a live defect and is not in this table: `seal/ledger.md`'s R1 row claimed `anything else is refused`` | This file's own round-1 header comment, colliding with the round-1-fix-pass comment below it that round 2's ⬜ 8 had me rewrite. Both are accurate about their own range and both have to say the same structural thing — that one survivor of that range was handled outside the table — so the phrases repeat by construction |
+
 ## Round 1's fix pass — `c9912a4..HEAD`
 
 <!-- Six, from rewriting the grounds sentence in five carriers and the overview
