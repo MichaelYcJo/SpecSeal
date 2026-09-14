@@ -349,6 +349,23 @@ DASH = chr(0x2014)
 # fixes exist, spelled from the checker's own words.
 PENDING_CHECKER = f"{chain.NOBODY} {DASH} {chain.NOT_YET}"
 PENDING_SURFACE = f"{chain.NONE_WORD} {DASH} {chain.NOT_YET}"
+# What the checker row says once `close` has applied a fix table that closed
+# something on a fix word. `nobody` is still the truth -- the ordering rule
+# requires a checker to be a LATER round, and none exists at this moment --
+# and the REASON is not: the fixes are named in this record's own verdict
+# cells, two rows below, so *not yet written* is false beside the commits that
+# wrote them (#273 part 1).
+#
+# `nobody -- <why>` is the shape, so `checked_by` reads it exactly as it read
+# the landing value: that arm splits the word from its reason and requires
+# only that a reason exist. Measured before this was written -- neither arm of
+# `chain_check` reads the reason text. `fix_surface`'s pending arm keys on
+# `CHECKER_RE`, which matches `round-N` and neither spelling of this, and the
+# `says_not_yet` it then applies reads the SURFACE row, which `close` fills
+# from the diff.
+WRITTEN_CHECKER = (
+    f"{chain.NOBODY} {DASH} the fixes are written and no round has opened them"
+)
 # The rows a comma splits. `depth_problems` reads a comma inside a `New
 # units` entry as a second unit, and `fix_surface`'s reach list is
 # comma-separated, so a comma in either is structure and not punctuation.
@@ -1367,12 +1384,22 @@ def landing_values(words):
     describe.
 
     `new` derives both cells from the report's verdicts. `close` re-derives
-    the first after the fix table applies, for the record whose every verdict
-    closed on `deferred <home>` or `answered` — a capped run's last record has
-    no next round to set the cell, and the check refuses `Pass` beside
-    `nobody` there (`questions.md` A6 of the work item that added this). One
-    spelling, called from both, so the two subcommands cannot disagree about
-    which words commission a fix.
+    the first after the fix table applies and writes BOTH of its answers.
+    One spelling, called from both subcommands, so the two cannot disagree
+    about which words commission a fix.
+
+    **`close` used to write only `no fixes to check`**, for the record whose
+    every verdict closed on `deferred <home>` or `answered` — a capped run's
+    last record has no next round to set the cell, and the check refuses
+    `Pass` beside `nobody` there (`questions.md` A6 of the work item that
+    added this). The other answer was left standing on the grounds that a fix
+    was written and a later round owes it a reading, which is true of WHO and
+    false of WHAT: the landing value says the fixes are not yet WRITTEN, and
+    at this point they are written and named in the record's own verdict
+    cells two rows below. `close` corrects the reason and keeps `nobody`
+    (#273 part 1). It corrects only the landing value it recognises — a cell
+    naming a `round-N` is a later round's reading and is not this pass's to
+    touch.
     """
     open_rows = [w for w in words if w not in chain.CLOSED_WORDS]
     fixed_rows = [w for w in words if w in chain.FIX_WORDS]
@@ -3235,19 +3262,35 @@ def close(args):
     ]
     still_open = [w for w in words if w not in chain.CLOSED_WORDS]
     # The same derivation `new` makes from the report's verdicts, over the
-    # verdicts as the table left them. `no fixes to check` is written only
-    # when it is the answer; otherwise the cell stays at the landing value
-    # for `new` of the next round to set, because a fix was written and a
-    # later round owes it a reading.
+    # verdicts as the table left them. Both of its answers are written here,
+    # and the second one used to be left alone:
+    #
+    #   `no fixes to check`   nothing closed on a fix word, so no fixes will
+    #                         ever exist and *not yet written* would be false
+    #                         the moment it was written
+    #   `nobody -- <why>`     a fix word closed something, so the fixes exist
+    #                         and no round has opened them. The landing value
+    #                         says they are not yet WRITTEN, which was true
+    #                         while the round ran and is false now: the
+    #                         commits are in this record's own verdict cells,
+    #                         two rows below (#273 part 1). A capped run's
+    #                         last record keeps whatever stands here forever,
+    #                         because there is no next `new` to correct it.
+    #
+    # Only the landing value is corrected. A cell naming a `round-N` is a
+    # later round's reading and is not this pass's to touch.
     checker, _surface = landing_values(words)
     boxes = [i for i, ln in enumerate(lines) if chain.PASS_RE.match(ln)]
     if len(boxes) != 1:
         raise Refused(f"the record has {len(boxes)} `Pass` boxes and needs one")
     raw[boxes[0]] = f"- [{' ' if still_open else 'x'}] Pass"
-    if checker == chain.NO_FIXES:
-        raw[field_index(reader, lines, chain.CHECKED_BY)] = cell(
-            chain.CHECKED_BY, checker
-        )
+    at = field_index(reader, lines, chain.CHECKED_BY)
+    standing = row_cells(reader, raw[at], 2)
+    standing = reader.visible(standing[1]).strip() if len(standing) > 1 else ""
+    if checker != chain.NO_FIXES and standing == PENDING_CHECKER:
+        checker = WRITTEN_CHECKER
+    if checker in (chain.NO_FIXES, WRITTEN_CHECKER):
+        raw[at] = cell(chain.CHECKED_BY, checker)
     raw[field_index(reader, lines, chain.CONTRACT)] = contract
     last = field_index(reader, lines, chain.NEW_UNITS)
     raw[last] = units
@@ -3271,7 +3314,11 @@ def close(args):
         f"round-record: closed {os.path.relpath(target, root)} {DASH} "
         + ", ".join(f"{n} {w}" for w, n in counts.items())
         + f"; {contract.strip('| ')}; {units.strip('| ')}"
-        + (f"; {chain.CHECKED_BY} | {checker}" if checker == chain.NO_FIXES else "")
+        + (
+            f"; {chain.CHECKED_BY} | {checker}"
+            if checker in (chain.NO_FIXES, WRITTEN_CHECKER)
+            else ""
+        )
     )
     return run_check(root, args.baseline or default_baseline(root))
 

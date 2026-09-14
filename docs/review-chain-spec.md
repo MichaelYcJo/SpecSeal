@@ -644,6 +644,28 @@ it does not have is wrong at every stage of a run.
 | `nobody` with nothing after it | **fails.** The reason is what makes the state readable; without it the cell records that something is missing and not what |
 | anything else, `the session that wrote them` included | **fails**, naming the three values. Read loosely, a session's own name would pass as an answer, and that is precisely the state this field exists to refuse — the direction `CLOSED_WORDS` already takes for a verdict cell |
 
+**The `<why>` is not one sentence, and `close` writes the second.** `new`
+lands the cell on `nobody — the fixes are not yet written`, which is true for
+as long as the round is running. `close` then applies a fix table, writes the
+commits into this record's own verdict cells, and used to leave the cell
+alone — so the record said the fixes were not written beside the commits that
+wrote them (#273 part 1). It now rewrites the reason to say they are written
+and no round has opened them. `nobody` is unchanged, because a checker has to
+be a later round and none exists at that moment; and a cell already naming a
+`round-N` is a later round's reading, which `close` does not touch.
+
+Nothing reads the reason, which is why this is a change to a sentence rather
+than to a gate. Measured over both arms before it was written: `checked_by`
+splits `nobody` from its reason and requires only that a reason exist, and the
+fix-surface arm below gates on `CHECKER_RE` — which matches `round-N` and
+neither spelling of `nobody — <why>` — before applying `says_not_yet` to the
+SURFACE row, a different row that `close` fills from the diff.
+
+**A capped run's last record is what makes it worth correcting.** Every other
+record's cell is replaced by the next round's `new`. That one has no next
+round, so whatever stands in it stands permanently, and a permanently false
+reason is read by whoever opens the record.
+
 Two of those deserve their cost written down.
 
 The first is `nobody — <why>`, and it is a disclosure rather than a claim. A

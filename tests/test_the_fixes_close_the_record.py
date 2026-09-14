@@ -517,6 +517,78 @@ def test_a_fix_row_for_a_scope_marker_is_refused_as_already_closed(repo):
     assert "already closed" in out, out
 
 
+# --- `Fixes checked by` after a fix table applies (#273 part 1) -------------
+
+
+def test_the_checker_cell_stops_saying_the_fixes_are_not_yet_written(repo):
+    """#273 part 1. `new` lands the cell on `nobody — the fixes are not yet
+    written`, which is true while the round runs. `close` then applies a fix
+    table naming the commits, writes them into the record's own verdict
+    cells — and left the cell alone, so the record said the fixes were not
+    written beside the commits that wrote them.
+
+    The record is what the next round and the pull request read. `nobody` is
+    still the truth and the reason is not: nobody has opened them YET is a
+    different statement from they do not exist yet, and only the second is
+    false here.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    _code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    chain = check_module()
+    cell = fields(record)[chain.CHECKED_BY]
+    assert chain.NOT_YET not in cell, (cell, out)
+    # Still `nobody — <why>`, which is the one value the ordering rule allows
+    # at this moment: a checker has to be a LATER round, and none exists.
+    assert cell.startswith(chain.NOBODY), cell
+    assert cell.strip() != chain.NOBODY, "a bare `nobody` names nothing"
+
+
+def test_a_table_with_no_fix_word_still_lands_on_no_fixes_to_check(repo):
+    """The other branch, unchanged. A round that commissioned no fixes will
+    never have any, so the cell is `no fixes to check` and not a reason about
+    fixes nobody has opened."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, record = close(
+        repo, 1, fix_table("| 1 | answered | never passed |\n"), f"{a}..{b}"
+    )
+    chain = check_module()
+    assert fields(record)[chain.CHECKED_BY] == chain.NO_FIXES, out
+    assert code == 0, out
+
+
+def test_neither_chain_check_arm_turns_red_on_the_new_reason(repo):
+    """Q5, run as the question asked: one fixture record, both arms.
+
+    The fix-surface arm refuses `none — the fixes are not yet written` in the
+    SURFACE row beside a `Fixes checked by` naming a later round, and it reads
+    the reason text — so the question was whether changing the reason in the
+    checker row reaches it. It does not: the arm reads the surface row, and
+    its gate is `CHECKER_RE`, which matches `round-N` and neither spelling of
+    `nobody — <why>`. `checked_by` never reads the reason at all; it requires
+    only that one exist.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    _code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    chain = check_module()
+    # The surface arm: it fires on the row `close` measured, not on the cell
+    # this phase rewrote, and `close` fills both surface rows from the diff.
+    assert "still says the fixes are not yet written" not in out, out
+    # The checker arm: the value is read and not refused for its wording.
+    assert "naming the three values" not in out, out
+    cell = fields(record)[chain.CHECKED_BY]
+    assert not chain.says_not_yet(cell), cell
+
+
 # --- what `close` preserves in the Grounds cell (#391) ----------------------
 
 

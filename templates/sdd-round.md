@@ -93,6 +93,16 @@ values and nothing else:
                        contradiction-inside-one-file the `Pass` rule refuses
   `nobody — <why>`     the gap, written down. The reason is required
 
+**The reason moves once, and `close` moves it.** `new` lands the cell on
+`nobody — the fixes are not yet written`, which is true while the round runs.
+When `close` applies a fix table that closed something on a fix word, it
+rewrites the reason to say the fixes are written and no round has opened
+them — because by then the commits are in this record's own verdict cells two
+rows below, and *not yet written* is false beside them (#273 part 1).
+`nobody` is unchanged: a checker has to be a LATER round and none exists at
+that moment. A cell already naming a `round-N` is a later round's reading and
+`close` does not touch it.
+
 Only a later round may be named, so the LAST record of a finished run reads
 `no fixes to check` or `nobody — <why>`. That is the rule's shape, not a
 limit on it: a run ends at a round that wrote no code nobody read, or it ends
