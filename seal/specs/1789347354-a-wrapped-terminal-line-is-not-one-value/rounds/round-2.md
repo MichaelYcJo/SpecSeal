@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 392 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | test_an_ordered_list_item_ends_the_segment (depth 1) |
 | Needs a fix | yes — 🟡 1. Four of the five alternatives of `survivor_check.py#BLOCK` are pinned by nothing, and `\d+[.)](?=\s)` is the one whose loss nothing catches in either direction. |
