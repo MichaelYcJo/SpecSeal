@@ -180,6 +180,15 @@ the row prints instead of failing, whatever the cell says — the row has
 carried free text since draft 0.5 of the handoff protocol and was held to no
 vocabulary.
 
+**Either terminal line in the report may wrap, and a wrapped line is one
+value**, so this cell holds the join rather than the first physical line of
+it. Where the join stops, and what that stop does not cover, is stated once
+in `docs/review-handoff-protocol.md` §*The Needs a fix field — the answer a
+run ends on*; `Loses a record or crashes` below is read the same way. A
+report that leaves a blank line under the terminal pair is the shape nothing
+can read wrong, which is what `agents/warden.md` §*Report* asks the reviewer
+for.
+
 `Loses a record or crashes` is the FLOOR under the cap, and it is the
 reviewer's answer as well — what stands after the colon in its `Loses a record
 or crashes:` line. `no` says this round found nothing that leaves the root and

@@ -82,6 +82,10 @@ BEFORE_ROUND_ONE = (
     "`skills/code-review/orchestration.md` §*Orchestrator: the pull request "
     "opens before round 1, and a phase is re-run* owns"
 )
+WRAP_RULE_OWNER = (
+    "`docs/review-handoff-protocol.md` §*The Needs a fix field — the answer "
+    "a run ends on*"
+)
 
 
 def read(*parts):
@@ -164,6 +168,16 @@ RULES = {
         {
             PROTOCOL: f"{BEFORE_ROUND_ONE} the rule. Its grounds are one step from this document"
         },
+    ),
+    # An eleventh, from #340 rather than from #161, and its shape is the
+    # table's exactly: one owner and one link. What it is NOT is the whole of
+    # what this repository says about a wrapped terminal line — the warden's
+    # operative instruction is a second rule with a second audience, pinned
+    # below rather than here (Q3 of the work item that added this row).
+    "11 a wrapped terminal line is one value": (
+        PROTOCOL,
+        "A wrapped terminal line is one value, and this is where the join stops.",
+        {TEMPLATE: WRAP_RULE_OWNER, WARDEN: WRAP_RULE_OWNER},
     ),
 }
 
@@ -557,6 +571,43 @@ def test_the_linking_carrier_names_the_generator(carrier):
     assert GENERATOR_NAMED[carrier] in flat(*carrier), (
         f"{'/'.join(carrier)} no longer names `round_record.py new` where it "
         "used to name the orchestrator's hand"
+    )
+
+
+def test_the_wrap_rule_is_two_rules_and_the_warden_keeps_the_operative_one():
+    """Q3 of #340: the protocol and the warden state different things.
+
+    The protocol owns the CONFORMANCE statement, which a second
+    implementation is built from. The warden owns the OPERATIVE instruction,
+    which a reviewer follows at minute forty of a round. They are not one
+    rule in two places, and what keeps them from collapsing into one is
+    this: the warden asks for the blank line and NAMES the protocol for
+    where the join stops, rather than enumerating the stops a second time.
+
+    The registry row above pins the link. This pins the split — that the
+    warden did not become a second statement of the owner's sentence, which
+    is the eight-carrier state this module exists to prevent."""
+    warden = flat(*WARDEN)
+    protocol = flat(*PROTOCOL)
+    assert "leave a blank line under the pair" in warden, (
+        "the warden lost the operative instruction, which is the half a "
+        "reviewer acts on and the only stop that covers every shape"
+    )
+    owned = "Only the blank line stops every shape"
+    assert owned in protocol, (
+        "the protocol lost the sentence saying the block guard is a "
+        "narrowing, which is the half a second implementation is built from"
+    )
+    assert owned not in warden, (
+        "the warden restates the protocol's conformance sentence instead of "
+        "linking it, which makes one rule into two places to disagree"
+    )
+    # The enumeration is the owner's. The warden naming all three stops is
+    # how the restatement comes back without the sentence above coming with
+    # it, so the phrase itself is what this holds out.
+    assert "at a line opening a new markdown block" not in warden, (
+        "the warden enumerates where the join stops, which is the owner's "
+        "sentence re-derived rather than linked"
     )
 
 
