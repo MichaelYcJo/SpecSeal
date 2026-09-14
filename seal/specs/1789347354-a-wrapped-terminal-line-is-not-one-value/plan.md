@@ -102,11 +102,11 @@ record cell truncated.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `BLOCK_START` narrowed to the `issue_claims_check.py` form plus the two fence openers, and the truncation direction pinned at four shapes | Each new case seen red against the constant at `5e09345` first; then `tests/test_the_record_is_generated.py` whole — the existing swallow case and the four thematic-break shapes included | |
-| 2 | The four descriptions made true of what ships, each naming what the guard does not cover and that the blank line is the only stop that covers every shape | A case pinning the warden's sentence, seen red with it stashed (§14, §15); `tests/test_the_rules_have_one_owner.py` green; `evidence-check --reverify` re-stamps `agents/warden.md#"## Report"` and names nothing else | |
-| 3 | #340 — the conformance statement in its owner, linked from the other carriers, with `templates/sdd-round.md` gaining it in the prose about the same fields | A case in `tests/test_the_rules_have_one_owner.py`'s shape, both halves seen red; `evidence-check --strict` reports 0 broken, and `seal/ledger.md:89`'s template anchor hash is unchanged | |
-| 4 | `survivor_check.py#BLOCK` brought to the same pattern, or the grounds for leaving it written into the module and into `overview.md` | A case at the `#N` shape, red against `BLOCK` as it stands; `tests/test_a_corrected_sentence_survives_elsewhere.py` whole | |
-| 5 | `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md`, and the re-stamps phases 2 and 3 earned | `evidence-check` over the fragment: every row resolves, nothing drifted, nothing broken | |
+| 1 | `BLOCK_START` narrowed to the `issue_claims_check.py` form plus the two fence openers, and the truncation direction pinned at four shapes | Each new case seen red against the constant at `5e09345` first; then `tests/test_the_record_is_generated.py` whole — the existing swallow case and the four thematic-break shapes included | `1e91894` |
+| 2 | The four descriptions made true of what ships, each naming what the guard does not cover and that the blank line is the only stop that covers every shape | A case pinning the warden's sentence, seen red with it stashed (§14, §15); `tests/test_the_rules_have_one_owner.py` green; `evidence-check --reverify` re-stamps `agents/warden.md#"## Report"` and names nothing else | `02e4436` |
+| 3 | #340 — the conformance statement in its owner, linked from the other carriers, with `templates/sdd-round.md` gaining it in the prose about the same fields | A case in `tests/test_the_rules_have_one_owner.py`'s shape, both halves seen red; `evidence-check --strict` reports 0 broken, and `seal/ledger.md:89`'s template anchor hash is unchanged | `02e4436` |
+| 4 | `survivor_check.py#BLOCK` brought to the same pattern, or the grounds for leaving it written into the module and into `overview.md` | A case at the `#N` shape, red against `BLOCK` as it stands; `tests/test_a_corrected_sentence_survives_elsewhere.py` whole | `ac49d7f` |
+| 5 | `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md`, and the re-stamps phases 2 and 3 earned | `evidence-check` over the fragment: every row resolves, nothing drifted, nothing broken | this phase's commit |
 
 **Status is empty, or the commit that closed the phase.** A tick is refused and
 so is `done`.

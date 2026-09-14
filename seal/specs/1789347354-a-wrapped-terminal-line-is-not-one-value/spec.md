@@ -249,7 +249,7 @@ than discovers:
 | Anchor | Expected |
 |---|---|
 | `agents/warden.md#"## Report"@008ab85b` (`seal/ledger.md:986`, R7) | **DRIFTED.** The wrap paragraph is inside that section. The claim — the report carries the three tables under the generator's headings plus the two terminal lines — is untouched, so this is a re-read and a re-stamp |
-| `templates/sdd-round.md#"\| Needs a fix \| …"@9a509e35` (`seal/ledger.md:89`) | **Unchanged.** The row is not edited; the prose below it is. If this anchor moves, the edit went in the wrong place |
+| `` templates/sdd-round.md#"\| Needs a fix \| <`yes — <what>` · `no`. The reviewer's own answer — what stands after the colon in its `Needs a fix:` line, never the whole line> \|"@9a509e35 `` (`seal/ledger.md:89`) | **Unchanged.** The row is not edited; the prose below it is. If this anchor moves, the edit went in the wrong place |
 | `.github/scripts/issue_claims_check.py#BLOCK_START@33aff484` (`seal/ledger.md:1670`) | **Unchanged.** This module is the model and is not edited |
 | `agents/warden.md#"## Role">…` (`seal/ledger.md:89`) | **Unchanged.** A different section |
 
