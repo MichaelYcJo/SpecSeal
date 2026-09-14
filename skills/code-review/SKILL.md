@@ -180,10 +180,11 @@ and none ever did; `docs/review-handoff-protocol.md` carries the reasoning.
 The work item is the key now, and its `routing.md` names the branch.
 
 **Right after posting the report**, three files are written at the work item:
-`rounds/round-N.md` by `round_record.py new`, from the reviewer's report, and
-the two todo files by the orchestrator. Reviewer workers write none of those
-three — parallel writers overwrite each other, and worker findings are
-pre-verification.
+`rounds/round-N.md` by `round_record.py new` — the generator at
+`skills/code-review/scripts/round_record.py`, typed as `round-record` — from
+the reviewer's report, and the two todo files by the orchestrator. Reviewer
+workers write none of those three — parallel writers overwrite each other,
+and worker findings are pre-verification.
 
 **The reviewer does write one file, and it is not a record.**
 `rounds/round-N-report.md` is the report itself, left where

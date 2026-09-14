@@ -44,6 +44,9 @@ make. What must not happen is the segment sourcing the value from its own idea
 of what it is: that is the one filler whose answer nothing can check against
 anything.
 
+That generator is `skills/code-review/scripts/round_record.py`, which the
+review orchestrator types as `round-record`.
+
 `unknown — <why>` is an answer and a bare `unknown` is not, in the shape
 `nobody — <why>` already has: a session spawning through another harness may
 genuinely have no name for the model, and the honest answer has to be

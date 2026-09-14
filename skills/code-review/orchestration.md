@@ -39,11 +39,18 @@ options exist.
 **The fix pass hands back a `## Fixes` table, and `close` applies it.** The
 handover carries `| # | Verdict | Commit or grounds |`, one row per open
 finding, the verdict `fixed`, `answered` or `deferred <home>`; you run
-`round_record.py close --item <dir> --round N --fixes <file> --range <a>..<b>`
+`round-record close --item <dir> --round N --fixes <file> --range <a>..<b>`
 and the record's verdict cells, `Contract changes` and `New units` are written
 from that table and the fix range. The pass writes no `phases/phase-N.md` and
 no `plan.md` row — `agents/smith.md` owns that rule, and this sentence is the
 link to it.
+
+**`round-record` is the generator, and this is where it lives.** The command
+is the wrapper in `bin/`, on the Bash tool's PATH while the plugin is enabled;
+the script behind it is `skills/code-review/scripts/round_record.py`, which is
+what to open from a clone with the plugin disabled. Every sentence below that
+says `round_record.py <something>` is describing that script, not naming a
+file you have to go and find.
 
 **Then ask what the fixes left standing, with the same range.**
 
@@ -407,7 +414,7 @@ the tree the round reviewed. Nothing is refused and the record is written.
 **Where the fix pass really did run first, say so in the record:**
 
 ```
-round_record.py new … --written-late "the fix pass had already run when the record reached a commit"
+round-record new … --written-late "the fix pass had already run when the record reached a commit"
 ```
 
 That writes `| Written late | yes — <why> |`, and `chain_check.py` prints the

@@ -90,7 +90,9 @@ definition and nothing else. This paragraph is that naming, and it is the
 whole of it — a write not below is a write you do not make.
 
 **You write one cell: `Broad gate`, on the last round record of the item.**
-`broad-gate --record` makes the write by calling `round_record.py seal`, which
+`broad-gate --record` makes the write by calling `round_record.py seal` —
+`skills/code-review/scripts/round_record.py`, the same generator the review
+orchestrator types as `round-record` — which
 sets that cell and leaves every other line of the file byte for byte as it
 was, and which refuses outright on two things — the last record's `Pass` box
 unticked, which is a finding still open in its verdict table, or a commit the

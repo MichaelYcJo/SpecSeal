@@ -2587,3 +2587,98 @@ def test_an_unreadable_record_answers_nothing_rather_than_no_fix(repo, monkeypat
 
     monkeypatch.setattr(generator, "open", refuse, raising=False)
     assert generator.bound_line(reader, routing, str(rounds), 3) is None
+
+
+# --- the command the documents tell somebody to type (#318) ------------------
+#
+# Every other script under `skills/*/scripts/` that a shipped document names
+# is reachable as a bare word, and this one -- the only script an orchestrator
+# is actually told to RUN -- was not. Four agent segments concluded it does
+# not ship and hand-wrote the record it generates.
+
+BIN = os.path.join(ROOT, "bin")
+WRAPPER = os.path.join(BIN, "round-record")
+
+
+def wrapper_command(wrapper, args, windows=None):
+    """The argv that runs a `bin/` wrapper pair, on `windows` or on this
+    platform by default.
+
+    The twin of the helper of the same name in
+    `tests/test_the_seal_is_taken_once_by_the_sealer.py`, for the same
+    reason: `bin/round-record` opens `#!/usr/bin/env sh`, and a shebang is a
+    POSIX kernel's convention -- `CreateProcess` reads the file as an image
+    and answers *[WinError 193] %1 is not a valid Win32 application*. The
+    `.cmd` twin is the file Windows can execute, and taking the platform as
+    an argument is what lets either machine turn the other's branch red.
+    """
+    if windows is None:
+        windows = os.name == "nt"
+    if not windows:
+        return [wrapper, *args]
+    return [os.environ.get("COMSPEC", "cmd.exe"), "/c", f"{wrapper}.cmd", *args]
+
+
+def run_wrapper(*args):
+    return subprocess.run(
+        wrapper_command(WRAPPER, args),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=ROOT,
+    )
+
+
+def test_the_wrapper_is_present_and_executable():
+    """`bin/` lands on the Bash tool's PATH while the plugin is enabled, so
+    the wrapper resolves the script relative to itself and a `.cmd` sibling
+    ships for the platform that cannot run a POSIX shebang."""
+    assert os.path.isfile(WRAPPER), "bin/round-record missing"
+    assert os.path.isfile(WRAPPER + ".cmd"), "bin/round-record.cmd missing"
+    assert os.access(WRAPPER, os.X_OK), "bin/round-record not executable"
+    assert os.path.isfile(GENERATOR), "the wrapper points at a missing script"
+
+
+def test_the_wrapper_pair_is_run_through_the_twin_the_platform_can_execute():
+    """Pinned on both branches from either machine: a wrapper that is wrong
+    for a platform fails HERE rather than only on the `windows-latest` leg.
+
+    The two files are asserted again rather than left to the case above.
+    Constructing an argv touches no filesystem, so without these this case
+    would pass against a `bin/` holding neither file -- green on the tree
+    this work item exists to fix, which is the shape §15 refuses.
+    """
+    assert os.path.isfile(WRAPPER), "bin/round-record missing"
+    assert os.path.isfile(WRAPPER + ".cmd"), "bin/round-record.cmd missing"
+    assert wrapper_command(WRAPPER, ["--help"], windows=False) == [WRAPPER, "--help"], (
+        "a POSIX machine no longer runs the extensionless file"
+    )
+    win = wrapper_command(WRAPPER, ["--help"], windows=True)
+    assert win[0].lower().endswith("cmd.exe"), (
+        "Windows runs the wrapper as an image rather than through the command "
+        f"interpreter, which is `[WinError 193]` on a `#!` file: {win}"
+    )
+    assert win[1:] == ["/c", WRAPPER + ".cmd", "--help"], (
+        "Windows does not reach the `.cmd` twin, which is the file it can "
+        f"actually execute: {win}"
+    )
+
+
+def test_the_wrapper_reaches_the_generator_under_the_name_it_announces():
+    """The script has printed `usage: round-record` since it shipped. This is
+    the run that makes that name resolve to something."""
+    out = run_wrapper("--help")
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.startswith("usage: round-record"), (
+        f"the wrapper reaches something else, or under another name: {out.stdout[:80]!r}"
+    )
+
+
+def test_the_wrapper_passes_a_subcommand_through():
+    """A wrapper that swallowed its arguments would still pass the case
+    above, because `--help` is what argparse does with nothing."""
+    out = run_wrapper("new", "--help")
+    assert out.returncode == 0, out.stderr
+    assert "--item" in out.stdout, (
+        f"`round-record new --help` does not reach `new`: {out.stdout[:200]!r}"
+    )
