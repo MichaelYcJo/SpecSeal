@@ -85,7 +85,7 @@ incorporation. This file only adds what the skill does not carry.
         example -- so the standing instruction above is still right and its
         stated consequence is not. Why it is silenced is unanswered and is
         nobody's finding yet.
-        Verified 2026-09-11 against "## Phases"@9c750aa3. -->
+        Verified 2026-09-14 against "## Phases"@5709bf9a. -->
 
    Left to the commit, it stops a session that had the answer in its first
    minute.
@@ -147,13 +147,20 @@ incorporation. This file only adds what the skill does not carry.
    one row per OPEN finding of the round it answers, the verdict `fixed` with the
    commit, `answered` with the grounds, or `deferred <home>` with the issue
    or the file it went to — and writes no `phases/phase-N.md` and no
-   `plan.md` row: `round_record.py close` applies that table to
+   `plan.md` row: `round_record.py close` — the generator at
+   `skills/code-review/scripts/round_record.py`, which the review
+   orchestrator runs as `round-record` — applies that table to
    `rounds/round-N.md`, and refuses a row for a finding the reviewer already
    closed, because that row would overwrite the reviewer's verdict with
    yours. A correction — a finding located in a record — closes `answered`
    with `corrected at <sha>` as its grounds, never `fixed`: `fixed`
    commissions the reader a correction does not owe
    (`docs/review-chain-spec.md` §*The last round verifies* owns the rule).
+   A repair you made outside the tree — a `gh issue edit`, an edit to a pull
+   request body — takes the same shape for the same reason: it produced no
+   commit in the range, and a commit somebody can open is the whole of what
+   `fixed` asserts. The Verdict cell holds the word alone in both cases;
+   only `deferred` carries its own suffix.
    The build's phases keep theirs.
 
    **Once the fixes are committed, ask what they left standing**, over the

@@ -234,9 +234,11 @@ def test_each_verdict_shape_is_written_and_read_back(repo):
     assert one[4] == f"fixed at {b[:7]} — widened, b defaults to None; executed"
     assert chain.verdict_of(one, 3) == "fixed"
     assert two[3] == "answered"
-    assert two[4] == "the rest is never passed"
+    # Each of the three joins the reviewer's own grounds rather than
+    # overwriting them (#391). `read` is what OPEN_2's reviewer wrote.
+    assert two[4] == "the rest is never passed; read"
     assert three[3] == "deferred #12"
-    assert three[4] == "#12"
+    assert three[4] == "#12; read"
     # Only the verdict and grounds cells moved.
     assert one[:3] == ["🔴 1", "helper drops b", "`mod.py#helper`"]
     assert three[:3] == ["🟡 3", "a sentence reads badly", "`README.md`"]
@@ -457,6 +459,432 @@ def test_a_capped_runs_last_record_reads_no_fixes_to_check_and_the_check_exits_z
     assert chain.NO_FIXES in out, out
 
 
+def test_a_scope_marker_keeps_its_own_word(repo):
+    """#353, measured twice in one run on #84. `❓ out of verified scope` is
+    the reviewer looking and not judging — it carries no defect and
+    commissions no fix. `close` counted it OPEN, refused to run until a fix
+    row existed for it, and then wrote that row's word over the marker: round
+    1's finding 15 of `1789081272-…` reads `answered` in the record where the
+    report it was generated from reads the marker, and round 2 — the round
+    that FOUND that — could only close its own copy as `deferred
+    agents/sealer.md`, replacing the marker a second time in a different word.
+
+    None of the three words is true of it. There is nothing for a closure word
+    to change, so the row is not asked for one and keeps what the reviewer
+    wrote.
+    """
+    marker = (
+        "| 15 | the broad gate | `seal/config.md` "
+        "| \N{BLACK QUESTION MARK ORNAMENT} out of verified scope "
+        "| contract \N{SECTION SIGN}2 makes it one act with one owner |\n"
+    )
+    a = round_one(repo, verdicts=OPEN_1 + marker)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, record = close(
+        repo, 1, fix_table("| 1 | answered | b is never passed |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    assert "finding 15 of round 1 left with no row" not in out, out
+    _one, fifteen = verdict_cells(record)
+    assert fifteen[3] == "\N{BLACK QUESTION MARK ORNAMENT} out of verified scope", (
+        fifteen,
+        out,
+    )
+    assert fifteen[4] == "contract \N{SECTION SIGN}2 makes it one act with one owner"
+    assert "- [x] Pass" in record, out
+
+
+def test_a_fix_row_for_a_scope_marker_is_refused_as_already_closed(repo):
+    """The other direction of the same rule. A fix pass that writes a row for
+    the marker anyway is overwriting the reviewer's verdict with its own,
+    which is the refusal `close` already carries for `withdrawn` and `not a
+    defect` — and which is exactly what #84's orchestrator was forced to do."""
+    marker = (
+        "| 15 | the broad gate | `seal/config.md` "
+        "| \N{BLACK QUESTION MARK ORNAMENT} out of verified scope | not run |\n"
+    )
+    a = round_one(repo, verdicts=OPEN_1 + marker)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, _ = close(
+        repo,
+        1,
+        fix_table(f"| 1 | fixed | {b[:7]} |\n", "| 15 | answered | not run |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 2, out
+    assert "already closed" in out, out
+
+
+# --- `Fixes checked by` after a fix table applies (#273 part 1) -------------
+
+
+def test_the_checker_cell_stops_saying_the_fixes_are_not_yet_written(repo):
+    """#273 part 1. `new` lands the cell on `nobody — the fixes are not yet
+    written`, which is true while the round runs. `close` then applies a fix
+    table naming the commits, writes them into the record's own verdict
+    cells — and left the cell alone, so the record said the fixes were not
+    written beside the commits that wrote them.
+
+    The record is what the next round and the pull request read. `nobody` is
+    still the truth and the reason is not: nobody has opened them YET is a
+    different statement from they do not exist yet, and only the second is
+    false here.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    _code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    chain = check_module()
+    cell = fields(record)[chain.CHECKED_BY]
+    assert chain.NOT_YET not in cell, (cell, out)
+    # Still `nobody — <why>`, which is the one value the ordering rule allows
+    # at this moment: a checker has to be a LATER round, and none exists.
+    assert cell.startswith(chain.NOBODY), cell
+    assert cell.strip() != chain.NOBODY, "a bare `nobody` names nothing"
+
+
+def test_a_table_with_no_fix_word_still_lands_on_no_fixes_to_check(repo):
+    """The other branch, unchanged. A round that commissioned no fixes will
+    never have any, so the cell is `no fixes to check` and not a reason about
+    fixes nobody has opened."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, record = close(
+        repo, 1, fix_table("| 1 | answered | never passed |\n"), f"{a}..{b}"
+    )
+    chain = check_module()
+    assert fields(record)[chain.CHECKED_BY] == chain.NO_FIXES, out
+    assert code == 0, out
+
+
+def test_neither_chain_check_arm_turns_red_on_the_new_reason(repo):
+    """Q5, run as the question asked: one fixture record, both arms.
+
+    The fix-surface arm refuses `none — the fixes are not yet written` in the
+    SURFACE row beside a `Fixes checked by` naming a later round, and it reads
+    the reason text — so the question was whether changing the reason in the
+    checker row reaches it. It does not: the arm reads the surface row, and
+    its gate is `CHECKER_RE`, which matches `round-N` and neither spelling of
+    `nobody — <why>`. `checked_by` never reads the reason at all; it requires
+    only that one exist.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    _code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    chain = check_module()
+    # The surface arm: it fires on the row `close` measured, not on the cell
+    # this phase rewrote, and `close` fills both surface rows from the diff.
+    assert "still says the fixes are not yet written" not in out, out
+    # The checker arm: the value is read and not refused for its wording.
+    assert "naming the three values" not in out, out
+    cell = fields(record)[chain.CHECKED_BY]
+    assert not chain.says_not_yet(cell), cell
+
+
+# --- what `close` preserves in the Grounds cell (#391) ----------------------
+
+
+@pytest.mark.parametrize("word", ["fixed", "answered", "deferred"])
+def test_no_verdict_word_discards_a_cell_it_was_not_asked_to_change(repo, word):
+    """#391 names one row and the class is three wide (§12).
+
+    The reviewer's grounds are the reason the finding was opened, and a fix
+    pass is not asked to change them — it is asked what it did about the
+    finding. `fixed` already joined the two with `;`. `answered` overwrote the
+    cell with the fix table's third cell, and `deferred` overwrote it with the
+    home, so the reviewer's own sentence survived exactly one of the three
+    words and nothing said which.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    third = {
+        "fixed": f"{b[:7]} — widened, b defaults to None",
+        "answered": "b is never passed by any caller",
+        "deferred": "#391",
+    }[word]
+    verdict = "deferred #391" if word == "deferred" else word
+    _, out, record = close(
+        repo, 1, fix_table(f"| 1 | {verdict} | {third} |\n"), f"{a}..{b}"
+    )
+    (one,) = verdict_cells(record)
+    # `executed` is what OPEN_1's reviewer wrote in the Grounds cell.
+    assert "executed" in one[4], (word, one, out)
+
+
+def test_a_deferred_row_keeps_the_fix_passs_reasoning(repo):
+    """#391 part 1, executed in its own report: rows 15 and 16 of
+    `1788926756-…/rounds/round-2.md` both read `| #309 |` where the fix table
+    carried a paragraph each.
+
+    A deferred finding is the one verdict whose reasoning is the whole of its
+    value — nothing else in the tree will explain why it left. That fix pass
+    committed a separate fixes file so the prose survived somewhere, which is
+    a file nothing reads, written because the file that IS read dropped it.
+    """
+    prose = (
+        "the truncation is `round_record.py new`'s and predates this branch, "
+        "so repairing it here would widen the range the surface was measured on"
+    )
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | deferred #391 | {prose} |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[3] == "deferred #391", (one, out)
+    assert prose in one[4], one
+    assert one[4] != "#391", "the cell reduced to the home alone"
+
+
+def test_a_fix_commit_carries_no_empty_code_span(repo):
+    """#391 part 2, and the standing `# RIDER:` at `fix_table`'s `note` line.
+
+    The commit is cut out of the middle of its own code span and both
+    backticks are left standing, so `` `e7d3447` — widened `` lands as
+    `fixed at e7d3447 — `` — widened`. Measured 2026-09-14 over the committed
+    corpus: **210 rows** carry it, not the 103 the frame read.
+
+    The repair is here and not in `chain.SEPARATORS`, which the rider says and
+    which the case below holds: that constant is shared with the `deferred`
+    home reader and with `chain_check`'s readers, and widening it would strip
+    the backticks off a home deliberately written as a code span.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    _code, out, record = close(
+        repo,
+        1,
+        fix_table(f"| 1 | fixed | `{b[:7]}` — widened, b defaults to None |\n"),
+        f"{a}..{b}",
+    )
+    # Not `code == 0`: a `fixed` verdict leaves `Pass` beside `nobody` on
+    # the last record, which the check refuses for reasons of its own.
+    assert "bare integer" not in out, out
+    (one,) = verdict_cells(record)
+    assert "``" not in one[4], (one, out)
+    assert one[4].startswith(f"fixed at {b[:7]} — widened, b defaults to None"), one
+
+
+def test_the_empty_span_repair_did_not_widen_the_shared_separators():
+    """The direction the rider says the repair must not take. `chain.SEPARATORS`
+    is read by the `deferred` home reader here and by `chain_check`'s own
+    readers, so a backtick added to it would change what three callers strip.
+    The repair is at the `note` line, and this is what says it stayed there.
+
+    **Measured 2026-09-14, and the rider's stated consequence does not hold at
+    this site.** It says widening the constant would strip the backticks off a
+    home deliberately written as a code span — but `chain.EMPHASIS` is
+    `[*_`]+` and `fix_table` applies it to the verdict cell one line before
+    `SEPARATORS` is reached, so `` deferred `seal/follow-up.md` `` already
+    arrives as `deferred seal/follow-up.md`. The rider is right about WHERE
+    the repair goes and its reason is not the one it gives. Recorded rather
+    than quietly corrected, because the other two callers are a real cost and
+    nothing here measured them.
+    """
+    generator = generator_module()
+    assert "`" not in generator.chain.SEPARATORS, (
+        "the repair moved into the shared constant the rider reserves"
+    )
+    body = open(generator.__file__, encoding="utf-8").read()
+    body = body.split("def fix_table", 1)[1].split("\ndef ", 1)[0]
+    assert "sha.start()" in body, "the cut is still at the `note` line"
+
+
+# --- what the fix pass's verdict vocabulary admits (#341, #321, #273) -------
+
+
+def test_a_correction_closes_in_the_spelling_the_documents_give(repo):
+    """#341's comment: `docs/review-chain-spec.md` prescribed `answered —
+    corrected at <sha>` as ONE cell and `close` refuses it, while
+    `agents/smith.md` prescribed the two-cell shape `close` accepts. The
+    repository shipped both readings and a case asserted both sentences.
+
+    The verdict cell is vocabulary and the grounds cell is free text, so the
+    correcting commit goes in the grounds — which is also the only reading
+    under which anything can find it: `chain_check` skips every row whose
+    verdict is not a fix word before it looks for a commit.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# the record corrected\n")
+    b = commit(repo, "the correction")
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | answered | corrected at {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[3] == "answered", (one, out)
+    assert one[4] == f"corrected at {b[:7]}; executed", one
+
+
+def test_the_suffixed_verdict_cell_is_refused_naming_the_two_cell_shape(repo):
+    """The spelling the spec prescribed until this release, and the message a
+    reader met when they typed it. `fixed`/`answered` with anything after the
+    word is one cell doing two cells' work, and the refusal used to list the
+    three words without saying that the cell had begun with one of them —
+    leaving the reader to work out which half of their row was wrong.
+
+    `deferred <home>` is the one word that legitimately carries a suffix, and
+    the case below holds that open.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# the record corrected\n")
+    b = commit(repo, "the correction")
+    code, out, _ = close(
+        repo,
+        1,
+        fix_table(f"| 1 | answered \N{EM DASH} corrected at {b[:7]} | x |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 2, out
+    assert "Commit or grounds" in out, out
+    assert "answered" in out, out
+
+
+@pytest.mark.parametrize("sep", [",", "\N{EM DASH}", ":", "-"])
+def test_the_row_the_suffixed_refusal_prints_is_a_row_the_table_accepts(repo, sep):
+    """Round 1's 🟡 3. `head` was computed by splitting the cell on the first
+    `SEPARATORS` character found ANYWHERE in it, and `SEPARATORS` begins with a
+    space — so any cell containing a space split there whatever followed the
+    word. `answered, corrected at <sha>` printed the paste-ready row
+    `| 1 | answered, | … |`, whose verdict `fix_table` refuses on the next run.
+
+    The em-dash spelling worked by luck, because its separator happens to be
+    the space that follows the word. This is the arm phase 2 added precisely so
+    a reader who followed the old spec would be told what to write, and for the
+    comma spelling it told them wrong.
+
+    Asserted by pasting the row back rather than by reading the message: a
+    message that advises a refused row is what the finding is about, and only
+    running its advice can catch it.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# the record corrected\n")
+    b = commit(repo, "the correction")
+    code, out, _ = close(
+        repo,
+        1,
+        fix_table(f"| 1 | answered{sep} corrected at {b[:7]} | x |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 2, out
+    advised = re.search(r"write\s+`(\|[^`]+\|)`", out)
+    assert advised, out
+    row = advised.group(1)
+    assert "answered |" in row, (row, out)
+    code, out, record = close(repo, 1, fix_table(row + "\n"), f"{a}..{b}")
+    assert code == 0, (row, out)
+    (one,) = verdict_cells(record)
+    assert one[3] == "answered", (one, row)
+    assert f"corrected at {b[:7]}" in one[4], (one, row)
+
+
+def test_a_deferred_row_whose_third_cell_begins_with_its_home_says_it_once(repo):
+    """Round 1's 🟡 4. The guard against repeating the home was exact equality,
+    so it caught `| N | deferred #12 | #12 |` and missed the shape immediately
+    beside it — #391's own worked example. `| 1 | deferred #309 | #309 — the
+    parity arm is out of scope |` landed as
+    `#309 — #309 — the parity arm is out of scope; executed`.
+
+    A smaller version of the same noise, in the cell #391 exists to make
+    readable.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, record = close(
+        repo,
+        1,
+        fix_table("| 1 | deferred #309 | #309 — the parity arm is out of scope |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[4].count("#309") == 1, (one, out)
+    assert "the parity arm is out of scope" in one[4], one
+    assert "executed" in one[4], "the reviewer's grounds"
+
+
+def test_the_unknown_finding_refusal_says_so_when_the_table_holds_no_id(repo):
+    """Round 1's ⬜ 5. The parenthetical names the ids the verdict table does
+    hold, so on an empty mapping it rendered as `(which has )` and the reader
+    learned less than the sentence promised. Pre-existing — and the admission
+    rule is what makes an empty mapping reachable from a well-formed report."""
+    a = round_one(
+        repo, verdicts="| carried | round 1's note | `mod.py` | verified | read |\n"
+    )
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, _ = close(repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}")
+    assert code == 2, out
+    assert "(which has )" not in out, out
+    assert "no numbered rows at all" in out, out
+
+
+def test_a_deferred_verdict_still_carries_its_home_in_the_verdict_cell(repo):
+    """The other side of the refusal above. `deferred <home>` is one word and
+    a home in one cell by design — the home is what makes the deferral
+    readable, and `verdict_of` hands back a bare `deferred` as OPEN."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, record = close(
+        repo, 1, fix_table("| 1 | deferred #391 | #391 |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[3] == "deferred #391", (one, out)
+
+
+def test_a_repair_made_outside_the_tree_has_a_verdict(repo):
+    """#321's comment. A finding repaired by a `gh issue edit` or an edit to a
+    pull request body produces no commit in the branch, so `fixed` is unusable
+    for it twice over: `fix_table` demands a commit in the third cell, and
+    `close` then demands that commit resolve and lie inside `--range`.
+
+    The repair still happened and the record has to say where it is. That is
+    `answered`, with the repair named in the grounds — the same shape a
+    correction takes, for the same reason: no code was written, so nobody is
+    commissioned to read any.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched by the repair\n")
+    b = commit(repo, "nothing in the tree answers it")
+    grounds = "repaired on the tracker: the body of #321 now names both halves"
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | answered | {grounds} |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[3] == "answered", (one, out)
+    assert one[4] == f"{grounds}; executed", one
+
+
+def test_fixed_on_a_repair_with_no_commit_is_refused_by_the_commit_it_needs(repo):
+    """The direction that has to stay closed. `fixed` asserts a commit
+    somebody can open, and a repair outside the tree has none — so the word
+    is refused rather than quietly accepting a cell with no commit in it."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, _ = close(
+        repo, 1, fix_table("| 1 | fixed | repaired on the tracker |\n"), f"{a}..{b}"
+    )
+    assert code == 2, out
+    assert "names no commit" in out, out
+
+
 def test_a_correction_closed_answered_lands_on_no_fixes_to_check(repo):
     """Rule 1's fix word, generator side (round 1's 🟡 2 of #161's own
     chain): a ⬜ row located in a record closes `answered` with `corrected
@@ -485,17 +913,50 @@ def test_a_correction_closed_answered_lands_on_no_fixes_to_check(repo):
     assert fields(record)["Fixes checked by"] == chain.NO_FIXES, out
     assert "- [x] Pass" in record
     cells = verdict_cells(record)[0]
-    assert cells[3] == "answered" and cells[4] == f"corrected at {b[:7]}", cells
+    assert cells[3] == "answered", cells
+    assert cells[4] == f"corrected at {b[:7]}; read", cells
     commit(repo, "round 1 closed")
     code, out = check_tree(repo)
     assert "judged as a ready pull request" in out, out
     assert code == 0, out
 
 
+def test_close_does_not_overwrite_a_checker_cell_a_later_round_already_set(repo):
+    """`close` corrects the landing value and nothing else.
+
+    `Fixes checked by` naming a `round-N` is a later round's reading, set by
+    the reach-back when that round's record was written. A `close` that
+    rewrote the cell unconditionally would replace a fact — somebody read
+    these fixes — with a weaker one, on any second application or on a record
+    closed out of order.
+
+    The cell is set by hand rather than by writing a second record, because
+    the state this guards is *the cell already names a checker*, and how it
+    came to say that is not what the guard reads. Found by mutation: dropping
+    the comparison left every other case in this module green.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    path = repo / ROUNDS / "round-1.md"
+    text = path.read_text(encoding="utf-8")
+    chain = check_module()
+    before = f"| {chain.CHECKED_BY} | {chain.NOBODY} \N{EM DASH} {chain.NOT_YET} |"
+    assert before in text, text
+    path.write_text(
+        text.replace(before, f"| {chain.CHECKED_BY} | round-2 |"), encoding="utf-8"
+    )
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    _code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert fields(record)[chain.CHECKED_BY] == "round-2", out
+
+
 def test_a_table_with_a_fix_leaves_the_checker_cell_for_the_next_round(repo):
     """The other side of the derivation: one `fixed` row among deferrals means
-    fixes exist that a later round owes a reading, so the cell stays at the
-    landing value and `new` for round N+1 is what sets it."""
+    fixes exist that a later round owes a reading, so the cell carries the
+    reason `close` writes for fixes nobody has opened — `nobody`, because a
+    checker has to be a later round and none exists yet."""
     a = round_one(repo)
     write(repo, "mod.py", MOD_CHANGED)
     b = commit(repo, "fix")
@@ -912,7 +1373,7 @@ def test_a_pipe_in_the_fix_tables_third_cell_reaches_the_record(repo):
     )
     assert code in (0, 1), out
     _one, two, _three = verdict_cells(record)
-    assert two[4] == grounds, record
+    assert two[4] == f"{grounds}; read", record
 
 
 def test_a_pipe_the_record_already_carries_survives_close(repo):

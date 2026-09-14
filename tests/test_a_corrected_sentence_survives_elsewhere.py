@@ -284,6 +284,102 @@ def test_a_stray_strike_marker_cannot_reach_past_its_own_line():
     )
 
 
+# The two shapes the space requirement buys, one per alternative it was added
+# to. Each is a genuine hand-wrapped continuation, and each was split by the
+# bare `[-*+>#]` class this module used to carry — the second at `[-*+]`, the
+# first at `#`. Dropping either lookahead turns its own arm red and nothing
+# else, which is how they were measured.
+WRAPPED_ONTO = (
+    "#120's, and no other module reads that field",
+    "**round 4** found it, and no other module reads that field",
+)
+
+
+@pytest.mark.parametrize("tail", WRAPPED_ONTO)
+def test_a_sentence_wrapped_onto_an_issue_number_is_one_sentence(tail):
+    """The same class as `round_record.py#BLOCK_START`, one module over.
+
+    `BLOCK` used to carry a bare `[-*+>#]`, so a hand-wrapped sentence whose
+    second line opens with an issue number was split at a boundary that is
+    not there — in a corpus of round records and ledger rows where a line
+    beginning `#120` is ordinary prose. The consequence differs from the
+    record generator's: nothing is truncated, the sentence is mis-scored, and
+    a survivor whose evidence straddles the wrap becomes unreachable because
+    no n-gram crosses the split.
+
+    `.github/scripts/issue_claims_check.py` states the trap in its own
+    comment and `seal/ledger.md` records it executed by mutation. This is the
+    third carrier of that pattern and the last one that did not ask for the
+    space CommonMark requires."""
+    reader = module()
+    text = f"the parser this work item was filed against is\n{tail}"
+    keys = [sentence.key for sentence in reader.sentences("docs/probe.md", text)]
+    assert any(
+        "filed against is" in k and "no other module reads" in k for k in keys
+    ), (
+        "the wrap was read as a block boundary, so the sentence split in two "
+        f"and no n-gram crosses it: {keys!r}"
+    )
+
+
+# The alternative that predates this branch and that phase 4 retyped without
+# pinning. Mutated to match nothing, the whole module stayed green — round 1's
+# 🟡 5, and retyping a pattern is the cheapest moment it will have.
+@pytest.mark.parametrize("rule", ["---", "___", "***", "==="])
+def test_a_whole_line_of_one_marker_ends_the_segment(rule):
+    """A thematic break and a setext underline are blocks in their own right.
+
+    Without this alternative a claim above a horizontal rule and an unrelated
+    claim below it land in one segment, which is the false positive
+    `.github/scripts/issue_claims_check.py` spends its own whole-line
+    alternatives to avoid. The hole runs in the same direction this branch
+    closed one in: two unrelated claims merging and scoring as one."""
+    reader = module()
+    # No full stop above the rule, on purpose. `END` already ends a sentence
+    # at `.!?;`, so a claim that carries one is separated whatever `BLOCK`
+    # does — which is why round 1's paste-ready form of this case stayed
+    # green with the alternative mutated to match nothing. The block boundary
+    # has to be the only thing that can end this one.
+    text = f"the claim above the rule\n{rule}\nan unrelated claim below it"
+    keys = [sentence.key for sentence in reader.sentences("docs/probe.md", text)]
+    assert not any("above the rule" in k and "below it" in k for k in keys), (
+        f"{rule!r} is a block of its own and the segment ran straight through "
+        f"it: {keys!r}"
+    )
+
+
+# The ordered-list alternative, the second of the constant's five that nothing
+# pins — same constant, same retyping, same argument as round 1's 🟡 5. It is
+# the one worth taking for a reason the bullet and heading alternatives do not
+# share: killing either of those widens the pattern, and
+# `test_a_sentence_wrapped_onto_an_issue_number_is_one_sentence` catches a
+# widening from the other side. Killing this one is caught from neither.
+#
+# Only the `)` half can be pinned here. `END` ends a sentence at `.` before
+# whitespace, so an arm written `1.` is green whatever `BLOCK` does — measured,
+# and it is the same trap that made round 1's first attempt at the whole-line
+# case useless. `1)x` is green for the other reason: no space after the
+# delimiter, so it is prose under both spellings and the lookahead that says so
+# is pinned by nothing.
+@pytest.mark.parametrize("opener", ["1)", "12)"])
+def test_an_ordered_list_item_ends_the_segment(opener):
+    """A list item is a block, so the prose above it is a sentence of its own.
+
+    Without this alternative a claim hard-wrapped above a list and the list's
+    first item land in one segment, and an n-gram crosses a boundary that is
+    real — the mis-scoring direction this module's constant exists to avoid,
+    rather than the truncation `round_record.py` guards."""
+    reader = module()
+    # No full stop above the item, on purpose: the block boundary has to be
+    # the only thing that can end this sentence.
+    text = f"the claim above the item\n{opener} an unrelated claim below it"
+    keys = [sentence.key for sentence in reader.sentences("docs/probe.md", text)]
+    assert not any("above the item" in k and "below it" in k for k in keys), (
+        f"{opener!r} opens a list item and the segment ran straight through "
+        f"it: {keys!r}"
+    )
+
+
 def test_a_table_row_is_not_one_sentence():
     """A ledger row is one line and thousands of words.
 

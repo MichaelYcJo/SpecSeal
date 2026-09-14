@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+# Runs the round-record generator as `round-record` instead of a long path
+# into the plugin directory. Claude Code puts a plugin's bin/ on the Bash
+# tool's PATH while the plugin is enabled, so a review orchestrator can type
+# the command a document names.
+#
+# The name is not new here: the script's own --help has printed
+# `usage: round-record` since it shipped, and until #318 no file answered to
+# it. Four agent segments concluded the generator does not ship and
+# hand-wrote the record it writes.
+#
+# Resolves the script relative to this file, not the caller's cwd, so it works
+# from any directory. Arguments pass straight through:
+#   round-record new --item <dir> --round N --target <sha> --asked <file> \
+#       --ran-by "<agent> on <model>"
+#   round-record close --item <dir> --round N --fixes <file> --range <a>..<b>
+#   round-record seal --item <dir> --broad-gate "<sha> against <base>"
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec python3 "$here/../skills/code-review/scripts/round_record.py" "$@"
