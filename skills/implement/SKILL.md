@@ -518,6 +518,9 @@ A session fixing review feedback starts at `seal/specs/<work-item-id>/`,
 Inline comments may not contain these lists at all. Fixing only the comments
 ships the code change and silently drops the tests and the evidence.
 
+The generator that row names is `skills/code-review/scripts/round_record.py`,
+and the review orchestrator types it as `round-record`.
+
 A finding is a claim too, and it arrives from someone who did not write the
 code. Open the coordinate and judge it yourself: fix what holds, and where it
 does not, answer it in `round-N.md` with the grounds — the policy clause, the
@@ -532,7 +535,15 @@ rebuilt — only re-checked for whether the finding is now fixed.
 sits under `## Fixes` as `| # | Verdict | Commit or grounds |`, one row per
 OPEN finding of the round it answers: `fixed` with the commit, `answered` with
 the grounds, `deferred <home>` with the issue or file it went to — a finding
-the reviewer closed in the report takes no row, and `close` refuses one. The pass
+the reviewer closed in the report takes no row, and `close` refuses one.
+**The Verdict cell holds the word alone**, and everything after it goes in
+`Commit or grounds`; only `deferred` carries its own suffix, because the home
+is what makes a deferral readable. Two things that are not `fixed` although
+they feel like it: a correction to a record, and a repair made outside the
+tree by editing a ticket or a pull request body. Neither produces a commit in
+the fix range, which is what `fixed` asserts, so both close `answered` with
+where the repair is in the grounds (`docs/review-chain-spec.md` §*The last
+round verifies*). The pass
 writes no `phases/phase-N.md` and no `plan.md` row — `round_record.py close`
 applies the table to `rounds/round-N.md` and measures the fix surface from
 the range of fix commits, so the round record is the pass's record. The

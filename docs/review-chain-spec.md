@@ -159,9 +159,35 @@ fix pass and no reader. What `chain_check` or `evidence_check` refuses is
 corrected in the closing commit; what neither reads is prose, corrected in
 passing or not at all. `Needs a fix` does not count it, so a verifying round
 that finds only such things has opened nothing needing a fix. In the fix
-table such a row closes `answered — corrected at <sha>`, never `fixed`:
-`fixed` is a fix word, and a fix word commissions the reader a correction
-does not owe. Measured on the
+table such a row closes `answered` with `corrected at <sha>` as its grounds,
+never `fixed`: `fixed` is a fix word, and a fix word commissions the reader a
+correction does not owe.
+
+**Two cells, not one.** The Verdict cell holds the word alone and the
+correcting commit goes in `Commit or grounds` beside it. This section
+prescribed `answered — corrected at <sha>` as one cell until the release that
+corrected it, while
+`agents/smith.md` prescribed the two-cell shape one file over — and the one
+cell is refused by `round_record.py close`, so the repository shipped a
+sentence naming a spelling its own generator would not take (#341). The
+verdict cell is vocabulary and the grounds cell is free text; nothing
+machine-reads a SHA out of an `answered` cell, because `chain_check` skips
+every row whose verdict is not a fix word before it looks for a commit.
+
+**A repair made outside the tree takes the same shape**, for the same reason.
+A finding answered by editing a ticket or a pull request body produces no
+commit in the branch, so `fixed` is unusable for it — `fix_table` demands a
+commit in the third cell and `close` demands that commit lie inside the fix
+range. It closes `answered`, with where the repair is in the grounds (#321).
+
+**`already deferred` is grounds, never a verdict.** The verdict cell reads
+`deferred <home>` and `already deferred in round N` goes beside it. The phrase
+is not in `CLOSED_WORDS` and nothing tells a reviewer to put it in that cell —
+`agents/warden.md` says it about `round-N.md`'s **Deferred** table, which
+`verdict_of` does not read at all — and the two records in this repository
+that met the case wrote the two-cell shape already (#273 part 2).
+
+Measured on the
 last branch (#161's second comment): 33 of its 65 findings were located in
 records, and the records were 55 % of the diff — a loop reviewing the tool's
 own paperwork, with a reader spawned for every correction.
@@ -619,6 +645,28 @@ it does not have is wrong at every stage of a run.
 | `nobody` with nothing after it | **fails.** The reason is what makes the state readable; without it the cell records that something is missing and not what |
 | anything else, `the session that wrote them` included | **fails**, naming the three values. Read loosely, a session's own name would pass as an answer, and that is precisely the state this field exists to refuse — the direction `CLOSED_WORDS` already takes for a verdict cell |
 
+**The `<why>` is not one sentence, and `close` writes the second.** `new`
+lands the cell on `nobody — the fixes are not yet written`, which is true for
+as long as the round is running. `close` then applies a fix table, writes the
+commits into this record's own verdict cells, and used to leave the cell
+alone — so the record said the fixes were not written beside the commits that
+wrote them (#273 part 1). It now rewrites the reason to say they are written
+and no round has opened them. `nobody` is unchanged, because a checker has to
+be a later round and none exists at that moment; and a cell already naming a
+`round-N` is a later round's reading, which `close` does not touch.
+
+Nothing reads the reason, which is why this is a change to a sentence rather
+than to a gate. Measured over both arms before it was written: `checked_by`
+splits `nobody` from its reason and requires only that a reason exist, and the
+fix-surface arm below gates on `CHECKER_RE` — which matches `round-N` and
+neither spelling of `nobody — <why>` — before applying `says_not_yet` to the
+SURFACE row, a different row that `close` fills from the diff.
+
+**A capped run's last record is what makes it worth correcting.** Every other
+record's cell is replaced by the next round's `new`. That one has no next
+round, so whatever stands in it stands permanently, and a permanently false
+reason is read by whoever opens the record.
+
 Two of those deserve their cost written down.
 
 The first is `nobody — <why>`, and it is a disclosure rather than a claim. A
@@ -673,8 +721,78 @@ and `r3 🟡 2` are not.
 | The cell | What happens |
 |---|---|
 | digits, with or without a marker in front | read as that finding |
-| anything else | **refused**, naming the format, quoting the cell and quoting the whole row |
+| **no digit, and the cell says the row commissions nothing** — `carried`, `🟢 fix-surface` | in the **verdict** table, copied through, never keyed, never asked for a closure, never counted toward `Pass`. In the **`## Fixes`** table, refused — there the row IS the commission |
+| **no digit, and the cell is empty or carries 🔴 or 🟡** | **refused**, naming every such row. Those two severities mean somebody owes the row an answer, and an empty cell says nothing at all — either way the cell does not say the row commissions nothing |
+| anything else | **refused**, naming the format and quoting **every** offending row of the table |
 | two rows that resolve to the same integer | **refused**, quoting **both** rows |
+
+Both readings happen at `new` as well as at `close`. `new` used to copy the
+`#` cell through `copied_row`, which validates nothing, so a numbering the
+reviewer chose surfaced two commands later at the orchestrator — one hop from
+either agent that could have avoided it.
+
+##### A verdict row that commissions nothing
+
+A row with no id is a shape reviewers reach for, and the evidence for it is
+**seven rows**. Measured over the 207 committed records that parse, 51 of
+1,989 verdict rows carry a `#` cell with no digit — and **44 of those are a
+severity marker and a single letter**, `🔴 A` through `🟢 O`, which is a
+finding id written in the wrong alphabet rather than a row commissioning
+nothing. Seven are this shape: `carried`, `🟢 fix-surface`, `🟢 fragment`,
+`🟢 grep`, `🟢 overview`. Neither `✅` nor a bare em dash occurs in a committed
+record at all; the 21 bare em dashes are in reviewers' **reports**, which is a
+different corpus. Three kinds:
+
+- **a confirmation** this round verified and did not open;
+- **an earlier round's closure**, carried into this round's table;
+- **`❓ out of verified scope`**, the reviewer looking and not judging.
+
+None can be referenced by a fix table, because none commissions anything. The
+old rule made a reviewer number all of them, so a round that opened six
+findings and confirmed six more read back as a twelve-finding round — and the
+count is what a later round and the pull request read.
+
+**An earlier round's number goes in the Finding cell**, which is prose:
+`| 🟢 | round 2's finding 1, re-read | … |`. In the `#` cell it is digits, and
+digits there are an id — `round 2's 1` keyed as finding **2** under the reader
+that took the first digit run, colliding with this round's own 2.
+
+**The severity is read as well as the `#` cell, and that is not decoration.**
+A row admitted here is never keyed, never asked for a closure and never
+counted toward `Pass` — so a `#` cell alone deciding the question ticked
+`Pass` over an open finding, and the record then asserted that a review
+passed while its own verdict table said otherwise. Measured: `| 🟡 A | … |
+open |` came through `new` at exit 0, silently, with `Pass` checked, and
+nothing downstream caught it because `chain_check.open_blocking` reads only
+🔴 rows. All 26 no-digit cells carrying 🔴 or 🟡 in the committed records are
+genuine findings.
+
+**The direction this fails in, stated.** A reviewer who writes 🟢, ❓ or ⬜ on
+a row that IS an open finding has written a finding no fix table will be
+asked to close, and `close` exits 0 over it. The severity check catches the
+two markers that mean something is owed; it cannot catch a reviewer who picks
+the wrong marker. The other mistake — numbering a confirmation row — costs an
+inflated count in one record, and the change is toward that one.
+
+**The verdict word cannot do this job.** A confirmation row reads `verified`,
+which is in no vocabulary and therefore OPEN, so reading the verdict would
+refuse every confirmation — one refusal traded for another.
+
+**`❓ out of verified scope` is a closing verdict**, in `chain_check.py`'s
+`CLOSED_WORDS` and in neither `FIX_WORDS` nor `HOME_WORDS` — it closes without
+commissioning, so nobody is asked to read fixes it did not produce. None of the
+three words a fix pass may write is true of it: there is no defect to fix, the
+round explicitly did not settle it, and nothing was deferred from a round it
+was never in. #353 measured the cost twice inside one run: `close` refused the
+row for want of a fix table entry, the orchestrator gave it `answered`, and the
+record then said the round had settled the one check neither round ran. The
+next round found exactly that and could not close its own copy except by
+replacing the marker a second time, in a different word.
+
+A severity marker leads a verdict cell and is not part of it, the same rule the
+`#` cell has always used. Applied to all 1,989 committed verdict rows, stripping
+a leading run of non-word characters changes the reading of exactly one cell,
+and that cell is this one.
 
 **The rule exists because the reader used to guess.** `round_record.py` took
 the first digit run anywhere in the cell, so `R2-1` and `R2-2` were both `2`

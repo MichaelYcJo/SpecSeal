@@ -296,7 +296,9 @@ on one case: a run that ends at the round cap closes its last finding
 reviewer's row keeps the `yes` it had while the round was running. Nothing
 rewrites that row afterwards, and nothing should — it is what the reviewer
 concluded. So the box is what says the run ended, and
-`round_record.py seal` refuses on the box for that reason.
+`round_record.py seal` — `skills/code-review/scripts/round_record.py`, the
+generator the review orchestrator types as `round-record` — refuses on the box
+for that reason.
 
 **It belongs to the `sealer`, and the four conditions above are its whole
 procedure.** The rule used to say when the gate fires and which agents may not

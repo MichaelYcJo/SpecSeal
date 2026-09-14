@@ -7,6 +7,11 @@ round posts, and `round_record.py close` applies the implementer's fix table
 and the fix range's measured surface when the fixes land. The comments in this
 file document the fields; a generated record does not carry them.
 
+The generator is `skills/code-review/scripts/round_record.py`, and the review
+orchestrator types it as `round-record`. It ships — this file used to name it
+without saying where it is, and four agent segments read that as absence and
+hand-wrote the record it writes.
+
 It lives here rather than under a pull request number because the number does
 not exist while the rounds that fill this file are running. `docs/review-handoff-protocol.md`
 carries the format; this is the shape it takes in this repository.
@@ -87,6 +92,16 @@ values and nothing else:
                        verdict cell reading `fixed`, which is the same
                        contradiction-inside-one-file the `Pass` rule refuses
   `nobody — <why>`     the gap, written down. The reason is required
+
+**The reason moves once, and `close` moves it.** `new` lands the cell on
+`nobody — the fixes are not yet written`, which is true while the round runs.
+When `close` applies a fix table that closed something on a fix word, it
+rewrites the reason to say the fixes are written and no round has opened
+them — because by then the commits are in this record's own verdict cells two
+rows below, and *not yet written* is false beside them (#273 part 1).
+`nobody` is unchanged: a checker has to be a LATER round and none exists at
+that moment. A cell already naming a `round-N` is a later round's reading and
+`close` does not touch it.
 
 Only a later round may be named, so the LAST record of a finished run reads
 `no fixes to check` or `nobody — <why>`. That is the rule's shape, not a
@@ -174,6 +189,15 @@ own fixes need a reader, and `yes` here is what says the run reopened. Write
 the row prints instead of failing, whatever the cell says — the row has
 carried free text since draft 0.5 of the handoff protocol and was held to no
 vocabulary.
+
+**Either terminal line in the report may wrap, and a wrapped line is one
+value**, so this cell holds the join rather than the first physical line of
+it. Where the join stops, and what that stop does not cover, is stated once
+in `docs/review-handoff-protocol.md` §*The Needs a fix field — the answer a
+run ends on*; `Loses a record or crashes` below is read the same way. A
+report that leaves a blank line under the terminal pair is the shape nothing
+can read wrong, which is what `agents/warden.md` §*Report* asks the reviewer
+for.
 
 `Loses a record or crashes` is the FLOOR under the cap, and it is the
 reviewer's answer as well — what stands after the colon in its `Loses a record
@@ -272,11 +296,30 @@ durable, committed home instead. -->
 
 <!-- The `#` cell is a bare integer, optionally behind a severity marker:
      `1`, `🔴 2`, `⬜ 13`. `R2-1`, `1-1`, `1b` and `A2` are refused, naming
-     the format and quoting the row. The round is already in this file's own
-     name, so an id does not carry it — a prefixed id used to collapse eight
-     findings toward one key in silence (#227). The fix pass copies these
-     numbers into its `## Fixes` table, so the format is one choice two
-     agents pay for.
+     the format and quoting every row that carries one. The round is already
+     in this file's own name, so an id does not carry it — a prefixed id used
+     to collapse eight findings toward one key in silence (#227). The fix pass
+     copies these numbers into its `## Fixes` table, so the format is one
+     choice two agents pay for.
+
+     **A row that commissions nothing takes no id**, and its `#` cell says
+     so: `carried`, `🟢 fix-surface`. A confirmation this round verified and
+     did not open, an earlier round's closure carried into this table, and a
+     `❓ out of verified scope` marker are all that shape — no fix table can
+     reference them, because there is nothing to commission. `close` copies
+     such a row through, asks no closure for it, writes no verdict word over
+     it, and does not count it toward `Pass`. The `## Fixes` table is the
+     other direction and every row of it needs an id: there the row IS the
+     commission.
+
+     **A 🔴 or 🟡 with no number is refused, and so is an empty cell.** Those
+     two severities mean somebody owes the row an answer, so the row is not
+     one that commissions nothing whatever else the cell says — and because
+     such a row is never counted toward `Pass`, the record would otherwise
+     tick `Pass` over an open finding.
+
+     An earlier round's number goes in the **Finding** cell, which is prose.
+     In the `#` cell it is digits, and digits there are an id.
 
      Severities name what they require, not a rank:
      🔴 blocks merge · 🟡 needs grounds · 🟢 matches · ❓ could not be judged.

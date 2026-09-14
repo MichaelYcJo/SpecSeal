@@ -365,7 +365,25 @@ WORD = re.compile(r"[a-z0-9]+")
 # A line that starts a new markdown block, so the sentence before it ended
 # whether or not it carried a full stop. Also a thematic break or a setext
 # underline, which is a whole line of one punctuation character.
-BLOCK = re.compile(r"^\s*(?:[-*+>#]|\d+[.)](?=\s)|[-*_=]{3,}\s*$)")
+#
+# Every marker CommonMark requires a space after asks for one here. The class
+# used to be a bare `[-*+>#]`, which reads `#120` at the head of a line as a
+# heading — and in this corpus, where a round record or a ledger row names an
+# issue in every other sentence, `#120` at the head of a line is a wrapped
+# sentence rather than a block. Splitting there costs a survivor: no n-gram
+# crosses the false boundary, so evidence straddling the wrap is unreachable
+# however high the score would have been. `>` keeps no space requirement
+# because the markdown needs none.
+#
+# `.github/scripts/issue_claims_check.py#BLOCK_START` and
+# `skills/code-review/scripts/round_record.py#BLOCK_START` are the other two
+# carriers of this pattern, kept spelled alike on purpose and not shared
+# through an import — the two script roots ship on different paths. This one
+# needs no fence opener: `blank_struck` has already run, and a fence line
+# inside a segment is prose that scores nothing.
+BLOCK = re.compile(
+    r"^\s*(?:[-*+](?=\s)|\#{1,6}(?=\s|$)|>|\d+[.)](?=\s)|[-*_=]{3,}\s*$)"
+)
 
 # Where a sentence ends inside a segment: sentence punctuation before
 # whitespace or the end, or a table cell boundary. The `|` is what keeps a

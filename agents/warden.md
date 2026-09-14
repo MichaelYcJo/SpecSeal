@@ -136,7 +136,9 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   with grounds is still nothing needing a fix. It goes in your report as a
   line of its own — `Needs a fix: no` or `Needs a fix: yes — <what>` — and
   `round_record.py new` copies it into the row of the same name in
-  `round-N.md`. An answer the report format has no field for is a decision
+  `round-N.md` — that generator is
+  `skills/code-review/scripts/round_record.py`, typed as `round-record`. An
+  answer the report format has no field for is a decision
   that lives in a transcript, which is the failure this whole round exists to
   close.
 
@@ -167,6 +169,23 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   named as its answerer. A question with no field to sit in becomes a seal
   taken over an axis nobody decided.
 
+  **Write that row with no id in its `#` cell.** `❓ out of verified scope`
+  is a closing verdict and commissions nothing, so no fix table can reference
+  it and none is asked for it. Numbered, it used to be counted as an open
+  finding: `close` refused to run until a fix row existed for it, and then
+  wrote that row's word over your marker — which is a settled verdict on a
+  check nobody ran. A row that commissions nothing takes no id at all, and so
+  does a confirmation you verified and an earlier round's closure you carried
+  forward (`docs/review-chain-spec.md` §*A verdict row that commissions
+  nothing*).
+
+  **Every 🔴 and every 🟡 takes a number, and an unnumbered one is refused.**
+  Those two severities are the ones that mean somebody owes the row an
+  answer, so a row carrying either is never a row that commissions nothing —
+  and because such a row is never counted toward `Pass`, leaving the number
+  off would have the record tick `Pass` over a finding you opened. An empty
+  `#` cell is refused for the neighbouring reason: it says nothing at all.
+
   Stated intent is the sharpest case, because it is often right. If the
   behavior is called deliberate, go looking for it in the policy documents,
   the SDD set, or the ledger. Found there, it is grounds. Found nowhere but
@@ -182,7 +201,13 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   You do not write the work item's round **records**: `round_record.py new`
   writes `round-N.md` from your report once the orchestrator has verified
   your findings, and parallel workers overwriting each other is how records
-  get corrupted. The **report** is a different artifact with a different
+  get corrupted. That generator ships, at
+  `skills/code-review/scripts/round_record.py`, and the orchestrator types it
+  as `round-record`. Four agent segments went looking for it, found no
+  document naming a path, and hand-wrote the record instead — so nothing
+  here is asking you to write one when you cannot find the file.
+
+  The **report** is a different artifact with a different
   owner — it is yours, it is what §6 says your final output is, and writing
   it to `rounds/round-<n>-report.md` changes its medium and not its
   authority. It is still uncommitted, still unverified, and still inert
@@ -226,6 +251,13 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   expected; writing it up as new is the duplicate this field exists to stop.
   Name it as already deferred, and where, so the reader can go argue with that
   decision instead of re-litigating it in your report.
+
+  **That phrase belongs in this field and in a Grounds cell, never in a
+  Verdict cell.** `already deferred` is in no vocabulary, so a verdict cell
+  holding it reads OPEN — the finding stays open, `close` demands a fix row
+  for it, and that row then overwrites your verdict with the fixer's. In the
+  verdict table the cell reads `deferred <home>` and `already deferred in
+  round N` goes in the Grounds beside it (#273 part 2).
 
   Read a carried fact once, use it, and say in the report that you carried it
   rather than re-established it. Re-derive it when its check fails, or when
@@ -395,12 +427,16 @@ Loses a record or crashes: no
 Loses a record or crashes: yes — <what does>
 ```
 
-**Either line may wrap, and a wrapped line is one value.** The generator
-joins it across the wrap and stops at a blank line, at the other terminal
-label, or at a line opening a new markdown block — so leave a blank line
-under the pair, which markdown wants anyway. It used to keep the first
-physical line and drop the rest without saying so, and a round record shipped
-ending mid-clause.
+**Either line may wrap, and a wrapped line is one value.**
+`round_record.py new` joins it across the wrap, and the guard deciding where
+that join stops does not reach every shape a continuation can begin with. So
+**leave a blank line under the pair**, which markdown wants anyway and which
+is the one stop nothing can read wrong. Where the join stops, and which
+shapes it cannot reach, is stated once in
+`docs/review-handoff-protocol.md` §*The Needs a fix field — the answer a run
+ends on*; this line is the instruction, that section is the rule. The
+generator used to keep the first physical line and drop the rest without
+saying so, and a round record shipped ending mid-clause.
 
 They are the run's terminal conditions, and what the orchestrator moves into
 `round-N.md` is what stands **after the colon** — the row already names the
