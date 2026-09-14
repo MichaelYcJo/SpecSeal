@@ -50,9 +50,9 @@ own ledger fragment before measuring. 176 is round 4's count at `151792e`. The
 fragment now says 211 of 212 and names where 176 came from. §5 twice in one
 work item, both times on a count, both times caught by measuring.
 
-**And a third time, on a name.** Phase 2 annotated `spec.md`'s `SUMMARY_WORDS`
-by repeating `1789002694`'s own note — that the name *became* `SUMMARY_TAIL`
-<!-- NAME NOT IN TREE: this paragraph's finding; see below. --> — without
+**And a third time, on a name.** Phase 2 annotated `spec.md`'s `SUMMARY_WORDS` <!-- NAME NOT IN TREE: this paragraph's own finding, measured below. -->
+by repeating `1789002694`'s own note — that the name *became* `SUMMARY_TAIL` <!-- NAME NOT IN TREE: this paragraph's own finding, measured below. -->
+— without
 opening the coordinate. Measured here: `git log -S` over `broad_gate.py` on
 **every** branch finds neither name in any merged commit. Both existed only
 between #30's round-1 fix and its round-2 fix, and the squash into
