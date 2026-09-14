@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 394 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | OPEN_WORD (depth 1); test_a_row_that_commissions_nothing_cannot_read_open (depth 1); test_a_row_failing_both_arms_is_named_once (depth 1); test_a_row_too_short_to_have_a_verdict_cell_does_not_crash (depth 1) |
 | Needs a fix | yes — finding 7 |
