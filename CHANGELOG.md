@@ -1,5 +1,208 @@
 # Changelog
 
+## 0.11.4 — 2026-09-14
+
+<!-- specs/1789338080-the-one-script-an-agent-is-told-to-run-cannot-be-typed -->
+- **The round-record generator can now be typed as `round-record`, and every
+  shipped document that names it says where it is (issue #318).** Four agent
+  segments concluded `skills/code-review/scripts/round_record.py` does not
+  ship and hand-wrote the record it writes; two of those hand-written records
+  had a field wrong in a way only the next round's reader caught. The script's
+  own `--help` has printed `usage: round-record` since it shipped, and no file
+  answered to that name.
+
+  **The two halves of the defect needed two different repairs, and the ticket
+  proposed them as alternatives.** Two of the thirty-six mentions show a
+  command for somebody to type, and a `bin/` wrapper pair fixes those. The
+  other thirty-four describe what the generator does — *`round_record.py new`
+  writes `round-N.md`* — and a reader who meets one goes looking for a
+  filename rather than typing anything. Three of the four segments in the
+  incident were `warden`, whose definition never tells it to run the script
+  at all, so the wrapper alone would not have reached them.
+
+  **The ticket's own enumeration was short by six documents.** It named three;
+  `round_record.py` appears in nine, and the file the four segments actually
+  hand-wrote from — `templates/sdd-round.md`, seven mentions — was not among
+  the three. Each of the nine now carries one reachable form, the command or
+  the script's repo-relative path.
+
+- **A shipped document that names a script it gives no way to reach now fails
+  the suite.** The check enumerates `skills/*/scripts/*.py` and every `.md`
+  under `agents/`, `skills/` and `templates/` rather than naming this one
+  script, so the tenth document and the thirteenth script are caught the way
+  `bin/` itself was not. It blocks more than it did: a document naming a
+  script with no locator is now red, and the repair is one sentence written by
+  the person already editing that document. The failure names the document and
+  both accepted forms.
+
+  **A script may also keep no wrapper, and then it says why.** `chain_check.py`
+  is named in four shipped documents and shown with a flag in none of them,
+  and every place that actually invokes it reaches it by full path — the
+  hygiene workflow, the workflow template it ships, the release checklist,
+  `broad-gate`, and the round-record generator itself. So it keeps no command
+  and is classified with that reason instead. The classification is not a note:
+  the check asserts the property it rests on, so the moment a document shows
+  `chain_check.py` being invoked, the classification goes red rather than
+  standing as a sentence that has quietly stopped being true.
+
+<!-- specs/1789347354-a-wrapped-terminal-line-is-not-one-value -->
+- **A round record no longer loses the rest of a sentence that wraps onto an
+  issue number (issues #309, #339).** The reviewer's two terminal lines are
+  hand-wrapped prose, and the generator joins them back into one cell. The
+  guard deciding where that join stops read a bare `#`, so a continuation
+  beginning `#120` was taken for a heading and everything after it was
+  dropped — with no refusal, in a repository whose reports open lines that way
+  constantly. A truncated cell reads as a finished sentence, so nobody looks.
+
+  **The same guard was wrong in the other direction too.** It asked for a
+  space after `-`, `*` and `+`, which a horizontal rule does not have, so
+  `---` under the terminal pair was joined INTO the cell instead of stopping
+  it. `1) Proof.` passed for the same reason, because the pattern wanted a
+  literal dot.
+
+  **The repair is a narrowing, not a longer list of markers.** Every marker
+  CommonMark requires a space after now asks for one, and the horizontal rule
+  and the setext underline come back as patterns matching a whole line and
+  nothing less. It is the same pattern `.github/scripts/issue_claims_check.py`
+  has shipped and measured since 0.8.2, which is why the two are now kept
+  spelled alike on purpose. Widening the list instead would have bought one
+  more silently truncated shape for every marker added.
+
+  **What it does not cover is now written down beside it.** A continuation
+  opening with an HTML tag, with `**bold**`, or with an indented run of prose
+  cannot be told from a block by its first characters, and the generator joins
+  all three rather than guessing. Only a blank line under the terminal pair
+  stops every shape, which is what `agents/warden.md` asks the reviewer to
+  leave.
+
+- **The rule reaches the document somebody would build a second tool from
+  (issue #340).** `docs/review-handoff-protocol.md` defines what a conforming
+  tool does with each field and had never been told that a terminal line
+  wraps, so a tool built from it would truncate on purpose. It now states
+  where the join stops and what the stop cannot reach.
+  `templates/sdd-round.md` gained the same thing in the prose about those
+  fields and links the protocol for the detail, and `agents/warden.md` keeps
+  the half a reviewer acts on — leave the blank line — and names the protocol
+  instead of repeating it. Four descriptions of the guard used to call it
+  sound; none of them does now.
+
+- **The same defect in the survivor checker is closed with it.**
+  `survivor-check` reads a range of commits and reports wording a fix left
+  standing elsewhere. It split a sentence at the same false boundary, so
+  evidence straddling a wrap scored as two fragments and a survivor could go
+  unreported. Nothing was truncated there, which is why it went unnoticed.
+
+<!-- specs/1789356180-the-two-halves-of-one-generator-refuse-each-other -->
+- **A round record no longer has to number the rows it verified (issues #321,
+  #341, #353).** A reviewer who confirmed six things and opened one had to put
+  a finding number on all seven, because the generator refused any `#` cell
+  that was not digits. The record then read back as a seven-finding round, and
+  the count is what the next round and the pull request go by. Worse, each of
+  those six had to be given a closing word by the fix pass — so the record
+  ended up asserting that the round had settled things it had merely looked at.
+
+  **A cell that says the row commissions nothing is now admitted.** It is
+  copied into the record exactly as written, never keyed to a finding, never
+  asked for a closure, and never counted toward `Pass`. Three kinds of row are
+  that shape and all three were being renumbered by hand: a confirmation the
+  round verified, an earlier round's closure carried forward, and a
+  `❓ out of verified scope` marker.
+
+  **A 🔴 or a 🟡 with no number is refused, and so is an empty cell.** Those two
+  severities mean somebody owes the row an answer, so such a row is not one
+  that commissions nothing whatever its `#` cell says — and because an admitted
+  row is never counted toward `Pass`, the record would otherwise be written
+  with `Pass` ticked beside an open finding in its own verdict table. Of the 51
+  no-digit cells in the committed records, 44 are a severity marker and a single
+  letter — a finding id in the wrong alphabet — and all 26 carrying 🔴 or 🟡 are
+  genuine findings.
+
+  **A cell that carries digits and is still not an id is refused as before**,
+  because it was reaching for a number and missed. What changed is where and
+  how loudly: the refusal now lands at `round-record new`, where the reviewer
+  who chose the numbering is, instead of two commands later at the
+  orchestrator — and it names every offending row of the table rather than the
+  first, which used to cost two round trips per repair.
+
+  **Which way this fails is written down where the reviewer picks the number.**
+  Writing 🟢, ❓ or ⬜ with no number on a row that really is an open finding
+  still writes a finding no fix table will be asked to close, and nothing
+  catches that — the check reaches the two markers that owe an answer and
+  cannot reach a wrongly chosen one. Numbering a confirmation row costs an
+  inflated count in one record. The change is toward the cheaper mistake, and
+  the documents now say so.
+
+- **`❓ out of verified scope` is a verdict that closes without commissioning
+  anything (issue #353).** It means the reviewer looked and could not judge,
+  because judging was outside the round's scope — there is no defect, and none
+  of the three words a fix pass may write is true of it. The generator counted
+  it as an open finding, refused to run until the fix table carried a row for
+  it, and then wrote that row's word over the marker. Measured twice inside one
+  run: the record claimed the round had settled the one check neither round
+  ran, the next round found exactly that, and it could only close its own copy
+  by replacing the marker a second time in a different word.
+
+  A severity marker now leads a verdict cell without being part of it, the same
+  rule the `#` cell has always used. Over all 1,989 committed verdict rows that
+  changes the reading of exactly one cell, and that cell is this one.
+
+- **Two documents prescribed a verdict spelling the generator refuses (issues
+  #341, #321, #273).** `docs/review-chain-spec.md` told a fix pass to close a
+  correction as `answered — corrected at <sha>` in a single cell, and
+  `agents/smith.md` told it to put the word in the Verdict cell and the commit
+  in the Grounds beside it. Only the second works. So the repository shipped
+  both readings, a test asserted both sentences — which pinned the
+  disagreement rather than catching it — and anyone who followed the owner met
+  a refusal listing three words, one of which their cell had begun with.
+
+  The owner is corrected to the spelling that works, one string is now asserted
+  in both files, and the refusal names the two-cell shape and prints the row to
+  write. `deferred <home>` is unchanged: the home is what makes a deferral
+  readable, so it is the one word that carries its own suffix.
+
+  **A repair made outside the tree gets a spelling too.** Answering a finding by
+  editing a ticket or a pull request body produces no commit in the branch, and
+  a commit somebody can open is the whole of what `fixed` asserts — so the word
+  was unusable and nothing said what to write instead. It closes `answered`,
+  with where the repair is in the grounds.
+
+  **`already deferred` is grounds, never a verdict.** No document ever told a
+  reviewer to put the phrase in a Verdict cell, and none said which cell it was
+  not for either — while a cell holding it reads as still open, which reopens
+  the finding and invites a fix row that overwrites the reviewer's verdict.
+
+- **A fix pass no longer overwrites the reviewer's own reasoning (issue #391).**
+  The Grounds cell holds why a finding was opened, and a fix pass is asked what
+  it did about the finding — two sentences by two authors. `fixed` kept both.
+  `answered` and `deferred` replaced the reviewer's with their own, so the
+  original survived exactly one of the three words.
+
+  **A deferred row lost the most and had the most to lose.** Its grounds were
+  reduced to the issue number alone, discarding why the finding could not be
+  closed on the branch and what a reader should open — and a deferred finding
+  is the one verdict whose reasoning is the whole of its value, because nothing
+  else in the tree will explain why it left. Measured over the committed
+  records: 66 rows read as nothing but their own home, and for 51 of them the
+  discarded prose is not recoverable from anything in the repository.
+
+  **The empty code span beside a fix commit is gone.** The commit was cut out of
+  the middle of its own code span and both backticks were left standing, so a
+  cell landed as `fixed at e7d3447 — `` — widened`. It appears on 210 committed
+  verdict rows. The cut now takes the span, so a second code span in the same
+  cell survives untouched.
+
+- **A closed record no longer says its fixes are not yet written beside the
+  commits that wrote them (issue #273).** `Fixes checked by` starts at
+  `nobody — the fixes are not yet written`, which is true while a round runs.
+  The fix pass then writes those commits into the record's own verdict cells
+  and the row was left alone, so the record contradicted itself two rows apart.
+  On a run that ends at the round cap it stayed that way permanently, because
+  no later round exists to correct it.
+
+  `nobody` is kept — a checker has to be a later round, and at that moment none
+  exists — and only the reason is replaced. A cell that already names a round
+  is a later round's reading and is not touched.
+
 ## 0.11.3 — 2026-09-13
 
 <!-- specs/1789296100-the-seal-and-ci-read-one-ledger-differently -->
