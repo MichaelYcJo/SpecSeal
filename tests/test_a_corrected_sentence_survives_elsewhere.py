@@ -284,6 +284,44 @@ def test_a_stray_strike_marker_cannot_reach_past_its_own_line():
     )
 
 
+# The two shapes the space requirement buys, one per alternative it was added
+# to. Each is a genuine hand-wrapped continuation, and each was split by the
+# bare `[-*+>#]` class this module used to carry — the second at `[-*+]`, the
+# first at `#`. Dropping either lookahead turns its own arm red and nothing
+# else, which is how they were measured.
+WRAPPED_ONTO = (
+    "#120's, and no other module reads that field",
+    "**round 4** found it, and no other module reads that field",
+)
+
+
+@pytest.mark.parametrize("tail", WRAPPED_ONTO)
+def test_a_sentence_wrapped_onto_an_issue_number_is_one_sentence(tail):
+    """The same class as `round_record.py#BLOCK_START`, one module over.
+
+    `BLOCK` used to carry a bare `[-*+>#]`, so a hand-wrapped sentence whose
+    second line opens with an issue number was split at a boundary that is
+    not there — in a corpus of round records and ledger rows where a line
+    beginning `#120` is ordinary prose. The consequence differs from the
+    record generator's: nothing is truncated, the sentence is mis-scored, and
+    a survivor whose evidence straddles the wrap becomes unreachable because
+    no n-gram crosses the split.
+
+    `.github/scripts/issue_claims_check.py` states the trap in its own
+    comment and `seal/ledger.md` records it executed by mutation. This is the
+    third carrier of that pattern and the last one that did not ask for the
+    space CommonMark requires."""
+    reader = module()
+    text = f"the parser this work item was filed against is\n{tail}"
+    keys = [sentence.key for sentence in reader.sentences("docs/probe.md", text)]
+    assert any(
+        "filed against is" in k and "no other module reads" in k for k in keys
+    ), (
+        "the wrap was read as a block boundary, so the sentence split in two "
+        f"and no n-gram crosses it: {keys!r}"
+    )
+
+
 def test_a_table_row_is_not_one_sentence():
     """A ledger row is one line and thousands of words.
 
