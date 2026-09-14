@@ -2466,10 +2466,11 @@ def finding_number(label, seen, line, taken, bad, idless, owed):
     is why `verdict_rows` reads the Verdict cell beside it. Reading the marker
     alone admitted six shapes whose Verdict cell said `open` — three of them
     carrying no marker at all, so the residual stated here for a round did not
-    describe them (round 2's 🟡 7). It is the literal word rather than a
-    vocabulary test, and that is what makes it free: `verified` is in no
+    describe them (round 2's 🟡 7). It matches the WORD — `says_open` ends it
+    on `chain.SEPARATORS`, the boundary `verdict_of` already uses — rather than
+    a vocabulary, and that is what makes it free: `verified` is in no
     vocabulary and therefore OPEN, so refusing everything outside
-    `CLOSED_WORDS` would refuse every confirmation row.
+    `CLOSED_WORDS` would refuse 15 of the 25 admitted rows.
 
     What this still gives up, stated rather than left to be found: a row takes
     TWO mistakes in two cells to slip through now — 🟢, ❓ or ⬜ on a row that

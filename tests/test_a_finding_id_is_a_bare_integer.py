@@ -290,7 +290,8 @@ def test_a_row_that_commissions_nothing_cannot_read_open(repo, cell):
     grounds for not reading the verdict were that a confirmation reads
     `verified`, which is in no vocabulary and therefore OPEN — true of
     replacing the marker check, false of composing with it. What is read here
-    is the literal word `open`, which is unambiguous.
+    is the word `open`, ended by a separator or by nothing — unambiguous, and
+    not a prefix test: `opened` is a different word and is admitted.
 
     Free against the corpus: of the 25 admitted no-digit cells in the committed
     records, the verdicts are `fixed`, `answered`, `truthful`, `record only`

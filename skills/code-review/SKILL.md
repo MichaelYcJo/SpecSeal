@@ -301,7 +301,8 @@ actually has.
 cell says. The record states the answer in the column beside the one the rule
 reads, and a row admitted as commissioning nothing is never counted toward
 `Pass` — so without this the record was written with `Pass` ticked over a row
-its own table calls open. It is the literal word rather than a vocabulary test:
+its own table calls open. It matches the word, ended by a separator or by
+nothing, rather than a vocabulary test:
 a confirmation reads `verified`, which is in no vocabulary and would refuse if
 the test were *anything not closed*.
 

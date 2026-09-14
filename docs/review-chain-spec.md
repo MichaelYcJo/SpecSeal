@@ -773,7 +773,10 @@ three of them carrying no severity marker at all — and each was written into a
 record with `Pass` ticked over it. So a row whose Verdict cell reads `open` is
 refused whatever its `#` cell says.
 
-That is a match on the literal word and not a vocabulary test, and the
+That is a match on the word — ended by a separator or by nothing, the boundary
+`verdict_of` already uses for its own vocabulary, so `open — deferred` and
+`open, comment only` are reached and `opened` is not — rather than a vocabulary
+test, and the
 difference is what makes it free. `verified` is in no vocabulary and therefore
 reads OPEN, so refusing everything outside `CLOSED_WORDS` would refuse every
 confirmation row — one refusal traded for another. Refusing the word `open`
