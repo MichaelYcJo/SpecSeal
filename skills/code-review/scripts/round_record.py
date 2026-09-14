@@ -2891,6 +2891,28 @@ def fix_table(reader, path):
                     "becomes nobody did"
                 )
             out[number] = (DEFERRED_WORD, home, "")
+        elif any(
+            word.startswith(w) and word[len(w)] in chain.SEPARATORS
+            for w in (FIXED, ANSWERED)
+        ):
+            # The cell BEGINS with a word this table admits and carries a
+            # suffix, which is one cell doing two cells' work.
+            # `docs/review-chain-spec.md` prescribed exactly that for a
+            # correction — `answered — corrected at <sha>` — for as long as
+            # `agents/smith.md` prescribed the two-cell shape beside it, so a
+            # reader who followed the spec met a message listing three words
+            # and had to work out that their cell had begun with one of them
+            # (#341's comment). `deferred <home>` is the one word that
+            # legitimately carries a suffix and is handled above.
+            head = word.split(next(c for c in chain.SEPARATORS if c in word))[0]
+            raise Refused(
+                f"finding {number}'s verdict `{seen[1]}` begins with `{head}` "
+                f"and then carries more. The Verdict cell holds the word alone "
+                f"and everything after it goes in `{FIXES_HEADER[2]}`: write "
+                f"`| {number} | {head} | {verdict[len(head) :].strip(chain.SEPARATORS)} |`. "
+                f"Only `{DEFERRED_WORD} <home>` carries its own suffix, because "
+                "the home is what makes a deferral readable"
+            )
         else:
             raise Refused(
                 f"finding {number}'s verdict `{seen[1]}` is none of `{FIXED}`, "

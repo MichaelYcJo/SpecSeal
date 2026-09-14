@@ -515,6 +515,109 @@ def test_a_fix_row_for_a_scope_marker_is_refused_as_already_closed(repo):
     assert "already closed" in out, out
 
 
+# --- what the fix pass's verdict vocabulary admits (#341, #321, #273) -------
+
+
+def test_a_correction_closes_in_the_spelling_the_documents_give(repo):
+    """#341's comment: `docs/review-chain-spec.md` prescribed `answered —
+    corrected at <sha>` as ONE cell and `close` refuses it, while
+    `agents/smith.md` prescribed the two-cell shape `close` accepts. The
+    repository shipped both readings and a case asserted both sentences.
+
+    The verdict cell is vocabulary and the grounds cell is free text, so the
+    correcting commit goes in the grounds — which is also the only reading
+    under which anything can find it: `chain_check` skips every row whose
+    verdict is not a fix word before it looks for a commit.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# the record corrected\n")
+    b = commit(repo, "the correction")
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | answered | corrected at {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[3] == "answered", (one, out)
+    assert one[4] == f"corrected at {b[:7]}", one
+
+
+def test_the_suffixed_verdict_cell_is_refused_naming_the_two_cell_shape(repo):
+    """The spelling the spec prescribed until this release, and the message a
+    reader met when they typed it. `fixed`/`answered` with anything after the
+    word is one cell doing two cells' work, and the refusal used to list the
+    three words without saying that the cell had begun with one of them —
+    leaving the reader to work out which half of their row was wrong.
+
+    `deferred <home>` is the one word that legitimately carries a suffix, and
+    the case below holds that open.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# the record corrected\n")
+    b = commit(repo, "the correction")
+    code, out, _ = close(
+        repo,
+        1,
+        fix_table(f"| 1 | answered \N{EM DASH} corrected at {b[:7]} | x |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 2, out
+    assert "Commit or grounds" in out, out
+    assert "answered" in out, out
+
+
+def test_a_deferred_verdict_still_carries_its_home_in_the_verdict_cell(repo):
+    """The other side of the refusal above. `deferred <home>` is one word and
+    a home in one cell by design — the home is what makes the deferral
+    readable, and `verdict_of` hands back a bare `deferred` as OPEN."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, record = close(
+        repo, 1, fix_table("| 1 | deferred #391 | #391 |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[3] == "deferred #391", (one, out)
+
+
+def test_a_repair_made_outside_the_tree_has_a_verdict(repo):
+    """#321's comment. A finding repaired by a `gh issue edit` or an edit to a
+    pull request body produces no commit in the branch, so `fixed` is unusable
+    for it twice over: `fix_table` demands a commit in the third cell, and
+    `close` then demands that commit resolve and lie inside `--range`.
+
+    The repair still happened and the record has to say where it is. That is
+    `answered`, with the repair named in the grounds — the same shape a
+    correction takes, for the same reason: no code was written, so nobody is
+    commissioned to read any.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched by the repair\n")
+    b = commit(repo, "nothing in the tree answers it")
+    grounds = "repaired on the tracker: the body of #321 now names both halves"
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | answered | {grounds} |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[3] == "answered", (one, out)
+    assert one[4] == grounds, one
+
+
+def test_fixed_on_a_repair_with_no_commit_is_refused_by_the_commit_it_needs(repo):
+    """The direction that has to stay closed. `fixed` asserts a commit
+    somebody can open, and a repair outside the tree has none — so the word
+    is refused rather than quietly accepting a cell with no commit in it."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, _ = close(
+        repo, 1, fix_table("| 1 | fixed | repaired on the tracker |\n"), f"{a}..{b}"
+    )
+    assert code == 2, out
+    assert "names no commit" in out, out
+
+
 def test_a_correction_closed_answered_lands_on_no_fixes_to_check(repo):
     """Rule 1's fix word, generator side (round 1's 🟡 2 of #161's own
     chain): a ⬜ row located in a record closes `answered` with `corrected

@@ -249,16 +249,55 @@ def test_a_correction_row_closes_answered_and_never_fixed():
     row leaves `nobody — the fixes are not yet written` beside a checked
     `Pass`, and the check refuses that pair on the last record — a reader
     commissioned for a row rule 1 says owes none. The owner states the
-    word, and the smith's fix-table paragraph names the owner."""
-    assert ("such a row closes `answered — corrected at <sha>`, never `fixed`") in flat(
-        *SPEC
-    )
-    smith = flat(*SMITH)
-    assert (
+    word, and the smith's fix-table paragraph names the owner.
+
+    **One spelling, asserted in both files.** This case used to assert two:
+    the owner prescribed `answered — corrected at <sha>` as ONE cell while
+    `agents/smith.md` prescribed the two-cell shape, and `round_record.py
+    close` refuses the one cell — so the disagreement was pinned rather than
+    merely present, and a reader who followed the owner met a refusal (#341's
+    comment). Asserting the same string in both files is what stops the two
+    from drifting apart again; a case that asserted a different sentence per
+    file is what let them.
+    """
+    one_spelling = (
         "closes `answered` with `corrected at <sha>` as its grounds, never `fixed`"
-        in smith
     )
+    spec, smith = flat(*SPEC), flat(*SMITH)
+    assert one_spelling in spec, "the owner"
+    assert one_spelling in smith, "the file that carries the owner's rule"
+    # The spec still NAMES the one-cell spelling, to say it was wrong and
+    # what it cost. What it may not do is prescribe it — so the assertion is
+    # on the prescribing clause and not on the string, which is the
+    # distinction a blunter pin would erase along with the history.
+    assert "such a row closes `answered \N{EM DASH} corrected at <sha>`" not in spec, (
+        "the owner prescribes the one-cell spelling `close` refuses"
+    )
+    assert "Two cells, not one" in spec, "the correction the pair needed"
     assert "§*The last round verifies* owns the rule" in smith
+
+
+def test_a_repair_made_outside_the_tree_has_a_verdict_the_owner_names():
+    """#321's comment. `fixed` demands a commit in the fix range, and a
+    repair made by editing a ticket or a pull request body has none — so the
+    word was unusable and nothing said what to write instead. A vocabulary
+    with a hole in it is closed by naming the shape, not by widening the
+    word."""
+    spec = flat(*SPEC)
+    assert "A repair made outside the tree takes the same shape" in spec
+    assert "with where the repair is in the grounds" in spec
+
+
+def test_already_deferred_is_grounds_and_the_reviewer_is_told_which_cell():
+    """#273 part 2. No document ever told a reviewer to put the phrase in a
+    Verdict cell — `agents/warden.md` says it about the Deferred field, which
+    `verdict_of` does not read — but none said which cell it was NOT for
+    either, and a cell holding it reads OPEN. Both files say it now, because
+    the reviewer reads one and the rule lives in the other."""
+    assert "`already deferred` is grounds, never a verdict" in flat(*SPEC)
+    warden = flat(*WARDEN)
+    assert "never in a Verdict cell" in warden
+    assert "`deferred <home>`" in warden
 
 
 def test_the_release_leg_is_no_longer_red_until_round_ones_record_commits():

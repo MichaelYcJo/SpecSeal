@@ -159,9 +159,34 @@ fix pass and no reader. What `chain_check` or `evidence_check` refuses is
 corrected in the closing commit; what neither reads is prose, corrected in
 passing or not at all. `Needs a fix` does not count it, so a verifying round
 that finds only such things has opened nothing needing a fix. In the fix
-table such a row closes `answered — corrected at <sha>`, never `fixed`:
-`fixed` is a fix word, and a fix word commissions the reader a correction
-does not owe. Measured on the
+table such a row closes `answered` with `corrected at <sha>` as its grounds,
+never `fixed`: `fixed` is a fix word, and a fix word commissions the reader a
+correction does not owe.
+
+**Two cells, not one.** The Verdict cell holds the word alone and the
+correcting commit goes in `Commit or grounds` beside it. This section
+prescribed `answered — corrected at <sha>` as one cell until 0.11.4, while
+`agents/smith.md` prescribed the two-cell shape one file over — and the one
+cell is refused by `round_record.py close`, so the repository shipped a
+sentence naming a spelling its own generator would not take (#341). The
+verdict cell is vocabulary and the grounds cell is free text; nothing
+machine-reads a SHA out of an `answered` cell, because `chain_check` skips
+every row whose verdict is not a fix word before it looks for a commit.
+
+**A repair made outside the tree takes the same shape**, for the same reason.
+A finding answered by editing a ticket or a pull request body produces no
+commit in the branch, so `fixed` is unusable for it — `fix_table` demands a
+commit in the third cell and `close` demands that commit lie inside the fix
+range. It closes `answered`, with where the repair is in the grounds (#321).
+
+**`already deferred` is grounds, never a verdict.** The verdict cell reads
+`deferred <home>` and `already deferred in round N` goes beside it. The phrase
+is not in `CLOSED_WORDS` and nothing tells a reviewer to put it in that cell —
+`agents/warden.md` says it about `round-N.md`'s **Deferred** table, which
+`verdict_of` does not read at all — and the two records in this repository
+that met the case wrote the two-cell shape already (#273 part 2).
+
+Measured on the
 last branch (#161's second comment): 33 of its 65 findings were located in
 records, and the records were 55 % of the diff — a loop reviewing the tool's
 own paperwork, with a reader spawned for every correction.

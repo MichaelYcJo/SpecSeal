@@ -245,6 +245,13 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   Name it as already deferred, and where, so the reader can go argue with that
   decision instead of re-litigating it in your report.
 
+  **That phrase belongs in this field and in a Grounds cell, never in a
+  Verdict cell.** `already deferred` is in no vocabulary, so a verdict cell
+  holding it reads OPEN — the finding stays open, `close` demands a fix row
+  for it, and that row then overwrites your verdict with the fixer's. In the
+  verdict table the cell reads `deferred <home>` and `already deferred in
+  round N` goes in the Grounds beside it (#273 part 2).
+
   Read a carried fact once, use it, and say in the report that you carried it
   rather than re-established it. Re-derive it when its check fails, or when
   `seal/parity.md` lists its path under coordinate-trust exceptions. What you
