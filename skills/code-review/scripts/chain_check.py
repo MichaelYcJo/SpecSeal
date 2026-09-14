@@ -365,6 +365,23 @@ BLOCKING = "🔴"
 # not where, which is the state a `nobody` with no reason is refused for, so
 # `verdict_of` hands it back OPEN with `NO_HOME` beside it.
 DEFERRED = "deferred"
+# The reviewer looked and did not judge, because judging was outside the scope
+# the round was given. `skills/code-review/SKILL.md`'s severity scheme lists
+# `❓` for exactly that, and the phrase after it is the reviewer's verdict --
+# not an open finding, and nothing a fix pass can close.
+#
+# It is here rather than in the fix table's vocabulary because none of the
+# three words a fix pass may write is true of it: there is no defect to fix,
+# the round explicitly did not settle it, and nothing was deferred from a
+# round it was never in. #353 measured the cost twice inside one run of #84 --
+# `close` refused finding 15 for want of a fix row, the orchestrator gave it
+# `answered`, and the record then said the round had settled the one check
+# neither round ran. Round 2 FOUND that and could not close its own copy
+# except by replacing the marker a second time, in a different word.
+#
+# It closes without commissioning, so it is in neither `FIX_WORDS` nor
+# `HOME_WORDS`: nobody is asked to read fixes it did not produce.
+OUT_OF_SCOPE = "out of verified scope"
 CLOSED_WORDS = {
     "fixed",
     "answered",
@@ -372,6 +389,7 @@ CLOSED_WORDS = {
     "not a defect",
     "agreed, fixed",
     DEFERRED,
+    OUT_OF_SCOPE,
 }
 # The closing words that close nothing without a home after them.
 HOME_WORDS = {DEFERRED}
@@ -399,6 +417,19 @@ assert not HOME_WORDS & FIX_WORDS, "a deferral is not a fix"
 # and most cite a commit after it. Neither refusal that reads a verdict cell
 # had ever fired on a real record.
 EMPHASIS = re.compile(r"[*_`]+")
+# A severity marker leads a verdict cell and is not part of it, the same rule
+# `round_record.py`'s `FINDING_ID_RE` already applies one column over. The
+# corpus is what makes this safe rather than tolerant: applied to all 1,989
+# committed verdict rows on 2026-09-14, stripping a leading run of
+# non-word characters changes the reading of exactly ONE cell, and that cell
+# is `❓ out of verified scope` — the shape this release is adding. Every
+# other verdict this repository has written either begins with a word or
+# begins with punctuation that leaves it in no vocabulary either way.
+#
+# Anchored, and applied only when something survives it: a cell that is
+# nothing but punctuation keeps its own text, so `open_blocking` still has a
+# cell to quote rather than an empty string.
+MARKER = re.compile(r"^(?:[^\w\s]+\s*)+")
 # The vocabulary as a match ORDER, longest spelling first, so the `fixed`
 # inside `agreed, fixed` never takes the row from it. Derived from
 # `CLOSED_WORDS` rather than written out again: the assertion above
@@ -1433,6 +1464,9 @@ def verdict_of(seen, col):
     for.
     """
     s = EMPHASIS.sub("", seen[col]).lower().strip().rstrip(".").strip()
+    head = MARKER.sub("", s)
+    if head:
+        s = head
     for word in VOCAB:
         if s == word or s.startswith(word + " ") or s.startswith(word + ","):
             if word in HOME_WORDS and not s[len(word) :].strip(SEPARATORS):

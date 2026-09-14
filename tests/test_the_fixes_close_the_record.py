@@ -457,6 +457,64 @@ def test_a_capped_runs_last_record_reads_no_fixes_to_check_and_the_check_exits_z
     assert chain.NO_FIXES in out, out
 
 
+def test_a_scope_marker_keeps_its_own_word(repo):
+    """#353, measured twice in one run on #84. `❓ out of verified scope` is
+    the reviewer looking and not judging — it carries no defect and
+    commissions no fix. `close` counted it OPEN, refused to run until a fix
+    row existed for it, and then wrote that row's word over the marker: round
+    1's finding 15 of `1789081272-…` reads `answered` in the record where the
+    report it was generated from reads the marker, and round 2 — the round
+    that FOUND that — could only close its own copy as `deferred
+    agents/sealer.md`, replacing the marker a second time in a different word.
+
+    None of the three words is true of it. There is nothing for a closure word
+    to change, so the row is not asked for one and keeps what the reviewer
+    wrote.
+    """
+    marker = (
+        "| 15 | the broad gate | `seal/config.md` "
+        "| \N{BLACK QUESTION MARK ORNAMENT} out of verified scope "
+        "| contract \N{SECTION SIGN}2 makes it one act with one owner |\n"
+    )
+    a = round_one(repo, verdicts=OPEN_1 + marker)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, record = close(
+        repo, 1, fix_table("| 1 | answered | b is never passed |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    assert "finding 15 of round 1 left with no row" not in out, out
+    _one, fifteen = verdict_cells(record)
+    assert fifteen[3] == "\N{BLACK QUESTION MARK ORNAMENT} out of verified scope", (
+        fifteen,
+        out,
+    )
+    assert fifteen[4] == "contract \N{SECTION SIGN}2 makes it one act with one owner"
+    assert "- [x] Pass" in record, out
+
+
+def test_a_fix_row_for_a_scope_marker_is_refused_as_already_closed(repo):
+    """The other direction of the same rule. A fix pass that writes a row for
+    the marker anyway is overwriting the reviewer's verdict with its own,
+    which is the refusal `close` already carries for `withdrawn` and `not a
+    defect` — and which is exactly what #84's orchestrator was forced to do."""
+    marker = (
+        "| 15 | the broad gate | `seal/config.md` "
+        "| \N{BLACK QUESTION MARK ORNAMENT} out of verified scope | not run |\n"
+    )
+    a = round_one(repo, verdicts=OPEN_1 + marker)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, _ = close(
+        repo,
+        1,
+        fix_table(f"| 1 | fixed | {b[:7]} |\n", "| 15 | answered | not run |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 2, out
+    assert "already closed" in out, out
+
+
 def test_a_correction_closed_answered_lands_on_no_fixes_to_check(repo):
     """Rule 1's fix word, generator side (round 1's 🟡 2 of #161's own
     chain): a ⬜ row located in a record closes `answered` with `corrected

@@ -286,11 +286,24 @@ durable, committed home instead. -->
 
 <!-- The `#` cell is a bare integer, optionally behind a severity marker:
      `1`, `🔴 2`, `⬜ 13`. `R2-1`, `1-1`, `1b` and `A2` are refused, naming
-     the format and quoting the row. The round is already in this file's own
-     name, so an id does not carry it — a prefixed id used to collapse eight
-     findings toward one key in silence (#227). The fix pass copies these
-     numbers into its `## Fixes` table, so the format is one choice two
-     agents pay for.
+     the format and quoting every row that carries one. The round is already
+     in this file's own name, so an id does not carry it — a prefixed id used
+     to collapse eight findings toward one key in silence (#227). The fix pass
+     copies these numbers into its `## Fixes` table, so the format is one
+     choice two agents pay for.
+
+     **A row that commissions nothing takes no id**, and its `#` cell holds
+     the marker alone or a word: `✅`, `🟢 fix-surface`, `carried`, `—`. A
+     confirmation this round verified and did not open, an earlier round's
+     closure carried into this table, and a `❓ out of verified scope` marker
+     are all that shape — no fix table can reference them, because there is
+     nothing to commission. `close` copies such a row through, asks no
+     closure for it, writes no verdict word over it, and does not count it
+     toward `Pass`. The `## Fixes` table is the other direction and every row
+     of it needs an id: there the row IS the commission.
+
+     An earlier round's number goes in the **Finding** cell, which is prose.
+     In the `#` cell it is digits, and digits there are an id.
 
      Severities name what they require, not a rank:
      🔴 blocks merge · 🟡 needs grounds · 🟢 matches · ❓ could not be judged.

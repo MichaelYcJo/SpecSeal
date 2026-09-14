@@ -169,6 +169,16 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   named as its answerer. A question with no field to sit in becomes a seal
   taken over an axis nobody decided.
 
+  **Write that row with no id in its `#` cell.** `❓ out of verified scope`
+  is a closing verdict and commissions nothing, so no fix table can reference
+  it and none is asked for it. Numbered, it used to be counted as an open
+  finding: `close` refused to run until a fix row existed for it, and then
+  wrote that row's word over your marker — which is a settled verdict on a
+  check nobody ran. A row that commissions nothing takes no id at all, and so
+  does a confirmation you verified and an earlier round's closure you carried
+  forward (`docs/review-chain-spec.md` §*A verdict row that commissions
+  nothing*).
+
   Stated intent is the sharpest case, because it is often right. If the
   behavior is called deliberate, go looking for it in the policy documents,
   the SDD set, or the ledger. Found there, it is grounds. Found nowhere but

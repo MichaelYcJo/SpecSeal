@@ -52,9 +52,13 @@ from test_the_fixes_close_the_record import (
 )
 from test_the_record_is_generated import (
     ROOT,
+    ROUNDS,
     commit,
+    declared,
+    generate,
     generator_module,
     reader_module,
+    report,
     write,
 )
 
@@ -79,28 +83,58 @@ def a_fix(repo):
     return commit(repo, "fix")
 
 
+def hand_edited(repo, before, after):
+    """Round 1's record, its `#` cell replaced the way a hand-edit would.
+
+    `new` refuses a malformed id at the report now, so a hand-edit is the one
+    remaining way one reaches `close` — and `close` still has to refuse it.
+    The two halves are the same rule read at two moments, which is what this
+    whole work item is about: a record the generator did not write is exactly
+    what the second reading exists to hold.
+    """
+    path = repo / ROUNDS / "round-1.md"
+    text = path.read_text(encoding="utf-8")
+    assert before in text, f"the record does not carry {before!r}"
+    path.write_text(text.replace(before, after), encoding="utf-8")
+
+
+def a_report(repo, verdicts):
+    """`new` over a report carrying `verdicts`; returns (code, output)."""
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(verdicts=verdicts))
+    return code, out
+
+
 # --- the id the reviewer picks ----------------------------------------------
 
 
 def test_a_round_prefixed_verdict_id_is_refused_naming_the_format(repo):
-    """#227's own numbering, in the verdict table `new` copied from the report."""
-    a = round_one(
+    """#227's own numbering, in the verdict table. It is refused at `new`
+    now — where the reviewer who chose it is — rather than two commands
+    later at `close`."""
+    code, out = a_report(
         repo,
-        verdicts=(
-            "| 🔴 R2-1 | helper drops b | `mod.py#helper` | open | executed |\n"
-            "| 🟡 R2-2 | only_tested ignores rest | `mod.py:5` | open | read |\n"
-        ),
-    )
-    b = a_fix(repo)
-    code, out, _ = close(
-        repo, 1, fix_table(f"| R2-1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+        "| 🔴 R2-1 | helper drops b | `f.py:1` | open | executed |\n"
+        "| 🟡 R2-2 | only_tested ignores rest | `f.py:1` | open | read |\n",
     )
     assert code == 2, out
     # The format, named. The old message named a duplicate instead.
     assert "bare integer" in out, out
-    # The row, quoted. The old message quoted nothing.
-    assert "R2-1" in out, out
+    # The rows, quoted. The old message quoted neither.
+    assert "R2-1" in out and "R2-2" in out, out
     assert "two verdict rows" not in out, "the duplicate that was not one"
+
+
+def test_a_hand_edited_record_still_meets_the_rule_at_close(repo):
+    """`new` refusing does not retire the reading at `close`. A record is a
+    file somebody can open and edit, and `close` keys every row of it."""
+    a = round_one(repo, verdicts=OPEN_1)
+    hand_edited(repo, "| 🔴 1 |", "| 🔴 R2-1 |")
+    b = a_fix(repo)
+    code, out, _ = close(repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}")
+    assert code == 2, out
+    assert "bare integer" in out, out
+    assert "R2-1" in out, out
 
 
 def test_a_round_prefixed_fix_table_id_is_refused_naming_the_format(repo):
@@ -125,17 +159,14 @@ def test_the_refusal_names_the_table_it_read(repo, carries_it):
     and the fixer's copy is refused for what the reviewer chose."""
     generator = generator_module()
     on_record = carries_it == "record"
-    a = round_one(
-        repo,
-        verdicts=(
-            "| 🔴 1a | one | `mod.py#helper` | open | read |\n" if on_record else OPEN_1
-        ),
-    )
-    b = a_fix(repo)
-    bad_id = "1a" if not on_record else "1"
-    code, out, _ = close(
-        repo, 1, fix_table(f"| {bad_id} | fixed | {b[:7]} |\n"), f"{a}..{b}"
-    )
+    if on_record:
+        code, out = a_report(repo, "| 🔴 1a | one | `f.py:1` | open | read |\n")
+    else:
+        a = round_one(repo, verdicts=OPEN_1)
+        b = a_fix(repo)
+        code, out, _ = close(
+            repo, 1, fix_table(f"| 1a | fixed | {b[:7]} |\n"), f"{a}..{b}"
+        )
     want = generator.RECORD_LABEL if on_record else generator.FIX_TABLE_LABEL
     other = generator.FIX_TABLE_LABEL if on_record else generator.RECORD_LABEL
     assert code == 2, out
@@ -144,16 +175,18 @@ def test_the_refusal_names_the_table_it_read(repo, carries_it):
 
 
 @pytest.mark.parametrize(
-    "bad",
-    ["R2-1", "1-1", "1b", "A2", "N1", "A", "carried", "round 2's finding (🟡 4)"],
+    "bad", ["R2-1", "1-1", "1b", "A2", "N1", "round 2's finding (🟡 4)"]
 )
 def test_every_shape_the_corpus_holds_is_refused_by_name(repo, bad):
-    """The eight shapes committed records actually carry in that column.
-    Each is refused, and each refusal quotes the cell it refused — with
-    eight rows and no coordinate, the ticket's complaint was the scan."""
-    a = round_one(
-        repo, verdicts=f"| 🔴 {bad} | one | `mod.py#helper` | open | read |\n"
-    )
+    """The shapes committed records carry in that column that were REACHING
+    for an id and missed. Each is refused, and each refusal quotes the cell —
+    with eight rows and no coordinate, the ticket's complaint was the scan.
+
+    `A` and `carried` left this list when #321 landed: they carry no digit, so
+    they were never an id, and they are what a row that commissions nothing
+    looks like. The case below is their half.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
     b = a_fix(repo)
     code, out, _ = close(
         repo, 1, fix_table(f"| {bad} | fixed | {b[:7]} |\n"), f"{a}..{b}"
@@ -162,6 +195,24 @@ def test_every_shape_the_corpus_holds_is_refused_by_name(repo, bad):
     assert "bare integer" in out, out
     # The whole row, not just the cell — a bare `A` would match anything.
     assert f"| {bad} | fixed |" in out, out
+
+
+@pytest.mark.parametrize("none", ["A", "carried", "✅", "🟢 fix-surface", "—"])
+def test_every_no_digit_shape_the_corpus_holds_is_admitted(repo, none):
+    """The other half of the corpus, and the one #321 is about. A cell with no
+    digit in it was never reaching for an id, so refusing it asked a reviewer
+    to number a row that commissions nothing — and the record then reads as a
+    round with twice the findings it had."""
+    a = round_one(
+        repo, verdicts=OPEN_1 + f"| {none} | verified | `mod.py` | verified | read |\n"
+    )
+    b = a_fix(repo)
+    code, out, record = close(
+        repo, 1, fix_table("| 1 | answered | b is never passed |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    assert "bare integer" not in out, out
+    assert f"| {none} | verified |" in record, record
 
 
 @pytest.mark.parametrize("marker", ["🔴", "🟡", "🟢", "⬜", "❓", "✅"])
@@ -232,15 +283,11 @@ def test_a_long_punctuation_cell_is_refused_without_hanging():
 def test_a_duplicate_verdict_id_quotes_both_rows(repo):
     """When two rows really do carry the same id, the refusal names both.
     Naming one is the manual scan the ticket paid for."""
-    a = round_one(
+    code, out = a_report(
         repo,
-        verdicts=(
-            "| 🔴 3 | the first three | `mod.py#helper` | open | executed |\n"
-            "| 🟡 3 | the second three | `mod.py:5` | open | read |\n"
-        ),
+        "| 🔴 3 | the first three | `f.py:1` | open | executed |\n"
+        "| 🟡 3 | the second three | `f.py:1` | open | read |\n",
     )
-    b = a_fix(repo)
-    code, out, _ = close(repo, 1, fix_table(f"| 3 | fixed | {b[:7]} |\n"), f"{a}..{b}")
     assert code == 2, out
     assert "the first three" in out and "the second three" in out, out
 
@@ -410,6 +457,157 @@ def test_the_rule_is_one_constant_both_tables_read():
     )
 
 
+# --- a row that commissions nothing (#321, #341, #353) ----------------------
+
+# The six shapes the corpus already carries in that column, none of them a
+# finding: a confirmation the round verified, a fix-surface re-derivation, an
+# earlier round's closure carried forward, a bare dash, and a scope marker.
+# Measured 2026-09-14 over the 207 committed records that parse: 51 rows carry
+# a `#` cell with no digit anywhere in it, and 21 reports carry a bare dash.
+CONFIRMED = (
+    "| \N{WHITE HEAVY CHECK MARK} | the pipe escape still renders "
+    "| `mod.py#helper` | verified | read |\n"
+    "| \N{WHITE HEAVY CHECK MARK} | the reach-back still sets round 1 "
+    "| `mod.py#caller` | verified | read |\n"
+    "| \N{LARGE GREEN CIRCLE} fix-surface | both rows re-derived | `mod.py` "
+    "| verified | executed |\n"
+    "| carried | round 1's \N{LARGE YELLOW CIRCLE} 4, not re-opened "
+    "| `README.md` | verified | read |\n"
+    "| \N{EM DASH} | the corpus count re-measured | `mod.py:5` | verified "
+    "| executed |\n"
+    "| \N{BLACK QUESTION MARK ORNAMENT} | nothing else was in scope | `mod.py` "
+    "| verified | read |\n"
+)
+
+
+def test_six_rows_with_no_id_stand_beside_one_finding_and_commission_nothing(repo):
+    """#321's answer 2. A round that verified six things and opened one used
+    to have to number all seven, which reads back as a seven-finding round.
+
+    The row is copied, never keyed, and never asked for a closure — so the fix
+    table carries one row and `close` exits 0 with the six standing as the
+    reviewer wrote them.
+    """
+    a = round_one(repo, verdicts=OPEN_1 + CONFIRMED)
+    b = a_fix(repo)
+    code, out, record = close(
+        repo,
+        1,
+        fix_table("| 1 | answered | b is never passed |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 0, out
+    assert "left with no row in the fix table" not in out, out
+    for line in CONFIRMED.strip().splitlines():
+        assert line.strip() in record, (line, record)
+    assert "- [x] Pass" in record, out
+
+
+def test_a_row_with_no_id_does_not_decide_pass(repo):
+    """The six rows read `verified`, which is in no vocabulary. Counted as
+    verdicts they would each be OPEN and `Pass` could never be ticked — so
+    admitting the row and then reading its verdict word would trade one
+    refusal for another."""
+    a = round_one(repo, verdicts=OPEN_1 + CONFIRMED)
+    b = a_fix(repo)
+    _, out, record = close(
+        repo, 1, fix_table("| 1 | answered | the rest is never passed |\n"), f"{a}..{b}"
+    )
+    assert "- [x] Pass" in record, out
+
+
+def test_a_fix_table_row_with_no_id_is_refused(repo):
+    """The verdict table admits an id-less row and the fix table cannot: a fix
+    row with no id references no finding, and `close` would have nothing to
+    apply it to. The two tables are the same rule read in opposite directions
+    — one names a row that commissions nothing, the other is the commission."""
+    a = round_one(repo, verdicts=OPEN_1)
+    b = a_fix(repo)
+    code, out, _ = close(
+        repo, 1, fix_table(f"| \N{EM DASH} | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 2, out
+    assert "bare integer" in out, out
+
+
+def test_an_earlier_rounds_number_in_the_hash_cell_is_still_refused(repo):
+    """The round and the number belong in the Finding cell, which is prose.
+    Put into the `#` cell they are digits, and digits there are an id: `round
+    2's 1` keyed as finding **2** under the old reader — colliding with this
+    round's own 2 — and is refused by name under the new one. The refusal says
+    where the row's own spelling is, which is the half a reviewer meets."""
+    code, out = a_report(
+        repo,
+        "| 🟢 round 2's 1 | the parser row | `f.py:1` | answered | closed in 2 |\n",
+    )
+    assert code == 2, out
+    assert "carries no id at all" in out, out
+
+
+def test_an_earlier_rounds_closure_does_not_collide_with_this_rounds_findings(repo):
+    """#341's body. A round 3 report closing round 2's findings 1 and 2 while
+    opening its own 1 and 2 used to produce a duplicate-id refusal out of a
+    table holding four distinct rows. The closures carry no id, so nothing
+    collides and the four rows are distinguishable in the record."""
+    a = round_one(
+        repo,
+        verdicts=(
+            OPEN_1
+            + "| \N{LARGE YELLOW CIRCLE} 2 | only_tested ignores rest | `mod.py:5` "
+            "| open | read |\n"
+            "| \N{LARGE GREEN CIRCLE} | round 2's finding 1, re-read "
+            "| `mod.py#helper` | answered | closed in round 2 |\n"
+            "| \N{LARGE GREEN CIRCLE} | round 2's finding 2, re-read "
+            "| `mod.py#caller` | answered | closed in round 2 |\n"
+        ),
+    )
+    b = a_fix(repo)
+    code, out, record = close(
+        repo,
+        1,
+        fix_table(
+            "| 1 | answered | b is never passed |\n",
+            "| 2 | answered | rest is never passed |\n",
+        ),
+        f"{a}..{b}",
+    )
+    assert code == 0, out
+    assert "two verdict rows" not in out, out
+    assert "round 2's finding 1, re-read" in record, record
+    assert "round 2's finding 2, re-read" in record, record
+
+
+def test_one_refusal_names_every_malformed_row(repo):
+    """#303, merged into #321: five offending rows and a message naming one,
+    at two round trips per repair. The refusal is the deliverable, so it
+    carries the whole set."""
+
+    declared(repo)
+    rows = "".join(
+        f"| R2-{n} | finding {n} | `f.py:1` | open | read |\n" for n in range(1, 6)
+    )
+    code, out, _ = generate(repo, report_text=report(verdicts=rows))
+    assert code == 2, out
+    for n in range(1, 6):
+        assert f"R2-{n}" in out, (n, out)
+    assert out.count("bare integer") == 1, out
+
+
+def test_a_malformed_id_is_refused_at_new_where_the_author_is(repo):
+    """#321's answer 1, kept for the rows that DO carry an id. `new` copied a
+    `#` cell through `copied_row` validating nothing, so a numbering the
+    reviewer chose surfaced two commands later at `close`. It is refused where
+    the report is, and `close` still refuses it for a record written by hand."""
+
+    declared(repo)
+    code, out, _ = generate(
+        repo, report_text=report(verdicts="| R2-1 | one | `f.py:1` | open | read |\n")
+    )
+    assert code == 2, out
+    assert "bare integer" in out, out
+    assert "R2-1" in out, out
+
+
 # --- what a person reads ----------------------------------------------------
 
 
@@ -424,3 +622,23 @@ def test_the_documents_say_where_the_reviewer_picks_the_number():
         with open(f"{ROOT}/{rel}", encoding="utf-8") as f:
             text = " ".join(f.read().split())
         assert "bare integer" in text, rel
+
+
+def test_the_documents_say_that_a_row_commissioning_nothing_takes_no_id():
+    """§14: the refusal moved, so the sentence a reviewer reads moves with it
+    in the same commit. A rule stated only at the point of refusal reaches a
+    report that is already written — which is why #321's answer 3 was rejected
+    as a mechanism and kept as this obligation."""
+    for rel in (
+        "skills/code-review/SKILL.md",
+        "docs/review-chain-spec.md",
+        "templates/sdd-round.md",
+    ):
+        with open(f"{ROOT}/{rel}", encoding="utf-8") as f:
+            text = " ".join(f.read().split())
+        assert "commissions nothing" in text, rel
+        # The direction it fails in, where the reviewer picks the number.
+        assert "no id" in text, rel
+    with open(f"{ROOT}/agents/warden.md", encoding="utf-8") as f:
+        warden = " ".join(f.read().split())
+    assert "commissions nothing" in warden, "the agent that writes the marker"

@@ -673,8 +673,58 @@ and `r3 🟡 2` are not.
 | The cell | What happens |
 |---|---|
 | digits, with or without a marker in front | read as that finding |
-| anything else | **refused**, naming the format, quoting the cell and quoting the whole row |
+| **no digit anywhere in it** — `✅`, `🟢 fix-surface`, `carried`, `—` | in the **verdict** table, read as a row that commissions nothing: copied through, never keyed, never asked for a closure, never counted toward `Pass`. In the **`## Fixes`** table, refused — there the row IS the commission |
+| anything else | **refused**, naming the format and quoting **every** offending row of the table |
 | two rows that resolve to the same integer | **refused**, quoting **both** rows |
+
+Both readings happen at `new` as well as at `close`. `new` used to copy the
+`#` cell through `copied_row`, which validates nothing, so a numbering the
+reviewer chose surfaced two commands later at the orchestrator — one hop from
+either agent that could have avoided it.
+
+##### A verdict row that commissions nothing
+
+A row with no id is not an oversight, it is a shape reviewers reach for.
+Measured over the 207 committed records that parse: **51 of 1,989 verdict rows
+carry a `#` cell with no digit anywhere in it**, and 21 rows of reviewers'
+reports carry a bare em dash — about one row in thirty-seven. Three kinds:
+
+- **a confirmation** this round verified and did not open;
+- **an earlier round's closure**, carried into this round's table;
+- **`❓ out of verified scope`**, the reviewer looking and not judging.
+
+None can be referenced by a fix table, because none commissions anything. The
+old rule made a reviewer number all of them, so a round that opened six
+findings and confirmed six more read back as a twelve-finding round — and the
+count is what a later round and the pull request read.
+
+**An earlier round's number goes in the Finding cell**, which is prose:
+`| 🟢 | round 2's finding 1, re-read | … |`. In the `#` cell it is digits, and
+digits there are an id — `round 2's 1` keyed as finding **2** under the reader
+that took the first digit run, colliding with this round's own 2.
+
+**The direction this fails in, stated.** A reviewer who leaves the id off a row
+that IS an open finding has written a finding no fix table will be asked to
+close, and `close` exits 0 over it. Nothing catches that. The other mistake —
+numbering a confirmation row — costs an inflated count in one record. The
+change is toward the cheaper mistake, and the id is what says *somebody owes
+this an answer*.
+
+**`❓ out of verified scope` is a closing verdict**, in `chain_check.py`'s
+`CLOSED_WORDS` and in neither `FIX_WORDS` nor `HOME_WORDS` — it closes without
+commissioning, so nobody is asked to read fixes it did not produce. None of the
+three words a fix pass may write is true of it: there is no defect to fix, the
+round explicitly did not settle it, and nothing was deferred from a round it
+was never in. #353 measured the cost twice inside one run: `close` refused the
+row for want of a fix table entry, the orchestrator gave it `answered`, and the
+record then said the round had settled the one check neither round ran. The
+next round found exactly that and could not close its own copy except by
+replacing the marker a second time, in a different word.
+
+A severity marker leads a verdict cell and is not part of it, the same rule the
+`#` cell has always used. Applied to all 1,989 committed verdict rows, stripping
+a leading run of non-word characters changes the reading of exactly one cell,
+and that cell is this one.
 
 **The rule exists because the reader used to guess.** `round_record.py` took
 the first digit run anywhere in the cell, so `R2-1` and `R2-2` were both `2`

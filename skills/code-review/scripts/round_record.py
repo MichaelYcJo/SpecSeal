@@ -1925,7 +1925,24 @@ def build(reader, routing, args, root, item, rounds):
     needs = terminal_value(reader, lines, chain.NEEDS)
     floor = terminal_value(reader, lines, chain.FLOOR)
 
-    words = verdict_words(reader, verdicts)
+    # The report's own verdict table, keyed the way `close` will key it. Two
+    # things come out of reading it here rather than reading the copy:
+    #
+    # 1. A malformed id is refused where the AUTHOR is. `copied_row` validated
+    #    nothing, so a numbering the reviewer chose surfaced two commands
+    #    later, at `close`, one hop from either agent that could have avoided
+    #    it (#321's answer 1).
+    # 2. A row that commissions nothing is left out of `Pass` and out of
+    #    `landing_values`, which is what keeps the two subcommands agreeing.
+    #    Counted as a verdict, `✅ | … | verified |` reads OPEN — `verified`
+    #    is in no vocabulary — so `new` would tick no box for a round that
+    #    opened nothing, and `close` would tick one. The two halves refusing
+    #    each other is the defect, not a spelling of it.
+    keyed = verdict_rows(reader, lines)
+    words = [
+        chain.verdict_of([reader.visible(c) for c in cells], VERDICT_COL)
+        for _i, cells in keyed.values()
+    ]
     open_rows = [w for w in words if w not in chain.CLOSED_WORDS]
     checker, surface = landing_values(words)
 
@@ -2286,6 +2303,14 @@ BARE_IDENTIFIER_RE = re.compile(r"^([A-Za-z_]\w*)(?:\(\))?$")
 # the run; measured identical over 16 id shapes, and a 4000-character run
 # now refuses in 0.00014 s.
 FINDING_ID_RE = re.compile(r"^(?:[^\w\s]\s*)*(\d+)$")
+# What tells a row that names NO finding apart from a row that names one
+# badly. A cell carrying a digit was reaching for an id and missed -- `R2-1`,
+# `1-1`, `1b` -- and is refused. A cell carrying none was never an id: it is
+# `✅`, `carried`, `🟢 fix-surface`, an em dash. The discriminator is the
+# corpus's rather than a spelling this work invented: 199 of the 253 cells the
+# rule refuses carry digits and 51 carry none, and the two populations do not
+# overlap on anything a reviewer writes.
+DIGIT_RE = re.compile(r"\d")
 BARE_ID = "a bare integer"
 # Which of the two tables a refusal is about. The reviewer writes one and the
 # fixer copies the numbering into the other, so a message naming the format
@@ -2295,30 +2320,52 @@ FIX_TABLE_LABEL = "fix table"
 DEPTH_EXIT = "deferred with a named answerer, or becomes an issue"
 
 
-def finding_number(label, seen, line, taken):
-    """The finding one `#` cell names, or `Refused` naming format and row.
+def finding_number(label, seen, line, taken, bad, idless):
+    """The finding one `#` cell names, `None` for a row that names none, or
+    `Refused` for a duplicate.
 
-    Two refusals, and #227 is that the old code could produce only the
-    second, out of a table that held no duplicate. Both name the table they
-    read, quote the offending cell, and quote the whole row — with eight rows
-    and no coordinate, finding the pair was a manual scan.
+    Three readings of the cell, and the third is #321's:
 
-    `taken` is {number: the row that already claimed it}, so the duplicate
-    refusal can quote both rows rather than assert that two exist.
+      digits behind an optional marker   the finding, keyed
+      no digit anywhere in the cell      `None` where `idless` is on — a row
+                                         that commissions nothing, admitted
+                                         and left exactly as it was written
+      anything else                      appended to `bad`, and so is a
+                                         no-digit cell where `idless` is off
+
+    **A row that commissions nothing is a shape reviewers reach for, not an
+    oversight.** Measured 2026-09-14 over the 207 committed records that
+    parse: 51 of 1,989 verdict rows carry a `#` cell with no digit anywhere in
+    it — `✅`, `🟢 fix-surface`, `carried` — and 21 rows of reviewers' reports
+    carry a bare em dash. That is one row in thirty-seven. Three tickets are
+    the same shape: a confirmation the round verified and did not open (#321),
+    an earlier round's closure carried into this round's table (#341), and a
+    `❓ out of verified scope` marker (#353). None of them can be referenced
+    by a fix table, because there is nothing to commission.
+
+    `idless` is off for the fix table, where the row IS the commission: a fix
+    row naming no finding has nothing to apply itself to.
+
+    **`bad` is a list rather than a raise.** #303, merged into #321, measured
+    five offending rows against a message naming one, at two round trips per
+    repair. The caller refuses once, with all of them. The duplicate refusal
+    stays immediate because it already quotes both of its rows, and `taken` is
+    {number: the row that already claimed it} so that it can.
+
+    What this gives up is stated rather than left to be found: a reviewer who
+    forgets the id on a row that IS an open finding has written a finding no
+    fix table will be asked to close, and `close` exits 0 over it. That is the
+    one direction this fails in, and the documents that say so are edited in
+    the same commit — the cheaper mistake is the other one, where numbering a
+    confirmation row costs an inflated count in one record.
     """
     text = chain.EMPHASIS.sub("", seen).strip()
     m = FINDING_ID_RE.match(text)
     if not m:
-        raise Refused(
-            f"the {label} has a row whose `#` reads {seen!r}, and a finding id "
-            f"is {BARE_ID} — an optional severity marker, then digits and "
-            "nothing else (`1`, `\N{LARGE RED CIRCLE} 2`, "
-            "`\N{WHITE LARGE SQUARE} 13`). A round-prefixed id collapses "
-            "toward one key: `R2-1` and `R2-2` are the same digits to a reader "
-            "that takes the first run, which is how eight findings became one. "
-            "Number this round's findings 1..N and let the record's own file "
-            f"name carry the round. The row: {line.strip()}"
-        )
+        if idless and not DIGIT_RE.search(text):
+            return None
+        bad.append((text, line))
+        return None
     number = int(m.group(1))
     if number in taken:
         raise Refused(
@@ -2329,6 +2376,31 @@ def finding_number(label, seen, line, taken):
         )
     taken[number] = line
     return number
+
+
+def id_refusal(label, bad):
+    """`Refused` naming the format and quoting every offending row, or None.
+
+    One message for the whole table. The explanation is written once and the
+    rows are listed under it, so a reviewer repairing five of them reads the
+    rule once and opens the table once.
+    """
+    if not bad:
+        return None
+    many = "s" if len(bad) > 1 else ""
+    rows = "\n".join(f"    {text!r}: {line.strip()}" for text, line in bad)
+    return Refused(
+        f"the {label} has {len(bad)} row{many} whose `#` cell is not {BARE_ID} "
+        "— an optional severity marker, then digits and nothing else (`1`, "
+        "`\N{LARGE RED CIRCLE} 2`, `\N{WHITE LARGE SQUARE} 13`). A "
+        "round-prefixed id collapses toward one key: `R2-1` and `R2-2` are the "
+        "same digits to a reader that takes the first run, which is how eight "
+        "findings became one. Number this round's findings 1..N and let the "
+        "record's own file name carry the round. A verdict row that commissions "
+        "nothing — a confirmation, an earlier round's closure, a scope marker — "
+        "carries no id at all and is left as written; what is refused here is a "
+        f"cell that names something else.\nThe row{many}:\n{rows}"
+    )
 
 
 def part(label, text):
@@ -2772,12 +2844,22 @@ def fix_table(reader, path):
     # than to that file. Verified 2026-09-08 against fix_table@884956f3.
     text = read_text(path, "fix table")
     raw, lines = text.splitlines(), reader.readable(text)
-    out, taken = {}, {}
+    out, taken, bad, keyed = {}, {}, [], []
+    # Two passes, so the id refusal names every offending row before a verdict
+    # word on some other row can refuse first. `idless` is off here: in this
+    # table the row IS the commission, and one naming no finding has nothing
+    # to apply itself to.
     for i, cells in table_body(reader, lines, FIXES, FIXES_HEADER, True):
         seen = [reader.visible(c) for c in cells]
         if len(seen) < len(FIXES_HEADER):
             raise Refused(f"a fix row has {len(seen)} cells: {raw[i].strip()!r}")
-        number = finding_number(FIX_TABLE_LABEL, seen[0], raw[i], taken)
+        number = finding_number(FIX_TABLE_LABEL, seen[0], raw[i], taken, bad, False)
+        if number is not None:
+            keyed.append((number, seen))
+    refusal = id_refusal(FIX_TABLE_LABEL, bad)
+    if refusal is not None:
+        raise refusal
+    for number, seen in keyed:
         verdict = chain.EMPHASIS.sub("", seen[1]).strip().rstrip(".").strip()
         word, third = verdict.lower(), seen[2].strip()
         if word == FIXED:
@@ -2820,14 +2902,33 @@ def fix_table(reader, path):
 
 
 def verdict_rows(reader, lines):
-    """{finding number: (index, cells)} for round N's verdict table."""
-    out, taken = {}, {}
+    """{finding number: (index, cells)} for the verdict table in `lines`.
+
+    A row whose `#` cell names no finding is absent from the mapping, which
+    is the whole of what a row that commissions nothing costs downstream:
+    `close` never asks a fix table for it, never writes a verdict word over
+    it, and never counts it toward `Pass`.
+
+    Read from the RECORD on the `close` path and from the REPORT on the `new`
+    path. The two tables carry the same heading under the same header — that
+    is what lets `table_of` copy one into the other — so the ids a reviewer
+    chose are refused where the reviewer is rather than two commands later at
+    the orchestrator (#321's answer 1, which composes with answer 2 above
+    rather than replacing it).
+    """
+    out, taken, bad = {}, {}, []
     for i, cells in table_body(reader, lines, VERDICTS, VERDICT_HEADER, True):
         seen = [reader.visible(c) for c in cells]
         if len(seen) <= NUMBER_COL:
             raise Refused(f"a verdict row has no `#` cell: {lines[i].strip()!r}")
-        number = finding_number(RECORD_LABEL, seen[NUMBER_COL], lines[i], taken)
-        out[number] = (i, cells)
+        number = finding_number(
+            RECORD_LABEL, seen[NUMBER_COL], lines[i], taken, bad, True
+        )
+        if number is not None:
+            out[number] = (i, cells)
+    refusal = id_refusal(RECORD_LABEL, bad)
+    if refusal is not None:
+        raise refusal
     return out
 
 

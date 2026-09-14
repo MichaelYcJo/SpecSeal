@@ -278,10 +278,28 @@ and a reader; `Needs a fix` counts 🔴 and 🟡 only.
 
 **Number the findings 1..N — the id is a bare integer.** The marker may lead
 it (`🔴 1`, `⬜ 13`); nothing else may. `R2-1`, `1-1`, `1b` and `A2` are
-refused by `round_record.py`, which names the format and quotes the row. Do
-not put the round in the id: `rounds/round-N.md`'s own file name carries it,
-and a prefixed id used to collapse eight findings toward one key in silence
-(#227, `docs/review-chain-spec.md` §*The finding id*).
+refused by `round_record.py`, which names the format and quotes every row that
+carries one. Do not put the round in the id: `rounds/round-N.md`'s own file
+name carries it, and a prefixed id used to collapse eight findings toward one
+key in silence (#227, `docs/review-chain-spec.md` §*The finding id*).
+
+**A row that commissions nothing takes no id at all**, and its `#` cell holds
+the marker alone or a word — `✅`, `🟢 fix-surface`, `carried`, `—`. Three
+kinds of row are that: something this round verified and did not open, an
+earlier round's closure carried into this table, and a `❓ out of verified
+scope` marker. None of them can be referenced by a fix table, because there is
+nothing to commission, and numbering them makes a six-finding round read back
+as a twelve-row one.
+
+**Which way the mistake costs more.** Numbering a confirmation row inflates one
+record's count; leaving the id off a row that IS an open finding writes a
+finding no fix table will be asked to close, and `close` exits 0 over it.
+Nothing catches the second, so the id is what says *somebody owes this an
+answer* — put one on every finding and on nothing else.
+
+An earlier round's number goes in the **Finding** cell, which is prose:
+`| 🟢 | round 2's finding 1, re-read | … |`. In the `#` cell it is digits, and
+digits there are an id.
 
 **This is the one format choice a reviewer makes that another agent pays
 for.** The fix pass copies your numbering into its `## Fixes` table, so a
