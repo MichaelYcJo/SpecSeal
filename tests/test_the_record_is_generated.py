@@ -472,6 +472,82 @@ def test_prose_below_the_terminal_block_is_not_swallowed(repo):
     )
 
 
+# The other direction of the same guard, and the one nothing reached until
+# round 4 of #120. Each tail is a genuine hand-wrapped continuation whose
+# first characters look like a block opener, and each is a shape the reports
+# in this repository write as a matter of course.
+#
+# The second element says what the arm was seen red against, because the five
+# are not red against one thing and §15 asks for the demonstration rather than
+# the assertion. `base` is `BLOCK_START` as it stood at `5e09345`, whose bare
+# `#` reads an issue number at the head of a line as a heading. `space` is
+# this module's own pattern with the space requirement dropped from one
+# alternative — the widening `plan.md` §*Alternatives considered* rejects,
+# spelled as a one-character mutation of what ships. `boundary` is neither: no
+# candidate pattern ever cut those two, and they are kept because they say
+# where the guard stops, not because they caught it.
+CONTINUES_THE_LINE = (
+    ("#120's parser is the one that matters.", "base"),
+    ("#296 and #297 are the neighbours.", "base"),
+    ("**bold** opens the second half of the clause.", "space"),
+    ("<div> is prose here, not a block.", "boundary"),
+    ("    an indented continuation of the clause above.", "boundary"),
+)
+
+
+@pytest.mark.parametrize("tail,red_against", CONTINUES_THE_LINE)
+def test_a_continuation_that_looks_like_an_opener_is_still_joined(
+    repo, tail, red_against
+):
+    """A wrapped line is one value, and `BLOCK_START` must not cut it.
+
+    Round 4 of #120 found realistic continuations truncated with no refusal,
+    `#120` at the head of a line among them, in a repository that writes issue
+    numbers that way in every record it keeps. A truncated cell reads as a
+    finished sentence, so nobody looks — which is why the join exists, and why
+    the guard over it is a narrowing rather than a list of markers."""
+    declared(repo)
+    head = "yes — the regression this branch introduced in"
+    code, out, text = generate(
+        repo,
+        report_text=report(lines=False)
+        + f"Needs a fix: {head}\n{tail}\nLoses a record or crashes: no\n",
+    )
+    assert code == 0, out
+    # Each continuation is stripped before it is joined, so the indented arm
+    # expects its own text without the indent. Asserting the tail as written
+    # turns that arm red on the assertion rather than on the guard, which is
+    # what it did when it was first planted.
+    assert fields(text)["Needs a fix"] == f"{head} {tail.strip()}", (
+        f"{tail!r} is a continuation of the line above it and was cut off it "
+        f"(this arm goes red against the {red_against} pattern)"
+    )
+
+
+# A whole line of one punctuation character is a block in its own right — a
+# thematic break, or a setext underline over the line above it — and so is an
+# ordered list item written `1)` rather than `1.`. All five join into the cell
+# against the pattern at `5e09345`: its `[-*+]\s` asks for a space the run of
+# three does not have, and its `\d+\.\s` wants a literal dot.
+STOPS_THE_JOIN = ("---", "___", "***", "===", "1) Proof, not prose.")
+
+
+@pytest.mark.parametrize("under", STOPS_THE_JOIN)
+def test_a_block_of_its_own_under_the_pair_stops_the_join(repo, under):
+    """The swallow direction, at the shapes the space requirement costs.
+
+    Taking the run-of-three markers out of the marker class is what makes
+    `**bold**` a continuation, and it takes the thematic break out with them.
+    They come back as whole-line alternatives, which is the trade
+    `.github/scripts/issue_claims_check.py` already made and measured."""
+    declared(repo)
+    code, out, text = generate(repo, report_text=report(floor="no") + f"{under}\n")
+    assert code == 0, out
+    assert fields(text)["Loses a record or crashes"] == "no", (
+        f"{under!r} opens a block of its own and was joined into the cell"
+    )
+
+
 @pytest.mark.parametrize("missing", ["Needs a fix", "Loses a record or crashes"])
 def test_a_report_without_one_of_the_two_lines_is_refused(repo, missing):
     declared(repo)

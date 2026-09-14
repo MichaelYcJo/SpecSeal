@@ -1227,7 +1227,48 @@ def fenced_after(reader, raw, lines, heading):
 # A line that opens a new markdown block, so the terminal value stops before
 # it. The blank line is the ordinary end and markdown needs one anyway; these
 # are the shapes a report puts next to a terminal line without one.
-BLOCK_START = re.compile(r"^\s*(#|\||>|[-*+]\s|\d+\.\s|```|~~~)")
+#
+# Every marker CommonMark requires a space after asks for one here, which is
+# what the previous spelling got wrong in both directions at once. A bare `#`
+# reads `#120` at the head of a line as a heading, and a continuation
+# beginning `#120` is this module's own subject hard-wrapped — in a repository
+# that writes issue numbers that way in every record it keeps. The space
+# requirement then takes the run-of-three markers out of the class, so a
+# thematic break and a setext underline come back as whole-line alternatives
+# of their own; `\r*$` on each is what makes a CRLF checkout read like an LF
+# one. `\d+[.)]` is there because `1)` is an ordered list item and `\d+\.`
+# alone let one through.
+#
+# **What it does not cover, and cannot.** A continuation that opens with an
+# HTML tag, with `**bold**`, or with an indented run of prose is
+# indistinguishable from a block opener by its first characters, and this
+# pattern joins all three rather than guessing. Widening it to catch them is
+# how the truncation got here: every marker added is one more shape a genuine
+# continuation may not begin with, and a truncated cell reads as a finished
+# sentence, so nobody looks. **The blank line under the terminal pair is the
+# only stop that covers every shape**, which is why `agents/warden.md` asks
+# the reviewer for one rather than relying on this.
+#
+# `.github/scripts/issue_claims_check.py#BLOCK_START` segments hand-wrapped
+# prose for the same reason and pays the same price. The alternatives below
+# are its, plus the two fence openers this module needs, and the two are kept
+# spelled alike on purpose — `skills/code-review/scripts/survivor_check.py`
+# is the third carrier of the same shape. They are not shared through an
+# import: the two script roots ship on different paths and neither can reach
+# the other.
+BLOCK_START = re.compile(
+    r"^[ \t]*(?:"
+    r"[-*+](?=\s)"
+    r"|\#{1,6}(?=\s|$)"
+    r"|\d+[.)](?=\s)"
+    r"|[>|]"
+    r"|```|~~~"
+    r"|(?:-[ \t]*){3,}\r*$"
+    r"|(?:\*[ \t]*){3,}\r*$"
+    r"|(?:_[ \t]*){3,}\r*$"
+    r"|=+[ \t]*\r*$"
+    r")"
+)
 
 
 def terminal_value(reader, lines, label):
@@ -1249,6 +1290,15 @@ def terminal_value(reader, lines, label):
     or at a line opening a new markdown block. That last guard is not
     decoration: ` ` is in `chain.SEPARATORS`, so a swallowed prose line parses
     as a `no` with a reason and lands in the cell looking deliberate.
+
+    **The third stop is a narrowing and it does not cover every shape.**
+    `BLOCK_START` above says which shapes it catches and which it deliberately
+    joins instead of guessing at — an HTML tag, `**bold**` and an indented run
+    of prose among the second kind. Only the blank line covers all of them, so
+    a report that leaves one under the terminal pair is the shape nothing can
+    get wrong. `docs/review-handoff-protocol.md` §*The Needs a fix field — the
+    answer a run ends on* states that rule for a second implementation, and
+    `agents/warden.md` §*Report* asks the reviewer for the blank line.
     """
     pattern = re.compile(r"^\s*" + re.escape(label) + r"\s*:\s*(.*?)\s*$")
     others = tuple(
