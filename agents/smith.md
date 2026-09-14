@@ -85,7 +85,7 @@ incorporation. This file only adds what the skill does not carry.
         example -- so the standing instruction above is still right and its
         stated consequence is not. Why it is silenced is unanswered and is
         nobody's finding yet.
-        Verified 2026-09-14 against "## Phases"@2b67d985. -->
+        Verified 2026-09-14 against "## Phases"@5709bf9a. -->
 
    Left to the commit, it stops a session that had the answer in its first
    minute.
@@ -156,6 +156,11 @@ incorporation. This file only adds what the skill does not carry.
    with `corrected at <sha>` as its grounds, never `fixed`: `fixed`
    commissions the reader a correction does not owe
    (`docs/review-chain-spec.md` §*The last round verifies* owns the rule).
+   A repair you made outside the tree — a `gh issue edit`, an edit to a pull
+   request body — takes the same shape for the same reason: it produced no
+   commit in the range, and a commit somebody can open is the whole of what
+   `fixed` asserts. The Verdict cell holds the word alone in both cases;
+   only `deferred` carries its own suffix.
    The build's phases keep theirs.
 
    **Once the fixes are committed, ask what they left standing**, over the

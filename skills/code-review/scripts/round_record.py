@@ -349,6 +349,23 @@ DASH = chr(0x2014)
 # fixes exist, spelled from the checker's own words.
 PENDING_CHECKER = f"{chain.NOBODY} {DASH} {chain.NOT_YET}"
 PENDING_SURFACE = f"{chain.NONE_WORD} {DASH} {chain.NOT_YET}"
+# What the checker row says once `close` has applied a fix table that closed
+# something on a fix word. `nobody` is still the truth -- the ordering rule
+# requires a checker to be a LATER round, and none exists at this moment --
+# and the REASON is not: the fixes are named in this record's own verdict
+# cells, two rows below, so *not yet written* is false beside the commits that
+# wrote them (#273 part 1).
+#
+# `nobody -- <why>` is the shape, so `checked_by` reads it exactly as it read
+# the landing value: that arm splits the word from its reason and requires
+# only that a reason exist. Measured before this was written -- neither arm of
+# `chain_check` reads the reason text. `fix_surface`'s pending arm keys on
+# `CHECKER_RE`, which matches `round-N` and neither spelling of this, and the
+# `says_not_yet` it then applies reads the SURFACE row, which `close` fills
+# from the diff.
+WRITTEN_CHECKER = (
+    f"{chain.NOBODY} {DASH} the fixes are written and no round has opened them"
+)
 # The rows a comma splits. `depth_problems` reads a comma inside a `New
 # units` entry as a second unit, and `fix_surface`'s reach list is
 # comma-separated, so a comma in either is structure and not punctuation.
@@ -1367,12 +1384,22 @@ def landing_values(words):
     describe.
 
     `new` derives both cells from the report's verdicts. `close` re-derives
-    the first after the fix table applies, for the record whose every verdict
-    closed on `deferred <home>` or `answered` — a capped run's last record has
-    no next round to set the cell, and the check refuses `Pass` beside
-    `nobody` there (`questions.md` A6 of the work item that added this). One
-    spelling, called from both, so the two subcommands cannot disagree about
-    which words commission a fix.
+    the first after the fix table applies and writes BOTH of its answers.
+    One spelling, called from both subcommands, so the two cannot disagree
+    about which words commission a fix.
+
+    **`close` used to write only `no fixes to check`**, for the record whose
+    every verdict closed on `deferred <home>` or `answered` — a capped run's
+    last record has no next round to set the cell, and the check refuses
+    `Pass` beside `nobody` there (`questions.md` A6 of the work item that
+    added this). The other answer was left standing on the grounds that a fix
+    was written and a later round owes it a reading, which is true of WHO and
+    false of WHAT: the landing value says the fixes are not yet WRITTEN, and
+    at this point they are written and named in the record's own verdict
+    cells two rows below. `close` corrects the reason and keeps `nobody`
+    (#273 part 1). It corrects only the landing value it recognises — a cell
+    naming a `round-N` is a later round's reading and is not this pass's to
+    touch.
     """
     open_rows = [w for w in words if w not in chain.CLOSED_WORDS]
     fixed_rows = [w for w in words if w in chain.FIX_WORDS]
@@ -1925,7 +1952,24 @@ def build(reader, routing, args, root, item, rounds):
     needs = terminal_value(reader, lines, chain.NEEDS)
     floor = terminal_value(reader, lines, chain.FLOOR)
 
-    words = verdict_words(reader, verdicts)
+    # The report's own verdict table, keyed the way `close` will key it. Two
+    # things come out of reading it here rather than reading the copy:
+    #
+    # 1. A malformed id is refused where the AUTHOR is. `copied_row` validated
+    #    nothing, so a numbering the reviewer chose surfaced two commands
+    #    later, at `close`, one hop from either agent that could have avoided
+    #    it (#321's answer 1).
+    # 2. A row that commissions nothing is left out of `Pass` and out of
+    #    `landing_values`, which is what keeps the two subcommands agreeing.
+    #    Counted as a verdict, `✅ | … | verified |` reads OPEN — `verified`
+    #    is in no vocabulary — so `new` would tick no box for a round that
+    #    opened nothing, and `close` would tick one. The two halves refusing
+    #    each other is the defect, not a spelling of it.
+    keyed = verdict_rows(reader, lines)
+    words = [
+        chain.verdict_of([reader.visible(c) for c in cells], VERDICT_COL)
+        for _i, cells in keyed.values()
+    ]
     open_rows = [w for w in words if w not in chain.CLOSED_WORDS]
     checker, surface = landing_values(words)
 
@@ -2286,6 +2330,40 @@ BARE_IDENTIFIER_RE = re.compile(r"^([A-Za-z_]\w*)(?:\(\))?$")
 # the run; measured identical over 16 id shapes, and a 4000-character run
 # now refuses in 0.00014 s.
 FINDING_ID_RE = re.compile(r"^(?:[^\w\s]\s*)*(\d+)$")
+# What tells a row that names NO finding apart from a row that names one
+# badly. A cell carrying a digit was reaching for an id and missed -- `R2-1`,
+# `1-1`, `1b` -- and is refused. A cell carrying none is admitted unless it is
+# empty or its severity owes an answer (`OWED_MARKERS` below).
+#
+# The corpus split is 199 carrying digits to 51 carrying none, and the 51 are
+# NOT one population -- which is the opposite of what this comment said for a
+# release. Re-derived through the module's own `table_body` over the same 207
+# records: 44 of the 51 are a severity marker and a single LETTER, `🔴 A`
+# through `🟢 O`, which is an id written in the wrong alphabet; and every one
+# of the 44 predates `round_record.py` (2026-09-02/03 against the generator's
+# 2026-09-05), so they are hand-written records from before a generator read
+# the column at all. Seven are the shape this rule is for: `carried` twice,
+# `🟢 fix-surface` twice, `🟢 fragment`, `🟢 grep`, `🟢 overview`. Neither `✅`
+# nor a bare em dash occurs in a committed record -- the 21 bare em dashes are
+# in reviewers' REPORTS, a different corpus. Zero cells are empty.
+#
+# So the evidence for admitting a no-digit cell is 7 rows, not 51, and the
+# dominant no-digit shape is a finding id. That is why the rule reads the
+# severity as well: it is 44 rows of a mistake this admission would otherwise
+# make silent.
+DIGIT_RE = re.compile(r"\d")
+# The two severities that mean somebody owes this row an answer, per
+# `skills/code-review/SKILL.md`'s scheme: 🔴 blocks merge, 🟡 needs grounds.
+# 🟢, ❓ and ⬜ commission nothing by definition, which is why they are absent.
+#
+# A no-digit cell carrying one of these two was an id in the wrong alphabet
+# rather than a row that commissions nothing, and the corpus says so without a
+# margin: all 26 such rows are genuine findings -- 11 later closed `fixed`, 4
+# `answered`, 11 still `open` -- and none of the 25 carrying 🟢, ❓ or no marker
+# is. The verdict word cannot do this job: a confirmation reads `verified`,
+# which is in no vocabulary and therefore OPEN, so reading it would trade one
+# refusal for another.
+OWED_MARKERS = ("\N{LARGE RED CIRCLE}", "\N{LARGE YELLOW CIRCLE}")
 BARE_ID = "a bare integer"
 # Which of the two tables a refusal is about. The reviewer writes one and the
 # fixer copies the numbering into the other, so a message naming the format
@@ -2295,30 +2373,82 @@ FIX_TABLE_LABEL = "fix table"
 DEPTH_EXIT = "deferred with a named answerer, or becomes an issue"
 
 
-def finding_number(label, seen, line, taken):
-    """The finding one `#` cell names, or `Refused` naming format and row.
+def finding_number(label, seen, line, taken, bad, idless, owed):
+    """The finding one `#` cell names, `None` for a row that names none, or
+    `Refused` for a duplicate.
 
-    Two refusals, and #227 is that the old code could produce only the
-    second, out of a table that held no duplicate. Both name the table they
-    read, quote the offending cell, and quote the whole row — with eight rows
-    and no coordinate, finding the pair was a manual scan.
+    Four readings of the cell, and the third is #321's:
 
-    `taken` is {number: the row that already claimed it}, so the duplicate
-    refusal can quote both rows rather than assert that two exist.
+      digits behind an optional marker   the finding, keyed
+      no digit, and the cell says the    `None` where `idless` is on — a row
+      row commissions nothing            that commissions nothing, admitted
+                                         and left exactly as it was written
+      no digit, and the cell is empty    appended to `owed`: the caller
+      or its severity owes an answer     refuses
+      anything else                      appended to `bad`, and so is a
+                                         no-digit cell where `idless` is off
+
+    **A row that commissions nothing is a shape reviewers reach for**, and the
+    evidence for it is seven rows rather than the fifty-one this said for a
+    release. Measured 2026-09-14 over the 207 committed records that parse, 51
+    of 1,989 verdict rows carry a `#` cell with no digit — and 44 of those are
+    a severity marker and a single LETTER, which is a finding id in the wrong
+    alphabet. Seven are the shape this admits: `carried`, `🟢 fix-surface`,
+    `🟢 fragment`, `🟢 grep`, `🟢 overview`. Three tickets are that shape: a
+    confirmation the round verified and did not open (#321), an earlier
+    round's closure carried into this round's table (#341), and a `❓ out of
+    verified scope` marker (#353). None can be referenced by a fix table,
+    because there is nothing to commission.
+
+    **Which is why the severity is read as well.** A `#` cell alone cannot say
+    whether anything is owed, and admitting a row on its strength ticked
+    `Pass` over an open finding — the record asserting that a review passed
+    while its own table said otherwise, which is the defect this whole work
+    item is named for, reproduced inside its own fix (round 1's 🔴 1). The
+    marker already carries that meaning: 🔴 blocks merge, 🟡 needs grounds, and
+    all 26 no-digit cells carrying one are genuine findings. An empty cell is
+    refused for the neighbouring reason — it says nothing at all, which is
+    what a reviewer who forgot the id writes, and no committed record has one.
+
+    The verdict word cannot serve here: a confirmation reads `verified`, which
+    is in no vocabulary and therefore OPEN, so reading it would trade one
+    refusal for another.
+
+    `idless` is off for the fix table, where the row IS the commission: a fix
+    row naming no finding has nothing to apply itself to.
+
+    **`bad` is a list rather than a raise.** #303, merged into #321, measured
+    five offending rows against a message naming one, at two round trips per
+    repair. The caller refuses once, with all of them. `owed` is a second list
+    for the same reason and refuses separately, because the two say different
+    things to the reviewer. The duplicate refusal stays immediate because it
+    already quotes both of its rows, and `taken` is {number: the row that
+    already claimed it} so that it can.
+
+    What this still gives up, stated rather than left to be found: a reviewer
+    who writes 🟢, ❓ or ⬜ on a row that IS an open finding has written a
+    finding no fix table will be asked to close, and `close` exits 0 over it.
+    The severity check catches the two markers that mean something is owed and
+    cannot catch a reviewer who picks the wrong marker. The cheaper mistake is
+    the other one, where numbering a confirmation row costs an inflated count
+    in one record.
     """
     text = chain.EMPHASIS.sub("", seen).strip()
     m = FINDING_ID_RE.match(text)
     if not m:
-        raise Refused(
-            f"the {label} has a row whose `#` reads {seen!r}, and a finding id "
-            f"is {BARE_ID} — an optional severity marker, then digits and "
-            "nothing else (`1`, `\N{LARGE RED CIRCLE} 2`, "
-            "`\N{WHITE LARGE SQUARE} 13`). A round-prefixed id collapses "
-            "toward one key: `R2-1` and `R2-2` are the same digits to a reader "
-            "that takes the first run, which is how eight findings became one. "
-            "Number this round's findings 1..N and let the record's own file "
-            f"name carry the round. The row: {line.strip()}"
-        )
+        if idless and not DIGIT_RE.search(text):
+            # Admitted only where the cell SAYS the row commissions nothing.
+            # An empty cell says nothing at all, and a severity that owes an
+            # answer says the opposite; either way the caller refuses, because
+            # a row admitted here is never keyed, never asked for a closure
+            # and never counted toward `Pass` — so `Pass` would be ticked
+            # over an open finding, which is a record asserting that a review
+            # passed while its own table says otherwise.
+            if not text or any(marker in text for marker in OWED_MARKERS):
+                owed.append((text, line))
+            return None
+        bad.append((text, line))
+        return None
     number = int(m.group(1))
     if number in taken:
         raise Refused(
@@ -2329,6 +2459,31 @@ def finding_number(label, seen, line, taken):
         )
     taken[number] = line
     return number
+
+
+def id_refusal(label, bad):
+    """`Refused` naming the format and quoting every offending row, or None.
+
+    One message for the whole table. The explanation is written once and the
+    rows are listed under it, so a reviewer repairing five of them reads the
+    rule once and opens the table once.
+    """
+    if not bad:
+        return None
+    many = "s" if len(bad) > 1 else ""
+    rows = "\n".join(f"    {text!r}: {line.strip()}" for text, line in bad)
+    return Refused(
+        f"the {label} has {len(bad)} row{many} whose `#` cell is not {BARE_ID} "
+        "— an optional severity marker, then digits and nothing else (`1`, "
+        "`\N{LARGE RED CIRCLE} 2`, `\N{WHITE LARGE SQUARE} 13`). A "
+        "round-prefixed id collapses toward one key: `R2-1` and `R2-2` are the "
+        "same digits to a reader that takes the first run, which is how eight "
+        "findings became one. Number this round's findings 1..N and let the "
+        "record's own file name carry the round. A verdict row that commissions "
+        "nothing — a confirmation, an earlier round's closure, a scope marker — "
+        "carries no id at all and is left as written; what is refused here is a "
+        f"cell that names something else.\nThe row{many}:\n{rows}"
+    )
 
 
 def part(label, text):
@@ -2757,27 +2912,34 @@ def fix_table(reader, path):
     outside the three, a `fixed` whose third cell names no commit, an
     `answered` with no grounds, a `deferred` with no home.
     """
-    # RIDER: `note` below cuts the sha out of the middle of its own code span
-    # and leaves both backticks standing, because `chain.SEPARATORS` carries a
-    # space, two dashes, a hyphen, a colon and a comma -- and no backtick. A
-    # `fixed` cell reading ``fixed at `e7d3447` `` therefore lands in the
-    # record as `fixed at e7d3447 -- `` --`, an empty code span beside the
-    # commit. Read 2026-09-06 at aed3ca0 against `chain_check.py#SEPARATORS`
-    # and visible in this work item's own `rounds/round-1.md`, rows 1 to 3.
-    # It predates this branch. The repair is at the `note` line and NOT in
-    # `chain.SEPARATORS`, which is shared with the `deferred` home and with
-    # `chain_check`'s own readers: widening it there would strip a backtick
-    # off a home that is deliberately a code span. Round 2's finding 9;
-    # `seal/follow-up.md`'s header sends a coordinate-tied item here rather
-    # than to that file. Verified 2026-09-08 against fix_table@884956f3.
+    # The rider that stood here is spent: it asked for the empty-span repair
+    # and the `note` line below now cuts the commit's own code span, where it
+    # used to cut the hex alone. It was right that the repair belongs here and
+    # not in `chain.SEPARATORS` -- that constant is read by the `deferred`
+    # home below and by `chain_check`'s own readers -- and its stated REASON
+    # did not hold at this site: `chain.EMPHASIS` is ``[*_`]+`` and runs over
+    # the verdict cell one line before `SEPARATORS` is reached, so a home
+    # written as a code span already arrives with its backticks gone
+    # (measured 2026-09-14). The other two callers are still a real cost and
+    # nothing has measured them, so the constant is left alone.
     text = read_text(path, "fix table")
     raw, lines = text.splitlines(), reader.readable(text)
-    out, taken = {}, {}
+    out, taken, bad, keyed = {}, {}, [], []
+    # Two passes, so the id refusal names every offending row before a verdict
+    # word on some other row can refuse first. `idless` is off here: in this
+    # table the row IS the commission, and one naming no finding has nothing
+    # to apply itself to.
     for i, cells in table_body(reader, lines, FIXES, FIXES_HEADER, True):
         seen = [reader.visible(c) for c in cells]
         if len(seen) < len(FIXES_HEADER):
             raise Refused(f"a fix row has {len(seen)} cells: {raw[i].strip()!r}")
-        number = finding_number(FIX_TABLE_LABEL, seen[0], raw[i], taken)
+        number = finding_number(FIX_TABLE_LABEL, seen[0], raw[i], taken, bad, False, [])
+        if number is not None:
+            keyed.append((number, seen))
+    refusal = id_refusal(FIX_TABLE_LABEL, bad)
+    if refusal is not None:
+        raise refusal
+    for number, seen in keyed:
         verdict = chain.EMPHASIS.sub("", seen[1]).strip().rstrip(".").strip()
         word, third = verdict.lower(), seen[2].strip()
         if word == FIXED:
@@ -2787,7 +2949,18 @@ def fix_table(reader, path):
                     f"finding {number} is `{FIXED}` and its third cell names no "
                     f"commit: {third!r}. A fix is a commit somebody can open"
                 )
-            note = (third[: sha.start()] + third[sha.end() :]).strip(chain.SEPARATORS)
+            # Cut the commit's own code span, not just the commit. Cutting
+            # the hex alone left both backticks standing with nothing between
+            # them, so `` `e7d3447` — widened `` landed as `fixed at e7d3447
+            # — `` — widened`: an empty code span beside the commit, on 210
+            # of this repository's committed verdict rows (#391 part 2,
+            # measured 2026-09-14). Widened HERE and not in
+            # `chain.SEPARATORS`, which the `deferred` home reader below and
+            # `chain_check`'s own readers share.
+            start, end = sha.start(), sha.end()
+            if start and third[start - 1] == "`" and third[end : end + 1] == "`":
+                start, end = start - 1, end + 1
+            note = (third[:start] + third[end:]).strip(chain.SEPARATORS)
             out[number] = (FIXED, sha.group(), note)
         elif word == ANSWERED:
             if not third:
@@ -2808,7 +2981,60 @@ def fix_table(reader, path):
                     "deferral to nowhere is how *someone will look at it* "
                     "becomes nobody did"
                 )
-            out[number] = (DEFERRED_WORD, home, "")
+            # The third cell is the fix pass's reasoning — why the finding
+            # could not be closed on the branch, what it measured, what a
+            # reader should open — and it was discarded whenever the verdict
+            # cell carried the home. A deferred finding is the one verdict
+            # whose reasoning is the whole of its value, because nothing else
+            # in the tree will explain why it left (#391 part 1). Empty when
+            # the home came out of this cell, so a `| N | deferred | #12 |`
+            # row does not say `#12` twice.
+            # The home comes off the FRONT of the note rather than being
+            # compared with the whole of it. An equality test caught
+            # `| N | deferred #12 | #12 |` and missed the shape immediately
+            # beside it -- #391's own worked example,
+            # `| N | deferred #309 | #309 -- the parity arm is out of scope |`,
+            # which printed `#309 -- #309 -- the parity arm ...`: a smaller
+            # version of the same noise in the cell #391 exists to make
+            # readable (round 1's finding 4).
+            rest = third[len(home) :] if third.startswith(home) else third
+            out[number] = (DEFERRED_WORD, home, rest.strip(chain.SEPARATORS))
+        elif any(
+            word.startswith(w) and word[len(w)] in chain.SEPARATORS
+            for w in (FIXED, ANSWERED)
+        ):
+            # The cell BEGINS with a word this table admits and carries a
+            # suffix, which is one cell doing two cells' work.
+            # `docs/review-chain-spec.md` prescribed exactly that for a
+            # correction — `answered — corrected at <sha>` — for as long as
+            # `agents/smith.md` prescribed the two-cell shape beside it, so a
+            # reader who followed the spec met a message listing three words
+            # and had to work out that their cell had begun with one of them
+            # (#341's comment). `deferred <home>` is the one word that
+            # legitimately carries a suffix and is handled above.
+            # `head` is the word the arm matched on, taken from the arm's
+            # own test rather than by splitting the cell. `SEPARATORS`
+            # begins with a space, so splitting on the first of its
+            # characters found ANYWHERE in the cell gave `answered,` for
+            # `answered, corrected at <sha>` -- and the paste-ready row the
+            # message then printed carried `answered,` as its verdict,
+            # which this table refuses on the next run. Every separator
+            # that touches the word was wrong this way, not the comma
+            # alone; the em-dash spelling the documents name worked only
+            # because a space follows the word there (round 1's finding 3).
+            head = next(
+                w
+                for w in (FIXED, ANSWERED)
+                if word.startswith(w) and word[len(w)] in chain.SEPARATORS
+            )
+            raise Refused(
+                f"finding {number}'s verdict `{seen[1]}` begins with `{head}` "
+                f"and then carries more. The Verdict cell holds the word alone "
+                f"and everything after it goes in `{FIXES_HEADER[2]}`: write "
+                f"`| {number} | {head} | {verdict[len(head) :].strip(chain.SEPARATORS)} |`. "
+                f"Only `{DEFERRED_WORD} <home>` carries its own suffix, because "
+                "the home is what makes a deferral readable"
+            )
         else:
             raise Refused(
                 f"finding {number}'s verdict `{seen[1]}` is none of `{FIXED}`, "
@@ -2820,14 +3046,48 @@ def fix_table(reader, path):
 
 
 def verdict_rows(reader, lines):
-    """{finding number: (index, cells)} for round N's verdict table."""
-    out, taken = {}, {}
+    """{finding number: (index, cells)} for the verdict table in `lines`.
+
+    A row whose `#` cell names no finding is absent from the mapping, which
+    is the whole of what a row that commissions nothing costs downstream:
+    `close` never asks a fix table for it, never writes a verdict word over
+    it, and never counts it toward `Pass`.
+
+    Read from the RECORD on the `close` path and from the REPORT on the `new`
+    path. The two tables carry the same heading under the same header — that
+    is what lets `table_of` copy one into the other — so the ids a reviewer
+    chose are refused where the reviewer is rather than two commands later at
+    the orchestrator (#321's answer 1, which composes with answer 2 above
+    rather than replacing it).
+    """
+    out, taken, bad, owed = {}, {}, [], []
     for i, cells in table_body(reader, lines, VERDICTS, VERDICT_HEADER, True):
         seen = [reader.visible(c) for c in cells]
         if len(seen) <= NUMBER_COL:
             raise Refused(f"a verdict row has no `#` cell: {lines[i].strip()!r}")
-        number = finding_number(RECORD_LABEL, seen[NUMBER_COL], lines[i], taken)
-        out[number] = (i, cells)
+        number = finding_number(
+            RECORD_LABEL, seen[NUMBER_COL], lines[i], taken, bad, True, owed
+        )
+        if number is not None:
+            out[number] = (i, cells)
+    refusal = id_refusal(RECORD_LABEL, bad)
+    if refusal is not None:
+        raise refusal
+    if owed:
+        many = "s" if len(owed) > 1 else ""
+        rows = "\n".join(f"    {text!r}: {line.strip()}" for text, line in owed)
+        raise Refused(
+            f"the {RECORD_LABEL} has {len(owed)} row{many} whose `#` cell is "
+            "empty or carries a severity that owes an answer. "
+            "\N{LARGE RED CIRCLE} blocks merge and \N{LARGE YELLOW CIRCLE} "
+            "needs grounds, so both commission a fix-table row, and an empty "
+            "cell says nothing at all — while a row with no id is never "
+            "keyed, never asked for a closure and never counted toward "
+            "`Pass`, so `Pass` would be ticked over an open finding. Number "
+            "it, or write the severity the row actually has "
+            "(\N{LARGE GREEN CIRCLE}, \N{BLACK QUESTION MARK ORNAMENT}, "
+            f"\N{WHITE LARGE SQUARE}).\nThe row{many}:\n{rows}"
+        )
     return out
 
 
@@ -2994,10 +3254,16 @@ def close(args):
     rows = verdict_rows(reader, lines)
     unknown = sorted(n for n in fixes if n not in rows)
     if unknown:
+        # The parenthetical names the ids the verdict table DOES hold, so
+        # an empty mapping rendered as `(which has )` and the reader learned
+        # less than the sentence promised. Pre-existing; the admission rule
+        # is what makes an empty mapping reachable from a well-formed report
+        # (round 1's finding 5).
+        held = ", ".join(map(str, sorted(rows))) or "no numbered rows at all"
         raise Refused(
             f"the fix table names finding{'s' if len(unknown) > 1 else ''} "
             f"{', '.join(map(str, unknown))}, not in round {args.round}'s verdict "
-            f"table (which has {', '.join(map(str, sorted(rows)))})"
+            f"table (which has {held})"
         )
     open_now = [
         n
@@ -3070,15 +3336,22 @@ def close(args):
         cells = row_cells(reader, raw[i], len(VERDICT_HEADER))
         while len(cells) <= GROUNDS_COL:
             cells.append("")
+        # `old` is the REVIEWER's grounds — the reason the finding was opened.
+        # A fix pass is not asked to change it; it is asked what it did about
+        # the finding, and the two are different sentences by different
+        # authors. All three words join rather than overwrite (§12: #391 names
+        # the `deferred` row and the class is three wide). `fixed` was already
+        # the only one of the three that preserved what stood.
         old = cells[GROUNDS_COL].strip()
         if word == FIXED:
             cells[VERDICT_COL] = f"**{FIXED}** `{value}`"
             grounds = f"{FIXED_AT} {value}" + (f" {DASH} {note}" if note else "")
-            cells[GROUNDS_COL] = grounds + (f"; {old}" if old else "")
         elif word == ANSWERED:
-            cells[VERDICT_COL], cells[GROUNDS_COL] = ANSWERED, value
+            cells[VERDICT_COL], grounds = ANSWERED, value
         else:
-            cells[VERDICT_COL], cells[GROUNDS_COL] = f"{DEFERRED_WORD} {value}", value
+            cells[VERDICT_COL] = f"{DEFERRED_WORD} {value}"
+            grounds = value + (f" {DASH} {note}" if note else "")
+        cells[GROUNDS_COL] = grounds + (f"; {old}" if old else "")
         raw[i] = row([escape(c) for c in cells])
     words = [
         chain.verdict_of(
@@ -3089,19 +3362,35 @@ def close(args):
     ]
     still_open = [w for w in words if w not in chain.CLOSED_WORDS]
     # The same derivation `new` makes from the report's verdicts, over the
-    # verdicts as the table left them. `no fixes to check` is written only
-    # when it is the answer; otherwise the cell stays at the landing value
-    # for `new` of the next round to set, because a fix was written and a
-    # later round owes it a reading.
+    # verdicts as the table left them. Both of its answers are written here,
+    # and the second one used to be left alone:
+    #
+    #   `no fixes to check`   nothing closed on a fix word, so no fixes will
+    #                         ever exist and *not yet written* would be false
+    #                         the moment it was written
+    #   `nobody -- <why>`     a fix word closed something, so the fixes exist
+    #                         and no round has opened them. The landing value
+    #                         says they are not yet WRITTEN, which was true
+    #                         while the round ran and is false now: the
+    #                         commits are in this record's own verdict cells,
+    #                         two rows below (#273 part 1). A capped run's
+    #                         last record keeps whatever stands here forever,
+    #                         because there is no next `new` to correct it.
+    #
+    # Only the landing value is corrected. A cell naming a `round-N` is a
+    # later round's reading and is not this pass's to touch.
     checker, _surface = landing_values(words)
     boxes = [i for i, ln in enumerate(lines) if chain.PASS_RE.match(ln)]
     if len(boxes) != 1:
         raise Refused(f"the record has {len(boxes)} `Pass` boxes and needs one")
     raw[boxes[0]] = f"- [{' ' if still_open else 'x'}] Pass"
-    if checker == chain.NO_FIXES:
-        raw[field_index(reader, lines, chain.CHECKED_BY)] = cell(
-            chain.CHECKED_BY, checker
-        )
+    at = field_index(reader, lines, chain.CHECKED_BY)
+    standing = row_cells(reader, raw[at], 2)
+    standing = reader.visible(standing[1]).strip() if len(standing) > 1 else ""
+    if checker != chain.NO_FIXES and standing == PENDING_CHECKER:
+        checker = WRITTEN_CHECKER
+    if checker in (chain.NO_FIXES, WRITTEN_CHECKER):
+        raw[at] = cell(chain.CHECKED_BY, checker)
     raw[field_index(reader, lines, chain.CONTRACT)] = contract
     last = field_index(reader, lines, chain.NEW_UNITS)
     raw[last] = units
@@ -3125,7 +3414,11 @@ def close(args):
         f"round-record: closed {os.path.relpath(target, root)} {DASH} "
         + ", ".join(f"{n} {w}" for w, n in counts.items())
         + f"; {contract.strip('| ')}; {units.strip('| ')}"
-        + (f"; {chain.CHECKED_BY} | {checker}" if checker == chain.NO_FIXES else "")
+        + (
+            f"; {chain.CHECKED_BY} | {checker}"
+            if checker in (chain.NO_FIXES, WRITTEN_CHECKER)
+            else ""
+        )
     )
     return run_check(root, args.baseline or default_baseline(root))
 

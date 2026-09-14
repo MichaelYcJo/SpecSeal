@@ -169,6 +169,23 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   named as its answerer. A question with no field to sit in becomes a seal
   taken over an axis nobody decided.
 
+  **Write that row with no id in its `#` cell.** `❓ out of verified scope`
+  is a closing verdict and commissions nothing, so no fix table can reference
+  it and none is asked for it. Numbered, it used to be counted as an open
+  finding: `close` refused to run until a fix row existed for it, and then
+  wrote that row's word over your marker — which is a settled verdict on a
+  check nobody ran. A row that commissions nothing takes no id at all, and so
+  does a confirmation you verified and an earlier round's closure you carried
+  forward (`docs/review-chain-spec.md` §*A verdict row that commissions
+  nothing*).
+
+  **Every 🔴 and every 🟡 takes a number, and an unnumbered one is refused.**
+  Those two severities are the ones that mean somebody owes the row an
+  answer, so a row carrying either is never a row that commissions nothing —
+  and because such a row is never counted toward `Pass`, leaving the number
+  off would have the record tick `Pass` over a finding you opened. An empty
+  `#` cell is refused for the neighbouring reason: it says nothing at all.
+
   Stated intent is the sharpest case, because it is often right. If the
   behavior is called deliberate, go looking for it in the policy documents,
   the SDD set, or the ledger. Found there, it is grounds. Found nowhere but
@@ -234,6 +251,13 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   expected; writing it up as new is the duplicate this field exists to stop.
   Name it as already deferred, and where, so the reader can go argue with that
   decision instead of re-litigating it in your report.
+
+  **That phrase belongs in this field and in a Grounds cell, never in a
+  Verdict cell.** `already deferred` is in no vocabulary, so a verdict cell
+  holding it reads OPEN — the finding stays open, `close` demands a fix row
+  for it, and that row then overwrites your verdict with the fixer's. In the
+  verdict table the cell reads `deferred <home>` and `already deferred in
+  round N` goes in the Grounds beside it (#273 part 2).
 
   Read a carried fact once, use it, and say in the report that you carried it
   rather than re-established it. Re-derive it when its check fails, or when
