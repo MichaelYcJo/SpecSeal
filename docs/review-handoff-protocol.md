@@ -283,6 +283,41 @@ This one asks what the reviewer concluded, and a reviewer who was never asked
 left no answer anywhere. Filling it in from the verdict table is exactly the
 derivation the paragraph above refuses, so the honest migration is none.
 
+**A wrapped terminal line is one value, and this is where the join stops.**
+A report is a hand-wrapped document, so `yes — <what>` worth writing reaches
+the margin and continues on the next physical line. A tool that reads the
+physical line alone keeps its remainder and drops everything after the wrap
+with no refusal, which is how one record shipped ending mid-clause. So a
+conforming tool joins the physical lines of a terminal line into one value,
+separated by a single space, and stops the run at the first of three things:
+a blank line, the other terminal label, or a line that opens a new markdown
+block. This holds for both terminal lines — `Loses a record or crashes` below
+is read exactly the same way.
+
+**The third stop is a narrowing, and a conforming tool has to know what it
+does not cover.** Every marker CommonMark requires a space after must be
+required to carry one here, because a bare marker class reads `#120` at the
+head of a line as a heading — and a continuation beginning with an issue
+number is what the records this protocol describes are full of. That space
+requirement takes the thematic break and the setext underline out of the
+class, so they come back as alternatives matching a whole line and nothing
+less. What no spelling of the guard reaches is a continuation opening with an
+HTML tag, with `**bold**`, or with an indented run of prose: those are
+indistinguishable from a block opener by their first characters, and a tool
+joins them rather than guessing. **Only the blank line stops every shape**,
+which is why the instruction to the reviewer is to leave one under the pair
+rather than to trust the guard. The reference implementation is
+`terminal_value` in `skills/code-review/scripts/round_record.py`, run through
+the `bin/round-record` wrapper.
+
+The two errors are not symmetric, and that is what decides the direction to
+fail in. A value cut at a wrap still reads as a finished sentence, so nobody
+looks. A value that swallowed the line below it reads as wrong at a glance —
+and a swallowed prose line parses as a verdict word with a reason after it,
+so it lands in the cell looking deliberate. A tool that must choose should
+choose to join, and widening the marker class to avoid a swallow buys the
+silent error with the visible one.
+
 #### The fix-surface rows — what the fixes changed, and what they created
 
 A round's fixes are written after the round ends, so the record that

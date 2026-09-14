@@ -459,7 +459,13 @@ def test_prose_below_the_terminal_block_is_not_swallowed(repo):
     with a reason and lands in the cell as though the reviewer wrote it. The
     block therefore ends at a blank line, at the other terminal label, or at a
     line that opens a new markdown block — which is what every report in this
-    repository already does, because markdown needs the blank line anyway."""
+    repository already does, because markdown needs the blank line anyway.
+
+    This case is the blank-line stop rather than the block-opener one: the
+    prose below sits under one, so it is what ends the run here. The third
+    stop is a narrowing that reaches some openers and not others, and
+    `test_a_block_of_its_own_under_the_pair_stops_the_join` below is what
+    exercises it with no blank line in the way."""
     declared(repo)
     code, out, text = generate(
         repo,
@@ -477,21 +483,27 @@ def test_prose_below_the_terminal_block_is_not_swallowed(repo):
 # first characters look like a block opener, and each is a shape the reports
 # in this repository write as a matter of course.
 #
-# The second element says what the arm was seen red against, because the five
+# The second element says what the arm was seen red against, because the six
 # are not red against one thing and §15 asks for the demonstration rather than
 # the assertion. `base` is `BLOCK_START` as it stood at `5e09345`, whose bare
 # `#` reads an issue number at the head of a line as a heading. `space` is
 # this module's own pattern with the space requirement dropped from one
 # alternative — the widening `plan.md` §*Alternatives considered* rejects,
-# spelled as a one-character mutation of what ships. `boundary` is neither: no
-# candidate pattern ever cut those two, and they are kept because they say
-# where the guard stops, not because they caught it.
+# spelled as a one-character mutation of what ships. `anchor` is the whole-line
+# `$` on the three run-of-three alternatives: without it a line that merely
+# OPENS with a run of markers matches and the clause after it is lost. Killing
+# that anchor left this whole module green until this arm was planted, which
+# is the one false-positive direction `.github/scripts/issue_claims_check.py`
+# pins and this module did not. `boundary` is none of the three: no candidate
+# pattern ever cut those two, and they are kept because they say where the
+# guard stops, not because they caught it.
 CONTINUES_THE_LINE = (
     ("#120's parser is the one that matters.", "base"),
     ("#296 and #297 are the neighbours.", "base"),
     ("**bold** opens the second half of the clause.", "space"),
     ("<div> is prose here, not a block.", "boundary"),
     ("    an indented continuation of the clause above.", "boundary"),
+    ("--- and the rest of the clause is prose, not a rule.", "anchor"),
 )
 
 

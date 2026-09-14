@@ -403,12 +403,17 @@ Loses a record or crashes: no
 Loses a record or crashes: yes — <what does>
 ```
 
-**Either line may wrap, and a wrapped line is one value.** The generator
-joins it across the wrap and stops at a blank line, at the other terminal
-label, or at a line opening a new markdown block — so leave a blank line
-under the pair, which markdown wants anyway. It used to keep the first
-physical line and drop the rest without saying so, and a round record shipped
-ending mid-clause.
+**Either line may wrap, and a wrapped line is one value.**
+`round_record.py new` joins it across the wrap, and the guard deciding where
+that join stops does not reach every shape a continuation can begin with —
+an indented line, an HTML tag and `**bold**` among the ones it cannot. So
+**leave a blank line under the pair**, which markdown wants anyway and which
+is the one stop nothing can read wrong. Where the join stops and what it
+cannot reach is stated once, in `docs/review-handoff-protocol.md` §*The Needs
+a fix field — the answer a run ends on*; this line is the instruction, that
+section is the rule. The generator used to keep the first physical line and
+drop the rest without saying so, and a round record shipped ending
+mid-clause.
 
 They are the run's terminal conditions, and what the orchestrator moves into
 `round-N.md` is what stands **after the colon** — the row already names the
