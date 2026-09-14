@@ -841,10 +841,42 @@ def test_a_correction_closed_answered_lands_on_no_fixes_to_check(repo):
     assert code == 0, out
 
 
+def test_close_does_not_overwrite_a_checker_cell_a_later_round_already_set(repo):
+    """`close` corrects the landing value and nothing else.
+
+    `Fixes checked by` naming a `round-N` is a later round's reading, set by
+    the reach-back when that round's record was written. A `close` that
+    rewrote the cell unconditionally would replace a fact — somebody read
+    these fixes — with a weaker one, on any second application or on a record
+    closed out of order.
+
+    The cell is set by hand rather than by writing a second record, because
+    the state this guards is *the cell already names a checker*, and how it
+    came to say that is not what the guard reads. Found by mutation: dropping
+    the comparison left every other case in this module green.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    path = repo / ROUNDS / "round-1.md"
+    text = path.read_text(encoding="utf-8")
+    chain = check_module()
+    before = f"| {chain.CHECKED_BY} | {chain.NOBODY} \N{EM DASH} {chain.NOT_YET} |"
+    assert before in text, text
+    path.write_text(
+        text.replace(before, f"| {chain.CHECKED_BY} | round-2 |"), encoding="utf-8"
+    )
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    _code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert fields(record)[chain.CHECKED_BY] == "round-2", out
+
+
 def test_a_table_with_a_fix_leaves_the_checker_cell_for_the_next_round(repo):
     """The other side of the derivation: one `fixed` row among deferrals means
-    fixes exist that a later round owes a reading, so the cell stays at the
-    landing value and `new` for round N+1 is what sets it."""
+    fixes exist that a later round owes a reading, so the cell carries the
+    reason `close` writes for fixes nobody has opened — `nobody`, because a
+    checker has to be a later round and none exists yet."""
     a = round_one(repo)
     write(repo, "mod.py", MOD_CHANGED)
     b = commit(repo, "fix")
