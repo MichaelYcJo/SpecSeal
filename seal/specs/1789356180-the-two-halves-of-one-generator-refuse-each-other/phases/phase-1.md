@@ -59,9 +59,16 @@ records that parse, on 2026-09-14:
 | `fixed at <sha> — ` then an empty code span | 103 | **210** |
 
 The last row is the one that matters: the frame's 103 is low by more than
-half, and phase 3's acceptance re-measures it. The three small divergences do
-not move any argument — one row in thirty-seven is still one row in
-thirty-seven.
+half, and phase 3's acceptance re-measures it.
+
+<!-- CORRECTED 2026-09-14 by round 1's 🟡 2. The sentence that stood here said
+the three small divergences do not move any argument, because *one row in
+thirty-seven is still one row in thirty-seven*. The COUNTS are right and that
+reading of them is not: 44 of the 51 no-digit cells are a severity marker and
+a single letter, which is a finding id in the wrong alphabet rather than a row
+commissioning nothing. The shape this rule admits is 7 rows of 1,989 — about
+one in 284, not one in thirty-seven — and the divergence that mattered was
+never between 51 and 54. It was inside the 51. -->
 
 **The scope marker could not be closed from the `#` column at all.** #84's
 finding 15 carries an id (`15`), so phase 1's `#`-cell mechanism never reaches
