@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 5 |
-| Commit | <this phase's commit> |
+| Commit | 0f18ab7 |
 | Ran by | specseal:smith on claude-opus-5[1m] |
 
 ## What this phase was asked
