@@ -76,6 +76,29 @@ repository's fragment rule exists to stop. Filed by the orchestrator as #387, be
 repository has a tracker and `seal/follow-up.md` says a schedulable item
 belongs there instead.
 
+**Seven of the twelve `bin/` wrapper pairs still have nobody asserting their
+executable bit** — `arm-check`, `broad-gate`, `payload-meter`, `seal`,
+`seal-stamp`, `survivor-check` and `test`. Round 1's 🟡 2 put the assertion
+into the class pin, which newly covers exactly one, `session-cost`: the case
+skips any script no shipped document names, and that skip is its design rather
+than a defect. Closing the seven needs a case walking `bin/`, which is
+mechanism a fix pass may not add. Filed as #389. **The number is recorded as
+names because it was wrong three times** — round 1's report said eight, round
+1's fix pass said four, and both counted by matching filenames in modules that
+merely mention them instead of opening each `os.access` call. Round 2 opened
+all twelve against every exec-bit assertion in `tests/` and got seven.
+
+**The hyphen bounds the locator reader and does not justify it.** Round 2's
+🟡 9 is answered rather than fixed: a hyphenated command reads as an ordinary
+compound in prose too, and over all 43 shipped documents six commands appear
+as bare words in documents naming no script, `broad-gate` in nine of them
+including `agents/warden.md:247`. No case is wrong today because those
+documents name no script, and both alternative readers measure worse — one
+still passes *the seal after the rounds* while reddening a live pair, the
+other reds `skills/code-review/orchestration.md` for `evidence_check.py`. The
+bound is written at the guard rather than widened, and a document that both
+names a script and carries its command only as prose would read as covered.
+
 **`round-record` gets no README row.** Q2, answered **Out** by the repository
 owner on 2026-09-14. Neither edition names `round_record.py` today, so the rule
 that both READMEs move together is not reached, and adding the rows is additive
