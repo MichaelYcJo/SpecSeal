@@ -70,12 +70,13 @@ NO_WRAPPER = {
         "command_form` asserts, and the whole of it. A flag is the only "
         "sound tell in prose, so a bare mention in a list of checks is not "
         "caught: `templates/config.md` names it beside three commands. "
-        "Every place that invokes it carries its full path -- "
-        "`.github/workflows/hygiene.yml`, `templates/hygiene.yml` and "
+        "Every place outside `tests/` that invokes it carries its full path "
+        "-- `.github/workflows/hygiene.yml`, `templates/hygiene.yml` and "
         "`docs/release-checklist.md` by hand, and "
         "`skills/verify/scripts/broad_gate.py` and this skill's own "
-        "`round_record.py` in code -- so it is reachable everywhere it is "
-        "reached. A wrapper would also change the row in "
+        "`round_record.py` in code; the test modules that load it build the "
+        "same path -- so it is reachable everywhere it is reached. "
+        "A wrapper would also change the row in "
         "`templates/config.md` that spells the broad gate to a user, which is "
         "a user-facing change with no defect behind it (#318)."
     ),
@@ -136,10 +137,27 @@ def reachable(text, script):
     a clone with the plugin disabled can open.
     """
     command = command_name(script)
-    # A command name with no hyphen in it is an ordinary English word --
-    # `seal.py` answers to `seal` -- and this repository's prose is full of
-    # it, so the bare-word form cannot tell a locator from a sentence. Those
-    # scripts are reachable by path only, which is a reader that can fail.
+    # A command name with no hyphen in it cannot be told from ordinary
+    # English -- `seal.py` answers to `seal`, and this repository's prose is
+    # made of that word -- so this reader does not take the bare form as a
+    # locator for it. The command is real and `bin/seal` ships; what is
+    # missing is a way to tell the command from the sentence, so for those
+    # scripts the path is the form that counts.
+    #
+    # The hyphen is a BOUND and not a rule: a hyphenated command reads as an
+    # ordinary compound in prose too. Measured 2026-09-14 over all 43 shipped
+    # documents -- six commands appear as bare words in documents that name
+    # no script at all, `broad-gate` in nine of them, including
+    # `agents/warden.md:247` (*carry the broad-gate state into your report*).
+    # No case is wrong today, because those documents name no script; the day
+    # one of them does, this reader calls it covered on the strength of that
+    # prose. Both obvious alternatives were measured and both are worse: a
+    # reader that accepts the bare command only where SOMETHING follows it
+    # still passes *the seal after the rounds* and reds a live pair, and one
+    # that demands a FLAG reds `skills/code-review/orchestration.md` for
+    # `evidence_check.py`, where line 442 teaches the command in prose
+    # (*`evidence-check` takes `--ledger`*). So the bound stays and is
+    # written down rather than widened.
     if "-" not in command:
         return script in text
     typed = re.search(rf"(?<![\w-]){re.escape(command)}(?![\w-])", text) is not None
@@ -269,11 +287,20 @@ def test_a_document_naming_a_wrapped_script_says_how_to_reach_it(pair):
     script forty times pays one sentence."""
     document, script = pair
     command, text = command_name(script), read(os.path.join(ROOT, document))
+    # The repair offered has to be one that works. `reachable` does not read
+    # a hyphenless command as a locator, so offering `seal` to a reader who
+    # then adds it leaves them red with nothing saying why -- #318's own
+    # shape, reproduced inside #318's fix.
+    forms = (
+        f"the path `{script}`. `{command}` has no hyphen in it, so this rule "
+        "does not read the bare command as a locator -- see `reachable`"
+        if "-" not in command
+        else f"either reachable form: the command `{command}`, or the path `{script}`"
+    )
     assert reachable(text, script), (
         f"{document} names {os.path.basename(script)} and never says where it "
         f"is. A reader who goes looking finds nothing, which is #318. Add "
-        f"either reachable form, once: the command `{command}`, or the path "
-        f"`{script}`"
+        f"{forms}, once"
     )
 
 
@@ -310,6 +337,42 @@ def test_a_document_with_no_locator_is_caught():
     assert reachable(
         "It lives at `skills/x/scripts/round_record.py`.",
         "skills/x/scripts/round_record.py",
+    )
+
+
+def test_the_failure_message_offers_a_repair_that_actually_works():
+    """§14: a message a person reads and acts on is pinned by a case.
+
+    The repair the message names has to be one the rule accepts. For a
+    hyphenless command it cannot be, so the message says the path and says
+    why -- otherwise a reader adds `seal`, re-runs, is still red, and has
+    been told nothing. That is #318's own shape reproduced inside #318's fix.
+
+    `README.md` is the document in both directions because it names no script
+    and carries neither command, so the case is guaranteed to fail and its
+    message is the whole of what is being read.
+    """
+    seal = "skills/implement/scripts/seal.py"
+    with pytest.raises(AssertionError) as raised:
+        test_a_document_naming_a_wrapped_script_says_how_to_reach_it(
+            ("README.md", seal)
+        )
+    message = str(raised.value)
+    assert "the command `seal`" not in message, (
+        "the message offers a repair the rule rejects: a reader who adds the "
+        f"bare command is still red and learns nothing from it -- {message}"
+    )
+    assert seal in message and "no hyphen" in message, (
+        f"the message does not name the form that works, or why -- {message}"
+    )
+
+    record = "skills/code-review/scripts/round_record.py"
+    with pytest.raises(AssertionError) as raised:
+        test_a_document_naming_a_wrapped_script_says_how_to_reach_it(
+            ("README.md", record)
+        )
+    assert "the command `round-record`" in str(raised.value), (
+        "a hyphenated command still has both accepted forms offered"
     )
 
 

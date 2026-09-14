@@ -80,8 +80,9 @@ an afterthought.
 | Wrapper, plus a locator in each of the ticket's three documents | Leaves `templates/sdd-round.md` — the file the four segments hand-wrote from, seven mentions, not in the ticket — untouched, along with five others. Fixes the coordinate the finding pointed at, which §12 names as the failure | rejected |
 | **Wrapper pair, `round-record` at both typed forms, one locator in each of the nine documents, and a test that enumerates scripts and documents instead of naming this one** | The deletion path above, which the message is written against | **chosen** |
 | The same, plus a `bin/chain-check` wrapper so `bin/` is uniform | Widens the branch into a script no other 0.11.4 item opens, and changes `templates/config.md`'s user-facing broad-gate row. `chain_check.py` is reachable at all five places it is invoked, and appears in no shipped document with a flag — a property phase 3 asserts rather than assumes | rejected; classified instead |
+| A rule in `CONTRIBUTING.md` and no test | `CLAUDE.md` §*The goal a design is chosen against*: between a rule somebody has to remember at the moment of writing and a check that goes red on its own, the check wins. This defect is itself an instance — every one of the nine documents was written by somebody who knew the script existed | rejected |
 
-<!-- The row above was corrected in round 1's fix pass (⬜ 6, and 🟡 3's
+<!-- The `bin/chain-check` row of the table above was corrected in round 1's fix pass (⬜ 6, and 🟡 3's
 narrowing with it), the same two facts and for the same reasons as `spec.md`
 §Out — which holds the full grounds. Recorded here as well because
 `survivor-check --range 246c65b..9a8f4fd` did NOT report this line: it says
@@ -92,7 +93,6 @@ was four, which is `skills/agent-contract/SKILL.md` §12 applying to the tool
 that exists to enforce §12. The fourth was found by grepping the claim rather
 than the wording. -->
 
-| A rule in `CONTRIBUTING.md` and no test | `CLAUDE.md` §*The goal a design is chosen against*: between a rule somebody has to remember at the moment of writing and a check that goes red on its own, the check wins. This defect is itself an instance — every one of the nine documents was written by somebody who knew the script existed | rejected |
 
 ## Phases
 
