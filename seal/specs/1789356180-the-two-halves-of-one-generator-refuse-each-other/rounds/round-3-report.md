@@ -171,7 +171,7 @@ and `templates/sdd-round.md` had the same sentence and both **replaced** it in
 this diff; the spec got an insertion instead and kept its copy.
 
 The two in-module copies are softer but real. `:2363` says *the verdict word
-cannot do this job* and the `OPEN_WORD` comment three lines below corrects it;
+cannot do this job* and the `OPEN_WORD` comment three lines below corrects it; <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 `:2423` says *the verdict word cannot serve here* and the paragraph that
 corrects it is 15 lines further down the same docstring. A reader who stops at
 either sentence has read a claim this module's own code contradicts.
@@ -236,9 +236,9 @@ one at a time, with the rest of the module intact:
 
 - dropping `len(bad) + len(owed) == flagged` → the message reads *"has 2 rows"*
   over a table holding one, and quotes `| 🔴 A |` twice.
-  `test_a_row_failing_both_arms_is_named_once` goes red.
+  `test_a_row_failing_both_arms_is_named_once` goes red. <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 - dropping `len(seen) > VERDICT_COL` → `IndexError` out of `verdict_of`.
-  `test_a_row_too_short_to_have_a_verdict_cell_does_not_crash` goes red.
+  `test_a_row_too_short_to_have_a_verdict_cell_does_not_crash` goes red. <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 
 Both were green pre-fix, which is what a guard on new code should be. Neither is
 decoration.
@@ -246,7 +246,7 @@ decoration.
 **The corpus claim is exactly true as written.** Re-derived through the module's
 own `table_body`: 51 no-digit rows, 26 taken by the marker arm, **25 admitted**,
 and of those 25 not one has a Verdict cell reading `open` or anything beginning
-with it. The `Free against the corpus` sentence in the `OPEN_WORD` comment and
+with it. The `Free against the corpus` sentence in the `OPEN_WORD` comment and <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 in the ledger fragment is measured and correct.
 
 **The three facts carried from round 2 rather than re-derived.** The corpus
@@ -262,14 +262,14 @@ reproduced); the other two I carried, and neither has a check that fails.
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
 | 1 | 🔴 A verdict row shorter than the header but carrying a digit is keyed by `verdict_rows` and then read at `VERDICT_COL` by every caller with no bounds check, so `new` and `close` both die with an `IndexError` instead of refusing. The fix pass guarded the one read inside `verdict_rows` and named the class in its case docstring | `skills/code-review/scripts/round_record.py:1970`, `:3307`, `:3324`, `:3383` | open | executed at `867f39c` — `\| 1 \| one \|` through `new` gives exit 1 and `IndexError` at `round_record.py:1970` → `chain_check.py:1466`; the same row hand-edited into a record gives exit 1 at `:3307` through `close`. Both reads are identical at `89e7944`, so the defect is pre-existing and the class is the fix pass's own. Zero of the 1,691 committed verdict rows are short, so refusing is free |
-| 2 | 🟡 `OPEN_WORD` is matched by equality while `agents/warden.md`, `templates/sdd-round.md` and `skills/code-review/SKILL.md` all describe a match on the word. 7 of the 95 open verdicts in the committed records — `open — deferred`, `open, comment only` and five more — are outside the equality and inside the documented rule | `skills/code-review/scripts/round_record.py:2376`, `:3095` | open | executed at `867f39c` — all 95 cells that begin with `open` counted through `verdict_of`; 88 bare, 7 wider, none in `CLOSED_WORDS`. A head match ended by `chain_check.SEPARATORS` reaches all 95 and newly refuses 0 of the 25 admitted committed rows. The vocabulary-test grounds hold separately: 18 of the 25 admitted rows carry a verdict outside `CLOSED_WORDS` |
+| 2 | 🟡 `OPEN_WORD` is matched by equality while `agents/warden.md`, `templates/sdd-round.md` and `skills/code-review/SKILL.md` all describe a match on the word. 7 of the 95 open verdicts in the committed records — `open — deferred`, `open, comment only` and five more — are outside the equality and inside the documented rule | `skills/code-review/scripts/round_record.py:2376`, `:3095` | open | executed at `867f39c` — all 95 cells that begin with `open` counted through `verdict_of`; 88 bare, 7 wider, none in `CLOSED_WORDS`. A head match ended by `chain_check.SEPARATORS` reaches all 95 and newly refuses 0 of the 25 admitted committed rows. The vocabulary-test grounds hold separately: 18 of the 25 admitted rows carry a verdict outside `CLOSED_WORDS` <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
 | 3 | 🟡 The grounds this diff overturned — *the verdict word cannot do this job* — were replaced in `skills/code-review/SKILL.md` and `templates/sdd-round.md` and left standing in four other places, including a bolded section of the spec twenty lines under the paragraph that overturns it | `docs/review-chain-spec.md:790`, `skills/code-review/scripts/round_record.py:2363`, `:2423`, `tests/test_a_finding_id_is_a_bare_integer.py:236` | open | read at `867f39c`, and executed: `survivor-check --range 89e7944..867f39c` exits 0 over 28 removed sentences, because the sentence was removed nowhere. The fourth site is split across a line break, the blind spot `test_a_corrected_sentence_survives_elsewhere` names in its own docstring |
 | 4 | ⬜ `finding_number`'s docstring was re-indented from column 4 to column 8 and the new paragraph was left at column 4, so `inspect.getdoc` renders 64 of 65 body lines one level in and that one at the margin | `skills/code-review/scripts/round_record.py:2387` | open | executed at `867f39c` — rendered through `inspect.getdoc` and measured per line; `ruff format --diff` reports the file already formatted, so no gate sees it and nothing behavioural changes |
 | 5 | ⬜ The verdict arm exists in the generator alone — `chain_check.open_blocking` at the pull request still reads only 🔴 rows, so a record hand-edited after `close` carries the shape past CI | `skills/code-review/scripts/chain_check.py#open_blocking` | answered | read at `867f39c`. Not a new gap and the spec states it; both generator subcommands refuse the shape, which is where the rule belongs. Recorded so the next round does not open it as new |
 | 6 | Round 2's 🟡 7 is closed and was seen red: all six admitted shapes whose Verdict cell reads `open` are refused | `skills/code-review/scripts/round_record.py:3091` | answered | executed at `867f39c` — the committed module against `89e7944`'s `round_record.py`: 6 failed, 49 passed, the six parametrized cases red. At `867f39c`: 55 passed, exit 0 |
 | 7 | The strengthened assertion is right, and cannot pass against the pre-fix refusal | `tests/test_a_finding_id_is_a_bare_integer.py:302` | answered | executed at `867f39c` — 0 occurrences of `` `Verdict` cell reads `open` `` anywhere in the pre-fix run's output. The strengthening is still load-bearing because the pre-fix marker-arm message does contain *ticked over an open finding* |
-| 8 | The both-arms guard is load-bearing — without it a row failing both arms is quoted twice and the message counts two rows over a table holding one | `skills/code-review/scripts/round_record.py:3092` | answered | executed at `867f39c` — mutation: dropping `len(bad) + len(owed) == flagged` turns `test_a_row_failing_both_arms_is_named_once` red with *has 2 rows* and the row quoted twice |
-| 9 | The bounds guard is load-bearing for the unnumbered short row, which is the member finding 1 leaves standing | `skills/code-review/scripts/round_record.py:3094` | answered | executed at `867f39c` — mutation: dropping `len(seen) > VERDICT_COL` raises `IndexError` and turns `test_a_row_too_short_to_have_a_verdict_cell_does_not_crash` red. Both new guards were green pre-fix |
+| 8 | The both-arms guard is load-bearing — without it a row failing both arms is quoted twice and the message counts two rows over a table holding one | `skills/code-review/scripts/round_record.py:3092` | answered | executed at `867f39c` — mutation: dropping `len(bad) + len(owed) == flagged` turns `test_a_row_failing_both_arms_is_named_once` red with *has 2 rows* and the row quoted twice <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
+| 9 | The bounds guard is load-bearing for the unnumbered short row, which is the member finding 1 leaves standing | `skills/code-review/scripts/round_record.py:3094` | answered | executed at `867f39c` — mutation: dropping `len(seen) > VERDICT_COL` raises `IndexError` and turns `test_a_row_too_short_to_have_a_verdict_cell_does_not_crash` red. Both new guards were green pre-fix <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
 | 10 | The `Free against the corpus` claim is exactly true: of the 25 admitted no-digit rows in the committed records, none reads `open` or anything beginning with it | `skills/code-review/scripts/round_record.py:2367`, `seal/ledger/1789356180-the-two-halves-of-one-generator-refuse-each-other.md` row 1 | answered | executed at `867f39c` — re-derived through the module's own `table_body`: 51 no-digit rows, 26 owed by the marker arm, 25 admitted, 0 reading `open`. Round 2's split reproduces |
 | 11 | The ledger fragment's anchors survive the fix — `finding_number` and `verdict_rows` both moved and both re-hash | `seal/ledger/1789356180-the-two-halves-of-one-generator-refuse-each-other.md` | answered | executed at `867f39c` — `evidence-check .` exits 0: 1,220 ok, 0 drifted, 0 broken, 28 of them this work item's fragment |
 | 12 | Round 2's own record is a truthful application of its fix table: 🟡 7 reads `**fixed** 7b2c0d7`, the two ⬜ rows read `answered` with grounds, and `New units` names all four | `seal/specs/1789356180-the-two-halves-of-one-generator-refuse-each-other/rounds/round-2.md` | answered | read at `867f39c` against the three commits. Under `seal/specs/`, so a correction surface rather than a fix surface |
@@ -280,9 +280,9 @@ reproduced); the other two I carried, and neither has a check that fails.
 | What was run | Result |
 |---|---|
 | `bin/test tests/test_a_finding_id_is_a_bare_integer.py -q` at `867f39c` | 55 passed, exit 0 |
-| the same module against `89e7944`'s `round_record.py` | 6 failed, 49 passed — all six `test_a_row_that_commissions_nothing_cannot_read_open` parameters red; the two other new cases green, as guards on new code should be |
-| mutation: `len(bad) + len(owed) == flagged` dropped | `test_a_row_failing_both_arms_is_named_once` red — *has 2 rows*, `\| 🔴 A \|` quoted twice |
-| mutation: `len(seen) > VERDICT_COL` dropped | `test_a_row_too_short_to_have_a_verdict_cell_does_not_crash` red — `IndexError` out of `verdict_of` |
+| the same module against `89e7944`'s `round_record.py` | 6 failed, 49 passed — all six `test_a_row_that_commissions_nothing_cannot_read_open` parameters red; the two other new cases green, as guards on new code should be <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
+| mutation: `len(bad) + len(owed) == flagged` dropped | `test_a_row_failing_both_arms_is_named_once` red — *has 2 rows*, `\| 🔴 A \|` quoted twice <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
+| mutation: `len(seen) > VERDICT_COL` dropped | `test_a_row_too_short_to_have_a_verdict_cell_does_not_crash` red — `IndexError` out of `verdict_of` <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
 | probe: `\| 1 \| one \|` (short **and** numbered) through `new` | exit 1, `IndexError` at `round_record.py:1970` → `chain_check.py:1466`. Finding 1 |
 | probe: the same row hand-edited into a record, through `close` | exit 1, `IndexError` at `round_record.py:3307`. Finding 1 |
 | every committed `round-N.md` through the module's own `table_body`: `#` cells split by digit, marker and admission | 175 of 215 records parse, 1,691 verdict rows, 51 no-digit — 26 owed by the marker arm, **25 admitted**, of which 0 read `open`. Round 2's split reproduces |
@@ -346,7 +346,7 @@ def test_a_numbered_short_row_is_refused_rather_than_raising(repo):
 ```
 
 Finding 2 — match the word the way `verdict_of` matches its own vocabulary.
-Beside `OPEN_WORD`:
+Beside `OPEN_WORD`: <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 
 ```python
 OPEN_WORD = "open"
@@ -487,7 +487,7 @@ Read at `867f39c`:
 
 - `skills/code-review/scripts/round_record.py` — `finding_number`, `id_refusal`,
   `verdict_rows`, `fix_table`, `table_body`, `row_cells`, `build`, `close`,
-  `OPEN_WORD`, `OWED_MARKERS`, `DIGIT_RE`, `NUMBER_COL`, `VERDICT_COL`,
+  `OPEN_WORD`, `OWED_MARKERS`, `DIGIT_RE`, `NUMBER_COL`, `VERDICT_COL`, <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
   `VERDICT_HEADER`, `FIXES_HEADER`, `main`
 - `skills/code-review/scripts/chain_check.py` — `verdict_of`, `SEPARATORS`,
   `CLOSED_WORDS`, `VERDICT_COLUMN`, `MARKER`

@@ -40,7 +40,7 @@ read.
   new case covers. A two-cell numbered row hand-edited into a record and run
   through `close` exits 2 with the new refusal, quoting the row.
 
-**`says_open` is right about the corpus and the documents.** Every one of the
+**`says_open` is right about the corpus and the documents.** Every one of the <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 committed verdict cells that begins `open` is reached, none of them is in
 `CLOSED_WORDS`, and no admitted no-digit row is newly refused. Re-derived
 through the module's own reader rather than carried.
@@ -96,7 +96,7 @@ whether a home word has anything after it. Executed: `fixed d3fe44d` reads as
 makes the example work.
 
 The behaviour follows the sentence rather than the code, and is wider than
-every document describing it. `says_open` returns True for `open-ended
+every document describing it. `says_open` returns True for `open-ended <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 question` and for `open: see 5`, because `-` and `:` are in the wider set — and
 the refusal a reviewer then reads says *the `Verdict` cell reads `open`*, of a
 cell that does not. That is the same over-reach the module names one function
@@ -119,9 +119,9 @@ where it stands, and only the example in it needs correcting.
 
 `skills/code-review/scripts/round_record.py:2370`
 
-The comment introducing `OPEN_WORD` reads *and exact rather than a vocabulary
+The comment introducing `OPEN_WORD` reads *and exact rather than a vocabulary <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 test, which is the distinction the grounds for NOT reading the verdict missed*.
-The match stopped being exact in this commit. `says_open` is defined ten lines
+The match stopped being exact in this commit. `says_open` is defined ten lines <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 below that sentence, and the comment directly above it — in the same block, on
 the same screen — was rewritten by this same fix pass.
 
@@ -129,14 +129,14 @@ This is round 3's 🟡 3 reproduced by the commit that closed it: an overturned
 claim corrected in four carriers and left standing in a fifth, inside the file
 being edited. Every other live carrier is clean — I grepped the class and the
 only remaining copies are in committed round records and reports, which are
-history and correctly left alone. `test_the_verdict_ruling_is_against_a_vocabulary_test_not_against_reading`
+history and correctly left alone. `test_the_verdict_ruling_is_against_a_vocabulary_test_not_against_reading` <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 guards the spec's copy and nothing guards this one, which is why it survived.
 
 ## 4. 🟡 The case guarding the narrower bound states a mechanism that does not happen
 
 `tests/test_a_finding_id_is_a_bare_integer.py:348`
 
-`test_a_row_missing_only_its_grounds_is_still_written_short` carries the comment
+`test_a_row_missing_only_its_grounds_is_still_written_short` carries the comment <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 *The row IS refused, by the verdict arm — it reads `open` with a `#` cell that
 keys it, so `Pass` is decided on it*, and then asserts `code in (0, 2)`.
 
@@ -193,14 +193,14 @@ as one if the branch ships.
 
 **The mutation report is accurate.** Four mutations run here, each killed, and
 the survivor the fix pass reports is real: dropping the separator test from
-`says_open` leaves the whole module green except
-`test_a_word_that_merely_begins_with_open_is_not_the_open_verdict`, which is
+`says_open` leaves the whole module green except <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
+`test_a_word_that_merely_begins_with_open_is_not_the_open_verdict`, which is <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 the case written for it.
 
 **The new cases were seen red where they could be.** Against `c2b2b30`'s
 generator the module gives 4 failed, 59 passed:
-`test_a_numbered_short_row_is_refused_rather_than_raising` and three of the four
-parameters of `test_every_spelling_of_open_the_records_hold_is_refused` — the
+`test_a_numbered_short_row_is_refused_rather_than_raising` and three of the four <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
+parameters of `test_every_spelling_of_open_the_records_hold_is_refused` — the <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 bare `open` parameter stays green because equality already caught it, which is
 correct. The other two new cases are green pre-fix by construction, and each is
 killed by the mutation named for it.
@@ -211,7 +211,7 @@ functions moved and both re-hash.
 
 **Round 3's record is a truthful application of its fix table.** Findings 1
 through 4 read `**fixed** fec2c88`, the rest read `answered`, and `New units`
-names `says_open` and all five cases. Under `seal/specs/`, so a correction
+names `says_open` and all five cases. Under `seal/specs/`, so a correction <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 surface.
 
 ## Verdicts
@@ -219,16 +219,16 @@ surface.
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
 | 1 | 🟡 The re-measurement *127 verdict cells begin `open`, 9 continue, equality reached 118* does not reproduce under any population. The module's own reader gives 95, 7 and 88 over 1,704 rows in 176 records — round 3's figures. The same sentence is in the ledger fragment | `skills/code-review/scripts/round_record.py:2391`, `tests/test_a_finding_id_is_a_bare_integer.py:379` | open | executed at `151792e` — six populations measured through `table_body` and through `chain_check.verdict_table`: records 95/7, records plus this item's reports 108/7, records plus all reports 570/15, loose pipe-row reading 95/7. The nearest figure to 127 is 129, and only by counting every cell of every column. The two neighbouring claims, *15 of 25* and *0 newly refused*, both reproduce exactly |
-| 2 | 🟡 Four live coordinates say `says_open` borrows the boundary `verdict_of` uses for its vocabulary. `verdict_of` ends its vocabulary on a space or a comma and says so in its own docstring; `chain.SEPARATORS` is six characters wide, so `open-ended question` and `open: see 5` are refused as the open verdict and the refusal names a word the cell does not carry | `skills/code-review/scripts/round_record.py:2386`, `:2470`, `docs/review-chain-spec.md:776`, `tests/test_a_finding_id_is_a_bare_integer.py:382` | open | executed at `151792e` — `fixed d3fe44d` reads `fixed`; `fixed—d3fe44d`, `fixed-d3fe44d` and `fixed:d3fe44d` read as the whole cell. `says_open` is True for `open-ended question` and `open: see 5`. The proposed narrower boundary reaches all 95 committed cells, excludes both, and leaves the two modules green at 63 and 119 passed |
-| 3 | 🟡 The comment introducing `OPEN_WORD` still reads *exact rather than a vocabulary test*, ten lines above the function that replaced the exact match, and directly under a comment this same commit rewrote. Round 3's 🟡 3 class, one member left standing in the edited file | `skills/code-review/scripts/round_record.py:2370` | open | read at `151792e`, class enumerated by grep: every other live carrier of the overturned ruling is corrected, and the only remaining copies are in committed records and reports, which are history. The spec's copy is guarded by a case; this one is guarded by nothing |
-| 4 | 🟡 `test_a_row_missing_only_its_grounds_is_still_written_short` says the four-cell row *IS refused* and asserts `code in (0, 2)`. It is not refused: `new` exits 0 and writes the record with the row at four cells, because a keyed row never reaches the verdict arm. The assertion admits both answers, so the case cannot fail on the regression it names | `tests/test_a_finding_id_is_a_bare_integer.py:348` | open | executed at `151792e` — the case's own input through `generate` gives exit 0, the record on disk, and `\| 1 \| one \| \`f.py:1\` \| open \|` in its verdict table. The repaired assertions were run and pass |
+| 2 | 🟡 Four live coordinates say `says_open` borrows the boundary `verdict_of` uses for its vocabulary. `verdict_of` ends its vocabulary on a space or a comma and says so in its own docstring; `chain.SEPARATORS` is six characters wide, so `open-ended question` and `open: see 5` are refused as the open verdict and the refusal names a word the cell does not carry | `skills/code-review/scripts/round_record.py:2386`, `:2470`, `docs/review-chain-spec.md:776`, `tests/test_a_finding_id_is_a_bare_integer.py:382` | open | executed at `151792e` — `fixed d3fe44d` reads `fixed`; `fixed—d3fe44d`, `fixed-d3fe44d` and `fixed:d3fe44d` read as the whole cell. `says_open` is True for `open-ended question` and `open: see 5`. The proposed narrower boundary reaches all 95 committed cells, excludes both, and leaves the two modules green at 63 and 119 passed <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
+| 3 | 🟡 The comment introducing `OPEN_WORD` still reads *exact rather than a vocabulary test*, ten lines above the function that replaced the exact match, and directly under a comment this same commit rewrote. Round 3's 🟡 3 class, one member left standing in the edited file | `skills/code-review/scripts/round_record.py:2370` | open | read at `151792e`, class enumerated by grep: every other live carrier of the overturned ruling is corrected, and the only remaining copies are in committed records and reports, which are history. The spec's copy is guarded by a case; this one is guarded by nothing <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
+| 4 | 🟡 `test_a_row_missing_only_its_grounds_is_still_written_short` says the four-cell row *IS refused* and asserts `code in (0, 2)`. It is not refused: `new` exits 0 and writes the record with the row at four cells, because a keyed row never reaches the verdict arm. The assertion admits both answers, so the case cannot fail on the regression it names | `tests/test_a_finding_id_is_a_bare_integer.py:348` | open | executed at `151792e` — the case's own input through `generate` gives exit 0, the record on disk, and `\| 1 \| one \| \`f.py:1\` \| open \|` in its verdict table. The repaired assertions were run and pass <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
 | 5 | ⬜ The new short-row guard raises on the first offending row, inside the loop whose docstring states #303's rule that offending rows are collected and refused once. Pre-existing in shape — only the condition widened — and zero committed rows are short | `skills/code-review/scripts/round_record.py:3126` | open | read at `151792e` against `finding_number`'s own docstring and the `bad`/`owed` accumulation beside the guard |
 | 6 | ⬜ The inserted clause left *test, and the* alone on a line | `docs/review-chain-spec.md:779` | open | read at `151792e`; renders correctly |
 | 7 | Round 3's 🔴 1 is closed on both subcommands, not only the one the new case covers | `skills/code-review/scripts/round_record.py:3112` | answered | executed at `151792e` — a two-cell numbered row through `new` exits 2 with the new refusal; the same row hand-edited into a record and run through `close` exits 2 with the same message, no traceback |
 | 8 | The narrower bound admits nothing that reaches an index elsewhere. Every caller indexes `NUMBER_COL`, `VERDICT_COL`, or `GROUNDS_COL` behind the padding loop | `skills/code-review/scripts/round_record.py:1970`, `:3360`, `:3377`, `:3426`, `:3444` | answered | executed at `151792e` — a four-cell row through `new` (written short, exit 0), through `close` inside the fix table (rewritten and padded) and through `close` outside it (copied back untouched). No traceback on any path; read at all five index sites |
 | 9 | The grounds for refusing round 3's own paste-ready bound are true | `tests/test_the_record_is_generated.py:2214` | answered | executed at `151792e` — with the bound widened to the header width, `test_a_short_row_with_a_comment_pipe_is_not_padded_into_a_full_one` is the one failure, 1 failed and 118 passed against 119 passed unmutated |
 | 10 | The new cases were seen red where they can be, and the rest are killed by the mutation each was written for | `tests/test_a_finding_id_is_a_bare_integer.py:324`, `:370`, `:397` | answered | executed at `151792e` — the module against `c2b2b30`'s generator: 4 failed, 59 passed. Mutations: bound back to `NUMBER_COL` kills the short-row case; dropping the separator test kills the longer-word case; equality restored kills three of the four spelling parameters |
-| 11 | `says_open` reaches the corpus it claims and costs nothing, whatever the count beside it says | `skills/code-review/scripts/round_record.py:2380` | answered | executed at `151792e` — all 95 committed cells beginning `open` reached, none in `CLOSED_WORDS`, 0 of the 25 admitted no-digit rows newly refused |
+| 11 | `says_open` reaches the corpus it claims and costs nothing, whatever the count beside it says | `skills/code-review/scripts/round_record.py:2380` | answered | executed at `151792e` — all 95 committed cells beginning `open` reached, none in `CLOSED_WORDS`, 0 of the 25 admitted no-digit rows newly refused <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
 | 12 | Round 3's 🟡 3 class is otherwise fully enumerated; the only remaining copies of the overturned ruling are in committed records and reports | `docs/review-chain-spec.md:790`, `skills/code-review/scripts/round_record.py:2363`, `:2449`, `tests/test_a_finding_id_is_a_bare_integer.py:236` | answered | read at `151792e` — grep of the claim across the tree; four live carriers corrected, one missed and opened as finding 3 |
 | 13 | Round 3's ⬜ 5 was left alone on sound grounds, and its premise is what the checker does | `skills/code-review/scripts/chain_check.py#open_blocking` | answered | read at `151792e` — rows are selected by `BLOCKING in "".join(seen)` and an unclosed verdict, so a no-digit row reading `open` is invisible at CI. Both generator subcommands refuse it. Named here rather than reopened, and worth recording as a stated divergence if the branch ships |
 | 14 | The ledger fragment's anchors survive the fix and both moved functions re-hash | `seal/ledger/1789356180-the-two-halves-of-one-generator-refuse-each-other.md` | answered | executed at `151792e` — `evidence-check .` exits 0: 1,220 ok, 0 drifted, 0 broken, this fragment 28 ok |
@@ -238,7 +238,7 @@ surface.
 ## Paste-ready fixes
 
 Finding 1 — `skills/code-review/scripts/round_record.py`, the second paragraph
-of `says_open`:
+of `says_open`: <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 
 ```python
     Measured over every committed record: 95 verdict cells begin `open` and 7
@@ -249,7 +249,7 @@ of `says_open`:
 ```
 
 Finding 1 — `tests/test_a_finding_id_is_a_bare_integer.py`, inside
-`test_every_spelling_of_open_the_records_hold_is_refused`:
+`test_every_spelling_of_open_the_records_hold_is_refused`: <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 
 ```python
     Measured over every committed record: 95 verdict cells begin `open` and
@@ -328,7 +328,7 @@ no-digit cells in the committed records, not one reads it.
 ```
 
 Finding 2 — `tests/test_a_finding_id_is_a_bare_integer.py`, inside
-`test_a_word_that_merely_begins_with_open_is_not_the_open_verdict`, so the
+`test_a_word_that_merely_begins_with_open_is_not_the_open_verdict`, so the <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 boundary has a case of its own rather than only a sentence:
 
 ```python
@@ -354,7 +354,7 @@ def test_a_word_that_merely_begins_with_open_is_not_the_open_verdict(repo, verdi
 ```
 
 Finding 3 — `skills/code-review/scripts/round_record.py`, the comment above
-`OPEN_WORD`:
+`OPEN_WORD`: <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 
 ```python
 # The one verdict word that says the row is open in as many letters. Read only
@@ -369,7 +369,7 @@ Finding 3 — `skills/code-review/scripts/round_record.py`, the comment above
 ```
 
 Finding 4 — `tests/test_a_finding_id_is_a_bare_integer.py`, the body of
-`test_a_row_missing_only_its_grounds_is_still_written_short`. Run here and
+`test_a_row_missing_only_its_grounds_is_still_written_short`. Run here and <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. -->
 green:
 
 ```python
@@ -395,17 +395,17 @@ green:
 | `bin/test tests/test_a_finding_id_is_a_bare_integer.py -q` at `151792e` in the clone | 63 passed, exit 0 |
 | `bin/test tests/test_the_record_is_generated.py -q` at `151792e` in the clone | 119 passed, exit 0 |
 | the same bare-integer module against `c2b2b30`'s `round_record.py` | 4 failed, 59 passed — the short-row case and three of the four spelling parameters red; the bare `open` parameter green, because equality already caught it |
-| mutation: bound back to `len(seen) <= NUMBER_COL` | 1 failed — `test_a_numbered_short_row_is_refused_rather_than_raising` |
-| mutation: bound widened to `len(seen) < len(VERDICT_HEADER)`, round 3's proposal | in the bare-integer module, 1 failed — `test_a_row_missing_only_its_grounds_is_still_written_short`; in `test_the_record_is_generated.py`, 1 failed and 118 passed — `test_a_short_row_with_a_comment_pipe_is_not_padded_into_a_full_one`, against 119 passed unmutated. Finding 9's grounds |
-| mutation: `says_open` returns True without testing the boundary | 2 failed — both parameters of `test_a_word_that_merely_begins_with_open_is_not_the_open_verdict`. The fix pass's survivor reproduces |
+| mutation: bound back to `len(seen) <= NUMBER_COL` | 1 failed — `test_a_numbered_short_row_is_refused_rather_than_raising` <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
+| mutation: bound widened to `len(seen) < len(VERDICT_HEADER)`, round 3's proposal | in the bare-integer module, 1 failed — `test_a_row_missing_only_its_grounds_is_still_written_short`; in `test_the_record_is_generated.py`, 1 failed and 118 passed — `test_a_short_row_with_a_comment_pipe_is_not_padded_into_a_full_one`, against 119 passed unmutated. Finding 9's grounds <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
+| mutation: `says_open` returns True without testing the boundary | 2 failed — both parameters of `test_a_word_that_merely_begins_with_open_is_not_the_open_verdict`. The fix pass's survivor reproduces <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
 | mutation: the verdict arm restored to equality | 3 failed — the three wider spelling parameters |
 | probe: `\| 1 \| one \|` through `new`, and the same row hand-edited into a record through `close` | exit 2 both times with the new refusal quoting the row; no traceback, no record written. Finding 7 |
 | probe: a four-cell row through `new`, through `close` inside the fix table, and through `close` outside it | exit 0 and written short; rewritten and padded; copied back untouched. No traceback on any path. Finding 8 |
 | every committed `round-N.md` through the module's own `table_body` | 176 of 216 parse, 1,704 verdict rows, **0 short**, 51 no-digit, 25 admitted, 15 of those outside `CLOSED_WORDS`. Finding 1 |
-| every committed verdict cell through `verdict_of`, counting cells that begin `open` | **95** across 8 spellings — 88 bare, 7 wider, none in `CLOSED_WORDS`; `says_open` reaches all 95 and newly refuses 0 of the 25 admitted rows. Findings 1 and 11 |
+| every committed verdict cell through `verdict_of`, counting cells that begin `open` | **95** across 8 spellings — 88 bare, 7 wider, none in `CLOSED_WORDS`; `says_open` reaches all 95 and newly refuses 0 of the 25 admitted rows. Findings 1 and 11 <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
 | the same count over five other populations — records plus this item's reports, records plus all reports, every `.md` in the tree, the loose pipe-row reading, and `chain_check.verdict_table` | 108, 570, 570, 95, 95. None is 127. Finding 1 |
 | `verdict_of` over `fixed d3fe44d`, `fixed, d3fe44d`, `fixed—d3fe44d`, `fixed-d3fe44d`, `fixed:d3fe44d` | `fixed`, `fixed`, and the whole cell for the last three — the vocabulary boundary is a space or a comma, not `chain.SEPARATORS`. Finding 2 |
-| `says_open` over 22 spellings a reviewer might write | `open-ended question` and `open: see 5` are refused as the open verdict; `still open`, `open?` and `open; see 5` are not reached. Finding 2 |
+| `says_open` over 22 spellings a reviewer might write | `open-ended question` and `open: see 5` are refused as the open verdict; `still open`, `open?` and `open; see 5` are not reached. Finding 2 <!-- NAME NOT IN TREE: the unit was reverted at 1ff0a6c and the seam lives in #395; the record keeps the name as the round read it. --> |
 | the proposed narrow boundary applied to the generator | reaches 95 of 95 committed cells, excludes `open-ended question` and `open: see 5`; 63 passed and 119 passed across the two modules, exit 0 both. Finding 2 |
 | the repaired assertions for finding 4, run as written | 1 passed — exit 0, the record on disk, the row at four cells |
 | `bin/evidence-check .` at `151792e` | exit 0 — 1,220 ok · 0 drifted · 0 broken; this work item's fragment 28 ok. Finding 14 |
