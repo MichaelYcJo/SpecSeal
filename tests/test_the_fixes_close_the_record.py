@@ -752,6 +752,86 @@ def test_the_suffixed_verdict_cell_is_refused_naming_the_two_cell_shape(repo):
     assert "answered" in out, out
 
 
+@pytest.mark.parametrize("sep", [",", "\N{EM DASH}", ":", "-"])
+def test_the_row_the_suffixed_refusal_prints_is_a_row_the_table_accepts(repo, sep):
+    """Round 1's 🟡 3. `head` was computed by splitting the cell on the first
+    `SEPARATORS` character found ANYWHERE in it, and `SEPARATORS` begins with a
+    space — so any cell containing a space split there whatever followed the
+    word. `answered, corrected at <sha>` printed the paste-ready row
+    `| 1 | answered, | … |`, whose verdict `fix_table` refuses on the next run.
+
+    The em-dash spelling worked by luck, because its separator happens to be
+    the space that follows the word. This is the arm phase 2 added precisely so
+    a reader who followed the old spec would be told what to write, and for the
+    comma spelling it told them wrong.
+
+    Asserted by pasting the row back rather than by reading the message: a
+    message that advises a refused row is what the finding is about, and only
+    running its advice can catch it.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# the record corrected\n")
+    b = commit(repo, "the correction")
+    code, out, _ = close(
+        repo,
+        1,
+        fix_table(f"| 1 | answered{sep} corrected at {b[:7]} | x |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 2, out
+    advised = re.search(r"write\s+`(\|[^`]+\|)`", out)
+    assert advised, out
+    row = advised.group(1)
+    assert "answered |" in row, (row, out)
+    code, out, record = close(repo, 1, fix_table(row + "\n"), f"{a}..{b}")
+    assert code == 0, (row, out)
+    (one,) = verdict_cells(record)
+    assert one[3] == "answered", (one, row)
+    assert f"corrected at {b[:7]}" in one[4], (one, row)
+
+
+def test_a_deferred_row_whose_third_cell_begins_with_its_home_says_it_once(repo):
+    """Round 1's 🟡 4. The guard against repeating the home was exact equality,
+    so it caught `| N | deferred #12 | #12 |` and missed the shape immediately
+    beside it — #391's own worked example. `| 1 | deferred #309 | #309 — the
+    parity arm is out of scope |` landed as
+    `#309 — #309 — the parity arm is out of scope; executed`.
+
+    A smaller version of the same noise, in the cell #391 exists to make
+    readable.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, record = close(
+        repo,
+        1,
+        fix_table("| 1 | deferred #309 | #309 — the parity arm is out of scope |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[4].count("#309") == 1, (one, out)
+    assert "the parity arm is out of scope" in one[4], one
+    assert "executed" in one[4], "the reviewer's grounds"
+
+
+def test_the_unknown_finding_refusal_says_so_when_the_table_holds_no_id(repo):
+    """Round 1's ⬜ 5. The parenthetical names the ids the verdict table does
+    hold, so on an empty mapping it rendered as `(which has )` and the reader
+    learned less than the sentence promised. Pre-existing — and the admission
+    rule is what makes an empty mapping reachable from a well-formed report."""
+    a = round_one(
+        repo, verdicts="| carried | round 1's note | `mod.py` | verified | read |\n"
+    )
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, _ = close(repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}")
+    assert code == 2, out
+    assert "(which has )" not in out, out
+    assert "no numbered rows at all" in out, out
+
+
 def test_a_deferred_verdict_still_carries_its_home_in_the_verdict_cell(repo):
     """The other side of the refusal above. `deferred <home>` is one word and
     a home in one cell by design — the home is what makes the deferral

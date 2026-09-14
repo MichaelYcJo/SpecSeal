@@ -6,13 +6,21 @@
   those six had to be given a closing word by the fix pass — so the record
   ended up asserting that the round had settled things it had merely looked at.
 
-  **A cell with no digit in it is now a row that commissions nothing.** It is
+  **A cell that says the row commissions nothing is now admitted.** It is
   copied into the record exactly as written, never keyed to a finding, never
   asked for a closure, and never counted toward `Pass`. Three kinds of row are
   that shape and all three were being renumbered by hand: a confirmation the
   round verified, an earlier round's closure carried forward, and a
-  `❓ out of verified scope` marker. Measured over the committed records: 51 of
-  1,989 verdict rows already carry such a cell, about one row in thirty-seven.
+  `❓ out of verified scope` marker.
+
+  **A 🔴 or a 🟡 with no number is refused, and so is an empty cell.** Those two
+  severities mean somebody owes the row an answer, so such a row is not one
+  that commissions nothing whatever its `#` cell says — and because an admitted
+  row is never counted toward `Pass`, the record would otherwise be written
+  with `Pass` ticked beside an open finding in its own verdict table. Of the 51
+  no-digit cells in the committed records, 44 are a severity marker and a single
+  letter — a finding id in the wrong alphabet — and all 26 carrying 🔴 or 🟡 are
+  genuine findings.
 
   **A cell that carries digits and is still not an id is refused as before**,
   because it was reaching for a number and missed. What changed is where and
@@ -22,10 +30,12 @@
   first, which used to cost two round trips per repair.
 
   **Which way this fails is written down where the reviewer picks the number.**
-  Leaving the id off a row that really is an open finding writes a finding no
-  fix table will be asked to close, and nothing catches that. Numbering a
-  confirmation row costs an inflated count in one record. The change is toward
-  the cheaper mistake, and the documents now say so.
+  Writing 🟢, ❓ or ⬜ with no number on a row that really is an open finding
+  still writes a finding no fix table will be asked to close, and nothing
+  catches that — the check reaches the two markers that owe an answer and
+  cannot reach a wrongly chosen one. Numbering a confirmation row costs an
+  inflated count in one record. The change is toward the cheaper mistake, and
+  the documents now say so.
 
 - **`❓ out of verified scope` is a verdict that closes without commissioning
   anything (issue #353).** It means the reviewer looked and could not judge,

@@ -179,6 +179,13 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   forward (`docs/review-chain-spec.md` §*A verdict row that commissions
   nothing*).
 
+  **Every 🔴 and every 🟡 takes a number, and an unnumbered one is refused.**
+  Those two severities are the ones that mean somebody owes the row an
+  answer, so a row carrying either is never a row that commissions nothing —
+  and because such a row is never counted toward `Pass`, leaving the number
+  off would have the record tick `Pass` over a finding you opened. An empty
+  `#` cell is refused for the neighbouring reason: it says nothing at all.
+
   Stated intent is the sharpest case, because it is often right. If the
   behavior is called deliberate, go looking for it in the policy documents,
   the SDD set, or the ledger. Found there, it is grounds. Found nowhere but

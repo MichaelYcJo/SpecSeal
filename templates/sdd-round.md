@@ -302,15 +302,21 @@ durable, committed home instead. -->
      copies these numbers into its `## Fixes` table, so the format is one
      choice two agents pay for.
 
-     **A row that commissions nothing takes no id**, and its `#` cell holds
-     the marker alone or a word: `✅`, `🟢 fix-surface`, `carried`, `—`. A
-     confirmation this round verified and did not open, an earlier round's
-     closure carried into this table, and a `❓ out of verified scope` marker
-     are all that shape — no fix table can reference them, because there is
-     nothing to commission. `close` copies such a row through, asks no
-     closure for it, writes no verdict word over it, and does not count it
-     toward `Pass`. The `## Fixes` table is the other direction and every row
-     of it needs an id: there the row IS the commission.
+     **A row that commissions nothing takes no id**, and its `#` cell says
+     so: `carried`, `🟢 fix-surface`. A confirmation this round verified and
+     did not open, an earlier round's closure carried into this table, and a
+     `❓ out of verified scope` marker are all that shape — no fix table can
+     reference them, because there is nothing to commission. `close` copies
+     such a row through, asks no closure for it, writes no verdict word over
+     it, and does not count it toward `Pass`. The `## Fixes` table is the
+     other direction and every row of it needs an id: there the row IS the
+     commission.
+
+     **A 🔴 or 🟡 with no number is refused, and so is an empty cell.** Those
+     two severities mean somebody owes the row an answer, so the row is not
+     one that commissions nothing whatever else the cell says — and because
+     such a row is never counted toward `Pass`, the record would otherwise
+     tick `Pass` over an open finding.
 
      An earlier round's number goes in the **Finding** cell, which is prose.
      In the `#` cell it is digits, and digits there are an id.

@@ -720,7 +720,8 @@ and `r3 🟡 2` are not.
 | The cell | What happens |
 |---|---|
 | digits, with or without a marker in front | read as that finding |
-| **no digit anywhere in it** — `✅`, `🟢 fix-surface`, `carried`, `—` | in the **verdict** table, read as a row that commissions nothing: copied through, never keyed, never asked for a closure, never counted toward `Pass`. In the **`## Fixes`** table, refused — there the row IS the commission |
+| **no digit, and the cell says the row commissions nothing** — `carried`, `🟢 fix-surface` | in the **verdict** table, copied through, never keyed, never asked for a closure, never counted toward `Pass`. In the **`## Fixes`** table, refused — there the row IS the commission |
+| **no digit, and the cell is empty or carries 🔴 or 🟡** | **refused**, naming every such row. Those two severities mean somebody owes the row an answer, and an empty cell says nothing at all — either way the cell does not say the row commissions nothing |
 | anything else | **refused**, naming the format and quoting **every** offending row of the table |
 | two rows that resolve to the same integer | **refused**, quoting **both** rows |
 
@@ -731,10 +732,15 @@ either agent that could have avoided it.
 
 ##### A verdict row that commissions nothing
 
-A row with no id is not an oversight, it is a shape reviewers reach for.
-Measured over the 207 committed records that parse: **51 of 1,989 verdict rows
-carry a `#` cell with no digit anywhere in it**, and 21 rows of reviewers'
-reports carry a bare em dash — about one row in thirty-seven. Three kinds:
+A row with no id is a shape reviewers reach for, and the evidence for it is
+**seven rows**. Measured over the 207 committed records that parse, 51 of
+1,989 verdict rows carry a `#` cell with no digit — and **44 of those are a
+severity marker and a single letter**, `🔴 A` through `🟢 O`, which is a
+finding id written in the wrong alphabet rather than a row commissioning
+nothing. Seven are this shape: `carried`, `🟢 fix-surface`, `🟢 fragment`,
+`🟢 grep`, `🟢 overview`. Neither `✅` nor a bare em dash occurs in a committed
+record at all; the 21 bare em dashes are in reviewers' **reports**, which is a
+different corpus. Three kinds:
 
 - **a confirmation** this round verified and did not open;
 - **an earlier round's closure**, carried into this round's table;
@@ -750,12 +756,26 @@ count is what a later round and the pull request read.
 digits there are an id — `round 2's 1` keyed as finding **2** under the reader
 that took the first digit run, colliding with this round's own 2.
 
-**The direction this fails in, stated.** A reviewer who leaves the id off a row
-that IS an open finding has written a finding no fix table will be asked to
-close, and `close` exits 0 over it. Nothing catches that. The other mistake —
-numbering a confirmation row — costs an inflated count in one record. The
-change is toward the cheaper mistake, and the id is what says *somebody owes
-this an answer*.
+**The severity is read as well as the `#` cell, and that is not decoration.**
+A row admitted here is never keyed, never asked for a closure and never
+counted toward `Pass` — so a `#` cell alone deciding the question ticked
+`Pass` over an open finding, and the record then asserted that a review
+passed while its own verdict table said otherwise. Measured: `| 🟡 A | … |
+open |` came through `new` at exit 0, silently, with `Pass` checked, and
+nothing downstream caught it because `chain_check.open_blocking` reads only
+🔴 rows. All 26 no-digit cells carrying 🔴 or 🟡 in the committed records are
+genuine findings.
+
+**The direction this fails in, stated.** A reviewer who writes 🟢, ❓ or ⬜ on
+a row that IS an open finding has written a finding no fix table will be
+asked to close, and `close` exits 0 over it. The severity check catches the
+two markers that mean something is owed; it cannot catch a reviewer who picks
+the wrong marker. The other mistake — numbering a confirmation row — costs an
+inflated count in one record, and the change is toward that one.
+
+**The verdict word cannot do this job.** A confirmation row reads `verified`,
+which is in no vocabulary and therefore OPEN, so reading the verdict would
+refuse every confirmation — one refusal traded for another.
 
 **`❓ out of verified scope` is a closing verdict**, in `chain_check.py`'s
 `CLOSED_WORDS` and in neither `FIX_WORDS` nor `HOME_WORDS` — it closes without

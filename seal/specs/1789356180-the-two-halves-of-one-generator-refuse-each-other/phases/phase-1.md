@@ -22,13 +22,28 @@ an id — so the validation also lands at `new`, where today it lands only at
 
 **A row with no id needs no spelling of its own, and the corpus is what
 decides it.** `plan.md` left this open. The discriminator is whether the cell
-carries a digit anywhere in it, because the two populations do not overlap on
-anything a reviewer writes: of the 253 cells today's rule refuses, 199 carry
-digits and were reaching for an id and missed (`R2-1`, `1b`, `round 2's
-finding (🟡 4)`), and 51 carry none and were never an id (`✅`, `carried`,
-`🟢 fix-surface`, `—`). Requiring one sentinel — an empty cell, say — would
-refuse all 51 of the shapes reviewers already reach for and buy nothing: a
-reviewer who forgets an id writes an empty cell just as readily as a `✅`.
+carries a digit anywhere in it: of the 253 cells today's rule refuses, 199
+carry digits and were reaching for an id and missed (`R2-1`, `1b`, `round 2's
+finding (🟡 4)`), and 51 carry none. Requiring one sentinel — an empty cell,
+say — would refuse the shapes reviewers already reach for and buy nothing: a
+reviewer who forgets an id writes an empty cell just as readily as a word.
+
+<!-- CORRECTED 2026-09-14 by round 1's 🟡 2, which re-derived this population
+through the module's own `table_body`. The sentence that stood here said the
+51 "carry none and were never an id (`✅`, `carried`, `🟢 fix-surface`, `—`)"
+and that "the two populations do not overlap on anything a reviewer writes".
+The count is right and the reading of it was not. **44 of the 51 are a
+severity marker and a single LETTER** — `🔴 A` through `🟢 O` — which is a
+finding id in the wrong alphabet, and only 7 are the shape this rule admits.
+Neither `✅` nor a bare em dash occurs in a committed record at all; the 21
+bare em dashes are in reviewers' REPORTS, a different corpus. So the evidence
+for the admission is 7 rows rather than 51, and the dominant no-digit shape is
+a finding id — which is what round 1's 🔴 1 then found the rule admitting with
+`Pass` ticked over it. The severity arm is that repair, and the corrected
+grounds are in `docs/review-chain-spec.md` §*A verdict row that commissions
+nothing* and in this work item's ledger fragment, row 1. The conclusion this
+paragraph reaches — no sentinel of its own — is unchanged and is still right;
+its grounds were wrong. -->
 
 **The corpus counts the frame read are three of them wrong, and one badly.**
 Re-derived by executing the module's own patterns over the 207 committed

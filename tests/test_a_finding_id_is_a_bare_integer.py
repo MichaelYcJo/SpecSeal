@@ -182,9 +182,11 @@ def test_every_shape_the_corpus_holds_is_refused_by_name(repo, bad):
     for an id and missed. Each is refused, and each refusal quotes the cell —
     with eight rows and no coordinate, the ticket's complaint was the scan.
 
-    `A` and `carried` left this list when #321 landed: they carry no digit, so
-    they were never an id, and they are what a row that commissions nothing
-    looks like. The case below is their half.
+    `A` and `carried` left this list when #321 landed: they carry no digit and
+    no severity that owes an answer, so nothing asks them for a closure. The
+    case below is their half. A bare `A` is admitted only because it carries
+    no marker — `🔴 A` and `🟡 A` are refused, which is the 44-row shape the
+    corpus actually holds.
     """
     a = round_one(repo, verdicts=OPEN_1)
     b = a_fix(repo)
@@ -213,6 +215,52 @@ def test_every_no_digit_shape_the_corpus_holds_is_admitted(repo, none):
     assert code == 0, out
     assert "bare integer" not in out, out
     assert f"| {none} | verified |" in record, record
+
+
+@pytest.mark.parametrize("owed", ["🔴 A", "🟡 A", "🔴", "🟡 fix-surface"])
+def test_a_no_digit_cell_whose_severity_owes_an_answer_is_refused(repo, owed):
+    """Round 1's 🔴 1. The three-way read admitted a row on the strength of its
+    `#` cell alone, and never consulted the cell that says whether anything is
+    owed. So `| 🟡 A | … | open | … |` came through `new` at exit 0, silently,
+    and the record was written with `- [x] Pass` beside an open finding in its
+    own verdict table — the two halves of one generator disagreeing about one
+    row, reproduced inside this work item's own fix.
+
+    Nothing downstream caught it: `chain_check.open_blocking` reads only rows
+    carrying 🔴. The 🔴 shape did refuse, but on `new`'s own check of the
+    record it had just written, pointing at the Verdict column where nothing
+    is wrong.
+
+    The severity marker is what already means *somebody owes this an answer* —
+    🔴 blocks merge and 🟡 needs grounds — so it is what the rule reads. The
+    verdict word cannot serve: a confirmation row reads `verified`, which is in
+    no vocabulary and therefore OPEN, so reading it would trade one refusal for
+    another.
+    """
+    code, out = a_report(repo, f"| {owed} | one | `f.py:1` | open | read |\n")
+    assert code == 2, out
+    assert "owes an answer" in out, out
+    assert owed in out, out
+    assert "- [x] Pass" not in out, "a record was written"
+
+
+def test_an_empty_hash_cell_is_refused(repo):
+    """The other half of 🔴 1's reproduction, which the finding's own
+    paste-ready fix does not reach (§12 — the fix is owed to the class).
+
+    A blank `#` cell carries no severity, so a rule reading the marker admits
+    it; and the round measured `| | … | open | read |` coming through `new` at
+    exit 0 with `Pass` ticked, exactly as the 🟡 did. A blank is not `carried`
+    or `🟢 fix-surface` — it says nothing at all, which is what a reviewer who
+    forgot the id writes.
+
+    Free against the corpus: of the 51 no-digit cells in the committed
+    records, **zero** are blank, so no record that reads correctly today is
+    refused by this.
+    """
+    code, out = a_report(repo, "|  | one | `f.py:1` | open | read |\n")
+    assert code == 2, out
+    assert "bare integer" in out or "owes an answer" in out, out
 
 
 @pytest.mark.parametrize("marker", ["🔴", "🟡", "🟢", "⬜", "❓", "✅"])
@@ -459,11 +507,14 @@ def test_the_rule_is_one_constant_both_tables_read():
 
 # --- a row that commissions nothing (#321, #341, #353) ----------------------
 
-# The six shapes the corpus already carries in that column, none of them a
-# finding: a confirmation the round verified, a fix-surface re-derivation, an
-# earlier round's closure carried forward, a bare dash, and a scope marker.
-# Measured 2026-09-14 over the 207 committed records that parse: 51 rows carry
-# a `#` cell with no digit anywhere in it, and 21 reports carry a bare dash.
+# Six shapes with no digit and no severity that owes an answer, so none of
+# them commissions anything: a confirmation the round verified, a fix-surface
+# re-derivation, an earlier round's closure carried forward, a bare dash, and
+# a scope marker. Measured 2026-09-14 over the 207 committed records that
+# parse: 51 rows carry a `#` cell with no digit — but 44 of those are a marker
+# and a single letter, which is a finding id in the wrong alphabet and is
+# refused. Seven are this shape. `✅` and a bare dash occur zero times in a
+# committed record; the 21 bare dashes are in reviewers' REPORTS.
 CONFIRMED = (
     "| \N{WHITE HEAVY CHECK MARK} | the pipe escape still renders "
     "| `mod.py#helper` | verified | read |\n"

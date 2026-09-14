@@ -4,7 +4,9 @@
 carrying wording this range removed. ONE was a live defect and is not in this
 table: `seal/ledger.md`'s R1 row claimed `anything else is refused`, which
 stopped being true when a `#` cell with no digit became a row that commissions
-nothing. That row's clause was corrected in place and a re-read note added,
+nothing. That row's clause was corrected in place — and corrected again by
+round 1's finding 6, which found the first correction true of the verdict
+table and silent about the fix table — with a re-read note added,
 per `CLAUDE.md`'s rule that a branch must touch the shared ledger when leaving
 it alone would leave it false. The six below are reports that are correct as
 reports.
