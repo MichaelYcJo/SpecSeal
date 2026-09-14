@@ -165,7 +165,8 @@ correction does not owe.
 
 **Two cells, not one.** The Verdict cell holds the word alone and the
 correcting commit goes in `Commit or grounds` beside it. This section
-prescribed `answered — corrected at <sha>` as one cell until 0.11.4, while
+prescribed `answered — corrected at <sha>` as one cell until the release that
+corrected it, while
 `agents/smith.md` prescribed the two-cell shape one file over — and the one
 cell is refused by `round_record.py close`, so the repository shipped a
 sentence naming a spelling its own generator would not take (#341). The
