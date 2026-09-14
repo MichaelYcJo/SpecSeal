@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 394 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-4 |
 | Contract changes | none |
 | New units | says_open (depth 1); test_a_numbered_short_row_is_refused_rather_than_raising (depth 1); test_a_row_missing_only_its_grounds_is_still_written_short (depth 1); test_every_spelling_of_open_the_records_hold_is_refused (depth 1); test_a_word_that_merely_begins_with_open_is_not_the_open_verdict (depth 1); test_the_verdict_ruling_is_against_a_vocabulary_test_not_against_reading (depth 1) |
 | Needs a fix | yes — 1, 2 and 3 |
