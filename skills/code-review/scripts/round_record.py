@@ -3587,7 +3587,7 @@ def seal(args):
       `Pass` is unchecked          a finding is still OPEN in the verdict
           table, so the round has not ended and the run this cell records
           would be a run over findings still open
-      `Fixes checked by` is neither a LATER round nor `no fixes to check`
+      `Fixes checked by` reads anything but `no fixes to check`
           the fixes that closed those findings were read by nobody, and the
           verifying round is still owed. `Pass` says the TABLE is closed,
           and `close` ticks it the moment a fix table applies, which is one
@@ -3596,10 +3596,14 @@ def seal(args):
           pull request opens before round 1* calls red, on a record the
           verifying round is about to stop being the last one of. A capped
           run reads `no fixes to check` here, so this costs it nothing.
-          Everything outside those two values is refused rather than
-          `nobody` alone, because the chain check this subcommand runs AFTER
-          the write refuses on that same row, and a cell written there is a
-          cell standing on a record its own check will not accept
+          Everything outside that ONE value is refused -- not `nobody`
+          alone, and not everything-but-a-`round-N` either. The chain check
+          this subcommand runs AFTER the write refuses on that same row, and
+          a cell written there is a cell standing on a record its own check
+          will not accept. `round-N` is part of what is refused because
+          `CHECKER_RE` tests the cell's SHAPE and cannot test its POSITION,
+          and a named checker has to be a LATER round than the record
+          carrying it -- which the LAST record has none of (#335)
       `--broad-gate` carries no SHA-shaped word   the cell records a commit
       the SHA it carries does not resolve in this repository
       a `--broad-gate` SHA the record's `Target SHA` descends from   the
@@ -3680,15 +3684,44 @@ def seal(args):
     # says why -- this is the same cell, one subcommand over.
     checker = reader.visible(chain.field(rows, chain.CHECKED_BY) or "").strip()
     plain = checker.strip("`").rstrip(".").lower()
-    if not chain.CHECKER_RE.match(plain) and plain != chain.NO_FIXES:
+    if plain != chain.NO_FIXES:
+        # A `round-N` is refused HERE rather than left to the check after the
+        # write (#335). `CHECKER_RE` tests the SHAPE of the cell and cannot
+        # test its POSITION, and the position is what decides this one: a
+        # named checker has to be a LATER round, and `last_record` two
+        # hundred lines up chose this file by being the highest-numbered one
+        # on disk. So the value is unreachable on the record this subcommand
+        # is holding, and admitting it wrote the cell and then had the chain
+        # check refuse the same row one step later.
+        #
+        # The lastness is not derived here. It is the SELECTION CRITERION of
+        # the line that chose the file, which is why reading it costs nothing
+        # -- `docs/review-handoff-protocol.md` §*The `Fixes checked by` field*
+        # states the rule about the last record in ratified policy, and
+        # `docs/review-chain-spec.md` §*What the record carries* says it
+        # twice more.
+        why = (
+            "a `round-N` names a LATER round, and this is the last record on "
+            "disk — `last_record` chose this file by being the "
+            "highest-numbered one, so there is no later round for the cell "
+            "to name. `chain_check.checked_by` refuses the same row at the "
+            "pull request"
+            if chain.CHECKER_RE.match(plain)
+            else "the fixes that closed its findings have been read by no "
+            "LATER round. `Pass` was ticked by `close` when the fix table "
+            "applied, which is one row earlier than the run ending"
+        )
         raise Refused(
-            f"round-{n}.md's `{chain.CHECKED_BY}` reads `{checker}`, so the "
-            "fixes that closed its findings have been read by no LATER round. "
-            f"The row holds one of three values: `round-N`, `{chain.NO_FIXES}`, "
-            f"or `{chain.NOBODY} {DASH} <why>`. `Pass` was ticked by `close` "
-            "when the fix table applied, which is one row earlier than the run "
-            "ending. Spawn the verifying round first; its record is the one "
-            "this cell belongs on; no cell was written"
+            f"round-{n}.md's `{chain.CHECKED_BY}` reads `{checker}`, and this "
+            f"is the LAST record, where `{chain.NO_FIXES}` is the only value "
+            f"the seal accepts. {why}. `{chain.NOBODY} {DASH} <why>` is "
+            "allowed on a last record by the protocol and refused here for "
+            "its own reason: the seal runs with `Pass` ticked, and "
+            "`skills/code-review/orchestration.md` fails a pull request whose "
+            f"last record reads `{chain.NOBODY}` beside a checked `Pass`. "
+            "Spawn the verifying round first; its record is the one this cell "
+            f"belongs on, and its own row then reads `{chain.NO_FIXES}`; no "
+            "cell was written"
         )
 
     named = chain.SHA_RE.findall(args.broad_gate)

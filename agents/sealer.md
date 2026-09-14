@@ -64,8 +64,14 @@ Three outcomes, and they are not two:
   a word saying *not* is two things disagreeing where one answer is needed.
 - **Exit 2, refused, and nothing ran** — the repository declares no `Broad
   gate` row and the gate names the row to write; or the base does not
-  resolve; or, with `--record`, the record refused the cell because its
-  `Pass` box is unchecked and a finding is still open.
+  resolve; or, with `--record`, the record refused the cell — because its
+  `Pass` box is unchecked and a finding is still open, or because its
+  `Fixes checked by` reads anything but `no fixes to check`. On the last
+  record that is the only value the seal accepts: a `round-N` names a later
+  round and the last record has none, and `nobody — <why>` beside a checked
+  `Pass` is what fails the pull request. Either way the refusal says to
+  spawn the verifying round first, and that round's record is the one the
+  cell belongs on.
 
 **"After the rounds settle" is a row rather than a moment, and you are spawned
 against the row.** It is the last `rounds/round-N.md`'s `Pass` box, checked —
@@ -94,10 +100,11 @@ whole of it — a write not below is a write you do not make.
 `skills/code-review/scripts/round_record.py`, the same generator the review
 orchestrator types as `round-record` — which
 sets that cell and leaves every other line of the file byte for byte as it
-was, and which refuses outright on two things — the last record's `Pass` box
-unticked, which is a finding still open in its verdict table, or a commit the
-record's own target already descends from, which would be a run spent before
-the round it claims to seal.
+was, and which refuses outright on three things — the last record's `Pass` box
+unticked, which is a finding still open in its verdict table; its `Fixes
+checked by` reading anything but `no fixes to check`, which says the run has
+not ended; or a commit the record's own target already descends from, which
+would be a run spent before the round it claims to seal.
 
 You do not open the record, edit it, or write any other file. Where the cell
 would need a value that subcommand will not write, that is something to

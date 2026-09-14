@@ -1248,28 +1248,58 @@ def test_seal_refuses_a_fixes_checked_by_that_is_outside_the_vocabulary(repo, va
     assert read_bytes(path) == before, "the record was written under a refusal"
 
 
-def test_the_refusal_names_the_three_values_the_row_holds(repo):
-    """The other side of 🟡 12: what the person who hits it is told.
+@pytest.mark.parametrize("value", ["round-1", "round-9", "round-2.md", "ROUND-1"])
+def test_seal_refuses_a_round_n_on_the_last_record(repo, value):
+    """#335. `CHECKER_RE` tests the SHAPE of `Fixes checked by` and cannot
+    test its POSITION, so every `round-N` spelling passed the refusal, the
+    cell was written, and the chain check `seal` runs after the write refused
+    that same row.
 
-    The refusal is the one place a reader learns the row's vocabulary, and
-    the value that tripped it is by definition outside that vocabulary — so
-    naming the three is the difference between a refusal somebody can act on
-    and one they work around by guessing.
+    The position is what decides it. A named checker has to be a round LATER
+    than the record carrying it, and `last_record` chose this file by being
+    the highest-numbered one on disk — so the value is unreachable on the
+    record the subcommand is holding. The rule is stated about the last
+    record in `docs/review-handoff-protocol.md` §*The `Fixes checked by`
+    field*, twice more in `docs/review-chain-spec.md` §*What the record
+    carries*, and a third time in `skills/code-review/orchestration.md`'s
+    three-value table; enforcing it where the value is WRITTEN is not a new
+    inference.
 
-    **`round-N` is permitted here and cannot be reached on a LAST record**,
-    and that is deliberate rather than an oversight nothing catches. A named
-    checker must be a round LATER than the record carrying it, and `seal`
-    reads the highest-numbered record on disk, so no case can build a last
-    record whose cell legitimately names one. Refusing everything but `no
-    fixes to check` would be equivalent today and would hard-code a
-    conclusion that belongs to `chain_check.checked_by` — which confirms a
-    named checker against the repository — into a subcommand that has no
-    business deriving it."""
+    Red against the tree before this: all four pass the refusal, the cell is
+    written, `round-record: sealed …` prints, and the run comes back non-zero
+    from the check afterwards.
+    """
+    path = fixed_but_unread_item(repo)
+    before = set_checked_by(path, value)
+    code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
+    assert code == 2, out
+    assert "no cell was written" in out, out
+    assert "round-record: sealed" not in out, "the cell was written"
+    assert read_bytes(path) == before, "the record was written under a refusal"
+
+
+def test_the_refusal_says_which_value_the_last_record_may_hold(repo):
+    """§14, and the sentence #335 stops being true.
+
+    The refusal used to read *The row holds one of three values: `round-N`,
+    `no fixes to check`, or `nobody — <why>`* — true of the ROW and false at
+    the place it is printed, which is a last record where two of the three
+    are refused. A refusal is read by whoever is stopped by it, so the half
+    that says what to do is the half that has to survive the change.
+
+    So: the one value the seal accepts, both refused values named with the
+    reason each is refused, and the exit — spawn the verifying round.
+    """
     path = fixed_but_unread_item(repo)
     set_checked_by(path, "pending")
     _code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
-    for value in ("round-N", "no fixes to check", "nobody"):
-        assert value in out, f"the refusal does not name `{value}`:\n{out}"
+    assert "the only value the seal accepts" in out, out
+    assert "no fixes to check" in out, out
+    assert "nobody" in out, out
+    assert "Spawn the verifying round first" in out, out
+    assert "The row holds one of three values" not in out, (
+        "the refusal still names three values on a record that accepts one"
+    )
 
 
 def test_the_capped_run_still_seals_beside_the_third_refusal(repo):
@@ -1458,6 +1488,110 @@ def test_the_gate_with_record_prints_no_stamp_when_the_record_refuses(repo, tmp_
     assert "no cell was written" in out.stdout + out.stderr, out.stderr
     assert "the cell WAS written" not in out.stdout + out.stderr, out.stderr
     assert read_bytes(path) == before
+
+
+def a_record_the_chain_check_refuses_after_the_write(repo):
+    """The route to *the cell was written, and then the check refused*.
+
+    **This is Q3's answer and it is asserted as the route.** The cheapest way
+    to that state used to be #335's own defect — `round-1` in a last record's
+    `Fixes checked by`, which passed the shape test, wrote the cell, and was
+    then refused by the chain check on the same row. The refusal above closes
+    it, so the case below needs a route that does not depend on anything this
+    work item changes.
+
+    Four candidates were run against the real `seal` on 2026-09-15. Three
+    reached the state and one did not:
+
+      an earlier record's `New units` emptied      reached — CHOSEN
+      the last record's `Target SHA` unresolvable  reached
+      an earlier record's floor row emptied        reached
+      a stray `round-draft.md` under `rounds/`     NOT reached, exit 0
+
+    The first is chosen because it is the one furthest from anything `seal`
+    reads: `seal` opens the LAST record only, and `chain_check.fix_surface`
+    opens every record of the item. A present-and-empty row is refused on any
+    record and is not grandfathered, so the route does not age out with a
+    cutoff either.
+
+    **And it is left UNCOMMITTED, which is the half a case going through the
+    gate has to get right.** `broad_gate` runs `chain_check` itself, at HEAD,
+    before it ever calls `seal`; `seal` runs `chain_check --worktree` after
+    the write. So a committed refusal never reaches `seal` at all — the
+    gate's own chain check fails first and the run stops there, which is a
+    third ending and not one of the two this pair is about. A refusal that
+    exists in the working tree and not at HEAD passes the gate's check and
+    fails `seal`'s, which is exactly the window `--worktree` exists for.
+
+    Returns the last record, whose cell `seal` will write.
+    """
+    _one, two = settled_item(repo)
+    text = _one.read_text(encoding="utf-8")
+    assert "| New units |" in text, "the fixture record has no `New units` row"
+    _one.write_text(
+        "\n".join(
+            "| New units |  |" if line.startswith("| New units |") else line
+            for line in text.splitlines()
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return two
+
+
+def test_the_gate_reads_the_real_seals_two_endings_apart(repo, tmp_path):
+    """#334. The gate discriminates two endings of `seal` on the literal
+    `round-record: sealed`, which the other package PRINTS — and nothing bound
+    them. The case for the written-then-refused ending drove a stub whose text
+    the case itself wrote, so changing the real print left 130 cases green.
+
+    This is the same pair, both endings, through the REAL `seal`:
+
+      `Pass` unchecked            a refusal raised BEFORE the write, so no
+                                  `round-record: sealed` line and no cell
+      an earlier record refused    the cell IS written, `round-record: sealed`
+        by the chain check         prints, and what follows is the chain check
+                                   `seal` runs after the write
+
+    The exit code cannot tell them apart — both come back 2 from the gate —
+    and neither can the presence of a `round-record:` line, which both endings
+    print. The word is the discriminator, and this case is what says so about
+    the word the generator actually prints rather than one a fixture wrote.
+    """
+    two = a_record_the_chain_check_refuses_after_the_write(repo)
+    before = read_bytes(two)
+    out = run_gate(repo, "--record", str(repo / ITEM), keep=tmp_path / "out")
+    printed = out.stdout + out.stderr
+
+    assert out.returncode == 2, f"exit {out.returncode}\n{printed}"
+    assert crown_of() not in out.stdout, "a stamp printed over a failing chain check"
+    # The route reached the state it was written for, asserted rather than
+    # assumed, so it cannot quietly stop reaching it.
+    assert "round-record: sealed" in printed, (
+        "the route no longer reaches the written-then-refused state; the case "
+        "below would then be asserting the refusal side twice"
+    )
+    assert "`New units` is empty" in printed, printed
+    assert "the cell WAS written" in printed, printed
+    assert "no cell was written" not in printed, printed
+    assert read_bytes(two) != before, "the cell was not written"
+
+
+def test_the_sealers_definition_names_the_narrowed_row(repo):
+    """§14 for the person who meets the refusal. #335 narrows what `seal`
+    accepts in `Fixes checked by`, and the sealer is the only agent that runs
+    it — so its own definition has to say so, or the one party who is stopped
+    by the refusal learns the rule from the refusal alone.
+
+    The definition listed two refusals where the subcommand has had three
+    since round 1 of #30 added the `Fixes checked by` one; this is that gap
+    closed in the same commit that changes what the row accepts.
+    """
+    text = sealer_text()
+    assert "reading anything but `no fixes to check`" in text, text
+    assert "refuses outright on three things" in text, (
+        "the definition still counts two refusals where `seal` raises on three"
+    )
 
 
 # =============================================================================
