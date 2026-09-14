@@ -3,7 +3,7 @@
 📋 implement applied
 · spec:     `seal/specs/1789347354-…/{routing,spec,plan,questions}.md`; `seal/config.md` (no `Record language` row, so English); `seal/follow-up.md`; `CLAUDE.md` §*a change writes fragments*, §*a ledger coordinate names content*, §*the merge method is fixed per direction*; `CONTRIBUTING.md` §*What a change to a gate must carry*; `skills/agent-contract/SKILL.md` §§1, 2, 3, 4, 5, 7, 8, 9, 12, 14, 15; `skills/implement/SKILL.md` §§1–4; `docs/review-handoff-protocol.md` §*The Needs a fix field*, §*Loses a record or crashes*, §*Conformance*
 · evidence: five rows in `seal/ledger/1789347354-a-wrapped-terminal-line-is-not-one-value.md`, eight anchors stamped by `evidence-check --reverify`
-· verified: executed — the four modules below, the record module before and after, twenty-seven mutations, `bin/evidence-check .`, `--strict`, and the Q5 measurement over 337 terminal rows. Read — the frame, the round-4 report, `seal/ledger.md` R7 and the `issue_claims_check.py` rows. Unverified — the full suite, repository-wide lint and typecheck, which are the sealer's
+· verified: executed — the four modules below, the record module before and after; every alternative of both constants mutated in turn, killed and with its lookahead dropped, and every sentence this work pins stashed in turn — the results are per-alternative in ledger rows 1 and 2 rather than as a total here, because a count is the third thing this work item got wrong about its own measurements, `bin/evidence-check .`, `--strict`, and the Q5 measurement over 337 terminal rows. Read — the frame, the round-4 report, `seal/ledger.md` R7 and the `issue_claims_check.py` rows. Unverified — the full suite, repository-wide lint and typecheck, which are the sealer's
 
 ## Why this work exists
 
