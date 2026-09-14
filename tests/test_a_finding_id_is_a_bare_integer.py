@@ -375,7 +375,7 @@ def last_run(cell):
     return int(runs[-1]) if runs else None
 
 
-def committed_records():
+def committed_records(root=ROOT):
     """`seal/specs/*/rounds/round-*.md` git carries — the RECORDS among them.
 
     `round-*.md` is git's pathspec and git has no way to say "and then a
@@ -403,11 +403,25 @@ def committed_records():
     the two walkers, which take their content from HEAD as well — and it is
     the right one here, because this corpus is a population measurement over
     a tree somebody is editing rather than a check on what CI will see.
+
+    `root` is a parameter so the listing has a case of its own
+    (`test_an_uncommitted_record_is_not_in_the_committed_corpus`); every
+    measurement below leaves it at `ROOT`.
     """
     generator = generator_module()
     routing = generator.load(generator.chain.ROUTING, "routing_for_the_id_corpus")
     out = subprocess.run(
-        ["git", "-C", ROOT, "ls-tree", "-r", "--name-only", "HEAD", "--", "seal/specs"],
+        [
+            "git",
+            "-C",
+            str(root),
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "HEAD",
+            "--",
+            "seal/specs",
+        ],
         capture_output=True,
         encoding="utf-8",
         check=True,
@@ -418,6 +432,33 @@ def committed_records():
         if RECORD_PATH_RE.fullmatch(p)
         and routing.round_number(os.path.basename(p)) is not None
     ]
+
+
+def test_an_uncommitted_record_is_not_in_the_committed_corpus(repo):
+    """#142's class, third member. This reader is named `committed_records`
+    and called `git ls-files`, which reads the INDEX — so a record `git
+    add`-ed and not committed was a counted member of a population the
+    function's own name calls committed.
+
+    It is the quietest of the three: the other two take their content from
+    HEAD, so an uncommitted record is listed and then silently skipped, where
+    this one reads it off disk and counts it. Nothing goes wrong loudly; the
+    population is simply not the one being claimed.
+    """
+    write(repo, f"{ROUNDS}/round-1.md", "# round 1\n")
+    commit(repo, "a committed record")
+    write(repo, f"{ROUNDS}/round-2.md", "# round 2\n")
+    subprocess.run(
+        ["git", "-C", str(repo), "add", f"{ROUNDS}/round-2.md"],
+        check=True,
+        capture_output=True,
+    )
+
+    listed = committed_records(repo)
+    assert f"{ROUNDS}/round-1.md" in listed, listed
+    assert f"{ROUNDS}/round-2.md" not in listed, (
+        "a staged, uncommitted record is a member of the committed corpus"
+    )
 
 
 def test_the_corpus_is_records_only():
