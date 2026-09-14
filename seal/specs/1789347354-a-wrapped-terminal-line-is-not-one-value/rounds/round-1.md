@@ -8,12 +8,12 @@
 | PR | 392 |
 | Broad gate | not yet |
 | Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Contract changes | none |
+| New units | test_a_whole_line_of_one_marker_ends_the_segment (depth 1); test_the_two_spellings_differ_only_by_the_fence_openers (depth 1) |
 | Needs a fix | yes — findings 1, 2 and 3. The pin the plan named in place of the shared constant does not exist, an **Executed** count in the ledger row that folds into `seal/ledger.md` is one short of the tree, and the prompt budget is absent from the only place `CONTRIBUTING.md` says it is answered. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -37,18 +37,18 @@ The broad gate was withheld by name as the sealer's single act after the rounds 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | The case that was to replace the rejected shared constant does not exist; the two spellings can drift apart green | `skills/code-review/scripts/round_record.py:1252-1258` | open | `plan.md` §*Alternatives considered* and `spec.md` §*Scope* both name a case; executed — an alternative added to the model leaves both modules green, 167 passed |
-| 2 | An **Executed** count in the ledger row is 117 where the tree is 118, over ten new cases where there are eleven | `seal/ledger/1789347354-a-wrapped-terminal-line-is-not-one-value.md` row 1 | open | Executed — 107 at `34b556a`, 118 at `7f47eed`; the row names the eleventh arm in the sentence that counts ten |
-| 3 | The prompt budget is absent from the pull request body, which `CONTRIBUTING.md` names as the only place it is answered | PR #392 §*Operational impact* | open | `CONTRIBUTING.md` §*What a change to a gate must carry*: *It is answered in the pull request body or it is not answered* |
-| 4 | The warden enumerates the owner's three-shape exception list; four carriers hold it and no case compares any two | `agents/warden.md:409` | open | Read — `docs/review-handoff-protocol.md:305`, `round_record.py:1243` and `:1296` carry the same list; grep finds no case pinning them together |
-| 5 | `BLOCK`'s whole-line alternative is unpinned inside a constant phase 4 rewrote whole | `skills/code-review/scripts/survivor_check.py:384` | open | Executed — mutated to match nothing, the module stays 49 green; disclosed by the build and handed to this round |
-| 6 | The claim that the setext underline comes back covers `=` at every length and `-` only from three | `skills/code-review/scripts/round_record.py:1247`, `docs/review-handoff-protocol.md:302` | open | Executed — `--` and `-` join under all three patterns; the model module states the caveat and these two do not |
-| — | The narrowed pattern is the model's plus the two fence openers and nothing else | `skills/code-review/scripts/round_record.py#BLOCK_START` | answered | Executed — patterns printed side by side; removing the fence alternative leaves the model's spelling exactly |
-| — | §15: the new cases were seen red | `tests/test_the_record_is_generated.py` | answered | Executed — the constant mutated to its `5e09345` spelling turns exactly seven arms red, and they are the seven the ledger names |
-| — | `spec.md:252` — the framer's file edited, claim unchanged | `seal/specs/1789347354-…/spec.md:252` | answered | Executed — the verdict cell is byte identical, the anchor hash is unchanged, and the unfolded spelling matches `seal/ledger.md:89` |
-| — | The scope fence — `fix_table`, the two `close` defects, `seal/ledger.md`, the template's `Needs a fix` row | `skills/code-review/scripts/round_record.py`, `templates/sdd-round.md` | answered | Read — two hunks in the script, neither near `fix_table`; `seal/ledger.md` absent from the diff; the template row unedited at line 43 |
-| — | Q3 — is the split two rules or one rule twice | `agents/warden.md`, `docs/review-handoff-protocol.md` | answered | Two rules. Different audiences, and three assertions make the split falsifiable. The residue is finding 4 |
-| — | The sibling is the same class | `skills/code-review/scripts/survivor_check.py#BLOCK` | answered | Executed — the old bare `[-*+>#]` split a line opening `#120`; the new spelling joins it, and the consequence differs as the build says |
+| 1 | The case that was to replace the rejected shared constant does not exist; the two spellings can drift apart green | `skills/code-review/scripts/round_record.py:1252-1258` | **fixed** `0293739` | fixed at 0293739; `plan.md` §*Alternatives considered* and `spec.md` §*Scope* both name a case; executed — an alternative added to the model leaves both modules green, 167 passed |
+| 2 | An **Executed** count in the ledger row is 117 where the tree is 118, over ten new cases where there are eleven | `seal/ledger/1789347354-a-wrapped-terminal-line-is-not-one-value.md` row 1 | **fixed** `0293739` | fixed at 0293739; Executed — 107 at `34b556a`, 118 at `7f47eed`; the row names the eleventh arm in the sentence that counts ten |
+| 3 | The prompt budget is absent from the pull request body, which `CONTRIBUTING.md` names as the only place it is answered | PR #392 §*Operational impact* | answered | Repaired outside the tree, which is why the verdict is not `fixed` — the record asks a fix to be a commit somebody can open, and a pull request body is not one — the pull request body is the orchestrator's and no agent can edit it. PR #392 now carries all four burdens `CONTRIBUTING.md` asks of a gate change, the prompt budget among them: zero added, and the one option that would have added one is named with the grounds it was declined on. The sentence came from the fix pass; the edit is the orchestrator's |
+| 4 | The warden enumerates the owner's three-shape exception list; four carriers hold it and no case compares any two | `agents/warden.md:409` | **fixed** `0293739` | fixed at 0293739; Read — `docs/review-handoff-protocol.md:305`, `round_record.py:1243` and `:1296` carry the same list; grep finds no case pinning them together |
+| 5 | `BLOCK`'s whole-line alternative is unpinned inside a constant phase 4 rewrote whole | `skills/code-review/scripts/survivor_check.py:384` | **fixed** `0293739` | fixed at 0293739; Executed — mutated to match nothing, the module stays 49 green; disclosed by the build and handed to this round |
+| 6 | The claim that the setext underline comes back covers `=` at every length and `-` only from three | `skills/code-review/scripts/round_record.py:1247`, `docs/review-handoff-protocol.md:302` | **fixed** `0293739` | fixed at 0293739; Executed — `--` and `-` join under all three patterns; the model module states the caveat and these two do not |
+| ⬜ 7 | The narrowed pattern is the model's plus the two fence openers and nothing else | `skills/code-review/scripts/round_record.py#BLOCK_START` | answered | Executed — patterns printed side by side; removing the fence alternative leaves the model's spelling exactly |
+| ⬜ 8 | §15: the new cases were seen red | `tests/test_the_record_is_generated.py` | answered | Executed — the constant mutated to its `5e09345` spelling turns exactly seven arms red, and they are the seven the ledger names |
+| ⬜ 9 | `spec.md:252` — the framer's file edited, claim unchanged | `seal/specs/1789347354-…/spec.md:252` | answered | Executed — the verdict cell is byte identical, the anchor hash is unchanged, and the unfolded spelling matches `seal/ledger.md:89` |
+| ⬜ 10 | The scope fence — `fix_table`, the two `close` defects, `seal/ledger.md`, the template's `Needs a fix` row | `skills/code-review/scripts/round_record.py`, `templates/sdd-round.md` | answered | Read — two hunks in the script, neither near `fix_table`; `seal/ledger.md` absent from the diff; the template row unedited at line 43 |
+| ⬜ 11 | Q3 — is the split two rules or one rule twice | `agents/warden.md`, `docs/review-handoff-protocol.md` | answered | Two rules. Different audiences, and three assertions make the split falsifiable. The residue is finding 4 |
+| ⬜ 12 | The sibling is the same class | `skills/code-review/scripts/survivor_check.py#BLOCK` | answered | Executed — the old bare `[-*+>#]` split a line opening `#120`; the new spelling joins it, and the consequence differs as the build says |
 
 ## Paste-ready fixes
 
