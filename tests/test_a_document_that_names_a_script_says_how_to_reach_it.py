@@ -106,7 +106,7 @@ def shipped_documents():
 def command_name(script):
     """The bare word a wrapper for `script` answers to.
 
-    Underscores to hyphens, which is what all twelve pairs in `bin/` do and
+    Underscores to hyphens, which is what all eleven existing pairs do and
     what `round_record.py`'s own `--help` has printed since it shipped.
     """
     return os.path.basename(script)[:-3].replace("_", "-")
@@ -292,16 +292,15 @@ def test_a_document_naming_a_wrapped_script_says_how_to_reach_it(pair):
     # then adds it leaves them red with nothing saying why -- #318's own
     # shape, reproduced inside #318's fix.
     forms = (
-        f"the path `{script}`, once. `{command}` has no hyphen in it, so this "
-        "rule does not read the bare command as a locator -- see `reachable`"
+        f"the path `{script}`. `{command}` has no hyphen in it, so this rule "
+        "does not read the bare command as a locator -- see `reachable`"
         if "-" not in command
-        else f"either reachable form, once: the command `{command}`, or the "
-        f"path `{script}`"
+        else f"either reachable form: the command `{command}`, or the path `{script}`"
     )
     assert reachable(text, script), (
         f"{document} names {os.path.basename(script)} and never says where it "
         f"is. A reader who goes looking finds nothing, which is #318. Add "
-        f"{forms}"
+        f"{forms}, once"
     )
 
 
