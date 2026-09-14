@@ -356,6 +356,13 @@ def test_a_duplicate_fix_row_quotes_both_rows(repo):
 # --- the corpus this rule was measured against ------------------------------
 
 
+# A record's path, spelled once and matched whole. Git's pathspec globbing
+# lets `*` cross a slash, so `seal/specs/*/rounds/round-*.md` handed to git is
+# wider than it looks; the listing is taken over `seal/specs` and narrowed
+# here, where `fullmatch` means what the pattern says.
+RECORD_PATH_RE = re.compile(r"seal/specs/[^/]+/rounds/round-[^/]*\.md")
+
+
 def old_key(cell):
     """What the unfixed generator read out of a `#` cell: the FIRST digit run."""
     m = re.search(r"\d+", cell)
@@ -385,16 +392,32 @@ def committed_records():
     third reader in the tree to take directory membership for record-ness,
     and the quietest: the other two raised `TypeError` on sorting two `None`s,
     while this one said nothing at all (#228, round 1 🟡 1).
+
+    **The listing is `git ls-tree HEAD`, not `git ls-files`** (#142, §12 —
+    the third member of a class whose other two are the `_real_records`
+    copies). `ls-files` reads the INDEX, so a record `git add`-ed and not
+    committed was counted here by a function named `committed_records`. The
+    residual, stated rather than left to be found: the CONTENT still comes
+    from the working tree, through `id_cells`, so a committed record edited
+    on disk is counted at its edited text. That is a different reading from
+    the two walkers, which take their content from HEAD as well — and it is
+    the right one here, because this corpus is a population measurement over
+    a tree somebody is editing rather than a check on what CI will see.
     """
     generator = generator_module()
     routing = generator.load(generator.chain.ROUTING, "routing_for_the_id_corpus")
     out = subprocess.run(
-        ["git", "-C", ROOT, "ls-files", "seal/specs/*/rounds/round-*.md"],
+        ["git", "-C", ROOT, "ls-tree", "-r", "--name-only", "HEAD", "--", "seal/specs"],
         capture_output=True,
         encoding="utf-8",
         check=True,
     ).stdout.split()
-    return [p for p in out if routing.round_number(os.path.basename(p)) is not None]
+    return [
+        p
+        for p in out
+        if RECORD_PATH_RE.fullmatch(p)
+        and routing.round_number(os.path.basename(p)) is not None
+    ]
 
 
 def test_the_corpus_is_records_only():
