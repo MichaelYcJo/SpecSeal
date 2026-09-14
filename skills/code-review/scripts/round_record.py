@@ -2829,19 +2829,16 @@ def fix_table(reader, path):
     outside the three, a `fixed` whose third cell names no commit, an
     `answered` with no grounds, a `deferred` with no home.
     """
-    # RIDER: `note` below cuts the sha out of the middle of its own code span
-    # and leaves both backticks standing, because `chain.SEPARATORS` carries a
-    # space, two dashes, a hyphen, a colon and a comma -- and no backtick. A
-    # `fixed` cell reading ``fixed at `e7d3447` `` therefore lands in the
-    # record as `fixed at e7d3447 -- `` --`, an empty code span beside the
-    # commit. Read 2026-09-06 at aed3ca0 against `chain_check.py#SEPARATORS`
-    # and visible in this work item's own `rounds/round-1.md`, rows 1 to 3.
-    # It predates this branch. The repair is at the `note` line and NOT in
-    # `chain.SEPARATORS`, which is shared with the `deferred` home and with
-    # `chain_check`'s own readers: widening it there would strip a backtick
-    # off a home that is deliberately a code span. Round 2's finding 9;
-    # `seal/follow-up.md`'s header sends a coordinate-tied item here rather
-    # than to that file. Verified 2026-09-08 against fix_table@884956f3.
+    # The rider that stood here is spent: it asked for the empty-span repair
+    # and the `note` line below now cuts the commit's own code span, where it
+    # used to cut the hex alone. It was right that the repair belongs here and
+    # not in `chain.SEPARATORS` -- that constant is read by the `deferred`
+    # home below and by `chain_check`'s own readers -- and its stated REASON
+    # did not hold at this site: `chain.EMPHASIS` is ``[*_`]+`` and runs over
+    # the verdict cell one line before `SEPARATORS` is reached, so a home
+    # written as a code span already arrives with its backticks gone
+    # (measured 2026-09-14). The other two callers are still a real cost and
+    # nothing has measured them, so the constant is left alone.
     text = read_text(path, "fix table")
     raw, lines = text.splitlines(), reader.readable(text)
     out, taken, bad, keyed = {}, {}, [], []
@@ -2869,7 +2866,18 @@ def fix_table(reader, path):
                     f"finding {number} is `{FIXED}` and its third cell names no "
                     f"commit: {third!r}. A fix is a commit somebody can open"
                 )
-            note = (third[: sha.start()] + third[sha.end() :]).strip(chain.SEPARATORS)
+            # Cut the commit's own code span, not just the commit. Cutting
+            # the hex alone left both backticks standing with nothing between
+            # them, so `` `e7d3447` — widened `` landed as `fixed at e7d3447
+            # — `` — widened`: an empty code span beside the commit, on 210
+            # of this repository's committed verdict rows (#391 part 2,
+            # measured 2026-09-14). Widened HERE and not in
+            # `chain.SEPARATORS`, which the `deferred` home reader below and
+            # `chain_check`'s own readers share.
+            start, end = sha.start(), sha.end()
+            if start and third[start - 1] == "`" and third[end : end + 1] == "`":
+                start, end = start - 1, end + 1
+            note = (third[:start] + third[end:]).strip(chain.SEPARATORS)
             out[number] = (FIXED, sha.group(), note)
         elif word == ANSWERED:
             if not third:
@@ -2890,7 +2898,15 @@ def fix_table(reader, path):
                     "deferral to nowhere is how *someone will look at it* "
                     "becomes nobody did"
                 )
-            out[number] = (DEFERRED_WORD, home, "")
+            # The third cell is the fix pass's reasoning — why the finding
+            # could not be closed on the branch, what it measured, what a
+            # reader should open — and it was discarded whenever the verdict
+            # cell carried the home. A deferred finding is the one verdict
+            # whose reasoning is the whole of its value, because nothing else
+            # in the tree will explain why it left (#391 part 1). Empty when
+            # the home came out of this cell, so a `| N | deferred | #12 |`
+            # row does not say `#12` twice.
+            out[number] = (DEFERRED_WORD, home, "" if third == home else third)
         elif any(
             word.startswith(w) and word[len(w)] in chain.SEPARATORS
             for w in (FIXED, ANSWERED)
@@ -3193,15 +3209,22 @@ def close(args):
         cells = row_cells(reader, raw[i], len(VERDICT_HEADER))
         while len(cells) <= GROUNDS_COL:
             cells.append("")
+        # `old` is the REVIEWER's grounds — the reason the finding was opened.
+        # A fix pass is not asked to change it; it is asked what it did about
+        # the finding, and the two are different sentences by different
+        # authors. All three words join rather than overwrite (§12: #391 names
+        # the `deferred` row and the class is three wide). `fixed` was already
+        # the only one of the three that preserved what stood.
         old = cells[GROUNDS_COL].strip()
         if word == FIXED:
             cells[VERDICT_COL] = f"**{FIXED}** `{value}`"
             grounds = f"{FIXED_AT} {value}" + (f" {DASH} {note}" if note else "")
-            cells[GROUNDS_COL] = grounds + (f"; {old}" if old else "")
         elif word == ANSWERED:
-            cells[VERDICT_COL], cells[GROUNDS_COL] = ANSWERED, value
+            cells[VERDICT_COL], grounds = ANSWERED, value
         else:
-            cells[VERDICT_COL], cells[GROUNDS_COL] = f"{DEFERRED_WORD} {value}", value
+            cells[VERDICT_COL] = f"{DEFERRED_WORD} {value}"
+            grounds = value + (f" {DASH} {note}" if note else "")
+        cells[GROUNDS_COL] = grounds + (f"; {old}" if old else "")
         raw[i] = row([escape(c) for c in cells])
     words = [
         chain.verdict_of(
