@@ -186,6 +186,12 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   off would have the record tick `Pass` over a finding you opened. An empty
   `#` cell is refused for the neighbouring reason: it says nothing at all.
 
+  **And a row whose Verdict cell reads `open` is refused whatever its `#` cell
+  says.** The record states the answer in the column beside the one the rule
+  reads, so a row you called open and did not number was written into a record
+  with `Pass` ticked over it. Number it, or give it the verdict it actually
+  has.
+
   Stated intent is the sharpest case, because it is often right. If the
   behavior is called deliberate, go looking for it in the policy documents,
   the SDD set, or the ledger. Found there, it is grounds. Found nowhere but

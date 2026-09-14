@@ -13,9 +13,10 @@
   round verified, an earlier round's closure carried forward, and a
   `❓ out of verified scope` marker.
 
-  **A 🔴 or a 🟡 with no number is refused, and so is an empty cell.** Those two
-  severities mean somebody owes the row an answer, so such a row is not one
-  that commissions nothing whatever its `#` cell says — and because an admitted
+  **A 🔴 or a 🟡 with no number is refused, an empty cell is refused, and so is
+  any row whose Verdict cell reads `open`.** Those two severities mean somebody
+  owes the row an answer and the verdict says it in as many letters, so such a
+  row is not one that commissions nothing whatever its `#` cell says — and because an admitted
   row is never counted toward `Pass`, the record would otherwise be written
   with `Pass` ticked beside an open finding in its own verdict table. Of the 51
   no-digit cells in the committed records, 44 are a severity marker and a single
@@ -30,12 +31,11 @@
   first, which used to cost two round trips per repair.
 
   **Which way this fails is written down where the reviewer picks the number.**
-  Writing 🟢, ❓ or ⬜ with no number on a row that really is an open finding
-  still writes a finding no fix table will be asked to close, and nothing
-  catches that — the check reaches the two markers that owe an answer and
-  cannot reach a wrongly chosen one. Numbering a confirmation row costs an
-  inflated count in one record. The change is toward the cheaper mistake, and
-  the documents now say so.
+  Slipping through now takes two mistakes in one row, in two different cells:
+  🟢, ❓ or ⬜ with no number on a row that really is an open finding, **and** a
+  verdict worded as something other than `open`. Numbering a confirmation row
+  costs an inflated count in one record. The change is toward the cheaper
+  mistake, and the documents now say so.
 
 - **`❓ out of verified scope` is a verdict that closes without commissioning
   anything (issue #353).** It means the reviewer looked and could not judge,

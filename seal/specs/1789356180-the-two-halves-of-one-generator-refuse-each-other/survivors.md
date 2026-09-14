@@ -25,13 +25,18 @@ that text changes. -->
 
 ## Round 1's fix pass — `c9912a4..HEAD`
 
-<!-- Five more, from rewriting the grounds sentence in five carriers and the
-overview row beside them. ONE survivor of that range was a live stale claim and
-is not in this table: `plan.md`'s *What breaks in six months* paragraph still
-said the direction this fails in is a finding nobody is asked to close, which
-round 1's 🔴 1 showed is one step short — `Pass` is ticked over it. That
-paragraph is the approved plan's own text, so it is left standing and a dated
-correction note sits under it. -->
+<!-- Six, from rewriting the grounds sentence in five carriers and the overview
+row beside them. Three of the six are noise: a different work item's closing
+memo twice and a shipped spec once, all colliding on the phrase `one row in`.
+
+The `plan.md` row is the branch's one exemption over a correction — that
+paragraph is the approved plan's own text, so it is left standing with a dated
+note under it rather than rewritten, and the row is what keeps the exemption
+alive across runs.
+
+The live stale claim of this range is not here: phase 1's *one row in
+thirty-seven* sentence was the reading round 1's 🟡 2 overturned, and it was
+corrected rather than exempted. -->
 
 | Path | Quote | Grounds |
 |---|---|---|

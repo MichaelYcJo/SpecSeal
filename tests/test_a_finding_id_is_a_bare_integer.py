@@ -263,6 +263,79 @@ def test_an_empty_hash_cell_is_refused(repo):
     assert "bare integer" in out or "owes an answer" in out, out
 
 
+@pytest.mark.parametrize(
+    "cell",
+    [
+        "\N{LARGE GREEN CIRCLE} fix-surface",
+        "carried",
+        "\N{WHITE LARGE SQUARE}",
+        "\N{BLACK QUESTION MARK ORNAMENT}",
+        "A",
+        "\N{EM DASH}",
+    ],
+)
+def test_a_row_that_commissions_nothing_cannot_read_open(repo, cell):
+    """Round 2's 🟡 7, and round 1's 🔴 1 one cell over.
+
+    The severity arm reads the `#` cell, and the row says it is open in the
+    column beside it. So every shape the rule admits came through `new` at exit
+    0, silently, with `Pass` ticked over a row its own table calls open — the
+    same record asserting a review passed while its own verdict table says
+    otherwise. Three of these six carry no severity marker at all, so the
+    residual the documents stated did not describe them even as prose.
+
+    **This composes with the marker check rather than replacing it.** The
+    grounds for not reading the verdict were that a confirmation reads
+    `verified`, which is in no vocabulary and therefore OPEN — true of
+    replacing the marker check, false of composing with it. What is read here
+    is the literal word `open`, which is unambiguous.
+
+    Free against the corpus: of the 25 admitted no-digit cells in the committed
+    records, the verdicts are `fixed`, `answered`, `truthful`, `record only`
+    and their kin — not one reads `open`.
+    """
+    code, out = a_report(repo, f"| {cell} | one | `f.py:1` | open | read |\n")
+    assert code == 2, out
+    # The Verdict column named, not just the word `open` — the refusal this
+    # replaced already said "ticked over an open finding", so asserting the
+    # bare word would have passed against the defect.
+    assert "`Verdict` cell reads `open`" in out, out
+    assert cell in out, out
+    assert "- [x] Pass" not in out, "a record was written"
+
+
+def test_a_row_failing_both_arms_is_named_once(repo):
+    """`| 🔴 A | … | open | … |` fails the severity arm and the verdict arm at
+    once. Both append to the same list, so without a guard the row is quoted
+    twice and the message counts two rows where the table holds one — which is
+    the #303 complaint (a message you cannot trust the shape of) arriving from
+    the fix for it. Found by mutation: dropping the guard left every other case
+    in this module green.
+    """
+    code, out = a_report(repo, "| 🔴 A | one | `f.py:1` | open | read |\n")
+    assert code == 2, out
+    assert "has 1 row " in out, out
+    assert out.count("| 🔴 A | one |") == 1, out
+
+
+def test_a_row_too_short_to_have_a_verdict_cell_does_not_crash(repo):
+    """The guard finding 7's repair needs. `table_body` returns as many cells
+    as the row has, and `verdict_rows` only checks that the `#` cell exists —
+    so reading the Verdict column off a two-cell row indexes past the end.
+
+    `Loses a record or crashes` is its own gate, so a repair that trades a
+    silent pass for a traceback is not a repair.
+    """
+    code, out = a_report(repo, "| carried | one |\n")
+    assert "Traceback" not in out, out
+    assert "IndexError" not in out, out
+    # The exit code is not the assertion: a two-cell row is malformed for
+    # other reasons and `run_check` may refuse the record it produces. What
+    # this pins is that the generator refuses or accepts it deliberately
+    # rather than dying inside the verdict read.
+    assert code != 3, out
+
+
 @pytest.mark.parametrize("marker", ["🔴", "🟡", "🟢", "⬜", "❓", "✅"])
 def test_a_severity_marker_still_leads_the_cell(repo, marker):
     """Every marker the corpus puts in front of the number, still read. The

@@ -2364,6 +2364,16 @@ DIGIT_RE = re.compile(r"\d")
 # which is in no vocabulary and therefore OPEN, so reading it would trade one
 # refusal for another.
 OWED_MARKERS = ("\N{LARGE RED CIRCLE}", "\N{LARGE YELLOW CIRCLE}")
+# The one verdict word that says the row is open in as many letters. Read only
+# on a row whose `#` cell has already admitted it, where the two cells then
+# contradict each other -- and exact rather than a vocabulary test, which is
+# the distinction the grounds for NOT reading the verdict missed. `verified`
+# is in no vocabulary and therefore OPEN, so reading the verdict as
+# OPEN/CLOSED would refuse every confirmation; reading this one word refuses
+# none of them. Free against the corpus: of the 25 admitted no-digit rows in
+# the committed records, not one has a Verdict cell reading `open` (round 2's
+# 🟡 7).
+OPEN_WORD = "open"
 BARE_ID = "a bare integer"
 # Which of the two tables a refusal is about. The reviewer writes one and the
 # fixer copies the numbering into the other, so a message naming the format
@@ -2375,63 +2385,71 @@ DEPTH_EXIT = "deferred with a named answerer, or becomes an issue"
 
 def finding_number(label, seen, line, taken, bad, idless, owed):
     """The finding one `#` cell names, `None` for a row that names none, or
-    `Refused` for a duplicate.
+        `Refused` for a duplicate.
 
-    Four readings of the cell, and the third is #321's:
+        Four readings of the cell, and the third is #321's:
 
-      digits behind an optional marker   the finding, keyed
-      no digit, and the cell says the    `None` where `idless` is on — a row
-      row commissions nothing            that commissions nothing, admitted
-                                         and left exactly as it was written
-      no digit, and the cell is empty    appended to `owed`: the caller
-      or its severity owes an answer     refuses
-      anything else                      appended to `bad`, and so is a
-                                         no-digit cell where `idless` is off
+          digits behind an optional marker   the finding, keyed
+          no digit, and the cell says the    `None` where `idless` is on — a row
+          row commissions nothing            that commissions nothing, admitted
+                                             and left exactly as it was written
+          no digit, and the cell is empty    appended to `owed`: the caller
+          or its severity owes an answer     refuses
+          anything else                      appended to `bad`, and so is a
+                                             no-digit cell where `idless` is off
 
-    **A row that commissions nothing is a shape reviewers reach for**, and the
-    evidence for it is seven rows rather than the fifty-one this said for a
-    release. Measured 2026-09-14 over the 207 committed records that parse, 51
-    of 1,989 verdict rows carry a `#` cell with no digit — and 44 of those are
-    a severity marker and a single LETTER, which is a finding id in the wrong
-    alphabet. Seven are the shape this admits: `carried`, `🟢 fix-surface`,
-    `🟢 fragment`, `🟢 grep`, `🟢 overview`. Three tickets are that shape: a
-    confirmation the round verified and did not open (#321), an earlier
-    round's closure carried into this round's table (#341), and a `❓ out of
-    verified scope` marker (#353). None can be referenced by a fix table,
-    because there is nothing to commission.
+        **A row that commissions nothing is a shape reviewers reach for**, and the
+        evidence for it is seven rows rather than the fifty-one this said for a
+        release. Measured 2026-09-14 over the 207 committed records that parse, 51
+        of 1,989 verdict rows carry a `#` cell with no digit — and 44 of those are
+        a severity marker and a single LETTER, which is a finding id in the wrong
+        alphabet. Seven are the shape this admits: `carried`, `🟢 fix-surface`,
+        `🟢 fragment`, `🟢 grep`, `🟢 overview`. Three tickets are that shape: a
+        confirmation the round verified and did not open (#321), an earlier
+        round's closure carried into this round's table (#341), and a `❓ out of
+        verified scope` marker (#353). None can be referenced by a fix table,
+        because there is nothing to commission.
 
-    **Which is why the severity is read as well.** A `#` cell alone cannot say
-    whether anything is owed, and admitting a row on its strength ticked
-    `Pass` over an open finding — the record asserting that a review passed
-    while its own table said otherwise, which is the defect this whole work
-    item is named for, reproduced inside its own fix (round 1's 🔴 1). The
-    marker already carries that meaning: 🔴 blocks merge, 🟡 needs grounds, and
-    all 26 no-digit cells carrying one are genuine findings. An empty cell is
-    refused for the neighbouring reason — it says nothing at all, which is
-    what a reviewer who forgot the id writes, and no committed record has one.
+        **Which is why the severity is read as well.** A `#` cell alone cannot say
+        whether anything is owed, and admitting a row on its strength ticked
+        `Pass` over an open finding — the record asserting that a review passed
+        while its own table said otherwise, which is the defect this whole work
+        item is named for, reproduced inside its own fix (round 1's 🔴 1). The
+        marker already carries that meaning: 🔴 blocks merge, 🟡 needs grounds, and
+        all 26 no-digit cells carrying one are genuine findings. An empty cell is
+        refused for the neighbouring reason — it says nothing at all, which is
+        what a reviewer who forgot the id writes, and no committed record has one.
 
-    The verdict word cannot serve here: a confirmation reads `verified`, which
-    is in no vocabulary and therefore OPEN, so reading it would trade one
-    refusal for another.
+        The verdict word cannot serve here: a confirmation reads `verified`, which
+        is in no vocabulary and therefore OPEN, so reading it would trade one
+        refusal for another.
 
-    `idless` is off for the fix table, where the row IS the commission: a fix
-    row naming no finding has nothing to apply itself to.
+        `idless` is off for the fix table, where the row IS the commission: a fix
+        row naming no finding has nothing to apply itself to.
 
-    **`bad` is a list rather than a raise.** #303, merged into #321, measured
-    five offending rows against a message naming one, at two round trips per
-    repair. The caller refuses once, with all of them. `owed` is a second list
-    for the same reason and refuses separately, because the two say different
-    things to the reviewer. The duplicate refusal stays immediate because it
-    already quotes both of its rows, and `taken` is {number: the row that
-    already claimed it} so that it can.
+        **`bad` is a list rather than a raise.** #303, merged into #321, measured
+        five offending rows against a message naming one, at two round trips per
+        repair. The caller refuses once, with all of them. `owed` is a second list
+        for the same reason and refuses separately, because the two say different
+        things to the reviewer. The duplicate refusal stays immediate because it
+        already quotes both of its rows, and `taken` is {number: the row that
+        already claimed it} so that it can.
 
-    What this still gives up, stated rather than left to be found: a reviewer
-    who writes 🟢, ❓ or ⬜ on a row that IS an open finding has written a
-    finding no fix table will be asked to close, and `close` exits 0 over it.
-    The severity check catches the two markers that mean something is owed and
-    cannot catch a reviewer who picks the wrong marker. The cheaper mistake is
-    the other one, where numbering a confirmation row costs an inflated count
-    in one record.
+    **The `#` cell is not the only cell that says a row owes an answer**, which
+        is why `verdict_rows` reads the Verdict cell beside it. Reading the marker
+        alone admitted six shapes whose Verdict cell said `open` — three of them
+        carrying no marker at all, so the residual stated here for a round did not
+        describe them (round 2's 🟡 7). It is the literal word rather than a
+        vocabulary test, and that is what makes it free: `verified` is in no
+        vocabulary and therefore OPEN, so refusing everything outside
+        `CLOSED_WORDS` would refuse every confirmation row.
+
+        What this still gives up, stated rather than left to be found: a row takes
+        TWO mistakes in two cells to slip through now — 🟢, ❓ or ⬜ on a row that
+        IS an open finding, AND a verdict worded as something other than `open`.
+        Such a row writes a finding no fix table will be asked to close, and
+        `close` exits 0 over it. The cheaper mistake is the other one, where
+        numbering a confirmation row costs an inflated count in one record.
     """
     text = chain.EMPHASIS.sub("", seen).strip()
     m = FINDING_ID_RE.match(text)
@@ -3065,11 +3083,25 @@ def verdict_rows(reader, lines):
         seen = [reader.visible(c) for c in cells]
         if len(seen) <= NUMBER_COL:
             raise Refused(f"a verdict row has no `#` cell: {lines[i].strip()!r}")
+        flagged = len(bad) + len(owed)
         number = finding_number(
             RECORD_LABEL, seen[NUMBER_COL], lines[i], taken, bad, True, owed
         )
         if number is not None:
             out[number] = (i, cells)
+        elif (
+            len(bad) + len(owed) == flagged
+            and len(seen) > VERDICT_COL
+            and chain.verdict_of(seen, VERDICT_COL) == OPEN_WORD
+        ):
+            # The `#` cell says this row commissions nothing and the Verdict
+            # cell says it is open, in as many letters. The marker arm catches
+            # the reviewer who wrote the severity and forgot the id; this
+            # catches the one who wrote a severity that owes nothing and then
+            # said `open` anyway -- three of the six shapes it reaches carry
+            # no marker at all, so the marker arm cannot see them. §12: round
+            # 1's 🔴 1 named the class, and this is its third member.
+            owed.append((seen[NUMBER_COL].strip(), lines[i]))
     refusal = id_refusal(RECORD_LABEL, bad)
     if refusal is not None:
         raise refusal
@@ -3077,15 +3109,19 @@ def verdict_rows(reader, lines):
         many = "s" if len(owed) > 1 else ""
         rows = "\n".join(f"    {text!r}: {line.strip()}" for text, line in owed)
         raise Refused(
-            f"the {RECORD_LABEL} has {len(owed)} row{many} whose `#` cell is "
-            "empty or carries a severity that owes an answer. "
+            f"the {RECORD_LABEL} has {len(owed)} row{many} that commissions "
+            "nothing by its `#` cell and owes an answer by another cell: the "
+            "`#` cell is empty, or carries a severity that owes an answer, or "
+            f"the `{chain.VERDICT_COLUMN}` cell reads `{OPEN_WORD}`. "
             "\N{LARGE RED CIRCLE} blocks merge and \N{LARGE YELLOW CIRCLE} "
-            "needs grounds, so both commission a fix-table row, and an empty "
-            "cell says nothing at all — while a row with no id is never "
-            "keyed, never asked for a closure and never counted toward "
-            "`Pass`, so `Pass` would be ticked over an open finding. Number "
-            "it, or write the severity the row actually has "
-            "(\N{LARGE GREEN CIRCLE}, \N{BLACK QUESTION MARK ORNAMENT}, "
+            "needs grounds, so both commission a fix-table row; an empty cell "
+            "says nothing at all; and a row the record itself calls "
+            f"`{OPEN_WORD}` is open whatever its `#` cell says — while a row "
+            "with no id is never keyed, never asked for a closure and never "
+            "counted toward `Pass`, so `Pass` would be ticked over an open "
+            "finding. Number it, or write the severity and the verdict the "
+            "row actually has (\N{LARGE GREEN CIRCLE}, "
+            "\N{BLACK QUESTION MARK ORNAMENT}, "
             f"\N{WHITE LARGE SQUARE}).\nThe row{many}:\n{rows}"
         )
     return out
