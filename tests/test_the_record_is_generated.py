@@ -536,6 +536,30 @@ def test_a_continuation_that_looks_like_an_opener_is_still_joined(
     )
 
 
+def test_the_two_spellings_differ_only_by_the_fence_openers():
+    """`plan.md` §*Alternatives considered* rejected one shared constant.
+
+    What it named in place of the coupling is a case asserting the two
+    spellings accept and reject the same shapes. A comment at each constant
+    cannot do that: an alternative added to one and not the other leaves both
+    modules green, measured at 167 passed in round 1. The two script roots
+    ship on different paths and neither imports the other, so this is the pin
+    that replaces the import.
+    """
+    model = _load(
+        "issue_claims_check",
+        os.path.join(ROOT, ".github", "scripts", "issue_claims_check.py"),
+    )
+    ours = generator_module().BLOCK_START.pattern
+    theirs = model.BLOCK_START.pattern
+    assert ours.replace(r"|```|~~~", "", 1) == theirs, (
+        "the two spellings have drifted apart. They are kept alike on "
+        "purpose and differ only by this module's two fence openers.\n"
+        f"  this module: {ours}\n"
+        f"  the model:   {theirs}"
+    )
+
+
 # A whole line of one punctuation character is a block in its own right — a
 # thematic break, or a setext underline over the line above it — and so is an
 # ordered list item written `1)` rather than `1.`. All five join into the cell

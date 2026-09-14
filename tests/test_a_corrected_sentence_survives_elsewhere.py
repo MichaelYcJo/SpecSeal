@@ -322,6 +322,32 @@ def test_a_sentence_wrapped_onto_an_issue_number_is_one_sentence(tail):
     )
 
 
+# The alternative that predates this branch and that phase 4 retyped without
+# pinning. Mutated to match nothing, the whole module stayed green — round 1's
+# 🟡 5, and retyping a pattern is the cheapest moment it will have.
+@pytest.mark.parametrize("rule", ["---", "___", "***", "==="])
+def test_a_whole_line_of_one_marker_ends_the_segment(rule):
+    """A thematic break and a setext underline are blocks in their own right.
+
+    Without this alternative a claim above a horizontal rule and an unrelated
+    claim below it land in one segment, which is the false positive
+    `.github/scripts/issue_claims_check.py` spends its own whole-line
+    alternatives to avoid. The hole runs in the same direction this branch
+    closed one in: two unrelated claims merging and scoring as one."""
+    reader = module()
+    # No full stop above the rule, on purpose. `END` already ends a sentence
+    # at `.!?;`, so a claim that carries one is separated whatever `BLOCK`
+    # does — which is why round 1's paste-ready form of this case stayed
+    # green with the alternative mutated to match nothing. The block boundary
+    # has to be the only thing that can end this one.
+    text = f"the claim above the rule\n{rule}\nan unrelated claim below it"
+    keys = [sentence.key for sentence in reader.sentences("docs/probe.md", text)]
+    assert not any("above the rule" in k and "below it" in k for k in keys), (
+        f"{rule!r} is a block of its own and the segment ran straight through "
+        f"it: {keys!r}"
+    )
+
+
 def test_a_table_row_is_not_one_sentence():
     """A ledger row is one line and thousands of words.
 

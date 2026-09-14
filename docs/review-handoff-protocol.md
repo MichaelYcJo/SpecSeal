@@ -301,7 +301,10 @@ head of a line as a heading — and a continuation beginning with an issue
 number is what the records this protocol describes are full of. That space
 requirement takes the thematic break and the setext underline out of the
 class, so they come back as alternatives matching a whole line and nothing
-less. What no spelling of the guard reaches is a continuation opening with an
+less — with one gap the reference implementation accepts rather than closes: a
+`-` underline shorter than three characters rides on the thematic-break
+alternative and is joined, where the `=` side is covered at any length. What
+no spelling of the guard reaches is a continuation opening with an
 HTML tag, with `**bold**`, or with an indented run of prose: those are
 indistinguishable from a block opener by their first characters, and a tool
 joins them rather than guessing. **Only the blank line stops every shape**,

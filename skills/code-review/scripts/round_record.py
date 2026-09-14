@@ -1236,8 +1236,12 @@ def fenced_after(reader, raw, lines, heading):
 # requirement then takes the run-of-three markers out of the class, so a
 # thematic break and a setext underline come back as whole-line alternatives
 # of their own; `\r*$` on each is what makes a CRLF checkout read like an LF
-# one. `\d+[.)]` is there because `1)` is an ordered list item and `\d+\.`
-# alone let one through.
+# one. A `-` underline shorter than three characters is not among them and is
+# joined: it rides on the thematic-break alternative, where the `=` side has
+# one of its own at any length. That is the model module's trade, stated in
+# its own comment as `a --- b`, `--` and `= x` are prose, and the blank line
+# is what covers it. `\d+[.)]` is there because `1)` is an ordered list item
+# and `\d+\.` alone let one through.
 #
 # **What it does not cover, and cannot.** A continuation that opens with an
 # HTML tag, with `**bold**`, or with an indented run of prose is
@@ -1293,8 +1297,8 @@ def terminal_value(reader, lines, label):
 
     **The third stop is a narrowing and it does not cover every shape.**
     `BLOCK_START` above says which shapes it catches and which it deliberately
-    joins instead of guessing at — an HTML tag, `**bold**` and an indented run
-    of prose among the second kind. Only the blank line covers all of them, so
+    joins instead of guessing at, and it is the one place in this module that
+    lists them. Only the blank line covers all of them, so
     a report that leaves one under the terminal pair is the shape nothing can
     get wrong. `docs/review-handoff-protocol.md` §*The Needs a fix field — the
     answer a run ends on* states that rule for a second implementation, and
