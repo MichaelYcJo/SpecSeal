@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 388 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | test_a_one_word_command_name_is_not_a_locator (depth 1) |
 | Needs a fix | yes — 🟡 1, 🟡 2, 🟡 3, 🟡 4 and 🟡 5. None of the five is a spec failure; each is fix or justify, and 🟡 2 and the user-facing half of 🟡 3 are answerable with `spec.md` as written. |
