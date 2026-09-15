@@ -1185,6 +1185,11 @@ def two_rounds(repo, location, path="mod.py", others=()):
         text,
         flags=re.MULTILINE,
     )
+    assert fields(text)["New units"] == "helper (depth 1)", (
+        "the substitution missed, so round 1 names no unit and `depth_two` "
+        "returns at its guard: the case this feeds would pass for a reason "
+        "that has nothing to do with the finding (#407)"
+    )
     first.write_text(text, encoding="utf-8")
     return commit(repo, "round 2")
 
@@ -1283,6 +1288,10 @@ def two_findings_inside_two_earlier_units(repo):
         "| New units | alpha (depth 1); beta (depth 1) |",
         text,
         flags=re.MULTILINE,
+    )
+    assert fields(text)["New units"] == "alpha (depth 1); beta (depth 1)", (
+        "the substitution missed, so round 1 names no unit and `depth_two` "
+        "returns at its guard (#407)"
     )
     first.write_text(text, encoding="utf-8")
     return commit(repo, "round 2")
@@ -1392,6 +1401,10 @@ def one_finding_inside_one_earlier_unit(repo):
         text,
         flags=re.MULTILINE,
     )
+    assert fields(text)["New units"] == "alpha (depth 1)", (
+        "the substitution missed, so round 1 names no unit and `depth_two` "
+        "returns at its guard (#407)"
+    )
     first.write_text(text, encoding="utf-8")
     return commit(repo, "round 2")
 
@@ -1421,6 +1434,17 @@ def test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one(repo):
     )
     assert "depth 2" not in out, out
     assert "FILE-LEVEL" not in out, out
+    # THE POSITIVE ASSERTION, beside the two negatives above (#407). Both of
+    # them hold when `depth_two` returns at its own guard -- round 1 naming no
+    # unit at all -- which is a state that has nothing to do with the finding
+    # this case is named for. This is false in exactly that state, so the two
+    # negatives stop being the whole of what the case claims.
+    assert fields(read(repo / ROUNDS / "round-1.md"))["New units"] == (
+        "alpha (depth 1)"
+    ), (
+        "round 1 names no unit, so `depth_two` returned at its guard and the "
+        "two negatives above hold for a reason other than the judgment"
+    )
     # The exit code is `chain_check`'s verdict on a fixture whose round 1 has
     # no fix surface and whose round 2 no later round has read — a different
     # question with its own cases, and the same reason
