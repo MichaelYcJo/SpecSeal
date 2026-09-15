@@ -66,13 +66,13 @@ and a printed warning; only exit ≥ 2 fails the workflow, so nothing is broken
 by leaving them. The reading is recorded so the owner's re-verify at the
 release is one command over rows already judged.
 
-**The records arm refused two files and both were this work item's own.**
+**The records arm refused three files and all three were this work item's own.**
 `handoff.md:61` and, once written, `overview.md`'s row about it: naming
-`test_both_ampersand_cells_name_both_shells` in backticks makes a document
+`test_both_ampersand_cells_name_both_shells` in backticks makes a document <!-- NAME NOT IN TREE: the third instance of the very class this paragraph describes — a record that reports the name acquires it. The case lives on `fix/401-402-…`, which this branch did not cut from. -->
 say a name the tree does not carry, and a document that reports the problem
 acquires it. Both lines now carry `NAME NOT IN TREE` with the reason — the
 case module lives on `fix/401-402-…`, which this branch did not cut from —
-and the arm reports **0 refused**.
+and the arm reports **0 refused**. The third was this record itself, caught only because the check was re-run after the commit — which is the argument for running it again on the tree you are handing over rather than on the one you were writing against.
 
 **The fragment reopens `seal/ledger/`, which the 0.11.5 fold emptied.** Six
 rows, one per ticket, cut by what each claim is about rather than by the phase
