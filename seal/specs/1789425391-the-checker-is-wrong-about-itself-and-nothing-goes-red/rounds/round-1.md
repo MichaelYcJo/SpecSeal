@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | #403 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | PAIR_BOTH_FIXED (depth 1); ONE_INSIDE_ONE_OUTSIDE (depth 1); one_finding_inside_one_earlier_unit (depth 1); test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one (depth 1); CONFIRMATION (depth 1); test_a_row_that_commissions_nothing_does_not_stop_the_reach (depth 1); test_a_round_whose_coordinates_an_earlier_round_claimed_is_not_refused (depth 1) |
 | Needs a fix | yes — findings 1 and 2, the two reachable states where `close` refuses a pair of records the generator itself wrote; and findings 3 and 4. |
