@@ -106,89 +106,27 @@ reviewer's report that writes confirmations and corrections without 🟢 or ⬜
 has to be repaired by hand before the record will write. Say so in the spawn
 prompt; this session did from round 2 onward and it did not recur.
 
-## Phase 6 was built and verified, then reverted — do not rediscover it
+## Phase 6 is committed
 
-The stop arrived after phase 6 was finished and both its red-first mutations
-had run. It was reverted rather than committed, because the owner had excluded
-it. What it measured is below so that nobody pays for it twice; the diff is
-what was reverted, not what shipped, and it has to be re-run before it is
-trusted.
+It was built, reverted when the session was told to stop at phase 5, then
+rebuilt and committed at `1376409e` with its record at `a3e1475f`. Both
+red-first mutations were re-run against the tree it shipped on rather than
+reported from the earlier measurement.
 
-**#407's vacuity, reproduced as an executed fact.** With the `New units`
-pattern broken so the substitution misses, and with neither the fixture guard
-nor a positive assertion present,
-`test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one` **passes
-green** — 1 passed, exit 0. Both of its negatives hold because `depth_two`
-returns at its own guard.
+The class is closed at five `re.sub` sites — four newly guarded and one that
+already carried the guard, which is the house shape #407 says the author knew.
+`phases/phase-6.md` holds the enumeration and both mutation messages.
 
-**The class is five `re.sub` sites and one of them is already guarded.**
-`two_rounds` (`:1182`), `two_findings_inside_two_earlier_units` (`:1281`) and
-`one_finding_inside_one_earlier_unit` (`:1389`) in the close module;
-`test_a_previous_record_whose_checker_cell_does_not_parse_is_refused`
-(`:1446`) and `test_the_two_record_run_reads_back_through_chain_check`
-(`:1477`) in the generator module. The fourth already asserts its substitution
-landed, which is the house shape #407 says the author knew. Phases 1–5 planted
-no new `re.sub`.
+One measurement in that record is about an **earlier** tree and says so: the
+case passing green with a broken substitution and neither guard present was
+measured at `703f25e5`, and re-running it here would mean deleting the very
+assertions phase 6 exists to add.
 
-**The positive assertion that discriminates.** Nothing in `close`'s own output
-differs between *the walk judged depth 1* and *the walk returned at its guard*
-— `New units | beta_guard (depth 1)` is written by `measure` either way, which
-is why the assertion already in the case is not the one #407 asks for. What is
-false in exactly the guard state is round 1's own `New units` cell, read back
-from disk.
+**The revert cost more than it saved**, and it is worth carrying: a commit on a
+branch that squashes into its release branch costs nothing, and an uncommitted
+measurement is invisible to everyone. An agent told to stop should commit what
+stands and say what it is.
 
-**Both mutations ran.** Breaking the pattern turned the fixture's own guard red.
-Overwriting round 1's `New units` to `none` **after the fixture returns** — so
-the fixture guard passes — turned the positive assertion red while both
-negatives still held. That second mutation has to be applied inside the case
-and not in the fixture, or the fixture guard fires first and proves nothing
-about the case.
-
-With all five guards and the positive assertion in place:
-`bin/test tests/test_the_fixes_close_the_record.py
-tests/test_the_record_is_generated.py -q` → 201 passed, exit 0.
-
-```diff
---- a/tests/test_the_fixes_close_the_record.py
-+++ b/tests/test_the_fixes_close_the_record.py
-@@ two_rounds, after the re.sub
-+    assert fields(text)["New units"] == "helper (depth 1)", (
-+        "the substitution missed, so round 1 names no unit and `depth_two` "
-+        "returns at its guard: the case this feeds would pass for a reason "
-+        "that has nothing to do with the finding (#407)"
-+    )
-@@ two_findings_inside_two_earlier_units, after the re.sub
-+    assert fields(text)["New units"] == "alpha (depth 1); beta (depth 1)", (
-+        "the substitution missed, so round 1 names no unit and `depth_two` "
-+        "returns at its guard (#407)"
-+    )
-@@ one_finding_inside_one_earlier_unit, after the re.sub
-+    assert fields(text)["New units"] == "alpha (depth 1)", (
-+        "the substitution missed, so round 1 names no unit and `depth_two` "
-+        "returns at its guard (#407)"
-+    )
-@@ test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one,
-@@ after the two negatives
-+    # THE POSITIVE ASSERTION, beside the two negatives above (#407). Both of
-+    # them hold when `depth_two` returns at its own guard -- round 1 naming no
-+    # unit at all -- which is a state that has nothing to do with the finding
-+    # this case is named for. This is false in exactly that state, so the two
-+    # negatives stop being the whole of what the case claims.
-+    assert fields(read(repo / ROUNDS / "round-1.md"))["New units"] == (
-+        "alpha (depth 1)"
-+    ), (
-+        "round 1 names no unit, so `depth_two` returned at its guard and the "
-+        "two negatives above hold for a reason other than the judgment"
-+    )
-
---- a/tests/test_the_record_is_generated.py
-+++ b/tests/test_the_record_is_generated.py
-@@ test_the_two_record_run_reads_back_through_chain_check, before path.write_text
-+    assert "| open |" not in text and fields(text)["New units"] == "none", (
-+        "a substitution missed, so round 1 is not the closed record this "
-+        "reads back (#407's class)"
-+    )
-```
 
 ## Phase 7 — two divergences are already waiting for `overview.md`
 
