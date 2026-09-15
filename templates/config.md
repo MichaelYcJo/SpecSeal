@@ -203,7 +203,7 @@ is refused only for breaking one of them:
 |---|---|---|
 | the whole command wrapped in backticks | `` `bin/test -q && ruff check .` `` | runs the content, **discards its exit status**, then executes its OUTPUT as a command. The same content exits 1 bare and 0 wrapped, with the failure still on the screen |
 | the whole command wrapped in `$(…)` | `$(bin/test -q && ruff check .)` | the same semantics in the spelling somebody who knows shell reaches for first |
-| a trailing `&` that is not part of `&&` | `bin/test -q &` | backgrounds the whole line, so the shell answers 0 before any check has finished |
+| a trailing `&` that is not part of `&&` | `bin/test -q &` | `/bin/sh` backgrounds the whole line and answers 0 before any check has finished. `cmd.exe` separates two commands instead, so what the gate reads is the second one's status. Two different wrong answers, refused for the same half of the criterion |
 
 **Nothing is stripped.** A value quietly repaired here would leave the file
 still wrong and teach the next person that the way they wrote it was right,
@@ -222,7 +222,7 @@ rather than paid for by a refusal:
 | `$(…)` **inside** a longer line | nothing. `pytest -n $(nproc)` still runs as the command it reads as |
 | `;`, `\|\|`, quotes, redirection, variables, globs | the row answers with whatever the composition the repository wrote answers with. That is the repository's own claim about itself, which is what this row already is |
 | a pipe | the same, and one thing more. A piped row exits with the pipe's LAST status, so `bin/test -q \| tee out.txt` is green whenever `tee` is — **and a pipe cannot reach this row at all.** A cell of this table ends at the first `\|`, escaped or not, so a row written that way parses as no row and `broad-gate` refuses it as absent, naming a cause that is not the real one. **And it takes every row below it.** `config_rows` stops reading the table at the first line that does not parse, so a `Record language` or `Commit and pull request language` row written under it is invisible, with no message anywhere and each falling back to its default. Measured 2026-09-15; the row's own fragment carries it |
-| an `&` anywhere but at the end | the command before it is backgrounded and its status discarded, exactly as a `;` discards one — and unlike a `;`, it may still be running when the gate stamps, writing into the tree the stamp is about. Telling it from a `2>&1` or a quoted `&` needs the shell parser this list exists to avoid, so it stays the row author's own composition. The **trailing** form is refused, because nothing composes after it and the whole line goes to the background |
+| an `&` anywhere but at the end | the command before it is backgrounded and its status discarded, exactly as a `;` discards one — and unlike a `;`, it may still be running when the gate stamps, writing into the tree the stamp is about. That is `/bin/sh`; `cmd.exe` sequences the two commands instead, so nothing is left running and the status read is the second command's. Telling an operator `&` from a `2>&1` or a quoted `&` needs the shell parser this list exists to avoid, so it stays the row author's own composition. The **trailing** form is refused, because nothing composes after it and the whole line goes to the background |
 
 ### Choosing a value — the criterion
 

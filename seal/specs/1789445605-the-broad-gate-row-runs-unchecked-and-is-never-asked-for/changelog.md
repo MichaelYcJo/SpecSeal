@@ -21,6 +21,11 @@
   it costs written beside it: the check before it is backgrounded and may
   still be running when the gate stamps, and telling that `&` from a `2>&1` or
   one inside quotes needs a shell parser the row is designed not to have.
+  **Both `&` entries say which shell they are describing** — under `cmd.exe` a
+  trailing `&` separates two commands rather than backgrounding, so the gate
+  reads the second command's status instead of a 0 over nothing, and a
+  mid-line `&` sequences rather than backgrounding, so nothing is left
+  running. Different wrong answers, the same half of the criterion broken.
   (#402)
 - **A pipe in that row silently loses every row written below it.** This is
   not new and it is now written down. A cell of the config table ends at the

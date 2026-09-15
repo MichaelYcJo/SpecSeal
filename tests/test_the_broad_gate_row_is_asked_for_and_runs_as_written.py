@@ -196,6 +196,44 @@ def test_each_allowed_form_is_listed_with_what_it_costs():
         )
 
 
+def test_both_ampersand_cells_name_both_shells():
+    """Round 2's 🟡 2. Finding 5's platform hedge reached the refusal message,
+    `overview.md` and the pull request body, and not the two cells of the list
+    that owns the form — so the document a person writing the row reads still
+    stated `/bin/sh` semantics as though they were every platform's.
+
+    Both cells now say what each shell does. Under `cmd.exe` a trailing `&`
+    separates two commands rather than backgrounding, so the status read is
+    the second command's rather than 0-before-anything-finished; and a
+    mid-line `&` sequences rather than backgrounding, so nothing is left
+    running. Different wrong answers, the same half of the criterion broken —
+    which is why the refused one stays refused and the mid-line one stays
+    legal on both.
+
+    Asserted per cell, in the list the cell is in. The pairing cases above
+    read each row's stated reason, and that reason is what a hedge deleted
+    from one cell alone would leave untouched.
+    """
+    body = section(read(*TEMPLATE), REFUSED_AND_ALLOWED, 3)
+    refused = named(table(body, "| Refused |"), "trailing `&`")
+    legal = named(table(body, "| Stays legal |"), "an `&` anywhere but at the end")
+    assert refused and legal, "one of the two `&` rows has left its list"
+    for cell, which in ((flat(refused), "refused"), (flat(legal), "allowed")):
+        assert "`/bin/sh`" in cell, (
+            f"the {which} `&` row names no shell, so it reads as every shell's"
+        )
+        assert "`cmd.exe`" in cell, (
+            f"the {which} `&` row states one platform's semantics as all of them"
+        )
+    assert "the second one's status" in refused, (
+        "the refused row does not say what `cmd.exe` leaves the gate reading"
+    )
+    assert "nothing is left running" in legal, (
+        "the allowed row's cost is stated as every platform's, and the cost "
+        "it names — a check still running at the stamp — is `/bin/sh`'s"
+    )
+
+
 # No case asserts that the two lists partition the forms, and that is not an
 # omission. `$(…)` belongs in both and must: the whole command wrapped in it
 # is refused, and one INSIDE a longer line is legal, which is the distinction
@@ -272,17 +310,36 @@ def test_the_module_header_names_both_refusals_and_neither_names_a_command():
     assert "Neither refusal names a command to write" in header
 
 
+def refusal_paragraph():
+    """The paragraph that argues a refusal over a prompt, bounded at the blank
+    line — not the section.
+
+    Round 2's 🟡 1. `#401` stands twice under `## Broad gate` — once here and
+    once in the criterion's closing prose, where it has been since before this
+    branch — so a section-wide slice cannot fail by losing it from the
+    paragraph the case is named for. Deleting the whole clause left 17 cases
+    green.
+    """
+    body = broad_gate_section()
+    opening = "**An absent row is a refusal, not a default.**"
+    assert opening in body, "the refusal paragraph is gone from the template"
+    return flat(body[body.index(opening) :].split("\n\n", 1)[0])
+
+
 def test_the_paragraph_above_the_lists_no_longer_says_it_names_what_to_write():
     """*A refusal that names what to write is answered by the next person to
     read it* was half the stated reason for preferring a refusal to a prompt,
     and the refusal no longer does that. The paragraph sits inside the very
     section this branch rewrote."""
-    section_text = flat(broad_gate_section())
-    assert "names what to write is answered" not in section_text, (
+    assert "names what to write is answered" not in flat(broad_gate_section()), (
         "the template still argues from the sentence the message dropped"
     )
-    assert "names whose the row is and where it is answered" in section_text
-    assert "#401" in section_text, (
+    paragraph = refusal_paragraph()
+    assert "names whose the row is and where it is answered" in paragraph
+    assert "does **not** name a command to write" in paragraph, (
+        "the paragraph no longer says what the message stopped doing"
+    )
+    assert "#401" in paragraph, (
         "the paragraph asserts the change without the report behind it"
     )
 

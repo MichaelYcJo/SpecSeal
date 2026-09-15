@@ -96,6 +96,24 @@ flattened phrase the case reads. Three of phase 4's ten needles spanned a line
 break and the driver stopped rather than silently skipping them — which is the
 right failure, and is worth knowing before writing the next one.
 
+**A bounded slice is the repair, and applying it to one module is not
+applying it.** Round 1's 🟡 7 was three cases reading to the end of a section;
+the same fix pass repaired those three and planted a fourth case with exactly
+that shape one module over, where `#401` also stands twice. Round 2 executed
+it: deleting the whole clause the pass had just written left 17 cases green.
+The class is *a case whose slice is wider than the thing it is named for*, and
+a pass that repairs its instances one at a time keeps producing new ones —
+`agent-contract` §12 in the one place it is easiest to think you have already
+obeyed it.
+
+**A hedge belongs in the list that owns the form, not only where the form is
+executed.** Round 1's 🟡 5 put the platform sentence into the refusal message,
+`overview.md` and the pull request body. The two cells of
+`templates/config.md` that a person actually reads before writing the row —
+the refused `&` row and the allowed one — still stated `/bin/sh` semantics as
+though they were every platform's. Round 2's 🟡 2. The document a decision is
+made from is a different surface from the code that acts on it.
+
 **A case can be found by the prose of the row it is reading.** Round 1's 🟡 6
 was that one helper returned the rows of both tables, so a form's reason could
 be paired with another form's. Repairing it with a per-table helper was not
