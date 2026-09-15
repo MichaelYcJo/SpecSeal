@@ -242,6 +242,101 @@ def missing_row(home):
     )
 
 
+# --- looking at the value before a shell gets it -------------------------
+
+
+def wholly_substituted(value):
+    """The opening delimiter of a command substitution wrapping the WHOLE
+    value — `` ` `` or `$(` — or None where nothing wraps it.
+
+    A pair that closes early wraps a part rather than the whole, and a part
+    is the repository's own composition: `pytest -n $(nproc)` still runs as
+    the command it reads as. So `$(a) && b` reads as None here, and so does
+    `` `a` && `b` `` — a row nothing in this module claims to catch. Both
+    fall out of one reading, which is the point: what is refused is a form,
+    not the characters in it.
+    """
+    if len(value) > 1 and value[0] == "`" == value[-1]:
+        return "`" if "`" not in value[1:-1] else None
+    if not value.startswith("$(") or not value.endswith(")"):
+        return None
+    depth = 0
+    for i, char in enumerate(value[1:], 1):
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return "$(" if i == len(value) - 1 else None
+    return None
+
+
+def not_as_written(home, command):
+    """The refusal for a `Broad gate` value the gate would not run as the
+    command it reads as — or None for every value it would.
+
+    **The criterion has two halves: the value must run as the command it
+    reads as, and the exit code the gate reads must be that command's.**
+    `templates/config.md` §*Broad gate* owns it, owns the list of refused
+    forms and owns the list of what stays allowed, each with its reason.
+    This function is the half that acts; a form belongs here only by failing
+    one of those halves there.
+
+    Three forms fail one. The whole value wrapped in backticks, or in the
+    `$(…)` spelling of the same thing, runs the checks first, DISCARDS their
+    exit status, and executes their output as a command — measured on #402:
+    the same content exits 1 bare and 0 wrapped, with the failure still on
+    the screen. A trailing `&` backgrounds the line, so the shell answers 0
+    before any check has finished.
+
+    Everything else stays legal, a pipe included, because the row is an
+    arbitrary shell command line by design and telling a status-discarding
+    `;` from one inside a quoted argument needs a shell parser — whose own
+    failure modes would make legitimate rows unwritable.
+
+    Nothing is stripped or rewritten. A value silently repaired here leaves
+    the file still wrong and teaches the next person that it was right.
+    """
+    value = command.strip()
+    opener = wholly_substituted(value)
+    if opener == "`":
+        form = "is the whole command wrapped in backticks"
+        does = (
+            "so a shell reads it as command substitution: the checks run "
+            "first, their exit status is DISCARDED, and their output is then "
+            "executed as a command. What this gate would read is that "
+            "command's exit code and not the checks'"
+        )
+    elif opener == "$(":
+        form = "is the whole command wrapped in `$(…)`"
+        does = (
+            "which is command substitution in its other spelling and does "
+            "the same thing: the checks' exit status is DISCARDED and their "
+            "output is executed as a command in its place"
+        )
+    elif value.endswith("&") and not value.endswith("&&"):
+        form = "ends in a single `&`"
+        does = (
+            "so a shell backgrounds the whole line and answers 0 before any "
+            "check has finished. A seal drawn from that 0 covers nothing "
+            "that ran"
+        )
+    else:
+        return None
+    rewritten = (value[len(opener) : -1] if opener else value[:-1]).strip()
+    return (
+        f"broad-gate: the `{ROW}` row in {os.path.join(home, CONFIG)} {form}, "
+        f"{does}.\n"
+        f"    as written: | {ROW} | {value} |\n"
+        f"    as meant:   | {ROW} | {rewritten} |\n"
+        "Nothing ran, and nothing was repaired: the row is a person's to "
+        "write, and a value quietly fixed here would leave the file still "
+        "wrong. `templates/config.md` §*Broad gate* lists what is refused "
+        "and what stays allowed, with the reason for each, and "
+        "`/specseal:config` is the door to the row."
+    )
+
+
 # --- running one check ---------------------------------------------------
 
 
@@ -532,6 +627,15 @@ def gate(args, console_wants_letters):
     command = broad_command(home)
     if command is None:
         raise Refused(missing_row(home))
+    # The one place the value is looked at before a shell is handed it, and
+    # the only one there needs to be: the other surface that runs the row
+    # (`compare_at_base` → `first_command`) is reached only after the run
+    # below, so this refusal closes it by reachability rather than by a
+    # second guard in a second place (`spec.md` §*The class, enumerated by
+    # construction*).
+    unrunnable = not_as_written(home, command)
+    if unrunnable:
+        raise Refused(unrunnable)
     head = git(root, "rev-parse", "--short", "HEAD")
     if head is None:
         raise Refused(f"broad-gate: {root} has no HEAD to seal — nothing ran")

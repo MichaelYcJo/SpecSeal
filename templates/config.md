@@ -185,6 +185,41 @@ row's command does is the repository's own claim: a command that exits 0
 without running anything gets a stamp over nothing, and *the narrow command
 still has to be able to fail* is the reader's rule, not the gate's.
 
+### What is refused, and what stays allowed
+
+**A value that would not run as the command it reads as is refused, not
+repaired.** `broad-gate` looks at the row before it hands it to a shell,
+and three forms come back exit 2 with nothing run — the same shape an
+absent row gets. The criterion is one sentence with two halves, and a form
+is refused only for breaking one of them:
+
+> **The value must run as the command it reads as, and the exit code the
+> gate reads must be that command's.**
+
+| Refused | Written as | What a shell does with it |
+|---|---|---|
+| the whole command wrapped in backticks | `` `bin/test -q && ruff check .` `` | runs the content, **discards its exit status**, then executes its OUTPUT as a command. The same content exits 1 bare and 0 wrapped, with the failure still on the screen |
+| the whole command wrapped in `$(…)` | `$(bin/test -q && ruff check .)` | the same semantics in the spelling somebody who knows shell reaches for first |
+| a trailing `&` that is not part of `&&` | `bin/test -q &` | backgrounds the whole line, so the shell answers 0 before any check has finished |
+
+**Nothing is stripped.** A value quietly repaired here would leave the file
+still wrong and teach the next person that the way they wrote it was right,
+so the refusal names the form, quotes the row as written, and shows it as
+meant. Rewriting it is the person's act, and `/specseal:config` is the door
+to the row.
+
+**Everything else stays legal**, because the row is an arbitrary shell
+command line by design. A gate that could tell a status-discarding `;` from
+one inside a quoted argument would need a shell parser, whose own failure
+modes would make legitimate rows unwritable. What each costs is stated here
+rather than paid for by a refusal:
+
+| Stays legal | What it costs |
+|---|---|
+| `$(…)` **inside** a longer line | nothing. `pytest -n $(nproc)` still runs as the command it reads as |
+| `;`, `\|\|`, quotes, redirection, variables, globs | the row answers with whatever the composition the repository wrote answers with. That is the repository's own claim about itself, which is what this row already is |
+| a pipe | the same, and one thing more. A piped row exits with the pipe's LAST status, so `bin/test -q \| tee out.txt` is green whenever `tee` is — **and a pipe cannot reach this row at all.** A cell of this table ends at the first `\|`, escaped or not, so a row written that way parses as no row and `broad-gate` refuses it as absent, naming a cause that is not the real one. Measured 2026-09-15; the row's own fragment carries it |
+
 On a failing test the gate re-runs the row's first command on the failing
 files alone, at the base, in a scratch worktree it removes afterwards, and
 labels each `new` or `failing on base too`. That first command is what

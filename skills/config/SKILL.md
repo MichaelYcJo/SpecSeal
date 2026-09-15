@@ -67,6 +67,14 @@ second answer.
   `Broad gate` value is one shell command line, run from the repository
   root; put the suite runner first, because the base comparison re-runs
   what stands before the first `&&`.
+
+  **The `Broad gate` row is looked at before it is run**, and a value that
+  would not run as the command it reads as is refused with nothing run —
+  the whole command wrapped in backticks or in `$(…)`, or a trailing `&`.
+  Nothing is stripped or repaired: rewriting the row is the person's act,
+  which is what brings them here. `templates/config.md` §*What is refused,
+  and what stays allowed* lists the three forms and the ones that stay
+  legal, each with its reason, and it is where this is decided.
 - **The mode row moves files.** Run `seal mode local` or `seal mode shared`.
   It moves the root, stages the change, carries
   `.github/workflows/hygiene.yml` in or out, and writes the row, so the file
