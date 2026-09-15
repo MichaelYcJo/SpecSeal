@@ -407,7 +407,10 @@ records committed together do not state the same finding as open and as fixed.
 It refuses rather than guesses: a record here with no readable table, or a row
 naming a coordinate round N-1's verdict table does not hold, stops `close`
 with nothing written. It says nothing at all where round N does not exist,
-which is every ordinary run — the fix pass comes first. -->
+which is every ordinary run — the fix pass comes first — and nothing where
+this table names no row from round N-1 at all, because a coordinate an even
+earlier round already claimed is written here under THAT round and under no
+other. -->
 
 | From | Coordinate | Why it is still worth opening |
 |---|---|---|

@@ -1270,6 +1270,13 @@ because a range with two fixes in one file attributes every unit in that file
 to whichever row the walk reaches first, and the reader is then sent to a row
 that did not add the unit.
 
+Where the range resolves the adder to a fix whose finding sits inside no unit
+an earlier record names, **the unit is at depth 1 and the rule says nothing**.
+Its adder is known and it is not a depth-2 unit, so refusing it would refuse
+a unit the definition above does not reach. Resolving to several candidate
+findings is not that state: it is a resolution that still cannot say which
+fix added the unit, and it takes the fallback below.
+
 Where the range cannot resolve one — a single commit answering two findings
 resolves to nothing at any cost — **it still refuses, and the message says the
 attribution is file-level and names every candidate finding** instead of

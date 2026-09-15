@@ -1509,7 +1509,12 @@ def reach_forward(reader, rounds, n, rows):
     are reachable by design.
 
     Silent where round N+1 does not exist, which is every ordinary run: the
-    fix pass comes first and the verifying round is spawned after it.
+    fix pass comes first and the verifying round is spawned after it. Silent
+    too where its table names no row from round N, because `inherited_rows`
+    is first-seen-wins ACROSS rounds — a round whose every coordinate an
+    earlier round already claimed is written into that section under the
+    earlier round and under no other, which is the ordinary shape of a
+    re-review round rather than a malformed record (round 1's 🔴 2).
     """
     path = os.path.join(rounds, f"round-{n + 1}.md")
     if not os.path.exists(path):
@@ -1550,13 +1555,15 @@ def reach_forward(reader, rounds, n, rows):
         )
         filled += 1
     if not filled:
-        raise Refused(
-            f"round-{n + 1}.md's `{INHERITED}` names no row from {mine}, and "
-            f"`new` writes one per `Location` cell of every earlier record. A "
-            f"table with nothing from {mine} in it is one this round's "
-            "verdicts cannot be carried into, so the reach is declined rather "
-            "than a row invented; no cell was written"
-        )
+        # NOT a refusal (round 1's 🔴 2). `inherited_rows` is first-seen-wins
+        # ACROSS rounds, so a round whose every coordinate an earlier round
+        # already claimed is written into this section under that earlier
+        # round and under no other. A re-review round looking again where the
+        # round before it looked is the ordinary shape, and refusing it stops
+        # the run this reach exists to keep truthful. The refusal's grounds
+        # stated a rule about `new` without that qualifier, so the reader was
+        # sent to correct a table that was already right.
+        return None
     ending = "\n" if text.endswith("\n") else ""
     return path, "\n".join(raw) + ending, filled
 
@@ -3440,6 +3447,15 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
     finding and the wrong enclosing unit, which is worse than firing wrongly:
     the reader is sent to a row that did not add the unit.
 
+    **A unit whose adder resolves to no candidate row is at depth 1**, and
+    this rule has nothing to say about it (round 1's 🟡 3). `unit_adders`
+    resolves every `fixed` commit's units, including those added by findings
+    that sit inside no unit an earlier record names; the walk took the
+    file-level fallback on those and printed a non-resolution that had not
+    happened. Resolving to SEVERAL candidate rows is a different state and
+    still takes the fallback: it is a resolution that cannot say which fix
+    added the unit.
+
     **Where the range cannot resolve one, it still refuses and says so.**
     A single commit answering two findings resolves to nothing at any cost,
     and the direction every verdict the checker cannot read takes is the one
@@ -3455,7 +3471,12 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
     named = units_named_earlier(reader, earlier)
     if not named or not added:
         return
-    adders = adders or {}
+    # A PASS rather than its result, so the guard above runs first (round 1's
+    # ⬜ 5). `unit_adders` is a second `measure`, one per `fixed` commit;
+    # evaluated at the call site it was paid on every round-1 `close`, where
+    # there are no earlier records at all and this returns at once --
+    # `phases/phase-5.md` measured that pass at 127.8 ms.
+    adders = adders() if callable(adders) else (adders or {})
     # {(file, unit added): {finding number: (parent unit, the record naming it)}}
     candidates = {}
     tracked = tracked_at(root, a)
@@ -3484,7 +3505,8 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
 
     lines = []
     for (f, name), rows_for in candidates.items():
-        owners = sorted(set(adders.get((f, name), ())) & set(rows_for))
+        resolved = set(adders.get((f, name), ()))
+        owners = sorted(resolved & set(rows_for))
         if len(owners) == 1:
             unit, record_n, cell_text, location = rows_for[owners[0]]
             lines.append(
@@ -3492,6 +3514,23 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
                 f"{cell_text}, whose Location `{location}` is inside `{unit}`, "
                 f"a unit round-{record_n}.md's `{chain.NEW_UNITS}` names."
             )
+            continue
+        if resolved and not owners:
+            # The range DID resolve the adder, and to NO candidate row: the
+            # fix that added this unit sits inside no unit an earlier record
+            # names, so the unit is at depth 1 and this rule has nothing to
+            # say about it -- #333's quiet direction, which the file-level
+            # walk answered by refusing and the repair then answered by
+            # printing a non-resolution that had not happened (round 1's
+            # 🟡 3).
+            #
+            # `not owners` is what keeps this narrow, and the round's
+            # paste-ready `if resolved` was not: one commit answering two
+            # findings resolves to BOTH candidate rows, which is a resolution
+            # that still cannot say which fix added the unit. That shape
+            # takes the file-level sentence below, and skipping it turned
+            # `test_a_depth_two_refusal_it_cannot_attribute_says_so_and_names_every_candidate`
+            # red -- S12's own case.
             continue
         every = "; ".join(
             f"{cell_text} (inside `{unit}`, round-{record_n}.md)"
@@ -3502,6 +3541,8 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
             f"FILE-LEVEL: the range does not resolve which fix added it, so "
             f"every fix inside an earlier unit in {f} is a candidate — {every}."
         )
+    if not lines:
+        return
     raise Refused(
         "\n".join(lines) + " A fix pass may add a unit; that unit's fix may "
         "not, because the fix is read by the round that follows and the unit "
@@ -3619,7 +3660,7 @@ def close(args):
         added,
         at_a,
         earlier,
-        unit_adders(reader, root, fixes),
+        lambda: unit_adders(reader, root, fixes),
     )
 
     contract = surface_cell(
@@ -3668,6 +3709,27 @@ def close(args):
         )
         for i, _ in rows.values()
     ]
+    # The map the forward reach reads, built here for the same two reasons
+    # `words` is: `raw` already carries the fix table, and no line has been
+    # inserted into it yet, so the indices the record was parsed at are still
+    # its own.
+    #
+    # EVERY verdict row, not only the numbered ones (round 1's 🔴 1).
+    # `inherited_rows` writes one row per `Location` cell of every row -- a
+    # confirmation, an earlier round's closure carried forward, an
+    # `❓ out of verified scope` -- while `rows` holds only what
+    # `finding_number` keyed. Keying this map from `rows` refused a pair of
+    # records this generator itself wrote, at exit 2, and sent the reader to
+    # correct a coordinate that was already right.
+    location = VERDICT_HEADER.index("Location")
+    number = VERDICT_HEADER.index("#")
+    now = {}
+    for i, _cells in table_body(reader, lines, VERDICTS, VERDICT_HEADER, True):
+        seen = [
+            reader.visible(c) for c in row_cells(reader, raw[i], len(VERDICT_HEADER))
+        ]
+        if len(seen) > VERDICT_COL and seen[location]:
+            now[seen[location]] = (seen[number], chain.verdict_of(seen, VERDICT_COL))
     still_open = [w for w in words if w not in chain.CLOSED_WORDS]
     # The same derivation `new` makes from the report's verdicts, over the
     # verdicts as the table left them. Both of its answers are written here,
@@ -3716,15 +3778,6 @@ def close(args):
     # where every other refusal in this subcommand does — with nothing on
     # disk changed. Round N's own write goes first, because round N+1's rows
     # are only true once it has landed.
-    location = VERDICT_HEADER.index("Location")
-    number = VERDICT_HEADER.index("#")
-    now = {}
-    for (i, _cells), word in zip(rows.values(), words, strict=True):
-        seen = [
-            reader.visible(c) for c in row_cells(reader, raw[i], len(VERDICT_HEADER))
-        ]
-        if len(seen) > location and seen[location]:
-            now[seen[location]] = (seen[number], word)
     forward = reach_forward(reader, rounds, args.round, now)
 
     ending = "\n" if text.endswith("\n") else ""

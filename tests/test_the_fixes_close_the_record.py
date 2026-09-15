@@ -1249,8 +1249,9 @@ def test_a_unit_added_beside_a_finding_inside_an_earlier_units_is_refused(
 # rather than a preference: `units_named_earlier` runs each entry through
 # `chain.EMPHASIS`, which is `[*_`]+`, so `only_tested` is read back as
 # `onlytested` and matches no unit the AST names. That is a live defect of its
-# own, outside this work item's six tickets, and it is written up in
-# `seal/follow-up.md` rather than repaired here.
+# own, outside this work item's six tickets, and it is written up in the
+# stamped `# RIDER:` at `round_record.py#units_named_earlier` rather than
+# repaired here.
 PAIR = "def alpha(a):\n    return a\n\n\ndef beta(a):\n    return a\n"
 PAIR_FIXED = PAIR.replace("def alpha(a):", "def alpha(a, b=None):")
 ALPHA_GUARD = "\n\ndef alpha_guard(b):\n    return b is not None\n"
@@ -1356,6 +1357,77 @@ def test_a_depth_two_refusal_it_cannot_attribute_says_so_and_names_every_candida
     for finding, parent in (("🔴 1", "alpha"), ("🟡 2", "beta")):
         assert finding in out and f"inside `{parent}`" in out, out
     assert "deferred with a named answerer, or becomes an issue" in out
+
+
+# Round 1's 🟡 3, one earlier unit instead of two: round 1 names `alpha` only,
+# so finding 2 — inside `beta` — is not a candidate, and it is finding 2's
+# commit that adds the unit.
+PAIR_BOTH_FIXED = PAIR_FIXED.replace("def beta(a):", "def beta(a, *rest):")
+ONE_INSIDE_ONE_OUTSIDE = (
+    "| 🔴 1 | alpha guards nothing | `pair.py#alpha` | open | executed |\n"
+    "| 🟡 2 | beta drops its rest | `pair.py#beta` | open | read |\n"
+)
+
+
+def one_finding_inside_one_earlier_unit(repo):
+    """Round 1 naming `alpha` alone, then round 2 with a finding inside it and
+    a second finding inside `beta`, which no earlier record names. Returns
+    round 2's commit, the start of the fix range."""
+    declared(repo)
+    write(repo, "pair.py", PAIR)
+    code, out, _ = generate(repo, report_text=report(verdicts=OPEN_1))
+    assert code == 0, out
+    commit(repo, "round 1")
+    code, out, _ = generate(
+        repo, n=2, report_text=report(verdicts=ONE_INSIDE_ONE_OUTSIDE)
+    )
+    assert code in (0, 1), out
+    first = repo / ROUNDS / "round-1.md"
+    text = first.read_text(encoding="utf-8")
+    text = re.sub(
+        r"^\| New units \|.*$",
+        "| New units | alpha (depth 1) |",
+        text,
+        flags=re.MULTILINE,
+    )
+    first.write_text(text, encoding="utf-8")
+    return commit(repo, "round 2")
+
+
+def test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one(repo):
+    """Round 1's 🟡 3, and #333's quiet direction. `beta_guard` is added by
+    finding 2's commit, and finding 2 sits inside no unit an earlier record
+    names — so the unit is at depth 1 and the rule has nothing to say about
+    it. The walk took the file-level fallback anyway, because the resolved
+    adder is not one of the candidate rows, and then printed *the range does
+    not resolve which fix added it* about a range that just had.
+
+    Red against the tree before the fix: exit 2, FILE-LEVEL, and that
+    sentence — which `docs/review-chain-spec.md` reserves for a range that
+    resolved nothing.
+    """
+    a = one_finding_inside_one_earlier_unit(repo)
+    write(repo, "pair.py", PAIR_FIXED)
+    c1 = commit(repo, "finding 1's fix, adding nothing")
+    write(repo, "pair.py", PAIR_BOTH_FIXED + BETA_GUARD)
+    c2 = commit(repo, "finding 2's fix, adding the unit")
+    code, out, record = close(
+        repo,
+        2,
+        fix_table(f"| 1 | fixed | {c1[:7]} |\n| 2 | fixed | {c2[:7]} |\n"),
+        f"{a}..{c2}",
+    )
+    assert "depth 2" not in out, out
+    assert "FILE-LEVEL" not in out, out
+    # The exit code is `chain_check`'s verdict on a fixture whose round 1 has
+    # no fix surface and whose round 2 no later round has read — a different
+    # question with its own cases, and the same reason
+    # `test_the_reach_forward_says_nothing_where_the_next_round_does_not_exist`
+    # asserts the line rather than the code. What this pins is that `close`
+    # refused nothing and wrote the unit at depth 1.
+    assert "round-record: closed" in out, out
+    assert "no cell was written" not in out, out
+    assert fields(record)["New units"] == "beta_guard (depth 1)", record
 
 
 def test_a_basename_resolves_to_the_one_tracked_file_that_ends_in_it(repo):
@@ -1735,3 +1807,93 @@ def test_the_reach_forward_refuses_a_coordinate_the_verdict_table_lacks(repo):
     assert code == 2, out
     assert "`mod.py#absent`" in out and "holds no row with that `Location`" in out, out
     assert "no cell was written" in out, out
+
+
+# --- the two shapes the reach refused although `new` wrote them ---------------
+
+
+CONFIRMATION = "| 🟢 | round 0's finding, re-read | `README.md` | verified | read |\n"
+
+
+def test_a_row_that_commissions_nothing_does_not_stop_the_reach(repo):
+    """Round 1's 🔴 1. `inherited_rows` writes a row per `Location` cell of
+    EVERY verdict row; `close` keyed its map from the numbered ones. A round
+    carrying a confirmation — the shape `agents/warden.md` asks for, and 25 of
+    the committed corpus — then could not be closed at all: `close` exited 2
+    against a coordinate that was already correct.
+
+    Red against the tree before the fix: exit 2, `README.md` named as a
+    coordinate round 1's verdict table holds no row for.
+    """
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(verdicts=OPEN_1 + CONFIRMATION))
+    assert code == 0, out
+    commit(repo, "round 1")
+    code, out, _ = generate(repo, n=2, report_text=report(verdicts=ROUND_TWO))
+    assert code in (0, 1), out
+    a = commit(repo, "round 2")
+    assert inherited(repo)["`README.md`"].endswith("verified"), (
+        "the fixture is not the state this is about"
+    )
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "the fix")
+    code, out, _ = close(repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}")
+    assert code == 0, out
+    why = inherited(repo)
+    # The numbered row carries its new word, and the row that commissions
+    # nothing carries the word it already had rather than stopping the reach.
+    assert why["`mod.py#helper`"] == f"round 1's 🔴 1 {chr(0x2014)} fixed", why
+    assert why["`README.md`"] == f"round 1's 🟢 {chr(0x2014)} verified", why
+
+
+def test_a_round_whose_coordinates_an_earlier_round_claimed_is_not_refused(repo):
+    """Round 1's 🔴 2. `inherited_rows` is first-seen-wins ACROSS rounds, so a
+    round 2 finding at a coordinate round 1 already carried is written into
+    round 3's section under `round-1` and under no other round. `close --round
+    2` read a section with nothing from round 2 in it as a malformed record
+    and refused.
+
+    A re-review round looking again where the round before it looked is the
+    ordinary shape, so this fired on the case the section is most useful for.
+    Red against the tree before the fix: exit 2, *names no row from round-2*.
+    """
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(verdicts=OPEN_1))
+    assert code == 0, out
+    a1 = commit(repo, "round 1")
+    write(repo, "mod.py", MOD_CHANGED)
+    b1 = commit(repo, "round 1's fix")
+    code, out, _ = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b1[:7]} |\n"), f"{a1}..{b1}"
+    )
+    assert "no cell was written" not in out, out
+    commit(repo, "round 1 closed")
+    code, out, _ = generate(
+        repo,
+        n=2,
+        report_text=report(
+            verdicts="| 🟡 1 | helper still drops b | `mod.py#helper` | open | read |\n"
+        ),
+    )
+    assert code in (0, 1), out
+    commit(repo, "round 2")
+    code, out, _ = generate(
+        repo,
+        n=3,
+        report_text=report(
+            verdicts="| 🟡 1 | a third look | `mod.py:5` | open | read |\n"
+        ),
+    )
+    assert code in (0, 1), out
+    a = commit(repo, "round 3")
+    assert "round-2" not in "".join(
+        rows_of(read(repo / ROUNDS / "round-3.md"), "## Inherited coordinates")
+    ), "the fixture is not the state this is about"
+    write(repo, "mod.py", MOD_CHANGED + "\n\ndef extra():\n    return 1\n")
+    b = commit(repo, "round 2's fix")
+    code, out, _ = close(
+        repo, 2, fix_table("| 1 | answered | grounds |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    assert "no cell was written" not in out, out
+    assert "Inherited coordinates" not in out, out

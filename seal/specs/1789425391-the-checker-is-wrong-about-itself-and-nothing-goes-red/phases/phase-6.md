@@ -31,13 +31,16 @@ not the record.** Re-reading round N-1 from disk to recompute the words would
 give the reach a second source of truth for the thing it is copying, which is
 the property that makes the whole defect possible one file over.
 
-**Three refusals were considered and two were taken.** A next record with no
-readable `## Inherited coordinates`, and a row naming a coordinate round N-1's
-verdict table does not hold — both refuse. The third, *round N+1 exists and its
-table names no row from round N*, also refuses: `new` writes one row per
-`Location` cell of every earlier record, so a table with nothing from round N in
-it is one this round's verdicts cannot be carried into. Each says *no cell was
-written*, which is true because nothing has been.
+**Three refusals were considered and three were taken; round 1 removed one.**
+A next record with no readable `## Inherited coordinates`, and a row naming a
+coordinate round N-1's verdict table does not hold — both refuse, and each says
+*no cell was written*, which is true because nothing has been. The third,
+*round N+1 exists and its table names no row from round N*, was taken on the
+grounds that `new` writes one row per `Location` cell of every earlier record —
+and **that grounds is missing its qualifier**, which is what round 1's 🔴 2
+found. `inherited_rows` is first-seen-wins ACROSS rounds, so a round whose
+every coordinate an earlier round already claimed is written into that table
+under the earlier round and under no other. The third refusal is now silence.
 
 **Silence is the fourth state and it is the common one.** In every ordinary run
 the fix pass comes first and the verifying round is spawned after it, so
