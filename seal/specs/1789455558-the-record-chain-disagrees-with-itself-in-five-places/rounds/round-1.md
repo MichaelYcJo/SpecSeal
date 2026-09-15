@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 416 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | QUOTED_SENTENCE (depth 1); OPEN_ROW_QUOTING_A_BLOCKER (depth 1); test_a_row_reading_open_is_not_told_its_word_is_unrecognised (depth 1); test_the_same_open_row_without_the_quote_is_a_pass (depth 1); LITERAL_SEAM (depth 1); test_the_sweep_reads_across_a_string_literal_seam (depth 1); test_folding_the_seam_cannot_hide_an_instance_it_would_have_found (depth 1) |
 | Needs a fix | yes — 🟡 1 and 🟡 2 |
