@@ -1287,13 +1287,27 @@ def test_the_refusal_says_which_value_the_last_record_may_hold(repo):
     are refused. A refusal is read by whoever is stopped by it, so the half
     that says what to do is the half that has to survive the change.
 
-    So: the one value the seal accepts, both refused values named with the
+    So: the one value `seal` accepts, both refused values named with the
     reason each is refused, and the exit — spawn the verifying round.
+
+    **The literal names the subcommand rather than reading `the seal`**, and
+    it moved here in the commit that moved the message. Two sentences of this
+    refusal left the instance anonymous, which is the rule
+    `skills/verify/SKILL.md` owns and `tests/test_one_word_one_meaning.py`
+    sweeps for; this file is not swept, so the pin is what would have kept
+    the old wording alive.
     """
     path = fixed_but_unread_item(repo)
     set_checked_by(path, "pending")
     _code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
-    assert "the only value the seal accepts" in out, out
+    assert "the only value `seal` accepts" in out, out
+    # The second sentence the sweep caught, pinned beside the first so the
+    # pair cannot drift apart: both name `seal` and neither reads `the seal`.
+    assert "`seal` runs with `Pass` ticked" in out, out
+    assert "the seal" not in out, (
+        "the refusal names a seal without saying whose, which is the rule "
+        "`skills/verify/SKILL.md` owns"
+    )
     assert "no fixes to check" in out, out
     assert "nobody" in out, out
     assert "Spawn the verifying round first" in out, out

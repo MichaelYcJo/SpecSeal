@@ -67,7 +67,7 @@ Three outcomes, and they are not two:
   resolve; or, with `--record`, the record refused the cell — because its
   `Pass` box is unchecked and a finding is still open, or because its
   `Fixes checked by` reads anything but `no fixes to check`. On the last
-  record that is the only value the seal accepts: a `round-N` names a later
+  record that is the only value `seal` accepts: a `round-N` names a later
   round and the last record has none, and `nobody — <why>` beside a checked
   `Pass` is what fails the pull request. Either way the refusal says to
   spawn the verifying round first, and that round's record is the one the

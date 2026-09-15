@@ -3977,9 +3977,9 @@ def seal(args):
         raise Refused(
             f"round-{n}.md's `{chain.CHECKED_BY}` reads `{checker}`, and this "
             f"is the LAST record, where `{chain.NO_FIXES}` is the only value "
-            f"the seal accepts. {why}. `{chain.NOBODY} {DASH} <why>` is "
+            f"`seal` accepts. {why}. `{chain.NOBODY} {DASH} <why>` is "
             "allowed on a last record by the protocol and refused here for "
-            "its own reason: the seal runs with `Pass` ticked, and "
+            "its own reason: `seal` runs with `Pass` ticked, and "
             "`skills/code-review/orchestration.md` fails a pull request whose "
             f"last record reads `{chain.NOBODY}` beside a checked `Pass`. "
             "Spawn the verifying round first; its record is the one this cell "
