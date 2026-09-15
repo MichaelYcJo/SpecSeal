@@ -47,6 +47,13 @@
   a trailing period in a deferral's home or in a `nobody — <why>` reason is part
   of a sentence rather than decoration.
 
+  **One cost, and it is visible in one place.** The strip takes both ends, so a
+  note that ends in a full stop loses it too. The note is mid-sentence whenever
+  the reviewer wrote a Grounds cell, so this shows only where that cell is
+  empty: `` `<sha>`. it reads the cell now. `` renders `fixed at <sha> — it
+  reads the cell now`. A one-sided strip would spell these two cuts differently
+  from the three beside them, for a stop nobody has yet written.
+
 - **A confirmation that quotes an earlier blocking finding is no longer failed
   as one (#408).** At the pull request, a row's severity was read by asking
   whether 🔴 appeared anywhere in the row — and naming what an earlier round
@@ -56,17 +63,33 @@
   severities, sending the reader to look for a finding that is not there.
 
   The severity in the message now comes from the row's own `#` cell, and a row
-  whose verdict word the vocabulary does not close is refused by a second arm
-  with its own sentence — it names the word, lists the words that would close
-  the row, and mentions no 🔴. Which rows fail is unchanged: an unrecognised
-  verdict counting as closed is the tolerant read this check exists to refuse.
+  whose verdict does not close it is refused by a second arm with its own
+  sentence. That sentence names **both** things that put the row there — the
+  quote, and the verdict — because either one is a way out: change the word, or
+  drop the quote. Which rows fail is unchanged: an unrecognised verdict counting
+  as closed is the tolerant read this check exists to refuse.
+
+  **Naming only the word was not enough, and `open` is why.** `open` is the word
+  a reviewer is told to write for a finding the round opened, and this same
+  check's other arm prints it back as *this 🔴 row reads `open`*. Told instead
+  that `open` is outside a vocabulary, a reader goes looking for a rule the
+  check does not hold — which is this ticket's own complaint one cell over.
 
 - **The rule that a seal is named with whose has one check again, not two
   (#406).** A second assertion had been added beside the sweep that owns the
   rule, without the sweep's guard for a longer word — so it refused `the
   sealer`, which is the correct way to name the agent. It is removed, and the
-  sweep already reads the module the refusal lives in, so nothing is left
-  uncovered. The refusal's own exit line now says *before the sealer runs*.
+  refusal's own exit line now says *before the sealer runs*.
+
+  **The sweep had to be taught one thing first, and that is the interesting
+  half.** It reads a module's source text, while the deleted assertion read the
+  run's output — and Python joins adjacent string literals where a flattened
+  read of the source does not. So a phrase split across two literals was
+  invisible to the sweep and perfectly visible in the refusal a person reads,
+  and every long refusal here is built from wrapped literals with the wrap
+  decided by line length. The sweep now folds that seam, and it found a live
+  instance the moment it could see one: a refusal reading *The seal names a
+  commit this repository holds* now reads *The sealer's mark names…*.
 
 - **A test fixture that rewrites a record says so when its rewrite misses
   (#407).** Four fixtures across the two record modules edited a record by
