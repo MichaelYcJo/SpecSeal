@@ -1510,11 +1510,20 @@ def reach_forward(reader, rounds, n, rows):
 
     Silent where round N+1 does not exist, which is every ordinary run: the
     fix pass comes first and the verifying round is spawned after it. Silent
-    too where its table names no row from round N, because `inherited_rows`
-    is first-seen-wins ACROSS rounds — a round whose every coordinate an
-    earlier round already claimed is written into that section under the
-    earlier round and under no other, which is the ordinary shape of a
-    re-review round rather than a malformed record (round 1's 🔴 2).
+    too where its table names no row from round N **and accounts for round
+    N's coordinates anyway**, because `inherited_rows` is first-seen-wins
+    ACROSS rounds — a round whose every coordinate an earlier round already
+    claimed is written into that section under the earlier round and under no
+    other, which is the ordinary shape of a re-review round rather than a
+    malformed record (round 1's 🔴 2).
+
+    **Filling nothing has a second cause and the silence covered it too**
+    (#405): the section EDITED OR TRUNCATED after `new` wrote it, which the
+    other two refusals both miss — a table with no rows at all is readable
+    and inherits no coordinate for the verdict table to lack. The accounting
+    separates them. Every coordinate of round N appears in a table `new`
+    wrote, so a table naming none of round N's rows and missing some of round
+    N's coordinates is one that lost rows, and it is refused naming them.
     """
     path = os.path.join(rounds, f"round-{n + 1}.md")
     if not os.path.exists(path):
@@ -1532,9 +1541,18 @@ def reach_forward(reader, rounds, n, rows):
         )
     mine = f"round-{n}"
     filled = 0
+    # Every coordinate the table carries, WHATEVER round it is attributed to.
+    # `inherited_rows` is first-seen-wins across rounds, so round N's own
+    # coordinates sit under round N or under an earlier round that claimed
+    # them first -- which is why the accounting below reads the whole column
+    # and not the `round-N` rows alone.
+    accounted = set()
     for i, cells in body:
         seen = [reader.visible(c) for c in cells]
-        if len(seen) < len(INHERITED_HEADER) or seen[0].strip() != mine:
+        if len(seen) < len(INHERITED_HEADER):
+            continue
+        accounted.add(seen[1])
+        if seen[0].strip() != mine:
             continue
         coordinate = seen[1]
         if coordinate not in rows:
@@ -1555,6 +1573,35 @@ def reach_forward(reader, rounds, n, rows):
         )
         filled += 1
     if not filled:
+        # Filling nothing has TWO causes and only one of them is ordinary
+        # (#405). The accounting is what tells them apart, and it runs only
+        # here -- narrowed by measurement rather than by preference. Applied
+        # to every run instead, it refuses a section whose rows are correct
+        # as far as they go: 2 of the 139 committed round-N/round-N+1 pairs
+        # fill a row from round N and still leave coordinates of round N
+        # unaccounted, both of them sections written BY HAND rather than by
+        # `new` (2026-09-15, `1788272986` round 2 and `1788433011` round 2).
+        # A hand-written section is a shape this repository has; refusing it
+        # for filling only what it knew about is the reader sent to correct a
+        # table that is not wrong.
+        unaccounted = [c for c in rows if c not in accounted]
+        if unaccounted:
+            named = ", ".join(sorted(unaccounted))
+            many = "s" if len(unaccounted) > 1 else ""
+            raise Refused(
+                f"round-{n + 1}.md's `{INHERITED}` table names no row from "
+                f"{mine} and does not account for {len(unaccounted)} of round "
+                f"{n}'s coordinate{many} either: {named}. `new` writes one row "
+                "per `Location` cell of every earlier record, so a table it "
+                "wrote holds all of them — under this round or under an "
+                "earlier one that claimed the coordinate first. A table "
+                "holding neither was edited or truncated after `new` wrote "
+                f"it, and the `Why` cells round {n}'s verdicts belong in are "
+                "gone with the rows: regenerate the section, or put the rows "
+                "back. A round whose every coordinate an earlier round "
+                "already claimed is NOT this state — its table accounts for "
+                "all of them and nothing is said; no cell was written"
+            )
         # NOT a refusal (round 1's 🔴 2). `inherited_rows` is first-seen-wins
         # ACROSS rounds, so a round whose every coordinate an earlier round
         # already claimed is written into this section under that earlier
@@ -3109,10 +3156,20 @@ def fix_table(reader, path):
             # measured 2026-09-14). Widened HERE and not in
             # `chain.SEPARATORS`, which the `deferred` home reader below and
             # `chain_check`'s own readers share.
+            # `chain.SEPARATORS` is six characters wide and holds no period, so a cell
+            # opening `` `6233b769`. `` left the stop behind and the row
+            # rendered `fixed at 6233b769 — . <note>` (#414). Nine such cells
+            # were repaired BY HAND once and the next record the generator
+            # wrote carried the rendering again, which is §12's rule as a
+            # measurement: the fix is owed to the cause, not to the cells.
+            # The period is added HERE for the reason the paragraph above
+            # gives -- five readers share the constant, and a trailing period
+            # in a `deferred` home or in a `nobody — <why>` reason is part of
+            # a sentence rather than decoration.
             start, end = sha.start(), sha.end()
             if start and third[start - 1] == "`" and third[end : end + 1] == "`":
                 start, end = start - 1, end + 1
-            note = (third[:start] + third[end:]).strip(chain.SEPARATORS)
+            note = (third[:start] + third[end:]).strip(chain.SEPARATORS + ".")
             out[number] = (FIXED, sha.group(), note)
         elif word == ANSWERED:
             if not third:
@@ -3149,8 +3206,19 @@ def fix_table(reader, path):
             # which printed `#309 -- #309 -- the parity arm ...`: a smaller
             # version of the same noise in the cell #391 exists to make
             # readable (round 1's finding 4).
+            # The SECOND member of #414's class, and the one its own report
+            # did not name. This cut is the same shape as the commit span's
+            # above -- a span chosen by the generator taken off the front of a
+            # cell somebody wrote -- so a third cell reading `#309. the parity
+            # arm is out of scope` left the stop behind and the row rendered
+            # `#309 — . the parity arm is out of scope`. Executed 2026-09-15
+            # through this function before the widening. Enumerated rather
+            # than assumed: the module's three other `chain.SEPARATORS` strips
+            # read a whole cell, or a remainder whose first character the arm
+            # above it already tested to be a separator, so none of them can
+            # leave a stop behind.
             rest = third[len(home) :] if third.startswith(home) else third
-            out[number] = (DEFERRED_WORD, home, rest.strip(chain.SEPARATORS))
+            out[number] = (DEFERRED_WORD, home, rest.strip(chain.SEPARATORS + "."))
         elif any(
             word.startswith(w) and word[len(w)] in chain.SEPARATORS
             for w in (FIXED, ANSWERED)
@@ -3721,6 +3789,18 @@ def close(args):
     # `finding_number` keyed. Keying this map from `rows` refused a pair of
     # records this generator itself wrote, at exit 2, and sent the reader to
     # correct a coordinate that was already right.
+    #
+    # FIRST row at a coordinate wins, which is how `inherited_rows` resolves
+    # the same repeat -- it skips a `Location` it has already emitted. A plain
+    # assignment here ended holding the LAST, so the two sides named different
+    # rows of one record and the `Why` cell round N+1 carried came from a row
+    # the section had attributed nothing to (#404). The two now agree BY
+    # CONSTRUCTION rather than by both being right: whichever row a repeat
+    # resolves to, both sides resolve to the same one, so there is no row left
+    # for them to disagree about. Refusing the repeat instead was measured and
+    # is foreclosed -- 71 of the 247 committed records that parse repeat a
+    # `Location`, over 105 coordinates (2026-09-15), so a refusal would refuse
+    # records this repository has already written.
     location = VERDICT_HEADER.index("Location")
     number = VERDICT_HEADER.index("#")
     now = {}
@@ -3729,7 +3809,9 @@ def close(args):
             reader.visible(c) for c in row_cells(reader, raw[i], len(VERDICT_HEADER))
         ]
         if len(seen) > VERDICT_COL and seen[location]:
-            now[seen[location]] = (seen[number], chain.verdict_of(seen, VERDICT_COL))
+            now.setdefault(
+                seen[location], (seen[number], chain.verdict_of(seen, VERDICT_COL))
+            )
     still_open = [w for w in words if w not in chain.CLOSED_WORDS]
     # The same derivation `new` makes from the report's verdicts, over the
     # verdicts as the table left them. Both of its answers are written here,
@@ -3982,7 +4064,8 @@ def seal(args):
             "its own reason: `seal` runs with `Pass` ticked, and "
             "`skills/code-review/orchestration.md` fails a pull request whose "
             f"last record reads `{chain.NOBODY}` beside a checked `Pass`. "
-            "Spawn the verifying round first; its record is the one this cell "
+            "Spawn the verifying round first, before the sealer runs; its "
+            "record is the one this cell "
             f"belongs on, and its own row then reads `{chain.NO_FIXES}`; no "
             "cell was written"
         )
@@ -3998,8 +4081,8 @@ def seal(args):
     if ran_at is None:
         raise Refused(
             f"--broad-gate names `{named[0]}`, which {root} cannot see. The "
-            "seal names a commit this repository holds — the tree the run "
-            "was taken over; no cell was written"
+            "sealer's mark names a commit this repository holds — the tree "
+            "the run was taken over; no cell was written"
         )
     for sha in chain.SHA_RE.findall(chain.field(rows, chain.TARGET) or ""):
         reviewed = chain.resolves_to(root, sha)
