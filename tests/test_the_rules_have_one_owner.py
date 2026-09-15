@@ -195,7 +195,7 @@ RULES = {
         CONFIG_TEMPLATE,
         "A check that is red repository-wide for reasons unrelated to any "
         "branch does not belong in the row",
-        {CONFIG_SKILL: CRITERION_OWNER},
+        {CONFIG_SKILL: CRITERION_OWNER, ORCH_IMPL: CRITERION_OWNER},
     ),
 }
 
