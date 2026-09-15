@@ -4064,7 +4064,8 @@ def seal(args):
             "its own reason: `seal` runs with `Pass` ticked, and "
             "`skills/code-review/orchestration.md` fails a pull request whose "
             f"last record reads `{chain.NOBODY}` beside a checked `Pass`. "
-            "Spawn the verifying round first; its record is the one this cell "
+            "Spawn the verifying round first, before the sealer runs; its "
+            "record is the one this cell "
             f"belongs on, and its own row then reads `{chain.NO_FIXES}`; no "
             "cell was written"
         )

@@ -1294,8 +1294,19 @@ def test_the_refusal_says_which_value_the_last_record_may_hold(repo):
     it moved here in the commit that moved the message. Two sentences of this
     refusal left the instance anonymous, which is the rule
     `skills/verify/SKILL.md` owns and `tests/test_one_word_one_meaning.py`
-    sweeps for; this file is not swept, so the pin is what would have kept
-    the old wording alive.
+    sweeps for.
+
+    **A third assertion stood here and it refused the one spelling the rule
+    allows** (#406). `assert "the seal" not in out` had no next-character
+    guard, so it turned red on `the sealer` — the correct way to name the
+    agent, and what the exit sentence now says. The sweep that owns the rule
+    skips a hit whose next character is a letter, and its `SEAL_SWEPT` lists
+    `skills/code-review/scripts/round_record.py`, the module this refusal
+    lives in. So nothing is uncovered by the deletion: what went is a second,
+    stricter reading of one rule, held by the check that is not the rule's
+    owner. The two positive pins above stay, which is what keeps §14's
+    requirement on this refusal's text met inside the module a reader of it
+    opens.
     """
     path = fixed_but_unread_item(repo)
     set_checked_by(path, "pending")
@@ -1304,13 +1315,13 @@ def test_the_refusal_says_which_value_the_last_record_may_hold(repo):
     # The second sentence the sweep caught, pinned beside the first so the
     # pair cannot drift apart: both name `seal` and neither reads `the seal`.
     assert "`seal` runs with `Pass` ticked" in out, out
-    assert "the seal" not in out, (
-        "the refusal names a seal without saying whose, which is the rule "
-        "`skills/verify/SKILL.md` owns"
-    )
     assert "no fixes to check" in out, out
     assert "nobody" in out, out
     assert "Spawn the verifying round first" in out, out
+    # §14 for the reworded exit, and the opposite direction of #406: this
+    # spelling names whose seal it is, and it is the spelling the deleted
+    # assertion turned red.
+    assert "before the sealer runs" in out, out
     assert "The row holds one of three values" not in out, (
         "the refusal still names three values on a record that accepts one"
     )
