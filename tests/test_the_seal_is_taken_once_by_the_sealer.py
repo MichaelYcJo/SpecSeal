@@ -878,6 +878,26 @@ def test_a_pair_that_closes_early_wraps_a_part_and_not_the_whole(value):
     assert module.not_as_written("/seal", value) is None, value
 
 
+@pytest.mark.parametrize("pad", ["  `{}`  ", "\t`{}`", "`{}` \n"])
+def test_a_padded_value_is_read_as_the_value_it_pads(pad):
+    """`not_as_written` strips before it reads, and nothing reaching it
+    through the gate can exercise that: `config_rows` strips every cell, and
+    `broad_command` turns an all-whitespace value into None. Mutation-tested
+    2026-09-15 — removing the `.strip()` left every other case green, which
+    is a line claiming a defence it never performs.
+
+    It is kept rather than deleted because the function is module-level and
+    its correctness should not depend on which caller reaches it, and this
+    case is what makes the keeping honest.
+    """
+    module = gate_module()
+    value = pad.format(SUITE_ROW)
+    said = module.not_as_written("/seal", value)
+    assert said is not None, f"a padded wrapping went unrefused: {value!r}"
+    assert "backticks" in said
+    assert f"as meant:   | {ROW} | {SUITE_ROW} |" in said, said
+
+
 # --- S1 sealed ---------------------------------------------------------------
 
 
