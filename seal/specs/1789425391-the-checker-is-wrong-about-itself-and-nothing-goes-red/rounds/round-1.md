@@ -7,13 +7,13 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | #403 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Contract changes | none |
+| New units | PAIR_BOTH_FIXED (depth 1); ONE_INSIDE_ONE_OUTSIDE (depth 1); one_finding_inside_one_earlier_unit (depth 1); test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one (depth 1); CONFIRMATION (depth 1); test_a_row_that_commissions_nothing_does_not_stop_the_reach (depth 1); test_a_round_whose_coordinates_an_earlier_round_claimed_is_not_refused (depth 1) |
 | Needs a fix | yes — findings 1 and 2, the two reachable states where `close` refuses a pair of records the generator itself wrote; and findings 3 and 4. |
 | Loses a record or crashes | no — every refusal above lands with nothing on disk changed, which is the property `close` is built around. |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -46,11 +46,11 @@ rounds settle.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | 🔴 `close` refuses a generated pair whenever the round carries a row that commissions nothing | `skills/code-review/scripts/round_record.py#reach_forward` `:1535` | open | Executed: exit 2, nothing written, on records `new` itself wrote. The shape is the one `agents/warden.md` instructs reviewers to use, and the corpus holds 25 of them |
-| 2 | 🔴 `close` refuses when an earlier round already claimed every coordinate this round opened | `skills/code-review/scripts/round_record.py#reach_forward` `:1552` | open | Executed: exit 2, nothing written. `inherited_rows` is first-seen-wins across rounds, and the refusal states a rule about `new` without that qualifier |
-| 3 | 🟡 the file-level fallback fires where the adder resolved, and the message says it did not | `skills/code-review/scripts/round_record.py#depth_two` `:3487` | open | Executed: a depth-1 unit refused. Contradicts `docs/review-chain-spec.md:1274`, written in this branch |
-| 4 | 🟡 a case comment names `seal/follow-up.md` as the home of a defect that file does not carry | `tests/test_the_fixes_close_the_record.py:1252-1253` | open | Read: no occurrence in that file, and the branch never touched it. The real home is the `# RIDER:` at `units_named_earlier` |
-| ⬜ 5 | `unit_adders` runs before the guard that would skip it | `skills/code-review/scripts/round_record.py:3622` | open | Read: 127.8 ms paid on every round-1 `close`, where `depth_two` returns at once. Numbered because it does commission the one-line move under `## Paste-ready fixes` — fixed in passing or not at all, and ⬜ is never counted by `Needs a fix` |
+| 1 | 🔴 `close` refuses a generated pair whenever the round carries a row that commissions nothing | `skills/code-review/scripts/round_record.py#reach_forward` `:1535` | **fixed** `df404e2` | fixed at df404e2 — the map is keyed from every verdict row, built beside `words` so no inserted line has shifted the indices; Executed: exit 2, nothing written, on records `new` itself wrote. The shape is the one `agents/warden.md` instructs reviewers to use, and the corpus holds 25 of them |
+| 2 | 🔴 `close` refuses when an earlier round already claimed every coordinate this round opened | `skills/code-review/scripts/round_record.py#reach_forward` `:1552` | **fixed** `df404e2` | fixed at df404e2 — the empty-fill refusal is silence, and `reach_forward`'s docstring and `templates/sdd-round.md` say why; Executed: exit 2, nothing written. `inherited_rows` is first-seen-wins across rounds, and the refusal states a rule about `new` without that qualifier |
+| 3 | 🟡 the file-level fallback fires where the adder resolved, and the message says it did not | `skills/code-review/scripts/round_record.py#depth_two` `:3487` | **fixed** `df404e2` | fixed at df404e2 — a unit whose adder resolves to no candidate row is depth 1; resolving to several still takes the fallback, which the round's own paste-ready skipped; Executed: a depth-1 unit refused. Contradicts `docs/review-chain-spec.md:1274`, written in this branch |
+| 4 | 🟡 a case comment names `seal/follow-up.md` as the home of a defect that file does not carry | `tests/test_the_fixes_close_the_record.py:1252-1253` | **fixed** `df404e2` | fixed at df404e2 — the comment names the `# RIDER:` at `round_record.py#units_named_earlier`; Read: no occurrence in that file, and the branch never touched it. The real home is the `# RIDER:` at `units_named_earlier` |
+| ⬜ 5 | `unit_adders` runs before the guard that would skip it | `skills/code-review/scripts/round_record.py:3622` | **fixed** `df404e2` | fixed at df404e2 — `depth_two` takes the pass, not its result, so its own guard runs first; Read: 127.8 ms paid on every round-1 `close`, where `depth_two` returns at once. Numbered because it does commission the one-line move under `## Paste-ready fixes` — fixed in passing or not at all, and ⬜ is never counted by `Needs a fix` |
 | ⬜ | two frame documents keep the corrected corpus figure | `seal/specs/1789425391-…/plan.md:21`, `spec.md:143` | answered | Read: both say 176; measured 211 of 212. **No id, because it commissions nothing a fix pass may do** — `plan.md` and `spec.md` are the framer's files. It is a line for the closing memo, and `overview.md`'s divergence table already carries the correction with its grounds |
 | 🟢 | S1–S7 and S9–S16 confirmed | the modules named in `plan.md`'s Verified-by column | answered | Executed — the narrow run and seven mutations above. A confirmation this round verified and did not open, so it takes no id |
 | 🟢 | the three build disclosures confirmed | `round_record.py#says_open`'s docstring; `spec.md:138`; `overview.md:19` | answered | Executed — the corpus re-measured in one pass, and the name searched over every branch. A confirmation, so it takes no id |
