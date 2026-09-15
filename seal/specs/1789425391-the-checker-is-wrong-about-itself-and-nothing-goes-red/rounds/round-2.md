@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | #403 |
-| Broad gate | not yet |
+| Broad gate | 5ac452e against release/v0.11.5 |
 | Fixes checked by | no fixes to check |
 | Contract changes | none |
 | New units | none |
