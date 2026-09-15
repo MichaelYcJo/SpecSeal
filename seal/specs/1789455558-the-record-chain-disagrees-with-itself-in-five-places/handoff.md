@@ -58,7 +58,7 @@ Both of its coordinates live in files that exist only on work item 1's branch.
 Cut it from `release/v0.12.0` **after #412 has merged**, and it carries two
 things:
 
-- **#413** — `test_both_ampersand_cells_name_both_shells` asserts that both
+- **#413** — `test_both_ampersand_cells_name_both_shells` asserts that both <!-- NAME NOT IN TREE: the case module lives on `fix/401-402-the-broad-gate-row-runs-unchecked-and-is-never-asked-for`, which this branch did not cut from; #413 travels with the fourth work item Q1 names. -->
   shell names appear in each `&` row and never which name does which, so either
   cell can be inverted with every case green. Measured: 18 passed under both
   swaps. Four lines, and the paste-ready assertions are in the issue.
