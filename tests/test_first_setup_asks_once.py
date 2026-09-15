@@ -160,6 +160,24 @@ DERIVED = [
 ]
 
 
+def candidates():
+    """The candidate table and the paragraph under it, bounded at the
+    paragraph that follows — not the rest of the section.
+
+    Round 1's 🟡 7. The slice ran from `BROAD_ROW` to the end of the whole
+    Bootstrap section, so the four-row table could be moved anywhere below —
+    past the decline paragraph, out of the question entirely — and every
+    needle still matched a case named *the question proposes*.
+    """
+    boot = bootstrap()
+    opening = "Read candidates off the repository"
+    assert opening in boot, "the candidate table has no lead-in any more"
+    body = boot[boot.index(opening) :]
+    end = body.find("\n\n   **A candidate carrying")
+    assert end > 0, "the candidate table is no longer followed by the pipe warning"
+    return body[:end]
+
+
 def test_the_question_proposes_candidates_read_off_the_repository():
     """Q4. A question with nothing in it is answered badly to get past it, and
     a repository being opted in may not yet know its broad command. The parity
@@ -167,11 +185,30 @@ def test_the_question_proposes_candidates_read_off_the_repository():
     the person picks — so the floor is at least one derived candidate where
     one is findable, each named with the file it came from."""
     boot = bootstrap()
-    row = boot[boot.index(BROAD_ROW) :]
+    assert boot.index("Read candidates off the repository") > boot.index(BROAD_ROW), (
+        "the candidate table has left the question it belongs to"
+    )
+    row = candidates()
     for where in DERIVED:
         assert where in row, f"no candidate is read off {where}"
     assert "name the file it came from" in flat(row), (
         "a candidate with no source is one the person cannot correct"
+    )
+
+
+def test_a_candidate_carrying_a_pipe_is_refused_where_candidates_are_derived():
+    """Round 1's 🟡 2, second half. The first source this table names is a
+    CI `run:` step, and a `run:` step piping into `tee` is ordinary — so the
+    bootstrap could derive a candidate, the person accept it, the session
+    write it, and the row parse as no row. That is the failure this work item
+    exists to end, reached through the machinery this work item adds."""
+    boot = flat(bootstrap())
+    warning = boot[boot.index("**A candidate carrying a `|` cannot be written") :]
+    warning = warning[: warning.index("**Name the criterion")]
+    assert "`run:` step is where one is likeliest to come from" in warning
+    assert "parses as no row" in warning
+    assert "every row written below it in the file is lost with it" in warning, (
+        "the warning states the row's own cost and not the file's"
     )
 
 
@@ -190,27 +227,38 @@ def test_the_question_never_guesses_and_says_so():
 def test_the_decline_is_offered_and_says_what_it_costs():
     """A question whose every answer must be a command is a gate wearing the
     shape of a question. *Not yet* continues, and what it costs is the thing
-    the person is actually choosing between."""
-    row = flat(bootstrap())
-    row = row[row.index("The second question") :]
-    assert "Offer a decline" in row
-    assert "refuses with nothing run" in row
-    assert "after the review rounds have settled" in row, (
+    the person is actually choosing between.
+
+    Read from the decline paragraph alone (🟡 7): a slice running to the end
+    of the section cannot fail by losing a sentence that has a twin anywhere
+    below it.
+    """
+    decline = paragraph(bootstrap(), "**Offer a decline, and say what it costs.**")
+    assert "refuses with nothing run" in decline
+    assert "after the review rounds have settled" in decline, (
         "the decline does not say WHEN the refusal arrives, which is the cost"
     )
-    assert "/specseal:config" in row, "the decline names no way back to the row"
+    assert "/specseal:config" in decline, "the decline names no way back to the row"
 
 
 def test_the_criterion_is_named_by_pointer_and_not_restated():
     """The criterion has one owner (`tests/test_the_rules_have_one_owner.py`
     rule 12). A bootstrap that spelled the three rules out would be its third
     carrier and the next place for them to disagree."""
-    row = flat(bootstrap())
-    row = row[row.index("The second question") :]
-    assert "§*Choosing a value — the criterion* owns the criterion" in row
-    assert "red repository-wide" not in row, (
+    pointer = paragraph(bootstrap(), "**Name the criterion; do not restate it.**")
+    assert "§*Choosing a value — the criterion* owns the criterion" in pointer
+    boot = flat(bootstrap())
+    assert "red repository-wide" not in boot, (
         "the bootstrap restates a rule instead of pointing at its owner"
     )
+    # Round 1's 🟡 3. Rule 3's normative half was restated here — *joined with
+    # `&&`, the suite runner first* — which made the criterion's one home
+    # three homes, and the ledger fragment's claim that this carrier restates
+    # nothing false.
+    assert "the suite runner first" not in boot, (
+        "the bootstrap states rule 3 beside the pointer to the section that owns it"
+    )
+    assert "joined with `&&`" not in boot
 
 
 def test_the_row_is_written_after_seal_mode_and_carries_its_section():
@@ -224,11 +272,19 @@ def test_the_row_is_written_after_seal_mode_and_carries_its_section():
     assert boot.index("Then the `Broad gate` row") > boot.index(
         "Then record the answer: run `seal mode`"
     ), "the row is written before the file `seal mode` creates it in"
-    assert "the row **and its section**" in boot
     assert "$CLAUDE_PLUGIN_ROOT/templates/config.md" in boot
     assert "none is being added" in boot, (
         "nothing says a writer is deliberately not being built for this"
     )
+    # Round 1's 🟡 3. *The row and its section* now means 78 lines including
+    # the two lists and the criterion table, so every repository bootstrapped
+    # after this release would freeze a copy of them — and the next change to
+    # either leaves that copy saying something false about the tool.
+    assert "the row **and its section**" not in boot, (
+        "the bootstrap still copies the whole section, lists and all"
+    )
+    assert "down to but not including `### What is refused" in boot
+    assert "pointed at rather than copied down" in boot
 
 
 def test_a_decline_leaves_no_trace_and_the_asymmetry_with_the_mode_is_stated():
@@ -236,11 +292,16 @@ def test_a_decline_leaves_no_trace_and_the_asymmetry_with_the_mode_is_stated():
     costs: a never-asked repository got shared mode SILENTLY. Nothing about
     this row is silent — a repository that declined and one that was never
     asked meet the same refusal and are told the same correct thing — so a
-    trace would separate two states nothing treats differently."""
-    boot = flat(bootstrap())
-    assert "A decline writes nothing at all" in boot
-    assert "no sentinel" in boot
-    assert "#151" in boot, "the asymmetry with the mode row is asserted, not argued"
+    trace would separate two states nothing treats differently.
+
+    Read from the decline paragraph alone. `#151` also stands in the mode
+    paragraph of the same section, where it has been since before this row
+    existed, so a case reading the whole section cannot fail by losing the
+    argument it is named for — which is what round 1's 🟡 7 measured here.
+    """
+    decline = paragraph(bootstrap(), "**A decline writes nothing at all.**")
+    assert "no sentinel" in decline
+    assert "#151" in decline, "the asymmetry with the mode row is asserted, not argued"
 
 
 def test_the_sentence_that_said_nowhere_else_is_gone():

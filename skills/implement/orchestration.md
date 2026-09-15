@@ -141,12 +141,21 @@ shared mode without a question goes looking in a README for the way out.
    | a package manifest | `package.json`'s `scripts.test`, a `pyproject.toml` tool section, `Cargo.toml` |
    | a `Makefile` | a `test`, `check` or `lint` target |
 
-   Offer each candidate as **one shell command line**, joined with `&&`, the
-   suite runner first, and name the file it came from — a candidate whose
-   source is named is one the person can correct. Where nothing is findable,
-   say so rather than inventing one: a guessed row is what
-   `templates/config.md` §*Broad gate* argues against by name, and offering
-   it with a source that does not exist is worse than offering nothing.
+   Offer each candidate as **one shell command line** composed the way
+   `templates/config.md` §*Choosing a value — the criterion* says to compose
+   one, and name the file it came from — a candidate whose source is named is
+   one the person can correct. Where nothing is findable, say so rather than
+   inventing one: a guessed row is what `templates/config.md` §*Broad gate*
+   argues against by name, and offering it with a source that does not exist
+   is worse than offering nothing.
+
+   **A candidate carrying a `|` cannot be written into the row**, and a CI
+   `run:` step is where one is likeliest to come from. Offer the command
+   without the pipe, or offer the next candidate, and say why: a row with a
+   pipe in it parses as no row, the gate then reports the row as absent, and
+   every row written below it in the file is lost with it.
+   `templates/config.md` §*What is refused, and what stays allowed* carries
+   the measurement.
 
    **Name the criterion; do not restate it.** `templates/config.md`
    §*Choosing a value — the criterion* owns the criterion, three rules with
@@ -175,12 +184,17 @@ shared mode without a question goes looking in a README for the way out.
 
    **Then the `Broad gate` row, where a command was chosen.** `seal mode` has
    just written a config file carrying `Mode` and nothing else, so add the
-   row the way `/specseal:config` step 3 adds one — the row **and its
-   section**, taken from `$CLAUDE_PLUGIN_ROOT/templates/config.md`. A bare
-   row hands the person the value and none of the half they read. No command
-   does this and none is being added: `seal.py`'s writer is the `Mode` row's,
-   and `skills/config/SKILL.md` §*What this does not do* refuses a generic
-   setter for a file people edit by hand.
+   row the way `/specseal:config` step 3 adds one — the row **and the prose
+   under `## Broad gate` down to but not including `### What is refused, and
+   what stays allowed`**, taken from
+   `$CLAUDE_PLUGIN_ROOT/templates/config.md`. A bare row hands the person the
+   value and none of the half they read; the two lists and the criterion are
+   pointed at rather than copied down, because a frozen copy of them in
+   somebody's `seal/config.md` says something false about the tool at the
+   plugin's next release. No command does this and none is being added:
+   `seal.py`'s writer is the `Mode` row's, and `skills/config/SKILL.md`
+   §*What this does not do* refuses a generic setter for a file people edit
+   by hand.
 
    **A decline writes nothing at all.** No row, no sentinel, no note. A
    repository that declined and one that was never asked meet the same

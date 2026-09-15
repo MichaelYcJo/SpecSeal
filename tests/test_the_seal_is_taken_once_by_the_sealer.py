@@ -786,6 +786,47 @@ def test_a_row_ending_in_a_single_ampersand_is_refused(repo, tmp_path):
     assert "single `&`" in said, said
     assert f"as meant:   | {ROW} | {SUITE_ROW} |" in said, said
     assert "before any check has finished" in said, said
+    # Round 1's 🟡 5. The message stated `/bin/sh` semantics as though they
+    # were every platform's. Under `cmd.exe` a trailing `&` separates two
+    # commands rather than backgrounding — a different wrong answer, refused
+    # for the same half of the criterion — and `quote()` one function over
+    # already says CI runs `windows-latest`.
+    assert "`/bin/sh` backgrounds" in said, said
+    assert "`cmd.exe`" in said, (
+        "the message names one platform's semantics as though they were all"
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        f"({SUITE_ROW}) & echo second",
+        f"{SUITE_ROW} & ruff check .",
+        f"{SUITE_ROW} 2>&1",
+        'grep "a & b" f && ' + SUITE_ROW,
+    ],
+)
+def test_an_ampersand_that_is_not_last_stays_allowed(value):
+    """Round 1's 🟡 1, pinned as the boundary the code actually draws.
+
+    A backgrounding `&` breaks the criterion's second half wherever it
+    stands, and only the TRAILING form is refused: `(a failing check) & echo
+    second` exits 0 and `not_as_written` returns None. Executed by the round.
+
+    It stays allowed rather than being refused, and the reason is in
+    `templates/config.md`'s allowed list beside the form: telling an operator
+    `&` from a `2>&1` or a quoted one needs the shell parser `spec.md` §Scope
+    refuses, and a false deny would make a legitimate row unwritable. The last
+    two values are what such a parser would have to get right.
+
+    What is not defensible is the form being in neither list, which is what
+    round 1 found. This case is the tree's half of that answer: the boundary
+    is where the document now says it is, and it cannot move in silence.
+    """
+    module = gate_module()
+    assert module.not_as_written("/seal", value) is None, (
+        f"{value!r} is refused, and the allowed list says it is legal"
+    )
 
 
 def test_a_refused_row_runs_no_check_and_adds_no_worktree(repo, tmp_path):

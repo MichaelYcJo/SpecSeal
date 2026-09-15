@@ -67,6 +67,45 @@ def rows(text):
     return [line for line in text.splitlines() if line.startswith("| ")]
 
 
+def table(text, header):
+    """The rows of ONE table in a section — the one whose header row starts
+    with HEADER — so a form moved from the refused list to the allowed one
+    stops satisfying the case named for the list it left.
+
+    Round 1's 🟡 6. `rows` returns every `| ` line under the heading, and both
+    tables live under one heading, so it merged them: the pipe row could be
+    moved into the refused table with every case still green, and the refused
+    loop below could pair a form with another form's reason. That is the
+    §14 artifact for this change asserting nothing about its own content, in a
+    release whose whole subject is a check that could not fail.
+    """
+    assert header in text, f"{header!r} is not a table in this section"
+    after = text.split(header, 1)[1]
+    out = []
+    for line in after.splitlines():
+        if line.startswith("| "):
+            out.append(line)
+        elif out:
+            break
+    return out
+
+
+def named(table_rows, form):
+    """The one row of TABLE_ROWS whose FIRST cell names FORM, or None.
+
+    The name cell and not the whole row. Matching anywhere in the row let a
+    row be found by its own prose: renaming the pipe row's first cell left
+    this green, because the cost cell says *and a pipe cannot reach this row
+    at all* further along the same line. That is 🟡 6's weakness one level
+    in, met while repairing 🟡 6.
+    """
+    for line in table_rows:
+        cells = line.split(" | ")
+        if form in flat(cells[0]):
+            return line
+    return None
+
+
 # --- A7: the template says what is refused and what is not ------------------
 
 
@@ -89,11 +128,23 @@ REFUSED = {
 def test_each_refused_form_is_named_with_what_a_shell_does_with_it():
     """A list without the reason is an enumeration the next reader extends by
     analogy, which is how a narrow refusal becomes the general sanitiser #402
-    steers away from."""
-    body = flat(section(read(*TEMPLATE), REFUSED_AND_ALLOWED, 3))
+    steers away from.
+
+    The reason is asserted IN the form's own row of the REFUSED table. The
+    dictionary already holds the pairing, and a loop asking only whether both
+    strings appear somewhere under the heading throws it away: round 1 swapped
+    the backticks row's reason with the `$(…)` row's and 15 cases stayed
+    green, leaving the backticks row explaining itself as *the same semantics
+    in the spelling somebody who knows shell reaches for first*.
+    """
+    body = section(read(*TEMPLATE), REFUSED_AND_ALLOWED, 3)
+    refused = table(body, "| Refused |")
     for form, because in REFUSED.items():
-        assert form in body, f"the refused list does not name {form}"
-        assert because in body, f"{form} is listed with no reason"
+        row = named(refused, form)
+        assert row, f"the refused list does not name {form}"
+        assert because in flat(row), (
+            f"{form} is listed with the wrong reason, or with none: {row!r}"
+        )
 
 
 def test_the_criterion_sits_beside_the_list_rather_than_only_the_list():
@@ -117,17 +168,46 @@ def test_the_template_says_a_refused_value_is_refused_and_not_repaired():
     )
 
 
-ALLOWED = ["**inside** a longer line", "quotes, redirection", "a pipe"]
+ALLOWED = {
+    "**inside** a longer line": "runs as the command it reads as",
+    "quotes, redirection": "the repository's own claim about itself",
+    "a pipe": "LAST status",
+    # Round 1's 🟡 1. A backgrounding `&` breaks the criterion's second half
+    # wherever it stands, and only the trailing form is refused — so the
+    # mid-line form has to be in ONE of the two lists. It is here, with what
+    # it costs, because telling it from a `2>&1` or a quoted `&` needs the
+    # shell parser this list exists to avoid.
+    "an `&` anywhere but at the end": "may still be running when the gate stamps",
+}
 
 
 def test_each_allowed_form_is_listed_with_what_it_costs():
     """What stays legal is a commitment rather than an omission, and a cost
-    stated in the open is what keeps it from being re-litigated as a defect."""
+    stated in the open is what keeps it from being re-litigated as a defect.
+
+    Read from the ALLOWED table alone, and the cost from the form's own row:
+    round 1 moved the pipe row into the refused table and both allowed-list
+    cases stayed green, which made them assert only that certain characters
+    appear somewhere under the heading.
+    """
     body = section(read(*TEMPLATE), REFUSED_AND_ALLOWED, 3)
-    legal = flat("\n".join(rows(body)))
-    for form in ALLOWED:
-        assert form in legal, f"the allowed list does not name {form}"
-    assert "LAST status" in legal, "the pipe is listed without its cost"
+    legal = table(body, "| Stays legal |")
+    for form, cost in ALLOWED.items():
+        row = named(legal, form)
+        assert row, f"the allowed list does not name {form}"
+        assert cost in flat(row), (
+            f"{form} is listed with the wrong cost, or with none: {row!r}"
+        )
+
+
+# No case asserts that the two lists partition the forms, and that is not an
+# omission. `$(…)` belongs in both and must: the whole command wrapped in it
+# is refused, and one INSIDE a longer line is legal, which is the distinction
+# the section exists to draw. A partition case over the matching keys was
+# written here and asserted exactly that falsehood; it went red on its first
+# run and came out rather than being weakened into something that passes.
+# What `table()` buys is the pairing above — a row's reason read from the
+# row, in the list the row is in.
 
 
 def test_the_allowed_list_says_a_pipe_cannot_reach_the_row_at_all():
@@ -142,10 +222,73 @@ def test_the_allowed_list_says_a_pipe_cannot_reach_the_row_at_all():
     promises a form nobody can write is the shape this work item exists to
     end, so the promise carries the measurement with it.
     """
-    legal = flat("\n".join(rows(section(read(*TEMPLATE), REFUSED_AND_ALLOWED, 3))))
-    assert "cannot reach this row at all" in legal
-    assert "ends at the first" in legal
-    assert "as absent" in legal
+    body = section(read(*TEMPLATE), REFUSED_AND_ALLOWED, 3)
+    pipe = named(table(body, "| Stays legal |"), "a pipe")
+    assert pipe, "the allowed list has no pipe row"
+    pipe = flat(pipe)
+    assert "cannot reach this row at all" in pipe
+    assert "ends at the first" in pipe
+    assert "as absent" in pipe
+    # Round 1's 🟡 2, measured: `config_rows` stops reading the table at the
+    # first line that does not parse, so the pipe row takes every row BELOW it
+    # as well — a `Record language` under it is invisible and falls back to
+    # its default with no message anywhere. The cost cell said only that the
+    # gate names a cause that is not the real one, which understates it.
+    assert "takes every row below it" in pipe, (
+        "the pipe's cost is stated as the row's alone, and it is not"
+    )
+    assert "falling back to its default" in pipe
+
+
+# --- Round 1's 🟡 4: the removed design, where a reader opens first ---------
+#
+# Phase 5 changed `missing_row` so it no longer tells the reader what to write,
+# and `phases/phase-5.md` recorded that the old sentence should survive
+# nowhere. It survived outside the message, in the two places somebody meets
+# BEFORE the message — the module's own header, and the template paragraph
+# directly above the section this branch added. `agent-contract` §14 is the
+# grounds: the documents that explain a changed behaviour change with it.
+
+GATE_SCRIPT = ("skills", "verify", "scripts", "broad_gate.py")
+
+
+def module_header():
+    """The module docstring, which is the first thing anyone opening the file
+    reads — bounded at its closing quotes, not the whole file."""
+    text = read(*GATE_SCRIPT)
+    opening = text.index('"""')
+    return flat(text[opening : text.index('"""', opening + 3)])
+
+
+def test_the_module_header_names_both_refusals_and_neither_names_a_command():
+    """The header's numbered list is where the command says what it does in
+    order. It described the absent-row refusal as *the command names the row
+    to write* — the removed behaviour — and did not mention the second
+    refusal, this branch's headline change, at all."""
+    header = module_header()
+    assert "refused two ways" in header, (
+        "the header still describes one refusal where the gate has two"
+    )
+    assert "wrapped in backticks or in `$(…)`, or ending in a single `&`" in header
+    assert "names the row to write" not in header, (
+        "the header asserts the behaviour phase 5 removed"
+    )
+    assert "Neither refusal names a command to write" in header
+
+
+def test_the_paragraph_above_the_lists_no_longer_says_it_names_what_to_write():
+    """*A refusal that names what to write is answered by the next person to
+    read it* was half the stated reason for preferring a refusal to a prompt,
+    and the refusal no longer does that. The paragraph sits inside the very
+    section this branch rewrote."""
+    section_text = flat(broad_gate_section())
+    assert "names what to write is answered" not in section_text, (
+        "the template still argues from the sentence the message dropped"
+    )
+    assert "names whose the row is and where it is answered" in section_text
+    assert "#401" in section_text, (
+        "the paragraph asserts the change without the report behind it"
+    )
 
 
 # --- A8: the criterion has one home, and rule 3 was folded into it ----------
@@ -207,6 +350,17 @@ def test_the_config_skill_sends_the_criterion_to_its_owner_by_name():
     )
 
 
+def refusal_bullet():
+    """The config skill's paragraph about the refusal, bounded at the blank
+    line — not the file. Round 1's 🟡 8: the clause naming the three forms
+    could be deleted with 15 cases green, because every assertion matched a
+    sentence on one side of it or the other."""
+    skill = read(*CONFIG_SKILL)
+    opening = "**The `Broad gate` row is looked at before it is run**"
+    assert opening in skill, "the refusal paragraph is gone from the config skill"
+    return flat(skill[skill.index(opening) :].split("\n\n", 1)[0])
+
+
 def test_the_config_skill_points_at_the_section_and_restates_no_form():
     """The door a person reaches later. It names the three forms so somebody
     reading it knows the refusal exists, and sends the reasoning to the one
@@ -215,11 +369,19 @@ def test_the_config_skill_points_at_the_section_and_restates_no_form():
     assert "What is refused, and what stays allowed" in skill, (
         "the config skill does not point at the section that decides this"
     )
-    assert "would not run as the command it reads as" in skill
-    assert "Nothing is stripped or repaired" in skill
     assert "must run as the command it reads as, and the exit code" not in skill, (
         "the config skill restates the criterion instead of pointing at it"
     )
+    bullet = refusal_bullet()
+    assert "would not run as the command it reads as" in bullet
+    assert "Nothing is stripped or repaired" in bullet
+    # The docstring's own claim, asserted. It said the paragraph names the
+    # three forms and nothing checked that it did.
+    for form in ("backticks", "`$(…)`", "trailing `&`"):
+        assert form in bullet, (
+            f"the config skill does not name {form}, so somebody reading it "
+            "does not learn that the refusal exists"
+        )
 
 
 # --- A10: a session that meets the refusal brings it to a person ------------

@@ -173,8 +173,11 @@ follow it and are not part of the row.
 **An absent row is a refusal, not a default.** `broad-gate` names this row
 and exits 2 with nothing run. It is a refusal rather than a prompt because
 the command runs unattended — the sealer asks nobody anything — and a
-refusal that names what to write is answered by the next person to read it,
-where a question stops a session that may have nobody at the keyboard.
+refusal that names whose the row is and where it is answered reaches that
+person through whoever read it, where a question stops a session that may
+have nobody at the keyboard. It does **not** name a command to write: doing
+that asked the one party that may not choose one, which is what #401
+reported.
 
 **There is no default, and the reason is the Seal Test.** `verify` names the
 counterfeit: a check that cannot fail. A default of `pytest` seals a
@@ -218,7 +221,8 @@ rather than paid for by a refusal:
 |---|---|
 | `$(…)` **inside** a longer line | nothing. `pytest -n $(nproc)` still runs as the command it reads as |
 | `;`, `\|\|`, quotes, redirection, variables, globs | the row answers with whatever the composition the repository wrote answers with. That is the repository's own claim about itself, which is what this row already is |
-| a pipe | the same, and one thing more. A piped row exits with the pipe's LAST status, so `bin/test -q \| tee out.txt` is green whenever `tee` is — **and a pipe cannot reach this row at all.** A cell of this table ends at the first `\|`, escaped or not, so a row written that way parses as no row and `broad-gate` refuses it as absent, naming a cause that is not the real one. Measured 2026-09-15; the row's own fragment carries it |
+| a pipe | the same, and one thing more. A piped row exits with the pipe's LAST status, so `bin/test -q \| tee out.txt` is green whenever `tee` is — **and a pipe cannot reach this row at all.** A cell of this table ends at the first `\|`, escaped or not, so a row written that way parses as no row and `broad-gate` refuses it as absent, naming a cause that is not the real one. **And it takes every row below it.** `config_rows` stops reading the table at the first line that does not parse, so a `Record language` or `Commit and pull request language` row written under it is invisible, with no message anywhere and each falling back to its default. Measured 2026-09-15; the row's own fragment carries it |
+| an `&` anywhere but at the end | the command before it is backgrounded and its status discarded, exactly as a `;` discards one — and unlike a `;`, it may still be running when the gate stamps, writing into the tree the stamp is about. Telling it from a `2>&1` or a quoted `&` needs the shell parser this list exists to avoid, so it stays the row author's own composition. The **trailing** form is refused, because nothing composes after it and the whole line goes to the background |
 
 ### Choosing a value — the criterion
 

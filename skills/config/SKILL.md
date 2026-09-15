@@ -60,10 +60,18 @@ second answer.
 - **A language row, or the `Broad gate` row,** is only a row. Edit the value
   in place, leaving the rest of the file as it is. Where the file carries no
   such row at all — the stub `seal mode` writes has only `Mode`, and that is
-  every repository that has set its mode — take the row *and its section*
-  from `$CLAUDE_PLUGIN_ROOT/templates/config.md` rather than writing a bare
-  row. The documentation beside it is the half a person reads, and a
-  repository that reached this file through `seal mode` has none of it. The
+  every repository that has set its mode — take the row **and the prose
+  under `## Broad gate` down to but not including `### What is refused, and
+  what stays allowed`** from `$CLAUDE_PLUGIN_ROOT/templates/config.md`,
+  rather than writing a bare row. The documentation beside it is the half a
+  person reads, and a repository that reached this file through `seal mode`
+  has none of it.
+
+  **The two lists and the criterion are pointed at, never copied down.** They
+  are the plugin's, they change when the plugin changes, and a frozen copy in
+  somebody's `seal/config.md` is a copy that says something false about the
+  tool at the next release — which is what the criterion's one-home rule is
+  for. Point at `$CLAUDE_PLUGIN_ROOT/templates/config.md` for both. The
   `Broad gate` value is one shell command line, run from the repository
   root.
 

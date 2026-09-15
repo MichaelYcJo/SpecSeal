@@ -12,9 +12,12 @@ What it does, in order, from the repository root:
 
   1. the repository's own broad command — the `Broad gate` row of
      `seal/config.md`, one shell command line the repository wrote for
-     itself. **No row is a refusal, not a default**: the command names the
-     row to write and exits 2 with nothing run, because a seal taken over a
-     command nobody chose is the counterfeit `verify` names
+     itself. **A row is refused two ways, and both are exit 2 with nothing
+     run**: no row at all, because a seal taken over a command nobody chose
+     is the counterfeit `verify` names; or a row this gate would not run as
+     the command it reads as — the whole command wrapped in backticks or in
+     `$(…)`, or ending in a single `&`. Neither refusal names a command to
+     write: the row is a person's, and the message says where they answer it
   2. `evidence-check --strict .`       the ledger's rows still anchor
   3. `unverified-check --baseline <base> seal/specs/`
   4. `chain_check.py --baseline <base>`   judged as a DRAFT pull request,
@@ -245,7 +248,7 @@ def missing_row(home):
         f"broad-gate: {os.path.join(home, CONFIG)} has no `{ROW}` row, so "
         "there is no command to seal over — and choosing one is not this "
         "session's to do. There is no default because a row is a thing a "
-        "person wrote, and what the seal covers is exactly that "
+        "person wrote, and what the sealer's seal covers is exactly that "
         "(`skills/verify/SKILL.md` §*The Seal Test*): a session that picks a "
         "command here seals its own choice.\n"
         "Take it to whoever owns the repository. `/specseal:config` is where "
@@ -330,9 +333,11 @@ def not_as_written(home, command):
     elif value.endswith("&") and not value.endswith("&&"):
         form = "ends in a single `&`"
         does = (
-            "so a shell backgrounds the whole line and answers 0 before any "
-            "check has finished. A seal drawn from that 0 covers nothing "
-            "that ran"
+            "so `/bin/sh` backgrounds the whole line and answers 0 before any "
+            "check has finished. A seal drawn from that 0 covers nothing that "
+            "ran. Under `cmd.exe` the same character separates two commands "
+            "instead, which is a different wrong answer refused for the same "
+            "reason: the exit code read is not the checks'"
         )
     else:
         return None
@@ -522,9 +527,9 @@ def suite_counts(text):
     class: `warnings` left the list and `errors` stayed in it, so `Found 2
     errors.` from a linter run with `--exit-zero` still landed on the suite
     row; and a run where every test was SKIPPED matched no word at all and
-    came back None, which the panel prints as `exit 0` — the seal's most
-    trusted row saying nothing about a run in which nothing executed (round
-    2's 🟡 13).
+    came back None, which the panel prints as `exit 0` — the sealer's seal
+    showing its most trusted row and saying nothing about a run in which
+    nothing executed (round 2's 🟡 13).
 
     The clock pattern is written here rather than hoisted to a module
     constant, and the reason is a rule rather than taste: this function
