@@ -63,10 +63,6 @@ def broad_gate_section():
     return section(read(*TEMPLATE), "## Broad gate", 2)
 
 
-def rows(text):
-    return [line for line in text.splitlines() if line.startswith("| ")]
-
-
 def table(text, header):
     """The rows of ONE table in a section — the one whose header row starts
     with HEADER — so a form moved from the refused list to the allowed one
