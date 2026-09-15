@@ -4081,8 +4081,8 @@ def seal(args):
     if ran_at is None:
         raise Refused(
             f"--broad-gate names `{named[0]}`, which {root} cannot see. The "
-            "seal names a commit this repository holds — the tree the run "
-            "was taken over; no cell was written"
+            "sealer's mark names a commit this repository holds — the tree "
+            "the run was taken over; no cell was written"
         )
     for sha in chain.SHA_RE.findall(chain.field(rows, chain.TARGET) or ""):
         reviewed = chain.resolves_to(root, sha)

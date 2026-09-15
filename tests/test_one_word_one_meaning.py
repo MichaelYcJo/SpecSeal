@@ -15,8 +15,28 @@ half-edited; the rows naming it are in this work item's overview.
 """
 
 import os
+import re
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
+
+# Python joins adjacent string literals at parse time and a flattened read of
+# the source does not, so a phrase split across two of them reads
+# `... the " "seal ...` here and the sweeps below go straight past it. That is
+# the shape the output assertion at
+# `tests/test_the_seal_is_taken_once_by_the_sealer.py` used to catch, and the
+# reason deleting it was NOT coverage-neutral: round 1 of
+# `1789455558-the-record-chain-disagrees-with-itself-in-five-places` kept the
+# pinned spelling, added a second anonymous instance across two literals, and
+# both modules stayed green with an anonymous seal in the refusal a person
+# reads.
+#
+# Folding the seam here keeps ONE implementation of the rule reading two kinds
+# of input, which is what that work item's alternatives table rejected a second
+# check in favour of. **The error direction is the safe one**: a seam folded
+# where Python would NOT have joined can only create a hit, never hide one --
+# `" ".join(x)` folds to `.join(x)`, which no sweep matches. Applied to `.py`
+# members only, because a markdown file has no literals to join.
+LITERAL_SEAM = re.compile(r"([\"'])\s*(?:[fFrRbBuU]{0,2})\1")
 
 
 def read(*parts):
@@ -25,7 +45,8 @@ def read(*parts):
 
 
 def flat(*parts):
-    return " ".join(read(*parts).split())
+    text = " ".join(read(*parts).split())
+    return LITERAL_SEAM.sub("", text) if parts[-1].endswith(".py") else text
 
 
 # --- "the start" — the moment before the first edit of a work item ----------
@@ -354,3 +375,40 @@ def test_no_shipped_document_calls_a_spawn_cycle_a_segment():
             f"{'/'.join(parts)} gives the orchestrator several segments. It "
             "has one — its own transcript — and spawn cycles inside it"
         )
+
+
+# --- the sweep reads across a string-literal seam (round 1's 🟡 2) -----------
+
+
+def test_the_sweep_reads_across_a_string_literal_seam():
+    """The shape the deleted output pin caught and the file sweep did not.
+
+    `round_record.py` builds every refusal out of wrapped literals and where
+    the wrap falls is decided by line length, so an anonymous instance
+    straddling a seam is an ordinary edit rather than an exotic one. Round 1
+    measured it: the pinned spelling kept, a second anonymous instance added
+    across two literals, 86 passed in both modules, and the refusal a person
+    reads carried a bare `the seal`.
+
+    Red before the seam fold: the flattened source reads `... the " "seal ...`
+    and the sweep's `in` test returns False.
+    """
+    seamed = ' "Spawn the verifying round first, so the " "seal covers it; " '
+    assert "the seal" in LITERAL_SEAM.sub("", " ".join(seamed.split())).lower()
+
+
+def test_folding_the_seam_cannot_hide_an_instance_it_would_have_found():
+    """The error direction, asserted rather than argued. A fold can only ever
+    join two pieces of text, so anything the unfolded read matched the folded
+    read still matches — what it adds are hits, never absences. The case that
+    would matter is a seam folded where Python does NOT join, and `" ".join`
+    is the one that occurs constantly in this repository.
+    """
+    joined = LITERAL_SEAM.sub("", '" ".join(read(*parts).split())')
+    assert joined == ".join(read(*parts).split())", joined
+    assert "the seal" not in joined
+    for source in (
+        'x = "the seal" + y',
+        'raise Refused("the seal is taken once")',
+    ):
+        assert "the seal" in LITERAL_SEAM.sub("", source), source
