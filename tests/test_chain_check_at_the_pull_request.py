@@ -1949,8 +1949,10 @@ QUOTES_AN_EARLIER_BLOCKER = (
 )
 BLOCKING_SENTENCE = "a blocking finding that is not fixed, answered or withdrawn"
 # What the second arm says instead, and the phrase every case below finds its
-# line by. It names the QUOTE, which is half of what selected the row.
-QUOTED_SENTENCE = "quotes a blocking finding an earlier round opened"
+# line by. It names the MARKER, which is half of what selected the row --
+# `BLOCKING in "".join(seen)` is a 🔴 in any cell but the first, and that is
+# not always an earlier round's finding quoted in the Grounds (round 2's ⬜ 3).
+QUOTED_SENTENCE = "carries a blocking marker"
 
 
 def confirmation(repo, verdict):
@@ -2016,11 +2018,18 @@ def test_an_unrecognised_verdict_is_refused_by_its_own_name(repo):
     assert "`verified`" in line, line
     for word in ("`fixed`", "`answered`", "`withdrawn`", "`not a defect`"):
         assert word in line, (word, line)
-    assert "drop the quote" in line, line
+    assert "drop the marker" in line, line
     assert "leave `Pass` unchecked" in line, line
     assert "outside the vocabulary" not in line, (
         "the arm still says the word is outside a vocabulary this file does "
         "not enforce one row over",
+        line,
+    )
+    # Round 2's ⬜ 4: the same proposition, one clause later and in other
+    # words. `open` is the word `agents/warden.md` prescribes, so calling it
+    # unrecognised is what dropping `outside the vocabulary` was for.
+    assert "unrecognised verdict" not in line, (
+        "the arm still calls the author's own prescribed word unrecognised",
         line,
     )
 
@@ -2110,7 +2119,8 @@ def test_a_row_reading_open_is_not_told_its_word_is_unrecognised(repo):
         line,
     )
     assert "`open`" in line, line
-    assert "drop the quote" in line, line
+    assert "drop the marker" in line, line
+    assert "unrecognised" not in line, line
     assert "\N{LARGE RED CIRCLE}" not in line, line
 
 

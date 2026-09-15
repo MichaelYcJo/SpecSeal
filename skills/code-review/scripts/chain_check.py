@@ -1523,16 +1523,32 @@ def open_row_reason(what, verdict, blocking):
 
       blocking   the `#` cell carries 🔴 and the verdict does not close it.
                  The finding itself is what stands.
-      otherwise  a 🔴 the row QUOTES rather than carries, beside a verdict
-                 that does not close the row. TWO things put it here and the
-                 message names both, because either one is a way out.
+      otherwise  a 🔴 somewhere in the row other than its `#` cell, beside a
+                 verdict that does not close the row. TWO things put it here
+                 and the message names both, because either one is a way out.
+
+    **The marker is named as a marker and not as a quote** (round 2's ⬜ 3).
+    The selection is `BLOCKING in "".join(seen)`, so what routes a row here is
+    a 🔴 in any cell but the first — which is usually an earlier round's
+    finding quoted in the Grounds, and is not always: it can be this round's
+    own marker written into the Finding or Location cell, and it can be a 🔴
+    that quotes no finding at all. Three such shapes were measured, and the
+    remedy the message offers works in all three, so the old clause
+    misattributed rather than misdirected. It is still the arm's own
+    explanation of itself, so it says what it can check.
+
+    **And the verdict is described by what it is not, not by a vocabulary**
+    (round 2's ⬜ 4). The sentence dropped *outside the vocabulary* for saying
+    that about `open` and then called the same word *an unrecognised verdict*
+    one clause later. `not one of the words that close a row` is the accurate
+    spelling and it was already there.
 
     The second arm **says nothing about 🔴**, because the 🔴 in such a row
     belongs to a round that is over, and sending a reader to look for a
     blocking finding that is not there is the cost this arm exists to stop
     paying.
 
-    **It does not say the verdict word is outside a vocabulary, and that is
+    **It does not say the verdict word is outside a vocabulary, which is
     round 1's 🟡 1.** The split is keyed on the `#` cell while the SELECTION
     is still a 🔴 anywhere in the row, so this arm fires on rows it was not
     naming: `open` reaches it — the word `agents/warden.md` prescribes, which
@@ -1552,12 +1568,12 @@ def open_row_reason(what, verdict, blocking):
     named = ", ".join(f"`{word}`" for word in sorted(CLOSED_WORDS))
     return (
         "`Pass` is checked, and this row is read as open because one of its "
-        "cells quotes a blocking finding an earlier round opened, while its "
-        f"own verdict reads `{verdict or 'empty'}` — not one of the words "
-        f"that close a row: {named}. Nothing here says the finding was "
-        "closed, and an unrecognised verdict counted as closed is the "
-        "tolerant read this file exists to refuse. Write one of those words, "
-        f"drop the quote, or leave `Pass` unchecked: {what}"
+        "cells carries a blocking marker, while its own verdict reads "
+        f"`{verdict or 'empty'}` — not one of the words that close a row: "
+        f"{named}. Nothing here says the finding was closed, and a verdict "
+        "counted as closed without being one of those words is the tolerant "
+        "read this file exists to refuse. Write one of those words, drop the "
+        f"marker, or leave `Pass` unchecked: {what}"
     )
 
 
