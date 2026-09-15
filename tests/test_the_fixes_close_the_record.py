@@ -1434,11 +1434,21 @@ def test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one(repo):
     )
     assert "depth 2" not in out, out
     assert "FILE-LEVEL" not in out, out
-    # THE POSITIVE ASSERTION, beside the two negatives above (#407). Both of
-    # them hold when `depth_two` returns at its own guard -- round 1 naming no
-    # unit at all -- which is a state that has nothing to do with the finding
-    # this case is named for. This is false in exactly that state, so the two
-    # negatives stop being the whole of what the case claims.
+    # The positive assertion beside the two negatives (#407). Both of them
+    # hold when `depth_two` returns at its own guard -- round 1 naming no unit
+    # at all -- which is a state that has nothing to do with the finding this
+    # case is named for. This is false in exactly that state.
+    #
+    # **It is a duplicate of the fixture's own guard and cannot fire ahead of
+    # it** (round 1's ⬜ 4). `one_finding_inside_one_earlier_unit` asserts the
+    # same equality on the same cell and nothing between the two writes it, so
+    # in the defect state #407 names the fixture fires first and this is never
+    # reached. What actually closed the vacuity is the fixture guard; this is
+    # a second reader of the same fact, kept because it states inside the case
+    # what the case depends on. Nothing in `close`'s output can discriminate
+    # the two states -- `New units | beta_guard (depth 1)` is written from
+    # `measure` and `added` whether or not the walk ran -- so there is no
+    # assertion that would be both positive and independent.
     assert fields(read(repo / ROUNDS / "round-1.md"))["New units"] == (
         "alpha (depth 1)"
     ), (
