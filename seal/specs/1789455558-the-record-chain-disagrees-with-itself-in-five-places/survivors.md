@@ -24,7 +24,9 @@ defect, and they fall into three groups**, each with the same reason.
    carries the ⬜ 6 correction in the same cell.
 
 Each row quotes the standing text, so the exemption stops holding the moment
-that text changes. -->
+that text changes.
+
+**Re-run over round 2's fix range** (`fc204d34..HEAD`): three survivors. Two are rows below — phase 4's record of the sentence it drafted, and a coincidental overlap in an unrelated hook. The third was `questions.md` Q6, still carrying the draft as though nothing had reviewed it, and that one was CORRECTED rather than excused: Q6's whole purpose is to say what the sentence is, and two rounds had changed it. -->
 
 | Path | Quote | Grounds |
 |---|---|---|
@@ -37,4 +39,7 @@ that text changes. -->
 | `seal/specs/1789455558-the-record-chain-disagrees-with-itself-in-five-places/phases/phase-4.md` | `naming the verdict word, naming the vocabulary` | What phase 4 was ASKED, quoted from its spawn. A fact about the spawn, not about the code. Group 1 |
 | `seal/specs/1789455558-the-record-chain-disagrees-with-itself-in-five-places/phases/phase-5.md` | `The deletion loses no coverage` | Overturned, and left standing under an explicit `CORRECTED by round 1's 🟡 2` comment that names what replaced it. Group 2 |
 | `seal/specs/1789455558-the-record-chain-disagrees-with-itself-in-five-places/phases/phase-5.md` | `So the sweep already reads this sentence.` | Same paragraph, same correction comment. Group 2 |
+| `seal/specs/1789455558-the-record-chain-disagrees-with-itself-in-five-places/phases/phase-4.md` | `an unrecognised verdict counted as closed is the tolerant` | Phase 4's record quotes the sentence it DRAFTED, which is what that phase did. Two rounds have corrected the live sentence since; `questions.md` Q6 carries the version that ships. Group 1 |
+| `hooks/worktree-guard.py` | `close or drop the quote and re-issue.` | Coincidental phrase overlap with a message in an unrelated hook about an unclosed quote in a commit body. Nothing to do with this change. Group 3 |
+| `seal/specs/1789455558-the-record-chain-disagrees-with-itself-in-five-places/questions.md` | `a verdict counted as closed without being one of those words is the tolerant read` | Q6 quotes the sentence that SHIPS, and the new sentence deliberately keeps most of the old one — only the two corrected clauses changed, so the unchanged remainder reads as overlap. The row was corrected rather than excused first: the draft is gone and this is the live wording. Group 3 |
 | `seal/specs/1789455558-the-record-chain-disagrees-with-itself-in-five-places/overview.md` | `the assertion #406 deleted, so its second half is now untrue` | The divergence row's account of why the ledger row was touched; the ⬜ 6 correction stands in the same cell. Group 3 |
