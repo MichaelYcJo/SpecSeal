@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 416 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | test_flat_is_what_folds_the_seam_and_it_folds_python_only (depth 1) |
 | Needs a fix | yes — 🟡 1, the seam fold that no case holds |
