@@ -14,7 +14,7 @@ one cannot be opened yet.
 | | Work item | Branch | Where it got to |
 |---|---|---|---|
 | 1 | the `Broad gate` row (#402, #401) | `fix/401-402-the-broad-gate-row-runs-unchecked-and-is-never-asked-for` | **done.** Pull request #412 open and ready, sealed at `3c1ef343` |
-| 2 | the record chain (#404, #405, #406, #407, #408, #414) | `fix/404-405-406-407-408-414-the-record-chain-disagrees-with-itself-in-five-places` | **phases 1–5 of 7 committed**, pushed, no pull request yet |
+| 2 | the record chain (#404, #405, #406, #407, #408, #414) | `fix/404-405-406-407-408-414-the-record-chain-disagrees-with-itself-in-five-places` | **phases 1–6 of 7 committed**, pushed, no pull request yet |
 | 3 | the ladder's rung is checked by nothing (#399) | — | **not opened** |
 | 4 | #413, and two cells work item 1 left behind | — | **cannot be opened until #412 merges**, below |
 
@@ -28,21 +28,12 @@ branch wrote, and the `Verified … at <sha>` stamps and every `Target SHA` in
 every `round-N.md` point at those commits by SHA. Two rulesets make the wrong
 button unavailable, so this is a thing to know rather than a thing to choose.
 
-## Work item 2 — what phases 6 and 7 still need
+## Work item 2 — what phase 7 still needs
 
 `plan.md`'s Phases table is the task list and there is no other. Status cells
-1–5 carry their commits; 6 and 7 are empty, which is what "still to do" looks
-like here.
+1–6 carry their commits and 7 is empty, which is what "still to do" looks like
+here.
 
-- **Phase 6 — #407.** The fixture asserts that its substitution landed, and the
-  case it feeds gains a positive assertion beside its two negatives. The plan
-  asks for all five `re.sub` sites in the two modules to be swept, because the
-  class is *a case that passes for a reason other than the one it is named
-  for* and closing it at one coordinate is what this whole work item is about.
-  Verified by `bin/test tests/test_the_fixes_close_the_record.py
-  tests/test_the_record_is_generated.py`, red-first by breaking the `New units`
-  pattern **and** by making `depth_two` return at its guard — two mutations,
-  both named in the plan.
 - **Phase 7 — the work item's own records.** `changelog.md`,
   `seal/ledger/1789455558-….md`, and `overview.md` carrying the four corpus
   measurements. `seal/ledger/` is empty after the 0.11.5 fold, so this work
