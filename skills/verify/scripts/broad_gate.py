@@ -231,14 +231,27 @@ def broad_command(home):
 
 
 def missing_row(home):
+    """The absent-row refusal.
+
+    It used to say *write the repository's own broad command into it* and
+    print the row to type. The only reader standing here is a session, so
+    what that sentence asked for is the one thing the row may not be: #401
+    is a session that met this message after its review rounds had settled,
+    ran four candidate commands, chose one, wrote the row, and told the
+    owner afterwards. The message now says whose the row is and where they
+    answer it.
+    """
     return (
-        f"broad-gate: {os.path.join(home, CONFIG)} has no `{ROW}` row, so there "
-        "is no command to seal over. Write the repository's own broad command "
-        "into it as one shell command line —\n"
-        f"    | {ROW} | <the full suite, the repository-wide lint, the typecheck> |\n"
-        "— and run this again. There is no default: a seal taken over a "
-        "command nobody chose seals nothing (`skills/verify/SKILL.md` §*The "
-        "Seal Test*). Nothing ran."
+        f"broad-gate: {os.path.join(home, CONFIG)} has no `{ROW}` row, so "
+        "there is no command to seal over — and choosing one is not this "
+        "session's to do. There is no default because a row is a thing a "
+        "person wrote, and what the seal covers is exactly that "
+        "(`skills/verify/SKILL.md` §*The Seal Test*): a session that picks a "
+        "command here seals its own choice.\n"
+        "Take it to whoever owns the repository. `/specseal:config` is where "
+        f"they answer it — it shows every row and adds this one with its "
+        "section — and `templates/config.md` §*Choosing a value — the "
+        "criterion* is what they choose against. Nothing ran."
     )
 
 

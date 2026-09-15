@@ -220,3 +220,76 @@ def test_the_config_skill_points_at_the_section_and_restates_no_form():
     assert "must run as the command it reads as, and the exit code" not in skill, (
         "the config skill restates the criterion instead of pointing at it"
     )
+
+
+# --- A10: a session that meets the refusal brings it to a person ------------
+#
+# #401's third Done-when, and the one the ticket says a sentence already
+# failed: *a session that meets the refusal anyway is told to bring it to a
+# person rather than to choose — and something checks that, since a sentence
+# is what failed here.* The something is this section and the executed case
+# beside it in `tests/test_the_seal_is_taken_once_by_the_sealer.py`.
+
+
+def missing_row_text():
+    """The refusal itself, built by the module rather than quoted from it."""
+    import importlib.util
+
+    path = os.path.join(ROOT, "skills", "verify", "scripts", "broad_gate.py")
+    spec = importlib.util.spec_from_file_location("specseal_broad_gate_text", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return flat(module.missing_row("/seal"))
+
+
+def test_the_absent_row_refusal_no_longer_tells_the_reader_to_write_one():
+    """The only reader standing in front of this message is a session, so
+    *write the repository's own broad command into it* asked the one party
+    that may not. It printed the row to type, too."""
+    said = missing_row_text()
+    assert "Write the repository's own broad command" not in said
+    assert "<the full suite, the repository-wide lint, the typecheck>" not in said
+    assert "not this session's to do" in said
+
+
+def test_the_absent_row_refusal_says_whose_the_row_is_and_where_it_is_answered():
+    """Naming the door is what keeps *not this session's* from reading as a
+    dead end — which is how a refusal with no route becomes a session filling
+    the row in anyway."""
+    said = missing_row_text()
+    assert "a row is a thing a person wrote" in said
+    assert "/specseal:config" in said
+    assert "Choosing a value — the criterion" in said
+    assert "Nothing ran" in said
+
+
+def test_the_sealer_is_told_the_row_refusal_is_a_persons_and_not_its_own():
+    """`agents/sealer.md` already said the sealer judges nothing. What it did
+    not say is what to do with the one refusal that has an obvious action
+    attached, which is the refusal #401 watched a session take."""
+    sealer = flat(read(*SEALER))
+    assert "goes back to a person, and never to you" in sealer
+    assert "/specseal:config" in sealer
+    assert "seal your own choice" in sealer
+    # The bullet on its own, not the file. Asserted against the whole file
+    # this passed while the bullet said nothing, because the paragraph below
+    # carries the same phrase -- which is the counterfeit `agent-contract`
+    # §15 exists to catch, met while catching it.
+    bullet = read(*SEALER).split("- **Exit 2, refused, and nothing ran**", 1)[1]
+    bullet = flat(bullet.split("\n\n", 1)[0])
+    assert "would not run as the command it reads as" in bullet, (
+        "the exit-2 bullet names only the absent row, not the refused one"
+    )
+
+
+def test_the_review_orchestrator_stops_the_run_rather_than_filling_the_row_in():
+    """The other party in the room when the refusal lands. The sealer reports
+    it; whoever spawned the sealer is the one holding a draft pull request and
+    a reason to get past it."""
+    orchestrator = flat(read(*REVIEW_ORCH))
+    assert "A refusal about the `Broad gate` row goes to a person" in orchestrator
+    assert "leave the pull request as a draft until they have" in orchestrator
+    assert "/specseal:config" in orchestrator
+    assert "#401" in orchestrator, (
+        "the instruction is asserted without the measurement behind it"
+    )

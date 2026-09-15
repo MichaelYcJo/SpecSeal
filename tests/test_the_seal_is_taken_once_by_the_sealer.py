@@ -667,6 +667,21 @@ def test_without_the_row_the_gate_names_it_and_runs_nothing(tmp_path):
     )
 
 
+def test_the_absent_row_refusal_sends_the_question_to_a_person(tmp_path):
+    """A10 of #401, executed rather than read: the sentence a session actually
+    meets. It used to open *Write the repository's own broad command into it*
+    and print the row to type — and the only reader standing here is a
+    session, which is the one party that may not write it. #401 is that
+    session: it ran four candidates, chose one, wrote the row, and told the
+    owner afterwards."""
+    repo = build_repo(tmp_path / "repo", row=False)
+    said = run_gate(repo, keep=tmp_path / "out").stderr
+    assert "Write the repository's own broad command" not in said, said
+    assert "not this session's to do" in said, said
+    assert "a row is a thing a person wrote" in said, said
+    assert "/specseal:config" in said, said
+
+
 def test_a_base_that_does_not_resolve_is_refused_with_nothing_run(repo, tmp_path):
     """The other exit-2 the interface names: a base nothing can be compared
     against. Nothing ran."""
