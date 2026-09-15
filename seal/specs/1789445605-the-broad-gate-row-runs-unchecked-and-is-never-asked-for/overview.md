@@ -55,7 +55,7 @@ in the whole flow ever asked a person to write it.
 |---|---|
 | The full suite, the repository-wide lint and the typecheck over this branch | the orchestrating session, by spawning `sealer` once the review rounds settle — `agent-contract` §2 makes that one act the sealer's |
 | Whether a `Broad gate` row can ever carry a pipe, and whether `hooks/config.py#config_rows` should learn to unescape one | the repository owner, at `questions.md` Q5. Out of scope by `spec.md` §*Data & interfaces*, which lists `config_rows` Unchanged. It is a schedulable item and this repository has a tracker, so it wants an issue rather than a `seal/follow-up.md` row — opening one is the orchestrator's act, and the hand-back names it |
-| The gate's behaviour on Windows, where `bin/broad-gate.cmd` is the entry point and `/bin/sh` is not the shell | unmeasured on this branch. The refusal is a string test over the row's value and reaches no shell, so nothing in it is platform-dependent; the forms it names are POSIX shell semantics, which is what `run(..., shell=True)` uses on every platform this plugin supports |
+| What the refusal SAYS a shell does, on Windows | unmeasured on this branch, and round 1 corrected this row: the refusal itself is a string test over the row's value and reaches no shell, so it raises the same way everywhere — but the message's reason is `/bin/sh` semantics. Under `cmd.exe` a trailing `&` separates commands rather than backgrounding, and backticks and `$(…)` are literal characters. The message now says both. The `windows-latest` job is where one run settles it; answerer: the repository owner, at the next CI run |
 
 ## Not done
 
@@ -95,6 +95,20 @@ its file has to slice the region it means first.
 flattened phrase the case reads. Three of phase 4's ten needles spanned a line
 break and the driver stopped rather than silently skipping them — which is the
 right failure, and is worth knowing before writing the next one.
+
+**A case can be found by the prose of the row it is reading.** Round 1's 🟡 6
+was that one helper returned the rows of both tables, so a form's reason could
+be paired with another form's. Repairing it with a per-table helper was not
+enough: the allowed-list case matched `a pipe` anywhere in the row, and the
+pipe row's own cost cell says *and a pipe cannot reach this row at all* — so
+renaming its first cell left the case green. A row is identified by its NAME
+cell. Found by the fix pass's own mutation loop, not by reading.
+
+**A case that asserts something false is worse than a missing case.** A
+partition check over the two lists was written in this pass and went red on
+its first run: `$(…)` belongs in both, because the whole command wrapped in it
+is refused and one inside a longer line is legal. It came out rather than
+being weakened into something that passes.
 
 **A defensive `.strip()` inside a unit whose only caller already strips is a
 line claiming a defence it never performs** — inferred during implementation,

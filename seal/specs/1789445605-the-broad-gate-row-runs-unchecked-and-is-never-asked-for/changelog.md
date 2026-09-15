@@ -17,7 +17,22 @@
   that the way they wrote it was right. Everything else a shell command line
   can hold stays legal — the row is an arbitrary command line by design — and
   `templates/config.md` now lists what is refused and what is not, each with
-  its reason. (#402)
+  its reason. **An `&` that is not the last character stays legal**, with what
+  it costs written beside it: the check before it is backgrounded and may
+  still be running when the gate stamps, and telling that `&` from a `2>&1` or
+  one inside quotes needs a shell parser the row is designed not to have.
+  (#402)
+- **A pipe in that row silently loses every row written below it.** This is
+  not new and it is now written down. A cell of the config table ends at the
+  first `|`, escaped or not, so a `Broad gate` row containing a pipe stops
+  being a row — and the reader stops there, so a `Record language` or
+  `Commit and pull request language` line underneath it is invisible and
+  falls back to its default with nothing reported anywhere. The gate reports
+  the row as *absent*, which is true and is not the cause. The template says
+  so beside the promise that a pipe is legal, and first setup now refuses to
+  propose a candidate carrying one — which matters because the first place it
+  looks for candidates is the CI workflow, where a pipe into `tee` is
+  ordinary. (#402)
 - **The one value only a person can write was the one thing nothing ever asked
   for.** There is no default for the `Broad gate` row, on purpose: what the
   seal covers is exactly the command a person chose. But no question ever
