@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 412 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | test_both_ampersand_cells_name_both_shells (depth 1); refusal_paragraph (depth 1) |
 | Needs a fix | yes — finding 1; finding 2 is fix-or-justify and justifying it means writing the grounds into the two cells. |
