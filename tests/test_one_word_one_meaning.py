@@ -32,10 +32,25 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 #
 # Folding the seam here keeps ONE implementation of the rule reading two kinds
 # of input, which is what that work item's alternatives table rejected a second
-# check in favour of. **The error direction is the safe one**: a seam folded
-# where Python would NOT have joined can only create a hit, never hide one --
-# `" ".join(x)` folds to `.join(x)`, which no sweep matches. Applied to `.py`
-# members only, because a markdown file has no literals to join.
+# check in favour of. **The error direction is safe for the phrases these
+# sweeps look for, and that is narrower than "can only create a hit"** (round
+# 2's ⬜ 2): the prefix class sits BETWEEN the two quotes, so a literal whose
+# whole content is one or two of those letters is DELETED rather than joined --
+# `seal_stamp.py` loses its `GOLD` key `"R"`, `test_session_cost.py` loses
+# `call("b", ...)`, and `open(p, "rb")` becomes `open(p, )`. A deletion can
+# only ever join its neighbours, so it cuts a phrase in half only where the
+# phrase itself contains a foldable seam -- and none of the phrases these
+# sweeps look for does. An apostrophe inside one is not a seam: the pattern
+# needs the SAME quote twice with nothing but whitespace and prefix letters
+# between, which is why `orchestrator's segments` is safe. That is what
+# `test_folding_the_seam_cannot_hide_an_instance_it_would_have_found` asserts
+# over the whole phrase set rather than over examples.
+#
+# Two shapes the fold does NOT reach, for the same reason it is cheap: a seam
+# between literals of DIFFERENT quote characters, which `\1` refuses, and a
+# seam where both literals carry the space, which Python itself joins to a
+# double space. Applied to `.py` members only, because a markdown file has no
+# literals to join and a fold there would cut through quoted shell commands.
 LITERAL_SEAM = re.compile(r"([\"'])\s*(?:[fFrRbBuU]{0,2})\1")
 
 
@@ -398,20 +413,38 @@ def test_the_sweep_reads_across_a_string_literal_seam():
 
 
 def test_folding_the_seam_cannot_hide_an_instance_it_would_have_found():
-    """The error direction, asserted rather than argued. A fold can only ever
-    join two pieces of text, so anything the unfolded read matched the folded
-    read still matches — what it adds are hits, never absences. The case that
-    would matter is a seam folded where Python does NOT join, and `" ".join`
-    is the one that occurs constantly in this repository.
+    """The error direction, asserted over the whole phrase set rather than
+    over examples (round 2's ⬜ 2).
+
+    The fold does not only join — the prefix class sits between the quotes, so
+    a literal whose whole content is one or two of those letters is DELETED.
+    `open(p, "rb")` becomes `open(p, )`. That is still safe for these sweeps,
+    but for a narrower reason than *it can only create a hit*: a deletion
+    joins its neighbours, so it can cut a phrase in half only where the phrase
+    itself contains a foldable seam. **No phrase these sweeps look for does**,
+    and that is the property asserted here — it holds for a set that grows,
+    where three examples hold only for themselves.
+
+    An apostrophe inside a phrase is not a seam: the pattern needs the SAME
+    quote twice with nothing but whitespace and prefix letters between, which
+    is why `orchestrator's segments` is safe and is in the set below.
     """
-    joined = LITERAL_SEAM.sub("", '" ".join(read(*parts).split())')
-    assert joined == ".join(read(*parts).split())", joined
-    assert "the seal" not in joined
-    for source in (
-        'x = "the seal" + y',
-        'raise Refused("the seal is taken once")',
-    ):
-        assert "the seal" in LITERAL_SEAM.sub("", source), source
+    swept = (
+        "the seal",
+        *SEAL_BARE_IS_THE_CONCEPT,
+        "segments are spawn cycles",
+        "orchestrator's segments",
+    )
+    for phrase in swept:
+        assert LITERAL_SEAM.search(phrase) is None, (
+            f"the fold can land inside {phrase!r}, so a deletion could cut "
+            "this phrase in half and the sweep would go past an instance"
+        )
+    # The deletion itself, so the docstring's first claim is not taken on
+    # trust: this is what `open(p, "rb")` does under the fold.
+    assert LITERAL_SEAM.sub("", 'open(p, "rb")') == "open(p, )"
+    # And the join, which is the case the fold exists for.
+    assert "the seal" in LITERAL_SEAM.sub("", '"the " "seal is taken once"')
 
 
 def test_flat_is_what_folds_the_seam_and_it_folds_python_only():
