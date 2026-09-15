@@ -277,6 +277,70 @@ def test_a_correction_row_closes_answered_and_never_fixed():
     assert "§*The last round verifies* owns the rule" in smith
 
 
+def test_the_verdict_ruling_is_against_a_vocabulary_test_not_against_reading():
+    """Round 3's 🟡 2 and 🟡 3. The grounds for not reading the Verdict cell —
+    *a confirmation reads `verified`, which is in no vocabulary and therefore
+    OPEN* — argue against a VOCABULARY test and were written as an argument
+    against reading the cell at all. Two documents were corrected when the
+    verdict arm landed and four carriers were left standing, one of them a
+    bolded section of the owner twenty lines under the paragraph overturning
+    it.
+
+    `survivor-check` is exit 0 on that class and cannot see it: the diff
+    removed the sentence nowhere, so there is nothing for the range check to
+    match. This case is what a grep of the claim leaves behind.
+    """
+    spec = flat(*SPEC)
+    assert "the ruling was too wide" in spec
+    assert "argument against a VOCABULARY test and not against reading" in spec
+    assert "**The verdict word cannot do this job.**" not in spec
+
+
+def test_the_open_verdicts_boundary_is_not_the_shared_separators():
+    """Round 4's 🟡 2, the half `survivor-check` cannot reach either.
+
+    Four live coordinates said the arm borrows the boundary `verdict_of` uses
+    for its vocabulary and then borrowed `chain.SEPARATORS`, which is six
+    characters wide — so `open-ended question` and `open: see 5` read as the
+    open verdict and the refusal named a word the cell does not carry. The
+    boundary is spelled out now, and the owner says which constant it is not.
+    """
+    spec = flat(*SPEC)
+    assert "ended by a space, a comma, or nothing" in spec
+    assert "rather than borrowed from `chain.SEPARATORS`" in spec
+
+
+def test_the_depth_refusal_attributes_per_finding_and_says_when_it_cannot():
+    """#333. The refusal changed twice over — what it names and what it does
+    when it cannot name it — and both are behaviour a person is stopped by, so
+    the owner of the depth rule says them.
+
+    The second half is the one a reader would otherwise have to infer from the
+    code: it still refuses on a file-level attribution, and only the sentence
+    changes.
+    """
+    spec = flat(*SPEC)
+    assert "names the finding whose fix commit added the unit" in spec
+    assert (
+        "it still refuses, and the message says the attribution is file-level" in spec
+    )
+
+
+def test_the_inherited_rows_say_who_fills_them_the_second_time():
+    """#342. The `Why` cell is written twice and by two commands, and the
+    second one is not the command that owns the section — so the template
+    that describes the section has to say it, or a reader meeting a cell that
+    changed after `new` wrote it has nowhere to look.
+
+    The refusals are named with it: a reach that stops `close` is behaviour a
+    person is stopped by.
+    """
+    template = flat(*TEMPLATE)
+    assert "The `Why` cell is filled twice, and the second time is not this" in template
+    assert "It refuses rather than guesses" in template
+    assert "It says nothing at all where round N does not exist" in template
+
+
 def test_a_repair_made_outside_the_tree_has_a_verdict_the_owner_names():
     """#321's comment. `fixed` demands a commit in the fix range, and a
     repair made by editing a ticket or a pull request body has none — so the

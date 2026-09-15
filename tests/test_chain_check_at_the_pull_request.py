@@ -13,6 +13,7 @@ verdicts are read from the script's exit code, not from its prose.
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -1750,22 +1751,154 @@ def _module(name, path):
     return module
 
 
-def _real_records():
+# A record's path, spelled once and matched whole. Git's pathspec globbing
+# lets `*` cross a slash, so `seal/specs/*/rounds/round-*.md` handed to git is
+# wider than it looks; the listing is taken over `seal/specs` and narrowed
+# here, where `fullmatch` means what the pattern says.
+RECORD_PATH_RE = re.compile(r"seal/specs/[^/]+/rounds/round-[^/]*\.md")
+
+
+def _real_records(root=ROOT):
     """Every `seal/specs/*/rounds/round-*.md` git carries at HEAD.
 
-    From `git ls-files` rather than a glob of the working tree, because the
-    per-record readers below take their content from `git show HEAD:<rel>` —
-    a record edited on disk and not committed is invisible to them, exactly
-    as it is to CI.
+    From `git ls-tree HEAD` rather than `git ls-files`, because the
+    per-record readers below take their content from `git show HEAD:<rel>`.
+    `ls-files` reads the INDEX, so a record staged and not committed was
+    listed here and then had no content at HEAD — `read_record` answers
+    `None`, every per-record check returns `([], [])`, and the walk reported
+    nothing about a record it had just listed. Listed-and-skipped is silent,
+    which is worse than not listed at all: the case stayed green over a
+    record nobody checked (#142).
+
+    `root` is a parameter so the lister itself has a case
+    (`test_the_real_records_lister_reads_head_and_not_the_index`); every
+    caller in this repository's own walk leaves it at `ROOT`.
     """
     out = subprocess.run(
-        ["git", "-C", ROOT, "ls-files", "-z", "--", "seal/specs/*/rounds/round-*.md"],
+        [
+            "git",
+            "-C",
+            str(root),
+            "ls-tree",
+            "-r",
+            "-z",
+            "--name-only",
+            "HEAD",
+            "--",
+            "seal/specs",
+        ],
         capture_output=True,
         encoding="utf-8",
         errors="replace",
         check=True,
     ).stdout
-    return sorted(p for p in out.split("\0") if p)
+    return sorted(p for p in out.split("\0") if RECORD_PATH_RE.fullmatch(p))
+
+
+def _numbered(routing, records):
+    """The RECORDS among `records`, by name.
+
+    `round-*.md` is the shape of four files, not one: the review chain writes
+    `round-N-report.md`, `round-N-asked.md` and `round-N-fixes.md` beside the
+    record. `routing.round_number` answers `None` for those, and it is the one
+    place the naming rule lives (`docs/review-handoff-protocol.md` §Layout).
+    Two `None`s in one work item also used to make the sort below raise
+    `TypeError` rather than fail an assertion; `chain_check.py#round_records`
+    already drops them on the same test, and this is the reader that did not.
+    """
+    return [r for r in records if routing.round_number(os.path.basename(r)) is not None]
+
+
+def _record_walk(chain, reader, routing, root, records):
+    """The per-record checks, over `records`, as a list of failures.
+
+    Extracted so that the positive control below runs THE SAME loop over a
+    record known to be refused. An assertion that reads this list cannot tell
+    an empty list from a loop that never collected anything, which is what
+    left both `failures.extend` calls replaceable by `pass` with the module
+    still green (#142).
+    """
+    by_item = {}
+    for rel in records:
+        by_item.setdefault(rel.rsplit("/rounds/", 1)[0], []).append(rel)
+
+    failures = []
+    for rels in by_item.values():
+        ordered = sorted(rels, key=lambda r: routing.round_number(os.path.basename(r)))
+        for index, rel in enumerate(ordered):
+            errors, _ = chain.fix_surface(reader, root, rel)
+            failures.extend(errors)
+            errors, _ = chain.stopping_floor(reader, root, rel, ordered[index + 1 :])
+            failures.extend(errors)
+    return failures
+
+
+def test_the_real_records_lister_reads_head_and_not_the_index(repo):
+    """#142. The lister's docstring said HEAD and the command said the index.
+
+    The two disagree for exactly one file: a record `git add`-ed and not
+    committed. `ls-files` lists it, `read_record` finds nothing for it at
+    HEAD, and every per-record check returns `([], [])` — so the record was
+    listed, skipped, and reported on by nothing.
+    """
+    write(repo, f"{ROUNDS}/round-1.md", "# round 1\n")
+    commit(repo, "a committed record")
+    write(repo, f"{ROUNDS}/round-2.md", "# round 2\n")
+    git(repo, "add", f"{ROUNDS}/round-2.md")
+
+    listed = _real_records(repo)
+    assert f"{ROUNDS}/round-1.md" in listed, listed
+    assert f"{ROUNDS}/round-2.md" not in listed, (
+        "a staged, uncommitted record is listed. The per-record readers take "
+        "their content from HEAD, where it has none, so it is listed and then "
+        "silently skipped"
+    )
+
+
+def test_the_walk_over_the_real_records_can_fail(repo):
+    """The positive control #142 asks for, through the same call path.
+
+    The case below asserts that a walk over this repository's own records
+    collects no failures. Nothing said the walk collects anything at all:
+    replacing both `failures.extend(errors)` calls with `pass` left it green,
+    and so would a filter that quietly matched no records.
+
+    So: one record whose `New units` cell is empty and whose floor row is
+    empty. The first is refused by `fix_surface` on any record, the second by
+    `stopping_floor` on any record — neither is grandfathered, because a
+    present-and-malformed row is always the author's to fix. Both halves of
+    the walk are therefore asserted on, and stubbing EITHER `extend` turns
+    this red.
+    """
+    chain = _module("chain_check_for_the_positive_control", CHECK)
+    reader = _module("reader_for_the_positive_control", chain.READER)
+    routing = _module("routing_for_the_positive_control", chain.ROUTING)
+
+    sha = git(repo, "rev-parse", "HEAD").stdout.strip()
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        "# round 1\n\n"
+        "| Field | Value |\n|---|---|\n"
+        f"| Target SHA | {sha} |\n"
+        "| Fixes checked by | nobody — the run ended here |\n"
+        "| New units |  |\n"
+        f"| {chain.FLOOR} |  |\n\n"
+        "- [ ] Pass\n\n"
+        "## Verdicts\n\n"
+        "| # | Finding | Location | Verdict | Grounds |\n"
+        "|---|---|---|---|---|\n"
+        "| 🔴 1 | something | `f.py:1` | fixed | grounds |\n",
+    )
+    commit(repo, "a record the checks refuse")
+
+    records = _numbered(routing, _real_records(repo))
+    assert records == [f"{ROUNDS}/round-1.md"], records
+
+    failures = _record_walk(chain, reader, routing, repo, records)
+    messages = [message for _rel, _line, message in failures]
+    assert any("`New units` is empty" in m for m in messages), messages
+    assert any(f"`{chain.FLOOR}` is empty" in m for m in messages), messages
 
 
 def test_this_repositorys_own_round_records_pass_the_per_record_checks():
@@ -1793,32 +1926,10 @@ def test_this_repositorys_own_round_records_pass_the_per_record_checks():
     reader = _module("reader_for_real_records", chain.READER)
     routing = _module("routing_for_real_records", chain.ROUTING)
 
-    records = _real_records()
-    # `round-*.md` is git's pathspec and git has no way to say "and then a
-    # number", so the glob also carries the files the review chain writes
-    # BESIDE a record -- `round-N-report.md`, `round-N-asked.md`,
-    # `round-N-fixes.md`. `routing.round_number` answers None for those, and
-    # two Nones in one work item made the sort below raise
-    # `TypeError: '<' not supported between instances of 'NoneType' and
-    # 'NoneType'` rather than fail an assertion. `chain_check.py#round_records`
-    # already drops them on the same test; this is the reader that did not.
-    records = [
-        r for r in records if routing.round_number(os.path.basename(r)) is not None
-    ]
+    records = _numbered(routing, _real_records())
     assert records, "no round records found — the glob or the layout moved"
 
-    by_item = {}
-    for rel in records:
-        by_item.setdefault(rel.rsplit("/rounds/", 1)[0], []).append(rel)
-
-    failures = []
-    for rels in by_item.values():
-        ordered = sorted(rels, key=lambda r: routing.round_number(os.path.basename(r)))
-        for index, rel in enumerate(ordered):
-            errors, _ = chain.fix_surface(reader, ROOT, rel)
-            failures.extend(errors)
-            errors, _ = chain.stopping_floor(reader, ROOT, rel, ordered[index + 1 :])
-            failures.extend(errors)
+    failures = _record_walk(chain, reader, routing, ROOT, records)
 
     assert not failures, "this repository's own records are refused:\n" + "\n".join(
         f"  {rel}: {message}" for rel, _, message in failures
