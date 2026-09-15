@@ -65,8 +65,13 @@ second answer.
   row. The documentation beside it is the half a person reads, and a
   repository that reached this file through `seal mode` has none of it. The
   `Broad gate` value is one shell command line, run from the repository
-  root; put the suite runner first, because the base comparison re-runs
-  what stands before the first `&&`.
+  root.
+
+  **How to choose that value is written down, and not here.**
+  `templates/config.md` §*Choosing a value — the criterion* owns the
+  criterion — three rules, with the reason for each — and this bullet used
+  to carry the third of them on its own. Read it to the person before they
+  answer, rather than summarising it back to them.
 
   **The `Broad gate` row is looked at before it is run**, and a value that
   would not run as the command it reads as is refused with nothing run —

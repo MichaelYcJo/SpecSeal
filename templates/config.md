@@ -220,8 +220,19 @@ rather than paid for by a refusal:
 | `;`, `\|\|`, quotes, redirection, variables, globs | the row answers with whatever the composition the repository wrote answers with. That is the repository's own claim about itself, which is what this row already is |
 | a pipe | the same, and one thing more. A piped row exits with the pipe's LAST status, so `bin/test -q \| tee out.txt` is green whenever `tee` is — **and a pipe cannot reach this row at all.** A cell of this table ends at the first `\|`, escaped or not, so a row written that way parses as no row and `broad-gate` refuses it as absent, naming a cause that is not the real one. Measured 2026-09-15; the row's own fragment carries it |
 
-On a failing test the gate re-runs the row's first command on the failing
-files alone, at the base, in a scratch worktree it removes afterwards, and
-labels each `new` or `failing on base too`. That first command is what
-stands before the row's first `&&`, so a row whose suite runner comes first
-is a row the comparison can use.
+### Choosing a value — the criterion
+
+Three rules, and this section is their one home. Every other document that
+mentions the row points here instead of restating them, because a rule
+written in three places is three places for it to disagree with itself.
+
+| # | Rule | Why |
+|---|---|---|
+| 1 | A check that is red repository-wide for reasons unrelated to any branch does not belong in the row | It would block every future work item for something none of them caused, and a gate that always fails is read as noise and then ignored |
+| 2 | A command that **fixes** the tree — `--fix`, `--write`, a formatter in write mode — is not a gate command | A gate asks what is wrong. One that changes the answer while reading it can only come back green, which is the counterfeit `skills/verify/SKILL.md` §*The Seal Test* names |
+| 3 | The suite runner comes first | On a failing test the gate re-runs the row's first command on the failing files alone, at the base, in a scratch worktree it removes afterwards, and labels each `new` or `failing on base too`. That first command is what stands before the row's first `&&`, so a row whose suite runner comes first is a row the comparison can use |
+
+Rules 1 and 2 were derived under pressure by the session that met the gate's
+refusal after its review rounds had settled, and were written nowhere until
+#401. Rule 3 was already here and in the config skill, and it is folded into
+this table rather than copied into a third place.

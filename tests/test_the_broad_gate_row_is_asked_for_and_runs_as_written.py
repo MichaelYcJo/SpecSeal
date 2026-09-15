@@ -148,6 +148,65 @@ def test_the_allowed_list_says_a_pipe_cannot_reach_the_row_at_all():
     assert "as absent" in legal
 
 
+# --- A8: the criterion has one home, and rule 3 was folded into it ----------
+
+CRITERION = "### Choosing a value — the criterion"
+
+THREE_RULES = [
+    "red repository-wide for reasons unrelated to any branch",
+    "A command that **fixes** the tree",
+    "The suite runner comes first",
+]
+
+
+def test_the_template_carries_all_three_rules_of_the_criterion():
+    """#401's second half. The row is the one value only a person can write
+    and nobody had written down how to choose it: the session that met the
+    refusal derived these three under pressure, and two of them existed in no
+    document at all."""
+    body = flat(section(read(*TEMPLATE), CRITERION, 3))
+    for rule in THREE_RULES:
+        assert rule in body, f"the criterion does not carry {rule!r}"
+
+
+def test_each_rule_is_carried_with_the_reason_it_is_a_rule():
+    """A rule with no reason is one the next reader drops when it is
+    inconvenient, and two of these three were dropped by being written
+    nowhere."""
+    body = flat(section(read(*TEMPLATE), CRITERION, 3))
+    assert "block every future work item" in body, "rule 1 has no reason"
+    assert "can only come back green" in body, "rule 2 has no reason"
+    assert "before the row's first `&&`" in body, "rule 3 has no reason"
+
+
+def test_rule_three_was_folded_rather_than_copied_into_a_third_place():
+    """It stood in `templates/config.md` and in `skills/config/SKILL.md`
+    before this work. Writing the criterion without folding would have made
+    three copies of the one rule that was already written down —
+    `tests/test_the_rules_have_one_owner.py` is the standing check, and this
+    case is the fold itself."""
+    skill = flat(read(*CONFIG_SKILL))
+    assert "put the suite runner first" not in skill, (
+        "the config skill still states rule 3 beside the criterion that owns it"
+    )
+    assert "re-runs\n  what stands before the first" not in read(*CONFIG_SKILL)
+    template_body = read(*TEMPLATE)
+    assert template_body.count("The suite runner comes first") == 1
+
+
+def test_the_config_skill_sends_the_criterion_to_its_owner_by_name():
+    """A link is one sentence naming the owner, and it does not restate the
+    rule (the shape `tests/test_the_rules_have_one_owner.py` holds every
+    linking carrier to)."""
+    skill = flat(read(*CONFIG_SKILL))
+    assert CRITERION.lstrip("# ") in skill, (
+        "the config skill does not name the section that owns the criterion"
+    )
+    assert "red repository-wide" not in skill, (
+        "the config skill restates a rule instead of pointing at it"
+    )
+
+
 def test_the_config_skill_points_at_the_section_and_restates_no_form():
     """The door a person reaches later. It names the three forms so somebody
     reading it knows the refusal exists, and sends the reasoning to the one
