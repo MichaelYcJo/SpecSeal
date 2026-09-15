@@ -192,9 +192,9 @@ shared mode without a question goes looking in a README for the way out.
    pointed at rather than copied down, because a frozen copy of them in
    somebody's `seal/config.md` says something false about the tool at the
    plugin's next release. No command does this and none is being added:
-   `seal.py`'s writer is the `Mode` row's, and `skills/config/SKILL.md`
-   §*What this does not do* refuses a generic setter for a file people edit
-   by hand.
+   `skills/implement/scripts/seal.py`'s writer is the `Mode` row's, and
+   `skills/config/SKILL.md` §*What this does not do* refuses a generic setter
+   for a file people edit by hand.
 
    **A decline writes nothing at all.** No row, no sentinel, no note. A
    repository that declined and one that was never asked meet the same
