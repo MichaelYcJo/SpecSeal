@@ -3227,6 +3227,25 @@ def units_named_earlier(reader, earlier):
             entry = chain.DEPTH_RE.sub("", entry)
             for arrow in chain.ARROWS:
                 entry = entry.split(arrow)[0]
+            # RIDER: `chain.EMPHASIS` is `[*_`]+` and it is applied to the
+            # whole entry, so every underscore INSIDE a unit name is stripped
+            # with the backticks around it -- `only_tested` is read back as
+            # `onlytested`, and `added` names come from the AST unstripped, so
+            # `unit not in named` is true for every snake_case parent. The
+            # depth-2 walk below therefore reaches no Python unit whose name
+            # carries an underscore, which is most of them. Measured
+            # 2026-09-15 while building #333's cases: committed records write
+            # entries like `` `test_a_cell_of_only_separators_is_not_an_answer` ``,
+            # and this reads them as one long word. #30's own refusal fired
+            # through `quote`, which has no underscore, and named `quote` as
+            # the parent for units added by a fix inside a unit that does.
+            # NOT REPAIRED HERE: it is outside work item 1789425391's six
+            # tickets and it widens what the rule refuses, which is a change
+            # to a gate. The repair is to strip the emphasis characters from
+            # the ENDS of the entry rather than everywhere in it, and it needs
+            # the corpus measured for records this newly reaches. The answerer
+            # is the repository owner.
+            # Verified 2026-09-15 against units_named_earlier@9165d624.
             name = chain.EMPHASIS.sub("", entry).strip()
             if name and name not in named:
                 named[name] = k
