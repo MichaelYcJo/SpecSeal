@@ -1934,3 +1934,105 @@ def test_this_repositorys_own_round_records_pass_the_per_record_checks():
     assert not failures, "this repository's own records are refused:\n" + "\n".join(
         f"  {rel}: {message}" for rel, _, message in failures
     )
+
+
+# --- one sentence named two severities for one row (#408) --------------------
+#
+# `open_blocking` asked `BLOCKING in "".join(seen)`, which is every cell of the
+# row. Naming what an earlier round found is exactly what a carried-forward
+# closure is for, so a 🟢 row whose Grounds quote an earlier 🔴 was announced
+# as a blocking finding in a sentence that then printed `🟢` as the row.
+
+QUOTES_AN_EARLIER_BLOCKER = (
+    "| 🟢 | round 1's 🔴 2, re-read | `f.py:2` | {verdict} | "
+    "round 1 opened this as 🔴 2 and its fix closed it |\n"
+)
+BLOCKING_SENTENCE = "a blocking finding that is not fixed, answered or withdrawn"
+
+
+def confirmation(repo, verdict):
+    """A last record whose only 🔴 is one a 🟢 row QUOTES, at `verdict`."""
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        record(
+            sha,
+            passed=True,
+            verdict="fixed",
+            finding="🟢 1",
+            extra=QUOTES_AN_EARLIER_BLOCKER.format(verdict=verdict),
+        ),
+    )
+    commit(repo, "round 1")
+    return run(repo)
+
+
+def test_a_confirmation_quoting_an_earlier_blocker_is_not_called_a_blocking_finding(
+    repo,
+):
+    """A7. The row is still refused — `verified` is outside `CLOSED_WORDS`,
+    and an unrecognised verdict counting as closed is the tolerant read this
+    file exists to refuse. What must not happen is the refusal calling it a
+    🔴 row, because the reader then goes looking for a blocking finding that
+    belongs to a round that is over.
+
+    Red against the whole-row join: the refusal reads *this 🔴 row reads
+    `verified` — a blocking finding…* about a row whose `#` cell is 🟢.
+    """
+    code, out = confirmation(repo, "verified")
+    assert code == 1, out
+    assert BLOCKING_SENTENCE not in out, (
+        "a row whose `#` cell reads 🟢 is announced as a blocking finding",
+        out,
+    )
+    assert "outside the vocabulary" in out, out
+    (line,) = [ln for ln in out.splitlines() if "outside the vocabulary" in ln]
+    assert "\N{LARGE RED CIRCLE}" not in line, (
+        "the arm for a row that only QUOTES a 🔴 still names one",
+        line,
+    )
+
+
+def test_an_unrecognised_verdict_is_refused_by_its_own_name(repo):
+    """A8, and §14: the sentence a reader is stopped by. It has to name the
+    verdict word, because that is what has to change, and the vocabulary,
+    because the reader who is stopped is the one choosing the replacement.
+    """
+    code, out = confirmation(repo, "verified")
+    assert code == 1, out
+    assert "outside the vocabulary" in out, out
+    (line,) = [ln for ln in out.splitlines() if "outside the vocabulary" in ln]
+    assert "`verified`" in line, line
+    for word in ("`fixed`", "`answered`", "`withdrawn`", "`not a defect`"):
+        assert word in line, (word, line)
+    assert "leave `Pass` unchecked" in line, line
+
+
+def test_a_row_the_vocabulary_closes_is_silent_even_while_it_quotes_a_blocker(repo):
+    """The other direction. The same row with `answered` in its verdict cell
+    says nothing at all — the quote is not what selects a row, and it never
+    was; what selects it is a verdict the vocabulary does not close.
+    """
+    code, out = confirmation(repo, "answered")
+    assert code == 0, out
+    assert "outside the vocabulary" not in out, out
+    assert BLOCKING_SENTENCE not in out, out
+
+
+def test_a_row_that_carries_a_blocker_keeps_the_blocking_sentence(repo):
+    """§14's other half. The 🔴 arm is unchanged, and the split is what makes
+    that worth pinning: a repair that moved every row to the new sentence
+    would lose the one complaint that is about the finding rather than about
+    the word.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(repo, f"{ROUNDS}/round-1.md", record(sha, passed=True, verdict="open"))
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 1, out
+    (line,) = [ln for ln in out.splitlines() if BLOCKING_SENTENCE in ln]
+    assert "\N{LARGE RED CIRCLE} row reads `open`" in line, line
+    assert "outside the vocabulary" not in line, line

@@ -1476,16 +1476,76 @@ def verdict_of(seen, col):
 
 
 def open_blocking(reader, lines, rel):
-    """(rows, errors) — blocking findings the last round left open."""
+    """(rows, errors) — the rows the last round left open, each labelled.
+
+    A row is here when a 🔴 appears anywhere in it and its verdict is not a
+    closing word. That is the set this has always refused and it is unchanged:
+    `verified` is outside `CLOSED_WORDS`, and an unrecognised verdict counting
+    as closed is the tolerant read the comment above that set says this whole
+    file exists to refuse.
+
+    **What is new is the fourth field, and it is read from the `#` cell** —
+    the way the second field already is (#408). `BLOCKING in "".join(seen)`
+    asks whether a 🔴 appears ANYWHERE in the row, and naming what an earlier
+    round found is exactly what a carried-forward closure is for, so a 🟢 row
+    whose Finding or Grounds quotes an earlier 🔴 was announced as a blocking
+    finding in a sentence that then printed `🟢` as the row. One sentence,
+    two severities, and the reader who took it at its word went looking for a
+    🔴 that is not there.
+
+    So the label says which complaint the caller has to print. Reading the
+    severity from the `#` cell and stopping there was the other repair
+    available, and it is the one that would let a row whose verdict the
+    vocabulary does not hold stop being refused at all.
+    """
     rows, col, errors = verdict_table(reader, lines, rel)
     if col < 0:
         return [], errors
     still_open = [
-        (line_no, seen[0] or f"row at line {line_no}", verdict_of(seen, col))
+        (
+            line_no,
+            seen[0] or f"row at line {line_no}",
+            verdict_of(seen, col),
+            BLOCKING in seen[0],
+        )
         for line_no, seen in rows
         if BLOCKING in "".join(seen) and verdict_of(seen, col) not in CLOSED_WORDS
     ]
     return still_open, errors
+
+
+def open_row_reason(what, verdict, blocking):
+    """Why one row of `open_blocking` fails the pull request.
+
+    Two arms, because the reader who is stopped has to know which of the two
+    things is wrong (#408). Both refuse the row; they differ in what they
+    send the reader to look at.
+
+      blocking   the `#` cell carries 🔴 and the verdict does not close it.
+                 The finding itself is what stands.
+      otherwise  a 🔴 the row QUOTES rather than carries, beside a verdict
+                 word the vocabulary does not hold. What stands is the word.
+
+    The second arm names the word and the vocabulary and **says nothing about
+    🔴**, because the 🔴 in such a row belongs to a round that is over, and
+    sending a reader to look for a blocking finding that is not there is the
+    cost this arm exists to stop paying.
+    """
+    if blocking:
+        return (
+            f"`Pass` is checked, and this {BLOCKING} row reads "
+            f"`{verdict or 'empty'}` — a blocking finding that is not fixed, "
+            f"answered or withdrawn: {what}"
+        )
+    named = ", ".join(f"`{word}`" for word in sorted(CLOSED_WORDS))
+    return (
+        f"`Pass` is checked, and this row's verdict reads "
+        f"`{verdict or 'empty'}`, which is outside the vocabulary — {named}. "
+        "Nothing here says the finding was closed, and an unrecognised "
+        "verdict counted as closed is the tolerant read this file exists to "
+        "refuse. Write one of those words, or leave `Pass` unchecked: "
+        f"{what}"
+    )
 
 
 def closed_with_a_fix(reader, lines, rel):
@@ -3257,17 +3317,8 @@ def check_round(reader, root, rel, strict=True, refs=None):
     still_open, table_errors = open_blocking(reader, lines, rel)
     errors.extend(table_errors)
     if checked and still_open:
-        for line_no, what, verdict in still_open:
-            errors.append(
-                (
-                    rel,
-                    line_no,
-                    f"`Pass` is checked, and this "
-                    f"{BLOCKING} row reads `{verdict or 'empty'}` — a "
-                    "blocking finding that is not fixed, answered or "
-                    f"withdrawn: {what}",
-                )
-            )
+        for line_no, what, verdict, blocking in still_open:
+            errors.append((rel, line_no, open_row_reason(what, verdict, blocking)))
     return errors
 
 
