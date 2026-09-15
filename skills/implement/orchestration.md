@@ -80,7 +80,11 @@ creates is the one this section would have asked about. Naming the command
 is what keeps *not asked* from meaning *not offered*: nobody who lands in
 shared mode without a question goes looking in a README for the way out.
 
-1. Ask, once, with one `AskUserQuestion` carrying two options, in this order:
+1. Ask, once, with one `AskUserQuestion` carrying **two questions** — the
+   mode, and the `Broad gate` row. One interruption or two is the whole of
+   what is being decided by putting them together, and this is the only place
+   either of them is asked at all. The mode's two options come first, in this
+   order:
 
    - **shared** (the default, listed first) — creates `<repo>/seal/` in the
      tree; the routing commit you make before the first edit carries it. It
@@ -116,6 +120,54 @@ shared mode without a question goes looking in a README for the way out.
    so in one line when you create the root, because this question is asked
    once and the person answering it does not yet know what they will want.
 
+   **The second question is the `Broad gate` row, and it is a proposal rather
+   than a blank.** That row is the one value in this whole flow only a person
+   can write — `templates/config.md` §*Broad gate* says why it has no default
+   — and until #401 nothing ever asked for it, so it reached a person as the
+   gate's refusal, after the review rounds had settled, at the one moment
+   whoever is there has every reason to answer it themselves. A repository
+   being opted in may not yet know its broad command, so a bare question gets
+   answered badly to get past it. The parity setup below is the shape that
+   answers that, and it is the shape here too: **what the machine can derive
+   is offered, the person picks, and nothing is guessed.**
+
+   Read candidates off the repository, in this order, and offer what you
+   found with the file each came from:
+
+   | Where to look | What to take |
+   |---|---|
+   | `.github/workflows/*.yml` | the `run:` steps of whatever job gates a pull request. What CI already refuses a merge for is the repository's own answer, written down before anybody asked |
+   | a runner under `bin/` | `bin/test`, `bin/check`, or whatever the contribution guide names first |
+   | a package manifest | `package.json`'s `scripts.test`, a `pyproject.toml` tool section, `Cargo.toml` |
+   | a `Makefile` | a `test`, `check` or `lint` target |
+
+   Offer each candidate as **one shell command line** composed the way
+   `templates/config.md` §*Choosing a value — the criterion* says to compose
+   one, and name the file it came from — a candidate whose source is named is
+   one the person can correct. Where nothing is findable, say so rather than
+   inventing one: a guessed row is what `templates/config.md` §*Broad gate*
+   argues against by name, and offering it with a source that does not exist
+   is worse than offering nothing.
+
+   **A candidate carrying a `|` cannot be written into the row**, and a CI
+   `run:` step is where one is likeliest to come from. Offer the command
+   without the pipe, or offer the next candidate, and say why: a row with a
+   pipe in it parses as no row, the gate then reports the row as absent, and
+   every row written below it in the file is lost with it.
+   `templates/config.md` §*What is refused, and what stays allowed* carries
+   the measurement.
+
+   **Name the criterion; do not restate it.** `templates/config.md`
+   §*Choosing a value — the criterion* owns the criterion, three rules with
+   the reason for each, and the person answering reads it there.
+
+   **Offer a decline, and say what it costs.** *Not yet* is a real answer:
+   the repository may not have a broad command yet, and one written to get
+   past a question is worse than none. The cost is one sentence — the first
+   `broad-gate` run refuses with nothing run, and that refusal lands after
+   the review rounds have settled, which is the last moment available.
+   `/specseal:config` fills the row in at any point before then.
+
    **Then record the answer: run `seal mode`, with no argument.** It writes
    the row from where the folder is, which is where you just put it, and it
    moves nothing — `seal mode shared` on a root that is already shared works
@@ -129,6 +181,26 @@ shared mode without a question goes looking in a README for the way out.
    `hooks/mode-gate.py` is what reads the absence, and it stops the next
    command to ask this same question; running the command here is what keeps
    the person who just answered from being asked twice.
+
+   **Then the `Broad gate` row, where a command was chosen.** `seal mode` has
+   just written a config file carrying `Mode` and nothing else, so add the
+   row the way `/specseal:config` step 3 adds one — the row **and the prose
+   under `## Broad gate` down to but not including `### What is refused, and
+   what stays allowed`**, taken from
+   `$CLAUDE_PLUGIN_ROOT/templates/config.md`. A bare row hands the person the
+   value and none of the half they read; the two lists and the criterion are
+   pointed at rather than copied down, because a frozen copy of them in
+   somebody's `seal/config.md` says something false about the tool at the
+   plugin's next release. No command does this and none is being added:
+   `skills/implement/scripts/seal.py`'s writer is the `Mode` row's, and
+   `skills/config/SKILL.md` §*What this does not do* refuses a generic setter
+   for a file people edit by hand.
+
+   **A decline writes nothing at all.** No row, no sentinel, no note. A
+   repository that declined and one that was never asked meet the same
+   refusal at the same moment and are told the same correct thing, so a trace
+   would separate two states nothing treats differently — which is the
+   opposite of the mode row, whose absence is what #151 measured the cost of.
 2. Say in three lines what you created, that its presence at that place is
    the opt-in, and what each part of the root is for. The layout is invisible
    otherwise: it appears in a diff the user did not request — or, in local
