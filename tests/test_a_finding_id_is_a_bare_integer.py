@@ -232,10 +232,12 @@ def test_a_no_digit_cell_whose_severity_owes_an_answer_is_refused(repo, owed):
     is wrong.
 
     The severity marker is what already means *somebody owes this an answer* —
-    🔴 blocks merge and 🟡 needs grounds — so it is what the rule reads. The
-    verdict word cannot serve: a confirmation row reads `verified`, which is in
-    no vocabulary and therefore OPEN, so reading it would trade one refusal for
-    another.
+    🔴 blocks merge and 🟡 needs grounds — so it is what this rule reads. A
+    vocabulary test of the verdict cannot serve in its place: a confirmation row
+    reads `verified`, which is in no vocabulary and therefore OPEN, so it would
+    trade one refusal for another. Reading the single word `open` is a separate
+    arm and composes with this one —
+    `test_a_row_that_commissions_nothing_cannot_read_open` below.
     """
     code, out = a_report(repo, f"| {owed} | one | `f.py:1` | open | read |\n")
     assert code == 2, out
@@ -261,6 +263,235 @@ def test_an_empty_hash_cell_is_refused(repo):
     code, out = a_report(repo, "|  | one | `f.py:1` | open | read |\n")
     assert code == 2, out
     assert "bare integer" in out or "owes an answer" in out, out
+
+
+@pytest.mark.parametrize(
+    "cell",
+    [
+        "\N{LARGE GREEN CIRCLE} fix-surface",
+        "carried",
+        "\N{WHITE LARGE SQUARE}",
+        "\N{BLACK QUESTION MARK ORNAMENT}",
+        "A",
+        "\N{EM DASH}",
+    ],
+)
+def test_a_row_that_commissions_nothing_cannot_read_open(repo, cell):
+    """Round 2's 🟡 7, and round 1's 🔴 1 one cell over.
+
+    The severity arm reads the `#` cell, and the row says it is open in the
+    column beside it. So every shape the rule admits came through `new` at exit
+    0, silently, with `Pass` ticked over a row its own table calls open — the
+    same record asserting a review passed while its own verdict table says
+    otherwise. Three of these six carry no severity marker at all, so the
+    residual the documents stated did not describe them even as prose.
+
+    **This composes with the marker check rather than replacing it.** The
+    grounds for not reading the verdict were that a confirmation reads
+    `verified`, which is in no vocabulary and therefore OPEN — true of
+    replacing the marker check, false of composing with it. What is read here
+    is the one word `open`, which is unambiguous.
+    """
+    code, out = a_report(repo, f"| {cell} | one | `f.py:1` | open | read |\n")
+    assert code == 2, out
+    # The Verdict column named, not just the word `open` — the refusal this
+    # replaced already said "ticked over an open finding", so asserting the
+    # bare word would have passed against the defect.
+    assert "`Verdict` cell reads `open`" in out, out
+    assert cell in out, out
+    assert "- [x] Pass" not in out, "a record was written"
+
+
+def test_a_row_failing_both_arms_is_named_once(repo):
+    """`| 🔴 A | … | open | … |` fails the severity arm and the verdict arm at
+    once. Both append to the same list, so without a guard the row is quoted
+    twice and the message counts two rows where the table holds one — which is
+    the #303 complaint (a message you cannot trust the shape of) arriving from
+    the fix for it. Found by mutation: dropping the guard left every other case
+    in this module green.
+    """
+    code, out = a_report(repo, "| 🔴 A | one | `f.py:1` | open | read |\n")
+    assert code == 2, out
+    assert "has 1 row " in out, out
+    assert out.count("| 🔴 A | one |") == 1, out
+
+
+def test_a_numbered_short_row_is_refused_rather_than_raising(repo):
+    """Round 3's 🔴 1, and the member round 2's bounds guard did not reach.
+
+    A digit in the `#` cell KEYS the row, so it passes `verdict_rows` and every
+    caller then indexes `VERDICT_COL` on it: `new` at the `words` comprehension,
+    `close` at `open_now`, at the `already` message and at the write pass. The
+    verdict arm's own guard covers only the row that is not keyed.
+
+    Worse than a defect, this was a regression: before the arm, `new` computed
+    `Pass` through `verdict_words`, which raises `a verdict row has N cells` —
+    a refusal naming the row.
+
+    `fix_table` has refused the same shape since it was written, and zero of the
+    committed verdict rows are short, so matching its shape costs nothing.
+    """
+    code, out = a_report(repo, "| 1 | one |\n")
+    assert code == 2, out
+    assert "Traceback" not in out and "IndexError" not in out, out
+    assert "2 cells" in out and "no `Verdict` cell" in out, out
+    assert "- [x] Pass" not in out, "a record was written"
+
+
+def test_a_numbered_short_row_is_refused_at_close_too(repo):
+    """The same row, one subcommand over. `new` refusing does not retire the
+    reading at `close`: a record is a file somebody can edit, and every caller
+    that indexes the Verdict column by position is on the `close` path —
+    `open_now`, the `already` message, the write pass. Round 4 verified this
+    half by probe and no case carried it.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    hand_edited(
+        repo,
+        "| 🔴 1 | helper drops b | `mod.py#helper` | open | executed |",
+        "| 1 | one |",
+    )
+    b = a_fix(repo)
+    code, out, _ = close(repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}")
+    assert code == 2, out
+    assert "Traceback" not in out and "IndexError" not in out, out
+    assert "2 cells" in out and "no `Verdict` cell" in out, out
+
+
+def test_a_row_missing_only_its_grounds_is_still_written_short(repo):
+    """The bound is `VERDICT_COL`, not the header width, and this is why.
+
+    Round 3's paste-ready code for finding 1 refused any row narrower than the
+    header. That reaches a four-cell row — one with a Verdict cell and no
+    Grounds — which nothing indexes past and which
+    `test_a_short_row_with_a_comment_pipe_is_not_padded_into_a_full_one`
+    deliberately admits, so the record shows the column the reviewer left out
+    rather than inventing one. The wider test turns that case red.
+
+    Refusing exactly what crashes leaves the older decision standing, and the
+    corpus is silent either way: zero committed verdict rows are short at all.
+    """
+    declared(repo)
+    code, out, text = generate(
+        repo, report_text=report(verdicts="| 1 | one | `f.py:1` | open |\n")
+    )
+    assert "Traceback" not in out and "IndexError" not in out, out
+    assert "no `Verdict` cell" not in out, out
+    # ADMITTED, and written at the width the reviewer left. The verdict arm
+    # never sees this row -- a digit in the `#` cell keys it, and that arm runs
+    # only where `finding_number` returned None -- so `new` exits 0 and the
+    # record carries four cells. Round 3's wider bound turns exactly this case
+    # red, which is why the bound is `VERDICT_COL`.
+    assert code == 0, out
+    assert "| open |" in text, text
+
+
+@pytest.mark.parametrize(
+    "verdict",
+    ["open", "open — deferred", "open, comment only", "**open** — still"],
+)
+def test_every_spelling_of_open_the_records_hold_is_refused(repo, verdict):
+    """Round 3's 🟡 2. `agents/warden.md`, `templates/sdd-round.md` and
+    `skills/code-review/SKILL.md` all say a row whose Verdict cell *reads*
+    `open` is refused, and the arm tested equality.
+
+    Measured 2026-09-15 over the committed `round-N.md` records that parse —
+    211 of 212, 2,044 verdict rows — read through the generator's own
+    `table_body` and through `chain.verdict_of`: **123 verdict cells begin
+    `open` and 9 of them continue**, so equality reached 114 of 123 while the
+    documents described all of them. A head match ended the way `verdict_of`
+    ends its own vocabulary, on a space or a comma, reaches all 123 and newly
+    refuses **0** of the 25 admitted no-digit rows.
+
+    The grounds for not running a VOCABULARY test are untouched and were
+    re-derived in the same pass: 15 of those 25 carry a verdict outside
+    `CLOSED_WORDS`, so *anything not closed* would refuse them. What never
+    followed from those grounds is equality.
+    """
+    code, out = a_report(repo, f"| carried | one | `f.py:1` | {verdict} | read |\n")
+    assert code == 2, out
+    assert "`Verdict` cell reads `open`" in out, out
+
+
+@pytest.mark.parametrize(
+    "verdict",
+    ["opened in round 2", "openly carried", "open-ended question", "open: see 5"],
+)
+def test_a_word_that_merely_begins_with_open_is_not_the_open_verdict(repo, verdict):
+    """The boundary is what makes `says_open` match a WORD rather than a
+    prefix of one — the same distinction `verdict_of` states for its own
+    vocabulary, where without it `not a defect` would swallow `not a defective
+    reading`.
+
+    It is the same boundary as well as the same distinction: a space or a
+    comma, not `chain.SEPARATORS`. The wider set reached `open-ended question`
+    and `open: see 5`, and the refusal then named a word the cell does not
+    carry (round 4's 🟡 2).
+
+    Found by mutation: dropping the boundary test left every other case in
+    this module green, because no case fed it a longer word.
+    """
+    _code, out = a_report(repo, f"| carried | one | `f.py:1` | {verdict} | read |\n")
+    assert "`Verdict` cell reads `open`" not in out, out
+
+
+# Every spelling the two cases above cover, plus two the wider set would
+# swallow if the boundary were borrowed. Read directly rather than through
+# `new`, because the claim is about the reader and not about an exit code.
+OPEN_SPELLINGS = (
+    "open",
+    "open — deferred",
+    "open, comment only",
+    "open-ended question",
+    "open: see 5",
+    "opened in round 2",
+    "open?",
+    "open; see 5",
+)
+
+
+def test_widening_the_shared_separators_does_not_widen_the_open_verdict(monkeypatch):
+    """S5, and the half of round 4's 🟡 2 that a boundary change alone leaves
+    open. `chain.SEPARATORS` has five other readers and `chain_check.py`'s own
+    prose weighs widening it; while the open verdict borrowed that constant,
+    widening it for any of those readers silently widened what counts as open.
+
+    So the boundary is spelled in `OPEN_BOUNDARY` and this case is what says
+    the two are apart. Red against the borrowed boundary, where adding `?`
+    makes `open?` the open verdict.
+    """
+    generator = generator_module()
+    before = [generator.says_open(w) for w in OPEN_SPELLINGS]
+    monkeypatch.setattr(
+        generator.chain, "SEPARATORS", generator.chain.SEPARATORS + "?;"
+    )
+    after = [generator.says_open(w) for w in OPEN_SPELLINGS]
+    assert before == after, (
+        "widening `chain.SEPARATORS` moved what counts as the open verdict: "
+        f"{[w for w, b, a in zip(OPEN_SPELLINGS, before, after, strict=True) if b != a]}"
+    )
+    # The coupling ran the other way too, and both directions are the finding:
+    # `-` and `:` are already in the shared set, so borrowing it over-refused.
+    assert not generator.says_open("open-ended question")
+    assert not generator.says_open("open: see 5")
+
+
+def test_a_row_too_short_to_have_a_verdict_cell_does_not_crash(repo):
+    """The guard the verdict arm needs. `table_body` returns as many cells as
+    the row has, and `verdict_rows` used to check only that the `#` cell exists
+    — so reading the Verdict column off a two-cell row indexes past the end.
+
+    `Loses a record or crashes` is its own gate, so a repair that trades a
+    silent pass for a traceback is not a repair.
+    """
+    code, out = a_report(repo, "| carried | one |\n")
+    assert "Traceback" not in out, out
+    assert "IndexError" not in out, out
+    # The exit code is not the assertion: a two-cell row is malformed for
+    # other reasons and `run_check` may refuse the record it produces. What
+    # this pins is that the generator refuses or accepts it deliberately
+    # rather than dying inside the verdict read.
+    assert code != 3, out
 
 
 @pytest.mark.parametrize("marker", ["🔴", "🟡", "🟢", "⬜", "❓", "✅"])
@@ -356,6 +587,13 @@ def test_a_duplicate_fix_row_quotes_both_rows(repo):
 # --- the corpus this rule was measured against ------------------------------
 
 
+# A record's path, spelled once and matched whole. Git's pathspec globbing
+# lets `*` cross a slash, so `seal/specs/*/rounds/round-*.md` handed to git is
+# wider than it looks; the listing is taken over `seal/specs` and narrowed
+# here, where `fullmatch` means what the pattern says.
+RECORD_PATH_RE = re.compile(r"seal/specs/[^/]+/rounds/round-[^/]*\.md")
+
+
 def old_key(cell):
     """What the unfixed generator read out of a `#` cell: the FIRST digit run."""
     m = re.search(r"\d+", cell)
@@ -368,7 +606,7 @@ def last_run(cell):
     return int(runs[-1]) if runs else None
 
 
-def committed_records():
+def committed_records(root=ROOT):
     """`seal/specs/*/rounds/round-*.md` git carries — the RECORDS among them.
 
     `round-*.md` is git's pathspec and git has no way to say "and then a
@@ -385,16 +623,73 @@ def committed_records():
     third reader in the tree to take directory membership for record-ness,
     and the quietest: the other two raised `TypeError` on sorting two `None`s,
     while this one said nothing at all (#228, round 1 🟡 1).
+
+    **The listing is `git ls-tree HEAD`, not `git ls-files`** (#142, §12 —
+    the third member of a class whose other two are the `_real_records`
+    copies). `ls-files` reads the INDEX, so a record `git add`-ed and not
+    committed was counted here by a function named `committed_records`. The
+    residual, stated rather than left to be found: the CONTENT still comes
+    from the working tree, through `id_cells`, so a committed record edited
+    on disk is counted at its edited text. That is a different reading from
+    the two walkers, which take their content from HEAD as well — and it is
+    the right one here, because this corpus is a population measurement over
+    a tree somebody is editing rather than a check on what CI will see.
+
+    `root` is a parameter so the listing has a case of its own
+    (`test_an_uncommitted_record_is_not_in_the_committed_corpus`); every
+    measurement below leaves it at `ROOT`.
     """
     generator = generator_module()
     routing = generator.load(generator.chain.ROUTING, "routing_for_the_id_corpus")
     out = subprocess.run(
-        ["git", "-C", ROOT, "ls-files", "seal/specs/*/rounds/round-*.md"],
+        [
+            "git",
+            "-C",
+            str(root),
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "HEAD",
+            "--",
+            "seal/specs",
+        ],
         capture_output=True,
         encoding="utf-8",
         check=True,
     ).stdout.split()
-    return [p for p in out if routing.round_number(os.path.basename(p)) is not None]
+    return [
+        p
+        for p in out
+        if RECORD_PATH_RE.fullmatch(p)
+        and routing.round_number(os.path.basename(p)) is not None
+    ]
+
+
+def test_an_uncommitted_record_is_not_in_the_committed_corpus(repo):
+    """#142's class, third member. This reader is named `committed_records`
+    and called `git ls-files`, which reads the INDEX — so a record `git
+    add`-ed and not committed was a counted member of a population the
+    function's own name calls committed.
+
+    It is the quietest of the three: the other two take their content from
+    HEAD, so an uncommitted record is listed and then silently skipped, where
+    this one reads it off disk and counts it. Nothing goes wrong loudly; the
+    population is simply not the one being claimed.
+    """
+    write(repo, f"{ROUNDS}/round-1.md", "# round 1\n")
+    commit(repo, "a committed record")
+    write(repo, f"{ROUNDS}/round-2.md", "# round 2\n")
+    subprocess.run(
+        ["git", "-C", str(repo), "add", f"{ROUNDS}/round-2.md"],
+        check=True,
+        capture_output=True,
+    )
+
+    listed = committed_records(repo)
+    assert f"{ROUNDS}/round-1.md" in listed, listed
+    assert f"{ROUNDS}/round-2.md" not in listed, (
+        "a staged, uncommitted record is a member of the committed corpus"
+    )
 
 
 def test_the_corpus_is_records_only():
