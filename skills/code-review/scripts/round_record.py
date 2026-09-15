@@ -3721,6 +3721,18 @@ def close(args):
     # `finding_number` keyed. Keying this map from `rows` refused a pair of
     # records this generator itself wrote, at exit 2, and sent the reader to
     # correct a coordinate that was already right.
+    #
+    # FIRST row at a coordinate wins, which is how `inherited_rows` resolves
+    # the same repeat -- it skips a `Location` it has already emitted. A plain
+    # assignment here ended holding the LAST, so the two sides named different
+    # rows of one record and the `Why` cell round N+1 carried came from a row
+    # the section had attributed nothing to (#404). The two now agree BY
+    # CONSTRUCTION rather than by both being right: whichever row a repeat
+    # resolves to, both sides resolve to the same one, so there is no row left
+    # for them to disagree about. Refusing the repeat instead was measured and
+    # is foreclosed -- 71 of the 247 committed records that parse repeat a
+    # `Location`, over 105 coordinates (2026-09-15), so a refusal would refuse
+    # records this repository has already written.
     location = VERDICT_HEADER.index("Location")
     number = VERDICT_HEADER.index("#")
     now = {}
@@ -3729,7 +3741,9 @@ def close(args):
             reader.visible(c) for c in row_cells(reader, raw[i], len(VERDICT_HEADER))
         ]
         if len(seen) > VERDICT_COL and seen[location]:
-            now[seen[location]] = (seen[number], chain.verdict_of(seen, VERDICT_COL))
+            now.setdefault(
+                seen[location], (seen[number], chain.verdict_of(seen, VERDICT_COL))
+            )
     still_open = [w for w in words if w not in chain.CLOSED_WORDS]
     # The same derivation `new` makes from the report's verdicts, over the
     # verdicts as the table left them. Both of its answers are written here,

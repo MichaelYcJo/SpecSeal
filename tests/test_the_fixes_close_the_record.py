@@ -1899,3 +1899,89 @@ def test_a_round_whose_coordinates_an_earlier_round_claimed_is_not_refused(repo)
     assert code == 0, out
     assert "no cell was written" not in out, out
     assert "Inherited coordinates" not in out, out
+
+
+# --- one coordinate, two verdict rows: both sides take the same row ----------
+#
+# #404. `inherited_rows` skips a `Location` it has already emitted and the map
+# `close` hands the reach assigned into a plain dict, so one repeat resolved to
+# the first row on one side and to the last on the other.
+
+
+SAME_COORDINATE = (
+    "| 🟢 | helper re-read after round 0 | `mod.py#helper` | verified | read |\n"
+)
+THREE_AT_ONE_COORDINATE = (
+    SAME_COORDINATE
+    + OPEN_1
+    + "| ⬜ | round 0's record corrected | `mod.py#helper` | withdrawn | read |\n"
+)
+
+
+def test_the_reach_takes_the_row_the_inherited_table_attributed_it_to(repo):
+    """A1. Round 1 carries `🔴 1 … open` and, below it, an unnumbered
+    confirmation at the SAME coordinate. Round 2's section attributes that
+    coordinate to the first of the two, so the reach has to write the first
+    row's verdict into it.
+
+    Red against the plain assignment: the `Why` cell reads
+    `round 1's 🟢 — verified` — round 1 saying `**fixed**` for finding 1 while
+    round 2 says that coordinate was verified by a row that commissioned
+    nothing, which is #342's disease arriving through the repair for it.
+    """
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(verdicts=OPEN_1 + SAME_COORDINATE))
+    assert code == 0, out
+    commit(repo, "round 1")
+    code, out, _ = generate(repo, n=2, report_text=report(verdicts=ROUND_TWO))
+    assert code in (0, 1), out
+    a = commit(repo, "round 2")
+    assert inherited(repo)["`mod.py#helper`"] == f"round 1's 🔴 1 {chr(0x2014)} open", (
+        "the fixture is not the state this is about: the section has to "
+        "attribute the repeated coordinate to round 1's first row"
+    )
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "the fix")
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    assert "**fixed**" in fields_row(record, "🔴 1"), record
+    why = inherited(repo)["`mod.py#helper`"]
+    assert why == f"round 1's 🔴 1 {chr(0x2014)} fixed", why
+
+
+def test_a_repeated_coordinate_resolves_to_one_row_on_both_sides(repo):
+    """A2. Three verdict rows at one `Location`, the numbered one in the
+    middle, so neither side can agree by accident with a one-row table or by
+    the numbered row happening to sit first.
+
+    What is pinned is not WHICH row wins — it is that the writer of round 2's
+    section and the map `close` hands the reach name the same `#` cell. The
+    picking is not the defect; the disagreement is.
+
+    Red against the plain assignment: the section names `🟢` and the reach
+    overwrites the cell with `round 1's ⬜ — withdrawn`, the last row.
+    """
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(verdicts=THREE_AT_ONE_COORDINATE))
+    assert code == 0, out
+    commit(repo, "round 1")
+    code, out, _ = generate(repo, n=2, report_text=report(verdicts=ROUND_TWO))
+    assert code in (0, 1), out
+    a = commit(repo, "round 2")
+    before = inherited(repo)["`mod.py#helper`"]
+    assert before == f"round 1's 🟢 {chr(0x2014)} verified", (
+        f"the fixture is not the state this is about: {before!r}"
+    )
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "the fix")
+    code, out, _record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    after = inherited(repo)["`mod.py#helper`"]
+    assert after.split(chr(0x2014))[0] == before.split(chr(0x2014))[0], (
+        f"the two sides name different rows of one record: {before!r} then {after!r}"
+    )
+    assert after == f"round 1's 🟢 {chr(0x2014)} verified", after
