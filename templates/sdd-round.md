@@ -395,7 +395,19 @@ reader who looks at it is the fix pass this record is the agenda for. -->
 ## Inherited coordinates
 
 <!-- For N>1: where earlier rounds looked, so this round opens those places
-instead of searching again. Coordinates carry; conclusions do not. -->
+instead of searching again. Coordinates carry; conclusions do not.
+
+**The `Why` cell is filled twice, and the second time is not this command's.**
+`new --round N` writes it from round N-1's verdict cells, which read `open` at
+that moment because a record is committed BEFORE the fixes it commissions.
+`close --round N-1` then reaches forward and brings every row it wrote here to
+the word that round's cell now carries, and prints how many it filled — so two
+records committed together do not state the same finding as open and as fixed.
+
+It refuses rather than guesses: a record here with no readable table, or a row
+naming a coordinate round N-1's verdict table does not hold, stops `close`
+with nothing written. It says nothing at all where round N does not exist,
+which is every ordinary run — the fix pass comes first. -->
 
 | From | Coordinate | Why it is still worth opening |
 |---|---|---|

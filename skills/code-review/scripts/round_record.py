@@ -1482,6 +1482,85 @@ def inherited_rows(reader, earlier):
     return out
 
 
+def reach_forward(reader, rounds, n, rows):
+    """Round N+1's inherited rows for round N, at the words round N's verdict
+    cells now carry. Returns `(path, text, filled)` or None.
+
+    `rows` is `{Location cell: (`#` cell, verdict word)}` for round N as the
+    fix table has just left it — the caller has those in hand, and taking
+    them rather than re-reading the record is what keeps this a pure read of
+    the file it writes.
+
+    **Two records committed together stated the same findings as open and as
+    fixed** (#342). `new --round N+1` writes `## Inherited coordinates` from
+    every earlier record's verdict cells, and at that moment round N's cells
+    read `open`, because a record is committed BEFORE the fixes it commissions
+    (`docs/review-chain-spec.md`'s ordering rule). `close --round N` then
+    writes the words into round N and nothing carried them forward, so the
+    `Why` cell froze at the reviewer's word while the record one file over
+    said `**fixed**`.
+
+    The reach is symmetric with `reach_back` above, which already goes the
+    other way — into round N-1's `Fixes checked by` — and refuses rather than
+    guesses when it cannot act. **Ordering `close --round N` before
+    `new --round N+1` would cost no code and is not the repair**: it makes
+    correctness depend on a spawn order nothing enforces, and the ordering
+    rule requires the record committed before its fixes exist, so both orders
+    are reachable by design.
+
+    Silent where round N+1 does not exist, which is every ordinary run: the
+    fix pass comes first and the verifying round is spawned after it.
+    """
+    path = os.path.join(rounds, f"round-{n + 1}.md")
+    if not os.path.exists(path):
+        return None
+    text = read_text(path, f"later record round-{n + 1}.md")
+    raw, lines = text.splitlines(), reader.readable(text)
+    body = table_body(reader, lines, INHERITED, INHERITED_HEADER, False)
+    if body is None:
+        raise Refused(
+            f"round-{n + 1}.md exists and has no readable `{INHERITED}` table, "
+            f"so the rows this round's verdicts belong in cannot be found. "
+            "Its `Why` cells will go on saying what round "
+            f"{n} said before its fixes; write the section, or remove the "
+            "record if the round has not run; no cell was written"
+        )
+    mine = f"round-{n}"
+    filled = 0
+    for i, cells in body:
+        seen = [reader.visible(c) for c in cells]
+        if len(seen) < len(INHERITED_HEADER) or seen[0].strip() != mine:
+            continue
+        coordinate = seen[1]
+        if coordinate not in rows:
+            raise Refused(
+                f"round-{n + 1}.md inherits `{coordinate}` from {mine}, and "
+                f"round-{n}'s verdict table holds no row with that `Location`. "
+                "The reach-forward sets a `Why` cell from the row it names and "
+                "does not guess which row that is; correct the coordinate; no "
+                "cell was written"
+            )
+        cell_number, word = rows[coordinate]
+        raw[i] = row(
+            (
+                mine,
+                escape(coordinate),
+                escape(f"round {n}'s {cell_number} {DASH} {word}"),
+            )
+        )
+        filled += 1
+    if not filled:
+        raise Refused(
+            f"round-{n + 1}.md's `{INHERITED}` names no row from {mine}, and "
+            f"`new` writes one per `Location` cell of every earlier record. A "
+            f"table with nothing from {mine} in it is one this round's "
+            "verdicts cannot be carried into, so the reach is declined rather "
+            "than a row invented; no cell was written"
+        )
+    ending = "\n" if text.endswith("\n") else ""
+    return path, "\n".join(raw) + ending, filled
+
+
 def reach_back(reader, path, n):
     """Set round N-1's `Fixes checked by` to `round-N`, touching nothing else.
 
@@ -3633,8 +3712,25 @@ def close(args):
             f"<!-- {chain.NEW_UNITS}: {', '.join(heuristic)} {HEURISTIC_NOTE} -->",
         )
 
+    # The forward reach is built BEFORE either write, so its refusals land
+    # where every other refusal in this subcommand does — with nothing on
+    # disk changed. Round N's own write goes first, because round N+1's rows
+    # are only true once it has landed.
+    location = VERDICT_HEADER.index("Location")
+    number = VERDICT_HEADER.index("#")
+    now = {}
+    for (i, _cells), word in zip(rows.values(), words, strict=True):
+        seen = [
+            reader.visible(c) for c in row_cells(reader, raw[i], len(VERDICT_HEADER))
+        ]
+        if len(seen) > location and seen[location]:
+            now[seen[location]] = (seen[number], word)
+    forward = reach_forward(reader, rounds, args.round, now)
+
     ending = "\n" if text.endswith("\n") else ""
     write_record(reader, target, "\n".join(raw) + ending)
+    if forward is not None:
+        write_record(reader, forward[0], forward[1])
     counts = {
         w: sum(1 for word, _, _ in fixes.values() if word == w)
         for w in (FIXED, ANSWERED, DEFERRED_WORD)
@@ -3646,6 +3742,12 @@ def close(args):
         + (
             f"; {chain.CHECKED_BY} | {checker}"
             if checker in (chain.NO_FIXES, WRITTEN_CHECKER)
+            else ""
+        )
+        + (
+            f"; {INHERITED} of round-{args.round + 1}.md | {forward[2]} row"
+            f"{'s' if forward[2] > 1 else ''} filled"
+            if forward is not None
             else ""
         )
     )

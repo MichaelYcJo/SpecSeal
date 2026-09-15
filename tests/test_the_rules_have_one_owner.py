@@ -326,6 +326,21 @@ def test_the_depth_refusal_attributes_per_finding_and_says_when_it_cannot():
     )
 
 
+def test_the_inherited_rows_say_who_fills_them_the_second_time():
+    """#342. The `Why` cell is written twice and by two commands, and the
+    second one is not the command that owns the section — so the template
+    that describes the section has to say it, or a reader meeting a cell that
+    changed after `new` wrote it has nowhere to look.
+
+    The refusals are named with it: a reach that stops `close` is behaviour a
+    person is stopped by.
+    """
+    template = flat(*TEMPLATE)
+    assert "The `Why` cell is filled twice, and the second time is not this" in template
+    assert "It refuses rather than guesses" in template
+    assert "It says nothing at all where round N does not exist" in template
+
+
 def test_a_repair_made_outside_the_tree_has_a_verdict_the_owner_names():
     """#321's comment. `fixed` demands a commit in the fix range, and a
     repair made by editing a ticket or a pull request body has none — so the

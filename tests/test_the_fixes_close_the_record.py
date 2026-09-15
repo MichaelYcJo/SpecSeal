@@ -1599,3 +1599,139 @@ def test_a_span_pipe_in_a_closed_row_does_not_leave_pass_unchecked(repo):
     )
     assert code in (0, 1), out
     assert "- [x] Pass" in record, record
+
+
+# --- the reach forward: round N's words carried into round N+1's rows ---------
+
+
+ROUND_TWO = "| 🟡 1 | the guard needs a case | `mod.py#only_tested` | open | read |\n"
+
+
+def two_records(repo):
+    """Round 1 and round 2 both generated and committed, in the order the
+    chain writes them: a record lands BEFORE the fixes it commissions, so
+    round 2's `## Inherited coordinates` carries round 1's findings at the
+    word the reviewer wrote. Returns round 2's commit."""
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(verdicts=OPEN_1))
+    assert code == 0, out
+    commit(repo, "round 1")
+    code, out, _ = generate(repo, n=2, report_text=report(verdicts=ROUND_TWO))
+    assert code in (0, 1), out
+    return commit(repo, "round 2")
+
+
+def inherited(repo, n=2):
+    """{coordinate: why} for round N's `## Inherited coordinates` rows."""
+    text = read(repo / ROUNDS / f"round-{n}.md")
+    out = {}
+    for line in rows_of(text, "## Inherited coordinates")[2:]:
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) >= 3:
+            out[cells[1]] = cells[2]
+    return out
+
+
+def test_two_records_committed_together_do_not_contradict_each_other(repo):
+    """#342, and S8. `new --round 2` writes the inherited rows from round 1's
+    verdict cells, which read `open` at that moment because a record is
+    committed BEFORE the fixes it commissions. `close --round 1` then wrote
+    the words into round 1 and nothing carried them forward, so the two
+    records stated the same finding as open and as fixed.
+
+    Red against the tree before this: the `Why` cell stays at `open` while
+    round 1's own verdict cell reads `**fixed**`.
+    """
+    a = two_records(repo)
+    assert inherited(repo)["`mod.py#helper`"].endswith("open"), (
+        "the fixture is not the state this is about"
+    )
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "the fix")
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    assert "**fixed**" in fields_row(record, "🔴 1"), record
+    why = inherited(repo)["`mod.py#helper`"]
+    assert why == f"round 1's 🔴 1 {chr(0x2014)} fixed", why
+    # Printed the way the fix surface is, so an orchestrator reading stdout
+    # sees the second file was written.
+    assert "Inherited coordinates of round-2.md | 1 row filled" in out, out
+
+
+def fields_row(record, number):
+    """The verdict row whose `#` cell reads `number`."""
+    for line in rows_of(record, "## Verdicts")[2:]:
+        if line.strip("|").split("|")[0].strip() == number:
+            return line
+    raise AssertionError(f"no verdict row numbered {number!r}:\n{record}")
+
+
+def test_the_reach_forward_says_nothing_where_the_next_round_does_not_exist(repo):
+    """Every ordinary run: the fix pass comes first and the verifying round is
+    spawned after it. A reach that refused here would stop the run it is meant
+    to keep truthful."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "the fix")
+    _code, out, _record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    # The exit code is `chain_check`'s verdict on a one-record run whose fixes
+    # no later round has read, which is a different question and has its own
+    # cases. What this pins is that `close` wrote its record and the reach
+    # said nothing.
+    assert "round-record: closed" in out, out
+    assert "no cell was written" not in out, out
+    assert "Inherited coordinates" not in out, out
+
+
+def test_the_reach_forward_refuses_a_next_record_with_no_inherited_table(repo):
+    """It refuses rather than guesses. A record whose `## Inherited
+    coordinates` cannot be read is one whose `Why` cells will go on saying
+    what round 1 said before its fixes, and there is no honest place to put
+    the words."""
+    a = two_records(repo)
+    path = repo / ROUNDS / "round-2.md"
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text.replace("## Inherited coordinates", "## Coordinates inherited"),
+        encoding="utf-8",
+    )
+    b = commit(repo, "the section renamed by hand")
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "the fix")
+    before = (repo / ROUNDS / "round-1.md").read_text(encoding="utf-8")
+    code, out, _record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 2, out
+    assert "no readable `## Inherited coordinates` table" in out, out
+    assert "no cell was written" in out, out
+    assert (repo / ROUNDS / "round-1.md").read_text(encoding="utf-8") == before, (
+        "round 1 was written under a refusal"
+    )
+
+
+def test_the_reach_forward_refuses_a_coordinate_the_verdict_table_lacks(repo):
+    """The other refusal: a row inherited from round 1 whose coordinate round
+    1's verdict table does not hold. The reach sets a `Why` cell from the row
+    it names, and there is no row to name — so it declines rather than
+    picking one."""
+    a = two_records(repo)
+    path = repo / ROUNDS / "round-2.md"
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text.replace("| round-1 | `mod.py#helper` |", "| round-1 | `mod.py#absent` |"),
+        encoding="utf-8",
+    )
+    commit(repo, "the coordinate edited by hand")
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "the fix")
+    code, out, _record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 2, out
+    assert "`mod.py#absent`" in out and "holds no row with that `Location`" in out, out
+    assert "no cell was written" in out, out
