@@ -7,7 +7,15 @@ work item REBUILDS a seam that was reverted, so the wording it removes is
 wording the released 0.11.4 correctly describes as absent.
 
 Each row quotes the standing text, so the exemption stops holding the moment
-that text changes. -->
+that text changes.
+
+**Re-run over the whole branch at the close of phase 6 and it reports none.**
+`survivor-check --range aa3000d..HEAD` at `25a2639`: 989 files examined against
+102 removed sentences, *no removed wording is still standing*. The four rows
+below are kept rather than deleted, because they record what the range looked
+like when it was measured and because the range is re-resolved on every run —
+a later phase's edits are what put those four out of reach, not a repair to
+any of them. -->
 
 | Path | Quote | Grounds |
 |---|---|---|
