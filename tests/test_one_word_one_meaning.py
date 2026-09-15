@@ -412,3 +412,34 @@ def test_folding_the_seam_cannot_hide_an_instance_it_would_have_found():
         'raise Refused("the seal is taken once")',
     ):
         assert "the seal" in LITERAL_SEAM.sub("", source), source
+
+
+def test_flat_is_what_folds_the_seam_and_it_folds_python_only():
+    """The two cases above call `LITERAL_SEAM.sub` and neither calls `flat`,
+    so nothing in this module held the repair round 1's 🟡 2 asked for.
+    Round 2 measured it: with `flat` back to `" ".join(read(*parts).split())`
+    all seventeen cases here stay green and 🟡 2 is open again with the suite
+    saying nothing — which is #406's hole with a different lid on it, and the
+    third time on this branch that a repair for *a check that cannot fail*
+    was itself held by nothing.
+
+    Red with the fold removed: the first assertion fails, because the source
+    reads `... cannot see. The " "sealer's mark ...`.
+    Red with the `.py` guard dropped: the third fails, because `README.md` is
+    a swept file carrying a shell command whose two quoted arguments are not
+    a seam and would be cut together.
+    """
+    joined = "The sealer's mark names a commit"
+    assert joined in flat("skills", "code-review", "scripts", "round_record.py"), (
+        "`flat` no longer reads across a string-literal seam, so the sweep "
+        "below is blind to an instance split over two literals again"
+    )
+    # The fixture, asserted: this pins that the seam is really there, so the
+    # case cannot go on passing against a source somebody has rewrapped.
+    assert joined not in " ".join(
+        read("skills", "code-review", "scripts", "round_record.py").split()
+    ), "the seam this pins has been rewrapped; point it at another one"
+    assert '--git-common-dir)/seal" "$(git' in flat("README.md"), (
+        "`flat` folded a markdown file, which has no literals to join — the "
+        "cut lands inside a shell command a reader copies"
+    )
