@@ -105,3 +105,115 @@ re-reading the rows before running the gate rather than after.
 reviewer's report that writes confirmations and corrections without 🟢 or ⬜
 has to be repaired by hand before the record will write. Say so in the spawn
 prompt; this session did from round 2 onward and it did not recur.
+
+## Phase 6 was built and verified, then reverted — do not rediscover it
+
+The stop arrived after phase 6 was finished and both its red-first mutations
+had run. It was reverted rather than committed, because the owner had excluded
+it. What it measured is below so that nobody pays for it twice; the diff is
+what was reverted, not what shipped, and it has to be re-run before it is
+trusted.
+
+**#407's vacuity, reproduced as an executed fact.** With the `New units`
+pattern broken so the substitution misses, and with neither the fixture guard
+nor a positive assertion present,
+`test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one` **passes
+green** — 1 passed, exit 0. Both of its negatives hold because `depth_two`
+returns at its own guard.
+
+**The class is five `re.sub` sites and one of them is already guarded.**
+`two_rounds` (`:1182`), `two_findings_inside_two_earlier_units` (`:1281`) and
+`one_finding_inside_one_earlier_unit` (`:1389`) in the close module;
+`test_a_previous_record_whose_checker_cell_does_not_parse_is_refused`
+(`:1446`) and `test_the_two_record_run_reads_back_through_chain_check`
+(`:1477`) in the generator module. The fourth already asserts its substitution
+landed, which is the house shape #407 says the author knew. Phases 1–5 planted
+no new `re.sub`.
+
+**The positive assertion that discriminates.** Nothing in `close`'s own output
+differs between *the walk judged depth 1* and *the walk returned at its guard*
+— `New units | beta_guard (depth 1)` is written by `measure` either way, which
+is why the assertion already in the case is not the one #407 asks for. What is
+false in exactly the guard state is round 1's own `New units` cell, read back
+from disk.
+
+**Both mutations ran.** Breaking the pattern turned the fixture's own guard red.
+Overwriting round 1's `New units` to `none` **after the fixture returns** — so
+the fixture guard passes — turned the positive assertion red while both
+negatives still held. That second mutation has to be applied inside the case
+and not in the fixture, or the fixture guard fires first and proves nothing
+about the case.
+
+With all five guards and the positive assertion in place:
+`bin/test tests/test_the_fixes_close_the_record.py
+tests/test_the_record_is_generated.py -q` → 201 passed, exit 0.
+
+```diff
+--- a/tests/test_the_fixes_close_the_record.py
++++ b/tests/test_the_fixes_close_the_record.py
+@@ two_rounds, after the re.sub
++    assert fields(text)["New units"] == "helper (depth 1)", (
++        "the substitution missed, so round 1 names no unit and `depth_two` "
++        "returns at its guard: the case this feeds would pass for a reason "
++        "that has nothing to do with the finding (#407)"
++    )
+@@ two_findings_inside_two_earlier_units, after the re.sub
++    assert fields(text)["New units"] == "alpha (depth 1); beta (depth 1)", (
++        "the substitution missed, so round 1 names no unit and `depth_two` "
++        "returns at its guard (#407)"
++    )
+@@ one_finding_inside_one_earlier_unit, after the re.sub
++    assert fields(text)["New units"] == "alpha (depth 1)", (
++        "the substitution missed, so round 1 names no unit and `depth_two` "
++        "returns at its guard (#407)"
++    )
+@@ test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one,
+@@ after the two negatives
++    # THE POSITIVE ASSERTION, beside the two negatives above (#407). Both of
++    # them hold when `depth_two` returns at its own guard -- round 1 naming no
++    # unit at all -- which is a state that has nothing to do with the finding
++    # this case is named for. This is false in exactly that state, so the two
++    # negatives stop being the whole of what the case claims.
++    assert fields(read(repo / ROUNDS / "round-1.md"))["New units"] == (
++        "alpha (depth 1)"
++    ), (
++        "round 1 names no unit, so `depth_two` returned at its guard and the "
++        "two negatives above hold for a reason other than the judgment"
++    )
+
+--- a/tests/test_the_record_is_generated.py
++++ b/tests/test_the_record_is_generated.py
+@@ test_the_two_record_run_reads_back_through_chain_check, before path.write_text
++    assert "| open |" not in text and fields(text)["New units"] == "none", (
++        "a substitution missed, so round 1 is not the closed record this "
++        "reads back (#407's class)"
++    )
+```
+
+## Phase 7 — two divergences are already waiting for `overview.md`
+
+`overview.md` opens at the first divergence and it was not opened, because it
+is phase 7's deliverable. Two rows are owed to it and both were found while
+building phases 1–5:
+
+- **`plan.md` §Operational impact overstates phase 2's break.** It says a table
+  *edited or truncated since `new` wrote it* now exits 2. What shipped is
+  narrower: a table that lost rows **and** names no row from round N at all. A
+  table that lost some rows and kept one of round N's still passes — traded away
+  on purpose by Q3's own rule, and the two corpus pairs that sit in that gap are
+  named in `phases/phase-2.md`.
+- **`spec.md` A7 cannot hold as written.** It asks for a 🟢 row quoting a 🔴
+  *whose verdict is closed* to be silent and calls that red against the
+  whole-row join. The join also requires the verdict to be open, so a closed
+  verdict was already silent and no fixture of that shape can be red. What is
+  red against the join is the same row reading `verified`. The built reading
+  follows that, with a second case carrying the closed-verdict half as the
+  silence it actually is.
+
+The corpus measurements `overview.md` has to carry are already written in
+`questions.md` Q3, Q4 and Q5 and in `phases/phase-2.md` and `phase-3.md`, with
+their populations and dates. Copy them from there rather than re-deriving them.
+
+**Phase 4 is a message split, not a predicate narrowing** — the set of refused
+rows is unchanged, and two neighbouring cases say why it could not widen. Worth
+knowing before reading the diff and concluding otherwise.
