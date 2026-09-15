@@ -2104,3 +2104,83 @@ def test_a_section_that_accounts_for_the_coordinates_under_an_earlier_round_is_s
     assert code == 0, out
     assert "does not account for" not in out, out
     assert "no cell was written" not in out, out
+
+
+# --- the stray period the cut leaves behind, at both sites -------------------
+#
+# #414. `chain.SEPARATORS` is six characters wide and holds no period, so a span
+# cut out of a cell that opens `` `6233b769`. `` leaves the stop behind.
+# Nine cells were repaired BY HAND once and the next record the generator wrote
+# carried the rendering again -- §12 as a measurement rather than a rule.
+
+
+def test_a_fix_note_carries_no_stray_period(repo):
+    """A6. The third cell opens with the commit's own code span and a full
+    stop. The rendered Grounds cell has to read `fixed at <sha> — <note>`
+    with one separator between the dash and the note.
+
+    The whole cell is asserted rather than the absence of a period, so the
+    case cannot pass on a cell the fixture failed to build. Red against the
+    un-widened strip: `fixed at <sha> — . <note>`.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    _code, out, record = close(
+        repo,
+        1,
+        fix_table(f"| 1 | fixed | `{b[:7]}`. `helper` takes b now |\n"),
+        f"{a}..{b}",
+    )
+    assert "bare integer" not in out, out
+    (one,) = verdict_cells(record)
+    assert one[4] == f"fixed at {b[:7]} \N{EM DASH} `helper` takes b now; executed", (
+        one,
+        out,
+    )
+
+
+def test_a_deferred_note_carries_no_stray_period(repo):
+    """The second member of the same class, and the one #414's report did not
+    name. `rest = third[len(home):]` is the same shape as the commit span's
+    cut — a span the generator chose, taken off the front of a cell somebody
+    wrote — so `| 1 | deferred #309 | #309. the parity arm … |` rendered
+    `#309 — . the parity arm …`.
+
+    Red against the un-widened strip at that line, which the fix-table note's
+    own widening does not reach.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, record = close(
+        repo,
+        1,
+        fix_table("| 1 | deferred #309 | #309. the parity arm is out of scope |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[4] == ("#309 \N{EM DASH} the parity arm is out of scope; executed"), (
+        one,
+        out,
+    )
+
+
+def test_the_stray_period_repair_did_not_widen_the_shared_separators():
+    """#414's chosen direction, held where the empty-span repair's is. Five
+    readers share `chain.SEPARATORS`: a period in it would be stripped from a
+    `deferred` home, from `chain_check`'s own cell readers and from a
+    `nobody — <why>` reason, where a trailing period is part of a sentence
+    rather than decoration. The widening is at the two call sites that cut a
+    span out of a cell, and this is what says it stayed there.
+    """
+    generator = generator_module()
+    assert "." not in generator.chain.SEPARATORS, (
+        "the period moved into the shared constant the call sites reserve"
+    )
+    body = open(generator.__file__, encoding="utf-8").read()
+    body = body.split("def fix_table", 1)[1].split("\ndef ", 1)[0]
+    assert body.count('chain.SEPARATORS + "."') == 2, (
+        "the two cuts that take a span off a cell are what carry the period"
+    )

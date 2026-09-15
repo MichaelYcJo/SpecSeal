@@ -3156,10 +3156,20 @@ def fix_table(reader, path):
             # measured 2026-09-14). Widened HERE and not in
             # `chain.SEPARATORS`, which the `deferred` home reader below and
             # `chain_check`'s own readers share.
+            # `chain.SEPARATORS` is six characters wide and holds no period, so a cell
+            # opening `` `6233b769`. `` left the stop behind and the row
+            # rendered `fixed at 6233b769 — . <note>` (#414). Nine such cells
+            # were repaired BY HAND once and the next record the generator
+            # wrote carried the rendering again, which is §12's rule as a
+            # measurement: the fix is owed to the cause, not to the cells.
+            # The period is added HERE for the reason the paragraph above
+            # gives -- five readers share the constant, and a trailing period
+            # in a `deferred` home or in a `nobody — <why>` reason is part of
+            # a sentence rather than decoration.
             start, end = sha.start(), sha.end()
             if start and third[start - 1] == "`" and third[end : end + 1] == "`":
                 start, end = start - 1, end + 1
-            note = (third[:start] + third[end:]).strip(chain.SEPARATORS)
+            note = (third[:start] + third[end:]).strip(chain.SEPARATORS + ".")
             out[number] = (FIXED, sha.group(), note)
         elif word == ANSWERED:
             if not third:
@@ -3196,8 +3206,19 @@ def fix_table(reader, path):
             # which printed `#309 -- #309 -- the parity arm ...`: a smaller
             # version of the same noise in the cell #391 exists to make
             # readable (round 1's finding 4).
+            # The SECOND member of #414's class, and the one its own report
+            # did not name. This cut is the same shape as the commit span's
+            # above -- a span chosen by the generator taken off the front of a
+            # cell somebody wrote -- so a third cell reading `#309. the parity
+            # arm is out of scope` left the stop behind and the row rendered
+            # `#309 — . the parity arm is out of scope`. Executed 2026-09-15
+            # through this function before the widening. Enumerated rather
+            # than assumed: the module's three other `chain.SEPARATORS` strips
+            # read a whole cell, or a remainder whose first character the arm
+            # above it already tested to be a separator, so none of them can
+            # leave a stop behind.
             rest = third[len(home) :] if third.startswith(home) else third
-            out[number] = (DEFERRED_WORD, home, rest.strip(chain.SEPARATORS))
+            out[number] = (DEFERRED_WORD, home, rest.strip(chain.SEPARATORS + "."))
         elif any(
             word.startswith(w) and word[len(w)] in chain.SEPARATORS
             for w in (FIXED, ANSWERED)
