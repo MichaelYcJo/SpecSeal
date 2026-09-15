@@ -1302,9 +1302,16 @@ def test_the_refusal_says_which_value_the_last_record_may_hold(repo):
     agent, and what the exit sentence now says. The sweep that owns the rule
     skips a hit whose next character is a letter, and its `SEAL_SWEPT` lists
     `skills/code-review/scripts/round_record.py`, the module this refusal
-    lives in. So nothing is uncovered by the deletion: what went is a second,
-    stricter reading of one rule, held by the check that is not the rule's
-    owner. The two positive pins above stay, which is what keeps §14's
+    lives in. What went is a second, stricter reading of one rule, held by the
+    check that is not the rule's owner.
+
+    **The deletion did lose one shape, and round 1's 🟡 2 measured it.** The
+    sweep reads that module's flattened SOURCE while this assertion read the
+    run's OUTPUT, and Python joins adjacent string literals where a flattened
+    read does not — so an anonymous instance split across two literals was
+    invisible to the sweep and plain in the refusal. `flat` folds that seam
+    now, which restores the coverage inside the one check rather than by
+    bringing this assertion back. The two positive pins above stay, which is what keeps §14's
     requirement on this refusal's text met inside the module a reader of it
     opens.
     """

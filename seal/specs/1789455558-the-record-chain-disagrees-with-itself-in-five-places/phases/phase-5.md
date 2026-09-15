@@ -28,6 +28,16 @@ deleted pin is holding the rule.
 `tests/`, `skills/`, `agents/` and `docs/` returns the one occurrence the
 issue named and nothing else.
 
+<!-- CORRECTED by round 1's 🟡 2, 2026-09-16. The claim in this paragraph is
+false as written and the paragraph is left standing, because a phase record states what
+was true when it was written. The sweep reads flattened SOURCE and the deleted
+assertion read the run's OUTPUT; Python joins adjacent string literals where a
+flattened read does not, so an anonymous instance split across two literals was
+invisible to the sweep. Round 1 kept the pinned spelling, added such an
+instance, and both modules stayed green. `flat` folds the literal seam now
+(`20359325`), which restores the coverage inside the one check — and found a live
+instance in `round_record.py` the moment it could see one. -->
+
 **The deletion loses no coverage, and the reason is a fact this phase opened
 rather than took from the issue.** `SEAL_SWEPT` in
 `tests/test_one_word_one_meaning.py` lists
