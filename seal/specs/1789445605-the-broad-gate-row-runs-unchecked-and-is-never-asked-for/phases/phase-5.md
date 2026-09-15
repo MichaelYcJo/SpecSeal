@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 5 |
-| Commit | <filled by the commit that closes this phase> |
+| Commit | 2134a59f, plus this cell and `plan.md`'s Status row at the commit below — a phase record cannot carry its own hash |
 | Ran by | specseal:smith on claude-opus-5[1m] |
 
 ## What this phase was asked
