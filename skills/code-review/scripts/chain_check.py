@@ -1524,12 +1524,24 @@ def open_row_reason(what, verdict, blocking):
       blocking   the `#` cell carries 🔴 and the verdict does not close it.
                  The finding itself is what stands.
       otherwise  a 🔴 the row QUOTES rather than carries, beside a verdict
-                 word the vocabulary does not hold. What stands is the word.
+                 that does not close the row. TWO things put it here and the
+                 message names both, because either one is a way out.
 
-    The second arm names the word and the vocabulary and **says nothing about
-    🔴**, because the 🔴 in such a row belongs to a round that is over, and
-    sending a reader to look for a blocking finding that is not there is the
-    cost this arm exists to stop paying.
+    The second arm **says nothing about 🔴**, because the 🔴 in such a row
+    belongs to a round that is over, and sending a reader to look for a
+    blocking finding that is not there is the cost this arm exists to stop
+    paying.
+
+    **It does not say the verdict word is outside a vocabulary, and that is
+    round 1's 🟡 1.** The split is keyed on the `#` cell while the SELECTION
+    is still a 🔴 anywhere in the row, so this arm fires on rows it was not
+    naming: `open` reaches it — the word `agents/warden.md` prescribes, which
+    the first arm above prints back as `` this 🔴 row reads `open` `` — and
+    one word got two explanations in one run. The rule it stated was not the
+    rule this file holds either: a 🟢 row reading `verified` that quotes no
+    🔴 is not selected at all, so the same word passes one row and is refused
+    the next. What differs is the quote, which is why the quote is named
+    first.
     """
     if blocking:
         return (
@@ -1539,12 +1551,13 @@ def open_row_reason(what, verdict, blocking):
         )
     named = ", ".join(f"`{word}`" for word in sorted(CLOSED_WORDS))
     return (
-        f"`Pass` is checked, and this row's verdict reads "
-        f"`{verdict or 'empty'}`, which is outside the vocabulary — {named}. "
-        "Nothing here says the finding was closed, and an unrecognised "
-        "verdict counted as closed is the tolerant read this file exists to "
-        "refuse. Write one of those words, or leave `Pass` unchecked: "
-        f"{what}"
+        "`Pass` is checked, and this row is read as open because one of its "
+        "cells quotes a blocking finding an earlier round opened, while its "
+        f"own verdict reads `{verdict or 'empty'}` — not one of the words "
+        f"that close a row: {named}. Nothing here says the finding was "
+        "closed, and an unrecognised verdict counted as closed is the "
+        "tolerant read this file exists to refuse. Write one of those words, "
+        f"drop the quote, or leave `Pass` unchecked: {what}"
     )
 
 

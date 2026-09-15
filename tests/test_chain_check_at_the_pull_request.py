@@ -1948,6 +1948,9 @@ QUOTES_AN_EARLIER_BLOCKER = (
     "round 1 opened this as 🔴 2 and its fix closed it |\n"
 )
 BLOCKING_SENTENCE = "a blocking finding that is not fixed, answered or withdrawn"
+# What the second arm says instead, and the phrase every case below finds its
+# line by. It names the QUOTE, which is half of what selected the row.
+QUOTED_SENTENCE = "quotes a blocking finding an earlier round opened"
 
 
 def confirmation(repo, verdict):
@@ -1972,11 +1975,11 @@ def confirmation(repo, verdict):
 def test_a_confirmation_quoting_an_earlier_blocker_is_not_called_a_blocking_finding(
     repo,
 ):
-    """A7. The row is still refused — `verified` is outside `CLOSED_WORDS`,
-    and an unrecognised verdict counting as closed is the tolerant read this
-    file exists to refuse. What must not happen is the refusal calling it a
-    🔴 row, because the reader then goes looking for a blocking finding that
-    belongs to a round that is over.
+    """A7. The row is still refused — two things put it here, its quote of an
+    earlier 🔴 and a verdict that closes nothing, and either is a way out.
+    What must not happen is the refusal calling it a 🔴 row, because the
+    reader then goes looking for a blocking finding that belongs to a round
+    that is over.
 
     Red against the whole-row join: the refusal reads *this 🔴 row reads
     `verified` — a blocking finding…* about a row whose `#` cell is 🟢.
@@ -1987,8 +1990,8 @@ def test_a_confirmation_quoting_an_earlier_blocker_is_not_called_a_blocking_find
         "a row whose `#` cell reads 🟢 is announced as a blocking finding",
         out,
     )
-    assert "outside the vocabulary" in out, out
-    (line,) = [ln for ln in out.splitlines() if "outside the vocabulary" in ln]
+    assert QUOTED_SENTENCE in out, out
+    (line,) = [ln for ln in out.splitlines() if QUOTED_SENTENCE in ln]
     assert "\N{LARGE RED CIRCLE}" not in line, (
         "the arm for a row that only QUOTES a 🔴 still names one",
         line,
@@ -1997,27 +2000,45 @@ def test_a_confirmation_quoting_an_earlier_blocker_is_not_called_a_blocking_find
 
 def test_an_unrecognised_verdict_is_refused_by_its_own_name(repo):
     """A8, and §14: the sentence a reader is stopped by. It has to name the
-    verdict word, because that is what has to change, and the vocabulary,
-    because the reader who is stopped is the one choosing the replacement.
+    verdict word, because that is one of the two things that can change, and
+    the words that would close the row, because the reader who is stopped is
+    the one choosing the replacement.
+
+    **And it has to name the quote**, which is the other half of what put the
+    row here (round 1's 🟡 1). A message that names one way out while
+    asserting a general rule about the other is #408's own complaint moved
+    one cell over.
     """
     code, out = confirmation(repo, "verified")
     assert code == 1, out
-    assert "outside the vocabulary" in out, out
-    (line,) = [ln for ln in out.splitlines() if "outside the vocabulary" in ln]
+    assert QUOTED_SENTENCE in out, out
+    (line,) = [ln for ln in out.splitlines() if QUOTED_SENTENCE in ln]
     assert "`verified`" in line, line
     for word in ("`fixed`", "`answered`", "`withdrawn`", "`not a defect`"):
         assert word in line, (word, line)
+    assert "drop the quote" in line, line
     assert "leave `Pass` unchecked" in line, line
+    assert "outside the vocabulary" not in line, (
+        "the arm still says the word is outside a vocabulary this file does "
+        "not enforce one row over",
+        line,
+    )
 
 
 def test_a_row_the_vocabulary_closes_is_silent_even_while_it_quotes_a_blocker(repo):
     """The other direction. The same row with `answered` in its verdict cell
-    says nothing at all — the quote is not what selects a row, and it never
-    was; what selects it is a verdict the vocabulary does not close.
+    says nothing at all: the quote and a non-closing verdict are BOTH needed
+    to select a row, so closing the verdict is enough to let it through.
+
+    The docstring here used to read *the quote is not what selects a row, and
+    it never was*, which is false and is half of round 1's 🟡 1 — the
+    selection is `BLOCKING in "".join(seen)` and the quote is what satisfies
+    it. `test_a_row_reading_open_is_not_told_its_word_is_unrecognised` below
+    holds the other half.
     """
     code, out = confirmation(repo, "answered")
     assert code == 0, out
-    assert "outside the vocabulary" not in out, out
+    assert QUOTED_SENTENCE not in out, out
     assert BLOCKING_SENTENCE not in out, out
 
 
@@ -2035,4 +2056,88 @@ def test_a_row_that_carries_a_blocker_keeps_the_blocking_sentence(repo):
     assert code == 1, out
     (line,) = [ln for ln in out.splitlines() if BLOCKING_SENTENCE in ln]
     assert "\N{LARGE RED CIRCLE} row reads `open`" in line, line
-    assert "outside the vocabulary" not in line, line
+    assert QUOTED_SENTENCE not in line, line
+
+
+# --- the word `open` is not an unrecognised verdict (round 1's 🟡 1) ---------
+#
+# The split #408 added is keyed on the `#` cell while the SELECTION is still a
+# 🔴 anywhere in the row, so the second arm fires on rows it was not naming.
+# `open` is the word `agents/warden.md` prescribes, and the first arm prints it
+# back as `this 🔴 row reads `open``.
+
+OPEN_ROW_QUOTING_A_BLOCKER = (
+    "| 🟡 3 | the guard needs a case | `f.py:3` | open | "
+    "round 1 opened this as 🔴 2 and the fix closed it |\n"
+)
+
+
+def test_a_row_reading_open_is_not_told_its_word_is_unrecognised(repo):
+    """`open` is the word `agents/warden.md` prescribes for a finding a round
+    opened, and the first arm of this same function prints it back as
+    `` this 🔴 row reads `open` ``. The second arm must not tell the author
+    the word is outside any vocabulary — what selected this row is the quote.
+
+    The fixture is `test_a_checked_pass_beside_an_open_NON_blocking_finding_passes`'s
+    row with one thing added: the quote of an earlier round's 🔴 that a
+    verifying round is asked to write. That alone flips the row from pass to
+    refusal, which is why the refusal has to name it.
+
+    Red against the arm as written: *…reads `open`, which is outside the
+    vocabulary…* on a row whose `#` cell reads 🟡.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        record(
+            sha,
+            passed=True,
+            verdict="fixed",
+            finding="🟢 1",
+            extra=OPEN_ROW_QUOTING_A_BLOCKER,
+        ),
+    )
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 1, out
+    assert QUOTED_SENTENCE in out, out
+    (line,) = [ln for ln in out.splitlines() if QUOTED_SENTENCE in ln]
+    assert "outside the vocabulary" not in line, (
+        "`open` is told it is outside a vocabulary, and the first arm of the "
+        "same function prints the same word back as a blocking finding",
+        line,
+    )
+    assert "`open`" in line, line
+    assert "drop the quote" in line, line
+    assert "\N{LARGE RED CIRCLE}" not in line, line
+
+
+def test_the_same_open_row_without_the_quote_is_a_pass(repo):
+    """The control, and it is what makes the case above about the quote. The
+    identical 🟡 row with an ordinary Grounds cell is not refused at all —
+    `test_a_checked_pass_beside_an_open_NON_blocking_finding_passes` pins that
+    for the one-row record, and this pins it beside a second row so the two
+    differ in the quote and nothing else.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        record(
+            sha,
+            passed=True,
+            verdict="fixed",
+            finding="🟢 1",
+            extra=OPEN_ROW_QUOTING_A_BLOCKER.replace(
+                "round 1 opened this as 🔴 2 and the fix closed it", "read only"
+            ),
+        ),
+    )
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 0, out
+    assert QUOTED_SENTENCE not in out, out
+    assert BLOCKING_SENTENCE not in out, out
