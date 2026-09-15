@@ -20,6 +20,7 @@ stashed (§15). Git is driven from Python (§8).
 
 import importlib.util
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -403,15 +404,126 @@ def test_a_capped_run_has_a_legal_end(repo):
 # --- this repository's own records, under the new arm -------------------------
 
 
-def _real_records():
+# A record's path, spelled once and matched whole. Git's pathspec globbing
+# lets `*` cross a slash, so `seal/specs/*/rounds/round-*.md` handed to git is
+# wider than it looks; the listing is taken over `seal/specs` and narrowed
+# here, where `fullmatch` means what the pattern says.
+RECORD_PATH_RE = re.compile(r"seal/specs/[^/]+/rounds/round-[^/]*\.md")
+
+
+def _real_records(root=ROOT):
+    """Every `seal/specs/*/rounds/round-*.md` git carries at HEAD.
+
+    `git ls-tree HEAD` and not `git ls-files`: `stopping_floor` below takes
+    its content from HEAD, so a record staged and not committed was listed
+    here, found to have no content there, and silently skipped — the walk
+    reporting nothing about a record it had just listed (#142). The twin of
+    this function in `tests/test_chain_check_at_the_pull_request.py` carries
+    the same repair; §12, and the class is three readers wide.
+    """
     out = subprocess.run(
-        ["git", "-C", ROOT, "ls-files", "-z", "--", "seal/specs/*/rounds/round-*.md"],
+        [
+            "git",
+            "-C",
+            str(root),
+            "ls-tree",
+            "-r",
+            "-z",
+            "--name-only",
+            "HEAD",
+            "--",
+            "seal/specs",
+        ],
         capture_output=True,
         encoding="utf-8",
         errors="replace",
         check=True,
     ).stdout
-    return sorted(p for p in out.split("\0") if p)
+    return sorted(p for p in out.split("\0") if RECORD_PATH_RE.fullmatch(p))
+
+
+def _numbered(routing, records):
+    """The RECORDS among `records`, by name.
+
+    `round-*.md` is the shape of four files: the review chain writes
+    `round-N-report.md`, `round-N-asked.md` and `round-N-fixes.md` beside the
+    record. `routing.round_number` answers `None` for those, and it is the one
+    place the naming rule lives. Two `None`s in one work item also used to
+    make the sort below raise `TypeError` rather than fail an assertion.
+    """
+    return [r for r in records if routing.round_number(os.path.basename(r)) is not None]
+
+
+def _capped_failures(chain, reader, routing, root, records):
+    """The reopening walk's refusals over `records`.
+
+    Extracted so the positive control below runs THE SAME loop over a record
+    sequence known to be refused. An assertion on this list cannot tell an
+    empty list from a loop that collected nothing (#142).
+    """
+    by_item = {}
+    for rel in records:
+        by_item.setdefault(rel.rsplit("/rounds/", 1)[0], []).append(rel)
+    failures = []
+    for rels in by_item.values():
+        ordered = sorted(rels, key=lambda r: routing.round_number(os.path.basename(r)))
+        for index, rel in enumerate(ordered):
+            errors, _ = chain.stopping_floor(reader, root, rel, ordered[index + 1 :])
+            failures.extend(e for e in errors if CAPPED in e[2])
+    return failures
+
+
+def test_the_real_records_lister_reads_head_and_not_the_index(repo):
+    """#142, the twin of the case in
+    `tests/test_chain_check_at_the_pull_request.py`. The lister said HEAD and
+    called `git ls-files`, which reads the INDEX — so a record staged and not
+    committed was listed here and had no content at HEAD, which
+    `stopping_floor` answers with `([], [])`. Listed and silently skipped.
+    """
+    write(repo, f"{ITEM_AT}/rounds/round-1.md", "# round 1\n")
+    commit(repo, "a committed record")
+    write(repo, f"{ITEM_AT}/rounds/round-2.md", "# round 2\n")
+    git(repo, "add", f"{ITEM_AT}/rounds/round-2.md")
+
+    listed = _real_records(repo)
+    assert f"{ITEM_AT}/rounds/round-1.md" in listed, listed
+    assert f"{ITEM_AT}/rounds/round-2.md" not in listed, (
+        "a staged, uncommitted record is listed, and HEAD has no content for "
+        "it — so the walk reports nothing about a record it just listed"
+    )
+
+
+def test_the_reopening_walk_over_the_real_records_can_fail(repo):
+    """The positive control, through the same call path.
+
+    The case below asserts that the walk over this repository's own records
+    collects nothing. Nothing said the walk collects anything at all —
+    replacing its `failures.extend(...)` with `pass` left it green, and so
+    would a filter that quietly matched no records.
+
+    So: the sequence `test_a_second_fix_closing_record_after_the_floor_is_refused`
+    runs through the whole script, run here through the walk instead. Two
+    reopenings after a floor record, in a work item begun at `REOPEN_FROM`,
+    which the walk refuses with `capped`.
+    """
+    chain = check_module()
+    reader = _load("reader_for_the_positive_control", chain.READER)
+    routing = _load("routing_for_the_positive_control", chain.ROUTING)
+    declared(
+        repo,
+        ITEM_AT,
+        floor_record,
+        lambda sha: reopening(sha, reader=3),
+        lambda sha: reopening(sha, reader=4),
+        lambda sha: record(sha),
+    )
+
+    records = _numbered(routing, _real_records(repo))
+    assert len(records) == 4, records
+
+    failures = _capped_failures(chain, reader, routing, repo, records)
+    assert failures, "the walk collects nothing over a sequence the script refuses"
+    assert any("round-3.md" in message for _rel, _line, message in failures), failures
 
 
 def test_this_repositorys_own_records_are_not_refused_by_the_reopening_walk():
@@ -421,28 +533,9 @@ def test_this_repositorys_own_records_are_not_refused_by_the_reopening_walk():
     chain = check_module()
     reader = _load("reader_for_reopening", chain.READER)
     routing = _load("routing_for_reopening", chain.ROUTING)
-    records = _real_records()
-    # `round-*.md` is git's pathspec and git has no way to say "and then a
-    # number", so the glob also carries the files the review chain writes
-    # BESIDE a record -- `round-N-report.md`, `round-N-asked.md`,
-    # `round-N-fixes.md`. `routing.round_number` answers None for those, and
-    # two Nones in one work item made the sort below raise
-    # `TypeError: '<' not supported between instances of 'NoneType' and
-    # 'NoneType'` rather than fail an assertion. `chain_check.py#round_records`
-    # already drops them on the same test; this is the reader that did not.
-    records = [
-        r for r in records if routing.round_number(os.path.basename(r)) is not None
-    ]
+    records = _numbered(routing, _real_records())
     assert records, "no round records found — the glob or the layout moved"
-    by_item = {}
-    for rel in records:
-        by_item.setdefault(rel.rsplit("/rounds/", 1)[0], []).append(rel)
-    failures = []
-    for rels in by_item.values():
-        ordered = sorted(rels, key=lambda r: routing.round_number(os.path.basename(r)))
-        for index, rel in enumerate(ordered):
-            errors, _ = chain.stopping_floor(reader, ROOT, rel, ordered[index + 1 :])
-            failures.extend(e for e in errors if CAPPED in e[2])
+    failures = _capped_failures(chain, reader, routing, ROOT, records)
     assert not failures, "this repository's own records are refused:\n" + "\n".join(
         f"  {rel}: {message}" for rel, _, message in failures
     )

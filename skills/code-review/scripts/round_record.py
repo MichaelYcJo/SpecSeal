@@ -1482,6 +1482,92 @@ def inherited_rows(reader, earlier):
     return out
 
 
+def reach_forward(reader, rounds, n, rows):
+    """Round N+1's inherited rows for round N, at the words round N's verdict
+    cells now carry. Returns `(path, text, filled)` or None.
+
+    `rows` is `{Location cell: (`#` cell, verdict word)}` for round N as the
+    fix table has just left it — the caller has those in hand, and taking
+    them rather than re-reading the record is what keeps this a pure read of
+    the file it writes.
+
+    **Two records committed together stated the same findings as open and as
+    fixed** (#342). `new --round N+1` writes `## Inherited coordinates` from
+    every earlier record's verdict cells, and at that moment round N's cells
+    read `open`, because a record is committed BEFORE the fixes it commissions
+    (`docs/review-chain-spec.md`'s ordering rule). `close --round N` then
+    writes the words into round N and nothing carried them forward, so the
+    `Why` cell froze at the reviewer's word while the record one file over
+    said `**fixed**`.
+
+    The reach is symmetric with `reach_back` above, which already goes the
+    other way — into round N-1's `Fixes checked by` — and refuses rather than
+    guesses when it cannot act. **Ordering `close --round N` before
+    `new --round N+1` would cost no code and is not the repair**: it makes
+    correctness depend on a spawn order nothing enforces, and the ordering
+    rule requires the record committed before its fixes exist, so both orders
+    are reachable by design.
+
+    Silent where round N+1 does not exist, which is every ordinary run: the
+    fix pass comes first and the verifying round is spawned after it. Silent
+    too where its table names no row from round N, because `inherited_rows`
+    is first-seen-wins ACROSS rounds — a round whose every coordinate an
+    earlier round already claimed is written into that section under the
+    earlier round and under no other, which is the ordinary shape of a
+    re-review round rather than a malformed record (round 1's 🔴 2).
+    """
+    path = os.path.join(rounds, f"round-{n + 1}.md")
+    if not os.path.exists(path):
+        return None
+    text = read_text(path, f"later record round-{n + 1}.md")
+    raw, lines = text.splitlines(), reader.readable(text)
+    body = table_body(reader, lines, INHERITED, INHERITED_HEADER, False)
+    if body is None:
+        raise Refused(
+            f"round-{n + 1}.md exists and has no readable `{INHERITED}` table, "
+            f"so the rows this round's verdicts belong in cannot be found. "
+            "Its `Why` cells will go on saying what round "
+            f"{n} said before its fixes; write the section, or remove the "
+            "record if the round has not run; no cell was written"
+        )
+    mine = f"round-{n}"
+    filled = 0
+    for i, cells in body:
+        seen = [reader.visible(c) for c in cells]
+        if len(seen) < len(INHERITED_HEADER) or seen[0].strip() != mine:
+            continue
+        coordinate = seen[1]
+        if coordinate not in rows:
+            raise Refused(
+                f"round-{n + 1}.md inherits `{coordinate}` from {mine}, and "
+                f"round-{n}'s verdict table holds no row with that `Location`. "
+                "The reach-forward sets a `Why` cell from the row it names and "
+                "does not guess which row that is; correct the coordinate; no "
+                "cell was written"
+            )
+        cell_number, word = rows[coordinate]
+        raw[i] = row(
+            (
+                mine,
+                escape(coordinate),
+                escape(f"round {n}'s {cell_number} {DASH} {word}"),
+            )
+        )
+        filled += 1
+    if not filled:
+        # NOT a refusal (round 1's 🔴 2). `inherited_rows` is first-seen-wins
+        # ACROSS rounds, so a round whose every coordinate an earlier round
+        # already claimed is written into this section under that earlier
+        # round and under no other. A re-review round looking again where the
+        # round before it looked is the ordinary shape, and refusing it stops
+        # the run this reach exists to keep truthful. The refusal's grounds
+        # stated a rule about `new` without that qualifier, so the reader was
+        # sent to correct a table that was already right.
+        return None
+    ending = "\n" if text.endswith("\n") else ""
+    return path, "\n".join(raw) + ending, filled
+
+
 def reach_back(reader, path, n):
     """Set round N-1's `Fixes checked by` to `round-N`, touching nothing else.
 
@@ -2360,10 +2446,66 @@ DIGIT_RE = re.compile(r"\d")
 # rather than a row that commissions nothing, and the corpus says so without a
 # margin: all 26 such rows are genuine findings -- 11 later closed `fixed`, 4
 # `answered`, 11 still `open` -- and none of the 25 carrying 🟢, ❓ or no marker
-# is. The verdict word cannot do this job: a confirmation reads `verified`,
-# which is in no vocabulary and therefore OPEN, so reading it would trade one
-# refusal for another.
+# is. A VOCABULARY test of the verdict cannot do this job: a confirmation
+# reads `verified`, which is in no vocabulary and therefore OPEN, so reading
+# the verdict as OPEN/CLOSED would trade one refusal for another. Reading the
+# one word `open` is the narrower thing `OPEN_WORD` below does.
 OWED_MARKERS = ("\N{LARGE RED CIRCLE}", "\N{LARGE YELLOW CIRCLE}")
+# The one verdict word that says the row is open in as many letters. Read only
+# on a row whose `#` cell has already admitted it, where the two cells then
+# contradict each other -- and one WORD rather than a vocabulary test, which
+# is the distinction the grounds for NOT reading the verdict missed.
+# `verified` is in no vocabulary and therefore OPEN, so reading the verdict as
+# OPEN/CLOSED would refuse every confirmation; reading this one word refuses
+# none of them. `says_open` below is where the word ends (round 2's 🟡 7).
+OPEN_WORD = "open"
+# The boundary `verdict_of` ends its own vocabulary on -- `fixed d3fe44d` and
+# `fixed, d3fe44d` are both `fixed`. Spelled here rather than reached for in
+# `chain.SEPARATORS`, which is six characters wide and has five other readers:
+# borrowing it made `open-ended question` and `open: see 5` read as the open
+# verdict, and tied what counts as open to a constant the `deferred` home
+# reader is free to widen.
+OPEN_BOUNDARY = (" ", ",")
+
+
+def says_open(word):
+    """`word` is the open verdict, however the reviewer ended it.
+
+    The grounds for not running a VOCABULARY test hold and are untouched:
+    `verified` is in no vocabulary and would be refused, which costs every
+    confirmation row the `#` cell admits. What never followed from those
+    grounds is EQUALITY. `verdict_of` ends a vocabulary word on a space or a
+    comma — that is what makes `fixed d3fe44d` read as `fixed` — and the same
+    boundary here reaches `open — deferred` and `open, comment only`
+    (round 3's 🟡 2).
+
+    **Measured 2026-09-15 over the committed `round-N.md` records that parse**
+    — 211 of the 212 this repository carries, 2,044 verdict rows, none of them
+    short — read through this module's own `table_body` and through
+    `chain.verdict_of`: **123 verdict cells begin `open` and 9 of them
+    continue**, so equality reached 114 of 123. Every one of the 9 continues
+    with a space or a comma, so `says_open` reaches all 123; none of them is in
+    `CLOSED_WORDS`. Of the 25 no-digit cells the `#` rule admits, 15 carry a
+    verdict outside `CLOSED_WORDS` — the grounds against a vocabulary test,
+    re-derived in the same pass — and **0** are newly refused by this arm.
+
+    The population, the date and the reader are stated because the figure that
+    stood here before was none of those things and did not reproduce under any
+    of the six populations round 4 tried.
+
+    The boundary is spelled out in `OPEN_BOUNDARY` rather than borrowed from
+    `chain.SEPARATORS`. The wider set reaches `open-ended question` and
+    `open: see 5`, and the refusal a reviewer then reads names a word the
+    cell does not carry — the over-reach `verdict_of` names one function
+    above, where dropping the boundary would let `not a defect` swallow `not
+    a defective reading` (round 4's 🟡 2).
+    """
+    if not word.startswith(OPEN_WORD):
+        return False
+    rest = word[len(OPEN_WORD) :]
+    return not rest or rest[0] in OPEN_BOUNDARY
+
+
 BARE_ID = "a bare integer"
 # Which of the two tables a refusal is about. The reviewer writes one and the
 # fixer copies the numbering into the other, so a message naming the format
@@ -2410,9 +2552,10 @@ def finding_number(label, seen, line, taken, bad, idless, owed):
     refused for the neighbouring reason — it says nothing at all, which is
     what a reviewer who forgot the id writes, and no committed record has one.
 
-    The verdict word cannot serve here: a confirmation reads `verified`, which
-    is in no vocabulary and therefore OPEN, so reading it would trade one
-    refusal for another.
+    A vocabulary test of the verdict cannot serve here: a confirmation reads
+    `verified`, which is in no vocabulary and therefore OPEN, so reading the
+    verdict as OPEN/CLOSED would trade one refusal for another. Reading the one
+    word `open` does not, and `says_open` above is that arm.
 
     `idless` is off for the fix table, where the row IS the commission: a fix
     row naming no finding has nothing to apply itself to.
@@ -2425,13 +2568,22 @@ def finding_number(label, seen, line, taken, bad, idless, owed):
     already quotes both of its rows, and `taken` is {number: the row that
     already claimed it} so that it can.
 
-    What this still gives up, stated rather than left to be found: a reviewer
-    who writes 🟢, ❓ or ⬜ on a row that IS an open finding has written a
-    finding no fix table will be asked to close, and `close` exits 0 over it.
-    The severity check catches the two markers that mean something is owed and
-    cannot catch a reviewer who picks the wrong marker. The cheaper mistake is
-    the other one, where numbering a confirmation row costs an inflated count
-    in one record.
+    **The `#` cell is not the only cell that says a row owes an answer**, which
+    is why `verdict_rows` reads the Verdict cell beside it. Reading the marker
+    alone admitted six shapes whose Verdict cell said `open` — three of them
+    carrying no marker at all, so the residual stated here for a round did not
+    describe them (round 2's 🟡 7). It matches the WORD — `says_open` ends it
+    on a space or a comma, the boundary `verdict_of` uses for its own
+    vocabulary — rather than a vocabulary, and that is what makes it free:
+    `verified` is in no vocabulary and therefore OPEN, so refusing everything
+    outside `CLOSED_WORDS` would refuse every confirmation row.
+
+    What this still gives up, stated rather than left to be found: a row takes
+    TWO mistakes in two cells to slip through now — 🟢, ❓ or ⬜ on a row that
+    IS an open finding, AND a verdict worded as something other than `open`.
+    Such a row writes a finding no fix table will be asked to close, and
+    `close` exits 0 over it. The cheaper mistake is the other one, where
+    numbering a confirmation row costs an inflated count in one record.
     """
     text = chain.EMPHASIS.sub("", seen).strip()
     m = FINDING_ID_RE.match(text)
@@ -3063,13 +3215,64 @@ def verdict_rows(reader, lines):
     out, taken, bad, owed = {}, {}, [], []
     for i, cells in table_body(reader, lines, VERDICTS, VERDICT_HEADER, True):
         seen = [reader.visible(c) for c in cells]
-        if len(seen) <= NUMBER_COL:
-            raise Refused(f"a verdict row has no `#` cell: {lines[i].strip()!r}")
+        if len(seen) <= VERDICT_COL:
+            # A digit in the `#` cell KEYS the row, so a row with no Verdict
+            # cell passed here and reached every caller that indexes
+            # `VERDICT_COL` by position -- `build`'s `words`, `close`'s
+            # `open_now`, its `already` message and its write pass -- as an
+            # IndexError rather than a refusal naming the row. A REGRESSION:
+            # before the verdict arm landed, `new` computed `Pass` through
+            # `verdict_words`, which raised `a verdict row has N cells`
+            # (round 3's 🔴 1).
+            #
+            # The bound is `VERDICT_COL` and not the header width, which is
+            # what round 3's paste-ready code proposed. The wider test refuses
+            # a row that is merely missing `Grounds` — four cells, a verdict
+            # present, nothing that crashes — and that shape is deliberately
+            # ADMITTED and written short rather than padded, so the record
+            # shows the column the reviewer left out instead of inventing one
+            # (`test_a_short_row_with_a_comment_pipe_is_not_padded_into_a_full_one`,
+            # which the wider test turns red). Refusing exactly what crashes
+            # leaves that decision standing. Free either way against the
+            # corpus: zero of the 2,044 committed verdict rows are short at
+            # all (2026-09-15, through `table_body`).
+            #
+            # This raises on the FIRST offending row where `bad` and `owed`
+            # below collect every one and refuse once -- #303's shape, two
+            # round trips per repair. It is left an immediate raise
+            # deliberately (round 4's ⬜ 5): the guard was already immediate
+            # before the verdict arm and only its condition widened, and with
+            # zero committed rows short the cost falls on a reviewer's first
+            # draft and nowhere else. Making it a list is the repair if
+            # anybody opens this function again for another reason.
+            raise Refused(
+                f"a verdict row has {len(seen)} cells, so it has no "
+                f"`{chain.VERDICT_COLUMN}` cell at column {VERDICT_COL + 1}: "
+                f"{lines[i].strip()!r}. Every reader downstream indexes that "
+                "column by position, so a short row carrying a digit is keyed "
+                "here and reaches them as a crash rather than as a refusal "
+                "naming the row"
+            )
+        flagged = len(bad) + len(owed)
         number = finding_number(
             RECORD_LABEL, seen[NUMBER_COL], lines[i], taken, bad, True, owed
         )
         if number is not None:
             out[number] = (i, cells)
+        elif len(bad) + len(owed) == flagged and says_open(
+            chain.verdict_of(seen, VERDICT_COL)
+        ):
+            # The `#` cell says this row commissions nothing and the Verdict
+            # cell says it is open, in as many letters. The marker arm catches
+            # the reviewer who wrote the severity and forgot the id; this
+            # catches the one who wrote a severity that owes nothing and then
+            # said `open` anyway -- three of the six shapes it reaches carry
+            # no marker at all, so the marker arm cannot see them. §12: round
+            # 1's 🔴 1 named the class, and this is its third member.
+            #
+            # `flagged` is what keeps a row failing BOTH arms from being
+            # quoted twice, which counted two rows where the table holds one.
+            owed.append((seen[NUMBER_COL].strip(), lines[i]))
     refusal = id_refusal(RECORD_LABEL, bad)
     if refusal is not None:
         raise refusal
@@ -3077,15 +3280,19 @@ def verdict_rows(reader, lines):
         many = "s" if len(owed) > 1 else ""
         rows = "\n".join(f"    {text!r}: {line.strip()}" for text, line in owed)
         raise Refused(
-            f"the {RECORD_LABEL} has {len(owed)} row{many} whose `#` cell is "
-            "empty or carries a severity that owes an answer. "
+            f"the {RECORD_LABEL} has {len(owed)} row{many} that commissions "
+            "nothing by its `#` cell and owes an answer by another cell: the "
+            "`#` cell is empty, or carries a severity that owes an answer, or "
+            f"the `{chain.VERDICT_COLUMN}` cell reads `{OPEN_WORD}`. "
             "\N{LARGE RED CIRCLE} blocks merge and \N{LARGE YELLOW CIRCLE} "
-            "needs grounds, so both commission a fix-table row, and an empty "
-            "cell says nothing at all — while a row with no id is never "
-            "keyed, never asked for a closure and never counted toward "
-            "`Pass`, so `Pass` would be ticked over an open finding. Number "
-            "it, or write the severity the row actually has "
-            "(\N{LARGE GREEN CIRCLE}, \N{BLACK QUESTION MARK ORNAMENT}, "
+            "needs grounds, so both commission a fix-table row; an empty cell "
+            "says nothing at all; and a row the record itself calls "
+            f"`{OPEN_WORD}` is open whatever its `#` cell says — while a row "
+            "with no id is never keyed, never asked for a closure and never "
+            "counted toward `Pass`, so `Pass` would be ticked over an open "
+            "finding. Number it, or write the severity and the verdict the "
+            "row actually has (\N{LARGE GREEN CIRCLE}, "
+            "\N{BLACK QUESTION MARK ORNAMENT}, "
             f"\N{WHITE LARGE SQUARE}).\nThe row{many}:\n{rows}"
         )
     return out
@@ -3106,6 +3313,25 @@ def units_named_earlier(reader, earlier):
             entry = chain.DEPTH_RE.sub("", entry)
             for arrow in chain.ARROWS:
                 entry = entry.split(arrow)[0]
+            # RIDER: `chain.EMPHASIS` is `[*_`]+` and it is applied to the
+            # whole entry, so every underscore INSIDE a unit name is stripped
+            # with the backticks around it -- `only_tested` is read back as
+            # `onlytested`, and `added` names come from the AST unstripped, so
+            # `unit not in named` is true for every snake_case parent. The
+            # depth-2 walk below therefore reaches no Python unit whose name
+            # carries an underscore, which is most of them. Measured
+            # 2026-09-15 while building #333's cases: committed records write
+            # entries like `` `test_a_cell_of_only_separators_is_not_an_answer` ``,
+            # and this reads them as one long word. #30's own refusal fired
+            # through `quote`, which has no underscore, and named `quote` as
+            # the parent for units added by a fix inside a unit that does.
+            # NOT REPAIRED HERE: it is outside work item 1789425391's six
+            # tickets and it widens what the rule refuses, which is a change
+            # to a gate. The repair is to strip the emphasis characters from
+            # the ENDS of the entry rather than everywhere in it, and it needs
+            # the corpus measured for records this newly reaches. The answerer
+            # is the repository owner.
+            # Verified 2026-09-15 against units_named_earlier@9165d624.
             name = chain.EMPHASIS.sub("", entry).strip()
             if name and name not in named:
                 named[name] = k
@@ -3164,7 +3390,41 @@ def location_units(reader, root, a, text, tracked):
     return out
 
 
-def depth_two(reader, root, a, rows, fixes, added, at_a, earlier):
+def unit_adders(reader, root, fixes):
+    """{(path, unit): {finding number}} — which fix commit added each unit.
+
+    A second `measure`, one per `fixed` commit, over that commit alone.
+    `close` already resolves every `fixed` commit and places it inside the
+    range; what it does not hold is WHICH of them introduced a given unit,
+    because `measure` compares the range's TWO ENDS and nothing between
+    them (`questions.md` Q5). That is what `depth_two` below needs to name a
+    finding rather than a file.
+
+    Bounded by the fix range, which is the reason the cost is affordable: a
+    fix range is two or three commits, and each pass parses only the files
+    that ONE commit touched rather than the range's whole surface.
+
+    A commit with no parent contributes nothing — every unit in it is `added`
+    against an empty tree, which is true and useless — and the walk falls
+    back to the file-level answer for anything it cannot attribute.
+    """
+    adders = {}
+    for number, (word, value, _note) in fixes.items():
+        if word != FIXED:
+            continue
+        full = chain.resolves_to(root, value)
+        parent = chain.resolves_to(root, f"{full}^") if full else None
+        if parent is None:
+            continue
+        _c, added, _h, _at_a, _at_b = measure(
+            reader, root, parent, full, touched(root, parent, full)
+        )
+        for rel, unit in added:
+            adders.setdefault((rel, unit), set()).add(number)
+    return adders
+
+
+def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
     """`Refused` when a `fixed` finding sits inside a unit an earlier record's
     `New units` names and the range adds a unit in that finding's file.
 
@@ -3179,10 +3439,46 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier):
     added to refuse. A Location that names no file is resolved against
     every file the range touched that holds the unit at `a`, which is the
     widest honest reading of a name with no path beside it.
+
+    **The finding is named from `adders`, not from the file** (#333). The
+    walk used to compare the FILE — `inside = [n for r, n in added if r == f]`
+    — so every unit added to a file was attributed to whichever candidate
+    row the loop reached first. It fired correctly on #30 and named the wrong
+    finding and the wrong enclosing unit, which is worse than firing wrongly:
+    the reader is sent to a row that did not add the unit.
+
+    **A unit whose adder resolves to no candidate row is at depth 1**, and
+    this rule has nothing to say about it (round 1's 🟡 3). `unit_adders`
+    resolves every `fixed` commit's units, including those added by findings
+    that sit inside no unit an earlier record names; the walk took the
+    file-level fallback on those and printed a non-resolution that had not
+    happened. Resolving to SEVERAL candidate rows is a different state and
+    still takes the fallback: it is a resolution that cannot say which fix
+    added the unit.
+
+    **Where the range cannot resolve one, it still refuses and says so.**
+    A single commit answering two findings resolves to nothing at any cost,
+    and the direction every verdict the checker cannot read takes is the one
+    that blocks: `docs/review-chain-spec.md`'s own depth table fails an entry
+    below depth 1 for the neighbouring reason, and the asymmetry is
+    `CONTRIBUTING.md`'s — a wrong deny costs a prompt, and a wrong allow here
+    ships a unit that is read by nobody. What changes on the fallback is the
+    MESSAGE: it says the attribution is file-level and names every candidate
+    finding rather than asserting one, because a per-file answer is
+    structurally unable to state what `templates/sdd-round.md` requires per
+    entry.
     """
     named = units_named_earlier(reader, earlier)
     if not named or not added:
         return
+    # A PASS rather than its result, so the guard above runs first (round 1's
+    # ⬜ 5). `unit_adders` is a second `measure`, one per `fixed` commit;
+    # evaluated at the call site it was paid on every round-1 `close`, where
+    # there are no earlier records at all and this returns at once --
+    # `phases/phase-5.md` measured that pass at 127.8 ms.
+    adders = adders() if callable(adders) else (adders or {})
+    # {(file, unit added): {finding number: (parent unit, the record naming it)}}
+    candidates = {}
     tracked = tracked_at(root, a)
     for number, (word, _, _) in fixes.items():
         if word != FIXED:
@@ -3197,19 +3493,62 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier):
             else:
                 files = [f for f, units in at_a.items() if unit in units]
             for f in files:
-                inside = [n for r, n in added if r == f]
-                if not inside:
-                    continue
-                raise Refused(
-                    f"{', '.join(f'`{n}`' for n in inside)} in {f} would be at "
-                    f"depth 2: added by the fix of {reader.visible(cells[NUMBER_COL])}, "
-                    f"whose Location `{reader.visible(location)}` is inside "
-                    f"`{unit}`, a unit round-{named[unit]}.md's `{chain.NEW_UNITS}` "
-                    "names. A fix pass may add a unit; that unit's fix may not, "
-                    "because the fix is read by the round that follows and the "
-                    "unit it added is read by nobody. The unit is "
-                    f"{DEPTH_EXIT}; no cell was written"
-                )
+                for name in [n for r, n in added if r == f]:
+                    candidates.setdefault((f, name), {})[number] = (
+                        unit,
+                        named[unit],
+                        reader.visible(cells[NUMBER_COL]),
+                        reader.visible(location),
+                    )
+    if not candidates:
+        return
+
+    lines = []
+    for (f, name), rows_for in candidates.items():
+        resolved = set(adders.get((f, name), ()))
+        owners = sorted(resolved & set(rows_for))
+        if len(owners) == 1:
+            unit, record_n, cell_text, location = rows_for[owners[0]]
+            lines.append(
+                f"`{name}` in {f} would be at depth 2: added by the fix of "
+                f"{cell_text}, whose Location `{location}` is inside `{unit}`, "
+                f"a unit round-{record_n}.md's `{chain.NEW_UNITS}` names."
+            )
+            continue
+        if resolved and not owners:
+            # The range DID resolve the adder, and to NO candidate row: the
+            # fix that added this unit sits inside no unit an earlier record
+            # names, so the unit is at depth 1 and this rule has nothing to
+            # say about it -- #333's quiet direction, which the file-level
+            # walk answered by refusing and the repair then answered by
+            # printing a non-resolution that had not happened (round 1's
+            # 🟡 3).
+            #
+            # `not owners` is what keeps this narrow, and the round's
+            # paste-ready `if resolved` was not: one commit answering two
+            # findings resolves to BOTH candidate rows, which is a resolution
+            # that still cannot say which fix added the unit. That shape
+            # takes the file-level sentence below, and skipping it turned
+            # `test_a_depth_two_refusal_it_cannot_attribute_says_so_and_names_every_candidate`
+            # red -- S12's own case.
+            continue
+        every = "; ".join(
+            f"{cell_text} (inside `{unit}`, round-{record_n}.md)"
+            for _n, (unit, record_n, cell_text, _loc) in sorted(rows_for.items())
+        )
+        lines.append(
+            f"`{name}` in {f} would be at depth 2, and the attribution is "
+            f"FILE-LEVEL: the range does not resolve which fix added it, so "
+            f"every fix inside an earlier unit in {f} is a candidate — {every}."
+        )
+    if not lines:
+        return
+    raise Refused(
+        "\n".join(lines) + " A fix pass may add a unit; that unit's fix may "
+        "not, because the fix is read by the round that follows and the unit "
+        f"it added is read by nobody. The unit is {DEPTH_EXIT}; no cell was "
+        "written"
+    )
 
 
 def field_index(reader, lines, label):
@@ -3312,7 +3651,17 @@ def close(args):
     paths = touched(root, a, b)
     changed, added, heuristic, at_a, at_b = measure(reader, root, a, b, paths)
     earlier = earlier_records(routing, rounds, args.round)
-    depth_two(reader, root, a, rows, fixes, added, at_a, earlier)
+    depth_two(
+        reader,
+        root,
+        a,
+        rows,
+        fixes,
+        added,
+        at_a,
+        earlier,
+        lambda: unit_adders(reader, root, fixes),
+    )
 
     contract = surface_cell(
         chain.CONTRACT,
@@ -3360,6 +3709,27 @@ def close(args):
         )
         for i, _ in rows.values()
     ]
+    # The map the forward reach reads, built here for the same two reasons
+    # `words` is: `raw` already carries the fix table, and no line has been
+    # inserted into it yet, so the indices the record was parsed at are still
+    # its own.
+    #
+    # EVERY verdict row, not only the numbered ones (round 1's 🔴 1).
+    # `inherited_rows` writes one row per `Location` cell of every row -- a
+    # confirmation, an earlier round's closure carried forward, an
+    # `❓ out of verified scope` -- while `rows` holds only what
+    # `finding_number` keyed. Keying this map from `rows` refused a pair of
+    # records this generator itself wrote, at exit 2, and sent the reader to
+    # correct a coordinate that was already right.
+    location = VERDICT_HEADER.index("Location")
+    number = VERDICT_HEADER.index("#")
+    now = {}
+    for i, _cells in table_body(reader, lines, VERDICTS, VERDICT_HEADER, True):
+        seen = [
+            reader.visible(c) for c in row_cells(reader, raw[i], len(VERDICT_HEADER))
+        ]
+        if len(seen) > VERDICT_COL and seen[location]:
+            now[seen[location]] = (seen[number], chain.verdict_of(seen, VERDICT_COL))
     still_open = [w for w in words if w not in chain.CLOSED_WORDS]
     # The same derivation `new` makes from the report's verdicts, over the
     # verdicts as the table left them. Both of its answers are written here,
@@ -3404,8 +3774,16 @@ def close(args):
             f"<!-- {chain.NEW_UNITS}: {', '.join(heuristic)} {HEURISTIC_NOTE} -->",
         )
 
+    # The forward reach is built BEFORE either write, so its refusals land
+    # where every other refusal in this subcommand does — with nothing on
+    # disk changed. Round N's own write goes first, because round N+1's rows
+    # are only true once it has landed.
+    forward = reach_forward(reader, rounds, args.round, now)
+
     ending = "\n" if text.endswith("\n") else ""
     write_record(reader, target, "\n".join(raw) + ending)
+    if forward is not None:
+        write_record(reader, forward[0], forward[1])
     counts = {
         w: sum(1 for word, _, _ in fixes.values() if word == w)
         for w in (FIXED, ANSWERED, DEFERRED_WORD)
@@ -3417,6 +3795,12 @@ def close(args):
         + (
             f"; {chain.CHECKED_BY} | {checker}"
             if checker in (chain.NO_FIXES, WRITTEN_CHECKER)
+            else ""
+        )
+        + (
+            f"; {INHERITED} of round-{args.round + 1}.md | {forward[2]} row"
+            f"{'s' if forward[2] > 1 else ''} filled"
+            if forward is not None
             else ""
         )
     )
@@ -3466,7 +3850,7 @@ def seal(args):
       `Pass` is unchecked          a finding is still OPEN in the verdict
           table, so the round has not ended and the run this cell records
           would be a run over findings still open
-      `Fixes checked by` is neither a LATER round nor `no fixes to check`
+      `Fixes checked by` reads anything but `no fixes to check`
           the fixes that closed those findings were read by nobody, and the
           verifying round is still owed. `Pass` says the TABLE is closed,
           and `close` ticks it the moment a fix table applies, which is one
@@ -3475,10 +3859,14 @@ def seal(args):
           pull request opens before round 1* calls red, on a record the
           verifying round is about to stop being the last one of. A capped
           run reads `no fixes to check` here, so this costs it nothing.
-          Everything outside those two values is refused rather than
-          `nobody` alone, because the chain check this subcommand runs AFTER
-          the write refuses on that same row, and a cell written there is a
-          cell standing on a record its own check will not accept
+          Everything outside that ONE value is refused -- not `nobody`
+          alone, and not everything-but-a-`round-N` either. The chain check
+          this subcommand runs AFTER the write refuses on that same row, and
+          a cell written there is a cell standing on a record its own check
+          will not accept. `round-N` is part of what is refused because
+          `CHECKER_RE` tests the cell's SHAPE and cannot test its POSITION,
+          and a named checker has to be a LATER round than the record
+          carrying it -- which the LAST record has none of (#335)
       `--broad-gate` carries no SHA-shaped word   the cell records a commit
       the SHA it carries does not resolve in this repository
       a `--broad-gate` SHA the record's `Target SHA` descends from   the
@@ -3559,15 +3947,44 @@ def seal(args):
     # says why -- this is the same cell, one subcommand over.
     checker = reader.visible(chain.field(rows, chain.CHECKED_BY) or "").strip()
     plain = checker.strip("`").rstrip(".").lower()
-    if not chain.CHECKER_RE.match(plain) and plain != chain.NO_FIXES:
+    if plain != chain.NO_FIXES:
+        # A `round-N` is refused HERE rather than left to the check after the
+        # write (#335). `CHECKER_RE` tests the SHAPE of the cell and cannot
+        # test its POSITION, and the position is what decides this one: a
+        # named checker has to be a LATER round, and `last_record` two
+        # hundred lines up chose this file by being the highest-numbered one
+        # on disk. So the value is unreachable on the record this subcommand
+        # is holding, and admitting it wrote the cell and then had the chain
+        # check refuse the same row one step later.
+        #
+        # The lastness is not derived here. It is the SELECTION CRITERION of
+        # the line that chose the file, which is why reading it costs nothing
+        # -- `docs/review-handoff-protocol.md` §*The `Fixes checked by` field*
+        # states the rule about the last record in ratified policy, and
+        # `docs/review-chain-spec.md` §*What the record carries* says it
+        # twice more.
+        why = (
+            "a `round-N` names a LATER round, and this is the last record on "
+            "disk — `last_record` chose this file by being the "
+            "highest-numbered one, so there is no later round for the cell "
+            "to name. `chain_check.checked_by` refuses the same row at the "
+            "pull request"
+            if chain.CHECKER_RE.match(plain)
+            else "the fixes that closed its findings have been read by no "
+            "LATER round. `Pass` was ticked by `close` when the fix table "
+            "applied, which is one row earlier than the run ending"
+        )
         raise Refused(
-            f"round-{n}.md's `{chain.CHECKED_BY}` reads `{checker}`, so the "
-            "fixes that closed its findings have been read by no LATER round. "
-            f"The row holds one of three values: `round-N`, `{chain.NO_FIXES}`, "
-            f"or `{chain.NOBODY} {DASH} <why>`. `Pass` was ticked by `close` "
-            "when the fix table applied, which is one row earlier than the run "
-            "ending. Spawn the verifying round first; its record is the one "
-            "this cell belongs on; no cell was written"
+            f"round-{n}.md's `{chain.CHECKED_BY}` reads `{checker}`, and this "
+            f"is the LAST record, where `{chain.NO_FIXES}` is the only value "
+            f"`seal` accepts. {why}. `{chain.NOBODY} {DASH} <why>` is "
+            "allowed on a last record by the protocol and refused here for "
+            "its own reason: `seal` runs with `Pass` ticked, and "
+            "`skills/code-review/orchestration.md` fails a pull request whose "
+            f"last record reads `{chain.NOBODY}` beside a checked `Pass`. "
+            "Spawn the verifying round first; its record is the one this cell "
+            f"belongs on, and its own row then reads `{chain.NO_FIXES}`; no "
+            "cell was written"
         )
 
     named = chain.SHA_RE.findall(args.broad_gate)
