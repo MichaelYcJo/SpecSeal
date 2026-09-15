@@ -1240,6 +1240,124 @@ def test_a_unit_added_beside_a_finding_inside_an_earlier_units_is_refused(
     assert "deferred with a named answerer, or becomes an issue" in out
 
 
+# #30's measured shape, in one file: two findings, each located inside a
+# DIFFERENT unit that round 1's `New units` names, and each fix adding a unit
+# of its own. The walk that compares the file cannot tell them apart; the walk
+# that reads which commit added each unit can.
+#
+# The two parent units carry no underscore, and that is a fixture constraint
+# rather than a preference: `units_named_earlier` runs each entry through
+# `chain.EMPHASIS`, which is `[*_`]+`, so `only_tested` is read back as
+# `onlytested` and matches no unit the AST names. That is a live defect of its
+# own, outside this work item's six tickets, and it is written up in
+# `seal/follow-up.md` rather than repaired here.
+PAIR = "def alpha(a):\n    return a\n\n\ndef beta(a):\n    return a\n"
+PAIR_FIXED = PAIR.replace("def alpha(a):", "def alpha(a, b=None):")
+ALPHA_GUARD = "\n\ndef alpha_guard(b):\n    return b is not None\n"
+BETA_GUARD = "\n\ndef beta_guard(b):\n    return b is not None\n"
+TWO_INSIDE = (
+    "| 🔴 1 | alpha guards nothing | `pair.py#alpha` | open | executed |\n"
+    "| 🟡 2 | beta drops its rest | `pair.py#beta` | open | read |\n"
+)
+
+
+def two_findings_inside_two_earlier_units(repo):
+    """Round 1 naming `alpha` and `beta`, then round 2 with a finding inside
+    each. Returns round 2's commit, the start of the fix range."""
+    declared(repo)
+    write(repo, "pair.py", PAIR)
+    code, out, _ = generate(repo, report_text=report(verdicts=OPEN_1))
+    assert code == 0, out
+    commit(repo, "round 1")
+    write(repo, "pair.py", PAIR_FIXED)
+    commit(repo, "round 1's fix")
+    code, out, _ = generate(repo, n=2, report_text=report(verdicts=TWO_INSIDE))
+    assert code in (0, 1), out
+    first = repo / ROUNDS / "round-1.md"
+    text = first.read_text(encoding="utf-8")
+    text = re.sub(
+        r"^\| New units \|.*$",
+        "| New units | alpha (depth 1); beta (depth 1) |",
+        text,
+        flags=re.MULTILINE,
+    )
+    first.write_text(text, encoding="utf-8")
+    return commit(repo, "round 2")
+
+
+def test_a_depth_two_refusal_names_the_finding_whose_fix_added_the_unit(repo):
+    """#333, and S11. `inside = [n for r, n in added if r == f]` compared the
+    FILE, so every unit added to that file was attributed to whichever fix row
+    the walk reached first. The refusal fired correctly on #30 and named the
+    wrong finding and the wrong enclosing unit — worse than firing wrongly,
+    because the reader is sent to a row that did not add the unit.
+
+    Two commits, one per finding, so each unit has an adder the range can
+    resolve. Red against the file-level walk, which pairs both units with the
+    same row.
+    """
+    a = two_findings_inside_two_earlier_units(repo)
+    write(repo, "pair.py", PAIR_FIXED + ALPHA_GUARD)
+    b1 = commit(repo, "round 2's fix for 1")
+    write(repo, "pair.py", PAIR_FIXED + ALPHA_GUARD + BETA_GUARD)
+    b2 = commit(repo, "round 2's fix for 2")
+    out = refused(
+        repo,
+        fix_table(f"| 1 | fixed | {b1[:7]} |\n| 2 | fixed | {b2[:7]} |\n"),
+        f"{a}..{b2}",
+        n=2,
+    )
+    assert "depth 2" in out, out
+    # Each unit paired with the finding whose commit added it, and with that
+    # finding's own enclosing unit — the two halves the file-level walk got
+    # wrong together.
+    for name, finding, parent in (
+        ("alpha_guard", "🔴 1", "alpha"),
+        ("beta_guard", "🟡 2", "beta"),
+    ):
+        line = next(ln for ln in out.splitlines() if f"`{name}` in pair.py" in ln)
+        assert finding in line, f"`{name}` is attributed to the wrong row:\n{out}"
+        assert f"inside `{parent}`" in line, (
+            f"`{name}` is named inside the wrong parent unit:\n{out}"
+        )
+    assert "FILE-LEVEL" not in out, (
+        "the range resolves an adder for each unit, so nothing should fall back"
+    )
+    assert "deferred with a named answerer, or becomes an issue" in out
+
+
+def test_a_depth_two_refusal_it_cannot_attribute_says_so_and_names_every_candidate(
+    repo,
+):
+    """#333's other half, and S12. One commit answers both findings, so no
+    unit resolves to a single row at any cost — `measure` compares two ends
+    and a commit is one of them.
+
+    It still refuses. `docs/review-chain-spec.md` takes that direction for
+    every verdict the checker cannot read, and `CONTRIBUTING.md` supplies the
+    asymmetry: a wrong deny costs a prompt, and a wrong allow here ships a
+    depth-2 unit that is read by nobody. What changes is the MESSAGE — a
+    per-file answer is structurally unable to state what the record is
+    required to state per entry, so it says the attribution is file-level and
+    names every candidate instead of asserting one.
+    """
+    a = two_findings_inside_two_earlier_units(repo)
+    write(repo, "pair.py", PAIR_FIXED + ALPHA_GUARD + BETA_GUARD)
+    b = commit(repo, "one commit answering both findings")
+    out = refused(
+        repo,
+        fix_table(f"| 1 | fixed | {b[:7]} |\n| 2 | fixed | {b[:7]} |\n"),
+        f"{a}..{b}",
+        n=2,
+    )
+    assert "depth 2" in out, out
+    assert "FILE-LEVEL" in out, out
+    assert "the range does not resolve which fix added it" in out, out
+    for finding, parent in (("🔴 1", "alpha"), ("🟡 2", "beta")):
+        assert finding in out and f"inside `{parent}`" in out, out
+    assert "deferred with a named answerer, or becomes an issue" in out
+
+
 def test_a_basename_resolves_to_the_one_tracked_file_that_ends_in_it(repo):
     """Records name `chain_check.py#fix_surface` for a file three directories
     down, and the walk compared that basename with the diff's full path and

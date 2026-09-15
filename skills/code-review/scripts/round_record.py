@@ -3285,7 +3285,41 @@ def location_units(reader, root, a, text, tracked):
     return out
 
 
-def depth_two(reader, root, a, rows, fixes, added, at_a, earlier):
+def unit_adders(reader, root, fixes):
+    """{(path, unit): {finding number}} — which fix commit added each unit.
+
+    A second `measure`, one per `fixed` commit, over that commit alone.
+    `close` already resolves every `fixed` commit and places it inside the
+    range; what it does not hold is WHICH of them introduced a given unit,
+    because `measure` compares the range's TWO ENDS and nothing between
+    them (`questions.md` Q5). That is what `depth_two` below needs to name a
+    finding rather than a file.
+
+    Bounded by the fix range, which is the reason the cost is affordable: a
+    fix range is two or three commits, and each pass parses only the files
+    that ONE commit touched rather than the range's whole surface.
+
+    A commit with no parent contributes nothing — every unit in it is `added`
+    against an empty tree, which is true and useless — and the walk falls
+    back to the file-level answer for anything it cannot attribute.
+    """
+    adders = {}
+    for number, (word, value, _note) in fixes.items():
+        if word != FIXED:
+            continue
+        full = chain.resolves_to(root, value)
+        parent = chain.resolves_to(root, f"{full}^") if full else None
+        if parent is None:
+            continue
+        _c, added, _h, _at_a, _at_b = measure(
+            reader, root, parent, full, touched(root, parent, full)
+        )
+        for rel, unit in added:
+            adders.setdefault((rel, unit), set()).add(number)
+    return adders
+
+
+def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
     """`Refused` when a `fixed` finding sits inside a unit an earlier record's
     `New units` names and the range adds a unit in that finding's file.
 
@@ -3300,10 +3334,32 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier):
     added to refuse. A Location that names no file is resolved against
     every file the range touched that holds the unit at `a`, which is the
     widest honest reading of a name with no path beside it.
+
+    **The finding is named from `adders`, not from the file** (#333). The
+    walk used to compare the FILE — `inside = [n for r, n in added if r == f]`
+    — so every unit added to a file was attributed to whichever candidate
+    row the loop reached first. It fired correctly on #30 and named the wrong
+    finding and the wrong enclosing unit, which is worse than firing wrongly:
+    the reader is sent to a row that did not add the unit.
+
+    **Where the range cannot resolve one, it still refuses and says so.**
+    A single commit answering two findings resolves to nothing at any cost,
+    and the direction every verdict the checker cannot read takes is the one
+    that blocks: `docs/review-chain-spec.md`'s own depth table fails an entry
+    below depth 1 for the neighbouring reason, and the asymmetry is
+    `CONTRIBUTING.md`'s — a wrong deny costs a prompt, and a wrong allow here
+    ships a unit that is read by nobody. What changes on the fallback is the
+    MESSAGE: it says the attribution is file-level and names every candidate
+    finding rather than asserting one, because a per-file answer is
+    structurally unable to state what `templates/sdd-round.md` requires per
+    entry.
     """
     named = units_named_earlier(reader, earlier)
     if not named or not added:
         return
+    adders = adders or {}
+    # {(file, unit added): {finding number: (parent unit, the record naming it)}}
+    candidates = {}
     tracked = tracked_at(root, a)
     for number, (word, _, _) in fixes.items():
         if word != FIXED:
@@ -3318,19 +3374,42 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier):
             else:
                 files = [f for f, units in at_a.items() if unit in units]
             for f in files:
-                inside = [n for r, n in added if r == f]
-                if not inside:
-                    continue
-                raise Refused(
-                    f"{', '.join(f'`{n}`' for n in inside)} in {f} would be at "
-                    f"depth 2: added by the fix of {reader.visible(cells[NUMBER_COL])}, "
-                    f"whose Location `{reader.visible(location)}` is inside "
-                    f"`{unit}`, a unit round-{named[unit]}.md's `{chain.NEW_UNITS}` "
-                    "names. A fix pass may add a unit; that unit's fix may not, "
-                    "because the fix is read by the round that follows and the "
-                    "unit it added is read by nobody. The unit is "
-                    f"{DEPTH_EXIT}; no cell was written"
-                )
+                for name in [n for r, n in added if r == f]:
+                    candidates.setdefault((f, name), {})[number] = (
+                        unit,
+                        named[unit],
+                        reader.visible(cells[NUMBER_COL]),
+                        reader.visible(location),
+                    )
+    if not candidates:
+        return
+
+    lines = []
+    for (f, name), rows_for in candidates.items():
+        owners = sorted(set(adders.get((f, name), ())) & set(rows_for))
+        if len(owners) == 1:
+            unit, record_n, cell_text, location = rows_for[owners[0]]
+            lines.append(
+                f"`{name}` in {f} would be at depth 2: added by the fix of "
+                f"{cell_text}, whose Location `{location}` is inside `{unit}`, "
+                f"a unit round-{record_n}.md's `{chain.NEW_UNITS}` names."
+            )
+            continue
+        every = "; ".join(
+            f"{cell_text} (inside `{unit}`, round-{record_n}.md)"
+            for _n, (unit, record_n, cell_text, _loc) in sorted(rows_for.items())
+        )
+        lines.append(
+            f"`{name}` in {f} would be at depth 2, and the attribution is "
+            f"FILE-LEVEL: the range does not resolve which fix added it, so "
+            f"every fix inside an earlier unit in {f} is a candidate — {every}."
+        )
+    raise Refused(
+        "\n".join(lines) + " A fix pass may add a unit; that unit's fix may "
+        "not, because the fix is read by the round that follows and the unit "
+        f"it added is read by nobody. The unit is {DEPTH_EXIT}; no cell was "
+        "written"
+    )
 
 
 def field_index(reader, lines, label):
@@ -3433,7 +3512,17 @@ def close(args):
     paths = touched(root, a, b)
     changed, added, heuristic, at_a, at_b = measure(reader, root, a, b, paths)
     earlier = earlier_records(routing, rounds, args.round)
-    depth_two(reader, root, a, rows, fixes, added, at_a, earlier)
+    depth_two(
+        reader,
+        root,
+        a,
+        rows,
+        fixes,
+        added,
+        at_a,
+        earlier,
+        unit_adders(reader, root, fixes),
+    )
 
     contract = surface_cell(
         chain.CONTRACT,

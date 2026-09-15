@@ -310,6 +310,22 @@ def test_the_open_verdicts_boundary_is_not_the_shared_separators():
     assert "rather than borrowed from `chain.SEPARATORS`" in spec
 
 
+def test_the_depth_refusal_attributes_per_finding_and_says_when_it_cannot():
+    """#333. The refusal changed twice over — what it names and what it does
+    when it cannot name it — and both are behaviour a person is stopped by, so
+    the owner of the depth rule says them.
+
+    The second half is the one a reader would otherwise have to infer from the
+    code: it still refuses on a file-level attribution, and only the sentence
+    changes.
+    """
+    spec = flat(*SPEC)
+    assert "names the finding whose fix commit added the unit" in spec
+    assert (
+        "it still refuses, and the message says the attribution is file-level" in spec
+    )
+
+
 def test_a_repair_made_outside_the_tree_has_a_verdict_the_owner_names():
     """#321's comment. `fixed` demands a commit in the fix range, and a
     repair made by editing a ticket or a pull request body has none — so the

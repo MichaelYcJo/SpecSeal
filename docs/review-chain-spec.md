@@ -1263,6 +1263,22 @@ rule and its exit shipped one phase before this check, in that order and on
 purpose: a session meeting *this unit may not exist* with nowhere to put it
 stops the chain, which costs more than the unreviewed unit did.
 
+**The generator's refusal names the finding whose fix commit added the unit**,
+not the file the unit landed in. It resolves that from the commits `close`
+already holds — one per `fixed` row — rather than from the range's two ends,
+because a range with two fixes in one file attributes every unit in that file
+to whichever row the walk reaches first, and the reader is then sent to a row
+that did not add the unit.
+
+Where the range cannot resolve one — a single commit answering two findings
+resolves to nothing at any cost — **it still refuses, and the message says the
+attribution is file-level and names every candidate finding** instead of
+asserting one. It refuses because that is the direction every verdict the
+checker cannot read takes, and the asymmetry is `CONTRIBUTING.md`'s: a wrong
+deny costs a prompt, and a wrong allow here ships a unit read by nobody. It
+stops asserting because the depth goes per entry, so a per-file answer is
+structurally unable to state what the record is required to state.
+
 What no check can see is a depth declared wrong — `(depth 1)` on a unit that
 is really second-level. The rule is a declaration, and the verifying round
 reading the `New units` surface is what looks at it.
