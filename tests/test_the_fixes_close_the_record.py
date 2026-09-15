@@ -1985,3 +1985,122 @@ def test_a_repeated_coordinate_resolves_to_one_row_on_both_sides(repo):
         f"the two sides name different rows of one record: {before!r} then {after!r}"
     )
     assert after == f"round 1's 🟢 {chr(0x2014)} verified", after
+
+
+# --- the second cause of an empty fill: the section lost its rows ------------
+#
+# #405. `filled == 0` was answered with unconditional silence, and it has two
+# causes: the re-review round above, and a `## Inherited coordinates` table
+# edited or truncated after `new` wrote it. The other two refusals both miss
+# the second -- a table with no rows is readable, and it inherits no
+# coordinate for round N's verdict table to lack.
+
+
+def strip_inherited_rows(repo, n=2):
+    """Delete every body row of round N's `## Inherited coordinates`, leaving
+    the heading, the header and the separator. Returns what was deleted."""
+    path = repo / ROUNDS / f"round-{n}.md"
+    text = path.read_text(encoding="utf-8")
+    head, rest = text.split("## Inherited coordinates", 1)
+    body, tail = rest.split("\n## ", 1)
+    gone = [ln for ln in body.splitlines() if ln.startswith("| round-")]
+    assert gone, f"round-{n}.md has no inherited body row to delete:\n{text}"
+    kept = [ln for ln in body.splitlines() if not ln.startswith("| round-")]
+    path.write_text(
+        head + "## Inherited coordinates" + "\n".join(kept) + "\n## " + tail,
+        encoding="utf-8",
+    )
+    return gone
+
+
+def test_a_truncated_inherited_table_is_refused_naming_what_it_no_longer_holds(repo):
+    """A4. Round 2 generated normally, then every body row of its
+    `## Inherited coordinates` deleted. `close --round 1` used to exit 0 and
+    say nothing about the reach, so the truncation reached the pull request
+    with the `Why` cells gone.
+
+    Red against the unconditional silence: exit 0 and no mention of the
+    coordinate. The refusal names the coordinates the table no longer
+    accounts for rather than stating a rule, so a reader can tell a
+    truncation from a generator that stopped emitting a row.
+    """
+    a = two_records(repo)
+    gone = strip_inherited_rows(repo)
+    assert any("`mod.py#helper`" in ln for ln in gone), gone
+    commit(repo, "the section truncated by hand")
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "the fix")
+    before = {
+        n: (repo / ROUNDS / f"round-{n}.md").read_text(encoding="utf-8") for n in (1, 2)
+    }
+    code, out, _record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 2, out
+    assert "`mod.py#helper`" in out, out
+    assert "does not account for" in out, out
+    # §14: the sentence a person is stopped by. The last clause is what lets a
+    # reader tell this state from the re-review round below it, which is the
+    # reading the removed refusal got wrong and the reason it was removed.
+    assert "regenerate the section, or put the rows back" in out, out
+    assert "already claimed is NOT this state" in out, out
+    assert "no cell was written" in out, out
+    for n, text in before.items():
+        assert (repo / ROUNDS / f"round-{n}.md").read_text(encoding="utf-8") == text, (
+            f"round-{n}.md was written under a refusal"
+        )
+
+
+def test_a_section_that_accounts_for_the_coordinates_under_an_earlier_round_is_silent(
+    repo,
+):
+    """A3's mechanism, stated as the accounting rather than as the count. The
+    round-3 section of the re-review case names no `round-2` row and still
+    holds round 2's one coordinate, under `round-1`. That is what the
+    accounting reads, and it is why the narrowing does not reach the shape
+    the silence exists for.
+    """
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(verdicts=OPEN_1))
+    assert code == 0, out
+    a1 = commit(repo, "round 1")
+    write(repo, "mod.py", MOD_CHANGED)
+    b1 = commit(repo, "round 1's fix")
+    code, out, _ = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b1[:7]} |\n"), f"{a1}..{b1}"
+    )
+    assert "no cell was written" not in out, out
+    commit(repo, "round 1 closed")
+    code, out, _ = generate(
+        repo,
+        n=2,
+        report_text=report(
+            verdicts="| 🟡 1 | helper still drops b | `mod.py#helper` | open | read |\n"
+        ),
+    )
+    assert code in (0, 1), out
+    commit(repo, "round 2")
+    code, out, _ = generate(
+        repo,
+        n=3,
+        report_text=report(
+            verdicts="| 🟡 1 | a third look | `mod.py:5` | open | read |\n"
+        ),
+    )
+    assert code in (0, 1), out
+    a = commit(repo, "round 3")
+    third = read(repo / ROUNDS / "round-3.md")
+    rows = rows_of(third, "## Inherited coordinates")[2:]
+    assert "round-2" not in "".join(rows), "the fixture is not the state this is about"
+    assert any("`mod.py#helper`" in ln for ln in rows), (
+        "round 2's coordinate has to be in the section under round-1, or the "
+        f"accounting is not what this case exercises:\n{third}"
+    )
+    write(repo, "mod.py", MOD_CHANGED + "\n\ndef extra():\n    return 1\n")
+    b = commit(repo, "round 2's fix")
+    code, out, _ = close(
+        repo, 2, fix_table("| 1 | answered | grounds |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    assert "does not account for" not in out, out
+    assert "no cell was written" not in out, out

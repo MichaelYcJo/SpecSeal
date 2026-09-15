@@ -1510,11 +1510,20 @@ def reach_forward(reader, rounds, n, rows):
 
     Silent where round N+1 does not exist, which is every ordinary run: the
     fix pass comes first and the verifying round is spawned after it. Silent
-    too where its table names no row from round N, because `inherited_rows`
-    is first-seen-wins ACROSS rounds — a round whose every coordinate an
-    earlier round already claimed is written into that section under the
-    earlier round and under no other, which is the ordinary shape of a
-    re-review round rather than a malformed record (round 1's 🔴 2).
+    too where its table names no row from round N **and accounts for round
+    N's coordinates anyway**, because `inherited_rows` is first-seen-wins
+    ACROSS rounds — a round whose every coordinate an earlier round already
+    claimed is written into that section under the earlier round and under no
+    other, which is the ordinary shape of a re-review round rather than a
+    malformed record (round 1's 🔴 2).
+
+    **Filling nothing has a second cause and the silence covered it too**
+    (#405): the section EDITED OR TRUNCATED after `new` wrote it, which the
+    other two refusals both miss — a table with no rows at all is readable
+    and inherits no coordinate for the verdict table to lack. The accounting
+    separates them. Every coordinate of round N appears in a table `new`
+    wrote, so a table naming none of round N's rows and missing some of round
+    N's coordinates is one that lost rows, and it is refused naming them.
     """
     path = os.path.join(rounds, f"round-{n + 1}.md")
     if not os.path.exists(path):
@@ -1532,9 +1541,18 @@ def reach_forward(reader, rounds, n, rows):
         )
     mine = f"round-{n}"
     filled = 0
+    # Every coordinate the table carries, WHATEVER round it is attributed to.
+    # `inherited_rows` is first-seen-wins across rounds, so round N's own
+    # coordinates sit under round N or under an earlier round that claimed
+    # them first -- which is why the accounting below reads the whole column
+    # and not the `round-N` rows alone.
+    accounted = set()
     for i, cells in body:
         seen = [reader.visible(c) for c in cells]
-        if len(seen) < len(INHERITED_HEADER) or seen[0].strip() != mine:
+        if len(seen) < len(INHERITED_HEADER):
+            continue
+        accounted.add(seen[1])
+        if seen[0].strip() != mine:
             continue
         coordinate = seen[1]
         if coordinate not in rows:
@@ -1555,6 +1573,35 @@ def reach_forward(reader, rounds, n, rows):
         )
         filled += 1
     if not filled:
+        # Filling nothing has TWO causes and only one of them is ordinary
+        # (#405). The accounting is what tells them apart, and it runs only
+        # here -- narrowed by measurement rather than by preference. Applied
+        # to every run instead, it refuses a section whose rows are correct
+        # as far as they go: 2 of the 139 committed round-N/round-N+1 pairs
+        # fill a row from round N and still leave coordinates of round N
+        # unaccounted, both of them sections written BY HAND rather than by
+        # `new` (2026-09-15, `1788272986` round 2 and `1788433011` round 2).
+        # A hand-written section is a shape this repository has; refusing it
+        # for filling only what it knew about is the reader sent to correct a
+        # table that is not wrong.
+        unaccounted = [c for c in rows if c not in accounted]
+        if unaccounted:
+            named = ", ".join(sorted(unaccounted))
+            many = "s" if len(unaccounted) > 1 else ""
+            raise Refused(
+                f"round-{n + 1}.md's `{INHERITED}` table names no row from "
+                f"{mine} and does not account for {len(unaccounted)} of round "
+                f"{n}'s coordinate{many} either: {named}. `new` writes one row "
+                "per `Location` cell of every earlier record, so a table it "
+                "wrote holds all of them — under this round or under an "
+                "earlier one that claimed the coordinate first. A table "
+                "holding neither was edited or truncated after `new` wrote "
+                f"it, and the `Why` cells round {n}'s verdicts belong in are "
+                "gone with the rows: regenerate the section, or put the rows "
+                "back. A round whose every coordinate an earlier round "
+                "already claimed is NOT this state — its table accounts for "
+                "all of them and nothing is said; no cell was written"
+            )
         # NOT a refusal (round 1's 🔴 2). `inherited_rows` is first-seen-wins
         # ACROSS rounds, so a round whose every coordinate an earlier round
         # already claimed is written into this section under that earlier
