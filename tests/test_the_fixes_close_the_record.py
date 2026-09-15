@@ -1250,8 +1250,10 @@ def test_a_unit_added_beside_a_finding_inside_an_earlier_units_is_refused(
 # `chain.EMPHASIS`, which is `[*_`]+`, so `only_tested` is read back as
 # `onlytested` and matches no unit the AST names. That is a live defect of its
 # own, outside this work item's six tickets, and it is written up in the
-# stamped `# RIDER:` at `round_record.py#units_named_earlier` rather than
-# repaired here.
+# stamped rider comment at `round_record.py#units_named_earlier` rather than
+# repaired here. Spelled without the marker on purpose: `rider_check` reads
+# any line carrying it as a rider of its own and asks this comment for a
+# verification stamp it has no claim to make.
 PAIR = "def alpha(a):\n    return a\n\n\ndef beta(a):\n    return a\n"
 PAIR_FIXED = PAIR.replace("def alpha(a):", "def alpha(a, b=None):")
 ALPHA_GUARD = "\n\ndef alpha_guard(b):\n    return b is not None\n"
