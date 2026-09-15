@@ -1413,7 +1413,7 @@ def test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one(repo):
     c1 = commit(repo, "finding 1's fix, adding nothing")
     write(repo, "pair.py", PAIR_BOTH_FIXED + BETA_GUARD)
     c2 = commit(repo, "finding 2's fix, adding the unit")
-    code, out, record = close(
+    _code, out, record = close(
         repo,
         2,
         fix_table(f"| 1 | fixed | {c1[:7]} |\n| 2 | fixed | {c2[:7]} |\n"),
