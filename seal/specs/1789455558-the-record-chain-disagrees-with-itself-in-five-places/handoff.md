@@ -33,30 +33,20 @@ button unavailable, so this is a thing to know rather than a thing to choose.
 All seven Status cells in `plan.md` carry their commits. What has not happened
 is everything after the build: no pull request, no review round, no broad gate.
 
-**The next step is not the pull request. It is a decision.**
-`bin/evidence-check --strict .` exits **2** on this branch, with seven anchors
-DRIFTED, and the broad gate runs the ledger arm — so the gate will come back
-NOT SEALED until this is resolved. Work item 1 met the same wall on two rows
-and the run cost three broad-gate spends.
+**The ledger drift is resolved.** `bin/evidence-check --strict .` exited 2 on
+this branch with seven anchors DRIFTED, and the broad gate runs the ledger arm
+at `--strict` — so the seal was unreachable until it was answered. The build
+left the choice open; it was closed on 2026-09-16 by running
+`bin/evidence-check --reverify .`, which refreshed 15 rows, after which
+`--strict .` reads 1274 ok · 0 drifted · 0 broken · 0 refused, exit 0.
 
-The seven are units this branch changed that `seal/ledger.md` already cites:
-`close`, `seal`, `fix_table`, `reach_forward` and three test units. **The drift
-is the mechanism firing correctly, not a defect.** Every one of the thirteen
-rows citing them was re-read on 2026-09-15: twelve hold, and one did not — that
-one is removed, below. There are two ways out and the build chose neither:
-
-- **`bin/evidence-check --reverify .`** — one command, and what the branch did
-  for work item 1. It refreshes the hashes and does **not** touch the `Checked`
-  column, so the re-read it records is invisible; and it puts a multi-row edit
-  to `seal/ledger.md` on a branch while others are in flight, which is the
-  collision the fragment convention exists to prevent.
-- **Leave it to the release**, which is what the build chose and wrote into
-  `overview.md` §*Not verified* with the owner named. CI's own invocation is
-  non-strict, where this is exit 1 and a printed warning. **The broad gate is
-  not**, so the sealer cannot seal this branch as it stands.
-
-Whoever takes this decides before spawning `sealer`, not after — a gate run is
-spent by any edit that follows it.
+The drift was the mechanism firing correctly: the seven are units this branch
+changed that `seal/ledger.md` already cites — `close`, `seal`, `fix_table`,
+`reach_forward` and three test units. Re-verifying is re-reading, and the
+re-reading happened first: the thirteen rows citing those anchors were read on
+2026-09-15, twelve held, and the one that did not is removed. `--reverify`
+refreshes hashes and never the `Checked` column, so that re-read is recorded in
+`overview.md` and `phases/phase-7.md` rather than in the cells.
 
 **`seal/ledger.md` was touched, once, and on purpose.** The instruction the
 build was given said it would not need to be, and that premise turned out
