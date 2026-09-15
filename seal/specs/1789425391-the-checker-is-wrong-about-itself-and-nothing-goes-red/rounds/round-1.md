@@ -23,7 +23,7 @@ must go red, so they are checked in that shape rather than as a list of edits.
 
 Three things the builder disclosed were to be **verified rather than taken**:
 the record corpus carried as 176 and re-measured to 211; a unit name
-`SUMMARY_WORDS` that `spec.md` cites and the tree does not hold; and a
+`SUMMARY_WORDS` <!-- NAME NOT IN TREE: the name this round was asked to check FOR absence; it exists in no branch of this repository --> that `spec.md` cites and the tree does not hold; and a
 docstring measurement re-taken against the four conditions `plan.md` sets for
 it — population named exactly, the date, the reader it was taken through, and
 all three figures of the sentence re-derived in one pass.
