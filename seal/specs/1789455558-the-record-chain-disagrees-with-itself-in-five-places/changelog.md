@@ -64,10 +64,17 @@
 
   The severity in the message now comes from the row's own `#` cell, and a row
   whose verdict does not close it is refused by a second arm with its own
-  sentence. That sentence names **both** things that put the row there — the
-  quote, and the verdict — because either one is a way out: change the word, or
-  drop the quote. Which rows fail is unchanged: an unrecognised verdict counting
-  as closed is the tolerant read this check exists to refuse.
+  sentence. That sentence names **both** things that put the row there — a
+  blocking marker in one of its other cells, and a verdict that is not one of
+  the words that close a row — because either one is a way out. Which rows fail
+  is unchanged: a verdict counted as closed without being one of those words is
+  the tolerant read this check exists to refuse.
+
+  **It says *marker* rather than *quote* because that is what it can check.**
+  The row is selected by a 🔴 anywhere but the `#` cell, which is usually an
+  earlier round's finding quoted in the grounds and is not always — it can be
+  this round's own marker in another cell, or a 🔴 that quotes no finding at
+  all.
 
   **Naming only the word was not enough, and `open` is why.** `open` is the word
   a reviewer is told to write for a finding the round opened, and this same
@@ -90,6 +97,13 @@
   decided by line length. The sweep now folds that seam, and it found a live
   instance the moment it could see one: a refusal reading *The seal names a
   commit this repository holds* now reads *The sealer's mark names…*.
+
+  **The fold is held by a case that goes through the sweep's own reader**, not
+  through the pattern beside it. That distinction is not pedantry: for one
+  round the fold was pinned only by cases calling the pattern directly, so
+  reverting it left every case in the module green and the hole open again with
+  nothing red. The seam it reads is itself asserted, so the case cannot go on
+  passing against a source somebody has rewrapped.
 
 - **A test fixture that rewrites a record says so when its rewrite misses
   (#407).** Four fixtures across the two record modules edited a record by
