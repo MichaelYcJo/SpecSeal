@@ -57,3 +57,24 @@ the nine is a stale claim.
 | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/spec.md` | **A missing `Broad gate` row is a refusal, not a default**: the sealer says which row to write and exits 2 | Another work item's CLOSED record, and a record is the past. It was true at the SHA it describes; rewriting it would make it describe a tree it never saw |
 | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/overview.md` | `templates/config.md` and the config skill both now say to put the runner first | The same, and the claim it states is now carried forward correctly in `seal/ledger.md`, which this pass corrected |
 | `seal/specs/1789002694-two-agents-are-forbidden-the-seal-and-nobody-is-assigned-it/phases/phase-2.md` | `templates/config.md` and the config skill say to put the runner first for this reason | The same. Its live counterpart in `seal/ledger.md` was corrected rather than this record |
+
+## Round 2's fix pass — `9919b265..HEAD`
+
+Nine places, one cause, none of them a claim. Bounding the paragraph case
+deleted the line `section_text = flat(broad_gate_section())`, and
+`section_text` with *the body of X, heading to the next heading* is how every
+section-slicing helper in this suite is written. The check matched that
+vocabulary, at 1.62–1.80. Nothing this range removed was a claim anything else
+in the tree repeats.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `tests/test_the_record_is_generated.py` | The table rows under a heading, as raw lines, header and separator included | Another module's own `rows_of` helper. Generic slicing vocabulary, no relation to the `Broad gate` section |
+| `tests/test_the_record_is_generated.py` | Executed at `c4d7077`: exit 0 for `## Deferred` and `## Executed probes` | A round-record case's docstring. It names headings, which is what the phrase match caught |
+| `tests/test_the_record_is_generated.py` | One entry per finding, and the reviewer's order is the fix pass's agenda | A paste-ready-fixes case. Matched on `section` vocabulary alone |
+| `tests/test_the_record_is_generated.py` | `code, out, text = generate(repo, report_text=body + TERMINAL)` | Generator plumbing in a parametrised body. Not prose and not a claim |
+| `tests/test_a_segment_feeds_the_flow_log.py` | The section with its lines intact | That module's own `section_text()` helper — the same helper name, which is exactly what matched |
+| `tests/test_a_segment_feeds_the_flow_log.py` | the section says what one segment's reading is and where it goes | The same module, one case down, reading its own section through the same helper |
+| `tests/test_first_setup_asks_once.py` | `("docs", "one-root-by-lifetime.md"), "## Decided after the thread"` | A parametrised design-record case that predates this branch and is untouched by it |
+| `tests/test_the_handoff_before_round_one.py` | The body of `## What every spawn prompt used to carry`, heading to the next `## ` | That module's own section helper, written in the same shape as every other |
+| `tests/test_the_handoff_before_round_one.py` | The body of `### After the run — the per-segment bars`, heading to the next heading of any level | The same module's second section helper |
