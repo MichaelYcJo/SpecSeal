@@ -27,7 +27,10 @@ the diff cannot show goes here. -->
             per phase, each exit code read directly; every new case seen red
             first, by reverting the call in `gate()` and by deleting each
             pinned sentence one at a time (25 mutations across four loops, one
-            of which stayed green and is recorded below). **read** — nothing
+            of which stayed green and is recorded below); then every unit the
+            branch added, mutation-tested on its own — 10 more, one of which
+            had nothing behind it and now does; `bin/evidence-check --strict .`
+            and `bin/survivor-check` over the branch range. **read** — nothing
             was judged by reading alone. **unverified** — the full suite, the
             repository-wide lint and the typecheck, which are the sealer's one
             run; answerer: the orchestrating session
@@ -92,3 +95,19 @@ its file has to slice the region it means first.
 flattened phrase the case reads. Three of phase 4's ten needles spanned a line
 break and the driver stopped rather than silently skipping them — which is the
 right failure, and is worth knowing before writing the next one.
+
+**A defensive `.strip()` inside a unit whose only caller already strips is a
+line claiming a defence it never performs** — inferred during implementation,
+after the phases closed. `not_as_written` strips before it reads, and nothing
+reaching it through the gate can exercise that: `config_rows` strips every
+cell and `broad_command` turns an all-whitespace value into `None`. Removing
+the strip left every other case green. It is kept — a module-level function's
+correctness should not turn on which caller reaches it — and a case now
+exercises it, which is what makes keeping it honest rather than decorative.
+
+**What `survivor-check` reported over this branch is all one deletion**, and
+`survivors.md` holds the range row that says so: 88 places, 85 of them rows of
+`seal/ledger.md` that share the removed row's Notes boilerplate and three of
+them other work items' closed records. Nothing under `skills/`, `templates/`,
+`agents/`, `tests/` or `docs/` was reported at all, which is the half that
+would have mattered.
