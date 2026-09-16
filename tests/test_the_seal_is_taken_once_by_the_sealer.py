@@ -32,6 +32,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import posix_row_shell_or_skip
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, "skills", "verify", "scripts", "seal_stamp.py")
@@ -751,6 +752,11 @@ def test_a_row_wrapped_in_backticks_is_refused_and_shown_rewritten(repo, tmp_pat
     assert f"as written: | {ROW} | `{SUITE_ROW}` |" in said, said
     assert f"as meant:   | {ROW} | {SUITE_ROW} |" in said, said
     assert "Nothing ran" in said and "nothing was repaired" in said, said
+    # The whole message, pinned HERE rather than only in A2 below. This case
+    # reads a refusal, so it runs on every platform; A2 needs a POSIX shell
+    # to have a subject at all, and `DISCARDED` used to be asserted only
+    # there — which left the message's own wording unpinned on Windows.
+    assert "DISCARDED" in said, said
 
 
 def test_the_wrapped_row_that_would_have_seal_a_red_suite_is_refused(repo, tmp_path):
@@ -758,7 +764,17 @@ def test_the_wrapped_row_that_would_have_seal_a_red_suite_is_refused(repo, tmp_p
     content exits 1 bare and exited 0 wrapped, with the failure still on the
     screen. Bare, the gate is NOT SEALED. Wrapped, it refuses rather than
     sealing — and under the revert this case was written against, it drew the
-    stamp."""
+    stamp.
+
+    **The pair is POSIX command substitution, and `cmd.exe` does not have
+    it.** `FAILS_BUT_PRINTS_A_COMMAND` is a `;`-separated line ending in
+    `false`; under `cmd.exe` it is one `echo` that succeeds, so the fixture's
+    failing check does not fail and there is nothing for the wrapped half to
+    be the counterfeit OF. This is not a defect that fails to reproduce there
+    — it is a defect that does not exist there. The refusal itself still runs
+    on every platform, in the case above.
+    """
+    posix_row_shell_or_skip()
     keep = tmp_path / "out"
     bare = run_gate(set_row(repo, FAILS_BUT_PRINTS_A_COMMAND), keep=keep)
     assert bare.returncode == 1, f"{bare.stdout}\n{bare.stderr}"
@@ -847,27 +863,48 @@ def test_a_refused_row_runs_no_check_and_adds_no_worktree(repo, tmp_path):
 
 
 @pytest.mark.parametrize(
-    "value, why",
+    "value, why, needs_posix",
     [
-        (f"echo checking; {SUITE_ROW}", "a `;` needs a shell parser to judge"),
+        (f"echo checking; {SUITE_ROW}", "a `;` needs a shell parser to judge", True),
         (
             f"{sys.executable} -m pytest -q -p no:cacheprovider $(echo tests)",
             "a substitution INSIDE a line still runs as what it reads as",
+            True,
         ),
-        (f"{SUITE_ROW} && echo done", "the `&&` chain is the shape every row takes"),
+        (
+            f"{SUITE_ROW} && echo done",
+            "the `&&` chain is the shape every row takes",
+            # `&&` is an operator in `cmd.exe` too, so this one is the row
+            # every platform can actually compose, and it runs everywhere.
+            False,
+        ),
     ],
 )
 def test_the_forms_that_stay_allowed_are_sealed_exactly_as_today(
-    repo, tmp_path, value, why
+    repo, tmp_path, value, why, needs_posix
 ):
     """A5. The row is an arbitrary shell command line by design and that is
     unchanged (#402 §*Not this*). Each of these has a cost and the cost is
     stated in `templates/config.md` rather than paid for by a refusal — a
     piped row exits with the pipe's last status, which is a claim the
-    repository made about itself."""
+    repository made about itself.
+
+    **Sealing is not the whole assertion, and it used to be.** `echo
+    checking; …` under `cmd.exe` is one `echo` that succeeds: the gate sealed,
+    the case passed, and the suite in the row had not run. Green for a reason
+    that has nothing to do with what the case is named for — this release's
+    own subject, in this module, on the platform nobody had looked at. CI
+    never reported it, because a vacuous pass is a pass. So the panel's suite
+    row is read too: the row's command has to have run the fixture's one test.
+    """
+    if needs_posix:
+        posix_row_shell_or_skip()
     out = run_gate(set_row(repo, value), keep=tmp_path / "out")
     assert out.returncode == 0, f"{why}\n{out.stdout}\n{out.stderr}"
     assert "SEALED" in out.stdout and "NOT SEALED" not in out.stdout
+    assert re.search(r"\bsuite\s+[^\n|]*1 passed", out.stdout), (
+        f"{why}\nthe gate sealed without the row's suite running:\n{out.stdout}"
+    )
 
 
 def test_a_piped_row_is_refused_by_the_table_and_not_by_this_refusal(repo, tmp_path):

@@ -55,7 +55,7 @@ in the whole flow ever asked a person to write it.
 |---|---|
 | The full suite, the repository-wide lint and the typecheck over this branch | the orchestrating session, by spawning `sealer` once the review rounds settle — `agent-contract` §2 makes that one act the sealer's |
 | Whether a `Broad gate` row can ever carry a pipe, and whether `hooks/config.py#config_rows` should learn to unescape one | the repository owner, at `questions.md` Q5. Out of scope by `spec.md` §*Data & interfaces*, which lists `config_rows` Unchanged. It is a schedulable item and this repository has a tracker, so it wants an issue rather than a `seal/follow-up.md` row — opening one is the orchestrator's act, and the hand-back names it |
-| What the refusal SAYS a shell does, on Windows | unmeasured on this branch, and round 1 corrected this row: the refusal itself is a string test over the row's value and reaches no shell, so it raises the same way everywhere — but the message's reason is `/bin/sh` semantics. Under `cmd.exe` a trailing `&` separates commands rather than backgrounding, and backticks and `$(…)` are literal characters. The message now says both. The `windows-latest` job is where one run settles it; answerer: the repository owner, at the next CI run |
+| What the refusal SAYS a shell does, on Windows | unmeasured on this branch, and round 1 corrected this row: the refusal itself is a string test over the row's value and reaches no shell, so it raises the same way everywhere — but the message's reason is `/bin/sh` semantics. Under `cmd.exe` a trailing `&` separates commands rather than backgrounding, and backticks and `$(…)` are literal characters. The message now says both. **The `windows-latest` job ran on 2026-09-16 and answered a narrower question than this row asks**: it showed that two of this module's fixtures had no subject under `cmd.exe` — a `;`-separated row that fails and a `$(…)` substitution — and that a third sealed there while running no tests at all. Those are repaired. What is STILL unmeasured is this row's own question: nothing executes the claim that `cmd.exe` separates commands on `&`, and a case asserting the message's TEXT is not that. Answerer: the repository owner, and the measurement is a `Broad gate` row ending in `&` run through `cmd.exe` |
 
 ## Not done
 
@@ -95,6 +95,27 @@ its file has to slice the region it means first.
 flattened phrase the case reads. Three of phase 4's ten needles spanned a line
 break and the driver stopped rather than silently skipping them — which is the
 right failure, and is worth knowing before writing the next one.
+
+**A platform fixture can have no subject rather than a failing one.**
+`FAILS_BUT_PRINTS_A_COMMAND` and `$(echo tests)` are POSIX command
+substitution, which `cmd.exe` does not have — so on Windows those two cases
+were not a defect failing to reproduce, they were cases with nothing to be
+about. The repair is a skip whose reason says that, not one that says *this
+fails on Windows*. `tests/conftest.py#posix_row_shell_or_skip` asks by
+attempting, through the same `subprocess(shell=True)` call the gate makes, so
+the answer is the gate's own shell rather than a guess from `os.name` — which
+is `symlink_or_skip`'s rule followed rather than excepted.
+
+**A case that asserts only the verdict cannot tell a real pass from a vacuous
+one, and CI cannot report it.** `echo checking; <pytest>` under `cmd.exe` is
+one `echo` that succeeds: the gate sealed, the case passed, and the suite in
+the row had never run. Green for a reason with nothing to do with what the
+case is named for — this release's own subject, in this release's own module,
+on the platform nobody had looked at. Two red cases were reported by CI and
+this one was not, because a vacuous pass is a pass. The repair reads the
+panel's suite row on every platform. The model for it was already in the
+module, one case up: `test_a_green_tree_is_sealed_with_every_check_run_in_order`
+has asserted `suite 1 passed` since it was written.
 
 **A bounded slice is the repair, and applying it to one module is not
 applying it.** Round 1's 🟡 7 was three cases reading to the end of a section;
