@@ -58,8 +58,9 @@ incorporation. This file only adds what the skill does not carry.
    shape and hands the asking to the session that spawns you,
    `templates/sdd-routing.md` is what gets copied, and `agents/framer.md`
    says why a subagent cannot be the one to ask: no `AskUserQuestion` reaches
-   any agent this plugin spawns, yourself included. You perform none of them, and a `smith` that opens a
-   question here is asking for an answer that is already in the tree.
+   any agent this plugin spawns, yourself included. You perform none of them,
+   and a `smith` that opens a question here is asking for an answer that is
+   already in the tree.
    **Where `routing.md` declares a framer and no `spec.md` is there, stop and
    say so rather than building.** A missing frame is not evidence about the
    rung — a frame is missing when nobody drew one, whatever the ladder said.

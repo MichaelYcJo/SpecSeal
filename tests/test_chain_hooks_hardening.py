@@ -806,15 +806,61 @@ def test_the_questions_are_collected_before_the_work_not_during_it():
         "the orchestrator's routing section no longer says the questions go "
         "in one call, which is what makes the batch one wait"
     )
+    # WHAT IS REFUSED IS A CLAIM, NOT A SPELLING, and the first version of
+    # this assertion refused the spelling. It read `"in one batch" not in
+    # body` over every definition — and `agent-contract` §10, which every
+    # agent receives at startup, gives that phrase a second and entirely
+    # legitimate meaning: *Batch independent reads and runs*. A definition
+    # writing `open every coordinate in one batch` would have been following
+    # the contract and gone red under a message about a question nobody
+    # asked. Round 2 found it; a check that refuses a phrase by spelling
+    # rather than by what it claims is the shape this release keeps finding,
+    # so it is repaired here rather than narrowed by one word.
+    #
+    # The claim is *this agent collects what a person must answer*. What marks
+    # it is a question word beside the phrase, so the window around each
+    # occurrence is what decides — flattened first, because these files wrap
+    # prose at about 75 columns and a per-line test would miss every sentence
+    # that spans two.
+    #
+    # WHAT IT STILL CANNOT TELL APART, written down rather than left to be
+    # found: *you collect the batch* from *your caller collects the batch*.
+    # The second is true and a definition may need to say it — `agents/
+    # framer.md` does, and says it with `in one call`, which is the spelling
+    # that stays clear of this. A definition that needs the other wording will
+    # meet this assertion and should reword rather than widen it, because one
+    # word is all that separates the true sentence from the instruction.
+    # Matched at a WORD BOUNDARY, and the first draft of this repair was not.
+    # A bare `"ask" in window` fires on `task`, so the probe that was supposed
+    # to show the contract's own wording passing — `open every coordinate a
+    # task names in one batch` — went red on the word `task`. That is the same
+    # defect as the one being repaired, one layer down: a substring standing
+    # in for a word. The prefixes are deliberate, so `asks` and `questions`
+    # match while `task` and `multitasking` do not.
+    ASKING = re.compile(
+        r"\b(question|ask|answer|person|people|human|user)", re.IGNORECASE
+    )
+    WINDOW = 140
     definitions = sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
     assert len(definitions) >= 3, f"agents/*.md matched {len(definitions)} files"
     for path in definitions:
         with open(path, encoding="utf-8") as f:
-            body = f.read()
-        assert "in one batch" not in body, (
-            f"{os.path.relpath(path, ROOT)} tells an agent to collect the "
-            "question batch, and no agent here can put a question to anybody"
-        )
+            flat_body = " ".join(f.read().split())
+        relative = os.path.relpath(path, ROOT)
+        at = flat_body.find("in one batch")
+        while at >= 0:
+            window = flat_body[max(0, at - WINDOW) : at + WINDOW]
+            named = sorted({m.group(0).lower() for m in ASKING.finditer(window)})
+            assert not named, (
+                f"{relative} tells an agent to collect in one batch something "
+                f"a person answers — the window names {named}. No agent this "
+                "plugin spawns has `AskUserQuestion`, so collecting a batch "
+                "of questions is an instruction nothing can carry out; the "
+                "act belongs to the session that spawns the work. Batching "
+                "READS is a different thing and is what `agent-contract` §10 "
+                f"asks for — that wording is not refused here.\n  …{window}…"
+            )
+            at = flat_body.find("in one batch", at + 1)
 
 
 def test_the_cycle_is_bounded_and_ends_at_a_pull_request():
@@ -964,8 +1010,9 @@ def test_the_smith_says_whether_the_frame_holds_before_building_to_it():
 
     A `no` needs a destination or it becomes a second interruption. The one
     the sentence names is the phase record and the hand-back -- never a route
-    back to the framer, which is the trip the framer's own phase exists to
-    spend once."""
+    back to the framer, which has no interactive phase to route back TO: the
+    one moment of human contact belongs to the session that spawns the work,
+    before the framer is spawned at all."""
     smith = " ".join(
         open(os.path.join(ROOT, "agents", "smith.md"), encoding="utf-8").read().split()
     )

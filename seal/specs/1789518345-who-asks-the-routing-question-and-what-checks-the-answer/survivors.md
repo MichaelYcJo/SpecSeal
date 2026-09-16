@@ -32,12 +32,20 @@ supposed to survive the deletion: `skills/implement/orchestration.md`,
 `routing.md` in a command of its own, and the gate still denies the whole
 call — so the rule did not go anywhere, only the party did.
 
-28 reports, all correct as reports and none a defect. The one that would have
-been a defect was opened directly: no hook and no document says the routing
-batch is the framer's. `seal/ledger.md:372`'s claim was handled on its own
-terms, one section up. -->
+29 reports at HEAD, all correct as reports and none a defect. The count was
+written as 28 because it was taken before the last commit of the pass; the
+range row excuses all of them either way, which is why nothing turns on the
+number and why it is corrected rather than re-taken each time.
+
+**What the tool cannot bound, and round 2 found it by reading:** it matches the
+sentences a range REMOVED, verbatim. Three lines in this branch's own tests
+said the routing act was the framer's in words the removal never contained —
+paraphrases the branch wrote about its own change — so they were never in the
+removed set. `survivor-check` bounds what a removal left behind; it does not
+bound what the branch itself wrote about the removal. The claim below is
+therefore about the durable copies, which is what it was checked against. -->
 
 | Range | Grounds |
 |---|---|
-| `6edfb71f..HEAD` | The fix pass deleted `agents/framer.md`'s interactive phase and its separate-command paragraph, because a subagent cannot ask. Every sentence of both stands in the durable copies that are supposed to outlive the deletion — the orchestrator's routing section, the `CLAUDE.md` block and its template, and the commit gate's own prompts — because the SESSION still performs the act they describe. Opened directly rather than assumed: no hook and no shipped document still says the batch is the framer's |
+| `6edfb71f..HEAD` | 29 survivors at HEAD. The fix pass deleted `agents/framer.md`'s interactive phase and its separate-command paragraph, because a subagent cannot ask. Every sentence of both stands in the durable copies that are supposed to outlive the deletion — the orchestrator's routing section, the `CLAUDE.md` block and its template, and the commit gate's own prompts — because the SESSION still performs the act they describe. Opened directly rather than assumed: no hook and no shipped document still says the batch is the framer's |
 

@@ -145,9 +145,11 @@ def test_every_document_shows_the_third_axis_ROW_not_only_the_count():
         "the row lost the vocabulary, so a session reads a third axis with no answers"
     )
     # `agents/smith.md` used to state the same axis in prose, because it used
-    # to ask the question. It does not any more — the act is the framer's, and
-    # the vocabulary travels with the act. Asserting the answers here again
-    # would put the moved rule back in the definition it left, which is what
+    # to ask the question. It does not any more — the act is the SESSION's
+    # that spawns the work, because no agent this plugin spawns has
+    # `AskUserQuestion` (#419, round 1) — and the vocabulary travels with the
+    # act. Asserting the answers here again would put the moved rule back in
+    # the definition it left, which is what
     # `tests/test_a_moved_rule_leaves_its_definition.py` exists to refuse.
     smith = flat(read("agents", "smith.md"))
     assert "implementation (smith · the session" not in smith, (
@@ -882,9 +884,11 @@ def test_the_smith_carries_its_own_half_and_not_the_questions():
     **What its own half IS moved, which is why this case is rewritten rather
     than deleted.** It used to carry the routing question's whole vocabulary,
     because it used to ask it — three axes, the four answers, the path it
-    wrote them to. That act is the framer's now, and a definition that keeps
-    the words of an act it no longer performs is a session's instruction to
-    perform it.
+    wrote them to. That act is the SESSION's now, not any agent's: round 1
+    measured that no agent this plugin spawns has `AskUserQuestion`, so the
+    batch went to the party that spawns the work rather than to the framer.
+    A definition that keeps the words of an act it no longer performs is a
+    session's instruction to perform it.
 
     What stays is what a smith still does with the answer somebody else
     wrote: run to the pull request without coming back, and name an answerer
