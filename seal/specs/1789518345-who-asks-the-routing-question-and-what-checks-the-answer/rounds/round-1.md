@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 421 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | test_a_direct_declaration_with_no_seal_is_SILENT_on_a_draft (depth 1); test_seal_refuses_a_chain_declaration_with_no_round_record (depth 1); test_a_direct_declaration_seals_into_its_own_home_even_with_rounds (depth 1); test_the_framer_asks_nobody_and_writes_no_declaration (depth 1); test_no_agent_definition_tells_an_agent_to_ask_a_person (depth 1) |
 | Needs a fix | yes — 🟡 1 the seal's home is chosen without reading the declaration, 🟡 2 and 🟡 3 two removals this branch made deliberately that no case holds, 🟡 4 the framer may have no tool for the act it was handed, and 🟡 5 nine ledger rows whose re-read is recorded nowhere. |
