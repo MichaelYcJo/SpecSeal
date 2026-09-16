@@ -213,12 +213,34 @@ def test_both_ampersand_cells_name_both_shells():
     Asserted per cell, in the list the cell is in. The pairing cases above
     read each row's stated reason, and that reason is what a hedge deleted
     from one cell alone would leave untouched.
+
+    #413: the presence loop found both names in each cell and nothing tied a
+    name to the consequence that is that shell's, so the two names could be
+    exchanged in either cell with all eighteen cases green — measured, once
+    per cell — and the document a person reads before writing the row then
+    stated one platform's semantics as the other's. That is round 2's own
+    🟡 2 inverted, by the case planted to hold it. The attribution is asserted
+    below, per cell; the presence loop stays, because it carries the message
+    for a cell that names no shell at all.
+
+    WHAT THIS CASE STILL CANNOT SEE: whether the `cmd.exe` half is TRUE. It
+    is unmeasured, recorded as unmeasured in work item `1789445605-…` with
+    the `windows-latest` job named, and what is pinned here is that the
+    document attributes each behaviour to a shell rather than that the
+    behaviour is that shell's. If the claim is ever measured false the cells
+    change, and this case is what makes that change visible instead of
+    silent.
     """
     body = section(read(*TEMPLATE), REFUSED_AND_ALLOWED, 3)
     refused = named(table(body, "| Refused |"), "trailing `&`")
     legal = named(table(body, "| Stays legal |"), "an `&` anywhere but at the end")
     assert refused and legal, "one of the two `&` rows has left its list"
-    for cell, which in ((flat(refused), "refused"), (flat(legal), "allowed")):
+    # Flattened once, and every assertion below reads the flattened row. The
+    # presence loop already folded each cell and the tail assertions did not,
+    # so a hand-rewrap of a 300-column cell would have reddened half of this
+    # case for a reason that has nothing to do with attribution.
+    refused, legal = flat(refused), flat(legal)
+    for cell, which in ((refused, "refused"), (legal, "allowed")):
         assert "`/bin/sh`" in cell, (
             f"the {which} `&` row names no shell, so it reads as every shell's"
         )
@@ -231,6 +253,16 @@ def test_both_ampersand_cells_name_both_shells():
     assert "nothing is left running" in legal, (
         "the allowed row's cost is stated as every platform's, and the cost "
         "it names — a check still running at the stamp — is `/bin/sh`'s"
+    )
+    assert "`/bin/sh` backgrounds" in refused and "`cmd.exe` separates" in refused, (
+        "the refused `&` row does not say WHICH shell does which, so the two "
+        "names could be exchanged in it and this case would stay green while "
+        "the row tells a person that `cmd.exe` backgrounds the whole line"
+    )
+    assert "That is `/bin/sh`" in legal and "`cmd.exe` sequences" in legal, (
+        "the allowed `&` row does not say WHICH shell does which, so the row "
+        "could credit `/bin/sh` with sequencing the two commands — which is "
+        "the opposite of the cost the same cell states"
     )
 
 
