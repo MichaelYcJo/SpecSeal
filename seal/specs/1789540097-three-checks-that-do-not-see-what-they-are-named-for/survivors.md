@@ -11,8 +11,8 @@ the preamble used to claim of all three what was true of one.** Measured at
 
 | Range | What it reports with no exempt file |
 |---|---|
-| `27a2d403..HEAD` — the build's own range | exactly one place, `phases/phase-3.md:36` |
-| `9087705b..HEAD` — round 2's fix range | exactly one place, `tests/test_waiver_decided_at_start.py:639` |
+| `27a2d403..HEAD` — the build's own range | one place, `phases/phase-3.md:39`. **The line number moves with the file** — it read `:36` when this table was written and `6e3f504d` moved it in the same commit that introduced the row. Re-measured at HEAD |
+| `9087705b..HEAD` — round 2's fix range | **nothing at all**, exit 0. The row below claiming to be live over this range is live over nothing: the wording it excuses was removed by an earlier range. Re-measured at HEAD |
 
 The `plan.md`, `spec.md` and `overview.md` rows below are reported by neither
 today. They are kept because the decision each records is real and the
