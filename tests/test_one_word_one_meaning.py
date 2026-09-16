@@ -236,6 +236,22 @@ SEAL_EXCLUDED = (
     (("docs", "one-root-by-lifetime.md"), "## Naming"),
 )
 
+# The phrase the sweep below searches for, written once and read twice —
+# here by the sweep and by
+# `test_folding_the_seam_cannot_hide_an_instance_it_would_have_found`, which
+# has to hold the property for every phrase either sweep looks for (#418).
+#
+# THE RISK THIS CARRIES, since a constant is the thing that makes it possible
+# (`questions.md` Q3): a later session that adds a phrase to a sweep by
+# writing the literal into the case body instead of here leaves the seam case
+# covering a set that is no longer the sweep's — this work item's own failure,
+# one level up. What stands against it is the folded-member assertion in that
+# case, which goes red whenever the set of members the fold reaches moves; a
+# check that read the case bodies to find out what they search for would be
+# the derivation #418 refuses in its own *Not this*, so the risk is written
+# down rather than mechanised.
+SEAL_BARE = "the seal"
+
 # What may follow a bare `the seal`: the concept, its formats, and the one
 # sentence that names the referent in the same clause. Everything else is an
 # instance with nobody's name on it.
@@ -326,9 +342,9 @@ def test_no_instructing_document_leaves_an_instance_anonymous():
             text = head + marker + after
         lowered = text.lower()
         start = 0
-        while (hit := lowered.find("the seal", start)) != -1:
+        while (hit := lowered.find(SEAL_BARE, start)) != -1:
             start = hit + 1
-            after = text[hit + len("the seal") :]
+            after = text[hit + len(SEAL_BARE) :]
             if after[:1].isalpha():  # the sealer, the sealed tree
                 continue
             assert after.startswith(SEAL_BARE_IS_THE_CONCEPT), (
@@ -366,6 +382,20 @@ SEGMENT_SWEPT = (
     ("tests", "test_session_cost.py"),
 )
 
+# The two spellings the sweep below searches for, each with what it gets
+# wrong, written once and read twice — here and by the seam case, on the same
+# terms as `SEAL_BARE` above and carrying the same risk (`questions.md` Q3).
+SEGMENT_LOOSE = {
+    "segments are spawn cycles": (
+        "equates a spawn cycle with a segment, which is what `--segments` "
+        "beside `--spawns` makes unreadable"
+    ),
+    "orchestrator's segments": (
+        "gives the orchestrator several segments. It has one — its own "
+        "transcript — and spawn cycles inside it"
+    ),
+}
+
 
 def test_the_owner_states_what_a_segment_is_and_what_it_is_not():
     """Stated once, by the section whose own name is the word, and the other
@@ -389,14 +419,8 @@ def test_no_shipped_document_calls_a_spawn_cycle_a_segment():
     cycles the orchestrator's segments, and the bare equation."""
     for parts in SEGMENT_SWEPT:
         text = flat(*parts)
-        assert "segments are spawn cycles" not in text, (
-            f"{'/'.join(parts)} equates a spawn cycle with a segment, which "
-            "is what `--segments` beside `--spawns` makes unreadable"
-        )
-        assert "orchestrator's segments" not in text, (
-            f"{'/'.join(parts)} gives the orchestrator several segments. It "
-            "has one — its own transcript — and spawn cycles inside it"
-        )
+        for loose, why in SEGMENT_LOOSE.items():
+            assert loose not in text, f"{'/'.join(parts)} {why}"
 
 
 # --- the sweep reads across a string-literal seam (round 1's 🟡 2) -----------
@@ -435,13 +459,44 @@ def test_folding_the_seam_cannot_hide_an_instance_it_would_have_found():
     An apostrophe inside a phrase is not a seam: the pattern needs the SAME
     quote twice with nothing but whitespace and prefix letters between, which
     is why `orchestrator's segments` is safe and is in the set below.
+
+    #418: three of the set's four sources used to be hand-copied literals, so
+    a phrase joining either sweep was checked by nothing — measured, with a
+    third foldable spelling added to the segment sweep and the case still
+    green. The set is now every phrase either sweep searches for, read from
+    the constants the sweeps themselves read.
+
+    WHY SEVEN PHRASES ARE THE WHOLE OF WHAT IS AT RISK, which is a fact about
+    the MEMBER lists rather than about the phrases: `flat` folds the seam for
+    `.py` members only, and across both sweeps five members are `.py`. Every
+    other phrase these sweeps look for is searched in a markdown member, where
+    the fold never runs at all. That makes this a closed set and not a short
+    list of examples — and because the closure rests on the member lists, it
+    stops holding the moment a `.py` member joins either sweep. So the members
+    are pinned below too.
+
+    WHAT THIS CASE STILL CANNOT SEE: whether a phrase was added to a sweep
+    without going through the constants. See `SEAL_BARE`'s comment for why
+    that is written down rather than checked.
     """
-    swept = (
-        "the seal",
-        *SEAL_BARE_IS_THE_CONCEPT,
-        "segments are spawn cycles",
-        "orchestrator's segments",
+    folded = tuple(
+        "/".join(parts)
+        for parts in (*SEAL_SWEPT, *SEGMENT_SWEPT)
+        if parts[-1].endswith(".py")
     )
+    assert folded == (
+        "skills/verify/scripts/seal_stamp.py",
+        "skills/code-review/scripts/round_record.py",
+        "skills/verify/scripts/broad_gate.py",
+        "skills/verify/scripts/session_cost.py",
+        "tests/test_session_cost.py",
+    ), (
+        "the set of members `flat` folds has moved, so the closure this case "
+        "rests on has to be re-taken: every phrase the sweep over "
+        f"{folded} looks for belongs in the set below, and the docstring's "
+        "count has to be brought to the new list"
+    )
+    swept = (SEAL_BARE, *SEAL_BARE_IS_THE_CONCEPT, *SEGMENT_LOOSE)
     for phrase in swept:
         assert LITERAL_SEAM.search(phrase) is None, (
             f"the fold can land inside {phrase!r}, so a deletion could cut "
