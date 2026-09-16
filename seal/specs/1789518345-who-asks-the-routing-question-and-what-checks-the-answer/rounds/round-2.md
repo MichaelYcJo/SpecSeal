@@ -7,13 +7,13 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 421 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1, three shipped lines that still name the framer as the party that asks the routing batch. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -35,7 +35,7 @@ holds against the durable copies rather than against the count.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | Three shipped lines still say the routing act is the framer's, which the fix reversed; two of them are the stated grounds for an absence assertion | `tests/test_waiver_decided_at_start.py:148`, `tests/test_waiver_decided_at_start.py:885`, `tests/test_chain_hooks_hardening.py:967` | open | Read, and reached by a paraphrase sweep rather than by `survivor-check`, which matches removed sentences verbatim. `agents/framer.md` now carries §*You have no interactive phase, and you ask nobody anything*, so line 967 names a phase the diff deleted |
+| 🟡 1 | Three shipped lines still say the routing act is the framer's, which the fix reversed; two of them are the stated grounds for an absence assertion | `tests/test_waiver_decided_at_start.py:148`, `tests/test_waiver_decided_at_start.py:885`, `tests/test_chain_hooks_hardening.py:967` | **fixed** `ef5c607d` | fixed at ef5c607d — all three lines corrected: the comment that is the stated grounds for the absence assertion, the docstring beside it, and the line naming a phase this branch deleted. Then the class rather than the three coordinates — a six-pattern sweep over the whole tree for any wording giving the routing act to the framer. One hit remains and is correct: it is about the file-set table handing `overview.md` to the framer, which is a different act; Read, and reached by a paraphrase sweep rather than by `survivor-check`, which matches removed sentences verbatim. `agents/framer.md` now carries §*You have no interactive phase, and you ask nobody anything*, so line 967 names a phase the diff deleted |
 | 🟢 | 🟡 1 of round 1 is closed in both directions, and the restored refusal fires for exactly one state | `skills/code-review/scripts/round_record.py:3825`, `hooks/routing.py:51` | verified | Executed over ten declaration states; both new cases seen red against the disk-based version, and no other case in the module moved |
 | 🟢 | The disk fallback for an unreadable declaration is sound — no arm reads either home for one | `skills/code-review/scripts/chain_check.py:1135` | verified | Read: `tracked_declarations` keeps a work item only `if parsed` |
 | 🟢 | 🟡 2 is closed and the phrase stands nowhere else | `tests/test_a_moved_rule_leaves_its_definition.py:278` | verified | Executed in the 32-module run, plus a sweep of six trees |
