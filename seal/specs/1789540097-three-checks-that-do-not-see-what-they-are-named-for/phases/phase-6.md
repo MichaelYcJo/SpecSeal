@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 6 |
-| Commit | <pending> |
+| Commit | cbf4dc73 |
 | Ran by | smith on claude-opus-5[1m] |
 
 ## What this phase was asked
@@ -64,8 +64,8 @@ superseding. The claim now reads *a batching instruction in any of its
 spellings*, the Verified cell carries what phase 4 measured, and the Notes
 say the row was half true and which half.
 
-**`bin/evidence-check .` exits 0 with zero drift**, 1316 rows ok across the
-shared file and four fragments, and the records arm reads three work items
+**`bin/evidence-check .` exits 0 with zero drift**, 1321 rows ok across the
+shared file and four fragments, and the records arm reads four work items
 with 0 refused — so nothing in this work item's records names a unit the tree
 lacks.
 
