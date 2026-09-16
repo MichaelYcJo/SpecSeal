@@ -772,6 +772,85 @@ def test_auto_firing_skills_declare_when_not_to_fire():
     )
 
 
+# The stems that mark a person answering, and the window the sweep below
+# reads them in. AT MODULE LEVEL so a case can assert what they do: the
+# pattern IS the behaviour this repair changes, and a pattern nothing opens is
+# the shape this whole release keeps finding
+# (`seal/specs/1789455558-…/overview.md` — pin the thing the production path
+# calls, never a copy beside it).
+#
+# Matched at a WORD BOUNDARY, and the first draft of this guard was not. A
+# bare `"ask" in window` fires on `task`, so the probe that was supposed to
+# show the contract's own wording passing — `open every coordinate a task
+# names in one batch` — went red on the word `task`. That is the same defect
+# as the one being guarded against, one layer down: a substring standing in
+# for a word.
+#
+# #422, half one: that repair anchored the FRONT of each stem and left the
+# back open, so a stem matched inside a longer word and the same defect stood
+# one layer down again. Measured: `agent-contract` §10's own wording — *open
+# every coordinate a task names in one batch* — refused at exit 1 with
+# `persona` one clause away, which `agents/smith.md` already writes. Both ends
+# are anchored now, and the back anchor is what splits the stems into two
+# groups.
+#
+# These carry their inflections, because an instruction is written in any of
+# them: `asks`, `asked`, `asking`, `questions`, `answers`, `answered`.
+ASKING_INFLECTED = ("question", "ask", "answer")
+# These are anchored bare at both ends. The plural of each names a POPULATION
+# rather than the party at the keyboard — `users` is whoever installs this
+# plugin, `humans` is a category — where the singular is the party who
+# answers, which is what this guard is looking for. `person's` still matches,
+# because an apostrophe is a word boundary; `persona` does not, which is the
+# half the issue measured.
+#
+# `user` stays, against the issue's own patch, which drops the stem to stop
+# `users`. The back anchor added in the same breath already stops `users`, and
+# dropping the stem would let *collect in one batch what the user answers*
+# pass in silence — the user being precisely the party who answers
+# (`questions.md` Q1, measured: no batch phrase in any definition is within
+# the window of any occurrence of the word today, so keeping it refuses
+# nothing that stands).
+ASKING_BARE = ("person", "people", "human", "user")
+ASKING = re.compile(
+    r"\b(?:(?:{})(?:s|es|ed|ing|'s)?|(?:{}))\b".format(
+        "|".join(ASKING_INFLECTED), "|".join(ASKING_BARE)
+    ),
+    re.IGNORECASE,
+)
+ASKING_WINDOW = 140
+
+
+def test_the_asking_stems_are_anchored_at_both_ends():
+    """#422 half one, pinned on the object the sweep below actually reads.
+
+    The front anchor alone let a stem match inside a longer word, and the two
+    words it reached are both ordinary in a definition: `persona`, which
+    `agents/smith.md` writes, and `users`. Anchoring the back is not free —
+    `\\bquestion\\b` would stop matching `questions` — so the stems are split,
+    and this case is what says which group each is in.
+
+    Red with the back anchor removed: `persona` and `users` start matching.
+    Red with the inflection group removed: `questions` and `asked` stop.
+    """
+    for word in ("question", "questions", "ask", "asks", "asked", "asking"):
+        assert ASKING.search(word), f"{word} no longer marks a person answering"
+    for word in ("answer", "answers", "answered", "person", "person's"):
+        assert ASKING.search(word), f"{word} no longer marks a person answering"
+    for word in ("people", "human", "user", "user's"):
+        assert ASKING.search(word), f"{word} no longer marks a person answering"
+    # The back anchor. `persona` and `users` are what the issue measured; the
+    # other three are the same shape and would have been the next report.
+    for word in ("persona", "personas", "users", "humanity", "asker"):
+        assert not ASKING.search(word), (
+            f"{word} fires the guard, so a definition using an ordinary word "
+            "has to be reworded for a question nobody is asking"
+        )
+    # The front anchor, which round 2 of #419 bought and this must not undo.
+    for word in ("task", "multitasking", "flask"):
+        assert not ASKING.search(word), f"{word} is a substring, not the word"
+
+
 def test_the_questions_are_collected_before_the_work_not_during_it():
     """A question's cost is when it arrives, not how hard it is.
 
@@ -830,17 +909,10 @@ def test_the_questions_are_collected_before_the_work_not_during_it():
     # that stays clear of this. A definition that needs the other wording will
     # meet this assertion and should reword rather than widen it, because one
     # word is all that separates the true sentence from the instruction.
-    # Matched at a WORD BOUNDARY, and the first draft of this repair was not.
-    # A bare `"ask" in window` fires on `task`, so the probe that was supposed
-    # to show the contract's own wording passing — `open every coordinate a
-    # task names in one batch` — went red on the word `task`. That is the same
-    # defect as the one being repaired, one layer down: a substring standing
-    # in for a word. The prefixes are deliberate, so `asks` and `questions`
-    # match while `task` and `multitasking` do not.
-    ASKING = re.compile(
-        r"\b(question|ask|answer|person|people|human|user)", re.IGNORECASE
-    )
-    WINDOW = 140
+    # The stems and the window are module-level, above, so
+    # `test_the_asking_stems_are_anchored_at_both_ends` reads the same objects
+    # this sweep reads rather than a copy of them.
+    WINDOW = ASKING_WINDOW
     definitions = sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
     assert len(definitions) >= 3, f"agents/*.md matched {len(definitions)} files"
     for path in definitions:
