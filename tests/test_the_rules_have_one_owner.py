@@ -86,6 +86,11 @@ WRAP_RULE_OWNER = (
     "`docs/review-handoff-protocol.md` §*The Needs a fix field — the answer "
     "a run ends on*"
 )
+CONFIG_TEMPLATE = ("templates", "config.md")
+CONFIG_SKILL = ("skills", "config", "SKILL.md")
+CRITERION_OWNER = (
+    "`templates/config.md` §*Choosing a value — the criterion* owns the criterion"
+)
 
 
 def read(*parts):
@@ -178,6 +183,19 @@ RULES = {
         PROTOCOL,
         "A wrapped terminal line is one value, and this is where the join stops.",
         {TEMPLATE: WRAP_RULE_OWNER, WARDEN: WRAP_RULE_OWNER},
+    ),
+    # A twelfth, from #401 rather than from #161, and the table's shape is
+    # what made it cheap. The `Broad gate` row is the one value only a person
+    # can write and it had no criterion at all: the session that met the
+    # gate's refusal after its rounds had settled derived three rules under
+    # pressure, two of them written nowhere and the third already standing in
+    # two places. The third is FOLDED into the owner here rather than copied
+    # into a third, which is what this module exists to make visible.
+    "12 the criterion for choosing a Broad gate value": (
+        CONFIG_TEMPLATE,
+        "A check that is red repository-wide for reasons unrelated to any "
+        "branch does not belong in the row",
+        {CONFIG_SKILL: CRITERION_OWNER, ORCH_IMPL: CRITERION_OWNER},
     ),
 }
 

@@ -217,6 +217,13 @@ SEAL_SWEPT = (
     ("docs", "one-root-by-lifetime.md"),
     ("skills", "verify", "scripts", "seal_stamp.py"),
     ("skills", "code-review", "scripts", "round_record.py"),
+    # The message a session reads when the `Broad gate` row is absent says
+    # what the sealer's seal covers, and said it ownerless until #402's
+    # round 1 — in the one script under `skills/verify/scripts/` the list
+    # still omitted, beside the two it had already been extended to reach.
+    # Third time the list was closed where somebody had looked, which is why
+    # the file goes in rather than the sentence alone being repaired.
+    ("skills", "verify", "scripts", "broad_gate.py"),
 )
 
 # The two places that DISCUSS the word rather than use it: the rule's own
