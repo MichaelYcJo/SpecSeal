@@ -1,0 +1,18 @@
+# 1789518345-who-asks-the-routing-question-and-what-checks-the-answer — survivors
+
+<!-- Places `survivor-check` reported as still carrying wording this range
+removed, and which are judged correct to leave standing. Each row quotes the
+STANDING text, so the exemption stops holding as soon as that text changes.
+Run: `bin/survivor-check --range cc05d31d..HEAD --exempt <this file>`. -->
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `CHANGELOG.md` | `Spawn it where the SDD ladder already calls for a ``spec.md``, and it reads the repository widely, collects everything a person has to answer into one` | A released changelog entry is a record of what was true at that release, not an instruction anybody follows. Rewriting it would make the released section describe an agent that did not ship in it |
+| `seal/specs/1789081272-the-writer-of-the-contract-is-not-its-executor/changelog.md` | `Spawn it where the SDD ladder already calls for a ``spec.md``, and it reads the repository widely, collects everything a person has to answer into one` | The same text, in the fragment the release gathered it from. Another work item's record, and the repository's fragment rule says a branch writes its own |
+| `agents/framer.md` | `A question arriving at` | This is the sentence LANDING, not surviving. The act moved to the framer, so the framer's definition is where the reason for it belongs; `agents/smith.md`'s copy is what this range removed |
+| `skills/implement/orchestration.md` | `Opening a pull request is an outward-facing act — it is not a detail that can wait for the end.` | The same shape: the routing question's home is this section, and the sentence stating why the destination cannot wait belongs where the question is asked. `agents/smith.md` carried it because it used to ask |
+| `templates/claude-md-block.md` | `The commit gate reads that file, so a declared work item commits silently for either review answer, and CI reads the same file at the pull request.` | About the commit GATE, not about the routing question's shape, and what this range removed from `agents/smith.md` is the question. The block is the one file a session in an opted-in repository always has, so the gate's behaviour has to be in it |
+| `CLAUDE.md` | `The commit gate reads that file, so a declared work item commits silently for either review answer, and CI reads the same file at the pull request.` | The generated copy of the row above. `.github/scripts/claude_block.py --write` writes it from the template and CI checks the two agree, so it is one place counted twice |
+| `seal/specs/1788993115-a-payload-is-written-again-on-every-spawn/phases/phase-2.md` | `up to *Once the batch is answered*, less the two waiver paragraphs` | A phase record of an earlier work item, quoting the heading as it stood when that phase ran. A record asserts a past state, which is what lets it sit beside a contract at all |
+| `seal/specs/1788993115-a-payload-is-written-again-on-every-spawn/spec.md` | `**``skills/implement/orchestration.md``** — headings: ``## Orchestrator: Bootstrap — create what's missing``` | The same work item's spec, enumerating the headings that file had when it was split. Rewriting it would make that contract describe a file it did not move |
+| `tests/test_waiver_decided_at_start.py` | `Opening a pull request is an outward-facing act, and asked at the end it IS a mid-round prompt — the thing this release removes.` | The module's own reasoning for why the destination is asked in the first batch, which this work item does not change — it changes WHO asks and in what shape. The sentence is still what the module is for |

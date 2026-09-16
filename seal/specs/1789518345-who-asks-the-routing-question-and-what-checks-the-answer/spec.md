@@ -213,8 +213,8 @@ has: *was anybody at the keyboard.*
 **Unchecked is a value, not an absence**, which is #151's lesson applied to this
 row. An answered declaration always carries one of the two values, so an absent
 row means the question was never asked. That is the three-state reading
-`Implementation` already has, and it is what keeps a chosen *somebody may be
-asked* from being byte-identical to a question nobody read.
+`Implementation` already has, and it is what keeps a chosen `no` from being
+byte-identical to a question nobody read.
 
 **What the row buys, stated plainly so it is not mistaken for a gate.** Nothing
 at the pull request can hold a run to it: a session that promised not to stop
