@@ -97,10 +97,17 @@ def config_rows(text):
 
     The header and the separator are this table's own furniture ABOVE its
     first row and somebody else's table BELOW it; any other line ends the
-    table. Both rules are the ones
-    `tests/test_the_pull_request_language_is_the_repositorys.py#items`
-    arrived at over two review rounds, and a second reader that read the
-    table differently would answer a different question about the same file.
+    table. Both rules were arrived at over two review rounds of #82, in the
+    copy of this loop that used to live in
+    `tests/test_the_pull_request_language_is_the_repositorys.py` and now
+    calls this one. Round 1 🟡 6: a row of a different SHAPE was skipped as
+    though it were not there, so a `| a | b | c |` between two two-cell rows
+    let the row after it be read as part of this table. Round 2 🟡 5: a
+    header and a separator were stepped past wherever they appeared, so a
+    stray separator or a second `| Item | Value |` header let the rows
+    behind it be read as more of this one. A second reader that read the
+    table differently would answer a different question about the same file,
+    which is what this module exists to prevent.
 
     Each cell comes back with `\\|` reduced to one literal pipe and nothing
     else changed; `unescaped` above says why it is those two characters
