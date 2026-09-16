@@ -50,22 +50,23 @@ incorporation. This file only adds what the skill does not carry.
    framer.** Building to the part that holds and recording the part that does
    not is the answer; a route back would spend the interruption the framer's
    phase exists to spend once.
-2. **Design gate** — you own this decision, and no skill makes it for you.
-   Ask everything that needs a person here, in one batch — the questions from
-   step 1 and the approval this gate wants, together. A question that arrives
-   later stops a session that may have nobody at the keyboard, and asking them
-   one at a time is that cost paid repeatedly.
-   How the work is routed belongs in that batch, and it has three axes —
-   implementation (smith · the session, an OPTIONAL row that reads as
-   unanswered when absent), review (through the review chain · straight to
-   the PR) and destination (open the pull request · stop before the pull
-   request). Ask them together, as one `multiSelect` question with three
-   checkboxes: opening a pull request is an outward-facing act, and asking
-   about it at the end is the mid-round prompt this release exists to remove.
-   Write the answer into `seal/specs/<work-item-id>/routing.md` from
-   `templates/sdd-routing.md` **before the first edit**, and commit it. That
-   file is what the commit gate reads, so a declared work item commits
-   silently for either answer, and it is what CI reads at the pull request.
+2. **The design gate already happened, and it was not yours.** Phase 2 is
+   your caller's spawn. Before you existed a person answered the routing
+   batch, `routing.md` was written **before the first edit**, and `plan.md`'s
+   approval line recorded that somebody read the plan. Three other documents
+   own those acts: `agents/framer.md` asks the batch and writes the
+   declaration, `skills/implement/orchestration.md` holds the question's
+   shape, and `templates/sdd-routing.md` is what gets copied. You perform
+   none of them, and a `smith` that opens a question here is asking for an
+   answer that is already in the tree.
+   **Where `routing.md` declares a framer and no `spec.md` is there, stop and
+   say so rather than building.** A missing frame is not evidence about the
+   rung — a frame is missing when nobody drew one, whatever the ladder said.
+   Reading it the other way is the reported failure this instruction exists
+   to end: a session took a change straight to `smith` with no frame, requests
+   that had been passing started returning `422`, and nothing in either tree
+   said so at any point. What you hand back is that the declaration and the
+   directory disagree, and which of the two is true is not yours to guess.
    For a change belonging to no work item, `[no-review]` still waives one
    command — in FRONT of it, quotes included, `: '[no-review]'; git commit …`
    (and `[no-parity]` where a migration config is declared), because after
@@ -87,20 +88,23 @@ incorporation. This file only adds what the skill does not carry.
         nobody's finding yet.
         Verified 2026-09-14 against "## Phases"@5709bf9a. -->
 
-   Left to the commit, it stops a session that had the answer in its first
-   minute.
-   Where the PR lands belongs there too: a PR into `main` is a release and a
-   PR into the release branch is not, so ask which branch rather than whether
-   to release. `release/vX.Y.Z` accumulates the entry unreleased and leaves
-   `plugin.json` alone; `main` moves the version and collects the accumulated
-   entries under a dated heading. Default to the release branch.
+   Left to the commit, that token stops a session that had the answer in its
+   first minute — which is why the declaration is written before you are
+   spawned rather than when the first commit meets the gate.
+   Where the PR lands is the caller's too: a PR into `main` is a release and
+   a PR into the release branch is not, so the question they answered is
+   which branch rather than whether to release. `release/vX.Y.Z` accumulates
+   the entry unreleased and leaves `plugin.json` alone; `main` moves the
+   version and collects the accumulated entries under a dated heading. The
+   release branch is the default, and a spawn that names neither means that
+   one.
    WHERE an entry accumulates is the repository's convention — a heading every
    branch appends to, or one fragment per work item gathered at the release —
    so read the contribution guide before writing one. Writing the wrong shape
    appends to the very region the other shape exists to empty.
-   Neither is a yes/no — an answer that leaves the work nowhere to go is a
-   gate, not a question.
-   Once this batch is answered, run to the pull request. What surfaces later
+   Neither of those is a yes/no — an answer that leaves the work nowhere to
+   go is a gate, not a question, which is why neither reaches you as one.
+   From the spawn on, run to the pull request. What surfaces later
    is written down rather than raised — `questions.md`, `seal/follow-up.md`
    with an answerer, or the memo's Not done — and named in the PR body.
    For work that **alters observable behaviour** — a gate's verdict, a hook's
@@ -122,9 +126,7 @@ incorporation. This file only adds what the skill does not carry.
    The two skills that used to be yours to call here are `framer`'s now.
    Readiness and decomposition are questions about work nobody has started,
    which is the frame's phase rather than this one — `agents/framer.md` says
-   when it reaches for each. Where no frame was drawn, the ladder put the work
-   below the rung that calls for one, and neither skill has anything to
-   decompose.
+   when it reaches for each.
 3. **Implement** — vertical slices (one use case through all layers, run it,
    then widen). Never horizontal layer-by-layer passes: nothing is verified
    until everything joins.

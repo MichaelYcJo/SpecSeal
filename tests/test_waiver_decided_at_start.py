@@ -144,11 +144,15 @@ def test_every_document_shows_the_third_axis_ROW_not_only_the_count():
     assert "smith · the session" in rows[0], (
         "the row lost the vocabulary, so a session reads a third axis with no answers"
     )
-    # The agent file states the same axis in prose rather than a table, so it
-    # is pinned on its own terms.
+    # `agents/smith.md` used to state the same axis in prose, because it used
+    # to ask the question. It does not any more — the act is the framer's, and
+    # the vocabulary travels with the act. Asserting the answers here again
+    # would put the moved rule back in the definition it left, which is what
+    # `tests/test_a_moved_rule_leaves_its_definition.py` exists to refuse.
     smith = flat(read("agents", "smith.md"))
-    assert "implementation (smith · the session" in smith, (
-        "the agent stopped naming the third axis's answers"
+    assert "implementation (smith · the session" not in smith, (
+        "the routing vocabulary is back in `agents/smith.md`, whose phase 2 "
+        "no longer asks the question it belongs to"
     )
 
 
@@ -808,17 +812,30 @@ def test_the_session_runs_to_the_pull_request():
     )
 
 
-def test_the_smith_carries_both_halves_rather_than_only_citing_them():
-    """The agent file is always in front of the smith; the skill may not be."""
+def test_the_smith_carries_its_own_half_and_not_the_questions():
+    """The agent file is always in front of the smith; the skill may not be.
+
+    **What its own half IS moved, which is why this case is rewritten rather
+    than deleted.** It used to carry the routing question's whole vocabulary,
+    because it used to ask it — three axes, the four answers, the path it
+    wrote them to. That act is the framer's now, and a definition that keeps
+    the words of an act it no longer performs is a session's instruction to
+    perform it.
+
+    What stays is what a smith still does with the answer somebody else
+    wrote: run to the pull request without coming back, and name an answerer
+    for anything it could not close.
+    """
     smith = flat(read("agents", "smith.md"))
-    assert "three axes" in smith and "two axes" not in smith
-    for answer in AXES:
-        assert answer in smith, f"the smith lost the answer `{answer}`"
-    assert "seal/specs/<work-item-id>/routing.md" in smith
     assert "run to the pull request" in smith
     assert "answerer" in smith, (
         "a deferral with nobody named is how a follow-up becomes nobody's"
     )
+    for count in ("three axes", "two axes", "three checkboxes"):
+        assert count not in smith, (
+            f"`{count}` is back in `agents/smith.md`, which is the routing "
+            "question in the definition of the party that does not ask it"
+        )
 
 
 def test_the_preset_block_carries_it_too():
