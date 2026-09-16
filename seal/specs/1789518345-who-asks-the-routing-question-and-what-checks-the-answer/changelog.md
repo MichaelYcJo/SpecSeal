@@ -63,6 +63,16 @@
     the 11 work items declaring a framer carry no mark, and not one of the 16
     declaring `straight to the PR` carries a seal file.
 
+- **A check over agent definitions refuses an instruction no agent can carry
+  out.** No agent this plugin spawns has `AskUserQuestion`, so a definition
+  telling one to collect what a person must answer is an instruction nothing
+  performs. Two cases hold it: one refuses any `agents/*.md` line naming that
+  tool outside the sentence saying no agent has it, and one refuses collecting
+  *in one batch* where the surrounding words are about a person answering.
+  **Batching reads is a different thing and is not refused** — that is what
+  `agent-contract` §10 asks every agent for, and the check decides by what the
+  sentence claims rather than by the phrase it uses.
+
 - **Personal instructions: re-run `install.sh` after updating.** The routing
   paragraph in the `<!-- specseal:start -->` block changed with the question,
   and an installed copy follows only when the installer runs again. Until then
