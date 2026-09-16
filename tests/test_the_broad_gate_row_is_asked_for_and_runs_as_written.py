@@ -276,34 +276,44 @@ def test_both_ampersand_cells_name_both_shells():
 # row, in the list the row is in.
 
 
-def test_the_allowed_list_says_a_pipe_cannot_reach_the_row_at_all():
-    """Found by building phase 1 and executed 2026-09-15: a pipe is allowed by
-    the criterion and unwritable in the row. `hooks/config.py#CONFIG_ROW`
-    matches a cell as `[^|]*?`, so the value ends at the first `|` — bare and
-    backslash-escaped alike — the line stops being a row of that table, and
-    the gate reports the row as ABSENT.
+def test_the_allowed_list_says_how_a_pipe_is_written():
+    """#415. The allowed list used to promise a pipe and then say it *cannot
+    reach this row at all* — a document that names a form nobody can write.
+    It now says how the form IS written.
 
-    The spec's allowed list said a pipe stays legal and stopped there, which
-    is true about the refusal and false about the row. A document that
-    promises a form nobody can write is the shape this work item exists to
-    end, so the promise carries the measurement with it.
+    Three things have to survive together, because each of them alone is a
+    half-truth a reader would act on wrongly: the escape is `\\|`, a BARE
+    pipe still parses as no row, and a line that does not parse still takes
+    every row below it. Drop the first and the row is unwritable again; drop
+    the second and somebody types a bare pipe expecting it to work; drop the
+    third and the cost reads as the row's own, which it is not.
     """
     body = section(read(*TEMPLATE), REFUSED_AND_ALLOWED, 3)
     pipe = named(table(body, "| Stays legal |"), "a pipe")
     assert pipe, "the allowed list has no pipe row"
     pipe = flat(pipe)
-    assert "cannot reach this row at all" in pipe
-    assert "ends at the first" in pipe
-    assert "as absent" in pipe
-    # Round 1's 🟡 2, measured: `config_rows` stops reading the table at the
-    # first line that does not parse, so the pipe row takes every row BELOW it
-    # as well — a `Record language` under it is invisible and falls back to
-    # its default with no message anywhere. The cost cell said only that the
-    # gate names a cause that is not the real one, which understates it.
+    assert "ends at a bare pipe" in pipe, (
+        "the row does not say where a cell of this table ends"
+    )
+    assert "A BARE pipe still parses as no row" in pipe, (
+        "the row promises the escape without saying the naive spelling still "
+        "fails, which is the spelling somebody reaches for first"
+    )
+    assert "cannot reach this row at all" not in pipe, (
+        "the sentence this work item removed survived beside its replacement"
+    )
+    # Round 1's 🟡 2 of the previous work item, kept and narrowed: the cost is
+    # not the row's own. It is also narrower than that row claimed — the stop
+    # rule fires only once a row above has parsed, measured both ways round.
     assert "takes every row below it" in pipe, (
         "the pipe's cost is stated as the row's alone, and it is not"
     )
-    assert "falling back to its default" in pipe
+    assert "where a row above it already parsed" in pipe, (
+        "the cost is stated without the condition it actually holds under"
+    )
+    assert "`seal mode` writes a second one" in pipe, (
+        "the worst outcome — a person's file two `Mode` rows deep — is not named"
+    )
 
 
 # --- Round 1's 🟡 4: the removed design, where a reader opens first ---------

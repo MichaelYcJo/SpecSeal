@@ -149,11 +149,13 @@ shared mode without a question goes looking in a README for the way out.
    argues against by name, and offering it with a source that does not exist
    is worse than offering nothing.
 
-   **A candidate carrying a `|` cannot be written into the row**, and a CI
-   `run:` step is where one is likeliest to come from. Offer the command
-   without the pipe, or offer the next candidate, and say why: a row with a
-   pipe in it parses as no row, the gate then reports the row as absent, and
-   every row written below it in the file is lost with it.
+   **A candidate carrying a `|` is written with the pipe escaped, `\|`**, and
+   a CI `run:` step is where one is likeliest to come from. Offer it that way
+   rather than dropping the pipe or moving to the next candidate: the cell is
+   markdown's, and the reader reduces `\|` to a plain pipe before any shell
+   sees it. Say why, because a bare one still parses as no row, the gate then
+   quotes that line back instead of reporting the row as absent, and every row
+   written below it in the file is lost with it.
    `templates/config.md` §*What is refused, and what stays allowed* carries
    the measurement.
 

@@ -93,9 +93,9 @@ nothing else in the suite would have caught that rejection being undone.
 verification command names `tests/test_the_seal_is_taken_once_by_the_sealer.py`
 and `tests/test_the_settings_have_a_front_door.py`, and the case that pins
 the template's pipe sentence is in neither — it is
-`test_the_allowed_list_says_a_pipe_cannot_reach_the_row_at_all`, in
+`test_the_allowed_list_says_a_pipe_cannot_reach_the_row_at_all` <!-- NAME NOT IN TREE: work item 1789598366 (#415) renamed it — `test_the_allowed_list_says_how_a_pipe_is_written`. -->, in
 `tests/test_the_broad_gate_row_is_asked_for_and_runs_as_written.py`. And
-`test_a_candidate_carrying_a_pipe_is_refused_where_candidates_are_derived`,
+`test_a_candidate_carrying_a_pipe_is_refused_where_candidates_are_derived` <!-- NAME NOT IN TREE: work item 1789598366 (#415) renamed it — `test_a_candidate_carrying_a_pipe_is_escaped_where_candidates_are_derived`. -->,
 in `tests/test_first_setup_asks_once.py`, pins the same claim in
 `skills/implement/orchestration.md`. Phase 4 runs both in addition.
 
