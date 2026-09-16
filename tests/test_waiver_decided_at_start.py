@@ -27,6 +27,7 @@ mark landed and false for every commit before it.
 """
 
 import os
+import re
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -63,6 +64,32 @@ def flat(text):
     A literal with a newline in it was asserting the column width once.
     """
     return " ".join(text.split())
+
+
+def checkbox_tables(text):
+    """Every table of boxes in `text`, as a list of its body rows.
+
+    Found by the header naming a box rather than by position, because the
+    question's shape is what changes and a reader looking for `| Checkbox |`
+    exactly once is a reader that finds nothing the day it becomes two
+    questions. What stays true across every shape is that a table of boxes
+    has a column named for one.
+    """
+    lines = text.splitlines()
+    tables = []
+    for i, line in enumerate(lines):
+        if not line.startswith("|"):
+            continue
+        header = [c.strip() for c in line.strip("|").split("|")]
+        if not any(c in ("Checkbox", "Box") for c in header):
+            continue
+        rows = []
+        for body in lines[i + 2 :]:
+            if not body.startswith("|"):
+                break
+            rows.append(body)
+        tables.append(rows)
+    return tables
 
 
 def test_the_skill_asks_every_axis_in_the_first_batch():
@@ -282,16 +309,82 @@ def test_the_template_PARSES_into_the_FOURTH_axis_it_ships():
     )
 
 
-def test_the_fourth_axis_is_a_record_and_not_a_fourth_checkbox():
+def test_the_template_PARSES_into_the_TWO_NEWEST_rows_it_ships():
+    """The fifth and sixth rows, on the terms the third and fourth have.
+
+    `Automation` is a property of the run and `Answer pressed` is which of
+    question 1's options was pressed. Both are read out of the template and
+    parsed back, so a row labelled `Automated` or a vocabulary that moved in
+    one file only is red here rather than silent in every work item that
+    copies the file.
+
+    Shipped as placeholders, and for this pair the reason is sharper than for
+    the two above. An absent `Automation` row means nobody was ever asked; a
+    pre-answered one means a question nobody put reads as a promise somebody
+    made. That is #151's shape, which is the thing the row exists to end.
+    """
+    import sys
+
+    sys.path.insert(0, os.path.join(ROOT, "hooks"))
+    import routing
+
+    template = read("templates", "sdd-routing.md")
+    parsed = routing.parse(template)
+    assert parsed is not None, "the template no longer parses as a declaration"
+    for key in ("automation", "pressed"):
+        assert parsed[key] is None, (
+            f"the template pre-answers `{key}`, which makes the commonest "
+            "mistake produce a WRONG record instead of no record"
+        )
+    for label, answers in (
+        (routing.AUTOMATION, routing.AUTOMATION_ANSWERS),
+        (routing.ANSWER_PRESSED, routing.ANSWER_PRESSED_ANSWERS),
+    ):
+        rows = [ln for ln in template.splitlines() if ln.startswith(f"| {label} |")]
+        assert len(rows) == 1, f"the template has no single `{label}` row"
+        assert rows[0].split("|")[2].strip().startswith("<"), (
+            f"the `{label}` row stopped shipping a placeholder a person reads"
+        )
+        key = "automation" if label == routing.AUTOMATION else "pressed"
+        for answer in answers:
+            filled = template.replace(rows[0], f"| {label} | {answer} |")
+            assert routing.parse(filled)[key] == answer, (
+                f"the template's `{label}` row does not accept `{answer}`, so "
+                "a session filling it in as instructed still records nothing"
+            )
+        # The vocabulary READ OUT of the comment, the direction that can see
+        # the two files drift. Substituting the constants is self-consistent
+        # by construction; what the person reads has to BE what the parser
+        # takes.
+        stated = re.search(rf"{label} — `([^`]+)` or `([^`]+)`\.", template)
+        assert stated, f"the comment no longer states `{label}`'s two answers"
+        assert tuple(stated.groups()) == answers, (
+            f"the template offers {stated.groups()} for `{label}` and the "
+            f"parser accepts {answers}"
+        )
+
+
+def test_the_planning_row_is_a_record_and_not_a_checkbox():
     """#88, cited rather than re-argued: the question grows only where a
     decision is genuinely a person's, and `agents/framer.md`'s `## When you
     run` says the SDD ladder decides this one.
 
     Both halves are asserted, because either alone passes over the state that
-    matters. The row has to be IN the orchestrator's routing section — a fourth
-    axis nobody documents is a template row a session meets with no account of
-    it — and the checkbox table has to stay at three, which is the half a
-    session reading "one question" would break first.
+    matters. The row has to be IN the orchestrator's routing section — an axis
+    nobody documents is a template row a session meets with no account of it —
+    and it must not appear among the boxes.
+
+    **Renamed and rewritten from
+    `test_the_fourth_axis_is_a_record_and_not_a_fourth_checkbox`, which named
+    `Planning` by POSITION and counted the boxes.** Both spellings stopped
+    being about `Planning` the moment a row was added: the declaration's
+    fourth row is not `Planning` any more, and the question's box count is
+    four because one of the new rows genuinely IS a person's decision — which
+    is what #88's rule permits rather than what it forbids. The rule was
+    always about this row and never about a number, so the assertions are
+    over the row's NAME. A count here would have gone red at the next phase
+    for a change the rule allows, and a reader would have read that red as
+    the rule being broken.
     """
     skill = read(*ORCH)
     rows = [ln for ln in skill.splitlines() if ln.startswith("| Planning |")]
@@ -300,37 +393,18 @@ def test_the_fourth_axis_is_a_record_and_not_a_fourth_checkbox():
         "has exactly one"
     )
     assert "framer · the session" in rows[0], (
-        "the row lost the vocabulary, so a session reads a fourth axis with no answers"
+        "the row lost the vocabulary, so a session reads an axis with no answers"
     )
     assert "OPTIONAL" in rows[0], "the row stopped saying an absent answer is fine"
 
-    lines = skill.splitlines()
-    start = next(i for i, ln in enumerate(lines) if ln.startswith("| Checkbox |"))
-    boxes = []
-    for line in lines[start + 2 :]:
-        if not line.startswith("|"):
-            break
-        boxes.append(line)
-    assert len(boxes) == 3, (
-        f"the routing question has {len(boxes)} checkboxes. It grows only where "
-        "a decision is genuinely a person's (#88), and the ladder decides this "
-        "one — a fourth box doubles eight combinations to sixteen to ask "
-        "something nobody answers"
-    )
-    assert not any("framer" in b for b in boxes), (
-        "the fourth axis reached the checkbox table, which is the one place "
-        "#88 says it must not be"
-    )
+    for boxes in checkbox_tables(skill):
+        assert not any("framer" in b or "Planning" in b for b in boxes), (
+            "the `Planning` axis reached a checkbox table, which is the one "
+            "place #88 says it must not be"
+        )
     assert "#88" in skill, (
         "the section asserts the rule without citing where it is stated, so a "
         "reader who disagrees has nothing to open"
-    )
-    # The count in the heading measures the QUESTION, so it stays at three
-    # while the declaration carries four rows. A section that starts saying
-    # `four axes` has moved the fourth into the question.
-    assert "four axes" not in flat(skill), (
-        "the heading counts the axes a person is asked about; four means the "
-        "record became a question"
     )
 
 
