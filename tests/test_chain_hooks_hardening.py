@@ -786,8 +786,81 @@ def test_the_questions_are_collected_before_the_work_not_during_it():
         "without the assume-in-writing half, the batch becomes a list of "
         "everything and the work waits on all of it"
     )
-    with open(os.path.join(ROOT, "agents", "smith.md"), encoding="utf-8") as f:
-        assert "one batch" in f.read(), "the design gate is where they get asked"
+    # The batch belongs to the SESSION that spawns the work, and that is a
+    # property of the harness rather than a preference: no agent this plugin
+    # spawns has `AskUserQuestion`, measured from two of them independently
+    # (#419, round 1). It was pinned in `agents/smith.md` while the design
+    # gate lived there, then briefly in `agents/framer.md` — and a definition
+    # that carries the words of an act its agent has no tool for is an
+    # instruction nothing can carry out. So the presence is asserted where the
+    # tool is, and the absence over EVERY agent definition, by glob, so a
+    # fourth one added tomorrow is checked on the day it lands.
+    import glob
+
+    with open(
+        os.path.join(ROOT, "skills", "implement", "orchestration.md"),
+        encoding="utf-8",
+    ) as f:
+        orchestration = f.read()
+    assert "in one call" in orchestration, (
+        "the orchestrator's routing section no longer says the questions go "
+        "in one call, which is what makes the batch one wait"
+    )
+    # WHAT IS REFUSED IS A CLAIM, NOT A SPELLING, and the first version of
+    # this assertion refused the spelling. It read `"in one batch" not in
+    # body` over every definition — and `agent-contract` §10, which every
+    # agent receives at startup, gives that phrase a second and entirely
+    # legitimate meaning: *Batch independent reads and runs*. A definition
+    # writing `open every coordinate in one batch` would have been following
+    # the contract and gone red under a message about a question nobody
+    # asked. Round 2 found it; a check that refuses a phrase by spelling
+    # rather than by what it claims is the shape this release keeps finding,
+    # so it is repaired here rather than narrowed by one word.
+    #
+    # The claim is *this agent collects what a person must answer*. What marks
+    # it is a question word beside the phrase, so the window around each
+    # occurrence is what decides — flattened first, because these files wrap
+    # prose at about 75 columns and a per-line test would miss every sentence
+    # that spans two.
+    #
+    # WHAT IT STILL CANNOT TELL APART, written down rather than left to be
+    # found: *you collect the batch* from *your caller collects the batch*.
+    # The second is true and a definition may need to say it — `agents/
+    # framer.md` does, and says it with `in one call`, which is the spelling
+    # that stays clear of this. A definition that needs the other wording will
+    # meet this assertion and should reword rather than widen it, because one
+    # word is all that separates the true sentence from the instruction.
+    # Matched at a WORD BOUNDARY, and the first draft of this repair was not.
+    # A bare `"ask" in window` fires on `task`, so the probe that was supposed
+    # to show the contract's own wording passing — `open every coordinate a
+    # task names in one batch` — went red on the word `task`. That is the same
+    # defect as the one being repaired, one layer down: a substring standing
+    # in for a word. The prefixes are deliberate, so `asks` and `questions`
+    # match while `task` and `multitasking` do not.
+    ASKING = re.compile(
+        r"\b(question|ask|answer|person|people|human|user)", re.IGNORECASE
+    )
+    WINDOW = 140
+    definitions = sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
+    assert len(definitions) >= 3, f"agents/*.md matched {len(definitions)} files"
+    for path in definitions:
+        with open(path, encoding="utf-8") as f:
+            flat_body = " ".join(f.read().split())
+        relative = os.path.relpath(path, ROOT)
+        at = flat_body.find("in one batch")
+        while at >= 0:
+            window = flat_body[max(0, at - WINDOW) : at + WINDOW]
+            named = sorted({m.group(0).lower() for m in ASKING.finditer(window)})
+            assert not named, (
+                f"{relative} tells an agent to collect in one batch something "
+                f"a person answers — the window names {named}. No agent this "
+                "plugin spawns has `AskUserQuestion`, so collecting a batch "
+                "of questions is an instruction nothing can carry out; the "
+                "act belongs to the session that spawns the work. Batching "
+                "READS is a different thing and is what `agent-contract` §10 "
+                f"asks for — that wording is not refused here.\n  …{window}…"
+            )
+            at = flat_body.find("in one batch", at + 1)
 
 
 def test_the_cycle_is_bounded_and_ends_at_a_pull_request():
@@ -937,8 +1010,9 @@ def test_the_smith_says_whether_the_frame_holds_before_building_to_it():
 
     A `no` needs a destination or it becomes a second interruption. The one
     the sentence names is the phase record and the hand-back -- never a route
-    back to the framer, which is the trip the framer's own phase exists to
-    spend once."""
+    back to the framer, which has no interactive phase to route back TO: the
+    one moment of human contact belongs to the session that spawns the work,
+    before the framer is spawned at all."""
     smith = " ".join(
         open(os.path.join(ROOT, "agents", "smith.md"), encoding="utf-8").read().split()
     )
@@ -949,7 +1023,11 @@ def test_the_smith_says_whether_the_frame_holds_before_building_to_it():
         "nowhere, which is exactly what a written instruction is for"
     )
     start = smith.index("1. **Requirements**")
-    requirements = smith[start : smith.index("2. **Design gate**")]
+    # Bounded by the NEXT phase, found by its number rather than by its
+    # title. Phase 2 stopped being the design gate when the act moved
+    # (#419), and a slice keyed on the old title raises rather than
+    # reporting — which is the one failure shape a reader cannot read.
+    requirements = smith[start : smith.index("2. **")]
     assert holds in requirements, (
         "the drawing-holds check moved out of the Requirements phase. Below "
         "the design gate it fires after the question batch, so a frame that "
