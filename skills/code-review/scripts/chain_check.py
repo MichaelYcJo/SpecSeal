@@ -659,6 +659,18 @@ REOPEN_FROM = 1788597030
 # longer finds, and this arm reads a missing row as `no run was named`.
 BROAD_GATE = "Broad gate"
 GATE_NOT_YET = "not yet"
+# The cell's OTHER home, for a work item that ran no rounds. A declaration
+# reading `straight to the PR` still takes the broad run — the sealer's act is
+# not the reviewer's — and it had nowhere to put the stamp: the cell lives on
+# the last round record, and there is no round record. So it lives in a file
+# of its own, holding that row alone.
+#
+# Named for the COMMAND that writes it, not for the seal. `bin/broad-gate` is
+# the command and `Broad gate` is the cell, so no new word enters the
+# vocabulary; a bare `seal.md` would be the word that already names the
+# warden's review mark, the sealer's stamp and the smith's proof block, which
+# is the collision `tests/test_one_word_one_meaning.py` exists for.
+BROAD_GATE_FILE = "broad-gate.md"
 # Where the cell becomes readable, as the unix second in a work item's
 # directory name -- the id of the work item that added it, so the first
 # records held to the rule are the ones written under it. The eighth cutoff
@@ -674,6 +686,14 @@ GATE_NOT_YET = "not yet"
 # -- including, when this was built, one whose rounds were running in another
 # checkout of the same clone.
 GATE_FROM = 1788912166
+# The same cutoff for the cell's other home. 16 declarations in this
+# repository answer `straight to the PR` and not one of them carries a
+# `broad-gate.md`, because the file did not exist — and a release pull request
+# carries every work item the release adds, so an arm with no cutoff refuses a
+# release for work nobody could have sealed. Set to the id of the work item
+# that added the file, so the first declarations held to it are the ones
+# written under it.
+DIRECT_GATE_FROM = 1789518345
 # The exit the refusal names, in one spelling. A refusal that names no exit
 # is a wall, and this one's exit is four cells and a pull-request line.
 CAPPED_EXIT = (
@@ -1600,6 +1620,21 @@ def reviewed_later(reader, root, rel, rows, value, checker_rel):
     return []
 
 
+def item_began_at(item):
+    """The unix second in a work item's directory name, or None.
+
+    The rule one level up from `item_began`, because two callers now need it
+    at two depths: a round record sits at `<item>/rounds/round-N.md` and a
+    `broad-gate.md` sits at `<item>/broad-gate.md`, so a reader keyed on a
+    fixed position from the end answers correctly for one and returns None
+    for the other -- which grandfathers everything, silently, in the arm that
+    needs the cutoff most.
+    """
+    name = item.replace("\\", "/").rstrip("/").split("/")[-1]
+    began = name.split("-", 1)[0]
+    return int(began) if began.isdigit() else None
+
+
 def item_began(rel):
     """The unix second in `seal/specs/<seconds>-<slug>/rounds/round-N.md`, or None.
 
@@ -1609,10 +1644,7 @@ def item_began(rel):
     a state anybody chose.
     """
     parts = rel.replace("\\", "/").split("/")
-    if len(parts) < 3:
-        return None
-    began = parts[-3].split("-", 1)[0]
-    return int(began) if began.isdigit() else None
+    return item_began_at("/".join(parts[:-2]))
 
 
 def pass_checked(lines):
@@ -2985,8 +3017,33 @@ def says_gate_not_yet(value):
     return bool(rest) and rest[0] in SEPARATORS
 
 
-def broad_gate(reader, root, rel, strict):
+GATE_EXCUSED = (
+    f"Work items begun before {GATE_FROM} are excused this and print instead "
+    f"— every record ever written defaults to `{GATE_NOT_YET}`, so failing "
+    "them would be red on history nobody can fix"
+)
+DIRECT_GATE_EXCUSED = (
+    f"Work items begun before {DIRECT_GATE_FROM} are excused this and print "
+    f"instead — the cell had no home to be written to, so failing them would "
+    "be red on history nobody can fix"
+)
+
+
+def broad_gate(reader, root, rel, strict, began=False, floor=GATE_FROM,
+               excused=GATE_EXCUSED):
     """(errors, notices) for the one full-suite run this record claims.
+
+    `began`, `floor` and `excused` are the cutoff, and they are parameters
+    because the
+    cell has two homes and the two grandfather different populations. The
+    default `False` means *derive it from `rel`*, which is the round-record
+    path: `item_began` reads the work item's id out of
+    `<item>/rounds/round-N.md`. A `broad-gate.md` sits one level shallower, so
+    that reader answers None for it — and None is the GRANDFATHERED answer,
+    which would have turned the cutoff off silently for the whole arm rather
+    than noisily for one case. `None` is still a legal value to pass, and it
+    still means grandfathered; `False` is the sentinel because it is the one
+    value a caller never means.
 
     Asked of the LAST record alone, and for the reason `Pass` is: whether the
     broad gate ran is a claim about the whole review, not about one round.
@@ -3155,18 +3212,63 @@ def broad_gate(reader, root, rel, strict):
         return [], []
     if not fatal:
         return [], [(rel, 0, message)]
-    began = item_began(rel)
-    if began is None or began < GATE_FROM:
-        return [], [
-            (
-                rel,
-                0,
-                message + f". Work items begun before {GATE_FROM} are excused this "
-                "and print instead — every record ever written defaults to "
-                f"`{GATE_NOT_YET}`, so failing them would be red on history "
-                "nobody can fix",
-            )
-        ]
+    if began is False:
+        began = item_began(rel)
+    if began is None or began < floor:
+        return [], [(rel, 0, message + ". " + excused)]
+    return [(rel, 0, message)], []
+
+
+def direct_seal(reader, routing, root, item, rel, strict):
+    """(errors, notices) for a `straight to the PR` work item's own seal.
+
+    This arm used to be one `print` and a `continue`. A declaration reading
+    `straight to the PR` turns off the REVIEWER and nothing else: the broad
+    gate is the sealer's act and it is taken once, after the rounds settle —
+    and where no rounds run, *after the rounds settle* is simply *at the end*.
+    So the run is owed here exactly as it is owed on the chain path, and
+    nothing noticed its absence.
+
+    ONE READER, not two (`questions.md` Q4). `broad_gate` below reads the cell
+    out of whatever file it is handed, and everything it does with a round
+    record around that cell degrades correctly here: a `broad-gate.md` carries
+    no `Target SHA`, so the premature comparison finds no reviewed commit and
+    makes no claim — which is right, because with no round there is no
+    reviewed commit for a run to have been spent before. The one thing it
+    cannot answer is the file being absent altogether, because `read_record`
+    returning None is its "no claim" answer for a record this pull request
+    does not touch. That is what this function is: the absence, then the
+    delegation.
+
+    `strict` is false for a draft pull request, and the reason is the one the
+    chain path has: the broad gate runs at the end, so a draft with no seal is
+    telling the truth.
+    """
+    if not strict:
+        return [], []
+    began = item_began_at(item)
+    if read_record(root, rel) is not None:
+        return broad_gate(
+            reader,
+            root,
+            rel,
+            strict,
+            began=began,
+            floor=DIRECT_GATE_FROM,
+            excused=DIRECT_GATE_EXCUSED,
+        )
+    message = (
+        f"declares `{routing.DIRECT}` and git carries no {rel} at HEAD. That "
+        "answer turns off the REVIEWER and nothing else — the broad gate is "
+        "the sealer's act, taken once, and where no round runs it is taken at "
+        "the end. Spawn the `sealer` with the base and the work item: it runs "
+        "`broad-gate --base <base> --record <item>`, which writes the cell "
+        "into this file because there is no round record to write it onto. "
+        "Until then this pull request is a request to merge a branch nobody "
+        "has run the suite over, and nothing in the repository knows it"
+    )
+    if began is None or began < DIRECT_GATE_FROM:
+        return [], [(rel, 0, message + ". " + DIRECT_GATE_EXCUSED)]
     return [(rel, 0, message)], []
 
 
@@ -3393,7 +3495,17 @@ def main(argv=None):
             continue
 
         if declared["review"] == routing.DIRECT:
-            print(f"{item}: straight to the PR — declared, nothing required")
+            where_gate = f"{item}/{BROAD_GATE_FILE}"
+            print(
+                f"{item}: straight to the PR — declared, no round record "
+                f"required; the broad gate's cell is read from "
+                f"{BROAD_GATE_FILE}"
+            )
+            seal_errors, seal_notices = direct_seal(
+                reader, routing, root, item, where_gate, strict
+            )
+            errors.extend(seal_errors)
+            notices.extend(seal_notices)
             continue
 
         # Before the count, and reported even when `rounds/` also holds

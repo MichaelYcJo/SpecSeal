@@ -310,12 +310,121 @@ def test_an_unreadable_declaration_fails(repo):
     assert "not a readable declaration" in out
 
 
-def test_a_direct_declaration_needs_nothing_and_is_printed(repo):
+def test_a_direct_declaration_needs_no_round_record_and_is_printed(repo):
+    """`ITEM` is below `DIRECT_GATE_FROM`, so the seal arm below prints for
+    it. What this case pins is unchanged: the declaration is reported, and a
+    direct answer is never failed for the absence of a round record."""
     write(repo, f"{ITEM}/routing.md", declaration(review=DIRECT))
     commit(repo, "declare direct")
     code, out = run(repo)
     assert code == 0, out
     assert DIRECT in out, "a decision nobody sees is not a record"
+    assert "round-N.md" not in out, (
+        "a direct declaration was asked for a round record, which is the one "
+        "thing that answer turns off"
+    )
+
+
+# --- the seal a direct declaration still owes -------------------------------
+#
+# `straight to the PR` turns off the REVIEWER and nothing else. The broad gate
+# is the sealer's act, taken once after the rounds settle — and where no round
+# runs, *after the rounds settle* is simply *at the end*. This arm was one
+# `print` and a `continue`, so the one full-suite run the design turns on
+# could be skipped entirely by answering a question about reviewing.
+#
+# The cutoff is its own, one work item later than `GATE_FROM`'s, and the
+# measurement behind it is the same shape: 16 declarations in this repository
+# answer `straight to the PR` and not one carries the file, because the file
+# did not exist.
+DIRECT_GATE_FROM = 1789518345
+GATE_FILE = "broad-gate.md"
+
+
+def direct_item(began, slug="a-direct-work-item"):
+    return f"seal/specs/{began}-{slug}"
+
+
+def direct(repo, began, gate=None):
+    """A direct declaration, and a `broad-gate.md` when `gate` is given."""
+    item = direct_item(began)
+    write(repo, f"{item}/routing.md", declaration(review=DIRECT))
+    first = commit(repo, "declare direct")
+    if gate is not None:
+        value = first if gate == "first" else gate
+        write(
+            repo,
+            f"{item}/{GATE_FILE}",
+            f"# broad gate\n\n| Field | Value |\n|---|---|\n"
+            f"| {BROAD_GATE_ROW} | {value} against base |\n",
+        )
+        commit(repo, "seal")
+    return item, first
+
+
+def test_a_direct_declaration_with_no_seal_fails_a_ready_pull_request(repo):
+    """S19's first half, and the silence this phase removes.
+
+    Before this, the walk returned at the direct arm before it reached the
+    broad-gate arm — so a work item could open a ready pull request having
+    run nothing, and the check printed `nothing required`.
+    """
+    direct(repo, DIRECT_GATE_FROM)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert GATE_FILE in out, "the refusal does not name the file it wants"
+    assert "sealer" in out, "the refusal names no way out"
+
+
+def test_a_direct_declaration_with_a_seal_passes(repo):
+    """S19's second half. The cell names a SHA the tree can see, so the run
+    happened and the pull request is a request to merge something somebody
+    ran the suite over."""
+    direct(repo, DIRECT_GATE_FROM, gate="first")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert BROAD_GATE_ROW not in out, (
+        "the arm spoke about a cell it had no complaint with; every message "
+        "it writes opens with the row's name"
+    )
+
+
+def test_a_direct_declaration_whose_seal_never_ran_fails(repo):
+    """The file existing is not the run happening. `not yet` is the honest
+    mid-run value, and at a ready pull request it is the refusal — which is
+    the same judgment the chain path's arm makes, reached through the same
+    reader (`questions.md` Q4)."""
+    direct(repo, DIRECT_GATE_FROM, gate="not yet")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert BROAD_GATE_ROW in out and "not yet" in out, out
+
+
+def test_a_direct_declaration_below_the_cutoff_prints_instead(repo):
+    """The retroactive red this cutoff forecloses.
+
+    16 declarations in this repository answer `straight to the PR` and not
+    one of them carries the file, because there was nowhere to write it. A
+    release pull request carries every work item the release adds, so an arm
+    with no cutoff refuses a release for work nobody could have sealed.
+    """
+    direct(repo, DIRECT_GATE_FROM - 1)
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert GATE_FILE in out, "the notice does not say what was not checked"
+    assert str(DIRECT_GATE_FROM) in out, (
+        "the notice does not name the cutoff, so a reader cannot tell why "
+        "this one printed and the next one failed"
+    )
+
+
+def test_a_direct_declaration_with_no_seal_is_a_notice_on_a_draft(repo):
+    """`strict` is false for a draft, and the reason is the chain path's: the
+    broad gate runs at the end, so a draft with no seal is telling the
+    truth."""
+    direct(repo, DIRECT_GATE_FROM)
+    code, out = run(repo, draft=True)
+    assert code == 0, out
 
 
 # --- the round record it finds ----------------------------------------------

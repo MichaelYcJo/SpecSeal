@@ -911,11 +911,11 @@ def test_a_plugin_check_that_fails_is_named_and_the_suite_is_not_compared(repo):
 # --- S4 one write: the fixture item --------------------------------------------
 
 
-def declaration():
+def declaration(review="through the review chain"):
     return (
         f"# {os.path.basename(ITEM)} — routing\n\n"
         "| Axis | Answer |\n|---|---|\n"
-        "| Review | through the review chain |\n"
+        f"| Review | {review} |\n"
         "| Destination | open the pull request |\n"
         "| Branch | feature |\n"
     )
@@ -1128,6 +1128,59 @@ def test_seal_writes_the_last_records_cell_and_nothing_else(repo):
     assert changed[0][0].startswith(f"| {ROW} |"), changed
     assert fields(after.decode("utf-8"))[ROW] == f"{head} against base"
     assert "- [x] Pass" in after.decode("utf-8")
+
+
+GATE_FILE = "broad-gate.md"
+
+
+def test_seal_writes_a_file_where_no_round_record_exists(repo):
+    """S18. A work item declaring `straight to the PR` runs no rounds, so the
+    cell has no record to live on — and `seal` used to REFUSE outright.
+
+    That refusal is one half of a seal with no home. `last_record` raised
+    rather than returning, and `chain_check`'s direct arm returned before it
+    looked; neither repairs the other, which is why both are phase 5's. The
+    `straight to the PR` answer turns off the REVIEWER and nothing else, so
+    the broad run is owed here exactly as it is on the chain path.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration(review="straight to the PR"))
+    commit(repo, "declare direct")
+    assert not (repo / ROUNDS).exists(), "the fixture is not the no-rounds state"
+    head = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{head} against base")
+    assert code == 0, out
+    path = repo / ITEM / GATE_FILE
+    assert path.exists(), f"`seal` wrote no {GATE_FILE}: {out}"
+    assert GATE_FILE in out, "the line printed does not name the home it chose"
+    text = path.read_text(encoding="utf-8")
+    assert fields(text)[ROW] == f"{head} against base", text
+    # The cell and nothing else. A file that grows a second row is a file the
+    # one reader has to start choosing between rows in.
+    table = [ln for ln in text.splitlines() if ln.startswith("|")]
+    assert len(table) == 3, (
+        f"{GATE_FILE} holds {len(table)} table lines, not a header, a "
+        f"separator and the cell:\n{text}"
+    )
+
+
+def test_a_work_item_with_rounds_still_seals_onto_its_last_record(repo):
+    """The other direction, and the one a new home quietly breaks.
+
+    Adding a second home is a change to where the writer LOOKS, and a writer
+    that starts preferring the new home seals every work item into a file no
+    chain-path reader opens — silently, because both writes succeed. So the
+    property is asserted from both ends: the record's cell is filled, and no
+    `broad-gate.md` exists at all.
+    """
+    _one, two = settled_item(repo)
+    head = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{head} against base")
+    assert code == 0, out
+    assert fields(two.read_text(encoding="utf-8"))[ROW] == f"{head} against base"
+    assert not (repo / ITEM / GATE_FILE).exists(), (
+        "a work item that ran rounds got the no-rounds home as well, so the "
+        "cell now exists in two places and the readers disagree"
+    )
 
 
 def test_seal_writes_over_a_capped_runs_needs_a_fix(repo):
