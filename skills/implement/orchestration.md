@@ -173,7 +173,7 @@ work goes, and asking a later part of it on its own is itself the mid-round
 prompt this exists to remove. Opening a pull request is an outward-facing act —
 it is not a detail that can wait for the end.
 
-**Both questions go in one `AskUserQuestion` call**, which is one wait. What
+**This is two questions in ONE `AskUserQuestion` call**, which is one wait. What
 the batch rule asks for is one batch before the first edit, not one question
 (`skills/implement/SKILL.md` §1). `AskUserQuestion` allows at most four options
 per question, and two presets beside the boxes is five — so the shape below is
@@ -217,8 +217,9 @@ it. If these are ever generated from a list, the list is what carries the order.
 | 3 | **review with `warden`** | the review rounds run · `Review` = `through the review chain` | **nothing reviews this code before the pull request** · `Review` = `straight to the PR` |
 | 4 | **open the pull request** | push it and open one · `Destination` = `open the pull request` | **the branch is handed back, committed and unpushed** · `Destination` = `stop before the pull request` |
 
-**Each box's description carries its unchecked meaning**, because that is the
-half a label cannot say and the half the measured instance got wrong. Box 1's
+**What is checked is the answer, and each box is a row of the declaration** —
+which is why each box's description carries its unchecked meaning too. That is
+the half a label cannot say and the half the measured instance got wrong. Box 1's
 unchecked half is the one most easily misread: `no` says this run may stop to
 ask, never that a person did the work by hand.
 

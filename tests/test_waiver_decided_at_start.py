@@ -112,7 +112,7 @@ def test_the_skill_asks_the_whole_question_in_the_first_batch():
         "the section stopped naming its own shape, so a session reads a "
         "question whose number of questions is nowhere stated"
     )
-    assert "one `AskUserQuestion` call" in skill, (
+    assert "ONE `AskUserQuestion` call" in skill, (
         "the one-call sentence went, and two questions in two calls is two "
         "waits — which is the whole thing the batch rule forbids"
     )
@@ -430,7 +430,11 @@ def test_the_question_is_two_questions_in_one_call():
     assert len(labelled_table(skill, "Order", "Box")) == 4, (
         "question 2 does not offer exactly four boxes"
     )
-    assert "Both questions go in one `AskUserQuestion` call" in flat(skill)
+    # ONE spelling, shared with `templates/claude-md-block.md` and its
+    # generated copy, because `tests/test_review_axes.py` pairs the two
+    # documents on this exact phrase — two spellings of one decision is
+    # the drift that pair exists to catch.
+    assert "two questions in ONE `AskUserQuestion` call" in flat(skill)
 
 
 def test_the_boxes_are_in_the_stated_order():

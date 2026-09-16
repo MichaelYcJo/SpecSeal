@@ -16,3 +16,28 @@ Run: `bin/survivor-check --range cc05d31d..HEAD --exempt <this file>`. -->
 | `seal/specs/1788993115-a-payload-is-written-again-on-every-spawn/phases/phase-2.md` | `text unchanged except the arm sentence` | A phase record of an earlier work item, quoting the heading as it stood when that phase ran. A record asserts a past state, which is what lets it sit beside a contract at all |
 | `seal/specs/1788993115-a-payload-is-written-again-on-every-spawn/spec.md` | `**``skills/implement/orchestration.md``** — headings: ``## Orchestrator: Bootstrap — create what's missing``` | The same work item's spec, enumerating the headings that file had when it was split. Rewriting it would make that contract describe a file it did not move |
 | `tests/test_waiver_decided_at_start.py` | `Opening a pull request is an outward-facing act, and asked at the end it IS a mid-round prompt — the thing this release removes.` | The module's own reasoning for why the destination is asked in the first batch, which this work item does not change — it changes WHO asks and in what shape. The sentence is still what the module is for |
+
+## Round 1's fix pass — a range row rather than 28 path rows
+
+<!-- The fix pass DELETED two shipped sections of `agents/framer.md`:
+§*Yours is the one interactive phase*, and the separate-command paragraph
+inside what was then §*The four writes*. Both went because the framer stopped
+asking the routing batch and stopped writing `routing.md` — no agent this
+plugin spawns has `AskUserQuestion`.
+
+Every sentence of those sections stands, by design, in the copies that are
+supposed to survive the deletion: `skills/implement/orchestration.md`,
+`templates/claude-md-block.md` and its generated `CLAUDE.md`, and
+`hooks/commit-review-gate.py`'s three prompts. The SESSION still writes
+`routing.md` in a command of its own, and the gate still denies the whole
+call — so the rule did not go anywhere, only the party did.
+
+28 reports, all correct as reports and none a defect. The one that would have
+been a defect was opened directly: no hook and no document says the routing
+batch is the framer's. `seal/ledger.md:372`'s claim was handled on its own
+terms, one section up. -->
+
+| Range | Grounds |
+|---|---|
+| `6edfb71f..HEAD` | The fix pass deleted `agents/framer.md`'s interactive phase and its separate-command paragraph, because a subagent cannot ask. Every sentence of both stands in the durable copies that are supposed to outlive the deletion — the orchestrator's routing section, the `CLAUDE.md` block and its template, and the commit gate's own prompts — because the SESSION still performs the act they describe. Opened directly rather than assumed: no hook and no shipped document still says the batch is the framer's |
+
