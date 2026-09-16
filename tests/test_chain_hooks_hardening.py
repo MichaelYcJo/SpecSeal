@@ -820,6 +820,28 @@ ASKING = re.compile(
 )
 ASKING_WINDOW = 140
 
+# #422, half two. The refusal became a claim in round 2 of #419; WHAT IT
+# DECIDES ABOUT did not. The occurrence that opened a window was whatever
+# contained the exact substring `in one batch`, so an instruction written any
+# other way never reached the window that would have refused it. Three
+# spellings were measured passing at exit 0:
+#
+#   *go in **one batch** before the first edit*  -- `CLAUDE.md:39` verbatim,
+#       where the emphasis markers break the literal;
+#   *in a single batch* and *as a single batch* -- ordinary synonyms.
+#
+# So the preposition and the article are read as a small set, and emphasis
+# comes out before the search. Widening the SET OF WORDS the window refuses is
+# a different thing and is not done here: that direction makes a legitimate
+# definition unwritable, which is round 2's finding pointing the other way.
+BATCH_PHRASE = re.compile(r"\b(?:in|as) (?:one|a single|a) batch\b", re.IGNORECASE)
+# `*` only. `_` is the other emphasis marker in markdown and is load-bearing
+# in every identifier these definitions name — `round_record.py`,
+# `test_the_...` — so stripping it would mangle the window a person reads in
+# the refusal. An instruction hidden behind `_one batch_` is residue, recorded
+# with the rest below.
+EMPHASIS = re.compile(r"\*+")
+
 
 def test_the_asking_stems_are_anchored_at_both_ends():
     """#422 half one, pinned on the object the sweep below actually reads.
@@ -849,6 +871,43 @@ def test_the_asking_stems_are_anchored_at_both_ends():
     # The front anchor, which round 2 of #419 bought and this must not undo.
     for word in ("task", "multitasking", "flask"):
         assert not ASKING.search(word), f"{word} is a substring, not the word"
+
+
+def test_the_batch_phrase_is_found_by_its_claim_not_by_one_spelling():
+    """#422 half two, pinned on the objects the sweep below actually reads.
+
+    The refusal decided by the claim and the FINDER still decided by one exact
+    substring, so an instruction written any other way never reached the
+    window. All three spellings below were measured passing at exit 0 before
+    this repair — the first is `CLAUDE.md:39` verbatim.
+
+    Red with the emphasis strip removed: the first assertion fails.
+    Red with the preposition or the article back to a literal: the synonyms
+    stop being found.
+    """
+    for spelling in (
+        "questions go in **one batch** before the first edit",
+        "collect them in a single batch",
+        "collect them as a single batch",
+        "collect them in one batch",
+        "collect them in a batch",
+        "collect them as one batch",
+    ):
+        assert BATCH_PHRASE.search(EMPHASIS.sub("", spelling)), (
+            f"an instruction written {spelling!r} never reaches the window "
+            "that would refuse it, so the guard says nothing about it"
+        )
+    # Not every sentence with the word in it. The finder opens a window; the
+    # window is what refuses. Widening the finder past the phrase would put
+    # ordinary prose in front of the stem set for no gain.
+    for innocent in (
+        "batch independent reads and runs",
+        "a batch of questions",
+        "batching is what the contract asks for",
+    ):
+        assert not BATCH_PHRASE.search(innocent), (
+            f"{innocent!r} is not a batching instruction and opens a window"
+        )
 
 
 def test_the_questions_are_collected_before_the_work_not_during_it():
@@ -909,30 +968,51 @@ def test_the_questions_are_collected_before_the_work_not_during_it():
     # that stays clear of this. A definition that needs the other wording will
     # meet this assertion and should reword rather than widen it, because one
     # word is all that separates the true sentence from the instruction.
-    # The stems and the window are module-level, above, so
-    # `test_the_asking_stems_are_anchored_at_both_ends` reads the same objects
-    # this sweep reads rather than a copy of them.
-    WINDOW = ASKING_WINDOW
+    #
+    # THE REST OF THE RESIDUE, for the same reason — these are what the window
+    # cannot see, and each has a direction rather than a fix:
+    #
+    #   · It CROSSES HEADINGS. 140 characters over the flattened file is a
+    #     span with no structural boundary in it, and #422 measured 42 % of
+    #     `agents/framer.md` and 60 % of `agents/smith.md` as positions where
+    #     a new occurrence would fire. Bounding it at a heading is a change
+    #     with its own failure direction — an instruction whose sentence
+    #     straddles a heading would pass — and it is ruled out with grounds in
+    #     `seal/specs/1789540097-…/spec.md` §*Out*.
+    #   · It reads `*` and not `_`. See `EMPHASIS` above for why.
+    #   · It refuses by the WORDS in the window, so a definition that names a
+    #     person answering for some other reason within 140 characters of a
+    #     legitimate batch phrase is refused and has to be reworded. That is
+    #     the direction this guard is deliberately wrong in: a false refusal
+    #     costs one sentence in a file somebody is already editing.
+    #
+    # The stems, the window, the phrase and the emphasis pattern are all
+    # module-level, above, so `test_the_asking_stems_are_anchored_at_both_ends`
+    # and `test_the_batch_phrase_is_found_by_its_claim_not_by_one_spelling`
+    # read the same objects this sweep reads rather than copies of them.
     definitions = sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
     assert len(definitions) >= 3, f"agents/*.md matched {len(definitions)} files"
     for path in definitions:
         with open(path, encoding="utf-8") as f:
-            flat_body = " ".join(f.read().split())
+            # Emphasis out before the search, so `in **one batch**` is the
+            # occurrence it reads as. The window printed in the refusal is
+            # this text, which is why it carries no `*`.
+            flat_body = EMPHASIS.sub("", " ".join(f.read().split()))
         relative = os.path.relpath(path, ROOT)
-        at = flat_body.find("in one batch")
-        while at >= 0:
-            window = flat_body[max(0, at - WINDOW) : at + WINDOW]
+        for found in BATCH_PHRASE.finditer(flat_body):
+            at = found.start()
+            window = flat_body[max(0, at - ASKING_WINDOW) : at + ASKING_WINDOW]
             named = sorted({m.group(0).lower() for m in ASKING.finditer(window)})
             assert not named, (
-                f"{relative} tells an agent to collect in one batch something "
-                f"a person answers — the window names {named}. No agent this "
-                "plugin spawns has `AskUserQuestion`, so collecting a batch "
-                "of questions is an instruction nothing can carry out; the "
-                "act belongs to the session that spawns the work. Batching "
-                "READS is a different thing and is what `agent-contract` §10 "
-                f"asks for — that wording is not refused here.\n  …{window}…"
+                f"{relative} tells an agent to collect {found.group(0)} "
+                f"something a person answers — the window names {named}. No "
+                "agent this plugin spawns has `AskUserQuestion`, so "
+                "collecting a batch of questions is an instruction nothing "
+                "can carry out; the act belongs to the session that spawns "
+                "the work. Batching READS is a different thing and is what "
+                "`agent-contract` §10 asks for — that wording is not refused "
+                f"here.\n  …{window}…"
             )
-            at = flat_body.find("in one batch", at + 1)
 
 
 def test_the_cycle_is_bounded_and_ends_at_a_pull_request():
