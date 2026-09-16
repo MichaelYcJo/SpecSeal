@@ -3903,6 +3903,90 @@ def last_record(routing, rounds):
     return found[-1]
 
 
+def seal_home(routing, item, rounds):
+    """(N, path) — the record the cell lands on, or (None, the file it lands in).
+
+    **The home is picked from the DECLARATION, never from what happens to be on
+    disk.** `chain_check` reads `broad-gate.md` on its direct arm alone and the
+    last round record on its chain arm — one home per `Review` answer, chosen
+    there by the same row. A home chosen here by the disk therefore disagrees
+    with the reader twice, in opposite directions:
+
+      a CHAIN work item whose `rounds/` is still empty — the ordinary state
+          while round 1 runs — took the no-rounds branch and was sealed into
+          `broad-gate.md`, which no reader of that work item ever opens, and
+          `seal` printed `sealed` over it
+
+      a DIRECT work item that does have round records was sealed onto the last
+          one, which the direct arm never reads
+
+    Both come from the same missing read, so both are closed by one. Round 1
+    reproduced the first in a throwaway clone: exit 0, `sealed …
+    broad-gate.md`, and the post-write `chain_check` still reporting the round
+    record missing. What it costs is the sealer's answer — success reported for
+    a seal that does not count, and the next party re-taking the run without
+    knowing why. It fails closed either way, which is why nothing merged unrun.
+
+    `last_record` used to RAISE on the empty-`rounds/` path, and that refusal
+    was half of why a `straight to the PR` work item could not be sealed at
+    all — the other half being a reader that returned before it looked. The
+    refusal comes back here for the ONE state it was always right about: a
+    chain declaration whose first record is not written yet.
+
+    An unreadable or absent declaration falls back to the disk, which is this
+    module's standing direction — a file nobody can read is not an answer
+    somebody gave, and no arm of `chain_check` walks a work item that declared
+    nothing, so neither home is read for it.
+    """
+    declared = None
+    try:
+        with open(os.path.join(item, routing.FILENAME), encoding="utf-8") as f:
+            declared = routing.parse(f.read())
+    except (OSError, UnicodeDecodeError):
+        pass
+
+    if declared is not None and declared["review"] == routing.DIRECT:
+        return None, os.path.join(item, chain.BROAD_GATE_FILE)
+
+    found = earlier_records(routing, rounds, sys.maxsize)
+    if found:
+        return found[-1]
+
+    if declared is not None:
+        raise Refused(
+            f"{os.path.join(item, routing.FILENAME)} declares "
+            f"`{declared['review']}` and {rounds} holds no `round-N.md`. For "
+            "that answer the cell belongs on the last round record, and "
+            f"`{chain.BROAD_GATE_FILE}` is read only for a work item "
+            f"declaring `{routing.DIRECT}` — written there it would be a seal "
+            "nothing reads. Write the round record first; no cell was written"
+        )
+    return None, os.path.join(item, chain.BROAD_GATE_FILE)
+
+
+def new_broad_gate_file(item, value):
+    """The whole text of a `broad-gate.md` holding that cell alone."""
+    return (
+        f"# {os.path.basename(os.path.abspath(item))} {DASH} broad gate\n"
+        "\n"
+        f"<!-- The `{BROAD_GATE}` cell, for a work item that ran no review\n"
+        "rounds. Where rounds ran the same cell lives on the last\n"
+        "`rounds/round-N.md`; this file is the other home, and it holds that\n"
+        "row and nothing else.\n"
+        "\n"
+        "Written by `round-record seal`, which picks the home from what\n"
+        "exists, and read by `chain_check.py` at the pull request. The cell\n"
+        "records the commit the run happened at and the base it was compared\n"
+        "against, so an edit after the run spends it — which is the whole of\n"
+        "what a broad-gate cell asserts, and none of it depends on a round\n"
+        "having run. -->\n"
+        "\n"
+        "| Field | Value |\n"
+        "|---|---|\n"
+        f"{cell(BROAD_GATE, value)}\n"
+    )
+
+
 def seal(args):
     """Set the LAST record's `Broad gate` cell, and touch nothing else.
 
@@ -3988,19 +4072,32 @@ def seal(args):
     Then `chain_check --worktree` runs, as `new` and `close` do. Commits
     nothing.
     """
-    reader, routing, root, _item, rounds = where(args)
-    n, path = last_record(routing, rounds)
-    text = read_text(path, f"last record round-{n}.md")
-    raw, lines = text.splitlines(), reader.readable(text)
-    rows = chain.table_rows(reader, lines)
+    reader, routing, root, item, rounds = where(args)
+    n, path = seal_home(routing, item, rounds)
+
+    # NO ROUNDS: the three record refusals below have nothing to read and
+    # nothing to say. `Pass`, `Fixes checked by` and `Target SHA` are each a
+    # question about a round that ran — has its verdict table closed, has a
+    # later round read its fixes, was the run spent before the commit it
+    # sealed — and a work item that ran none answers all three by having no
+    # round. What is NOT skipped is the pair below them: the cell still has to
+    # carry a SHA-shaped word and that SHA still has to resolve here, because
+    # those are about the RUN rather than about the review.
+    if n is None:
+        rows = []
+        raw = lines = []
+    else:
+        text = read_text(path, f"last record round-{n}.md")
+        raw, lines = text.splitlines(), reader.readable(text)
+        rows = chain.table_rows(reader, lines)
 
     boxes = [m for ln in lines for m in [chain.PASS_RE.match(ln)] if m]
-    if len(boxes) != 1:
+    if n is not None and len(boxes) != 1:
         raise Refused(
             f"round-{n}.md has {len(boxes)} `Pass` boxes and needs one; no cell "
             "was written"
         )
-    if boxes[0].group(1) == " ":
+    if n is not None and boxes[0].group(1) == " ":
         raise Refused(
             f"round-{n}.md's `Pass` is unchecked — a finding in its verdict "
             "table is still open, and the broad gate seals a review that has "
@@ -4029,7 +4126,7 @@ def seal(args):
     # says why -- this is the same cell, one subcommand over.
     checker = reader.visible(chain.field(rows, chain.CHECKED_BY) or "").strip()
     plain = checker.strip("`").rstrip(".").lower()
-    if plain != chain.NO_FIXES:
+    if n is not None and plain != chain.NO_FIXES:
         # A `round-N` is refused HERE rather than left to the check after the
         # write (#335). `CHECKER_RE` tests the SHAPE of the cell and cannot
         # test its POSITION, and the position is what decides this one: a
@@ -4098,10 +4195,13 @@ def seal(args):
                 "Run it again at the tree as it stands; no cell was written"
             )
 
-    i = field_index(reader, lines, BROAD_GATE)
-    raw[i] = cell(BROAD_GATE, args.broad_gate)
-    ending = "\n" if text.endswith("\n") else ""
-    write_record(reader, path, "\n".join(raw) + ending)
+    if n is None:
+        write_record(reader, path, new_broad_gate_file(item, args.broad_gate))
+    else:
+        i = field_index(reader, lines, BROAD_GATE)
+        raw[i] = cell(BROAD_GATE, args.broad_gate)
+        ending = "\n" if text.endswith("\n") else ""
+        write_record(reader, path, "\n".join(raw) + ending)
     print(
         f"round-record: sealed {os.path.relpath(path, root)} {DASH} "
         f"`{BROAD_GATE}` | {args.broad_gate}"
