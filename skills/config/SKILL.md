@@ -60,13 +60,34 @@ second answer.
 - **A language row, or the `Broad gate` row,** is only a row. Edit the value
   in place, leaving the rest of the file as it is. Where the file carries no
   such row at all — the stub `seal mode` writes has only `Mode`, and that is
-  every repository that has set its mode — take the row *and its section*
-  from `$CLAUDE_PLUGIN_ROOT/templates/config.md` rather than writing a bare
-  row. The documentation beside it is the half a person reads, and a
-  repository that reached this file through `seal mode` has none of it. The
+  every repository that has set its mode — take the row **and the prose
+  under `## Broad gate` down to but not including `### What is refused, and
+  what stays allowed`** from `$CLAUDE_PLUGIN_ROOT/templates/config.md`,
+  rather than writing a bare row. The documentation beside it is the half a
+  person reads, and a repository that reached this file through `seal mode`
+  has none of it.
+
+  **The two lists and the criterion are pointed at, never copied down.** They
+  are the plugin's, they change when the plugin changes, and a frozen copy in
+  somebody's `seal/config.md` is a copy that says something false about the
+  tool at the next release — which is what the criterion's one-home rule is
+  for. Point at `$CLAUDE_PLUGIN_ROOT/templates/config.md` for both. The
   `Broad gate` value is one shell command line, run from the repository
-  root; put the suite runner first, because the base comparison re-runs
-  what stands before the first `&&`.
+  root.
+
+  **How to choose that value is written down, and not here.**
+  `templates/config.md` §*Choosing a value — the criterion* owns the
+  criterion — three rules, with the reason for each — and this bullet used
+  to carry the third of them on its own. Read it to the person before they
+  answer, rather than summarising it back to them.
+
+  **The `Broad gate` row is looked at before it is run**, and a value that
+  would not run as the command it reads as is refused with nothing run —
+  the whole command wrapped in backticks or in `$(…)`, or a trailing `&`.
+  Nothing is stripped or repaired: rewriting the row is the person's act,
+  which is what brings them here. `templates/config.md` §*What is refused,
+  and what stays allowed* lists the three forms and the ones that stay
+  legal, each with its reason, and it is where this is decided.
 - **The mode row moves files.** Run `seal mode local` or `seal mode shared`.
   It moves the root, stages the change, carries
   `.github/workflows/hygiene.yml` in or out, and writes the row, so the file

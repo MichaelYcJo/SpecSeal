@@ -192,6 +192,56 @@ def fifo_or_skip(path):
         pytest.skip(f"named pipes are not available here ({exc})")
 
 
+# What a POSIX shell answers, and what `cmd.exe` prints back verbatim.
+POSIX_ROW_PROBE = "echo one; echo $(echo two)"
+
+
+def posix_row_shell_or_skip():
+    """Skip unless the shell behind `shell=True` here separates commands with
+    `;` and substitutes `$(…)` — the two things a `Broad gate` row's fixture
+    can be ABOUT.
+
+    `broad_gate.run` hands the row to `subprocess(shell=True)`, which is
+    `/bin/sh` on POSIX and `%COMSPEC%` — normally `cmd.exe` — on Windows.
+    `cmd.exe` has neither: `echo a; echo b` is one `echo` that succeeds, and
+    `$(echo x)` is a literal argument. So a fixture row written to fail, or
+    to substitute, does neither there — and a case built on one is not
+    failing to reproduce a defect, it has no defect to reproduce.
+
+    **This is `symlink_or_skip`'s rule followed, not excepted.** That rule is
+    *ask by attempting*, and the thing to attempt here is exactly which shell
+    will run the row — asked through the same call the gate makes, so the
+    answer is the gate's own shell rather than a guess from `os.name`.
+    `skipif(os.name == "nt")` would be wrong in both of the directions that
+    rule names: it drops the coverage on a Windows machine whose `COMSPEC` is
+    a POSIX shell, and it keeps asserting on a POSIX machine whose `/bin/sh`
+    is something nobody expected.
+
+    A case that only reads a REFUSAL needs none of this. `not_as_written` is
+    a string test that reaches no shell, and the refusal is right on both
+    platforms — `templates/config.md` names what each shell does with the
+    forms it lists.
+    """
+    try:
+        r = subprocess.run(
+            POSIX_ROW_PROBE,
+            shell=True,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        pytest.skip(f"the shell behind `shell=True` could not be probed ({exc})")
+    if r.returncode != 0 or r.stdout.split() != ["one", "two"]:
+        pytest.skip(
+            f"`shell=True` here is not a POSIX shell: {POSIX_ROW_PROBE!r} "
+            f"answered {r.stdout.strip()!r} (exit {r.returncode}). A `;` "
+            "separator and `$(…)` substitution are what this case's row is "
+            "made of, and this shell has neither"
+        )
+
+
 def local_home(repo):
     """Create `<git-common-dir>/seal/` for `repo` and return its path.
 

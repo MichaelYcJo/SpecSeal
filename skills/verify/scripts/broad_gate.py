@@ -12,9 +12,12 @@ What it does, in order, from the repository root:
 
   1. the repository's own broad command — the `Broad gate` row of
      `seal/config.md`, one shell command line the repository wrote for
-     itself. **No row is a refusal, not a default**: the command names the
-     row to write and exits 2 with nothing run, because a seal taken over a
-     command nobody chose is the counterfeit `verify` names
+     itself. **A row is refused two ways, and both are exit 2 with nothing
+     run**: no row at all, because a seal taken over a command nobody chose
+     is the counterfeit `verify` names; or a row this gate would not run as
+     the command it reads as — the whole command wrapped in backticks or in
+     `$(…)`, or ending in a single `&`. Neither refusal names a command to
+     write: the row is a person's, and the message says where they answer it
   2. `evidence-check --strict .`       the ledger's rows still anchor
   3. `unverified-check --baseline <base> seal/specs/`
   4. `chain_check.py --baseline <base>`   judged as a DRAFT pull request,
@@ -231,14 +234,124 @@ def broad_command(home):
 
 
 def missing_row(home):
+    """The absent-row refusal.
+
+    It used to say *write the repository's own broad command into it* and
+    print the row to type. The only reader standing here is a session, so
+    what that sentence asked for is the one thing the row may not be: #401
+    is a session that met this message after its review rounds had settled,
+    ran four candidate commands, chose one, wrote the row, and told the
+    owner afterwards. The message now says whose the row is and where they
+    answer it.
+    """
     return (
-        f"broad-gate: {os.path.join(home, CONFIG)} has no `{ROW}` row, so there "
-        "is no command to seal over. Write the repository's own broad command "
-        "into it as one shell command line —\n"
-        f"    | {ROW} | <the full suite, the repository-wide lint, the typecheck> |\n"
-        "— and run this again. There is no default: a seal taken over a "
-        "command nobody chose seals nothing (`skills/verify/SKILL.md` §*The "
-        "Seal Test*). Nothing ran."
+        f"broad-gate: {os.path.join(home, CONFIG)} has no `{ROW}` row, so "
+        "there is no command to seal over — and choosing one is not this "
+        "session's to do. There is no default because a row is a thing a "
+        "person wrote, and what the sealer's seal covers is exactly that "
+        "(`skills/verify/SKILL.md` §*The Seal Test*): a session that picks a "
+        "command here seals its own choice.\n"
+        "Take it to whoever owns the repository. `/specseal:config` is where "
+        f"they answer it — it shows every row and adds this one with its "
+        "section — and `templates/config.md` §*Choosing a value — the "
+        "criterion* is what they choose against. Nothing ran."
+    )
+
+
+# --- looking at the value before a shell gets it -------------------------
+
+
+def wholly_substituted(value):
+    """The opening delimiter of a command substitution wrapping the WHOLE
+    value — `` ` `` or `$(` — or None where nothing wraps it.
+
+    A pair that closes early wraps a part rather than the whole, and a part
+    is the repository's own composition: `pytest -n $(nproc)` still runs as
+    the command it reads as. So `$(a) && b` reads as None here, and so does
+    `` `a` && `b` `` — a row nothing in this module claims to catch. Both
+    fall out of one reading, which is the point: what is refused is a form,
+    not the characters in it.
+    """
+    if len(value) > 1 and value[0] == "`" == value[-1]:
+        return "`" if "`" not in value[1:-1] else None
+    if not value.startswith("$(") or not value.endswith(")"):
+        return None
+    depth = 0
+    for i, char in enumerate(value[1:], 1):
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return "$(" if i == len(value) - 1 else None
+    return None
+
+
+def not_as_written(home, command):
+    """The refusal for a `Broad gate` value the gate would not run as the
+    command it reads as — or None for every value it would.
+
+    **The criterion has two halves: the value must run as the command it
+    reads as, and the exit code the gate reads must be that command's.**
+    `templates/config.md` §*Broad gate* owns it, owns the list of refused
+    forms and owns the list of what stays allowed, each with its reason.
+    This function is the half that acts; a form belongs here only by failing
+    one of those halves there.
+
+    Three forms fail one. The whole value wrapped in backticks, or in the
+    `$(…)` spelling of the same thing, runs the checks first, DISCARDS their
+    exit status, and executes their output as a command — measured on #402:
+    the same content exits 1 bare and 0 wrapped, with the failure still on
+    the screen. A trailing `&` backgrounds the line, so the shell answers 0
+    before any check has finished.
+
+    Everything else stays legal, a pipe included, because the row is an
+    arbitrary shell command line by design and telling a status-discarding
+    `;` from one inside a quoted argument needs a shell parser — whose own
+    failure modes would make legitimate rows unwritable.
+
+    Nothing is stripped or rewritten. A value silently repaired here leaves
+    the file still wrong and teaches the next person that it was right.
+    """
+    value = command.strip()
+    opener = wholly_substituted(value)
+    if opener == "`":
+        form = "is the whole command wrapped in backticks"
+        does = (
+            "so a shell reads it as command substitution: the checks run "
+            "first, their exit status is DISCARDED, and their output is then "
+            "executed as a command. What this gate would read is that "
+            "command's exit code and not the checks'"
+        )
+    elif opener == "$(":
+        form = "is the whole command wrapped in `$(…)`"
+        does = (
+            "which is command substitution in its other spelling and does "
+            "the same thing: the checks' exit status is DISCARDED and their "
+            "output is executed as a command in its place"
+        )
+    elif value.endswith("&") and not value.endswith("&&"):
+        form = "ends in a single `&`"
+        does = (
+            "so `/bin/sh` backgrounds the whole line and answers 0 before any "
+            "check has finished. A seal drawn from that 0 covers nothing that "
+            "ran. Under `cmd.exe` the same character separates two commands "
+            "instead, which is a different wrong answer refused for the same "
+            "reason: the exit code read is not the checks'"
+        )
+    else:
+        return None
+    rewritten = (value[len(opener) : -1] if opener else value[:-1]).strip()
+    return (
+        f"broad-gate: the `{ROW}` row in {os.path.join(home, CONFIG)} {form}, "
+        f"{does}.\n"
+        f"    as written: | {ROW} | {value} |\n"
+        f"    as meant:   | {ROW} | {rewritten} |\n"
+        "Nothing ran, and nothing was repaired: the row is a person's to "
+        "write, and a value quietly fixed here would leave the file still "
+        "wrong. `templates/config.md` §*Broad gate* lists what is refused "
+        "and what stays allowed, with the reason for each, and "
+        "`/specseal:config` is the door to the row."
     )
 
 
@@ -414,9 +527,9 @@ def suite_counts(text):
     class: `warnings` left the list and `errors` stayed in it, so `Found 2
     errors.` from a linter run with `--exit-zero` still landed on the suite
     row; and a run where every test was SKIPPED matched no word at all and
-    came back None, which the panel prints as `exit 0` — the seal's most
-    trusted row saying nothing about a run in which nothing executed (round
-    2's 🟡 13).
+    came back None, which the panel prints as `exit 0` — the sealer's seal
+    showing its most trusted row and saying nothing about a run in which
+    nothing executed (round 2's 🟡 13).
 
     The clock pattern is written here rather than hoisted to a module
     constant, and the reason is a rule rather than taste: this function
@@ -532,6 +645,15 @@ def gate(args, console_wants_letters):
     command = broad_command(home)
     if command is None:
         raise Refused(missing_row(home))
+    # The one place the value is looked at before a shell is handed it, and
+    # the only one there needs to be: the other surface that runs the row
+    # (`compare_at_base` → `first_command`) is reached only after the run
+    # below, so this refusal closes it by reachability rather than by a
+    # second guard in a second place (`spec.md` §*The class, enumerated by
+    # construction*).
+    unrunnable = not_as_written(home, command)
+    if unrunnable:
+        raise Refused(unrunnable)
     head = git(root, "rev-parse", "--short", "HEAD")
     if head is None:
         raise Refused(f"broad-gate: {root} has no HEAD to seal — nothing ran")
