@@ -834,13 +834,91 @@ ASKING_WINDOW = 140
 # comes out before the search. Widening the SET OF WORDS the window refuses is
 # a different thing and is not done here: that direction makes a legitimate
 # definition unwritable, which is round 2's finding pointing the other way.
-BATCH_PHRASE = re.compile(r"\b(?:in|as) (?:one|a single|a) batch\b", re.IGNORECASE)
-# `*` only. `_` is the other emphasis marker in markdown and is load-bearing
-# in every identifier these definitions name — `round_record.py`,
-# `test_the_...` — so stripping it would mangle the window a person reads in
-# the refusal. An instruction hidden behind `_one batch_` is residue, recorded
-# with the rest below.
-EMPHASIS = re.compile(r"\*+")
+BATCH_PHRASE = re.compile(r"\b(?:in|into|as) (?:one|a single|a) batch\b", re.IGNORECASE)
+# All three markdown markers, which is what `chain_check.py:419` already
+# settled on under this same name. Round 1's 🟡 2: `*` alone left out the
+# marker these files use MOST — code spans outnumber asterisks in four of the
+# five definitions, `agents/warden.md` 250 to 159 and `agents/smith.md` 202 to
+# 142 — so `` in `one batch` `` reached no window at all.
+#
+# The build kept `_` out on the grounds that stripping it mangles the window a
+# person reads in the refusal, because every identifier these definitions name
+# carries one. That cost is real and it is the ONLY cost: stripping `_` cannot
+# change what is found, since no stem in `ASKING` and no word in
+# `BATCH_PHRASE` carries one. A printed file name losing its underscores is
+# worth less than a spelling the guard cannot see, which is the same trade
+# `chain_check.py` makes under the same name — and two constants called
+# `EMPHASIS` meaning two different things is what
+# `tests/test_one_word_one_meaning.py` exists to stop.
+EMPHASIS = re.compile(r"[*_`]+")
+
+
+def batch_instructions(body):
+    """Every batching instruction in BODY whose window names a person
+    answering, as `(phrase, window, names)`.
+
+    **The sweep below IS this function over `agents/*.md`, and the case beside
+    it is this function over text the case writes.** Round 1's 🔴 1: nothing
+    in the tree contains a batch phrase — measured, zero occurrences in all
+    five definitions, before and after this branch — so the sweep's loop body
+    never executed and the composition inside it was unreachable on anything
+    committed. Five mutations of the finder, the emphasis strip, the window
+    and the stem set each left the module at exit 0, 50 passed, while the two
+    cases above went on pinning the constants.
+
+    That is this work item's own subject one layer down, and the fifth
+    instance of the class in this release: the cases pinned the pieces and the
+    production path was a copy of them. `seal/specs/1789455558-…/overview.md`
+    states the rule — pin the function the production path calls, never the
+    helper beside it.
+    """
+    flat_body = EMPHASIS.sub("", " ".join(body.split()))
+    for hit in BATCH_PHRASE.finditer(flat_body):
+        at = hit.start()
+        window = flat_body[max(0, at - ASKING_WINDOW) : at + ASKING_WINDOW]
+        named = sorted({m.group(0).lower() for m in ASKING.finditer(window)})
+        if named:
+            yield hit.group(0), window, named
+
+
+def test_the_sweep_refuses_a_planted_instruction_in_every_spelling():
+    """The whole guard, run on text this case writes, because the corpus holds
+    nothing for it to find.
+
+    Red with the emphasis strip removed from `batch_instructions`, red with
+    the finder back to the literal `in one batch`, red with the window at 5 or
+    at 400, and red with the stems front-anchored only — the last on the
+    negative at the end, which is the direction a wider stem set is wrong in.
+    """
+    for spelling in (
+        "questions go in **one batch** before the first edit and the person "
+        "answers them",
+        "collect in a single batch everything a person has to answer",
+        "collect as a single batch everything the user answers",
+        "collect in one batch what a person answers",
+        "collect into one batch what a person answers",
+        "collect in `one batch` what a person answers",
+    ):
+        assert list(batch_instructions(spelling)), (
+            f"the guard does not refuse {spelling!r}, so an instruction "
+            "written that way reaches no window that would refuse it"
+        )
+    # The window bounds the distance. Prose that names a person two hundred
+    # characters from a batch phrase is not this instruction.
+    far = "collect them in one batch." + " filler" * 40 + " a person answers"
+    assert not list(batch_instructions(far)), (
+        "the window no longer bounds the distance, so ordinary prose far "
+        "from a batch phrase is refused"
+    )
+    # `agent-contract` §10's own legitimate wording, with the two words the
+    # back anchor exists to stop one clause away.
+    assert not list(
+        batch_instructions(
+            "open every coordinate a task names in one batch; the persona "
+            "the smith writes for and the users who install this plugin are "
+            "not parties to it"
+        )
+    ), "batching READS is refused, which is the false refusal round 2 bought off"
 
 
 def test_the_asking_stems_are_anchored_at_both_ends():
@@ -861,12 +939,28 @@ def test_the_asking_stems_are_anchored_at_both_ends():
         assert ASKING.search(word), f"{word} no longer marks a person answering"
     for word in ("people", "human", "user", "user's"):
         assert ASKING.search(word), f"{word} no longer marks a person answering"
-    # The back anchor. `persona` and `users` are what the issue measured; the
-    # other three are the same shape and would have been the next report.
-    for word in ("persona", "personas", "users", "humanity", "asker"):
+    # The back anchor, on the words the issue measured: a population, or a
+    # word that merely contains a stem.
+    for word in ("persona", "personas", "users", "humans", "humanity"):
         assert not ASKING.search(word), (
             f"{word} fires the guard, so a definition using an ordinary word "
             "has to be reworded for a question nobody is asking"
+        )
+    # WHAT THE BACK ANCHOR ALSO COST, pinned so the next reader meets it
+    # rather than discovering it (round 1's 🟡 3). The agent nouns stopped
+    # matching, and each of them NAMES the party this guard is looking for —
+    # `agent-contract` §4 writes `answerer` for exactly that party. This block
+    # used to sit in the one above, whose message calls its words ordinary
+    # *for a question nobody is asking*, which is false of these three.
+    #
+    # Widening the stem set is refused with grounds in
+    # `seal/specs/1789540097-…/spec.md` §*Out*, so this is residue and not a
+    # defect. It is residue, not correctness.
+    for word in ("asker", "answerer", "questioner"):
+        assert not ASKING.search(word), (
+            f"{word} is an agent noun the back anchor stops. If this line is "
+            "ever reversed, it is a widening of what the guard refuses and "
+            "needs the argument `spec.md` §*Out* asks for"
         )
     # The front anchor, which round 2 of #419 bought and this must not undo.
     for word in ("task", "multitasking", "flask"):
@@ -881,6 +975,11 @@ def test_the_batch_phrase_is_found_by_its_claim_not_by_one_spelling():
     window. All three spellings below were measured passing at exit 0 before
     this repair — the first is `CLAUDE.md:39` verbatim.
 
+    This case holds the two PIECES and their reasons, and it is not the
+    guard: `test_the_sweep_refuses_a_planted_instruction_in_every_spelling`
+    holds the composition the sweep performs, which is what round 1's 🔴 1 was
+    about. Both are kept, because a piece that goes red says which piece.
+
     Red with the emphasis strip removed: the first assertion fails.
     Red with the preposition or the article back to a literal: the synonyms
     stop being found.
@@ -892,6 +991,12 @@ def test_the_batch_phrase_is_found_by_its_claim_not_by_one_spelling():
         "collect them in one batch",
         "collect them in a batch",
         "collect them as one batch",
+        # Reached only after round 1's 🟡 2 widened the marker set and the
+        # preposition set. Backticks are the marker these definitions use
+        # most, and `into` was measured missed.
+        "collect them in `one batch`",
+        "collect them in _one batch_",
+        "collect them into one batch",
     ):
         assert BATCH_PHRASE.search(EMPHASIS.sub("", spelling)), (
             f"an instruction written {spelling!r} never reaches the window "
@@ -994,24 +1099,17 @@ def test_the_questions_are_collected_before_the_work_not_during_it():
     assert len(definitions) >= 3, f"agents/*.md matched {len(definitions)} files"
     for path in definitions:
         with open(path, encoding="utf-8") as f:
-            # Emphasis out before the search, so `in **one batch**` is the
-            # occurrence it reads as. The window printed in the refusal is
-            # this text, which is why it carries no `*`.
-            flat_body = EMPHASIS.sub("", " ".join(f.read().split()))
+            body = f.read()
         relative = os.path.relpath(path, ROOT)
-        for found in BATCH_PHRASE.finditer(flat_body):
-            at = found.start()
-            window = flat_body[max(0, at - ASKING_WINDOW) : at + ASKING_WINDOW]
-            named = sorted({m.group(0).lower() for m in ASKING.finditer(window)})
-            assert not named, (
-                f"{relative} tells an agent to collect {found.group(0)} "
-                f"something a person answers — the window names {named}. No "
-                "agent this plugin spawns has `AskUserQuestion`, so "
-                "collecting a batch of questions is an instruction nothing "
-                "can carry out; the act belongs to the session that spawns "
-                "the work. Batching READS is a different thing and is what "
-                "`agent-contract` §10 asks for — that wording is not refused "
-                f"here.\n  …{window}…"
+        for phrase, window, named in batch_instructions(body):
+            raise AssertionError(
+                f"{relative} tells an agent to collect {phrase} something a "
+                f"person answers — the window names {named}. No agent this "
+                "plugin spawns has `AskUserQuestion`, so collecting a batch "
+                "of questions is an instruction nothing can carry out; the "
+                "act belongs to the session that spawns the work. Batching "
+                "READS is a different thing and is what `agent-contract` §10 "
+                f"asks for — that wording is not refused here.\n  …{window}…"
             )
 
 
