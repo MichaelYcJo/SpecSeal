@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 421 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | yes — 🟡 1, three shipped lines that still name the framer as the party that asks the routing batch. |
