@@ -28,16 +28,14 @@
   running. Different wrong answers, the same half of the criterion broken.
   (#402)
 - **A pipe in that row silently loses every row written below it.** This is
-  not new and it is now written down. A cell of the config table ends at the
-  first `|`, escaped or not, so a `Broad gate` row containing a pipe stops
-  being a row — and the reader stops there, so a `Record language` or
-  `Commit and pull request language` line underneath it is invisible and
-  falls back to its default with nothing reported anywhere. The gate reports
-  the row as *absent*, which is true and is not the cause. The template says
-  so beside the promise that a pipe is legal, and first setup now refuses to
-  propose a candidate carrying one — which matters because the first place it
-  looks for candidates is the CI workflow, where a pipe into `tee` is
-  ordinary. (#402)
+  not new and it is now written down. A cell of the config table ended at the
+  first `|`, escaped or not, so a `Broad gate` row containing a pipe stopped
+  being a row — and the reader stops at a line that is not a row, so anything
+  written underneath it was invisible and fell back to its default with
+  nothing reported anywhere. The gate reported the row as *absent*, which is
+  true and is not the cause. Measuring it is what this work item shipped; the
+  repair is #415, in this same release, and the two entries are one story read
+  in order. (#402)
 - **The one value only a person can write was the one thing nothing ever asked
   for.** There is no default for the `Broad gate` row, on purpose: what the
   seal covers is exactly the command a person chose. But no question ever
