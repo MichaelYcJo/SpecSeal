@@ -1,0 +1,9 @@
+## Fixes
+
+| # | Verdict | Commit or grounds |
+|---|---|---|
+| 1 | fixed | `d18fb0d8` — `seal_home` reads the `Review` row and picks the home from the declaration, never from the disk. Both directions, not only the reproduced one: a `straight to the PR` work item that has round records now goes to `broad-gate.md` too. The refusal `last_record` used to raise comes back for the one state it was always right about, and the docstring's two false statements are gone. Two cases, both seen red against the disk-based version |
+| 2 | fixed | `f1e5fc24` — `wait for an explicit go` added to `MOVED_OUT_OF_SMITH`'s design-gate entry. Round 1's mutation reproduced: with the sentence pasted back, the case now names it and goes red |
+| 3 | fixed | `f1e5fc24` — `test_the_preset_block_carries_it_too` asserts at both ends, the template and the generated copy: the four answers, the declaration path, the question's new shape, and the absence of all three stale counts |
+| 4 | fixed | `f1e5fc24` — the batch and the `routing.md` write go back to the session that spawns the work, which is the owner's answer to a measured fact: a subagent in this harness has no `AskUserQuestion` and no equivalent. `agents/framer.md` gains §*You have no interactive phase, and you ask nobody anything*; `orchestration.md`, the block and its generated copy, `skills/implement/SKILL.md` and `agents/smith.md` follow. Gather, judge, plan and `questions.md`-as-residue are untouched — none of that needed the tool. One new case holds the class by the one name measured, and it went red immediately on a second phrasing in `agents/smith.md` |
+| 5 | fixed | `d18fb0d8` — `Checked` set to 2026-09-16 on all 18 rows carrying the nine re-stamped anchors, after re-reading each. The count matches the round's own 18-rows-over-9-anchors measurement |

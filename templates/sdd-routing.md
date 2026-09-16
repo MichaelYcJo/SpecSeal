@@ -18,6 +18,8 @@ this file is for people. -->
 | Destination | open the pull request |
 | Planning | <framer, or: the session> |
 | Implementation | <smith, or: the session> |
+| Automation | <yes, or: no> |
+| Answer pressed | <automation, or: per axis> |
 | Branch | <the branch this work item is being built on> |
 
 <!-- Review — `through the review chain` or `straight to the PR`.
@@ -67,6 +69,34 @@ this file is for people. -->
      revisit the row — must land on "not answered" rather than on a
      confident `smith` that nobody performed. Write the answer WITHOUT backticks; a backticked
      value reads as unanswered here and would have been rejected above.
+     Automation — `yes` or `no`. Does this run go from here to its
+     destination without stopping to ask. OPTIONAL, on the two rows above's
+     terms.
+     HOW TO ANSWER IT — it is the one box in the routing question that names
+     no party. The other three each switch somebody on or off; this one says
+     whether the run may come back with a question at minute thirty. `no` is
+     NOT "a person did it by hand" — it is "this run may stop to ask", and
+     reading it the first way is how a supervised run gets recorded as a
+     manual one.
+     UNCHECKED IS A VALUE HERE, not an absence: a question that is asked
+     always writes one of the two, so an absent row means nobody was ever
+     asked. Writing `no` where the question was never put is the one mistake
+     this row cannot survive, because it is then byte-identical to a file
+     nobody read (#151).
+     WHAT IT DOES NOT BUY — nothing at the pull request can hold a run to it.
+     A session that promised not to stop and then stopped leaves no artifact
+     to find. What it buys is that the promise is now written down, so a run
+     that broke it broke something a reader can point at.
+     Answer pressed — `automation` or `per axis`. WHICH answer the person
+     pressed, not what it derived to. OPTIONAL, on the same terms.
+     HOW TO ANSWER IT — `automation` where they pressed the preset, `per axis`
+     where they ticked the boxes themselves. Question 1's third option,
+     `no work item`, never reaches this row: it opens no work item, so there
+     is no file for it to be written in.
+     WHY THE ROW EXISTS — without it a pressed preset and four boxes somebody
+     ticked by hand produce the same bytes, so a later reader cannot tell a
+     decision from a default. That is #151's shape, and it is why `seal mode`
+     writes a row saying a person was asked.
      Branch — one declaration per branch. Two is not an answer, and the gate
      reads it as none. -->
 

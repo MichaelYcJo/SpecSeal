@@ -114,13 +114,20 @@ def test_implement_and_the_preset_block_do_not_drift():
         "straight to the PR",
         "open the pull request",
         "stop before the pull request",
-        # The SHAPE of the asking, not just its vocabulary. Three independent
-        # yes/no answers written as single-select options is eight
-        # combinations and three interruptions; the rule against asking them
-        # separately is worth nothing if only one document carries it, and
-        # the preset block is the one a session that never loads the skill
-        # reads.
-        "one `multiSelect` question with three checkboxes",
+        # The SHAPE of the asking, not just its vocabulary. The rule against
+        # asking the axes separately is worth nothing if only one document
+        # carries it, and the preset block is the one a session that never
+        # loads the skill reads.
+        #
+        # The shape moved (#88): three checkboxes in one question became two
+        # questions in one call, because two presets beside the axes is five
+        # options and the harness allows four. **This phrase was
+        # `one \`multiSelect\` question with three checkboxes` and went stale at
+        # the build's phase 2 — red here from that commit on, and neither the
+        # build nor round 1 ran this module.** Both chose their narrow set by
+        # which files they had edited; this one reads two of those files and
+        # was in neither set.
+        "two questions in ONE `AskUserQuestion` call",
         "What is checked is the answer",
         "each box is a row of",
         # The third axis. A document still saying two would send a session to

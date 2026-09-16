@@ -27,6 +27,7 @@ mark landed and false for every commit before it.
 """
 
 import os
+import re
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -65,14 +66,61 @@ def flat(text):
     return " ".join(text.split())
 
 
-def test_the_skill_asks_every_axis_in_the_first_batch():
+def checkbox_tables(text):
+    """Every table of boxes in `text`, as a list of its body rows.
+
+    Found by the header naming a box rather than by position, because the
+    question's shape is what changes and a reader looking for `| Checkbox |`
+    exactly once is a reader that finds nothing the day it becomes two
+    questions. What stays true across every shape is that a table of boxes
+    has a column named for one.
+    """
+    lines = text.splitlines()
+    tables = []
+    for i, line in enumerate(lines):
+        if not line.startswith("|"):
+            continue
+        header = [c.strip() for c in line.strip("|").split("|")]
+        if not any(c in ("Checkbox", "Box") for c in header):
+            continue
+        rows = []
+        for body in lines[i + 2 :]:
+            if not body.startswith("|"):
+                break
+            rows.append(body)
+        tables.append(rows)
+    return tables
+
+
+def test_the_skill_asks_the_whole_question_in_the_first_batch():
+    """The count moved twice and each time a stale copy survived the edit.
+
+    It was `two axes`, then `three axes`, and now it is neither: the question
+    is two questions in one call, and the boxes number four. What this case
+    pins is the SHAPE — the one call, the four answers a box can write, and
+    the moment — plus the absence of every count the shape has outgrown.
+
+    The absence half is the half that would have caught this edit. The three
+    stale `three axes` copies were green under the old presence-only
+    assertion, because the string it required was the stale copy itself: the
+    orchestrator's own summary line, `skills/implement/SKILL.md`'s pointer
+    sentence and `agents/smith.md`'s phase 2. A count asserted by presence
+    passes on the copy that should have moved.
+    """
     skill = flat(read(*ORCH))
-    assert "three axes" in skill, (
-        "the skill still names two, so a session asks two and the template offers three"
+    assert "two questions" in skill, (
+        "the section stopped naming its own shape, so a session reads a "
+        "question whose number of questions is nowhere stated"
     )
-    assert "two axes" not in skill + flat(read(*SKILL)), (
-        "the old count survived beside the new one"
+    assert "ONE `AskUserQuestion` call" in skill, (
+        "the one-call sentence went, and two questions in two calls is two "
+        "waits — which is the whole thing the batch rule forbids"
     )
+    for stale in ("two axes", "three axes", "three checkboxes"):
+        assert stale not in skill + flat(read(*SKILL)), (
+            f"`{stale}` survived the rewrite; a count the shape outgrew reads "
+            "as the shape"
+        )
     for answer in AXES:
         assert answer in skill, f"the skill lost the answer `{answer}`"
     assert "before the first edit" in skill
@@ -96,11 +144,17 @@ def test_every_document_shows_the_third_axis_ROW_not_only_the_count():
     assert "smith · the session" in rows[0], (
         "the row lost the vocabulary, so a session reads a third axis with no answers"
     )
-    # The agent file states the same axis in prose rather than a table, so it
-    # is pinned on its own terms.
+    # `agents/smith.md` used to state the same axis in prose, because it used
+    # to ask the question. It does not any more — the act is the SESSION's
+    # that spawns the work, because no agent this plugin spawns has
+    # `AskUserQuestion` (#419, round 1) — and the vocabulary travels with the
+    # act. Asserting the answers here again would put the moved rule back in
+    # the definition it left, which is what
+    # `tests/test_a_moved_rule_leaves_its_definition.py` exists to refuse.
     smith = flat(read("agents", "smith.md"))
-    assert "implementation (smith · the session" in smith, (
-        "the agent stopped naming the third axis's answers"
+    assert "implementation (smith · the session" not in smith, (
+        "the routing vocabulary is back in `agents/smith.md`, whose phase 2 "
+        "no longer asks the question it belongs to"
     )
 
 
@@ -282,16 +336,424 @@ def test_the_template_PARSES_into_the_FOURTH_axis_it_ships():
     )
 
 
-def test_the_fourth_axis_is_a_record_and_not_a_fourth_checkbox():
+def test_the_template_PARSES_into_the_TWO_NEWEST_rows_it_ships():
+    """The fifth and sixth rows, on the terms the third and fourth have.
+
+    `Automation` is a property of the run and `Answer pressed` is which of
+    question 1's options was pressed. Both are read out of the template and
+    parsed back, so a row labelled `Automated` or a vocabulary that moved in
+    one file only is red here rather than silent in every work item that
+    copies the file.
+
+    Shipped as placeholders, and for this pair the reason is sharper than for
+    the two above. An absent `Automation` row means nobody was ever asked; a
+    pre-answered one means a question nobody put reads as a promise somebody
+    made. That is #151's shape, which is the thing the row exists to end.
+    """
+    import sys
+
+    sys.path.insert(0, os.path.join(ROOT, "hooks"))
+    import routing
+
+    template = read("templates", "sdd-routing.md")
+    parsed = routing.parse(template)
+    assert parsed is not None, "the template no longer parses as a declaration"
+    for key in ("automation", "pressed"):
+        assert parsed[key] is None, (
+            f"the template pre-answers `{key}`, which makes the commonest "
+            "mistake produce a WRONG record instead of no record"
+        )
+    for label, answers in (
+        (routing.AUTOMATION, routing.AUTOMATION_ANSWERS),
+        (routing.ANSWER_PRESSED, routing.ANSWER_PRESSED_ANSWERS),
+    ):
+        rows = [ln for ln in template.splitlines() if ln.startswith(f"| {label} |")]
+        assert len(rows) == 1, f"the template has no single `{label}` row"
+        assert rows[0].split("|")[2].strip().startswith("<"), (
+            f"the `{label}` row stopped shipping a placeholder a person reads"
+        )
+        key = "automation" if label == routing.AUTOMATION else "pressed"
+        for answer in answers:
+            filled = template.replace(rows[0], f"| {label} | {answer} |")
+            assert routing.parse(filled)[key] == answer, (
+                f"the template's `{label}` row does not accept `{answer}`, so "
+                "a session filling it in as instructed still records nothing"
+            )
+        # The vocabulary READ OUT of the comment, the direction that can see
+        # the two files drift. Substituting the constants is self-consistent
+        # by construction; what the person reads has to BE what the parser
+        # takes.
+        stated = re.search(rf"{label} — `([^`]+)` or `([^`]+)`\.", template)
+        assert stated, f"the comment no longer states `{label}`'s two answers"
+        assert tuple(stated.groups()) == answers, (
+            f"the template offers {stated.groups()} for `{label}` and the "
+            f"parser accepts {answers}"
+        )
+
+
+def cells(row):
+    return [c.strip() for c in row.strip().strip("|").split("|")]
+
+
+def labelled_table(text, first_column, second_column):
+    """The body rows of the table whose header is exactly those two columns.
+
+    Question 1 is `| Order | Label | Description |` and question 2 is
+    `| Order | Box | Checked | Not checked |`, so the pair names one of them
+    without either being found by position in the file.
+    """
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if not line.startswith("|"):
+            continue
+        header = cells(line)
+        if header[:2] != [first_column, second_column]:
+            continue
+        rows = []
+        for body in lines[i + 2 :]:
+            if not body.startswith("|"):
+                break
+            rows.append(cells(body))
+        return rows
+    raise AssertionError(f"no table headed `| {first_column} | {second_column} |`")
+
+
+def test_the_question_is_two_questions_in_one_call():
+    """S1. One batch before the first edit is one WAIT, not one question.
+
+    Two `AskUserQuestion` calls is two waits and the batch rule is broken by
+    the second one, whatever either call contains. So the two tables have to
+    be there AND the sentence that they go in one call.
+    """
+    skill = read(*ORCH)
+    assert len(labelled_table(skill, "Order", "Label")) == 3, (
+        "question 1 does not offer exactly three options"
+    )
+    assert len(labelled_table(skill, "Order", "Box")) == 4, (
+        "question 2 does not offer exactly four boxes"
+    )
+    # ONE spelling, shared with `templates/claude-md-block.md` and its
+    # generated copy, because `tests/test_review_axes.py` pairs the two
+    # documents on this exact phrase — two spellings of one decision is
+    # the drift that pair exists to catch.
+    assert "two questions in ONE `AskUserQuestion` call" in flat(skill)
+
+
+def test_the_boxes_are_in_the_stated_order():
+    """S5. The first box is a property of the run; the three below name
+    parties, in the order they run.
+
+    Asserted as an ORDER rather than as a membership, because the defect it
+    guards against is positional: a reader meeting four boxes of apparently
+    the same kind reads the first as a fourth party to switch on. Swap the
+    first two rows and the boxes are all still present.
+    """
+    rows = labelled_table(read(*ORCH), "Order", "Box")
+    boxes = [r[1] for r in rows]
+    assert "run end to end" in boxes[0], (
+        f"the property-of-the-run box is at position {boxes.index(next(b for b in boxes if 'run end to end' in b)) + 1}, "
+        "not first. The order is the specification: a party box read first "
+        "makes the run's own property look like a fifth party"
+    )
+    for i, party in enumerate(("smith", "warden", "pull request"), start=1):
+        assert party in boxes[i], (
+            f"box {i + 1} is `{boxes[i]}`; the three party boxes follow the "
+            "run's property in the order they run"
+        )
+    assert "the order is the specification" in flat(read(*ORCH)).lower(), (
+        "nothing says the order is load-bearing, so the next edit reorders it"
+    )
+
+
+def test_every_box_states_what_UNCHECKED_means():
+    """S6. The half a label cannot say, and the half the measured instance
+    got wrong — the owner read `straight to the PR` as *call no agents at
+    all*, where it turns off `warden` alone.
+
+    Each phrase is asserted in the box it belongs to rather than anywhere in
+    the file, because a document can carry all four words in prose two
+    sections down while the box a person reads at the moment of answering
+    carries none of them.
+    """
+    rows = labelled_table(read(*ORCH), "Order", "Box")
+    unchecked = {r[1]: r[3] for r in rows}
+    wanted = {
+        "run end to end": "may be asked",
+        "smith": "this session writes the code",
+        "warden": "nothing reviews",
+        "pull request": "stop before",
+    }
+    for box, phrase in wanted.items():
+        found = [v for k, v in unchecked.items() if box in k]
+        assert found, f"no box named for `{box}`"
+        assert phrase in found[0], (
+            f"the `{box}` box's unchecked half does not say `{phrase}`; a "
+            "person answering reads the label and this cell and nothing else"
+        )
+
+
+def test_the_exit_names_what_does_not_run_rather_than_where_it_ends():
+    """S4. The rule the measured instance produced: a label must name what it
+    turns off, not where it ends.
+
+    So the exit's label carries no destination, and its description names the
+    five things that do not happen. `straight to the PR` is the counter-example
+    and it stays in the tree — as the `Review` row's value, which is machine
+    vocabulary 16 committed declarations carry. What moved is the LABEL.
+    """
+    rows = labelled_table(read(*ORCH), "Order", "Label")
+    exits = [r for r in rows if "no work item" in r[1]]
+    assert exits, "question 1 has no exit option labelled `no work item`"
+    label, description = exits[0][1], exits[0][2]
+    for destination in ("the PR", "pull request"):
+        assert destination not in label, (
+            f"the exit's label names a destination (`{label}`), which is the "
+            "defect the measured instance is an instance of"
+        )
+    for noun in ("no frame", "no review", "no seal", "no `routing.md`", "[no-review]"):
+        assert noun in description, (
+            f"the exit's description does not name `{noun}`, so a person "
+            "pressing it cannot see what they are turning off"
+        )
+    assert rows[-1][1] == label, (
+        "the exit is not last. It is one click and the least-verified path, "
+        "so it sits where a reader's eye lands last"
+    )
+
+
+def test_the_ceiling_is_stated_beside_the_shape():
+    """S7. The next person meets the constraint instead of discovering it.
+
+    All three halves: the cap, where the room came from, and that a fifth
+    breaks the shape. The third is the one that matters — a cap stated
+    without it reads as a limit somebody could raise.
+    """
+    skill = flat(read(*ORCH))
+    assert "at most four options per question" in skill, "the cap is unstated"
+    assert "taking the framer and the sealer out of the question" in skill, (
+        "nothing says where the room for the fourth box came from, so the "
+        "next person reads two empty slots"
+    )
+    assert "a fifth box breaks this shape" in skill, (
+        "the cap reads as a limit somebody could raise"
+    )
+
+
+def test_the_preset_and_the_boxes_are_told_apart_in_the_file():
+    """S2 and S3 at the document. Both write the same party rows; the row
+    that says which answer was pressed is the only difference.
+
+    Without that row the preset buys nothing — a chosen answer goes back to
+    being indistinguishable from a question nobody read, which is #151.
+    """
+    skill = flat(read(*ORCH))
+    for derivation in (
+        "`Answer pressed` = `automation`",
+        "`Answer pressed` =\n`per axis`",
+    ):
+        assert flat(derivation) in skill, (
+            f"the section does not say the preset writes {flat(derivation)}, "
+            "so a session has the row and no rule for filling it"
+        )
+    assert "same bytes" in skill, (
+        "the section states the row without the reason, so the next edit "
+        "reads it as bookkeeping and drops it"
+    )
+    rows = [ln for ln in read(*ORCH).splitlines() if ln.startswith("| Automation |")]
+    assert len(rows) == 1, (
+        f"the section has {len(rows)} `Automation` rows; the declaration has one"
+    )
+    assert "yes · no" in rows[0], "the row lost its vocabulary"
+    assert "OPTIONAL" in rows[0], "the row stopped saying an absent answer is fine"
+
+
+FRAMER = ("agents", "framer.md")
+
+
+def test_the_framer_asks_nobody_and_writes_no_declaration():
+    """S10, after round 1 reversed WHERE the act lands.
+
+    **A subagent in this harness has no `AskUserQuestion` and no equivalent.**
+    Measured from two agents independently — `warden` during round 1 and
+    `smith` during its fix pass — each of which, like the framer, declares no
+    `tools:` key and inherits the full set: the tool is not in the list and
+    `ToolSearch` for it returns `No matching deferred tools found`. So the
+    build's first answer told an agent to call a tool it does not have, which
+    is the class this repository keeps finding.
+
+    #419's finding survives intact: the acts are not `smith`'s. What was wrong
+    is only where they were sent. They go to the SESSION that spawns the work,
+    which has the tool and is already the party that spawns, approves and
+    reads back.
+
+    Asserted as an absence AND a presence. The absence alone would pass on a
+    definition that says nothing at all about routing, which is the state that
+    lets a framer write a declaration from a guess — a recorded answer nobody
+    gave, which is #151's shape arriving through the door this work opened.
+    """
+    framer = flat(read(*FRAMER))
+    assert "You have no interactive phase" in framer, (
+        "the framer's definition no longer says it asks nobody, so the next "
+        "reader restores an interactive phase the harness cannot give it"
+    )
+    assert "has no `AskUserQuestion`" in framer, (
+        "the reason went. Without it the instruction reads as a preference "
+        "somebody can reverse, and the measurement is what makes it not one"
+    )
+    assert "`routing.md` is not one of them" in framer, (
+        "`routing.md` is back among the framer's writes, and a framer that "
+        "cannot ask can only write it from a guess"
+    )
+    assert "a thing to report,\nnever a thing to write" in read(*FRAMER), (
+        "the framer meeting a missing declaration has no instruction, so the "
+        "obvious repair is the one that records an answer nobody gave"
+    )
+    for claimed in (
+        "The routing question is in that batch, and it is yours to ask",
+        "Yours is the one interactive phase",
+    ):
+        assert claimed not in framer, (
+            f"`{claimed}` is back in `agents/framer.md`, which hands a "
+            "subagent an act the harness gives it no tool for"
+        )
+
+
+def test_no_agent_definition_tells_an_agent_to_ask_a_person():
+    """The class behind 🟡 4, pinned by the one name that was measured.
+
+    An agent definition instructing an agent to call a tool it cannot reach is
+    exactly what went undetected here: the build moved the routing batch to
+    `agents/framer.md`, every case stayed green, and nothing in the tree could
+    see that the instruction was unperformable.
+
+    **This is one name, not a vocabulary.** A sweep over `agents/*.md` for
+    every tool an agent cannot reach needs a list of what each agent has, kept
+    in step with the harness — that is mechanism, which a fix pass may not add
+    (`skills/code-review/orchestration.md` §*A fix pass adds the unit that
+    pins it*), and it is handed over as a ticket instead. What this case holds
+    is the measured instance and the glob: a fourth agent definition added
+    tomorrow is checked on the day it lands.
+    """
+    import glob
+
+    definitions = sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
+    assert len(definitions) >= 3, f"agents/*.md matched {len(definitions)} files"
+    for path in definitions:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        name = os.path.relpath(path, ROOT)
+        for line in text.splitlines():
+            if "AskUserQuestion" not in line:
+                continue
+            # Naming the tool to say it is ABSENT is the whole repair, so the
+            # sentence that does it has to be allowed. What is refused is an
+            # instruction to use it.
+            # ONE spelling across every definition, deliberately. A marker
+            # list that grows a phrase per file is a list that stops being a
+            # check, so a definition saying the tool is absent says it this
+            # way — and the case is what keeps the four sentences in step.
+            assert "no `AskUserQuestion`" in line, (
+                f"{name} names `AskUserQuestion` outside the sentence that "
+                "says an agent does not have it. No agent this plugin spawns "
+                "can reach that tool, so an instruction to use it is an "
+                "instruction nothing can carry out"
+            )
+
+
+def test_the_framers_acts_are_gather_judge_plan():
+    """S11. Judging was in none of the four acts, and both framers spawned in
+    the release that found this judged anyway, because the spawn prompt asked.
+
+    A definition that describes collecting and not deciding rewards a framer
+    for stopping people. The act is named, and the grounds requirement rides
+    with it — a judgment whose grounds nobody can open is not reviewable.
+    """
+    framer = flat(read(*FRAMER))
+    assert "Gather, judge, plan" in framer, (
+        "the three acts went. `judge` is the one that was missing, and its "
+        "absence is what made deciding well an unrewarded act"
+    )
+    assert "A reader and a writer" not in framer, (
+        "the old persona survived beside the new one, so a framer reads "
+        "whichever it reaches first"
+    )
+    assert "grounds written where a reviewer can open them" in framer, (
+        "judging arrived without the requirement that makes it checkable"
+    )
+
+
+def test_questions_md_is_the_residue_and_every_row_says_why():
+    """S11's second half. What changes is not that `questions.md` goes, but
+    what belongs in it: the residue after judging, never a collection.
+
+    The reason cell is what makes the difference visible. Without it a row a
+    framer never tried to answer and a row the tree genuinely cannot answer
+    are the same row, and both cost a person the same interruption.
+    """
+    framer = flat(read(*FRAMER))
+    assert "is the residue, not a collection" in framer
+    assert "owes a reason the tree could not answer it" in framer, (
+        "a row may again arrive with no account of why judging did not settle "
+        "it, which is the collection this act replaced"
+    )
+
+
+def test_the_framer_leaves_a_mark_in_the_tree():
+    """S12. Measured at the frame: 0 of 84 work items carry any mark in
+    `spec.md`, and the definition asked for none.
+
+    `smith` leaves a mark and `warden` writes round records, so the framer was
+    the only party in the chain whose work left no evidence that it happened —
+    only a claim in a row somebody typed. The existing framer mark is in the
+    repository's git dir, and a git dir does not travel, so the check at the
+    pull request cannot read it.
+
+    Both ends are asserted: the definition that tells a framer to write it and
+    the template a session copies. Either alone ships a mark nobody writes or
+    a line nobody was told to fill in.
+    """
+    line = "Framed <date> by <who>, before the build."
+    template = read("templates", "sdd-spec.md")
+    assert line in template, (
+        "`templates/sdd-spec.md` ships no mark, so every spec copied from it "
+        "is a frame with no evidence it was framed"
+    )
+    assert template.rstrip().endswith(line), (
+        "the mark is not at the foot of the file; the check reads the same "
+        "shape `routing.md` and `plan.md` already end with"
+    )
+    framer = flat(read(*FRAMER))
+    assert line in framer, (
+        "the framer is not told to write the mark, so the template's line "
+        "survives into the committed spec as a placeholder"
+    )
+    assert "a git dir does not travel" in framer, (
+        "the mark arrives with no account of why the existing one does not do, "
+        "which is the first thing an editor will ask"
+    )
+
+
+def test_the_planning_row_is_a_record_and_not_a_checkbox():
     """#88, cited rather than re-argued: the question grows only where a
     decision is genuinely a person's, and `agents/framer.md`'s `## When you
     run` says the SDD ladder decides this one.
 
     Both halves are asserted, because either alone passes over the state that
-    matters. The row has to be IN the orchestrator's routing section — a fourth
-    axis nobody documents is a template row a session meets with no account of
-    it — and the checkbox table has to stay at three, which is the half a
-    session reading "one question" would break first.
+    matters. The row has to be IN the orchestrator's routing section — an axis
+    nobody documents is a template row a session meets with no account of it —
+    and it must not appear among the boxes.
+
+    **Renamed and rewritten from
+    `test_the_fourth_axis_is_a_record_and_not_a_fourth_checkbox`, which named
+    `Planning` by POSITION and counted the boxes.** Both spellings stopped
+    being about `Planning` the moment a row was added: the declaration's
+    fourth row is not `Planning` any more, and the question's box count is
+    four because one of the new rows genuinely IS a person's decision — which
+    is what #88's rule permits rather than what it forbids. The rule was
+    always about this row and never about a number, so the assertions are
+    over the row's NAME. A count here would have gone red at the next phase
+    for a change the rule allows, and a reader would have read that red as
+    the rule being broken.
     """
     skill = read(*ORCH)
     rows = [ln for ln in skill.splitlines() if ln.startswith("| Planning |")]
@@ -300,37 +762,18 @@ def test_the_fourth_axis_is_a_record_and_not_a_fourth_checkbox():
         "has exactly one"
     )
     assert "framer · the session" in rows[0], (
-        "the row lost the vocabulary, so a session reads a fourth axis with no answers"
+        "the row lost the vocabulary, so a session reads an axis with no answers"
     )
     assert "OPTIONAL" in rows[0], "the row stopped saying an absent answer is fine"
 
-    lines = skill.splitlines()
-    start = next(i for i, ln in enumerate(lines) if ln.startswith("| Checkbox |"))
-    boxes = []
-    for line in lines[start + 2 :]:
-        if not line.startswith("|"):
-            break
-        boxes.append(line)
-    assert len(boxes) == 3, (
-        f"the routing question has {len(boxes)} checkboxes. It grows only where "
-        "a decision is genuinely a person's (#88), and the ladder decides this "
-        "one — a fourth box doubles eight combinations to sixteen to ask "
-        "something nobody answers"
-    )
-    assert not any("framer" in b for b in boxes), (
-        "the fourth axis reached the checkbox table, which is the one place "
-        "#88 says it must not be"
-    )
+    for boxes in checkbox_tables(skill):
+        assert not any("framer" in b or "Planning" in b for b in boxes), (
+            "the `Planning` axis reached a checkbox table, which is the one "
+            "place #88 says it must not be"
+        )
     assert "#88" in skill, (
         "the section asserts the rule without citing where it is stated, so a "
         "reader who disagrees has nothing to open"
-    )
-    # The count in the heading measures the QUESTION, so it stays at three
-    # while the declaration carries four rows. A section that starts saying
-    # `four axes` has moved the fourth into the question.
-    assert "four axes" not in flat(skill), (
-        "the heading counts the axes a person is asked about; four means the "
-        "record became a question"
     )
 
 
@@ -435,25 +878,63 @@ def test_the_session_runs_to_the_pull_request():
     )
 
 
-def test_the_smith_carries_both_halves_rather_than_only_citing_them():
-    """The agent file is always in front of the smith; the skill may not be."""
+def test_the_smith_carries_its_own_half_and_not_the_questions():
+    """The agent file is always in front of the smith; the skill may not be.
+
+    **What its own half IS moved, which is why this case is rewritten rather
+    than deleted.** It used to carry the routing question's whole vocabulary,
+    because it used to ask it — three axes, the four answers, the path it
+    wrote them to. That act is the SESSION's now, not any agent's: round 1
+    measured that no agent this plugin spawns has `AskUserQuestion`, so the
+    batch went to the party that spawns the work rather than to the framer.
+    A definition that keeps the words of an act it no longer performs is a
+    session's instruction to perform it.
+
+    What stays is what a smith still does with the answer somebody else
+    wrote: run to the pull request without coming back, and name an answerer
+    for anything it could not close.
+    """
     smith = flat(read("agents", "smith.md"))
-    assert "three axes" in smith and "two axes" not in smith
-    for answer in AXES:
-        assert answer in smith, f"the smith lost the answer `{answer}`"
-    assert "seal/specs/<work-item-id>/routing.md" in smith
     assert "run to the pull request" in smith
     assert "answerer" in smith, (
         "a deferral with nobody named is how a follow-up becomes nobody's"
     )
+    for count in ("three axes", "two axes", "three checkboxes"):
+        assert count not in smith, (
+            f"`{count}` is back in `agents/smith.md`, which is the routing "
+            "question in the definition of the party that does not ask it"
+        )
 
 
 def test_the_preset_block_carries_it_too():
-    """`CLAUDE.md` is the one file a session in this repository always has."""
-    preset = flat(read("CLAUDE.md"))
-    assert "seal/specs/<work-item-id>/routing.md" in preset
-    for answer in AXES:
-        assert answer in preset, f"the preset block lost `{answer}`"
+    """`CLAUDE.md` is the one file a session in this repository always has.
+
+    So it is the copy that matters most, and round 1 measured it as the copy
+    nothing held: the block kept its old three-checkbox paragraph and 176
+    cases stayed green, `claude_block.py --check` included — that command
+    compares the template with its generated copy and neither with the
+    question. Most of what this work item distributes IS this paragraph.
+
+    Asserted at BOTH ends, template and generated copy, and the absence half
+    is the half that would have caught it. This is the same defect the build
+    repaired one file over — a presence assertion on a count passing on the
+    copy that should have moved — landing on the copy a session always has.
+    """
+    for parts in (("templates", "claude-md-block.md"), ("CLAUDE.md",)):
+        text = flat(read(*parts))
+        where = "/".join(parts)
+        assert "seal/specs/<work-item-id>/routing.md" in text, where
+        for answer in AXES:
+            assert answer in text, f"{where} lost the answer `{answer}`"
+        assert "two questions in ONE `AskUserQuestion` call" in text, (
+            f"{where} still asks the old question, and the block is what a "
+            "session in an opted-in repository always has in front of it"
+        )
+        for stale in ("two axes", "three axes", "three checkboxes"):
+            assert stale not in text, (
+                f"`{stale}` survived in {where}, so every session reads the "
+                "shape the rest of the repository stopped describing"
+            )
 
 
 def test_the_template_ships_the_vocabulary_the_parser_accepts():
