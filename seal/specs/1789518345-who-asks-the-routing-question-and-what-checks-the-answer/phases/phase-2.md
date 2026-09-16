@@ -39,7 +39,7 @@ paragraph to every installer.
 
 **Three stale copies of `three axes` survived a green suite, and the case that
 was supposed to catch them is what let them through.**
-`test_the_skill_asks_every_axis_in_the_first_batch` asserted
+`test_the_skill_asks_every_axis_in_the_first_batch` (NAME NOT IN TREE — renamed by this work item) asserted
 `"three axes" in skill` — a presence assertion on a count. After the section
 was rewritten to two questions, the string was still in the file, in the
 orchestrator's own summary line at the top. The suite stayed green while the
@@ -72,5 +72,5 @@ scenario verbatim-true and states the misreading the short value invites.
 |---|---|
 | The three-checkbox table and the `three axes` count in `skills/implement/orchestration.md` | the same section, as two questions and four boxes. `spec.md` §*The ceiling* holds why four is the number |
 | `three axes` in `skills/implement/SKILL.md`'s pointer sentence and in the orchestrator's own summary line | the same sentences, reading *two questions, one call, one file*. The third copy, `agents/smith.md` phase 2, is phase 4's removal and is still standing |
-| `test_the_skill_asks_every_axis_in_the_first_batch`'s presence assertion on a count | `test_the_skill_asks_the_whole_question_in_the_first_batch`, which pins the shape by name and the three outgrown counts by absence |
+| `test_the_skill_asks_every_axis_in_the_first_batch` (NAME NOT IN TREE — renamed by this work item)'s presence assertion on a count | `test_the_skill_asks_the_whole_question_in_the_first_batch`, which pins the shape by name and the three outgrown counts by absence |
 | The old three-checkbox sentence in `templates/claude-md-block.md` | the same bullet, rewritten; `CLAUDE.md`'s generated copy follows by `claude_block.py --write`, and an installed personal copy follows when the owner re-runs `install.sh` |

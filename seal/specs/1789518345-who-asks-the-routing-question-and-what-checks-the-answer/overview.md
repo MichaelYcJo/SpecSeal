@@ -26,6 +26,11 @@ request.
 | The fifth row's name and values | `spec.md` §*The fourth row* shipped `Attendance`, values `nobody at the keyboard` · `somebody may be asked`; `plan.md`'s Alternatives table had rejected `Automation` | **`Automation`, values `yes` · `no`** | The owner's answer to `questions.md` Q1, given at the approval — which is the party and the moment that row named. Three grounds: it is the owner's own word, it is already question 1's first option label so the button pressed and the row recorded are one word (#88's request one level down), and `Attendance` reads as a school register first. The collision sweep was run before it landed: all 40 occurrences of the word in this tree are the ordinary English noun. `spec.md` and `plan.md` were brought to the answer rather than left disagreeing with the code |
 | What the shorter values give up | `nobody at the keyboard` carried its own meaning; `no` does not | **the shorter values, with the meaning moved one line up** | `no` reads first as *a person did this by hand*, which is wrong — it means *this run may stop to ask*. That half now lives in `templates/sdd-routing.md`'s comment, in the constant's comment in `hooks/routing.py`, and in the box's unchecked cell. The trade is a value a person types correctly against a meaning they read one line up for |
 | Where the owner's personal routing paragraph is edited | The spawn said `~/.claude/CLAUDE.md` is out of scope and owed only a changelog line; a mid-run correction said the block's one source is the repository's own `CLAUDE.md` | **`templates/claude-md-block.md`, with `CLAUDE.md` regenerated** | Neither was right. `install.sh` lines 43–47: the block used to be read out of the repository's `CLAUDE.md`, #292 measured the two copies and found `## Git` 95 % identical with one sentence moved in one and not the other, and the source is now `templates/claude-md-block.md`. The repository's `CLAUDE.md` carries a generated copy that `.github/scripts/claude_block.py --write` regenerates and CI checks. Editing `CLAUDE.md` directly would have been overwritten by the next regeneration and would have shipped the old paragraph to every installer. Nothing under `$HOME` was touched |
+| This work item's own `Framed` line | `plan.md` rule 2: the framer's definition is read at spawn time, so phase 3's edit cannot reach the session that wrote these documents | **written by `smith`, naming `framer`** | The line records a true fact — a framer did frame this work item — and it is the one instance where the party that writes the mark is not the party it names. Every work item after this one has the framer write it. Recorded here rather than left for a reviewer to notice that the mark predates the instruction to write it |
+| Where the cutoff lives for the seal arm | `plan.md` gives a cutoff to phase 6's arm and none to phase 5's | **phase 5's arm got one too**, `DIRECT_GATE_FROM`, at this work item's id | The identical retroactive-red hazard: 16 declarations answer `straight to the PR` and not one carries a `broad-gate.md`, because the file did not exist. A release pull request carries every work item the release adds. Shipping one arm with the mechanism and its twin without it is the near-identical-copy-missing-one-half failure this repository keeps recording |
+| How much of `agents/smith.md`'s phase 2 the design gate is | `plan.md`'s Technical context locates it at lines 53–72 | **the span by content, PLUS the asking clause sixty lines below it** | *Present 2–3 approaches with failure scenarios and wait for an explicit go* is the design gate by content and sat outside the named range, so a removal keyed on the span left the file saying *phase 2 is your caller's spawn* in one paragraph and *wait for an explicit go* in another. The rung CONDITION stays — `test_the_top_rung_names_behaviour_rather_than_a_count` requires `observable behaviour` in that file, and a smith below the top rung still needs to know what the work owed |
+| How many things the frame arm cannot see | `plan.md` and `spec.md` §S20 say **six**; `spec.md`'s own list has **seven** bullets | **seven, in the module** | All seven are real. The case asserts the phrases rather than the number, so it pins the disclosure instead of the arithmetic |
+| Whose the `--reverify` sweep is | The plan's phase 7 says to run `bin/evidence-check --strict .` | **the drifted rows were re-READ first, one at a time, and two were corrected rather than re-stamped** | A whole-tree `--reverify` rewrote 27 hashes on its first run, 21 of them in the shared `seal/ledger.md` and belonging to earlier work items — which records that somebody re-read claims nobody had opened. Those were reverted and each drifted row was read. Two had been narrowed by this branch and were corrected in place: `round_record.py#seal`'s row said the cell goes on the LAST record and touches nothing else, and `chain_check.py#broad_gate`'s row counted three fatal refusals as the module's where they are that function's |
 | `test_the_fourth_axis_is_a_record_and_not_a_fourth_checkbox` | `plan.md` phase 1 said to reword it where it names `Planning` by position | **renamed and both count assertions removed** | Both of its assertions were counts — `len(boxes) == 3` and `"four axes" not in skill` — and neither is what #88's rule is about. Both would have gone red at phase 2 for a change the rule PERMITS, and a reader meeting that red would have read it as the rule being broken. It is now `test_the_planning_row_is_a_record_and_not_a_checkbox` and asserts by name |
 
 ## Not verified
@@ -37,7 +42,33 @@ request.
 
 ## Not done
 
-Nothing yet.
+**Two tickets this work opens rather than closes**, both named here because a
+leftover nobody can find was not handed over. Neither is a phase: the first is
+defined by there being no work-item directory, and the second waits on a
+measurement that does not exist yet.
+
+- **A durable record that a person chose `no work item`.** Taking the exit
+  writes no file, so a change that took it is indistinguishable from one the
+  session never asked about — #151's shape exactly. It needs a home for a
+  record belonging to no work item, which this repository does not have: the
+  two candidates today are a shared file every branch appends to, which
+  `CLAUDE.md`'s fragment rule forbids, and a commit-message convention nothing
+  reads. **Who must answer it:** the repository owner, at the ticket.
+- **Promoting the approval-line notice to a refusal.** #399's `Done when` asks
+  for a refusal; this ships a notice, on a measurement the ticket did not
+  have — 61 of 71 `plan.md` files carry the unfilled placeholder, and 3 of the
+  11 work items declaring a framer are among them. The promotion is worth
+  taking once the notice has been seen on a few releases and the figure has
+  moved. **Who must answer it:** the repository owner, after two or three
+  releases carry the notice.
+
+**A third thing was found and left**, and it is not a ticket because it is one
+line of prose: `plan.md` and `spec.md` §S20 say the frame arm discloses **six**
+things it cannot see, and `spec.md`'s own list has seven. The module carries
+seven. Corrected in this work item's own records rather than chased.
+
+**The two work items above are for the ORCHESTRATOR to open**, not for this
+agent: §6 withholds posting from every agent this plugin spawns.
 
 ## Fed back into the spec
 
