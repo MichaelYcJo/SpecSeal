@@ -110,10 +110,12 @@ incorporation. This file only adds what the skill does not carry.
    For work that **alters observable behaviour** — a gate's verdict, a hook's
    output, a skill's or agent's instructions, a public API, text a person
    reads and acts on, or a value someone waits on or is limited by (a
-   timeout, a retry count, a rate, a size cap): present 2–3 approaches with
-   failure scenarios and wait for an explicit go — the plan you are asking
-   approval for is `plan.md`, written before you implement, with `spec.md`
-   beside it. Work that alters none of that and is more than one line — a
+   timeout, a retry count, a rate, a size cap): a `plan.md` presenting 2–3
+   approaches with their failure scenarios was drawn before you, and somebody
+   read it — that reading is the gate, and its record is the approval line at
+   the head of the file. You do not present approaches and do not wait for a
+   go; you build to the one that was chosen and say where it does not hold
+   (phase 1). Work that alters none of that and is more than one line — a
    refactor, a performance pass, a formatting sweep, a test that pins what
    already holds: a one-line scope confirmation, and only the closing memo,
    kept as you go. Those four are defaults, not a closed
