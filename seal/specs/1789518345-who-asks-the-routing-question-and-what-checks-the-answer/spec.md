@@ -167,7 +167,7 @@ it. If these are ever generated from a list, the list is what carries the order.
 
 | Order | Box | Checked | Not checked |
 |---|---|---|---|
-| 1 | **run end to end without stopping to ask** | the run goes from here to its destination with nobody at the keyboard · `Attendance` = `nobody at the keyboard` | the session may come back with a question · `Attendance` = `somebody may be asked` |
+| 1 | **run end to end without stopping to ask** | the run goes from here to its destination with nobody at the keyboard · `Automation` = `yes` | the session may come back with a question · `Automation` = `no` |
 | 2 | **implement with `smith`** | spawn the subagent · `Implementation` = `smith` | **this session writes the code** · `Implementation` = `the session` |
 | 3 | **review with `warden`** | the review rounds run · `Review` = `through the review chain` | **nothing reviews this code before the pull request** · `Review` = `straight to the PR` |
 | 4 | **open the pull request** | push it and open one · `Destination` = `open the pull request` | **the branch is handed back, committed and unpushed** · `Destination` = `stop before the pull request` |
@@ -190,12 +190,23 @@ person meets the constraint instead of discovering it.
 
 | | Value |
 |---|---|
-| Row name | `Attendance` |
-| Answers | `nobody at the keyboard` · `somebody may be asked` |
+| Row name | `Automation` |
+| Answers | `yes` · `no` |
+
+**The name and its values are the owner's, given at the approval**, and they
+overturn what this section first carried — `Attendance`, with `nobody at the
+keyboard` · `somebody may be asked`. `questions.md` Q1 is the row that asked,
+and `plan.md`'s Alternatives table carries what each was weighed against. Three
+grounds: the word is the owner's own, it is already question 1's first option
+label so the button and the row read as one word, and `Attendance` reads as a
+school register before it reads as *was anybody at the keyboard*. What the
+shorter values cost is that `no` no longer carries its own meaning — it is
+*this run may stop to ask*, never *a person did it by hand* — and that half now
+lives in the template comment rather than in the value.
 | Optional | yes, on the terms `Planning` and `Implementation` already have — 84 declarations in the tree carry no such row, and a required one turns each into "not a declaration" |
 
 **It is a property of the run, not a fourth party.** The other three rows each
-name somebody who does or does not run. `Attendance` names neither a party nor
+name somebody who does or does not run. `Automation` names neither a party nor
 an agent, and its value answers the question a reader six months later actually
 has: *was anybody at the keyboard.*
 
@@ -349,8 +360,8 @@ declaration.
 - **The ladder's rung.** Whether a work item *should* have declared a framer is
   the judgment §3 makes a person's, and #88 settled that it is recorded rather
   than asked.
-- **Whether the run kept its `Attendance` promise.** A session that declared
-  `nobody at the keyboard` and then asked at minute thirty leaves nothing in the
+- **Whether the run kept its `Automation` promise.** A session that declared
+  `yes` and then asked at minute thirty leaves nothing in the
   tree. The row is an audit trail, not a gate.
 - **A change that took the `no work item` exit.** It writes no file, which is
   the out-of-scope row above and the ticket named below.
@@ -360,14 +371,14 @@ declaration.
 | Scenario | Given / When / Then | Verifiable how |
 |---|---|---|
 | S1 the batch is one wait | Given a work item is being opened · When the routing batch is asked · Then question 1 and question 2 go in one `AskUserQuestion` call, and no later question is put to a person by the framer | a case reading `skills/implement/orchestration.md` for the one-call sentence and both question tables |
-| S2 `automation` is one click | Given the person presses `automation` · Then `routing.md` carries `Attendance` = `nobody at the keyboard`, `Implementation` = `smith`, `Review` = `through the review chain`, `Destination` = `open the pull request`, and a row recording that this preset was pressed | a case parsing the documented rows out of the orchestration table |
+| S2 `automation` is one click | Given the person presses `automation` · Then `routing.md` carries `Automation` = `yes`, `Implementation` = `smith`, `Review` = `through the review chain`, `Destination` = `open the pull request`, and a row recording that this preset was pressed | a case parsing the documented rows out of the orchestration table |
 | S3 which answer was pressed is recorded | Given two work items, one pressing `automation` and one ticking all four boxes · Then their `routing.md` files differ, in the row that says which answer was pressed | a case asserting the two derivations are not byte-identical |
 | S4 `no work item` names what does not run | Given the option list · Then the exit's label names no destination, and its description names the frame, the review, the seal and the `routing.md` that do not happen, and the `[no-review]` each commit needs | a case asserting those five nouns in the exit's description |
 | S5 the boxes are in the stated order | Given question 2's table · Then the property-of-the-run box is first and the three party boxes follow in the order they run, and the document says the order is the specification | a case reading the row order out of the table |
 | S6 every unchecked meaning is written | Given question 2's four boxes · Then each names what its unchecked state does, in words a person reads before answering | a case asserting `this session writes the code`, `nothing reviews`, `stop before` and `may be asked` are each present |
 | S7 the ceiling is stated where the shape is | Given question 2 · Then the document says it holds at most four options, that the room came from removing the framer and the sealer, and that a fifth breaks the shape | a case asserting the sentence |
-| S8 the fourth row parses | Given a `routing.md` carrying `Attendance` with either value · Then the declaration parses and the row is returned · Given a value outside the two · Then the row reads as unanswered and the declaration still parses | cases against `hooks/routing.py`, on the terms the `Planning` row's cases already use |
-| S9 an old declaration still parses | Given any of the 84 declarations in this tree, none of which carries an `Attendance` row · Then each still parses and the commit gate stays silent | a case over the committed corpus |
+| S8 the fifth row parses | Given a `routing.md` carrying `Automation` with either value · Then the declaration parses and the row is returned · Given a value outside the two · Then the row reads as unanswered and the declaration still parses | cases against `hooks/routing.py`, on the terms the `Planning` row's cases already use |
+| S9 an old declaration still parses | Given any of the 84 declarations in this tree, none of which carries an `Automation` row · Then each still parses and the commit gate stays silent | a case over the committed corpus |
 | S10 the framer asks and writes | Given the framer runs · Then it asks the batch, writes `routing.md` from the template, and commits it — in a command of its own — before writing its own three files | a case reading `agents/framer.md` for the ordering sentence and the separate-command clause |
 | S11 the framer's persona names judging | Given `agents/framer.md` · Then its acts are gather, judge, plan, and `questions.md` is described as the residue whose every row owes a reason the tree could not answer it | a case asserting the three acts and the residue sentence |
 | S12 the framer leaves a mark | Given the framer writes `spec.md` · Then the file ends with `Framed <date> by <who>, before the build.` | a case against `templates/sdd-spec.md` and `agents/framer.md` |
@@ -388,7 +399,7 @@ read by a machine:
 
 | Vocabulary | Where it is read | Change |
 |---|---|---|
-| `Attendance` and its two answers | `hooks/routing.py` | added, optional, on the `Planning` row's terms |
+| `Automation` and its two answers | `hooks/routing.py` | added, optional, on the `Planning` row's terms |
 | the row recording which answer was pressed | `hooks/routing.py` | added, optional |
 | `Framed <date> by <who>, before the build.` | the new arm in `chain_check.py` | added, at the foot of `spec.md` |
 | `Broad gate` in a file of its own | `round_record.py` writes it, `chain_check.py` reads it | a second home for an existing cell |
