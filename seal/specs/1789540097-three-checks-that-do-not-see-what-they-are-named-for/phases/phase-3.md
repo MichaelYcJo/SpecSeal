@@ -45,6 +45,16 @@ than a copy. **This is a unit `plan.md` does not name**, added because the
 phase's own subject is a pattern and a pattern nobody opens is what the three
 tickets are all about.
 
+**And it was still held by nothing — corrected after round 1's 🔴 1, at the
+fix pass.** Hoisting the patterns let a case open them, and a case that opens
+a pattern is not the guard. No agent definition contains a batch phrase at
+all, so the sweep's loop body never executed: the composition around those
+patterns could be changed five ways with the module at exit 0, 50 passed,
+while the case above went on pinning the constants. This phase applied the
+rule it names to the pieces and not to the function the production path calls,
+which is the rule's own subject. The repair is `batch_instructions`, in the
+fix pass — the sweep calls it and a case calls the same one.
+
 **The plants, and what they proved, in order.** Both were throwaway edits to
 `agents/smith.md` beside the `persona` clause, restored from kept bytes:
 
