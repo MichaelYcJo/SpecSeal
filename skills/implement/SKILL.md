@@ -118,7 +118,8 @@ seal/
 ├── parity.md         migration config, only when declared
 ├── follow-up.md      schedulable items in a repository with no tracker
 └── specs/<work-item-id>/
-    ├── routing.md    the routing answer, written before the first edit
+    ├── routing.md    the routing answer, written before the first edit —
+    │                 the framer's where one runs, the session's where none does
     ├── spec.md · plan.md · questions.md · overview.md
     ├── rounds/
     │   └── round-N.md    one review round — closed at merge and kept
@@ -395,7 +396,8 @@ without a registry — take it from `date +%s` when creating the directory.
 
 | File | Starts from | Written by | Holds | When |
 |---|---|---|---|---|
-| `spec.md` | `templates/sdd-spec.md` | the framer | WHAT — scope, mandatory user scenarios & acceptance, grounding clauses | before implementing |
+| `routing.md` | `templates/sdd-routing.md` | the framer, from the batch it asked; the session where no framer runs | the routing answer | before the framer's other writes, and before the first edit |
+| `spec.md` | `templates/sdd-spec.md` | the framer | WHAT — scope, mandatory user scenarios & acceptance, grounding clauses, and the framer's mark at its foot | before implementing |
 | `plan.md` | `templates/sdd-plan.md` | the framer | HOW — phases as vertical slices, alternatives with failure scenarios; this is the Design Gate's artifact, and its `Approved <date> by <who>` line is the record that the gate happened | before implementing (gated work) |
 | `questions.md` | `templates/sdd-questions.md` | the framer opens the rows; each row's `Who can answer` cell names who closes it | decisions only a human can make — extracted so nothing ships on a silent assumption | one batch before the first edit, then as they arise |
 | `overview.md` | `templates/sdd-overview.md` | the builder | the closing memo — one line of purpose, then what the diff cannot show (below) | opened at the first divergence, unverified item, or fed-back clause; closed when implementation ends |

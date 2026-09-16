@@ -557,6 +557,112 @@ def test_the_preset_and_the_boxes_are_told_apart_in_the_file():
     assert "OPTIONAL" in rows[0], "the row stopped saying an absent answer is fine"
 
 
+FRAMER = ("agents", "framer.md")
+
+
+def test_the_framer_asks_the_batch_and_writes_the_declaration():
+    """S10. The act belonged to three parties at once and now belongs to the
+    phase that already puts a person in front of something.
+
+    Three things, and the third is the one whose absence costs a FILE rather
+    than a sentence: the batch is the framer's, `routing.md` is the framer's
+    to write, and it is written in a command of its own. The commit gate is a
+    `PreToolUse` hook and denies the WHOLE call, so
+    `write && git add && git commit` batched together writes nothing — and
+    the declaration the gate then reports missing is the file that was lost.
+    """
+    framer = flat(read(*FRAMER))
+    assert "The routing question is in that batch, and it is yours to ask" in framer, (
+        "the framer's definition does not claim the act, so the batch is back "
+        "to being asked by whoever read a document last"
+    )
+    assert "in a command of its own, never batched with the commit" in framer, (
+        "the separate-command clause went. This is the one whose absence "
+        "loses the file itself: the gate denies the whole tool call"
+    )
+    assert "before you write anything else" in framer, (
+        "nothing orders `routing.md` before the framer's other three files, "
+        "so the answer stops preceding the first edit"
+    )
+    assert "templates/sdd-routing.md" in framer, (
+        "the framer is told to write a declaration and not which template "
+        "spelling the parser accepts"
+    )
+
+
+def test_the_framers_acts_are_gather_judge_plan():
+    """S11. Judging was in none of the four acts, and both framers spawned in
+    the release that found this judged anyway, because the spawn prompt asked.
+
+    A definition that describes collecting and not deciding rewards a framer
+    for stopping people. The act is named, and the grounds requirement rides
+    with it — a judgment whose grounds nobody can open is not reviewable.
+    """
+    framer = flat(read(*FRAMER))
+    assert "Gather, judge, plan" in framer, (
+        "the three acts went. `judge` is the one that was missing, and its "
+        "absence is what made deciding well an unrewarded act"
+    )
+    assert "A reader and a writer" not in framer, (
+        "the old persona survived beside the new one, so a framer reads "
+        "whichever it reaches first"
+    )
+    assert "grounds written where a reviewer can open them" in framer, (
+        "judging arrived without the requirement that makes it checkable"
+    )
+
+
+def test_questions_md_is_the_residue_and_every_row_says_why():
+    """S11's second half. What changes is not that `questions.md` goes, but
+    what belongs in it: the residue after judging, never a collection.
+
+    The reason cell is what makes the difference visible. Without it a row a
+    framer never tried to answer and a row the tree genuinely cannot answer
+    are the same row, and both cost a person the same interruption.
+    """
+    framer = flat(read(*FRAMER))
+    assert "is the residue, not a collection" in framer
+    assert "owes a reason the tree could not answer it" in framer, (
+        "a row may again arrive with no account of why judging did not settle "
+        "it, which is the collection this act replaced"
+    )
+
+
+def test_the_framer_leaves_a_mark_in_the_tree():
+    """S12. Measured at the frame: 0 of 84 work items carry any mark in
+    `spec.md`, and the definition asked for none.
+
+    `smith` leaves a mark and `warden` writes round records, so the framer was
+    the only party in the chain whose work left no evidence that it happened —
+    only a claim in a row somebody typed. The existing framer mark is in the
+    repository's git dir, and a git dir does not travel, so the check at the
+    pull request cannot read it.
+
+    Both ends are asserted: the definition that tells a framer to write it and
+    the template a session copies. Either alone ships a mark nobody writes or
+    a line nobody was told to fill in.
+    """
+    line = "Framed <date> by <who>, before the build."
+    template = read("templates", "sdd-spec.md")
+    assert line in template, (
+        "`templates/sdd-spec.md` ships no mark, so every spec copied from it "
+        "is a frame with no evidence it was framed"
+    )
+    assert template.rstrip().endswith(line), (
+        "the mark is not at the foot of the file; the check reads the same "
+        "shape `routing.md` and `plan.md` already end with"
+    )
+    framer = flat(read(*FRAMER))
+    assert line in framer, (
+        "the framer is not told to write the mark, so the template's line "
+        "survives into the committed spec as a placeholder"
+    )
+    assert "a git dir does not travel" in framer, (
+        "the mark arrives with no account of why the existing one does not do, "
+        "which is the first thing an editor will ask"
+    )
+
+
 def test_the_planning_row_is_a_record_and_not_a_checkbox():
     """#88, cited rather than re-argued: the question grows only where a
     decision is genuinely a person's, and `agents/framer.md`'s `## When you
