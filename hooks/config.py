@@ -47,8 +47,45 @@ MODES = (LOCAL, SHARED)
 # The `| Item | Value |` table, read exactly as `templates/parity.md` and the
 # pull-request-language row are read.
 CONFIG_HEADER = re.compile(r"^\|\s*Item\s*\|\s*Value\s*\|\s*$")
-CONFIG_ROW = re.compile(r"^\|\s*(?P<item>[^|]+?)\s*\|\s*(?P<value>[^|]*?)\s*\|\s*$")
+
+# A CELL is any run of characters that are neither a pipe nor a backslash, or
+# a backslash followed by anything. The second half is markdown's own escape,
+# and this file is markdown: `\|` is how a cell of a markdown table carries a
+# literal pipe, and `templates/config.md` already writes its own cells that
+# way. Without it a cell ended at the first `|`, so a `Broad gate` row holding
+# a pipe stopped being a row -- and `config_rows`'s stop rule then took every
+# row written below it, silently (#415).
+#
+# A bare pipe is still a cell boundary, deliberately. Making it part of the
+# value needs a greedy last cell, and a greedy last cell reads the rows of a
+# THREE-column table written under this one as rows of this one --
+# `templates/config.md` ships three-column tables.
+CELL = r"(?:[^|\\]|\\.)"
+CONFIG_ROW = re.compile(
+    rf"^\|\s*(?P<item>{CELL}+?)\s*\|\s*(?P<value>{CELL}*?)\s*\|\s*$"
+)
 CONFIG_SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
+
+# The one escape this reader undoes, spelled as the two characters it is.
+ESCAPED_PIPE = "\\|"
+
+
+def unescaped(cell):
+    """CELL with markdown's escaped pipe reduced to one literal pipe.
+
+    **Exactly those two characters, and no other backslash is touched.** A
+    general unescape -- `re.sub(r"\\\\(.)", r"\\1", cell)` -- turns
+    `C:\\Python\\python.exe -m pytest` into `C:Pythonpython.exe -m pytest`,
+    and that row reads back with its path intact today, on a repository
+    already synced across operating systems. Widening this would break a
+    value nobody was asking us to change, to serve an escape markdown only
+    needs for the pipe.
+
+    The reduction happens HERE, before any caller sees the value, so a shell
+    -- `/bin/sh` or `cmd.exe` -- is handed a plain `|` and never meets the
+    backslash at all.
+    """
+    return cell.replace(ESCAPED_PIPE, "|")
 
 
 def config_path(home):
@@ -64,6 +101,11 @@ def config_rows(text):
     `tests/test_the_pull_request_language_is_the_repositorys.py#items`
     arrived at over two review rounds, and a second reader that read the
     table differently would answer a different question about the same file.
+
+    Each cell comes back with `\\|` reduced to one literal pipe and nothing
+    else changed; `unescaped` above says why it is those two characters
+    alone. The stop rule is unchanged, so a line a person wrote as a row
+    still ends the table when it will not parse.
     """
     found, seen_header = [], False
     for line in text.splitlines():
@@ -80,7 +122,12 @@ def config_rows(text):
             if found:
                 break
             continue
-        found.append((match.group("item").strip(), match.group("value").strip()))
+        found.append(
+            (
+                unescaped(match.group("item").strip()),
+                unescaped(match.group("value").strip()),
+            )
+        )
     return found
 
 

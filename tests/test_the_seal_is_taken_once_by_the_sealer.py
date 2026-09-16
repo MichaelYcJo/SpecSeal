@@ -933,6 +933,36 @@ def test_a_piped_row_is_refused_by_the_table_and_not_by_this_refusal(repo, tmp_p
     )
 
 
+def test_an_escaped_pipe_reaches_the_gate_as_the_command_it_reads_as(tmp_path):
+    """A2 of #415. The whole path a value takes before a shell sees it:
+    `broad_command` reads the row through `hooks/config.py#config_rows`, and
+    `not_as_written` then judges what came back.
+
+    Both units are the ones `gate()` itself calls. The escape is undone in
+    the READER, so what arrives here — and what a shell is handed — is a
+    plain `|`, on `/bin/sh` and on `cmd.exe` alike; neither meets the
+    backslash at all.
+    """
+    home = tmp_path / "seal"
+    home.mkdir()
+    (home / "config.md").write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n"
+        "| Mode | shared |\n"
+        f"| {ROW} | {SUITE_ROW} \\| tee out.txt |\n"
+        "| Record language | English |\n",
+        encoding="utf-8",
+    )
+    module = gate_module()
+    command = module.broad_command(str(home))
+    assert command == f"{SUITE_ROW} | tee out.txt", (
+        f"the gate read {command!r} from a row written with `\\|`"
+    )
+    assert module.not_as_written(str(home), command) is None, (
+        "a pipe satisfies the criterion (`templates/config.md` §*What is "
+        "refused, and what stays allowed*) and nothing here restricts it"
+    )
+
+
 @pytest.mark.parametrize(
     "value",
     [
