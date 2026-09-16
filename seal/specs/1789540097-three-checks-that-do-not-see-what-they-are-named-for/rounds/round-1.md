@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 425 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Contract changes | none |
 | New units | batch_instructions (depth 1); test_the_sweep_refuses_a_planted_instruction_in_every_spelling (depth 1) |
 | Needs a fix | yes — finding 1, the #422 sweep that matches nothing in the tree, so both halves of the repair revert green; and findings 2, 3, 4 and 5, each of which the smith may instead answer with grounds. |
