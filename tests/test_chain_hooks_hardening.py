@@ -898,6 +898,14 @@ def test_the_sweep_refuses_a_planted_instruction_in_every_spelling():
         "collect in one batch what a person answers",
         "collect into one batch what a person answers",
         "collect in `one batch` what a person answers",
+        # Hard-wrapped prose, which is the shape of every file the sweep
+        # reads: the phrase itself straddles a line break, and the whitespace
+        # flattening inside `batch_instructions` is the only thing that finds
+        # it. Round 2's 🟡 6 — no case wrote a newline at all, so dropping the
+        # flattening left the module at exit 0, 51 passed while the guard went
+        # silent on the commonest spelling a real definition can carry.
+        "questions a person genuinely has to answer go in one\nbatch "
+        "before the first edit",
     ):
         assert list(batch_instructions(spelling)), (
             f"the guard does not refuse {spelling!r}, so an instruction "
@@ -1095,12 +1103,34 @@ def test_the_questions_are_collected_before_the_work_not_during_it():
     # module-level, above, so `test_the_asking_stems_are_anchored_at_both_ends`
     # and `test_the_batch_phrase_is_found_by_its_claim_not_by_one_spelling`
     # read the same objects this sweep reads rather than copies of them.
+    # ROUND 2's 🟡 7, in the part of it a fix pass may close. Extracting
+    # `batch_instructions` held the composition and left the sweep's own read
+    # and call unheld: with the function and the constants untouched, the read
+    # could be truncated to ten bytes and the loop's iterable replaced by `()`
+    # and the module stayed at exit 0, 51 passed — because `agents/*.md` holds
+    # zero batch phrases, so nothing in the corpus ever reaches this walk. The
+    # only guard over it was the glob assertion below, which pins how many
+    # files were FOUND and nothing about what was done with them.
+    #
+    # So the walk reports what it read, and the report is asserted. `>= 3`
+    # stays: it is about the glob, and these two are about the loop.
+    #
+    # WHAT THIS STILL CANNOT SEE, and it is an open item rather than residue:
+    # the third mutation, `batch_instructions("")` — the function called on
+    # something other than what was read. Catching that means observing the
+    # call, which means a walk a case can drive with a file it plants; that is
+    # mechanism a fix pass may not add on top of a unit an earlier fix pass
+    # created, and a planted corpus is a change to what the suite guards that
+    # `CONTRIBUTING.md` asks a separate argument for. It is in this work item's
+    # `overview.md` §*Not verified* with an answerer.
     definitions = sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
     assert len(definitions) >= 3, f"agents/*.md matched {len(definitions)} files"
+    read = []
     for path in definitions:
         with open(path, encoding="utf-8") as f:
             body = f.read()
         relative = os.path.relpath(path, ROOT)
+        read.append((relative, len(body)))
         for phrase, window, named in batch_instructions(body):
             raise AssertionError(
                 f"{relative} tells an agent to collect {phrase} something a "
@@ -1111,6 +1141,15 @@ def test_the_questions_are_collected_before_the_work_not_during_it():
                 "READS is a different thing and is what `agent-contract` §10 "
                 f"asks for — that wording is not refused here.\n  …{window}…"
             )
+    assert [name for name, _ in read] == [
+        os.path.relpath(p, ROOT) for p in definitions
+    ], f"the sweep did not walk every definition the glob found: {read}"
+    # 1000 bytes is far under the smallest definition and far over a
+    # truncation. What it pins is that each file arrived WHOLE, which is the
+    # half `>= 3` says nothing about.
+    assert all(size > 1000 for _, size in read), (
+        f"the sweep read a definition it did not read in full: {read}"
+    )
 
 
 def test_the_cycle_is_bounded_and_ends_at_a_pull_request():
