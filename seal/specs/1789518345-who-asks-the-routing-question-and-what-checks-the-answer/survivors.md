@@ -51,3 +51,11 @@ therefore about the durable copies, which is what it was checked against. -->
 |---|---|
 | `6edfb71f..HEAD` | 22 survivors at HEAD, and the number moves with every commit of the range — 29 at round 2's target, 24 one commit later, 22 from `0b292ad0` on. **A count taken before the range's last commit is stale by construction**, which is how this row read 28 and then 29; the row is anchored on the range and the work item rather than on the number, so nothing turns on it. Measured at HEAD by re-running the check. The fix pass deleted `agents/framer.md`'s interactive phase and its separate-command paragraph, because a subagent cannot ask. Every sentence of both stands in the durable copies that are supposed to outlive the deletion — the orchestrator's routing section, the `CLAUDE.md` block and its template, and the commit gate's own prompts — because the SESSION still performs the act they describe. Opened directly rather than assumed: no hook and no shipped document still says the batch is the framer's |
 
+
+## The merge with `release/v0.12.0` — a range row, and the "removal" is a resolution
+
+`bin/survivor-check --range origin/release/v0.12.0...HEAD --exempt <this file>`
+
+| Range | Grounds |
+|---|---|
+| `origin/release/v0.12.0...HEAD` | **Nothing was removed. Two ledger rows conflicted at the merge and each side was a different narrowing of the same claim, so choosing one makes the other read as deleted wording.** `seal/ledger.md`'s S6 and S9 were narrowed by this branch and by work item `1789455558` independently; this branch's text is a superset of both — S6 keeps *the count is six* and adds where a work item with no round record puts the cell, and S9 keeps the three refusals and says the count is that FUNCTION's rather than the module's. The claims survive; only the sibling's spelling of them does not. All seven places the check reports are records of other work items, or `tests/test_one_word_one_meaning.py:463`, discussing the same subject in their own words — none is a leftover of a sentence this branch deleted. Verified by reading each of the seven against the surviving row |
