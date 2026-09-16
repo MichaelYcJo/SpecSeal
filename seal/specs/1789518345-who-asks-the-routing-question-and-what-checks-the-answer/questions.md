@@ -1,0 +1,33 @@
+# who asks the routing question, and what checks the answer — questions for the planner
+
+<!-- seal/specs/1789518345-who-asks-the-routing-question-and-what-checks-the-answer/questions.md — decisions only a human can make,
+extracted so nothing ships on a silent assumption. Before adding a row,
+check the inheritance rule: if policy is silent but existing behavior
+answers it, inherit and record — only genuinely NEW rules belong here. -->
+
+**This file is the residue, not a collection.** Every judgment the three
+tickets left open that the tree could answer was answered, in `spec.md` and in
+`plan.md`'s Alternatives table. What is below is what the tree could not
+answer, and each row says why.
+
+Four questions the tree answered and therefore are not rows here, listed so
+nobody reopens them: where the check lives, whether `straight to the PR` is
+renamed, whether the approval line refuses or reports, and whether the waiver
+example survives `agents/smith.md`'s removal. Each is decided in `plan.md` with
+its grounds.
+
+| # | Question | Who can answer | Options & what each implies | Default until answered | Status |
+|---|---|---|---|---|---|
+| Q1 | **The two naming calls.** The fourth row is `Attendance`, with `nobody at the keyboard` · `somebody may be asked`. Question 1's third option is labelled `no work item`, where the owner's own word was *no skill*. **Why the tree could not answer it:** both are new words entering a vocabulary a machine reads, and no existing document or code names either — the repository's rules narrow the field without picking a winner | **a person** — the repository owner, at this approval | Keep both · change either · change both. Changing `Attendance` costs one constant in `hooks/routing.py`, one row in `templates/sdd-routing.md`, and the cases that read them. Changing the option label costs one line of `skills/implement/orchestration.md` and its case. `plan.md`'s Alternatives table carries what each was chosen over: `Automation` and `Unattended` for the row, *no skill* and *some of it* for the labels | The names above. `no work item` was chosen over the owner's *no skill* because `skills/` is a live concept here and `tests/test_one_word_one_meaning.py` exists for exactly that collision — which is a rule pointing at an answer, not an answer | ⬜ |
+| Q2 | **The owner's personal instructions carry the old three-box paragraph.** `~/.claude/CLAUDE.md` says to ask all three axes as one `multiSelect` with three checkboxes. This work replaces that with two questions in one call. **Why the tree could not answer it:** the file is outside the repository, and nothing in this work item can reach it — #88's *Where it lands* names it as a landing site and this branch cannot be one | **a person** — the repository owner | Update it to match, or leave it. Left as it is, the owner's own sessions keep asking the old question while every document in the repository describes the new one, and the two disagree silently — a session follows whichever it read last | Leave it; this work item changes nothing outside the repository. The pull request body names the paragraph so the divergence is visible at the moment of merging rather than found later | ⬜ |
+| Q3 | **Does the cutoff constant belong at this work item's id, or at the release that ships it?** The frame arm grandfathers work items begun before a constant. This work item's id is the moment the mark was asked for; the release tag is the moment it shipped. **Why the tree could not answer it:** the broad-gate arm's own constant is a work item id, which is a precedent and not a rule, and no document says which of the two moments the constant means | **a measurement** — settled at phase 6, before the arm is written | Compare the two candidates against every `Planning \| framer` declaration between them. If no work item falls in the gap, the two constants are the same answer and the cheaper spelling wins. If one does, that work item decides it | This work item's id, `1789518345`, matching the broad-gate arm's spelling. Do not queue this behind a person: the answer is one script over eleven directories, and the owner's opinion is the wrong instrument for it | ⬜ |
+| Q4 | **Can the `broad-gate.md` cell reuse the existing cell reader, or does it need its own?** `chain_check.py` reads the `Broad gate` cell out of a round record's field table. Whether the same reader resolves a file holding that row alone depends on what else the reader assumes about the record around it. **Why the tree could not answer it:** the file does not exist yet, so the question is about code phase 5 writes | **the work** — phase 5 decides it there and records the divergence | One reader for both homes, or two. One reader is preferred because two spellings of one cell is the near-identical copy `agent-contract` §11 and §16 each record having already been paid for. If the existing reader turns out to need the surrounding record, phase 5 says which field forced the split | One reader, with the home chosen by the caller. Not a blocking row: either answer produces the same cell in the same place | ⬜ |
+
+**`Who can answer` takes one of three values and nothing else.** Two of these
+four are a person's, one is a measurement, and one belongs to the work. Only
+the person's rows were ever candidates for the batch, and neither of them stops
+the build: both carry a default, and the approval that reads `plan.md` is where
+they close.
+
+Answered rows feed back into `docs/` (policy clause or open-questions section)
+before this directory's work merges.
