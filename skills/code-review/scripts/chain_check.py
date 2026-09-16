@@ -3029,8 +3029,9 @@ DIRECT_GATE_EXCUSED = (
 )
 
 
-def broad_gate(reader, root, rel, strict, began=False, floor=GATE_FROM,
-               excused=GATE_EXCUSED):
+def broad_gate(
+    reader, root, rel, strict, began=False, floor=GATE_FROM, excused=GATE_EXCUSED
+):
     """(errors, notices) for the one full-suite run this record claims.
 
     `began`, `floor` and `excused` are the cutoff, and they are parameters
@@ -3217,6 +3218,203 @@ def broad_gate(reader, root, rel, strict, began=False, floor=GATE_FROM,
     if began is None or began < floor:
         return [], [(rel, 0, message + ". " + excused)]
     return [(rel, 0, message)], []
+
+
+# The framer's mark, at the FOOT of `spec.md`. Verb, date, who, the moment —
+# the shape `routing.md` and `plan.md` already end with, which is what keeps
+# three feet-lines from becoming three conventions.
+MARK_RE = re.compile(r"^Framed\s+(.+?)\s+by\s+(.+?),\s+before the build\.$")
+# `plan.md`'s approval line, whose unfilled form is a NOTICE. 61 of 71
+# `plan.md` files in this repository carry the placeholder, so a refusal here
+# is red for nearly every honest branch — which is the reasoning this module's
+# own docstring gives for `unverified_check.py` refusing to fail on an honest
+# open item.
+APPROVED_RE = re.compile(r"^Approved\s+(.+?)\s+by\s+(.+?), when .smith. was spawned\.$")
+# Where the frame becomes readable, as the unix second in a work item's
+# directory name. **Measured before it was set** (`questions.md` Q3): 11
+# declarations answer `Planning | framer`, 10 of them carry no mark because
+# the mark did not exist, and the eleventh is the work item that added it. The
+# candidate the row weighed this against is the release that ships the work —
+# and nothing falls in the gap between the two, so they are the same answer
+# and the cheaper spelling wins. Cheaper AND stricter, which is the right
+# direction for a tie: every work item begun after the mark was asked for is
+# judged.
+FRAME_FROM = 1789518345
+
+
+def frame_mark(text):
+    """(when, who) from the mark at the foot of `spec.md`, or None.
+
+    **The FOOT, not anywhere in the file**, and that is the whole of what
+    makes this readable rather than a check that cannot fail. Measured on this
+    repository: the one `spec.md` a mark-shaped search matches today is the
+    spec that DOCUMENTS the mark — it quotes the template line in a fenced
+    block, names it in a table of who writes what, and states it again as an
+    acceptance row. A search anywhere in the file reads all three as a framer
+    having signed, so a spec about the mark passes for carrying one. #399's
+    own measurement hit the same class one file over.
+
+    The last non-empty line is the whole rule, and it is what the template
+    ships: `templates/sdd-spec.md` ends with this line, and a case pins that
+    it ends with it rather than merely holding it.
+    """
+    for line in reversed((text or "").splitlines()):
+        line = line.strip()
+        if not line:
+            continue
+        m = MARK_RE.match(line)
+        return (m.group(1).strip(), m.group(2).strip()) if m else None
+    return None
+
+
+def frame(reader, routing, root, item, rel, declared):
+    """(errors, notices) for a declaration that says a framer drew the frame.
+
+    THE KEY IS A COMPARISON, NOT A DERIVATION. Nothing is re-judged and
+    nothing is counted. `routing.md` carries the answer, written before the
+    first edit by the party the routing batch asked:
+
+      A work item whose `routing.md` declares `Planning | framer` owes a
+      frame: `spec.md` and `plan.md` exist, and `spec.md` carries the
+      framer's mark.
+
+    Not gated on `strict`. Every other arm here excuses a draft pull request
+    because a review still running has not reached its verdict — and the frame
+    is the one thing that is not still running. It is drawn BEFORE the first
+    edit, so a draft with no `spec.md` is not early, it is a work item that
+    declared a framer and then built without one. That is the reported failure
+    this arm exists for.
+
+    ## WHAT THIS ARM CANNOT SEE — seven of them, written beside it
+
+    1. **A work item that never wrote a `routing.md`.** Outside the check
+       entirely. The same hole this module already discloses about itself:
+       declaring nothing is a way past, and a quieter one than `[no-review]`,
+       which at least stays in the command.
+    2. **Whether the frame is any good.** It sees two files and a line. It
+       cannot see whether the spec describes the work, and a frame drawn badly
+       passes.
+    3. **Whether the party named actually did it.** The row and the mark are
+       both the framer's writes, so this catches a framer that forgot one of
+       its own — and nothing else. What catches a session that declared
+       `framer` and framed the work itself is the git-dir mark and the one
+       line `hooks/implementer-notice.py` prints, locally, once per session,
+       never in CI. **The day somebody reads a green chain-check as evidence
+       that a framer ran, they will be wrong, and this list is the only thing
+       standing between that reading and them.**
+    4. **`Planning | the session`, or an absent row.** No claim is made there.
+       A session that framed the work itself owes this arm nothing.
+    5. **The ladder's rung.** Whether a work item SHOULD have declared a
+       framer is the judgment `skills/implement/SKILL.md` §3 makes a person's,
+       and #88 settled that it is recorded rather than asked.
+    6. **Whether the run kept its `Automation` promise.** A session that
+       declared `yes` and then asked at minute thirty leaves nothing in the
+       tree. That row is an audit trail, not a gate.
+    7. **A change that took the `no work item` exit.** It writes no file at
+       all, which is the ticket `spec.md` opens rather than closes.
+    """
+    if declared.get("planning") != routing.BY_FRAMER:
+        return [], []
+
+    problems = []
+    spec = read_record(root, f"{item}/spec.md")
+    if spec is None:
+        problems.append(
+            f"declares `{routing.PLANNING} | {routing.BY_FRAMER}` and git "
+            f"carries no {item}/spec.md at HEAD. A framer's first write is "
+            "the spec, so a declared framer with no spec is a work item that "
+            "said a frame was drawn and built without one"
+        )
+    if read_record(root, f"{item}/plan.md") is None:
+        problems.append(
+            f"declares `{routing.PLANNING} | {routing.BY_FRAMER}` and git "
+            f"carries no {item}/plan.md at HEAD. The plan is the design "
+            "gate's artifact — approving it IS the gate — so its absence "
+            "means the gate has no record anywhere"
+        )
+    if spec is not None:
+        mark = frame_mark(spec)
+        if mark is None:
+            problems.append(
+                f"{item}/spec.md does not END with the framer's mark. The "
+                "last non-empty line has to read `Framed <date> by <who>, "
+                "before the build.` — `templates/sdd-spec.md` ships it, and "
+                "it is the only evidence in the tree that the framing "
+                "happened, because the other framer mark lives in the git "
+                "dir and a git dir does not travel here"
+            )
+        elif mark[0].startswith("<") or mark[1].startswith("<"):
+            problems.append(
+                f"{item}/spec.md ends with the template's UNFILLED mark, "
+                f"`Framed {mark[0]} by {mark[1]}, before the build.` — a "
+                "placeholder copied through, which reads to a person as a "
+                "mark and says nothing"
+            )
+        elif mark[1] != routing.BY_FRAMER:
+            problems.append(
+                f"{item}/routing.md says `{routing.PLANNING} | "
+                f"{routing.BY_FRAMER}` and {item}/spec.md's mark says "
+                f"`{mark[1]}`. The declaration and the mark disagree about "
+                "who drew this frame, and which of the two is true is not "
+                "this check's to guess"
+            )
+
+    notices = []
+    plan = read_record(root, f"{item}/plan.md")
+    if plan is not None:
+        line = next(
+            (
+                m
+                for ln in plan.splitlines()
+                for m in [APPROVED_RE.match(ln.strip())]
+                if m
+            ),
+            None,
+        )
+        if (
+            line is None
+            or line.group(1).startswith("<")
+            or line.group(2).startswith("<")
+        ):
+            # A NOTICE, never a refusal, and the measurement is what decides
+            # it: 61 of 71 `plan.md` files in this tree carry the unfilled
+            # placeholder, and 3 of the 11 work items declaring a framer are
+            # among them. A refusal that goes red for nearly every honest
+            # branch teaches people to write none — which is the reasoning
+            # this module's docstring already gives for `unverified_check.py`.
+            # #399's `Done when` asks for a refusal; this departs from it on a
+            # measurement the ticket did not have, and the promotion is a
+            # ticket of its own once the notice has been seen on a few
+            # releases.
+            notices.append(
+                (
+                    rel,
+                    0,
+                    f"{item}/plan.md's approval line is "
+                    + ("absent" if line is None else "still the placeholder")
+                    + ". `Approved <date> by <who>, when `smith` was spawned.` "
+                    "is the only durable trace that a person read the plan — "
+                    "the routing declaration records who answered the batch "
+                    "and the round records record what was reviewed, and "
+                    "neither says a person saw the plan. Reported, not "
+                    "refused: most `plan.md` files in a tree this rule "
+                    "arrives into carry the placeholder",
+                )
+            )
+
+    began = item_began_at(item)
+    if began is None or began < FRAME_FROM:
+        return [], notices + [
+            (
+                rel,
+                0,
+                p + f". Work items begun before {FRAME_FROM} are excused this "
+                "and print instead — the mark did not exist, so failing them "
+                "would be red on history nobody can fix",
+            )
+            for p in problems
+        ]
+    return [(rel, 0, p) for p in problems], notices
 
 
 def direct_seal(reader, routing, root, item, rel, strict):
@@ -3493,6 +3691,15 @@ def main(argv=None):
                 )
             )
             continue
+
+        # BEFORE the review arms and outside both, because `Planning` is
+        # independent of `Review`: a work item can declare a framer and go
+        # straight to the pull request, and the frame is owed either way.
+        # Putting it inside either arm is how one of the two answers quietly
+        # stops being judged.
+        frame_errors, frame_notices = frame(reader, routing, root, item, rel, declared)
+        errors.extend(frame_errors)
+        notices.extend(frame_notices)
 
         if declared["review"] == routing.DIRECT:
             where_gate = f"{item}/{BROAD_GATE_FILE}"
