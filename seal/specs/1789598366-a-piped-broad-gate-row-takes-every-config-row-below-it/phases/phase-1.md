@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 1 |
-| Commit | <pending> |
+| Commit | ed090be1 |
 | Ran by | smith on claude-opus-5[1m] |
 
 ## What this phase was asked
