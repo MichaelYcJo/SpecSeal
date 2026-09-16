@@ -29,9 +29,12 @@ is a category. Neither the issue nor `plan.md` names the split; it is what
 the anchor costs, and it is written where the stems are.
 
 **Q1 is answered `keep`, by measurement.** No `in one batch` occurrence
-stands in any `agents/*.md` today — measured over the glob, four
-definitions — so no occurrence of `user` is within any window and keeping the
+stands in any `agents/*.md` today — measured over the glob, five
+definitions (`framer.md`, `scribe.md`, `sealer.md`, `smith.md`,
+`warden.md`) — so no occurrence of `user` is within any window and keeping the
 stem refuses nothing that stands. The default holds and nothing is reversed.
+*The count read four until round 2; the measurement was always over the glob,
+and round 1 corrected the copy in `questions.md` while this one stood.*
 
 **The repair was itself held by nothing, and that is the shape this work item
 exists to repair.** With the anchors in and the pattern local to the function,

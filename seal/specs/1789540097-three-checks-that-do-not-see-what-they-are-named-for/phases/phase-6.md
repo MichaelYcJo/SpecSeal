@@ -69,9 +69,10 @@ shared file and four fragments, and the records arm reads four work items
 with 0 refused — so nothing in this work item's records names a unit the tree
 lacks.
 
-**No mutation, and the reason above is not the one that holds.**
-*Corrected after round 1's 🟡 5, at the fix pass.* What this phase first
-wrote — that planting a reader is mechanism aimed at the file
+**No mutation, and the reason this phase first gave does not hold.**
+*Corrected after round 1's 🟡 5, at the fix pass; the sentence it replaces
+was rewritten rather than left above, so it is quoted here instead.* What this
+phase first wrote — that planting a reader is mechanism aimed at the file
 `seal/follow-up.md` already holds open — cites a row about a DIFFERENT act:
 whether `agents/smith.md` and `agents/scribe.md` join `COVERED`, which widens
 what the test guards. Pinning a number the module states about itself against
