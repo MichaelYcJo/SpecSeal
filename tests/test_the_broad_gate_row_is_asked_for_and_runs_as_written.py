@@ -326,20 +326,26 @@ def module_header():
     return flat(text[opening : text.index('"""', opening + 3)])
 
 
-def test_the_module_header_names_both_refusals_and_neither_names_a_command():
+def test_the_module_header_names_every_refusal_and_none_names_a_command():
     """The header's numbered list is where the command says what it does in
     order. It described the absent-row refusal as *the command names the row
     to write* — the removed behaviour — and did not mention the second
-    refusal, this branch's headline change, at all."""
+    refusal, that branch's headline change, at all.
+
+    #415 adds the third: a `Broad gate` line that is there and will not parse
+    as a row. A header that keeps saying *two ways* teaches the next reader
+    that a refusal they will actually meet does not exist.
+    """
     header = module_header()
-    assert "refused two ways" in header, (
-        "the header still describes one refusal where the gate has two"
+    assert "refused three ways" in header, (
+        "the header still describes two refusals where the gate has three"
     )
+    assert "will not parse as a row of that table" in header
     assert "wrapped in backticks or in `$(…)`, or ending in a single `&`" in header
     assert "names the row to write" not in header, (
         "the header asserts the behaviour phase 5 removed"
     )
-    assert "Neither refusal names a command to write" in header
+    assert "No refusal names a command to write" in header
 
 
 def refusal_paragraph():

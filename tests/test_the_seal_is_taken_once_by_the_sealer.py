@@ -681,6 +681,12 @@ def test_the_absent_row_refusal_sends_the_question_to_a_person(tmp_path):
     assert "not this session's to do" in said, said
     assert "a row is a thing a person wrote" in said, said
     assert "/specseal:config" in said, said
+    # A5 of #415. This config has no unparseable line at all, so the branch
+    # added for one must not have swallowed the message meant for a row that
+    # genuinely is not there. Without this the new branch could take every
+    # refusal and the case above would still pass on its four sentences.
+    assert "does not parse as a row" not in said, said
+    assert f"has no `{ROW}` row" in said, said
 
 
 def test_a_base_that_does_not_resolve_is_refused_with_nothing_run(repo, tmp_path):
@@ -907,30 +913,58 @@ def test_the_forms_that_stay_allowed_are_sealed_exactly_as_today(
     )
 
 
-def test_a_piped_row_is_refused_by_the_table_and_not_by_this_refusal(repo, tmp_path):
-    """A5, and the one entry of the allowed list that does not hold as the
-    spec wrote it — found by building it, executed 2026-09-15.
+def test_an_unescaped_pipe_is_named_as_a_line_that_will_not_parse(repo, tmp_path):
+    """A4 of #415, and both halves of `agent-contract` §14 — the new sentence
+    is present AND the old one is gone.
 
-    A pipe is allowed HERE: `not_as_written` returns None for it, and this
-    work restricts nothing about what a broad command may be. But a pipe
-    never reaches the row at all. `hooks/config.py#CONFIG_ROW` matches a
-    cell as `[^|]*?`, so the value ends at the first `|` and the line stops
-    being a row of that table — bare and backslash-escaped alike, measured.
-    The gate then reports the row as ABSENT, which is a true message about
-    the wrong cause.
+    A pipe is allowed by the criterion: `not_as_written` returns None for it
+    and nothing here restricts what a broad command may be. Written with
+    markdown's escape it now reaches the row. Written BARE it still does not,
+    because a bare pipe is where a cell of this table ends — and that is the
+    spelling somebody typing *one shell command line* reaches for first.
 
-    Pinned as what the tree does rather than as what anybody wants, so that
-    the day `config_rows` learns to carry a pipe, this case is what says so.
-    It is not repaired here: that reader serves three callers and one of them
-    is a `PreToolUse` hook (`spec.md` §*Data & interfaces*, where it is
-    listed Unchanged), and the row's own fragment carries the finding.
+    What changes for that person is the message, not the outcome. Saying the
+    row is ABSENT sent them looking for a row that is sitting in front of
+    them; the refusal now quotes the line they wrote and names the escape.
+
+    This case used to pin the opposite — the absent-row message, recorded as
+    what the tree did rather than what anybody wanted, *so that the day
+    `config_rows` learns to carry a pipe, this case is what says so*. This is
+    that day.
     """
-    said = refusal_of(repo, f"{SUITE_ROW} | cat", tmp_path / "out")
-    assert "has no `Broad gate` row" in said, said
+    bare = f"{SUITE_ROW} | cat"
+    said = refusal_of(repo, bare, tmp_path / "out")
+    assert "does not parse as a row" in said, said
+    assert bare in said, (
+        f"the refusal does not quote the line the person wrote:\n{said}"
+    )
+    assert "\\|" in said, "the refusal names no way to write the pipe"
+    assert "has no `Broad gate` row" not in said, (
+        "the absent-row sentence survived beside the new one, which is two "
+        "causes offered for one line"
+    )
     module = gate_module()
-    assert module.not_as_written("/seal", f"{SUITE_ROW} | cat") is None, (
+    assert module.not_as_written("/seal", bare) is None, (
         "the pipe was refused by this work's criterion, which allows it"
     )
+
+
+def test_a_refused_row_of_some_other_item_is_not_read_as_this_one(tmp_path):
+    """The branch is about the `Broad gate` row and reads the refused line's
+    first cell to say so. A file whose unparseable line names a different
+    item has no `Broad gate` row to quote, and the absent-row refusal is the
+    true one there."""
+    home = tmp_path / "seal"
+    home.mkdir()
+    (home / "config.md").write_text(
+        "| Item | Value |\n|---|---|\n| Mode | shared |\n| Record language | a | b |\n",
+        encoding="utf-8",
+    )
+    module = gate_module()
+    assert module.refused_broad_row(str(home)) is None, (
+        "a refused line naming another item was read as the `Broad gate` row"
+    )
+    assert f"has no `{ROW}` row" in module.missing_row(str(home))
 
 
 def test_an_escaped_pipe_reaches_the_gate_as_the_command_it_reads_as(tmp_path):

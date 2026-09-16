@@ -105,7 +105,8 @@ def config_rows(text):
     Each cell comes back with `\\|` reduced to one literal pipe and nothing
     else changed; `unescaped` above says why it is those two characters
     alone. The stop rule is unchanged, so a line a person wrote as a row
-    still ends the table when it will not parse.
+    still ends the table when it will not parse -- `refused_row` below is
+    what names such a line, for a caller that has somebody to tell.
     """
     found, seen_header = [], False
     for line in text.splitlines():
@@ -129,6 +130,41 @@ def config_rows(text):
             )
         )
     return found
+
+
+def refused_row(text):
+    """The first line a person wrote as a row of this table and this reader
+    will not take as one — as written — or None where there is no such line.
+
+    **It reports and it refuses nothing.** Nothing here raises, and no caller
+    becomes able to deny by importing it: it answers a question two callers
+    that already talk to a person want to ask, which is *why did that row not
+    arrive*. `hooks/mode-gate.py` deliberately does not ask it — a
+    `PreToolUse` hook that refuses wrongly stops a session with nobody able
+    to get past it, and everything in this module fails toward silence.
+
+    A line is one of these only when it BEGINS with a pipe, which is how a
+    person spells a row. A blank line or a paragraph of prose ends the table
+    by the rule `config_rows` has always had, so it is the table's end and
+    not a refusal — and the scan stops there rather than reaching into
+    whatever table comes next.
+
+    Before this existed the two states were indistinguishable to a caller:
+    `broad_gate` reported a piped `Broad gate` row as ABSENT, which is a true
+    sentence about a cause that is not the real one (#415).
+    """
+    seen_header = False
+    for line in text.splitlines():
+        if not seen_header:
+            if CONFIG_HEADER.match(line):
+                seen_header = True
+            continue
+        if CONFIG_HEADER.match(line) or CONFIG_SEPARATOR.match(line.strip()):
+            continue
+        if CONFIG_ROW.match(line):
+            continue
+        return line if line.lstrip().startswith("|") else None
+    return None
 
 
 def declared_mode(home):

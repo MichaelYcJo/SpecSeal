@@ -12,12 +12,15 @@ What it does, in order, from the repository root:
 
   1. the repository's own broad command — the `Broad gate` row of
      `seal/config.md`, one shell command line the repository wrote for
-     itself. **A row is refused two ways, and both are exit 2 with nothing
-     run**: no row at all, because a seal taken over a command nobody chose
-     is the counterfeit `verify` names; or a row this gate would not run as
-     the command it reads as — the whole command wrapped in backticks or in
-     `$(…)`, or ending in a single `&`. Neither refusal names a command to
-     write: the row is a person's, and the message says where they answer it
+     itself. **A row is refused three ways, and all three are exit 2 with
+     nothing run**: no row at all, because a seal taken over a command nobody
+     chose is the counterfeit `verify` names; a `Broad gate` line that is
+     there and will not parse as a row of that table, which the refusal
+     quotes back rather than reporting as absent (#415); or a row this gate
+     would not run as the command it reads as — the whole command wrapped in
+     backticks or in `$(…)`, or ending in a single `&`. No refusal names a
+     command to write: the row is a person's, and the message says where
+     they answer it
   2. `evidence-check --strict .`       the ledger's rows still anchor
   3. `unverified-check --baseline <base> seal/specs/`
   4. `chain_check.py --baseline <base>`   judged as a DRAFT pull request,
@@ -218,14 +221,21 @@ def seal_home(root):
     return None
 
 
+def config_text(home):
+    """The root's `config.md` as text, or None where it will not read."""
+    try:
+        with open(os.path.join(home, CONFIG), encoding="utf-8") as handle:
+            return handle.read()
+    except (OSError, ValueError):
+        return None
+
+
 def broad_command(home):
     """The `Broad gate` row's value, or None for every way of not having one:
     no file, no row, an empty value, a file that will not read."""
     config = load(CONFIG_READER, "specseal_config_for_broad_gate")
-    try:
-        with open(os.path.join(home, CONFIG), encoding="utf-8") as handle:
-            text = handle.read()
-    except (OSError, ValueError):
+    text = config_text(home)
+    if text is None:
         return None
     for item, value in config.config_rows(text):
         if item == ROW:
@@ -233,17 +243,71 @@ def broad_command(home):
     return None
 
 
-def missing_row(home):
-    """The absent-row refusal.
+# A refused line's first cell, read the way a cell was read before the escape
+# existed -- up to the first pipe. The line does not parse, so this is a
+# reading of what the person meant by it and not a row of the table.
+FIRST_CELL = re.compile(r"^\|([^|]*)\|")
 
-    It used to say *write the repository's own broad command into it* and
-    print the row to type. The only reader standing here is a session, so
-    what that sentence asked for is the one thing the row may not be: #401
-    is a session that met this message after its review rounds had settled,
-    ran four candidate commands, chose one, wrote the row, and told the
-    owner afterwards. The message now says whose the row is and where they
-    answer it.
+
+def refused_broad_row(home):
+    """The `Broad gate` row a person wrote that the table reader will not
+    take as a row — as written, with its own indentation — or None.
+
+    None covers every other shape: no such line, a refused line naming some
+    other item, and a file that will not read. Only the row this gate is
+    about gets the second sentence, because only this row's absence is what
+    the gate is refusing over.
     """
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    text = config_text(home)
+    if text is None:
+        return None
+    line = config.refused_row(text)
+    if line is None:
+        return None
+    first = FIRST_CELL.match(line.strip())
+    return line if first and first.group(1).strip() == ROW else None
+
+
+def missing_row(home):
+    """The refusal for a row the gate could not read — and there are two,
+    because there are two causes and a person can act on only one of them.
+
+    Where the row IS in the file and the line will not parse, saying it is
+    absent is a true sentence about a cause that is not the real one: the
+    person goes looking for a row that is sitting in front of them. So that
+    line is quoted back and the escape is named (#415). The whole line is
+    quoted rather than its first cell, because a refusal that does not show
+    the line sends the reader back to the file to guess which one it meant
+    (`questions.md` W1).
+
+    Where there is no such line, the message is the absent-row refusal
+    unchanged. It used to say *write the repository's own broad command into
+    it* and print the row to type. The only reader standing here is a
+    session, so what that sentence asked for is the one thing the row may not
+    be: #401 is a session that met this message after its review rounds had
+    settled, ran four candidate commands, chose one, wrote the row, and told
+    the owner afterwards. The message now says whose the row is and where
+    they answer it.
+    """
+    refused = refused_broad_row(home)
+    if refused is not None:
+        return (
+            f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` line "
+            "and this is it, written so that it does not parse as a row of "
+            "that table:\n"
+            f"    {refused.strip()}\n"
+            "Nothing read it, so there is no command to seal over — and "
+            "every row written BELOW that line is lost with it, each falling "
+            "back to its default with nothing said anywhere.\n"
+            "A cell of that table ends at a `|`. A value that needs one is "
+            "written with markdown's own escape, `\\|`, which the reader "
+            "reduces to a plain pipe before any shell sees it — so "
+            f"`| {ROW} | bin/test -q \\| tee out.txt |` is the row that runs "
+            "that command. `templates/config.md` §*What is refused, and what "
+            "stays allowed* is where the row says so, and `/specseal:config` "
+            "is the door to it. Nothing ran."
+        )
     return (
         f"broad-gate: {os.path.join(home, CONFIG)} has no `{ROW}` row, so "
         "there is no command to seal over — and choosing one is not this "

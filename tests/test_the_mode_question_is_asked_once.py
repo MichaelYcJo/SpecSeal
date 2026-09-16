@@ -284,6 +284,43 @@ def test_seal_mode_writes_one_row_where_the_mode_row_sits_below_a_piped_row(
     )
 
 
+def test_a_line_that_will_not_parse_is_named_and_the_hook_still_says_nothing(
+    config, repo
+):
+    """A4 and A7 of #415, which are one case because they are one decision.
+
+    `refused_row` reports; it refuses nothing and raises nothing. The caller
+    that consults it is `broad-gate`, which already talks to a person.
+    `hooks/mode-gate.py` deliberately does not: it is a `PreToolUse` hook, so
+    a wrong refusal there stops a session with nobody able to get past it.
+    A config whose `Mode` row is hidden below an unparseable line still reads
+    as undeclared and the gate still simply asks the mode question again —
+    the stated cost of keeping that hook silent (`spec.md` §*What this repair
+    cannot see*).
+    """
+    text = (
+        "| Item | Value |\n|---|---|\n"
+        "| Record language | English |\n"
+        "| Broad gate | bin/test -q | tee out.txt |\n"
+        "| Mode | shared |\n"
+    )
+    assert config.refused_row(text) == "| Broad gate | bin/test -q | tee out.txt |"
+    assert config.refused_row(TABLE.format(rows="| Mode | shared |\n")) is None
+    assert config.refused_row("# no table here\n\nprose.\n") is None
+    assert (
+        config.refused_row("| Item | Value |\n|---|---|\n| a | b |\n\nprose.\n") is None
+    ), "a blank line is the table ending, not a row somebody wrote"
+
+    gate = load_hook_module(GATE, "specseal_mode_gate_for_415")
+    home = opt_in_shared(repo)
+    write_config(home, text)
+    answer = gate.undeclared(str(repo))
+    assert answer == str(home), (
+        'the hook\'s answer is the home or `""` and never a message; the '
+        f"row below the unparseable line is invisible to it, as before: {answer!r}"
+    )
+
+
 # --- S7-S10: the gate ------------------------------------------------------
 
 
