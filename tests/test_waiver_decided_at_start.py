@@ -92,14 +92,35 @@ def checkbox_tables(text):
     return tables
 
 
-def test_the_skill_asks_every_axis_in_the_first_batch():
+def test_the_skill_asks_the_whole_question_in_the_first_batch():
+    """The count moved twice and each time a stale copy survived the edit.
+
+    It was `two axes`, then `three axes`, and now it is neither: the question
+    is two questions in one call, and the boxes number four. What this case
+    pins is the SHAPE — the one call, the four answers a box can write, and
+    the moment — plus the absence of every count the shape has outgrown.
+
+    The absence half is the half that would have caught this edit. The three
+    stale `three axes` copies were green under the old presence-only
+    assertion, because the string it required was the stale copy itself: the
+    orchestrator's own summary line, `skills/implement/SKILL.md`'s pointer
+    sentence and `agents/smith.md`'s phase 2. A count asserted by presence
+    passes on the copy that should have moved.
+    """
     skill = flat(read(*ORCH))
-    assert "three axes" in skill, (
-        "the skill still names two, so a session asks two and the template offers three"
+    assert "two questions" in skill, (
+        "the section stopped naming its own shape, so a session reads a "
+        "question whose number of questions is nowhere stated"
     )
-    assert "two axes" not in skill + flat(read(*SKILL)), (
-        "the old count survived beside the new one"
+    assert "one `AskUserQuestion` call" in skill, (
+        "the one-call sentence went, and two questions in two calls is two "
+        "waits — which is the whole thing the batch rule forbids"
     )
+    for stale in ("two axes", "three axes", "three checkboxes"):
+        assert stale not in skill + flat(read(*SKILL)), (
+            f"`{stale}` survived the rewrite; a count the shape outgrew reads "
+            "as the shape"
+        )
     for answer in AXES:
         assert answer in skill, f"the skill lost the answer `{answer}`"
     assert "before the first edit" in skill
@@ -362,6 +383,178 @@ def test_the_template_PARSES_into_the_TWO_NEWEST_rows_it_ships():
             f"the template offers {stated.groups()} for `{label}` and the "
             f"parser accepts {answers}"
         )
+
+
+def cells(row):
+    return [c.strip() for c in row.strip().strip("|").split("|")]
+
+
+def labelled_table(text, first_column, second_column):
+    """The body rows of the table whose header is exactly those two columns.
+
+    Question 1 is `| Order | Label | Description |` and question 2 is
+    `| Order | Box | Checked | Not checked |`, so the pair names one of them
+    without either being found by position in the file.
+    """
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if not line.startswith("|"):
+            continue
+        header = cells(line)
+        if header[:2] != [first_column, second_column]:
+            continue
+        rows = []
+        for body in lines[i + 2 :]:
+            if not body.startswith("|"):
+                break
+            rows.append(cells(body))
+        return rows
+    raise AssertionError(f"no table headed `| {first_column} | {second_column} |`")
+
+
+def test_the_question_is_two_questions_in_one_call():
+    """S1. One batch before the first edit is one WAIT, not one question.
+
+    Two `AskUserQuestion` calls is two waits and the batch rule is broken by
+    the second one, whatever either call contains. So the two tables have to
+    be there AND the sentence that they go in one call.
+    """
+    skill = read(*ORCH)
+    assert len(labelled_table(skill, "Order", "Label")) == 3, (
+        "question 1 does not offer exactly three options"
+    )
+    assert len(labelled_table(skill, "Order", "Box")) == 4, (
+        "question 2 does not offer exactly four boxes"
+    )
+    assert "Both questions go in one `AskUserQuestion` call" in flat(skill)
+
+
+def test_the_boxes_are_in_the_stated_order():
+    """S5. The first box is a property of the run; the three below name
+    parties, in the order they run.
+
+    Asserted as an ORDER rather than as a membership, because the defect it
+    guards against is positional: a reader meeting four boxes of apparently
+    the same kind reads the first as a fourth party to switch on. Swap the
+    first two rows and the boxes are all still present.
+    """
+    rows = labelled_table(read(*ORCH), "Order", "Box")
+    boxes = [r[1] for r in rows]
+    assert "run end to end" in boxes[0], (
+        f"the property-of-the-run box is at position {boxes.index(next(b for b in boxes if 'run end to end' in b)) + 1}, "
+        "not first. The order is the specification: a party box read first "
+        "makes the run's own property look like a fifth party"
+    )
+    for i, party in enumerate(("smith", "warden", "pull request"), start=1):
+        assert party in boxes[i], (
+            f"box {i + 1} is `{boxes[i]}`; the three party boxes follow the "
+            "run's property in the order they run"
+        )
+    assert "the order is the specification" in flat(read(*ORCH)).lower(), (
+        "nothing says the order is load-bearing, so the next edit reorders it"
+    )
+
+
+def test_every_box_states_what_UNCHECKED_means():
+    """S6. The half a label cannot say, and the half the measured instance
+    got wrong — the owner read `straight to the PR` as *call no agents at
+    all*, where it turns off `warden` alone.
+
+    Each phrase is asserted in the box it belongs to rather than anywhere in
+    the file, because a document can carry all four words in prose two
+    sections down while the box a person reads at the moment of answering
+    carries none of them.
+    """
+    rows = labelled_table(read(*ORCH), "Order", "Box")
+    unchecked = {r[1]: r[3] for r in rows}
+    wanted = {
+        "run end to end": "may be asked",
+        "smith": "this session writes the code",
+        "warden": "nothing reviews",
+        "pull request": "stop before",
+    }
+    for box, phrase in wanted.items():
+        found = [v for k, v in unchecked.items() if box in k]
+        assert found, f"no box named for `{box}`"
+        assert phrase in found[0], (
+            f"the `{box}` box's unchecked half does not say `{phrase}`; a "
+            "person answering reads the label and this cell and nothing else"
+        )
+
+
+def test_the_exit_names_what_does_not_run_rather_than_where_it_ends():
+    """S4. The rule the measured instance produced: a label must name what it
+    turns off, not where it ends.
+
+    So the exit's label carries no destination, and its description names the
+    five things that do not happen. `straight to the PR` is the counter-example
+    and it stays in the tree — as the `Review` row's value, which is machine
+    vocabulary 16 committed declarations carry. What moved is the LABEL.
+    """
+    rows = labelled_table(read(*ORCH), "Order", "Label")
+    exits = [r for r in rows if "no work item" in r[1]]
+    assert exits, "question 1 has no exit option labelled `no work item`"
+    label, description = exits[0][1], exits[0][2]
+    for destination in ("the PR", "pull request"):
+        assert destination not in label, (
+            f"the exit's label names a destination (`{label}`), which is the "
+            "defect the measured instance is an instance of"
+        )
+    for noun in ("no frame", "no review", "no seal", "no `routing.md`", "[no-review]"):
+        assert noun in description, (
+            f"the exit's description does not name `{noun}`, so a person "
+            "pressing it cannot see what they are turning off"
+        )
+    assert rows[-1][1] == label, (
+        "the exit is not last. It is one click and the least-verified path, "
+        "so it sits where a reader's eye lands last"
+    )
+
+
+def test_the_ceiling_is_stated_beside_the_shape():
+    """S7. The next person meets the constraint instead of discovering it.
+
+    All three halves: the cap, where the room came from, and that a fifth
+    breaks the shape. The third is the one that matters — a cap stated
+    without it reads as a limit somebody could raise.
+    """
+    skill = flat(read(*ORCH))
+    assert "at most four options per question" in skill, "the cap is unstated"
+    assert "taking the framer and the sealer out of the question" in skill, (
+        "nothing says where the room for the fourth box came from, so the "
+        "next person reads two empty slots"
+    )
+    assert "a fifth box breaks this shape" in skill, (
+        "the cap reads as a limit somebody could raise"
+    )
+
+
+def test_the_preset_and_the_boxes_are_told_apart_in_the_file():
+    """S2 and S3 at the document. Both write the same party rows; the row
+    that says which answer was pressed is the only difference.
+
+    Without that row the preset buys nothing — a chosen answer goes back to
+    being indistinguishable from a question nobody read, which is #151.
+    """
+    skill = flat(read(*ORCH))
+    for derivation in (
+        "`Answer pressed` = `automation`",
+        "`Answer pressed` =\n`per axis`",
+    ):
+        assert flat(derivation) in skill, (
+            f"the section does not say the preset writes {flat(derivation)}, "
+            "so a session has the row and no rule for filling it"
+        )
+    assert "same bytes" in skill, (
+        "the section states the row without the reason, so the next edit "
+        "reads it as bookkeeping and drops it"
+    )
+    rows = [ln for ln in read(*ORCH).splitlines() if ln.startswith("| Automation |")]
+    assert len(rows) == 1, (
+        f"the section has {len(rows)} `Automation` rows; the declaration has one"
+    )
+    assert "yes · no" in rows[0], "the row lost its vocabulary"
+    assert "OPTIONAL" in rows[0], "the row stopped saying an absent answer is fine"
 
 
 def test_the_planning_row_is_a_record_and_not_a_checkbox():

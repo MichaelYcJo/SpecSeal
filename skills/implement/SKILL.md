@@ -31,7 +31,7 @@ orchestrator breaking a rule it had put into every prompt it sent.
 sections this file used to carry for the session that spawns agents are
 there, verbatim and under an `Orchestrator:` prefix: how the `seal/` root is
 created the first time a repository opts in, how parity mode is set up, and
-how the routing question — three axes, one question, one declaration — is
+how the routing question — two questions in one call, one declaration — is
 asked and written into `routing.md` before anything is built.
 
 **An implementer never opens it**, and that is why it is a path rather than
