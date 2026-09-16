@@ -98,10 +98,19 @@ run spends it.
 and `routing.md` gains the row that records it. This is #88's fourth thing,
 which is recorded nowhere today.
 
-**4 — The routing batch moves to the framer**, which writes and commits
-`routing.md` before its own three files, so it still precedes the first edit.
-One interactive phase, which `agents/framer.md` already claims while another
-party runs an earlier one.
+**4 — The routing batch stays with the session that spawns the work**, which
+asks it and writes `routing.md` before the first edit — and so before a framer
+is spawned at all.
+
+**This reverses what this section first said**, which was that the batch moves
+to the framer. Round 1 measured why it cannot: **a subagent in this harness has
+no `AskUserQuestion` and no equivalent**, confirmed from two agents
+independently, each of which declares no `tools:` key and inherits the full
+set. A framer told to ask would be told to call a tool it does not have, and a
+framer told to write `routing.md` first would write an answer nobody gave —
+which is the failure the `Answer pressed` row exists to end, arriving through
+the door this work opened. #419's finding survives whole: the acts are not
+`smith`'s. What was wrong is only where they were sent.
 
 **5 — The framer's persona becomes *gather, judge, plan*.** `questions.md`
 becomes the residue, each row owing a reason the tree could not answer it.
@@ -379,7 +388,7 @@ declaration.
 | S7 the ceiling is stated where the shape is | Given question 2 · Then the document says it holds at most four options, that the room came from removing the framer and the sealer, and that a fifth breaks the shape | a case asserting the sentence |
 | S8 the fifth row parses | Given a `routing.md` carrying `Automation` with either value · Then the declaration parses and the row is returned · Given a value outside the two · Then the row reads as unanswered and the declaration still parses | cases against `hooks/routing.py`, on the terms the `Planning` row's cases already use |
 | S9 an old declaration still parses | Given any of the 84 declarations in this tree, none of which carries an `Automation` row · Then each still parses and the commit gate stays silent | a case over the committed corpus |
-| S10 the framer asks and writes | Given the framer runs · Then it asks the batch, writes `routing.md` from the template, and commits it — in a command of its own — before writing its own three files | a case reading `agents/framer.md` for the ordering sentence and the separate-command clause |
+| S10 the framer asks nobody and writes no declaration | Given the framer runs · Then it puts no question to a person, writes no `routing.md`, and reports a missing one rather than writing it · Given any `agents/*.md` · Then none of them names `AskUserQuestion` outside the sentence saying no agent has it | cases reading `agents/framer.md` and sweeping every agent definition by glob |
 | S11 the framer's persona names judging | Given `agents/framer.md` · Then its acts are gather, judge, plan, and `questions.md` is described as the residue whose every row owes a reason the tree could not answer it | a case asserting the three acts and the residue sentence |
 | S12 the framer leaves a mark | Given the framer writes `spec.md` · Then the file ends with `Framed <date> by <who>, before the build.` | a case against `templates/sdd-spec.md` and `agents/framer.md` |
 | S13 `smith` claims no act three documents give away | Given `agents/smith.md` · Then it names no design gate, no routing batch and no `routing.md` write, and says instead that phase 2 is the caller's spawn | a case sweeping the file for those acts |

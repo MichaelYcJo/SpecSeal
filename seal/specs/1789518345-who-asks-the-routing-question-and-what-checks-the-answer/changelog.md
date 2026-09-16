@@ -28,12 +28,17 @@
     pressed`. Without the second, a pressed preset and four boxes ticked by
     hand are the same bytes. Both are optional and both read as *never asked*
     when absent, so all 84 declarations already committed parse unchanged.
-  - **The framer asks it.** `agents/framer.md`'s acts become *gather, judge,
-    plan*: what the repository can answer, the framer answers, with the grounds
-    where a reviewer can open them, and `questions.md` becomes the residue —
-    every row owing a reason the tree could not answer it. It writes and commits
-    `routing.md` before its own three files, so the answer still precedes the
-    first edit.
+  - **The session that spawns the work asks it, and the framer asks nobody
+    anything.** `agents/framer.md`'s acts become *gather, judge, plan*: what
+    the repository can answer, the framer answers, with the grounds where a
+    reviewer can open them, and `questions.md` becomes the residue — every row
+    owing a reason the tree could not answer it. What it does **not** do is put
+    a question to a person: **no agent this plugin spawns has
+    `AskUserQuestion`**, so a framer told to ask would be told to call a tool
+    it does not have, and a framer told to write `routing.md` would write an
+    answer nobody gave. A framer that arrives to a missing declaration reports
+    it. A case sweeps every `agents/*.md` and refuses any line naming that tool
+    outside the sentence that says no agent has it.
   - **`agents/smith.md` puts down three acts three other documents already gave
     to somebody else** — the design gate, the routing batch and the `routing.md`
     write. It also loses the sentence telling it that a missing frame proves

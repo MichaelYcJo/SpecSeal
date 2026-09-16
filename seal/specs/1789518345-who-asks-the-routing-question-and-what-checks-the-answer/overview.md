@@ -30,6 +30,8 @@ request.
 | Where the cutoff lives for the seal arm | `plan.md` gives a cutoff to phase 6's arm and none to phase 5's | **phase 5's arm got one too**, `DIRECT_GATE_FROM`, at this work item's id | The identical retroactive-red hazard: 16 declarations answer `straight to the PR` and not one carries a `broad-gate.md`, because the file did not exist. A release pull request carries every work item the release adds. Shipping one arm with the mechanism and its twin without it is the near-identical-copy-missing-one-half failure this repository keeps recording |
 | How much of `agents/smith.md`'s phase 2 the design gate is | `plan.md`'s Technical context locates it at lines 53–72 | **the span by content, PLUS the asking clause sixty lines below it** | *Present 2–3 approaches with failure scenarios and wait for an explicit go* is the design gate by content and sat outside the named range, so a removal keyed on the span left the file saying *phase 2 is your caller's spawn* in one paragraph and *wait for an explicit go* in another. The rung CONDITION stays — `test_the_top_rung_names_behaviour_rather_than_a_count` requires `observable behaviour` in that file, and a smith below the top rung still needs to know what the work owed |
 | How many things the frame arm cannot see | `plan.md` and `spec.md` §S20 say **six**; `spec.md`'s own list has **seven** bullets | **seven, in the module** | All seven are real. The case asserts the phrases rather than the number, so it pins the disclosure instead of the arithmetic |
+| Who asks the routing batch | `spec.md` §Scope 4 and #419 both send the act to the framer; the build did that | **the session that spawns the work**, reversed at round 1 | **A subagent in this harness has no `AskUserQuestion` and no equivalent** — measured from two agents independently, `warden` in round 1 and `smith` in the fix pass, each declaring no `tools:` key and inheriting the full set: the tool is absent from the list and `ToolSearch` returns *No matching deferred tools found*. A framer told to ask is told to call a tool it does not have; one told to write `routing.md` first writes an answer nobody gave, which is #151's shape arriving through the door this work opened. #419's finding survives whole — the acts are not `smith`'s — and only their destination was wrong. `spec.md` §Scope 4, S10 and `changelog.md` were brought to the answer |
+| Which direction of the seal's misfiling to close | Round 1's 🟡 1 reproduced the chain-declared direction and named the direct-declared one without a case | **both, in one fix** | The report says one fix covers both and it does: each comes from `seal_home` choosing the home without reading the declaration. A fix aimed only at the reproduced direction would have left half the class standing (§12), so `seal_home` reads the `Review` row and two cases hold the two directions |
 | Whose the `--reverify` sweep is | The plan's phase 7 says to run `bin/evidence-check --strict .` | **the drifted rows were re-READ first, one at a time, and two were corrected rather than re-stamped** | A whole-tree `--reverify` rewrote 27 hashes on its first run, 21 of them in the shared `seal/ledger.md` and belonging to earlier work items — which records that somebody re-read claims nobody had opened. Those were reverted and each drifted row was read. Two had been narrowed by this branch and were corrected in place: `round_record.py#seal`'s row said the cell goes on the LAST record and touches nothing else, and `chain_check.py#broad_gate`'s row counted three fatal refusals as the module's where they are that function's |
 | `test_the_fourth_axis_is_a_record_and_not_a_fourth_checkbox` | `plan.md` phase 1 said to reword it where it names `Planning` by position | **renamed and both count assertions removed** | Both of its assertions were counts — `len(boxes) == 3` and `"four axes" not in skill` — and neither is what #88's rule is about. Both would have gone red at phase 2 for a change the rule PERMITS, and a reader meeting that red would have read it as the rule being broken. It is now `test_the_planning_row_is_a_record_and_not_a_checkbox` and asserts by name |
 
@@ -37,8 +39,9 @@ request.
 
 | Item | Who must answer |
 |---|---|
-| The full suite, the repository-wide lint and the typecheck. Every phase ran its own slice and read the exit code directly; the broad gate is one act with one owner and it is the sealer's | the orchestrator, by spawning the sealer after the rounds settle |
-| Whether a session reading the new two-question shape actually asks it in one `AskUserQuestion` call. The cases pin the document, and a document is not a run | the orchestrator, at the first work item framed after this ships |
+| The full suite, the repository-wide lint and the typecheck. Every phase and the round-1 fix pass ran their own slices and read the exit codes directly; the broad gate is one act with one owner and it is the sealer's | the orchestrator, by spawning the sealer after the rounds settle |
+| Whether a session reading the new two-question shape actually asks it in one `AskUserQuestion` call. The cases pin the document, and a document is not a run. Round 1 settled the prior question — whether a SUBAGENT can ask at all — in the negative, which is why the act is the session's | the orchestrator, at the first work item framed after this ships |
+| Whether `evidence-check`'s records arm can be satisfied for round 1. Renaming `test_a_direct_declaration_with_no_seal_is_a_notice_on_a_draft`, which the round asked for, makes three lines of `rounds/round-1.md` and `rounds/round-1-report.md` name a case the tree no longer has — and a fix pass may not edit either file, so `bin/evidence-check --strict .` exits 2 on records this pass is forbidden to touch | the orchestrator, by writing `NAME NOT IN TREE` beside the old name on those three lines, or by carrying the new name at `round-record close` |
 
 ## Not done
 
@@ -67,8 +70,16 @@ line of prose: `plan.md` and `spec.md` §S20 say the frame arm discloses **six**
 things it cannot see, and `spec.md`'s own list has seven. The module carries
 seven. Corrected in this work item's own records rather than chased.
 
-**The two work items above are for the ORCHESTRATOR to open**, not for this
-agent: §6 withholds posting from every agent this plugin spawns.
+**A third ticket, opened by round 1's 🟡 4.** A sweep over `agents/*.md` for
+every tool an agent cannot reach needs a list of what each agent has, kept in
+step with the harness — that is **mechanism**, which a fix pass may not add
+(`skills/code-review/orchestration.md` §*A fix pass adds the unit that pins
+it*). What this pass added instead is one case holding the one name that was
+measured, `AskUserQuestion`, over the `agents/*.md` glob. The general sweep is
+the ticket. **Who must answer it:** the repository owner.
+
+**All three tickets are for the ORCHESTRATOR to open**, not for this agent:
+§6 withholds posting from every agent this plugin spawns.
 
 ## Fed back into the spec
 
