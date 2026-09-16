@@ -40,8 +40,8 @@ would have discarded four still-true coordinates to enforce a rule about one.
 
 **`evidence-check`'s records arm refused three lines of this work item's own
 phase records**, for naming cases this branch renamed —
-`test_the_skill_asks_every_axis_in_the_first_batch` and
-`test_the_smith_carries_both_halves_rather_than_only_citing_them`. Both are
+`test_the_skill_asks_every_axis_in_the_first_batch` (NAME NOT IN TREE — renamed by this work item) and
+`test_the_smith_carries_both_halves_rather_than_only_citing_them` (NAME NOT IN TREE — renamed by this work item). Both are
 named in the records precisely BECAUSE they no longer exist, which is what
 `NAME NOT IN TREE` is for. Marked rather than reworded: a phase record that
 cannot name the case it replaced cannot say what it did.
@@ -68,5 +68,5 @@ not run.
 
 | Removed item | Where it must land |
 |---|---|
-| `seal/ledger.md`'s coordinate for `test_the_smith_carries_both_halves_rather_than_only_citing_them` | `seal/ledger/1789518345-….md`, as a new row for the new claim. The four other coordinates of that row stay where they are, because the claim still holds for them |
+| `seal/ledger.md`'s coordinate for `test_the_smith_carries_both_halves_rather_than_only_citing_them` (NAME NOT IN TREE — renamed by this work item) | `seal/ledger/1789518345-….md`, as a new row for the new claim. The four other coordinates of that row stay where they are, because the claim still holds for them |
 | The phrase *a chosen somebody may be asked* from this work item's `spec.md` | nowhere — the value is `no`, and the sentence now says so. `survivor-check` is what found it, after the rename had been applied everywhere a reader would think to look |
