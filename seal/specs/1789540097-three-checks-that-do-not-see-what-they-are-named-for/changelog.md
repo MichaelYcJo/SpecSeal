@@ -44,10 +44,28 @@
     passed at exit 0 before. Nothing in the tree had to be reworded for either
     half.
 
-  - **Both patterns are now objects a case can open.** They were local to the
-    function, so the only thing that could go red was a sentence planted in a
-    real definition — which is the shape all three tickets are about, one level
-    up.
+  - **The guard is one function, and the case calls the same one.** The
+    patterns were first hoisted to module level so a case could open them —
+    and that was still the defect, one layer down: no agent definition
+    contains a batch phrase at all, so the sweep's loop body never ran and the
+    composition inside it could be changed five ways with the module green.
+    The sweep is now `batch_instructions(body)`, and the case that holds the
+    guard runs that same function over text it writes. All five mutations are
+    red.
+
+  - **The marker set matches the one the repository already had.** Emphasis
+    was stripped as `*` alone, which left out the marker these files use most:
+    backticks outnumber asterisks in four of the five definitions. It strips
+    `*`, `_` and backticks now — the same three `chain_check.py`'s normaliser
+    of the same name strips — and `into` joined the preposition set. Stripping
+    `_` cannot change what is found; it costs only the underscores in a file
+    name the refusal prints.
+
+  - **What the back anchor cost is recorded as a loss, not asserted as
+    correctness.** It also stopped `asker`, `answerer` and `questioner`, each
+    of which names the party this guard looks for — `agent-contract` §4 writes
+    `answerer` for exactly that party. Widening the stems is still refused with
+    grounds; the three words now sit in their own block saying so.
 
 - **Two Grounds cells of a shipped round record stop rendering an empty first
   clause** (#414's remainder). `rounds/round-2.md` of work item

@@ -479,22 +479,29 @@ def test_folding_the_seam_cannot_hide_an_instance_it_would_have_found():
     without going through the constants. See `SEAL_BARE`'s comment for why
     that is written down rather than checked.
     """
-    folded = tuple(
+    # MEMBERSHIP, not order. The closure is about WHICH members the fold
+    # reaches, and two entries of `SEAL_SWEPT` swapped in place change none of
+    # it — under a tuple comparison that reorder went red (measured by round 1)
+    # with a message saying the set had moved when it had not. Phase 1 refused
+    # exactly this brittleness for the `&` row, and the same argument reaches
+    # here: a case that reddens for a reason unrelated to its subject teaches a
+    # reader to stop believing it.
+    folded = {
         "/".join(parts)
         for parts in (*SEAL_SWEPT, *SEGMENT_SWEPT)
         if parts[-1].endswith(".py")
-    )
-    assert folded == (
+    }
+    assert folded == {
         "skills/verify/scripts/seal_stamp.py",
         "skills/code-review/scripts/round_record.py",
         "skills/verify/scripts/broad_gate.py",
         "skills/verify/scripts/session_cost.py",
         "tests/test_session_cost.py",
-    ), (
+    }, (
         "the set of members `flat` folds has moved, so the closure this case "
         "rests on has to be re-taken: every phrase the sweep over "
-        f"{folded} looks for belongs in the set below, and the docstring's "
-        "count has to be brought to the new list"
+        f"{sorted(folded)} looks for belongs in the set below, and the "
+        "docstring's count has to be brought to the new list"
     )
     swept = (SEAL_BARE, *SEAL_BARE_IS_THE_CONCEPT, *SEGMENT_LOOSE)
     for phrase in swept:

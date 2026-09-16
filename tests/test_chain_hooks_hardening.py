@@ -835,8 +835,8 @@ ASKING_WINDOW = 140
 # a different thing and is not done here: that direction makes a legitimate
 # definition unwritable, which is round 2's finding pointing the other way.
 BATCH_PHRASE = re.compile(r"\b(?:in|into|as) (?:one|a single|a) batch\b", re.IGNORECASE)
-# All three markdown markers, which is what `chain_check.py:419` already
-# settled on under this same name. Round 1's 🟡 2: `*` alone left out the
+# All three markdown markers, which is what the normaliser of this same name
+# in `skills/code-review/scripts/chain_check.py` already settled on. Round 1's 🟡 2: `*` alone left out the
 # marker these files use MOST — code spans outnumber asterisks in four of the
 # five definitions, `agents/warden.md` 250 to 159 and `agents/smith.md` 202 to
 # 142 — so `` in `one batch` `` reached no window at all.

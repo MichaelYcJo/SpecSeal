@@ -27,7 +27,7 @@ issue had already measured green.
 
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
-| How many members `flat` folds across both sweeps | `spec.md` scope item 2: *`flat` folds only `.py` members, and there are four across both sweeps*; `plan.md` §*Technical context*: *Two sweeps search four folded members between them*; #418: *Across both sweeps exactly four members are `.py`* | **Five**, derived from the module's own lists in phase 2 | Measured: `seal_stamp.py`, `round_record.py` and `broad_gate.py` in `SEAL_SWEPT`; `session_cost.py` and `tests/test_session_cost.py` in `SEGMENT_SWEPT`. The closure ARGUMENT is untouched — `swept` is still every phrase either sweep searches for in the folded members — so only the count was wrong, and it had reached three documents unopened. The case now pins the list itself rather than a number beside it (`agent-contract` §5: an aggregate is not a coordinate) |
+| How many members `flat` folds across both sweeps | `spec.md` scope item 2: *`flat` folds only `.py` members, and there are four across both sweeps*; `spec.md` A5: *the comment names the `.py`-only fold and the four members* (found by round 1 — a fourth statement of the same number); `plan.md` §*Technical context*: *Two sweeps search four folded members between them*; #418: *Across both sweeps exactly four members are `.py`* | **Five**, derived from the module's own lists in phase 2 | Measured: `seal_stamp.py`, `round_record.py` and `broad_gate.py` in `SEAL_SWEPT`; `session_cost.py` and `tests/test_session_cost.py` in `SEGMENT_SWEPT`. The closure ARGUMENT is untouched — `swept` is still every phrase either sweep searches for in the folded members — so only the count was wrong, and it had reached three documents unopened. The case now pins the list itself rather than a number beside it (`agent-contract` §5: an aggregate is not a coordinate) |
 | How many documented widths in the wrap module have drifted | #422 reports one: `agents/smith.md` at 148 where 109 is measured. `spec.md` scope item 7 carries that one | **Two**, plus one restatement of the first | `skills/implement/SKILL.md` is documented at 99 and measures 90; nobody reported it. `COVERED`'s own comment restates the stale 148 a second time. `agent-contract` §12 — the fix is owed to every instance the cause produces, and the cause is a measurement written down by hand |
 
 ## Not verified
@@ -36,7 +36,7 @@ issue had already measured green.
 |---|---|
 | The full suite, the repository-wide lint and the typecheck. Every phase ran only its own module; the broad gate is one act with one owner | the sealer, spawned by the orchestrator after the rounds settle (`agent-contract` §2) |
 | Whether the `cmd.exe` half of the two `&` cells is TRUE. Phase 1 pins that the document attributes each behaviour to a shell, never that the behaviour is that shell's | the `windows-latest` job, as work item `1789445605-…` already records |
-| Whether `skills/code-review/scripts/chain_check.py:668` — *Named for the COMMAND that writes it, not for the seal* — should be brought under `SEAL_SWEPT` with an exclusion. Surfaced by phase 2's second mutation; it discusses the word rather than using it, which is the shape both existing exclusions have | the repository owner, as a change to what a test guards (`CONTRIBUTING.md`) |
+| Whether `skills/code-review/scripts/chain_check.py:668` — *Named for the COMMAND that writes it, not for the seal* — should be brought under `SEAL_SWEPT` with an exclusion. Surfaced by phase 2's second mutation; it discusses the word rather than using it, which is the shape both existing exclusions have. **And whether `agents/scribe.md` joins the same list** — round 1 found it the one definition absent from it, pre-existing rather than this branch's, with zero occurrences of the swept phrase today | the repository owner, as a change to what a test guards (`CONTRIBUTING.md`) |
 
 ## Not done
 
@@ -56,6 +56,20 @@ each is refused. The risk is written beside `SEAL_BARE`.
 §*Out* rules it out with grounds: narrowing it is a third change with its own
 failure direction, where an instruction split across a heading passes. It is
 recorded as residue beside the case instead.
+
+**No case pins the wrap module's documented numbers, and round 1's 🟡 5
+corrected the reason.** The build's reason was that planting a reader is
+mechanism aimed at the file `seal/follow-up.md` already holds open — and that
+follow-up row is about a different act, whether `agents/smith.md` and
+`agents/scribe.md` join `COVERED`, which widens what the test guards. Pinning
+a number the module states about itself against the module's own helpers
+widens nothing. **The reason that is true**: a mutation WAS available and was
+run — changing a documented width reddens nothing in the repository — and the
+work item is scoped by `spec.md` §*Out* to correcting the numbers, not to
+adding a case. What stands in its place is that the numbers were re-derived
+from `prose_lines` and `display_width` twice, and that the ledger row is now
+anchored on the three lines that state them, so corrupting any one of them is
+exit 2 rather than silence.
 
 ## Fed back into the spec
 

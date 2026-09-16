@@ -69,13 +69,24 @@ shared file and four fragments, and the records arm reads four work items
 with 0 refused — so nothing in this work item's records names a unit the tree
 lacks.
 
-**No mutation, and the reason is that nothing in the tree reads a docstring.**
-Planting a reader for these four numbers is new mechanism, and it points at
-the covered-list question `seal/follow-up.md` already holds open for the
-repository owner — which `spec.md` §*Out* rules out with grounds. What stands
-in its place is that the numbers were re-derived from the module's own
-helpers rather than read off a ticket, twice: once to find the drift and once
-against the edited docstring.
+**No mutation, and the reason above is not the one that holds.**
+*Corrected after round 1's 🟡 5, at the fix pass.* What this phase first
+wrote — that planting a reader is mechanism aimed at the file
+`seal/follow-up.md` already holds open — cites a row about a DIFFERENT act:
+whether `agents/smith.md` and `agents/scribe.md` join `COVERED`, which widens
+what the test guards. Pinning a number the module states about itself against
+the module's own helpers widens nothing, so that row was never the obstacle.
+
+**The reason that holds.** A mutation was available and round 1 ran it:
+changing a documented width reddens nothing in the repository. That is the
+measurement, and the docstring states it in prose. The case is declined
+because `spec.md` §*Out* scopes this work item to correcting the numbers, and
+adding a case is a change to what the suite guards that `CONTRIBUTING.md`
+asks a separate argument for — not because a follow-up row blocks it. What
+stands in its place is re-derivation from `prose_lines` and `display_width`,
+run twice, and — after round 1's 🟡 4 — a ledger row anchored on the three
+lines that state the numbers, so corrupting any one of them is exit 2 where
+all three were silent before.
 
 ## What this phase removes
 
