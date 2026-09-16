@@ -655,13 +655,33 @@ def test_a_direct_declaration_below_the_cutoff_prints_instead(repo):
     )
 
 
-def test_a_direct_declaration_with_no_seal_is_a_notice_on_a_draft(repo):
+def test_a_direct_declaration_with_no_seal_is_SILENT_on_a_draft(repo):
     """`strict` is false for a draft, and the reason is the chain path's: the
-    broad gate runs at the end, so a draft with no seal is telling the
-    truth."""
-    direct(repo, DIRECT_GATE_FROM)
+    broad gate runs at the end, so a draft with no seal is telling the truth.
+
+    **Silence, not a notice**, and the old name said notice. `direct_seal`
+    returns `[], []` when `strict` is false, which matches `broad_gate` and is
+    right — but the case asserted exit 0 and nothing else, so it would have
+    passed either way and its name would have gone on describing behaviour
+    nobody had. The assertion is now on the silence itself.
+    """
+    item, _first = direct(repo, DIRECT_GATE_FROM)
     code, out = run(repo, draft=True)
     assert code == 0, out
+    # The arm's informational PRINT names the file on every run — it says
+    # where the cell would be read from — so the silence to assert is the
+    # absence of the refusal's own words, not the absence of the filename.
+    # Writing it the other way went red here, which is how the print's
+    # unconditional half got found.
+    for said in ("git carries no", "Spawn the `sealer`", BROAD_GATE_ROW):
+        assert said not in out, (
+            f"a draft was told `{said}` about a seal that is not due yet, "
+            "which is the mid-run noise `strict` exists to keep out"
+        )
+    assert item in out, (
+        "the declaration was not reported at all — silence about the SEAL is "
+        "not silence about the work item"
+    )
 
 
 # --- the round record it finds ----------------------------------------------

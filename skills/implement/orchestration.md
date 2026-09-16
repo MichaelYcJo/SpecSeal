@@ -283,11 +283,28 @@ request at the end — three interruptions, in the session that had the
 one-batch rule loaded. Nothing had said the three belonged to one question, so
 obeying the rule for the first of them looked like obeying it.
 
-**Where the framer runs, this question is the framer's to ask.** It writes and
-commits `routing.md` before its own three files, so the answer still precedes
-the first edit and one interactive phase holds everything a person answers
-(`agents/framer.md`). Below the ladder's top rung no framer runs, and the
-session that builds asks it.
+**It is YOUR question, whether or not a framer runs**, and that is a property
+of the harness rather than a preference. **A subagent here has no
+`AskUserQuestion` and no equivalent** — measured from two agents independently,
+each declaring no `tools:` key and inheriting the full set: the tool is not in
+the list and `ToolSearch` for it returns *No matching deferred tools found*. A
+document that handed this act to the framer would be telling an agent to call a
+tool it does not have.
+
+So the one moment of human contact is here, before the first edit, and the
+order does not change when a framer runs:
+
+```
+you        : ask the two questions in one call        ← the tool is here
+you        : write and commit routing.md
+the framer : read, judge, write spec / plan / questions
+you        : read plan.md and spawn the build         ← the approval
+```
+
+`agents/framer.md` §*You have no interactive phase* is the other half of this,
+and it tells a framer that arrives to a missing `routing.md` to report it
+rather than write one — a declaration written from a guess is a recorded answer
+nobody gave.
 
 **Write the answer down before the first edit**, in
 `seal/specs/<work-item-id>/routing.md`, from `templates/sdd-routing.md`. Committed,

@@ -267,6 +267,15 @@ MOVED_OUT_OF_SMITH = {
     "the design gate": (
         "you own this decision, and no skill makes it for you",
         "Ask everything that needs a person here, in one batch",
+        # The SECOND copy, sixty lines below the span `plan.md` measured the
+        # first at, and the design gate by CONTENT: present approaches and
+        # wait for a go. Left standing it would have had the file say `phase 2
+        # is your caller's spawn` in one paragraph and `wait for an explicit
+        # go` in another. It was removed with the others and held by nothing —
+        # round 1 pasted it back and 242 cases stayed green, which makes it
+        # the one thing the build found by going past its named span and the
+        # one thing the suite could not see come back.
+        "wait for an explicit go",
     ),
     "the routing batch": (
         "How the work is routed belongs in that batch",

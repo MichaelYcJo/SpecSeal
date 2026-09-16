@@ -564,34 +564,94 @@ def test_the_preset_and_the_boxes_are_told_apart_in_the_file():
 FRAMER = ("agents", "framer.md")
 
 
-def test_the_framer_asks_the_batch_and_writes_the_declaration():
-    """S10. The act belonged to three parties at once and now belongs to the
-    phase that already puts a person in front of something.
+def test_the_framer_asks_nobody_and_writes_no_declaration():
+    """S10, after round 1 reversed WHERE the act lands.
 
-    Three things, and the third is the one whose absence costs a FILE rather
-    than a sentence: the batch is the framer's, `routing.md` is the framer's
-    to write, and it is written in a command of its own. The commit gate is a
-    `PreToolUse` hook and denies the WHOLE call, so
-    `write && git add && git commit` batched together writes nothing — and
-    the declaration the gate then reports missing is the file that was lost.
+    **A subagent in this harness has no `AskUserQuestion` and no equivalent.**
+    Measured from two agents independently — `warden` during round 1 and
+    `smith` during its fix pass — each of which, like the framer, declares no
+    `tools:` key and inherits the full set: the tool is not in the list and
+    `ToolSearch` for it returns `No matching deferred tools found`. So the
+    build's first answer told an agent to call a tool it does not have, which
+    is the class this repository keeps finding.
+
+    #419's finding survives intact: the acts are not `smith`'s. What was wrong
+    is only where they were sent. They go to the SESSION that spawns the work,
+    which has the tool and is already the party that spawns, approves and
+    reads back.
+
+    Asserted as an absence AND a presence. The absence alone would pass on a
+    definition that says nothing at all about routing, which is the state that
+    lets a framer write a declaration from a guess — a recorded answer nobody
+    gave, which is #151's shape arriving through the door this work opened.
     """
     framer = flat(read(*FRAMER))
-    assert "The routing question is in that batch, and it is yours to ask" in framer, (
-        "the framer's definition does not claim the act, so the batch is back "
-        "to being asked by whoever read a document last"
+    assert "You have no interactive phase" in framer, (
+        "the framer's definition no longer says it asks nobody, so the next "
+        "reader restores an interactive phase the harness cannot give it"
     )
-    assert "in a command of its own, never batched with the commit" in framer, (
-        "the separate-command clause went. This is the one whose absence "
-        "loses the file itself: the gate denies the whole tool call"
+    assert "has no `AskUserQuestion`" in framer, (
+        "the reason went. Without it the instruction reads as a preference "
+        "somebody can reverse, and the measurement is what makes it not one"
     )
-    assert "before you write anything else" in framer, (
-        "nothing orders `routing.md` before the framer's other three files, "
-        "so the answer stops preceding the first edit"
+    assert "`routing.md` is not one of them" in framer, (
+        "`routing.md` is back among the framer's writes, and a framer that "
+        "cannot ask can only write it from a guess"
     )
-    assert "templates/sdd-routing.md" in framer, (
-        "the framer is told to write a declaration and not which template "
-        "spelling the parser accepts"
+    assert "a thing to report,\nnever a thing to write" in read(*FRAMER), (
+        "the framer meeting a missing declaration has no instruction, so the "
+        "obvious repair is the one that records an answer nobody gave"
     )
+    for claimed in (
+        "The routing question is in that batch, and it is yours to ask",
+        "Yours is the one interactive phase",
+    ):
+        assert claimed not in framer, (
+            f"`{claimed}` is back in `agents/framer.md`, which hands a "
+            "subagent an act the harness gives it no tool for"
+        )
+
+
+def test_no_agent_definition_tells_an_agent_to_ask_a_person():
+    """The class behind 🟡 4, pinned by the one name that was measured.
+
+    An agent definition instructing an agent to call a tool it cannot reach is
+    exactly what went undetected here: the build moved the routing batch to
+    `agents/framer.md`, every case stayed green, and nothing in the tree could
+    see that the instruction was unperformable.
+
+    **This is one name, not a vocabulary.** A sweep over `agents/*.md` for
+    every tool an agent cannot reach needs a list of what each agent has, kept
+    in step with the harness — that is mechanism, which a fix pass may not add
+    (`skills/code-review/orchestration.md` §*A fix pass adds the unit that
+    pins it*), and it is handed over as a ticket instead. What this case holds
+    is the measured instance and the glob: a fourth agent definition added
+    tomorrow is checked on the day it lands.
+    """
+    import glob
+
+    definitions = sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
+    assert len(definitions) >= 3, f"agents/*.md matched {len(definitions)} files"
+    for path in definitions:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        name = os.path.relpath(path, ROOT)
+        for line in text.splitlines():
+            if "AskUserQuestion" not in line:
+                continue
+            # Naming the tool to say it is ABSENT is the whole repair, so the
+            # sentence that does it has to be allowed. What is refused is an
+            # instruction to use it.
+            # ONE spelling across every definition, deliberately. A marker
+            # list that grows a phrase per file is a list that stops being a
+            # check, so a definition saying the tool is absent says it this
+            # way — and the case is what keeps the four sentences in step.
+            assert "no `AskUserQuestion`" in line, (
+                f"{name} names `AskUserQuestion` outside the sentence that "
+                "says an agent does not have it. No agent this plugin spawns "
+                "can reach that tool, so an instruction to use it is an "
+                "instruction nothing can carry out"
+            )
 
 
 def test_the_framers_acts_are_gather_judge_plan():
@@ -839,11 +899,34 @@ def test_the_smith_carries_its_own_half_and_not_the_questions():
 
 
 def test_the_preset_block_carries_it_too():
-    """`CLAUDE.md` is the one file a session in this repository always has."""
-    preset = flat(read("CLAUDE.md"))
-    assert "seal/specs/<work-item-id>/routing.md" in preset
-    for answer in AXES:
-        assert answer in preset, f"the preset block lost `{answer}`"
+    """`CLAUDE.md` is the one file a session in this repository always has.
+
+    So it is the copy that matters most, and round 1 measured it as the copy
+    nothing held: the block kept its old three-checkbox paragraph and 176
+    cases stayed green, `claude_block.py --check` included — that command
+    compares the template with its generated copy and neither with the
+    question. Most of what this work item distributes IS this paragraph.
+
+    Asserted at BOTH ends, template and generated copy, and the absence half
+    is the half that would have caught it. This is the same defect the build
+    repaired one file over — a presence assertion on a count passing on the
+    copy that should have moved — landing on the copy a session always has.
+    """
+    for parts in (("templates", "claude-md-block.md"), ("CLAUDE.md",)):
+        text = flat(read(*parts))
+        where = "/".join(parts)
+        assert "seal/specs/<work-item-id>/routing.md" in text, where
+        for answer in AXES:
+            assert answer in text, f"{where} lost the answer `{answer}`"
+        assert "two questions in ONE `AskUserQuestion` call" in text, (
+            f"{where} still asks the old question, and the block is what a "
+            "session in an opted-in repository always has in front of it"
+        )
+        for stale in ("two axes", "three axes", "three checkboxes"):
+            assert stale not in text, (
+                f"`{stale}` survived in {where}, so every session reads the "
+                "shape the rest of the repository stopped describing"
+            )
 
 
 def test_the_template_ships_the_vocabulary_the_parser_accepts():

@@ -786,25 +786,35 @@ def test_the_questions_are_collected_before_the_work_not_during_it():
         "without the assume-in-writing half, the batch becomes a list of "
         "everything and the work waits on all of it"
     )
-    # The batch is the FRAMER's (#419). It used to be pinned in
-    # `agents/smith.md`, because the design gate used to be there; three other
-    # documents said the act was not the smith's while `smith.md` claimed it in
-    # twenty lines, and this assertion was one of the things holding the claim
-    # in place. So it moves with the act, and the smith's half is asserted as
-    # an ABSENCE — a definition that keeps the words of an act it no longer
-    # performs is an instruction to perform it.
-    with open(os.path.join(ROOT, "agents", "framer.md"), encoding="utf-8") as f:
-        framer = f.read()
-    assert "in one batch" in framer, (
-        "the framer's own interactive phase no longer says the questions are "
-        "collected in one batch, which is the phase's whole reason"
+    # The batch belongs to the SESSION that spawns the work, and that is a
+    # property of the harness rather than a preference: no agent this plugin
+    # spawns has `AskUserQuestion`, measured from two of them independently
+    # (#419, round 1). It was pinned in `agents/smith.md` while the design
+    # gate lived there, then briefly in `agents/framer.md` — and a definition
+    # that carries the words of an act its agent has no tool for is an
+    # instruction nothing can carry out. So the presence is asserted where the
+    # tool is, and the absence over EVERY agent definition, by glob, so a
+    # fourth one added tomorrow is checked on the day it lands.
+    import glob
+
+    with open(
+        os.path.join(ROOT, "skills", "implement", "orchestration.md"),
+        encoding="utf-8",
+    ) as f:
+        orchestration = f.read()
+    assert "in one call" in orchestration, (
+        "the orchestrator's routing section no longer says the questions go "
+        "in one call, which is what makes the batch one wait"
     )
-    with open(os.path.join(ROOT, "agents", "smith.md"), encoding="utf-8") as f:
-        smith = f.read()
-    assert "in one batch" not in smith, (
-        "the question batch is back in `agents/smith.md`, whose phase 2 is "
-        "the caller's spawn and asks nobody anything"
-    )
+    definitions = sorted(glob.glob(os.path.join(ROOT, "agents", "*.md")))
+    assert len(definitions) >= 3, f"agents/*.md matched {len(definitions)} files"
+    for path in definitions:
+        with open(path, encoding="utf-8") as f:
+            body = f.read()
+        assert "in one batch" not in body, (
+            f"{os.path.relpath(path, ROOT)} tells an agent to collect the "
+            "question batch, and no agent here can put a question to anybody"
+        )
 
 
 def test_the_cycle_is_bounded_and_ends_at_a_pull_request():

@@ -389,7 +389,7 @@ declaration.
 | S17 the approval line is reported, never refused | Given a `plan.md` whose approval line is the unfilled placeholder · Then the run prints a notice and the exit code is unchanged | a case asserting exit 0 with the notice present |
 | S18 the seal lands where no rounds exist | Given a work item declaring `straight to the PR` and a green broad run · Then `round_record.py seal` writes `broad-gate.md` rather than refusing | a case exercising the subcommand in a throwaway clone |
 | S19 the direct arm reads that cell | Given the same work item at a ready pull request with no such cell · Then `chain_check.py` exits non-zero · Given the cell naming a SHA the tree can see · Then it passes | cases in the chain-check module, both directions |
-| S20 what the check cannot see is written beside it | Given the new arm · Then the module states the six things it cannot see, including that a work item with no declaration is outside it | a case asserting the disclosure |
+| S20 what the check cannot see is written beside it | Given the new arm · Then the module states the seven things it cannot see, including that a work item with no declaration is outside it | a case asserting the disclosure, by phrase rather than by count |
 | S21 the arm does not go red retroactively | Given a work item whose id is below the cutoff, declaring `Planning \| framer` and carrying no mark · Then the run prints and the exit code is unchanged · Given the same state above the cutoff · Then it is refused | two cases, one either side of the constant |
 
 ## Data & interfaces

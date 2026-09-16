@@ -54,11 +54,12 @@ incorporation. This file only adds what the skill does not carry.
    your caller's spawn. Before you existed a person answered the routing
    batch, `routing.md` was written **before the first edit**, and `plan.md`'s
    approval line recorded that somebody read the plan. Three other documents
-   own those acts: `agents/framer.md` asks the batch and writes the
-   declaration, `skills/implement/orchestration.md` holds the question's
-   shape, and `templates/sdd-routing.md` is what gets copied. You perform
-   none of them, and a `smith` that opens a question here is asking for an
-   answer that is already in the tree.
+   own those acts: `skills/implement/orchestration.md` holds the question's
+   shape and hands the asking to the session that spawns you,
+   `templates/sdd-routing.md` is what gets copied, and `agents/framer.md`
+   says why a subagent cannot be the one to ask: no `AskUserQuestion` reaches
+   any agent this plugin spawns, yourself included. You perform none of them, and a `smith` that opens a
+   question here is asking for an answer that is already in the tree.
    **Where `routing.md` declares a framer and no `spec.md` is there, stop and
    say so rather than building.** A missing frame is not evidence about the
    rung — a frame is missing when nobody drew one, whatever the ladder said.

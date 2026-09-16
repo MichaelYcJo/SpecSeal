@@ -3824,25 +3824,61 @@ def last_record(routing, rounds):
 def seal_home(routing, item, rounds):
     """(N, path) — the record the cell lands on, or (None, the file it lands in).
 
-    The home is picked from what EXISTS, by the one writer, so no caller has to
-    know which shape a work item is. Where rounds ran, the cell goes on the
-    last record exactly as it always has and this returns what `last_record`
-    returns. Where none did, it goes into `<item>/broad-gate.md`.
+    **The home is picked from the DECLARATION, never from what happens to be on
+    disk.** `chain_check` reads `broad-gate.md` on its direct arm alone and the
+    last round record on its chain arm — one home per `Review` answer, chosen
+    there by the same row. A home chosen here by the disk therefore disagrees
+    with the reader twice, in opposite directions:
 
-    `last_record` used to RAISE here rather than return, and that refusal was
-    half of why a `straight to the PR` work item could not be sealed at all —
-    the other half being a reader that returned before it looked. Neither
-    repaired the other, which is why both are phase 5's.
+      a CHAIN work item whose `rounds/` is still empty — the ordinary state
+          while round 1 runs — took the no-rounds branch and was sealed into
+          `broad-gate.md`, which no reader of that work item ever opens, and
+          `seal` printed `sealed` over it
 
-    The refusal is kept for the path that still means something: a work item
-    whose rounds are running and whose records are not written yet is a
-    different state from one that runs no rounds, and this function cannot
-    tell them apart. Nothing has to: the cell records a commit and a base, and
-    `chain_check` reads it from whichever home it finds.
+      a DIRECT work item that does have round records was sealed onto the last
+          one, which the direct arm never reads
+
+    Both come from the same missing read, so both are closed by one. Round 1
+    reproduced the first in a throwaway clone: exit 0, `sealed …
+    broad-gate.md`, and the post-write `chain_check` still reporting the round
+    record missing. What it costs is the sealer's answer — success reported for
+    a seal that does not count, and the next party re-taking the run without
+    knowing why. It fails closed either way, which is why nothing merged unrun.
+
+    `last_record` used to RAISE on the empty-`rounds/` path, and that refusal
+    was half of why a `straight to the PR` work item could not be sealed at
+    all — the other half being a reader that returned before it looked. The
+    refusal comes back here for the ONE state it was always right about: a
+    chain declaration whose first record is not written yet.
+
+    An unreadable or absent declaration falls back to the disk, which is this
+    module's standing direction — a file nobody can read is not an answer
+    somebody gave, and no arm of `chain_check` walks a work item that declared
+    nothing, so neither home is read for it.
     """
+    declared = None
+    try:
+        with open(os.path.join(item, routing.FILENAME), encoding="utf-8") as f:
+            declared = routing.parse(f.read())
+    except (OSError, UnicodeDecodeError):
+        pass
+
+    if declared is not None and declared["review"] == routing.DIRECT:
+        return None, os.path.join(item, chain.BROAD_GATE_FILE)
+
     found = earlier_records(routing, rounds, sys.maxsize)
     if found:
         return found[-1]
+
+    if declared is not None:
+        raise Refused(
+            f"{os.path.join(item, routing.FILENAME)} declares "
+            f"`{declared['review']}` and {rounds} holds no `round-N.md`. For "
+            "that answer the cell belongs on the last round record, and "
+            f"`{chain.BROAD_GATE_FILE}` is read only for a work item "
+            f"declaring `{routing.DIRECT}` — written there it would be a seal "
+            "nothing reads. Write the round record first; no cell was written"
+        )
     return None, os.path.join(item, chain.BROAD_GATE_FILE)
 
 

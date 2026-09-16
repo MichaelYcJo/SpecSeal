@@ -1163,6 +1163,58 @@ def test_seal_writes_a_file_where_no_round_record_exists(repo):
     )
 
 
+def test_seal_refuses_a_chain_declaration_with_no_round_record(repo):
+    """The home is the DECLARATION's, not whatever is on disk.
+
+    `rounds/` empty is two different states. One is a work item that runs no
+    rounds, and its cell belongs in `broad-gate.md`. The other is a work item
+    whose rounds are running and whose first record is not written yet, and
+    its cell belongs on that record — filed in the other home it is a seal the
+    chain arm never opens, over which `seal` printed `sealed`.
+
+    Round 1 executed exactly this in a throwaway clone and got exit 0 with the
+    cell written to the unread home. It fails closed — `chain_check` still
+    refuses the pull request on the record's `not yet` — so what was lost is
+    the sealer's answer rather than the enforcement.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    commit(repo, "declare the chain, rounds not written yet")
+    assert not (repo / ROUNDS).exists(), "the fixture is not the no-rounds state"
+    code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
+    assert code == 2, out
+    assert GATE_FILE in out and "round-N.md" in out, (
+        "the refusal names neither the home it declined nor the record it wants"
+    )
+    assert not (repo / ITEM / GATE_FILE).exists(), (
+        "the cell went into the home the chain arm never reads"
+    )
+
+
+def test_a_direct_declaration_seals_into_its_own_home_even_with_rounds(repo):
+    """The SAME defect running the other way, which the same fix closes.
+
+    A `straight to the PR` work item that does have round records was sealed
+    onto the last one — and `chain_check`'s direct arm reads `broad-gate.md`
+    and nothing else, so that cell is unread too. Round 1 named this direction
+    without a case; a fix aimed only at the direction that was reproduced
+    would have left half the class standing, which is §12.
+    """
+    _one, two = settled_item(repo)
+    write(repo, f"{ITEM}/routing.md", declaration(review="straight to the PR"))
+    commit(repo, "the declaration says direct after all")
+    before = read_bytes(two)
+    head = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{head} against base")
+    assert code == 0, out
+    path = repo / ITEM / GATE_FILE
+    assert path.exists(), f"the direct home was not written: {out}"
+    assert fields(path.read_text(encoding="utf-8"))[ROW] == f"{head} against base"
+    assert read_bytes(two) == before, (
+        "the cell went onto the last round record, which the direct arm "
+        "never reads — the same misfiling, in the other direction"
+    )
+
+
 def test_a_work_item_with_rounds_still_seals_onto_its_last_record(repo):
     """The other direction, and the one a new home quietly breaks.
 
