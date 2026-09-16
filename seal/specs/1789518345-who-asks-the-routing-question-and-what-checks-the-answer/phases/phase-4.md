@@ -58,6 +58,22 @@ their absence. `test_every_document_shows_the_third_axis_ROW…` required
 either would have left the paste-back invisible; inverting them is what makes
 the same edit red from the other side.
 
+**Two more cases pinned the removed acts, and they were found one phase too
+late.** `test_chain_hooks_hardening.py` asserts `one batch` in
+`agents/smith.md` and slices its Requirements phase by the literal
+`2. **Design gate**`. Both are what phase 4 removed, and neither went red at
+phase 4 because that module was run at phase 3 and not again until the final
+narrow sweep. The batch assertion moves to `agents/framer.md` with the act and
+the smith's half becomes an ABSENCE; the slice is bounded by `2. **` — the
+phase's NUMBER rather than its title — because a slice keyed on a title that
+moved raises rather than reporting, which is the one failure shape a reader
+cannot read.
+
+**What that cost, recorded so the next phase does not repeat it:** the module
+a phase touches is not only the module its plan names. `agents/smith.md` is
+read by seven test modules, and running the two the plan listed left five
+unchecked until the end.
+
 **An absence alone leaves a hole a reader fills with the old behaviour**, so
 each removal is paired. The removed inference is paired with the stop
 instruction; the removed design gate is paired with

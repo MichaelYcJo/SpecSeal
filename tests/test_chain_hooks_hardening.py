@@ -786,8 +786,25 @@ def test_the_questions_are_collected_before_the_work_not_during_it():
         "without the assume-in-writing half, the batch becomes a list of "
         "everything and the work waits on all of it"
     )
+    # The batch is the FRAMER's (#419). It used to be pinned in
+    # `agents/smith.md`, because the design gate used to be there; three other
+    # documents said the act was not the smith's while `smith.md` claimed it in
+    # twenty lines, and this assertion was one of the things holding the claim
+    # in place. So it moves with the act, and the smith's half is asserted as
+    # an ABSENCE — a definition that keeps the words of an act it no longer
+    # performs is an instruction to perform it.
+    with open(os.path.join(ROOT, "agents", "framer.md"), encoding="utf-8") as f:
+        framer = f.read()
+    assert "in one batch" in framer, (
+        "the framer's own interactive phase no longer says the questions are "
+        "collected in one batch, which is the phase's whole reason"
+    )
     with open(os.path.join(ROOT, "agents", "smith.md"), encoding="utf-8") as f:
-        assert "one batch" in f.read(), "the design gate is where they get asked"
+        smith = f.read()
+    assert "in one batch" not in smith, (
+        "the question batch is back in `agents/smith.md`, whose phase 2 is "
+        "the caller's spawn and asks nobody anything"
+    )
 
 
 def test_the_cycle_is_bounded_and_ends_at_a_pull_request():
@@ -949,7 +966,11 @@ def test_the_smith_says_whether_the_frame_holds_before_building_to_it():
         "nowhere, which is exactly what a written instruction is for"
     )
     start = smith.index("1. **Requirements**")
-    requirements = smith[start : smith.index("2. **Design gate**")]
+    # Bounded by the NEXT phase, found by its number rather than by its
+    # title. Phase 2 stopped being the design gate when the act moved
+    # (#419), and a slice keyed on the old title raises rather than
+    # reporting — which is the one failure shape a reader cannot read.
+    requirements = smith[start : smith.index("2. **")]
     assert holds in requirements, (
         "the drawing-holds check moved out of the Requirements phase. Below "
         "the design gate it fires after the question batch, so a frame that "
