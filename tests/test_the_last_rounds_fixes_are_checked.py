@@ -138,6 +138,7 @@ def record(sha, checked_by, verdict="fixed", finding="🟢 1", passed=True):
     # The fix-surface rows are `none` so a failure can only come from the row
     # each case is about; `STRICT_ITEM` began after `SURFACE_FROM`, so leaving
     # them out would fail every record for a rule this file is not pinning.
+    who += "| Fix range | none |\n"
     who += "| Contract changes | none |\n| New units | none |\n"
     # The floor row goes in for the same reason and against the same cutoff:
     # `STRICT_ITEM` began after `chain_check.FLOOR_FROM`, so a record without

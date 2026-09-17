@@ -1130,7 +1130,7 @@ def test_the_questions_are_collected_before_the_work_not_during_it():
         with open(path, encoding="utf-8") as f:
             body = f.read()
         relative = os.path.relpath(path, ROOT)
-        read.append((relative, len(body)))
+        read.append((relative, len(body.encode("utf-8"))))
         for phrase, window, named in batch_instructions(body):
             raise AssertionError(
                 f"{relative} tells an agent to collect {phrase} something a "
@@ -1144,12 +1144,19 @@ def test_the_questions_are_collected_before_the_work_not_during_it():
     assert [name for name, _ in read] == [
         os.path.relpath(p, ROOT) for p in definitions
     ], f"the sweep did not walk every definition the glob found: {read}"
-    # 1000 bytes is far under the smallest definition and far over a
-    # truncation. What it pins is that each file arrived WHOLE, which is the
-    # half `>= 3` says nothing about.
-    assert all(size > 1000 for _, size in read), (
-        f"the sweep read a definition it did not read in full: {read}"
-    )
+    # The file's OWN size, not a floor. A floor pins that the read was not
+    # tiny, which is a different claim: #426 measured `f.read(2000)` green
+    # while every one of the five definitions was truncated, because the
+    # smallest -- `agents/scribe.md`, 3764 bytes -- is far above the floor.
+    # A number below every real file's size is silent for every truncation
+    # above it, and no bigger number closes that: it moves the silent range.
+    # So the comparison has no number in it to be wrong. Byte length on both
+    # sides, so it survives the emoji and em-dashes these files carry, and
+    # nothing here asserts a size literal -- a case that reddens when somebody
+    # rewords a definition is a case people delete.
+    assert all(
+        size == os.path.getsize(os.path.join(ROOT, name)) for name, size in read
+    ), f"the sweep read a definition it did not read in full: {read}"
 
 
 def test_the_cycle_is_bounded_and_ends_at_a_pull_request():

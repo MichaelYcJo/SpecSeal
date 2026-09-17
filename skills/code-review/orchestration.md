@@ -40,10 +40,18 @@ options exist.
 handover carries `| # | Verdict | Commit or grounds |`, one row per open
 finding, the verdict `fixed`, `answered` or `deferred <home>`; you run
 `round-record close --item <dir> --round N --fixes <file> --range <a>..<b>`
-and the record's verdict cells, `Contract changes` and `New units` are written
-from that table and the fix range. The pass writes no `phases/phase-N.md` and
-no `plan.md` row — `agents/smith.md` owns that rule, and this sentence is the
-link to it.
+and the record's verdict cells, `Fix range`, `Contract changes` and
+`New units` are written from that table and the fix range. The pass writes no
+`phases/phase-N.md` and no `plan.md` row — `agents/smith.md` owns that rule,
+and this sentence is the link to it.
+
+**Both ends of `--range` are commits, and `HEAD` is refused (#344).** `HEAD`,
+`@`, a branch and a tag all resolve today and name something else tomorrow, so
+a record stating one says a different set of commits every time it is read —
+three records of one work item did exactly that. Write the commit: `git
+rev-parse HEAD` is the value, and `close` says so with the value filled in
+when it refuses. The row it then writes is what `chain_check` re-reads against
+the tree at the pull request.
 
 **`round-record` is the generator, and this is where it lives.** The command
 is the wrapper in `bin/`, on the Bash tool's PATH while the plugin is enabled;

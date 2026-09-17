@@ -330,6 +330,10 @@ VERDICTS = "## Verdicts"
 # #106 found the exclusion list holding this column with nothing pinning it,
 # because there was no constant to derive it from.
 VERDICT_COLUMN = "Verdict"
+# The column beside it: the reviewer's reason a finding was opened, joined by
+# `round_record.py close` with what the fix pass did about it. Named here
+# because `doubled_grounds` locates the cell by this header (#427).
+GROUNDS_COLUMN = "Grounds"
 TARGET = "Target SHA"
 # Where a record says it was committed after the fixes it commissioned, and
 # WHY. `written_late` below refuses exactly that record, on the strength of
@@ -391,6 +395,31 @@ CLOSED_WORDS = {
     DEFERRED,
     OUT_OF_SCOPE,
 }
+# The prefix `round_record.py close` writes in front of a `fixed` verdict's
+# `Grounds` cell (#427). It lives here rather than beside the rest of `close`'s
+# vocabulary because two parties now need it: the GENERATOR, which must refuse
+# to write a second one over a cell that already carries one, and this CHECKER,
+# which names a record already carrying two. One spelling, so the writer and
+# the reader cannot drift apart about what a close-prefix looks like.
+#
+# It is `close`'s prefix and nobody else's, which is what the name says. The
+# reviewer's grounds in the same cell are the reviewer's sentence, written by
+# a different author, and `close` joins rather than overwrites for that reason.
+#
+# ONE of the three fix words has a shape a reader can recognise after the
+# fact. `answered` and `deferred` write the author's own words into the cell,
+# so a standing duplicate of either is indistinguishable from prose that
+# repeats itself, and nothing here pretends otherwise: the generator's guard
+# catches all three at the moment of writing, and this pattern is what remains
+# readable once the commit is in.
+CLOSE_PREFIX = "fixed at"
+# Built from the word so there is one spelling of it, the way `DEPTH_RE` is
+# built from `DEPTH_WORD`. Seven to forty hex characters is what `close`
+# resolves a fix commit to and what a person abbreviates it to; the optional
+# backticks are what a hand-repaired cell carries.
+CLOSE_PREFIX_RE = re.compile(
+    r"\b" + CLOSE_PREFIX + r"\s+`?([0-9a-fA-F]{7,40})`?", re.IGNORECASE
+)
 # The closing words that close nothing without a home after them.
 HOME_WORDS = {DEFERRED}
 assert HOME_WORDS <= CLOSED_WORDS, "a home word that is not a closing word"
@@ -495,6 +524,40 @@ CHECKER_RE = re.compile(r"^round-\d+(?:\.md)?$")
 # dash goes the same way so the pair reads as a pair. 0x2014 is EM DASH and
 # 0x2013 is EN DASH.
 SEPARATORS = " " + chr(0x2014) + chr(0x2013) + "-:,"
+# The range the fixes were measured over, as commits somebody can open
+# (#344). The class the field closes: a fix table states its range in prose,
+# in whatever words its author chose, and one of those words is `HEAD` -- which
+# resolves, so the sentence stays readable while meaning a different set of
+# commits every day. `docs/review-chain-spec.md` §*The fix range* names the
+# command that counts the corpus and both tree states it was run at, because a
+# count over prose depends on what counts and a number quoted without its
+# method produced three different answers from three readers.
+# A rule enforced by parsing that is a rule enforced
+# by guessing, so the authoritative statement moves into the record, where the
+# generator that already resolved both ends writes it and this checker re-reads
+# it against the tree.
+#
+# WRITTEN by `round_record.py close` from the `--range` it was given, which now
+# refuses an end that is not a commit somebody can open. READ below by
+# `fix_range`, behind `RANGE_FROM`.
+FIX_RANGE = "Fix range"
+# `<a>..<b>`, then the number of commits between them. Both halves are read:
+# the ends say WHICH commits and the count says how many, and a record whose
+# ends still resolve while its count disagrees is the shape a moving end
+# leaves behind.
+FIX_RANGE_RE = re.compile(
+    r"`?([0-9a-f]{7,40})\s*\.\.\s*([0-9a-f]{7,40})`?[^0-9]*(\d+)\s*commit",
+    re.IGNORECASE,
+)
+# Where the row becomes required, as the unix second in a work item's own
+# directory name. The id of THIS work item, so the first records held to it are
+# the ones written under it. The tenth cutoff of the shape `STRICT_FROM`
+# through `REOPEN_FROM` carry, and the reasoning lives at `STRICT_FROM` rather
+# than being written a tenth time: a merged record has no honest repair -- the
+# range it was measured over is not recoverable from a record that never
+# stated it -- and a check whose first production act is red on history nobody
+# can fix is a check people learn to skip.
+RANGE_FROM = 1789621028
 # The fix surface (issue #57): what this round's fixes changed, with the call
 # sites each change reaches, and what they created. See the module docstring.
 CONTRACT = "Contract changes"
@@ -1352,17 +1415,23 @@ def reachable(root, sha, refs):
 
 
 def verdict_table(reader, lines, rel):
-    """(rows, the Verdict column's index, errors) for `## Verdicts`.
+    """(rows, the Verdict column's index, the header, errors) for `## Verdicts`.
 
     Rows are `(line number, cells already run through `reader.visible`)`, with
     the header and the separator dropped.
 
-    ONE parse, two questions. Which blocking findings are still open was the
-    only one asked of this table until `Fixes checked by` arrived and needed a
-    second — whether anything here closed by writing a fix. A second walk of
-    the same markdown is exactly the split this file spends its docstrings
-    closing everywhere else, so the walk happens here and the questions are
-    asked of what it returns.
+    ONE parse, three questions now. Which blocking findings are still open was
+    the only one asked of this table until `Fixes checked by` arrived and
+    needed a second — whether anything here closed by writing a fix. A second
+    walk of the same markdown is exactly the split this file spends its
+    docstrings closing everywhere else, so the walk happens here and the
+    questions are asked of what it returns.
+
+    The HEADER is returned for the third (#427): a cell is located by the name
+    at the top of its column, and only the walk that already read that row
+    knows it. It comes back case-folded, the way it is compared here, and
+    empty for every early return — a table this could not read has no columns
+    to name.
 
     The verdict table is located by its own heading and read with the shared
     reader, so a 🔴 inside a comment or a fenced block is not a finding.
@@ -1372,6 +1441,7 @@ def verdict_table(reader, lines, rel):
         return (
             [],
             -1,
+            [],
             [
                 (
                     rel,
@@ -1382,7 +1452,12 @@ def verdict_table(reader, lines, rel):
             ],
         )
     if len(starts) > 1:
-        return [], -1, [(rel, starts[1] + 1, f"more than one `{VERDICTS}` section")]
+        return (
+            [],
+            -1,
+            [],
+            [(rel, starts[1] + 1, f"more than one `{VERDICTS}` section")],
+        )
 
     start = starts[0]
     body = []
@@ -1397,6 +1472,7 @@ def verdict_table(reader, lines, rel):
         return (
             [],
             -1,
+            [],
             [
                 (
                     rel,
@@ -1412,6 +1488,7 @@ def verdict_table(reader, lines, rel):
         return (
             [],
             -1,
+            header,
             [
                 (
                     rel,
@@ -1439,7 +1516,7 @@ def verdict_table(reader, lines, rel):
             )
             continue
         seen_rows.append((line_no, seen))
-    return seen_rows, col, errors
+    return seen_rows, col, header, errors
 
 
 def verdict_of(seen, col):
@@ -1518,7 +1595,7 @@ def open_blocking(reader, lines, rel):
     available, and it is the one that would let a row whose verdict the
     vocabulary does not hold stop being refused at all.
     """
-    rows, col, errors = verdict_table(reader, lines, rel)
+    rows, col, _header, errors = verdict_table(reader, lines, rel)
     if col < 0:
         return [], errors
     still_open = [
@@ -1609,10 +1686,239 @@ def closed_with_a_fix(reader, lines, rel):
     error from `open_blocking`, and raising a second one about a cell nobody
     could locate would name a cause that is not the cause.
     """
-    rows, col, _errors = verdict_table(reader, lines, rel)
+    rows, col, _header, _errors = verdict_table(reader, lines, rel)
     if col < 0:
         return False
     return any(verdict_of(seen, col) in FIX_WORDS for _line, seen in rows)
+
+
+def fix_range(reader, root, rel):
+    """(errors, notices) for one record's `Fix range` row, read against git.
+
+    #344's class: a record is written once and the tree keeps moving, and
+    nothing read one against the other. The ledger has `evidence-check` for
+    exactly that job over content anchors; the records were left out of it,
+    and the part of a record that rots fastest is the part that is a claim
+    about COMMITS. The checker that reads such a claim has to be the one
+    already allowed to ask git, which is this one —
+    `skills/evidence-check/scripts/evidence_check.py` states the opposite bar
+    in its own test module, *no fixture here runs git, and no fixture here
+    may*.
+
+    TWO halves are read, because either alone passes the record the other
+    catches. The ENDS say which commits, and `round_record.parse_range`
+    refuses a `HEAD` at either of them, so a row written after this rule is
+    pinned by construction. The COUNT says how many, and it is what catches a
+    row a person wrote or repaired by hand: a range whose ends still resolve
+    while its count disagrees with the tree is what a moving end leaves
+    behind once it has stopped moving.
+
+    **Unresolvable ends are a NOTICE, and that is the squash.** This
+    repository merges a feature branch into its release branch by squashing,
+    which keeps none of the branch's own commits — so a merged record's fix
+    commits are ordinarily invisible, exactly as `resolves_to` says of the
+    reviewed commit. Failing there would fail every record the moment its
+    work shipped, and the record would have done nothing wrong. `Target SHA`
+    has `carried_by_a_pull_head` to fall back on; a range has no equivalent,
+    because a pull head carries the commits and not the arithmetic between
+    them.
+
+    **What this cannot see, written beside it.** A range both of whose ends
+    resolve and whose count is right can still be the wrong range — the
+    fixes may have landed somewhere else entirely. Nothing here compares the
+    range against the fixes; that is `fix_surface`'s measurement and it is
+    taken from this same range, so the two agree by construction rather than
+    by checking each other. What the row closes is narrower and is the thing
+    #344 measured: a range that stops meaning what it said.
+
+    The grandfathering is `item_began` against `RANGE_FROM` and it reaches
+    the ABSENT row alone, the way `fix_surface`'s reaches its own: a row that
+    is present and malformed fails on any record, because a cell nobody can
+    parse is always the author's to fix, where a row that did not exist when
+    the record was written is not.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return [], []
+    rows = table_rows(reader, reader.readable(text))
+    began = item_began(rel)
+    excused = began is None or began < RANGE_FROM
+    bought = (
+        "the range a round's fixes were measured over, as commits somebody "
+        "can open. A fix table states it in prose and `HEAD` is not a "
+        "commit — three records of one work item said a range that meant "
+        "something different by the time anybody read it. Write "
+        "`` `<a>..<b>`, N commits ``, or let `round-record close` write it"
+    )
+
+    cell = field(rows, FIX_RANGE)
+    if cell is None:
+        message = f"no `| {FIX_RANGE} | … |` row: {bought}"
+        if excused:
+            return [], [
+                (
+                    rel,
+                    0,
+                    message + f". Work items begun before {RANGE_FROM} are "
+                    "excused this and print instead — the row did not exist "
+                    "when the record was written, and the range it was "
+                    "measured over is not recoverable from a record that "
+                    "never stated it",
+                )
+            ]
+        return [(rel, 0, message)], []
+
+    value = reader.visible(cell).strip()
+    if not value:
+        return [
+            (
+                rel,
+                0,
+                f"`{FIX_RANGE}` is empty — a row that says nothing answers "
+                f"nothing. Write `` `<a>..<b>`, N commits ``, or `{NONE_WORD}`",
+            )
+        ], []
+    if says_none(value):
+        # A round that commissioned no fixes has no range, and the value
+        # `new` writes before the fixes exist says so in the same words the
+        # two surface rows use. Nothing to read against the tree either way.
+        return [], []
+
+    found = FIX_RANGE_RE.search(value)
+    if found is None:
+        return [
+            (
+                rel,
+                0,
+                f"`{FIX_RANGE}` reads `{value}`, which does not state a range "
+                f"this can read. The shape is `` `<a>..<b>`, N commits `` with "
+                f"both ends written as commits — a branch, a tag, `HEAD` and "
+                f"`@` are names that move, and a range stated in one of them "
+                f"is the defect this row exists to close",
+            )
+        ], []
+
+    a, b, stated = found.group(1), found.group(2), int(found.group(3))
+    full_a, full_b = resolves_to(root, a), resolves_to(root, b)
+    if full_a is None or full_b is None:
+        missing = [end for end, full in ((a, full_a), (b, full_b)) if full is None]
+        return [], [
+            (
+                rel,
+                0,
+                f"`{FIX_RANGE}` names {' and '.join(missing)}, which this "
+                "repository cannot see, so its count is not checked. A "
+                "feature branch squashes into its release branch and the "
+                "squash keeps none of the branch's own commits — this is the "
+                "ordinary state of a merged record and not a fault in it",
+            )
+        ]
+
+    counted = git(root, "rev-list", "--count", f"{full_a}..{full_b}")
+    if counted is None or not counted.strip().isdigit():
+        return [], [
+            (
+                rel,
+                0,
+                f"`{FIX_RANGE}` names two commits this repository carries and "
+                f"`git rev-list --count {a}..{b}` did not answer, so the "
+                "count is not checked",
+            )
+        ]
+    actual = int(counted.strip())
+    if actual != stated:
+        return [
+            (
+                rel,
+                0,
+                f"`{FIX_RANGE}` says {stated} commit"
+                f"{'' if stated == 1 else 's'} between `{a}` and `{b}`, and "
+                f"the tree holds {actual}. The record and the repository "
+                f"disagree about what this round's fixes were measured over, "
+                f"and the record is the one that cannot be re-derived. Read "
+                f"`git log --oneline {a}..{b}`, then correct the row to the "
+                f"range the fixes are actually in — and if the ends are what "
+                f"moved, they are what to correct rather than the number",
+            )
+        ], []
+    return [], []
+
+
+def doubled_grounds(reader, root, rel):
+    """(errors, notices) — a `Grounds` cell carrying `close`'s prefix twice.
+
+    The read half of #427. `round_record.py close` now refuses to write a
+    second prefix over a cell that already carries one, and that closes the
+    instance: it stops the next one. It does not make the ones already
+    committed readable, and the ticket is explicit that a repair which only
+    stops the second write has closed the instance and not the class. The
+    duplication is INVISIBLE — the record still parses, every other arm here
+    is silent, and the only way the original was caught was reading a
+    committed file against two earlier commits.
+
+    **No cutoff, and that is a decision rather than an omission.** Every other
+    rule this module added came with a `*_FROM` second, because a record
+    written before the rule has no honest repair and a check whose first act
+    is red on history people cannot fix is a check people learn to skip. This
+    one is not that shape. A doubled cell is not an absent row: it is a
+    present cell that says a thing twice, the repair is restoring it to what
+    the round's report holds, and that repair is available to whoever wrote
+    the record whenever it was written. `fix_surface` already draws this line
+    in the same words — the grandfathering reaches the ABSENT row, and a row
+    present and malformed fails on any record.
+
+    **It reports zero on this repository today, and that is disclosed rather
+    than sold as a catch.** Measured 2026-09-17 over `seal/specs/*/rounds/
+    round-N.md`: 229 files, 227 with a readable verdict table, 3331 `Grounds`
+    cells read, and **zero** carrying two prefixes. The one work item whose
+    record was corrupted this way had it repaired by hand before this arm
+    existed. So a green run here says nothing was found, not that this found
+    something, and the case that gives it a subject plants one.
+
+    **One of the three fix words has a shape to find, and this says so rather
+    than implying three.** `close` writes `fixed at <sha>` for `fixed` and the
+    author's own words for `answered` and `deferred`, so a standing duplicate
+    of either of those is indistinguishable from prose that repeats itself.
+    The generator's guard covers all three at the moment of writing, where
+    only this one survives into a committed record for a reader to find. What
+    that costs is stated: a record whose `answered` grounds were doubled
+    before the guard landed stays unreadable, and nothing here will name it.
+
+    An unreadable record returns nothing, for the reason `fix_surface` gives:
+    `checked_by` already reports that state, and a second error naming a
+    different cause would name a cause that is not the cause.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return [], []
+    lines = reader.readable(text)
+    rows, col, header, _errors = verdict_table(reader, lines, rel)
+    if col < 0 or GROUNDS_COLUMN.casefold() not in header:
+        return [], []
+    grounds = header.index(GROUNDS_COLUMN.casefold())
+    errors = []
+    for line_no, seen in rows:
+        if len(seen) <= grounds:
+            continue
+        found = CLOSE_PREFIX_RE.findall(seen[grounds])
+        if len(found) < 2:
+            continue
+        what = seen[0].strip() or f"the row at line {line_no}"
+        errors.append(
+            (
+                rel,
+                line_no,
+                f"{what}'s `{GROUNDS_COLUMN}` cell carries `{CLOSE_PREFIX}` "
+                f"{len(found)} times — {', '.join(found)} — so this finding "
+                f"was closed more than once and each close wrote its grounds "
+                f"in front of the last. The cell reads as one sentence and is "
+                f"two, which is why nothing has said so until now. Restore it "
+                f"to the reviewer's grounds from this round's report, then "
+                f"re-run `round-record close` with the fix table, which now "
+                f"refuses to write a second prefix over the first",
+            )
+        )
+    return errors, []
 
 
 def resolves_to(root, sha):
@@ -2573,7 +2879,7 @@ def commissioned_fixes(reader, root, rel):
     text = read_record(root, rel)
     if text is None:
         return []
-    rows, col, _errors = verdict_table(reader, reader.readable(text), rel)
+    rows, col, _header, _errors = verdict_table(reader, reader.readable(text), rel)
     if col < 0:
         return []
     found = []
@@ -3957,6 +4263,24 @@ def main(argv=None):
             ran_errors, ran_notices = ran_by(reader, root, record)
             errors.extend(ran_errors)
             notices.extend(ran_notices)
+            # EVERY record too. WHAT a round's fixes were measured over is a
+            # fact about that round, and the row is read against git here
+            # because git is what it is a claim about (#344). It IS
+            # grandfathered, behind `RANGE_FROM` -- which is the opposite of
+            # the arm below, so the two comments are kept apart on purpose
+            # (round 1's ⬜ 4). Whether an arm has a cutoff is the load-bearing
+            # fact about it, and a comment sitting above the wrong call says
+            # the load-bearing thing about the wrong one.
+            range_errors, range_notices = fix_range(reader, root, record)
+            errors.extend(range_errors)
+            notices.extend(range_notices)
+            # EVERY record too. A `Grounds` cell closed twice is a fact about
+            # the round whose record carries it, and it has NO cutoff -- the
+            # function's own docstring holds why, and why a green run here is
+            # a disclosure rather than a catch.
+            double_errors, double_notices = doubled_grounds(reader, root, record)
+            errors.extend(double_errors)
+            notices.extend(double_notices)
             # EVERY record too, and for the reason the other four are: WHEN a
             # record was written is a fact about that round. The last one is
             # the least likely to be late, since nothing follows it to
