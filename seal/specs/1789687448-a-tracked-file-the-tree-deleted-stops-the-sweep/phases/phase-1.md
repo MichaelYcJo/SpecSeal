@@ -32,14 +32,23 @@ which is the phase that has to decline rather than judge.
 **A can-fail case for this sweep cannot use either designated fixture value,
 and that is not a loophole in `CLAUDE.md`'s rule.** The case has to plant a
 token the sweep REFUSES, and `example.com` — every spelling of it, subdomains
-included — is what the sweep allows. What it plants instead is
-`fixture.example.net`: RFC 2606 reserves `example.net` in the same sentence
-as `example.com`, so it is a domain nobody can ever register, and it is not
-in `ALLOWED_DOMAINS`. The user-path case takes the same shape with
-`/Users/someone/` against the allowed `/Users/x/`. Both literals sit in
-`tests/test_no_real_identifiers.py`, which the sweep leaves out of its own
-corpus by the line three functions above them, so neither is a real
-identifier and neither is swept.
+included — is what the sweep allows. What it plants instead is a subdomain of
+the sibling name RFC 2606 reserves in the same sentence as `example.com`: a
+domain nobody can ever register, and not in `ALLOWED_DOMAINS`. The user-path
+case takes the same shape, a second placeholder user against the allowed
+`/Users/x/`. The two constants are `REFUSED_DOMAIN` and `REFUSED_USER_PATH`
+in `tests/test_no_real_identifiers.py`, which the sweep leaves out of its own
+corpus three functions above them, so neither is a real identifier and
+neither is swept.
+
+**This record is inside that corpus, and quoting the two constants here
+turned the module red.** The sweep reads every tracked text file but its own
+module, `seal/specs/` included, so the first draft of the paragraph above
+carried both literals and both cases named it at `phases/phase-1.md`. The
+allowlist was not touched: the paragraph names the constants instead. Every
+later record of this work item — `changelog.md`, `overview.md`, the ledger
+fragment — is under the same rule, and the only file that may spell them is
+the module that defines them.
 
 **The formatter deletes an import the same edit has not reached a user for
 yet.** Adding `from conftest import build_tracked_tree, on_disk` in one edit
