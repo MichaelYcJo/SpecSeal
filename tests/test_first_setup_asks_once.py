@@ -219,8 +219,14 @@ def test_a_candidate_carrying_a_pipe_is_escaped_where_candidates_are_derived():
         "the sentence #415 removed survived beside its replacement"
     )
     assert "parses as no row" in warning
-    assert "every row written below it in the file is lost with it" in warning, (
+    assert "every row written below it is lost with it" in warning, (
         "the warning states the row's own cost and not the file's"
+    )
+    assert "where a row above it already parsed" in warning, (
+        "the cost is stated flat. It falls on the rows below only once a row "
+        "has parsed above the bare one — the reader breaks on a line it "
+        "cannot parse only after it has found a row, so a bare pipe written "
+        "as the table's FIRST row loses only itself (#415 round 1 🟡 1)"
     )
 
 

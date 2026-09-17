@@ -154,8 +154,8 @@ shared mode without a question goes looking in a README for the way out.
    rather than dropping the pipe or moving to the next candidate: the cell is
    markdown's, and the reader reduces `\|` to a plain pipe before any shell
    sees it. Say why, because a bare one still parses as no row, the gate then
-   quotes that line back instead of reporting the row as absent, and every row
-   written below it in the file is lost with it.
+   quotes that line back instead of reporting the row as absent, and — where
+   a row above it already parsed — every row written below it is lost with it.
    `templates/config.md` §*What is refused, and what stays allowed* carries
    the measurement.
 

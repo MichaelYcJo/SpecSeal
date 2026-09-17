@@ -949,6 +949,90 @@ def test_an_unescaped_pipe_is_named_as_a_line_that_will_not_parse(repo, tmp_path
     )
 
 
+def refusal_over(tmp_path, name, table):
+    """`missing_row` over a config written literally, with no helper between
+    the case and the bytes. Every fixture in this region is malformed on
+    purpose, so a builder that assembled a well-formed table and checked it
+    read back would swallow the subject (`plan.md` §*Every fixture here is
+    malformed on purpose*)."""
+    home = tmp_path / name / "seal"
+    home.mkdir(parents=True)
+    (home / "config.md").write_text(table, encoding="utf-8")
+    return gate_module().missing_row(str(home))
+
+
+LOST = "every row written BELOW that line is lost"
+KEPT = "the stop rule needs a row before it can stop"
+
+
+def test_what_a_refused_line_cost_is_read_off_the_file_and_not_stated_flat(
+    tmp_path,
+):
+    """Round 1's 🟡 1 of #415. The reader breaks on a line it cannot parse
+    only once it has FOUND a row, so the same piped line costs the rows below
+    it or costs only itself depending on whether anything parsed above it.
+    The branch measured that and wrote it into five records; the sentence a
+    person actually reads said the rows were lost either way, and a person
+    whose rows arrived was sent to reformat them — this work item's own
+    defect, one file over.
+
+    **Both tables are in one case on purpose.** A case that asserted only
+    that the conditional sentence exists would pass just as well with the
+    chooser wired to the wrong answer, and wiring it to one answer is exactly
+    what the old code did. The pair is what makes the CONDITION the subject:
+    it is red when the cost is stated flat, and red again when the two
+    sentences are swapped.
+    """
+    below_it = (
+        "| Item | Value |\n|---|---|\n"
+        "| Record language | English |\n"
+        f"| {ROW} | bin/test -q | tee out.txt |\n"
+        "| Mode | shared |\n"
+    )
+    first_row = (
+        "| Item | Value |\n|---|---|\n"
+        f"| {ROW} | bin/test -q | tee out.txt |\n"
+        "| Mode | shared |\n"
+        "| Record language | English |\n"
+    )
+    took = refusal_over(tmp_path, "took", below_it)
+    kept = refusal_over(tmp_path, "kept", first_row)
+
+    assert "does not parse as a row" in took, took
+    assert LOST in took, (
+        "a row parsed above the piped line, so the reader stopped there and "
+        f"the rows below it did not arrive — the refusal does not say so:\n{took}"
+    )
+    assert KEPT not in took, took
+
+    assert "does not parse as a row" in kept, kept
+    assert LOST not in kept, (
+        "the piped line is this table's FIRST row, so nothing had parsed "
+        "above it, the reader stepped past it, and `Mode` and `Record "
+        f"language` both arrived. The refusal says they were lost:\n{kept}"
+    )
+    assert KEPT in kept, (
+        f"the refusal drops the cost sentence instead of correcting it:\n{kept}"
+    )
+
+
+def test_the_rows_below_a_first_row_refusal_really_do_arrive(tmp_path):
+    """The other half of the case above, and the reason it may say what it
+    says. The sentence is only true because the reader returns those rows —
+    asserted here against `config_rows` itself, so that a change to the stop
+    rule turns the claim red rather than leaving a refusal asserting a
+    behaviour the reader no longer has."""
+    module = gate_module()
+    config = module.load(module.CONFIG_READER, "specseal_config_for_this_case")
+    rows = config.config_rows(
+        "| Item | Value |\n|---|---|\n"
+        f"| {ROW} | bin/test -q | tee out.txt |\n"
+        "| Mode | shared |\n"
+        "| Record language | English |\n"
+    )
+    assert rows == [("Mode", "shared"), ("Record language", "English")], rows
+
+
 def test_a_refused_row_of_some_other_item_is_not_read_as_this_one(tmp_path):
     """The branch is about the `Broad gate` row and reads the refused line's
     first cell to say so. A file whose unparseable line names a different

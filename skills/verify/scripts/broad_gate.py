@@ -249,6 +249,26 @@ def broad_command(home):
 FIRST_CELL = re.compile(r"^\|([^|]*)\|")
 
 
+def refusal(home):
+    """(line, ended, below) for the root's config — the one reader's answer
+    about the first line it will not take as a row, passed through.
+
+    Every way of not having one lands on `(None, False, [])`: no file, a file
+    that will not read, a table with no refused line at all.
+    """
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    text = config_text(home)
+    if text is None:
+        return None, False, []
+    return config.refusal(text)
+
+
+def names_this_row(line):
+    """Whether a refused line's first cell is this gate's row."""
+    first = FIRST_CELL.match(line.strip())
+    return bool(first and first.group(1).strip() == ROW)
+
+
 def refused_broad_row(home):
     """The `Broad gate` row a person wrote that the table reader will not
     take as a row — as written, with its own indentation — or None.
@@ -258,15 +278,8 @@ def refused_broad_row(home):
     about gets the second sentence, because only this row's absence is what
     the gate is refusing over.
     """
-    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
-    text = config_text(home)
-    if text is None:
-        return None
-    line = config.refused_row(text)
-    if line is None:
-        return None
-    first = FIRST_CELL.match(line.strip())
-    return line if first and first.group(1).strip() == ROW else None
+    line, _ended, _below = refusal(home)
+    return line if line is not None and names_this_row(line) else None
 
 
 def missing_row(home):
@@ -281,6 +294,15 @@ def missing_row(home):
     the line sends the reader back to the file to guess which one it meant
     (`questions.md` W1).
 
+    **What that line cost is a condition, and the sentence says which way it
+    fell.** The reader breaks on a line it cannot parse only once it has
+    found a row, so a refused line written as the table's FIRST row loses
+    only itself and every row under it still arrives. Telling that person
+    their rows were lost sends them to reformat rows that were read
+    correctly, which is this work item's own defect one file over — so the
+    cost sentence is chosen from `refusal`'s `ended`, never stated flat
+    (#415 round 1 🟡 1).
+
     Where there is no such line, the message is the absent-row refusal
     unchanged. It used to say *write the repository's own broad command into
     it* and print the row to type. The only reader standing here is a
@@ -290,16 +312,22 @@ def missing_row(home):
     the owner afterwards. The message now says whose the row is and where
     they answer it.
     """
-    refused = refused_broad_row(home)
-    if refused is not None:
+    line, ended, _below = refusal(home)
+    if line is not None and names_this_row(line):
+        cost = (
+            " — and every row written BELOW that line is lost with it, each "
+            "falling back to its default with nothing said anywhere"
+            if ended
+            else ". The rows below it were read: nothing had parsed above "
+            "this line, so the table had not begun and the stop rule needs a "
+            "row before it can stop"
+        )
         return (
             f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` line "
             "and this is it, written so that it does not parse as a row of "
             "that table:\n"
-            f"    {refused.strip()}\n"
-            "Nothing read it, so there is no command to seal over — and "
-            "every row written BELOW that line is lost with it, each falling "
-            "back to its default with nothing said anywhere.\n"
+            f"    {line.strip()}\n"
+            f"Nothing read it, so there is no command to seal over{cost}.\n"
             "A cell of that table ends at a `|`. A value that needs one is "
             "written with markdown's own escape, `\\|`, which the reader "
             "reduces to a plain pipe before any shell sees it — so "

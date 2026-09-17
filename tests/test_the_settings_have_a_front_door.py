@@ -154,6 +154,12 @@ def test_the_skill_says_how_a_value_carrying_a_pipe_is_written():
     assert "parses as no row" in text, (
         "the escape is given without what a bare pipe still costs"
     )
+    assert "Where a row above it already parsed" in text, (
+        "the cost of a bare pipe is stated flat. It falls on the rows below "
+        "only once a row has parsed above it: the reader breaks on a line it "
+        "cannot parse only after it has found one, so a bare pipe written as "
+        "the table's FIRST row loses only itself (#415 round 1 🟡 1)"
+    )
 
 
 def test_the_skill_refuses_to_grow_a_schema():
