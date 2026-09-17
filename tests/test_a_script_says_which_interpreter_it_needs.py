@@ -32,7 +32,7 @@ import subprocess
 import sys
 
 import pytest
-from conftest import build_tracked_tree, on_disk
+from conftest import build_tracked_tree, decline_if_shrunken, on_disk
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPTS = os.path.join(ROOT, "skills", "code-review", "scripts")
@@ -519,6 +519,26 @@ def above_the_floor(root=ROOT):
     return found, missing
 
 
+DECLINES_CLASSIFIED = "the liveness half of CLASSIFIED"
+
+
+def classifications_of_nothing(found, missing):
+    """The classified paths that no longer carry the construct they were
+    classified for, or `pytest.skip` when a skipped file could be the reason.
+
+    To this half a file the working tree deleted and a construct somebody
+    removed are the same evidence, so a bare skip buys a false alarm on an
+    ordinary mid-edit tree. The decline is conditional on there being a
+    finding at all: a skip can only make a classification LOOK empty, never
+    full, so a run that finds every construct still in place has reached the
+    right verdict whatever it skipped.
+    """
+    gone = sorted(set(CLASSIFIED) - found)
+    if gone:
+        decline_if_shrunken(missing, DECLINES_CLASSIFIED)
+    return gone
+
+
 def test_no_shipped_script_needs_more_than_the_floor_without_saying_so():
     """The class, re-enumerated by the suite instead of by whoever remembers.
 
@@ -527,7 +547,7 @@ def test_no_shipped_script_needs_more_than_the_floor_without_saying_so():
     carried one, and five of them are somebody else's branch or somebody
     else's release. This is what keeps a seventh from arriving as a traceback
     on a stranger's mac."""
-    found, _ = above_the_floor()
+    found, missing = above_the_floor()
     new = sorted(found - set(CLASSIFIED))
     assert not new, (
         f"{new} use a construct newer than python {generator().FLOOR_TEXT} and "
@@ -536,7 +556,7 @@ def test_no_shipped_script_needs_more_than_the_floor_without_saying_so():
         "Guard it the way skills/code-review/scripts/round_record.py is "
         "guarded, or add it to CLASSIFIED with where it was deferred to"
     )
-    gone = sorted(set(CLASSIFIED) - found)
+    gone = classifications_of_nothing(found, missing)
     assert not gone, (
         f"{gone} no longer carry the construct they were classified for; "
         "drop the row rather than leaving a classification of nothing"
@@ -565,3 +585,41 @@ def test_the_enumeration_survives_a_tracked_file_the_tree_deleted(tmp_path):
     assert files == ["hooks/live.py"], files
     found, missing = above_the_floor(root)
     assert found == {"hooks/live.py"} and missing == ["hooks/folded.py"]
+
+
+def test_a_skipped_file_does_not_read_as_a_lost_classification(tmp_path):
+    """The inverse direction, one module over from the KEEP allowlist.
+
+    A `CLASSIFIED` path the working tree deleted would otherwise be reported
+    as a classification of nothing, and the instruction that comes with that
+    report is to DROP the row — which is a live deferral deleted on evidence
+    about a working tree.
+    """
+    classified = sorted(CLASSIFIED)[0]
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {classified: "zip(a, b, strict=True)\n", "hooks/other.py": "nothing\n"},
+        deleted=[classified],
+    )
+    found, missing = above_the_floor(root)
+    assert missing == [classified], missing
+    with pytest.raises(pytest.skip.Exception) as declined:
+        classifications_of_nothing(found, missing)
+    reason = str(declined.value)
+    assert classified in reason, reason
+    assert DECLINES_CLASSIFIED in reason, reason
+    assert "not judging" in reason, reason
+
+
+def test_a_present_classified_file_is_still_judged(tmp_path):
+    """The decline is conditional on a finding, so a tree that is merely
+    mid-edit does not turn this half off."""
+    classified = sorted(CLASSIFIED)[0]
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {classified: "zip(a, b, strict=True)\n", "hooks/folded.py": "nothing\n"},
+        deleted=["hooks/folded.py"],
+    )
+    found, missing = above_the_floor(root)
+    assert missing == ["hooks/folded.py"], missing
+    assert set(CLASSIFIED) - found == set(sorted(CLASSIFIED)[1:])
