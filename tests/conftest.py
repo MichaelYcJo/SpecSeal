@@ -29,6 +29,89 @@ def _build_repo(d):
     git("branch", "feature/x")
 
 
+def build_tracked_tree(d, files, deleted=()):
+    """A repository at `d` holding `files`, with `deleted` removed from disk.
+
+    `files` is `{relative path: text}`; every one of them is committed, and
+    each entry of `deleted` is then unlinked WITHOUT staging the removal, so
+    it stays in the index and leaves the working tree. That is the state the
+    documented release sequence produces at step 3 of
+    `docs/release-checklist.md`, and the state `on_disk` below is about.
+
+    A real `git init` rather than a directory of files, for the reason
+    `tests/test_the_pull_request_language_is_the_repositorys.py#test_the_templates_check_reads_prose_only_and_descends`
+    already records: a fixture git never sees would report nothing and the
+    case would pass having exercised nothing. `GIT_TEMPLATE_DIR` is emptied
+    above, so the `git init` costs almost nothing.
+    """
+    d = pathlib.Path(d)
+    d.mkdir(parents=True, exist_ok=True)
+    git = lambda *a: subprocess.run(
+        ["git", "-C", str(d), *a],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    git("init", "-q")
+    git("config", "user.email", "t@t")
+    git("config", "user.name", "t")
+    for rel, text in files.items():
+        p = d / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text, encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-qm", "base")
+    for rel in deleted:
+        (d / rel).unlink()
+    return d
+
+
+def on_disk(root, listed):
+    """Split a git path listing into what is on disk and what is not.
+
+    `git ls-files` lists the INDEX, so a tracked file the working tree has
+    deleted is on the list with nothing behind it. A walk that opens every
+    listed path ends there with a `FileNotFoundError`, no file after it is
+    read, and the rule the walk holds reports nothing at all (#432, #282).
+
+    **The missing half is returned rather than dropped.** A sweep that judges
+    what it finds is strictly better off for the skip -- on this tree it used
+    to report nothing about any file. A case that reads the corpus to prove an
+    entry is still ALIVE is not: to it a skipped file and a deleted entry are
+    the same evidence, so a silent skip buys it a false alarm. Those callers
+    hand the missing list to `decline_if_shrunken`; a positive sweep judges
+    what remains and ignores it.
+    """
+    present, missing = [], []
+    for rel in listed:
+        (present if os.path.isfile(os.path.join(root, rel)) else missing).append(rel)
+    return present, missing
+
+
+def shrunken_corpus(missing, what):
+    """The reason a case gives when its verdict needs the whole corpus.
+
+    Every path by name rather than a count. A claim removed from a corpus
+    without a word is the direction `seal/follow-up.md`'s first row calls the
+    one a checker of claims must not fail in, and a bare number is that
+    silence with a digit in front of it -- the reader cannot tell which entry
+    went unjudged, which is the one thing they need in order to judge it by
+    hand.
+    """
+    return (
+        f"{len(missing)} tracked path(s) are listed by git and not on disk, so "
+        f"{what} cannot tell a file this run skipped from an entry that is "
+        "really gone, and is not judging. Missing: " + ", ".join(sorted(missing))
+    )
+
+
+def decline_if_shrunken(missing, what):
+    """`pytest.skip` with `shrunken_corpus`'s reason when anything is missing."""
+    if missing:
+        pytest.skip(shrunken_corpus(missing, what))
+
+
 HOOKS = os.path.join(os.path.dirname(__file__), "..", "hooks")
 
 # Default-locale determinism: the suite owns its locale. A plain setdefault
