@@ -49,6 +49,26 @@ undeclared and the gate still simply asks the mode question again. That is the
 cost of keeping a `PreToolUse` hook silent, and the alternative — a hook that
 refuses wrongly — stops a session with nobody able to get past it.
 
+**The second `Mode` row is closed for the escaped spelling and not for the
+bare one**, and round 1 🟡 4 is what put this sentence here rather than one
+that reads as if the whole thing were closed. Answering the mode question over
+a config whose `Broad gate` row carries a BARE pipe still leaves the file two
+`Mode` rows deep: the writer stops where the reader stops, and the reader
+still stops at a bare pipe. Executed 2026-09-17; a case now pins it, so the
+day the bare spelling is closed this record is what says so.
+
+**A `seal/config.md` already two `Mode` rows deep is repaired by nothing, and
+that is the repository owner's to decide.** Executed 2026-09-17: `seal mode
+local` over such a file sets the first row to `local` and leaves the second
+reading `shared`, so the file states two modes and every reader takes the
+first. `skills/implement/scripts/seal.py#table_span` says as much in its own
+comment and no command in this plugin brings the file back into agreement;
+this branch adds none, because writing one is a repair to the WRITER and the
+work item's scope is the reader. It is recorded here rather than under §*Not
+verified*, which is for what nobody ran — this was run — and rather than in
+`seal/follow-up.md`, whose own rule sends anything tied to a coordinate to a
+`# RIDER:` at the line instead.
+
 **An unescaped pipe is still not a row.** Accepting one needs a greedy last
 cell, whose failure scenario is in `plan.md`.
 

@@ -326,6 +326,61 @@ def test_seal_mode_writes_one_row_where_the_mode_row_sits_below_a_piped_row(
     )
 
 
+BARE_TABLE = PIPED_TABLE.replace("\\|", "|")
+
+
+def test_seal_mode_still_writes_a_second_mode_row_for_a_bare_pipe(config, tmp_path):
+    """Round 1's 🟡 4 of #415 — the limitation, pinned rather than described.
+
+    Phase 1 closed the duplication for the ESCAPED spelling. Written bare the
+    line is still not a row, so the reader still stops above the person's
+    `Mode` row, the writer stops where the reader stops, and the file comes
+    back two rows deep. Three records read as if the whole thing were closed;
+    they say this now, and this case is what keeps the sentence and the tree
+    in step — the day the bare spelling is closed, this goes red and the
+    records are found by whoever makes it go red.
+
+    **And nothing repairs a file already two rows deep.** The second write
+    below sets the FIRST row and leaves the person's own, so the file states
+    two modes and every reader takes the first. `table_span`'s own comment
+    says no command brings such a file back into agreement; this asserts it
+    rather than trusting the comment.
+    """
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "skills", "implement", "scripts", "seal.py")
+    spec = importlib.util.spec_from_file_location("specseal_seal_for_415_bare", path)
+    seal = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(seal)
+
+    home = tmp_path / "seal"
+    home.mkdir()
+    write_config(home, BARE_TABLE)
+    assert config.declared_mode(str(home)) == ("none", ""), (
+        "the bare pipe is expected to hide the `Mode` row below it; if this "
+        "row now reads, the limitation is gone and the records that disclose "
+        "it are what has to change with this case"
+    )
+    assert seal.write_row(str(home), "shared") == ""
+    written = (home / "config.md").read_text(encoding="utf-8")
+    assert written.count("| Mode |") == 2, (
+        f"the bare spelling no longer duplicates:\n{written}"
+    )
+
+    assert seal.write_row(str(home), "local") == ""
+    again = (home / "config.md").read_text(encoding="utf-8")
+    assert again.count("| Mode |") == 2, (
+        f"a second run changed how many rows the file has:\n{again}"
+    )
+    assert [value for item, value in config.config_rows(again) if item == "Mode"] == [
+        "local"
+    ], "the reader takes the first row, which is the one the writer just set"
+    assert "| Mode | shared |" in again, (
+        "the person's own row below the bare pipe is still there saying "
+        "something else — a file two rows deep is repaired by nothing, and "
+        "`overview.md` §*Not done* is where that is recorded"
+    )
+
+
 def test_a_line_that_will_not_parse_is_named_and_the_hook_still_says_nothing(
     config, repo
 ):

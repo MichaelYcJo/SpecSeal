@@ -32,6 +32,13 @@
     leaving the file two rows deep, which the writer's own comment says no
     command brings back into agreement. Measured, and now pinned.
 
+    **This is closed for the escaped spelling only.** Written with a bare
+    pipe the line is still not a row, so the reader still stops above it and
+    `seal mode` still writes a second `Mode` row. And a file that is already
+    two rows deep is repaired by nothing: the next `seal mode` sets the first
+    row and leaves the second alone, so the file then says two different
+    things and the tools read the first. Fixing it is an edit by hand.
+
   - **A line that will not parse is quoted back instead of being reported
     absent.** `broad-gate` used to say *has no `Broad gate` row* about a row
     sitting in front of the reader — a true sentence about the wrong cause.
@@ -51,6 +58,7 @@
   escape still is not a row, and what changes for that person is the message
   rather than the outcome. A `Mode` row hidden below an unparseable line is
   still invisible to the mode gate, which still simply asks the question
-  again. And the cost falls on the rows below a line that does not parse only
-  when a row above it already parsed — the stop rule needs a row before it
-  can stop.
+  again — and answering it writes the second `Mode` row described above,
+  because the writer stops where the reader stops. And the cost falls on the
+  rows below a line that does not parse only when a row above it already
+  parsed — the stop rule needs a row before it can stop.

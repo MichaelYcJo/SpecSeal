@@ -176,7 +176,13 @@ Stated here so nobody reads the change as wider than it is.
 - **A pipe written without the escape still is not a row.** What changes for
   that person is the message, not the outcome. The naive spelling — the one
   somebody typing *one shell command line* reaches for first — still fails,
-  and now says so.
+  and now says so. **`seal mode` still writes a second `Mode` row for that
+  spelling**, because the writer stops where the reader stops: phase 1 closes
+  the duplication for the escaped spelling alone. And a file already two rows
+  deep is repaired by nothing — the next `seal mode` sets the first row and
+  leaves the second, so the file states two modes and every reader takes the
+  first. Both measured; `skills/implement/scripts/seal.py#table_span` says
+  the second in its own comment.
 - **One shape that parsed before this change no longer does.** A backslash
   standing immediately before a cell-ending pipe used to be a plain character
   followed by the delimiter, and it is now one escaped pipe — so the line has
