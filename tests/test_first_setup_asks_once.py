@@ -196,19 +196,37 @@ def test_the_question_proposes_candidates_read_off_the_repository():
     )
 
 
-def test_a_candidate_carrying_a_pipe_is_refused_where_candidates_are_derived():
-    """Round 1's 🟡 2, second half. The first source this table names is a
-    CI `run:` step, and a `run:` step piping into `tee` is ordinary — so the
-    bootstrap could derive a candidate, the person accept it, the session
-    write it, and the row parse as no row. That is the failure this work item
-    exists to end, reached through the machinery this work item adds."""
+def test_a_candidate_carrying_a_pipe_is_escaped_where_candidates_are_derived():
+    """Round 1's 🟡 2, second half, as #415 leaves it. The first source this
+    table names is a CI `run:` step, and a `run:` step piping into `tee` is
+    ordinary — so the bootstrap could derive a candidate, the person accept
+    it, the session write it, and the row parse as no row.
+
+    The warning used to say such a candidate *cannot be written into the row*
+    and to offer the command without its pipe. It can be written now, with
+    the pipe escaped, so the warning says how — and still says what a bare
+    one costs, because that is the spelling somebody types.
+    """
     boot = flat(bootstrap())
-    warning = boot[boot.index("**A candidate carrying a `|` cannot be written") :]
+    warning = boot[boot.index("**A candidate carrying a `|` is written") :]
     warning = warning[: warning.index("**Name the criterion")]
     assert "`run:` step is where one is likeliest to come from" in warning
+    assert "with the pipe escaped, `\\|`" in warning, (
+        "the warning does not say how the pipe is written, which is the whole "
+        "of what changed"
+    )
+    assert "cannot be written into the row" not in warning, (
+        "the sentence #415 removed survived beside its replacement"
+    )
     assert "parses as no row" in warning
-    assert "every row written below it in the file is lost with it" in warning, (
+    assert "every row written below it is lost with it" in warning, (
         "the warning states the row's own cost and not the file's"
+    )
+    assert "where a row above it already parsed" in warning, (
+        "the cost is stated flat. It falls on the rows below only once a row "
+        "has parsed above the bare one — the reader breaks on a line it "
+        "cannot parse only after it has found a row, so a bare pipe written "
+        "as the table's FIRST row loses only itself (#415 round 1 🟡 1)"
     )
 
 

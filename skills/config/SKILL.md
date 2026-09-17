@@ -81,6 +81,16 @@ second answer.
   to carry the third of them on its own. Read it to the person before they
   answer, rather than summarising it back to them.
 
+  **A value carrying a `|` is written `\|`.** The file is markdown and a
+  cell of that table ends at a bare pipe, so `bin/test -q \| tee out.txt` is
+  the row that runs that command — the reader reduces exactly those two
+  characters to a plain pipe before any shell sees it, and leaves every other
+  backslash alone, so a Windows path keeps its separators. Written with a
+  bare pipe the line parses as no row and `broad-gate` quotes it back. Where
+  a row above it already parsed, every row below it is lost with it — the
+  reader stops reading the table there. Written as the table's first row it
+  loses only itself, because the stop rule needs a row before it can stop.
+
   **The `Broad gate` row is looked at before it is run**, and a value that
   would not run as the command it reads as is refused with nothing run —
   the whole command wrapped in backticks or in `$(…)`, or a trailing `&`.

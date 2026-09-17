@@ -12,12 +12,15 @@ What it does, in order, from the repository root:
 
   1. the repository's own broad command — the `Broad gate` row of
      `seal/config.md`, one shell command line the repository wrote for
-     itself. **A row is refused two ways, and both are exit 2 with nothing
-     run**: no row at all, because a seal taken over a command nobody chose
-     is the counterfeit `verify` names; or a row this gate would not run as
-     the command it reads as — the whole command wrapped in backticks or in
-     `$(…)`, or ending in a single `&`. Neither refusal names a command to
-     write: the row is a person's, and the message says where they answer it
+     itself. **A row is refused three ways, and all three are exit 2 with
+     nothing run**: no row at all, because a seal taken over a command nobody
+     chose is the counterfeit `verify` names; a `Broad gate` line that is
+     there and will not parse as a row of that table, which the refusal
+     quotes back rather than reporting as absent (#415); or a row this gate
+     would not run as the command it reads as — the whole command wrapped in
+     backticks or in `$(…)`, or ending in a single `&`. No refusal names a
+     command to write: the row is a person's, and the message says where
+     they answer it
   2. `evidence-check --strict .`       the ledger's rows still anchor
   3. `unverified-check --baseline <base> seal/specs/`
   4. `chain_check.py --baseline <base>`   judged as a DRAFT pull request,
@@ -218,14 +221,21 @@ def seal_home(root):
     return None
 
 
+def config_text(home):
+    """The root's `config.md` as text, or None where it will not read."""
+    try:
+        with open(os.path.join(home, CONFIG), encoding="utf-8") as handle:
+            return handle.read()
+    except (OSError, ValueError):
+        return None
+
+
 def broad_command(home):
     """The `Broad gate` row's value, or None for every way of not having one:
     no file, no row, an empty value, a file that will not read."""
     config = load(CONFIG_READER, "specseal_config_for_broad_gate")
-    try:
-        with open(os.path.join(home, CONFIG), encoding="utf-8") as handle:
-            text = handle.read()
-    except (OSError, ValueError):
+    text = config_text(home)
+    if text is None:
         return None
     for item, value in config.config_rows(text):
         if item == ROW:
@@ -233,17 +243,175 @@ def broad_command(home):
     return None
 
 
-def missing_row(home):
-    """The absent-row refusal.
+# A refused line's first cell, read the way a cell was read before the escape
+# existed -- up to the first pipe. The line does not parse, so this is a
+# reading of what the person meant by it and not a row of the table.
+FIRST_CELL = re.compile(r"^\|([^|]*)\|")
 
-    It used to say *write the repository's own broad command into it* and
-    print the row to type. The only reader standing here is a session, so
-    what that sentence asked for is the one thing the row may not be: #401
-    is a session that met this message after its review rounds had settled,
-    ran four candidate commands, chose one, wrote the row, and told the
-    owner afterwards. The message now says whose the row is and where they
-    answer it.
+
+def refusal(home):
+    """(refused, below, stopper) for the root's config — the one reader's
+    answer about every line it will not take as a row, passed through.
+
+    Every way of not having one lands on `([], [], None)`: no file, a file
+    that will not read, a table with no refused line at all.
     """
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    text = config_text(home)
+    if text is None:
+        return [], [], None
+    return config.refusal(text)
+
+
+def names_this_row(line):
+    """Whether a refused line's first cell is this gate's row."""
+    first = FIRST_CELL.match(line.strip())
+    return bool(first and first.group(1).strip() == ROW)
+
+
+def hides_this_row(below):
+    """Whether this gate's row is one of the rows the STOPPING line took.
+
+    The row is in the person's file and the reader never reached it, so
+    saying it is ABSENT is a true sentence about a cause that is not the real
+    one — the same shape #415 was opened about, one item over. Asked of the
+    rows rather than of the refused line, because a file that has no such row
+    anywhere is a file the absent-row refusal is right about, malformed line
+    or not (#415 round 1 🟡 3).
+
+    `below` is read from the line that actually stopped the reader, which is
+    what makes this answer the table's. Read from the FIRST refused line it
+    held rows that had arrived perfectly well, and the branch was gated on a
+    flag describing that line rather than on the rows — so a row under a
+    SECOND refused line was handed to this function and reported absent
+    anyway (#415 round 2 🟡 1).
+    """
+    return any(item == ROW for item, _value in below)
+
+
+def refused_broad_row(home):
+    """The `Broad gate` row a person wrote that the table reader will not
+    take as a row — as written, with its own indentation — or None.
+
+    **Asked of every refused line, not of the first one.** A file with two
+    lines the reader will not take can have this gate's row under the
+    second, and answering about the first reported that row as ABSENT —
+    which is the message this whole work item exists to end, arriving one
+    line further down (#415 round 2 🟡 1).
+
+    None covers every other shape: no such line, refused lines naming other
+    items only, and a file that will not read. Only the row this gate is
+    about gets the second sentence, because only this row's absence is what
+    the gate is refusing over.
+    """
+    refused, _below, _stopper = refusal(home)
+    return next((line for line, _reached in refused if names_this_row(line)), None)
+
+
+def missing_row(home):
+    """The refusal for a row the gate could not read — and there are two,
+    because there are two causes and a person can act on only one of them.
+
+    Where the row IS in the file and the line will not parse, saying it is
+    absent is a true sentence about a cause that is not the real one: the
+    person goes looking for a row that is sitting in front of them. So that
+    line is quoted back and the escape is named (#415). The whole line is
+    quoted rather than its first cell, because a refusal that does not show
+    the line sends the reader back to the file to guess which one it meant
+    (`questions.md` W1).
+
+    **What that line cost is a condition, and the sentence says which way it
+    fell.** The reader breaks on a line it cannot parse only once it has
+    found a row, so a refused line written as the table's FIRST row loses
+    only itself and every row under it still arrives. Telling that person
+    their rows were lost sends them to reformat rows that were read
+    correctly, which is this work item's own defect one file over — so the
+    cost sentence is read off the file, never stated flat (#415 round 1
+    🟡 1).
+
+    **It is read off the line that actually stopped the reader, which is
+    not always the line being quoted.** A file with two lines the reader
+    will not take has four shapes, and each gets its own sentence: nothing
+    stopped the reader at all; this line stopped it; this line was read and
+    something LOWER DOWN stopped it, so the rows under that line are the
+    lost ones; or the reader had already stopped ABOVE this line and never
+    met it. Chosen from a flat `ended` these collapsed into two, and both of
+    the two were false about the two-line file — the rows below were lost
+    while the refusal said they were read (#415 round 2 🟡 1).
+
+    Where there is no such line, the message is the absent-row refusal
+    unchanged. It used to say *write the repository's own broad command into
+    it* and print the row to type. The only reader standing here is a
+    session, so what that sentence asked for is the one thing the row may not
+    be: #401 is a session that met this message after its review rounds had
+    settled, ran four candidate commands, chose one, wrote the row, and told
+    the owner afterwards. The message now says whose the row is and where
+    they answer it.
+    """
+    refused, below, stopper = refusal(home)
+    mine, reached = next(
+        ((line, got) for line, got in refused if names_this_row(line)),
+        (None, False),
+    )
+    if mine is not None:
+        if stopper is None:
+            cost = (
+                ". The rows below it were read: nothing had parsed above "
+                "this line, so the table had not begun and the stop rule "
+                "needs a row before it can stop"
+            )
+        elif mine is stopper:
+            cost = (
+                " — and every row written BELOW that line is lost with it, "
+                "each falling back to its default with nothing said anywhere"
+            )
+        elif reached:
+            cost = (
+                ". The rows directly below it were read — nothing had parsed "
+                "above this line, and the stop rule needs a row before it can "
+                "stop. The reader stopped LOWER DOWN, at\n"
+                f"    {stopper.strip()}\n"
+                "so every row under that line is lost, each falling back to "
+                "its default with nothing said anywhere"
+            )
+        else:
+            cost = (
+                ". The reader never even reached it: it had already stopped "
+                "ABOVE it, at\n"
+                f"    {stopper.strip()}\n"
+                "so every row from there down is lost — this one included — "
+                "each falling back to its default with nothing said anywhere"
+            )
+        return (
+            f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` line "
+            "and this is it, written so that it does not parse as a row of "
+            "that table:\n"
+            f"    {mine.strip()}\n"
+            f"Nothing read it, so there is no command to seal over{cost}.\n"
+            "A cell of that table ends at a `|`. A value that needs one is "
+            "written with markdown's own escape, `\\|`, which the reader "
+            "reduces to a plain pipe before any shell sees it — so "
+            f"`| {ROW} | bin/test -q \\| tee out.txt |` is the row that runs "
+            "that command. `templates/config.md` §*What is refused, and what "
+            "stays allowed* is where the row says so, and `/specseal:config` "
+            "is the door to it. Nothing ran."
+        )
+    if stopper is not None and hides_this_row(below):
+        return (
+            f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` row and "
+            "the reader never reached it. This line above it does not parse "
+            "as a row of that table, and the reader stops reading there:\n"
+            f"    {stopper.strip()}\n"
+            f"So the `{ROW}` row written BELOW it is invisible, and there is "
+            "no command to seal over. Every other row under that line is "
+            "gone the same way, each falling back to its default.\n"
+            "A cell of that table ends at a `|`. A value that needs one is "
+            "written with markdown's own escape, `\\|`, which the reader "
+            "reduces to a plain pipe before any shell sees it. "
+            "`templates/config.md` §*What is refused, and what stays allowed* "
+            "is where the row says so, and `/specseal:config` is the door to "
+            "the file. Nothing ran."
+        )
     return (
         f"broad-gate: {os.path.join(home, CONFIG)} has no `{ROW}` row, so "
         "there is no command to seal over — and choosing one is not this "
