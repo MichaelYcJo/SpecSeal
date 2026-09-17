@@ -65,7 +65,9 @@ both.
 documentation this phase writes — `docs/review-chain-spec.md` §*The fix
 range* — states 39 fix-table files, 15 stating a range in their first eight
 lines, 8 spellings and 5 naming `HEAD`, which is what was measured at this
-branch tip on 2026-09-17. `spec.md` and `plan.md` say 11 spellings and 2
+branch tip on 2026-09-17.
+
+<!-- Round 1's 🟡 3, 2026-09-17: the two figures in this table that are counts over PROSE — the spellings and the `HEAD` tally — were taken with a method this record did not name, and three readers then produced three answers from it. The named command is in `docs/review-chain-spec.md` §*The fix range*; against it the figures are 12 distinct sentence forms and 5 ending `HEAD` at `56945007`, 4 at this branch's tip. The file counts, 39 and 15, reproduce under every reading. The record is left as it was written and this comment is the correction, the way `rounds/round-1.md:12` of 1789034970-… already does it. --> `spec.md` and `plan.md` say 11 spellings and 2
 naming `HEAD`. Phase 3's record holds the full comparison; the divergence does
 not change the decision, and writing the framed numbers into a shipped
 document would have been this work item's own class one more time.

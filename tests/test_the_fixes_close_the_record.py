@@ -2493,3 +2493,45 @@ def test_the_row_starts_as_none_before_the_fixes_exist(repo):
     code, out, text = generate(repo, report_text=report(verdicts=OPEN_1))
     assert code == 0, out
     assert fields(text)["Fix range"] == "none — the fixes are not yet written", text
+
+
+def test_a_record_with_no_fix_range_row_is_told_which_row_to_add(repo):
+    """Round 1's 🟡 2. `close` replaces a row rather than inserting one, so a
+    record written by a `new` from before that row existed is refused — and
+    the refusal used to name a count and no repair.
+
+    The behaviour is right and stays: a record's field order is the
+    template's, and a `close` that inserted would put the row wherever it
+    happened to look. `chain_check` grandfathers those records behind
+    `RANGE_FROM`; the generator has no equivalent, which the changelog and
+    `docs/review-chain-spec.md` now say rather than describing only the
+    checker's half.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    path = repo / ROUNDS / "round-1.md"
+    text = path.read_text(encoding="utf-8")
+    generator = generator_module()
+    row = next(
+        ln
+        for ln in text.splitlines()
+        if ln.startswith(f"| {generator.chain.FIX_RANGE} |")
+    )
+    path.write_text(text.replace(row + "\n", ""), encoding="utf-8")
+
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 2, out
+    # What is wrong, and — the half a reword drops — what to do instead.
+    assert f"no `| {generator.chain.FIX_RANGE} | … |` row" in out, out
+    assert (
+        f"add `| {generator.chain.FIX_RANGE} | {generator.chain.NONE_WORD} |`" in out
+    ), out
+    assert f"under `| {generator.chain.CHECKED_BY} | … |`" in out, out
+    assert "No cell was written" in out, out
+    # And the old message's bare count is gone, so nobody is sent to look for
+    # a row they have too many of.
+    assert "rows and needs one" not in out, out
+    assert record == path.read_text(encoding="utf-8"), "the refusal wrote anyway"

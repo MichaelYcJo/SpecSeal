@@ -2823,13 +2823,24 @@ def test_the_records_in_this_repository_are_not_failed_by_the_new_row(repo):
         if re.fullmatch(r"round-\d+\.md", name)
     ]
     assert len(records) > 200, f"the walk found {len(records)} records"
-    failed, printed = [], 0
+    failed, printed, carrying = [], 0, []
     for rel in sorted(records):
         errors, notices = check.fix_range(reader, ROOT, rel)
         failed.extend(errors)
         printed += len(notices)
+        with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+            if f"| {check.FIX_RANGE} |" in f.read():
+                carrying.append(rel)
     assert not failed, f"records the new row would fail: {failed[:5]}"
-    assert printed == len(records), (
-        "every record in this tree predates the row, so every one of them "
-        f"should print: {printed} notices over {len(records)} records"
+    # The population, split the way the tree is actually split. Until this
+    # work item's own round 1 there was no record carrying the row at all and
+    # this read `printed == len(records)`; the first record to carry one made
+    # that false, which is the case being right rather than the tree being
+    # wrong. What has to hold is that a record WITHOUT the row is printed and
+    # never failed, and that the two groups account for every record — a walk
+    # that quietly read nothing would report no failures too.
+    assert carrying, "no record in this tree carries the row, so nothing is read"
+    assert printed == len(records) - len(carrying), (
+        f"{printed} notices over {len(records) - len(carrying)} records with "
+        "no row: a record that predates the row has to print, not go quiet"
     )

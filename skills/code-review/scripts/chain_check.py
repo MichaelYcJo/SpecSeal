@@ -4261,16 +4261,21 @@ def main(argv=None):
             ran_errors, ran_notices = ran_by(reader, root, record)
             errors.extend(ran_errors)
             notices.extend(ran_notices)
-            # EVERY record too. A `Grounds` cell closed twice is a fact about
-            # the round whose record carries it, and it has no cutoff -- the
-            # function's own docstring holds why, and why a green run here is
-            # a disclosure rather than a catch.
             # EVERY record too. WHAT a round's fixes were measured over is a
             # fact about that round, and the row is read against git here
-            # because git is what it is a claim about (#344).
+            # because git is what it is a claim about (#344). It IS
+            # grandfathered, behind `RANGE_FROM` -- which is the opposite of
+            # the arm below, so the two comments are kept apart on purpose
+            # (round 1's 8). Whether an arm has a cutoff is the load-bearing
+            # fact about it, and a comment sitting above the wrong call says
+            # the load-bearing thing about the wrong one.
             range_errors, range_notices = fix_range(reader, root, record)
             errors.extend(range_errors)
             notices.extend(range_notices)
+            # EVERY record too. A `Grounds` cell closed twice is a fact about
+            # the round whose record carries it, and it has NO cutoff -- the
+            # function's own docstring holds why, and why a green run here is
+            # a disclosure rather than a catch.
             double_errors, double_notices = doubled_grounds(reader, root, record)
             errors.extend(double_errors)
             notices.extend(double_notices)

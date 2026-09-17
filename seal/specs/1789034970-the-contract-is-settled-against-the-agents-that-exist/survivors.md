@@ -2,7 +2,8 @@
 
 ## Over the whole branch — what CI reads
 
-`survivor-check --range d35c874...ce0f9fe` reports sixteen places
+Sixteen places were reported across this branch's life by
+`survivor-check --range d35c874...ce0f9fe`
 <!-- The range read `origin/release/v0.10.0...HEAD` until 2026-09-17, when work
 item 1789621028-nothing-reads-a-record-against-the-tree re-measured it. Both
 ends were names, and neither still means what it meant: `HEAD` is now another

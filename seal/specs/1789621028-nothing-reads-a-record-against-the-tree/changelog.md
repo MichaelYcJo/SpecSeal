@@ -10,9 +10,14 @@
   the generator writing those records.
 
   - **A fix range is now stated as commits, and `HEAD` is refused.** A fix
-    table used to state its range in prose — measured across this repository:
-    39 fix-table files, 15 stating a range in their first eight lines, in 8
-    different spellings, and 5 of those naming `HEAD`. `HEAD` resolves, so
+    table used to state its range in prose. Measured by the command
+    `docs/review-chain-spec.md` §*The fix range* now names — one backticked
+    range from each file's first eight lines — at `56945007`: **39** fix-table
+    files, **15** stating a range, **5** of them ending `HEAD`, in **12**
+    distinct sentence forms. The same command at this work item's own tip
+    prints 4 rather than 5, because the work pinned one of them, and that a
+    figure moves with both the command and the tree state is why the command
+    is named here rather than a number quoted. `HEAD` resolves, so
     such a sentence stays readable while meaning a different set of commits
     every day, and three records of one work item said one. There is no
     convention in that prose to enforce, so the authoritative statement moved
@@ -22,10 +27,15 @@
     resolved range and its commit count into a new `Fix range` row.
     `chain-check` re-reads both halves at the pull request.
 
-    **What changes for a caller**: `--range <a>..HEAD` stops working, and the
-    refusal prints the commit to write instead. Records written before this
-    release carry no such row and print rather than failing, the same
-    grandfathering nine earlier record rules use.
+    **What changes for a caller**, in two places that grandfather
+    differently. `--range <a>..HEAD` stops working, and the refusal prints the
+    commit to write instead. At the **pull request**, records written before
+    this release carry no such row and print rather than failing, the same
+    grandfathering nine earlier record rules use. At the **generator**, there
+    is no grandfathering: `close` replaces a row rather than inserting one,
+    because a record's field order is the template's, so a record written by
+    an older `new` is refused until the row is added. The refusal says which
+    row to add and where.
 
     Both halves are read because either alone passes what the other catches.
     Ends this repository cannot see are reported and not failed: a feature

@@ -864,11 +864,37 @@ What the row closes is one measured class. A fix table states its range in
 prose, and `HEAD` is not a commit — it resolves, so the sentence stays
 readable while meaning a different set of commits every day. Three records of
 one work item said such a range, which is the rate that makes it a rule rather
-than a correction. Measured over this repository on 2026-09-17: **39 fix-table
-files, 15 stating a range in their first eight lines, in 8 different
-spellings, and 5 of the 15 naming `HEAD`.** There is no convention in that
-prose to enforce, which is why the authoritative statement moves into the
-record instead of a parser being pointed at the prose.
+than a correction. There is no convention in that prose to enforce, which is
+why the authoritative statement moves into the record instead of a parser
+being pointed at the prose.
+
+**The measurement, as a command rather than as a number.** A count over prose
+depends entirely on what counts, and this paragraph first stated one with a
+date and no method — three readers then produced three different answers from
+it, which is the rule in `seal/ledger/1789621028-nothing-reads-a-record-against-the-tree.md`
+R7 broken in the document that states it. So the method is the claim:
+
+```sh
+for f in seal/specs/*/rounds/*-fixes.md; do
+  head -8 "$f" | grep -oE '`[0-9a-f]{7,40}\.\.[A-Za-z0-9@_/.-]+`' | head -1
+done
+```
+
+One backticked range from each file's first eight lines. At `56945007`, the
+commit this work item was cut from, it prints **15** ranges over **39** files,
+**5** of them ending `HEAD`, in **12** distinct sentence forms — the forms
+counted by replacing the range with a placeholder and taking the first 40
+characters of the line. At this work item's own tip it prints **4** ending
+`HEAD` and the other three figures unchanged, because the work pinned one of
+them.
+
+**That the same command gives 5 and then 4 is the point, not a caveat.** A
+figure here is reproducible against a named command AND a named tree state,
+and against nothing less. A different reading of *stating a range in their
+first eight lines* — one that counts unbackticked ranges, or ranges below the
+eighth line — gives a different count and is not wrong; it is a different
+question, and naming the command is what lets the next reader tell which one
+was asked.
 
 **Both halves are read, because either alone passes what the other catches.**
 The ends say WHICH commits and `round_record.py`'s `parse_range` refuses a
@@ -895,6 +921,16 @@ nothing can here: `fix_surface` measures the surface from this same range, so
 the two agree by construction rather than by checking each other. What is
 closed is the narrower thing #344 measured, a range that stops meaning what it
 said.
+
+**The grandfathering is the checker's and not the generator's.** The table
+above is what `chain_check` does at the pull request. `round_record.py close`
+has no equivalent and should not grow one: it REPLACES this row rather than
+inserting one, because a record's field order is the template's and a `close`
+that inserted would put the row wherever it happened to look. So a record
+written by a `new` from before the row existed is refused by `close` until the
+row is added, and the refusal names the row and where it goes. The two
+behaviours are different on purpose and a document that describes only the
+first is describing half of it.
 
 **`--range` refuses both ends, not only the second.** `HEAD` is the end that
 was reported and a branch name at the start moves exactly as far. An end is

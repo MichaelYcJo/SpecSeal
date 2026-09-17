@@ -3791,7 +3791,12 @@ def close(args):
     # count is derived from them rather than typed, which is the half a reader
     # can check against the tree without opening anything.
     counted = git(root, "rev-list", "--count", f"{a}..{b}")
-    if counted is None:
+    # `isdigit()` as well as `is None`, because `chain_check.fix_range` reads
+    # the same command forty lines away and checks both, and two readings of
+    # one command that disagree are the split this file spends its docstrings
+    # closing (round 1's 8). Defensive either way: git answers a digit or
+    # fails.
+    if counted is None or not counted.strip().isdigit():
         raise Refused(
             f"git rev-list --count {a[:7]}..{b[:7]} failed in {root}, so the "
             f"`{chain.FIX_RANGE}` row cannot be derived. No cell was written"
@@ -3937,7 +3942,28 @@ def close(args):
         checker = WRITTEN_CHECKER
     if checker in (chain.NO_FIXES, WRITTEN_CHECKER):
         raw[at] = cell(chain.CHECKED_BY, checker)
-    raw[field_index(reader, lines, chain.FIX_RANGE)] = fix_range
+    # Round 1's 🟡 2. `field_index` refuses a record with no such row, and
+    # its message names a count and no repair -- which is right for a label
+    # every `new` has always written and wrong for the one label `new` began
+    # writing this release. `chain_check` grandfathers those records behind
+    # `RANGE_FROM`; the generator has no equivalent and should not grow one,
+    # because `close` REPLACES a row rather than inserting one: a record's
+    # field order is the template's, and a `close` that inserted would put the
+    # row wherever it happened to look. So the refusal stands and says what to
+    # add and where.
+    try:
+        at_range = field_index(reader, lines, chain.FIX_RANGE)
+    except Refused:
+        raise Refused(
+            f"the record has no `| {chain.FIX_RANGE} | … |` row, so there is "
+            f"nowhere to write the range this pass was measured over. It was "
+            f"written by a `new` from before that row existed. `close` "
+            f"replaces the row rather than inserting one, because a record's "
+            f"field order is the template's — so add `| {chain.FIX_RANGE} | "
+            f"{chain.NONE_WORD} |` under `| {chain.CHECKED_BY} | … |` and run "
+            f"`close` again. No cell was written"
+        ) from None
+    raw[at_range] = fix_range
     raw[field_index(reader, lines, chain.CONTRACT)] = contract
     last = field_index(reader, lines, chain.NEW_UNITS)
     raw[last] = units

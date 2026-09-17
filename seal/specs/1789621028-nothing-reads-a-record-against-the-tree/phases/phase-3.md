@@ -31,6 +31,8 @@ whole class here is a record asserting what nobody measured:
 | Distinct spellings of the range sentence | eleven | **8** across the 15 files |
 | Surviving doubled close prefixes | zero | **zero** — holds, over 3331 `Grounds` cells |
 
+<!-- Round 1's 🟡 3, 2026-09-17: the two figures in this table that are counts over PROSE — the spellings and the `HEAD` tally — were taken with a method this record did not name, and three readers then produced three answers from it. The named command is in `docs/review-chain-spec.md` §*The fix range*; against it the figures are 12 distinct sentence forms and 5 ending `HEAD` at `56945007`, 4 at this branch's tip. The file counts, 39 and 15, reproduce under every reading. The record is left as it was written and this comment is the correction, the way `rounds/round-1.md:12` of 1789034970-… already does it. -->
+
 Three of those are the framer's own instance of #344's class, in the document
 that frames #344. None of them changes a decision: 15 files in 8 spellings
 with 5 naming `HEAD` refuses the prose-parsing alternative more firmly than 11
