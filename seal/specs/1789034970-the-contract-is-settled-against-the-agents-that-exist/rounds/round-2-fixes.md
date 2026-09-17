@@ -1,6 +1,16 @@
 # Round 2's fix pass — the contract is settled against the agents that exist
 
-Range `de7d693..HEAD`, four commits at the time of writing, on
+Range `de7d693..371347c7`, four commits, on
+<!-- The end read `HEAD` until 2026-09-17, when work item
+1789621028-nothing-reads-a-record-against-the-tree pinned it. `HEAD` resolves,
+so the sentence stayed readable while naming a different set of commits every
+day: by that date it held every commit of two later releases. Read against the
+tree at 2026-09-17 — `git rev-list --count de7d693..371347c7` is 4, which is
+the count this line already claimed, and `371347c7` is the commit that added
+this file. `de7d693..ce0f9fe` holds 5, which is the range round 3 was given
+and records at `rounds/round-3.md:19`. `round_record.py parse_range` now
+refuses a `HEAD` at either end, and `close` writes the resolved range into
+the record's own `Fix range` row. -->
 `docs/120-the-contract-is-settled-against-the-agents-that-exist`. The count is
 deliberately not spelled as a number that can go stale between this line and
 the last commit — round 2's finding 6 is that exact mistake in round 1's table,
