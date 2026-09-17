@@ -123,11 +123,11 @@ with finding 1, as member ⑤ above. It predates the branch, as the round says,
 and it is the same unit and the same class, so closing it here cost one branch
 of the walk and one fixture.
 
-## The survivor exemptions, and why the round's diagnosis was wrong
+## The survivor exemptions — two causes, and the round had one of them
 
 The round asked whether rows that exempt nothing should keep being added.
-The answer turned out to be that they exempt nothing for a reason nobody had
-opened.
+The answer is that they were inert for two independent reasons, and the one
+nobody had opened comes first.
 
 `survivor_check.py#exempted` matches an exemption row's first cell against the
 candidate's **path**. Every one of this file's twenty-one rows was written
@@ -142,9 +142,22 @@ Rewritten bare, all twenty-one rows are live, and the fix range now answers
 `no removed wording is still standing` — the two sentences the checker's own
 comment says must not read as one.
 
-So the round's deferral of this to #371 / #308 is withdrawn for this file.
-That defect may well exist; it is not what was silencing these rows, and
-nothing here measured it either way.
+**The second cause is the deferred one, and it is real.** Once those rows were
+committed, the five places stopped being candidates at all: at the next commit
+the fix range answers *no removed wording is still standing* with and without
+`--exempt`, over both ranges. That is #371 / #308 exactly — the quotes joined
+the range's own added text — so writing a row at the moment the check reports
+its place silences that place for the run that follows, whatever the row says.
+The round's diagnosis was right about this half and could not see the other,
+because a row that never matched and a row whose place stopped being reported
+look identical from outside.
+
+**So the rows are kept and the practice continues, for what they are good
+for**: a reader opening the file, and a re-run over a range that does not
+include the commit that wrote them. What they are not, at the range the fix
+pass itself runs, is the reason the check came back green — and this file's
+header says so now, because the previous answer to that question was
+*measured inert, cause unknown*.
 
 **The habit is this file's own.** Counted across the tree: 201 exemption rows
 carry a bare path and exactly one other carries a line number, in
@@ -168,8 +181,10 @@ to do.
 | `bin/evidence-check --strict .` | exit 0 · 1352 ok · 0 drifted · 0 broken |
 | `bin/evidence-check --reverify .` | 9 rows re-verified, each claim re-read first |
 | `bin/unverified-check seal/specs/` | exit 0 |
-| `bin/survivor-check --range 5137e934..HEAD --exempt …/survivors.md` | exit 0 · every survivor excused by a row above (5) |
-| `bin/survivor-check --range 0995f62f..HEAD --exempt …/survivors.md` | exit 0 · every survivor excused by a row above (1) — `0995f62f` is `git merge-base origin/release/v0.12.0 HEAD`, the range CI's relation resolves to |
-| `bin/survivor-check` over both ranges with no `--exempt` | exit 1 · 5 and 1, which is what proves the rows are now what excuses them |
+| `bin/survivor-check --range 5137e934..HEAD --exempt …/survivors.md`, at `dd964ca9` | exit 0 · every survivor excused by a row above (5) |
+| the same range at `dd964ca9` with no `--exempt` | exit 1 · the same 5 standing, which is what proves the rewritten rows are what excuses them |
+| one probe file, one range, one run: a row written bare and a row written `path:76` | the bare one printed under `exempt` and dropped the standing count to 4; the other changed nothing |
+| both ranges at the last commit, with `--exempt` and without | exit 0 four times · *no removed wording is still standing* — the places stopped being candidates once the rows were committed, which is #371 / #308 |
+| `0995f62f` against CI's relation | `git merge-base origin/release/v0.12.0 HEAD` resolves to it |
 | `ruff check` and `ruff format --check` over the four touched files | exit 0 · exit 0 |
 | the full suite, the repository-wide lint, the typecheck | **not run** — the sealer's one broad run, after the rounds settle (`agent-contract` §2) |

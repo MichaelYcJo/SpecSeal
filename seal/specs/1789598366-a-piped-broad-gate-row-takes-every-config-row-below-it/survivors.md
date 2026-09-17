@@ -1,16 +1,30 @@
 # 1789598366-a-piped-broad-gate-row-takes-every-config-row-below-it — survivor exemptions
 
-**Every row in this file used to silence nothing, and the cause was in the
-first cell.** Round 2 measured the file as inert over three ranges with and
-without `--exempt` and read that as the defect `seal/follow-up.md` tracks as
-#371 / #308. It is not. `survivor_check.py#exempted` matches the first cell
-against the candidate's PATH, and every row here was written `path:line` —
-the spelling the check's own report prints for a survivor — so no row could
-ever match. Measured in round 2's fix pass: one row written bare excused its
-place and printed under `exempt`, the same row written with `:104` did not,
-same range, same run. Every row below now carries a bare path, and the check
-answers *every survivor is excused by a row above* instead of *no removed
-wording is still standing* — two different facts that had been reading as one.
+**This file was inert for TWO reasons, and only one of them was on the
+deferred list.** Round 2 measured it as silencing nothing over three ranges
+and read that as #371 / #308 — an exemption row's quote joining the range's own
+added text. That is real and it is not what was wrong here first.
+
+**The first cause is the first cell.** `survivor_check.py#exempted` matches it
+against the candidate's PATH, and every row here was written `path:line` — the
+spelling the check's own report prints for a survivor, so it is an easy habit
+to acquire. Such a row cannot match at any range. Measured in round 2's fix
+pass, two rows in one run over one range: `.github/scripts/close_issues_on_release.py`
+written bare excused its place and printed under `exempt`, and
+`tests/test_waiver_decided_at_start.py:76` did not. Every row below carries a
+bare path now, and with them the fix range answered *every survivor is excused
+by a row above (5)* where it had answered *no removed wording is still
+standing* — two different facts the checker's own comment says must not read
+as one.
+
+**The second cause is the deferred one, and writing these rows is what
+triggers it.** At the next commit the same five places stopped being
+candidates at all: the quotes went into the range's added text, and the check
+now prints *no removed wording is still standing* over both ranges with and
+without `--exempt`. So a row written at the moment the check reports its place
+silences that place for the run that follows it, whatever the row says. What
+these rows are good for is a reader, and a re-run over a range that does not
+include the commit that wrote them.
 
 `path:line` was this file's own habit and nobody else's: 201 exemption rows
 across the other work items are bare paths, and exactly one row elsewhere
