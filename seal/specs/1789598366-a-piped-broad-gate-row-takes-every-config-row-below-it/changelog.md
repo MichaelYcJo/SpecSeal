@@ -43,8 +43,11 @@
     absent.** `broad-gate` used to say *has no `Broad gate` row* about a row
     sitting in front of the reader — a true sentence about the wrong cause.
     It now shows the line as written, names `\|` as the way to write the pipe,
-    and says every row below it is lost too. A row that genuinely is not there
-    gets the absent-row refusal exactly as before. `hooks/mode-gate.py` gains
+    and says what that line cost — the rows below it, where a row above
+    already parsed, and only itself where the line is the table's first row.
+    A row that genuinely is not there gets the absent-row refusal exactly as
+    before, and a row sitting BELOW a line the reader refused is named as
+    unreachable instead of absent. `hooks/mode-gate.py` gains
     nothing and says nothing new: it is a `PreToolUse` hook, and a wrong
     refusal there stops a session with nobody able to get past it.
 

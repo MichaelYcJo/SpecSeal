@@ -42,6 +42,23 @@ those records is ever rewritten to describe the tree as it stands rather than
 as that run found it, it stops being history and becomes a claim, and the
 exemption goes with the wording.
 
+## Round 1's fix pass — the range `c4e9c58b..HEAD`
+
+That range corrects two claims of this work item's own records, so it reports
+five places. **Three were real survivors and are corrected in the range**, not
+exempted: `spec.md`'s A6 paragraph carried the same false generalisation as
+`plan.md` did, and the W1 cell of `questions.md` and one changelog bullet both
+said the refusal reports every row below as lost without the condition. That
+is 🟡 1 and 🟡 2 arriving in the copies nobody had opened, which is what this
+check exists for.
+
+The two below are not stale copies of a corrected claim.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `seal/specs/1789598366-…/questions.md:14` | A file whose reading DOES move is a divergence row in `overview.md` naming the file — never a reason to weaken A6 into something that passes | **The rewrite's own words, on both sides.** The correction in `plan.md` keeps this sentence — it was always true and is not what 🟡 2 found wrong — so the phrase it shares is text the range ADDED as much as removed. Correcting it would delete a true instruction to erase an overlap with its own replacement |
+| `hooks/config.py:126` | for line in text.splitlines(): if not seen_header: if CONFIG_HEADER.match(line): seen_header = True continue | **The loop `refusal` is built to walk in step with**, reported because the old `refused_row` walked it too and that copy is what the range removed. `config_rows` is the reader; its walk is untouched by this range and the whole point of `refusal` is that the two do not drift. Rewriting it to look less like the code it must agree with is the opposite of the repair |
+
 ## A coincidence of phrasing about a different subject
 
 | Path | Quote | Grounds |

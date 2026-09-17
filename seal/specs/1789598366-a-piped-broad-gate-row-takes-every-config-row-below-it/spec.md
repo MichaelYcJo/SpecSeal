@@ -133,10 +133,13 @@ named it with the repository owner as answerer.
 | A9 | Given `templates/config.md` §*What is refused, and what stays allowed*, when a reader opens the pipe row, then it states how a pipe **is** written and no longer says a pipe cannot reach the row | the two cases in `tests/test_the_seal_is_taken_once_by_the_sealer.py` that assert the old sentences change with it, in the same commit |
 
 **A6 is the one that can come back inconvenient.** It asks for *no other
-change*, and a regex that widens what parses can only ever make more lines
-into rows. If the measurement finds a file whose reading moves, that is a
-divergence row in `overview.md` with the file named — not a reason to weaken
-A6 into something that passes.
+change*, and it is a measurement over this tree rather than a property of the
+pattern — ~~a regex that widens what parses can only ever make more lines into
+rows~~ is false, and round 1 🟡 2 is where it was measured false. If the
+measurement finds a file whose reading moves, that is a divergence row in
+`overview.md` with the file named — not a reason to weaken A6 into something
+that passes. No file in this tree moved; the one shape that reads differently
+is named above and has no instance here.
 
 ## Data & interfaces
 
