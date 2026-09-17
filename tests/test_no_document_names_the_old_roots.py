@@ -30,6 +30,7 @@ import re
 import subprocess
 
 import pytest
+from conftest import build_tracked_tree, on_disk
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -72,15 +73,22 @@ KEEP = {
 }
 
 
-def tracked():
+def tracked(root=ROOT):
+    """`(the scanned files on disk, the scanned paths that are not)`.
+
+    `root` is an argument so a case can build a repository with a
+    tracked-and-deleted file and watch the guard work; `conftest.on_disk`
+    carries why the second half is returned rather than dropped.
+    """
     out = subprocess.run(
         ["git", "ls-files", *SCANNED],
-        cwd=ROOT,
+        cwd=root,
         capture_output=True,
         encoding="utf-8",
         errors="replace",
     ).stdout.split()
-    return [rel for rel in out if rel.endswith(SUFFIXES) and rel not in DESIGN_RECORD]
+    listed = [rel for rel in out if rel.endswith(SUFFIXES) and rel not in DESIGN_RECORD]
+    return on_disk(root, listed)
 
 
 def offenders(rel, text):
@@ -92,11 +100,18 @@ def offenders(rel, text):
     return found
 
 
-def test_no_shipped_document_names_the_old_roots():
+def offenders_under(root=ROOT):
+    """Every live mention of an old root in the files `root` still has."""
     found = []
-    for rel in tracked():
-        with open(os.path.join(ROOT, rel), encoding="utf-8", errors="replace") as f:
+    files, _ = tracked(root)
+    for rel in files:
+        with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as f:
             found += offenders(rel, f.read())
+    return found
+
+
+def test_no_shipped_document_names_the_old_roots():
+    found = offenders_under()
     assert not found, "\n".join(
         [
             "the old roots are named as live paths — rewrite to seal/, or add the",
@@ -107,7 +122,7 @@ def test_no_shipped_document_names_the_old_roots():
 
 
 def test_the_scan_covers_something():
-    files = tracked()
+    files, _ = tracked()
     assert len(files) > 30, files
     assert "skills/implement/SKILL.md" in files
     assert ".github/workflows/hygiene.yml" in files
@@ -143,8 +158,29 @@ def test_every_keep_entry_is_still_in_use():
     """An allowlist line nothing matches is a reason with no line under it —
     delete it rather than let the list say the old name is still somewhere."""
     corpus = ""
-    for rel in tracked():
+    files, _ = tracked()
+    for rel in files:
         with open(os.path.join(ROOT, rel), encoding="utf-8", errors="replace") as f:
             corpus += f.read()
     unused = [k for k in KEEP if k not in corpus]
     assert not unused, f"KEEP entries no scanned file carries any more: {unused}"
+
+
+def test_the_scan_survives_a_tracked_file_the_tree_deleted(tmp_path):
+    """The same defect as #432, one module over: this sweep walks its own
+    `git ls-files` and opens every path, so a fold that leaves a tracked path
+    with nothing behind it ends the walk before any document is judged."""
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {
+            "docs/live.md": "rows go in `.specseal/map/<work-item-id>.md`\n",
+            "docs/folded.md": "the fragment the fold removes\n",
+        },
+        deleted=["docs/folded.md"],
+    )
+    files, missing = tracked(root)
+    assert missing == ["docs/folded.md"], missing
+    assert files == ["docs/live.md"], files
+    assert offenders_under(root) == [
+        ("docs/live.md", 1, "rows go in `.specseal/map/<work-item-id>.md`")
+    ]

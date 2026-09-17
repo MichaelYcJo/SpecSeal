@@ -11,6 +11,8 @@ import os
 import re
 import subprocess
 
+from conftest import build_tracked_tree, on_disk
+
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
 
@@ -26,15 +28,23 @@ def version():
         return json.load(f)["version"]
 
 
-def tracked(*prefixes):
+def tracked(*prefixes, root=ROOT):
+    """`(the files on disk under `prefixes`, the paths that are not)`.
+
+    `root` is keyword-only so the prefixes keep the call shape they had, and
+    it exists so a case can build a repository with a tracked-and-deleted file
+    and watch the guard work; `conftest.on_disk` carries why the second half
+    is returned rather than dropped.
+    """
     out = subprocess.run(
         ["git", "ls-files", *prefixes],
-        cwd=ROOT,
+        cwd=root,
         capture_output=True,
         encoding="utf-8",
         errors="replace",
     ).stdout.split()
-    return [rel for rel in out if not rel.endswith((".gif", ".png", ".jpg"))]
+    listed = [rel for rel in out if not rel.endswith((".gif", ".png", ".jpg"))]
+    return on_disk(root, listed)
 
 
 LOADED = (
@@ -461,6 +471,20 @@ def test_the_illustrative_version_is_not_one_this_repository_could_ship():
     )
 
 
+def timer_offenders(root=ROOT, running=None):
+    """`rel:line names <token>` for every timer in the loaded files under
+    `root`. `running` defaults to this repository's own running version."""
+    running = running or version()
+    offenders = []
+    files, _ = tracked(*LOADED, root=root)
+    for rel in files:
+        with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as f:
+            text = f.read()
+        for number, token in timers_in(rel, text, running):
+            offenders.append(f"{rel}:{number} names {token}")
+    return offenders
+
+
 def test_no_loaded_file_names_a_version_at_or_above_the_running_one():
     """A version number written into prose is right for exactly one release.
 
@@ -486,14 +510,8 @@ def test_no_loaded_file_names_a_version_at_or_above_the_running_one():
     - `VERSIONS_OF_ANOTHER_PRODUCT` — a number that belongs to somebody
       else's release train, pinned to the file that names it.
     """
-    running = version()
-    offenders = []
-    for rel in tracked(*LOADED):
-        with open(os.path.join(ROOT, rel), encoding="utf-8", errors="replace") as f:
-            text = f.read()
-        for number, token in timers_in(rel, text, running):
-            offenders.append(f"{rel}:{number} names {token}")
-    assert not offenders, refusal(running, offenders)
+    offenders = timer_offenders()
+    assert not offenders, refusal(version(), offenders)
 
 
 # The fixtures below run `timers_in` against text this repository does not
@@ -1317,3 +1335,30 @@ def test_this_repository_has_one_root_laid_out_by_lifetime():
         assert not os.path.exists(os.path.join(ROOT, old)), (
             f"{old}/ is back. Nothing reads it since 0.4.0; move it into seal/"
         )
+
+
+def test_the_timer_sweep_survives_a_tracked_file_the_tree_deleted(tmp_path):
+    """#432's class in the module the release checklist runs at step 3.
+
+    This sweep is the one a release meets first: `fold_ledger.py` removes
+    every `seal/ledger/` fragment as its last act and the whole gate then runs
+    before anything is staged, so the index lists paths the disk does not
+    have. The running version and the timer are both fixture values, for the
+    reason `RUNNING_IN_THE_FIXTURES` already gives: a fixture that moves with
+    the release proves nothing about the release after. Neither is
+    `ILLUSTRATIVE_VERSION`, which `timers_in` exempts by name.
+    """
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {
+            "docs/live.md": "shipping in 0.9.0\n",
+            "docs/folded.md": "the fragment the fold removes\n",
+        },
+        deleted=["docs/folded.md"],
+    )
+    files, missing = tracked(*LOADED, root=root)
+    assert missing == ["docs/folded.md"], missing
+    assert files == ["docs/live.md"], files
+    assert timer_offenders(root, running=RUNNING_IN_THE_FIXTURES) == [
+        "docs/live.md:1 names 0.9.0"
+    ]

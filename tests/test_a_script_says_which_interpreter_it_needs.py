@@ -32,6 +32,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import build_tracked_tree, on_disk
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPTS = os.path.join(ROOT, "skills", "code-review", "scripts")
@@ -480,22 +481,42 @@ CLASSIFIED = {
 }
 
 
-def shipped_python():
-    """Every tracked `.py` this plugin ships, less the two roots that do not
-    run on a user's interpreter: `tests/` runs under `bin/test`'s virtualenv,
-    which holds the floor or refuses to build, and `seal/` holds records."""
+def shipped_python(root=ROOT):
+    """`(every tracked `.py` this plugin ships that is on disk, the shipped
+    paths that are not)`, less the two roots that do not run on a user's
+    interpreter: `tests/` runs under `bin/test`'s virtualenv, which holds the
+    floor or refuses to build, and `seal/` holds records.
+
+    `root` is an argument so a case can build a repository with a
+    tracked-and-deleted file and watch the guard work; `conftest.on_disk`
+    carries why the second half is returned rather than dropped.
+    """
     out = subprocess.run(
         ["git", "ls-files", "*.py"],
-        cwd=ROOT,
+        cwd=root,
         capture_output=True,
         encoding="utf-8",
         errors="replace",
     )
-    return [
+    listed = [
         rel
         for rel in out.stdout.split()
         if not rel.startswith(("tests/", "seal/")) and rel
     ]
+    return on_disk(root, listed)
+
+
+def above_the_floor(root=ROOT):
+    """`(the shipped scripts carrying a construct above the floor, the shipped
+    paths that are not on disk)`."""
+    files, missing = shipped_python(root)
+    assert files, "git ls-files found no shipped python at all"
+    found = set()
+    for rel in files:
+        with open(os.path.join(root, rel), encoding="utf-8") as f:
+            if ABOVE_THE_FLOOR.search(f.read()):
+                found.add(rel)
+    return found, missing
 
 
 def test_no_shipped_script_needs_more_than_the_floor_without_saying_so():
@@ -506,13 +527,7 @@ def test_no_shipped_script_needs_more_than_the_floor_without_saying_so():
     carried one, and five of them are somebody else's branch or somebody
     else's release. This is what keeps a seventh from arriving as a traceback
     on a stranger's mac."""
-    files = shipped_python()
-    assert files, "git ls-files found no shipped python at all"
-    found = set()
-    for rel in files:
-        with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
-            if ABOVE_THE_FLOOR.search(f.read()):
-                found.add(rel)
+    found, _ = above_the_floor()
     new = sorted(found - set(CLASSIFIED))
     assert not new, (
         f"{new} use a construct newer than python {generator().FLOOR_TEXT} and "
@@ -526,3 +541,27 @@ def test_no_shipped_script_needs_more_than_the_floor_without_saying_so():
         f"{gone} no longer carry the construct they were classified for; "
         "drop the row rather than leaving a classification of nothing"
     )
+
+
+def test_the_enumeration_survives_a_tracked_file_the_tree_deleted(tmp_path):
+    """#432's class in the module that re-enumerates §12's own class.
+
+    The walk opened every path `git ls-files` named, so one tracked file the
+    working tree had deleted ended it before any script was read — and this
+    module's whole job is to keep a seventh offender from arriving as a
+    traceback on a stranger's machine.
+    """
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {
+            "hooks/live.py": "zip(a, b, strict=True)\n",
+            "hooks/folded.py": "nothing above the floor here\n",
+            "tests/ignored.py": "zip(c, d, strict=True)\n",
+        },
+        deleted=["hooks/folded.py"],
+    )
+    files, missing = shipped_python(root)
+    assert missing == ["hooks/folded.py"], missing
+    assert files == ["hooks/live.py"], files
+    found, missing = above_the_floor(root)
+    assert found == {"hooks/live.py"} and missing == ["hooks/folded.py"]
