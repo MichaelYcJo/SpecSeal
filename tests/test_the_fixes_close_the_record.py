@@ -2218,3 +2218,171 @@ def test_the_stray_period_repair_did_not_widen_the_shared_separators():
     assert body.count('chain.SEPARATORS + "."') == 2, (
         "the two cuts that take a span off a cell are what carry the period"
     )
+
+
+# --- re-closing a corrected record does not double its grounds (#427) --------
+
+
+def reopen_verdicts(repo, n):
+    """#427's own path: the `Verdict` cells go back to `open` and `Grounds` is
+    left exactly as `close` wrote it.
+
+    That is the repair a person makes after a stalled fix pass writes its own
+    verdicts into a record where the reviewer's report still says `open` —
+    restore the verdicts, re-run `close`, let the generator write them from
+    the fix table. The `Grounds` cell is not restored because nothing tells
+    the repair's author that `close` prefixes it.
+    """
+    generator = generator_module()
+    path = repo / ROUNDS / f"round-{n}.md"
+    text = path.read_text(encoding="utf-8")
+    head, marker, rest = text.partition(generator.VERDICTS)
+    assert marker, f"no {generator.VERDICTS} heading in the record"
+    out, seen, done = [], 0, False
+    for line in rest.splitlines(keepends=True):
+        # The verdict table only. The record carries later tables of its own
+        # and a walk that runs on reaches them.
+        if line.startswith("##"):
+            done = True
+        if (
+            not done
+            and line.lstrip().startswith("|")
+            and set(line.strip()) - set("|-: ")
+        ):
+            seen += 1
+            if seen > 1:
+                cells = line.split("|")
+                assert len(cells) > generator.VERDICT_COL + 1, line
+                cells[generator.VERDICT_COL + 1] = f" {generator.OPEN_WORD} "
+                line = "|".join(cells)
+        out.append(line)
+    assert seen > 1, "no verdict rows were reopened"
+    path.write_text(head + marker + "".join(out), encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("word", ["fixed", "answered", "deferred"])
+def test_re_closing_a_half_restored_record_is_refused_for_every_word(repo, word):
+    """#427 names `fixed` and all three words reach the join (§12).
+
+    `close` prefixes the `Grounds` cell rather than replacing it, on purpose:
+    the reviewer's sentence and the fix pass's are by different authors. What
+    it did not check is whether its OWN prefix is already there — so closing
+    the same finding twice wrote the grounds twice, the record still parsed,
+    `chain_check` was silent, and the only way it was caught was reading the
+    committed file against two earlier commits.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    third = {
+        "fixed": f"{b[:7]} — widened, b defaults to None",
+        "answered": "b is never passed by any caller",
+        "deferred": "#427",
+    }[word]
+    verdict = "deferred #427" if word == "deferred" else word
+    table = fix_table(f"| 1 | {verdict} | {third} |\n")
+    # 0 or 1: a green `close` still exits 1 on the chain-check notice about
+    # `Pass` beside `Fixes checked by: nobody`, which is unrelated and is what
+    # #427's own reproduction reported. The refusal below is exit 2.
+    code, out, _first = close(repo, 1, table, f"{a}..{b}")
+    assert code in (0, 1), out
+    reopen_verdicts(repo, 1)
+    before = (repo / ROUNDS / "round-1.md").read_text(encoding="utf-8")
+
+    code, out, after = close(repo, 1, table, f"{a}..{b}")
+    assert code == 2, out
+    # §14: what is wrong, and what to do instead. Both halves, because the
+    # second is the one that survives a reword badly.
+    assert "already carries a close prefix" in out, out
+    assert "finding 1" in out, out
+    assert "Restore the `Grounds` cell" in out, out
+    # Nothing reached disk. `write_record` runs after the loop this raises in,
+    # so a refusal here leaves the half-restored record exactly as it stood —
+    # which is what makes the message's instruction possible to follow.
+    assert after == before, "the refusal wrote to the record anyway"
+
+
+def test_the_close_prefix_is_caught_when_the_commit_changed(repo):
+    """The arm the same-table comparison cannot reach.
+
+    A fix pass that amends its commit between two closes writes a DIFFERENT
+    prefix the second time, so the cell no longer begins with the text this
+    run would write and a text comparison sees nothing. The cell still carries
+    a close prefix, which is the thing that must not be doubled — so the guard
+    reads the SHAPE as well, and that shape is the one `chain_check` reads
+    when it names a record already carrying two.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, _ = close(repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}")
+    assert code in (0, 1), out
+    write(repo, "README.md", "# amended\n")
+    c = commit(repo, "the fix, amended")
+    reopen_verdicts(repo, 1)
+    before = (repo / ROUNDS / "round-1.md").read_text(encoding="utf-8")
+
+    code, out, after = close(
+        repo, 1, fix_table(f"| 1 | fixed | {c[:7]} |\n"), f"{a}..{c}"
+    )
+    assert code == 2, out
+    assert "already carries a close prefix" in out, out
+    assert after == before, "the refusal wrote to the record anyway"
+
+
+def test_the_documented_repair_still_closes(repo):
+    """The direction that has to stay OPEN, and `questions.md` Q4's risk.
+
+    Correcting a record and re-closing it is the documented way out of a
+    record written wrong, and #427 refuses a fix that forbids it. So the
+    guard must fire on the HALF-restored record and not on the fully restored
+    one: restore the `Grounds` cell to the reviewer's sentence as well, and
+    `close` writes the row exactly as it did the first time.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    table = fix_table(f"| 1 | fixed | {b[:7]} |\n")
+    code, out, first = close(repo, 1, table, f"{a}..{b}")
+    assert code in (0, 1), out
+    (one,) = verdict_cells(first)
+    assert one[4] == f"fixed at {b[:7]}; executed", one
+
+    # The WHOLE repair: the verdict back to `open` and the grounds back to
+    # what the reviewer wrote.
+    path = reopen_verdicts(repo, 1)
+    text = path.read_text(encoding="utf-8")
+    assert f"fixed at {b[:7]}; executed" in text
+    path.write_text(
+        text.replace(f"fixed at {b[:7]}; executed", "executed"), encoding="utf-8"
+    )
+
+    code, out, again = close(repo, 1, table, f"{a}..{b}")
+    assert code in (0, 1), out
+    (one,) = verdict_cells(again)
+    assert one[4] == f"fixed at {b[:7]}; executed", (one, out)
+
+
+def test_the_generator_and_the_checker_spell_the_close_prefix_once(repo):
+    """Two parties read this prefix now, so there is one spelling of it.
+
+    The generator writes it and `chain_check` names a cell carrying two. A
+    second literal in either file is how a writer and a reader drift apart
+    about what they are both looking at.
+    """
+    generator, checker = generator_module(), check_module()
+    assert generator.FIXED_AT == checker.CLOSE_PREFIX, (
+        "the generator's prefix is no longer the checker's constant"
+    )
+    # Identity is not available: the two modules are loaded separately here, so
+    # equal strings are not the same object. What the rule is actually about is
+    # a SECOND literal, so that is what is counted -- the generator's constant
+    # is an alias now, and the phrase may stand in its prose and nowhere else.
+    body = open(generator.__file__, encoding="utf-8").read()
+    literals = re.findall('"' + checker.CLOSE_PREFIX + '"', body)
+    assert not literals, "the generator spells the close prefix itself again: " + str(
+        literals
+    )
+    assert checker.CLOSE_PREFIX_RE.match(f"{checker.CLOSE_PREFIX} 64f36eee")
+    assert not checker.CLOSE_PREFIX_RE.match("executed, and the caller agrees")

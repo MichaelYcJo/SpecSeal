@@ -2373,7 +2373,9 @@ FIXED, ANSWERED, DEFERRED_WORD = "fixed", "answered", chain.DEFERRED
 assert {FIXED, ANSWERED, DEFERRED_WORD} <= chain.CLOSED_WORDS, (
     "a fix verdict the checker cannot close"
 )
-FIXED_AT = "fixed at"
+# One spelling, held in the checker because the checker reads it too (#427):
+# this generator writes the prefix and `chain_check` names a cell carrying two.
+FIXED_AT = chain.CLOSE_PREFIX
 # The reach grammar `fix_surface` reads, `unit → site, site`, in the checker's
 # first spelling of the arrow. The comma between sites is the writer's own and
 # never an input's, which is what lets `cell` keep refusing one in this row.
@@ -3768,6 +3770,44 @@ def close(args):
         else:
             cells[VERDICT_COL] = f"{DEFERRED_WORD} {value}"
             grounds = value + (f" {DASH} {note}" if note else "")
+        # #427: `close` joined a cell it had already written, so re-closing a
+        # corrected record carried the fix grounds twice and nothing said so.
+        # The path is not a misuse a person can be told out of -- correcting a
+        # record and re-closing it is the documented way out of a record
+        # written wrong, and the repair that reached it restored the `Verdict`
+        # cells from the reviewer's report and left `Grounds` alone, because
+        # its author did not know this line prefixes.
+        #
+        # TWO arms, because one of them alone closes the instance and not the
+        # class (§12). The first is the re-close with the SAME fix table, which
+        # is what a corrected record produces and what #427 reproduced
+        # byte-identically; it covers all three verdict words, because all
+        # three reach this line and all three join. The second is the cell that
+        # already carries a close-prefix naming a DIFFERENT commit -- a fix
+        # pass that amended its commit between two closes, or a row reopened
+        # and re-closed under another word -- which the first arm cannot see
+        # because the text it would compare has changed.
+        #
+        # It REFUSES rather than overwriting, which is `questions.md` Q4
+        # (#427 allows either). Overwriting discards the reviewer's sentence
+        # silently, and not discarding it is what this whole join was written
+        # for. Refusing costs the author one restore and tells them which half
+        # of the record is still half-repaired.
+        #
+        # Nothing has reached disk when this raises: `write_record` runs after
+        # this loop, so `raw`'s earlier rows are in memory only.
+        if old and (old.startswith(grounds) or chain.CLOSE_PREFIX_RE.match(old)):
+            raise Refused(
+                f"finding {number}'s `Grounds` cell already carries a close "
+                f"prefix -- {old[:60]!r} -- so this row was closed once "
+                f"already and only its `{chain.VERDICT_COLUMN}` cell was "
+                f"reopened. Writing it again would carry the fix grounds "
+                f"twice, and a record that says a thing twice still parses, "
+                f"so nobody would see it. Restore the `Grounds` cell to what "
+                f"the reviewer wrote as well -- the round's report is where it "
+                f"stands -- and run `close` again, or leave the row as it is. "
+                f"No cell was written"
+            )
         cells[GROUNDS_COL] = grounds + (f"; {old}" if old else "")
         raw[i] = row([escape(c) for c in cells])
     words = [

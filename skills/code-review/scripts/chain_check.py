@@ -391,6 +391,31 @@ CLOSED_WORDS = {
     DEFERRED,
     OUT_OF_SCOPE,
 }
+# The prefix `round_record.py close` writes in front of a `fixed` verdict's
+# `Grounds` cell (#427). It lives here rather than beside the rest of `close`'s
+# vocabulary because two parties now need it: the GENERATOR, which must refuse
+# to write a second one over a cell that already carries one, and this CHECKER,
+# which names a record already carrying two. One spelling, so the writer and
+# the reader cannot drift apart about what a close-prefix looks like.
+#
+# It is `close`'s prefix and nobody else's, which is what the name says. The
+# reviewer's grounds in the same cell are the reviewer's sentence, written by
+# a different author, and `close` joins rather than overwrites for that reason.
+#
+# ONE of the three fix words has a shape a reader can recognise after the
+# fact. `answered` and `deferred` write the author's own words into the cell,
+# so a standing duplicate of either is indistinguishable from prose that
+# repeats itself, and nothing here pretends otherwise: the generator's guard
+# catches all three at the moment of writing, and this pattern is what remains
+# readable once the commit is in.
+CLOSE_PREFIX = "fixed at"
+# Built from the word so there is one spelling of it, the way `DEPTH_RE` is
+# built from `DEPTH_WORD`. Seven to forty hex characters is what `close`
+# resolves a fix commit to and what a person abbreviates it to; the optional
+# backticks are what a hand-repaired cell carries.
+CLOSE_PREFIX_RE = re.compile(
+    r"\b" + CLOSE_PREFIX + r"\s+`?([0-9a-fA-F]{7,40})`?", re.IGNORECASE
+)
 # The closing words that close nothing without a home after them.
 HOME_WORDS = {DEFERRED}
 assert HOME_WORDS <= CLOSED_WORDS, "a home word that is not a closing word"
