@@ -330,6 +330,10 @@ VERDICTS = "## Verdicts"
 # #106 found the exclusion list holding this column with nothing pinning it,
 # because there was no constant to derive it from.
 VERDICT_COLUMN = "Verdict"
+# The column beside it: the reviewer's reason a finding was opened, joined by
+# `round_record.py close` with what the fix pass did about it. Named here
+# because `doubled_grounds` locates the cell by this header (#427).
+GROUNDS_COLUMN = "Grounds"
 TARGET = "Target SHA"
 # Where a record says it was committed after the fixes it commissioned, and
 # WHY. `written_late` below refuses exactly that record, on the strength of
@@ -1377,17 +1381,23 @@ def reachable(root, sha, refs):
 
 
 def verdict_table(reader, lines, rel):
-    """(rows, the Verdict column's index, errors) for `## Verdicts`.
+    """(rows, the Verdict column's index, the header, errors) for `## Verdicts`.
 
     Rows are `(line number, cells already run through `reader.visible`)`, with
     the header and the separator dropped.
 
-    ONE parse, two questions. Which blocking findings are still open was the
-    only one asked of this table until `Fixes checked by` arrived and needed a
-    second — whether anything here closed by writing a fix. A second walk of
-    the same markdown is exactly the split this file spends its docstrings
-    closing everywhere else, so the walk happens here and the questions are
-    asked of what it returns.
+    ONE parse, three questions now. Which blocking findings are still open was
+    the only one asked of this table until `Fixes checked by` arrived and
+    needed a second — whether anything here closed by writing a fix. A second
+    walk of the same markdown is exactly the split this file spends its
+    docstrings closing everywhere else, so the walk happens here and the
+    questions are asked of what it returns.
+
+    The HEADER is returned for the third (#427): a cell is located by the name
+    at the top of its column, and only the walk that already read that row
+    knows it. It comes back case-folded, the way it is compared here, and
+    empty for every early return — a table this could not read has no columns
+    to name.
 
     The verdict table is located by its own heading and read with the shared
     reader, so a 🔴 inside a comment or a fenced block is not a finding.
@@ -1397,6 +1407,7 @@ def verdict_table(reader, lines, rel):
         return (
             [],
             -1,
+            [],
             [
                 (
                     rel,
@@ -1407,7 +1418,12 @@ def verdict_table(reader, lines, rel):
             ],
         )
     if len(starts) > 1:
-        return [], -1, [(rel, starts[1] + 1, f"more than one `{VERDICTS}` section")]
+        return (
+            [],
+            -1,
+            [],
+            [(rel, starts[1] + 1, f"more than one `{VERDICTS}` section")],
+        )
 
     start = starts[0]
     body = []
@@ -1422,6 +1438,7 @@ def verdict_table(reader, lines, rel):
         return (
             [],
             -1,
+            [],
             [
                 (
                     rel,
@@ -1437,6 +1454,7 @@ def verdict_table(reader, lines, rel):
         return (
             [],
             -1,
+            header,
             [
                 (
                     rel,
@@ -1464,7 +1482,7 @@ def verdict_table(reader, lines, rel):
             )
             continue
         seen_rows.append((line_no, seen))
-    return seen_rows, col, errors
+    return seen_rows, col, header, errors
 
 
 def verdict_of(seen, col):
@@ -1543,7 +1561,7 @@ def open_blocking(reader, lines, rel):
     available, and it is the one that would let a row whose verdict the
     vocabulary does not hold stop being refused at all.
     """
-    rows, col, errors = verdict_table(reader, lines, rel)
+    rows, col, _header, errors = verdict_table(reader, lines, rel)
     if col < 0:
         return [], errors
     still_open = [
@@ -1634,10 +1652,87 @@ def closed_with_a_fix(reader, lines, rel):
     error from `open_blocking`, and raising a second one about a cell nobody
     could locate would name a cause that is not the cause.
     """
-    rows, col, _errors = verdict_table(reader, lines, rel)
+    rows, col, _header, _errors = verdict_table(reader, lines, rel)
     if col < 0:
         return False
     return any(verdict_of(seen, col) in FIX_WORDS for _line, seen in rows)
+
+
+def doubled_grounds(reader, root, rel):
+    """(errors, notices) — a `Grounds` cell carrying `close`'s prefix twice.
+
+    The read half of #427. `round_record.py close` now refuses to write a
+    second prefix over a cell that already carries one, and that closes the
+    instance: it stops the next one. It does not make the ones already
+    committed readable, and the ticket is explicit that a repair which only
+    stops the second write has closed the instance and not the class. The
+    duplication is INVISIBLE — the record still parses, every other arm here
+    is silent, and the only way the original was caught was reading a
+    committed file against two earlier commits.
+
+    **No cutoff, and that is a decision rather than an omission.** Every other
+    rule this module added came with a `*_FROM` second, because a record
+    written before the rule has no honest repair and a check whose first act
+    is red on history people cannot fix is a check people learn to skip. This
+    one is not that shape. A doubled cell is not an absent row: it is a
+    present cell that says a thing twice, the repair is restoring it to what
+    the round's report holds, and that repair is available to whoever wrote
+    the record whenever it was written. `fix_surface` already draws this line
+    in the same words — the grandfathering reaches the ABSENT row, and a row
+    present and malformed fails on any record.
+
+    **It reports zero on this repository today, and that is disclosed rather
+    than sold as a catch.** Measured 2026-09-17 over `seal/specs/*/rounds/
+    round-N.md`: 229 files, 227 with a readable verdict table, 3331 `Grounds`
+    cells read, and **zero** carrying two prefixes. The one work item whose
+    record was corrupted this way had it repaired by hand before this arm
+    existed. So a green run here says nothing was found, not that this found
+    something, and the case that gives it a subject plants one.
+
+    **One of the three fix words has a shape to find, and this says so rather
+    than implying three.** `close` writes `fixed at <sha>` for `fixed` and the
+    author's own words for `answered` and `deferred`, so a standing duplicate
+    of either of those is indistinguishable from prose that repeats itself.
+    The generator's guard covers all three at the moment of writing, where
+    only this one survives into a committed record for a reader to find. What
+    that costs is stated: a record whose `answered` grounds were doubled
+    before the guard landed stays unreadable, and nothing here will name it.
+
+    An unreadable record returns nothing, for the reason `fix_surface` gives:
+    `checked_by` already reports that state, and a second error naming a
+    different cause would name a cause that is not the cause.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return [], []
+    lines = reader.readable(text)
+    rows, col, header, _errors = verdict_table(reader, lines, rel)
+    if col < 0 or GROUNDS_COLUMN.casefold() not in header:
+        return [], []
+    grounds = header.index(GROUNDS_COLUMN.casefold())
+    errors = []
+    for line_no, seen in rows:
+        if len(seen) <= grounds:
+            continue
+        found = CLOSE_PREFIX_RE.findall(seen[grounds])
+        if len(found) < 2:
+            continue
+        what = seen[0].strip() or f"the row at line {line_no}"
+        errors.append(
+            (
+                rel,
+                line_no,
+                f"{what}'s `{GROUNDS_COLUMN}` cell carries `{CLOSE_PREFIX}` "
+                f"{len(found)} times — {', '.join(found)} — so this finding "
+                f"was closed more than once and each close wrote its grounds "
+                f"in front of the last. The cell reads as one sentence and is "
+                f"two, which is why nothing has said so until now. Restore it "
+                f"to the reviewer's grounds from this round's report, then "
+                f"re-run `round-record close` with the fix table, which now "
+                f"refuses to write a second prefix over the first",
+            )
+        )
+    return errors, []
 
 
 def resolves_to(root, sha):
@@ -2598,7 +2693,7 @@ def commissioned_fixes(reader, root, rel):
     text = read_record(root, rel)
     if text is None:
         return []
-    rows, col, _errors = verdict_table(reader, reader.readable(text), rel)
+    rows, col, _header, _errors = verdict_table(reader, reader.readable(text), rel)
     if col < 0:
         return []
     found = []
@@ -3982,6 +4077,13 @@ def main(argv=None):
             ran_errors, ran_notices = ran_by(reader, root, record)
             errors.extend(ran_errors)
             notices.extend(ran_notices)
+            # EVERY record too. A `Grounds` cell closed twice is a fact about
+            # the round whose record carries it, and it has no cutoff -- the
+            # function's own docstring holds why, and why a green run here is
+            # a disclosure rather than a catch.
+            double_errors, double_notices = doubled_grounds(reader, root, record)
+            errors.extend(double_errors)
+            notices.extend(double_notices)
             # EVERY record too, and for the reason the other four are: WHEN a
             # record was written is a fact about that round. The last one is
             # the least likely to be late, since nothing follows it to

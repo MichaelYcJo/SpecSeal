@@ -11,6 +11,7 @@ HEAD, because the check is about what git can see between two refs. The
 verdicts are read from the script's exit code, not from its prose.
 """
 
+import importlib.util
 import json
 import os
 import re
@@ -41,6 +42,20 @@ ROUNDS = f"{ITEM}/rounds"
 # what tells a pass from a notice — and after round 1's 🟡 3 this arm has a
 # state that prints at exit 0, which is why exit codes stopped being enough.
 BROAD_GATE_ROW = "Broad gate"
+
+
+def load_by_path(path, name):
+    """The checker and the shared reader as MODULES, by absolute path.
+
+    `conftest.load_hook_module` resolves against `hooks/`, and neither of these
+    lives there. Used by the repository-wide case at the foot of this file,
+    which asks one arm a question about the real tree rather than driving the
+    whole script over a fixture.
+    """
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def git(repo, *args):
@@ -115,6 +130,7 @@ def record(
     extra="",
     pr=None,
     checked_by="nobody — the run ended here",
+    grounds="grounds",
 ):
     box = "x" if passed else " "
     # The `| PR |` row is optional, and `not yet opened` is what a review that
@@ -132,7 +148,7 @@ def record(
         "## Verdicts\n\n"
         "| # | Finding | Location | Verdict | Grounds |\n"
         "|---|---|---|---|---|\n"
-        f"| {finding} | something | `f.py:1` | {verdict} | grounds |\n"
+        f"| {finding} | something | `f.py:1` | {verdict} | {grounds} |\n"
         f"{extra}"
     )
 
@@ -2517,3 +2533,118 @@ def test_the_same_open_row_without_the_quote_is_a_pass(repo):
     assert code == 0, out
     assert QUOTED_SENTENCE not in out, out
     assert BLOCKING_SENTENCE not in out, out
+
+
+# --- a Grounds cell closed twice (#427, the read half) -----------------------
+
+DOUBLED_SENTENCE = "carries `fixed at`"
+
+
+def test_a_grounds_cell_closed_twice_is_named(repo):
+    """#427's read half. `close` refusing the second write stops the NEXT one
+    and leaves every one already committed unreadable, and the ticket says so:
+    a repair that only stops the second write has closed the instance and not
+    the class.
+
+    What makes it worth a checker at all is that the duplication is invisible.
+    The record still parses, every other arm here is silent, and the original
+    was caught only by reading a committed file against two earlier commits.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        record(
+            sha,
+            passed=True,
+            verdict="fixed",
+            grounds="fixed at 1575d77; fixed at 1575d77; executed",
+        ),
+    )
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 1, out
+    # The file, the finding, and the repeated text — a reader who cannot find
+    # the cell cannot restore it.
+    assert f"{ROUNDS}/round-1.md" in out, out
+    assert DOUBLED_SENTENCE in out, out
+    assert "🔴 1" in out, out
+    assert "1575d77" in out, out
+    # §14's second half: what to do instead, which is the half a reword drops.
+    assert "Restore it" in out, out
+    assert "round-record close" in out, out
+
+
+def test_a_grounds_cell_closed_once_is_not_named(repo):
+    """The control. One prefix is what a correct close writes, and the arm has
+    to be silent about it or every record in every tree fails."""
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        record(sha, passed=True, verdict="fixed", grounds="fixed at 1575d77; executed"),
+    )
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 0, out
+    assert DOUBLED_SENTENCE not in out, out
+
+
+def test_a_second_close_prefix_naming_another_commit_is_still_two(repo):
+    """The shape, not the repetition of one string. Two closes with different
+    commits leave two prefixes naming different SHAs, and a check that
+    compared the halves to each other would pass exactly the record whose two
+    closes were furthest apart."""
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        record(
+            sha,
+            passed=True,
+            verdict="fixed",
+            grounds="fixed at 64f36ee; fixed at 1575d77; executed",
+        ),
+    )
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 1, out
+    assert DOUBLED_SENTENCE in out, out
+    assert "64f36ee" in out and "1575d77" in out, out
+
+
+def test_the_records_in_this_repository_carry_no_doubled_grounds():
+    """This repository's own records at exit 0, which is a DISCLOSURE.
+
+    Measured 2026-09-17 at the branch tip: 229 `round-N.md` files, 227 with a
+    readable verdict table, 3331 `Grounds` cells, and zero carrying two
+    prefixes. The one record that was corrupted this way had it repaired by
+    hand before this arm existed. So a green run here says nothing was found,
+    never that this arm found something — and the three cases above are what
+    give it a subject.
+
+    The population is asserted along with the verdict. A walk that silently
+    read nothing would also be green, and green over an empty corpus is the
+    shape of a check that cannot fail.
+    """
+    check = load_by_path(CHECK, "specseal_chain_check_for_doubled")
+    reader = load_by_path(
+        os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py"),
+        "specseal_reader_for_doubled",
+    )
+    check.WORKTREE = True
+    records = [
+        os.path.relpath(os.path.join(d, name), ROOT)
+        for d, _dirs, names in os.walk(os.path.join(ROOT, "seal", "specs"))
+        for name in names
+        if re.fullmatch(r"round-\d+\.md", name)
+    ]
+    assert len(records) > 200, f"the walk found {len(records)} records"
+    named = []
+    for rel in sorted(records):
+        errors, _notices = check.doubled_grounds(reader, ROOT, rel.replace(os.sep, "/"))
+        named.extend(errors)
+    assert not named, f"records carrying a doubled close prefix: {named}"
