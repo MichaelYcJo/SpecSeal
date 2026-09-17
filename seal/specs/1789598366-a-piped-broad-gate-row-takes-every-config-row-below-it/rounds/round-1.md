@@ -7,13 +7,13 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 428 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Contract changes | refused_row → round-1-report.md, pytest; refused_broad_row → round-1-report.md, pytest |
+| New units | refusal (depth 1); rows_under (depth 1); names_this_row (depth 1); hides_this_row (depth 1); test_a_backslash_against_a_pipe_is_the_one_shape_the_escape_narrows (depth 1); BARE_TABLE (depth 1); test_seal_mode_still_writes_a_second_mode_row_for_a_bare_pipe (depth 1); refusal_over (depth 1); LOST (depth 1); KEPT (depth 1); test_what_a_refused_line_cost_is_read_off_the_file_and_not_stated_flat (depth 1); test_the_rows_below_a_first_row_refusal_really_do_arrive (depth 1); test_a_broad_gate_row_below_a_refused_line_is_not_reported_absent (depth 1) |
 | Needs a fix | yes — findings 1, 2, 3 and 4 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -37,10 +37,10 @@ claims to have closed.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | The refusal says every row below the refused line is lost, without the condition the branch measured; false when that line is the table's first row | `skills/verify/scripts/broad_gate.py:283` | open | Executed: `config_rows` returned the two rows below it while the refusal said they were lost. Same sentence in `skills/config/SKILL.md:89`, `skills/implement/orchestration.md:159`, and pinned by `tests/test_first_setup_asks_once.py:222` |
-| 2 | A value ending in a backslash before the closing pipe stopped being a row; `plan.md` and `questions.md` M3 say a widened pattern can only make more lines into rows | `hooks/config.py:70` | open | Executed: old pattern read `('Broad gate', 'C:\Users\x\tools\')`, new pattern reads no row. M3's measurement is sound; the generalisation past its population is not |
-| 3 | A `Broad gate` row below a refused line naming another item is still reported ABSENT — the wrong-cause message, one item over | `skills/verify/scripts/broad_gate.py:265` | open | Executed: a config that read three rows before the branch now refuses with *has no `Broad gate` row*. `agent-contract` §12; the case at line 952 uses a fixture with no such row |
-| 4 | `seal mode` still writes a second `Mode` row for a bare pipe, and three of four disclosure sites read as if it were closed | `seal/specs/1789598366-…/changelog.md:20` | open | Executed: `write_row` left the file two `Mode` rows deep. `templates/config.md:224` says so; the changelog, `overview.md` §*Not done* and `spec.md` do not |
+| 1 | The refusal says every row below the refused line is lost, without the condition the branch measured; false when that line is the table's first row | `skills/verify/scripts/broad_gate.py:283` | **fixed** `caaa4c11` | fixed at caaa4c11 — `hooks/config.py#refusal` answers whether the refused line is the one that ENDED the table, and the gate chooses its cost sentence from that instead of stating it flat. `skills/config/SKILL.md` and `skills/implement/orchestration.md` carry the condition, and `1736936b` reaches the two further copies the survivor check found; Executed: `config_rows` returned the two rows below it while the refusal said they were lost. Same sentence in `skills/config/SKILL.md:89`, `skills/implement/orchestration.md:159`, and pinned by `tests/test_first_setup_asks_once.py:222` |
+| 2 | A value ending in a backslash before the closing pipe stopped being a row; `plan.md` and `questions.md` M3 say a widened pattern can only make more lines into rows | `hooks/config.py:70` | answered | Behaviour kept, claim corrected at `5d22c622` and `1736936b`. The new reading is the coherent one: once `\|` means an escaped pipe those bytes cannot also mean *backslash, then the delimiter*, and nothing becomes unwritable because a space before the closing pipe returns the same value byte for byte. `plan.md`, `questions.md` M3, `spec.md` §*What this repair cannot see* and the changelog now say so; the shape is pinned; Executed: old pattern read `('Broad gate', 'C:\Users\x\tools\')`, new pattern reads no row. M3's measurement is sound; the generalisation past its population is not |
+| 3 | A `Broad gate` row below a refused line naming another item is still reported ABSENT — the wrong-cause message, one item over | `skills/verify/scripts/broad_gate.py:265` | **fixed** `8b3c41df` | fixed at 8b3c41df — `hooks/config.py#rows_under` reports what a refused line took, so the gate asks whether its own row is among them. A file with no such row anywhere still gets the absent-row refusal, and the existing case for that file is the guard on the new branch; Executed: a config that read three rows before the branch now refuses with *has no `Broad gate` row*. `agent-contract` §12; the case at line 952 uses a fixture with no such row |
+| 4 | `seal mode` still writes a second `Mode` row for a bare pipe, and three of four disclosure sites read as if it were closed | `seal/specs/1789598366-…/changelog.md:20` | answered | Disclosure corrected at `7eadae72` and `1736936b`, and pinned. All four sites now say the second `Mode` row is closed for the escaped spelling only, and a file already two rows deep is recorded in `overview.md` §*Not done*; Executed: `write_row` left the file two `Mode` rows deep. `templates/config.md:224` says so; the changelog, `overview.md` §*Not done* and `spec.md` do not |
 | ⬜ | `refused_row` steps past a second header where `config_rows` breaks, and its docstring describes a stricter rule than the code has | `hooks/config.py:156` | correction | Executed: a refused line from a second table came back as this table's; an indented line is accepted although the docstring says a line must begin with a pipe |
 | 🟢 | Phase 1's mutation is red on the row COUNT, asserted before the value | `tests/test_the_mode_question_is_asked_once.py:189` | confirmed | Executed: *the table has four rows and 1 came back* |
 | 🟢 | Phase 3's `__code__.co_filename` assertion distinguishes a faithful copy from the one reader | `tests/test_the_pull_request_language_is_the_repositorys.py:711` | confirmed | Executed: red against a byte-faithful reimplementation compiled in the test file |
