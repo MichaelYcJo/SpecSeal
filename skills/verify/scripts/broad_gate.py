@@ -269,6 +269,19 @@ def names_this_row(line):
     return bool(first and first.group(1).strip() == ROW)
 
 
+def hides_this_row(below):
+    """Whether this gate's row is one of the rows a refused line took.
+
+    The row is in the person's file and the reader never reached it, so
+    saying it is ABSENT is a true sentence about a cause that is not the real
+    one — the same shape #415 was opened about, one item over. Asked of the
+    rows rather than of the refused line, because a file that has no such row
+    anywhere is a file the absent-row refusal is right about, malformed line
+    or not (#415 round 1 🟡 3).
+    """
+    return any(item == ROW for item, _value in below)
+
+
 def refused_broad_row(home):
     """The `Broad gate` row a person wrote that the table reader will not
     take as a row — as written, with its own indentation — or None.
@@ -312,7 +325,7 @@ def missing_row(home):
     the owner afterwards. The message now says whose the row is and where
     they answer it.
     """
-    line, ended, _below = refusal(home)
+    line, ended, below = refusal(home)
     if line is not None and names_this_row(line):
         cost = (
             " — and every row written BELOW that line is lost with it, each "
@@ -335,6 +348,22 @@ def missing_row(home):
             "that command. `templates/config.md` §*What is refused, and what "
             "stays allowed* is where the row says so, and `/specseal:config` "
             "is the door to it. Nothing ran."
+        )
+    if line is not None and ended and hides_this_row(below):
+        return (
+            f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` row and "
+            "the reader never reached it. This line above it does not parse "
+            "as a row of that table, and the reader stops reading there:\n"
+            f"    {line.strip()}\n"
+            f"So the `{ROW}` row written BELOW it is invisible, and there is "
+            "no command to seal over. Every other row under that line is "
+            "gone the same way, each falling back to its default.\n"
+            "A cell of that table ends at a `|`. A value that needs one is "
+            "written with markdown's own escape, `\\|`, which the reader "
+            "reduces to a plain pipe before any shell sees it. "
+            "`templates/config.md` §*What is refused, and what stays allowed* "
+            "is where the row says so, and `/specseal:config` is the door to "
+            "the file. Nothing ran."
         )
     return (
         f"broad-gate: {os.path.join(home, CONFIG)} has no `{ROW}` row, so "

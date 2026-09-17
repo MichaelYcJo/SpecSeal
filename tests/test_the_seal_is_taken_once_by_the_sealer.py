@@ -1033,11 +1033,51 @@ def test_the_rows_below_a_first_row_refusal_really_do_arrive(tmp_path):
     assert rows == [("Mode", "shared"), ("Record language", "English")], rows
 
 
+def test_a_broad_gate_row_below_a_refused_line_is_not_reported_absent(tmp_path):
+    """Round 1's 🟡 3 of #415, and the class `agent-contract` §12 asks for:
+    a `Broad gate` row the reader could not reach. The build closed the
+    member where the refused line IS the `Broad gate` line; this is the
+    member one item over, where the person's row is sitting in the file and
+    the gate calls it absent — the wrong-cause message this work item exists
+    to end.
+
+    **Nobody has to type a pipe to reach it.** The line below is a Windows
+    path ending in a separator, which was a row before this branch and is not
+    one after it, because a backslash immediately before the closing pipe is
+    now markdown's escaped pipe (`spec.md` §*What this repair cannot see*).
+    """
+    said = refusal_over(
+        tmp_path,
+        "hidden",
+        "| Item | Value |\n|---|---|\n"
+        "| Mode | shared |\n"
+        "| Notes | see C:\\docs\\|\n"
+        f"| {ROW} | bin/test -q |\n",
+    )
+    assert f"has no `{ROW}` row" not in said, (
+        f"the row is in the file, below a line the reader refused:\n{said}"
+    )
+    assert "does not parse as a row" in said, said
+    assert "see C:\\docs\\" in said, (
+        f"the refusal does not show the line that hid the row:\n{said}"
+    )
+    assert "never reached it" in said, said
+
+
 def test_a_refused_row_of_some_other_item_is_not_read_as_this_one(tmp_path):
     """The branch is about the `Broad gate` row and reads the refused line's
     first cell to say so. A file whose unparseable line names a different
     item has no `Broad gate` row to quote, and the absent-row refusal is the
-    true one there."""
+    true one there.
+
+    **This is also the guard on the case above.** That one fires on a refused
+    line naming another item only when a `Broad gate` row is actually sitting
+    below it; a branch that fired on every such line would tell this person
+    to go looking for a row their file does not contain, which is the wrong
+    cause again with the words rearranged. There is no `Broad gate` row in
+    this fixture, so the absent-row refusal is the true one and this case is
+    what keeps it (#415 round 1 🟡 3).
+    """
     home = tmp_path / "seal"
     home.mkdir()
     (home / "config.md").write_text(
