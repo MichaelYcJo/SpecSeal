@@ -2518,7 +2518,8 @@ def test_a_record_with_no_fix_range_row_is_told_which_row_to_add(repo):
         for ln in text.splitlines()
         if ln.startswith(f"| {generator.chain.FIX_RANGE} |")
     )
-    path.write_text(text.replace(row + "\n", ""), encoding="utf-8")
+    stripped = text.replace(row + "\n", "")
+    path.write_text(stripped, encoding="utf-8")
 
     code, out, record = close(
         repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
@@ -2534,4 +2535,10 @@ def test_a_record_with_no_fix_range_row_is_told_which_row_to_add(repo):
     # And the old message's bare count is gone, so nobody is sent to look for
     # a row they have too many of.
     assert "rows and needs one" not in out, out
-    assert record == path.read_text(encoding="utf-8"), "the refusal wrote anyway"
+    # The bytes from BEFORE the run, never a second read of the file the run
+    # may have written. `close` in this module returns the record it read
+    # AFTER the subprocess, so comparing that against another read of the same
+    # path compares the file to itself and passes however much `close` wrote —
+    # shown by making `close` clobber every record before raising and watching
+    # this line stay green (round 2's 🟡 2).
+    assert record == stripped, "the refusal wrote anyway"

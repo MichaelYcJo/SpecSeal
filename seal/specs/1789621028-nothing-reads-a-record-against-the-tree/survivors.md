@@ -1,6 +1,6 @@
 # 1789621028-nothing-reads-a-record-against-the-tree — survivor exemptions
 
-## Round 1's fix pass — `b38bd920..HEAD`
+## Round 1's fix pass — `b38bd920..bf693bc1`
 
 `survivor-check` over this pass first reported six places. **One was
 corrected rather than exempted**, and it is the one that mattered: the

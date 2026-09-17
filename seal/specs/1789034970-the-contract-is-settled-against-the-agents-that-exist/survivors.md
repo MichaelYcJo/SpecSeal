@@ -2,8 +2,8 @@
 
 ## Over the whole branch — what CI reads
 
-Sixteen places were reported across this branch's life by
-`survivor-check --range d35c874...ce0f9fe`
+`survivor-check --range d35c874...ce0f9fe` reports two places today. Sixteen
+were reported across this branch's life
 <!-- The range read `origin/release/v0.10.0...HEAD` until 2026-09-17, when work
 item 1789621028-nothing-reads-a-record-against-the-tree re-measured it. Both
 ends were names, and neither still means what it meant: `HEAD` is now another
@@ -22,7 +22,7 @@ sentences. So the instrument moved as well as the range — 60 insertions and 11
 deletions in `survivor_check.py` since — and pinning a range is necessary
 without being sufficient. With this file passed as `--exempt`, both readings
 are exit 0. -->
-across this branch — fifteen at the head it was first run against, and a
+— fifteen at the head it was first run against, and a
 sixteenth once the note explaining a removed ledger row landed, which put the
 sentence that row carried into the range's removed set. None of the sixteen is
 a stale copy of a corrected claim standing where a reader would act on it.

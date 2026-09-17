@@ -2823,14 +2823,16 @@ def test_the_records_in_this_repository_are_not_failed_by_the_new_row(repo):
         if re.fullmatch(r"round-\d+\.md", name)
     ]
     assert len(records) > 200, f"the walk found {len(records)} records"
-    failed, printed, carrying = [], 0, []
+    failed, printed_without_a_row, carrying = [], 0, []
     for rel in sorted(records):
         errors, notices = check.fix_range(reader, ROOT, rel)
         failed.extend(errors)
-        printed += len(notices)
         with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
-            if f"| {check.FIX_RANGE} |" in f.read():
-                carrying.append(rel)
+            carries = f"| {check.FIX_RANGE} |" in f.read()
+        if carries:
+            carrying.append(rel)
+        else:
+            printed_without_a_row += len(notices)
     assert not failed, f"records the new row would fail: {failed[:5]}"
     # The population, split the way the tree is actually split. Until this
     # work item's own round 1 there was no record carrying the row at all and
@@ -2839,8 +2841,17 @@ def test_the_records_in_this_repository_are_not_failed_by_the_new_row(repo):
     # wrong. What has to hold is that a record WITHOUT the row is printed and
     # never failed, and that the two groups account for every record — a walk
     # that quietly read nothing would report no failures too.
+    #
+    # The notices are counted over that group ALONE, never as a subtraction
+    # from the whole. A record that HAS the row prints whenever its ends stop
+    # resolving, which `fix_range`'s own docstring calls "the ordinary state
+    # of a merged record and not a fault in it" — and the squash that merges
+    # this branch makes it the state of the one record carrying the row. A
+    # subtraction asserts that such a record prints nothing, which is the
+    # opposite of what this module documents (round 2's 🔴 1).
     assert carrying, "no record in this tree carries the row, so nothing is read"
-    assert printed == len(records) - len(carrying), (
-        f"{printed} notices over {len(records) - len(carrying)} records with "
-        "no row: a record that predates the row has to print, not go quiet"
+    assert printed_without_a_row == len(records) - len(carrying), (
+        f"{printed_without_a_row} notices over {len(records) - len(carrying)} "
+        "records with no row: a record that predates the row has to print, "
+        "not go quiet"
     )

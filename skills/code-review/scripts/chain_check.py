@@ -4268,7 +4268,7 @@ def main(argv=None):
             # because git is what it is a claim about (#344). It IS
             # grandfathered, behind `RANGE_FROM` -- which is the opposite of
             # the arm below, so the two comments are kept apart on purpose
-            # (round 1's 8). Whether an arm has a cutoff is the load-bearing
+            # (round 1's ⬜ 4). Whether an arm has a cutoff is the load-bearing
             # fact about it, and a comment sitting above the wrong call says
             # the load-bearing thing about the wrong one.
             range_errors, range_notices = fix_range(reader, root, record)
