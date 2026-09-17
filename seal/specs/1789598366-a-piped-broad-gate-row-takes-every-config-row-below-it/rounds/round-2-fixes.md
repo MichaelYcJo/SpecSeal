@@ -62,8 +62,9 @@ stopped it; the reader had already stopped above this line and never met it.
 `stopper` is what the branch asks about in every one of them.
 
 Nothing else in the proposal was rejected. `stopper` is its idea and it is in
-the repair; `rows_under` comes out for the reason it gives; `refused` is a
-list rather than one line, which is what ③ and ④ needed.
+the repair; `rows_under` comes out for the reason it gives <!-- NAME NOT IN TREE: the fix pass removed `rows_under`, which is what this sentence says, so the tree no longer carries the name. -->
+and its coordinate comes off the ledger row that cited it; `refused` is a list
+rather than one line, which is what ③ and ④ needed.
 
 ## The mutation behind each fix
 
