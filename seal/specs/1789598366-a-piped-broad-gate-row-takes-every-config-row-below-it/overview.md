@@ -6,7 +6,7 @@ the diff cannot show goes here. -->
 
 📋 implement applied
 · spec:     `CLAUDE.md` (fragments never the shared file · no real identifiers · a thing more than one party can have is named with whose · the merge method per direction), `seal/specs/1789598366-…/spec.md` + `plan.md` + `questions.md` + `routing.md`, `seal/follow-up.md`, `skills/agent-contract/SKILL.md` §§1 2 3 4 5 6 7 9 10 12 14 15 16, `skills/implement/SKILL.md`, `skills/writing-style/SKILL.md`, `~/.claude/skills/commit-pr-convention/SKILL.md`, `templates/config.md` §*Broad gate* + §*What is refused, and what stays allowed* + §*Choosing a value — the criterion*, `templates/sdd-phase.md`, `templates/sdd-overview.md`, issue #415
-· evidence: five rows added to `seal/ledger/1789598366-a-piped-broad-gate-row-takes-every-config-row-below-it.md`; one row REMOVED from `seal/ledger/1789445605-…md`; ten rows elsewhere re-read and re-stamped, each with a note saying what was read
+· evidence: five rows added to `seal/ledger/1789598366-a-piped-broad-gate-row-takes-every-config-row-below-it.md`; one row REMOVED from `seal/ledger/1789445605-…md`; eighteen rows elsewhere re-read and re-stamped — thirteen in `seal/ledger.md` and five in `seal/ledger/1789445605-…md` — each with a note saying what was read
 · verified: executed — the four modules the phases name, `bin/evidence-check --strict .` (exit 0), `bin/unverified-check` (exit 0), `ruff check` and `ruff format --check` over the touched files. Not executed — the full suite, the repository-wide lint and the typecheck (`agent-contract` §2)
 
 ## Why this work exists
@@ -34,7 +34,7 @@ is quoted back instead of being reported absent.
 | the full suite, the repository-wide lint and the typecheck | the sealer, in the broad gate after the rounds settle (`agent-contract` §2) |
 | every platform but macOS 15.5 — the Windows and Linux legs | the repository's own CI on the pull request. The Windows path case is a fact about the READER and runs identically everywhere; what stays unmeasured on `cmd.exe` is unchanged by this branch, because the reduction happens before any shell is reached |
 | whether a `Broad gate` row a person actually writes with `\|` survives a round trip through `/specseal:config`'s own edit | the repository owner. The skill tells a session to edit the value in place and now says how a pipe is written; nothing executes that path |
-| that the four claims re-read in `seal/ledger.md` and the four in `seal/ledger/1789445605-…md` are still true — read, not executed, except where a cited case was run | the repository owner. Each row carries a note saying what was read and on what date |
+| that the thirteen claims of `seal/ledger.md` whose anchor this branch moved, and the five in `seal/ledger/1789445605-…md`, are still true — read, not executed, except where a cited case was run | the repository owner. Each row carries a note saying what was read, on what date and in which pass. Seven of the thirteen got theirs in round 2's fix pass: round 2 found them re-stamped inside round 1's fix range with the hash alone, which is a row asserting a reading nobody had taken |
 
 ## Not done
 
