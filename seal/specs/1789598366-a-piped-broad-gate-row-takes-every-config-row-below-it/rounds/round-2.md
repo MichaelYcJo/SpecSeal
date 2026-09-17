@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 428 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Contract changes | refusal → refused_row, ledger.md, round-3.md, overview.md, phase-2.md, plan.md, questions.md, round-1-report.md, round-1.md, round-2-report.md, round-2.md, round-3-report.md, refusal, refused_broad_row, missing_row, pytest; refusal → refusal, refused_row, ledger.md, round-3.md, overview.md, phase-2.md, plan.md, questions.md, round-1-report.md, round-1.md, round-2-report.md, round-2.md, round-3-report.md, refused_broad_row, missing_row, pytest |
 | New units | test_a_second_refused_line_is_what_decides_what_a_first_one_cost (depth 1); test_the_gate_reads_every_refused_line_and_not_only_the_first (depth 1) |
 | Needs a fix | yes — finding 1 |
