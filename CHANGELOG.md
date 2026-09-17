@@ -1,5 +1,437 @@
 # Changelog
 
+## 0.12.0 — 2026-09-17
+
+<!-- specs/1789445605-the-broad-gate-row-runs-unchecked-and-is-never-asked-for -->
+<!-- seal/specs/1789445605-the-broad-gate-row-runs-unchecked-and-is-never-asked-for/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **A `Broad gate` row written the way every command in every document here is
+  written — wrapped in backticks — could earn the stamp over a suite that
+  failed.** In a shell, backticks are command substitution: the checks run
+  first, their exit status is thrown away, and whatever they *printed* is then
+  executed as a command. Measured on the same content: unbackticked it exits
+  1, backticked it exits **0**, with the failure still on the screen. The gate
+  read that 0, wrote the cell and drew the seal. It now looks at the row
+  before handing it to a shell and refuses three forms outright — the whole
+  command wrapped in backticks, the whole command wrapped in `$(…)`, and a
+  trailing `&`, which backgrounds the line so the shell answers 0 before any
+  check has finished. Exit 2, nothing run, and nothing repaired: the message
+  names the form, quotes the row as written and shows it as meant, because a
+  value silently fixed leaves the file still wrong and teaches the next person
+  that the way they wrote it was right. Everything else a shell command line
+  can hold stays legal — the row is an arbitrary command line by design — and
+  `templates/config.md` now lists what is refused and what is not, each with
+  its reason. **An `&` that is not the last character stays legal**, with what
+  it costs written beside it: the check before it is backgrounded and may
+  still be running when the gate stamps, and telling that `&` from a `2>&1` or
+  one inside quotes needs a shell parser the row is designed not to have.
+  **Both `&` entries say which shell they are describing** — under `cmd.exe` a
+  trailing `&` separates two commands rather than backgrounding, so the gate
+  reads the second command's status instead of a 0 over nothing, and a
+  mid-line `&` sequences rather than backgrounding, so nothing is left
+  running. Different wrong answers, the same half of the criterion broken.
+  (#402)
+- **A pipe in that row silently loses every row written below it.** This is
+  not new and it is now written down. A cell of the config table ended at the
+  first `|`, escaped or not, so a `Broad gate` row containing a pipe stopped
+  being a row — and the reader stops at a line that is not a row, so anything
+  written underneath it was invisible and fell back to its default with
+  nothing reported anywhere. The gate reported the row as *absent*, which is
+  true and is not the cause. Measuring it is what this work item shipped; the
+  repair is #415, in this same release, and the two entries are one story read
+  in order. (#402)
+- **The one value only a person can write was the one thing nothing ever asked
+  for.** There is no default for the `Broad gate` row, on purpose: what the
+  seal covers is exactly the command a person chose. But no question ever
+  reached a person — it arrived as the gate's refusal, after the review rounds
+  had settled, which is the last moment available and the one where whoever is
+  there has every reason to answer it themselves. That is what happened: a
+  session met the refusal, ran four candidate commands, picked one, wrote the
+  row and mentioned it afterwards. First setup now asks for it in the same
+  question it already asks the mode in, so the prompt budget is unchanged. It
+  asks as a **proposal** rather than a blank — candidates read off the
+  repository's own CI workflow, its `bin/` runners, its package manifest and
+  its `Makefile`, each offered with the file it came from, and nothing
+  guessed — with a decline that says what declining costs. (#401)
+- **How to choose that value is written down now, in one place.** The row has
+  never had a criterion. Three rules: a check that is red repository-wide for
+  reasons unrelated to any branch does not belong in it; a command that
+  *fixes* the tree is not a gate command, because a gate that changes the
+  answer while reading it can only come back green; and the suite runner comes
+  first, because the base comparison re-runs what stands before the first
+  `&&`. Only the third was written anywhere, and it was written in two places
+  — it is folded into the one owner rather than copied into a third. (#401)
+- **A session that meets the refusal is now told to bring it to a person.**
+  The absent-row message used to open *write the repository's own broad
+  command into it* and print the row to type, which asked the one party that
+  may not write it. It says whose the row is and names `/specseal:config`,
+  and the sealer and the review orchestrator both say the refusal goes back to
+  a person and the pull request stays a draft until it is answered. (#401)
+
+<!-- specs/1789455558-the-record-chain-disagrees-with-itself-in-five-places -->
+- **Two round records committed together no longer disagree about which row a
+  repeated coordinate belongs to (#404).** `round-record new` attributes a
+  coordinate that appears twice in one verdict table to the first of the two
+  rows; the map `round-record close` reads ended up holding the last. So a
+  confirmation sitting at an open finding's coordinate could win, and round
+  N+1's inherited row said that coordinate was `verified` by a row that
+  commissioned nothing while round N's own record said `**fixed**`. Both sides
+  now take the first row, so they agree by construction rather than by both
+  being right.
+
+  Refusing the repeat instead was measured and is not affordable: 71 of the 247
+  committed records that parse repeat a coordinate, over 105 of them, so a
+  refusal would refuse records this repository has already written. None of the
+  105 pairs a numbered row with an unnumbered one today — this is a defect that
+  had not yet happened, and the shape that produces it is the one a verifying
+  round is asked to write.
+
+- **An inherited table edited or truncated after it was written is refused
+  again (#405).** `round-record close` fills round N+1's `## Inherited
+  coordinates` from round N's verdicts. Filling nothing used to be silence,
+  unconditionally — and it has two causes. One is the ordinary re-review round,
+  whose coordinates an earlier round already claimed. The other is a section
+  that lost its rows, which no other refusal catches: a table with no rows is
+  readable, and it inherits no coordinate for the verdict table to contradict.
+
+  The two are now told apart by asking whether the table still accounts for
+  round N's coordinates under any earlier round. When it does not, the run exits
+  2 naming the ones it could not account for, and writes nothing to either
+  record. A round whose every coordinate an earlier round claimed is unchanged
+  and still silent.
+
+  **What a person holding such a record meets is a refusal where they used to
+  meet exit 0.** The way out is to regenerate the section or put the rows back,
+  and the message says which coordinates are missing rather than stating a rule.
+
+- **A fix row's grounds no longer carry a stray full stop after the dash
+  (#414).** The generator cuts the commit out of the third cell of a fix table
+  and strips the punctuation around the gap, and the set it stripped held no
+  period — so a cell opening `` `6233b769`. `` rendered
+  `fixed at 6233b769 — . the note`. This was reported once, repaired by hand in
+  nine cells, and the next record the generator wrote carried it again.
+
+  The cause is removed at both of the places that cut a span out of a cell: the
+  commit's, and a `deferred` row's cut of its home off the front of the third
+  cell, which the report did not name and which rendered the same way. The
+  shared separator set is deliberately not widened — five readers share it, and
+  a trailing period in a deferral's home or in a `nobody — <why>` reason is part
+  of a sentence rather than decoration.
+
+  **One cost, and it is visible in one place.** The strip takes both ends, so a
+  note that ends in a full stop loses it too. The note is mid-sentence whenever
+  the reviewer wrote a Grounds cell, so this shows only where that cell is
+  empty: `` `<sha>`. it reads the cell now. `` renders `fixed at <sha> — it
+  reads the cell now`. A one-sided strip would spell these two cuts differently
+  from the three beside them, for a stop nobody has yet written.
+
+- **A confirmation that quotes an earlier blocking finding is no longer failed
+  as one (#408).** At the pull request, a row's severity was read by asking
+  whether 🔴 appeared anywhere in the row — and naming what an earlier round
+  found is exactly what a carried-forward closure is for. So a 🟢 row whose
+  grounds quoted an earlier 🔴 was announced as *this 🔴 row … a blocking
+  finding* in a sentence that then printed `🟢` as the row: one sentence, two
+  severities, sending the reader to look for a finding that is not there.
+
+  The severity in the message now comes from the row's own `#` cell, and a row
+  whose verdict does not close it is refused by a second arm with its own
+  sentence. That sentence names **both** things that put the row there — a
+  blocking marker in one of its other cells, and a verdict that is not one of
+  the words that close a row — because either one is a way out. Which rows fail
+  is unchanged: a verdict counted as closed without being one of those words is
+  the tolerant read this check exists to refuse.
+
+  **It says *marker* rather than *quote* because that is what it can check.**
+  The row is selected by a 🔴 anywhere but the `#` cell, which is usually an
+  earlier round's finding quoted in the grounds and is not always — it can be
+  this round's own marker in another cell, or a 🔴 that quotes no finding at
+  all.
+
+  **Naming only the word was not enough, and `open` is why.** `open` is the word
+  a reviewer is told to write for a finding the round opened, and this same
+  check's other arm prints it back as *this 🔴 row reads `open`*. Told instead
+  that `open` is outside a vocabulary, a reader goes looking for a rule the
+  check does not hold — which is this ticket's own complaint one cell over.
+
+- **The rule that a seal is named with whose has one check again, not two
+  (#406).** A second assertion had been added beside the sweep that owns the
+  rule, without the sweep's guard for a longer word — so it refused `the
+  sealer`, which is the correct way to name the agent. It is removed, and the
+  refusal's own exit line now says *before the sealer runs*.
+
+  **The sweep had to be taught one thing first, and that is the interesting
+  half.** It reads a module's source text, while the deleted assertion read the
+  run's output — and Python joins adjacent string literals where a flattened
+  read of the source does not. So a phrase split across two literals was
+  invisible to the sweep and perfectly visible in the refusal a person reads,
+  and every long refusal here is built from wrapped literals with the wrap
+  decided by line length. The sweep now folds that seam, and it found a live
+  instance the moment it could see one: a refusal reading *The seal names a
+  commit this repository holds* now reads *The sealer's mark names…*.
+
+  **The fold is held by a case that goes through the sweep's own reader**, not
+  through the pattern beside it. That distinction is not pedantry: for one
+  round the fold was pinned only by cases calling the pattern directly, so
+  reverting it left every case in the module green and the hole open again with
+  nothing red. The seam it reads is itself asserted, so the case cannot go on
+  passing against a source somebody has rewrapped.
+
+- **A test fixture that rewrites a record says so when its rewrite misses
+  (#407).** Four fixtures across the two record modules edited a record by
+  substitution and asserted nothing about the result. A missed substitution
+  leaves the record naming no unit, the depth walk then returns at its own
+  guard, and the case it feeds passes on assertions that hold for a reason
+  unrelated to what the case is named for — measured, and it passes green. Each
+  fixture now asserts its substitution landed, and the case beside them asserts
+  the judgment it is named for rather than only the two absences.
+
+<!-- specs/1789518345-who-asks-the-routing-question-and-what-checks-the-answer -->
+<!-- seal/specs/1789518345-who-asks-the-routing-question-and-what-checks-the-answer/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **The routing question moves to the framer, gains the answer people most
+  often want to give, and is checked at the pull request.** Three issues were
+  one question seen from three sides: who asks it (#419), what shape it takes
+  (#88), and what checks that the answer was honoured (#399). Built apart, the
+  same question would have been edited three times and the last built against a
+  moving target — which had already happened once, when #399's first framing
+  keyed a check on a path floor and two phases were thrown away.
+
+  - **The question is now two questions in one `AskUserQuestion` call**, which
+    is still one wait. Question 1 offers `automation` — every party runs and
+    nothing stops to ask again — `per axis`, and `no work item`. Question 2 is
+    four checkboxes, meaningful only under `per axis`. The answer given most
+    often is one click where it used to be three ticks.
+  - **The exit names what it turns off rather than where it ends.** The rule
+    came from a measured instance: the owner read `straight to the PR` as *call
+    no agents at all*, where in the tree that answer turns off `warden` alone.
+    So each box now states its UNCHECKED meaning — *this session writes the
+    code*, *nothing reviews this code before the pull request*, *the branch is
+    handed back, committed and unpushed* — because that is the half a label
+    cannot say. The `Review` row's value is unchanged: 16 committed
+    declarations carry it, and renaming it would send the commit gate back to
+    asking on every one.
+  - **`routing.md` records whether the run was allowed to stop and ask**, in a
+    new `Automation` row, and **which answer was pressed**, in `Answer
+    pressed`. Without the second, a pressed preset and four boxes ticked by
+    hand are the same bytes. Both are optional and both read as *never asked*
+    when absent, so all 84 declarations already committed parse unchanged.
+  - **The session that spawns the work asks it, and the framer asks nobody
+    anything.** `agents/framer.md`'s acts become *gather, judge, plan*: what
+    the repository can answer, the framer answers, with the grounds where a
+    reviewer can open them, and `questions.md` becomes the residue — every row
+    owing a reason the tree could not answer it. What it does **not** do is put
+    a question to a person: **no agent this plugin spawns has
+    `AskUserQuestion`**, so a framer told to ask would be told to call a tool
+    it does not have, and a framer told to write `routing.md` would write an
+    answer nobody gave. A framer that arrives to a missing declaration reports
+    it. A case sweeps every `agents/*.md` and refuses any line naming that tool
+    outside the sentence that says no agent has it.
+  - **`agents/smith.md` puts down three acts three other documents already gave
+    to somebody else** — the design gate, the routing batch and the `routing.md`
+    write. It also loses the sentence telling it that a missing frame proves
+    none was owed; that inference is not sound, and where `routing.md` declares
+    a framer and no `spec.md` is there, `smith` now stops and says so.
+  - **The framer leaves a mark in the tree**, one line at the foot of
+    `spec.md`, because the existing framer mark lives in the git dir and a git
+    dir does not travel to CI.
+  - **A work item that declares a framer and draws no frame is refused at the
+    pull request.** `chain_check.py` compares the declaration against the
+    frame — nothing is re-judged and nothing is counted. What the arm cannot
+    see is written in the module beside it, in seven items, because the day
+    somebody reads a green run as evidence that a framer ran, that list is the
+    only thing standing between the reading and them.
+  - **The broad gate gets a home where no round record exists.** A work item
+    declaring `straight to the PR` still owes the one full-suite run — that
+    answer turns off the reviewer, not the sealer — and the cell had nowhere to
+    live. It now lives in `seal/specs/<work-item-id>/broad-gate.md`, written by
+    the same subcommand and read by the same reader.
+  - **Two arms grandfather work begun before the rule existed**, each on the
+    mechanism the broad-gate arm already used, and each measured first: 10 of
+    the 11 work items declaring a framer carry no mark, and not one of the 16
+    declaring `straight to the PR` carries a seal file.
+
+- **A check over agent definitions refuses an instruction no agent can carry
+  out.** No agent this plugin spawns has `AskUserQuestion`, so a definition
+  telling one to collect what a person must answer is an instruction nothing
+  performs. Two cases hold it: one refuses any `agents/*.md` line naming that
+  tool outside the sentence saying no agent has it, and one refuses collecting
+  *in one batch* where the surrounding words are about a person answering.
+  **Batching reads is a different thing and is not refused** — that is what
+  `agent-contract` §10 asks every agent for, and the check decides by what the
+  sentence claims rather than by the phrase it uses.
+
+- **Personal instructions: re-run `install.sh` after updating.** The routing
+  paragraph in the `<!-- specseal:start -->` block changed with the question,
+  and an installed copy follows only when the installer runs again. Until then
+  a session reading the old block asks the three-checkbox question while every
+  document in the repository describes the new one.
+
+  What the installer cannot reach is anything OUTSIDE those markers. A personal
+  `CLAUDE.md` that restates the routing question in its own words — a Korean
+  table of the three checkboxes, say — is the owner's own text, and the
+  installer never touches it. That half is theirs to update.
+
+<!-- specs/1789540097-three-checks-that-do-not-see-what-they-are-named-for -->
+<!-- seal/specs/1789540097-three-checks-that-do-not-see-what-they-are-named-for/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **Three checks this release wrote were passing while the thing each is named
+  for was free to be wrong.** Each was found by the round that ended its own
+  work item's run and deferred because that run had spent its one reopening,
+  not because anyone judged it unworthy. They are repaired together because
+  they are one shape, and each is now red under the mutation its own issue had
+  already measured green.
+
+  - **The two `&` cells of `templates/config.md` now have to say WHICH shell
+    does which** (#413). The case found both shell names in each cell and
+    nothing tied a name to a consequence, so `/bin/sh` and `cmd.exe` could be
+    exchanged in either cell with all eighteen cases green — and the document a
+    person reads before writing the `Broad gate` row would then state one
+    platform's semantics as the other's. Both swaps are red now. What the case
+    still cannot see is written beside it: it pins that the document
+    ATTRIBUTES each behaviour to a shell, never that the behaviour is that
+    shell's, which stays unmeasured on `cmd.exe`.
+
+  - **A phrase joining either sweep of `tests/test_one_word_one_meaning.py` is
+    checked for seam safety again** (#418). The case said it asserted over the
+    whole phrase set; three of the set's four sources were hand-copied
+    literals, so a phrase added to a sweep was covered by nothing. The phrases
+    are module constants the sweeps and the seam case both read — one
+    definition, read twice, which is not the derivation the issue refuses — and
+    the members `flat` folds are pinned as a list, so a `.py` member joining a
+    sweep turns the case red and names it. **The count the closure rested on
+    was wrong in three documents**: five members are `.py`, not four. The case
+    pins the list rather than a number beside it.
+
+  - **The guard over agent definitions stops matching inside longer words, and
+    finds an instruction by what it claims rather than by one spelling**
+    (#422). `\bperson` fired on `persona`, which `agents/smith.md` already
+    writes, and `\buser` on `users`; both ends of every stem are anchored now.
+    Anchoring the back is not free — it would also stop `questions` and
+    `asked` — so the stems split into the ones that carry their inflections and
+    the ones anchored bare, where the plural names a population rather than the
+    party at the keyboard. The `user` stem stays, against the issue's own
+    patch: dropping it would let *collect in one batch what the user answers*
+    pass in silence. And the finder no longer looks for one substring, so
+    `in **one batch**` — `CLAUDE.md`'s own wording — `in a single batch` and
+    `as a single batch` all reach the window that judges them. All three
+    passed at exit 0 before. Nothing in the tree had to be reworded for either
+    half.
+
+  - **The guard is one function, and the case calls the same one.** The
+    patterns were first hoisted to module level so a case could open them —
+    and that was still the defect, one layer down: no agent definition
+    contains a batch phrase at all, so the sweep's loop body never ran and the
+    composition inside it could be changed five ways with the module green.
+    The sweep is now `batch_instructions(body)`, and the case that holds the
+    guard runs that same function over text it writes. All five mutations are
+    red.
+
+  - **The marker set matches the one the repository already had.** Emphasis
+    was stripped as `*` alone, which left out the marker these files use most:
+    backticks outnumber asterisks in four of the five definitions. It strips
+    `*`, `_` and backticks now — the same three `chain_check.py`'s normaliser
+    of the same name strips — and `into` joined the preposition set. Stripping
+    `_` cannot change what is found; it costs only the underscores in a file
+    name the refusal prints.
+
+  - **What the back anchor cost is recorded as a loss, not asserted as
+    correctness.** It also stopped `asker`, `answerer` and `questioner`, each
+    of which names the party this guard looks for — `agent-contract` §4 writes
+    `answerer` for exactly that party. Widening the stems is still refused with
+    grounds; the three words now sit in their own block saying so.
+
+- **Two Grounds cells of a shipped round record stop rendering an empty first
+  clause** (#414's remainder). `rounds/round-2.md` of work item
+  `1789445605-…` read `fixed at 6233b769 — . `; the cause was removed earlier
+  in this release and eleven cells were left behind, nine repaired by hand at
+  the time. These are the last two. Only the rendering is repaired — a round
+  record holds what was true when it was written.
+
+- **The wrap module's documented widths are re-derived rather than remembered.**
+  `tests/test_docs_line_wrap.py` documented `agents/smith.md` at 148 columns
+  where it measures 109, and `skills/implement/SKILL.md` at 99 where it
+  measures 90 — a hand-written measurement in the one module whose subject is
+  measured widths. Nobody had reported the second one.
+
+<!-- specs/1789598366-a-piped-broad-gate-row-takes-every-config-row-below-it -->
+<!-- seal/specs/1789598366-a-piped-broad-gate-row-takes-every-config-row-below-it/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **A `Broad gate` row holding a pipe took every config row below it, and
+  nothing said so** (#415). `seal/config.md` is markdown, but the one reader
+  of its table matched a cell as *anything but a pipe*, so a row written
+  `| Broad gate | bin/test -q | tee out.txt |` stopped being a row — and the
+  reader's rule is that a line which is not a row ends the table. Every row
+  under it fell back to its default with no message anywhere.
+
+  - **A cell now carries markdown's own escape.** `\|` reaches the value as
+    one literal pipe, reduced in the reader before any shell sees it, so
+    `/bin/sh` and `cmd.exe` are both handed a plain `|`. Exactly those two
+    characters are touched and no other backslash is: a row holding
+    `C:\Users\x\Python\python.exe -m pytest` reads back with its separators
+    intact, which a general unescape would have turned into a path to nothing.
+    A bare pipe is still where a cell ends, because making it part of the
+    value needs a greedy last cell — and a greedy last cell reads the rows of
+    a three-column table written under this one as rows of this one.
+
+    One spelling changed meaning, and it is the only one. A backslash written
+    immediately against a cell-ending pipe is now that escape, so a row
+    ending `C:\Users\x\tools\|` stopped being a row: the pipe it needed to
+    close the cell is the one the backslash escaped. Writing a space before
+    the closing pipe reads back exactly as it did before. No file in this
+    repository is affected — every `| Item | Value |` table in the tree reads
+    the same rows before and after.
+
+  - **`seal mode` was writing a second `Mode` row into a person's file.** The
+    reader and the writer read one table, so when the reader stopped above a
+    person's `Mode` row the writer stopped there too and inserted its own —
+    leaving the file two rows deep, which the writer's own comment says no
+    command brings back into agreement. Measured, and now pinned.
+
+    **This is closed for the escaped spelling only.** Written with a bare
+    pipe the line is still not a row, so the reader still stops above it and
+    `seal mode` still writes a second `Mode` row. And a file that is already
+    two rows deep is repaired by nothing: the next `seal mode` sets the first
+    row and leaves the second alone, so the file then says two different
+    things and the tools read the first. Fixing it is an edit by hand.
+
+  - **A line that will not parse is quoted back instead of being reported
+    absent.** `broad-gate` used to say *has no `Broad gate` row* about a row
+    sitting in front of the reader — a true sentence about the wrong cause.
+    It now shows the line as written, names `\|` as the way to write the pipe,
+    and says what that line cost — read off the line that actually stopped
+    the reader, which in a file holding two unparseable lines is not the line
+    being quoted. A line above the stopping one costs nothing, because the
+    reader steps past it and reads on; the stopping line takes every row
+    below it; and the line being quoted can itself be sitting below the
+    stopping one, never reached at all.
+
+    A row that genuinely is not there gets the absent-row refusal exactly as
+    before. Every other shape is quoted back: a `Broad gate` row sitting
+    BELOW a refused line is named as unreachable rather than absent, and a
+    `Broad gate` row that will not parse is quoted whether it is the first
+    such line in the file or the third. `hooks/mode-gate.py` gains
+    nothing and says nothing new: it is a `PreToolUse` hook, and a wrong
+    refusal there stops a session with nobody able to get past it.
+
+  - **The fourth copy of the table reader is closed.**
+    `tests/test_the_pull_request_language_is_the_repositorys.py` had its own
+    reimplementation of the loop, which agreed with the real one until this
+    branch moved one of them. It calls the one reader now, asserted by where
+    the code was compiled rather than by an import.
+
+  What this does not repair is written beside it: a pipe written WITHOUT the
+  escape still is not a row, and what changes for that person is the message
+  rather than the outcome. A `Mode` row hidden below an unparseable line is
+  still invisible to the mode gate, which still simply asks the question
+  again — and answering it writes the second `Mode` row described above,
+  because the writer stops where the reader stops. And the cost falls on the
+  rows below a line that does not parse only when a row above it already
+  parsed — the stop rule needs a row before it can stop.
+
 ## 0.11.5 — 2026-09-15
 
 <!-- specs/1789425391-the-checker-is-wrong-about-itself-and-nothing-goes-red -->

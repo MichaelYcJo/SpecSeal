@@ -14,12 +14,14 @@ prose a reader wraps. That exclusion is load-bearing rather than incidental:
 depends on it.
 
 Scope is narrower than `agents/*.md` + `skills/*/SKILL.md`, which do not hold
-the limit today. These are their current prose maxima, measured the same way:
+the limit today. These are their current prose maxima, re-derived 2026-09-16
+with `prose_lines` and `display_width` below — a number written by hand goes
+stale silently, and two of these four had (#422 reported one of them):
 
     agents/scribe.md               160
-    agents/smith.md                148
+    agents/smith.md                109
     skills/writing-style/SKILL.md  209
-    skills/implement/SKILL.md       99
+    skills/implement/SKILL.md       90
 
 `skills/commit-pr-convention/SKILL.md` is covered: it was written wrapped, so
 it never had a maximum to bring down.
@@ -54,8 +56,10 @@ COVERED = [
     # Wrapped from its first line, so it goes in at birth rather than waiting
     # for the sweep that would otherwise be needed to bring it under. It was
     # the first `agents/*.md` file to arrive that way; `framer.md` below is
-    # the second, and `smith.md` and `scribe.md` sit at 148 and 160, which is
+    # the second, and `smith.md` and `scribe.md` sit at 109 and 160, which is
     # why the docstring lists those two instead of this list holding them.
+    # Whether those two join this list is an open row in `seal/follow-up.md`
+    # for the repository owner; a corrected number is not that argument.
     "agents/sealer.md",
     # The fifth definition (#84), on the sealer's terms exactly: a file
     # written wrapped has no sweep to owe, so it goes in at birth.

@@ -15,8 +15,43 @@ half-edited; the rows naming it are in this work item's overview.
 """
 
 import os
+import re
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
+
+# Python joins adjacent string literals at parse time and a flattened read of
+# the source does not, so a phrase split across two of them reads
+# `... the " "seal ...` here and the sweeps below go straight past it. That is
+# the shape the output assertion at
+# `tests/test_the_seal_is_taken_once_by_the_sealer.py` used to catch, and the
+# reason deleting it was NOT coverage-neutral: round 1 of
+# `1789455558-the-record-chain-disagrees-with-itself-in-five-places` kept the
+# pinned spelling, added a second anonymous instance across two literals, and
+# both modules stayed green with an anonymous seal in the refusal a person
+# reads.
+#
+# Folding the seam here keeps ONE implementation of the rule reading two kinds
+# of input, which is what that work item's alternatives table rejected a second
+# check in favour of. **The error direction is safe for the phrases these
+# sweeps look for, and that is narrower than "can only create a hit"** (round
+# 2's ⬜ 2): the prefix class sits BETWEEN the two quotes, so a literal whose
+# whole content is one or two of those letters is DELETED rather than joined --
+# `seal_stamp.py` loses its `GOLD` key `"R"`, `test_session_cost.py` loses
+# `call("b", ...)`, and `open(p, "rb")` becomes `open(p, )`. A deletion can
+# only ever join its neighbours, so it cuts a phrase in half only where the
+# phrase itself contains a foldable seam -- and none of the phrases these
+# sweeps look for does. An apostrophe inside one is not a seam: the pattern
+# needs the SAME quote twice with nothing but whitespace and prefix letters
+# between, which is why `orchestrator's segments` is safe. That is what
+# `test_folding_the_seam_cannot_hide_an_instance_it_would_have_found` asserts
+# over the whole phrase set rather than over examples.
+#
+# Two shapes the fold does NOT reach, for the same reason it is cheap: a seam
+# between literals of DIFFERENT quote characters, which `\1` refuses, and a
+# seam where both literals carry the space, which Python itself joins to a
+# double space. Applied to `.py` members only, because a markdown file has no
+# literals to join and a fold there would cut through quoted shell commands.
+LITERAL_SEAM = re.compile(r"([\"'])\s*(?:[fFrRbBuU]{0,2})\1")
 
 
 def read(*parts):
@@ -25,7 +60,8 @@ def read(*parts):
 
 
 def flat(*parts):
-    return " ".join(read(*parts).split())
+    text = " ".join(read(*parts).split())
+    return LITERAL_SEAM.sub("", text) if parts[-1].endswith(".py") else text
 
 
 # --- "the start" — the moment before the first edit of a work item ----------
@@ -181,6 +217,13 @@ SEAL_SWEPT = (
     ("docs", "one-root-by-lifetime.md"),
     ("skills", "verify", "scripts", "seal_stamp.py"),
     ("skills", "code-review", "scripts", "round_record.py"),
+    # The message a session reads when the `Broad gate` row is absent says
+    # what the sealer's seal covers, and said it ownerless until #402's
+    # round 1 — in the one script under `skills/verify/scripts/` the list
+    # still omitted, beside the two it had already been extended to reach.
+    # Third time the list was closed where somebody had looked, which is why
+    # the file goes in rather than the sentence alone being repaired.
+    ("skills", "verify", "scripts", "broad_gate.py"),
 )
 
 # The two places that DISCUSS the word rather than use it: the rule's own
@@ -192,6 +235,22 @@ SEAL_EXCLUDED = (
     (SEAL_OWNER, SEAL_RULE),
     (("docs", "one-root-by-lifetime.md"), "## Naming"),
 )
+
+# The phrase the sweep below searches for, written once and read twice —
+# here by the sweep and by
+# `test_folding_the_seam_cannot_hide_an_instance_it_would_have_found`, which
+# has to hold the property for every phrase either sweep looks for (#418).
+#
+# THE RISK THIS CARRIES, since a constant is the thing that makes it possible
+# (`questions.md` Q3): a later session that adds a phrase to a sweep by
+# writing the literal into the case body instead of here leaves the seam case
+# covering a set that is no longer the sweep's — this work item's own failure,
+# one level up. What stands against it is the folded-member assertion in that
+# case, which goes red whenever the set of members the fold reaches moves; a
+# check that read the case bodies to find out what they search for would be
+# the derivation #418 refuses in its own *Not this*, so the risk is written
+# down rather than mechanised.
+SEAL_BARE = "the seal"
 
 # What may follow a bare `the seal`: the concept, its formats, and the one
 # sentence that names the referent in the same clause. Everything else is an
@@ -283,9 +342,9 @@ def test_no_instructing_document_leaves_an_instance_anonymous():
             text = head + marker + after
         lowered = text.lower()
         start = 0
-        while (hit := lowered.find("the seal", start)) != -1:
+        while (hit := lowered.find(SEAL_BARE, start)) != -1:
             start = hit + 1
-            after = text[hit + len("the seal") :]
+            after = text[hit + len(SEAL_BARE) :]
             if after[:1].isalpha():  # the sealer, the sealed tree
                 continue
             assert after.startswith(SEAL_BARE_IS_THE_CONCEPT), (
@@ -323,6 +382,20 @@ SEGMENT_SWEPT = (
     ("tests", "test_session_cost.py"),
 )
 
+# The two spellings the sweep below searches for, each with what it gets
+# wrong, written once and read twice — here and by the seam case, on the same
+# terms as `SEAL_BARE` above and carrying the same risk (`questions.md` Q3).
+SEGMENT_LOOSE = {
+    "segments are spawn cycles": (
+        "equates a spawn cycle with a segment, which is what `--segments` "
+        "beside `--spawns` makes unreadable"
+    ),
+    "orchestrator's segments": (
+        "gives the orchestrator several segments. It has one — its own "
+        "transcript — and spawn cycles inside it"
+    ),
+}
+
 
 def test_the_owner_states_what_a_segment_is_and_what_it_is_not():
     """Stated once, by the section whose own name is the word, and the other
@@ -346,11 +419,129 @@ def test_no_shipped_document_calls_a_spawn_cycle_a_segment():
     cycles the orchestrator's segments, and the bare equation."""
     for parts in SEGMENT_SWEPT:
         text = flat(*parts)
-        assert "segments are spawn cycles" not in text, (
-            f"{'/'.join(parts)} equates a spawn cycle with a segment, which "
-            "is what `--segments` beside `--spawns` makes unreadable"
+        for loose, why in SEGMENT_LOOSE.items():
+            assert loose not in text, f"{'/'.join(parts)} {why}"
+
+
+# --- the sweep reads across a string-literal seam (round 1's 🟡 2) -----------
+
+
+def test_the_sweep_reads_across_a_string_literal_seam():
+    """The shape the deleted output pin caught and the file sweep did not.
+
+    `round_record.py` builds every refusal out of wrapped literals and where
+    the wrap falls is decided by line length, so an anonymous instance
+    straddling a seam is an ordinary edit rather than an exotic one. Round 1
+    measured it: the pinned spelling kept, a second anonymous instance added
+    across two literals, 86 passed in both modules, and the refusal a person
+    reads carried a bare `the seal`.
+
+    Red before the seam fold: the flattened source reads `... the " "seal ...`
+    and the sweep's `in` test returns False.
+    """
+    seamed = ' "Spawn the verifying round first, so the " "seal covers it; " '
+    assert "the seal" in LITERAL_SEAM.sub("", " ".join(seamed.split())).lower()
+
+
+def test_folding_the_seam_cannot_hide_an_instance_it_would_have_found():
+    """The error direction, asserted over the whole phrase set rather than
+    over examples (round 2's ⬜ 2).
+
+    The fold does not only join — the prefix class sits between the quotes, so
+    a literal whose whole content is one or two of those letters is DELETED.
+    `open(p, "rb")` becomes `open(p, )`. That is still safe for these sweeps,
+    but for a narrower reason than *it can only create a hit*: a deletion
+    joins its neighbours, so it can cut a phrase in half only where the phrase
+    itself contains a foldable seam. **No phrase these sweeps look for does**,
+    and that is the property asserted here — it holds for a set that grows,
+    where three examples hold only for themselves.
+
+    An apostrophe inside a phrase is not a seam: the pattern needs the SAME
+    quote twice with nothing but whitespace and prefix letters between, which
+    is why `orchestrator's segments` is safe and is in the set below.
+
+    #418: three of the set's four sources used to be hand-copied literals, so
+    a phrase joining either sweep was checked by nothing — measured, with a
+    third foldable spelling added to the segment sweep and the case still
+    green. The set is now every phrase either sweep searches for, read from
+    the constants the sweeps themselves read.
+
+    WHY SEVEN PHRASES ARE THE WHOLE OF WHAT IS AT RISK, which is a fact about
+    the MEMBER lists rather than about the phrases: `flat` folds the seam for
+    `.py` members only, and across both sweeps five members are `.py`. Every
+    other phrase these sweeps look for is searched in a markdown member, where
+    the fold never runs at all. That makes this a closed set and not a short
+    list of examples — and because the closure rests on the member lists, it
+    stops holding the moment a `.py` member joins either sweep. So the members
+    are pinned below too.
+
+    WHAT THIS CASE STILL CANNOT SEE: whether a phrase was added to a sweep
+    without going through the constants. See `SEAL_BARE`'s comment for why
+    that is written down rather than checked.
+    """
+    # MEMBERSHIP, not order. The closure is about WHICH members the fold
+    # reaches, and two entries of `SEAL_SWEPT` swapped in place change none of
+    # it — under a tuple comparison that reorder went red (measured by round 1)
+    # with a message saying the set had moved when it had not. Phase 1 refused
+    # exactly this brittleness for the `&` row, and the same argument reaches
+    # here: a case that reddens for a reason unrelated to its subject teaches a
+    # reader to stop believing it.
+    folded = {
+        "/".join(parts)
+        for parts in (*SEAL_SWEPT, *SEGMENT_SWEPT)
+        if parts[-1].endswith(".py")
+    }
+    assert folded == {
+        "skills/verify/scripts/seal_stamp.py",
+        "skills/code-review/scripts/round_record.py",
+        "skills/verify/scripts/broad_gate.py",
+        "skills/verify/scripts/session_cost.py",
+        "tests/test_session_cost.py",
+    }, (
+        "the set of members `flat` folds has moved, so the closure this case "
+        "rests on has to be re-taken: every phrase the sweep over "
+        f"{sorted(folded)} looks for belongs in the set below, and the "
+        "docstring's count has to be brought to the new list"
+    )
+    swept = (SEAL_BARE, *SEAL_BARE_IS_THE_CONCEPT, *SEGMENT_LOOSE)
+    for phrase in swept:
+        assert LITERAL_SEAM.search(phrase) is None, (
+            f"the fold can land inside {phrase!r}, so a deletion could cut "
+            "this phrase in half and the sweep would go past an instance"
         )
-        assert "orchestrator's segments" not in text, (
-            f"{'/'.join(parts)} gives the orchestrator several segments. It "
-            "has one — its own transcript — and spawn cycles inside it"
-        )
+    # The deletion itself, so the docstring's first claim is not taken on
+    # trust: this is what `open(p, "rb")` does under the fold.
+    assert LITERAL_SEAM.sub("", 'open(p, "rb")') == "open(p, )"
+    # And the join, which is the case the fold exists for.
+    assert "the seal" in LITERAL_SEAM.sub("", '"the " "seal is taken once"')
+
+
+def test_flat_is_what_folds_the_seam_and_it_folds_python_only():
+    """The two cases above call `LITERAL_SEAM.sub` and neither calls `flat`,
+    so nothing in this module held the repair round 1's 🟡 2 asked for.
+    Round 2 measured it: with `flat` back to `" ".join(read(*parts).split())`
+    all seventeen cases here stay green and 🟡 2 is open again with the suite
+    saying nothing — which is #406's hole with a different lid on it, and the
+    third time on this branch that a repair for *a check that cannot fail*
+    was itself held by nothing.
+
+    Red with the fold removed: the first assertion fails, because the source
+    reads `... cannot see. The " "sealer's mark ...`.
+    Red with the `.py` guard dropped: the third fails, because `README.md` is
+    a swept file carrying a shell command whose two quoted arguments are not
+    a seam and would be cut together.
+    """
+    joined = "The sealer's mark names a commit"
+    assert joined in flat("skills", "code-review", "scripts", "round_record.py"), (
+        "`flat` no longer reads across a string-literal seam, so the sweep "
+        "below is blind to an instance split over two literals again"
+    )
+    # The fixture, asserted: this pins that the seam is really there, so the
+    # case cannot go on passing against a source somebody has rewrapped.
+    assert joined not in " ".join(
+        read("skills", "code-review", "scripts", "round_record.py").split()
+    ), "the seam this pins has been rewrapped; point it at another one"
+    assert '--git-common-dir)/seal" "$(git' in flat("README.md"), (
+        "`flat` folded a markdown file, which has no literals to join — the "
+        "cut lands inside a shell command a reader copies"
+    )

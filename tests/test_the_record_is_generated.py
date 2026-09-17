@@ -1480,6 +1480,10 @@ def test_the_two_record_run_reads_back_through_chain_check(repo):
         text,
         flags=re.MULTILINE,
     )
+    assert "| open |" not in text and fields(text)["New units"] == "none", (
+        "a substitution missed, so round 1 is not the closed record this "
+        "reads back (#407's class)"
+    )
     path.write_text(text, encoding="utf-8")
     sha2 = commit(repo, "round 1 closed")
     code, out, record = generate(

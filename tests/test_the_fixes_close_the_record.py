@@ -1185,6 +1185,11 @@ def two_rounds(repo, location, path="mod.py", others=()):
         text,
         flags=re.MULTILINE,
     )
+    assert fields(text)["New units"] == "helper (depth 1)", (
+        "the substitution missed, so round 1 names no unit and `depth_two` "
+        "returns at its guard: the case this feeds would pass for a reason "
+        "that has nothing to do with the finding (#407)"
+    )
     first.write_text(text, encoding="utf-8")
     return commit(repo, "round 2")
 
@@ -1283,6 +1288,10 @@ def two_findings_inside_two_earlier_units(repo):
         "| New units | alpha (depth 1); beta (depth 1) |",
         text,
         flags=re.MULTILINE,
+    )
+    assert fields(text)["New units"] == "alpha (depth 1); beta (depth 1)", (
+        "the substitution missed, so round 1 names no unit and `depth_two` "
+        "returns at its guard (#407)"
     )
     first.write_text(text, encoding="utf-8")
     return commit(repo, "round 2")
@@ -1392,6 +1401,10 @@ def one_finding_inside_one_earlier_unit(repo):
         text,
         flags=re.MULTILINE,
     )
+    assert fields(text)["New units"] == "alpha (depth 1)", (
+        "the substitution missed, so round 1 names no unit and `depth_two` "
+        "returns at its guard (#407)"
+    )
     first.write_text(text, encoding="utf-8")
     return commit(repo, "round 2")
 
@@ -1421,6 +1434,27 @@ def test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one(repo):
     )
     assert "depth 2" not in out, out
     assert "FILE-LEVEL" not in out, out
+    # The positive assertion beside the two negatives (#407). Both of them
+    # hold when `depth_two` returns at its own guard -- round 1 naming no unit
+    # at all -- which is a state that has nothing to do with the finding this
+    # case is named for. This is false in exactly that state.
+    #
+    # **It is a duplicate of the fixture's own guard and cannot fire ahead of
+    # it** (round 1's ⬜ 4). `one_finding_inside_one_earlier_unit` asserts the
+    # same equality on the same cell and nothing between the two writes it, so
+    # in the defect state #407 names the fixture fires first and this is never
+    # reached. What actually closed the vacuity is the fixture guard; this is
+    # a second reader of the same fact, kept because it states inside the case
+    # what the case depends on. Nothing in `close`'s output can discriminate
+    # the two states -- `New units | beta_guard (depth 1)` is written from
+    # `measure` and `added` whether or not the walk ran -- so there is no
+    # assertion that would be both positive and independent.
+    assert fields(read(repo / ROUNDS / "round-1.md"))["New units"] == (
+        "alpha (depth 1)"
+    ), (
+        "round 1 names no unit, so `depth_two` returned at its guard and the "
+        "two negatives above hold for a reason other than the judgment"
+    )
     # The exit code is `chain_check`'s verdict on a fixture whose round 1 has
     # no fix surface and whose round 2 no later round has read — a different
     # question with its own cases, and the same reason
@@ -1899,3 +1933,288 @@ def test_a_round_whose_coordinates_an_earlier_round_claimed_is_not_refused(repo)
     assert code == 0, out
     assert "no cell was written" not in out, out
     assert "Inherited coordinates" not in out, out
+
+
+# --- one coordinate, two verdict rows: both sides take the same row ----------
+#
+# #404. `inherited_rows` skips a `Location` it has already emitted and the map
+# `close` hands the reach assigned into a plain dict, so one repeat resolved to
+# the first row on one side and to the last on the other.
+
+
+SAME_COORDINATE = (
+    "| 🟢 | helper re-read after round 0 | `mod.py#helper` | verified | read |\n"
+)
+THREE_AT_ONE_COORDINATE = (
+    SAME_COORDINATE
+    + OPEN_1
+    + "| ⬜ | round 0's record corrected | `mod.py#helper` | withdrawn | read |\n"
+)
+
+
+def test_the_reach_takes_the_row_the_inherited_table_attributed_it_to(repo):
+    """A1. Round 1 carries `🔴 1 … open` and, below it, an unnumbered
+    confirmation at the SAME coordinate. Round 2's section attributes that
+    coordinate to the first of the two, so the reach has to write the first
+    row's verdict into it.
+
+    Red against the plain assignment: the `Why` cell reads
+    `round 1's 🟢 — verified` — round 1 saying `**fixed**` for finding 1 while
+    round 2 says that coordinate was verified by a row that commissioned
+    nothing, which is #342's disease arriving through the repair for it.
+    """
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(verdicts=OPEN_1 + SAME_COORDINATE))
+    assert code == 0, out
+    commit(repo, "round 1")
+    code, out, _ = generate(repo, n=2, report_text=report(verdicts=ROUND_TWO))
+    assert code in (0, 1), out
+    a = commit(repo, "round 2")
+    assert inherited(repo)["`mod.py#helper`"] == f"round 1's 🔴 1 {chr(0x2014)} open", (
+        "the fixture is not the state this is about: the section has to "
+        "attribute the repeated coordinate to round 1's first row"
+    )
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "the fix")
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    assert "**fixed**" in fields_row(record, "🔴 1"), record
+    why = inherited(repo)["`mod.py#helper`"]
+    assert why == f"round 1's 🔴 1 {chr(0x2014)} fixed", why
+
+
+def test_a_repeated_coordinate_resolves_to_one_row_on_both_sides(repo):
+    """A2. Three verdict rows at one `Location`, the numbered one in the
+    middle, so neither side can agree by accident with a one-row table or by
+    the numbered row happening to sit first.
+
+    What is pinned is not WHICH row wins — it is that the writer of round 2's
+    section and the map `close` hands the reach name the same `#` cell. The
+    picking is not the defect; the disagreement is.
+
+    Red against the plain assignment: the section names `🟢` and the reach
+    overwrites the cell with `round 1's ⬜ — withdrawn`, the last row.
+    """
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(verdicts=THREE_AT_ONE_COORDINATE))
+    assert code == 0, out
+    commit(repo, "round 1")
+    code, out, _ = generate(repo, n=2, report_text=report(verdicts=ROUND_TWO))
+    assert code in (0, 1), out
+    a = commit(repo, "round 2")
+    before = inherited(repo)["`mod.py#helper`"]
+    assert before == f"round 1's 🟢 {chr(0x2014)} verified", (
+        f"the fixture is not the state this is about: {before!r}"
+    )
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "the fix")
+    code, out, _record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    after = inherited(repo)["`mod.py#helper`"]
+    assert after.split(chr(0x2014))[0] == before.split(chr(0x2014))[0], (
+        f"the two sides name different rows of one record: {before!r} then {after!r}"
+    )
+    assert after == f"round 1's 🟢 {chr(0x2014)} verified", after
+
+
+# --- the second cause of an empty fill: the section lost its rows ------------
+#
+# #405. `filled == 0` was answered with unconditional silence, and it has two
+# causes: the re-review round above, and a `## Inherited coordinates` table
+# edited or truncated after `new` wrote it. The other two refusals both miss
+# the second -- a table with no rows is readable, and it inherits no
+# coordinate for round N's verdict table to lack.
+
+
+def strip_inherited_rows(repo, n=2):
+    """Delete every body row of round N's `## Inherited coordinates`, leaving
+    the heading, the header and the separator. Returns what was deleted."""
+    path = repo / ROUNDS / f"round-{n}.md"
+    text = path.read_text(encoding="utf-8")
+    head, rest = text.split("## Inherited coordinates", 1)
+    body, tail = rest.split("\n## ", 1)
+    gone = [ln for ln in body.splitlines() if ln.startswith("| round-")]
+    assert gone, f"round-{n}.md has no inherited body row to delete:\n{text}"
+    kept = [ln for ln in body.splitlines() if not ln.startswith("| round-")]
+    path.write_text(
+        head + "## Inherited coordinates" + "\n".join(kept) + "\n## " + tail,
+        encoding="utf-8",
+    )
+    return gone
+
+
+def test_a_truncated_inherited_table_is_refused_naming_what_it_no_longer_holds(repo):
+    """A4. Round 2 generated normally, then every body row of its
+    `## Inherited coordinates` deleted. `close --round 1` used to exit 0 and
+    say nothing about the reach, so the truncation reached the pull request
+    with the `Why` cells gone.
+
+    Red against the unconditional silence: exit 0 and no mention of the
+    coordinate. The refusal names the coordinates the table no longer
+    accounts for rather than stating a rule, so a reader can tell a
+    truncation from a generator that stopped emitting a row.
+    """
+    a = two_records(repo)
+    gone = strip_inherited_rows(repo)
+    assert any("`mod.py#helper`" in ln for ln in gone), gone
+    commit(repo, "the section truncated by hand")
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "the fix")
+    before = {
+        n: (repo / ROUNDS / f"round-{n}.md").read_text(encoding="utf-8") for n in (1, 2)
+    }
+    code, out, _record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code == 2, out
+    assert "`mod.py#helper`" in out, out
+    assert "does not account for" in out, out
+    # §14: the sentence a person is stopped by. The last clause is what lets a
+    # reader tell this state from the re-review round below it, which is the
+    # reading the removed refusal got wrong and the reason it was removed.
+    assert "regenerate the section, or put the rows back" in out, out
+    assert "already claimed is NOT this state" in out, out
+    assert "no cell was written" in out, out
+    for n, text in before.items():
+        assert (repo / ROUNDS / f"round-{n}.md").read_text(encoding="utf-8") == text, (
+            f"round-{n}.md was written under a refusal"
+        )
+
+
+def test_a_section_that_accounts_for_the_coordinates_under_an_earlier_round_is_silent(
+    repo,
+):
+    """A3's mechanism, stated as the accounting rather than as the count. The
+    round-3 section of the re-review case names no `round-2` row and still
+    holds round 2's one coordinate, under `round-1`. That is what the
+    accounting reads, and it is why the narrowing does not reach the shape
+    the silence exists for.
+    """
+    declared(repo)
+    code, out, _ = generate(repo, report_text=report(verdicts=OPEN_1))
+    assert code == 0, out
+    a1 = commit(repo, "round 1")
+    write(repo, "mod.py", MOD_CHANGED)
+    b1 = commit(repo, "round 1's fix")
+    code, out, _ = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b1[:7]} |\n"), f"{a1}..{b1}"
+    )
+    assert "no cell was written" not in out, out
+    commit(repo, "round 1 closed")
+    code, out, _ = generate(
+        repo,
+        n=2,
+        report_text=report(
+            verdicts="| 🟡 1 | helper still drops b | `mod.py#helper` | open | read |\n"
+        ),
+    )
+    assert code in (0, 1), out
+    commit(repo, "round 2")
+    code, out, _ = generate(
+        repo,
+        n=3,
+        report_text=report(
+            verdicts="| 🟡 1 | a third look | `mod.py:5` | open | read |\n"
+        ),
+    )
+    assert code in (0, 1), out
+    a = commit(repo, "round 3")
+    third = read(repo / ROUNDS / "round-3.md")
+    rows = rows_of(third, "## Inherited coordinates")[2:]
+    assert "round-2" not in "".join(rows), "the fixture is not the state this is about"
+    assert any("`mod.py#helper`" in ln for ln in rows), (
+        "round 2's coordinate has to be in the section under round-1, or the "
+        f"accounting is not what this case exercises:\n{third}"
+    )
+    write(repo, "mod.py", MOD_CHANGED + "\n\ndef extra():\n    return 1\n")
+    b = commit(repo, "round 2's fix")
+    code, out, _ = close(
+        repo, 2, fix_table("| 1 | answered | grounds |\n"), f"{a}..{b}"
+    )
+    assert code == 0, out
+    assert "does not account for" not in out, out
+    assert "no cell was written" not in out, out
+
+
+# --- the stray period the cut leaves behind, at both sites -------------------
+#
+# #414. `chain.SEPARATORS` is six characters wide and holds no period, so a span
+# cut out of a cell that opens `` `6233b769`. `` leaves the stop behind.
+# Nine cells were repaired BY HAND once and the next record the generator wrote
+# carried the rendering again -- §12 as a measurement rather than a rule.
+
+
+def test_a_fix_note_carries_no_stray_period(repo):
+    """A6. The third cell opens with the commit's own code span and a full
+    stop. The rendered Grounds cell has to read `fixed at <sha> — <note>`
+    with one separator between the dash and the note.
+
+    The whole cell is asserted rather than the absence of a period, so the
+    case cannot pass on a cell the fixture failed to build. Red against the
+    un-widened strip: `fixed at <sha> — . <note>`.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    _code, out, record = close(
+        repo,
+        1,
+        fix_table(f"| 1 | fixed | `{b[:7]}`. `helper` takes b now |\n"),
+        f"{a}..{b}",
+    )
+    assert "bare integer" not in out, out
+    (one,) = verdict_cells(record)
+    assert one[4] == f"fixed at {b[:7]} \N{EM DASH} `helper` takes b now; executed", (
+        one,
+        out,
+    )
+
+
+def test_a_deferred_note_carries_no_stray_period(repo):
+    """The second member of the same class, and the one #414's report did not
+    name. `rest = third[len(home):]` is the same shape as the commit span's
+    cut — a span the generator chose, taken off the front of a cell somebody
+    wrote — so `| 1 | deferred #309 | #309. the parity arm … |` rendered
+    `#309 — . the parity arm …`.
+
+    Red against the un-widened strip at that line, which the fix-table note's
+    own widening does not reach.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "README.md", "# untouched\n")
+    b = commit(repo, "nothing")
+    code, out, record = close(
+        repo,
+        1,
+        fix_table("| 1 | deferred #309 | #309. the parity arm is out of scope |\n"),
+        f"{a}..{b}",
+    )
+    assert code == 0, out
+    (one,) = verdict_cells(record)
+    assert one[4] == ("#309 \N{EM DASH} the parity arm is out of scope; executed"), (
+        one,
+        out,
+    )
+
+
+def test_the_stray_period_repair_did_not_widen_the_shared_separators():
+    """#414's chosen direction, held where the empty-span repair's is. Five
+    readers share `chain.SEPARATORS`: a period in it would be stripped from a
+    `deferred` home, from `chain_check`'s own cell readers and from a
+    `nobody — <why>` reason, where a trailing period is part of a sentence
+    rather than decoration. The widening is at the two call sites that cut a
+    span out of a cell, and this is what says it stayed there.
+    """
+    generator = generator_module()
+    assert "." not in generator.chain.SEPARATORS, (
+        "the period moved into the shared constant the call sites reserve"
+    )
+    body = open(generator.__file__, encoding="utf-8").read()
+    body = body.split("def fix_table", 1)[1].split("\ndef ", 1)[0]
+    assert body.count('chain.SEPARATORS + "."') == 2, (
+        "the two cuts that take a span off a cell are what carry the period"
+    )

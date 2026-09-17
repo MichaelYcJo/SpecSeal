@@ -477,9 +477,16 @@ def test_every_declaration_in_this_repository_still_parses():
     #351 wrote the first `Planning` answer, and a case premised on nobody
     answering goes red on the commit that writes one rather than on a defect.
 
-    The vacuity guard is over the two axes together, not per axis. Every
+    The vacuity guard is over the axes together, not per axis. Every
     committed declaration answers `Implementation`, so a per-axis guard would
     be red the day it was written.
+
+    All FOUR optional rows are swept rather than the two that existed first.
+    The fifth and sixth are the direction this case is strongest in: no
+    committed declaration in this tree carries either, so the population is
+    every one of them, and taking the `.get` default off the new row in
+    `parse()` — which is what makes an absent row an absent row — is red here
+    and nowhere else.
 
     No count is written down here either. The docstring this replaced carried
     two -- `the twelve committed here` and `Seventy-two declarations` -- for a
@@ -490,16 +497,19 @@ def test_every_declaration_in_this_repository_still_parses():
     root = os.path.join(os.path.dirname(__file__), "..")
     found = sorted(glob.glob(os.path.join(root, "seal", "specs", "*", "routing.md")))
     assert found, "no declarations found -- the check would pass vacuously"
-    omitted = {routing.PLANNING: 0, routing.IMPLEMENTATION: 0}
+    optional = (
+        (routing.PLANNING, "planning"),
+        (routing.IMPLEMENTATION, "implementation"),
+        (routing.AUTOMATION, "automation"),
+        (routing.ANSWER_PRESSED, "pressed"),
+    )
+    omitted = {row: 0 for row, _ in optional}
     for path in found:
         with open(path, encoding="utf-8") as f:
             text = f.read()
         parsed = routing.parse(text)
         assert parsed is not None, path
-        for row, key in (
-            (routing.PLANNING, "planning"),
-            (routing.IMPLEMENTATION, "implementation"),
-        ):
+        for row, key in optional:
             if f"| {row} |" in text:
                 continue
             omitted[row] += 1
@@ -573,3 +583,153 @@ def test_the_commit_gate_decides_the_same_with_the_planning_row_and_without(repo
     for answer in ("framer", "the session", "`framer`", "Framer", "whoever"):
         declare(repo, review=CHAIN, planning=answer)
         assert decision_of(gate(repo)) == "silent", answer
+
+
+# --- the fifth and sixth rows: a property of the run, and which button ------
+
+
+def with_row(label, answer):
+    """`two_axis_text()` with one more row in front of `Branch`."""
+    return two_axis_text().replace("| Branch |", f"| {label} | {answer} |\n| Branch |")
+
+
+def test_the_automation_row_is_read_when_it_is_there():
+    """S8's shape for the fifth row. `yes` is a run that goes to its
+    destination without stopping; `no` is a run that may come back and ask."""
+    for answer in routing.AUTOMATION_ANSWERS:
+        parsed = routing.parse(with_row(routing.AUTOMATION, answer))
+        assert parsed["automation"] == answer, answer
+
+
+def test_an_unreadable_automation_answer_reads_as_unanswered():
+    """S8's second half. The failure direction is the third axis's: "this row
+    was not answered", never "this file is not a declaration".
+
+    `unattended` and `true` are in the list because they are what a session
+    reaching for the idea rather than for the vocabulary would write, and both
+    have to land on "nobody was asked" rather than on a confident yes.
+    """
+    for spelling in ("unattended", "true", "`yes`", "Yes", "YES", "maybe", ""):
+        parsed = routing.parse(with_row(routing.AUTOMATION, spelling))
+        assert parsed is not None, f"`{spelling}` rejected the whole declaration"
+        assert parsed["automation"] is None, spelling
+        assert parsed["review"] == CHAIN, spelling
+
+
+def test_an_absent_automation_row_is_not_the_same_fact_as_a_chosen_no():
+    """#151's lesson on this row, asserted rather than only written down.
+
+    A chosen `no` says a person was asked and said the run may stop. An absent
+    row says nobody was ever asked. Collapsing them is what made a `seal/` root
+    somebody chose byte-identical to one a preset produced, and it is the whole
+    reason the unchecked half of the box writes a VALUE.
+
+    The parser cannot tell a reader which is which beyond `None`, so what this
+    pins is that the two texts are not the same text and do not parse the same
+    way.
+    """
+    chosen = routing.parse(with_row(routing.AUTOMATION, routing.AUTOMATION_NO))
+    never_asked = routing.parse(two_axis_text())
+    assert chosen["automation"] == routing.AUTOMATION_NO
+    assert never_asked["automation"] is None
+    assert chosen != never_asked, (
+        "a declaration that answered `no` and one nobody ever asked parse "
+        "identically, which is the state the row exists to end"
+    )
+
+
+def test_the_answer_pressed_row_is_read_when_it_is_there():
+    """S3 at the parser: the two derivations are not byte-identical."""
+    for answer in routing.ANSWER_PRESSED_ANSWERS:
+        parsed = routing.parse(with_row(routing.ANSWER_PRESSED, answer))
+        assert parsed["pressed"] == answer, answer
+
+
+def test_pressing_the_preset_and_ticking_every_box_are_told_apart():
+    """S3. Both produce the same four party rows; only this row differs.
+
+    Without it the preset buys nothing, because a chosen answer goes back to
+    being indistinguishable from an unread question.
+    """
+    preset = routing.parse(with_row(routing.ANSWER_PRESSED, routing.PRESSED_AUTOMATION))
+    by_hand = routing.parse(with_row(routing.ANSWER_PRESSED, routing.PRESSED_PER_AXIS))
+    assert preset["review"] == by_hand["review"]
+    assert preset["destination"] == by_hand["destination"]
+    assert preset["pressed"] != by_hand["pressed"], (
+        "the row that says which answer was pressed does not distinguish them"
+    )
+
+
+def test_an_unreadable_answer_pressed_row_reads_as_unanswered():
+    for spelling in ("`automation`", "Automation", "everything", "option 1", ""):
+        parsed = routing.parse(with_row(routing.ANSWER_PRESSED, spelling))
+        assert parsed is not None, f"`{spelling}` rejected the whole declaration"
+        assert parsed["pressed"] is None, spelling
+
+
+def test_the_row_name_and_the_option_label_are_one_word_two_cases():
+    """`Automation` is the row and `automation` is the label a person pressed.
+
+    Deliberately one word, and the vocabularies must not cross: the row takes
+    `yes`/`no` and the pressed row takes the label. Swapping them is the
+    mistake a reader who saw one word makes, and both directions read as
+    unanswered rather than as a confident wrong answer.
+    """
+    assert routing.AUTOMATION.lower() == routing.PRESSED_AUTOMATION
+    crossed = routing.parse(with_row(routing.AUTOMATION, routing.PRESSED_AUTOMATION))
+    assert crossed["automation"] is None, (
+        "`| Automation | automation |` read as an answer; the row takes yes/no"
+    )
+    crossed = routing.parse(with_row(routing.ANSWER_PRESSED, routing.AUTOMATION_YES))
+    assert crossed["pressed"] is None, (
+        "`| Answer pressed | yes |` read as an answer; the row takes a label"
+    )
+
+
+def test_no_optional_row_answers_for_another(repo):
+    """Four optional rows read from one table is where a fold-together hides.
+
+    `test_neither_optional_axis_answers_for_the_other` above pins the pair
+    that existed before; this is the same property over all four, which is the
+    class rather than the two instances of it (§12).
+    """
+    keys = {
+        routing.PLANNING: ("planning", routing.BY_FRAMER),
+        routing.IMPLEMENTATION: ("implementation", routing.BY_SMITH),
+        routing.AUTOMATION: ("automation", routing.AUTOMATION_YES),
+        routing.ANSWER_PRESSED: ("pressed", routing.PRESSED_AUTOMATION),
+    }
+    for label, (key, answer) in keys.items():
+        parsed = routing.parse(with_row(label, answer))
+        assert parsed[key] == answer, label
+        for other_label, (other_key, _) in keys.items():
+            if other_label == label:
+                continue
+            assert parsed[other_key] is None, (
+                f"answering `{label}` also answered `{other_label}`"
+            )
+
+
+def test_the_commit_gate_decides_the_same_with_the_new_rows_and_without(repo):
+    """S9's shape at the gate for both new rows.
+
+    These two rows are the furthest from the gate of any in the file — nothing
+    reads them at a commit at all — so the property to pin is that adding them
+    moves no decision the four older rows produce.
+    """
+    opt_in(repo)
+    declare(repo, review=CHAIN)
+    assert decision_of(gate(repo)) == "silent"
+    for label, answers in (
+        (routing.AUTOMATION, ("yes", "no", "`yes`", "unattended", "")),
+        (routing.ANSWER_PRESSED, ("automation", "per axis", "Automation", "")),
+    ):
+        for answer in answers:
+            declare(
+                repo,
+                review=CHAIN,
+                body=with_row(label, answer).replace(
+                    "| Branch | feature/x |", f"| Branch | {branch_of(repo)} |"
+                ),
+            )
+            assert decision_of(gate(repo)) == "silent", f"{label} = {answer}"

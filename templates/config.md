@@ -173,8 +173,11 @@ follow it and are not part of the row.
 **An absent row is a refusal, not a default.** `broad-gate` names this row
 and exits 2 with nothing run. It is a refusal rather than a prompt because
 the command runs unattended — the sealer asks nobody anything — and a
-refusal that names what to write is answered by the next person to read it,
-where a question stops a session that may have nobody at the keyboard.
+refusal that names whose the row is and where it is answered reaches that
+person through whoever read it, where a question stops a session that may
+have nobody at the keyboard. It does **not** name a command to write: doing
+that asked the one party that may not choose one, which is what #401
+reported.
 
 **There is no default, and the reason is the Seal Test.** `verify` names the
 counterfeit: a check that cannot fail. A default of `pytest` seals a
@@ -185,8 +188,55 @@ row's command does is the repository's own claim: a command that exits 0
 without running anything gets a stamp over nothing, and *the narrow command
 still has to be able to fail* is the reader's rule, not the gate's.
 
-On a failing test the gate re-runs the row's first command on the failing
-files alone, at the base, in a scratch worktree it removes afterwards, and
-labels each `new` or `failing on base too`. That first command is what
-stands before the row's first `&&`, so a row whose suite runner comes first
-is a row the comparison can use.
+### What is refused, and what stays allowed
+
+**A value that would not run as the command it reads as is refused, not
+repaired.** `broad-gate` looks at the row before it hands it to a shell,
+and three forms come back exit 2 with nothing run — the same shape an
+absent row gets. The criterion is one sentence with two halves, and a form
+is refused only for breaking one of them:
+
+> **The value must run as the command it reads as, and the exit code the
+> gate reads must be that command's.**
+
+| Refused | Written as | What a shell does with it |
+|---|---|---|
+| the whole command wrapped in backticks | `` `bin/test -q && ruff check .` `` | runs the content, **discards its exit status**, then executes its OUTPUT as a command. The same content exits 1 bare and 0 wrapped, with the failure still on the screen |
+| the whole command wrapped in `$(…)` | `$(bin/test -q && ruff check .)` | the same semantics in the spelling somebody who knows shell reaches for first |
+| a trailing `&` that is not part of `&&` | `bin/test -q &` | `/bin/sh` backgrounds the whole line and answers 0 before any check has finished. `cmd.exe` separates two commands instead, so what the gate reads is the second one's status. Two different wrong answers, refused for the same half of the criterion |
+
+**Nothing is stripped.** A value quietly repaired here would leave the file
+still wrong and teach the next person that the way they wrote it was right,
+so the refusal names the form, quotes the row as written, and shows it as
+meant. Rewriting it is the person's act, and `/specseal:config` is the door
+to the row.
+
+**Everything else stays legal**, because the row is an arbitrary shell
+command line by design. A gate that could tell a status-discarding `;` from
+one inside a quoted argument would need a shell parser, whose own failure
+modes would make legitimate rows unwritable. What each costs is stated here
+rather than paid for by a refusal:
+
+| Stays legal | What it costs |
+|---|---|
+| `$(…)` **inside** a longer line | nothing. `pytest -n $(nproc)` still runs as the command it reads as |
+| `;`, `\|\|`, quotes, redirection, variables, globs | the row answers with whatever the composition the repository wrote answers with. That is the repository's own claim about itself, which is what this row already is |
+| a pipe, **written `\|`** | the same, and one thing more. A piped row exits with the pipe's LAST status, so `bin/test -q \| tee out.txt` is green whenever `tee` is — the repository's own claim about itself. **This file is markdown and a cell of it ends at a bare pipe**, so `\|` is how the value carries one, the way every other cell of this table already writes it. The reader reduces exactly those two characters to a plain pipe before any shell sees it, so a value holding Windows path separators is untouched. **A BARE pipe still parses as no row**, and `broad-gate` quotes that line back and names the escape rather than reporting the row as absent. **A line that does not parse still takes every row below it** where a row above it already parsed — `config_rows` stops reading the table there, so a `Mode` row written under it is invisible and `seal mode` writes a second one into the file. Measured 2026-09-17; the row's own fragment carries it |
+| an `&` anywhere but at the end | the command before it is backgrounded and its status discarded, exactly as a `;` discards one — and unlike a `;`, it may still be running when the gate stamps, writing into the tree the stamp is about. That is `/bin/sh`; `cmd.exe` sequences the two commands instead, so nothing is left running and the status read is the second command's. Telling an operator `&` from a `2>&1` or a quoted `&` needs the shell parser this list exists to avoid, so it stays the row author's own composition. The **trailing** form is refused, because nothing composes after it and the whole line goes to the background |
+
+### Choosing a value — the criterion
+
+Three rules, and this section is their one home. Every other document that
+mentions the row points here instead of restating them, because a rule
+written in three places is three places for it to disagree with itself.
+
+| # | Rule | Why |
+|---|---|---|
+| 1 | A check that is red repository-wide for reasons unrelated to any branch does not belong in the row | It would block every future work item for something none of them caused, and a gate that always fails is read as noise and then ignored |
+| 2 | A command that **fixes** the tree — `--fix`, `--write`, a formatter in write mode — is not a gate command | A gate asks what is wrong. One that changes the answer while reading it can only come back green, which is the counterfeit `skills/verify/SKILL.md` §*The Seal Test* names |
+| 3 | The suite runner comes first | On a failing test the gate re-runs the row's first command on the failing files alone, at the base, in a scratch worktree it removes afterwards, and labels each `new` or `failing on base too`. That first command is what stands before the row's first `&&`, so a row whose suite runner comes first is a row the comparison can use |
+
+Rules 1 and 2 were derived under pressure by the session that met the gate's
+refusal after its review rounds had settled, and were written nowhere until
+#401. Rule 3 was already here and in the config skill, and it is folded into
+this table rather than copied into a third place.
