@@ -7,13 +7,13 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 428 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Contract changes | refusal → refused_row, ledger.md, round-3.md, overview.md, phase-2.md, plan.md, questions.md, round-1-report.md, round-1.md, round-2-report.md, round-2.md, round-3-report.md, refusal, refused_broad_row, missing_row, pytest; refusal → refusal, refused_row, ledger.md, round-3.md, overview.md, phase-2.md, plan.md, questions.md, round-1-report.md, round-1.md, round-2-report.md, round-2.md, round-3-report.md, refused_broad_row, missing_row, pytest |
+| New units | test_a_second_refused_line_is_what_decides_what_a_first_one_cost (depth 1); test_the_gate_reads_every_refused_line_and_not_only_the_first (depth 1) |
 | Needs a fix | yes — finding 1 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -34,7 +34,7 @@ must be pinned by something that fails, not only written down.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | `refusal` answers about the first refused line while both callers ask about the table, so a second refused line makes the absent-row message and the cost sentence false again | `hooks/config.py:152` | open | Executed: with two refused lines the `Broad gate` row on line 6 is reported ABSENT, and in the mirror shape the refusal says the rows below were read while `Record language` was lost. `hides_this_row` is handed a list holding the row and the branch is gated on `ended`, which describes a different line |
+| 1 | `refusal` answers about the first refused line while both callers ask about the table, so a second refused line makes the absent-row message and the cost sentence false again | `hooks/config.py:152` | **fixed** `c83cee76` | fixed at c83cee76 — `hooks/config.py#refusal` answers about the TABLE: every line the reader will not take as a row, each with whether the reader got that far, the rows lost under the line that actually stopped it, and that line. The gate finds its own row among all of them and reads the cost off the stopping line, which gives the sentence four cases where a flat condition gave it two. The paste-ready fix was measured rather than adopted — it closes two of the five members and its cost chooser is false about the most ordinary file of all; Executed: with two refused lines the `Broad gate` row on line 6 is reported ABSENT, and in the mirror shape the refusal says the rows below were read while `Record language` was lost. `hides_this_row` is handed a list holding the row and the branch is gated on `ended`, which describes a different line |
 | ⬜ | the changelog states the round 1 🟡 3 repair without the condition it has | `seal/specs/1789598366-…/changelog.md:49` | correction | Executed: for the two-refused-line file the row is reported absent, not named unreachable |
 | ⬜ | seven of the thirteen re-anchored `seal/ledger.md` rows carry no note saying who read them, and the record that discloses the re-reads says four and says each carries one | `seal/ledger.md`, `seal/specs/1789598366-…/overview.md:37` | correction | Executed: thirteen rows changed over `0995f62f..906c78b3`, ten re-stamped again inside the fix range, six carry a `Re-read 2026-09-17 … (#415)` note, dates still 2026-09-10/11. `bin/evidence-check --strict .` exit 0 either way |
 | ⬜ | the bare-spelling limitation case names one of the four records that must change when the limit is closed | `tests/test_the_mode_question_is_asked_once.py:332` | correction | Read: the messages name `overview.md` §*Not done* and otherwise say *the records that disclose it*; the other three are `changelog.md:35`, `spec.md` §*What this repair cannot see*, `templates/config.md` |
