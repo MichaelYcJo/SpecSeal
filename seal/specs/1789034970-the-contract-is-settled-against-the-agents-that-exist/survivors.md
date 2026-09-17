@@ -2,11 +2,31 @@
 
 ## Over the whole branch — what CI reads
 
-`survivor-check --range origin/release/v0.10.0...HEAD` reports sixteen places
-across this branch — fifteen at the head it was first run against, and a
+`survivor-check --range d35c874...ce0f9fe` reported two places when it was run
+on 2026-09-17, and `ce0f9fe` is a squashed-away branch tip no clone resolves, so
+that is a past reading rather than one a reader can repeat (#439). Sixteen were
+reported across this branch's life — fifteen at the head it was first run against, and a
 sixteenth once the note explaining a removed ledger row landed, which put the
 sentence that row carried into the range's removed set. None of the sixteen is
 a stale copy of a corrected claim standing where a reader would act on it.
+<!-- The range read `origin/release/v0.10.0...HEAD` until 2026-09-17, when work
+item 1789621028-nothing-reads-a-record-against-the-tree re-measured it. Both
+ends were names, and neither still means what it meant: `HEAD` is now another
+branch's tip, and `origin/release/v0.10.0` DOES NOT RESOLVE AT ALL — the
+release branch was deleted after merging, so the command as written exits 2
+before reading anything. The ends are pinned here to what they named at the
+time: `d35c874` is the release tip this branch was reviewed against
+(`rounds/round-3.md:19`) and `ce0f9fe` is the branch's last commit.
+
+The SIXTEEN is not reproducible by any single run and this line says why two
+sentences down — fifteen at one head and a sixteenth later. Executed
+2026-09-17 over the pinned range: the checker as it stood at `d35c874` reports
+THREE, which is exactly what #344 claims a re-run gives; the checker as it
+stands today reports TWO, over 836 files at `ce0f9fe` and 88 removed
+sentences. So the instrument moved as well as the range — 60 insertions and 11
+deletions in `survivor_check.py` since — and pinning a range is necessary
+without being sufficient. With this file passed as `--exempt`, both readings
+are exit 0. -->
 
 **Four were corrected rather than exempted, and not one of the four was
 reported.** They were found by enumerating the class instead — every live place
@@ -74,7 +94,11 @@ a reader judges, and this is the reading.
 
 ## Round 2's fix pass
 
-`survivor-check --range de7d693..HEAD` reports two places, both inside the file
+`survivor-check --range de7d693..ce0f9fe` reports two places, both inside the file
+<!-- The end read `HEAD` until 2026-09-17; pinned to the branch's last commit
+by 1789621028-nothing-reads-a-record-against-the-tree. Not re-measured — this
+row is a record of what that run reported, and the paragraph above says what a
+re-run of the whole-branch range gives today and why it differs. -->
 the range edited and both for the same reason: finding 3 replaced a one-line
 list comprehension in `terminal_value` with a loop, so the comprehension's
 **shape** went into the range's removed set. Two other functions in the same

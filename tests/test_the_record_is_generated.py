@@ -1639,6 +1639,11 @@ def record(sha, passed=True, verdict="answered", finding="🟢 1"):
         f"| Broad gate | {sha} against base |\n"
         f"| Ran by | {RAN_BY} |\n"
         "| Fixes checked by | no fixes to check |\n"
+        # A round that commissioned no fixes has no range, and `none` is what
+        # `chain_check.fix_range` reads as "nothing to check against the
+        # tree". `RANGE_FROM` reaches this fixture's work-item id, so the row
+        # is owed here the way `Broad gate` is above.
+        "| Fix range | none |\n"
         "| Contract changes | none |\n| New units | none |\n"
         "| Needs a fix | no |\n| Loses a record or crashes | no |\n\n"
         f"- [{box}] Pass\n\n"

@@ -851,6 +851,96 @@ so does `templates/sdd-round.md` where the column is defined — because the
 refusal lands at the orchestrator, one hop from either agent that could have
 avoided it.
 
+##### The fix range — `Fix range`
+
+A row that states the commits a round's fixes were measured over, written by
+the generator that already resolved them and read back here against the tree.
+It is `Contract changes`'s neighbour in the field table and its model, and it
+exists for a narrower reason: **a record is written once and the tree keeps
+moving.** `evidence-check` does that job for the ledger, over content anchors,
+and the records were left out of it (#344).
+
+What the row closes is one measured class. A fix table states its range in
+prose, and `HEAD` is not a commit — it resolves, so the sentence stays
+readable while meaning a different set of commits every day. Three records of
+one work item said such a range, which is the rate that makes it a rule rather
+than a correction. There is no convention in that prose to enforce, which is
+why the authoritative statement moves into the record instead of a parser
+being pointed at the prose.
+
+**The measurement, as a command rather than as a number.** A count over prose
+depends entirely on what counts, and this paragraph first stated one with a
+date and no method — three readers then produced three different answers from
+it, which is the rule in `seal/ledger/1789621028-nothing-reads-a-record-against-the-tree.md`
+R7 broken in the document that states it. So the method is the claim:
+
+```sh
+for f in seal/specs/*/rounds/*-fixes.md; do
+  head -8 "$f" | grep -oE '`[0-9a-f]{7,40}\.\.[A-Za-z0-9@_/.-]+`' | head -1
+done
+```
+
+One backticked range from each file's first eight lines. At `56945007`, the
+commit this work item was cut from, it prints **15** ranges over **39** files,
+**5** of them ending `HEAD`, in **12** distinct sentence forms — the forms
+counted by replacing the range with a placeholder and taking the first 40
+characters of the line. At this work item's own tip it prints **4** ending
+`HEAD` and the other three figures unchanged, because the work pinned one of
+them.
+
+**That the same command gives 5 and then 4 is the point, not a caveat.** A
+figure here is reproducible against a named command AND a named tree state,
+and against nothing less. A different reading of *stating a range in their
+first eight lines* — one that counts unbackticked ranges, or ranges below the
+eighth line — gives a different count and is not wrong; it is a different
+question, and naming the command is what lets the next reader tell which one
+was asked.
+
+**Both halves are read, because either alone passes what the other catches.**
+The ends say WHICH commits and `round_record.py`'s `parse_range` refuses a
+moving one at either end, so a row written after this rule is pinned by
+construction. The count says HOW MANY, and it is what catches a row written or
+repaired by hand: a range whose ends still resolve while its count disagrees
+with the tree is what a moving end leaves behind once it has stopped moving.
+
+| The row | The check |
+|---|---|
+| `Fix range` absent, work item begun on or after the cutoff | **fails**, naming the row and what it buys |
+| absent, work item begun before the cutoff (or with no timestamp prefix) | prints — the same grandfathering the rows above use, keyed to `chain_check.py`'s `RANGE_FROM`, whose value is the id of the work item that added the row |
+| `none`, with or without a reason | passes. A round that commissioned no fixes has no range, and this is the value the row starts at |
+| an empty cell | **fails** on any record — a row that says nothing answers nothing |
+| a value naming no readable `` `<a>..<b>`, N commits `` | **fails** on any record, quoting the cell. A present cell nobody can parse is always the author's to fix, where a row that did not exist when the record was written is not |
+| both ends resolve and the count matches `git rev-list --count <a>..<b>` | passes |
+| both ends resolve and the count differs | **fails**, naming both numbers and saying to read `git log --oneline <a>..<b>` — and that if the ends are what moved, the ends are what to correct |
+| either end this repository cannot see | prints. A feature branch squashes into its release branch and the squash keeps none of the branch's own commits, so a merged record's fix commits are ordinarily invisible. `Target SHA` falls back to `carried_by_a_pull_head`; a range has no equivalent, because a pull head carries the commits and not the arithmetic between them |
+
+**What the row cannot see, stated rather than left to be found.** A range whose
+ends resolve and whose count is right can still be the wrong range — the fixes
+may have landed elsewhere. Nothing compares the range against the fixes, and
+nothing can here: `fix_surface` measures the surface from this same range, so
+the two agree by construction rather than by checking each other. What is
+closed is the narrower thing #344 measured, a range that stops meaning what it
+said.
+
+**The grandfathering is the checker's and not the generator's.** The table
+above is what `chain_check` does at the pull request. `round_record.py close`
+has no equivalent and should not grow one: it REPLACES this row rather than
+inserting one, because a record's field order is the template's and a `close`
+that inserted would put the row wherever it happened to look. So a record
+written by a `new` from before the row existed is refused by `close` until the
+row is added, and the refusal names the row and where it goes. The two
+behaviours are different on purpose and a document that describes only the
+first is describing half of it.
+
+**`--range` refuses both ends, not only the second.** `HEAD` is the end that
+was reported and a branch name at the start moves exactly as far. An end is
+accepted when it is seven to forty hex characters AND resolves to a commit it
+is a prefix of; the second half is what makes the first true, and it leaves one
+coincidence standing — a branch whose name is hex and which happens to point at
+a commit starting with that name. That is recorded rather than parsed away,
+because refusing hex-shaped ref names would mean asking git which refs exist,
+and the rule would then pass or fail on what somebody else had created.
+
 ##### The fix surface — `Contract changes` and `New units`
 
 Two more rows, read on every record the same way `Fixes checked by` is, and

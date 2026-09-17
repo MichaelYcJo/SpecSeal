@@ -11,6 +11,7 @@ HEAD, because the check is about what git can see between two refs. The
 verdicts are read from the script's exit code, not from its prose.
 """
 
+import importlib.util
 import json
 import os
 import re
@@ -41,6 +42,20 @@ ROUNDS = f"{ITEM}/rounds"
 # what tells a pass from a notice — and after round 1's 🟡 3 this arm has a
 # state that prints at exit 0, which is why exit codes stopped being enough.
 BROAD_GATE_ROW = "Broad gate"
+
+
+def load_by_path(path, name):
+    """The checker and the shared reader as MODULES, by absolute path.
+
+    `conftest.load_hook_module` resolves against `hooks/`, and neither of these
+    lives there. Used by the repository-wide case at the foot of this file,
+    which asks one arm a question about the real tree rather than driving the
+    whole script over a fixture.
+    """
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def git(repo, *args):
@@ -115,6 +130,7 @@ def record(
     extra="",
     pr=None,
     checked_by="nobody — the run ended here",
+    grounds="grounds",
 ):
     box = "x" if passed else " "
     # The `| PR |` row is optional, and `not yet opened` is what a review that
@@ -132,7 +148,7 @@ def record(
         "## Verdicts\n\n"
         "| # | Finding | Location | Verdict | Grounds |\n"
         "|---|---|---|---|---|\n"
-        f"| {finding} | something | `f.py:1` | {verdict} | grounds |\n"
+        f"| {finding} | something | `f.py:1` | {verdict} | {grounds} |\n"
         f"{extra}"
     )
 
@@ -1713,19 +1729,23 @@ def gated_item(began, slug="a-work-item"):
     return f"seal/specs/{began}-{slug}"
 
 
-def gated_record(sha, gate=None, passed=True, verdict="answered"):
+def gated_record(sha, gate=None, passed=True, verdict="answered", rng=None):
     """A record that passes every other check, so the gate arm is what fails.
 
     `gate=None` leaves the `| Broad gate |` row out, which is a state of its
     own: the cell names no run, and it is indistinguishable from `not yet`
     for the one question this arm asks.
+
+    `rng=None` leaves the `| Fix range |` row out the same way, which is the
+    state every record written before that rule is in.
     """
     box = "x" if passed else " "
     gate_row = f"| Broad gate | {gate} |\n" if gate is not None else ""
+    range_row = f"| Fix range | {rng} |\n" if rng is not None else ""
     return (
         "# a round\n\n"
         f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n"
-        f"{gate_row}"
+        f"{gate_row}{range_row}"
         "| Fixes checked by | no fixes to check |\n"
         "| Contract changes | none |\n"
         "| New units | none |\n"
@@ -2517,3 +2537,321 @@ def test_the_same_open_row_without_the_quote_is_a_pass(repo):
     assert code == 0, out
     assert QUOTED_SENTENCE not in out, out
     assert BLOCKING_SENTENCE not in out, out
+
+
+# --- a Grounds cell closed twice (#427, the read half) -----------------------
+
+DOUBLED_SENTENCE = "carries `fixed at`"
+
+
+def test_a_grounds_cell_closed_twice_is_named(repo):
+    """#427's read half. `close` refusing the second write stops the NEXT one
+    and leaves every one already committed unreadable, and the ticket says so:
+    a repair that only stops the second write has closed the instance and not
+    the class.
+
+    What makes it worth a checker at all is that the duplication is invisible.
+    The record still parses, every other arm here is silent, and the original
+    was caught only by reading a committed file against two earlier commits.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        record(
+            sha,
+            passed=True,
+            verdict="fixed",
+            grounds="fixed at 1575d77; fixed at 1575d77; executed",
+        ),
+    )
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 1, out
+    # The file, the finding, and the repeated text — a reader who cannot find
+    # the cell cannot restore it.
+    assert f"{ROUNDS}/round-1.md" in out, out
+    assert DOUBLED_SENTENCE in out, out
+    assert "🔴 1" in out, out
+    assert "1575d77" in out, out
+    # §14's second half: what to do instead, which is the half a reword drops.
+    assert "Restore it" in out, out
+    assert "round-record close" in out, out
+
+
+def test_a_grounds_cell_closed_once_is_not_named(repo):
+    """The control. One prefix is what a correct close writes, and the arm has
+    to be silent about it or every record in every tree fails."""
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        record(sha, passed=True, verdict="fixed", grounds="fixed at 1575d77; executed"),
+    )
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 0, out
+    assert DOUBLED_SENTENCE not in out, out
+
+
+def test_a_second_close_prefix_naming_another_commit_is_still_two(repo):
+    """The shape, not the repetition of one string. Two closes with different
+    commits leave two prefixes naming different SHAs, and a check that
+    compared the halves to each other would pass exactly the record whose two
+    closes were furthest apart."""
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        record(
+            sha,
+            passed=True,
+            verdict="fixed",
+            grounds="fixed at 64f36ee; fixed at 1575d77; executed",
+        ),
+    )
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 1, out
+    assert DOUBLED_SENTENCE in out, out
+    assert "64f36ee" in out and "1575d77" in out, out
+
+
+def test_the_records_in_this_repository_carry_no_doubled_grounds():
+    """This repository's own records at exit 0, which is a DISCLOSURE.
+
+    Measured 2026-09-17 at the branch tip: 229 `round-N.md` files, 227 with a
+    readable verdict table, 3331 `Grounds` cells, and zero carrying two
+    prefixes. The one record that was corrupted this way had it repaired by
+    hand before this arm existed. So a green run here says nothing was found,
+    never that this arm found something — and the three cases above are what
+    give it a subject.
+
+    The population is asserted along with the verdict. A walk that silently
+    read nothing would also be green, and green over an empty corpus is the
+    shape of a check that cannot fail.
+    """
+    check = load_by_path(CHECK, "specseal_chain_check_for_doubled")
+    reader = load_by_path(
+        os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py"),
+        "specseal_reader_for_doubled",
+    )
+    check.WORKTREE = True
+    records = [
+        os.path.relpath(os.path.join(d, name), ROOT)
+        for d, _dirs, names in os.walk(os.path.join(ROOT, "seal", "specs"))
+        for name in names
+        if re.fullmatch(r"round-\d+\.md", name)
+    ]
+    assert len(records) > 200, f"the walk found {len(records)} records"
+    named = []
+    for rel in sorted(records):
+        errors, _notices = check.doubled_grounds(reader, ROOT, rel.replace(os.sep, "/"))
+        named.extend(errors)
+    assert not named, f"records carrying a doubled close prefix: {named}"
+
+
+# --- the fix range is read against the tree (#344) ---------------------------
+
+# The tenth cutoff, as a literal for the reason the others here are: reading it
+# from the script would make every case below agree with whatever the script
+# says, including a typo.
+RANGE_FROM = 1789621028
+RANGE_ROW = "Fix range"
+
+
+def ranged(repo, began, rng, **kwargs):
+    """A declaration and a record whose `Fix range` row is what varies.
+
+    Returns the two commits the range can be written over, so a case can state
+    a range the tree holds and a range it does not.
+    """
+    item = gated_item(began, slug="a-ranged-item")
+    write(repo, f"{item}/routing.md", declaration())
+    first = commit(repo, "declare")
+    write(repo, "another.py", "z = 3\n")
+    second = commit(repo, "one commit between the ends")
+    write(
+        repo,
+        f"{item}/rounds/round-1.md",
+        gated_record(
+            first, gate=f"{first} against base", rng=rng(first, second), **kwargs
+        ),
+    )
+    commit(repo, "round 1")
+    return first, second
+
+
+def test_a_fix_range_the_tree_contradicts_is_named(repo):
+    """#344's core. A record states a range, the tree holds a different one,
+    and until now nothing compared them — `evidence-check` does exactly this
+    job for the ledger over content anchors, and the records were left out.
+
+    The count is the half that catches a row nobody can re-derive. Its ends
+    still resolve; what moved is how many commits lie between them.
+    """
+    ranged(repo, RANGE_FROM, lambda a, b: f"`{a}..{b}`, 7 commits")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert RANGE_ROW in out, out
+    assert "says 7 commits" in out, out
+    assert "the tree holds 1" in out, out
+    # §14's second half: what to do about it, and which of the two halves to
+    # suspect. A refusal that names only the mismatch sends somebody to edit
+    # the number, which is the wrong repair when the ends are what moved.
+    assert "git log --oneline" in out, out
+    assert "what to correct rather than the number" in out, out
+
+
+def test_a_fix_range_the_tree_confirms_passes(repo):
+    """The control. The identical record with the count the tree actually
+    holds is not refused at all, so the case above is about the comparison."""
+    ranged(repo, RANGE_FROM, lambda a, b: f"`{a}..{b}`, 1 commit")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert RANGE_ROW not in out, out
+
+
+def test_a_fix_range_this_repository_cannot_see_prints(repo):
+    """The squash. A feature branch squashes into its release branch and the
+    squash keeps none of the branch's own commits, so a merged record's fix
+    commits are ordinarily invisible. Failing there would fail every record at
+    the moment its work shipped, for something the record did not do wrong.
+    """
+    ranged(repo, RANGE_FROM, lambda a, b: f"`{'0' * 40}..{'1' * 40}`, 3 commits")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert RANGE_ROW in out, "the state is reported even though it is not failed"
+    assert "squash" in out, out
+
+
+def test_a_fix_range_that_states_no_readable_range_is_named(repo):
+    """A present cell nobody can parse is always the author's to fix, which is
+    the line `fix_surface` already draws between a malformed row and an absent
+    one. `HEAD` written into the cell by hand is the shape this catches after
+    the generator's own refusal has been bypassed."""
+    ranged(repo, RANGE_FROM, lambda a, b: f"`{a}..HEAD`, four commits")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert RANGE_ROW in out, out
+    assert "does not state a range this can read" in out, out
+    assert "names that move" in out, out
+
+
+def test_a_fix_range_saying_none_is_not_read_against_anything(repo):
+    """A round that commissioned no fixes has no range, and this is the value
+    the row starts at — a record is committed before its fixes exist."""
+    ranged(repo, RANGE_FROM, lambda a, b: "none — the fixes are not yet written")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert RANGE_ROW not in out, out
+
+
+def test_an_empty_fix_range_row_is_named(repo):
+    """A row that says nothing answers nothing, on any record."""
+    ranged(repo, RANGE_FROM, lambda a, b: " ")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert RANGE_ROW in out, out
+    assert "says nothing answers nothing" in out, out
+
+
+def test_a_missing_fix_range_row_fails_a_work_item_begun_after_the_cutoff(repo):
+    """The row is owed from the work item that added it onward, which is the
+    shape all nine cutoffs above it carry."""
+    item = gated_item(RANGE_FROM, slug="a-ranged-item")
+    write(repo, f"{item}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{item}/rounds/round-1.md",
+        gated_record(sha, gate=f"{sha} against base"),
+    )
+    commit(repo, "round 1")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert f"no `| {RANGE_ROW} | … |` row" in out, out
+    assert "HEAD` is not a commit" in out, out
+
+
+def test_a_missing_fix_range_row_prints_for_a_work_item_begun_before_it(repo):
+    """One second earlier, and the same record prints instead of failing. A
+    merged record cannot state a range it never measured, and a check whose
+    first production act is red on history nobody can repair is a check people
+    learn to skip."""
+    item = gated_item(RANGE_FROM - 1, slug="a-ranged-item")
+    write(repo, f"{item}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{item}/rounds/round-1.md",
+        gated_record(sha, gate=f"{sha} against base"),
+    )
+    commit(repo, "round 1")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert f"no `| {RANGE_ROW} | … |` row" in out, "the state is still reported"
+    assert str(RANGE_FROM) in out, "and the cutoff is named, so the reason is readable"
+
+
+def test_the_records_in_this_repository_are_not_failed_by_the_new_row(repo):
+    """Every record already in this tree, read by the new arm.
+
+    The row did not exist when any of them was written, so what this pins is
+    the grandfathering: each one PRINTS and none of them fails. A cutoff set
+    one work item too early would turn every shipped record red at the next
+    pull request, which is the failure mode `plan.md` named for this phase
+    before it was built.
+
+    The population is asserted beside the verdict. A walk that read nothing
+    would also report no failures, and that is the shape of a check that
+    cannot fail.
+    """
+    check = load_by_path(CHECK, "specseal_chain_check_for_ranges")
+    reader = load_by_path(
+        os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py"),
+        "specseal_reader_for_ranges",
+    )
+    check.WORKTREE = True
+    records = [
+        os.path.relpath(os.path.join(d, name), ROOT).replace(os.sep, "/")
+        for d, _dirs, names in os.walk(os.path.join(ROOT, "seal", "specs"))
+        for name in names
+        if re.fullmatch(r"round-\d+\.md", name)
+    ]
+    assert len(records) > 200, f"the walk found {len(records)} records"
+    failed, printed_without_a_row, carrying = [], 0, []
+    for rel in sorted(records):
+        errors, notices = check.fix_range(reader, ROOT, rel)
+        failed.extend(errors)
+        with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+            carries = f"| {check.FIX_RANGE} |" in f.read()
+        if carries:
+            carrying.append(rel)
+        else:
+            printed_without_a_row += len(notices)
+    assert not failed, f"records the new row would fail: {failed[:5]}"
+    # The population, split the way the tree is actually split. Until this
+    # work item's own round 1 there was no record carrying the row at all and
+    # this read `printed == len(records)`; the first record to carry one made
+    # that false, which is the case being right rather than the tree being
+    # wrong. What has to hold is that a record WITHOUT the row is printed and
+    # never failed, and that the two groups account for every record — a walk
+    # that quietly read nothing would report no failures too.
+    #
+    # The notices are counted over that group ALONE, never as a subtraction
+    # from the whole. A record that HAS the row prints whenever its ends stop
+    # resolving, which `fix_range`'s own docstring calls "the ordinary state
+    # of a merged record and not a fault in it" — and the squash that merges
+    # this branch makes it the state of the one record carrying the row. A
+    # subtraction asserts that such a record prints nothing, which is the
+    # opposite of what this module documents (round 2's 🔴 1).
+    assert carrying, "no record in this tree carries the row, so nothing is read"
+    assert printed_without_a_row == len(records) - len(carrying), (
+        f"{printed_without_a_row} notices over {len(records) - len(carrying)} "
+        "records with no row: a record that predates the row has to print, "
+        "not go quiet"
+    )
