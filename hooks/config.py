@@ -60,6 +60,16 @@ CONFIG_HEADER = re.compile(r"^\|\s*Item\s*\|\s*Value\s*\|\s*$")
 # value needs a greedy last cell, and a greedy last cell reads the rows of a
 # THREE-column table written under this one as rows of this one --
 # `templates/config.md` ships three-column tables.
+#
+# **This narrows in exactly one shape, and it is not a defect to repair.** A
+# backslash standing immediately against a cell-ending pipe used to be a
+# plain character followed by the delimiter; it is now one escaped pipe, so
+# `| Broad gate | C:\Users\x\tools\|` is no longer a row. It cannot be both:
+# the escape is what the rest of this comment is for. Nothing becomes
+# unwritable, because `config_rows` strips each cell -- a space before the
+# closing pipe returns the same value byte for byte. Found by round 1 of
+# #415, where `plan.md` asserted that a widened pattern can only make MORE
+# lines into rows; `spec.md` §*What this repair cannot see* now names it.
 CELL = r"(?:[^|\\]|\\.)"
 CONFIG_ROW = re.compile(
     rf"^\|\s*(?P<item>{CELL}+?)\s*\|\s*(?P<value>{CELL}*?)\s*\|\s*$"

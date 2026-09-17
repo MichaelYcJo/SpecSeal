@@ -177,6 +177,18 @@ Stated here so nobody reads the change as wider than it is.
   that person is the message, not the outcome. The naive spelling — the one
   somebody typing *one shell command line* reaches for first — still fails,
   and now says so.
+- **One shape that parsed before this change no longer does.** A backslash
+  standing immediately before a cell-ending pipe used to be a plain character
+  followed by the delimiter, and it is now one escaped pipe — so the line has
+  one pipe fewer than a row needs. `| Broad gate | C:\Users\x\tools\|` was
+  the row `('Broad gate', 'C:\Users\x\tools\')` and is no row; the same holds
+  at the pipe between the cells, `| C:\tools\| x |`. The behaviour is kept:
+  once `\|` means an escaped pipe those bytes cannot also mean *backslash,
+  then the delimiter*. Nothing becomes unwritable, because a space before the
+  closing pipe gives the value back byte for byte — the reader strips the
+  cell. Added after round 1 🟡 2, which found `plan.md` and `questions.md` M3
+  asserting that a widened pattern can only make MORE lines into rows.
+
 - **`hooks/mode-gate.py` still says nothing.** A config whose `Mode` row is
   hidden below an unparseable line still reads as undeclared, and the gate
   still simply asks the mode question again. That is deliberate and it is the

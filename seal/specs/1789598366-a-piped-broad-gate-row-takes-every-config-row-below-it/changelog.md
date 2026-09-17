@@ -18,6 +18,14 @@
     value needs a greedy last cell — and a greedy last cell reads the rows of
     a three-column table written under this one as rows of this one.
 
+    One spelling changed meaning, and it is the only one. A backslash written
+    immediately against a cell-ending pipe is now that escape, so a row
+    ending `C:\Users\x\tools\|` stopped being a row: the pipe it needed to
+    close the cell is the one the backslash escaped. Writing a space before
+    the closing pipe reads back exactly as it did before. No file in this
+    repository is affected — every `| Item | Value |` table in the tree reads
+    the same rows before and after.
+
   - **`seal mode` was writing a second `Mode` row into a person's file.** The
     reader and the writer read one table, so when the reader stopped above a
     person's `Mode` row the writer stopped there too and inserted its own —

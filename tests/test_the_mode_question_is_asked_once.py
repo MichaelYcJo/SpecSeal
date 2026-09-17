@@ -227,6 +227,48 @@ def test_a_windows_path_survives_the_reader_exactly_as_written(config):
     ], "a backslash that is not part of `\\|` is the value's own character"
 
 
+def test_a_backslash_against_a_pipe_is_the_one_shape_the_escape_narrows(config):
+    """Round 1's 🟡 2 of #415. The escape is not free in one direction only:
+    a backslash immediately before a cell-ending pipe used to be a plain
+    character followed by a delimiter, and it is now one escaped pipe — so
+    the line has one pipe fewer than it needs and stops being a row.
+
+    **It is kept rather than repaired, and the narrowing is named rather
+    than discovered.** Once `\\|` means an escaped pipe those bytes cannot
+    also mean *backslash, then the delimiter*; the old reading was only
+    available while a backslash meant nothing. Nothing becomes unwritable —
+    a space before the closing pipe gives the value back byte for byte,
+    because `config_rows` strips the cell — and one line in the whole tree
+    reads differently, in a review report quoting this shape.
+
+    Both members of the class are here. The report named the first; the
+    second is the same cause at an INTERNAL pipe, where the line stops being
+    a row for the same reason.
+    """
+    header = "| Item | Value |\n|---|---|\n"
+    tight_last = "| Broad gate | C:\\Users\\x\\tools\\|\n"
+    tight_first = "| C:\\tools\\| x |\n"
+    assert config.config_rows(header + tight_last) == [], (
+        "a backslash against the closing pipe is markdown's escaped pipe, so "
+        "the line has no closing pipe left and is not a row. If this returns "
+        "a row the pattern changed and `spec.md` §*What this repair cannot "
+        "see* is now wrong"
+    )
+    assert config.config_rows(header + tight_first) == [], (
+        "the same cause at the pipe BETWEEN the cells — the report named only "
+        "the closing one"
+    )
+    assert config.config_rows(header + "| Broad gate | C:\\Users\\x\\tools\\ |\n") == [
+        ("Broad gate", "C:\\Users\\x\\tools\\")
+    ], (
+        "written with a space before the closing pipe the value comes back "
+        "exactly as the old pattern read it, so no value lost a spelling"
+    )
+    assert config.config_rows(header + "| C:\\tools\\ | x |\n") == [
+        ("C:\\tools\\", "x")
+    ], "and the same for the item cell"
+
+
 def test_a_three_column_row_still_ends_the_table(config):
     """The escape widens what a cell may hold and must not widen what a ROW
     is. Round 1 🟡 6 of the reader's own history is this line: a greedy last
