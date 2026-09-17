@@ -370,7 +370,7 @@ def refusal(text):
     return refused, ended, below, stopper
 ```
 
-`rows_under` has no caller left after this and comes out with it; its
+`rows_under` has no caller left after this and comes out with it; its <!-- NAME NOT IN TREE: round 2's fix pass removed `rows_under`, which is what this sentence proposed, so the tree no longer carries the name. The record is left as the round wrote it. -->
 tolerant-reading paragraph is the second one above. `refused_row` is unchanged
 — `refusal(text)[0]` still answers it.
 
