@@ -150,21 +150,37 @@ def config_rows(text):
 
 
 def refusal(text):
-    """Everything a caller with somebody to tell needs about the first line a
-    person wrote as a row of this table and this reader will not take as one.
+    """Everything a caller with somebody to tell needs about the lines a
+    person wrote as rows of this table and this reader will not take as ones.
 
-      line   the refused line as written, with its own indentation, or None
-      ended  whether that line is the one that ENDED the table
-      below  the rows written under it that the reader never reached
+      refused  every such line, in order, each as (line, reached): the line
+               as written with its own indentation, and whether the reader
+               got that far before it stopped
+      below    the rows written under the STOPPING line, which never arrived
+      stopper  the refused line that ENDED the table, or None where no line
+               ended it that way
 
-    **`ended` is a condition and not a decoration.** `config_rows` breaks on
-    a line it cannot parse only once it has FOUND a row; with nothing found
-    yet it steps past that line and keeps reading, so every row below still
-    arrives. A refusal that says those rows were lost sends a person to
-    reformat rows that were read correctly -- a true sentence about the wrong
-    file, which is the shape #415 was opened about. The narrowing was
-    measured in that work item and reached five records before it reached
-    this walk (round 1 🟡 1).
+    **Every value here is a fact about the TABLE, and that is the contract.**
+    This used to hand back ONE line and a flat `ended` saying whether THAT
+    line stopped the reader, and both callers then built sentences about the
+    table out of it. The first refused line and the stopping line are the
+    same line only while there is one of them. With two, the reader stops at
+    the second while the answer describes the first, and #415's own defect
+    came back in the unit that closed it, in both directions at once: the
+    rows below were lost and the refusal said they were read, and a
+    `Broad gate` row sitting under the second line was reported ABSENT
+    (round 2 🟡 1). `refused` is a list for the same reason -- the line a
+    caller is asking about may be neither the first nor the stopping one.
+
+    **`stopper` is where the reader stopped and nothing else is.**
+    `config_rows` breaks on a line it cannot parse only once it has FOUND a
+    row; with nothing found yet it steps past that line and keeps reading,
+    so every row below still arrives. A refusal that says those rows were
+    lost sends a person to reformat rows that were read correctly -- a true
+    sentence about the wrong file, which is the shape #415 was opened about
+    (round 1 🟡 1). So `stopper` is None for a file whose refused lines all
+    sit above its first parsed row, and `reached` is what tells a caller
+    which side of the stopping place its own line is on.
 
     **It reports and it refuses nothing.** Nothing here raises, and no caller
     becomes able to deny by importing it: it answers a question two callers
@@ -173,72 +189,64 @@ def refusal(text):
     `PreToolUse` hook that refuses wrongly stops a session with nobody able
     to get past it, and everything in this module fails toward silence.
 
-    A line is one of these only when it begins with a pipe once its
-    indentation is stripped, which is how a person spells a row -- an
-    indented row is still a row somebody wrote. A blank line or a paragraph
-    of prose ends the table by the rule `config_rows` has always had, so it
-    is the table's end and not a refusal. So does a second header or a stray
-    separator once a row has been found, and the walk stops there too rather
-    than reaching into whatever table comes next: it used to step past both
-    unconditionally and could quote a line out of the table BELOW this one
-    (#415 round 1, the correction).
+    **The walk is `config_rows`'s, and the one difference is that it reads
+    ON past the stopping line**, because what lies under that line is
+    exactly what a caller has to be told about. Nothing acts on those
+    values, which is what lets the walk be that tolerant; a reader whose
+    answers were acted on could not be.
+
+    A line is a refusal only when it begins with a pipe once its indentation
+    is stripped, which is how a person spells a row -- an indented row is
+    still a row somebody wrote. A blank line or a paragraph of prose is the
+    table's end rather than a refusal, and ABOVE the first parsed row it is
+    neither: `config_rows` steps past it and reads on, so this walk does too,
+    and it used to give up there instead -- which reported a refused row
+    written under a line of prose as an absent row (#415 round 2, the
+    correction). A second header or a stray separator ends the table once a
+    row has been found, and the walk stops there rather than reaching into
+    whatever table comes next (#415 round 1, the correction).
 
     Before this existed the two states were indistinguishable to a caller:
     `broad_gate` reported a piped `Broad gate` row as ABSENT, which is a true
     sentence about a cause that is not the real one (#415).
     """
-    lines = text.splitlines()
     seen_header, found = False, False
-    for i, line in enumerate(lines):
+    refused, below, stopper = [], [], None
+    for line in text.splitlines():
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True
             continue
         if CONFIG_HEADER.match(line) or CONFIG_SEPARATOR.match(line.strip()):
             if found:
-                return None, False, []
+                break
             continue
-        if CONFIG_ROW.match(line):
-            found = True
-            continue
-        if not line.lstrip().startswith("|"):
-            return None, False, []
-        return line, found, rows_under(lines[i + 1 :])
-    return None, False, []
-
-
-def rows_under(lines):
-    """The rows a person wrote below a refused line, until the table's shape
-    stops -- a blank line, prose, or a header starting somebody else's table.
-
-    **Read more tolerantly than `config_rows` reads, deliberately.** A second
-    line that will not parse is stepped over rather than ending the walk,
-    because nothing acts on these values: their one use is letting a refusal
-    say that a row the person wrote is sitting below the line, so that
-    nobody is sent looking for a row that is already in their file (#415).
-    A reader whose answers were acted on could not be this forgiving.
-    """
-    under = []
-    for line in lines:
-        if not line.strip() or CONFIG_HEADER.match(line):
-            break
-        if not line.lstrip().startswith("|"):
-            break
         match = CONFIG_ROW.match(line)
         if match:
-            under.append(
-                (
-                    unescaped(match.group("item").strip()),
-                    unescaped(match.group("value").strip()),
+            found = True
+            if stopper is not None:
+                below.append(
+                    (
+                        unescaped(match.group("item").strip()),
+                        unescaped(match.group("value").strip()),
+                    )
                 )
-            )
-    return under
+            continue
+        if not line.lstrip().startswith("|"):
+            if found:
+                break
+            continue
+        refused.append((line, stopper is None))
+        if found and stopper is None:
+            stopper = line
+    return refused, below, stopper
 
 
 def refused_row(text):
-    """The refused line alone -- `refusal` above is the whole answer, and its
-    docstring is where this one's reasoning lives."""
-    return refusal(text)[0]
+    """The first refused line alone -- `refusal` above is the whole answer,
+    and its docstring is where this one's reasoning lives."""
+    refused = refusal(text)[0]
+    return refused[0][0] if refused else None
 
 
 def declared_mode(home):

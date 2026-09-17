@@ -357,8 +357,13 @@ def test_seal_mode_still_writes_a_second_mode_row_for_a_bare_pipe(config, tmp_pa
     write_config(home, BARE_TABLE)
     assert config.declared_mode(str(home)) == ("none", ""), (
         "the bare pipe is expected to hide the `Mode` row below it; if this "
-        "row now reads, the limitation is gone and the records that disclose "
-        "it are what has to change with this case"
+        "row now reads, the limitation is gone and these four records are "
+        "what has to change with this case — the work item's `changelog.md` "
+        "bullet saying it is closed for the escaped spelling only, its "
+        "`overview.md` §*Not done*, its `spec.md` §*What this repair cannot "
+        "see*, and `templates/config.md`. A limitation case's whole value is "
+        "the list it hands whoever reddens it, so all four are named here "
+        "rather than one and a pointer at the rest"
     )
     assert seal.write_row(str(home), "shared") == ""
     written = (home / "config.md").read_text(encoding="utf-8")

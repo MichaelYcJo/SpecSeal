@@ -43,11 +43,18 @@
     absent.** `broad-gate` used to say *has no `Broad gate` row* about a row
     sitting in front of the reader — a true sentence about the wrong cause.
     It now shows the line as written, names `\|` as the way to write the pipe,
-    and says what that line cost — the rows below it, where a row above
-    already parsed, and only itself where the line is the table's first row.
+    and says what that line cost — read off the line that actually stopped
+    the reader, which in a file holding two unparseable lines is not the line
+    being quoted. A line above the stopping one costs nothing, because the
+    reader steps past it and reads on; the stopping line takes every row
+    below it; and the line being quoted can itself be sitting below the
+    stopping one, never reached at all.
+
     A row that genuinely is not there gets the absent-row refusal exactly as
-    before, and a row sitting BELOW a line the reader refused is named as
-    unreachable instead of absent. `hooks/mode-gate.py` gains
+    before. Every other shape is quoted back: a `Broad gate` row sitting
+    BELOW a refused line is named as unreachable rather than absent, and a
+    `Broad gate` row that will not parse is quoted whether it is the first
+    such line in the file or the third. `hooks/mode-gate.py` gains
     nothing and says nothing new: it is a `PreToolUse` hook, and a wrong
     refusal there stops a session with nobody able to get past it.
 

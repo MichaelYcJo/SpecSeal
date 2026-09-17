@@ -1091,6 +1091,151 @@ def test_a_refused_row_of_some_other_item_is_not_read_as_this_one(tmp_path):
     assert f"has no `{ROW}` row" in module.missing_row(str(home))
 
 
+def test_a_second_refused_line_is_what_decides_what_a_first_one_cost(tmp_path):
+    """Round 2's 🟡 1 of #415. The refusal answered about the FIRST line it
+    would not take as a row, and both sentences the gate builds are about the
+    TABLE — which rows failed to arrive, and whether this gate's row is one of
+    them. Those are the same line only while there is one bad line in the file.
+
+    **Both directions are here, because the unit was wrong in both.** With
+    some other item refused first, this gate's row sits under the SECOND bad
+    line and was reported ABSENT — round 1's 🟡 3 with one more line in the
+    file. With the `Broad gate` line itself refused first, a later bad line
+    loses rows the refusal then calls read, and nothing sends that person
+    back.
+
+    **The one-bad-line file is in the same case, and it is the half a chooser
+    keyed on the ROWS still gets wrong.** A `Broad gate` line written last in
+    its table loses nothing below it, because there is nothing below it — and
+    a chooser reading *no rows were lost* as *the table had not begun* tells a
+    person with a `Mode` row above their eyes that nothing parsed above this
+    line. What the sentence is read off is the STOPPING line, and this fixture
+    is what says so.
+    """
+    hidden = refusal_over(
+        tmp_path,
+        "hidden_under_the_second",
+        "| Item | Value |\n|---|---|\n"
+        "| Notes | see C:\\docs\\|\n"
+        "| Mode | shared |\n"
+        "| Other | see C:\\x\\|\n"
+        f"| {ROW} | bin/test -q |\n",
+    )
+    assert f"has no `{ROW}` row" not in hidden, (
+        f"the row is in the file, under the SECOND refused line:\n{hidden}"
+    )
+    assert "never reached it" in hidden, hidden
+    assert "see C:\\x\\" in hidden, (
+        "the refusal shows the first refused line rather than the one that "
+        f"actually stopped the reader:\n{hidden}"
+    )
+    assert "see C:\\docs\\" not in hidden, (
+        "the line quoted is the first refused one, which the reader stepped "
+        f"past and read on from — it took nothing:\n{hidden}"
+    )
+
+    lost = refusal_over(
+        tmp_path,
+        "lost_under_the_second",
+        "| Item | Value |\n|---|---|\n"
+        f"| {ROW} | bin/test -q | tee out.txt |\n"
+        "| Mode | shared |\n"
+        "| Notes | see C:\\docs\\|\n"
+        "| Record language | Korean |\n",
+    )
+    assert "The reader stopped LOWER DOWN" in lost, (
+        "`Record language` did not arrive, and the refusal tells the person "
+        f"every row below this line was read:\n{lost}"
+    )
+    assert "see C:\\docs\\" in lost, (
+        f"the line that lost the rows is not named:\n{lost}"
+    )
+    assert "so every row under that line is lost" in lost, lost
+
+    last = refusal_over(
+        tmp_path,
+        "refused_and_last",
+        "| Item | Value |\n|---|---|\n"
+        "| Mode | shared |\n"
+        f"| {ROW} | bin/test -q | tee out.txt |\n",
+    )
+    assert LOST in last, last
+    assert KEPT not in last, (
+        "a `Mode` row parsed above this line and the line is what stopped "
+        "the reader, so the cost is the rows below it — none, here. The "
+        f"refusal says the table had not begun:\n{last}"
+    )
+
+
+def test_the_gate_reads_every_refused_line_and_not_only_the_first(tmp_path):
+    """The other half of round 2's 🟡 1, and the one that reaches the message
+    this work item exists to end. The gate asked whether the FIRST refused
+    line was its own row; a file with two of them can have this row under the
+    second, and the answer was *has no `Broad gate` row* about a line sitting
+    in front of the person.
+
+    Three shapes, all of them a `Broad gate` line the reader will not take:
+    below another refused line, below the line that STOPPED the reader, and
+    below a paragraph of prose written above the table's first row — where
+    the walk used to give up although `config_rows` steps past prose and
+    reads on (round 2's correction). Each was reported absent.
+    """
+    module = gate_module()
+    config = module.load(module.CONFIG_READER, "specseal_config_for_this_case")
+
+    second = refusal_over(
+        tmp_path,
+        "refused_second",
+        "| Item | Value |\n|---|---|\n"
+        "| Notes | see C:\\x\\|\n"
+        "| Mode | shared |\n"
+        f"| {ROW} | bin/test -q | tee out |\n",
+    )
+    assert f"has no `{ROW}` row" not in second, (
+        f"the row is in the file and it is the SECOND refused line:\n{second}"
+    )
+    assert "bin/test -q | tee out" in second, second
+    assert LOST in second, second
+
+    under = refusal_over(
+        tmp_path,
+        "refused_under_the_stopper",
+        "| Item | Value |\n|---|---|\n"
+        "| Mode | shared |\n"
+        "| Notes | see C:\\x\\|\n"
+        f"| {ROW} | bin/test -q | tee out |\n",
+    )
+    assert f"has no `{ROW}` row" not in under, (
+        f"the row is in the file, below the line that stopped the reader:\n{under}"
+    )
+    assert "never even reached it" in under, under
+    assert "see C:\\x\\" in under, (
+        f"the line the reader stopped at is not named:\n{under}"
+    )
+
+    prose_table = (
+        "| Item | Value |\n|---|---|\n"
+        "a paragraph written above the first row, which the reader steps past\n"
+        f"| {ROW} | bin/test -q | tee out |\n"
+        "| Mode | shared |\n"
+    )
+    prose = refusal_over(tmp_path, "refused_under_prose", prose_table)
+    assert f"has no `{ROW}` row" not in prose, (
+        f"the row is in the file, below a line of prose the reader skips:\n{prose}"
+    )
+    assert KEPT in prose, prose
+    assert config.config_rows(prose_table) == [("Mode", "shared")], (
+        "the sentence above is only true because the reader steps past both "
+        "the prose and the refused line and goes on to read `Mode`"
+    )
+
+    home = tmp_path / "refused_under_the_stopper" / "seal"
+    assert module.refused_broad_row(str(home)) is not None, (
+        "the gate's other caller asks the same question and got None for a "
+        "line sitting in the file"
+    )
+
+
 def test_an_escaped_pipe_reaches_the_gate_as_the_command_it_reads_as(tmp_path):
     """A2 of #415. The whole path a value takes before a shell sees it:
     `broad_command` reads the row through `hooks/config.py#config_rows`, and

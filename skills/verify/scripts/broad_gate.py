@@ -250,16 +250,16 @@ FIRST_CELL = re.compile(r"^\|([^|]*)\|")
 
 
 def refusal(home):
-    """(line, ended, below) for the root's config — the one reader's answer
-    about the first line it will not take as a row, passed through.
+    """(refused, below, stopper) for the root's config — the one reader's
+    answer about every line it will not take as a row, passed through.
 
-    Every way of not having one lands on `(None, False, [])`: no file, a file
+    Every way of not having one lands on `([], [], None)`: no file, a file
     that will not read, a table with no refused line at all.
     """
     config = load(CONFIG_READER, "specseal_config_for_broad_gate")
     text = config_text(home)
     if text is None:
-        return None, False, []
+        return [], [], None
     return config.refusal(text)
 
 
@@ -270,7 +270,7 @@ def names_this_row(line):
 
 
 def hides_this_row(below):
-    """Whether this gate's row is one of the rows a refused line took.
+    """Whether this gate's row is one of the rows the STOPPING line took.
 
     The row is in the person's file and the reader never reached it, so
     saying it is ABSENT is a true sentence about a cause that is not the real
@@ -278,6 +278,13 @@ def hides_this_row(below):
     rows rather than of the refused line, because a file that has no such row
     anywhere is a file the absent-row refusal is right about, malformed line
     or not (#415 round 1 🟡 3).
+
+    `below` is read from the line that actually stopped the reader, which is
+    what makes this answer the table's. Read from the FIRST refused line it
+    held rows that had arrived perfectly well, and the branch was gated on a
+    flag describing that line rather than on the rows — so a row under a
+    SECOND refused line was handed to this function and reported absent
+    anyway (#415 round 2 🟡 1).
     """
     return any(item == ROW for item, _value in below)
 
@@ -286,13 +293,19 @@ def refused_broad_row(home):
     """The `Broad gate` row a person wrote that the table reader will not
     take as a row — as written, with its own indentation — or None.
 
-    None covers every other shape: no such line, a refused line naming some
-    other item, and a file that will not read. Only the row this gate is
+    **Asked of every refused line, not of the first one.** A file with two
+    lines the reader will not take can have this gate's row under the
+    second, and answering about the first reported that row as ABSENT —
+    which is the message this whole work item exists to end, arriving one
+    line further down (#415 round 2 🟡 1).
+
+    None covers every other shape: no such line, refused lines naming other
+    items only, and a file that will not read. Only the row this gate is
     about gets the second sentence, because only this row's absence is what
     the gate is refusing over.
     """
-    line, _ended, _below = refusal(home)
-    return line if line is not None and names_this_row(line) else None
+    refused, _below, _stopper = refusal(home)
+    return next((line for line, _reached in refused if names_this_row(line)), None)
 
 
 def missing_row(home):
@@ -313,8 +326,18 @@ def missing_row(home):
     only itself and every row under it still arrives. Telling that person
     their rows were lost sends them to reformat rows that were read
     correctly, which is this work item's own defect one file over — so the
-    cost sentence is chosen from `refusal`'s `ended`, never stated flat
-    (#415 round 1 🟡 1).
+    cost sentence is read off the file, never stated flat (#415 round 1
+    🟡 1).
+
+    **It is read off the line that actually stopped the reader, which is
+    not always the line being quoted.** A file with two lines the reader
+    will not take has four shapes, and each gets its own sentence: nothing
+    stopped the reader at all; this line stopped it; this line was read and
+    something LOWER DOWN stopped it, so the rows under that line are the
+    lost ones; or the reader had already stopped ABOVE this line and never
+    met it. Chosen from a flat `ended` these collapsed into two, and both of
+    the two were false about the two-line file — the rows below were lost
+    while the refusal said they were read (#415 round 2 🟡 1).
 
     Where there is no such line, the message is the absent-row refusal
     unchanged. It used to say *write the repository's own broad command into
@@ -325,21 +348,45 @@ def missing_row(home):
     the owner afterwards. The message now says whose the row is and where
     they answer it.
     """
-    line, ended, below = refusal(home)
-    if line is not None and names_this_row(line):
-        cost = (
-            " — and every row written BELOW that line is lost with it, each "
-            "falling back to its default with nothing said anywhere"
-            if ended
-            else ". The rows below it were read: nothing had parsed above "
-            "this line, so the table had not begun and the stop rule needs a "
-            "row before it can stop"
-        )
+    refused, below, stopper = refusal(home)
+    mine, reached = next(
+        ((line, got) for line, got in refused if names_this_row(line)),
+        (None, False),
+    )
+    if mine is not None:
+        if stopper is None:
+            cost = (
+                ". The rows below it were read: nothing had parsed above "
+                "this line, so the table had not begun and the stop rule "
+                "needs a row before it can stop"
+            )
+        elif mine is stopper:
+            cost = (
+                " — and every row written BELOW that line is lost with it, "
+                "each falling back to its default with nothing said anywhere"
+            )
+        elif reached:
+            cost = (
+                ". The rows directly below it were read — nothing had parsed "
+                "above this line, and the stop rule needs a row before it can "
+                "stop. The reader stopped LOWER DOWN, at\n"
+                f"    {stopper.strip()}\n"
+                "so every row under that line is lost, each falling back to "
+                "its default with nothing said anywhere"
+            )
+        else:
+            cost = (
+                ". The reader never even reached it: it had already stopped "
+                "ABOVE it, at\n"
+                f"    {stopper.strip()}\n"
+                "so every row from there down is lost — this one included — "
+                "each falling back to its default with nothing said anywhere"
+            )
         return (
             f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` line "
             "and this is it, written so that it does not parse as a row of "
             "that table:\n"
-            f"    {line.strip()}\n"
+            f"    {mine.strip()}\n"
             f"Nothing read it, so there is no command to seal over{cost}.\n"
             "A cell of that table ends at a `|`. A value that needs one is "
             "written with markdown's own escape, `\\|`, which the reader "
@@ -349,12 +396,12 @@ def missing_row(home):
             "stays allowed* is where the row says so, and `/specseal:config` "
             "is the door to it. Nothing ran."
         )
-    if line is not None and ended and hides_this_row(below):
+    if stopper is not None and hides_this_row(below):
         return (
             f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` row and "
             "the reader never reached it. This line above it does not parse "
             "as a row of that table, and the reader stops reading there:\n"
-            f"    {line.strip()}\n"
+            f"    {stopper.strip()}\n"
             f"So the `{ROW}` row written BELOW it is invisible, and there is "
             "no command to seal over. Every other row under that line is "
             "gone the same way, each falling back to its default.\n"
