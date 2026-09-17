@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 428 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Contract changes | refused_row → round-1-report.md, pytest; refused_broad_row → round-1-report.md, pytest |
 | New units | refusal (depth 1); rows_under (depth 1); names_this_row (depth 1); hides_this_row (depth 1); test_a_backslash_against_a_pipe_is_the_one_shape_the_escape_narrows (depth 1); BARE_TABLE (depth 1); test_seal_mode_still_writes_a_second_mode_row_for_a_bare_pipe (depth 1); refusal_over (depth 1); LOST (depth 1); KEPT (depth 1); test_what_a_refused_line_cost_is_read_off_the_file_and_not_stated_flat (depth 1); test_the_rows_below_a_first_row_refusal_really_do_arrive (depth 1); test_a_broad_gate_row_below_a_refused_line_is_not_reported_absent (depth 1) |
 | Needs a fix | yes — findings 1, 2, 3 and 4 |
