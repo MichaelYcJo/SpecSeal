@@ -1510,11 +1510,20 @@ def reach_forward(reader, rounds, n, rows):
 
     Silent where round N+1 does not exist, which is every ordinary run: the
     fix pass comes first and the verifying round is spawned after it. Silent
-    too where its table names no row from round N, because `inherited_rows`
-    is first-seen-wins ACROSS rounds — a round whose every coordinate an
-    earlier round already claimed is written into that section under the
-    earlier round and under no other, which is the ordinary shape of a
-    re-review round rather than a malformed record (round 1's 🔴 2).
+    too where its table names no row from round N **and accounts for round
+    N's coordinates anyway**, because `inherited_rows` is first-seen-wins
+    ACROSS rounds — a round whose every coordinate an earlier round already
+    claimed is written into that section under the earlier round and under no
+    other, which is the ordinary shape of a re-review round rather than a
+    malformed record (round 1's 🔴 2).
+
+    **Filling nothing has a second cause and the silence covered it too**
+    (#405): the section EDITED OR TRUNCATED after `new` wrote it, which the
+    other two refusals both miss — a table with no rows at all is readable
+    and inherits no coordinate for the verdict table to lack. The accounting
+    separates them. Every coordinate of round N appears in a table `new`
+    wrote, so a table naming none of round N's rows and missing some of round
+    N's coordinates is one that lost rows, and it is refused naming them.
     """
     path = os.path.join(rounds, f"round-{n + 1}.md")
     if not os.path.exists(path):
@@ -1532,9 +1541,18 @@ def reach_forward(reader, rounds, n, rows):
         )
     mine = f"round-{n}"
     filled = 0
+    # Every coordinate the table carries, WHATEVER round it is attributed to.
+    # `inherited_rows` is first-seen-wins across rounds, so round N's own
+    # coordinates sit under round N or under an earlier round that claimed
+    # them first -- which is why the accounting below reads the whole column
+    # and not the `round-N` rows alone.
+    accounted = set()
     for i, cells in body:
         seen = [reader.visible(c) for c in cells]
-        if len(seen) < len(INHERITED_HEADER) or seen[0].strip() != mine:
+        if len(seen) < len(INHERITED_HEADER):
+            continue
+        accounted.add(seen[1])
+        if seen[0].strip() != mine:
             continue
         coordinate = seen[1]
         if coordinate not in rows:
@@ -1555,6 +1573,35 @@ def reach_forward(reader, rounds, n, rows):
         )
         filled += 1
     if not filled:
+        # Filling nothing has TWO causes and only one of them is ordinary
+        # (#405). The accounting is what tells them apart, and it runs only
+        # here -- narrowed by measurement rather than by preference. Applied
+        # to every run instead, it refuses a section whose rows are correct
+        # as far as they go: 2 of the 139 committed round-N/round-N+1 pairs
+        # fill a row from round N and still leave coordinates of round N
+        # unaccounted, both of them sections written BY HAND rather than by
+        # `new` (2026-09-15, `1788272986` round 2 and `1788433011` round 2).
+        # A hand-written section is a shape this repository has; refusing it
+        # for filling only what it knew about is the reader sent to correct a
+        # table that is not wrong.
+        unaccounted = [c for c in rows if c not in accounted]
+        if unaccounted:
+            named = ", ".join(sorted(unaccounted))
+            many = "s" if len(unaccounted) > 1 else ""
+            raise Refused(
+                f"round-{n + 1}.md's `{INHERITED}` table names no row from "
+                f"{mine} and does not account for {len(unaccounted)} of round "
+                f"{n}'s coordinate{many} either: {named}. `new` writes one row "
+                "per `Location` cell of every earlier record, so a table it "
+                "wrote holds all of them — under this round or under an "
+                "earlier one that claimed the coordinate first. A table "
+                "holding neither was edited or truncated after `new` wrote "
+                f"it, and the `Why` cells round {n}'s verdicts belong in are "
+                "gone with the rows: regenerate the section, or put the rows "
+                "back. A round whose every coordinate an earlier round "
+                "already claimed is NOT this state — its table accounts for "
+                "all of them and nothing is said; no cell was written"
+            )
         # NOT a refusal (round 1's 🔴 2). `inherited_rows` is first-seen-wins
         # ACROSS rounds, so a round whose every coordinate an earlier round
         # already claimed is written into this section under that earlier
@@ -3109,10 +3156,20 @@ def fix_table(reader, path):
             # measured 2026-09-14). Widened HERE and not in
             # `chain.SEPARATORS`, which the `deferred` home reader below and
             # `chain_check`'s own readers share.
+            # `chain.SEPARATORS` is six characters wide and holds no period, so a cell
+            # opening `` `6233b769`. `` left the stop behind and the row
+            # rendered `fixed at 6233b769 — . <note>` (#414). Nine such cells
+            # were repaired BY HAND once and the next record the generator
+            # wrote carried the rendering again, which is §12's rule as a
+            # measurement: the fix is owed to the cause, not to the cells.
+            # The period is added HERE for the reason the paragraph above
+            # gives -- five readers share the constant, and a trailing period
+            # in a `deferred` home or in a `nobody — <why>` reason is part of
+            # a sentence rather than decoration.
             start, end = sha.start(), sha.end()
             if start and third[start - 1] == "`" and third[end : end + 1] == "`":
                 start, end = start - 1, end + 1
-            note = (third[:start] + third[end:]).strip(chain.SEPARATORS)
+            note = (third[:start] + third[end:]).strip(chain.SEPARATORS + ".")
             out[number] = (FIXED, sha.group(), note)
         elif word == ANSWERED:
             if not third:
@@ -3149,8 +3206,19 @@ def fix_table(reader, path):
             # which printed `#309 -- #309 -- the parity arm ...`: a smaller
             # version of the same noise in the cell #391 exists to make
             # readable (round 1's finding 4).
+            # The SECOND member of #414's class, and the one its own report
+            # did not name. This cut is the same shape as the commit span's
+            # above -- a span chosen by the generator taken off the front of a
+            # cell somebody wrote -- so a third cell reading `#309. the parity
+            # arm is out of scope` left the stop behind and the row rendered
+            # `#309 — . the parity arm is out of scope`. Executed 2026-09-15
+            # through this function before the widening. Enumerated rather
+            # than assumed: the module's three other `chain.SEPARATORS` strips
+            # read a whole cell, or a remainder whose first character the arm
+            # above it already tested to be a separator, so none of them can
+            # leave a stop behind.
             rest = third[len(home) :] if third.startswith(home) else third
-            out[number] = (DEFERRED_WORD, home, rest.strip(chain.SEPARATORS))
+            out[number] = (DEFERRED_WORD, home, rest.strip(chain.SEPARATORS + "."))
         elif any(
             word.startswith(w) and word[len(w)] in chain.SEPARATORS
             for w in (FIXED, ANSWERED)
@@ -3721,6 +3789,18 @@ def close(args):
     # `finding_number` keyed. Keying this map from `rows` refused a pair of
     # records this generator itself wrote, at exit 2, and sent the reader to
     # correct a coordinate that was already right.
+    #
+    # FIRST row at a coordinate wins, which is how `inherited_rows` resolves
+    # the same repeat -- it skips a `Location` it has already emitted. A plain
+    # assignment here ended holding the LAST, so the two sides named different
+    # rows of one record and the `Why` cell round N+1 carried came from a row
+    # the section had attributed nothing to (#404). The two now agree BY
+    # CONSTRUCTION rather than by both being right: whichever row a repeat
+    # resolves to, both sides resolve to the same one, so there is no row left
+    # for them to disagree about. Refusing the repeat instead was measured and
+    # is foreclosed -- 71 of the 247 committed records that parse repeat a
+    # `Location`, over 105 coordinates (2026-09-15), so a refusal would refuse
+    # records this repository has already written.
     location = VERDICT_HEADER.index("Location")
     number = VERDICT_HEADER.index("#")
     now = {}
@@ -3729,7 +3809,9 @@ def close(args):
             reader.visible(c) for c in row_cells(reader, raw[i], len(VERDICT_HEADER))
         ]
         if len(seen) > VERDICT_COL and seen[location]:
-            now[seen[location]] = (seen[number], chain.verdict_of(seen, VERDICT_COL))
+            now.setdefault(
+                seen[location], (seen[number], chain.verdict_of(seen, VERDICT_COL))
+            )
     still_open = [w for w in words if w not in chain.CLOSED_WORDS]
     # The same derivation `new` makes from the report's verdicts, over the
     # verdicts as the table left them. Both of its answers are written here,
@@ -3821,6 +3903,90 @@ def last_record(routing, rounds):
     return found[-1]
 
 
+def seal_home(routing, item, rounds):
+    """(N, path) — the record the cell lands on, or (None, the file it lands in).
+
+    **The home is picked from the DECLARATION, never from what happens to be on
+    disk.** `chain_check` reads `broad-gate.md` on its direct arm alone and the
+    last round record on its chain arm — one home per `Review` answer, chosen
+    there by the same row. A home chosen here by the disk therefore disagrees
+    with the reader twice, in opposite directions:
+
+      a CHAIN work item whose `rounds/` is still empty — the ordinary state
+          while round 1 runs — took the no-rounds branch and was sealed into
+          `broad-gate.md`, which no reader of that work item ever opens, and
+          `seal` printed `sealed` over it
+
+      a DIRECT work item that does have round records was sealed onto the last
+          one, which the direct arm never reads
+
+    Both come from the same missing read, so both are closed by one. Round 1
+    reproduced the first in a throwaway clone: exit 0, `sealed …
+    broad-gate.md`, and the post-write `chain_check` still reporting the round
+    record missing. What it costs is the sealer's answer — success reported for
+    a seal that does not count, and the next party re-taking the run without
+    knowing why. It fails closed either way, which is why nothing merged unrun.
+
+    `last_record` used to RAISE on the empty-`rounds/` path, and that refusal
+    was half of why a `straight to the PR` work item could not be sealed at
+    all — the other half being a reader that returned before it looked. The
+    refusal comes back here for the ONE state it was always right about: a
+    chain declaration whose first record is not written yet.
+
+    An unreadable or absent declaration falls back to the disk, which is this
+    module's standing direction — a file nobody can read is not an answer
+    somebody gave, and no arm of `chain_check` walks a work item that declared
+    nothing, so neither home is read for it.
+    """
+    declared = None
+    try:
+        with open(os.path.join(item, routing.FILENAME), encoding="utf-8") as f:
+            declared = routing.parse(f.read())
+    except (OSError, UnicodeDecodeError):
+        pass
+
+    if declared is not None and declared["review"] == routing.DIRECT:
+        return None, os.path.join(item, chain.BROAD_GATE_FILE)
+
+    found = earlier_records(routing, rounds, sys.maxsize)
+    if found:
+        return found[-1]
+
+    if declared is not None:
+        raise Refused(
+            f"{os.path.join(item, routing.FILENAME)} declares "
+            f"`{declared['review']}` and {rounds} holds no `round-N.md`. For "
+            "that answer the cell belongs on the last round record, and "
+            f"`{chain.BROAD_GATE_FILE}` is read only for a work item "
+            f"declaring `{routing.DIRECT}` — written there it would be a seal "
+            "nothing reads. Write the round record first; no cell was written"
+        )
+    return None, os.path.join(item, chain.BROAD_GATE_FILE)
+
+
+def new_broad_gate_file(item, value):
+    """The whole text of a `broad-gate.md` holding that cell alone."""
+    return (
+        f"# {os.path.basename(os.path.abspath(item))} {DASH} broad gate\n"
+        "\n"
+        f"<!-- The `{BROAD_GATE}` cell, for a work item that ran no review\n"
+        "rounds. Where rounds ran the same cell lives on the last\n"
+        "`rounds/round-N.md`; this file is the other home, and it holds that\n"
+        "row and nothing else.\n"
+        "\n"
+        "Written by `round-record seal`, which picks the home from what\n"
+        "exists, and read by `chain_check.py` at the pull request. The cell\n"
+        "records the commit the run happened at and the base it was compared\n"
+        "against, so an edit after the run spends it — which is the whole of\n"
+        "what a broad-gate cell asserts, and none of it depends on a round\n"
+        "having run. -->\n"
+        "\n"
+        "| Field | Value |\n"
+        "|---|---|\n"
+        f"{cell(BROAD_GATE, value)}\n"
+    )
+
+
 def seal(args):
     """Set the LAST record's `Broad gate` cell, and touch nothing else.
 
@@ -3906,19 +4072,32 @@ def seal(args):
     Then `chain_check --worktree` runs, as `new` and `close` do. Commits
     nothing.
     """
-    reader, routing, root, _item, rounds = where(args)
-    n, path = last_record(routing, rounds)
-    text = read_text(path, f"last record round-{n}.md")
-    raw, lines = text.splitlines(), reader.readable(text)
-    rows = chain.table_rows(reader, lines)
+    reader, routing, root, item, rounds = where(args)
+    n, path = seal_home(routing, item, rounds)
+
+    # NO ROUNDS: the three record refusals below have nothing to read and
+    # nothing to say. `Pass`, `Fixes checked by` and `Target SHA` are each a
+    # question about a round that ran — has its verdict table closed, has a
+    # later round read its fixes, was the run spent before the commit it
+    # sealed — and a work item that ran none answers all three by having no
+    # round. What is NOT skipped is the pair below them: the cell still has to
+    # carry a SHA-shaped word and that SHA still has to resolve here, because
+    # those are about the RUN rather than about the review.
+    if n is None:
+        rows = []
+        raw = lines = []
+    else:
+        text = read_text(path, f"last record round-{n}.md")
+        raw, lines = text.splitlines(), reader.readable(text)
+        rows = chain.table_rows(reader, lines)
 
     boxes = [m for ln in lines for m in [chain.PASS_RE.match(ln)] if m]
-    if len(boxes) != 1:
+    if n is not None and len(boxes) != 1:
         raise Refused(
             f"round-{n}.md has {len(boxes)} `Pass` boxes and needs one; no cell "
             "was written"
         )
-    if boxes[0].group(1) == " ":
+    if n is not None and boxes[0].group(1) == " ":
         raise Refused(
             f"round-{n}.md's `Pass` is unchecked — a finding in its verdict "
             "table is still open, and the broad gate seals a review that has "
@@ -3947,7 +4126,7 @@ def seal(args):
     # says why -- this is the same cell, one subcommand over.
     checker = reader.visible(chain.field(rows, chain.CHECKED_BY) or "").strip()
     plain = checker.strip("`").rstrip(".").lower()
-    if plain != chain.NO_FIXES:
+    if n is not None and plain != chain.NO_FIXES:
         # A `round-N` is refused HERE rather than left to the check after the
         # write (#335). `CHECKER_RE` tests the SHAPE of the cell and cannot
         # test its POSITION, and the position is what decides this one: a
@@ -3982,7 +4161,8 @@ def seal(args):
             "its own reason: `seal` runs with `Pass` ticked, and "
             "`skills/code-review/orchestration.md` fails a pull request whose "
             f"last record reads `{chain.NOBODY}` beside a checked `Pass`. "
-            "Spawn the verifying round first; its record is the one this cell "
+            "Spawn the verifying round first, before the sealer runs; its "
+            "record is the one this cell "
             f"belongs on, and its own row then reads `{chain.NO_FIXES}`; no "
             "cell was written"
         )
@@ -3998,8 +4178,8 @@ def seal(args):
     if ran_at is None:
         raise Refused(
             f"--broad-gate names `{named[0]}`, which {root} cannot see. The "
-            "seal names a commit this repository holds — the tree the run "
-            "was taken over; no cell was written"
+            "sealer's mark names a commit this repository holds — the tree "
+            "the run was taken over; no cell was written"
         )
     for sha in chain.SHA_RE.findall(chain.field(rows, chain.TARGET) or ""):
         reviewed = chain.resolves_to(root, sha)
@@ -4015,10 +4195,13 @@ def seal(args):
                 "Run it again at the tree as it stands; no cell was written"
             )
 
-    i = field_index(reader, lines, BROAD_GATE)
-    raw[i] = cell(BROAD_GATE, args.broad_gate)
-    ending = "\n" if text.endswith("\n") else ""
-    write_record(reader, path, "\n".join(raw) + ending)
+    if n is None:
+        write_record(reader, path, new_broad_gate_file(item, args.broad_gate))
+    else:
+        i = field_index(reader, lines, BROAD_GATE)
+        raw[i] = cell(BROAD_GATE, args.broad_gate)
+        ending = "\n" if text.endswith("\n") else ""
+        write_record(reader, path, "\n".join(raw) + ending)
     print(
         f"round-record: sealed {os.path.relpath(path, root)} {DASH} "
         f"`{BROAD_GATE}` | {args.broad_gate}"

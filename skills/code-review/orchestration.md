@@ -506,6 +506,18 @@ before the round it was meant to seal. Work items begun before
 the fix table and the cell are one write. Where the rounds have settled and
 nothing is being fixed, the sealer's spawn is the route.
 
+**A refusal about the `Broad gate` row goes to a person, and the run stops
+until they answer.** The sealer comes back exit 2 two ways that are about the
+row rather than about the work: the repository declares no row, or its row is
+one the gate would not run as the command it reads as. Neither is yours to
+settle and neither is the sealer's — the row is the one value in this flow
+only a person may write, because there is no default and the sealer's seal
+covers exactly what a person wrote. Put the gate's own sentence in front of
+whoever owns the repository, name `/specseal:config` as where they answer it, and
+leave the pull request as a draft until they have. Filling the row in to get
+past the refusal is #401: it is what happened, and the stamp then covered a
+command the person had never seen.
+
 **A session that has compacted hands the next round to a fresh one, and the
 generated record is the handoff.** A compacted context holds a summary of what
 it read, and a round run from a summary either re-reads what the summary

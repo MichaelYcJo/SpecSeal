@@ -26,10 +26,10 @@ not an answer somebody gave, so the gate goes back to asking. Silence would
 make a corrupt file into the standing waiver `docs/review-chain-spec.md`
 refuses to build.
 
-Two of the axes are exceptions and neither is a loophole. Nothing decides a
-commit on `Implementation` or on `Planning` -- see `parse()` for why an absent
-or unreadable answer in either reads as unanswered instead of taking the whole
-declaration down with it.
+Four of the rows are exceptions and none of them is a loophole. Nothing decides
+a commit on `Implementation`, `Planning`, `Automation` or `Answer pressed` --
+see `parse()` for why an absent or unreadable answer in any of them reads as
+unanswered instead of taking the whole declaration down with it.
 """
 
 import os
@@ -63,6 +63,42 @@ IMPLEMENTATION_ANSWERS = (BY_SMITH, BY_SESSION)
 # that lets the two drift a release later.
 BY_FRAMER = "framer"
 PLANNING_ANSWERS = (BY_FRAMER, BY_SESSION)
+
+# The fifth row, and the first that is not a party. The other four each name
+# somebody who does or does not run; this one names a property of the RUN --
+# whether it may come back and ask. A reader six months later asks that about a
+# work item, and until now the answer was nowhere.
+#
+# `no` is not "a person did it by hand". It is "this run may stop to ask", which
+# is the half a label cannot say and the half the measured instance got wrong.
+#
+# Nothing gates on it and nothing can: a session that promised not to stop and
+# then stopped leaves no artifact for a check to find. What the row buys is the
+# audit trail #88 asks for -- a run that stopped at minute thirty has now
+# broken something a reader can point at.
+AUTOMATION = "Automation"
+AUTOMATION_YES = "yes"
+AUTOMATION_NO = "no"
+AUTOMATION_ANSWERS = (AUTOMATION_YES, AUTOMATION_NO)
+
+# The sixth row: WHICH answer the person pressed, not what it derived to.
+# Without it a chosen preset and four boxes somebody ticked by hand produce
+# byte-identical files, which is #151's shape -- a `seal/` root somebody chose
+# and one that appeared because a session followed a preset were the same
+# bytes, and that is why `seal mode` writes a row saying a person was asked.
+#
+# `PRESSED_AUTOMATION` is the lower-case option LABEL a person pressed, where
+# `AUTOMATION` above is the row name. One word deliberately: the answer pressed
+# and the property recorded are the same idea seen from two sides, and a second
+# word for one of them is what makes a reader hunt for the difference.
+#
+# Only two of question 1's three options ever reach this row. The third,
+# `no work item`, opens no directory and writes no declaration at all, which is
+# the hole `spec.md` names as a ticket of its own rather than closing here.
+ANSWER_PRESSED = "Answer pressed"
+PRESSED_AUTOMATION = "automation"
+PRESSED_PER_AXIS = "per axis"
+ANSWER_PRESSED_ANSWERS = (PRESSED_AUTOMATION, PRESSED_PER_AXIS)
 
 # Repository-relative, `/`-joined, for the readers that classify paths as git
 # prints them — `chain_check.py` lists a tree under it. The hooks below never
@@ -128,6 +164,14 @@ def parse(text):
     The two optional rows are read independently of each other. One answered
     and one absent is a common state -- a session that framed the work itself
     and spawned `smith` to build it -- so neither may stand in for the other.
+
+    `Automation` and `Answer pressed` are the fifth and sixth rows and they are
+    read on the same looser terms, for the same reason one step further along:
+    nothing decides a commit on either, and nothing CAN decide one on
+    `Automation` -- a run that promised not to stop and then stopped leaves no
+    artifact. A required row would turn all 84 declarations already committed
+    here into "not a declaration", which re-opens the commit gate on every
+    branch that already answered.
     """
     found = dict(table_rows(text))
     review = found.get(REVIEW)
@@ -135,6 +179,8 @@ def parse(text):
     branch = found.get(BRANCH)
     implementation = found.get(IMPLEMENTATION)
     planning = found.get(PLANNING)
+    automation = found.get(AUTOMATION)
+    pressed = found.get(ANSWER_PRESSED)
     if review not in REVIEW_ANSWERS:
         return None
     if destination not in DESTINATION_ANSWERS:
@@ -153,6 +199,14 @@ def parse(text):
             implementation if implementation in IMPLEMENTATION_ANSWERS else None
         ),
         "planning": planning if planning in PLANNING_ANSWERS else None,
+        # Absent and unreadable collapse here too, and for `Automation` the
+        # collapse carries a meaning the other rows do not have: a question
+        # that IS asked always writes one of the two values, so `None` means
+        # the question was never put to anybody. A chosen `no` and a question
+        # nobody read are not the same fact, which is the whole reason the
+        # unchecked half is a VALUE rather than an absence (#151).
+        "automation": automation if automation in AUTOMATION_ANSWERS else None,
+        "pressed": pressed if pressed in ANSWER_PRESSED_ANSWERS else None,
     }
 
 

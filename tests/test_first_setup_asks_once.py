@@ -115,6 +115,213 @@ def test_the_parity_question_follows_the_mode_question():
     )
 
 
+# --- A9 of #401: the broad command is the second question, not a later one --
+#
+# `templates/config.md` §*Broad gate* says the row is a thing a PERSON wrote
+# and that the seal covers exactly that. Nothing ever asked for it: grepped
+# before this work, the bootstrap carried two `Ask, once` steps and neither
+# was this one, and no command in `bin/` or `seal.py` wrote the row. So the
+# question reached a person only as `broad-gate`'s refusal -- after the review
+# rounds had settled, which is the last moment available and the one where
+# whoever is there has every reason to answer it themselves. That is what
+# happened, and it is what #401 reported.
+#
+# Each case below was executed against `orchestration.md` as it stood at
+# 81888e2, before the Bootstrap was edited, and each failed; the output is in
+# the body of the commit that added them.
+
+BROAD_ROW = "**The second question is the `Broad gate` row"
+
+
+def test_the_broad_command_rides_the_question_that_already_stops_the_session():
+    """#88's rule, one file over: questions that belong together are asked
+    together. A second `AskUserQuestion` after the first is a second wait for
+    one decision, and the prompt budget `CONTRIBUTING.md` guards is what a new
+    one would owe an argument to. This adds none: the call already exists."""
+    boot = bootstrap()
+    assert boot.count("AskUserQuestion") == 1, (
+        "the bootstrap opens more than one AskUserQuestion, which is the "
+        "second wait this rides the first to avoid"
+    )
+    assert "two questions" in flat(boot), (
+        "the one call is not said to carry both questions"
+    )
+    assert BROAD_ROW in boot, "the bootstrap does not ask for the row at all"
+    assert boot.index(BROAD_ROW) > boot.index("**local**"), (
+        "the row is asked before the mode's options are even laid out"
+    )
+
+
+DERIVED = [
+    ".github/workflows/*.yml",
+    "a runner under `bin/`",
+    "a package manifest",
+    "a `Makefile`",
+]
+
+
+def candidates():
+    """The candidate table and the paragraph under it, bounded at the
+    paragraph that follows — not the rest of the section.
+
+    Round 1's 🟡 7. The slice ran from `BROAD_ROW` to the end of the whole
+    Bootstrap section, so the four-row table could be moved anywhere below —
+    past the decline paragraph, out of the question entirely — and every
+    needle still matched a case named *the question proposes*.
+    """
+    boot = bootstrap()
+    opening = "Read candidates off the repository"
+    assert opening in boot, "the candidate table has no lead-in any more"
+    body = boot[boot.index(opening) :]
+    end = body.find("\n\n   **A candidate carrying")
+    assert end > 0, "the candidate table is no longer followed by the pipe warning"
+    return body[:end]
+
+
+def test_the_question_proposes_candidates_read_off_the_repository():
+    """Q4. A question with nothing in it is answered badly to get past it, and
+    a repository being opted in may not yet know its broad command. The parity
+    setup's shape is the answer — what the machine can derive is proposed and
+    the person picks — so the floor is at least one derived candidate where
+    one is findable, each named with the file it came from."""
+    boot = bootstrap()
+    assert boot.index("Read candidates off the repository") > boot.index(BROAD_ROW), (
+        "the candidate table has left the question it belongs to"
+    )
+    row = candidates()
+    for where in DERIVED:
+        assert where in row, f"no candidate is read off {where}"
+    assert "name the file it came from" in flat(row), (
+        "a candidate with no source is one the person cannot correct"
+    )
+
+
+def test_a_candidate_carrying_a_pipe_is_escaped_where_candidates_are_derived():
+    """Round 1's 🟡 2, second half, as #415 leaves it. The first source this
+    table names is a CI `run:` step, and a `run:` step piping into `tee` is
+    ordinary — so the bootstrap could derive a candidate, the person accept
+    it, the session write it, and the row parse as no row.
+
+    The warning used to say such a candidate *cannot be written into the row*
+    and to offer the command without its pipe. It can be written now, with
+    the pipe escaped, so the warning says how — and still says what a bare
+    one costs, because that is the spelling somebody types.
+    """
+    boot = flat(bootstrap())
+    warning = boot[boot.index("**A candidate carrying a `|` is written") :]
+    warning = warning[: warning.index("**Name the criterion")]
+    assert "`run:` step is where one is likeliest to come from" in warning
+    assert "with the pipe escaped, `\\|`" in warning, (
+        "the warning does not say how the pipe is written, which is the whole "
+        "of what changed"
+    )
+    assert "cannot be written into the row" not in warning, (
+        "the sentence #415 removed survived beside its replacement"
+    )
+    assert "parses as no row" in warning
+    assert "every row written below it is lost with it" in warning, (
+        "the warning states the row's own cost and not the file's"
+    )
+    assert "where a row above it already parsed" in warning, (
+        "the cost is stated flat. It falls on the rows below only once a row "
+        "has parsed above the bare one — the reader breaks on a line it "
+        "cannot parse only after it has found a row, so a bare pipe written "
+        "as the table's FIRST row loses only itself (#415 round 1 🟡 1)"
+    )
+
+
+def test_the_question_never_guesses_and_says_so():
+    """`Orchestrator: Parity setup` states the rule for the original — *never
+    guess* — and the same holds here for the same reason: a row nobody chose
+    is what `templates/config.md` argues against by name."""
+    row = flat(bootstrap())
+    row = row[row.index("The second question") :]
+    assert "nothing is guessed" in row
+    assert "say so rather than inventing one" in row, (
+        "the bootstrap does not say what to do when no candidate is findable"
+    )
+
+
+def test_the_decline_is_offered_and_says_what_it_costs():
+    """A question whose every answer must be a command is a gate wearing the
+    shape of a question. *Not yet* continues, and what it costs is the thing
+    the person is actually choosing between.
+
+    Read from the decline paragraph alone (🟡 7): a slice running to the end
+    of the section cannot fail by losing a sentence that has a twin anywhere
+    below it.
+    """
+    decline = paragraph(bootstrap(), "**Offer a decline, and say what it costs.**")
+    assert "refuses with nothing run" in decline
+    assert "after the review rounds have settled" in decline, (
+        "the decline does not say WHEN the refusal arrives, which is the cost"
+    )
+    assert "/specseal:config" in decline, "the decline names no way back to the row"
+
+
+def test_the_criterion_is_named_by_pointer_and_not_restated():
+    """The criterion has one owner (`tests/test_the_rules_have_one_owner.py`
+    rule 12). A bootstrap that spelled the three rules out would be its third
+    carrier and the next place for them to disagree."""
+    pointer = paragraph(bootstrap(), "**Name the criterion; do not restate it.**")
+    assert "§*Choosing a value — the criterion* owns the criterion" in pointer
+    boot = flat(bootstrap())
+    assert "red repository-wide" not in boot, (
+        "the bootstrap restates a rule instead of pointing at its owner"
+    )
+    # Round 1's 🟡 3. Rule 3's normative half was restated here — *joined with
+    # `&&`, the suite runner first* — which made the criterion's one home
+    # three homes, and the ledger fragment's claim that this carrier restates
+    # nothing false.
+    assert "the suite runner first" not in boot, (
+        "the bootstrap states rule 3 beside the pointer to the section that owns it"
+    )
+    assert "joined with `&&`" not in boot
+
+
+def test_the_row_is_written_after_seal_mode_and_carries_its_section():
+    """`seal mode` writes a config file holding only `Mode`, so the row lands
+    afterwards — and it lands the way `/specseal:config` step 3 lands one, the
+    row AND its section, because the documentation beside it is the half a
+    person reads. No new writer: `skills/config/SKILL.md` §*What this does not
+    do* refuses a generic setter for a file people edit by hand."""
+    boot = flat(bootstrap())
+    assert "Then the `Broad gate` row" in boot
+    assert boot.index("Then the `Broad gate` row") > boot.index(
+        "Then record the answer: run `seal mode`"
+    ), "the row is written before the file `seal mode` creates it in"
+    assert "$CLAUDE_PLUGIN_ROOT/templates/config.md" in boot
+    assert "none is being added" in boot, (
+        "nothing says a writer is deliberately not being built for this"
+    )
+    # Round 1's 🟡 3. *The row and its section* now means 78 lines including
+    # the two lists and the criterion table, so every repository bootstrapped
+    # after this release would freeze a copy of them — and the next change to
+    # either leaves that copy saying something false about the tool.
+    assert "the row **and its section**" not in boot, (
+        "the bootstrap still copies the whole section, lists and all"
+    )
+    assert "down to but not including `### What is refused" in boot
+    assert "pointed at rather than copied down" in boot
+
+
+def test_a_decline_leaves_no_trace_and_the_asymmetry_with_the_mode_is_stated():
+    """The mode row records its answer because #151 measured what its absence
+    costs: a never-asked repository got shared mode SILENTLY. Nothing about
+    this row is silent — a repository that declined and one that was never
+    asked meet the same refusal and are told the same correct thing — so a
+    trace would separate two states nothing treats differently.
+
+    Read from the decline paragraph alone. `#151` also stands in the mode
+    paragraph of the same section, where it has been since before this row
+    existed, so a case reading the whole section cannot fail by losing the
+    argument it is named for — which is what round 1's 🟡 7 measured here.
+    """
+    decline = paragraph(bootstrap(), "**A decline writes nothing at all.**")
+    assert "no sentinel" in decline
+    assert "#151" in decline, "the asymmetry with the mode row is asserted, not argued"
+
+
 def test_the_sentence_that_said_nowhere_else_is_gone():
     """The 0.4.0 sentence wraps as "and\nnowhere else", so the words are
     matched one at a time rather than as a phrase a line break can hide."""

@@ -63,8 +63,9 @@ Three outcomes, and they are not two:
   base too`. No stamp is drawn, on purpose: a picture saying *sealed* beside
   a word saying *not* is two things disagreeing where one answer is needed.
 - **Exit 2, refused, and nothing ran** — the repository declares no `Broad
-  gate` row and the gate names the row to write; or the base does not
-  resolve; or, with `--record`, the record refused the cell — because its
+  gate` row, or its row is one the gate would not run as the command it
+  reads as; or the base does not resolve; or, with `--record`, the record
+  refused the cell — because its
   `Pass` box is unchecked and a finding is still open, or because its
   `Fixes checked by` reads anything but `no fixes to check`. On the last
   record that is the only value `seal` accepts: a `round-N` names a later
@@ -85,6 +86,17 @@ the cell if the box is unchecked, and that refusal is the exit 2 above.
 you got and quote the sentence the gate printed for it. A refusal delivered
 as *it did not pass* sends somebody hunting a defect that is not there, and a
 failure delivered as *it was refused* sends nobody at all.
+
+**A refusal about the row goes back to a person, and never to you.** Both of
+its kinds — no row at all, and a row the gate would not run as the command it
+reads as — are the one value in this whole flow that only a person may write:
+there is no default because a row is a thing a person wrote, and what your
+seal covers is exactly that. You judge nothing, so you pick nothing here
+either. Report the refusal with the gate's own sentence, name
+`/specseal:config` as where it is answered, and stop. Choosing a command
+yourself would seal your own choice, and that is #401 — a session that met
+this refusal after the rounds had settled, ran four candidates, wrote the row
+and mentioned it afterwards.
 
 Your stdout is a pipe, so the drawing arrives as letters rather than blocks.
 That is the intended form there; pass it through as it came.

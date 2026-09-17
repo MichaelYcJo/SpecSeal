@@ -150,6 +150,279 @@ def test_the_command_and_the_gate_read_one_parser(config):
     assert config.declared_mode.__code__.co_filename.endswith(owner)
 
 
+# --- #415: a cell carries an escaped pipe, and the rows below it survive ----
+#
+# The scenario ids are `seal/specs/1789598366-a-piped-broad-gate-row-takes-
+# every-config-row-below-it/spec.md`'s.
+#
+# **A row that parses must come FIRST in every fixture here**, and that is
+# load-bearing rather than decorative. `config_rows` breaks on a line it
+# cannot parse only once it has found a row; a line it cannot parse with
+# nothing found yet is stepped past as furniture. So a piped row written as
+# the table's FIRST row loses only itself, and the defect this section is
+# about — the rows below vanishing — needs a parseable row above it.
+# Measured 2026-09-17, both ways round.
+
+PIPED_TABLE = (
+    "# Repository config\n\n"
+    "| Item | Value |\n|---|---|\n"
+    "| Record language | English |\n"
+    "| Broad gate | bin/test -q \\| tee out.txt |\n"
+    "| Mode | shared |\n"
+    "| Commit and pull request language | English |\n"
+)
+
+
+def test_an_escaped_pipe_is_one_row_and_the_rows_below_it_still_arrive(config):
+    """A1. `seal/config.md` is markdown and `\\|` is markdown's own answer for
+    a pipe inside a cell (`questions.md` Q1, answered by the repository owner
+    on 2026-09-17).
+
+    **The count is asserted before the value, and that ordering is the
+    case.** A case that checks the `Broad gate` value alone passes just as
+    well when every row under it has vanished, and vanishing is the defect:
+    `config_rows` stops at the first line that will not parse, so a piped row
+    used to take `Mode` and every later row with it, each falling back to a
+    default with no message anywhere (#415).
+    """
+    rows = config.config_rows(PIPED_TABLE)
+    assert len(rows) == 4, (
+        f"the table has four rows and {len(rows)} came back: {rows}. A row "
+        "the reader refuses ends the table, so what is missing here is every "
+        "row written BELOW the piped one"
+    )
+    assert [item for item, _ in rows] == [
+        "Record language",
+        "Broad gate",
+        "Mode",
+        "Commit and pull request language",
+    ], rows
+    assert dict(rows)["Broad gate"] == "bin/test -q | tee out.txt", (
+        "the value reaches its caller with one literal pipe, because the "
+        "escape is markdown's and is undone before anything else sees it"
+    )
+    assert dict(rows)["Mode"] == "shared", (
+        "the `Mode` row sits below the piped one, which is what `seal mode` "
+        "reads before deciding whether to write one"
+    )
+
+
+def test_a_windows_path_survives_the_reader_exactly_as_written(config):
+    """The constraint the repository owner attached to Q1's answer, and it
+    decides the implementation rather than the choice: the reduction is
+    **exactly the two characters `\\|`**, never a general backslash unescape.
+
+    `C:\\Python\\python.exe -m pytest` is the shape a `Broad gate` row takes
+    on Windows, and it reads back with its separators intact today — the
+    state this repository has already synced across operating systems. A
+    blanket `re.sub(r"\\\\(.)", r"\\1", value)` would hand the gate
+    `C:Pythonpython.exe -m pytest`, which is a path to nothing.
+    """
+    text = (
+        "| Item | Value |\n|---|---|\n"
+        "| Broad gate | C:\\Users\\x\\Python\\python.exe -m pytest |\n"
+    )
+    assert config.config_rows(text) == [
+        ("Broad gate", "C:\\Users\\x\\Python\\python.exe -m pytest")
+    ], "a backslash that is not part of `\\|` is the value's own character"
+
+
+def test_a_backslash_against_a_pipe_is_the_one_shape_the_escape_narrows(config):
+    """Round 1's 🟡 2 of #415. The escape is not free in one direction only:
+    a backslash immediately before a cell-ending pipe used to be a plain
+    character followed by a delimiter, and it is now one escaped pipe — so
+    the line has one pipe fewer than it needs and stops being a row.
+
+    **It is kept rather than repaired, and the narrowing is named rather
+    than discovered.** Once `\\|` means an escaped pipe those bytes cannot
+    also mean *backslash, then the delimiter*; the old reading was only
+    available while a backslash meant nothing. Nothing becomes unwritable —
+    a space before the closing pipe gives the value back byte for byte,
+    because `config_rows` strips the cell — and one line in the whole tree
+    reads differently, in a review report quoting this shape.
+
+    Both members of the class are here. The report named the first; the
+    second is the same cause at an INTERNAL pipe, where the line stops being
+    a row for the same reason.
+    """
+    header = "| Item | Value |\n|---|---|\n"
+    tight_last = "| Broad gate | C:\\Users\\x\\tools\\|\n"
+    tight_first = "| C:\\tools\\| x |\n"
+    assert config.config_rows(header + tight_last) == [], (
+        "a backslash against the closing pipe is markdown's escaped pipe, so "
+        "the line has no closing pipe left and is not a row. If this returns "
+        "a row the pattern changed and `spec.md` §*What this repair cannot "
+        "see* is now wrong"
+    )
+    assert config.config_rows(header + tight_first) == [], (
+        "the same cause at the pipe BETWEEN the cells — the report named only "
+        "the closing one"
+    )
+    assert config.config_rows(header + "| Broad gate | C:\\Users\\x\\tools\\ |\n") == [
+        ("Broad gate", "C:\\Users\\x\\tools\\")
+    ], (
+        "written with a space before the closing pipe the value comes back "
+        "exactly as the old pattern read it, so no value lost a spelling"
+    )
+    assert config.config_rows(header + "| C:\\tools\\ | x |\n") == [
+        ("C:\\tools\\", "x")
+    ], "and the same for the item cell"
+
+
+def test_a_three_column_row_still_ends_the_table(config):
+    """The escape widens what a cell may hold and must not widen what a ROW
+    is. Round 1 🟡 6 of the reader's own history is this line: a greedy last
+    cell reads `| a | b | c |` as the row `('a', 'b | c')`, and then the rows
+    of a three-column table written under this one are read as more of this
+    one. `templates/config.md` ships three-column tables."""
+    text = "| Item | Value |\n|---|---|\n| a | b |\n| x | y | z |\n| c | d |\n"
+    assert config.config_rows(text) == [("a", "b")], (
+        "the three-cell line is a row of somebody else's table and ends this one"
+    )
+
+
+def test_seal_mode_writes_one_row_where_the_mode_row_sits_below_a_piped_row(
+    config, tmp_path
+):
+    """A3, and `questions.md` M1 — **executed 2026-09-17, and it duplicated.**
+
+    The reader and the writer read one table, so when the reader stopped
+    above the `Mode` row the writer stopped there too: `declared_mode`
+    answered *none*, `table_span` returned no `Mode` row, and `with_row`
+    inserted a second one ABOVE the piped line while the person's own row sat
+    below it. Measured on the tree before this change — two `| Mode |` rows in
+    a person's file, which `table_span`'s own comment says no command can
+    bring back into agreement. It is the worst outcome in this work item and
+    the strongest argument for teaching the reader the escape.
+
+    This calls `write_row`, which is the unit `seal mode` calls when the row
+    reads as undeclared (`seal.py#mode`), rather than a helper beside it.
+
+    **Nothing is asserted before the write.** What the reader answered is
+    read into the failure message instead, because a guard that fires first
+    takes the case's own subject — the file two rows deep — off the screen.
+    """
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "skills", "implement", "scripts", "seal.py")
+    spec = importlib.util.spec_from_file_location("specseal_seal_for_415", path)
+    seal = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(seal)
+
+    home = tmp_path / "seal"
+    home.mkdir()
+    write_config(home, PIPED_TABLE)
+    read_as = seal.declared(str(home))
+    refused = seal.write_row(str(home), "shared")
+    written = (home / "config.md").read_text(encoding="utf-8")
+    assert written.count("| Mode |") == 1, (
+        f"the person's file is {written.count('| Mode |')} `Mode` rows deep, "
+        f"and no command brings it back into agreement. The reader answered "
+        f"{read_as} for a file whose own row says `shared`:\n{written}"
+    )
+    assert refused == "", refused
+    assert read_as == ("mode", "shared"), (
+        "the writer stopped where the reader stopped, which is the agreement "
+        "the two keep by reading one parser"
+    )
+
+
+BARE_TABLE = PIPED_TABLE.replace("\\|", "|")
+
+
+def test_seal_mode_still_writes_a_second_mode_row_for_a_bare_pipe(config, tmp_path):
+    """Round 1's 🟡 4 of #415 — the limitation, pinned rather than described.
+
+    Phase 1 closed the duplication for the ESCAPED spelling. Written bare the
+    line is still not a row, so the reader still stops above the person's
+    `Mode` row, the writer stops where the reader stops, and the file comes
+    back two rows deep. Three records read as if the whole thing were closed;
+    they say this now, and this case is what keeps the sentence and the tree
+    in step — the day the bare spelling is closed, this goes red and the
+    records are found by whoever makes it go red.
+
+    **And nothing repairs a file already two rows deep.** The second write
+    below sets the FIRST row and leaves the person's own, so the file states
+    two modes and every reader takes the first. `table_span`'s own comment
+    says no command brings such a file back into agreement; this asserts it
+    rather than trusting the comment.
+    """
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "skills", "implement", "scripts", "seal.py")
+    spec = importlib.util.spec_from_file_location("specseal_seal_for_415_bare", path)
+    seal = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(seal)
+
+    home = tmp_path / "seal"
+    home.mkdir()
+    write_config(home, BARE_TABLE)
+    assert config.declared_mode(str(home)) == ("none", ""), (
+        "the bare pipe is expected to hide the `Mode` row below it; if this "
+        "row now reads, the limitation is gone and these four records are "
+        "what has to change with this case — the work item's `changelog.md` "
+        "bullet saying it is closed for the escaped spelling only, its "
+        "`overview.md` §*Not done*, its `spec.md` §*What this repair cannot "
+        "see*, and `templates/config.md`. A limitation case's whole value is "
+        "the list it hands whoever reddens it, so all four are named here "
+        "rather than one and a pointer at the rest"
+    )
+    assert seal.write_row(str(home), "shared") == ""
+    written = (home / "config.md").read_text(encoding="utf-8")
+    assert written.count("| Mode |") == 2, (
+        f"the bare spelling no longer duplicates:\n{written}"
+    )
+
+    assert seal.write_row(str(home), "local") == ""
+    again = (home / "config.md").read_text(encoding="utf-8")
+    assert again.count("| Mode |") == 2, (
+        f"a second run changed how many rows the file has:\n{again}"
+    )
+    assert [value for item, value in config.config_rows(again) if item == "Mode"] == [
+        "local"
+    ], "the reader takes the first row, which is the one the writer just set"
+    assert "| Mode | shared |" in again, (
+        "the person's own row below the bare pipe is still there saying "
+        "something else — a file two rows deep is repaired by nothing, and "
+        "`overview.md` §*Not done* is where that is recorded"
+    )
+
+
+def test_a_line_that_will_not_parse_is_named_and_the_hook_still_says_nothing(
+    config, repo
+):
+    """A4 and A7 of #415, which are one case because they are one decision.
+
+    `refused_row` reports; it refuses nothing and raises nothing. The caller
+    that consults it is `broad-gate`, which already talks to a person.
+    `hooks/mode-gate.py` deliberately does not: it is a `PreToolUse` hook, so
+    a wrong refusal there stops a session with nobody able to get past it.
+    A config whose `Mode` row is hidden below an unparseable line still reads
+    as undeclared and the gate still simply asks the mode question again —
+    the stated cost of keeping that hook silent (`spec.md` §*What this repair
+    cannot see*).
+    """
+    text = (
+        "| Item | Value |\n|---|---|\n"
+        "| Record language | English |\n"
+        "| Broad gate | bin/test -q | tee out.txt |\n"
+        "| Mode | shared |\n"
+    )
+    assert config.refused_row(text) == "| Broad gate | bin/test -q | tee out.txt |"
+    assert config.refused_row(TABLE.format(rows="| Mode | shared |\n")) is None
+    assert config.refused_row("# no table here\n\nprose.\n") is None
+    assert (
+        config.refused_row("| Item | Value |\n|---|---|\n| a | b |\n\nprose.\n") is None
+    ), "a blank line is the table ending, not a row somebody wrote"
+
+    gate = load_hook_module(GATE, "specseal_mode_gate_for_415")
+    home = opt_in_shared(repo)
+    write_config(home, text)
+    answer = gate.undeclared(str(repo))
+    assert answer == str(home), (
+        'the hook\'s answer is the home or `""` and never a message; the '
+        f"row below the unparseable line is invisible to it, as before: {answer!r}"
+    )
+
+
 # --- S7-S10: the gate ------------------------------------------------------
 
 

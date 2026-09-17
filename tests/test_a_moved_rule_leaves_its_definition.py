@@ -249,6 +249,108 @@ def test_pasting_a_section_body_back_into_a_definition_is_caught(path, number):
     )
 
 
+# --- a rule that moved to ANOTHER DEFINITION does not stay behind either ----
+
+# The same property one axis over. Above, a rule moved into the contract; here,
+# three acts moved out of `agents/smith.md` and into `agents/framer.md` and
+# `skills/implement/orchestration.md` (#419). Three documents said the acts
+# were not the smith's while `smith.md` claimed all three in twenty lines, and
+# nothing could see the disagreement — which is the same invisible-in-a-diff
+# failure this module opens with.
+#
+# Named by CONTENT, never by the line range the frame measured them at. The
+# waiver example sits inside that range and is one of the kept applications
+# this module's docstring names, so a removal keyed on lines takes it too.
+SMITH = os.path.join(ROOT, "agents", "smith.md")
+
+MOVED_OUT_OF_SMITH = {
+    "the design gate": (
+        "you own this decision, and no skill makes it for you",
+        "Ask everything that needs a person here, in one batch",
+        # The SECOND copy, sixty lines below the span `plan.md` measured the
+        # first at, and the design gate by CONTENT: present approaches and
+        # wait for a go. Left standing it would have had the file say `phase 2
+        # is your caller's spawn` in one paragraph and `wait for an explicit
+        # go` in another. It was removed with the others and held by nothing —
+        # round 1 pasted it back and 242 cases stayed green, which makes it
+        # the one thing the build found by going past its named span and the
+        # one thing the suite could not see come back.
+        "wait for an explicit go",
+    ),
+    "the routing batch": (
+        "How the work is routed belongs in that batch",
+        "one `multiSelect` question with three checkboxes",
+    ),
+    "the `routing.md` write": (
+        "Write the answer into `seal/specs/<work-item-id>/routing.md`",
+    ),
+    "the inference that a missing frame proves none was owed": (
+        "Where no frame was drawn, the ladder put the work",
+    ),
+}
+
+
+def test_the_smith_claims_no_act_another_definition_owns():
+    """S13 and S14's first half. One case per act, so a failure names which.
+
+    A presence-only suite cannot catch this: every one of these sentences
+    reads perfectly well, and pasting one back is an edit that only ADDS.
+    That is the measurement this module was built on, applied to a move
+    between definitions rather than a move into the contract.
+    """
+    smith = flat(read(SMITH))
+    for act, phrases in MOVED_OUT_OF_SMITH.items():
+        for phrase in phrases:
+            assert flat(phrase) not in smith, (
+                f"`agents/smith.md` carries {act} again: {phrase!r}. Three "
+                "other documents own it, and a definition that keeps the "
+                "words of an act it does not perform is an instruction to "
+                "perform it"
+            )
+
+
+def test_what_replaced_them_says_whose_the_act_is():
+    """An absence alone leaves a hole a reader fills with the old behaviour.
+
+    So the removal owes its replacement: phase 2 is the caller's spawn, and
+    the acts are named where they went. Without this the smith meets a phase
+    2 that simply says less and reasons its way back.
+    """
+    smith = flat(read(SMITH))
+    assert "Phase 2 is your caller's spawn" in smith, (
+        "nothing says whose the design gate is now, so a smith meeting an "
+        "unanswered question asks it"
+    )
+    for owner in ("agents/framer.md", "skills/implement/orchestration.md"):
+        assert owner in smith, (
+            f"the replacement does not name `{owner}` as an owner of what "
+            "was removed, so the acts went nowhere a reader can follow"
+        )
+
+
+def test_the_smith_stops_where_a_declared_frame_is_absent():
+    """S14's second half, and the repair the removed inference required.
+
+    The inference — a missing frame proves the ladder wanted none — is not
+    sound: a frame is missing when nobody drew one, whatever the rung. Its
+    absence alone leaves the smith with no instruction at all for the state
+    it was wrong about, so the instruction is asserted here beside the
+    sentence's absence.
+    """
+    smith = flat(read(SMITH))
+    assert (
+        "Where `routing.md` declares a framer and no `spec.md` is there, stop "
+        "and say so rather than building" in smith
+    ), (
+        "the smith has no instruction for a declared frame that is not there, "
+        "which is the state the removed inference told it to build through"
+    )
+    assert "A missing frame is not evidence about the rung" in smith, (
+        "the instruction arrives with no reason, so the next edit reads it as "
+        "caution and softens it"
+    )
+
+
 def test_a_citation_is_not_a_copy():
     """The other direction, which matters more than it looks.
 
@@ -269,6 +371,20 @@ def test_a_citation_is_not_a_copy():
             "1.08" + chr(0x2013) + "1.17",
             "hand-back",
             "§10's number for you",
+            # The waiver example, named in this module's docstring since
+            # phases 3 and 4 kept it deliberately — *the smith's own waiver
+            # example as the patch §9's gate reads a commit out of* — and
+            # asserted here only once #419 gave something a reason to remove
+            # it. It sits inside the line range that work item measured the
+            # design gate at, so a removal keyed on lines takes it with them
+            # and turns this module's stated carve-out into a lie.
+            #
+            # It is also the pair that SETS `LONGEST_KEPT_APPLICATION`: §8 and
+            # this paragraph both spell the same git fact, and the ten words
+            # below are the run the docstring measures. Delete the example and
+            # the number above stops describing the tree.
+            "a bare word is a pathspec and git rejects it",
+            "RIDER: the waiver example above puts a commit command",
         ),
     }
     for parts, phrases in kept.items():

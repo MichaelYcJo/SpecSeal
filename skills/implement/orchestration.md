@@ -4,8 +4,8 @@ The sections `skills/implement/SKILL.md` used to carry for the session that
 spawns agents, under the `Orchestrator:` prefix `code-review` already used for
 its own. They are the procedure for **starting** a work item: creating the
 `seal/` root the first time a repository opts in, setting up parity mode where
-a project ports an original, and asking the one routing question — three axes,
-one question, one file — before the first edit.
+a project ports an original, and asking the one routing question — two
+questions, one call, one file — before the first edit.
 
 The sequence those sections sit inside arrived later, from the shared
 checklist that was deleted for being written by every branch (#351). It is
@@ -80,7 +80,11 @@ creates is the one this section would have asked about. Naming the command
 is what keeps *not asked* from meaning *not offered*: nobody who lands in
 shared mode without a question goes looking in a README for the way out.
 
-1. Ask, once, with one `AskUserQuestion` carrying two options, in this order:
+1. Ask, once, with one `AskUserQuestion` carrying **two questions** — the
+   mode, and the `Broad gate` row. One interruption or two is the whole of
+   what is being decided by putting them together, and this is the only place
+   either of them is asked at all. The mode's two options come first, in this
+   order:
 
    - **shared** (the default, listed first) — creates `<repo>/seal/` in the
      tree; the routing commit you make before the first edit carries it. It
@@ -116,6 +120,56 @@ shared mode without a question goes looking in a README for the way out.
    so in one line when you create the root, because this question is asked
    once and the person answering it does not yet know what they will want.
 
+   **The second question is the `Broad gate` row, and it is a proposal rather
+   than a blank.** That row is the one value in this whole flow only a person
+   can write — `templates/config.md` §*Broad gate* says why it has no default
+   — and until #401 nothing ever asked for it, so it reached a person as the
+   gate's refusal, after the review rounds had settled, at the one moment
+   whoever is there has every reason to answer it themselves. A repository
+   being opted in may not yet know its broad command, so a bare question gets
+   answered badly to get past it. The parity setup below is the shape that
+   answers that, and it is the shape here too: **what the machine can derive
+   is offered, the person picks, and nothing is guessed.**
+
+   Read candidates off the repository, in this order, and offer what you
+   found with the file each came from:
+
+   | Where to look | What to take |
+   |---|---|
+   | `.github/workflows/*.yml` | the `run:` steps of whatever job gates a pull request. What CI already refuses a merge for is the repository's own answer, written down before anybody asked |
+   | a runner under `bin/` | `bin/test`, `bin/check`, or whatever the contribution guide names first |
+   | a package manifest | `package.json`'s `scripts.test`, a `pyproject.toml` tool section, `Cargo.toml` |
+   | a `Makefile` | a `test`, `check` or `lint` target |
+
+   Offer each candidate as **one shell command line** composed the way
+   `templates/config.md` §*Choosing a value — the criterion* says to compose
+   one, and name the file it came from — a candidate whose source is named is
+   one the person can correct. Where nothing is findable, say so rather than
+   inventing one: a guessed row is what `templates/config.md` §*Broad gate*
+   argues against by name, and offering it with a source that does not exist
+   is worse than offering nothing.
+
+   **A candidate carrying a `|` is written with the pipe escaped, `\|`**, and
+   a CI `run:` step is where one is likeliest to come from. Offer it that way
+   rather than dropping the pipe or moving to the next candidate: the cell is
+   markdown's, and the reader reduces `\|` to a plain pipe before any shell
+   sees it. Say why, because a bare one still parses as no row, the gate then
+   quotes that line back instead of reporting the row as absent, and — where
+   a row above it already parsed — every row written below it is lost with it.
+   `templates/config.md` §*What is refused, and what stays allowed* carries
+   the measurement.
+
+   **Name the criterion; do not restate it.** `templates/config.md`
+   §*Choosing a value — the criterion* owns the criterion, three rules with
+   the reason for each, and the person answering reads it there.
+
+   **Offer a decline, and say what it costs.** *Not yet* is a real answer:
+   the repository may not have a broad command yet, and one written to get
+   past a question is worse than none. The cost is one sentence — the first
+   `broad-gate` run refuses with nothing run, and that refusal lands after
+   the review rounds have settled, which is the last moment available.
+   `/specseal:config` fills the row in at any point before then.
+
    **Then record the answer: run `seal mode`, with no argument.** It writes
    the row from where the folder is, which is where you just put it, and it
    moves nothing — `seal mode shared` on a root that is already shared works
@@ -129,6 +183,26 @@ shared mode without a question goes looking in a README for the way out.
    `hooks/mode-gate.py` is what reads the absence, and it stops the next
    command to ask this same question; running the command here is what keeps
    the person who just answered from being asked twice.
+
+   **Then the `Broad gate` row, where a command was chosen.** `seal mode` has
+   just written a config file carrying `Mode` and nothing else, so add the
+   row the way `/specseal:config` step 3 adds one — the row **and the prose
+   under `## Broad gate` down to but not including `### What is refused, and
+   what stays allowed`**, taken from
+   `$CLAUDE_PLUGIN_ROOT/templates/config.md`. A bare row hands the person the
+   value and none of the half they read; the two lists and the criterion are
+   pointed at rather than copied down, because a frozen copy of them in
+   somebody's `seal/config.md` says something false about the tool at the
+   plugin's next release. No command does this and none is being added:
+   `skills/implement/scripts/seal.py`'s writer is the `Mode` row's, and
+   `skills/config/SKILL.md` §*What this does not do* refuses a generic setter
+   for a file people edit by hand.
+
+   **A decline writes nothing at all.** No row, no sentinel, no note. A
+   repository that declined and one that was never asked meet the same
+   refusal at the same moment and are told the same correct thing, so a trace
+   would separate two states nothing treats differently — which is the
+   opposite of the mode row, whose absence is what #151 measured the cost of.
 2. Say in three lines what you created, that its presence at that place is
    the opt-in, and what each part of the root is for. The layout is invisible
    otherwise: it appears in a diff the user did not request — or, in local
@@ -166,43 +240,110 @@ Write `seal/parity.md` from `templates/parity.md` with those values, and
 record the machine-local checkout path in `~/.claude/specseal/parity-paths.md`
 keyed by the origin remote URL. The path never goes in the committed file.
 
-## Orchestrator: how the work is routed — three axes, one question, one file
+## Orchestrator: how the work is routed — two questions, one call, one file
 
-**How this work is routed is one of them, and it has three axes.** Ask all
-three in the same breath: they are one decision about where the work goes, and
-asking a later one on its own is itself the mid-round prompt this exists to
-remove. Opening a pull request is an outward-facing act — it is not a detail
-that can wait for the end.
+**How this work is routed is one of them.** It is one decision about where the
+work goes, and asking a later part of it on its own is itself the mid-round
+prompt this exists to remove. Opening a pull request is an outward-facing act —
+it is not a detail that can wait for the end.
 
-| Axis | Answers |
+**This is two questions in ONE `AskUserQuestion` call**, which is one wait. What
+the batch rule asks for is one batch before the first edit, not one question
+(`skills/implement/SKILL.md` §1). `AskUserQuestion` allows at most four options
+per question, and two presets beside the boxes is five — so the shape below is
+two questions rather than one, and that is what makes both fit.
+
+### Question 1 — single-select
+
+| Order | Label | Description |
+|---|---|---|
+| 1 | **automation** | Every party runs: the framer frames it, `smith` builds it, `warden` reviews it, the sealer takes the broad run, and the pull request opens. **This is the last question — nothing stops to ask again.** |
+| 2 | **per axis** | The four boxes below are the answer. |
+| 3 | **no work item** | No work item is opened: no frame, no review, no seal, no `routing.md`, and this session writes the change itself. Every commit needs `[no-review]` typed in front of it, and nothing checks this change at the pull request. |
+
+**A label must name what it turns off, not where it ends.** The measured
+instance is the reason the exit is labelled the way it is: the owner read
+`straight to the PR` as *call no agents at all*, where in the tree that answer
+turns off `warden` alone. The label named a destination and what it meant was
+what does not run. So the exit names no destination, and its description names
+the five things that do not happen.
+
+**The exit is last, and that is a decision rather than an ordering.** This
+document warns below that a preset makes the least-verified path the cheapest
+to press. The exit is one click and it is that path, so it sits where a
+reader's eye lands last, and its description states the cost. It stays cheap to
+press and expensive to use by a mechanism that already exists: `[no-review]`
+waives one command, typed in front of each, which is a per-command price none
+of the other answers pays.
+
+### Question 2 — `multiSelect`, meaningful only under *per axis*
+
+**The order is the specification, not an incidental listing.** The first box is
+a property of the run; the three below name parties, in the order they run. A
+reader meeting four boxes of apparently the same kind reads the first as a
+fourth party to switch on, and that separation is the cheapest defence against
+it. If these are ever generated from a list, the list is what carries the order.
+
+| Order | Box | Checked | Not checked |
+|---|---|---|---|
+| 1 | **run end to end without stopping to ask** | the run goes from here to its destination with nobody at the keyboard · `Automation` = `yes` | **this run may stop to ask** — somebody may be asked at minute thirty · `Automation` = `no` |
+| 2 | **implement with `smith`** | spawn the subagent · `Implementation` = `smith` | **this session writes the code** · `Implementation` = `the session` |
+| 3 | **review with `warden`** | the review rounds run · `Review` = `through the review chain` | **nothing reviews this code before the pull request** · `Review` = `straight to the PR` |
+| 4 | **open the pull request** | push it and open one · `Destination` = `open the pull request` | **the branch is handed back, committed and unpushed** · `Destination` = `stop before the pull request` |
+
+**What is checked is the answer, and each box is a row of the declaration** —
+which is why each box's description carries its unchecked meaning too. That is
+the half a label cannot say and the half the measured instance got wrong. Box 1's
+unchecked half is the one most easily misread: `no` says this run may stop to
+ask, never that a person did the work by hand.
+
+**The ceiling, stated where the shape is defined.** `AskUserQuestion` allows at
+most four options per question. Question 2 sits at exactly four, and the room
+was made by taking the framer and the sealer out of the question. **It is fully
+spent: a fifth box breaks this shape**, and whoever adds one is back on #88's
+original wall — two questions in one call, or a preset that hides the axes.
+
+### What the answer writes
+
+Question 1's first two options and question 2's four boxes write the same rows;
+what differs is how many clicks it took and which row says so.
+
+| Row | Answers |
 |---|---|
+| Automation | yes · no — OPTIONAL; absent reads as never asked |
 | Implementation | smith · the session — OPTIONAL; absent reads as unanswered |
 | Review | through the review chain · straight to the PR |
 | Destination | open the pull request · stop before the pull request |
+| Answer pressed | automation · per axis — OPTIONAL; absent reads as unanswered |
 
-**Ask them as one `multiSelect` question with three checkboxes.** The three
-are independent, so single-select options spell out eight combinations and
-cost three waits, where three boxes cost one question and one reply. What is
-checked is the answer, and each box is a row of the declaration:
+**`automation` writes all four party rows at their checked values**, plus
+`Automation` = `yes`, plus `Answer pressed` = `automation`. Ticking all four
+boxes under `per axis` writes the same four rows and `Answer pressed` =
+`per axis`.
 
-| Checkbox | Checked | Not checked |
-|---|---|---|
-| Implement with `smith` | spawn the subagent · `Implementation` = `smith` | this session builds it · `Implementation` = `the session` |
-| Review with `warden` | run the rounds · `Review` = `through the review chain` | `Review` = `straight to the PR` |
-| Open the pull request | push it and open one · `Destination` = `open the pull request` | `Destination` = `stop before the pull request` |
+**That last row is why the preset buys anything.** Without it a pressed preset
+and four boxes somebody ticked by hand are the same bytes, so a chosen answer
+goes back to being indistinguishable from a question nobody read — #151's shape
+exactly, and the reason `seal mode` writes a row saying a person was asked.
+Question 1's third option never reaches the row: it opens no work item, so
+there is no file to write it in.
 
-**The declaration has a fourth row, and nobody is asked about it.**
+**`Automation` is an audit trail, not a gate.** Nothing at the pull request can
+hold a run to it — a session that promised not to stop and then stopped leaves
+no artifact to find. What it buys is that a run which stopped at minute thirty
+has now broken something a reader can point at.
+
+**The declaration has one more row, and nobody is asked about it.**
 
 | Axis | Answers |
 |---|---|
 | Planning | framer · the session — OPTIONAL; absent reads as unanswered |
 
-It is a record, not a checkbox. #88 holds the rule the fourth box would break
+It is a record, not a checkbox. #88 holds the rule a box here would break
 — the question grows only where a decision is genuinely a person's — and this
 one is not a person's: `agents/framer.md`'s `## When you run` says the SDD
 ladder decides, so the framer runs where §3 calls for a `spec.md` and nowhere
-else. A fourth box would also take eight combinations to sixteen to ask
-something already answered.
+else.
 
 So fill the row from what happened. `framer` where the frame was drawn by the
 subagent, `the session` where this session drew it, and no row at all where
@@ -211,11 +352,34 @@ nothing, which is why `hooks/implementer-notice.py` says one line after a
 commit when a declared agent left no mark — for this row and for
 `Implementation` together, in one line rather than one each.
 
-**Asking one of the three later is the failure, not a lesser version of it.**
+**Asking one part of this later is the failure, not a lesser version of it.**
 Measured here: routing at the start, the reviewer in the middle, the pull
 request at the end — three interruptions, in the session that had the
 one-batch rule loaded. Nothing had said the three belonged to one question, so
 obeying the rule for the first of them looked like obeying it.
+
+**It is YOUR question, whether or not a framer runs**, and that is a property
+of the harness rather than a preference. **A subagent here has no
+`AskUserQuestion` and no equivalent** — measured from two agents independently,
+each declaring no `tools:` key and inheriting the full set: the tool is not in
+the list and `ToolSearch` for it returns *No matching deferred tools found*. A
+document that handed this act to the framer would be telling an agent to call a
+tool it does not have.
+
+So the one moment of human contact is here, before the first edit, and the
+order does not change when a framer runs:
+
+```
+you        : ask the two questions in one call        ← the tool is here
+you        : write and commit routing.md
+the framer : read, judge, write spec / plan / questions
+you        : read plan.md and spawn the build         ← the approval
+```
+
+`agents/framer.md` §*You have no interactive phase* is the other half of this,
+and it tells a framer that arrives to a missing `routing.md` to report it
+rather than write one — a declaration written from a guess is a recorded answer
+nobody gave.
 
 **Write the answer down before the first edit**, in
 `seal/specs/<work-item-id>/routing.md`, from `templates/sdd-routing.md`. Committed,

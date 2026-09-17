@@ -310,12 +310,378 @@ def test_an_unreadable_declaration_fails(repo):
     assert "not a readable declaration" in out
 
 
-def test_a_direct_declaration_needs_nothing_and_is_printed(repo):
+def test_a_direct_declaration_needs_no_round_record_and_is_printed(repo):
+    """`ITEM` is below `DIRECT_GATE_FROM`, so the seal arm below prints for
+    it. What this case pins is unchanged: the declaration is reported, and a
+    direct answer is never failed for the absence of a round record."""
     write(repo, f"{ITEM}/routing.md", declaration(review=DIRECT))
     commit(repo, "declare direct")
     code, out = run(repo)
     assert code == 0, out
     assert DIRECT in out, "a decision nobody sees is not a record"
+    assert "round-N.md" not in out, (
+        "a direct declaration was asked for a round record, which is the one "
+        "thing that answer turns off"
+    )
+
+
+# --- the frame a declaration says was drawn ---------------------------------
+#
+# A work item could declare `Planning | framer`, draw no frame, and reach the
+# pull request with nothing noticing (#399). The key is a COMPARISON, not a
+# derivation: nothing is re-judged and nothing is counted — `routing.md`
+# carries the answer, written before the first edit by the party the routing
+# batch asked.
+#
+# The cutoff is this work item's own id, measured rather than chosen
+# (`questions.md` Q3): 11 declarations answer `Planning | framer` and 10 carry
+# no mark because the mark did not exist.
+FRAME_FROM = 1789518345
+MARK = "Framed 2026-09-16 by framer, before the build."
+PLACEHOLDER_MARK = "Framed <date> by <who>, before the build."
+APPROVED = "Approved 2026-09-16 by the repository owner, when `smith` was spawned."
+UNFILLED = "Approved <date> by <who>, when `smith` was spawned."
+
+
+def framed_declaration(planning="framer", branch="feature"):
+    return (
+        "# a work item — routing\n\n"
+        "| Axis | Answer |\n|---|---|\n"
+        f"| Review | {DIRECT} |\n"
+        "| Destination | open the pull request |\n"
+        f"| Planning | {planning} |\n"
+        f"| Branch | {branch} |\n"
+    )
+
+
+def framed(repo, began, spec=MARK, plan=APPROVED, planning="framer", seal=True):
+    """A framer-declared work item, with the frame `spec` and `plan` describe.
+
+    `spec=None` writes no `spec.md`, `plan=None` writes no `plan.md`, and
+    anything else is the FOOT of the file — which is where the mark lives and
+    where the approval line is read from.
+
+    `seal=True` writes the `broad-gate.md` the direct arm owes above this
+    cutoff, so these cases fail on the frame and never on the seal.
+    """
+    item = f"seal/specs/{began}-a-framed-work-item"
+    write(repo, f"{item}/routing.md", framed_declaration(planning))
+    if spec is not None:
+        write(repo, f"{item}/spec.md", f"# a spec\n\nProse about the work.\n\n{spec}\n")
+    if plan is not None:
+        write(repo, f"{item}/plan.md", f"# a plan\n\n{plan}\n\n## Phases\n\nProse.\n")
+    first = commit(repo, "declare and frame")
+    if seal:
+        write(
+            repo,
+            f"{item}/broad-gate.md",
+            f"# broad gate\n\n| Field | Value |\n|---|---|\n"
+            f"| {BROAD_GATE_ROW} | {first} against base |\n",
+        )
+        commit(repo, "seal")
+    return item
+
+
+def test_a_declared_framer_with_no_spec_is_refused(repo):
+    """S15. The reported failure, and it is the whole reason for the arm: a
+    session took a change straight to `smith` with no frame, requests that had
+    been passing started returning 422, and nothing in either tree said so."""
+    item = framed(repo, FRAME_FROM, spec=None)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert f"{item}/spec.md" in out, "the refusal does not name the file it wants"
+
+
+def test_a_declared_framer_with_no_plan_is_refused(repo):
+    """S15's other half. The plan is the design gate's artifact — approving it
+    IS the gate — so its absence means the gate has no record anywhere."""
+    item = framed(repo, FRAME_FROM, plan=None)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert f"{item}/plan.md" in out, out
+
+
+def test_a_spec_with_no_mark_is_refused(repo):
+    """S16. A frame with no mark. The framer is the only party in the chain
+    whose work left no evidence in the TREE — its other mark lives in the git
+    dir, and a git dir does not travel here."""
+    item = framed(repo, FRAME_FROM, spec="No mark at all.")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert f"{item}/spec.md" in out and "Framed" in out, (
+        "the refusal names neither the file nor the line it wants"
+    )
+
+
+def test_a_mark_that_is_only_QUOTED_does_not_count(repo):
+    """The check that could not fail, caught before it shipped.
+
+    Measured on this repository: the one `spec.md` a mark-shaped search
+    matches today is the spec that DOCUMENTS the mark — it quotes the template
+    line in a fenced block, names it in a table of who writes what, and states
+    it again as an acceptance row. A search anywhere in the file reads all
+    three as a framer having signed, so a spec ABOUT the mark passes for
+    carrying one, and every later spec learns that quoting is enough.
+
+    The foot of the file is the whole rule, and this is the case that holds
+    it.
+    """
+    item = framed(
+        repo,
+        FRAME_FROM,
+        spec=(
+            "The framer's mark is one line at the foot of `spec.md`:\n\n"
+            f"```\n{PLACEHOLDER_MARK}\n```\n\n"
+            "## Open questions\n\nNone."
+        ),
+    )
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert f"{item}/spec.md" in out, out
+    assert "END with" in out, (
+        "the refusal does not say WHERE the mark has to be, so the obvious "
+        "repair is to quote it once more"
+    )
+
+
+def test_an_unfilled_mark_is_refused(repo):
+    """A placeholder copied through reads to a person as a mark and says
+    nothing, which is #151's shape on this line."""
+    framed(repo, FRAME_FROM, spec=PLACEHOLDER_MARK)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "UNFILLED" in out, out
+
+
+def test_a_mark_that_disagrees_with_the_declaration_is_refused(repo):
+    """The declaration says `framer` and the mark says `the session`. Which of
+    the two is true is not the check's to guess, so it refuses rather than
+    picking one."""
+    framed(repo, FRAME_FROM, spec="Framed 2026-09-16 by the session, before the build.")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "disagree" in out, out
+
+
+def test_a_complete_frame_passes(repo):
+    """The passing side, which the branch that adds this arm exercises on
+    itself — this work item declares a framer and carries all three."""
+    framed(repo, FRAME_FROM)
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+
+
+def test_the_session_drew_it_and_the_arm_makes_no_claim(repo):
+    """Disclosure 4, asserted rather than only written down. A session that
+    framed the work itself owes this arm nothing, so a `Planning | the
+    session` work item with no `spec.md` at all is not this arm's business."""
+    framed(repo, FRAME_FROM, spec=None, plan=None, planning="the session")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert "spec.md" not in out, out
+
+
+def test_an_unfilled_approval_line_is_reported_and_not_refused(repo):
+    """S17, and it departs from #399's `Done when` on a measurement the ticket
+    did not have: 61 of 71 `plan.md` files in this tree carry the unfilled
+    placeholder. A refusal that fires on nearly every honest branch teaches
+    people to write none."""
+    framed(repo, FRAME_FROM, plan=UNFILLED)
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert "approval line" in out and "placeholder" in out, (
+        "the notice is missing, so the gap is not reported at all — which is "
+        "the other way to satisfy exit 0"
+    )
+
+
+def test_a_framer_declaration_below_the_cutoff_prints_instead(repo):
+    """S21's first half, and the retroactive red the measurement forecloses.
+
+    10 of the 11 work items declaring `Planning | framer` carry no mark,
+    because the mark did not exist. A release pull request carries every work
+    item the release adds, so an arm with no cutoff refuses the next release
+    into `main` for every one of them.
+    """
+    framed(repo, FRAME_FROM - 1, spec=None, seal=False)
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert "spec.md" in out, "the notice does not say what was not checked"
+    assert str(FRAME_FROM) in out, "the notice does not name the cutoff"
+
+
+def test_the_same_state_above_the_cutoff_is_refused(repo):
+    """S21's second half. One second apart, on a number this module states and
+    the script states separately."""
+    framed(repo, FRAME_FROM, spec=None)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+
+
+def test_the_frame_arm_is_judged_on_a_draft_too(repo):
+    """Every other arm here excuses a draft, and this one must not.
+
+    A draft is excused where a review is still RUNNING — it has not reached
+    its verdict yet. The frame is not still running: it is drawn before the
+    first edit, so a draft with no `spec.md` is not early, it is a work item
+    that declared a framer and then built without one.
+    """
+    framed(repo, FRAME_FROM, spec=None)
+    code, out = run(repo, draft=True)
+    assert code == 1, out
+
+
+def test_the_arm_writes_down_what_it_cannot_see(repo):
+    """S20. The disclosure is in the MODULE rather than in a ticket, because
+    the reader it is for is whoever opens the arm.
+
+    Each of the seven is asserted separately, so deleting one line is red.
+    The third is the load-bearing one: the row and the mark are both the
+    framer's writes, so a green run is not evidence that a framer ran — and
+    this list is the only thing standing between that reading and a reader.
+
+    `plan.md` and `spec.md` §S20 both say SIX. The spec lists seven bullets,
+    and all seven are real, so the module carries seven and the count in the
+    prose is what is wrong. Asserting the phrases rather than a number is what
+    keeps this case from pinning the arithmetic instead of the disclosure.
+    """
+    text = _module("specseal_chain_check_for_the_frame_arm", CHECK).frame.__doc__
+    assert "WHAT THIS ARM CANNOT SEE" in text
+    for phrase in (
+        "never wrote a `routing.md`",
+        "Whether the frame is any good",
+        "Whether the party named actually did it",
+        "or an absent row",
+        "The ladder's rung",
+        "kept its `Automation` promise",
+        "`no work item` exit",
+    ):
+        assert phrase in text, (
+            f"the disclosure lost `{phrase}`. A reader who opens this arm has "
+            "one place to learn what a green run does not mean"
+        )
+
+
+# --- the seal a direct declaration still owes -------------------------------
+#
+# `straight to the PR` turns off the REVIEWER and nothing else. The broad gate
+# is the sealer's act, taken once after the rounds settle — and where no round
+# runs, *after the rounds settle* is simply *at the end*. This arm was one
+# `print` and a `continue`, so the one full-suite run the design turns on
+# could be skipped entirely by answering a question about reviewing.
+#
+# The cutoff is its own, one work item later than `GATE_FROM`'s, and the
+# measurement behind it is the same shape: 16 declarations in this repository
+# answer `straight to the PR` and not one carries the file, because the file
+# did not exist.
+DIRECT_GATE_FROM = 1789518345
+GATE_FILE = "broad-gate.md"
+
+
+def direct_item(began, slug="a-direct-work-item"):
+    return f"seal/specs/{began}-{slug}"
+
+
+def direct(repo, began, gate=None):
+    """A direct declaration, and a `broad-gate.md` when `gate` is given."""
+    item = direct_item(began)
+    write(repo, f"{item}/routing.md", declaration(review=DIRECT))
+    first = commit(repo, "declare direct")
+    if gate is not None:
+        value = first if gate == "first" else gate
+        write(
+            repo,
+            f"{item}/{GATE_FILE}",
+            f"# broad gate\n\n| Field | Value |\n|---|---|\n"
+            f"| {BROAD_GATE_ROW} | {value} against base |\n",
+        )
+        commit(repo, "seal")
+    return item, first
+
+
+def test_a_direct_declaration_with_no_seal_fails_a_ready_pull_request(repo):
+    """S19's first half, and the silence this phase removes.
+
+    Before this, the walk returned at the direct arm before it reached the
+    broad-gate arm — so a work item could open a ready pull request having
+    run nothing, and the check printed `nothing required`.
+    """
+    direct(repo, DIRECT_GATE_FROM)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert GATE_FILE in out, "the refusal does not name the file it wants"
+    assert "sealer" in out, "the refusal names no way out"
+
+
+def test_a_direct_declaration_with_a_seal_passes(repo):
+    """S19's second half. The cell names a SHA the tree can see, so the run
+    happened and the pull request is a request to merge something somebody
+    ran the suite over."""
+    direct(repo, DIRECT_GATE_FROM, gate="first")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert BROAD_GATE_ROW not in out, (
+        "the arm spoke about a cell it had no complaint with; every message "
+        "it writes opens with the row's name"
+    )
+
+
+def test_a_direct_declaration_whose_seal_never_ran_fails(repo):
+    """The file existing is not the run happening. `not yet` is the honest
+    mid-run value, and at a ready pull request it is the refusal — which is
+    the same judgment the chain path's arm makes, reached through the same
+    reader (`questions.md` Q4)."""
+    direct(repo, DIRECT_GATE_FROM, gate="not yet")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert BROAD_GATE_ROW in out and "not yet" in out, out
+
+
+def test_a_direct_declaration_below_the_cutoff_prints_instead(repo):
+    """The retroactive red this cutoff forecloses.
+
+    16 declarations in this repository answer `straight to the PR` and not
+    one of them carries the file, because there was nowhere to write it. A
+    release pull request carries every work item the release adds, so an arm
+    with no cutoff refuses a release for work nobody could have sealed.
+    """
+    direct(repo, DIRECT_GATE_FROM - 1)
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert GATE_FILE in out, "the notice does not say what was not checked"
+    assert str(DIRECT_GATE_FROM) in out, (
+        "the notice does not name the cutoff, so a reader cannot tell why "
+        "this one printed and the next one failed"
+    )
+
+
+def test_a_direct_declaration_with_no_seal_is_SILENT_on_a_draft(repo):
+    """`strict` is false for a draft, and the reason is the chain path's: the
+    broad gate runs at the end, so a draft with no seal is telling the truth.
+
+    **Silence, not a notice**, and the old name said notice. `direct_seal`
+    returns `[], []` when `strict` is false, which matches `broad_gate` and is
+    right — but the case asserted exit 0 and nothing else, so it would have
+    passed either way and its name would have gone on describing behaviour
+    nobody had. The assertion is now on the silence itself.
+    """
+    item, _first = direct(repo, DIRECT_GATE_FROM)
+    code, out = run(repo, draft=True)
+    assert code == 0, out
+    # The arm's informational PRINT names the file on every run — it says
+    # where the cell would be read from — so the silence to assert is the
+    # absence of the refusal's own words, not the absence of the filename.
+    # Writing it the other way went red here, which is how the print's
+    # unconditional half got found.
+    for said in ("git carries no", "Spawn the `sealer`", BROAD_GATE_ROW):
+        assert said not in out, (
+            f"a draft was told `{said}` about a seal that is not due yet, "
+            "which is the mid-run noise `strict` exists to keep out"
+        )
+    assert item in out, (
+        "the declaration was not reported at all — silence about the SEAL is "
+        "not silence about the work item"
+    )
 
 
 # --- the round record it finds ----------------------------------------------
@@ -1934,3 +2300,220 @@ def test_this_repositorys_own_round_records_pass_the_per_record_checks():
     assert not failures, "this repository's own records are refused:\n" + "\n".join(
         f"  {rel}: {message}" for rel, _, message in failures
     )
+
+
+# --- one sentence named two severities for one row (#408) --------------------
+#
+# `open_blocking` asked `BLOCKING in "".join(seen)`, which is every cell of the
+# row. Naming what an earlier round found is exactly what a carried-forward
+# closure is for, so a 🟢 row whose Grounds quote an earlier 🔴 was announced
+# as a blocking finding in a sentence that then printed `🟢` as the row.
+
+QUOTES_AN_EARLIER_BLOCKER = (
+    "| 🟢 | round 1's 🔴 2, re-read | `f.py:2` | {verdict} | "
+    "round 1 opened this as 🔴 2 and its fix closed it |\n"
+)
+BLOCKING_SENTENCE = "a blocking finding that is not fixed, answered or withdrawn"
+# What the second arm says instead, and the phrase every case below finds its
+# line by. It names the MARKER, which is half of what selected the row --
+# `BLOCKING in "".join(seen)` is a 🔴 in any cell but the first, and that is
+# not always an earlier round's finding quoted in the Grounds (round 2's ⬜ 3).
+QUOTED_SENTENCE = "carries a blocking marker"
+
+
+def confirmation(repo, verdict):
+    """A last record whose only 🔴 is one a 🟢 row QUOTES, at `verdict`."""
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        record(
+            sha,
+            passed=True,
+            verdict="fixed",
+            finding="🟢 1",
+            extra=QUOTES_AN_EARLIER_BLOCKER.format(verdict=verdict),
+        ),
+    )
+    commit(repo, "round 1")
+    return run(repo)
+
+
+def test_a_confirmation_quoting_an_earlier_blocker_is_not_called_a_blocking_finding(
+    repo,
+):
+    """A7. The row is still refused — two things put it here, its quote of an
+    earlier 🔴 and a verdict that closes nothing, and either is a way out.
+    What must not happen is the refusal calling it a 🔴 row, because the
+    reader then goes looking for a blocking finding that belongs to a round
+    that is over.
+
+    Red against the whole-row join: the refusal reads *this 🔴 row reads
+    `verified` — a blocking finding…* about a row whose `#` cell is 🟢.
+    """
+    code, out = confirmation(repo, "verified")
+    assert code == 1, out
+    assert BLOCKING_SENTENCE not in out, (
+        "a row whose `#` cell reads 🟢 is announced as a blocking finding",
+        out,
+    )
+    assert QUOTED_SENTENCE in out, out
+    (line,) = [ln for ln in out.splitlines() if QUOTED_SENTENCE in ln]
+    assert "\N{LARGE RED CIRCLE}" not in line, (
+        "the arm for a row that only QUOTES a 🔴 still names one",
+        line,
+    )
+
+
+def test_an_unrecognised_verdict_is_refused_by_its_own_name(repo):
+    """A8, and §14: the sentence a reader is stopped by. It has to name the
+    verdict word, because that is one of the two things that can change, and
+    the words that would close the row, because the reader who is stopped is
+    the one choosing the replacement.
+
+    **And it has to name the quote**, which is the other half of what put the
+    row here (round 1's 🟡 1). A message that names one way out while
+    asserting a general rule about the other is #408's own complaint moved
+    one cell over.
+    """
+    code, out = confirmation(repo, "verified")
+    assert code == 1, out
+    assert QUOTED_SENTENCE in out, out
+    (line,) = [ln for ln in out.splitlines() if QUOTED_SENTENCE in ln]
+    assert "`verified`" in line, line
+    for word in ("`fixed`", "`answered`", "`withdrawn`", "`not a defect`"):
+        assert word in line, (word, line)
+    assert "drop the marker" in line, line
+    assert "leave `Pass` unchecked" in line, line
+    assert "outside the vocabulary" not in line, (
+        "the arm still says the word is outside a vocabulary this file does "
+        "not enforce one row over",
+        line,
+    )
+    # Round 2's ⬜ 4: the same proposition, one clause later and in other
+    # words. `open` is the word `agents/warden.md` prescribes, so calling it
+    # unrecognised is what dropping `outside the vocabulary` was for.
+    assert "unrecognised verdict" not in line, (
+        "the arm still calls the author's own prescribed word unrecognised",
+        line,
+    )
+
+
+def test_a_row_the_vocabulary_closes_is_silent_even_while_it_quotes_a_blocker(repo):
+    """The other direction. The same row with `answered` in its verdict cell
+    says nothing at all: the quote and a non-closing verdict are BOTH needed
+    to select a row, so closing the verdict is enough to let it through.
+
+    The docstring here used to read *the quote is not what selects a row, and
+    it never was*, which is false and is half of round 1's 🟡 1 — the
+    selection is `BLOCKING in "".join(seen)` and the quote is what satisfies
+    it. `test_a_row_reading_open_is_not_told_its_word_is_unrecognised` below
+    holds the other half.
+    """
+    code, out = confirmation(repo, "answered")
+    assert code == 0, out
+    assert QUOTED_SENTENCE not in out, out
+    assert BLOCKING_SENTENCE not in out, out
+
+
+def test_a_row_that_carries_a_blocker_keeps_the_blocking_sentence(repo):
+    """§14's other half. The 🔴 arm is unchanged, and the split is what makes
+    that worth pinning: a repair that moved every row to the new sentence
+    would lose the one complaint that is about the finding rather than about
+    the word.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(repo, f"{ROUNDS}/round-1.md", record(sha, passed=True, verdict="open"))
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 1, out
+    (line,) = [ln for ln in out.splitlines() if BLOCKING_SENTENCE in ln]
+    assert "\N{LARGE RED CIRCLE} row reads `open`" in line, line
+    assert QUOTED_SENTENCE not in line, line
+
+
+# --- the word `open` is not an unrecognised verdict (round 1's 🟡 1) ---------
+#
+# The split #408 added is keyed on the `#` cell while the SELECTION is still a
+# 🔴 anywhere in the row, so the second arm fires on rows it was not naming.
+# `open` is the word `agents/warden.md` prescribes, and the first arm prints it
+# back as `this 🔴 row reads `open``.
+
+OPEN_ROW_QUOTING_A_BLOCKER = (
+    "| 🟡 3 | the guard needs a case | `f.py:3` | open | "
+    "round 1 opened this as 🔴 2 and the fix closed it |\n"
+)
+
+
+def test_a_row_reading_open_is_not_told_its_word_is_unrecognised(repo):
+    """`open` is the word `agents/warden.md` prescribes for a finding a round
+    opened, and the first arm of this same function prints it back as
+    `` this 🔴 row reads `open` ``. The second arm must not tell the author
+    the word is outside any vocabulary — what selected this row is the quote.
+
+    The fixture is `test_a_checked_pass_beside_an_open_NON_blocking_finding_passes`'s
+    row with one thing added: the quote of an earlier round's 🔴 that a
+    verifying round is asked to write. That alone flips the row from pass to
+    refusal, which is why the refusal has to name it.
+
+    Red against the arm as written: *…reads `open`, which is outside the
+    vocabulary…* on a row whose `#` cell reads 🟡.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        record(
+            sha,
+            passed=True,
+            verdict="fixed",
+            finding="🟢 1",
+            extra=OPEN_ROW_QUOTING_A_BLOCKER,
+        ),
+    )
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 1, out
+    assert QUOTED_SENTENCE in out, out
+    (line,) = [ln for ln in out.splitlines() if QUOTED_SENTENCE in ln]
+    assert "outside the vocabulary" not in line, (
+        "`open` is told it is outside a vocabulary, and the first arm of the "
+        "same function prints the same word back as a blocking finding",
+        line,
+    )
+    assert "`open`" in line, line
+    assert "drop the marker" in line, line
+    assert "unrecognised" not in line, line
+    assert "\N{LARGE RED CIRCLE}" not in line, line
+
+
+def test_the_same_open_row_without_the_quote_is_a_pass(repo):
+    """The control, and it is what makes the case above about the quote. The
+    identical 🟡 row with an ordinary Grounds cell is not refused at all —
+    `test_a_checked_pass_beside_an_open_NON_blocking_finding_passes` pins that
+    for the one-row record, and this pins it beside a second row so the two
+    differ in the quote and nothing else.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    write(
+        repo,
+        f"{ROUNDS}/round-1.md",
+        record(
+            sha,
+            passed=True,
+            verdict="fixed",
+            finding="🟢 1",
+            extra=OPEN_ROW_QUOTING_A_BLOCKER.replace(
+                "round 1 opened this as 🔴 2 and the fix closed it", "read only"
+            ),
+        ),
+    )
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 0, out
+    assert QUOTED_SENTENCE not in out, out
+    assert BLOCKING_SENTENCE not in out, out

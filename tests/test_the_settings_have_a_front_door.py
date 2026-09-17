@@ -140,6 +140,28 @@ def test_the_bootstrap_names_the_way_back_to_its_own_questions():
     )
 
 
+def test_the_skill_says_how_a_value_carrying_a_pipe_is_written():
+    """#415. This file is where a person is told to edit the value in place,
+    so it is where they meet a value that needs a pipe. The criterion and the
+    two lists stay pointed at rather than copied down; this is not one of
+    them — it is how to write the cell at all, which the person editing it
+    cannot read off the template's own tables.
+    """
+    text = flat(*SKILL)
+    assert "A value carrying a `|` is written `\\|`" in text, (
+        "the front door does not say how a pipe is written into the cell"
+    )
+    assert "parses as no row" in text, (
+        "the escape is given without what a bare pipe still costs"
+    )
+    assert "Where a row above it already parsed" in text, (
+        "the cost of a bare pipe is stated flat. It falls on the rows below "
+        "only once a row has parsed above it: the reader breaks on a line it "
+        "cannot parse only after it has found one, so a bare pipe written as "
+        "the table's FIRST row loses only itself (#415 round 1 🟡 1)"
+    )
+
+
 def test_the_skill_refuses_to_grow_a_schema():
     """What it does not build, stated in the file so the next person adding a
     row does not add a setter with it."""

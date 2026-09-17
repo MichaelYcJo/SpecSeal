@@ -22,7 +22,6 @@ this repository's precedent for pinning both halves.
 
 import glob
 import os
-import re
 import subprocess
 
 import pytest
@@ -291,50 +290,37 @@ def test_a_korean_row_is_what_flips_the_refused_mirror_name(tmp_path):
     )
 
 
-# --- the template, parsed the way `parity.md` is ----------------------------
+# --- the template, parsed by the one reader ---------------------------------
+#
+# This file used to carry its own copy of the loop — a `HEADER`, a `ROW`, a
+# `SEPARATOR` and an `items()` that arrived at both stop rules over two
+# review rounds. The copy agreed with `hooks/config.py#config_rows` for as
+# long as neither moved, and #415 is the branch that moved one: the production
+# reader learned markdown's `\|` escape, and a second reader that had not
+# would answer a different question about the same file. That is exactly what
+# `hooks/config.py`'s own docstring says the module exists to prevent.
+#
+# So the loop is gone and `items` is the one reader, reached by the name this
+# file already spelled. Its two stop rules and the rounds behind them are now
+# documented where the implementation is. Closing this copy also settles a
+# deferral standing since work item
+# `1788817289-local-mode-from-first-setup-to-the-gate`.
+
+CONFIG_READER = ("hooks", "config.py")
 
 
-HEADER = re.compile(r"^\|\s*Item\s*\|\s*Value\s*\|\s*$")
-ROW = re.compile(r"^\|\s*(?P<item>[^|]+?)\s*\|\s*(?P<value>[^|]*?)\s*\|\s*$")
-# `|---|---|` matches ROW as cleanly as a real row does — three pipes and two
-# cells — and reading it as one put `('---', '---')` first, which is what the
-# first run of this file actually returned.
-SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
+def _config_reader():
+    """`hooks/config.py`, loaded by path — the one reader of this table."""
+    import importlib.util
+
+    path = os.path.join(ROOT, *CONFIG_READER)
+    spec = importlib.util.spec_from_file_location("specseal_config_for_pr_lang", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
-def items(text):
-    """Every `| Item | Value |` row under the first such header, in order.
-
-    Deliberately the shape `templates/parity.md` already uses, so a reader
-    written for one reads the other.
-    """
-    found, seen_header = [], False
-    for line in text.splitlines():
-        if not seen_header:
-            if HEADER.match(line):
-                seen_header = True
-            continue
-        # A header or a separator is this table's own furniture ABOVE its
-        # first row, and somebody else's table BELOW it. Round 2 🟡 5: both
-        # were stepped past wherever they appeared, so a stray separator or
-        # a second `| Item | Value |` header let the rows behind it be read
-        # as more of this one. Round 1's defect one line further along.
-        if HEADER.match(line) or SEPARATOR.match(line.strip()):
-            if found:
-                break
-            continue
-        match = ROW.match(line)
-        if not match:
-            # And any other line that is not a row of this table ends it, a
-            # row of a different shape included. Round 1 🟡 6: a row used
-            # to be skipped as though it were not there, so a `| a | b | c |`
-            # between two two-cell rows let the row AFTER it be read as part
-            # of this table. That is the separator defect one shape over.
-            if found:
-                break
-            continue
-        found.append((match.group("item"), match.group("value")))
-    return found
+items = _config_reader().config_rows
 
 
 # The mirror cases above call these two. They live here because they are
@@ -676,6 +662,26 @@ def test_the_template_is_one_item_value_table_whose_first_row_is_the_language():
     assert rows[1] == ("Record language", "English"), (
         f"the second row is not the record language defaulting to English: {rows[1]}"
     )
+
+
+def test_this_file_loads_the_one_reader_and_not_a_copy_of_it():
+    """A8 of #415. The copy of the loop that used to live here agreed with
+    `hooks/config.py#config_rows` right up until one of them moved.
+
+    Asserted by where the code was COMPILED, the way
+    `tests/test_the_mode_question_is_asked_once.py#test_the_command_and_the_gate_read_one_parser`
+    already asserts it for `seal.py`: this file loads that module under a
+    name of its own, so the two module objects differ while the
+    implementation behind them must not. An `import` check alone would not
+    see a copy return — a reimplementation loaded under the same name passes
+    it.
+    """
+    owner = os.path.join("hooks", "config.py")
+    where = items.__code__.co_filename
+    assert where.endswith(owner), f"`items` is compiled from {where}"
+    # And it is the escape-aware reader, not something that merely lives at
+    # that path: a cell carrying `\|` comes back as one literal pipe.
+    assert items("| Item | Value |\n|---|---|\n| a | b \\| c |\n") == [("a", "b | c")]
 
 
 def test_the_check_can_fail():

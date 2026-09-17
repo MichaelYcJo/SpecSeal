@@ -32,6 +32,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import posix_row_shell_or_skip
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, "skills", "verify", "scripts", "seal_stamp.py")
@@ -485,14 +486,27 @@ def commit(repo, message):
 
 
 def config(row=True):
+    """The fixture's config file. `row` is True for the default runner, a
+    string for a row under test, or False for a file with no such row."""
     text = "# Repository config\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n"
     if row:
         # The suite runner first, so the base comparison can re-run it on
         # the failing files alone. `-p no:cacheprovider` keeps pytest from
         # writing `.pytest_cache` into a tree the gate later diffs.
-        runner = f"{sys.executable} -m pytest -q -p no:cacheprovider tests"
+        runner = row if isinstance(row, str) else SUITE_ROW
         text += f"| {ROW} | {runner} |\n"
     return text
+
+
+SUITE_ROW = f"{sys.executable} -m pytest -q -p no:cacheprovider tests"
+
+
+def set_row(repo, value):
+    """The fixture's `Broad gate` row replaced by VALUE and committed, so the
+    gate reads it from a tree with nothing uncommitted in it."""
+    write(repo, "seal/config.md", config(value))
+    commit(repo, "the row under test")
+    return repo
 
 
 def env_without_a_pull_request():
@@ -654,6 +668,27 @@ def test_without_the_row_the_gate_names_it_and_runs_nothing(tmp_path):
     )
 
 
+def test_the_absent_row_refusal_sends_the_question_to_a_person(tmp_path):
+    """A10 of #401, executed rather than read: the sentence a session actually
+    meets. It used to open *Write the repository's own broad command into it*
+    and print the row to type — and the only reader standing here is a
+    session, which is the one party that may not write it. #401 is that
+    session: it ran four candidates, chose one, wrote the row, and told the
+    owner afterwards."""
+    repo = build_repo(tmp_path / "repo", row=False)
+    said = run_gate(repo, keep=tmp_path / "out").stderr
+    assert "Write the repository's own broad command" not in said, said
+    assert "not this session's to do" in said, said
+    assert "a row is a thing a person wrote" in said, said
+    assert "/specseal:config" in said, said
+    # A5 of #415. This config has no unparseable line at all, so the branch
+    # added for one must not have swallowed the message meant for a row that
+    # genuinely is not there. Without this the new branch could take every
+    # refusal and the case above would still pass on its four sentences.
+    assert "does not parse as a row" not in said, said
+    assert f"has no `{ROW}` row" in said, said
+
+
 def test_a_base_that_does_not_resolve_is_refused_with_nothing_run(repo, tmp_path):
     """The other exit-2 the interface names: a base nothing can be compared
     against. Nothing ran."""
@@ -677,6 +712,601 @@ def test_a_base_that_does_not_resolve_is_refused_with_nothing_run(repo, tmp_path
     assert out.returncode == 2, out.stderr
     assert "no-such-ref" in out.stderr
     assert not keep.exists() or not os.listdir(keep)
+
+
+# --- A1-A6: a row the gate would not run as the command it reads as ---------
+#
+# #402, reported from use. `hooks/config.py#config_rows` strips whitespace and
+# nothing else, so a value wrapped in backticks -- the way every command in
+# every document in this project is written -- reached `/bin/sh` as command
+# substitution: the checks ran, their exit status was thrown away, and their
+# OUTPUT was executed in their place. The lucky tail of that is exit 127. The
+# quiet one is exit 0 over a check that failed, which is the counterfeit
+# `skills/verify/SKILL.md` §*The Seal Test* is named after.
+#
+# Every case below was executed against the gate as it stood at 0e676e6, with
+# no refusal in `gate()` at all, and every one failed; the output is in the
+# body of the commit that added them. Under that revert the wrapped row of
+# `test_the_wrapped_row_...` sealed -- exit 0, SEALED drawn, and `a check
+# failed` sitting in the kept output.
+
+# #402's measured pair, as a row: a check that fails and whose output happens
+# to be runnable. Bare it exits 1. Wrapped, the shell runs the content,
+# discards the 1, and executes the word the content printed -- `true`.
+FAILS_BUT_PRINTS_A_COMMAND = 'echo true; echo "a check failed" >&2; false'
+
+
+def refusal_of(repo, value, keep):
+    """The gate run over a fixture whose row is VALUE, asserted to be a
+    refusal with nothing run — the shape `test_without_the_row_…` pins for
+    the absent row, which is the sibling every refusal here sits beside."""
+    out = run_gate(set_row(repo, value), keep=keep)
+    assert out.returncode == 2, f"exit {out.returncode}; {out.stdout!r} {out.stderr!r}"
+    assert not out.stdout, f"something printed under a refusal: {out.stdout!r}"
+    assert ROW in out.stderr, f"the refusal does not name the row: {out.stderr!r}"
+    assert "seal/config.md" in out.stderr.replace(os.sep, "/"), out.stderr
+    return out.stderr
+
+
+def test_a_row_wrapped_in_backticks_is_refused_and_shown_rewritten(repo, tmp_path):
+    """A1. The reported mistake. The message names the form, quotes the value
+    as written, and shows the row as meant — it does not strip anything: a
+    value silently repaired leaves the file still wrong and the next person
+    still believing backticks were fine (#402 §*Not this*)."""
+    said = refusal_of(repo, f"`{SUITE_ROW}`", tmp_path / "out")
+    assert "backticks" in said, said
+    assert f"as written: | {ROW} | `{SUITE_ROW}` |" in said, said
+    assert f"as meant:   | {ROW} | {SUITE_ROW} |" in said, said
+    assert "Nothing ran" in said and "nothing was repaired" in said, said
+    # The whole message, pinned HERE rather than only in A2 below. This case
+    # reads a refusal, so it runs on every platform; A2 needs a POSIX shell
+    # to have a subject at all, and `DISCARDED` used to be asserted only
+    # there — which left the message's own wording unpinned on Windows.
+    assert "DISCARDED" in said, said
+
+
+def test_the_wrapped_row_that_would_have_seal_a_red_suite_is_refused(repo, tmp_path):
+    """A2. The quiet direction, which is the one that matters: the same
+    content exits 1 bare and exited 0 wrapped, with the failure still on the
+    screen. Bare, the gate is NOT SEALED. Wrapped, it refuses rather than
+    sealing — and under the revert this case was written against, it drew the
+    stamp.
+
+    **The pair is POSIX command substitution, and `cmd.exe` does not have
+    it.** `FAILS_BUT_PRINTS_A_COMMAND` is a `;`-separated line ending in
+    `false`; under `cmd.exe` it is one `echo` that succeeds, so the fixture's
+    failing check does not fail and there is nothing for the wrapped half to
+    be the counterfeit OF. This is not a defect that fails to reproduce there
+    — it is a defect that does not exist there. The refusal itself still runs
+    on every platform, in the case above.
+    """
+    posix_row_shell_or_skip()
+    keep = tmp_path / "out"
+    bare = run_gate(set_row(repo, FAILS_BUT_PRINTS_A_COMMAND), keep=keep)
+    assert bare.returncode == 1, f"{bare.stdout}\n{bare.stderr}"
+    assert "NOT SEALED" in bare.stdout, bare.stdout
+
+    said = refusal_of(repo, f"`{FAILS_BUT_PRINTS_A_COMMAND}`", tmp_path / "out2")
+    assert "DISCARDED" in said, said
+
+
+def test_the_dollar_spelling_of_the_same_substitution_is_refused(repo, tmp_path):
+    """A3. `agent-contract` §12: the fix is owed to every instance the same
+    cause produces. Refusing the backtick spelling alone would close the
+    instance and leave the cause standing in the spelling somebody who knows
+    shell would reach for first."""
+    said = refusal_of(repo, f"$({SUITE_ROW})", tmp_path / "out")
+    assert "`$(…)`" in said, said
+    assert f"as meant:   | {ROW} | {SUITE_ROW} |" in said, said
+
+
+def test_a_row_ending_in_a_single_ampersand_is_refused(repo, tmp_path):
+    """A4. The same green over the same nothing, reached by a different
+    keystroke: the shell backgrounds the line and answers 0 before any check
+    has finished. Enumerated from the class rather than reported from use."""
+    said = refusal_of(repo, f"{SUITE_ROW} &", tmp_path / "out")
+    assert "single `&`" in said, said
+    assert f"as meant:   | {ROW} | {SUITE_ROW} |" in said, said
+    assert "before any check has finished" in said, said
+    # Round 1's 🟡 5. The message stated `/bin/sh` semantics as though they
+    # were every platform's. Under `cmd.exe` a trailing `&` separates two
+    # commands rather than backgrounding — a different wrong answer, refused
+    # for the same half of the criterion — and `quote()` one function over
+    # already says CI runs `windows-latest`.
+    assert "`/bin/sh` backgrounds" in said, said
+    assert "`cmd.exe`" in said, (
+        "the message names one platform's semantics as though they were all"
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        f"({SUITE_ROW}) & echo second",
+        f"{SUITE_ROW} & ruff check .",
+        f"{SUITE_ROW} 2>&1",
+        'grep "a & b" f && ' + SUITE_ROW,
+    ],
+)
+def test_an_ampersand_that_is_not_last_stays_allowed(value):
+    """Round 1's 🟡 1, pinned as the boundary the code actually draws.
+
+    A backgrounding `&` breaks the criterion's second half wherever it
+    stands, and only the TRAILING form is refused: `(a failing check) & echo
+    second` exits 0 and `not_as_written` returns None. Executed by the round.
+
+    It stays allowed rather than being refused, and the reason is in
+    `templates/config.md`'s allowed list beside the form: telling an operator
+    `&` from a `2>&1` or a quoted one needs the shell parser `spec.md` §Scope
+    refuses, and a false deny would make a legitimate row unwritable. The last
+    two values are what such a parser would have to get right.
+
+    What is not defensible is the form being in neither list, which is what
+    round 1 found. This case is the tree's half of that answer: the boundary
+    is where the document now says it is, and it cannot move in silence.
+    """
+    module = gate_module()
+    assert module.not_as_written("/seal", value) is None, (
+        f"{value!r} is refused, and the allowed list says it is legal"
+    )
+
+
+def test_a_refused_row_runs_no_check_and_adds_no_worktree(repo, tmp_path):
+    """A6. The refusal is raised before the output directory is made and
+    before the first `run`, so nothing was spent — and `compare_at_base`,
+    the second place the row reaches a shell, is downstream of that run. The
+    scratch worktree it would add is what this asserts the absence of."""
+    keep = tmp_path / "out"
+    refusal_of(repo, f"`{SUITE_ROW}`", keep)
+    assert not keep.exists() or not os.listdir(keep), (
+        f"a check ran under a refusal: {os.listdir(keep)}"
+    )
+    worktrees = git(repo, "worktree", "list").stdout.splitlines()
+    assert len(worktrees) == 1, f"a worktree was added under a refusal: {worktrees}"
+
+
+# --- A5: what stays allowed still runs, and what is refused is a form -------
+
+
+@pytest.mark.parametrize(
+    "value, why, needs_posix",
+    [
+        (f"echo checking; {SUITE_ROW}", "a `;` needs a shell parser to judge", True),
+        (
+            f"{sys.executable} -m pytest -q -p no:cacheprovider $(echo tests)",
+            "a substitution INSIDE a line still runs as what it reads as",
+            True,
+        ),
+        (
+            f"{SUITE_ROW} && echo done",
+            "the `&&` chain is the shape every row takes",
+            # `&&` is an operator in `cmd.exe` too, so this one is the row
+            # every platform can actually compose, and it runs everywhere.
+            False,
+        ),
+    ],
+)
+def test_the_forms_that_stay_allowed_are_sealed_exactly_as_today(
+    repo, tmp_path, value, why, needs_posix
+):
+    """A5. The row is an arbitrary shell command line by design and that is
+    unchanged (#402 §*Not this*). Each of these has a cost and the cost is
+    stated in `templates/config.md` rather than paid for by a refusal — a
+    piped row exits with the pipe's last status, which is a claim the
+    repository made about itself.
+
+    **Sealing is not the whole assertion, and it used to be.** `echo
+    checking; …` under `cmd.exe` is one `echo` that succeeds: the gate sealed,
+    the case passed, and the suite in the row had not run. Green for a reason
+    that has nothing to do with what the case is named for — this release's
+    own subject, in this module, on the platform nobody had looked at. CI
+    never reported it, because a vacuous pass is a pass. So the panel's suite
+    row is read too: the row's command has to have run the fixture's one test.
+    """
+    if needs_posix:
+        posix_row_shell_or_skip()
+    out = run_gate(set_row(repo, value), keep=tmp_path / "out")
+    assert out.returncode == 0, f"{why}\n{out.stdout}\n{out.stderr}"
+    assert "SEALED" in out.stdout and "NOT SEALED" not in out.stdout
+    assert re.search(r"\bsuite\s+[^\n|]*1 passed", out.stdout), (
+        f"{why}\nthe gate sealed without the row's suite running:\n{out.stdout}"
+    )
+
+
+def test_an_unescaped_pipe_is_named_as_a_line_that_will_not_parse(repo, tmp_path):
+    """A4 of #415, and both halves of `agent-contract` §14 — the new sentence
+    is present AND the old one is gone.
+
+    A pipe is allowed by the criterion: `not_as_written` returns None for it
+    and nothing here restricts what a broad command may be. Written with
+    markdown's escape it now reaches the row. Written BARE it still does not,
+    because a bare pipe is where a cell of this table ends — and that is the
+    spelling somebody typing *one shell command line* reaches for first.
+
+    What changes for that person is the message, not the outcome. Saying the
+    row is ABSENT sent them looking for a row that is sitting in front of
+    them; the refusal now quotes the line they wrote and names the escape.
+
+    This case used to pin the opposite — the absent-row message, recorded as
+    what the tree did rather than what anybody wanted, *so that the day
+    `config_rows` learns to carry a pipe, this case is what says so*. This is
+    that day.
+    """
+    bare = f"{SUITE_ROW} | cat"
+    said = refusal_of(repo, bare, tmp_path / "out")
+    assert "does not parse as a row" in said, said
+    assert bare in said, (
+        f"the refusal does not quote the line the person wrote:\n{said}"
+    )
+    assert "\\|" in said, "the refusal names no way to write the pipe"
+    assert "has no `Broad gate` row" not in said, (
+        "the absent-row sentence survived beside the new one, which is two "
+        "causes offered for one line"
+    )
+    module = gate_module()
+    assert module.not_as_written("/seal", bare) is None, (
+        "the pipe was refused by this work's criterion, which allows it"
+    )
+
+
+def refusal_over(tmp_path, name, table):
+    """`missing_row` over a config written literally, with no helper between
+    the case and the bytes. Every fixture in this region is malformed on
+    purpose, so a builder that assembled a well-formed table and checked it
+    read back would swallow the subject (`plan.md` §*Every fixture here is
+    malformed on purpose*)."""
+    home = tmp_path / name / "seal"
+    home.mkdir(parents=True)
+    (home / "config.md").write_text(table, encoding="utf-8")
+    return gate_module().missing_row(str(home))
+
+
+LOST = "every row written BELOW that line is lost"
+KEPT = "the stop rule needs a row before it can stop"
+
+
+def test_what_a_refused_line_cost_is_read_off_the_file_and_not_stated_flat(
+    tmp_path,
+):
+    """Round 1's 🟡 1 of #415. The reader breaks on a line it cannot parse
+    only once it has FOUND a row, so the same piped line costs the rows below
+    it or costs only itself depending on whether anything parsed above it.
+    The branch measured that and wrote it into five records; the sentence a
+    person actually reads said the rows were lost either way, and a person
+    whose rows arrived was sent to reformat them — this work item's own
+    defect, one file over.
+
+    **Both tables are in one case on purpose.** A case that asserted only
+    that the conditional sentence exists would pass just as well with the
+    chooser wired to the wrong answer, and wiring it to one answer is exactly
+    what the old code did. The pair is what makes the CONDITION the subject:
+    it is red when the cost is stated flat, and red again when the two
+    sentences are swapped.
+    """
+    below_it = (
+        "| Item | Value |\n|---|---|\n"
+        "| Record language | English |\n"
+        f"| {ROW} | bin/test -q | tee out.txt |\n"
+        "| Mode | shared |\n"
+    )
+    first_row = (
+        "| Item | Value |\n|---|---|\n"
+        f"| {ROW} | bin/test -q | tee out.txt |\n"
+        "| Mode | shared |\n"
+        "| Record language | English |\n"
+    )
+    took = refusal_over(tmp_path, "took", below_it)
+    kept = refusal_over(tmp_path, "kept", first_row)
+
+    assert "does not parse as a row" in took, took
+    assert LOST in took, (
+        "a row parsed above the piped line, so the reader stopped there and "
+        f"the rows below it did not arrive — the refusal does not say so:\n{took}"
+    )
+    assert KEPT not in took, took
+
+    assert "does not parse as a row" in kept, kept
+    assert LOST not in kept, (
+        "the piped line is this table's FIRST row, so nothing had parsed "
+        "above it, the reader stepped past it, and `Mode` and `Record "
+        f"language` both arrived. The refusal says they were lost:\n{kept}"
+    )
+    assert KEPT in kept, (
+        f"the refusal drops the cost sentence instead of correcting it:\n{kept}"
+    )
+
+
+def test_the_rows_below_a_first_row_refusal_really_do_arrive(tmp_path):
+    """The other half of the case above, and the reason it may say what it
+    says. The sentence is only true because the reader returns those rows —
+    asserted here against `config_rows` itself, so that a change to the stop
+    rule turns the claim red rather than leaving a refusal asserting a
+    behaviour the reader no longer has."""
+    module = gate_module()
+    config = module.load(module.CONFIG_READER, "specseal_config_for_this_case")
+    rows = config.config_rows(
+        "| Item | Value |\n|---|---|\n"
+        f"| {ROW} | bin/test -q | tee out.txt |\n"
+        "| Mode | shared |\n"
+        "| Record language | English |\n"
+    )
+    assert rows == [("Mode", "shared"), ("Record language", "English")], rows
+
+
+def test_a_broad_gate_row_below_a_refused_line_is_not_reported_absent(tmp_path):
+    """Round 1's 🟡 3 of #415, and the class `agent-contract` §12 asks for:
+    a `Broad gate` row the reader could not reach. The build closed the
+    member where the refused line IS the `Broad gate` line; this is the
+    member one item over, where the person's row is sitting in the file and
+    the gate calls it absent — the wrong-cause message this work item exists
+    to end.
+
+    **Nobody has to type a pipe to reach it.** The line below is a Windows
+    path ending in a separator, which was a row before this branch and is not
+    one after it, because a backslash immediately before the closing pipe is
+    now markdown's escaped pipe (`spec.md` §*What this repair cannot see*).
+    """
+    said = refusal_over(
+        tmp_path,
+        "hidden",
+        "| Item | Value |\n|---|---|\n"
+        "| Mode | shared |\n"
+        "| Notes | see C:\\docs\\|\n"
+        f"| {ROW} | bin/test -q |\n",
+    )
+    assert f"has no `{ROW}` row" not in said, (
+        f"the row is in the file, below a line the reader refused:\n{said}"
+    )
+    assert "does not parse as a row" in said, said
+    assert "see C:\\docs\\" in said, (
+        f"the refusal does not show the line that hid the row:\n{said}"
+    )
+    assert "never reached it" in said, said
+
+
+def test_a_refused_row_of_some_other_item_is_not_read_as_this_one(tmp_path):
+    """The branch is about the `Broad gate` row and reads the refused line's
+    first cell to say so. A file whose unparseable line names a different
+    item has no `Broad gate` row to quote, and the absent-row refusal is the
+    true one there.
+
+    **This is also the guard on the case above.** That one fires on a refused
+    line naming another item only when a `Broad gate` row is actually sitting
+    below it; a branch that fired on every such line would tell this person
+    to go looking for a row their file does not contain, which is the wrong
+    cause again with the words rearranged. There is no `Broad gate` row in
+    this fixture, so the absent-row refusal is the true one and this case is
+    what keeps it (#415 round 1 🟡 3).
+    """
+    home = tmp_path / "seal"
+    home.mkdir()
+    (home / "config.md").write_text(
+        "| Item | Value |\n|---|---|\n| Mode | shared |\n| Record language | a | b |\n",
+        encoding="utf-8",
+    )
+    module = gate_module()
+    assert module.refused_broad_row(str(home)) is None, (
+        "a refused line naming another item was read as the `Broad gate` row"
+    )
+    assert f"has no `{ROW}` row" in module.missing_row(str(home))
+
+
+def test_a_second_refused_line_is_what_decides_what_a_first_one_cost(tmp_path):
+    """Round 2's 🟡 1 of #415. The refusal answered about the FIRST line it
+    would not take as a row, and both sentences the gate builds are about the
+    TABLE — which rows failed to arrive, and whether this gate's row is one of
+    them. Those are the same line only while there is one bad line in the file.
+
+    **Both directions are here, because the unit was wrong in both.** With
+    some other item refused first, this gate's row sits under the SECOND bad
+    line and was reported ABSENT — round 1's 🟡 3 with one more line in the
+    file. With the `Broad gate` line itself refused first, a later bad line
+    loses rows the refusal then calls read, and nothing sends that person
+    back.
+
+    **The one-bad-line file is in the same case, and it is the half a chooser
+    keyed on the ROWS still gets wrong.** A `Broad gate` line written last in
+    its table loses nothing below it, because there is nothing below it — and
+    a chooser reading *no rows were lost* as *the table had not begun* tells a
+    person with a `Mode` row above their eyes that nothing parsed above this
+    line. What the sentence is read off is the STOPPING line, and this fixture
+    is what says so.
+    """
+    hidden = refusal_over(
+        tmp_path,
+        "hidden_under_the_second",
+        "| Item | Value |\n|---|---|\n"
+        "| Notes | see C:\\docs\\|\n"
+        "| Mode | shared |\n"
+        "| Other | see C:\\x\\|\n"
+        f"| {ROW} | bin/test -q |\n",
+    )
+    assert f"has no `{ROW}` row" not in hidden, (
+        f"the row is in the file, under the SECOND refused line:\n{hidden}"
+    )
+    assert "never reached it" in hidden, hidden
+    assert "see C:\\x\\" in hidden, (
+        "the refusal shows the first refused line rather than the one that "
+        f"actually stopped the reader:\n{hidden}"
+    )
+    assert "see C:\\docs\\" not in hidden, (
+        "the line quoted is the first refused one, which the reader stepped "
+        f"past and read on from — it took nothing:\n{hidden}"
+    )
+
+    lost = refusal_over(
+        tmp_path,
+        "lost_under_the_second",
+        "| Item | Value |\n|---|---|\n"
+        f"| {ROW} | bin/test -q | tee out.txt |\n"
+        "| Mode | shared |\n"
+        "| Notes | see C:\\docs\\|\n"
+        "| Record language | Korean |\n",
+    )
+    assert "The reader stopped LOWER DOWN" in lost, (
+        "`Record language` did not arrive, and the refusal tells the person "
+        f"every row below this line was read:\n{lost}"
+    )
+    assert "see C:\\docs\\" in lost, (
+        f"the line that lost the rows is not named:\n{lost}"
+    )
+    assert "so every row under that line is lost" in lost, lost
+
+    last = refusal_over(
+        tmp_path,
+        "refused_and_last",
+        "| Item | Value |\n|---|---|\n"
+        "| Mode | shared |\n"
+        f"| {ROW} | bin/test -q | tee out.txt |\n",
+    )
+    assert LOST in last, last
+    assert KEPT not in last, (
+        "a `Mode` row parsed above this line and the line is what stopped "
+        "the reader, so the cost is the rows below it — none, here. The "
+        f"refusal says the table had not begun:\n{last}"
+    )
+
+
+def test_the_gate_reads_every_refused_line_and_not_only_the_first(tmp_path):
+    """The other half of round 2's 🟡 1, and the one that reaches the message
+    this work item exists to end. The gate asked whether the FIRST refused
+    line was its own row; a file with two of them can have this row under the
+    second, and the answer was *has no `Broad gate` row* about a line sitting
+    in front of the person.
+
+    Three shapes, all of them a `Broad gate` line the reader will not take:
+    below another refused line, below the line that STOPPED the reader, and
+    below a paragraph of prose written above the table's first row — where
+    the walk used to give up although `config_rows` steps past prose and
+    reads on (round 2's correction). Each was reported absent.
+    """
+    module = gate_module()
+    config = module.load(module.CONFIG_READER, "specseal_config_for_this_case")
+
+    second = refusal_over(
+        tmp_path,
+        "refused_second",
+        "| Item | Value |\n|---|---|\n"
+        "| Notes | see C:\\x\\|\n"
+        "| Mode | shared |\n"
+        f"| {ROW} | bin/test -q | tee out |\n",
+    )
+    assert f"has no `{ROW}` row" not in second, (
+        f"the row is in the file and it is the SECOND refused line:\n{second}"
+    )
+    assert "bin/test -q | tee out" in second, second
+    assert LOST in second, second
+
+    under = refusal_over(
+        tmp_path,
+        "refused_under_the_stopper",
+        "| Item | Value |\n|---|---|\n"
+        "| Mode | shared |\n"
+        "| Notes | see C:\\x\\|\n"
+        f"| {ROW} | bin/test -q | tee out |\n",
+    )
+    assert f"has no `{ROW}` row" not in under, (
+        f"the row is in the file, below the line that stopped the reader:\n{under}"
+    )
+    assert "never even reached it" in under, under
+    assert "see C:\\x\\" in under, (
+        f"the line the reader stopped at is not named:\n{under}"
+    )
+
+    prose_table = (
+        "| Item | Value |\n|---|---|\n"
+        "a paragraph written above the first row, which the reader steps past\n"
+        f"| {ROW} | bin/test -q | tee out |\n"
+        "| Mode | shared |\n"
+    )
+    prose = refusal_over(tmp_path, "refused_under_prose", prose_table)
+    assert f"has no `{ROW}` row" not in prose, (
+        f"the row is in the file, below a line of prose the reader skips:\n{prose}"
+    )
+    assert KEPT in prose, prose
+    assert config.config_rows(prose_table) == [("Mode", "shared")], (
+        "the sentence above is only true because the reader steps past both "
+        "the prose and the refused line and goes on to read `Mode`"
+    )
+
+    home = tmp_path / "refused_under_the_stopper" / "seal"
+    assert module.refused_broad_row(str(home)) is not None, (
+        "the gate's other caller asks the same question and got None for a "
+        "line sitting in the file"
+    )
+
+
+def test_an_escaped_pipe_reaches_the_gate_as_the_command_it_reads_as(tmp_path):
+    """A2 of #415. The whole path a value takes before a shell sees it:
+    `broad_command` reads the row through `hooks/config.py#config_rows`, and
+    `not_as_written` then judges what came back.
+
+    Both units are the ones `gate()` itself calls. The escape is undone in
+    the READER, so what arrives here — and what a shell is handed — is a
+    plain `|`, on `/bin/sh` and on `cmd.exe` alike; neither meets the
+    backslash at all.
+    """
+    home = tmp_path / "seal"
+    home.mkdir()
+    (home / "config.md").write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n"
+        "| Mode | shared |\n"
+        f"| {ROW} | {SUITE_ROW} \\| tee out.txt |\n"
+        "| Record language | English |\n",
+        encoding="utf-8",
+    )
+    module = gate_module()
+    command = module.broad_command(str(home))
+    assert command == f"{SUITE_ROW} | tee out.txt", (
+        f"the gate read {command!r} from a row written with `\\|`"
+    )
+    assert module.not_as_written(str(home), command) is None, (
+        "a pipe satisfies the criterion (`templates/config.md` §*What is "
+        "refused, and what stays allowed*) and nothing here restricts it"
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        SUITE_ROW,
+        "$(echo a) && $(echo b)",
+        "`a` && `b`",
+        "pytest -n $(nproc)",
+        "bin/test -q | tee out.txt",
+        "bin/test -q && ruff check .",
+        "sleep 1 && echo done",
+        "a && b &&",
+    ],
+)
+def test_a_pair_that_closes_early_wraps_a_part_and_not_the_whole(value):
+    """The boundary, read directly off the unit. A substitution the value
+    merely CONTAINS is the repository's own composition; only a matched pair
+    around the whole value replaces the command with its own output. The last
+    row is the `&&` a trailing-`&` check must not read as a lone `&`."""
+    module = gate_module()
+    assert module.wholly_substituted(value) is None, value
+    assert module.not_as_written("/seal", value) is None, value
+
+
+@pytest.mark.parametrize("pad", ["  `{}`  ", "\t`{}`", "`{}` \n"])
+def test_a_padded_value_is_read_as_the_value_it_pads(pad):
+    """`not_as_written` strips before it reads, and nothing reaching it
+    through the gate can exercise that: `config_rows` strips every cell, and
+    `broad_command` turns an all-whitespace value into None. Mutation-tested
+    2026-09-15 — removing the `.strip()` left every other case green, which
+    is a line claiming a defence it never performs.
+
+    It is kept rather than deleted because the function is module-level and
+    its correctness should not depend on which caller reaches it, and this
+    case is what makes the keeping honest.
+    """
+    module = gate_module()
+    value = pad.format(SUITE_ROW)
+    said = module.not_as_written("/seal", value)
+    assert said is not None, f"a padded wrapping went unrefused: {value!r}"
+    assert "backticks" in said
+    assert f"as meant:   | {ROW} | {SUITE_ROW} |" in said, said
 
 
 # --- S1 sealed ---------------------------------------------------------------
@@ -911,11 +1541,11 @@ def test_a_plugin_check_that_fails_is_named_and_the_suite_is_not_compared(repo):
 # --- S4 one write: the fixture item --------------------------------------------
 
 
-def declaration():
+def declaration(review="through the review chain"):
     return (
         f"# {os.path.basename(ITEM)} — routing\n\n"
         "| Axis | Answer |\n|---|---|\n"
-        "| Review | through the review chain |\n"
+        f"| Review | {review} |\n"
         "| Destination | open the pull request |\n"
         "| Branch | feature |\n"
     )
@@ -1130,6 +1760,111 @@ def test_seal_writes_the_last_records_cell_and_nothing_else(repo):
     assert "- [x] Pass" in after.decode("utf-8")
 
 
+GATE_FILE = "broad-gate.md"
+
+
+def test_seal_writes_a_file_where_no_round_record_exists(repo):
+    """S18. A work item declaring `straight to the PR` runs no rounds, so the
+    cell has no record to live on — and `seal` used to REFUSE outright.
+
+    That refusal is one half of a seal with no home. `last_record` raised
+    rather than returning, and `chain_check`'s direct arm returned before it
+    looked; neither repairs the other, which is why both are phase 5's. The
+    `straight to the PR` answer turns off the REVIEWER and nothing else, so
+    the broad run is owed here exactly as it is on the chain path.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration(review="straight to the PR"))
+    commit(repo, "declare direct")
+    assert not (repo / ROUNDS).exists(), "the fixture is not the no-rounds state"
+    head = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{head} against base")
+    assert code == 0, out
+    path = repo / ITEM / GATE_FILE
+    assert path.exists(), f"`seal` wrote no {GATE_FILE}: {out}"
+    assert GATE_FILE in out, "the line printed does not name the home it chose"
+    text = path.read_text(encoding="utf-8")
+    assert fields(text)[ROW] == f"{head} against base", text
+    # The cell and nothing else. A file that grows a second row is a file the
+    # one reader has to start choosing between rows in.
+    table = [ln for ln in text.splitlines() if ln.startswith("|")]
+    assert len(table) == 3, (
+        f"{GATE_FILE} holds {len(table)} table lines, not a header, a "
+        f"separator and the cell:\n{text}"
+    )
+
+
+def test_seal_refuses_a_chain_declaration_with_no_round_record(repo):
+    """The home is the DECLARATION's, not whatever is on disk.
+
+    `rounds/` empty is two different states. One is a work item that runs no
+    rounds, and its cell belongs in `broad-gate.md`. The other is a work item
+    whose rounds are running and whose first record is not written yet, and
+    its cell belongs on that record — filed in the other home it is a seal the
+    chain arm never opens, over which `seal` printed `sealed`.
+
+    Round 1 executed exactly this in a throwaway clone and got exit 0 with the
+    cell written to the unread home. It fails closed — `chain_check` still
+    refuses the pull request on the record's `not yet` — so what was lost is
+    the sealer's answer rather than the enforcement.
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    commit(repo, "declare the chain, rounds not written yet")
+    assert not (repo / ROUNDS).exists(), "the fixture is not the no-rounds state"
+    code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base")
+    assert code == 2, out
+    assert GATE_FILE in out and "round-N.md" in out, (
+        "the refusal names neither the home it declined nor the record it wants"
+    )
+    assert not (repo / ITEM / GATE_FILE).exists(), (
+        "the cell went into the home the chain arm never reads"
+    )
+
+
+def test_a_direct_declaration_seals_into_its_own_home_even_with_rounds(repo):
+    """The SAME defect running the other way, which the same fix closes.
+
+    A `straight to the PR` work item that does have round records was sealed
+    onto the last one — and `chain_check`'s direct arm reads `broad-gate.md`
+    and nothing else, so that cell is unread too. Round 1 named this direction
+    without a case; a fix aimed only at the direction that was reproduced
+    would have left half the class standing, which is §12.
+    """
+    _one, two = settled_item(repo)
+    write(repo, f"{ITEM}/routing.md", declaration(review="straight to the PR"))
+    commit(repo, "the declaration says direct after all")
+    before = read_bytes(two)
+    head = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{head} against base")
+    assert code == 0, out
+    path = repo / ITEM / GATE_FILE
+    assert path.exists(), f"the direct home was not written: {out}"
+    assert fields(path.read_text(encoding="utf-8"))[ROW] == f"{head} against base"
+    assert read_bytes(two) == before, (
+        "the cell went onto the last round record, which the direct arm "
+        "never reads — the same misfiling, in the other direction"
+    )
+
+
+def test_a_work_item_with_rounds_still_seals_onto_its_last_record(repo):
+    """The other direction, and the one a new home quietly breaks.
+
+    Adding a second home is a change to where the writer LOOKS, and a writer
+    that starts preferring the new home seals every work item into a file no
+    chain-path reader opens — silently, because both writes succeed. So the
+    property is asserted from both ends: the record's cell is filled, and no
+    `broad-gate.md` exists at all.
+    """
+    _one, two = settled_item(repo)
+    head = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{head} against base")
+    assert code == 0, out
+    assert fields(two.read_text(encoding="utf-8"))[ROW] == f"{head} against base"
+    assert not (repo / ITEM / GATE_FILE).exists(), (
+        "a work item that ran rounds got the no-rounds home as well, so the "
+        "cell now exists in two places and the readers disagree"
+    )
+
+
 def test_seal_writes_over_a_capped_runs_needs_a_fix(repo):
     """S5. A capped run seals, and until phase 5 it could not.
 
@@ -1294,8 +2029,26 @@ def test_the_refusal_says_which_value_the_last_record_may_hold(repo):
     it moved here in the commit that moved the message. Two sentences of this
     refusal left the instance anonymous, which is the rule
     `skills/verify/SKILL.md` owns and `tests/test_one_word_one_meaning.py`
-    sweeps for; this file is not swept, so the pin is what would have kept
-    the old wording alive.
+    sweeps for.
+
+    **A third assertion stood here and it refused the one spelling the rule
+    allows** (#406). `assert "the seal" not in out` had no next-character
+    guard, so it turned red on `the sealer` — the correct way to name the
+    agent, and what the exit sentence now says. The sweep that owns the rule
+    skips a hit whose next character is a letter, and its `SEAL_SWEPT` lists
+    `skills/code-review/scripts/round_record.py`, the module this refusal
+    lives in. What went is a second, stricter reading of one rule, held by the
+    check that is not the rule's owner.
+
+    **The deletion did lose one shape, and round 1's 🟡 2 measured it.** The
+    sweep reads that module's flattened SOURCE while this assertion read the
+    run's OUTPUT, and Python joins adjacent string literals where a flattened
+    read does not — so an anonymous instance split across two literals was
+    invisible to the sweep and plain in the refusal. `flat` folds that seam
+    now, which restores the coverage inside the one check rather than by
+    bringing this assertion back. The two positive pins above stay, which is what keeps §14's
+    requirement on this refusal's text met inside the module a reader of it
+    opens.
     """
     path = fixed_but_unread_item(repo)
     set_checked_by(path, "pending")
@@ -1304,13 +2057,13 @@ def test_the_refusal_says_which_value_the_last_record_may_hold(repo):
     # The second sentence the sweep caught, pinned beside the first so the
     # pair cannot drift apart: both name `seal` and neither reads `the seal`.
     assert "`seal` runs with `Pass` ticked" in out, out
-    assert "the seal" not in out, (
-        "the refusal names a seal without saying whose, which is the rule "
-        "`skills/verify/SKILL.md` owns"
-    )
     assert "no fixes to check" in out, out
     assert "nobody" in out, out
     assert "Spawn the verifying round first" in out, out
+    # §14 for the reworded exit, and the opposite direction of #406: this
+    # spelling names whose seal it is, and it is the spelling the deleted
+    # assertion turned red.
+    assert "before the sealer runs" in out, out
     assert "The row holds one of three values" not in out, (
         "the refusal still names three values on a record that accepts one"
     )

@@ -659,6 +659,18 @@ REOPEN_FROM = 1788597030
 # longer finds, and this arm reads a missing row as `no run was named`.
 BROAD_GATE = "Broad gate"
 GATE_NOT_YET = "not yet"
+# The cell's OTHER home, for a work item that ran no rounds. A declaration
+# reading `straight to the PR` still takes the broad run — the sealer's act is
+# not the reviewer's — and it had nowhere to put the stamp: the cell lives on
+# the last round record, and there is no round record. So it lives in a file
+# of its own, holding that row alone.
+#
+# Named for the COMMAND that writes it, not for the seal. `bin/broad-gate` is
+# the command and `Broad gate` is the cell, so no new word enters the
+# vocabulary; a bare `seal.md` would be the word that already names the
+# warden's review mark, the sealer's stamp and the smith's proof block, which
+# is the collision `tests/test_one_word_one_meaning.py` exists for.
+BROAD_GATE_FILE = "broad-gate.md"
 # Where the cell becomes readable, as the unix second in a work item's
 # directory name -- the id of the work item that added it, so the first
 # records held to the rule are the ones written under it. The eighth cutoff
@@ -674,6 +686,14 @@ GATE_NOT_YET = "not yet"
 # -- including, when this was built, one whose rounds were running in another
 # checkout of the same clone.
 GATE_FROM = 1788912166
+# The same cutoff for the cell's other home. 16 declarations in this
+# repository answer `straight to the PR` and not one of them carries a
+# `broad-gate.md`, because the file did not exist — and a release pull request
+# carries every work item the release adds, so an arm with no cutoff refuses a
+# release for work nobody could have sealed. Set to the id of the work item
+# that added the file, so the first declarations held to it are the ones
+# written under it.
+DIRECT_GATE_FROM = 1789518345
 # The exit the refusal names, in one spelling. A refusal that names no exit
 # is a wall, and this one's exit is four cells and a pull-request line.
 CAPPED_EXIT = (
@@ -1476,16 +1496,105 @@ def verdict_of(seen, col):
 
 
 def open_blocking(reader, lines, rel):
-    """(rows, errors) — blocking findings the last round left open."""
+    """(rows, errors) — the rows the last round left open, each labelled.
+
+    A row is here when a 🔴 appears anywhere in it and its verdict is not a
+    closing word. That is the set this has always refused and it is unchanged:
+    `verified` is outside `CLOSED_WORDS`, and an unrecognised verdict counting
+    as closed is the tolerant read the comment above that set says this whole
+    file exists to refuse.
+
+    **What is new is the fourth field, and it is read from the `#` cell** —
+    the way the second field already is (#408). `BLOCKING in "".join(seen)`
+    asks whether a 🔴 appears ANYWHERE in the row, and naming what an earlier
+    round found is exactly what a carried-forward closure is for, so a 🟢 row
+    whose Finding or Grounds quotes an earlier 🔴 was announced as a blocking
+    finding in a sentence that then printed `🟢` as the row. One sentence,
+    two severities, and the reader who took it at its word went looking for a
+    🔴 that is not there.
+
+    So the label says which complaint the caller has to print. Reading the
+    severity from the `#` cell and stopping there was the other repair
+    available, and it is the one that would let a row whose verdict the
+    vocabulary does not hold stop being refused at all.
+    """
     rows, col, errors = verdict_table(reader, lines, rel)
     if col < 0:
         return [], errors
     still_open = [
-        (line_no, seen[0] or f"row at line {line_no}", verdict_of(seen, col))
+        (
+            line_no,
+            seen[0] or f"row at line {line_no}",
+            verdict_of(seen, col),
+            BLOCKING in seen[0],
+        )
         for line_no, seen in rows
         if BLOCKING in "".join(seen) and verdict_of(seen, col) not in CLOSED_WORDS
     ]
     return still_open, errors
+
+
+def open_row_reason(what, verdict, blocking):
+    """Why one row of `open_blocking` fails the pull request.
+
+    Two arms, because the reader who is stopped has to know which of the two
+    things is wrong (#408). Both refuse the row; they differ in what they
+    send the reader to look at.
+
+      blocking   the `#` cell carries 🔴 and the verdict does not close it.
+                 The finding itself is what stands.
+      otherwise  a 🔴 somewhere in the row other than its `#` cell, beside a
+                 verdict that does not close the row. TWO things put it here
+                 and the message names both, because either one is a way out.
+
+    **The marker is named as a marker and not as a quote** (round 2's ⬜ 3).
+    The selection is `BLOCKING in "".join(seen)`, so what routes a row here is
+    a 🔴 in any cell but the first — which is usually an earlier round's
+    finding quoted in the Grounds, and is not always: it can be this round's
+    own marker written into the Finding or Location cell, and it can be a 🔴
+    that quotes no finding at all. Three such shapes were measured, and the
+    remedy the message offers works in all three, so the old clause
+    misattributed rather than misdirected. It is still the arm's own
+    explanation of itself, so it says what it can check.
+
+    **And the verdict is described by what it is not, not by a vocabulary**
+    (round 2's ⬜ 4). The sentence dropped *outside the vocabulary* for saying
+    that about `open` and then called the same word *an unrecognised verdict*
+    one clause later. `not one of the words that close a row` is the accurate
+    spelling and it was already there.
+
+    The second arm **says nothing about 🔴**, because the 🔴 in such a row
+    belongs to a round that is over, and sending a reader to look for a
+    blocking finding that is not there is the cost this arm exists to stop
+    paying.
+
+    **It does not say the verdict word is outside a vocabulary, which is
+    round 1's 🟡 1.** The split is keyed on the `#` cell while the SELECTION
+    is still a 🔴 anywhere in the row, so this arm fires on rows it was not
+    naming: `open` reaches it — the word `agents/warden.md` prescribes, which
+    the first arm above prints back as `` this 🔴 row reads `open` `` — and
+    one word got two explanations in one run. The rule it stated was not the
+    rule this file holds either: a 🟢 row reading `verified` that quotes no
+    🔴 is not selected at all, so the same word passes one row and is refused
+    the next. What differs is the quote, which is why the quote is named
+    first.
+    """
+    if blocking:
+        return (
+            f"`Pass` is checked, and this {BLOCKING} row reads "
+            f"`{verdict or 'empty'}` — a blocking finding that is not fixed, "
+            f"answered or withdrawn: {what}"
+        )
+    named = ", ".join(f"`{word}`" for word in sorted(CLOSED_WORDS))
+    return (
+        "`Pass` is checked, and this row is read as open because one of its "
+        "cells carries a blocking marker, while its own verdict reads "
+        f"`{verdict or 'empty'}` — not one of the words that close a row: "
+        f"{named}. Nothing here says the finding was closed, and a verdict "
+        "counted as closed without being one of those words is the tolerant "
+        "read this file exists to refuse. Write one of those words, drop the "
+        f"marker, or leave `Pass` unchecked: {what}"
+    )
 
 
 def closed_with_a_fix(reader, lines, rel):
@@ -1600,6 +1709,21 @@ def reviewed_later(reader, root, rel, rows, value, checker_rel):
     return []
 
 
+def item_began_at(item):
+    """The unix second in a work item's directory name, or None.
+
+    The rule one level up from `item_began`, because two callers now need it
+    at two depths: a round record sits at `<item>/rounds/round-N.md` and a
+    `broad-gate.md` sits at `<item>/broad-gate.md`, so a reader keyed on a
+    fixed position from the end answers correctly for one and returns None
+    for the other -- which grandfathers everything, silently, in the arm that
+    needs the cutoff most.
+    """
+    name = item.replace("\\", "/").rstrip("/").split("/")[-1]
+    began = name.split("-", 1)[0]
+    return int(began) if began.isdigit() else None
+
+
 def item_began(rel):
     """The unix second in `seal/specs/<seconds>-<slug>/rounds/round-N.md`, or None.
 
@@ -1609,10 +1733,7 @@ def item_began(rel):
     a state anybody chose.
     """
     parts = rel.replace("\\", "/").split("/")
-    if len(parts) < 3:
-        return None
-    began = parts[-3].split("-", 1)[0]
-    return int(began) if began.isdigit() else None
+    return item_began_at("/".join(parts[:-2]))
 
 
 def pass_checked(lines):
@@ -2985,8 +3106,34 @@ def says_gate_not_yet(value):
     return bool(rest) and rest[0] in SEPARATORS
 
 
-def broad_gate(reader, root, rel, strict):
+GATE_EXCUSED = (
+    f"Work items begun before {GATE_FROM} are excused this and print instead "
+    f"— every record ever written defaults to `{GATE_NOT_YET}`, so failing "
+    "them would be red on history nobody can fix"
+)
+DIRECT_GATE_EXCUSED = (
+    f"Work items begun before {DIRECT_GATE_FROM} are excused this and print "
+    f"instead — the cell had no home to be written to, so failing them would "
+    "be red on history nobody can fix"
+)
+
+
+def broad_gate(
+    reader, root, rel, strict, began=False, floor=GATE_FROM, excused=GATE_EXCUSED
+):
     """(errors, notices) for the one full-suite run this record claims.
+
+    `began`, `floor` and `excused` are the cutoff, and they are parameters
+    because the
+    cell has two homes and the two grandfather different populations. The
+    default `False` means *derive it from `rel`*, which is the round-record
+    path: `item_began` reads the work item's id out of
+    `<item>/rounds/round-N.md`. A `broad-gate.md` sits one level shallower, so
+    that reader answers None for it — and None is the GRANDFATHERED answer,
+    which would have turned the cutoff off silently for the whole arm rather
+    than noisily for one case. `None` is still a legal value to pass, and it
+    still means grandfathered; `False` is the sentinel because it is the one
+    value a caller never means.
 
     Asked of the LAST record alone, and for the reason `Pass` is: whether the
     broad gate ran is a claim about the whole review, not about one round.
@@ -3155,18 +3302,260 @@ def broad_gate(reader, root, rel, strict):
         return [], []
     if not fatal:
         return [], [(rel, 0, message)]
-    began = item_began(rel)
-    if began is None or began < GATE_FROM:
-        return [], [
+    if began is False:
+        began = item_began(rel)
+    if began is None or began < floor:
+        return [], [(rel, 0, message + ". " + excused)]
+    return [(rel, 0, message)], []
+
+
+# The framer's mark, at the FOOT of `spec.md`. Verb, date, who, the moment —
+# the shape `routing.md` and `plan.md` already end with, which is what keeps
+# three feet-lines from becoming three conventions.
+MARK_RE = re.compile(r"^Framed\s+(.+?)\s+by\s+(.+?),\s+before the build\.$")
+# `plan.md`'s approval line, whose unfilled form is a NOTICE. 61 of 71
+# `plan.md` files in this repository carry the placeholder, so a refusal here
+# is red for nearly every honest branch — which is the reasoning this module's
+# own docstring gives for `unverified_check.py` refusing to fail on an honest
+# open item.
+APPROVED_RE = re.compile(r"^Approved\s+(.+?)\s+by\s+(.+?), when .smith. was spawned\.$")
+# Where the frame becomes readable, as the unix second in a work item's
+# directory name. **Measured before it was set** (`questions.md` Q3): 11
+# declarations answer `Planning | framer`, 10 of them carry no mark because
+# the mark did not exist, and the eleventh is the work item that added it. The
+# candidate the row weighed this against is the release that ships the work —
+# and nothing falls in the gap between the two, so they are the same answer
+# and the cheaper spelling wins. Cheaper AND stricter, which is the right
+# direction for a tie: every work item begun after the mark was asked for is
+# judged.
+FRAME_FROM = 1789518345
+
+
+def frame_mark(text):
+    """(when, who) from the mark at the foot of `spec.md`, or None.
+
+    **The FOOT, not anywhere in the file**, and that is the whole of what
+    makes this readable rather than a check that cannot fail. Measured on this
+    repository: the one `spec.md` a mark-shaped search matches today is the
+    spec that DOCUMENTS the mark — it quotes the template line in a fenced
+    block, names it in a table of who writes what, and states it again as an
+    acceptance row. A search anywhere in the file reads all three as a framer
+    having signed, so a spec about the mark passes for carrying one. #399's
+    own measurement hit the same class one file over.
+
+    The last non-empty line is the whole rule, and it is what the template
+    ships: `templates/sdd-spec.md` ends with this line, and a case pins that
+    it ends with it rather than merely holding it.
+    """
+    for line in reversed((text or "").splitlines()):
+        line = line.strip()
+        if not line:
+            continue
+        m = MARK_RE.match(line)
+        return (m.group(1).strip(), m.group(2).strip()) if m else None
+    return None
+
+
+def frame(reader, routing, root, item, rel, declared):
+    """(errors, notices) for a declaration that says a framer drew the frame.
+
+    THE KEY IS A COMPARISON, NOT A DERIVATION. Nothing is re-judged and
+    nothing is counted. `routing.md` carries the answer, written before the
+    first edit by the party the routing batch asked:
+
+      A work item whose `routing.md` declares `Planning | framer` owes a
+      frame: `spec.md` and `plan.md` exist, and `spec.md` carries the
+      framer's mark.
+
+    Not gated on `strict`. Every other arm here excuses a draft pull request
+    because a review still running has not reached its verdict — and the frame
+    is the one thing that is not still running. It is drawn BEFORE the first
+    edit, so a draft with no `spec.md` is not early, it is a work item that
+    declared a framer and then built without one. That is the reported failure
+    this arm exists for.
+
+    ## WHAT THIS ARM CANNOT SEE — seven of them, written beside it
+
+    1. **A work item that never wrote a `routing.md`.** Outside the check
+       entirely. The same hole this module already discloses about itself:
+       declaring nothing is a way past, and a quieter one than `[no-review]`,
+       which at least stays in the command.
+    2. **Whether the frame is any good.** It sees two files and a line. It
+       cannot see whether the spec describes the work, and a frame drawn badly
+       passes.
+    3. **Whether the party named actually did it.** The row and the mark are
+       both the framer's writes, so this catches a framer that forgot one of
+       its own — and nothing else. What catches a session that declared
+       `framer` and framed the work itself is the git-dir mark and the one
+       line `hooks/implementer-notice.py` prints, locally, once per session,
+       never in CI. **The day somebody reads a green chain-check as evidence
+       that a framer ran, they will be wrong, and this list is the only thing
+       standing between that reading and them.**
+    4. **`Planning | the session`, or an absent row.** No claim is made there.
+       A session that framed the work itself owes this arm nothing.
+    5. **The ladder's rung.** Whether a work item SHOULD have declared a
+       framer is the judgment `skills/implement/SKILL.md` §3 makes a person's,
+       and #88 settled that it is recorded rather than asked.
+    6. **Whether the run kept its `Automation` promise.** A session that
+       declared `yes` and then asked at minute thirty leaves nothing in the
+       tree. That row is an audit trail, not a gate.
+    7. **A change that took the `no work item` exit.** It writes no file at
+       all, which is the ticket `spec.md` opens rather than closes.
+    """
+    if declared.get("planning") != routing.BY_FRAMER:
+        return [], []
+
+    problems = []
+    spec = read_record(root, f"{item}/spec.md")
+    if spec is None:
+        problems.append(
+            f"declares `{routing.PLANNING} | {routing.BY_FRAMER}` and git "
+            f"carries no {item}/spec.md at HEAD. A framer's first write is "
+            "the spec, so a declared framer with no spec is a work item that "
+            "said a frame was drawn and built without one"
+        )
+    if read_record(root, f"{item}/plan.md") is None:
+        problems.append(
+            f"declares `{routing.PLANNING} | {routing.BY_FRAMER}` and git "
+            f"carries no {item}/plan.md at HEAD. The plan is the design "
+            "gate's artifact — approving it IS the gate — so its absence "
+            "means the gate has no record anywhere"
+        )
+    if spec is not None:
+        mark = frame_mark(spec)
+        if mark is None:
+            problems.append(
+                f"{item}/spec.md does not END with the framer's mark. The "
+                "last non-empty line has to read `Framed <date> by <who>, "
+                "before the build.` — `templates/sdd-spec.md` ships it, and "
+                "it is the only evidence in the tree that the framing "
+                "happened, because the other framer mark lives in the git "
+                "dir and a git dir does not travel here"
+            )
+        elif mark[0].startswith("<") or mark[1].startswith("<"):
+            problems.append(
+                f"{item}/spec.md ends with the template's UNFILLED mark, "
+                f"`Framed {mark[0]} by {mark[1]}, before the build.` — a "
+                "placeholder copied through, which reads to a person as a "
+                "mark and says nothing"
+            )
+        elif mark[1] != routing.BY_FRAMER:
+            problems.append(
+                f"{item}/routing.md says `{routing.PLANNING} | "
+                f"{routing.BY_FRAMER}` and {item}/spec.md's mark says "
+                f"`{mark[1]}`. The declaration and the mark disagree about "
+                "who drew this frame, and which of the two is true is not "
+                "this check's to guess"
+            )
+
+    notices = []
+    plan = read_record(root, f"{item}/plan.md")
+    if plan is not None:
+        line = next(
+            (
+                m
+                for ln in plan.splitlines()
+                for m in [APPROVED_RE.match(ln.strip())]
+                if m
+            ),
+            None,
+        )
+        if (
+            line is None
+            or line.group(1).startswith("<")
+            or line.group(2).startswith("<")
+        ):
+            # A NOTICE, never a refusal, and the measurement is what decides
+            # it: 61 of 71 `plan.md` files in this tree carry the unfilled
+            # placeholder, and 3 of the 11 work items declaring a framer are
+            # among them. A refusal that goes red for nearly every honest
+            # branch teaches people to write none — which is the reasoning
+            # this module's docstring already gives for `unverified_check.py`.
+            # #399's `Done when` asks for a refusal; this departs from it on a
+            # measurement the ticket did not have, and the promotion is a
+            # ticket of its own once the notice has been seen on a few
+            # releases.
+            notices.append(
+                (
+                    rel,
+                    0,
+                    f"{item}/plan.md's approval line is "
+                    + ("absent" if line is None else "still the placeholder")
+                    + ". `Approved <date> by <who>, when `smith` was spawned.` "
+                    "is the only durable trace that a person read the plan — "
+                    "the routing declaration records who answered the batch "
+                    "and the round records record what was reviewed, and "
+                    "neither says a person saw the plan. Reported, not "
+                    "refused: most `plan.md` files in a tree this rule "
+                    "arrives into carry the placeholder",
+                )
+            )
+
+    began = item_began_at(item)
+    if began is None or began < FRAME_FROM:
+        return [], notices + [
             (
                 rel,
                 0,
-                message + f". Work items begun before {GATE_FROM} are excused this "
-                "and print instead — every record ever written defaults to "
-                f"`{GATE_NOT_YET}`, so failing them would be red on history "
-                "nobody can fix",
+                p + f". Work items begun before {FRAME_FROM} are excused this "
+                "and print instead — the mark did not exist, so failing them "
+                "would be red on history nobody can fix",
             )
+            for p in problems
         ]
+    return [(rel, 0, p) for p in problems], notices
+
+
+def direct_seal(reader, routing, root, item, rel, strict):
+    """(errors, notices) for a `straight to the PR` work item's own seal.
+
+    This arm used to be one `print` and a `continue`. A declaration reading
+    `straight to the PR` turns off the REVIEWER and nothing else: the broad
+    gate is the sealer's act and it is taken once, after the rounds settle —
+    and where no rounds run, *after the rounds settle* is simply *at the end*.
+    So the run is owed here exactly as it is owed on the chain path, and
+    nothing noticed its absence.
+
+    ONE READER, not two (`questions.md` Q4). `broad_gate` below reads the cell
+    out of whatever file it is handed, and everything it does with a round
+    record around that cell degrades correctly here: a `broad-gate.md` carries
+    no `Target SHA`, so the premature comparison finds no reviewed commit and
+    makes no claim — which is right, because with no round there is no
+    reviewed commit for a run to have been spent before. The one thing it
+    cannot answer is the file being absent altogether, because `read_record`
+    returning None is its "no claim" answer for a record this pull request
+    does not touch. That is what this function is: the absence, then the
+    delegation.
+
+    `strict` is false for a draft pull request, and the reason is the one the
+    chain path has: the broad gate runs at the end, so a draft with no seal is
+    telling the truth.
+    """
+    if not strict:
+        return [], []
+    began = item_began_at(item)
+    if read_record(root, rel) is not None:
+        return broad_gate(
+            reader,
+            root,
+            rel,
+            strict,
+            began=began,
+            floor=DIRECT_GATE_FROM,
+            excused=DIRECT_GATE_EXCUSED,
+        )
+    message = (
+        f"declares `{routing.DIRECT}` and git carries no {rel} at HEAD. That "
+        "answer turns off the REVIEWER and nothing else — the broad gate is "
+        "the sealer's act, taken once, and where no round runs it is taken at "
+        "the end. Spawn the `sealer` with the base and the work item: it runs "
+        "`broad-gate --base <base> --record <item>`, which writes the cell "
+        "into this file because there is no round record to write it onto. "
+        "Until then this pull request is a request to merge a branch nobody "
+        "has run the suite over, and nothing in the repository knows it"
+    )
+    if began is None or began < DIRECT_GATE_FROM:
+        return [], [(rel, 0, message + ". " + DIRECT_GATE_EXCUSED)]
     return [(rel, 0, message)], []
 
 
@@ -3257,17 +3646,8 @@ def check_round(reader, root, rel, strict=True, refs=None):
     still_open, table_errors = open_blocking(reader, lines, rel)
     errors.extend(table_errors)
     if checked and still_open:
-        for line_no, what, verdict in still_open:
-            errors.append(
-                (
-                    rel,
-                    line_no,
-                    f"`Pass` is checked, and this "
-                    f"{BLOCKING} row reads `{verdict or 'empty'}` — a "
-                    "blocking finding that is not fixed, answered or "
-                    f"withdrawn: {what}",
-                )
-            )
+        for line_no, what, verdict, blocking in still_open:
+            errors.append((rel, line_no, open_row_reason(what, verdict, blocking)))
     return errors
 
 
@@ -3392,8 +3772,27 @@ def main(argv=None):
             )
             continue
 
+        # BEFORE the review arms and outside both, because `Planning` is
+        # independent of `Review`: a work item can declare a framer and go
+        # straight to the pull request, and the frame is owed either way.
+        # Putting it inside either arm is how one of the two answers quietly
+        # stops being judged.
+        frame_errors, frame_notices = frame(reader, routing, root, item, rel, declared)
+        errors.extend(frame_errors)
+        notices.extend(frame_notices)
+
         if declared["review"] == routing.DIRECT:
-            print(f"{item}: straight to the PR — declared, nothing required")
+            where_gate = f"{item}/{BROAD_GATE_FILE}"
+            print(
+                f"{item}: straight to the PR — declared, no round record "
+                f"required; the broad gate's cell is read from "
+                f"{BROAD_GATE_FILE}"
+            )
+            seal_errors, seal_notices = direct_seal(
+                reader, routing, root, item, where_gate, strict
+            )
+            errors.extend(seal_errors)
+            notices.extend(seal_notices)
             continue
 
         # Before the count, and reported even when `rounds/` also holds
