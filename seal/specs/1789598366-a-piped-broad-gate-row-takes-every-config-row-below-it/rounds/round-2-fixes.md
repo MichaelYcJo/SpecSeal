@@ -1,7 +1,9 @@
 # 1789598366-a-piped-broad-gate-row-takes-every-config-row-below-it — round 2 fixes
 
-Target reviewed `906c78b3`. Fix commits `c83cee76`, `7eca576d`, `a2e72ea6` and
-`dd964ca9`, over the range `5137e934..HEAD`.
+Target reviewed `906c78b3`. Fix commits `c83cee76`, `7eca576d`, `a2e72ea6`,
+`dd964ca9`, `f8abdf0b`, `7d1b4d14`, `a60b47c8` and `ba03cc0c`, over the range
+`5137e934..HEAD`. The one code commit is `c83cee76`; the rest are the records,
+and two of them are corrections this pass's own survivor check asked for.
 
 Round 2's one finding and its four corrections were each re-executed here
 before anything was written (`agent-contract` §5). All five reproduce. The
