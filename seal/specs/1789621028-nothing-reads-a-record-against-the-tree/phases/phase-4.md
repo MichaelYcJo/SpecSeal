@@ -93,7 +93,11 @@ driver and restored from those bytes.
 **The repository's own records, read by the new arm directly**:
 `test_the_records_in_this_repository_are_not_failed_by_the_new_row` walks every
 `round-N.md` in the tree, asserts more than 200 were found, and asserts every
-one produces a notice and no error. That is the grandfathering pinned as a
+one produces a notice and no error. <!-- Corrected in round 1's fix pass,
+2026-09-17: that held only while NO record carried the row. This work item's
+own `round-1.md` is the first that does, so the case now asserts that a record
+WITHOUT the row prints and never fails, and that the two groups account for
+every record. `seal/ledger/1789621028-…md` R6 carries the corrected claim. --> That is the grandfathering pinned as a
 fact about this tree rather than as a claim about the constant.
 
 ## What this phase removes

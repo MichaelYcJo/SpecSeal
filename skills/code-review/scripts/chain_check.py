@@ -528,9 +528,11 @@ SEPARATORS = " " + chr(0x2014) + chr(0x2013) + "-:,"
 # (#344). The class the field closes: a fix table states its range in prose,
 # in whatever words its author chose, and one of those words is `HEAD` -- which
 # resolves, so the sentence stays readable while meaning a different set of
-# commits every day. Measured over this tree on 2026-09-17: 39 fix-table files,
-# 15 stating a range in their first eight lines, in 8 different spellings, and
-# 5 of the 15 naming `HEAD`. A rule enforced by parsing that is a rule enforced
+# commits every day. `docs/review-chain-spec.md` §*The fix range* names the
+# command that counts the corpus and both tree states it was run at, because a
+# count over prose depends on what counts and a number quoted without its
+# method produced three different answers from three readers.
+# A rule enforced by parsing that is a rule enforced
 # by guessing, so the authoritative statement moves into the record, where the
 # generator that already resolved both ends writes it and this checker re-reads
 # it against the tree.
