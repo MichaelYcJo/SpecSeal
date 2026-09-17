@@ -2,12 +2,15 @@
 
 ## Round 1's fix pass — `b38bd920..HEAD`
 
-`survivor-check` over this pass reports six places against 27 removed
-sentences. **Two were corrected rather than exempted**, and they are the two
-that mattered: the constant comment in
-`skills/code-review/scripts/chain_check.py` carried the unmethoded corpus
-count in shipped code, and `phases/phase-4.md` described a case whose claim
-this pass narrowed. Four are exempt below, on two different grounds.
+`survivor-check` over this pass first reported six places. **One was
+corrected rather than exempted**, and it is the one that mattered: the
+constant comment in `skills/code-review/scripts/chain_check.py` carried the
+unmethoded corpus count in shipped code, where a reader would act on it.
+
+The five rows below are exempt, on three grounds. Re-run with this file as
+`--exempt`, the range is **exit 0** and **one** row is used — the other four
+name wording later commits in the same range took out on their own, which is
+what an exemption anchored on a quote does when the quote stops standing.
 
 | Path | Quote | Grounds |
 |---|---|---|
