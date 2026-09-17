@@ -2122,6 +2122,11 @@ def build(reader, routing, args, root, item, rounds):
         cell(chain.PR_FIELD, pull_request_cell(root, args.pr)),
         cell(BROAD_GATE, args.broad_gate if args.broad_gate else GATE_NOT_YET),
         cell(chain.CHECKED_BY, checker),
+        # The same pending value the two surface rows take, for the same
+        # reason: a record is committed before its fixes exist, so the range
+        # they were measured over does not exist either when `new` runs.
+        # `close` replaces it with the resolved ends and their count.
+        cell(chain.FIX_RANGE, surface),
         cell(chain.CONTRACT, surface),
         cell(chain.NEW_UNITS, surface),
         cell(chain.NEEDS, needs),
@@ -2736,8 +2741,29 @@ def surface_cell(label, entries):
     return row((label, "; ".join(entries)))
 
 
+# A range end has to be a COMMIT somebody can open, which is narrower than a
+# ref that resolves (#344). `HEAD`, `@`, a branch and a tag all resolve, and
+# all four name something different tomorrow -- so a record stating one is a
+# sentence that stays readable while meaning a different set of commits every
+# day. Three instances in one work item is what made it a ticket.
+#
+# Hex, seven to forty characters, AND resolving to a commit it is a prefix of.
+# The second half is what makes the first one true: a branch named `abcdefg`
+# is hex-shaped, and it passes this only if it happens to point at a commit
+# whose sha starts with its own name. That coincidence is recorded rather than
+# parsed away -- refusing hex-shaped ref NAMES would mean asking git which
+# refs exist, and the check would then pass or fail on what somebody else had
+# created.
+PINNED_RE = re.compile(r"^[0-9a-fA-F]{7,40}$")
+
+
 def parse_range(root, value):
-    """(a, b) as full commits from `<a>..<b>`, or `Refused`."""
+    """(a, b) as full commits from `<a>..<b>`, or `Refused`.
+
+    BOTH ends, not only the second. `HEAD` is the end #344 measured and a
+    branch name at the start moves exactly as far; a rule aimed at the word
+    that happened to be reported closes the instance and not the class (§12).
+    """
     a, dots, b = value.partition("..")
     a, b = a.strip(), b.strip()
     if not dots or not a or not b or b.startswith("."):
@@ -2747,6 +2773,18 @@ def parse_range(root, value):
         full = chain.resolves_to(root, ref)
         if full is None:
             raise Refused(f"--range names `{ref}`, which does not resolve in {root}")
+        if not PINNED_RE.match(ref) or not full.startswith(ref.lower()):
+            raise Refused(
+                f"--range names `{ref}`, which resolves today and is not a "
+                f"commit anybody can open tomorrow. A record states its fix "
+                f"range as commits, and `{ref}` is a name that moves: this "
+                f"same record would mean a different set of commits every "
+                f"time the branch does. Write the commit instead — "
+                f"`git -C {root} rev-parse {ref}` gives `{full[:8]}`, so "
+                f"`--range "
+                + (f"{full[:8]}..{b}" if ref == a else f"{a}..{full[:8]}")
+                + "`. No cell was written"
+            )
         out.append(full)
     return out[0], out[1]
 
@@ -3747,6 +3785,22 @@ def close(args):
         [units_entry(n, 1) for n in dict.fromkeys(n for _r, n in added)],
     )
     gate = cell(BROAD_GATE, args.broad_gate) if args.broad_gate else None
+    # The range this pass was measured over, as commits and as a count (#344).
+    # `parse_range` has already refused an end that is not a commit somebody
+    # can open, so both halves here are pinned by construction -- and the
+    # count is derived from them rather than typed, which is the half a reader
+    # can check against the tree without opening anything.
+    counted = git(root, "rev-list", "--count", f"{a}..{b}")
+    if counted is None:
+        raise Refused(
+            f"git rev-list --count {a[:7]}..{b[:7]} failed in {root}, so the "
+            f"`{chain.FIX_RANGE}` row cannot be derived. No cell was written"
+        )
+    spanned = int(counted.strip())
+    fix_range = cell(
+        chain.FIX_RANGE,
+        f"`{a}..{b}`, {spanned} commit{'' if spanned == 1 else 's'}",
+    )
 
     # Nothing above touched `raw`; everything below does, indices first and
     # the one insertion last.
@@ -3883,6 +3937,7 @@ def close(args):
         checker = WRITTEN_CHECKER
     if checker in (chain.NO_FIXES, WRITTEN_CHECKER):
         raw[at] = cell(chain.CHECKED_BY, checker)
+    raw[field_index(reader, lines, chain.FIX_RANGE)] = fix_range
     raw[field_index(reader, lines, chain.CONTRACT)] = contract
     last = field_index(reader, lines, chain.NEW_UNITS)
     raw[last] = units
@@ -3913,7 +3968,7 @@ def close(args):
     print(
         f"round-record: closed {os.path.relpath(target, root)} {DASH} "
         + ", ".join(f"{n} {w}" for w, n in counts.items())
-        + f"; {contract.strip('| ')}; {units.strip('| ')}"
+        + f"; {fix_range.strip('| ')}; {contract.strip('| ')}; {units.strip('| ')}"
         + (
             f"; {chain.CHECKED_BY} | {checker}"
             if checker in (chain.NO_FIXES, WRITTEN_CHECKER)

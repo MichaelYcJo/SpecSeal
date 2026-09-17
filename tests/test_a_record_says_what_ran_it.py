@@ -142,6 +142,11 @@ def record(sha, ran_by=RUNNER):
     """
     rows = (
         "| Fixes checked by | no fixes to check |\n"
+        # A round that commissioned no fixes has no range, and `none` is
+        # what `chain_check.fix_range` reads as nothing to check against
+        # the tree. This fixture's work-item id is above `RANGE_FROM`, so
+        # the row is owed here the way `Broad gate` is.
+        "| Fix range | none |\n"
         "| Contract changes | none |\n"
         "| New units | none |\n"
         "| Needs a fix | no |\n"

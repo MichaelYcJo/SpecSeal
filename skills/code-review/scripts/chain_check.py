@@ -524,6 +524,38 @@ CHECKER_RE = re.compile(r"^round-\d+(?:\.md)?$")
 # dash goes the same way so the pair reads as a pair. 0x2014 is EM DASH and
 # 0x2013 is EN DASH.
 SEPARATORS = " " + chr(0x2014) + chr(0x2013) + "-:,"
+# The range the fixes were measured over, as commits somebody can open
+# (#344). The class the field closes: a fix table states its range in prose,
+# in whatever words its author chose, and one of those words is `HEAD` -- which
+# resolves, so the sentence stays readable while meaning a different set of
+# commits every day. Measured over this tree on 2026-09-17: 39 fix-table files,
+# 15 stating a range in their first eight lines, in 8 different spellings, and
+# 5 of the 15 naming `HEAD`. A rule enforced by parsing that is a rule enforced
+# by guessing, so the authoritative statement moves into the record, where the
+# generator that already resolved both ends writes it and this checker re-reads
+# it against the tree.
+#
+# WRITTEN by `round_record.py close` from the `--range` it was given, which now
+# refuses an end that is not a commit somebody can open. READ below by
+# `fix_range`, behind `RANGE_FROM`.
+FIX_RANGE = "Fix range"
+# `<a>..<b>`, then the number of commits between them. Both halves are read:
+# the ends say WHICH commits and the count says how many, and a record whose
+# ends still resolve while its count disagrees is the shape a moving end
+# leaves behind.
+FIX_RANGE_RE = re.compile(
+    r"`?([0-9a-f]{7,40})\s*\.\.\s*([0-9a-f]{7,40})`?[^0-9]*(\d+)\s*commit",
+    re.IGNORECASE,
+)
+# Where the row becomes required, as the unix second in a work item's own
+# directory name. The id of THIS work item, so the first records held to it are
+# the ones written under it. The tenth cutoff of the shape `STRICT_FROM`
+# through `REOPEN_FROM` carry, and the reasoning lives at `STRICT_FROM` rather
+# than being written a tenth time: a merged record has no honest repair -- the
+# range it was measured over is not recoverable from a record that never
+# stated it -- and a check whose first production act is red on history nobody
+# can fix is a check people learn to skip.
+RANGE_FROM = 1789621028
 # The fix surface (issue #57): what this round's fixes changed, with the call
 # sites each change reaches, and what they created. See the module docstring.
 CONTRACT = "Contract changes"
@@ -1656,6 +1688,158 @@ def closed_with_a_fix(reader, lines, rel):
     if col < 0:
         return False
     return any(verdict_of(seen, col) in FIX_WORDS for _line, seen in rows)
+
+
+def fix_range(reader, root, rel):
+    """(errors, notices) for one record's `Fix range` row, read against git.
+
+    #344's class: a record is written once and the tree keeps moving, and
+    nothing read one against the other. The ledger has `evidence-check` for
+    exactly that job over content anchors; the records were left out of it,
+    and the part of a record that rots fastest is the part that is a claim
+    about COMMITS. The checker that reads such a claim has to be the one
+    already allowed to ask git, which is this one —
+    `skills/evidence-check/scripts/evidence_check.py` states the opposite bar
+    in its own test module, *no fixture here runs git, and no fixture here
+    may*.
+
+    TWO halves are read, because either alone passes the record the other
+    catches. The ENDS say which commits, and `round_record.parse_range`
+    refuses a `HEAD` at either of them, so a row written after this rule is
+    pinned by construction. The COUNT says how many, and it is what catches a
+    row a person wrote or repaired by hand: a range whose ends still resolve
+    while its count disagrees with the tree is what a moving end leaves
+    behind once it has stopped moving.
+
+    **Unresolvable ends are a NOTICE, and that is the squash.** This
+    repository merges a feature branch into its release branch by squashing,
+    which keeps none of the branch's own commits — so a merged record's fix
+    commits are ordinarily invisible, exactly as `resolves_to` says of the
+    reviewed commit. Failing there would fail every record the moment its
+    work shipped, and the record would have done nothing wrong. `Target SHA`
+    has `carried_by_a_pull_head` to fall back on; a range has no equivalent,
+    because a pull head carries the commits and not the arithmetic between
+    them.
+
+    **What this cannot see, written beside it.** A range both of whose ends
+    resolve and whose count is right can still be the wrong range — the
+    fixes may have landed somewhere else entirely. Nothing here compares the
+    range against the fixes; that is `fix_surface`'s measurement and it is
+    taken from this same range, so the two agree by construction rather than
+    by checking each other. What the row closes is narrower and is the thing
+    #344 measured: a range that stops meaning what it said.
+
+    The grandfathering is `item_began` against `RANGE_FROM` and it reaches
+    the ABSENT row alone, the way `fix_surface`'s reaches its own: a row that
+    is present and malformed fails on any record, because a cell nobody can
+    parse is always the author's to fix, where a row that did not exist when
+    the record was written is not.
+    """
+    text = read_record(root, rel)
+    if text is None:
+        return [], []
+    rows = table_rows(reader, reader.readable(text))
+    began = item_began(rel)
+    excused = began is None or began < RANGE_FROM
+    bought = (
+        "the range a round's fixes were measured over, as commits somebody "
+        "can open. A fix table states it in prose and `HEAD` is not a "
+        "commit — three records of one work item said a range that meant "
+        "something different by the time anybody read it. Write "
+        "`` `<a>..<b>`, N commits ``, or let `round-record close` write it"
+    )
+
+    cell = field(rows, FIX_RANGE)
+    if cell is None:
+        message = f"no `| {FIX_RANGE} | … |` row: {bought}"
+        if excused:
+            return [], [
+                (
+                    rel,
+                    0,
+                    message + f". Work items begun before {RANGE_FROM} are "
+                    "excused this and print instead — the row did not exist "
+                    "when the record was written, and the range it was "
+                    "measured over is not recoverable from a record that "
+                    "never stated it",
+                )
+            ]
+        return [(rel, 0, message)], []
+
+    value = reader.visible(cell).strip()
+    if not value:
+        return [
+            (
+                rel,
+                0,
+                f"`{FIX_RANGE}` is empty — a row that says nothing answers "
+                f"nothing. Write `` `<a>..<b>`, N commits ``, or `{NONE_WORD}`",
+            )
+        ], []
+    if says_none(value):
+        # A round that commissioned no fixes has no range, and the value
+        # `new` writes before the fixes exist says so in the same words the
+        # two surface rows use. Nothing to read against the tree either way.
+        return [], []
+
+    found = FIX_RANGE_RE.search(value)
+    if found is None:
+        return [
+            (
+                rel,
+                0,
+                f"`{FIX_RANGE}` reads `{value}`, which does not state a range "
+                f"this can read. The shape is `` `<a>..<b>`, N commits `` with "
+                f"both ends written as commits — a branch, a tag, `HEAD` and "
+                f"`@` are names that move, and a range stated in one of them "
+                f"is the defect this row exists to close",
+            )
+        ], []
+
+    a, b, stated = found.group(1), found.group(2), int(found.group(3))
+    full_a, full_b = resolves_to(root, a), resolves_to(root, b)
+    if full_a is None or full_b is None:
+        missing = [end for end, full in ((a, full_a), (b, full_b)) if full is None]
+        return [], [
+            (
+                rel,
+                0,
+                f"`{FIX_RANGE}` names {' and '.join(missing)}, which this "
+                "repository cannot see, so its count is not checked. A "
+                "feature branch squashes into its release branch and the "
+                "squash keeps none of the branch's own commits — this is the "
+                "ordinary state of a merged record and not a fault in it",
+            )
+        ]
+
+    counted = git(root, "rev-list", "--count", f"{full_a}..{full_b}")
+    if counted is None or not counted.strip().isdigit():
+        return [], [
+            (
+                rel,
+                0,
+                f"`{FIX_RANGE}` names two commits this repository carries and "
+                f"`git rev-list --count {a}..{b}` did not answer, so the "
+                "count is not checked",
+            )
+        ]
+    actual = int(counted.strip())
+    if actual != stated:
+        return [
+            (
+                rel,
+                0,
+                f"`{FIX_RANGE}` says {stated} commit"
+                f"{'' if stated == 1 else 's'} between `{a}` and `{b}`, and "
+                f"the tree holds {actual}. The record and the repository "
+                f"disagree about what this round's fixes were measured over, "
+                f"and the record is the one that cannot be re-derived. Read "
+                f"`git log --oneline {a}..{b}`, then correct the row to the "
+                f"range the fixes are actually in — and if the ends are what "
+                f"moved, they are what to correct rather than the number",
+            )
+        ], []
+    return [], []
 
 
 def doubled_grounds(reader, root, rel):
@@ -4081,6 +4265,12 @@ def main(argv=None):
             # the round whose record carries it, and it has no cutoff -- the
             # function's own docstring holds why, and why a green run here is
             # a disclosure rather than a catch.
+            # EVERY record too. WHAT a round's fixes were measured over is a
+            # fact about that round, and the row is read against git here
+            # because git is what it is a claim about (#344).
+            range_errors, range_notices = fix_range(reader, root, record)
+            errors.extend(range_errors)
+            notices.extend(range_notices)
             double_errors, double_notices = doubled_grounds(reader, root, record)
             errors.extend(double_errors)
             notices.extend(double_notices)

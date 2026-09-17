@@ -2386,3 +2386,110 @@ def test_the_generator_and_the_checker_spell_the_close_prefix_once(repo):
     )
     assert checker.CLOSE_PREFIX_RE.match(f"{checker.CLOSE_PREFIX} 64f36eee")
     assert not checker.CLOSE_PREFIX_RE.match("executed, and the caller agrees")
+
+
+# --- the fix range is pinned where it is written (#344) ----------------------
+
+
+@pytest.mark.parametrize("moving", ["HEAD", "@", "feature", "v1"])
+@pytest.mark.parametrize("end", ["start", "finish"])
+def test_a_range_end_that_moves_is_refused(repo, moving, end):
+    """#344's cheapest and most repeated instance: a fix table states a range
+    and `HEAD` is not one. Three records of one work item said such a range.
+
+    BOTH ends, and all four names. `HEAD` is the one that was reported; `@` is
+    its synonym, and a branch and a tag move exactly as far. A rule aimed at
+    the word that happened to be reported closes the instance and not the
+    class (§12).
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    git(repo, "tag", "v1")
+    rng = f"{moving}..{b}" if end == "start" else f"{a}..{moving}"
+    code, out, record = close(repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), rng)
+    assert code == 2, out
+    assert f"`{moving}`" in out, out
+    # §14: what is wrong, and what to write instead. The second half is the
+    # one a reword drops, so it is pinned by name.
+    assert "is a name that moves" in out, out
+    assert "rev-parse" in out, out
+    assert "No cell was written" in out, out
+    # And nothing was: the verdict cell still reads what round 1 wrote.
+    (one,) = verdict_cells(record)
+    assert one[3] == "open", one
+
+
+def test_a_pinned_range_still_closes(repo):
+    """The control. Two commits written out are what every correct call
+    already passes, and the refusal must not reach them."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code in (0, 1), out
+    (one,) = verdict_cells(record)
+    assert one[3] == f"**fixed** `{b[:7]}`", one
+
+
+def test_an_abbreviated_end_is_a_commit_somebody_can_open(repo):
+    """Seven hex characters name a commit as well as forty do, and refusing
+    them would refuse the spelling every fix table in this tree uses."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, _record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a[:7]}..{b[:7]}"
+    )
+    assert code in (0, 1), out
+
+
+def test_the_record_states_the_range_and_the_count_the_tree_holds(repo):
+    """The other half of #344. Refusing a moving end prevents the next
+    instance and leaves the record with nothing a reader can check — the range
+    would still live only in the fixes file's prose, in a twelfth spelling.
+
+    The count is DERIVED from the ends rather than typed, which is what lets a
+    reader check the row against the tree without opening anything.
+    """
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    write(repo, "README.md", "# a second commit in the range\n")
+    c = commit(repo, "more")
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{c}"
+    )
+    assert code in (0, 1), out
+    stated = fields(record)["Fix range"]
+    spanned = git(repo, "rev-list", "--count", f"{a}..{c}").stdout.strip()
+    assert spanned == "2", spanned
+    assert stated == f"`{a}..{c}`, {spanned} commits", (stated, out)
+    # The ends are written out in full, so nothing has to be re-abbreviated to
+    # be resolved, and the singular is not printed for two.
+    assert "commits" in stated and "1 commit," not in stated
+
+
+def test_a_one_commit_range_reads_as_one_commit(repo):
+    """The plural is written from the number, so the row a person reads is a
+    sentence rather than `1 commits`."""
+    a = round_one(repo, verdicts=OPEN_1)
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    code, out, record = close(
+        repo, 1, fix_table(f"| 1 | fixed | {b[:7]} |\n"), f"{a}..{b}"
+    )
+    assert code in (0, 1), out
+    assert fields(record)["Fix range"] == f"`{a}..{b}`, 1 commit", out
+
+
+def test_the_row_starts_as_none_before_the_fixes_exist(repo):
+    """`new` writes the row, because `close` replaces a row rather than
+    inserting one — and a record is committed before its fixes exist, so the
+    range they were measured over does not exist either."""
+    declared(repo)
+    code, out, text = generate(repo, report_text=report(verdicts=OPEN_1))
+    assert code == 0, out
+    assert fields(text)["Fix range"] == "none — the fixes are not yet written", text

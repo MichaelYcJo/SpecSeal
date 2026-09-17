@@ -185,6 +185,11 @@ def record(
         f"| Broad gate | {target} against base |\n"
         f"| Ran by | {RUNNER} |\n"
         f"| Fixes checked by | {checked_by} |\n"
+        # A round that commissioned no fixes has no range, and `none` is
+        # what `chain_check.fix_range` reads as nothing to check against
+        # the tree. This fixture's work-item id is above `RANGE_FROM`, so
+        # the row is owed here the way `Broad gate` is.
+        "| Fix range | none |\n"
         f"| Contract changes | {contract} |\n"
         f"| New units | {units} |\n"
         "| Needs a fix | no |\n"
