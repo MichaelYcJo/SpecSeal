@@ -185,10 +185,10 @@ passed.
 | Round 1's finding | Mutation | Cases red |
 |---|---|---|
 | 🟡 1 | `not_as_written` widened to refuse any `&` outside `&&` | `test_an_ampersand_that_is_not_last_stays_allowed`, 3 of its 4 values |
-| 🟡 2 | the *takes every row below it* measurement deleted from the pipe cell | `test_the_allowed_list_says_a_pipe_cannot_reach_the_row_at_all` |
-| 🟡 2 | each of the pipe warning's three needles in the bootstrap, separately | `test_a_candidate_carrying_a_pipe_is_refused_where_candidates_are_derived`, three times |
+| 🟡 2 | the *takes every row below it* measurement deleted from the pipe cell | `test_the_allowed_list_says_a_pipe_cannot_reach_the_row_at_all` <!-- NAME NOT IN TREE: work item 1789598366 (#415) renamed it — `test_the_allowed_list_says_how_a_pipe_is_written`. --> |
+| 🟡 2 | each of the pipe warning's three needles in the bootstrap, separately | `test_a_candidate_carrying_a_pipe_is_refused_where_candidates_are_derived` <!-- NAME NOT IN TREE: work item 1789598366 (#415) renamed it — `test_a_candidate_carrying_a_pipe_is_escaped_where_candidates_are_derived`. -->, three times |
 | 🟡 3 | the `Makefile` candidate source moved out of the bounded slice | `test_the_question_proposes_candidates_read_off_the_repository` |
-| 🟡 4 | the module header reverted to *the command names the row to write* | `test_the_module_header_names_both_refusals_and_neither_names_a_command` |
+| 🟡 4 | the module header reverted to *the command names the row to write* | `test_the_module_header_names_both_refusals_and_neither_names_a_command` <!-- NAME NOT IN TREE: work item 1789598366 (#415) renamed it to `test_the_module_header_names_every_refusal_and_none_names_a_command` when a third refusal joined the header. The name is kept as round 2 read it. --> |
 | 🟡 5 | the `cmd.exe` clause dropped from the refusal message | `test_a_row_ending_in_a_single_ampersand_is_refused` |
 | 🟡 6 | the pipe row moved into the refused table | two allowed-list cases |
 | 🟡 6 | the backticks and `$(…)` reason cells swapped | `test_each_refused_form_is_named_with_what_a_shell_does_with_it` |

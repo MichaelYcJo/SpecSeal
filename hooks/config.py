@@ -47,8 +47,55 @@ MODES = (LOCAL, SHARED)
 # The `| Item | Value |` table, read exactly as `templates/parity.md` and the
 # pull-request-language row are read.
 CONFIG_HEADER = re.compile(r"^\|\s*Item\s*\|\s*Value\s*\|\s*$")
-CONFIG_ROW = re.compile(r"^\|\s*(?P<item>[^|]+?)\s*\|\s*(?P<value>[^|]*?)\s*\|\s*$")
+
+# A CELL is any run of characters that are neither a pipe nor a backslash, or
+# a backslash followed by anything. The second half is markdown's own escape,
+# and this file is markdown: `\|` is how a cell of a markdown table carries a
+# literal pipe, and `templates/config.md` already writes its own cells that
+# way. Without it a cell ended at the first `|`, so a `Broad gate` row holding
+# a pipe stopped being a row -- and `config_rows`'s stop rule then took every
+# row written below it, silently (#415).
+#
+# A bare pipe is still a cell boundary, deliberately. Making it part of the
+# value needs a greedy last cell, and a greedy last cell reads the rows of a
+# THREE-column table written under this one as rows of this one --
+# `templates/config.md` ships three-column tables.
+#
+# **This narrows in exactly one shape, and it is not a defect to repair.** A
+# backslash standing immediately against a cell-ending pipe used to be a
+# plain character followed by the delimiter; it is now one escaped pipe, so
+# `| Broad gate | C:\Users\x\tools\|` is no longer a row. It cannot be both:
+# the escape is what the rest of this comment is for. Nothing becomes
+# unwritable, because `config_rows` strips each cell -- a space before the
+# closing pipe returns the same value byte for byte. Found by round 1 of
+# #415, where `plan.md` asserted that a widened pattern can only make MORE
+# lines into rows; `spec.md` §*What this repair cannot see* now names it.
+CELL = r"(?:[^|\\]|\\.)"
+CONFIG_ROW = re.compile(
+    rf"^\|\s*(?P<item>{CELL}+?)\s*\|\s*(?P<value>{CELL}*?)\s*\|\s*$"
+)
 CONFIG_SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
+
+# The one escape this reader undoes, spelled as the two characters it is.
+ESCAPED_PIPE = "\\|"
+
+
+def unescaped(cell):
+    """CELL with markdown's escaped pipe reduced to one literal pipe.
+
+    **Exactly those two characters, and no other backslash is touched.** A
+    general unescape -- `re.sub(r"\\\\(.)", r"\\1", cell)` -- turns
+    `C:\\Python\\python.exe -m pytest` into `C:Pythonpython.exe -m pytest`,
+    and that row reads back with its path intact today, on a repository
+    already synced across operating systems. Widening this would break a
+    value nobody was asking us to change, to serve an escape markdown only
+    needs for the pipe.
+
+    The reduction happens HERE, before any caller sees the value, so a shell
+    -- `/bin/sh` or `cmd.exe` -- is handed a plain `|` and never meets the
+    backslash at all.
+    """
+    return cell.replace(ESCAPED_PIPE, "|")
 
 
 def config_path(home):
@@ -60,10 +107,23 @@ def config_rows(text):
 
     The header and the separator are this table's own furniture ABOVE its
     first row and somebody else's table BELOW it; any other line ends the
-    table. Both rules are the ones
-    `tests/test_the_pull_request_language_is_the_repositorys.py#items`
-    arrived at over two review rounds, and a second reader that read the
-    table differently would answer a different question about the same file.
+    table. Both rules were arrived at over two review rounds of #82, in the
+    copy of this loop that used to live in
+    `tests/test_the_pull_request_language_is_the_repositorys.py` and now
+    calls this one. Round 1 🟡 6: a row of a different SHAPE was skipped as
+    though it were not there, so a `| a | b | c |` between two two-cell rows
+    let the row after it be read as part of this table. Round 2 🟡 5: a
+    header and a separator were stepped past wherever they appeared, so a
+    stray separator or a second `| Item | Value |` header let the rows
+    behind it be read as more of this one. A second reader that read the
+    table differently would answer a different question about the same file,
+    which is what this module exists to prevent.
+
+    Each cell comes back with `\\|` reduced to one literal pipe and nothing
+    else changed; `unescaped` above says why it is those two characters
+    alone. The stop rule is unchanged, so a line a person wrote as a row
+    still ends the table when it will not parse -- `refused_row` below is
+    what names such a line, for a caller that has somebody to tell.
     """
     found, seen_header = [], False
     for line in text.splitlines():
@@ -80,8 +140,113 @@ def config_rows(text):
             if found:
                 break
             continue
-        found.append((match.group("item").strip(), match.group("value").strip()))
+        found.append(
+            (
+                unescaped(match.group("item").strip()),
+                unescaped(match.group("value").strip()),
+            )
+        )
     return found
+
+
+def refusal(text):
+    """Everything a caller with somebody to tell needs about the lines a
+    person wrote as rows of this table and this reader will not take as ones.
+
+      refused  every such line, in order, each as (line, reached): the line
+               as written with its own indentation, and whether the reader
+               got that far before it stopped
+      below    the rows written under the STOPPING line, which never arrived
+      stopper  the refused line that ENDED the table, or None where no line
+               ended it that way
+
+    **Every value here is a fact about the TABLE, and that is the contract.**
+    This used to hand back ONE line and a flat `ended` saying whether THAT
+    line stopped the reader, and both callers then built sentences about the
+    table out of it. The first refused line and the stopping line are the
+    same line only while there is one of them. With two, the reader stops at
+    the second while the answer describes the first, and #415's own defect
+    came back in the unit that closed it, in both directions at once: the
+    rows below were lost and the refusal said they were read, and a
+    `Broad gate` row sitting under the second line was reported ABSENT
+    (round 2 🟡 1). `refused` is a list for the same reason -- the line a
+    caller is asking about may be neither the first nor the stopping one.
+
+    **`stopper` is where the reader stopped and nothing else is.**
+    `config_rows` breaks on a line it cannot parse only once it has FOUND a
+    row; with nothing found yet it steps past that line and keeps reading,
+    so every row below still arrives. A refusal that says those rows were
+    lost sends a person to reformat rows that were read correctly -- a true
+    sentence about the wrong file, which is the shape #415 was opened about
+    (round 1 🟡 1). So `stopper` is None for a file whose refused lines all
+    sit above its first parsed row, and `reached` is what tells a caller
+    which side of the stopping place its own line is on.
+
+    **It reports and it refuses nothing.** Nothing here raises, and no caller
+    becomes able to deny by importing it: it answers a question two callers
+    that already talk to a person want to ask, which is *why did that row not
+    arrive*. `hooks/mode-gate.py` deliberately does not ask it -- a
+    `PreToolUse` hook that refuses wrongly stops a session with nobody able
+    to get past it, and everything in this module fails toward silence.
+
+    **The walk is `config_rows`'s, and the one difference is that it reads
+    ON past the stopping line**, because what lies under that line is
+    exactly what a caller has to be told about. Nothing acts on those
+    values, which is what lets the walk be that tolerant; a reader whose
+    answers were acted on could not be.
+
+    A line is a refusal only when it begins with a pipe once its indentation
+    is stripped, which is how a person spells a row -- an indented row is
+    still a row somebody wrote. A blank line or a paragraph of prose is the
+    table's end rather than a refusal, and ABOVE the first parsed row it is
+    neither: `config_rows` steps past it and reads on, so this walk does too,
+    and it used to give up there instead -- which reported a refused row
+    written under a line of prose as an absent row (#415 round 2, the
+    correction). A second header or a stray separator ends the table once a
+    row has been found, and the walk stops there rather than reaching into
+    whatever table comes next (#415 round 1, the correction).
+
+    Before this existed the two states were indistinguishable to a caller:
+    `broad_gate` reported a piped `Broad gate` row as ABSENT, which is a true
+    sentence about a cause that is not the real one (#415).
+    """
+    seen_header, found = False, False
+    refused, below, stopper = [], [], None
+    for line in text.splitlines():
+        if not seen_header:
+            if CONFIG_HEADER.match(line):
+                seen_header = True
+            continue
+        if CONFIG_HEADER.match(line) or CONFIG_SEPARATOR.match(line.strip()):
+            if found:
+                break
+            continue
+        match = CONFIG_ROW.match(line)
+        if match:
+            found = True
+            if stopper is not None:
+                below.append(
+                    (
+                        unescaped(match.group("item").strip()),
+                        unescaped(match.group("value").strip()),
+                    )
+                )
+            continue
+        if not line.lstrip().startswith("|"):
+            if found:
+                break
+            continue
+        refused.append((line, stopper is None))
+        if found and stopper is None:
+            stopper = line
+    return refused, below, stopper
+
+
+def refused_row(text):
+    """The first refused line alone -- `refusal` above is the whole answer,
+    and its docstring is where this one's reasoning lives."""
+    refused = refusal(text)[0]
+    return refused[0][0] if refused else None
 
 
 def declared_mode(home):
