@@ -637,6 +637,14 @@ def test_what_counts_as_a_fence_is_commonmarks_rule_as_far_as_it_goes(config):
     assert config.config_rows(
         "```\n~~~\n| Item | Value |\n|---|---|\n| Mode | local |\n```\n" + live
     ) == [("Mode", "shared")], "a tilde run does not close a backtick fence"
+    assert config.config_rows(
+        "````\n```\n| Item | Value |\n|---|---|\n| Mode | local |\n````\n" + live
+    ) == [("Mode", "shared")], (
+        "a run SHORTER than the opening one does not close the block — this "
+        "repository's own records wrap a fenced example in four backticks, "
+        "and a rule that knew three only would read the inner fence as the "
+        "outer one's close and leave the live table inside a fence"
+    )
     assert config.config_rows("```\n```markdown\n" + live) == [], (
         "a run carrying an info string does not close a block, so this file "
         "declares nothing"
