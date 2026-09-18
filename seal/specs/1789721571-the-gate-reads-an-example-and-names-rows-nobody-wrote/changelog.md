@@ -29,7 +29,17 @@
   - **`broad-gate` refuses four ways now rather than three.** Where this
     gate's row exists only inside a fence, the refusal quotes that line and
     says where it has to move to, instead of reporting the row absent and
-    sending a person to write a row they can see in front of them.
+    sending a person to write a row they can see in front of them. Where the
+    fence above it was never closed the row may already be where it belongs,
+    and the refusal says to close the fence instead — being told to move a row
+    that is already in the live table is an instruction that changes nothing.
+
+  - **`seal mode` refuses rather than writing a row no walk would read.** A
+    fence nobody closed runs to the end of the file, so an appended table
+    lands inside it: the write used to report success while the reader went on
+    answering *nothing is declared*, the mode question came back every
+    session, and the file grew by a table a run. The row is now written only
+    if it reads back, and a refused write leaves the file exactly as it was.
 
   - **Neither half of the stop rule moved**, and a table can now span a fenced
     block where the fence's own delimiter line used to end it. The filter
@@ -64,6 +74,14 @@
     table reader what it returned, which in that arm alone is exactly the rows
     below the quoted line: a row above it would have made the quoted line the
     stopping one.
+
+  - **Each says no ROW was written, which is what the reader can answer.**
+    The reader reports two things — the rows that parsed, and the lines
+    somebody wrote as rows that it will not take — and a second malformed line
+    below the first is in neither the first list nor nothing. Where one stands
+    there, the refusal says so and says that fixing the quoted line moves the
+    stopping place down rather than clearing the table, instead of promising
+    that one edit is the whole of what changes.
 
   - **No verdict moves.** Nothing new is refused and nothing previously
     refused is now run; only the sentence a refusal already printed changes.
