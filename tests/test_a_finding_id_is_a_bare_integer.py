@@ -42,6 +42,7 @@ import subprocess
 import time
 
 import pytest
+from conftest import on_disk
 from test_the_fixes_close_the_record import (
     MOD_CHANGED,
     OPEN_1,
@@ -635,6 +636,14 @@ def committed_records(root=ROOT):
     the right one here, because this corpus is a population measurement over
     a tree somebody is editing rather than a check on what CI will see.
 
+    **The pair is `(the records on disk, the listed records that are not)`**
+    (#432, #282). The listing comes from HEAD and the CONTENT comes from the
+    working tree through `id_cells`, so a record committed and then deleted
+    from disk was listed here and opened from nowhere -- the walk ending at
+    it and every record after it going uncounted. Both measurements below
+    are populations with a floor, so they take the first half and let the
+    floor speak for the shrink.
+
     `root` is a parameter so the listing has a case of its own
     (`test_an_uncommitted_record_is_not_in_the_committed_corpus`); every
     measurement below leaves it at `ROOT`.
@@ -657,12 +666,13 @@ def committed_records(root=ROOT):
         encoding="utf-8",
         check=True,
     ).stdout.split()
-    return [
+    listed = [
         p
         for p in out
         if RECORD_PATH_RE.fullmatch(p)
         and routing.round_number(os.path.basename(p)) is not None
     ]
+    return on_disk(root, listed)
 
 
 def test_an_uncommitted_record_is_not_in_the_committed_corpus(repo):
@@ -685,7 +695,7 @@ def test_an_uncommitted_record_is_not_in_the_committed_corpus(repo):
         capture_output=True,
     )
 
-    listed = committed_records(repo)
+    listed, _ = committed_records(repo)
     assert f"{ROUNDS}/round-1.md" in listed, listed
     assert f"{ROUNDS}/round-2.md" not in listed, (
         "a staged, uncommitted record is a member of the committed corpus"
@@ -706,7 +716,7 @@ def test_the_corpus_is_records_only():
     to fail when the filter is removed, and re-running the filter's own rule
     over its own output cannot.
     """
-    paths = committed_records()
+    paths, _ = committed_records()
     assert paths, "the corpus is empty; the filter takes everything"
     strays = [
         p
@@ -751,7 +761,7 @@ def test_the_committed_records_only_lose_a_miscount():
     takes away, and it takes away a wrong answer.
     """
     generator, reader = generator_module(), reader_module()
-    paths = committed_records()
+    paths, _ = committed_records()
     assert len(paths) > 100, f"the corpus is {len(paths)} records; the case is vacuous"
     parsed = teeth = 0
     for path in paths:

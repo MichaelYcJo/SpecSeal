@@ -20,11 +20,15 @@ nothing held. The three call sites pin their own `what`; the shape is pinned
 here, once, because one function produces all three sentences.
 """
 
+import ast
 import os
 import subprocess
+import warnings
 
 import pytest
 from conftest import build_tracked_tree, decline_if_shrunken, on_disk, shrunken_corpus
+
+ROOT = os.path.join(os.path.dirname(__file__), "..")
 
 
 def test_on_disk_splits_a_listing_by_what_the_tree_actually_has(tmp_path):
@@ -107,3 +111,336 @@ def test_the_builder_leaves_a_deleted_file_tracked(tmp_path):
     ).stdout.split()
     assert listed == ["a.md", "b.md"], listed
     assert not os.path.exists(os.path.join(root, "b.md"))
+
+
+# --- the class, re-enumerated over tests/ -----------------------------------
+#
+# The guard is per helper, so a sixth helper written without one is the defect
+# again. This is what stops that, and it is modelled on
+# `tests/test_a_corrected_sentence_survives_elsewhere.py#_derives_a_path_list`
+# — the machinery this repository already wrote for finding path-listing git
+# calls by scope. Two of its decisions are copied with it, and both were
+# bought by that module's own round 1:
+#
+#   - **the unit is the CALL SITE, not the function name.** A second
+#     unfiltered list inside a function that already filters one is this
+#     defect one LINE over, and a set of names cannot see it. A list built at
+#     import time is in no function at all, so module scope is a scope and is
+#     spelled.
+#   - **the words are kept wider than the two forms in use**, so a call
+#     written as a direct `subprocess.run(["git", …, "--name-only", …])` is
+#     found too.
+#
+# What it cannot see is stated rather than left to be found: a listing word
+# built from a variable, and a scope that hands its list to a helper in
+# ANOTHER module which then opens it. The vacuity assertion below is what
+# keeps it from passing on a read that found nothing.
+LISTS_PATHS = {"--name-only", "ls-files", "ls-tree"}
+MODULE_SCOPE = "<module>"
+SHARED_GUARD = "on_disk"
+
+# Every scope in `tests/*.py` that derives a path list from git, and how many
+# such calls it makes. A scope missing from all six tables below turns the
+# case red until somebody classifies it.
+#
+# 1. It applies the shared predicate. The reader checks the code rather than
+#    the row: the name has to be mentioned in the scope.
+APPLIES_THE_SHARED_GUARD = {
+    "tests/test_no_real_identifiers.py#tracked_text_files": 1,
+    "tests/test_no_document_names_the_old_roots.py#tracked": 1,
+    "tests/test_release_hygiene.py#tracked": 1,
+    "tests/test_a_release_is_sized_by_a_criterion.py#tracked": 1,
+    "tests/test_a_script_says_which_interpreter_it_needs.py#shipped_python": 1,
+    "tests/test_a_finding_id_is_a_bare_integer.py#committed_records": 1,
+    # The reader itself. It lists the modules it is about to parse, and a
+    # module listed and not on disk would end the enumeration at it --
+    # this case reporting no offender because it read almost nothing.
+    "tests/test_a_shrunken_corpus_declines_to_judge.py#suite_modules": 1,
+}
+
+# 2. It guards its own list by another predicate, which predates this work.
+#    Checked the same way — the predicate has to be in the scope.
+GUARDS_ITS_OWN_LIST = {
+    "tests/test_a_new_returnable_value_is_a_contract_change.py#tracked_python": "isfile",
+}
+
+# 3. Its list is only ever OPENED behind a scope that catches the error. The
+#    reader checks that the named scope still carries the handler. This is not
+#    an endorsement: that silence dropped a document from the corpus and
+#    produced a false report at its own round 5, and `spec.md` §*Out, and why*
+#    leaves repairing it to a different work item.
+OPENED_ONLY_BEHIND = {
+    "tests/test_the_pull_request_language_is_the_repositorys.py#shipped_templates": "unreachable_templates",
+    "tests/test_the_pull_request_language_is_the_repositorys.py#test_every_template_is_named_by_a_document_that_ships": "unreachable_templates",
+}
+
+# 4. Immune by construction: the name comes from git and so does the content,
+#    so there is no tree state in which one exists without the other.
+CONTENT_FROM_GIT = {
+    "tests/test_the_reopening_is_one.py#_real_records": (
+        "the listing is `ls-tree HEAD` and `stopping_floor` takes its content "
+        "from HEAD, which is the repair #142 made across all three readers"
+    ),
+    "tests/test_chain_check_at_the_pull_request.py#_real_records": (
+        "the twin of the row above, same repair, same commit"
+    ),
+    "tests/test_gate_judges_the_repo_it_commits_to.py#released_hooks": (
+        "reads the last release's hooks out of a tag, file by file, through "
+        "git — the working tree is never consulted"
+    ),
+}
+
+# 5. It opens nothing it listed.
+OPENS_NOTHING = {
+    "tests/test_the_release_check_watches_what_ships.py#tracked_top_level_entries": (
+        "takes the first path segment of each line and returns a set of "
+        "top-level names; no path in it is ever opened"
+    ),
+    "tests/test_a_shrunken_corpus_declines_to_judge.py#test_the_builder_leaves_a_deleted_file_tracked": (
+        "asserts what the listing says about a fixture repository, which is "
+        "the fixture shape itself rather than a corpus"
+    ),
+}
+
+# 6. It lists a repository the case built, so what is on disk there is what
+#    the case put there. A guard would be asserting the fixture against
+#    itself.
+LISTS_A_FIXTURE = {
+    "tests/test_optin_home.py#test_the_local_root_is_never_a_commit_candidate_and_needs_no_gitignore": 1,
+    "tests/test_routing_is_recorded.py#test_an_uncommitted_declaration_silences_the_commit_that_adds_it": 1,
+    "tests/test_the_mode_is_a_row_and_a_command.py#test_the_recovery_commands_work_where_they_are_printed": 1,
+    "tests/test_the_mode_is_a_row_and_a_command.py#test_an_ignored_workflow_path_is_not_reported_as_staged": 1,
+    "tests/test_the_root_migrates_itself.py#test_every_move_is_staged_and_history_follows_the_file": 1,
+    "tests/test_the_root_migrates_itself.py#test_the_readme_is_rewritten_from_the_new_template": 1,
+    "tests/test_the_root_migrates_itself.py#test_the_re_pointed_ledgers_are_staged_with_the_move": 1,
+    "tests/test_the_root_migrates_itself.py#test_an_ignored_file_directly_under_the_old_root_does_not_stop_the_move": 1,
+    "tests/test_the_root_migrates_itself.py#test_the_readmes_by_hand_sequence_yields_the_hooks_tracked_set": 1,
+    "tests/test_chain_check_at_the_pull_request.py#test_a_symbolic_link_cannot_stand_in_for_the_last_round": 1,
+    "tests/test_chain_check_at_the_pull_request.py#test_a_clean_copy_in_the_working_tree_cannot_hide_a_committed_failure": 1,
+}
+
+# One call per scope everywhere today. Spelled as a map rather than as "one
+# each" so a SECOND call inside a classified scope goes red — the call-site
+# unit, which is the decision copied from the model.
+PATH_LIST_CALLS = {
+    **APPLIES_THE_SHARED_GUARD,
+    **dict.fromkeys(GUARDS_ITS_OWN_LIST, 1),
+    **dict.fromkeys(OPENED_ONLY_BEHIND, 1),
+    **dict.fromkeys(CONTENT_FROM_GIT, 1),
+    **dict.fromkeys(OPENS_NOTHING, 1),
+    **LISTS_A_FIXTURE,
+}
+
+
+def _path_list_words(call):
+    """The path-listing words `call` names ITSELF, nested calls excluded.
+
+    Excluded because a nested call is its own site; reading the constants of
+    the whole subtree would see the outer call once and collapse two lists
+    into one.
+    """
+    words, stack = set(), list(ast.iter_child_nodes(call))
+    while stack:
+        node = stack.pop()
+        if isinstance(node, ast.Call):
+            continue
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, str):
+                words.add(node.value)
+            continue
+        stack.extend(ast.iter_child_nodes(node))
+    return words & LISTS_PATHS
+
+
+def _derives_a_path_list(tree):
+    """`{scope: how many path-listing calls it makes}` for one module."""
+    found = {}
+
+    def visit(node, scope):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                visit(child, child.name)
+                continue
+            if isinstance(child, ast.Call) and _path_list_words(child):
+                found[scope] = found.get(scope, 0) + 1
+            visit(child, scope)
+
+    visit(tree, MODULE_SCOPE)
+    return found
+
+
+def derivers(paths, root=ROOT):
+    """`{"<rel>#<scope>": calls}` over the modules at `paths`.
+
+    `ast.parse` raises a `SyntaxWarning` for a string literal carrying an
+    escape python does not know, and `tests/test_a_row_points_by_content.py`
+    has one at line 763. It predates this case --
+    `test_a_new_returnable_value_is_a_contract_change.py` already emits it by
+    parsing the same file -- and it is a fact about a docstring rather than
+    about the class, so this reader does not become a second source of it.
+    Caught at the one call that provokes it rather than filtered globally,
+    which would hide the next one.
+    """
+    found = {}
+    for rel in paths:
+        with open(os.path.join(root, rel), encoding="utf-8") as f:
+            source = f.read()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", SyntaxWarning)
+            tree = ast.parse(source)
+        for scope, calls in _derives_a_path_list(tree).items():
+            found[f"{rel}#{scope}"] = calls
+    return found
+
+
+def suite_modules():
+    """Every `tests/*.py` this repository tracks, as repository-relative paths."""
+    out = subprocess.run(
+        ["git", "ls-files", "tests/*.py"],
+        cwd=ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+    ).stdout.split()
+    present, _ = on_disk(ROOT, out)
+    return present
+
+
+def _function(tree, name):
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == name
+        ):
+            return node
+    return None
+
+
+def _mentions(tree, scope, name):
+    """True when `scope` names `name` anywhere in its body."""
+    node = tree if scope == MODULE_SCOPE else _function(tree, scope)
+    assert node is not None, f"{scope} is no longer a scope in this module"
+    return any(
+        (isinstance(inner, ast.Name) and inner.id == name)
+        or (isinstance(inner, ast.Attribute) and inner.attr == name)
+        for inner in ast.walk(node)
+    )
+
+
+def _catches_oserror(tree, scope):
+    node = _function(tree, scope)
+    assert node is not None, f"{scope} is no longer a function in this module"
+    for inner in ast.walk(node):
+        if isinstance(inner, ast.ExceptHandler) and inner.type is not None:
+            if "OSError" in ast.dump(inner.type):
+                return True
+    return False
+
+
+def _tree_of(rel):
+    with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+        return ast.parse(f.read())
+
+
+def test_no_scope_in_the_suite_lists_paths_from_git_without_a_guard():
+    """The class, re-enumerated by the suite rather than by whoever remembers.
+
+    `skills/agent-contract/SKILL.md` §12: the finding named one coordinate and
+    what was owed was every instance the same cause produces. Five helpers
+    carried it, a sixth was found by this case while it was being written, and
+    a seventh is what this exists to stop.
+    """
+    found = derivers(suite_modules())
+    assert set(found) == set(PATH_LIST_CALLS), (
+        "the suite derives a path list from git in "
+        f"{sorted(set(found) - set(PATH_LIST_CALLS))} that this case does not "
+        f"account for, and accounts for {sorted(set(PATH_LIST_CALLS) - set(found))} "
+        "that no longer derives one. Classify the difference: it either "
+        f"applies `{SHARED_GUARD}`, or it belongs in one of the five tables "
+        "above with the grounds a reader can weigh"
+    )
+    assert found == PATH_LIST_CALLS, (
+        f"the suite derives path lists at {found} and this case accounts for "
+        f"{PATH_LIST_CALLS}. The unit is the CALL SITE: a second list inside a "
+        "scope that already holds one is classified nowhere, and the grounds "
+        "recorded above are about the call this case counted"
+    )
+    for key in APPLIES_THE_SHARED_GUARD:
+        rel, scope = key.split("#", 1)
+        assert _mentions(_tree_of(rel), scope, SHARED_GUARD), (
+            f"{key} derives a path list and no longer applies `{SHARED_GUARD}`, "
+            "so a tracked file the working tree deleted ends its walk again "
+            "and every path after it goes unread"
+        )
+    for key, predicate in GUARDS_ITS_OWN_LIST.items():
+        rel, scope = key.split("#", 1)
+        assert _mentions(_tree_of(rel), scope, predicate), (
+            f"{key} is declared as guarding its own list with `{predicate}` "
+            f"and no longer names it. Either bring it to `{SHARED_GUARD}` or "
+            "move it into a table whose grounds are true of it"
+        )
+    for key, consumer in OPENED_ONLY_BEHIND.items():
+        rel, _scope = key.split("#", 1)
+        assert _catches_oserror(_tree_of(rel), consumer), (
+            f"{key}'s list is declared safe because `{consumer}` catches the "
+            "error when it opens one. That handler is gone, so the list is "
+            "opened unguarded now"
+        )
+
+
+def test_the_reader_finds_the_helpers_this_work_guarded():
+    """The vacuity assertion. A reader that has stopped matching answers *no
+    offender* and nobody hears — which is the failure mode this whole case is
+    written against, so it is the one that has to be pinned separately."""
+    found = derivers(suite_modules())
+    for key in APPLIES_THE_SHARED_GUARD:
+        assert key in found, (
+            f"{key} is no longer read as deriving a path list from git, so "
+            "this case is measuring something other than the class"
+        )
+    assert derivers([]) == {}, "the reader answers the same on an empty corpus"
+
+
+def test_a_planted_unguarded_scope_is_named(tmp_path):
+    """The reader run against the sixth helper nobody has written yet."""
+    module = tmp_path / "test_tmp_planted.py"
+    module.write_text(
+        "import subprocess\n"
+        "def sweep():\n"
+        "    out = subprocess.run(['git', 'ls-files'], capture_output=True)\n"
+        "    return out.stdout.split()\n",
+        encoding="utf-8",
+    )
+    found = derivers(["test_tmp_planted.py"], root=tmp_path)
+    assert found == {"test_tmp_planted.py#sweep": 1}, found
+    assert set(found) - set(PATH_LIST_CALLS), "a planted scope was not new"
+
+
+def test_a_second_list_in_one_scope_is_counted_twice(tmp_path):
+    """The call-site unit. A scope that already filters one list and then
+    builds a second is this defect one LINE over, and a set of scope names
+    cannot see it."""
+    module = tmp_path / "test_tmp_two.py"
+    module.write_text(
+        "import subprocess\n"
+        "def sweep():\n"
+        "    a = subprocess.run(['git', 'ls-files'])\n"
+        "    b = subprocess.run(['git', 'ls-tree', '-r', '--name-only', 'HEAD'])\n"
+        "    return a, b\n",
+        encoding="utf-8",
+    )
+    assert derivers(["test_tmp_two.py"], root=tmp_path) == {"test_tmp_two.py#sweep": 2}
+
+
+def test_a_list_built_at_import_time_is_a_scope(tmp_path):
+    """Module scope is a scope. A corpus built at import is in no function at
+    all, and a reader keyed on functions never sees it."""
+    module = tmp_path / "test_tmp_module.py"
+    module.write_text(
+        "import subprocess\n"
+        "FILES = subprocess.run(['git', 'ls-files']).stdout.split()\n",
+        encoding="utf-8",
+    )
+    assert derivers(["test_tmp_module.py"], root=tmp_path) == {
+        f"test_tmp_module.py#{MODULE_SCOPE}": 1
+    }
