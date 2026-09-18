@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 440 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `e7d4ff8c9aac48b2737c29858f409a265494aa5f..1956474afdd3ebddad695a56693584029b8d4539`, 4 commits |
 | Contract changes | version → ledger.md, phase-1.md, plan.md, round-1-report.md, round-1.md, questions.md, pytest |
 | New units | git_listing (depth 1); DECLINES_CLASS (depth 1); classified_scopes (depth 1); test_a_test_module_the_tree_deleted_is_not_a_scope_somebody_removed (depth 1); test_a_real_loss_of_coverage_survives_a_neighbour_being_mid_edit (depth 1); test_the_running_version_comes_from_the_root_being_swept (depth 1) |
