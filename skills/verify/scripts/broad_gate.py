@@ -263,6 +263,32 @@ def refusal(home):
     return config.refusal(text)
 
 
+def rows_read(home):
+    """Every row the table reader actually returned for the root's config.
+
+    **One arm of `missing_row` cannot use `below`, and this is what it uses
+    instead.** `hooks/config.py#refusal` fills `below` with the rows written
+    under the STOPPING line; the arm for a quoted line that nothing stopped
+    the reader at has no stopping line, so `below` is empty there whatever
+    the file holds — measured 2026-09-18 over a file where the quoted line is
+    the only row and over the same file with a row under it, `[]` both times.
+
+    In that arm alone, every row this returns is written BELOW the quoted
+    line, which is what makes it the right question there and the wrong one
+    anywhere else: a row that had parsed ABOVE the quoted line would have
+    made that line the stopping one, which is a different arm.
+
+    It calls the one reader rather than walking the file again. A second walk
+    written here would answer a different question about the same file, which
+    is the split `hooks/config.py` exists to prevent.
+    """
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    text = config_text(home)
+    if text is None:
+        return []
+    return config.config_rows(text)
+
+
 def names_this_row(line):
     """Whether a refused line's first cell is this gate's row."""
     first = FIRST_CELL.match(line.strip())
@@ -339,6 +365,19 @@ def missing_row(home):
     the two were false about the two-line file — the rows below were lost
     while the refusal said they were read (#415 round 2 🟡 1).
 
+    **Three of those four then ask what was actually written below, because
+    a sentence about rows below a line is false where no row is below it**
+    (#430). A `Broad gate` line written LAST in its table — the shape this
+    repository's own `seal/config.md` has, and the shape the table
+    `templates/config.md` ships has — lost nothing with it, and being told
+    that every row below it is gone sends that person looking for rows they
+    never wrote. So each of those three sentences has a subject in every
+    state, and the fourth needs none: its clause *this one included* names
+    the quoted line itself. The signal differs by arm and the difference is
+    not cosmetic — the two arms with a stopping line read `below`, and the
+    arm without one reads `rows_read`, whose docstring says why `below` is
+    empty there either way.
+
     Where there is no such line, the message is the absent-row refusal
     unchanged. It used to say *write the repository's own broad command into
     it* and print the row to type. The only reader standing here is a
@@ -355,24 +394,49 @@ def missing_row(home):
     )
     if mine is not None:
         if stopper is None:
-            cost = (
-                ". The rows below it were read: nothing had parsed above "
-                "this line, so the table had not begun and the stop rule "
-                "needs a row before it can stop"
-            )
+            if rows_read(home):
+                cost = (
+                    ". The rows below it were read: nothing had parsed above "
+                    "this line, so the table had not begun and the stop rule "
+                    "needs a row before it can stop"
+                )
+            else:
+                cost = (
+                    ". Nothing else was lost with it, because nothing was "
+                    "written below it: nothing had parsed above this line "
+                    "either, so the table had not begun and the stop rule "
+                    "needs a row before it can stop"
+                )
         elif mine is stopper:
-            cost = (
-                " — and every row written BELOW that line is lost with it, "
-                "each falling back to its default with nothing said anywhere"
-            )
+            if below:
+                cost = (
+                    " — and every row written BELOW that line is lost with "
+                    "it, each falling back to its default with nothing said "
+                    "anywhere"
+                )
+            else:
+                cost = (
+                    " — and nothing was written below it, so nothing else "
+                    "was lost with it: this one line is the whole of what "
+                    "changes"
+                )
         elif reached:
+            if below:
+                under = (
+                    "so every row under that line is lost, each falling back "
+                    "to its default with nothing said anywhere"
+                )
+            else:
+                under = (
+                    "and nothing was written under that line, so nothing else "
+                    "was lost with it: that one line is the whole of what "
+                    "changes"
+                )
             cost = (
                 ". The rows directly below it were read — nothing had parsed "
                 "above this line, and the stop rule needs a row before it can "
                 "stop. The reader stopped LOWER DOWN, at\n"
-                f"    {stopper.strip()}\n"
-                "so every row under that line is lost, each falling back to "
-                "its default with nothing said anywhere"
+                f"    {stopper.strip()}\n" + under
             )
         else:
             cost = (
@@ -397,14 +461,28 @@ def missing_row(home):
             "is the door to it. Nothing ran."
         )
     if stopper is not None and hides_this_row(below):
+        # The same condition as the three arms above, asked of the one row
+        # this branch already knows about: `hides_this_row` is true only
+        # when `below` holds this gate's row, so a one-element `below` is
+        # this row and nothing else, and *every OTHER row* then names rows
+        # nobody wrote (#430, site 4).
+        if len(below) > 1:
+            others = (
+                "Every other row under that line is gone the same way, each "
+                "falling back to its default."
+            )
+        else:
+            others = (
+                "Nothing else was written under that line, so nothing else "
+                "was lost with it."
+            )
         return (
             f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` row and "
             "the reader never reached it. This line above it does not parse "
             "as a row of that table, and the reader stops reading there:\n"
             f"    {stopper.strip()}\n"
             f"So the `{ROW}` row written BELOW it is invisible, and there is "
-            "no command to seal over. Every other row under that line is "
-            "gone the same way, each falling back to its default.\n"
+            f"no command to seal over. {others}\n"
             "A cell of that table ends at a `|`. A value that needs one is "
             "written with markdown's own escape, `\\|`, which the reader "
             "reduces to a plain pipe before any shell sees it. "
