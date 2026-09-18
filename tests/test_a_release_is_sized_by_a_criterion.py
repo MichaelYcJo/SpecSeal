@@ -37,7 +37,8 @@ state a second answer.
 
 import os
 import re
-import subprocess
+
+from conftest import build_tracked_tree, git_listing, on_disk
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -100,8 +101,8 @@ STATES_A_SIZE = re.compile(
 SELF = os.path.basename(__file__)
 
 
-def read(rel):
-    with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+def read(rel, root=ROOT):
+    with open(os.path.join(root, rel), encoding="utf-8") as f:
         return f.read()
 
 
@@ -135,17 +136,31 @@ def hits(lines):
     return found
 
 
-def tracked():
-    out = subprocess.run(
-        ["git", "ls-files", *SCANNED],
-        cwd=ROOT,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-    ).stdout.split()
-    return [
+def tracked(root=ROOT):
+    """`(the scanned files on disk, the scanned paths that are not)`.
+
+    `root` is an argument so a case can build a repository with a
+    tracked-and-deleted file and watch the guard work; `conftest.on_disk`
+    carries why the second half is returned rather than dropped.
+    """
+    out = git_listing(root, "ls-files", *SCANNED)
+    listed = [
         rel for rel in out if rel.endswith(SUFFIXES) and os.path.basename(rel) != SELF
     ]
+    return on_disk(root, listed)
+
+
+def restatements(root=ROOT):
+    """`rel:line: text` for every second statement of a release's size."""
+    offenders = []
+    files, _ = tracked(root)
+    for rel in files:
+        if rel == OWNER:
+            continue
+        lines = read(rel, root).splitlines()
+        for number in hits(lines):
+            offenders.append(f"{rel}:{number}: {lines[number - 1].strip()}")
+    return offenders
 
 
 def test_the_rule_states_the_criterion_and_not_the_count():
@@ -232,13 +247,7 @@ def test_one_document_states_a_releases_size():
     of a release's size is the failure #331 names: a judgement nobody records
     is made again from scratch by the next reader — and two recorded answers
     are worse than none."""
-    offenders = []
-    for rel in tracked():
-        if rel == OWNER:
-            continue
-        lines = read(rel).splitlines()
-        for number in hits(lines):
-            offenders.append(f"{rel}:{number}: {lines[number - 1].strip()}")
+    offenders = restatements()
     assert not offenders, (
         f"{OWNER} owns what a release's size is decided by. These state it "
         "too, so a reader can leave with either answer:\n  " + "\n  ".join(offenders)
@@ -275,3 +284,27 @@ def test_the_sweep_can_fail():
 # question about a finding whose Location spans two depths. Until it lands, a
 # later edit trimming any of the three widenings as unused is caught by nothing
 # here.
+
+
+def test_the_sweep_survives_a_tracked_file_the_tree_deleted(tmp_path):
+    """#432's class in this module's own corpus.
+
+    The sweep walks `git ls-files` and opens every path, so a tracked file the
+    working tree has deleted ends it before any document is read — and a sweep
+    that reports nothing is what this module's own docstring calls no check at
+    all.
+    """
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {
+            "docs/live.md": f"and {REPLACED}, which this sweep must name\n",
+            "docs/folded.md": "the fragment the fold removes\n",
+        },
+        deleted=["docs/folded.md"],
+    )
+    files, missing = tracked(root)
+    assert missing == ["docs/folded.md"], missing
+    assert files == ["docs/live.md"], files
+    assert restatements(root) == [
+        f"docs/live.md:1: and {REPLACED}, which this sweep must name"
+    ]

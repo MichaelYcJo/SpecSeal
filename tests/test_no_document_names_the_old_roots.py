@@ -27,9 +27,9 @@ the move happens and how to make it by hand — its lines are the third kind.
 
 import os
 import re
-import subprocess
 
 import pytest
+from conftest import build_tracked_tree, decline_if_shrunken, git_listing, on_disk
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -72,15 +72,16 @@ KEEP = {
 }
 
 
-def tracked():
-    out = subprocess.run(
-        ["git", "ls-files", *SCANNED],
-        cwd=ROOT,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-    ).stdout.split()
-    return [rel for rel in out if rel.endswith(SUFFIXES) and rel not in DESIGN_RECORD]
+def tracked(root=ROOT):
+    """`(the scanned files on disk, the scanned paths that are not)`.
+
+    `root` is an argument so a case can build a repository with a
+    tracked-and-deleted file and watch the guard work; `conftest.on_disk`
+    carries why the second half is returned rather than dropped.
+    """
+    out = git_listing(root, "ls-files", *SCANNED)
+    listed = [rel for rel in out if rel.endswith(SUFFIXES) and rel not in DESIGN_RECORD]
+    return on_disk(root, listed)
 
 
 def offenders(rel, text):
@@ -92,11 +93,18 @@ def offenders(rel, text):
     return found
 
 
-def test_no_shipped_document_names_the_old_roots():
+def offenders_under(root=ROOT):
+    """Every live mention of an old root in the files `root` still has."""
     found = []
-    for rel in tracked():
-        with open(os.path.join(ROOT, rel), encoding="utf-8", errors="replace") as f:
+    files, _ = tracked(root)
+    for rel in files:
+        with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as f:
             found += offenders(rel, f.read())
+    return found
+
+
+def test_no_shipped_document_names_the_old_roots():
+    found = offenders_under()
     assert not found, "\n".join(
         [
             "the old roots are named as live paths — rewrite to seal/, or add the",
@@ -106,11 +114,66 @@ def test_no_shipped_document_names_the_old_roots():
     )
 
 
+# The two paths the scan names to prove it reaches both ends of its own
+# prefix list, and what a case declining over them says it is not judging.
+COVERED = ("skills/implement/SKILL.md", ".github/workflows/hygiene.yml")
+DECLINES_COVERAGE = "the named-coverage half of test_the_scan_covers_something"
+DECLINES_KEEP = "the KEEP allowlist's liveness check"
+
+
+def uncovered(files, missing):
+    """The named paths the scan no longer covers, or `pytest.skip` when a
+    skipped file is one of them.
+
+    Q3's third case, found by reading the five modules rather than by either
+    ticket. `skills/implement/SKILL.md` leaving the corpus through a `git mv`
+    that has not been staged is exactly the state this work is about, and
+    without this the case reports the scan as no longer covering a file that
+    is merely somewhere else — a verdict about coverage taken from evidence
+    about the working tree.
+
+    **Conditional on every absent path being explained.** A named path absent
+    for another reason is a real loss of coverage, and declining over a
+    neighbour that is merely mid-edit would report it nowhere — the decline
+    carrying a finding away with it, which is a worse failure than the one it
+    was written against.
+    """
+    absent = [rel for rel in COVERED if rel not in files]
+    unexplained = [rel for rel in absent if rel not in missing]
+    if absent and not unexplained:
+        decline_if_shrunken(sorted(set(absent) & set(missing)), DECLINES_COVERAGE)
+    return unexplained
+
+
+def keep_entries_not_in_use(root=ROOT):
+    """The `KEEP` entries no scanned file carries, or `pytest.skip` when a
+    skipped file could be the one carrying an entry.
+
+    The decline is conditional on there being a finding at all, which is what
+    keeps a mid-edit tree from turning this check off: a skip can only ever
+    make an entry LOOK unused, never used, so a run that finds every entry
+    still in place has reached the right verdict whatever it skipped.
+    """
+    corpus = ""
+    files, missing = tracked(root)
+    for rel in files:
+        with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as f:
+            corpus += f.read()
+    unused = [k for k in KEEP if k not in corpus]
+    if unused:
+        decline_if_shrunken(missing, DECLINES_KEEP)
+    return unused
+
+
 def test_the_scan_covers_something():
-    files = tracked()
+    files, missing = tracked()
+    # The floor survives a skip on purpose: a corpus that still clears it has
+    # proved the scan is not reading nothing, whatever else the tree is
+    # missing — and that is the half which stops a sweep passing on an empty
+    # read, so it is the wrong half to turn off on a shrunken corpus.
     assert len(files) > 30, files
-    assert "skills/implement/SKILL.md" in files
-    assert ".github/workflows/hygiene.yml" in files
+    absent = uncovered(files, missing)
+    assert not absent, f"the scan no longer covers {absent}"
 
 
 @pytest.mark.parametrize(
@@ -142,9 +205,92 @@ def test_the_new_root_and_the_kept_forms_pass(line):
 def test_every_keep_entry_is_still_in_use():
     """An allowlist line nothing matches is a reason with no line under it —
     delete it rather than let the list say the old name is still somewhere."""
-    corpus = ""
-    for rel in tracked():
-        with open(os.path.join(ROOT, rel), encoding="utf-8", errors="replace") as f:
-            corpus += f.read()
-    unused = [k for k in KEEP if k not in corpus]
+    unused = keep_entries_not_in_use()
     assert not unused, f"KEEP entries no scanned file carries any more: {unused}"
+
+
+def test_the_scan_survives_a_tracked_file_the_tree_deleted(tmp_path):
+    """The same defect as #432, one module over: this sweep walks its own
+    `git ls-files` and opens every path, so a fold that leaves a tracked path
+    with nothing behind it ends the walk before any document is judged."""
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {
+            "docs/live.md": "rows go in `.specseal/map/<work-item-id>.md`\n",
+            "docs/folded.md": "the fragment the fold removes\n",
+        },
+        deleted=["docs/folded.md"],
+    )
+    files, missing = tracked(root)
+    assert missing == ["docs/folded.md"], missing
+    assert files == ["docs/live.md"], files
+    assert offenders_under(root) == [
+        ("docs/live.md", 1, "rows go in `.specseal/map/<work-item-id>.md`")
+    ]
+
+
+def test_a_skipped_file_does_not_read_as_a_dead_keep_entry(tmp_path):
+    """The inverse direction, which neither ticket names.
+
+    To this case a file the working tree deleted and an allowlist entry
+    nobody carries any more are the same evidence, so a bare skip buys it a
+    false alarm on an ordinary mid-edit tree. It declines and names the path
+    instead.
+    """
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {
+            "docs/carrier.md": "\n".join(KEEP) + "\n",
+            "docs/other.md": "nothing kept here\n",
+        },
+        deleted=["docs/carrier.md"],
+    )
+    with pytest.raises(pytest.skip.Exception) as declined:
+        keep_entries_not_in_use(root)
+    reason = str(declined.value)
+    assert "docs/carrier.md" in reason, reason
+    assert DECLINES_KEEP in reason, reason
+    assert "not judging" in reason, reason
+
+
+def test_a_present_carrier_still_proves_the_entries_alive(tmp_path):
+    """The decline is conditional on a finding, so a tree that is merely
+    mid-edit does not turn the check off."""
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {
+            "docs/carrier.md": "\n".join(KEEP) + "\n",
+            "docs/folded.md": "the fragment the fold removes\n",
+        },
+        deleted=["docs/folded.md"],
+    )
+    assert keep_entries_not_in_use(root) == []
+
+
+def test_a_skipped_file_does_not_read_as_lost_coverage():
+    """Q3's third case. A named path that is missing from disk is not a path
+    the scan has stopped covering."""
+    with pytest.raises(pytest.skip.Exception) as declined:
+        uncovered(files=[], missing=list(COVERED))
+    reason = str(declined.value)
+    assert all(rel in reason for rel in COVERED), reason
+    assert DECLINES_COVERAGE in reason, reason
+    # A named path absent for any other reason is a finding, not a skip.
+    assert uncovered(files=[], missing=[]) == list(COVERED)
+
+
+def test_a_real_loss_of_coverage_survives_a_neighbour_being_mid_edit():
+    """The decline must not carry a finding away with it.
+
+    One named path merely off disk and the other genuinely gone from the
+    corpus: the first is explained by the working tree and the second is not,
+    so the case has to report the second rather than decline over the first.
+    """
+    try:
+        found = uncovered(files=[], missing=[COVERED[0]])
+    except pytest.skip.Exception as declined:
+        raise AssertionError(
+            "a named path that genuinely left the corpus was carried away by a "
+            f"decline over its neighbour: {declined}"
+        ) from None
+    assert found == [COVERED[1]], found
