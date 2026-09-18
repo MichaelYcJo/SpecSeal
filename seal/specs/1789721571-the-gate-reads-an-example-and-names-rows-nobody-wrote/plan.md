@@ -98,7 +98,7 @@ the rounds settle — not by the build.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | #430 — sites 1, 2, 3 of `missing_row` and site 4, the hidden-row refusal, each conditional on `below`; the docstring paragraph that enumerates the arms gains the condition; `skills/config/SKILL.md`'s sentence about what a bare pipe costs gains the last-row case; one case per site, each seen red against its own unfixed arm, plus A9 keeping the old sentence alive | `bin/test tests/test_the_seal_is_taken_once_by_the_sealer.py -q`, and each new case run against the unfixed arm and shown red first | |
+| 1 | #430 — sites 1, 2, 3 of `missing_row` and site 4, the hidden-row refusal, each conditional on `below`; the docstring paragraph that enumerates the arms gains the condition; `skills/config/SKILL.md`'s sentence about what a bare pipe costs gains the last-row case; one case per site, each seen red against its own unfixed arm, plus A9 keeping the old sentence alive | `bin/test tests/test_the_seal_is_taken_once_by_the_sealer.py -q`, and each new case run against the unfixed arm and shown red first | 59c750a |
 | 2 | #429 — the fence rule in `hooks/config.py`, consumed by `config_rows`, `refusal` and `seal.py#table_span`; `broad-gate` naming a fenced `\| Broad gate \|` line where no live row was read; `templates/config.md` §*What is refused, and what stays allowed* stating the rule; cases for A1–A7 and A11 | `bin/test tests/test_the_mode_question_is_asked_once.py tests/test_the_seal_is_taken_once_by_the_sealer.py tests/test_the_pull_request_language_is_the_repositorys.py -q`, plus phase 1's cases re-run unchanged | |
 
 **Status is empty, or the commit that closed the phase.** A tick is refused,
