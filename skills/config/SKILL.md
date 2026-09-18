@@ -67,6 +67,16 @@ second answer.
   person reads, and a repository that reached this file through `seal mode`
   has none of it.
 
+  **The copied block lands BELOW the live table, and its fenced example row
+  is not a row.** That block carries a fenced `| Broad gate | … |` line as an
+  illustration of the format, and a table inside a code fence is read by no
+  walk of that table — not the gates' reader, not the mode gate's, and not
+  `seal mode`'s writer. Pasted above the live table, or above a table that has
+  no parseable row yet, that example used to be the table every gate read, and
+  the sealer sealed over its command (#429). Put the prose under the table the
+  repository actually answers in, and where the `Broad gate` row exists only
+  inside a fence, `broad-gate` quotes that line and says to move it.
+
   **The two lists and the criterion are pointed at, never copied down.** They
   are the plugin's, they change when the plugin changes, and a frozen copy in
   somebody's `seal/config.md` is a copy that says something false about the

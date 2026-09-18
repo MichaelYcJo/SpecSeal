@@ -343,14 +343,20 @@ def test_the_module_header_names_every_refusal_and_none_names_a_command():
     refusal, that branch's headline change, at all.
 
     #415 adds the third: a `Broad gate` line that is there and will not parse
-    as a row. A header that keeps saying *two ways* teaches the next reader
-    that a refusal they will actually meet does not exist.
+    as a row. #429 adds the fourth: one written inside a code fence, which no
+    walk of that table reads. A header that keeps saying *three ways* teaches
+    the next reader that a refusal they will actually meet does not exist.
+
+    **The count moved and the subject did not.** This case is about the
+    header naming EVERY refusal and naming no command to write, which is why
+    a new refusal rewrites the number here rather than reopening the case.
     """
     header = module_header()
-    assert "refused three ways" in header, (
-        "the header still describes two refusals where the gate has three"
+    assert "refused four ways" in header, (
+        "the header still describes three refusals where the gate has four"
     )
     assert "will not parse as a row of that table" in header
+    assert "written inside a code fence" in header
     assert "wrapped in backticks or in `$(…)`, or ending in a single `&`" in header
     assert "names the row to write" not in header, (
         "the header asserts the behaviour phase 5 removed"

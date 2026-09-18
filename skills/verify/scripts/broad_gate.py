@@ -12,15 +12,17 @@ What it does, in order, from the repository root:
 
   1. the repository's own broad command — the `Broad gate` row of
      `seal/config.md`, one shell command line the repository wrote for
-     itself. **A row is refused three ways, and all three are exit 2 with
+     itself. **A row is refused four ways, and all four are exit 2 with
      nothing run**: no row at all, because a seal taken over a command nobody
      chose is the counterfeit `verify` names; a `Broad gate` line that is
      there and will not parse as a row of that table, which the refusal
-     quotes back rather than reporting as absent (#415); or a row this gate
-     would not run as the command it reads as — the whole command wrapped in
-     backticks or in `$(…)`, or ending in a single `&`. No refusal names a
-     command to write: the row is a person's, and the message says where
-     they answer it
+     quotes back rather than reporting as absent (#415); a `Broad gate` line
+     written inside a code fence, which no walk of that table reads because
+     a fenced table is an example of the format rather than a repository's
+     own answer (#429); or a row this gate would not run as the command it
+     reads as — the whole command wrapped in backticks or in `$(…)`, or
+     ending in a single `&`. No refusal names a command to write: the row is
+     a person's, and the message says where they answer it
   2. `evidence-check --strict .`       the ledger's rows still anchor
   3. `unverified-check --baseline <base> seal/specs/`
   4. `chain_check.py --baseline <base>`   judged as a DRAFT pull request,
@@ -334,9 +336,51 @@ def refused_broad_row(home):
     return next((line for line, _reached in refused if names_this_row(line)), None)
 
 
+def fenced_row(home):
+    """This gate's row written INSIDE a code fence — as written, with its own
+    indentation — or None.
+
+    **The one question about a fenced line anybody asks, and this gate is the
+    only one that may ask it.** `hooks/config.py#unfenced` makes a fenced line
+    invisible to all three walks of that table, which is what stops an example
+    from being the command this gate seals over (#429). It also makes a
+    `Broad gate` line written only inside a fence look exactly like no row at
+    all — and then the absent-row refusal below is a true sentence about a
+    cause that is not the real one, which is the failure #415 was opened
+    about, arriving one shape over. So the line is found again here, on the
+    refusal path alone.
+
+    Asked by THIS command and by nothing else. `hooks/config.py` and
+    `hooks/mode-gate.py` say nothing about a fence: a `PreToolUse` hook that
+    prints is noise on every Bash call, where this command speaks once and
+    only when it refuses.
+
+    It reads the fence rule from the one reader and takes the complement of
+    what that reader shows — every line the walks were not shown — rather than
+    walking the file by a rule of its own. A second fence rule written here
+    would answer a different question about the same file, which is the split
+    `hooks/config.py` exists to prevent.
+    """
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    text = config_text(home)
+    if text is None:
+        return None
+    lines = text.splitlines()
+    shown = {index for index, _line in config.unfenced(lines)}
+    return next(
+        (
+            line
+            for index, line in enumerate(lines)
+            if index not in shown and names_this_row(line)
+        ),
+        None,
+    )
+
+
 def missing_row(home):
-    """The refusal for a row the gate could not read — and there are two,
-    because there are two causes and a person can act on only one of them.
+    """The refusal for a row the gate could not read — and there are three,
+    because there are three causes and what a person does about each one is
+    different.
 
     Where the row IS in the file and the line will not parse, saying it is
     absent is a true sentence about a cause that is not the real one: the
@@ -377,6 +421,15 @@ def missing_row(home):
     not cosmetic — the two arms with a stopping line read `below`, and the
     arm without one reads `rows_read`, whose docstring says why `below` is
     empty there either way.
+
+    **The third cause is a row written where no walk of that table reads
+    it.** A `| Broad gate |` line inside a code fence is an example of the
+    format rather than this repository's own answer, and `hooks/config.py#
+    unfenced` is what stops every walk from reading one (#429). That leaves
+    the line looking exactly like no row at all, so the absent-row refusal
+    below would send a person to write a row they can already see — the
+    wrong-cause message this whole work item exists to end. `fenced_row`
+    above finds it and the refusal says where it has to move to.
 
     Where there is no such line, the message is the absent-row refusal
     unchanged. It used to say *write the repository's own broad command into
@@ -488,6 +541,23 @@ def missing_row(home):
             "reduces to a plain pipe before any shell sees it. "
             "`templates/config.md` §*What is refused, and what stays allowed* "
             "is where the row says so, and `/specseal:config` is the door to "
+            "the file. Nothing ran."
+        )
+    fenced = fenced_row(home)
+    if fenced is not None:
+        return (
+            f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` line and "
+            "this is it, written inside a code fence:\n"
+            f"    {fenced.strip()}\n"
+            "A table inside a code fence is an example of the format and not "
+            "this repository's own answer, so no walk of that table reads it "
+            "— not this gate's reader, not the mode gate's, and not "
+            "`seal mode`'s writer. The row is not absent: it is written where "
+            "nothing reads it, and there is no command to seal over.\n"
+            "Move the row into the `| Item | Value |` table that stands "
+            "outside every fence, or add that table if the file has none. "
+            "`templates/config.md` §*What is refused, and what stays allowed* "
+            "is where the rule says so, and `/specseal:config` is the door to "
             "the file. Nothing ran."
         )
     return (

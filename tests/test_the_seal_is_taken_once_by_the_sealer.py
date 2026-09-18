@@ -1458,6 +1458,141 @@ def test_a_hidden_row_alone_under_the_stopping_line_has_no_others(tmp_path):
     )
 
 
+# --- #429: a `Broad gate` line written where no walk reads it ---------------
+
+FENCED = "written inside a code fence"
+
+
+def test_a_broad_gate_line_only_inside_a_fence_is_named_and_not_called_absent(
+    tmp_path,
+):
+    """A6. The fence rule makes a fenced `| Broad gate |` line invisible to
+    every walk of that table, which is what it is for — and then the
+    absent-row refusal below it becomes a true sentence about a cause that is
+    not the real one, which is the failure #415 was opened about arriving one
+    shape over. The person is sitting in front of the row they are being told
+    to write.
+
+    Three things the message owes: the line as they wrote it, why nothing
+    read it, and where they answer it.
+    """
+    said = refusal_over(
+        tmp_path,
+        "fenced_only",
+        "# Repository config\n\n"
+        "| Item | Value |\n|---|---|\n"
+        "| Mode | shared |\n\n"
+        "```markdown\n"
+        f"| {ROW} | bin/test -q && uvx ruff check . |\n"
+        "```\n",
+    )
+    assert FENCED in said, said
+    assert f"| {ROW} | bin/test -q && uvx ruff check . |" in said, (
+        f"the refusal does not quote the line the person wrote:\n{said}"
+    )
+    assert f"has no `{ROW}` row" not in said, (
+        "the row is in the file and the refusal calls it absent — the "
+        f"wrong-cause message this work item exists to end:\n{said}"
+    )
+    assert "does not parse as a row" not in said, (
+        f"the line parses perfectly well; what is wrong is where it is:\n{said}"
+    )
+    assert "/specseal:config" in said, said
+
+
+def test_the_absent_row_refusal_still_reaches_a_file_with_no_such_line(tmp_path):
+    """The other half of the case above, and what keeps the new branch from
+    swallowing every refusal: a file whose table simply has no `Broad gate`
+    row anywhere, fenced or not, still gets the absent-row message."""
+    said = refusal_over(
+        tmp_path,
+        "no_row_at_all",
+        "| Item | Value |\n|---|---|\n| Mode | shared |\n\n```markdown\n| Mode | local |\n```\n",
+    )
+    assert f"has no `{ROW}` row" in said, said
+    assert FENCED not in said, said
+
+
+def test_an_unclosed_fence_hides_the_live_table_and_the_gate_says_which_line(
+    tmp_path,
+):
+    """A5. An unclosed fence runs to the end of the file, so it swallows the
+    live table under it — and that lands on *nothing is declared*, which is
+    the direction `hooks/config.py` fails in on purpose and the trade
+    `plan.md` §*Alternatives considered* accepted for this rule.
+
+    What makes it acceptable is that it is loud where it matters. The exit
+    code is read directly off the process and no check ran, and the message
+    names the fenced `| Broad gate |` line rather than reporting the row
+    absent — so the person is told the one thing that gets them out of it.
+    """
+    repo = build_repo(tmp_path / "repo", row=False)
+    write(
+        repo,
+        "seal/config.md",
+        "# Repository config\n\n"
+        "An example of the format:\n\n"
+        "```markdown\n"
+        "| Item | Value |\n|---|---|\n"
+        "| Mode | shared |\n"
+        f"| {ROW} | {SUITE_ROW} |\n",
+    )
+    commit(repo, "a fence nobody closed")
+    keep = tmp_path / "out"
+    out = run_gate(repo, keep=keep)
+    assert out.returncode == 2, f"exit {out.returncode}; {out.stdout!r} {out.stderr!r}"
+    assert not out.stdout, f"something printed under a refusal: {out.stdout!r}"
+    assert not keep.exists() or not os.listdir(keep), (
+        f"a check ran under a refusal: {os.listdir(keep)}"
+    )
+    assert FENCED in out.stderr, out.stderr
+    assert f"| {ROW} | {SUITE_ROW} |" in out.stderr, (
+        f"the refusal does not quote the line that was swallowed:\n{out.stderr}"
+    )
+    assert f"has no `{ROW}` row" not in out.stderr, out.stderr
+
+
+def test_the_documents_state_the_fence_rule_the_refusal_points_at(tmp_path):
+    """`agent-contract` §14: a fix that changes what a person sees documents
+    it and pins it, in the same commit.
+
+    Two documents and one pointer. `templates/config.md` is the one home of
+    what this table's format allows, and the refusal sends the reader to a
+    named section of it — so the section has to still be there, and it has to
+    say the thing the refusal is about. `skills/config/SKILL.md` step 3 is
+    the coordinate that INVITES the shape: it tells a session to copy a block
+    carrying a fenced example row and used to name no position for it.
+    """
+    template = open(
+        os.path.join(ROOT, "templates", "config.md"), encoding="utf-8"
+    ).read()
+    skill = open(
+        os.path.join(ROOT, "skills", "config", "SKILL.md"), encoding="utf-8"
+    ).read()
+    said = refusal_over(
+        tmp_path,
+        "pointer",
+        "| Item | Value |\n|---|---|\n| Mode | shared |\n"
+        f"```\n| {ROW} | bin/test -q |\n```\n",
+    )
+
+    section = "### What is refused, and what stays allowed"
+    assert section in template, (
+        f"the refusal points at a section that is not there:\n{said}"
+    )
+    assert section.lstrip("# ") in said, said
+    for claim in (
+        "A table inside a code fence is an example of this format",
+        "outside every fenced code block",
+        "runs to the end of the file",
+    ):
+        assert claim in template, f"`templates/config.md` does not say: {claim}"
+    assert "The copied block lands BELOW the live table" in skill, (
+        "the instruction that produces the shape still names no position for "
+        "the block it copies"
+    )
+
+
 def test_this_repositorys_own_config_is_answered_exactly_as_before(tmp_path):
     """A11. The file this work item is about is in this repository, and every
     sentence above is a sentence about somebody else's file.
@@ -1481,6 +1616,16 @@ def test_this_repositorys_own_config_is_answered_exactly_as_before(tmp_path):
         f"the command the gate reads is not the row as written:\n{command}"
     )
     assert module.not_as_written(home, command) is None, command
+    # Phase 2's half of the same question. This file carries no backticks at
+    # all, so the fence rule removes no line of it and every answer above is
+    # the one it had before #429 — asserted rather than assumed, because
+    # `fenced_row` is what the new refusal is built from.
+    assert module.fenced_row(home) is None, module.fenced_row(home)
+    assert "```" not in text and "~~~" not in text, (
+        "this repository's own config grew a fence, and the assertions above "
+        "stop being about a file that has none. Its header comment does carry "
+        "single backticks, which open nothing: a fence is a run of three"
+    )
 
 
 def test_an_escaped_pipe_reaches_the_gate_as_the_command_it_reads_as(tmp_path):
