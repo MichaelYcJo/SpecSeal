@@ -308,32 +308,52 @@ def suite_modules():
     return on_disk(ROOT, out)
 
 
-def classified_scopes(present, missing, root=ROOT):
-    """What the reader found over `present`, or `pytest.skip` when every scope
-    that vanished is in a module the working tree deleted.
+def vanished_scopes(found, missing):
+    """The classified scopes the reader no longer finds, or `pytest.skip` when
+    every one of them is in a module the working tree deleted.
 
-    The inverse direction the three call sites in the other modules answer, in
-    the module that enumerates the class. To this half a module the tree
-    deleted and a scope somebody removed are the same evidence -- and the
-    refusal below tells the reader to classify the difference, which on a
-    mid-edit tree means editing a live row out of a table on evidence about
-    the working tree. That is the instruction `classifications_of_nothing`
-    exists to decline to give, and this module shipped without it while
-    holding the equality assertion that needs it.
+    **Only this half declines, and the split is round 2's finding.** The case
+    below asks three questions of one reading, and they are not the same kind
+    of question. A scope the reader FOUND that no table accounts for, and a
+    scope whose call count moved, are both evidence about a module that is on
+    disk: they need no whole corpus and they judge what remains, which is what
+    `spec.md` §*Is a skip a weakening* asks of a positive sweep. Only the
+    scopes that VANISHED are the half a skipped module can explain.
+
+    The first shape of this helper declined in front of all three, and round 2
+    measured what that cost: with one test module off disk and the removal
+    unstaged, a planted unguarded scope went unnamed and the case exited 0 --
+    the gate going quiet on exactly the seventh helper it exists to catch.
+    Round 1's finding was this case failing where it should decline; that one
+    was it declining where it should judge.
 
     Conditional on EVERY vanished scope being explained, so a genuine removal
     is still reported beside a skipped one.
 
-    The pair is a parameter rather than fetched here, so the case below can
-    hand it a tree it chose without deleting a file the suite is running from.
+    `found` and `missing` are parameters rather than fetched here, so a case
+    can hand over a tree it chose without deleting a file the suite is
+    running from.
     """
-    found = derivers(present, root=root)
-    vanished = set(PATH_LIST_CALLS) - set(found)
+    vanished = sorted(set(PATH_LIST_CALLS) - set(found))
     if vanished:
         gone = {key.split("#", 1)[0] for key in vanished}
         if gone <= set(missing):
             decline_if_shrunken(sorted(gone), DECLINES_CLASS)
-    return found
+    return vanished
+
+
+def miscounted_scopes(found):
+    """`{scope: (calls now, calls accounted)}` for scopes on both sides.
+
+    The CALL SITE half, kept out of the decline for the same reason the
+    offender half is: a scope whose count moved is in a module the reader
+    just read, so the working tree explains nothing about it.
+    """
+    return {
+        key: (calls, PATH_LIST_CALLS[key])
+        for key, calls in found.items()
+        if key in PATH_LIST_CALLS and PATH_LIST_CALLS[key] != calls
+    }
 
 
 def _function(tree, name):
@@ -380,20 +400,34 @@ def test_no_scope_in_the_suite_lists_paths_from_git_without_a_guard():
     carried it, a sixth was found by this case while it was being written, and
     a seventh is what this exists to stop.
     """
-    found = classified_scopes(*suite_modules())
-    assert set(found) == set(PATH_LIST_CALLS), (
-        "the suite derives a path list from git in "
-        f"{sorted(set(found) - set(PATH_LIST_CALLS))} that this case does not "
-        f"account for, and accounts for {sorted(set(PATH_LIST_CALLS) - set(found))} "
-        "that no longer derives one. Classify the difference: it either "
-        f"applies `{SHARED_GUARD}`, or it belongs in one of the five tables "
-        "above with the grounds a reader can weigh"
+    present, missing = suite_modules()
+    found = derivers(present)
+
+    # The two positive halves first, and never behind the decline. Each is
+    # evidence about a module the reader has just read, so neither needs the
+    # corpus to be whole (round 2 🟡 1).
+    unaccounted = sorted(set(found) - set(PATH_LIST_CALLS))
+    assert not unaccounted, (
+        f"the suite derives a path list from git in {unaccounted} that this "
+        "case does not account for. Classify it: it either applies "
+        f"`{SHARED_GUARD}`, or it belongs in one of the five tables above "
+        "with the grounds a reader can weigh"
     )
-    assert found == PATH_LIST_CALLS, (
-        f"the suite derives path lists at {found} and this case accounts for "
-        f"{PATH_LIST_CALLS}. The unit is the CALL SITE: a second list inside a "
-        "scope that already holds one is classified nowhere, and the grounds "
-        "recorded above are about the call this case counted"
+
+    miscounted = miscounted_scopes(found)
+    assert not miscounted, (
+        f"the suite derives path lists at {miscounted}, read as "
+        "`{scope: (now, accounted)}`. The unit is the CALL SITE: a second "
+        "list inside a scope that already holds one is classified nowhere, "
+        "and the grounds recorded above are about the call this case counted"
+    )
+
+    vanished = vanished_scopes(found, missing)
+    assert not vanished, (
+        f"this case accounts for {vanished}, which no longer derives a path "
+        "list although its module is on disk. Classify the difference: it "
+        f"either applies `{SHARED_GUARD}`, or it belongs in one of the five "
+        "tables above with the grounds a reader can weigh"
     )
     for key in APPLIES_THE_SHARED_GUARD:
         rel, scope = key.split("#", 1)
@@ -422,7 +456,10 @@ def test_the_reader_finds_the_helpers_this_work_guarded():
     """The vacuity assertion. A reader that has stopped matching answers *no
     offender* and nobody hears — which is the failure mode this whole case is
     written against, so it is the one that has to be pinned separately."""
-    found = classified_scopes(*suite_modules())
+    present, missing = suite_modules()
+    found = derivers(present)
+    # Declines when the working tree explains the gap; judges otherwise.
+    vanished_scopes(found, missing)
     for key in APPLIES_THE_SHARED_GUARD:
         assert key in found, (
             f"{key} is no longer read as deriving a path list from git, so "
@@ -511,8 +548,9 @@ def test_a_test_module_the_tree_deleted_is_not_a_scope_somebody_removed():
     # that assumed a whole tree would itself be red on the mid-edit tree this
     # module is about, which is the class one level up from the finding.
     present, missing = suite_modules()
+    thinned = derivers([p for p in present if p != rel])
     with pytest.raises(pytest.skip.Exception) as declined:
-        classified_scopes([p for p in present if p != rel], [rel, *missing])
+        vanished_scopes(thinned, [rel, *missing])
     reason = str(declined.value)
     assert rel in reason, reason
     assert DECLINES_CLASS in reason, reason
@@ -523,10 +561,76 @@ def test_a_test_module_the_tree_deleted_is_not_a_scope_somebody_removed():
     # the refusal rather than the skip — a decline that fires on a vanished
     # scope regardless would carry a real removal away with it.
     try:
-        partial = classified_scopes([p for p in present if p != rel], [])
+        partial = vanished_scopes(thinned, [])
     except pytest.skip.Exception as declined:
         raise AssertionError(
             "a scope that vanished with its module still on disk was declined "
             f"rather than reported: {declined}"
         ) from None
-    assert key not in partial, partial
+    assert key in partial, partial
+
+
+def test_an_unguarded_scope_is_named_although_a_module_is_mid_edit():
+    """The two positive halves do not decline, which is round 2 🟡 1.
+
+    Measured against the shape this replaces: with the decline in front of
+    all three halves, a planted unguarded scope went unnamed on a tree with
+    one test module deleted from disk, and the case exited 0 — a gate going
+    quiet on the seventh helper it exists to catch. `spec.md` §*Is a skip a
+    weakening* is the rule this module was breaking on itself: the positive
+    sweeps do not skip themselves.
+    """
+    key = sorted(APPLIES_THE_SHARED_GUARD)[0]
+    rel = key.split("#", 1)[0]
+    present, missing = suite_modules()
+    thinned = dict(derivers([p for p in present if p != rel]))
+
+    planted = "tests/test_tmp_seventh.py#sweep"
+    found = {**thinned, planted: 1}
+    assert sorted(set(found) - set(PATH_LIST_CALLS)) == [planted], found
+    assert miscounted_scopes(found) == {}
+
+    # A second call inside a scope that already holds one, on a module that
+    # is on disk: the count half is evidence about what the reader just read.
+    kept = next(k for k in thinned if k != key)
+    doubled = {**thinned, kept: thinned[kept] + 1}
+    assert miscounted_scopes(doubled) == {
+        kept: (thinned[kept] + 1, PATH_LIST_CALLS[kept])
+    }
+
+    # Both were judged on inputs that make the liveness half decline, which is
+    # the whole of the split.
+    with pytest.raises(pytest.skip.Exception):
+        vanished_scopes(found, [rel, *missing])
+
+
+SELF = "tests/test_a_shrunken_corpus_declines_to_judge.py"
+GUARDED_CASE = "test_no_scope_in_the_suite_lists_paths_from_git_without_a_guard"
+
+
+def test_the_positive_halves_are_asked_before_the_decline():
+    """The ORDER is the fix, and no unit-level case can see it.
+
+    `vanished_scopes` skips the rest of the function when it declines, so what
+    keeps the two positive halves judging is that they sit in front of it.
+    Round 2 🟡 1 was that ordering the other way round: a planted unguarded
+    scope went unnamed on a tree with one test module mid-edit, and the case
+    exited 0. Every helper here was correct at the time; the defect lived in
+    the sequence, which is a property of one function's body and of nothing
+    this module could otherwise assert.
+
+    Read from the source rather than from behaviour, because reproducing it
+    needs a module deleted from the running suite's own tree.
+    """
+    body = _function(_tree_of(SELF), GUARDED_CASE).body
+    dumped = [ast.dump(node) for node in body]
+    decline = next(i for i, d in enumerate(dumped) if "vanished_scopes" in d)
+    for name in ("unaccounted", "miscounted_scopes"):
+        at = next((i for i, d in enumerate(dumped) if name in d), None)
+        assert at is not None, f"{GUARDED_CASE} no longer asks for `{name}`"
+        assert at < decline, (
+            f"`{name}` is evaluated after `vanished_scopes`, so a tree that is "
+            "merely mid-edit turns that half of this case off. It is evidence "
+            "about a module the reader has just read, and a skip explains "
+            "nothing about it — round 2 🟡 1"
+        )

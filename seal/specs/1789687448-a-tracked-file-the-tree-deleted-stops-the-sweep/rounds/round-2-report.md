@@ -30,10 +30,10 @@ and correctly placed; one small thing about where the correction sits is a ⬜.
 ## 🟡 1 · The decline was placed in front of the offender half, so a mid-edit tree hides a seventh helper
 
 **Location** — `tests/test_a_shrunken_corpus_declines_to_judge.py:311`
-(`classified_scopes`), consumed at `:380`
+(`classified_scopes`), consumed at `:380` NAME NOT IN TREE
 (`test_no_scope_in_the_suite_lists_paths_from_git_without_a_guard`).
 
-`classified_scopes` computes `found`, then declines before returning:
+`classified_scopes` computes `found`, then declines before returning: NAME NOT IN TREE
 
 ```python
     found = derivers(present, root=root)
@@ -206,7 +206,7 @@ place for it.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The decline sits inside `classified_scopes`, in front of both halves of the case, so on a mid-edit tree a newly planted unguarded scope is not named and the run exits 0 — the offender half is a positive sweep and must judge what remains | `tests/test_a_shrunken_corpus_declines_to_judge.py:311`, consumed at `:380` | open | Executed: plant alone, exit 1 and the scope named; plant plus one tracked test module off disk, exit 0, `13 passed, 2 skipped`, the scope named nowhere. `spec.md` §*Is a skip a weakening* — *the positive sweeps do not skip themselves* |
+| 🟡 1 | The decline sits inside `classified_scopes`, in front of both halves of the case, so on a mid-edit tree a newly planted unguarded scope is not named and the run exits 0 — the offender half is a positive sweep and must judge what remains | `tests/test_a_shrunken_corpus_declines_to_judge.py:311`, consumed at `:380` | open | Executed: plant alone, exit 1 and the scope named; plant plus one tracked test module off disk, exit 0, `13 passed, 2 skipped`, the scope named nowhere. `spec.md` §*Is a skip a weakening* — *the positive sweeps do not skip themselves* · NAME NOT IN TREE |
 | ⬜ 2 | The corrected pointer for #371 sits at the end of a very long cell while the stale *tracked as #371* stays mid-cell, so a reader meets the wrong pointer first | `seal/follow-up.md`, the survivor-exemption row, `e29a0e51` | open | Read. The append itself is accurate, correctly placed and correctly stops short of the owner's judgment; this is only where the correction sits |
 | carried | Round 1's first finding — the class reader did not decline on a shrunken corpus | `tests/test_a_shrunken_corpus_declines_to_judge.py` | confirmed | Executed: the identical round 1 reproduction now gives exit 0, `13 passed, 2 skipped` where it gave exit 1, `2 failed`. Mutating `if gone <= set(missing)` to `if True` turns the new case red and restoring it turns it green |
 | carried | Round 1's second finding — the survivors record silenced the check that reported it | `seal/specs/1789687448-a-tracked-file-the-tree-deleted-stops-the-sweep/survivors.md` | confirmed | Executed over `5bf22ddb..HEAD` at the tip: exit 1 with no exemption and the file named; exit 0 with the exemption and one `exempt` line printed. The new anchor is standing text the check prints and is not a phrase it matched |
@@ -251,7 +251,7 @@ place for it.
 
 **🟡 1** — split the two halves so only the liveness one declines. In
 `tests/test_a_shrunken_corpus_declines_to_judge.py`, replace
-`classified_scopes` with:
+`classified_scopes` with: NAME NOT IN TREE
 
 ```python
 def vanished_scopes(found, missing):
