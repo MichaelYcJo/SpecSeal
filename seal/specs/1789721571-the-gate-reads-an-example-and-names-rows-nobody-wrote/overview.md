@@ -22,6 +22,7 @@ about is the one this plugin's own template ships.
 |---|---|---|---|
 | Which value site 1 — `missing_row`'s `stopper is None` arm — reads to decide what the quoted line cost | `plan.md` §*Alternatives considered* → *#430*, the chosen row: *"**Each arm asks `below` as well as `stopper`**, and every sentence that speaks about what lies below a line has a subject"*. The spawn prompt repeats it and adds *"`missing_row` already holds `below` — it is the second element it unpacked"*. The code reads `rows_read(home)` in that arm instead, and `below` in the other three | `rows_read` for site 1, `below` for sites 2, 3 and 4 | `hooks/config.py#refusal`'s own docstring: *"below — the rows written under the STOPPING line, which never arrived"*, filled under `if stopper is not None`. Site 1 is the arm where `stopper is None`, so `below` is empty there whatever the file holds — measured 2026-09-18 over the arm reached with the quoted line as the table's only row and with `\| Mode \| shared \|` written under it, `[]` both times. Keying that arm on `below` would print *nothing was written below it* over a file whose rows all arrived, which is #415 round 1 🟡 1 returning one sentence over. The substitute is safe in that arm alone and structurally so: a row parsed ABOVE the quoted line would have set `stopper` to that line, which is site 2's arm |
 | What this repository's own `seal/config.md` carries | The phase 2 spawn prompt, labelled **read**: *"`seal/config.md` is ten lines with no backticks, so A11 asserts that nothing in this repository's own answers moves."* The file is ten lines and it does carry backticks — single ones, in the header comment that points at `templates/config.md` | A11 pins *no run of three backticks and no run of three tildes*, not *no backtick* | Written as the prompt said it, the assertion was red against the real file. Nothing about the rule changes, because a fence is a run of three and the comment's single backticks open nothing; what changes is what the pin is about. A pin on *no backtick* would go red the next time somebody names a file in that comment, which is not the event A11 exists to catch — the event is this repository's own config growing a fence, which is the one thing that would make every other assertion in that case stop being about a file without one |
+| The wording of the three sentences that say what a refused line cost | `spec.md` §*Data & interfaces* → *What the changed sentences say*: *"The wording below is the contract"*, and for site 2 *"— and nothing was written below it, so nothing else was lost with it: this one line is the whole of what changes"*. The code says *"— and no row was written below it, so nothing else was lost with it"*, and where a further refused line stands below, *"There are more lines below it this reader will not take as rows either, so fixing this one moves the stopping place down rather than clearing the table"* instead of the closing clause | the code's wording | The reader answers with two lists and the contract's sentence can only be built from one of them: `below` holds what parsed as a row, and `refused` holds the lines somebody wrote as rows that this reader will not take. A second malformed line below the first is in neither `below` nor nothing — so *nothing was written* is false wherever one stands, measured at all four sites, and site 2's closing clause is a prediction the file does not keep: fixing the quoted line moves the stopping place to the next refused line rather than clearing the table. The escape hatch is that section's own — *A builder who diverges records the divergence in `overview.md` with both sides quoted* — and the clause the spec was missing is in §*Fed back into the spec*. Round 1's 🟡 3, and this row is round 2's ⬜ correction: the reasoning was written into that section alone, which `templates/sdd-overview.md` defines as clauses this work ADDED |
 | Whether phase 1 rewrites existing cases | `plan.md` §*Phases* row 1 names new cases only; `questions.md` Q4 asks the fixture question of phase 2 | Two existing assertions rewritten, both keeping their case's subject | `test_a_second_refused_line_is_what_decides_what_a_first_one_cost` and `test_the_gate_reads_every_refused_line_and_not_only_the_first` each asserted `every row written BELOW that line is lost` over a fixture whose refused line is the LAST row of its table — #430's own instance, pinned as a case. The first does it four lines under a docstring paragraph saying that such a line *loses nothing below it, because there is nothing below it*. `skills/implement/SKILL.md` §5: a fixture whose answer moves is either a case that was pinning the defect, which the phase rewrites and says so, or a regression. Both are the first. The arm each case exists to pin is unchanged, and still pinned by the assertion beside the rewritten one |
 
 ## Not verified
@@ -92,28 +93,32 @@ every reachable state, so it is not a member of the class.
 
 ## Fed back into the spec
 
-**A sentence about what was WRITTEN below a line cannot be answered from rows
-alone** — *inferred during implementation*, round 1's fix pass, and a planner
-may overturn it.
+**Which of the reader's two answers a sentence about what was WRITTEN may be
+built from** — *inferred during implementation*, round 1's fix pass, and a
+planner may overturn it.
 
-`spec.md` §*Data & interfaces* fixes the wording of all four sentences and
-three of them say *nothing was written*. `refusal` answers with two things:
-`below`, which holds what parsed as a row, and `refused`, which holds the
-lines a person wrote as rows and this reader will not take. A second
-malformed line below the first is in neither `below` nor nothing — and it is
-what the reader stops at next. Measured at all four sites: sites 1, 2 and 3
-printed *nothing was written*, sites 2 and 3 went on to promise that fixing
-the quoted line is the whole of what changes, and site 4 said nothing else
-was written under a line that had another one under it.
+`refusal` answers with two lists. `below` holds what parsed as a row under
+the stopping line; `refused` holds the lines somebody wrote as rows that this
+reader will not take. A sentence about what was **written** below a line is
+about both, and `below` alone cannot carry it: a second malformed line below
+the first is in neither `below` nor nothing, and it is what the reader stops
+at next. So a sentence built from `below` may say *no ROW was written*, and
+anything stronger — *nothing was written*, or a prediction that one edit
+finishes the file — has to consult `refused` too.
 
-So each sentence now says **no ROW was written**, which is what `below`
-supports, and the two arms that made the prediction say instead that fixing
-the line moves the stopping place down. #430's class is *a sentence about
-what lies below a line, computed without asking what is there*; asking
-`below` narrowed *what is there* to *what parsed as a row*, which closes the
-shape the tickets named and leaves this one. The clause the spec was missing
-is which of the reader's two answers a sentence about *written* may be built
-from.
+#430's class is *a sentence about what lies below a line, computed without
+asking what is there*. Asking `below` narrowed *what is there* to *what
+parsed as a row*, which closes the shape the tickets named and leaves this
+one, so the clause is the class's own second half rather than a new rule.
+The wording it moved is a divergence and is in the table above with both
+sides quoted.
+
+**And the sentence a refusal prints has to survive being followed.** Round 2
+found the one arm where it did not: where the rows below the quoted line were
+read, repairing that line is what lets the stop rule stop, and it then stops
+at the next line the reader will not take — so rows arriving today go with
+the repair. A refusal that names a cost has to name that one too, which is
+the clause that arm now carries.
 
 `spec.md`'s enumeration of #430's four sites stands as written and all four
 were reachable as framed; what moved in phase 1 is the method one of them

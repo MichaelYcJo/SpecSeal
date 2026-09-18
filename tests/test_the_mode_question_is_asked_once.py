@@ -430,6 +430,12 @@ def test_a_line_that_will_not_parse_is_named_and_the_hook_still_says_nothing(
 # fence rule is one rule in front of all three: `config_rows`'s walk and
 # `refusal`'s walk here, and `seal.py#table_span`'s — the writer's — below.
 
+# **Two cases build on this one, deliberately.**
+# `test_the_writer_and_the_reader_agree_about_which_row_is_the_row` drives the
+# writer over it, and `test_a_row_that_would_land_inside_an_unclosed_fence_is_
+# refused` uses the same bytes as a canary: a refusal wide enough to swallow a
+# file whose fence IS closed turns that case red. Changing these lines reaches
+# both (#429, round 2's ⬜).
 FENCED_ABOVE = (
     "# Repository config\n\n"
     "An example of the format, copied out of `templates/config.md`:\n\n"
