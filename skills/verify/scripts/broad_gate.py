@@ -479,8 +479,18 @@ def missing_row(home):
     instead that fixing it moves the stopping place down, because that is
     what a further refused line below makes true. Measured at all four sites
     with a second malformed line below (#430, round 1); `spec.md`
-    §*Data & interfaces* fixed the old wording, and `overview.md` §*Fed back
-    into the spec* records the correction as a clause this work added.
+    §*Data & interfaces* fixed the old wording, and `overview.md` §*Where spec
+    and implementation diverged* records the correction with both sides
+    quoted.
+
+    **The fifth arm is the one where following this message makes the file
+    worse**, and it was the one arm with nothing to say about what lies below.
+    Where the rows below the quoted line were read, repairing that line is
+    what lets the stop rule stop — and it then stops at the next line this
+    reader will not take, so rows that arrive today go with the repair.
+    Measured: `config_rows` returns the `Mode` row before the instructed edit
+    and the `Broad gate` row after it (#430, round 2). That arm now says there
+    is more than one line to write here.
 
     **The third cause is a row written where no walk of that table reads
     it.** A `| Broad gate |` line inside a code fence is an example of the
@@ -532,10 +542,26 @@ def missing_row(home):
     if mine is not None:
         if stopper is None:
             if rows_read(home):
+                # **The one arm where doing what this message asks makes the
+                # file worse**, and it was the one arm with nothing to say
+                # about what lies below. Measured over a file whose quoted
+                # line, a second malformed line and a `Mode` row stand in that
+                # order: the reader returns the `Mode` row today and loses it
+                # once the quoted line parses, because the stop rule the
+                # repair switches on then stops at the second malformed line
+                # (#430, round 2).
                 cost = (
                     ". The rows below it were read: nothing had parsed above "
                     "this line, so the table had not begun and the stop rule "
                     "needs a row before it can stop"
+                ) + (
+                    ""
+                    if not after_mine
+                    else ". Fixing this line is what lets the stop rule stop, "
+                    "and the next line below it this reader will not take as "
+                    "a row is where it will — so the rows under THAT line, "
+                    "which arrive today, go with the repair. There is more "
+                    "than one line to write here"
                 )
             else:
                 cost = (

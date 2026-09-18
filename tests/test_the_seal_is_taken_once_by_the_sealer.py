@@ -1374,6 +1374,55 @@ def test_a_refusal_above_the_first_row_says_what_actually_arrived(tmp_path):
     ], "the other half is only true because `Mode` does arrive"
 
 
+def test_the_arm_whose_repair_costs_a_row_says_there_is_more_to_write(tmp_path):
+    """Round 2's 🟡 4. The arm where the rows below the quoted line WERE read
+    is the only one where doing what the refusal asks makes the file worse,
+    and it was the one arm with nothing to say about what lies below.
+
+    Nothing has parsed above the quoted line, so the reader steps past both
+    malformed lines and the `Mode` row arrives. Escape the pipe as the message
+    instructs and the quoted line parses — which is what lets the stop rule
+    stop, and it stops at the second malformed line, so the `Mode` row that
+    was being read is lost. The person follows the instruction exactly and
+    loses a declaration nothing warned them about.
+
+    **The reader is asserted either side of the instructed edit**, because the
+    sentence is only worth printing while that is what the edit costs.
+    """
+    quoted = f"| {ROW} | bin/test -q | tee out.txt |\n"
+    with_a_second = (
+        "| Item | Value |\n|---|---|\n"
+        + quoted
+        + "| Record language | a | b |\n| Mode | shared |\n"
+    )
+    said = refusal_over(tmp_path, "rows_read_and_more_to_write", with_a_second)
+    assert "The rows below it were read" in said, said
+    assert "There is more than one line to write here" in said, (
+        "repairing this line switches the stop rule on and the next line the "
+        f"reader will not take is where it stops — the `Mode` row goes:\n{said}"
+    )
+
+    alone = refusal_over(
+        tmp_path,
+        "rows_read_and_nothing_else_to_write",
+        "| Item | Value |\n|---|---|\n" + quoted + "| Mode | shared |\n",
+    )
+    assert "The rows below it were read" in alone, alone
+    assert "more than one line to write" not in alone, (
+        "this line is the only one the reader will not take, so repairing it "
+        f"costs nothing:\n{alone}"
+    )
+
+    module = gate_module()
+    config = module.load(module.CONFIG_READER, "specseal_config_for_this_case")
+    assert config.config_rows(with_a_second) == [("Mode", "shared")], (
+        "the sentence is only worth printing because that row arrives today"
+    )
+    assert config.config_rows(with_a_second.replace("-q | tee", "-q \\| tee")) == [
+        (ROW, "bin/test -q | tee out.txt")
+    ], "and because the instructed edit is what loses it"
+
+
 def test_a_stopping_line_lower_down_with_nothing_under_it_names_no_rows(tmp_path):
     """A10 of #430, site 3 — the quoted line was read and something LOWER
     DOWN stopped the reader.
