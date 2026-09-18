@@ -1,6 +1,41 @@
 <!-- seal/specs/1789721571-the-gate-reads-an-example-and-names-rows-nobody-wrote/changelog.md
 — gathered into `CHANGELOG.md` at the release. -->
 
+- **A `| Item | Value |` table written inside a code fence was the table every
+  gate read** (#429). `seal/config.md`'s own header comment points the reader
+  at `templates/config.md`, a document of example tables, and the config skill
+  tells a session to copy a block of that template — fenced example row
+  included — naming no position for it. Pasted above the live table, or above
+  a table whose first line will not parse, that example supplied the mode, the
+  broad command and every other row, and the sealer's seal was taken over a
+  plausible command nobody chose. Measured: with the rule absent, a repository
+  whose live table sits under an unclosed fence runs the example's command and
+  the gate exits 0 with the stamp printed.
+
+  - **One rule, in front of all three walks of that table.** The gates'
+    reader, the mode gate's reader and `seal mode`'s writer now read the file
+    through one generator, which hands back each surviving line with its own
+    index because the writer overwrites a line by position. A rule in the
+    reader alone would have `seal mode` rewriting the `Mode` row inside
+    somebody's pasted example while every gate read the live one.
+
+  - **The live table is the first one outside every fence**, and a fence is
+    CommonMark's: three or more backticks or tildes, indented at most three
+    spaces, closed by at least as many of the same character. A fence that is
+    never closed runs to the end of the file, so what it swallows reads as
+    undeclared — loud rather than quiet, which is the direction this reader
+    already fails in.
+
+  - **`broad-gate` refuses four ways now rather than three.** Where this
+    gate's row exists only inside a fence, the refusal quotes that line and
+    says where it has to move to, instead of reporting the row absent and
+    sending a person to write a row they can see in front of them.
+
+  - **Neither half of the stop rule moved**, and a table can now span a fenced
+    block where the fence's own delimiter line used to end it. The filter
+    decides which lines the walks are shown; what they do with a line they are
+    shown is unchanged.
+
 - **`broad-gate`'s refusal for a `Broad gate` line that will not parse said
   every row below it was lost without ever asking whether anything was below
   it** (#430). The sentence was computed from which line stopped the table

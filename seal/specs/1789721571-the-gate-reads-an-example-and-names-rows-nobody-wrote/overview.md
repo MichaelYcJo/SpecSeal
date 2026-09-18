@@ -6,9 +6,9 @@ the diff cannot show goes here, and each part is written when it happens rather
 than reconstructed at the end. -->
 
 📋 implement applied
-· spec:     `seal/specs/1789721571-…/spec.md` (§Grounding, §Scope, §The two classes enumerated → #430, §User scenarios A8–A11, §Data & interfaces), `plan.md` (§Technical context, §Alternatives considered → #430, §Phases, §Operational impact), `questions.md` (Q2, Q4), `routing.md`; `CLAUDE.md` §*a change writes fragments, never the shared file*, §*no real identifiers*, §*a thing more than one party can have is named with whose*, §*commit early*; `CONTRIBUTING.md` §*What a change to a gate must carry*; `agent-contract` §1, §2, §7, §9, §12, §14, §15; `skills/implement/SKILL.md` §§1–4
-· evidence: R1–R4 in `seal/ledger/1789721571-the-gate-reads-an-example-and-names-rows-nobody-wrote.md`
-· verified: executed — `bin/test tests/test_the_seal_is_taken_once_by_the_sealer.py -q` (109 passed, 3 skipped), the four site cases seen red against their own unfixed arms first, two mutations of `rows_read`, `bin/test` over the five modules that read `skills/config/SKILL.md` plus `test_no_real_identifiers.py` and `test_one_word_one_meaning.py`, `uvx ruff check`/`format --check` on the two changed Python files, `survivor-check --range 9d13934..59c750a` (exit 0). Read — `spec.md`'s wording contract, `hooks/config.py#refusal`'s docstring. Unverified — the full suite, lint and typecheck across the repository (the sealer's, after the rounds)
+· spec:     `seal/specs/1789721571-…/spec.md` (§Grounding, §Scope, §The two classes enumerated → #429 and #430, §User scenarios A1–A11, §Data & interfaces), `plan.md` (§Technical context, §Alternatives considered, §Phases, §Operational impact), `questions.md` (Q1–Q4), `routing.md`, `phases/phase-1.md`; `CLAUDE.md` §*a change writes fragments, never the shared file*, §*no real identifiers*, §*a thing more than one party can have is named with whose*, §*commit early*; `CONTRIBUTING.md` §*What a change to a gate must carry*; `agent-contract` §1, §2, §7, §9, §12, §14, §15; `skills/implement/SKILL.md` §§1–5
+· evidence: R1–R7 in `seal/ledger/1789721571-the-gate-reads-an-example-and-names-rows-nobody-wrote.md`
+· verified: executed — phase 1: `bin/test tests/test_the_seal_is_taken_once_by_the_sealer.py -q` (109 passed, 3 skipped), the four site cases seen red against their own unfixed arms first, two mutations of `rows_read`, `uvx ruff check`/`format --check` on the two changed Python files, `survivor-check --range 9d13934..59c750a` (exit 0). Phase 2: `bin/test` over the three modules `plan.md` names (266 passed, 3 skipped before the change; 275 passed, 3 skipped after), every new case seen red first with the fence rule absent or switched off, five mutations of `unfenced` and `fenced_row` each seen red, `bin/test` over the ten neighbouring modules that read the changed units and documents (401 passed, 7 skipped), `uvx ruff check`/`format --check` on the six changed Python files, `survivor-check --range 35a9638..354c09d --exempt …/survivors.md` (exit 0), and `evidence_check.py` over a scratch ledger carrying a fenced example row (Q1). Read — `spec.md`'s wording contract, `hooks/config.py#refusal`'s and `table_span`'s docstrings, CommonMark's fenced-code-block rules. Unverified — the full suite, lint and typecheck across the repository (the sealer's, after the rounds)
 
 ## Why this work exists
 
@@ -21,6 +21,7 @@ about is the one this plugin's own template ships.
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | Which value site 1 — `missing_row`'s `stopper is None` arm — reads to decide what the quoted line cost | `plan.md` §*Alternatives considered* → *#430*, the chosen row: *"**Each arm asks `below` as well as `stopper`**, and every sentence that speaks about what lies below a line has a subject"*. The spawn prompt repeats it and adds *"`missing_row` already holds `below` — it is the second element it unpacked"*. The code reads `rows_read(home)` in that arm instead, and `below` in the other three | `rows_read` for site 1, `below` for sites 2, 3 and 4 | `hooks/config.py#refusal`'s own docstring: *"below — the rows written under the STOPPING line, which never arrived"*, filled under `if stopper is not None`. Site 1 is the arm where `stopper is None`, so `below` is empty there whatever the file holds — measured 2026-09-18 over the arm reached with the quoted line as the table's only row and with `\| Mode \| shared \|` written under it, `[]` both times. Keying that arm on `below` would print *nothing was written below it* over a file whose rows all arrived, which is #415 round 1 🟡 1 returning one sentence over. The substitute is safe in that arm alone and structurally so: a row parsed ABOVE the quoted line would have set `stopper` to that line, which is site 2's arm |
+| What this repository's own `seal/config.md` carries | The phase 2 spawn prompt, labelled **read**: *"`seal/config.md` is ten lines with no backticks, so A11 asserts that nothing in this repository's own answers moves."* The file is ten lines and it does carry backticks — single ones, in the header comment that points at `templates/config.md` | A11 pins *no run of three backticks and no run of three tildes*, not *no backtick* | Written as the prompt said it, the assertion was red against the real file. Nothing about the rule changes, because a fence is a run of three and the comment's single backticks open nothing; what changes is what the pin is about. A pin on *no backtick* would go red the next time somebody names a file in that comment, which is not the event A11 exists to catch — the event is this repository's own config growing a fence, which is the one thing that would make every other assertion in that case stop being about a file without one |
 | Whether phase 1 rewrites existing cases | `plan.md` §*Phases* row 1 names new cases only; `questions.md` Q4 asks the fixture question of phase 2 | Two existing assertions rewritten, both keeping their case's subject | `test_a_second_refused_line_is_what_decides_what_a_first_one_cost` and `test_the_gate_reads_every_refused_line_and_not_only_the_first` each asserted `every row written BELOW that line is lost` over a fixture whose refused line is the LAST row of its table — #430's own instance, pinned as a case. The first does it four lines under a docstring paragraph saying that such a line *loses nothing below it, because there is nothing below it*. `skills/implement/SKILL.md` §5: a fixture whose answer moves is either a case that was pinning the defect, which the phase rewrites and says so, or a regression. Both are the first. The arm each case exists to pin is unchanged, and still pinned by the assertion beside the rewritten one |
 
 ## Not verified
@@ -28,8 +29,8 @@ about is the one this plugin's own template ships.
 | Item | Who must answer |
 |---|---|
 | The full suite, the repository-wide lint and the typecheck | the sealer, once, after the review rounds settle (`agent-contract` §2) |
-| Q1 of `questions.md` — whether `evidence_check.py`, `round_record.py` and `chain_check.py` read a table inside a code fence as a live table | a measurement, out of this work item's scope by `spec.md` §*Out, each with why*; it opens a follow-up issue or nothing |
-| Q3 and Q4 of `questions.md`, and #429's three shapes of the fence class | phase 2 |
+| ✅ Q1 of `questions.md` — whether `evidence_check.py`, `round_record.py` and `chain_check.py` read a table inside a code fence as a live table | measured 2026-09-18 for `evidence_check.py` and the answer is **they do**; the row is in `seal/follow-up.md` with the repository owner as its answerer, since a session may not open the issue. The other two were not measured and the row says so |
+| ✅ Q3 and Q4 of `questions.md`, and #429's three shapes of the fence class | phase 2 — `phases/phase-2.md` §*What this phase found* holds Q3's eight decided shapes, Q4's before-and-after measurement, and all three shapes reached by a case seen red |
 
 ## Not done
 
@@ -59,10 +60,18 @@ fires on a machine where nothing is wrong. That is nobody's scope here and it
 is not filed as one — it is written down where the next reader of this work
 item will meet it.
 
-`templates/config.md` §*What is refused, and what stays allowed* still says a
-line that does not parse *still takes every row below it*. It is already
-conditioned on a row having parsed above, and `plan.md` puts that document in
-phase 2, so it was left where the plan put it rather than edited from here.
+`templates/config.md` §*What is refused, and what stays allowed* said a line
+that does not parse *still takes every row below it*, conditioned on a row
+having parsed above. Phase 2 was where `plan.md` put that document, and the
+sentence now carries the last-row case too: written LAST in its table the line
+takes nothing, because nothing is under it to take.
+
+**A table can now span a fenced block, where the fence's own delimiter line
+used to end it.** The fence rule filters lines in FRONT of the walks rather
+than editing them, so a fenced block between two rows is invisible rather than
+table-ending. Nothing in the three walks changed to allow it; it is what *the
+line is not shown to the walk* means, and it runs in the same direction as the
+rest of the rule — more of a person's live table is read, not less.
 
 The `else` arm of `missing_row` — *every row from there down is lost — this
 one included* — was examined and left. `spec.md` §*Out, each with why*
