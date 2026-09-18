@@ -58,21 +58,27 @@ is not what silences it.** Measured over `f8cf32e5..5ffa5dfb`, before this
 work item had a `survivors.md`, the check exits 1 naming
 `tests/test_the_payload_meter_says_what_it_measured.py`. The standing line
 there is about a meter reading an inline list; it is not a copy of anything
-this work removed, so the row was written. Over the branch as it stands the
-check exits 0 **with no `--exempt` flag at all**, and passing the flag prints
-nothing under `exempt` — the report went quiet through the diff rather than
-through the exemption, because a `survivors.md` and the records beside it are
-inside the corpus the check searches, so prose added there counts as wording
-the range wrote and is subtracted from what is looked for.
+this work removed, so the row was written.
+
+**The row as first written silenced the report a second way, and that way is
+the one that does not rot.** A `survivors.md` and the records beside it are
+inside the corpus the check searches, so the two phrases quoted in its Grounds
+cell counted as wording the range ADDED and were subtracted from what is
+looked for at all. Measured at `539d32df`: exit 0 **with no `--exempt` flag at
+all**, and with the flag no `exempt` line printed — the report had gone quiet
+through the diff rather than through the exemption, which is the opposite of
+what `survivor_check.py`'s own docstring promises. Round 1 🔴 2. No record of
+this work item reproduces those phrases now, and at `2c83b2bb` the check exits
+1 naming the file without the flag and exits 0 printing it under `exempt`
+with it.
 
 That is issue #365's class one file over, and closing it is a change to the
 tool's own pool rather than to this branch: `seal/specs/1789211172-a-round-record-disarms-survivor-check/spec.md`
 records the same mechanism for `rounds/` records, which that work item
 filtered out by construction. A fix pass may not add mechanism, so it is
-deferred with an issue body in the hand-back. What this branch owes is the
-half it can do — no record of this work item reproduces the wording the check
-matched, and `survivors.md` says in its own comment why it does not and what
-it is therefore not doing.
+deferred with an issue body in the hand-back. What this branch owed is the
+half above, and `survivors.md` says in its own comment why it quotes no
+phrase and what a file inside the corpus would otherwise be doing.
 
 **No `seal/follow-up.md` row was deleted.** All eleven were read on
 2026-09-18; the framer's reading was re-checked and holds. Row 1 is the one
