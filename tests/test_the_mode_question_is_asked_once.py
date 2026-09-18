@@ -637,6 +637,61 @@ def test_a_row_that_would_land_inside_an_unclosed_fence_is_refused(config, tmp_p
     assert config.declared_mode(str(closed)) == ("mode", "shared")
 
 
+def test_a_file_whose_last_line_has_no_ending_gets_its_row_on_a_line(
+    config, tmp_path, monkeypatch
+):
+    """Round 2's 🔴, both acts of it.
+
+    `with_row`'s insert arm put the new row at the end of the file without
+    terminating the line already there, so
+    `| Record language | Korean || Mode | shared |` came back as one line of
+    four cells and `config_rows` of it was `[]` — both rows gone. At
+    `release/v0.12.1` that was written silently and cost the row the person
+    already had; round 1's guard stopped the write and then blamed a fence the
+    file does not have, which is the wrong-cause shape this work item is about
+    arriving from its own repair.
+
+    **The second half is the message, and it is pinned separately** because
+    fixing the first half is what makes the guard unreachable for this shape.
+    A residual cause is driven through the same unit with `with_row` replaced
+    by one that changes nothing: the refusal must not name a fence in a file
+    that has none.
+    """
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "skills", "implement", "scripts", "seal.py")
+    spec = importlib.util.spec_from_file_location("specseal_seal_no_ending", path)
+    seal = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(seal)
+
+    no_ending = "| Item | Value |\n|---|---|\n| Record language | Korean |"
+    home = tmp_path / "no_ending" / "seal"
+    home.mkdir(parents=True)
+    write_config(home, no_ending)
+    assert seal.write_row(str(home), "shared") == "", (
+        "the write is refused over a file with no fence in it at all"
+    )
+    written = (home / "config.md").read_text(encoding="utf-8")
+    assert "Korean || Mode" not in written, (
+        f"the new row was welded onto the line already there:\n{written!r}"
+    )
+    assert config.config_rows(written) == [
+        ("Record language", "Korean"),
+        ("Mode", "shared"),
+    ], f"the person's own row did not survive the write:\n{written!r}"
+    assert config.declared_mode(str(home)) == ("mode", "shared")
+
+    stuck = tmp_path / "stuck" / "seal"
+    stuck.mkdir(parents=True)
+    write_config(stuck, no_ending)
+    monkeypatch.setattr(seal, "with_row", lambda text, value: text)
+    refused = seal.write_row(str(stuck), "shared")
+    assert "would not read the `Mode` row back" in refused, refused
+    assert "fence" not in refused, (
+        f"the refusal names a fence in a file that has none:\n{refused}"
+    )
+    assert (stuck / "config.md").read_text(encoding="utf-8") == no_ending
+
+
 def test_the_fence_rule_answers_the_same_for_a_crlf_file(config, tmp_path):
     """A7. `config_rows` and `refusal` walk `splitlines()` while
     `table_span` walks `splitlines(keepends=True)` and rstrips each line, so

@@ -1369,8 +1369,11 @@ CONFIG_ROW = repo_config.CONFIG_ROW
 CONFIG_SEPARATOR = repo_config.CONFIG_SEPARATOR
 # The fence rule, taken from the reader rather than written again here. It is
 # an alias for the same reason the three above are: one implementation,
-# reached by the name each caller already spells.
+# reached by the name each caller already spells. `fence_map` is the same walk
+# with the state it ENDS in kept, which is what lets `write_row` tell an
+# unclosed fence from every other reason a row would not read back.
 unfenced = repo_config.unfenced
+fence_map = repo_config.fence_map
 
 NEW_CONFIG = """# Repository config
 
@@ -1470,6 +1473,17 @@ def with_row(text, value):
         lines[mode_at] = row + ending_of(lines[mode_at], ending)
         return "".join(lines)
     if end >= 0:
+        # **The line above the insertion point may carry no ending.** Where
+        # the first table's last row is the file's last line and the file
+        # ends without a newline, the inserted row is concatenated onto it:
+        # `| Record language | Korean || Mode | shared |` is one line of four
+        # cells, no walk of that table reads either row, and the person's own
+        # row is gone. The third arm below has terminated the last line all
+        # along; this one has to as well. At `release/v0.12.1` this shape was
+        # written silently and cost the row that was already there (#429,
+        # round 2).
+        if end == len(lines) and lines and not lines[-1].endswith(("\n", "\r")):
+            lines[-1] += ending
         lines.insert(end, row + ending)
         return "".join(lines)
 
@@ -1521,12 +1535,28 @@ def write_row(home, value):
     # Checked here rather than after the write, so a refusal leaves the
     # person's file exactly as it was (#429).
     if not any(item == ROW_ITEM for item, _value in config_rows(new)):
+        # **The message names the cause it CHECKED, never one it inferred.**
+        # This guard is about the row not reading back, and an unclosed fence
+        # is one way for that to happen rather than the only one -- a file
+        # whose last line carries no ending reached it too, and telling that
+        # person to close a fence is the wrong-cause shape this work item is
+        # about (#429, round 2). That shape is repaired above; the branch
+        # stays because the next member of the class must not be misdescribed
+        # either.
+        if fence_map(new.splitlines())[1] is not None:
+            return (
+                f"{path} has a fenced code block that is never closed, and "
+                "everything under it -- the table this command would have "
+                f"written the `{ROW_ITEM}` row into -- is inside it, where no "
+                "walk of that table reads it. Nothing was written. Close the "
+                "fence and run this command again."
+            )
         return (
-            f"{path} has a fenced code block that is never closed, and "
-            "everything under it -- the table this command would have "
-            f"written the `{ROW_ITEM}` row into -- is inside it, where no "
-            "walk of that table reads it. Nothing was written. Close the "
-            "fence and run this command again."
+            f"{path} would not read the `{ROW_ITEM}` row back after this "
+            "write, so the row would land where no walk of that table reads "
+            "it. Nothing was written and your file is exactly as it was. "
+            "This is a defect in this command rather than in your file: "
+            "please report it with the file's first lines."
         )
     try:
         with open(path, "w", encoding="utf-8", newline="") as handle:
