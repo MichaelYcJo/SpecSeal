@@ -33,6 +33,15 @@ about is the one this plugin's own template ships.
 
 ## Not done
 
+`tests/test_a_corrected_sentence_survives_elsewhere.py::test_the_measured_commits_are_still_here`
+fails in this clone and predates this branch. Its two pinned commits, `7bcf36a`
+and `ad6f81a`, do not resolve here and no `fixture/survivor-*` tag is present —
+`git rev-parse --verify` returns 128 for both, and the module is byte-identical
+to its copy at the base, so nothing this branch did can have caused it. Its own
+message says the repair: push those tags back, or replace the commits with two
+carrying the same shapes. Out of the scope this phase is allowed to change, and
+named here so the sealer's broad run meets it already explained.
+
 `templates/config.md` §*What is refused, and what stays allowed* still says a
 line that does not parse *still takes every row below it*. It is already
 conditioned on a row having parsed above, and `plan.md` puts that document in
