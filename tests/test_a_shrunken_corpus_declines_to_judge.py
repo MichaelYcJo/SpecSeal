@@ -444,3 +444,24 @@ def test_a_list_built_at_import_time_is_a_scope(tmp_path):
     assert derivers(["test_tmp_module.py"], root=tmp_path) == {
         f"test_tmp_module.py#{MODULE_SCOPE}": 1
     }
+
+
+def test_only_an_os_error_handler_reads_as_the_declared_guard():
+    """`_catches_oserror` is the whole of what stands behind
+    `OPENED_ONLY_BEHIND`, so a handler catching something else must not read
+    as one. Measured: with the type check dropped, every case in this module
+    still passed, which is a declaration verified by nothing.
+
+    A BARE `except:` reads as not guarded although it would catch the error.
+    That is the direction this reader fails in on purpose — it names a scope
+    it cannot classify rather than going quiet — and the scope then gets a
+    row with grounds somebody wrote.
+    """
+    tree = ast.parse(
+        "def guarded():\n    try:\n        open('x')\n    except OSError:\n        pass\n"
+        "def other():\n    try:\n        open('x')\n    except ValueError:\n        pass\n"
+        "def bare():\n    try:\n        open('x')\n    except:\n        pass\n"
+    )
+    assert _catches_oserror(tree, "guarded")
+    assert not _catches_oserror(tree, "other")
+    assert not _catches_oserror(tree, "bare")
