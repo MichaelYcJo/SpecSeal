@@ -17,7 +17,21 @@ because a row that anchors nothing is the one shape that cannot degrade when
 the text it names changes.
 
 A row that DID excuse a survivor stays after its range merges. It did its
-work, and the quote still anchors it. -->
+work, and the quote still anchors it.
+
+**Removing a row is itself an edit the check reads, and the effect is worth
+knowing before somebody meets it.** A row's quote is text in this file, so a
+range that DELETES the row counts that quote as wording the range removed —
+and the place the quote named is then reported as a survivor. Measured at
+`9c19955`: over `95de3cd..HEAD`, the range that removes the two rows, the
+check names `hooks/config.py` and `plan.md`, which are exactly the two paths
+those rows quoted. Over `origin/release/v0.12.1...HEAD` — the range the
+sealer's broad gate runs, where the rows were both written and removed inside
+it — the check is exit 0 with no survivor standing and no exemption needed.
+So the report is an artefact of measuring a sub-range, not a defect the
+removal introduced. `seal/follow-up.md` carries the same mechanism running the
+other way, where WRITING a row silences its survivor through the diff as well
+as through the exemption. -->
 
 | Path | Quote | Grounds |
 |---|---|---|
