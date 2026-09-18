@@ -34,13 +34,30 @@ about is the one this plugin's own template ships.
 ## Not done
 
 `tests/test_a_corrected_sentence_survives_elsewhere.py::test_the_measured_commits_are_still_here`
-fails in this clone and predates this branch. Its two pinned commits, `7bcf36a`
-and `ad6f81a`, do not resolve here and no `fixture/survivor-*` tag is present —
-`git rev-parse --verify` returns 128 for both, and the module is byte-identical
-to its copy at the base, so nothing this branch did can have caused it. Its own
-message says the repair: push those tags back, or replace the commits with two
-carrying the same shapes. Out of the scope this phase is allowed to change, and
-named here so the sealer's broad run meets it already explained.
+failed while the build ran and does so no longer. **Nothing in the repository
+was wrong and nothing was changed to fix it: the two tags were on `origin` the
+whole time and this clone had never fetched them.** Reported from the build as
+a repository defect out of scope, it is corrected here rather than rewritten,
+because a record that says what the tree does not is what the work item before
+this one was about.
+
+What was measured, by the orchestrator on 2026-09-18: `git rev-parse --verify`
+returned 128 for `7bcf36a` and `ad6f81a` and `git tag -l 'fixture/*'` was
+empty — both true, and neither says where the tags are. `git ls-remote --tags
+origin 'fixture/*'` names them both. After
+`git fetch origin 'refs/tags/fixture/*:refs/tags/fixture/*'` the module is
+`55 passed`, where it had been `1 failed, 47 passed, 7 skipped` — the seven
+skips were the cases the missing commits had disarmed, which is the state the
+failing case exists to catch.
+
+So the repair the failure names — *push those tags back, or replace the
+commits* — is addressed to a repository that has lost them, and this one has
+not. The sealer meets a green module. What is worth someone's attention is
+that a fresh clone starts in the state this one was in: `git clone` fetches
+tags reachable from the fetched branches, and these two are not, so the case
+fires on a machine where nothing is wrong. That is nobody's scope here and it
+is not filed as one — it is written down where the next reader of this work
+item will meet it.
 
 `templates/config.md` §*What is refused, and what stays allowed* still says a
 line that does not parse *still takes every row below it*. It is already
