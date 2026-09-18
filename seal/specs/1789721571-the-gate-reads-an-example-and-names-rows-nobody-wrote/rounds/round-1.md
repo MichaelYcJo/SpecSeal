@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 445 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `1f60a3c5edf95af977fa643a7e1b96e9f5514005..48efed79e4e61bdaecbc9a6e1c664e01e2c8a136`, 7 commits |
+| Contract changes | none |
+| New units | fence_map (depth 1); fence_left_open (depth 1); test_a_row_that_would_land_inside_an_unclosed_fence_is_refused (depth 1); MOVES (depth 1); WHOLE (depth 1); test_a_second_unparseable_line_below_is_not_called_nothing (depth 1) |
 | Needs a fix | yes — finding 1, `seal mode` writing a row no walk reads and reporting it as written; finding 2, the fenced-row refusal naming a cause that is not the real one; finding 3, the three cost sentences answering about lines from a count of rows. |
 | Loses a record or crashes | no — nothing leaves the root and nothing raises; finding 1 only appends to a person's `config.md` and never removes from it. |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -30,9 +30,9 @@ The broad gate was explicitly out of the round's hands (`agent-contract` §2), a
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | 🔴 `seal mode` writes the `Mode` row inside an unclosed fence, reports success, and never converges — two prompts every session, forever, and the file grows a table a run | `skills/implement/scripts/seal.py#table_span`, `#with_row`, `#mode_report` | open | Executed at the target SHA and at `release/v0.12.1`: three runs give `declared_mode == ('none', '')` and 9 → 21 lines at HEAD, `('mode', 'shared')` and 9 → 9 lines at base. A regression this branch introduces. `plan.md` §*Operational impact* and `phases/phase-2.md` both assert *and then silence* for this shape |
-| 2 | 🟡 The fenced-row refusal quotes a person's live row back as *written inside a code fence* and tells them to move it into a table it is already in, never naming the unclosed fence | `skills/verify/scripts/broad_gate.py#missing_row`, `#fenced_row` | open | Executed on A5's own fixture. Following the instruction exactly changes nothing. `templates/config.md` states the missing fact; the message does not carry it. `unfenced` already computes it and discards it at the yield |
-| 3 | 🟡 *nothing was written below it* and *this one line is the whole of what changes* are answered from rows, so both are false when another unparseable line sits below the quoted one | `skills/verify/scripts/broad_gate.py#missing_row`, `spec.md` §*Data & interfaces* | open | Executed at site 1 and site 2. `refusal` returns the line in `refused` and the sentence says nothing was written. At site 2 the reader stops at the next malformed line, so one edit does not finish the file |
+| 1 | 🔴 `seal mode` writes the `Mode` row inside an unclosed fence, reports success, and never converges — two prompts every session, forever, and the file grows a table a run | `skills/implement/scripts/seal.py#table_span`, `#with_row`, `#mode_report` | **fixed** `2ad0a56` | fixed at 2ad0a56; Executed at the target SHA and at `release/v0.12.1`: three runs give `declared_mode == ('none', '')` and 9 → 21 lines at HEAD, `('mode', 'shared')` and 9 → 9 lines at base. A regression this branch introduces. `plan.md` §*Operational impact* and `phases/phase-2.md` both assert *and then silence* for this shape |
+| 2 | 🟡 The fenced-row refusal quotes a person's live row back as *written inside a code fence* and tells them to move it into a table it is already in, never naming the unclosed fence | `skills/verify/scripts/broad_gate.py#missing_row`, `#fenced_row` | **fixed** `94f5a1d` | fixed at 94f5a1d; Executed on A5's own fixture. Following the instruction exactly changes nothing. `templates/config.md` states the missing fact; the message does not carry it. `unfenced` already computes it and discards it at the yield |
+| 3 | 🟡 *nothing was written below it* and *this one line is the whole of what changes* are answered from rows, so both are false when another unparseable line sits below the quoted one | `skills/verify/scripts/broad_gate.py#missing_row`, `spec.md` §*Data & interfaces* | **fixed** `87fc32c` | fixed at 87fc32c; Executed at site 1 and site 2. `refusal` returns the line in `refused` and the sentence says nothing was written. At site 2 the reader stops at the next malformed line, so one edit does not finish the file |
 | ⬜ | `overview.md` §*Not done* says a fresh clone loses the fixture tags because `git clone` fetches only reachable tags; it copies every tag by default | `seal/specs/1789721571-…/overview.md` §*Not done* | correction | Executed: a `git clone --no-local` at the target SHA carries both `fixture/*` tags and the module is `55 passed`, exit 0. The rest of the corrected paragraph matches the tree |
 | ⬜ | Nine of the twelve `seal/ledger.md` rows re-stamped in this range carry a 2026-09-18 `Checked` date that no record states was read | `seal/ledger.md` | correction | Three rows record the re-read; nine name 2026-09-17 or earlier as their last. Neither phase record mentions the re-verification |
 | ⬜ | `unfenced`'s `rstrip("\r\n")` leaves six of the eight terminators `splitlines` breaks on, so the two spellings of a line differ in text | `hooks/config.py#unfenced` | answered | Executed over all eight in two positions: no answer moves. The docstring's LF/CRLF scoping is accurate; the latent width is what is reported |
