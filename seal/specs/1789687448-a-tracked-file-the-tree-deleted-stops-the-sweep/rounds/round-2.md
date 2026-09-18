@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 440 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `ed85fc2a234f1d9f755fc7bc131e3394862cd9af..2970f694f64a33f14a11a4ed311e237f0fa83e6c`, 2 commits |
 | Contract changes | none |
 | New units | vanished_scopes (depth 1); miscounted_scopes (depth 1); test_an_unguarded_scope_is_named_although_a_module_is_mid_edit (depth 1); SELF (depth 1); GUARDED_CASE (depth 1); test_the_positive_halves_are_asked_before_the_decline (depth 1) |
