@@ -10,10 +10,12 @@ range ADDED and is subtracted from what is looked for at all — the report goes
 quiet through the diff rather than through the exemption, and an exemption
 that silences invisibly is one nobody audits. That is #365's class one file
 over: `seal/specs/1789211172-a-round-record-disarms-survivor-check/spec.md`
-records the same mechanism for `rounds/` records, which were filtered out of
-the pool by construction; a `survivors.md` sits in the same directory and was
-not. Filtering it is mechanism a fix pass may not add, and it is deferred. -->
+records the same mechanism for `rounds/` records, which
+`survivor_check.py#records_a_past_round` filters out of both the pool and the
+range by construction. A `survivors.md` sits one level up, in the work item's
+own directory, and is filtered out of neither. Doing that is mechanism a fix
+pass may not add, and it is deferred. -->
 
 | Path | Quote | Grounds |
 |---|---|---|
-| `tests/test_the_payload_meter_says_what_it_measured.py` | `beta` | The range rewrote `test_the_scan_covers_something`, whose two named-path assertions became a tuple and a declining helper. The phrases the check matched fall across a seam — an assertion beside a skill path on one side, a YAML flow-form frontmatter fixture on the other — and are deliberately not reproduced here, for the reason the comment above gives. The standing line is about a meter reading an inline list; it is not a copy of any sentence this work removed, and nothing about it would become false if the rewritten case were reverted |
+| `tests/test_the_payload_meter_says_what_it_measured.py` | `skills: [alpha, beta]` | The range rewrote `test_the_scan_covers_something`, whose two named-path assertions became a tuple and a declining helper. The phrases the check matched fall across a seam — an assertion beside a skill path on one side, a YAML flow-form frontmatter fixture on the other — and are deliberately not reproduced here, for the reason the comment above gives. The standing line is about a meter reading an inline list; it is not a copy of any sentence this work removed, and nothing about it would become false if the rewritten case were reverted |
