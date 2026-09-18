@@ -252,3 +252,28 @@ def fence_left_open(home, above=None):
 | `round_record.py` and `chain_check.py` were not driven against a fenced example table | already deferred in this branch — `seal/follow-up.md`, ticket #444 | the repository owner |
 | One refusal loads `hooks/config.py` and reads `config.md` once per helper, and `fence_left_open` adds another pair on the fenced path | already answered in round 1 and named in `phases/phase-1.md` | the repository owner |
 | The full suite, the repository-wide lint and the typecheck | the broad gate, after the rounds settle | the sealer |
+
+<!-- **Two `New units` entries above are declared at depth 1 and are at
+depth 2**, found by round 3 and corrected here rather than in the cell.
+
+`fenced_row_at` and the case
+`test_a_fence_opened_below_the_row_is_not_the_fence_above_it` were both
+added by `15d4f38`, the fix of this round's finding 2,
+whose `Location` names `fence_left_open` -- a unit `round-1.md`'s `New
+units` names. That is the definition of depth 2.
+
+**The cell is left as the generator wrote it, deliberately.** `close`
+refuses depth 2 before writing any cell, so a record stating it would state
+something that command would never have produced; what stands above is what
+it actually produced. Round 3 reproduced `close` in a clone from this
+record's pre-close state and got the same values byte for byte, including
+`fenced_row_at (depth 1)`. The reason is `units_named_earlier`:
+`chain.EMPHASIS` is a run of `[*_`]` stripped across the whole entry, so a
+snake_case name arrives as `fenceleftopen` and `depth_two` finds no parent
+to match. That defect is filed as #438 and RIDERed at the unit, so this
+note points at it rather than re-filing it.
+
+**The consequence for the code is none.** What the depth rule exists to
+guarantee is that a fix pass's units get a reader, and round 3 read both:
+`fenced_row_at` at its fence arithmetic, in every arrangement of an opener
+above and below the row, and the case at both of its directions. -->

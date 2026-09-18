@@ -89,6 +89,15 @@
     stopping place down rather than clearing the table, instead of promising
     that one edit is the whole of what changes.
 
+  - **And the one refusal whose instruction costs a row now says so.** Where
+    the rows below the quoted line were read, escaping the pipe as the message
+    asks is what lets the stop rule stop — and it then stops at the next line
+    the reader will not take, so rows that arrive today go with the repair. A
+    `Mode` row that reads before the edit is gone after it. That refusal now
+    says the rows under that next line go with the repair and that there is
+    more than one line to write here, which is a different and worse cost than
+    the stopping place moving down.
+
   - **No verdict moves.** Nothing new is refused and nothing previously
     refused is now run; only the sentence a refusal already printed changes.
     The repository's own config answers identically before and after — mode,
