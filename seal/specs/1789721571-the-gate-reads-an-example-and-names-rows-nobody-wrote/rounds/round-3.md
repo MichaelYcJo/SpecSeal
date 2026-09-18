@@ -8,7 +8,7 @@
 | PR | 445 |
 | Broad gate | not yet |
 | Fixes checked by | no fixes to check |
-| Fix range | none |
+| Fix range | `95de3cdc7e6ceb81c2681dfbadd7f4ebdddbe470..c06997f1723df1376fff043f412bd133d6e17045`, 2 commits |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | yes — finding 1, `fence_left_open`'s default answering about the file when the question is about a row. |
