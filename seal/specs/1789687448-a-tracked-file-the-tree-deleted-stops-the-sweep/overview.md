@@ -26,7 +26,7 @@ produces that tree on purpose.
 
 | Item | Who must answer |
 |---|---|
-| The full suite, the repository-wide lint and the typecheck. `agent-contract` §2 keeps all three off an implementer. What was run is the 22 modules these files touch — `bin/test -q` over them, exit 0, 726 passed — plus `uvx ruff check .` and `uvx ruff format --check .`, both exit 0, and `evidence_check.py --strict .` at exit 0 | `specseal:sealer`, spawned by the orchestrator after the review rounds settle |
+| The full suite, the repository-wide lint and the typecheck. `agent-contract` §2 keeps all three off an implementer. What was run is the 24 modules these files touch — `bin/test -q` over them, exit 0, **785 passed** — plus `uvx ruff check .` and `uvx ruff format --check .`, both exit 0, and `evidence_check.py --strict .` at exit 0 | `specseal:sealer`, spawned by the orchestrator after the review rounds settle |
 | #432's *staging the deletions makes the same tree green — 3736 passed*. The module baselines were measured (Q4) and the suite-wide total was not | `specseal:sealer`'s broad run |
 | Whether `pytest.skip`'s reason renders in full in the release runner's `-q` output, or is truncated. The reason's TEXT is pinned by four cases; what a person actually sees in the terminal at step 3 is not | the repository owner, at the next release |
 
@@ -52,6 +52,16 @@ emits it at exit 0 — and it is a fact about a docstring rather than about a
 git listing, so it is outside this work's scope. Phase 4's reader catches it
 at its own `ast.parse` so it does not become a second source. It is one
 character to fix and it belongs to whoever opens that file next.
+
+**One `survivor-check` report is exempted rather than corrected.** Over
+`f8cf32e5..HEAD` the check names
+`tests/test_the_payload_meter_says_what_it_measured.py` as still carrying
+wording this range removed. The shared phrases fall across a seam — an
+assertion beside the path `skills/implement/SKILL.md` on one side, a YAML
+flow-form frontmatter fixture on the other — and the standing line is not a
+copy of anything this work removed. `survivors.md` carries the row, quoting
+the standing text so the exemption stops holding when that text changes.
+With it, the check exits 0 over 1082 files.
 
 **No `seal/follow-up.md` row was deleted.** All eleven were read on
 2026-09-18; the framer's reading was re-checked and holds. Row 1 is the one

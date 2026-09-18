@@ -85,6 +85,16 @@ named, a second call in one scope counts twice, and a list built at import
 time is a scope of its own. The nine modules the class touches are **284
 passed** at exit 0, read from `$?`.
 
+**One unit of this phase survived its mutation and was pinned afterwards,
+at `aeb86c3b`.** `_catches_oserror` read any `except` handler as the
+declared guard: with the `"OSError" in ast.dump(inner.type)` test dropped,
+every case in the module still passed, so `OPENED_ONLY_BEHIND` was a
+declaration verified by nothing.
+`test_only_an_os_error_handler_reads_as_the_declared_guard` closes it and
+is red under exactly that mutation, exit 1, 1 failed 13 passed. It also
+records that a BARE `except:` reads as not guarded although it would catch
+the error, which is the direction this reader fails in on purpose.
+
 ## What this phase removes
 
 | Removed item | Where it must land |
