@@ -96,8 +96,8 @@ them, and a case whose verdict needs the whole corpus says so — so a count lin
 reading `… passed, N skipped` with reasons naming paths is that state rather
 than something to debug. A fold alone produces no skipped case, because the
 paths it removes are under `seal/ledger/` and no such case reads a corpus that
-reaches there; one appears when the tree is also mid-edit somewhere the
-liveness checks look, under `docs/`, `skills/`, `templates/` or a shipped
+reaches there; one appears when the tree is also mid-edit somewhere a check
+like that reads, under `docs/`, `skills/`, `templates/`, `tests/` or a shipped
 `.py`.
 
 ```bash

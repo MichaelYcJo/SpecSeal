@@ -221,7 +221,7 @@ anchored:
 
 | Anchor | Why it drifts |
 |---|---|
-| `tests/test_a_script_says_which_interpreter_it_needs.py#shipped_python@7fffc4ac` | the helper this work guards |
+| `tests/test_a_script_says_which_interpreter_it_needs.py#shipped_python@93cd0906` | the helper this work guards |
 | `tests/test_a_script_says_which_interpreter_it_needs.py#test_no_shipped_script_needs_more_than_the_floor_without_saying_so@1a78a9a2` | the `gone` liveness assertion |
 | `tests/test_no_document_names_the_old_roots.py#test_every_keep_entry_is_still_in_use@7e1cc02e` | the `KEEP` liveness assertion |
 
@@ -235,14 +235,13 @@ this work ADDS go in its own fragment.
 `tests/test_no_real_identifiers.py` carries no ledger anchor at all today,
 which is worth one row in the fragment rather than a finding.
 
-**The three above are re-stamped to what those units hold after the work,**
-which is what the records arm of `evidence-check` asks of a stamp in a live
-work item's record — a stamp naming a row that no longer exists names
-nothing. The count was **nine**, not three: phase 4 guarded a sixth helper
-the enumeration above could not see, and restructuring four `test_`
-functions into root-parameterised bodies moved units this table did not
-expect to touch. All nine claims were re-read and hold; `phases/phase-5.md`
-lists them.
+**The three stamps above are refreshed to what those units hold after the
+work,** because the records arm of `evidence-check` resolves a stamp in a live
+work item as it resolves a ledger row, and a stamp naming content that moved
+takes `--strict` to exit 2 — the reading `broad-gate` reports as NOT SEALED.
+The refresh is bookkeeping and nothing else. What actually drifted, how far,
+and on what grounds is the build's to state: `overview.md` §*Where spec and
+implementation diverged* and `phases/phase-5.md` carry it.
 
 ## Open questions → questions.md
 

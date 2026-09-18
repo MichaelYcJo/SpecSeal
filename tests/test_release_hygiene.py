@@ -9,9 +9,8 @@ differently.
 import json
 import os
 import re
-import subprocess
 
-from conftest import build_tracked_tree, on_disk
+from conftest import build_tracked_tree, git_listing, on_disk
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -21,9 +20,9 @@ def read_text(*parts):
         return f.read()
 
 
-def version():
+def version(root=ROOT):
     with open(
-        os.path.join(ROOT, ".claude-plugin", "plugin.json"), encoding="utf-8"
+        os.path.join(root, ".claude-plugin", "plugin.json"), encoding="utf-8"
     ) as f:
         return json.load(f)["version"]
 
@@ -36,13 +35,7 @@ def tracked(*prefixes, root=ROOT):
     and watch the guard work; `conftest.on_disk` carries why the second half
     is returned rather than dropped.
     """
-    out = subprocess.run(
-        ["git", "ls-files", *prefixes],
-        cwd=root,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-    ).stdout.split()
+    out = git_listing(root, "ls-files", *prefixes)
     listed = [rel for rel in out if not rel.endswith((".gif", ".png", ".jpg"))]
     return on_disk(root, listed)
 
@@ -473,8 +466,13 @@ def test_the_illustrative_version_is_not_one_this_repository_could_ship():
 
 def timer_offenders(root=ROOT, running=None):
     """`rel:line names <token>` for every timer in the loaded files under
-    `root`. `running` defaults to this repository's own running version."""
-    running = running or version()
+    `root`. `running` defaults to the version `root` itself declares.
+
+    Round 1 ⬜ 7: it read `ROOT`'s `plugin.json` whatever `root` said, so a
+    fixture repository was swept against this repository's running version —
+    a helper taking a root and then not using it for half its inputs.
+    """
+    running = running or version(root)
     offenders = []
     files, _ = tracked(*LOADED, root=root)
     for rel in files:
@@ -510,8 +508,11 @@ def test_no_loaded_file_names_a_version_at_or_above_the_running_one():
     - `VERSIONS_OF_ANOTHER_PRODUCT` — a number that belongs to somebody
       else's release train, pinned to the file that names it.
     """
-    offenders = timer_offenders()
-    assert not offenders, refusal(version(), offenders)
+    # One read of `plugin.json`, not two: `timer_offenders` needs the running
+    # version and so does the refusal (round 1 ⬜ 7).
+    running = version()
+    offenders = timer_offenders(running=running)
+    assert not offenders, refusal(running, offenders)
 
 
 # The fixtures below run `timers_in` against text this repository does not
@@ -1362,3 +1363,26 @@ def test_the_timer_sweep_survives_a_tracked_file_the_tree_deleted(tmp_path):
     assert timer_offenders(root, running=RUNNING_IN_THE_FIXTURES) == [
         "docs/live.md:1 names 0.9.0"
     ]
+
+
+def test_the_running_version_comes_from_the_root_being_swept(tmp_path):
+    """Round 1 ⬜ 7. A helper that takes a root and then reads `plugin.json`
+    from somewhere else sweeps a fixture against this repository's release.
+
+    The fixture declares its own version below both numbers in its documents,
+    so one is a timer and the other is history. Read against THIS repository's
+    version instead, both would be history and the sweep would report nothing
+    — which is how the wrong root hides rather than fails.
+    """
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {
+            ".claude-plugin/plugin.json": json.dumps(
+                {"version": RUNNING_IN_THE_FIXTURES}
+            ),
+            "docs/live.md": "shipping in 0.9.0\n",
+            "docs/history.md": "shipped in 0.8.2\n",
+        },
+    )
+    assert version(root) == RUNNING_IN_THE_FIXTURES
+    assert timer_offenders(root) == ["docs/live.md:1 names 0.9.0"]

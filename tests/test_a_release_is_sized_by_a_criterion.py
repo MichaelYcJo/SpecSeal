@@ -37,9 +37,8 @@ state a second answer.
 
 import os
 import re
-import subprocess
 
-from conftest import build_tracked_tree, on_disk
+from conftest import build_tracked_tree, git_listing, on_disk
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -144,13 +143,7 @@ def tracked(root=ROOT):
     tracked-and-deleted file and watch the guard work; `conftest.on_disk`
     carries why the second half is returned rather than dropped.
     """
-    out = subprocess.run(
-        ["git", "ls-files", *SCANNED],
-        cwd=root,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-    ).stdout.split()
+    out = git_listing(root, "ls-files", *SCANNED)
     listed = [
         rel for rel in out if rel.endswith(SUFFIXES) and os.path.basename(rel) != SELF
     ]

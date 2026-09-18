@@ -67,6 +67,28 @@ def build_tracked_tree(d, files, deleted=()):
     return d
 
 
+def git_listing(root, *args, check=False):
+    """The paths `git <args>` names under `root`, whitespace-split.
+
+    One spelling of a block six helpers had copied (round 1 ⬜ 8). `-C <root>`
+    rather than `cwd=`, so the path the command acts on is written out.
+
+    **The listing WORDS stay at the call site on purpose.**
+    `tests/test_a_shrunken_corpus_declines_to_judge.py` finds a scope that
+    derives a path list by the string constants the call itself names, so
+    moving `ls-files` in here would take every one of those scopes out of the
+    class it enumerates — the check going quiet on the very refactor that was
+    meant to tidy it.
+    """
+    return subprocess.run(
+        ["git", "-C", str(root), *args],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        check=check,
+    ).stdout.split()
+
+
 def on_disk(root, listed):
     """Split a git path listing into what is on disk and what is not.
 

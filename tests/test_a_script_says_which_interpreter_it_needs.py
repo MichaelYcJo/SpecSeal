@@ -32,7 +32,7 @@ import subprocess
 import sys
 
 import pytest
-from conftest import build_tracked_tree, decline_if_shrunken, on_disk
+from conftest import build_tracked_tree, decline_if_shrunken, git_listing, on_disk
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPTS = os.path.join(ROOT, "skills", "code-review", "scripts")
@@ -491,18 +491,8 @@ def shipped_python(root=ROOT):
     tracked-and-deleted file and watch the guard work; `conftest.on_disk`
     carries why the second half is returned rather than dropped.
     """
-    out = subprocess.run(
-        ["git", "ls-files", "*.py"],
-        cwd=root,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    listed = [
-        rel
-        for rel in out.stdout.split()
-        if not rel.startswith(("tests/", "seal/")) and rel
-    ]
+    out = git_listing(root, "ls-files", "*.py")
+    listed = [rel for rel in out if not rel.startswith(("tests/", "seal/")) and rel]
     return on_disk(root, listed)
 
 

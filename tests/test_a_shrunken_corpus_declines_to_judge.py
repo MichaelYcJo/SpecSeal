@@ -26,7 +26,13 @@ import subprocess
 import warnings
 
 import pytest
-from conftest import build_tracked_tree, decline_if_shrunken, on_disk, shrunken_corpus
+from conftest import (
+    build_tracked_tree,
+    decline_if_shrunken,
+    git_listing,
+    on_disk,
+    shrunken_corpus,
+)
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -293,17 +299,41 @@ def derivers(paths, root=ROOT):
     return found
 
 
+DECLINES_CLASS = "the suite-wide enumeration of scopes that list paths from git"
+
+
 def suite_modules():
-    """Every `tests/*.py` this repository tracks, as repository-relative paths."""
-    out = subprocess.run(
-        ["git", "ls-files", "tests/*.py"],
-        cwd=ROOT,
-        capture_output=True,
-        encoding="utf-8",
-        check=True,
-    ).stdout.split()
-    present, _ = on_disk(ROOT, out)
-    return present
+    """`(every `tests/*.py` on disk, the tracked ones that are not)`."""
+    out = git_listing(ROOT, "ls-files", "tests/*.py", check=True)
+    return on_disk(ROOT, out)
+
+
+def classified_scopes(present, missing, root=ROOT):
+    """What the reader found over `present`, or `pytest.skip` when every scope
+    that vanished is in a module the working tree deleted.
+
+    The inverse direction the three call sites in the other modules answer, in
+    the module that enumerates the class. To this half a module the tree
+    deleted and a scope somebody removed are the same evidence -- and the
+    refusal below tells the reader to classify the difference, which on a
+    mid-edit tree means editing a live row out of a table on evidence about
+    the working tree. That is the instruction `classifications_of_nothing`
+    exists to decline to give, and this module shipped without it while
+    holding the equality assertion that needs it.
+
+    Conditional on EVERY vanished scope being explained, so a genuine removal
+    is still reported beside a skipped one.
+
+    The pair is a parameter rather than fetched here, so the case below can
+    hand it a tree it chose without deleting a file the suite is running from.
+    """
+    found = derivers(present, root=root)
+    vanished = set(PATH_LIST_CALLS) - set(found)
+    if vanished:
+        gone = {key.split("#", 1)[0] for key in vanished}
+        if gone <= set(missing):
+            decline_if_shrunken(sorted(gone), DECLINES_CLASS)
+    return found
 
 
 def _function(tree, name):
@@ -350,7 +380,7 @@ def test_no_scope_in_the_suite_lists_paths_from_git_without_a_guard():
     carried it, a sixth was found by this case while it was being written, and
     a seventh is what this exists to stop.
     """
-    found = derivers(suite_modules())
+    found = classified_scopes(*suite_modules())
     assert set(found) == set(PATH_LIST_CALLS), (
         "the suite derives a path list from git in "
         f"{sorted(set(found) - set(PATH_LIST_CALLS))} that this case does not "
@@ -392,7 +422,7 @@ def test_the_reader_finds_the_helpers_this_work_guarded():
     """The vacuity assertion. A reader that has stopped matching answers *no
     offender* and nobody hears — which is the failure mode this whole case is
     written against, so it is the one that has to be pinned separately."""
-    found = derivers(suite_modules())
+    found = classified_scopes(*suite_modules())
     for key in APPLIES_THE_SHARED_GUARD:
         assert key in found, (
             f"{key} is no longer read as deriving a path list from git, so "
@@ -465,3 +495,38 @@ def test_only_an_os_error_handler_reads_as_the_declared_guard():
     assert _catches_oserror(tree, "guarded")
     assert not _catches_oserror(tree, "other")
     assert not _catches_oserror(tree, "bare")
+
+
+def test_a_test_module_the_tree_deleted_is_not_a_scope_somebody_removed():
+    """The inverse direction in the module that enumerates the class.
+
+    An unstaged `git mv` of a test module would otherwise report its scope as
+    no longer deriving a path list, and the instruction that comes with that
+    report is to classify the difference -- a live row edited out of a table
+    on evidence about a working tree.
+    """
+    key = sorted(APPLIES_THE_SHARED_GUARD)[0]
+    rel = key.split("#", 1)[0]
+    # Whatever the tree is ALREADY missing rides along in both calls. A case
+    # that assumed a whole tree would itself be red on the mid-edit tree this
+    # module is about, which is the class one level up from the finding.
+    present, missing = suite_modules()
+    with pytest.raises(pytest.skip.Exception) as declined:
+        classified_scopes([p for p in present if p != rel], [rel, *missing])
+    reason = str(declined.value)
+    assert rel in reason, reason
+    assert DECLINES_CLASS in reason, reason
+    assert "not judging" in reason, reason
+
+    # A scope that vanished for any other reason is still a finding. The same
+    # shrunken corpus with NOTHING explained by the working tree must reach
+    # the refusal rather than the skip — a decline that fires on a vanished
+    # scope regardless would carry a real removal away with it.
+    try:
+        partial = classified_scopes([p for p in present if p != rel], [])
+    except pytest.skip.Exception as declined:
+        raise AssertionError(
+            "a scope that vanished with its module still on disk was declined "
+            f"rather than reported: {declined}"
+        ) from None
+    assert key not in partial, partial

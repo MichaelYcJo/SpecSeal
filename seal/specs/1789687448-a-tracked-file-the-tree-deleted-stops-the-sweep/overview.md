@@ -53,15 +53,26 @@ git listing, so it is outside this work's scope. Phase 4's reader catches it
 at its own `ast.parse` so it does not become a second source. It is one
 character to fix and it belongs to whoever opens that file next.
 
-**One `survivor-check` report is exempted rather than corrected.** Over
-`f8cf32e5..HEAD` the check names
-`tests/test_the_payload_meter_says_what_it_measured.py` as still carrying
-wording this range removed. The shared phrases fall across a seam — an
-assertion beside the path `skills/implement/SKILL.md` on one side, a YAML
-flow-form frontmatter fixture on the other — and the standing line is not a
-copy of anything this work removed. `survivors.md` carries the row, quoting
-the standing text so the exemption stops holding when that text changes.
-With it, the check exits 0 over 1082 files.
+**One `survivor-check` report is judged a false positive, and the exemption
+is not what silences it.** Measured over `f8cf32e5..5ffa5dfb`, before this
+work item had a `survivors.md`, the check exits 1 naming
+`tests/test_the_payload_meter_says_what_it_measured.py`. The standing line
+there is about a meter reading an inline list; it is not a copy of anything
+this work removed, so the row was written. Over the branch as it stands the
+check exits 0 **with no `--exempt` flag at all**, and passing the flag prints
+nothing under `exempt` — the report went quiet through the diff rather than
+through the exemption, because a `survivors.md` and the records beside it are
+inside the corpus the check searches, so prose added there counts as wording
+the range wrote and is subtracted from what is looked for.
+
+That is issue #365's class one file over, and closing it is a change to the
+tool's own pool rather than to this branch: `seal/specs/1789211172-a-round-record-disarms-survivor-check/spec.md`
+records the same mechanism for `rounds/` records, which that work item
+filtered out by construction. A fix pass may not add mechanism, so it is
+deferred with an issue body in the hand-back. What this branch owes is the
+half it can do — no record of this work item reproduces the wording the check
+matched, and `survivors.md` says in its own comment why it does not and what
+it is therefore not doing.
 
 **No `seal/follow-up.md` row was deleted.** All eleven were read on
 2026-09-18; the framer's reading was re-checked and holds. Row 1 is the one

@@ -27,10 +27,9 @@ the move happens and how to make it by hand — its lines are the third kind.
 
 import os
 import re
-import subprocess
 
 import pytest
-from conftest import build_tracked_tree, decline_if_shrunken, on_disk
+from conftest import build_tracked_tree, decline_if_shrunken, git_listing, on_disk
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -80,13 +79,7 @@ def tracked(root=ROOT):
     tracked-and-deleted file and watch the guard work; `conftest.on_disk`
     carries why the second half is returned rather than dropped.
     """
-    out = subprocess.run(
-        ["git", "ls-files", *SCANNED],
-        cwd=root,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-    ).stdout.split()
+    out = git_listing(root, "ls-files", *SCANNED)
     listed = [rel for rel in out if rel.endswith(SUFFIXES) and rel not in DESIGN_RECORD]
     return on_disk(root, listed)
 
@@ -138,11 +131,18 @@ def uncovered(files, missing):
     without this the case reports the scan as no longer covering a file that
     is merely somewhere else — a verdict about coverage taken from evidence
     about the working tree.
+
+    **Conditional on every absent path being explained.** A named path absent
+    for another reason is a real loss of coverage, and declining over a
+    neighbour that is merely mid-edit would report it nowhere — the decline
+    carrying a finding away with it, which is a worse failure than the one it
+    was written against.
     """
     absent = [rel for rel in COVERED if rel not in files]
-    if absent:
+    unexplained = [rel for rel in absent if rel not in missing]
+    if absent and not unexplained:
         decline_if_shrunken(sorted(set(absent) & set(missing)), DECLINES_COVERAGE)
-    return absent
+    return unexplained
 
 
 def keep_entries_not_in_use(root=ROOT):
@@ -277,3 +277,20 @@ def test_a_skipped_file_does_not_read_as_lost_coverage():
     assert DECLINES_COVERAGE in reason, reason
     # A named path absent for any other reason is a finding, not a skip.
     assert uncovered(files=[], missing=[]) == list(COVERED)
+
+
+def test_a_real_loss_of_coverage_survives_a_neighbour_being_mid_edit():
+    """The decline must not carry a finding away with it.
+
+    One named path merely off disk and the other genuinely gone from the
+    corpus: the first is explained by the working tree and the second is not,
+    so the case has to report the second rather than decline over the first.
+    """
+    try:
+        found = uncovered(files=[], missing=[COVERED[0]])
+    except pytest.skip.Exception as declined:
+        raise AssertionError(
+            "a named path that genuinely left the corpus was carried away by a "
+            f"decline over its neighbour: {declined}"
+        ) from None
+    assert found == [COVERED[1]], found

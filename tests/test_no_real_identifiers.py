@@ -11,9 +11,8 @@ public repo, and (measured) its completeness is exactly what fails.
 
 import os
 import re
-import subprocess
 
-from conftest import build_tracked_tree, on_disk
+from conftest import build_tracked_tree, git_listing, on_disk
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -36,13 +35,7 @@ def tracked_text_files(root=ROOT):
     tracked-and-deleted file and watch the guard work. `on_disk` carries why
     the second half is returned instead of dropped.
     """
-    out = subprocess.run(
-        ["git", "ls-files"],
-        cwd=root,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-    ).stdout.split()
+    out = git_listing(root, "ls-files")
     listed = [
         rel
         for rel in out

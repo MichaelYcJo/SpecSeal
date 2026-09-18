@@ -42,7 +42,7 @@ import subprocess
 import time
 
 import pytest
-from conftest import on_disk
+from conftest import git_listing, on_disk
 from test_the_fixes_close_the_record import (
     MOD_CHANGED,
     OPEN_1,
@@ -650,22 +650,9 @@ def committed_records(root=ROOT):
     """
     generator = generator_module()
     routing = generator.load(generator.chain.ROUTING, "routing_for_the_id_corpus")
-    out = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(root),
-            "ls-tree",
-            "-r",
-            "--name-only",
-            "HEAD",
-            "--",
-            "seal/specs",
-        ],
-        capture_output=True,
-        encoding="utf-8",
-        check=True,
-    ).stdout.split()
+    out = git_listing(
+        root, "ls-tree", "-r", "--name-only", "HEAD", "--", "seal/specs", check=True
+    )
     listed = [
         p
         for p in out
