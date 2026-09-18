@@ -510,8 +510,20 @@ def missing_row(home):
         if mine is None and names_this_row(line):
             mine, reached = line, got
             after_mine = [text for text, _got in refused[position + 1 :]]
-        if stopper is not None and line is stopper:
-            after_stopper = [text for text, _got in refused[position + 1 :]]
+            break
+    if stopper is not None:
+        # **The stopper's POSITION, not its identity.** `refused` holds line
+        # text, and CPython hands back one shared object for every
+        # one-character string — so two refused lines that are both `|` are
+        # the same object, `line is stopper` matched both, and the tail came
+        # from the last of them with the clause about the lines below silently
+        # dropped. Every entry appended before the stopper carries `got` True
+        # and the stopper's is the last of those, which is a fact about how
+        # `refusal` fills the list rather than about the text (#430, round 2).
+        last_reached = max(
+            position for position, (_line, got) in enumerate(refused) if got
+        )
+        after_stopper = [text for text, _got in refused[last_reached + 1 :]]
     moves_the_stop = (
         ". There are more lines below it this reader will not take as rows "
         "either, so fixing this one moves the stopping place down rather "

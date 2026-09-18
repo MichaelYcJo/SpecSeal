@@ -1766,6 +1766,48 @@ def test_the_documents_state_the_fence_rule_the_refusal_points_at(tmp_path):
     )
 
 
+def test_two_refused_lines_of_one_character_do_not_collide(tmp_path):
+    """Round 2's 🟡 3. The tail below the stopping line was found with
+    `line is stopper` over a list the loop did not stop walking, so the tail
+    came from the LAST line that satisfied it.
+
+    `refused` holds line text, and CPython hands back one shared object for
+    every one-character string — so two refused lines that are both `|` are
+    one object, the test matched both, and the clause saying more lines stand
+    below was dropped although one does. Nothing about the text is wrong:
+    the same file with `| x` as its second line printed the clause, which is
+    what says the defect is the identity test and not the fixture.
+
+    Both directions here, and the second is what the first is measured
+    against.
+    """
+    two_pipes = (
+        "| Item | Value |\n|---|---|\n| Mode | shared |\n|\n|\n"
+        f"| {ROW} | bin/test -q |\n"
+    )
+    collided = refusal_over(tmp_path, "two_bare_pipes", two_pipes)
+    assert "never reached it" in collided, collided
+    assert "will not take as rows either" in collided, (
+        "a second line the reader will not take stands below the stopping "
+        f"line, and the refusal says nothing about it:\n{collided}"
+    )
+
+    distinct = refusal_over(
+        tmp_path, "one_of_them_longer", two_pipes.replace("|\n|\n", "|\n| x\n", 1)
+    )
+    assert "will not take as rows either" in distinct, distinct
+
+    nothing_after = refusal_over(
+        tmp_path,
+        "nothing_below_the_stopper",
+        f"| Item | Value |\n|---|---|\n| Mode | shared |\n|\n| {ROW} | bin/test -q |\n",
+    )
+    assert "will not take as rows either" not in nothing_after, (
+        "the stopping line is the only line the reader will not take, and the "
+        f"refusal names others:\n{nothing_after}"
+    )
+
+
 def test_this_repositorys_own_config_is_answered_exactly_as_before(tmp_path):
     """A11. The file this work item is about is in this repository, and every
     sentence above is a sentence about somebody else's file.
