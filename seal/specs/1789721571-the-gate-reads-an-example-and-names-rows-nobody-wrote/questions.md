@@ -1,0 +1,36 @@
+# the gate reads an example and names rows nobody wrote — questions for the planner
+
+<!-- seal/specs/1789721571-the-gate-reads-an-example-and-names-rows-nobody-wrote/questions.md — decisions
+only a human can make, extracted so nothing ships on a silent assumption. -->
+
+**No row here is a person's, so nothing in this file blocks the build.** Every
+judgment the two tickets left open was answerable from the tree, and the four
+rows below are two measurements and two decisions the phase that meets them
+makes. The list that follows is what was answered, written down so nobody
+reopens it.
+
+## Answered from the tree, not asked
+
+| The question the tickets left open | The answer, and where its grounds are |
+|---|---|
+| Which table in `config.md` is the live one — the first, the last, the one under a named heading, or the one outside every fence. #429 calls this *a decision about the file format, not a bug fix* | **The first table outside every code fence.** The last-table rule breaks the file this plugin's own procedure writes: `skills/config/SKILL.md` step 3 copies the `## Broad gate` prose, which carries a fenced example row, and the template's layout puts that prose below the table. A named heading invalidates every existing `seal/config.md`, including the stub `seal mode` writes. `plan.md` §*Alternatives considered* holds all six options with the failure scenario of each |
+| Whether the fenced-table shape is contrived or invited | **Invited, by two coordinates.** `seal/config.md:3-5` points the reader at `templates/config.md`, a document of example tables; and `skills/config/SKILL.md` step 3 instructs a session to copy a block out of that template that contains a fenced `\| Broad gate \| … \|` row, naming no position for it. `spec.md` §*The two classes, enumerated* quotes both |
+| Whether `refusal` and `config_rows` are the whole of #429's surface | **No — there is a third walk, and it is the writer.** `skills/implement/scripts/seal.py#table_span` copies the same walk to find the line `with_row` overwrites. Its own comment says what leaving it behind costs. It is in scope, in phase 2 |
+| Whether the `hides_this_row(below)` refusal has the same shape of claim as #430's, and whether it is reachable with nothing below | **Same shape; unreachable with `below` empty and reachable with `below` holding one row.** `hides_this_row` is true only when `below` holds this gate's row, so the branch is never entered on an empty list — but with that row alone below the stopping line, *Every other row under that line is gone the same way* names rows nobody wrote. In scope as site 4 |
+| What the no-rows-below wording should be | **Round 3 of #415's draft, adopted for site 2, and three siblings written in its shape for sites 1, 3 and 4.** `spec.md` §*Data & interfaces* carries all four as the contract. A rival wording would spend a judgment to land in the same place |
+| Whether one phase or two | **Two, #430 then #429.** They are two modules and two classes, and the shared reader lands last so it runs against the fuller case set. `plan.md` §*Whether one phase or two* holds the three rejected shapes |
+| Whether `broad-gate` should say anything about a fenced table | **Yes, and only there.** Phase 2 makes a `\| Broad gate \|` line invisible, so the absent-row refusal would become a true sentence about a cause that is not the real one — the failure #415 was opened about. `hooks/config.py` and `hooks/mode-gate.py` say nothing: a `PreToolUse` hook that prints is noise on every Bash call |
+| Whether an unclosed fence hiding the live table is acceptable | **Yes.** It lands on *nothing is declared*, which is the direction `hooks/config.py`'s docstring already states, and it is loud where it matters: `broad-gate` exits 2 with a message, `seal mode` asks the mode question |
+
+## Rows
+
+| # | Question | Who can answer | Options & what each implies | Default until answered | Status |
+|---|---|---|---|---|---|
+| Q1 | Do this repository's other markdown-table readers — `evidence_check.py` over a ledger, `round_record.py` over a round record, `chain_check.py` — read a table inside a code fence as a live table, the way `hooks/config.py` does? | a measurement | Run each over a document carrying a fenced example table of its own kind. **They do**: open a follow-up issue naming them, with the shapes found. **They do not**: write nothing and say so in the closing memo. Either way this work item's code is unchanged — those readers read generated records, not a file whose header comment invites a person to paste an example into it | Assume they do not, and open nothing | ⬜ |
+| Q2 | Are all four sites of #430's class reachable in the states `spec.md` says they are, and all three shapes of #429's? | a measurement | Both enumerations are **read**, not executed — this frame ran nothing. The red-first case each site owes is the instrument, so the answer arrives inside the phase that needs it. **All reachable**: build as framed. **A site is not**: it leaves scope, and the phase record says which and why, rather than a case being written that cannot be seen red | Repair all four sites and all three shapes | ⬜ |
+| Q3 | What exactly counts as a fence in the shapes `spec.md`'s rule does not spell out — a fence opened inside a table, a closing run longer than its opening, a tilde fence nested in a backtick one | the work | `spec.md` §*Data & interfaces* fixes the rule for the shapes that matter: three or more backticks or tildes, indented at most three spaces, closed by at least as many of the same character, unclosed runs to end of file. The residue is CommonMark's own edge cases, and the phase that builds the helper decides each against that specification and records it in `phases/phase-2.md` | CommonMark's fence rule as far as the specification states it; anything past it resolved toward *not a fence*, which keeps a live table readable | ⬜ |
+| Q4 | Which existing fixtures in the three test modules carry a fenced table, and does the new rule change any answer they assert? | the work | Unknowable until the helper exists, and cheap then: phase 2 runs all three modules before and after. **Nothing changes**: nothing to do. **A fixture's answer moves**: it is either a case that was pinning the defect, which the phase rewrites and says so, or a regression, which stops the phase | Assume no fixture's answer moves, and check rather than assume | ⬜ |
+
+**`Who can answer` takes one of three values and nothing else** — a person, a
+measurement, or the work. Only a person's row blocks the build, and this file
+has none.
