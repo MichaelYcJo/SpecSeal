@@ -1510,6 +1510,24 @@ def write_row(home, value):
         if text is None
         else with_row(text, value)
     )
+    # **The row is not written until it reads back.** `table_span` skips
+    # fenced lines, so a file whose table is swallowed by a fence nobody
+    # closed has no table this walk can see -- and `with_row` then appends
+    # one at the END of the file, which is inside that fence. The write
+    # succeeds, `declared_mode` still answers "none", and `seal mode` reports
+    # a row that no walk reads: the mode gate asks again next session and the
+    # file grows by a table a run. Measured over two fixtures, three runs
+    # each: 9 -> 13 -> 17 -> 21 lines with `('none', '')` throughout.
+    # Checked here rather than after the write, so a refusal leaves the
+    # person's file exactly as it was (#429).
+    if not any(item == ROW_ITEM for item, _value in config_rows(new)):
+        return (
+            f"{path} has a fenced code block that is never closed, and "
+            "everything under it -- the table this command would have "
+            f"written the `{ROW_ITEM}` row into -- is inside it, where no "
+            "walk of that table reads it. Nothing was written. Close the "
+            "fence and run this command again."
+        )
     try:
         with open(path, "w", encoding="utf-8", newline="") as handle:
             handle.write(new)

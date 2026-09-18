@@ -577,6 +577,66 @@ def test_the_writer_and_the_reader_agree_about_which_row_is_the_row(tmp_path):
     )
 
 
+def test_a_row_that_would_land_inside_an_unclosed_fence_is_refused(config, tmp_path):
+    """Round 1's 🔴. The writer's claim is that the row reads back.
+
+    A fence nobody closed runs to the end of the file, so `table_span` sees no
+    table at all and `with_row` falls to its third arm and appends one at the
+    END — which is inside that fence. `write_row` returned `""`, `seal mode`
+    printed *one was written from where the folder is*, and `declared_mode`
+    still answered `('none', '')`: the mode gate asks again next session, and
+    the file grows by a table a run. Measured before the fix over both
+    fixtures below, three runs each — 9 → 13 → 17 → 21 lines and 4 → 8 → 12 →
+    16, `('none', '')` throughout.
+
+    **A regression this branch introduced.** At `release/v0.12.1` the fenced
+    table was visible to the writer, so the row it rewrote was read back.
+
+    The third fixture is the shape A4 pins — a fence that IS closed above a
+    live table — and it is here so that a refusal wide enough to swallow it
+    turns this case red rather than passing quietly.
+    """
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "skills", "implement", "scripts", "seal.py")
+    spec = importlib.util.spec_from_file_location("specseal_seal_unclosed", path)
+    seal = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(seal)
+
+    for name, before in (
+        (
+            "live_table_under_an_unclosed_fence",
+            "# Repository config\n\nAn example of the format:\n\n```markdown\n"
+            "| Item | Value |\n|---|---|\n| Mode | shared |\n",
+        ),
+        (
+            "only_a_fenced_example_never_closed",
+            "```markdown\n| Item | Value |\n|---|---|\n| Mode | shared |\n",
+        ),
+    ):
+        home = tmp_path / name / "seal"
+        home.mkdir(parents=True)
+        write_config(home, before)
+        failed = seal.write_row(str(home), "shared")
+        assert "never closed" in failed, (
+            f"{name}: the write reported success for a row no walk reads:\n{failed!r}"
+        )
+        assert (home / "config.md").read_text(encoding="utf-8") == before, (
+            f"{name}: a refused write touched the person's file"
+        )
+        assert config.declared_mode(str(home)) == ("none", ""), (
+            f"{name}: the reader's answer moved under a refused write"
+        )
+
+    closed = tmp_path / "closed" / "seal"
+    closed.mkdir(parents=True)
+    write_config(closed, FENCED_ABOVE.replace("| Mode | shared |", "| Mode | local |"))
+    assert seal.write_row(str(closed), "shared") == "", (
+        "the refusal reaches a file whose fence is closed and whose live "
+        "table is right there"
+    )
+    assert config.declared_mode(str(closed)) == ("mode", "shared")
+
+
 def test_the_fence_rule_answers_the_same_for_a_crlf_file(config, tmp_path):
     """A7. `config_rows` and `refusal` walk `splitlines()` while
     `table_span` walks `splitlines(keepends=True)` and rstrips each line, so
