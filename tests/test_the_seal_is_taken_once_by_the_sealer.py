@@ -1552,6 +1552,38 @@ def test_an_unclosed_fence_hides_the_live_table_and_the_gate_says_which_line(
     assert f"has no `{ROW}` row" not in out.stderr, out.stderr
 
 
+def test_both_reads_behind_one_refusal_apply_the_fence_rule(tmp_path):
+    """`missing_row` reads the config twice for one refusal — `refusal(home)`
+    always, and `rows_read(home)` in the arm where no line stopped the reader
+    (#430's site 1). Both go through `hooks/config.py`, so the fence rule
+    reaches both by construction; this is that measured rather than assumed.
+
+    The fixture is the one shape where the two could disagree: a fenced
+    example BELOW a line with nothing parsed above it. A `rows_read` that did
+    not apply the rule would hand back the example's rows, and the refusal
+    would tell the person the rows below their line were read — naming rows
+    out of a block nobody meant as an answer.
+    """
+    said = refusal_over(
+        tmp_path,
+        "two_reads",
+        "| Item | Value |\n|---|---|\n"
+        f"| {ROW} | bin/test -q | tee out.txt |\n"
+        "```markdown\n| Mode | local |\n| Broad gate | EXAMPLE |\n```\n",
+    )
+    assert "does not parse as a row" in said, said
+    assert ALONE in said, (
+        "the only rows under this line are inside a code fence, so nothing "
+        f"the reader answers with was written below it:\n{said}"
+    )
+    assert "rows below it were read" not in said, (
+        f"the refusal names rows out of an example block:\n{said}"
+    )
+    assert KEPT in said, (
+        f"the half that explains why the line took nothing is gone:\n{said}"
+    )
+
+
 def test_the_documents_state_the_fence_rule_the_refusal_points_at(tmp_path):
     """`agent-contract` §14: a fix that changes what a person sees documents
     it and pins it, in the same commit.
