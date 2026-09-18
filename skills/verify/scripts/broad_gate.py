@@ -336,6 +336,32 @@ def refused_broad_row(home):
     return next((line for line, _reached in refused if names_this_row(line)), None)
 
 
+def fenced_row_at(home):
+    """(index, line) for this gate's row written inside a code fence, or
+    (None, None). `fenced_row` below is that answer's line alone, and its
+    docstring is where this one's reasoning lives.
+
+    The INDEX is what lets the refusal say *a fence above it*: an opener left
+    unclosed lower down the file is not this row's cause, and the person whose
+    row is in a block that closes correctly still has to move it (#429,
+    round 2).
+    """
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    text = config_text(home)
+    if text is None:
+        return None, None
+    lines = text.splitlines()
+    shown = {index for index, _line in config.unfenced(lines)}
+    return next(
+        (
+            (index, line)
+            for index, line in enumerate(lines)
+            if index not in shown and names_this_row(line)
+        ),
+        (None, None),
+    )
+
+
 def fenced_row(home):
     """This gate's row written INSIDE a code fence — as written, with its own
     indentation — or None.
@@ -360,25 +386,17 @@ def fenced_row(home):
     walking the file by a rule of its own. A second fence rule written here
     would answer a different question about the same file, which is the split
     `hooks/config.py` exists to prevent.
+
+    **The line alone**, which is what a message quotes. `fenced_row_at` above
+    is the same answer with the index beside it, for the one caller that has
+    to say where the line is relative to a fence.
     """
-    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
-    text = config_text(home)
-    if text is None:
-        return None
-    lines = text.splitlines()
-    shown = {index for index, _line in config.unfenced(lines)}
-    return next(
-        (
-            line
-            for index, line in enumerate(lines)
-            if index not in shown and names_this_row(line)
-        ),
-        None,
-    )
+    return fenced_row_at(home)[1]
 
 
-def fence_left_open(home):
-    """Whether a fenced code block in the root's config is never closed.
+def fence_left_open(home, above=None):
+    """Whether a fenced code block ABOVE the line at index ABOVE is never
+    closed — or anywhere in the file, where ABOVE is None.
 
     Read off the one fence rule, not a second one. It is the difference
     between a row somebody pasted into an example block and a row that is in
@@ -390,12 +408,21 @@ def fence_left_open(home):
 
     False for every way of not having an answer: no file, a file that will not
     read, a file with no fence in it at all.
+
+    **Above, because that is what the sentence says.** A file whose row sits
+    in an example block that closes and which opens a second block further
+    down answered True here, and the person was told to close a fence that has
+    nothing to do with their row while the act they needed — move it — was the
+    sentence they did not get (#429, round 2).
     """
     config = load(CONFIG_READER, "specseal_config_for_broad_gate")
     text = config_text(home)
     if text is None:
         return False
-    return config.fence_map(text.splitlines())[1] is not None
+    opened_at = config.fence_map(text.splitlines())[1]
+    if opened_at is None:
+        return False
+    return above is None or opened_at < above
 
 
 def missing_row(home):
@@ -605,18 +632,20 @@ def missing_row(home):
             "is where the row says so, and `/specseal:config` is the door to "
             "the file. Nothing ran."
         )
-    fenced = fenced_row(home)
+    at, fenced = fenced_row_at(home)
     if fenced is not None:
         # Two causes, two acts, and the person in the second case has nothing
-        # to move: their row is in the live table and a fence opened above it
+        # to move: their row is in the live table and a fence opened ABOVE it
         # was never closed, so it runs to the end of the file and takes the
         # whole table with it. Told to move the row they would follow the
-        # instruction exactly and change nothing (#429, round 1).
+        # instruction exactly and change nothing (#429, round 1). The fence
+        # has to be above the row: one opened below it leaves the row inside a
+        # block that closes, where moving it is still the act (#429, round 2).
         where = (
             "A fenced code block above it is never closed, so it runs to the "
             "end of the file and takes the whole table with it. Close that "
             "fence — the row itself may already be where it belongs."
-            if fence_left_open(home)
+            if fence_left_open(home, at)
             else "Move the row into the `| Item | Value |` table that stands "
             "outside every fence, or add that table if the file has none."
         )

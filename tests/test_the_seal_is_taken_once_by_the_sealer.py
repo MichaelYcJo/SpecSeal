@@ -1591,6 +1591,44 @@ def test_a_broad_gate_line_only_inside_a_fence_is_named_and_not_called_absent(
     )
 
 
+def test_a_fence_opened_below_the_row_is_not_the_fence_above_it(tmp_path):
+    """Round 2's 🟡 2. The refusal says *a fenced code block ABOVE it is never
+    closed*, and the question it asked was whether the FILE has an opener
+    nothing closes.
+
+    So a row sitting in an example block that closes correctly, in a file that
+    opens a second block lower down, was told to close a fence that has
+    nothing to do with it — and the act that person needs, moving the row out
+    of the example, was the sentence they did not get. Closing the later fence
+    changes nothing about their row.
+
+    **Both directions in one case.** The same file without the trailing block
+    is the one the old code answered correctly, so a repair that simply
+    stopped saying *Close that fence* leaves this pair green and A5's case
+    red.
+    """
+    example = (
+        "# Repository config\n\nAn example of the format:\n\n"
+        "```markdown\n| Item | Value |\n|---|---|\n"
+        f"| {ROW} | EXAMPLE |\n```\n"
+    )
+    opened_below = "\nAnd a block somebody opened and never closed:\n\n```markdown\n| Item | Value |\n"
+
+    both = refusal_over(tmp_path, "fence_below", example + opened_below)
+    assert FENCED in both, both
+    assert "Move the row into" in both, (
+        "the row is in a block that closes; moving it out is the act, and the "
+        f"unclosed block below it is not its cause:\n{both}"
+    )
+    assert "never closed" not in both, (
+        f"the refusal names a fence that has nothing to do with this row:\n{both}"
+    )
+
+    alone = refusal_over(tmp_path, "fence_below_removed", example)
+    assert "Move the row into" in alone, alone
+    assert "never closed" not in alone, alone
+
+
 def test_the_absent_row_refusal_still_reaches_a_file_with_no_such_line(tmp_path):
     """The other half of the case above, and what keeps the new branch from
     swallowing every refusal: a file whose table simply has no `Broad gate`
