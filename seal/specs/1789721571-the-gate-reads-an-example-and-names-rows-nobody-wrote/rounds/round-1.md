@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 445 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `1f60a3c5edf95af977fa643a7e1b96e9f5514005..48efed79e4e61bdaecbc9a6e1c664e01e2c8a136`, 7 commits |
 | Contract changes | none |
 | New units | fence_map (depth 1); fence_left_open (depth 1); test_a_row_that_would_land_inside_an_unclosed_fence_is_refused (depth 1); MOVES (depth 1); WHOLE (depth 1); test_a_second_unparseable_line_below_is_not_called_nothing (depth 1) |
