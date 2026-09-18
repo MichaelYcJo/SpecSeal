@@ -967,13 +967,21 @@ KEPT = "the stop rule needs a row before it can stop"
 # already use: an arm speaking about the line it QUOTES says `below it`, and
 # an arm speaking about the line that STOPPED the reader says `under that
 # line`. The wording is `spec.md` §*Data & interfaces*'s contract.
-ALONE = "nothing was written below it"
-ALONE_UNDER = "nothing was written under that line"
+#
+# **Each says no ROW was written, which is what the value supports.** `below`
+# holds what parsed, and a further line the reader will not take as a row is
+# written under that line too — so *nothing was written* was false wherever a
+# second malformed line stood below the first (round 1's 🟡 3). `MOVES` is
+# what those arms say instead of predicting that one edit finishes the file.
+ALONE = "no row was written below it"
+ALONE_UNDER = "no row was written under that line"
 OTHERS = "Every other row under that line is gone the same way"
 # Site 4 is the one sentence of the four whose line DOES have a row under it
 # — this gate's own, which is why the branch was entered at all — so what it
-# can say is that nothing ELSE was.
-NO_OTHERS = "Nothing else was written under that line"
+# can say is that no OTHER row was.
+NO_OTHERS = "No other row was written under that line"
+MOVES = "moves the stopping place down"
+WHOLE = "is the whole of what changes"
 
 
 def test_what_a_refused_line_cost_is_read_off_the_file_and_not_stated_flat(
@@ -1456,6 +1464,81 @@ def test_a_hidden_row_alone_under_the_stopping_line_has_no_others(tmp_path):
         "the sentence above is only true because this gate's row is the one "
         "and only row the stopping line took"
     )
+
+
+def test_a_second_unparseable_line_below_is_not_called_nothing(tmp_path):
+    """Round 1's 🟡 3, at all four sites of #430's class.
+
+    That class is *a sentence about what lies below a line, computed without
+    asking what is there*. Asking `below` narrows *what is there* to *what
+    parsed as a row*, which closes the shape the tickets named and leaves this
+    one: a second malformed line is neither a row nor nothing, and it is what
+    the reader stops at next — so *this one line is the whole of what changes*
+    is a prediction the file does not keep.
+
+    **All four sites in one case, each with a line below it the reader will
+    not take.** Measured before the fix: sites 1, 2 and 3 printed *nothing was
+    written*, sites 2 and 3 promised one edit would finish the file, and site
+    4 said nothing else was written under a line that has another one under
+    it.
+
+    The four sibling cases above are the other direction — the same arms with
+    nothing below — so a repair that printed the new sentence flat turns those
+    red and this one green.
+    """
+    head = "| Item | Value |\n|---|---|\n"
+    bad = f"| {ROW} | bin/test -q | tee out.txt |\n"
+    also_bad = "| Record language | a | b |\n"
+    stops = "| Notes | see C:\\docs\\|\n"
+
+    # The removed wording, which is what these fixtures make false. `ALONE`
+    # and `ALONE_UNDER` above are the sentences that REPLACED it and are true
+    # here, because no ROW was written below the quoted line — a line the
+    # reader will not take as a row was.
+    was_written = "nothing was written below it"
+    was_written_under = "nothing was written under that line"
+
+    site1 = refusal_over(tmp_path, "site1_second_bad_line", head + bad + also_bad)
+    assert was_written not in site1, (
+        f"a line IS written below it — `refusal` returned it:\n{site1}"
+    )
+    assert ALONE in site1, site1
+    assert MOVES in site1, site1
+
+    site2 = refusal_over(
+        tmp_path, "site2_second_bad_line", head + "| Mode | shared |\n" + bad + also_bad
+    )
+    assert was_written not in site2, site2
+    assert ALONE in site2, site2
+    assert WHOLE not in site2, (
+        "fixing this line moves the stopping place down to the next one the "
+        f"reader will not take, so one edit does not finish the file:\n{site2}"
+    )
+    assert MOVES in site2, site2
+
+    site3 = refusal_over(
+        tmp_path,
+        "site3_second_bad_line",
+        head + bad + "| Mode | shared |\n" + stops + also_bad,
+    )
+    assert "The reader stopped LOWER DOWN" in site3, site3
+    assert was_written_under not in site3, site3
+    assert ALONE_UNDER in site3, site3
+    assert WHOLE not in site3, site3
+    assert MOVES in site3, site3
+
+    site4 = refusal_over(
+        tmp_path,
+        "site4_second_bad_line",
+        head + "| Mode | shared |\n" + stops + f"| {ROW} | bin/test -q |\n" + also_bad,
+    )
+    assert "never reached it" in site4, site4
+    assert "Nothing else was written under that line" not in site4, site4
+    assert NO_OTHERS in site4, (
+        "this gate's row is still the only ROW under the stopping line, which "
+        f"is what the sentence may claim:\n{site4}"
+    )
+    assert "will not take as rows either" in site4, site4
 
 
 # --- #429: a `Broad gate` line written where no walk reads it ---------------

@@ -80,6 +80,30 @@ every reachable state, so it is not a member of the class.
 
 ## Fed back into the spec
 
-None. `spec.md`'s enumeration of #430's four sites stands as written and all
-four were reachable as framed; what moved is the method one of them uses, and
-that is a divergence from `plan.md` rather than a clause `spec.md` was missing.
+**A sentence about what was WRITTEN below a line cannot be answered from rows
+alone** — *inferred during implementation*, round 1's fix pass, and a planner
+may overturn it.
+
+`spec.md` §*Data & interfaces* fixes the wording of all four sentences and
+three of them say *nothing was written*. `refusal` answers with two things:
+`below`, which holds what parsed as a row, and `refused`, which holds the
+lines a person wrote as rows and this reader will not take. A second
+malformed line below the first is in neither `below` nor nothing — and it is
+what the reader stops at next. Measured at all four sites: sites 1, 2 and 3
+printed *nothing was written*, sites 2 and 3 went on to promise that fixing
+the quoted line is the whole of what changes, and site 4 said nothing else
+was written under a line that had another one under it.
+
+So each sentence now says **no ROW was written**, which is what `below`
+supports, and the two arms that made the prediction say instead that fixing
+the line moves the stopping place down. #430's class is *a sentence about
+what lies below a line, computed without asking what is there*; asking
+`below` narrowed *what is there* to *what parsed as a row*, which closes the
+shape the tickets named and leaves this one. The clause the spec was missing
+is which of the reader's two answers a sentence about *written* may be built
+from.
+
+`spec.md`'s enumeration of #430's four sites stands as written and all four
+were reachable as framed; what moved in phase 1 is the method one of them
+uses, and that is a divergence from `plan.md` rather than a clause `spec.md`
+was missing.

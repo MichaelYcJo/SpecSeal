@@ -443,6 +443,18 @@ def missing_row(home):
     arm without one reads `rows_read`, whose docstring says why `below` is
     empty there either way.
 
+    **And a sentence about what was WRITTEN cannot be answered from rows
+    alone.** `below` holds what parsed; a further line the reader will not
+    take as a row is written under that line too, and `refused` is where it
+    is. So each of those sentences says *no ROW was written*, which is what
+    the value supports, and the two arms that go on to predict that one edit
+    finishes the file — *this one line is the whole of what changes* — say
+    instead that fixing it moves the stopping place down, because that is
+    what a further refused line below makes true. Measured at all four sites
+    with a second malformed line below (#430, round 1); `spec.md`
+    §*Data & interfaces* fixed the old wording, and `overview.md` §*Fed back
+    into the spec* records the correction as a clause this work added.
+
     **The third cause is a row written where no walk of that table reads
     it.** A `| Broad gate |` line inside a code fence is an example of the
     format rather than this repository's own answer, and `hooks/config.py#
@@ -462,9 +474,21 @@ def missing_row(home):
     they answer it.
     """
     refused, below, stopper = refusal(home)
-    mine, reached = next(
-        ((line, got) for line, got in refused if names_this_row(line)),
-        (None, False),
+    # Two tails, because two of these sentences are about the line this gate
+    # QUOTES and two are about the line that STOPPED the reader. Each is the
+    # lines below its own subject that this reader will not take as rows —
+    # which `below` cannot answer, holding only what parsed (#430, round 1).
+    mine, reached, after_mine, after_stopper = None, False, [], []
+    for position, (line, got) in enumerate(refused):
+        if mine is None and names_this_row(line):
+            mine, reached = line, got
+            after_mine = [text for text, _got in refused[position + 1 :]]
+        if stopper is not None and line is stopper:
+            after_stopper = [text for text, _got in refused[position + 1 :]]
+    moves_the_stop = (
+        ". There are more lines below it this reader will not take as rows "
+        "either, so fixing this one moves the stopping place down rather "
+        "than clearing the table"
     )
     if mine is not None:
         if stopper is None:
@@ -476,11 +500,11 @@ def missing_row(home):
                 )
             else:
                 cost = (
-                    ". Nothing else was lost with it, because nothing was "
+                    ". Nothing else was lost with it, because no row was "
                     "written below it: nothing had parsed above this line "
                     "either, so the table had not begun and the stop rule "
                     "needs a row before it can stop"
-                )
+                ) + (moves_the_stop if after_mine else "")
         elif mine is stopper:
             if below:
                 cost = (
@@ -490,9 +514,12 @@ def missing_row(home):
                 )
             else:
                 cost = (
-                    " — and nothing was written below it, so nothing else "
-                    "was lost with it: this one line is the whole of what "
-                    "changes"
+                    " — and no row was written below it, so nothing else was "
+                    "lost with it"
+                ) + (
+                    ": this one line is the whole of what changes"
+                    if not after_mine
+                    else moves_the_stop
                 )
         elif reached:
             if below:
@@ -502,9 +529,14 @@ def missing_row(home):
                 )
             else:
                 under = (
-                    "and nothing was written under that line, so nothing else "
-                    "was lost with it: that one line is the whole of what "
-                    "changes"
+                    "and no row was written under that line, so nothing else "
+                    "was lost with it"
+                ) + (
+                    ": that one line is the whole of what changes"
+                    if not after_stopper
+                    else ". There are more lines below THAT one this reader "
+                    "will not take as rows either, so fixing it moves the "
+                    "stopping place down rather than clearing the table"
                 )
             cost = (
                 ". The rows directly below it were read — nothing had parsed "
@@ -546,9 +578,18 @@ def missing_row(home):
                 "falling back to its default."
             )
         else:
+            # `below` holds rows, so *nothing else was written* is a claim
+            # about the file this value cannot support: a further line the
+            # reader will not take as a row is written under that line too,
+            # and `refused` is where it is (#430, round 1).
             others = (
-                "Nothing else was written under that line, so nothing else "
+                "No other row was written under that line, so nothing else "
                 "was lost with it."
+            ) + (
+                ""
+                if not after_stopper
+                else " There are more lines below it this reader will not "
+                "take as rows either."
             )
         return (
             f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` row and "
