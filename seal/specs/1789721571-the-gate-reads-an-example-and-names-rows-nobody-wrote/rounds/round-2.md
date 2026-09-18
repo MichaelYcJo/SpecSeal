@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 445 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `20eade5e1002bb5eb5636830779fb51362296b94..5a1f47e74add1661eef218181ae4477a0adca6cd`, 7 commits |
 | Contract changes | fenced_row → round-2-report.md, round-2.md, pytest; fence_left_open → round-1-report.md, round-1.md, round-2-report.md, round-2.md, missing_row |
 | New units | fence_map (depth 1); fenced_row_at (depth 1); test_a_file_whose_last_line_has_no_ending_gets_its_row_on_a_line (depth 1); test_the_arm_whose_repair_costs_a_row_says_there_is_more_to_write (depth 1); test_a_fence_opened_below_the_row_is_not_the_fence_above_it (depth 1); test_two_refused_lines_of_one_character_do_not_collide (depth 1) |
