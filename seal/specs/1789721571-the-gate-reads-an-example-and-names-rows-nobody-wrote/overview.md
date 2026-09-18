@@ -53,12 +53,24 @@ failing case exists to catch.
 
 So the repair the failure names — *push those tags back, or replace the
 commits* — is addressed to a repository that has lost them, and this one has
-not. The sealer meets a green module. What is worth someone's attention is
-that a fresh clone starts in the state this one was in: `git clone` fetches
-tags reachable from the fetched branches, and these two are not, so the case
-fires on a machine where nothing is wrong. That is nobody's scope here and it
-is not filed as one — it is written down where the next reader of this work
-item will meet it.
+not. The sealer meets a green module.
+
+**The mechanism this paragraph first gave was wrong, and round 1 caught it.**
+It said a fresh clone starts in the state this one was in because `git clone`
+fetches tags reachable from the fetched branches. `git clone` copies EVERY tag
+by default; it is `git fetch` without `--tags`, and `clone --no-tags`, that
+take only the reachable ones. Executed after the finding: a plain
+`git clone --no-local` of this repository carries both `fixture/*` tags, 48
+tags in all, with `remote.origin.tagOpt` unset.
+
+What actually produces the state is the clone that already existed. These two
+tags point at commits no branch reaches, so a plain `git fetch` never brings
+them — a clone made before they were pushed, kept current the ordinary way,
+stays without them for as long as nobody runs `git fetch --tags`. This clone is
+that clone. A fresh one is not, so the case does not fire on a new machine, and
+the sentence that said it would was naming the wrong command. It is corrected
+here rather than deleted, because the record of a wrong claim is what the work
+item before this one was about.
 
 `templates/config.md` §*What is refused, and what stays allowed* said a line
 that does not parse *still takes every row below it*, conditioned on a row
