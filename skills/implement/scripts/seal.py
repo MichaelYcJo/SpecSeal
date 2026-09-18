@@ -1367,6 +1367,10 @@ PLUGIN_ROOT = os.path.normpath(
 CONFIG_HEADER = repo_config.CONFIG_HEADER
 CONFIG_ROW = repo_config.CONFIG_ROW
 CONFIG_SEPARATOR = repo_config.CONFIG_SEPARATOR
+# The fence rule, taken from the reader rather than written again here. It is
+# an alias for the same reason the three above are: one implementation,
+# reached by the name each caller already spells.
+unfenced = repo_config.unfenced
 
 NEW_CONFIG = """# Repository config
 
@@ -1414,10 +1418,19 @@ def line_ending(lines):
 
 def table_span(lines):
     """(index of the `Mode` row or -1, index just past the first table's last
-    row or -1) — one pass, reading exactly what `config_rows` reads."""
+    row or -1) — one pass, reading exactly what `config_rows` reads.
+
+    **Including the fence rule**, which is why this walk goes through
+    `hooks/config.py#unfenced` rather than stripping each line for itself. A
+    table inside a code fence is not the reader's table, so it must not be
+    this writer's either: repair the reader alone and `seal mode shared`
+    rewrites the `Mode` row inside somebody's pasted example while every gate
+    reads the live one — the file two rows deep the comment below is about
+    (#429). `unfenced` hands back each surviving line's own index, which is
+    what this walk returns and what `with_row` overwrites.
+    """
     seen_header, mode_at, end = False, -1, -1
-    for i, raw in enumerate(lines):
-        line = raw.rstrip("\r\n")
+    for i, line in unfenced(lines):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True

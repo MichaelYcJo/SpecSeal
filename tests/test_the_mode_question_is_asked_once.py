@@ -423,6 +423,233 @@ def test_a_line_that_will_not_parse_is_named_and_the_hook_still_says_nothing(
     )
 
 
+# --- #429: a table inside a code fence is not this repository's answer ------
+#
+# The scenario ids are `seal/specs/1789721571-the-gate-reads-an-example-and-
+# names-rows-nobody-wrote/spec.md`'s. Three walks read this table and the
+# fence rule is one rule in front of all three: `config_rows`'s walk and
+# `refusal`'s walk here, and `seal.py#table_span`'s — the writer's — below.
+
+FENCED_ABOVE = (
+    "# Repository config\n\n"
+    "An example of the format, copied out of `templates/config.md`:\n\n"
+    "```markdown\n"
+    "| Item | Value |\n"
+    "|---|---|\n"
+    "| Mode | local |\n"
+    "| Broad gate | EXAMPLE |\n"
+    "```\n\n"
+    "| Item | Value |\n"
+    "|---|---|\n"
+    "| Mode | shared |\n"
+    "| Broad gate | bin/test -q |\n"
+)
+
+# The same shape with nothing parsed above the fence: the live table's only
+# line will not parse, so both walks step past it and read on — and before
+# the fence rule the example below supplied the rows.
+FENCED_BELOW_A_TABLE_THAT_NEVER_BEGAN = (
+    "| Item | Value |\n"
+    "|---|---|\n"
+    "| Broad gate | bin/test -q | tee out.txt |\n"
+    "```markdown\n"
+    "| Mode | local |\n"
+    "| Broad gate | EXAMPLE |\n"
+    "```\n"
+)
+
+# A fenced line that will not parse, standing ABOVE the first live row, which
+# is where `refusal`'s walk reaches it: it reads on past prose until a row is
+# found, so before the fence rule it handed `broad-gate` a line out of an
+# example block to quote back at a person as their own malformed row.
+FENCED_REFUSAL = (
+    "| Item | Value |\n"
+    "|---|---|\n"
+    "```markdown\n"
+    "| Broad gate | bin/test -q | tee out.txt |\n"
+    "```\n"
+    "| Mode | shared |\n"
+)
+
+
+def crlf(text):
+    return text.replace("\n", "\r\n")
+
+
+def test_a_fenced_table_above_the_live_one_is_not_the_table(config, tmp_path):
+    """A1. The live table is the first one outside every fence.
+
+    `config_rows` starts at the first `| Item | Value |` header and never
+    looks for another, so an example pasted above the live table WAS the
+    table every gate got: the mode, the broad command, every row. The shape
+    is invited rather than contrived — `config.md`'s own header comment
+    points at `templates/config.md`, and `skills/config/SKILL.md` step 3
+    tells a session to copy a block of that template, fenced example row
+    included, naming no position for it.
+    """
+    assert config.config_rows(FENCED_ABOVE) == [
+        ("Mode", "shared"),
+        ("Broad gate", "bin/test -q"),
+    ], config.config_rows(FENCED_ABOVE)
+    assert "EXAMPLE" not in [value for _item, value in config.config_rows(FENCED_ABOVE)]
+    home = tmp_path / "seal"
+    home.mkdir()
+    write_config(home, FENCED_ABOVE)
+    assert config.declared_mode(str(home)) == ("mode", "shared"), (
+        "the mode the gate reads is the example's, not the repository's"
+    )
+
+
+def test_a_fenced_example_below_a_table_that_never_began_is_still_not_the_table(
+    config,
+):
+    """A2. Both walks step past a line they cannot parse until a row is
+    found, so with nothing parsed above it a fenced example's rows became the
+    live rows — the same defect one shape over, and the one a repair aimed at
+    the fenced HEADER alone would have left standing."""
+    rows = config.config_rows(FENCED_BELOW_A_TABLE_THAT_NEVER_BEGAN)
+    assert rows == [], (
+        f"the example inside the fence supplied this repository's rows:\n{rows}"
+    )
+
+
+def test_a_fenced_pipe_line_is_not_a_line_somebody_wrote_as_a_row(config):
+    """A3. `refusal`'s walk, which is the one that reads ON past the stopping
+    line, treated any line beginning with a pipe as a line somebody wrote as
+    a row — so a line inside an example block came back as `refused`, and
+    `broad-gate` quotes a refused line back at the person as their own.
+
+    All three fields, because the walk fills three: the fenced line is in
+    neither `refused` nor `below`, and it is not what stopped the reader.
+    """
+    refused, below, stopper = config.refusal(FENCED_REFUSAL)
+    assert refused == [], (
+        f"a line inside a code fence came back as a refused row:\n{refused}"
+    )
+    assert below == [], below
+    assert stopper is None, f"a fenced line stopped the reader:\n{stopper}"
+    assert config.config_rows(FENCED_REFUSAL) == [("Mode", "shared")], (
+        "the row outside the fence is what this table holds"
+    )
+
+
+def test_the_writer_and_the_reader_agree_about_which_row_is_the_row(tmp_path):
+    """A4. `seal.py#table_span` is the third walk and it is the WRITER: it
+    locates the line `with_row` overwrites. Repair the reader alone and
+    `seal mode shared` rewrites the `Mode` row inside somebody's pasted
+    example while every gate reads the live one — the file two rows deep that
+    `table_span`'s own comment says no command can bring into agreement.
+
+    Asserted on the BYTES, not on the reader's answer: what makes this case
+    the writer's is that the fenced line comes back byte-identical and
+    exactly one line of the file changed.
+    """
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "skills", "implement", "scripts", "seal.py")
+    spec = importlib.util.spec_from_file_location("specseal_seal_for_429", path)
+    seal = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(seal)
+
+    before = FENCED_ABOVE.replace("| Mode | shared |", "| Mode | local |")
+    home = tmp_path / "seal"
+    home.mkdir()
+    write_config(home, before)
+    assert seal.write_row(str(home), "shared") == ""
+    after = (home / "config.md").read_text(encoding="utf-8")
+
+    assert "| Mode | local |\n| Broad gate | EXAMPLE |\n```" in after, (
+        f"the writer rewrote the row inside the example block:\n{after}"
+    )
+    changed = [
+        (i, was, now)
+        # `strict=True`: a write that INSERTED a row leaves the two files
+        # different lengths, and a silent truncation here would hide exactly
+        # the outcome this case is about.
+        for i, (was, now) in enumerate(
+            zip(before.splitlines(), after.splitlines(), strict=True)
+        )
+        if was != now
+    ]
+    assert len(changed) == 1, f"the write touched {len(changed)} lines:\n{changed}"
+    assert changed[0][2] == "| Mode | shared |", changed
+    assert changed[0][0] > after.splitlines().index("```"), (
+        "the line that changed is inside the fence, not in the live table"
+    )
+
+
+def test_the_fence_rule_answers_the_same_for_a_crlf_file(config, tmp_path):
+    """A7. `config_rows` and `refusal` walk `splitlines()` while
+    `table_span` walks `splitlines(keepends=True)` and rstrips each line, so
+    the shared rule is the one place the two spellings have to meet. Round 3
+    of #415 measured CRLF for the existing walks; this is the same
+    measurement for the answers this work item adds."""
+    assert config.config_rows(crlf(FENCED_ABOVE)) == config.config_rows(FENCED_ABOVE)
+    assert config.config_rows(crlf(FENCED_BELOW_A_TABLE_THAT_NEVER_BEGAN)) == []
+    assert config.refusal(crlf(FENCED_REFUSAL)) == ([], [], None)
+
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "skills", "implement", "scripts", "seal.py")
+    spec = importlib.util.spec_from_file_location("specseal_seal_for_429_crlf", path)
+    seal = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(seal)
+    written = seal.with_row(crlf(FENCED_ABOVE), "local")
+    assert "| Mode | local |\r\n| Broad gate | EXAMPLE |\r\n```" in written, (
+        f"the writer rewrote the fenced row of a CRLF file:\n{written!r}"
+    )
+    assert written.count("\n") == written.count("\r\n"), (
+        f"the write left a file in two endings:\n{written!r}"
+    )
+
+
+def test_what_counts_as_a_fence_is_commonmarks_rule_as_far_as_it_goes(config):
+    """Q3 of `questions.md`, decided and pinned. `spec.md` §*Data &
+    interfaces* fixes the rule for the shapes that matter; the residue is
+    CommonMark's own edge cases, resolved toward *not a fence* wherever the
+    specification leaves room, because that is the direction that keeps a
+    live table readable.
+
+    Each assertion below is one decision:
+
+      - four spaces of indentation is an indented code block, never a fence,
+        so the table under it is still read;
+      - a BACKTICK fence's info string may not hold a backtick (CommonMark
+        4.5), so that line opens nothing;
+      - a closing run may be longer than the one that opened the block;
+      - a run of the OTHER character does not close a block, and neither
+        does a run carrying an info string;
+      - an unclosed fence runs to the end of the file, which lands on
+        *nothing is declared* — the direction `hooks/config.py` already
+        fails in.
+    """
+    live = "| Item | Value |\n|---|---|\n| Mode | shared |\n"
+    assert config.config_rows("    ```\n" + live) == [("Mode", "shared")], (
+        "four spaces is an indented code block and not a fence"
+    )
+    assert config.config_rows("```` `x` ````\n" + live) == [("Mode", "shared")], (
+        "a backtick fence's info string may not hold a backtick, so this "
+        "line opens no fence"
+    )
+    assert config.config_rows(
+        "```\n| Item | Value |\n|---|---|\n| Mode | local |\n``````\n" + live
+    ) == [("Mode", "shared")], (
+        "a closing run longer than the opening one closes the block"
+    )
+    assert config.config_rows(
+        "```\n~~~\n| Item | Value |\n|---|---|\n| Mode | local |\n```\n" + live
+    ) == [("Mode", "shared")], "a tilde run does not close a backtick fence"
+    assert config.config_rows("```\n```markdown\n" + live) == [], (
+        "a run carrying an info string does not close a block, so this file "
+        "declares nothing"
+    )
+    assert config.config_rows("~~~\n" + live) == [], (
+        "an unclosed fence runs to the end of the file"
+    )
+    assert config.config_rows("~~~info ~ string\n" + live + "~~~~\n") == [], (
+        "a tilde fence's info string is unrestricted, which is CommonMark's "
+        "rule and not an exception to this one"
+    )
+
+
 # --- S7-S10: the gate ------------------------------------------------------
 
 

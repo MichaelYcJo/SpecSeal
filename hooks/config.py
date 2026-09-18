@@ -76,6 +76,20 @@ CONFIG_ROW = re.compile(
 )
 CONFIG_SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
 
+# A fenced code block's delimiter line, as CommonMark spells one: up to three
+# spaces of indentation, then a run of three or more backticks or three or
+# more tildes, then the info string. Four or more spaces is an indented code
+# block instead and never a fence, which is why the bound is written into the
+# pattern rather than checked after it.
+#
+# **Three or more, and tildes as well as backticks, is a decision with
+# grounds.** This repository's own records wrap a fenced example in FOUR
+# backticks -- #429's body and `rounds/round-3-report.md` both do -- and that
+# is exactly the text somebody would paste into `config.md` to document the
+# format. A rule that knew three backticks only would read the inner fence as
+# the outer one's close and leave the live table inside a fence.
+FENCE = re.compile(r"^ {0,3}(?P<run>`{3,}|~{3,})(?P<info>.*)$")
+
 # The one escape this reader undoes, spelled as the two characters it is.
 ESCAPED_PIPE = "\\|"
 
@@ -102,6 +116,80 @@ def config_path(home):
     return os.path.join(home, CONFIG)
 
 
+def unfenced(lines):
+    """(index, line) for each of LINES that is outside every fenced code
+    block, with the line's own ending removed and its index kept.
+
+    **One fence rule, in front of all three walks of this table.** A line
+    inside a fenced code block is not part of any `| Item | Value |` table:
+    not a header, not a separator, not a row, and not a line somebody wrote as
+    a row. `config_rows`'s walk below, `refusal`'s walk below that, and
+    `skills/implement/scripts/seal.py#table_span` -- the WRITER's walk, which
+    finds the line `with_row` overwrites -- all read the file through this
+    one generator. A fence rule that landed in one of them and not another
+    would leave the reader and the writer disagreeing about which row is the
+    row, which is the file two rows deep that `table_span`'s own comment says
+    no command can bring into agreement (#429).
+
+    **Why a table inside a fence is not the table.** `config.md`'s header
+    comment points its reader at `templates/config.md`, a document of EXAMPLE
+    tables, and `skills/config/SKILL.md` §*Procedure* step 3 tells a session
+    to copy a block of that template -- one holding a fenced
+    `| Broad gate | ... |` row -- into the repository's own file, naming no
+    position for it. So a fenced example above the live table, or above a
+    table that has no parseable row yet, is a shape this plugin's own
+    documented procedure produces; before this rule the example's rows were
+    the rows every gate got, and the sealer's seal was taken over a command
+    nobody chose.
+
+    **It yields positions, not surviving text alone.** `table_span` returns
+    indices into its caller's own `lines` and `with_row` overwrites one of
+    them, so a helper handing back text could not serve that walk, and a
+    second fence rule written for it is the split this module exists to
+    prevent.
+
+    **It takes either spelling of a line.** `config_rows` and `refusal` walk
+    `text.splitlines()` and `table_span` walks `text.splitlines(keepends=True)`;
+    the ending is stripped here, so all three get the same answer about the
+    same file whether it is written with LF or CRLF.
+
+    The edge cases past `spec.md`'s rule are resolved toward *not a fence*,
+    which is the direction that keeps a live table readable:
+
+      - a BACKTICK fence's info string may not itself hold a backtick
+        (CommonMark 4.5), so ``` `x` ``` on its own line opens nothing and is
+        an ordinary line of prose here. A tilde fence's info string is
+        unrestricted, which is CommonMark's rule and not an exception to this
+        one;
+      - a closing run may be LONGER than the one that opened the block and
+        may carry nothing after it but spaces. A run of the other character,
+        or a run carrying an info string, is content inside the block;
+      - an unclosed fence runs to the end of the file, so what it swallows
+        lands on *nothing is declared* -- the direction everything in this
+        module fails in, and loud where it matters: `broad-gate` exits 2 with
+        a message and `seal mode` asks the mode question.
+
+    A fence opens wherever its line stands, INCLUDING between two rows of a
+    table, because this walk answers a question about the file and not about
+    any one caller's state. The three walks hold different state at the same
+    line, so a fence rule that consulted it would give them three answers.
+    """
+    opener = None
+    for index, raw in enumerate(lines):
+        line = raw.rstrip("\r\n")
+        fence = FENCE.match(line)
+        run = fence.group("run") if fence else ""
+        info = fence.group("info") if fence else ""
+        if opener is None:
+            if run and not (run[0] == "`" and "`" in info):
+                opener = (run[0], len(run))
+                continue
+            yield index, line
+            continue
+        if run[:1] == opener[0] and len(run) >= opener[1] and not info.strip():
+            opener = None
+
+
 def config_rows(text):
     """Every `| Item | Value |` row under the first such header, in order.
 
@@ -124,9 +212,17 @@ def config_rows(text):
     alone. The stop rule is unchanged, so a line a person wrote as a row
     still ends the table when it will not parse -- `refused_row` below is
     what names such a line, for a caller that has somebody to tell.
+
+    **`unfenced` filters in FRONT of this walk and neither half of the stop
+    rule moves.** Both halves were arrived at over those two rounds, and a
+    repair that reached into the `if found: break` arms to special-case a
+    fence is the regression this docstring predicts. What changed is which
+    lines the walk is shown: a line inside a code fence is not shown to it at
+    all, so an example table pasted above the live one is no longer this
+    reader's table (#429).
     """
     found, seen_header = [], False
-    for line in text.splitlines():
+    for _index, line in unfenced(text.splitlines()):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True
@@ -209,10 +305,19 @@ def refusal(text):
     Before this existed the two states were indistinguishable to a caller:
     `broad_gate` reported a piped `Broad gate` row as ABSENT, which is a true
     sentence about a cause that is not the real one (#415).
+
+    **A fenced line is not a line somebody wrote as a row of this table.**
+    This walk reads what `unfenced` shows it, exactly as `config_rows` above
+    does, so a pipe-line inside a code fence reaches neither `refused` nor
+    `below` and never becomes `stopper` -- which is what stops `broad-gate`'s
+    refusal from quoting a line out of an example block back at a person as
+    their own malformed row (#429). A caller that needs to speak about a
+    fenced line asks its own question of the file; `broad_gate.py#fenced_row`
+    is the one that does.
     """
     seen_header, found = False, False
     refused, below, stopper = [], [], None
-    for line in text.splitlines():
+    for _index, line in unfenced(text.splitlines()):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True
