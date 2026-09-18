@@ -36,11 +36,11 @@ not on disk would end the enumeration at it — this case reporting *no
 offender* because it read almost nothing. It applies `on_disk` like the rest
 and is declared in the same table.
 
-**Twenty-five scopes, six tables.** The reader asks *which scope DERIVES a
-path list*, because that is where the repair went and because the consumer
-that opens can be in another function or another module — measured: every one
-of the twenty-five scopes has `open=False` when the walk looks for an `open`
-call inside the deriving scope itself.
+**Twenty-six scopes across seventeen modules, six tables.** The reader asks
+*which scope DERIVES a path list*, because that is where the repair went and
+because the consumer that opens can be in another function or another module —
+measured: every one of those scopes has `open=False` when the walk looks for an
+`open` call inside the deriving scope itself.
 
 | Table | Scopes | How the reader checks it |
 |---|---|---|
