@@ -1479,8 +1479,8 @@ def with_row(text, value):
         # `| Record language | Korean || Mode | shared |` is one line of four
         # cells, no walk of that table reads either row, and the person's own
         # row is gone. The third arm below has terminated the last line all
-        # along; this one has to as well. At `release/v0.12.1` this shape was
-        # written silently and cost the row that was already there (#429,
+        # along; this one has to as well. Before this repair the same shape
+        # was written silently and cost the row that was already there (#429,
         # round 2).
         if end == len(lines) and lines and not lines[-1].endswith(("\n", "\r")):
             lines[-1] += ending
